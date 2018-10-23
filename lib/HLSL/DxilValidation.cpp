@@ -4027,6 +4027,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::GSInstanceID:
   case DXIL::SemanticKind::SampleIndex:
   case DXIL::SemanticKind::StencilRef:
+  case DXIL::SemanticKind::ShadingRate:
     if ((compKind != CompType::Kind::U32 && compKind != CompType::Kind::U16) || SE.GetCols() != 1) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "uint"});

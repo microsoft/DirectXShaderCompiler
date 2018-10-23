@@ -16,6 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Casting.h"
+#include "dxc/DXIL/DxilEntryProps.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -45,6 +46,7 @@ ShaderFlags::ShaderFlags():
 , m_bViewID(false)
 , m_bBarycentrics(false)
 , m_bUseNativeLowPrecision(false)
+, m_bShadingRate(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -90,6 +92,7 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                : 0;
   Flags |= m_bViewID ? hlsl::DXIL::ShaderFeatureInfo_ViewID : 0;
   Flags |= m_bBarycentrics ? hlsl::DXIL::ShaderFeatureInfo_Barycentrics : 0;
+  Flags |= m_bShadingRate ? hlsl::DXIL::ShaderFeatureInfo_ShadingRate : 0;
 
   return Flags;
 }
@@ -141,6 +144,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetCSRawAndStructuredViaShader4X(true);
   Flags.SetViewID(true);
   Flags.SetBarycentrics(true);
+  Flags.SetShadingRate(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -237,9 +241,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasWaveOps = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
+  bool hasStencilRef = false;
   bool hasInnerCoverage = false;
   bool hasViewID = false;
   bool hasMulticomponentUAVLoads = false;
+  bool hasViewportOrRTArrayIndex = false;
+  bool hasShadingRate = false;
+
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
@@ -379,8 +387,59 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
       }
     }
   }
-    
+
+  // If this function is a shader, add flags based on signatures
+  if (M->HasDxilEntryProps(F)) {
+    const DxilEntryProps &entryProps = M->GetDxilEntryProps(F);
+
+    bool checkInputRTArrayIndex =
+      entryProps.props.IsGS() || entryProps.props.IsDS() ||
+      entryProps.props.IsHS() || entryProps.props.IsPS();
+    bool checkOutputRTArrayIndex =
+      entryProps.props.IsVS() || entryProps.props.IsDS() ||
+      entryProps.props.IsHS() || entryProps.props.IsPS();
+
+    for (auto &&E : entryProps.sig.InputSignature.GetElements()) {
+      switch (E->GetKind()) {
+      case Semantic::Kind::ViewPortArrayIndex:
+      case Semantic::Kind::RenderTargetArrayIndex:
+        if (checkInputRTArrayIndex)
+          hasViewportOrRTArrayIndex = true;
+        break;
+      case Semantic::Kind::ShadingRate:
+        hasShadingRate = true;
+        break;
+      default:
+        break;
+      }
+    }
+
+    for (auto &&E : entryProps.sig.OutputSignature.GetElements()) {
+      switch (E->GetKind()) {
+      case Semantic::Kind::ViewPortArrayIndex:
+      case Semantic::Kind::RenderTargetArrayIndex:
+        if (checkOutputRTArrayIndex)
+          hasViewportOrRTArrayIndex = true;
+        break;
+      case Semantic::Kind::StencilRef:
+        if (entryProps.props.IsPS())
+          hasStencilRef = true;
+        break;
+      case Semantic::Kind::InnerCoverage:
+        if (entryProps.props.IsPS())
+          hasInnerCoverage = true;
+        break;
+      case Semantic::Kind::ShadingRate:
+        hasShadingRate = true;
+        break;
+      default:
+        break;
+      }
+    }
+  }
+
   flag.SetEnableDoublePrecision(hasDouble);
+  flag.SetStencilRef(hasStencilRef);
   flag.SetInnerCoverage(hasInnerCoverage);
   flag.SetInt64Ops(has64Int);
   flag.SetLowPrecisionPresent(has16);
@@ -390,6 +449,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetEnableMSAD(hasMSAD);
   flag.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
   flag.SetViewID(hasViewID);
+  flag.SetViewportAndRTArrayIndex(hasViewportOrRTArrayIndex);
+  flag.SetShadingRate(hasShadingRate);
 
   return flag;
 }

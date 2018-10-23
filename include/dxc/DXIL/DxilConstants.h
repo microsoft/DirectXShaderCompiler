@@ -168,6 +168,7 @@ namespace DXIL {
     InsideTessFactor,
     ViewID,
     Barycentrics,
+    ShadingRate,
     Invalid,
   };
   // SemanticKind-ENUM:END
@@ -1139,8 +1140,9 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
   const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
   const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
+  const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
 
-  const unsigned ShaderFeatureInfoCount = 19;
+  const unsigned ShaderFeatureInfoCount = 20;
 
   extern const char* kLegacyLayoutString;
   extern const char* kNewLayoutString;

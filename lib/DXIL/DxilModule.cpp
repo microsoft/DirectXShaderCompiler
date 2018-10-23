@@ -266,53 +266,6 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   };
 
   const ShaderModel *SM = GetShaderModel();
-  if (SM->IsPS()) {
-    bool hasStencilRef = false;
-    DxilSignature &outS = GetOutputSignature();
-    for (auto &&E : outS.GetElements()) {
-      if (E->GetKind() == Semantic::Kind::StencilRef) {
-        hasStencilRef = true;
-      } else if (E->GetKind() == Semantic::Kind::InnerCoverage) {
-        Flags.SetInnerCoverage(true);
-      }
-    }
-
-    Flags.SetStencilRef(hasStencilRef);
-  }
-
-  bool checkInputRTArrayIndex =
-      SM->IsGS() || SM->IsDS() || SM->IsHS() || SM->IsPS();
-  if (checkInputRTArrayIndex) {
-    bool hasViewportArrayIndex = false;
-    bool hasRenderTargetArrayIndex = false;
-    DxilSignature &inS = GetInputSignature();
-    for (auto &E : inS.GetElements()) {
-      if (E->GetKind() == Semantic::Kind::ViewPortArrayIndex) {
-        hasViewportArrayIndex = true;
-      } else if (E->GetKind() == Semantic::Kind::RenderTargetArrayIndex) {
-        hasRenderTargetArrayIndex = true;
-      }
-    }
-    Flags.SetViewportAndRTArrayIndex(hasViewportArrayIndex |
-                                     hasRenderTargetArrayIndex);
-  }
-
-  bool checkOutputRTArrayIndex =
-      SM->IsVS() || SM->IsDS() || SM->IsHS() || SM->IsPS();
-  if (checkOutputRTArrayIndex) {
-    bool hasViewportArrayIndex = false;
-    bool hasRenderTargetArrayIndex = false;
-    DxilSignature &outS = GetOutputSignature();
-    for (auto &E : outS.GetElements()) {
-      if (E->GetKind() == Semantic::Kind::ViewPortArrayIndex) {
-        hasViewportArrayIndex = true;
-      } else if (E->GetKind() == Semantic::Kind::RenderTargetArrayIndex) {
-        hasRenderTargetArrayIndex = true;
-      }
-    }
-    Flags.SetViewportAndRTArrayIndex(hasViewportArrayIndex |
-                                     hasRenderTargetArrayIndex);
-  }
 
   unsigned NumUAVs = m_UAVs.size();
   const unsigned kSmallUAVCount = 8;
@@ -982,6 +935,10 @@ bool DxilModule::HasDxilEntryProps(const llvm::Function *F) const {
   return m_DxilEntryPropsMap.find(F) != m_DxilEntryPropsMap.end();
 }
 DxilEntryProps &DxilModule::GetDxilEntryProps(const llvm::Function *F) {
+  DXASSERT(m_DxilEntryPropsMap.count(F) != 0, "cannot find F in map");
+  return *m_DxilEntryPropsMap.find(F)->second.get();
+}
+const DxilEntryProps &DxilModule::GetDxilEntryProps(const llvm::Function *F) const {
   DXASSERT(m_DxilEntryPropsMap.count(F) != 0, "cannot find F in map");
   return *m_DxilEntryPropsMap.find(F)->second.get();
 }

@@ -38,6 +38,7 @@
 #define Def_GSInstanceID DECLARE(uint gsiid : SV_GSInstanceID) USE(uint, gsiid)
 #define Def_ViewID DECLARE(uint viewID : SV_ViewID) USE(uint, viewID)
 #define Def_Barycentrics DECLARE(float3 BaryWeights : SV_Barycentrics) USE(float, BaryWeights.x) USE(float, BaryWeights.y) USE(float, BaryWeights.z)
+#define Def_ShadingRate DECLARE(uint rate : SV_ShadingRate) USE(uint, rate)
 
 #define Domain_Quad 0
 #define Domain_Tri 1

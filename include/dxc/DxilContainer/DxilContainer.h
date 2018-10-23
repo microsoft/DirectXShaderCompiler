@@ -143,6 +143,7 @@ enum class DxilProgramSigSemantic : uint32_t {
   FinalLineDetailTessfactor = 15,
   FinalLineDensityTessfactor = 16,
   Barycentrics = 23,
+  ShadingRate = 24,
   Target = 64,
   Depth = 65,
   Coverage = 66,

@@ -322,7 +322,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "64-Bit integer",
     "View Instancing",
     "Barycentrics",
-    "Use native low precision"
+    "Use native low precision",
+    "Shading Rate"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
