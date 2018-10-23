@@ -9,6 +9,7 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
@@ -32,8 +33,8 @@ namespace spirv {
 /// module.
 class SpirvBuilder {
 public:
-  explicit SpirvBuilder(ASTContext &ac, SpirvContext &c, FeatureManager *,
-                        const SpirvCodeGenOptions &);
+  SpirvBuilder(ASTContext &ac, SpirvContext &c, FeatureManager *,
+               const SpirvCodeGenOptions &);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
