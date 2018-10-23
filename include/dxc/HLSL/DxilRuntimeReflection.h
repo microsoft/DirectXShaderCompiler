@@ -43,7 +43,6 @@ enum class RuntimeDataPartType : uint32_t {
 enum RuntimeDataVersion {
   // Cannot be mistaken for part count from prerelease version
   RDAT_Version_10 = 0x10,
-  RDAT_Version_11 = 0x11,
 };
 
 struct RuntimeDataHeader {
@@ -190,7 +189,7 @@ public:
   }
 };
 
-struct RuntimeDataSobobjectInfo {
+struct RuntimeDataSubobjectInfo {
   uint32_t Kind;
   uint32_t Name;
   union {
@@ -202,7 +201,7 @@ struct RuntimeDataSobobjectInfo {
       uint32_t SizeInBytes;
     } RootSignature;
     struct {
-      uint32_t Sobobject;       // string table offset for name of subobject
+      uint32_t Subobject;       // string table offset for name of subobject
       uint32_t Exports;         // index table offset for array of string table offsets for export names
     } SubobjectToExportsAssociation;
     struct {
@@ -448,11 +447,11 @@ public:
 
 class SubobjectReader {
 private:
-  const RuntimeDataSobobjectInfo *m_SubobjectInfo;
+  const RuntimeDataSubobjectInfo *m_SubobjectInfo;
   RuntimeDataContext *m_Context;
 
 public:
-  SubobjectReader(const RuntimeDataSobobjectInfo *info, RuntimeDataContext *context)
+  SubobjectReader(const RuntimeDataSubobjectInfo *info, RuntimeDataContext *context)
     : m_SubobjectInfo(info), m_Context(context) {}
 
   DXIL::SubobjectKind GetKind() const {
@@ -492,7 +491,7 @@ public:
   // SubobjectToExportsAssociation
   const char *GetSubobjectToExportsAssociation_Subobject() const {
     return (GetKind() == DXIL::SubobjectKind::SubobjectToExportsAssociation) ?
-      m_Context->pStringTableReader->Get(m_SubobjectInfo->SubobjectToExportsAssociation.Sobobject) : "";
+      m_Context->pStringTableReader->Get(m_SubobjectInfo->SubobjectToExportsAssociation.Subobject) : "";
   }
   uint32_t GetSubobjectToExportsAssociation_NumExports() const {
     return (GetKind() == DXIL::SubobjectKind::SubobjectToExportsAssociation) ?
@@ -554,7 +553,7 @@ public:
 
   uint32_t GetCount() const { return m_Table.Count(); }
   SubobjectReader GetItem(uint32_t i) const {
-    return SubobjectReader(m_Table.Row<RuntimeDataSobobjectInfo>(i), m_Context);
+    return SubobjectReader(m_Table.Row<RuntimeDataSubobjectInfo>(i), m_Context);
   }
 };
 

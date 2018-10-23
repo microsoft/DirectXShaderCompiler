@@ -1366,6 +1366,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
+    __fallthrough;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const void * Data;
     uint32_t Size;
@@ -1386,6 +1387,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
     for (unsigned i = 0; i < NumExports; ++i) {
       strArgs.emplace_back(MDString::get(m_Ctx, Exports[i]));
     }
+    Args.emplace_back(MDString::get(m_Ctx, Subobj));
     Args.emplace_back(MDNode::get(m_Ctx, strArgs));
     break;
   }
@@ -1438,6 +1440,7 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
   }
   case DXIL::SubobjectKind::LocalRootSignature:
     bLocalRS = true;
+    __fallthrough;
   case DXIL::SubobjectKind::GlobalRootSignature: {
     const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MD.getOperand(i++));
     IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);

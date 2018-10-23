@@ -962,7 +962,7 @@ public:
   void Write(void *ptr) { memcpy(ptr, m_DataBuffer.data(), m_DataBuffer.size()); }
 };
 
-class SubobjectTable : public RDATTable<RuntimeDataSobobjectInfo> {
+class SubobjectTable : public RDATTable<RuntimeDataSubobjectInfo> {
 public:
   RuntimeDataPartType GetType() const { return RuntimeDataPartType::SubobjectTable; }
 };
@@ -1198,7 +1198,7 @@ private:
       return;
     for (auto &it : m_Module.GetSubobjects()->GetSubobjects()) {
       auto &obj = *it.second;
-      RuntimeDataSobobjectInfo info = {};
+      RuntimeDataSubobjectInfo info = {};
       info.Name = m_pStringBufferPart->Insert(obj.GetName());
       info.Kind = (uint32_t)obj.GetKind();
       bool bLocalRS = false;
@@ -1208,6 +1208,7 @@ private:
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
+        __fallthrough;
       case DXIL::SubobjectKind::GlobalRootSignature: {
         const void *Data;
         obj.GetRootSignature(bLocalRS, Data, info.RootSignature.SizeInBytes);
@@ -1221,14 +1222,15 @@ private:
         uint32_t NumExports;
         std::vector<uint32_t> ExportIndices;
         obj.GetSubobjectToExportsAssociation(Subobject, Exports, NumExports);
-        info.SubobjectToExportsAssociation.Sobobject =
+        info.SubobjectToExportsAssociation.Subobject =
           m_pStringBufferPart->Insert(Subobject);
         ExportIndices.resize(NumExports);
         for (unsigned i = 0; i < NumExports; ++i) {
           ExportIndices[i] = m_pStringBufferPart->Insert(Exports[i]);
         }
-        m_pIndexArraysPart->AddIndex(
-          ExportIndices.begin(), ExportIndices.end());
+        info.SubobjectToExportsAssociation.Exports =
+          m_pIndexArraysPart->AddIndex(
+            ExportIndices.begin(), ExportIndices.end());
         break;
       }
       case DXIL::SubobjectKind::RaytracingShaderConfig:
