@@ -595,6 +595,10 @@ void PassManagerBuilder::populateModulePassManager(
   // HLSL Change Begins.
   if (!HLSLHighLevel) {
     MPM.add(createDxilConvergentClearPass());
+    MPM.add(createDeadCodeEliminationPass()); // DCE needed after clearing convergence
+                                              // annotations before CreateHandleForLib
+                                              // so no unused resources get re-added to
+                                              // DxilModule.
     MPM.add(createMultiDimArrayToOneDimArrayPass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
