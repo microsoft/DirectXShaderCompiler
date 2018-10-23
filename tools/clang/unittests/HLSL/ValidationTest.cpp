@@ -2260,7 +2260,6 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
 { d0 = f4.z; d1 = f4.w; return f4; } \
     ",
     "ps_6_0",
-
     {"!{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 0, i8 0, null}"},
     {"!{i32 2, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\1, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}"},
     "Pixel Shader only allows one type of depth semantic to be declared",
