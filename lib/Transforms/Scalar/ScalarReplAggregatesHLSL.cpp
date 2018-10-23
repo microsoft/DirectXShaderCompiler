@@ -6065,6 +6065,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     // If we have a single return value, find the first output arg,
     // and insert it before that. This is to match the behavior of
     // legacy compiler.
+#if 1
     if (FlatRetList.size() == 1) {
       for (unsigned i = 0; i < FlatParamAnnotationList.size(); i++) {
         DxilParamInputQual quality = FlatParamAnnotationList[i].GetParamInputQual();
@@ -6075,6 +6076,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         }
       }
     }
+#endif
 
     FlatParamList.insert(FlatParamListInsertPt, FlatRetList.begin(), FlatRetList.end());
     FlatParamAnnotationList.insert(FlatParamAnnotationListInsertPt,
