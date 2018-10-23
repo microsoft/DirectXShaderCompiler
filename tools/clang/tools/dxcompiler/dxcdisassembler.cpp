@@ -646,6 +646,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
     }
     case DXIL::SubobjectKind::LocalRootSignature:
       bLocalRS = true;
+      __fallthrough;
     case DXIL::SubobjectKind::GlobalRootSignature: {
       const void *Data = nullptr;
       uint32_t Size = 0;
