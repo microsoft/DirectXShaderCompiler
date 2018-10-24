@@ -2347,8 +2347,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     const unsigned uglobal =
         static_cast<unsigned>(DXIL::BarrierMode::UAVFenceGlobal);
     const unsigned g = static_cast<unsigned>(DXIL::BarrierMode::TGSMFence);
-    const unsigned t =
-        static_cast<unsigned>(DXIL::BarrierMode::SyncThreadGroup);
     const unsigned ut =
         static_cast<unsigned>(DXIL::BarrierMode::UAVFenceThreadGroup);
     unsigned barrierMode = cMode->getLimitedValue();

@@ -7815,7 +7815,6 @@ bool HLSLExternalSource::CanConvert(
   _Out_opt_ TYPE_CONVERSION_REMARKS* remarks,
   _Inout_opt_ StandardConversionSequence* standard)
 {
-  bool bCheckElt = false;
   UINT uTSize, uSSize;
 
   DXASSERT_NOMSG(sourceExpr != nullptr);

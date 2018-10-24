@@ -382,7 +382,7 @@ DxilRuntimeReflection_impl::AddResource(const ResourceReader &resourceReader) {
   assert(m_Resources.size() < m_Resources.capacity() && "Otherwise, number of resources was incorrect");
   if (!(m_Resources.size() < m_Resources.capacity()))
     return nullptr;
-  m_Resources.emplace_back(DxilResourceDesc({0}));
+  m_Resources.emplace_back(DxilResourceDesc({}));
   DxilResourceDesc &resource = m_Resources.back();
   resource.Class = (uint32_t)resourceReader.GetResourceClass();
   resource.Kind = (uint32_t)resourceReader.GetResourceKind();
@@ -432,7 +432,7 @@ DxilRuntimeReflection_impl::AddFunction(const FunctionReader &functionReader) {
   assert(m_Functions.size() < m_Functions.capacity() && "Otherwise, number of functions was incorrect");
   if (!(m_Functions.size() < m_Functions.capacity()))
     return nullptr;
-  m_Functions.emplace_back(DxilFunctionDesc({0}));
+  m_Functions.emplace_back(DxilFunctionDesc({}));
   DxilFunctionDesc &function = m_Functions.back();
   function.Name = GetWideString(functionReader.GetName());
   function.UnmangledName = GetWideString(functionReader.GetUnmangledName());
@@ -467,7 +467,7 @@ DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const SubobjectReade
   assert(m_Subobjects.size() < m_Subobjects.capacity() && "Otherwise, number of subobjects was incorrect");
   if (!(m_Subobjects.size() < m_Subobjects.capacity()))
     return nullptr;
-  m_Subobjects.emplace_back(DxilSubobjectDesc({0}));
+  m_Subobjects.emplace_back(DxilSubobjectDesc({}));
   DxilSubobjectDesc &subobject = m_Subobjects.back();
   subobject.Name = GetWideString(subobjectReader.GetName());
   subobject.Kind = (uint32_t)subobjectReader.GetKind();

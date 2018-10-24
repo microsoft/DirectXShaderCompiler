@@ -395,6 +395,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
 
     append_if(LLVM_ENABLE_PEDANTIC "-pedantic -Wno-long-long" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     # add_flag_if_supported("-Wcovered-switch-default" COVERED_SWITCH_DEFAULT_FLAG) # HLSL Change
+    append("-Wno-switch" CMAKE_CXX_FLAGS) # HLSL Change
     append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
     append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 
