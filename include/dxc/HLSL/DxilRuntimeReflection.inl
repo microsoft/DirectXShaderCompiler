@@ -250,14 +250,14 @@ SubobjectTableReader *DxilRuntimeData::GetSubobjectTableReader() {
 using namespace hlsl;
 using namespace RDAT;
 
-template<>
-struct std::hash<ResourceKey> {
-public:
-  size_t operator()(const ResourceKey& key) const throw() {
-    return (std::hash<uint32_t>()(key.Class) * (size_t)16777619U)
-      ^ std::hash<uint32_t>()(key.ID);
+namespace std {
+template <> struct hash<ResourceKey> {
+  size_t operator()(const ResourceKey &key) const throw() {
+    return (hash<uint32_t>()(key.Class) * (size_t)16777619U) ^
+           hash<uint32_t>()(key.ID);
   }
 };
+} // namespace std
 
 namespace {
 
