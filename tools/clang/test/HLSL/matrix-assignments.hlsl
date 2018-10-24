@@ -144,6 +144,10 @@ float4 main() : SV_Target {
           `-FloatingLiteral <col:51> 'float' 1.500000e+00
   */
 
+// Initialization list with invalid types
+  Texture2D t;
+  int2x2 i22_list_type_mismatch = { 1, t, 3, 4 };             /* expected-error {{type mismatch}} fxc-pass {{}} */
+
   float2x3 val[2];
 
   fn1(val);
