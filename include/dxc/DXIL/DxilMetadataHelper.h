@@ -29,6 +29,7 @@ class MDTuple;
 class MDNode;
 class NamedMDNode;
 class GlobalVariable;
+class StringRef;
 }
 
 namespace hlsl {
@@ -49,6 +50,8 @@ class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
 struct DxilFunctionProps;
+class DxilSubobjects;
+class DxilSubobject;
 
 /// Use this class to manipulate DXIL-spcific metadata.
 // In our code, only DxilModule and HLModule should use this class.
@@ -79,6 +82,9 @@ public:
 
   // ViewId state.
   static const char kDxilViewIdStateMDName[];
+
+  // Subobjects
+  static const char kDxilSubobjectsMDName[];
 
   // Source info.
   static const char kDxilSourceContentsMDName[];
@@ -357,6 +363,11 @@ public:
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
 
+  // Subobjects
+  void EmitSubobjects(const DxilSubobjects &Subobjects);
+  void LoadSubobjects(DxilSubobjects &Subobjects);
+  llvm::Metadata *EmitSubobject(const DxilSubobject &obj);
+  void LoadSubobject(const llvm::MDNode &MDO, DxilSubobjects &Subobjects);
 
   // Shader specific.
 private:
@@ -408,6 +419,7 @@ public:
   static bool ConstMDToBool(const llvm::MDOperand &MDO);
   static float ConstMDToFloat(const llvm::MDOperand &MDO);
   static std::string StringMDToString(const llvm::MDOperand &MDO);
+  static llvm::StringRef StringMDToStringRef(const llvm::MDOperand &MDO);
   static llvm::Value *ValueMDToValue(const llvm::MDOperand &MDO);
   llvm::MDTuple *Uint32VectorToConstMDTuple(const std::vector<unsigned> &Vec);
   void ConstMDTupleToUint32Vector(llvm::MDTuple *pTupleMD, std::vector<unsigned> &Vec);

@@ -20,6 +20,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilSubobject.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -242,6 +243,11 @@ public:
                                 llvm::DebugInfoFinder &DbgInfoFinder,
                                 llvm::GlobalVariable *NewGV);
 
+  DxilSubobjects *GetSubobjects();
+  const DxilSubobjects *GetSubobjects() const;
+  DxilSubobjects *ReleaseSubobjects();
+  void ResetSubobjects(DxilSubobjects *subobjects);
+
 private:
   // Signatures.
   std::vector<uint8_t> m_SerializedRootSignature;
@@ -280,6 +286,7 @@ private:
   size_t m_pUnused;
   uint32_t m_AutoBindingSpace;
   DXIL::DefaultLinkage m_DefaultLinkage;
+  std::unique_ptr<DxilSubobjects> m_pSubobjects;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitHLResources();

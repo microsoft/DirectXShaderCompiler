@@ -939,6 +939,35 @@ public:
   }
 };
 
+class RawBytesPart : public RDATPart {
+private:
+  std::unordered_map<const void *, uint32_t> m_PtrMap;
+  std::vector<char> m_DataBuffer;
+public:
+  RawBytesPart() : m_DataBuffer() {}
+  uint32_t Insert(const void *pData, size_t dataSize) {
+    auto it = m_PtrMap.find(pData);
+    if (it != m_PtrMap.end())
+      return it->second;
+
+    if (dataSize + m_DataBuffer.size() > UINT_MAX)
+      return UINT_MAX;
+    uint32_t offset = (uint32_t)m_DataBuffer.size();
+    m_DataBuffer.reserve(m_DataBuffer.size() + dataSize);
+    m_DataBuffer.insert(m_DataBuffer.end(),
+      (const char*)pData, (const char*)pData + dataSize);
+    return offset;
+  }
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::RawBytes; }
+  uint32_t GetPartSize() const { return m_DataBuffer.size(); }
+  void Write(void *ptr) { memcpy(ptr, m_DataBuffer.data(), m_DataBuffer.size()); }
+};
+
+class SubobjectTable : public RDATTable<RuntimeDataSubobjectInfo> {
+public:
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::SubobjectTable; }
+};
+
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
@@ -1017,10 +1046,8 @@ private:
 
   void InsertToResourceTable(DxilResourceBase &resource,
                              ResourceClass resourceClass,
-                             ResourceTable &resourceTable,
-                             StringBufferPart &stringBufferPart,
                              uint32_t &resourceIndex) {
-    uint32_t stringIndex = stringBufferPart.Insert(resource.GetGlobalName());
+    uint32_t stringIndex = m_pStringBufferPart->Insert(resource.GetGlobalName());
     UpdateFunctionToResourceInfo(&resource, resourceIndex++);
     RuntimeDataResourceInfo info = {};
     info.ID = resource.GetID();
@@ -1041,38 +1068,32 @@ private:
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
       // TODO: add dynamic index flag
     }
-    resourceTable.Insert(info);
+    m_pResourceTable->Insert(info);
   }
 
-  void UpdateResourceInfo(StringBufferPart &stringBufferPart) {
+  void UpdateResourceInfo() {
     // Try to allocate string table for resources. String table is a sequence
     // of strings delimited by \0
-    m_Parts.emplace_back(llvm::make_unique<ResourceTable>());
-    ResourceTable &resourceTable = *reinterpret_cast<ResourceTable*>(m_Parts.back().get());
     uint32_t resourceIndex = 0;
     for (auto &resource : m_Module.GetCBuffers()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::CBuffer, resourceTable, stringBufferPart,
-                            resourceIndex);
+      InsertToResourceTable(*resource.get(), ResourceClass::CBuffer, resourceIndex);
 
     }
     for (auto &resource : m_Module.GetSamplers()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::Sampler, resourceTable, stringBufferPart,
-                            resourceIndex);
+      InsertToResourceTable(*resource.get(), ResourceClass::Sampler, resourceIndex);
     }
     for (auto &resource : m_Module.GetSRVs()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::SRV, resourceTable, stringBufferPart,
-                            resourceIndex);
+      InsertToResourceTable(*resource.get(), ResourceClass::SRV, resourceIndex);
     }
     for (auto &resource : m_Module.GetUAVs()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::UAV, resourceTable, stringBufferPart,
-                            resourceIndex);
+      InsertToResourceTable(*resource.get(), ResourceClass::UAV, resourceIndex);
     }
   }
 
-  void UpdateFunctionDependency(llvm::Function *F, StringBufferPart &stringBufferPart) {
+  void UpdateFunctionDependency(llvm::Function *F) {
     for (const auto &user : F->users()) {
       const llvm::Function *userFunction = FindUsingFunction(user);
-      uint32_t index = stringBufferPart.Insert(F->getName());
+      uint32_t index = m_pStringBufferPart->Insert(F->getName());
       if (m_FuncToDependencies.find(userFunction) ==
           m_FuncToDependencies.end()) {
         m_FuncToDependencies[userFunction] =
@@ -1082,11 +1103,7 @@ private:
     }
   }
 
-  void UpdateFunctionInfo(StringBufferPart &stringBufferPart) {
-    m_Parts.emplace_back(llvm::make_unique<FunctionTable>());
-    FunctionTable &functionTable = *reinterpret_cast<FunctionTable*>(m_Parts.back().get());
-    m_Parts.emplace_back(llvm::make_unique<IndexArraysPart>());
-    IndexArraysPart &indexArraysPart = *reinterpret_cast<IndexArraysPart*>(m_Parts.back().get());
+  void UpdateFunctionInfo() {
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic()) {
         if (OP::IsDxilOpFunc(&function)) {
@@ -1094,7 +1111,7 @@ private:
           UpdateFunctionToShaderCompat(&function);
         } else {
           // collect unresolved dependencies per function
-          UpdateFunctionDependency(&function, stringBufferPart);
+          UpdateFunctionDependency(&function);
         }
       }
     }
@@ -1102,8 +1119,8 @@ private:
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
         StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
-        uint32_t mangledIndex = stringBufferPart.Insert(mangled);
-        uint32_t unmangledIndex = stringBufferPart.Insert(unmangled);
+        uint32_t mangledIndex = m_pStringBufferPart->Insert(mangled);
+        uint32_t unmangledIndex = m_pStringBufferPart->Insert(unmangled);
         // Update resource Index
         uint32_t resourceIndex = UINT_MAX;
         uint32_t functionDependencies = UINT_MAX;
@@ -1113,11 +1130,11 @@ private:
 
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
           resourceIndex =
-              indexArraysPart.AddIndex(m_FuncToResNameOffset[&function].begin(),
+          m_pIndexArraysPart->AddIndex(m_FuncToResNameOffset[&function].begin(),
                                   m_FuncToResNameOffset[&function].end());
         if (m_FuncToDependencies.find(&function) != m_FuncToDependencies.end())
           functionDependencies =
-              indexArraysPart.AddIndex(m_FuncToDependencies[&function].begin(),
+              m_pIndexArraysPart->AddIndex(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
         if (m_Module.HasDxilFunctionProps(&function)) {
           auto props = m_Module.GetDxilFunctionProps(&function);
@@ -1172,19 +1189,101 @@ private:
           info.ShaderStageFlag &= compatInfo.mask;
         }
         info.MinShaderTarget = EncodeVersion((DXIL::ShaderKind)shaderKind, minMajor, minMinor);
-        functionTable.Insert(info);
+        m_pFunctionTable->Insert(info);
       }
     }
   }
 
+  void UpdateSubobjectInfo() {
+    if (!m_Module.GetSubobjects())
+      return;
+    for (auto &it : m_Module.GetSubobjects()->GetSubobjects()) {
+      auto &obj = *it.second;
+      RuntimeDataSubobjectInfo info = {};
+      info.Name = m_pStringBufferPart->Insert(obj.GetName());
+      info.Kind = (uint32_t)obj.GetKind();
+      bool bLocalRS = false;
+      switch (obj.GetKind()) {
+      case DXIL::SubobjectKind::StateObjectConfig:
+        obj.GetStateObjectConfig(info.StateObjectConfig.Flags);
+        break;
+      case DXIL::SubobjectKind::LocalRootSignature:
+        bLocalRS = true;
+        __fallthrough;
+      case DXIL::SubobjectKind::GlobalRootSignature: {
+        const void *Data;
+        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.SizeInBytes);
+        info.RootSignature.RawBytesOffset =
+          m_pRawBytesPart->Insert(Data, info.RootSignature.SizeInBytes);
+        break;
+      }
+      case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
+        llvm::StringRef Subobject;
+        const char * const * Exports;
+        uint32_t NumExports;
+        std::vector<uint32_t> ExportIndices;
+        obj.GetSubobjectToExportsAssociation(Subobject, Exports, NumExports);
+        info.SubobjectToExportsAssociation.Subobject =
+          m_pStringBufferPart->Insert(Subobject);
+        ExportIndices.resize(NumExports);
+        for (unsigned i = 0; i < NumExports; ++i) {
+          ExportIndices[i] = m_pStringBufferPart->Insert(Exports[i]);
+        }
+        info.SubobjectToExportsAssociation.Exports =
+          m_pIndexArraysPart->AddIndex(
+            ExportIndices.begin(), ExportIndices.end());
+        break;
+      }
+      case DXIL::SubobjectKind::RaytracingShaderConfig:
+        obj.GetRaytracingShaderConfig(
+          info.RaytracingShaderConfig.MaxPayloadSizeInBytes,
+          info.RaytracingShaderConfig.MaxAttributeSizeInBytes);
+        break;
+      case DXIL::SubobjectKind::RaytracingPipelineConfig:
+        obj.GetRaytracingPipelineConfig(
+          info.RaytracingPipelineConfig.MaxTraceRecursionDepth);
+        break;
+      case DXIL::SubobjectKind::HitGroup:
+        StringRef Intersection;
+        StringRef AnyHit;
+        StringRef ClosestHit;
+        obj.GetHitGroup(Intersection, AnyHit, ClosestHit);
+        info.HitGroup.Intersection = m_pStringBufferPart->Insert(Intersection);
+        info.HitGroup.AnyHit = m_pStringBufferPart->Insert(AnyHit);
+        info.HitGroup.ClosestHit = m_pStringBufferPart->Insert(ClosestHit);
+        break;
+      }
+      m_pSubobjectTable->Insert(info);
+    }
+  }
+
+  void CreateParts() {
+#define ADD_PART(type) \
+    m_Parts.emplace_back(llvm::make_unique<type>()); \
+    m_p##type = reinterpret_cast<type*>(m_Parts.back().get());
+    ADD_PART(StringBufferPart);
+    ADD_PART(IndexArraysPart);
+    ADD_PART(RawBytesPart);
+    ADD_PART(FunctionTable);
+    ADD_PART(ResourceTable);
+    ADD_PART(SubobjectTable);
+#undef ADD_PART
+  }
+
+  StringBufferPart *m_pStringBufferPart;
+  IndexArraysPart *m_pIndexArraysPart;
+  RawBytesPart *m_pRawBytesPart;
+  FunctionTable *m_pFunctionTable;
+  ResourceTable *m_pResourceTable;
+  SubobjectTable *m_pSubobjectTable;
+
 public:
   DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
       : m_Module(module), m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
-    // It's important to keep the order of this update
-    m_Parts.emplace_back(llvm::make_unique<StringBufferPart>());
-    StringBufferPart &stringBufferPart = *reinterpret_cast<StringBufferPart*>(m_Parts.back().get());
-    UpdateResourceInfo(stringBufferPart);
-    UpdateFunctionInfo(stringBufferPart);
+    CreateParts();
+    UpdateResourceInfo();
+    UpdateFunctionInfo();
+    UpdateSubobjectInfo();
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();
@@ -1212,7 +1311,7 @@ public:
       CheckedWriter W(m_RDATBuffer.data(), m_RDATBuffer.size());
       // write RDAT header
       RuntimeDataHeader &header = W.Map<RuntimeDataHeader>();
-      header.Version = RDAT_Version_0;
+      header.Version = RDAT_Version_10;
       header.PartCount = m_Parts.size();
       // map offsets
       uint32_t *offsets = W.MapArray<uint32_t>(header.PartCount);
@@ -1422,17 +1521,19 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                      });
     }
   }
-  // Write the DxilPipelineStateValidation (PSV0) part.
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
   if (pModule->GetShaderModel()->IsLib()) {
+    // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
-  } else if (!pModule->GetShaderModel()->IsLib()) {
+    pModule->StripSubobjectsFromMetadata();
+  } else {
+    // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),

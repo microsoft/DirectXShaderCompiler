@@ -26,6 +26,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include "dxc/HLSL/DxilRuntimeReflection.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -574,6 +575,144 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
                                      VID.getPCInputsContributingToOutputs());
   }
   OS << comment << "\n";
+}
+
+static const char *SubobjectKindToString(DXIL::SubobjectKind kind) {
+  switch (kind) {
+  case DXIL::SubobjectKind::StateObjectConfig: return "StateObjectConfig";
+  case DXIL::SubobjectKind::GlobalRootSignature: return "GlobalRootSignature";
+  case DXIL::SubobjectKind::LocalRootSignature: return "LocalRootSignature";
+  case DXIL::SubobjectKind::SubobjectToExportsAssociation: return "SubobjectToExportsAssociation";
+  case DXIL::SubobjectKind::RaytracingShaderConfig: return "RaytracingShaderConfig";
+  case DXIL::SubobjectKind::RaytracingPipelineConfig: return "RaytracingPipelineConfig";
+  case DXIL::SubobjectKind::HitGroup: return "HitGroup";
+  }
+  return "<invalid kind>";
+}
+
+static const char *FlagToString(DXIL::StateObjectFlags Flag) {
+  switch (Flag) {
+  case DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions:
+    return "STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS";
+  case DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions:
+    return "STATE_OBJECT_FLAG_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS";
+  }
+  return "<invalid StateObjectFlag>";
+}
+
+template <typename _T>
+void PrintFlags(raw_string_ostream &OS, uint32_t Flags) {
+  if (!Flags) {
+    OS << "0";
+    return;
+  }
+  uint32_t flag = 0;
+  while (Flags) {
+    if (flag)
+      OS << " | ";
+    flag = (Flags & ~(Flags - 1));
+    Flags ^= flag;
+    OS << FlagToString((_T)flag);
+  }
+}
+
+void PrintSubobjects(const DxilSubobjects &subobjects,
+                     raw_string_ostream &OS,
+                     StringRef comment) {
+  if (subobjects.GetSubobjects().empty())
+    return;
+
+  OS << comment << "\n";
+  OS << comment << " Subobjects:\n";
+  OS << comment << "\n";
+
+  for (auto &it : subobjects.GetSubobjects()) {
+    StringRef name = it.first;
+    if (!it.second) {
+      OS << comment << "  " << name << " = <null>" << "\n";
+      continue;
+    }
+    const DxilSubobject &obj = *it.second.get();
+    OS << comment << "  " << SubobjectKindToString(obj.GetKind()) << " " << name << " = " << "{ ";
+    bool bLocalRS = false;
+    switch (obj.GetKind()) {
+    case DXIL::SubobjectKind::StateObjectConfig: {
+      uint32_t Flags = 0;
+      if (!obj.GetStateObjectConfig(Flags)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      PrintFlags<DXIL::StateObjectFlags>(OS, Flags);
+      break;
+    }
+    case DXIL::SubobjectKind::LocalRootSignature:
+      bLocalRS = true;
+      __fallthrough;
+    case DXIL::SubobjectKind::GlobalRootSignature: {
+      const void *Data = nullptr;
+      uint32_t Size = 0;
+      if (!obj.GetRootSignature(bLocalRS, Data, Size)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      // TODO: Deserialize root signature?
+      OS << "<" << Size << " bytes>";
+      break;
+    }
+    case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
+      llvm::StringRef Subobject;
+      const char * const * Exports = nullptr;
+      uint32_t NumExports;
+      if (!obj.GetSubobjectToExportsAssociation(Subobject, Exports, NumExports)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      OS << "\"" << Subobject << "\", { ";
+      if (Exports) {
+        for (unsigned i = 0; i < NumExports; ++i) {
+          OS << "\"" << Exports[i] << "\"" << (i ? ", " : "");
+        }
+      }
+      OS << " } ";
+      break;
+    }
+    case DXIL::SubobjectKind::RaytracingShaderConfig: {
+      uint32_t MaxPayloadSizeInBytes;
+      uint32_t MaxAttributeSizeInBytes;
+      if (!obj.GetRaytracingShaderConfig(MaxPayloadSizeInBytes,
+                                         MaxAttributeSizeInBytes)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      OS << "MaxPayloadSizeInBytes = " << MaxPayloadSizeInBytes
+         << ", MaxAttributeSizeInBytes = " << MaxAttributeSizeInBytes;
+      break;
+    }
+    case DXIL::SubobjectKind::RaytracingPipelineConfig: {
+      uint32_t MaxTraceRecursionDepth;
+      if (!obj.GetRaytracingPipelineConfig(MaxTraceRecursionDepth)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      OS << "MaxTraceRecursionDepth = " << MaxTraceRecursionDepth;
+      break;
+    }
+    case DXIL::SubobjectKind::HitGroup: {
+      StringRef Intersection;
+      StringRef AnyHit;
+      StringRef ClosestHit;
+      if (!obj.GetHitGroup(Intersection, AnyHit, ClosestHit)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      OS << "intersection = \"" << Intersection
+         << "\", anyhit = \"" << AnyHit
+         << "\", closesthit = \"" << ClosestHit << "\"";
+      break;
+    }
+    }
+    OS << " };\n";
+  }
 }
 
 void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
@@ -1293,6 +1432,61 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
 
 
 namespace dxcutil {
+
+// TODO: Move DeserializeSubobjectsFromRuntimeData to more appropriate place
+void DeserializeSubobjectsFromRuntimeData(DxilSubobjects &subobjects, RDAT::DxilRuntimeData &runtimeData) {
+  RDAT::SubobjectTableReader *pSubobjectTableReader = runtimeData.GetSubobjectTableReader();
+  if (!pSubobjectTableReader)
+    return;
+  for (unsigned i = 0; i < pSubobjectTableReader->GetCount(); ++i) {
+    auto reader = pSubobjectTableReader->GetItem(i);
+    DXIL::SubobjectKind kind = reader.GetKind();
+    bool bLocalRS = false;
+    switch (kind) {
+    case DXIL::SubobjectKind::StateObjectConfig:
+      subobjects.CreateStateObjectConfig(reader.GetName(),
+        reader.GetStateObjectConfig_Flags());
+      break;
+    case DXIL::SubobjectKind::LocalRootSignature:
+      bLocalRS = true;
+    case DXIL::SubobjectKind::GlobalRootSignature: {
+      const void *pOutBytes;
+      uint32_t OutSizeInBytes;
+      reader.GetRootSignature(&pOutBytes, &OutSizeInBytes);
+      subobjects.CreateRootSignature(reader.GetName(), bLocalRS, pOutBytes, OutSizeInBytes);
+      break;
+    }
+    case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
+      uint32_t NumExports = reader.GetSubobjectToExportsAssociation_NumExports();
+      std::vector<const char*> Exports;
+      Exports.resize(NumExports);
+      for (unsigned i = 0; i < NumExports; ++i) {
+        Exports[i] = reader.GetSubobjectToExportsAssociation_Export(i);
+      }
+      subobjects.CreateSubobjectToExportsAssociation(reader.GetName(),
+        reader.GetSubobjectToExportsAssociation_Subobject(),
+        Exports.data(), NumExports);
+      break;
+    }
+    case DXIL::SubobjectKind::RaytracingShaderConfig:
+      subobjects.CreateRaytracingShaderConfig(reader.GetName(),
+        reader.GetRaytracingShaderConfig_MaxPayloadSizeInBytes(),
+        reader.GetRaytracingShaderConfig_MaxAttributeSizeInBytes());
+      break;
+    case DXIL::SubobjectKind::RaytracingPipelineConfig:
+      subobjects.CreateRaytracingPipelineConfig(reader.GetName(),
+        reader.GetRaytracingPipelineConfig_MaxTraceRecursionDepth());
+      break;
+    case DXIL::SubobjectKind::HitGroup:
+      subobjects.CreateHitGroup(reader.GetName(),
+        reader.GetHitGroup_Intersection(),
+        reader.GetHitGroup_AnyHit(),
+        reader.GetHitGroup_ClosestHit());
+      break;
+    }
+  }
+}
+
 HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   const char *pIL = (const char *)pProgram->GetBufferPointer();
   uint32_t pILLength = pProgram->GetBufferSize();
@@ -1373,6 +1567,20 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
           GetVersionShaderType(pProgramHeader->ProgramVersion), Stream,
           /*comment*/ ";");
     }
+
+    // RDAT
+    it = std::find_if(begin(pContainer), end(pContainer),
+      DxilPartIsType(DFCC_RuntimeData));
+    if (it != end(pContainer)) {
+      RDAT::DxilRuntimeData runtimeData(GetDxilPartData(*it), (*it)->PartSize);
+      Stream << ";" << " [RDAT] Begin\n";
+      // TODO: Print the rest of the RDAT info
+      DxilSubobjects subobjects;
+      DeserializeSubobjectsFromRuntimeData(subobjects, runtimeData);
+      PrintSubobjects(subobjects, Stream, /*comment*/ ";");
+      Stream << ";" << " [RDAT] End\n";
+    }
+
     GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
   } else {
     const DxilProgramHeader *pProgramHeader =
@@ -1404,6 +1612,9 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
     PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");
     PrintViewIdState(dxilModule, Stream, /*comment*/ ";");
+    if (dxilModule.GetSubobjects()) {
+      PrintSubobjects(*dxilModule.GetSubobjects(), Stream, /*comment*/ ";");
+    }
   }
   DxcAssemblyAnnotationWriter w;
   pModule->print(Stream, &w);
