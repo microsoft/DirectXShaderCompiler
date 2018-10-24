@@ -4632,7 +4632,7 @@ public:
 
     /// <summary>Whether the elements can be converted and the sequences have the same length.</summary>
     bool IsConvertibleAndEqualLength() const {
-      return LeftCount == RightCount;
+      return CanConvertElements && LeftCount == RightCount;
     }
 
     /// <summary>Whether the elements can be converted but the left-hand sequence is longer.</summary>
@@ -4642,6 +4642,10 @@ public:
 
     bool IsRightLonger() const {
       return RightCount > LeftCount;
+    }
+
+    bool IsEqualLength() const {
+      return LeftCount == RightCount;
     }
   };
 
@@ -6559,10 +6563,15 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
         diagLocation = Entity.getDiagLoc();
       }
 
-      m_sema->Diag(diagLocation,
-        diag::err_vector_incorrect_num_initializers)
-        << (comparisonResult.RightCount < comparisonResult.LeftCount)
-        << comparisonResult.LeftCount << comparisonResult.RightCount;
+      if (comparisonResult.IsEqualLength()) {
+        m_sema->Diag(diagLocation, diag::err_hlsl_type_mismatch);
+      }
+      else {
+        m_sema->Diag(diagLocation,
+          diag::err_vector_incorrect_num_initializers)
+          << (comparisonResult.RightCount < comparisonResult.LeftCount)
+          << comparisonResult.LeftCount << comparisonResult.RightCount;
+      }
       SilenceSequenceDiagnostics(initSequence);
     }
   }
