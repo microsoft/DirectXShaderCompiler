@@ -322,7 +322,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "64-Bit integer",
     "View Instancing",
     "Barycentrics",
-    "Use native low precision"
+    "Use native low precision",
+    "Shading Rate"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -1016,7 +1017,10 @@ static const char *OpCodeSignatures[] = {
   "(THit,HitKind,Attributes)",  // ReportHit
   "(ShaderIndex,Parameter)",  // CallShader
   "(Resource)",  // CreateHandleForLib
-  "()"  // PrimitiveIndex
+  "()",  // PrimitiveIndex
+  "(acc,ax,ay,bx,by)",  // Dot2AddHalf
+  "(acc,a,b)",  // Dot4AddI8Packed
+  "(acc,a,b)"  // Dot4AddU8Packed
 };
 // OPCODE-SIGS:END
 

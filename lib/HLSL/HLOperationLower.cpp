@@ -4560,6 +4560,62 @@ Value *TranslateNoArgNoReturnPreserveOutput(CallInst *CI, IntrinsicOp IOP, OP::O
   return pResult;
 }
 
+// Special half dot2 with accumulate to float
+Value *TranslateDot2Add(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                        HLOperationLowerHelper &helper,
+                        HLObjectOperationLowerHelper *pObjHelper,
+                        bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  Type *srcTy = src0->getType();
+  const unsigned vecSize = 2;
+  DXASSERT(srcTy->isVectorTy() && vecSize == srcTy->getVectorNumElements() &&
+           srcTy->getScalarType()->isHalfTy(),
+           "otherwise, unexpected input dimension or component type");
+
+  Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  DXASSERT(srcTy == src1->getType(), "otherwise, mismatched argument types");
+  Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Type *accTy = accArg->getType();
+  DXASSERT(!accTy->isVectorTy() && accTy->isFloatTy(),
+           "otherwise, unexpected accumulator type");
+  IRBuilder<> Builder(CI);
+
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, accTy);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+
+  SmallVector<Value *, 6> args;
+  args.emplace_back(opArg);
+  args.emplace_back(accArg);
+  for (unsigned i = 0; i < vecSize; i++)
+    args.emplace_back(Builder.CreateExtractElement(src0, i));
+  for (unsigned i = 0; i < vecSize; i++)
+    args.emplace_back(Builder.CreateExtractElement(src1, i));
+  return Builder.CreateCall(dxilFunc, args);
+}
+
+Value *TranslateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                              HLOperationLowerHelper &helper,
+                              HLObjectOperationLowerHelper *pObjHelper,
+                              bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  Type *srcTy = src0->getType();
+  DXASSERT(!srcTy->isVectorTy() && srcTy->isIntegerTy(32),
+    "otherwise, unexpected vector support in high level intrinsic tempalte");
+  Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  DXASSERT(srcTy == src1->getType(), "otherwise, mismatched argument types");
+  Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Type *accTy = accArg->getType();
+  DXASSERT(!accTy->isVectorTy() && accTy->isIntegerTy(32),
+    "otherwise, unexpected vector support in high level intrinsic tempalte");
+  IRBuilder<> Builder(CI);
+
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, accTy);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  return Builder.CreateCall(dxilFunc, { opArg, accArg, src0, src1 });
+}
+
 } // namespace
 
 // Lower table.
@@ -4710,6 +4766,9 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_determinant, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_distance, TranslateDistance, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_dot, TranslateDot, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_dot2add, TranslateDot2Add, DXIL::OpCode::Dot2AddHalf},
+    {IntrinsicOp::IOP_dot4add_i8packed, TranslateDot4AddPacked, DXIL::OpCode::Dot4AddI8Packed},
+    {IntrinsicOp::IOP_dot4add_u8packed, TranslateDot4AddPacked, DXIL::OpCode::Dot4AddU8Packed},
     {IntrinsicOp::IOP_dst, TranslateDst, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_exp, TranslateExp, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_exp2, TrivialUnaryOperation, DXIL::OpCode::Exp},

@@ -311,6 +311,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Raytracing object space uint System Values                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::PrimitiveIndex,          "PrimitiveIndex",           OCC::PrimitiveIndex,           "primitiveIndex",            { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Dot product with accumulate                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Dot2AddHalf,             "Dot2AddHalf",              OCC::Dot2AddHalf,              "dot2AddHalf",               { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Dot4AddI8Packed,         "Dot4AddI8Packed",          OCC::Dot4AddPacked,            "dot4AddPacked",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::Dot4AddU8Packed,         "Dot4AddU8Packed",          OCC::Dot4AddPacked,            "dot4AddPacked",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -638,6 +643,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     } else {
       major = 6;  minor = 3;
     }
+    return;
+  }
+  // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
+  if ((162 <= op && op <= 164)) {
+    major = 6;  minor = 4;
     return;
   }
   // OPCODE-SMMASK:END
@@ -1030,6 +1040,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values
   case OpCode::PrimitiveIndex:         A(pI32);     A(pI32); break;
+
+    // Dot product with accumulate
+  case OpCode::Dot2AddHalf:            A(pETy);     A(pI32); A(pETy); A(pF16); A(pF16); A(pF16); A(pF16); break;
+  case OpCode::Dot4AddI8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
+  case OpCode::Dot4AddU8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1203,6 +1218,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::DispatchRaysIndex:
   case OpCode::DispatchRaysDimensions:
   case OpCode::PrimitiveIndex:
+  case OpCode::Dot4AddI8Packed:
+  case OpCode::Dot4AddU8Packed:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

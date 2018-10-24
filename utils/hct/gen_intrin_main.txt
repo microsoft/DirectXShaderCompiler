@@ -297,6 +297,12 @@ float<3,4> [[rn]] ObjectToWorld3x4();
 float<3,4> [[rn]] WorldToObject3x4();
 float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
+
+// Packed dot products with accumulate:
+$type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint b);
+$type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int b);
+$type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float b);
+
 } namespace
 
 namespace StreamMethods {

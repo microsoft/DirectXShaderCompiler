@@ -58,6 +58,7 @@ bool ShaderModel::IsValidForDxil() const {
       case 1:
       case 2:
       case 3:
+      case 4:
         return true;
       case kOfflineMinor:
         return m_Kind == Kind::Library;
@@ -141,6 +142,12 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
         break;
       }
       else return GetInvalid();
+    case '4':
+      if (Major == 6) {
+        Minor = 4;
+        break;
+      }
+      else return GetInvalid();
     case 'x':
       if (kind == Kind::Library && Major == 6) {
         Minor = kOfflineMinor;
@@ -169,8 +176,11 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const
     DxilMinor = 2;
     break;
   case 3:
-  case kOfflineMinor: // Always update this to highest dxil version
     DxilMinor = 3;
+    break;
+  case 4:
+  case kOfflineMinor: // Always update this to highest dxil version
+    DxilMinor = 4;
     break;
   default:
     DXASSERT(0, "IsValidForDxil() should have caught this.");
@@ -193,6 +203,9 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
     break;
   case 3:
     ValMinor = 3;
+    break;
+  case 4:
+    ValMinor = 4;
     break;
   case kOfflineMinor:
     ValMajor = 0;
@@ -234,6 +247,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Compute,  6, 1, "cs_6_1",  0,  0,   true,  true,  UINT_MAX),
   SM(Kind::Compute,  6, 2, "cs_6_2",  0,  0,   true,  true,  UINT_MAX),
   SM(Kind::Compute,  6, 3, "cs_6_3",  0,  0,   true,  true,  UINT_MAX),
+  SM(Kind::Compute,  6, 4, "cs_6_4",  0,  0,   true,  true,  UINT_MAX),
 
   SM(Kind::Domain,   5, 0, "ds_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Domain,   5, 1, "ds_5_1",  32, 32,  true,  true,  UINT_MAX),
@@ -241,6 +255,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Domain,   6, 1, "ds_6_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Domain,   6, 2, "ds_6_2",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Domain,   6, 3, "ds_6_3",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Domain,   6, 4, "ds_6_4",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Geometry, 4, 0, "gs_4_0",  16, 32,  false, false, 0),
   SM(Kind::Geometry, 4, 1, "gs_4_1",  32, 32,  false, false, 0),
@@ -250,6 +265,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Geometry, 6, 1, "gs_6_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Geometry, 6, 2, "gs_6_2",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Geometry, 6, 3, "gs_6_3",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Geometry, 6, 4, "gs_6_4",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Hull,     5, 0, "hs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Hull,     5, 1, "hs_5_1",  32, 32,  true,  true,  UINT_MAX),
@@ -257,6 +273,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Hull,     6, 1, "hs_6_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Hull,     6, 2, "hs_6_2",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Hull,     6, 3, "hs_6_3",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Hull,     6, 4, "hs_6_4",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Pixel,    4, 0, "ps_4_0",  32, 8,   false, false, 0),
   SM(Kind::Pixel,    4, 1, "ps_4_1",  32, 8,   false, false, 0),
@@ -266,6 +283,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Pixel,    6, 1, "ps_6_1",  32, 8,   true,  true,  UINT_MAX),
   SM(Kind::Pixel,    6, 2, "ps_6_2",  32, 8,   true,  true,  UINT_MAX),
   SM(Kind::Pixel,    6, 3, "ps_6_3",  32, 8,   true,  true,  UINT_MAX),
+  SM(Kind::Pixel,    6, 4, "ps_6_4",  32, 8,   true,  true,  UINT_MAX),
 
   SM(Kind::Vertex,   4, 0, "vs_4_0",  16, 16,  false, false, 0),
   SM(Kind::Vertex,   4, 1, "vs_4_1",  32, 32,  false, false, 0),
@@ -275,10 +293,12 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Vertex,   6, 1, "vs_6_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 2, "vs_6_2",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 3, "vs_6_3",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Vertex,   6, 4, "vs_6_4",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Library,  6, 1, "lib_6_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Library,  6, 2, "lib_6_2",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Library,  6, 3, "lib_6_3",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Library,  6, 4, "lib_6_4",  32, 32,  true,  true,  UINT_MAX),
 
   // lib_6_x is for offline linking only, and relaxes restrictions
   SM(Kind::Library,  6, kOfflineMinor, "lib_6_x",  32, 32,  true,  true,  UINT_MAX),

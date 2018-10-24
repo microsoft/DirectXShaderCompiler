@@ -5341,5 +5341,104 @@ struct DxilInst_PrimitiveIndex {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
+
+/// This instruction 2D half dot product with accumulate to float
+struct DxilInst_Dot2AddHalf {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Dot2AddHalf(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Dot2AddHalf);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_acc = 1,
+    arg_ax = 2,
+    arg_ay = 3,
+    arg_bx = 4,
+    arg_by = 5,
+  };
+  // Accessors
+  llvm::Value *get_acc() const { return Instr->getOperand(1); }
+  void set_acc(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_ax() const { return Instr->getOperand(2); }
+  void set_ax(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_ay() const { return Instr->getOperand(3); }
+  void set_ay(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_bx() const { return Instr->getOperand(4); }
+  void set_bx(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_by() const { return Instr->getOperand(5); }
+  void set_by(llvm::Value *val) { Instr->setOperand(5, val); }
+};
+
+/// This instruction signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32
+struct DxilInst_Dot4AddI8Packed {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Dot4AddI8Packed(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Dot4AddI8Packed);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_acc = 1,
+    arg_a = 2,
+    arg_b = 3,
+  };
+  // Accessors
+  llvm::Value *get_acc() const { return Instr->getOperand(1); }
+  void set_acc(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_a() const { return Instr->getOperand(2); }
+  void set_a(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_b() const { return Instr->getOperand(3); }
+  void set_b(llvm::Value *val) { Instr->setOperand(3, val); }
+};
+
+/// This instruction unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32
+struct DxilInst_Dot4AddU8Packed {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Dot4AddU8Packed(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Dot4AddU8Packed);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_acc = 1,
+    arg_a = 2,
+    arg_b = 3,
+  };
+  // Accessors
+  llvm::Value *get_acc() const { return Instr->getOperand(1); }
+  void set_acc(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_a() const { return Instr->getOperand(2); }
+  void set_a(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_b() const { return Instr->getOperand(3); }
+  void set_b(llvm::Value *val) { Instr->setOperand(3, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
