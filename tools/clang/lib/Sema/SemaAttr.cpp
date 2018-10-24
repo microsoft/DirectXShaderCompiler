@@ -265,6 +265,16 @@ void Sema::ActOnPragmaPack(PragmaPackKind Kind, IdentifierInfo *Name,
   }
 }
 
+void Sema::ActOnPragmaPackMatrix(bool bRowMajor, SourceLocation PragmaLoc) {
+  if (bRowMajor) {
+    PackMatrixRowMajorPragmaOn = true;
+    PackMatrixColMajorPragmaOn = false;
+  } else {
+    PackMatrixRowMajorPragmaOn = false;
+    PackMatrixColMajorPragmaOn = true;
+  }
+}
+
 void Sema::ActOnPragmaMSStruct(PragmaMSStructKind Kind) { 
   MSStructPragmaOn = (Kind == PMSST_ON);
 }
