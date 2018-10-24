@@ -105,6 +105,9 @@ namespace hlsl {
     void SetUseNativeLowPrecision(bool flag) { m_bUseNativeLowPrecision = flag; }
     bool GetUseNativeLowPrecision() const { return m_bUseNativeLowPrecision; }
 
+    void SetShadingRate(bool flag) { m_bShadingRate = flag; }
+    bool GetShadingRate() const { return m_bShadingRate; }
+
   private:
     unsigned m_bDisableOptimizations :1;   // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
     unsigned m_bDisableMathRefactoring :1; //~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED
@@ -138,7 +141,9 @@ namespace hlsl {
 
     unsigned m_bUseNativeLowPrecision : 1;
 
-    unsigned m_align0 : 8;        // align to 32 bit.
+    unsigned m_bShadingRate : 1;      // SHADER_FEATURE_SHADINGRATE
+
+    unsigned m_align0 : 7;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 

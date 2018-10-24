@@ -808,36 +808,60 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args121[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args122[] =
 {
+    {"dot2add", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_FLOAT, 1, 1},
+    {"a", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT16, 1, 2},
+    {"b", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT16, 1, 2},
+    {"b", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args123[] =
+{
+    {"dot4add_i8packed", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_INT, 1, 1},
+    {"a", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"b", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"b", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_INT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args124[] =
+{
+    {"dot4add_u8packed", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_UINT, 1, 1},
+    {"a", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"b", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"b", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args125[] =
+{
     {"dst", AR_QUAL_OUT, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_NUMERIC, 1, 4},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_NUMERIC, 1, 4},
     {"b", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_NUMERIC, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args123[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args126[] =
 {
     {"exp", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args124[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args127[] =
 {
     {"exp2", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args125[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args128[] =
 {
     {"f16tof32", AR_QUAL_OUT, 0, LITEMPLATE_ANY, 0, LICOMPTYPE_FLOAT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args126[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args129[] =
 {
     {"f32tof16", AR_QUAL_OUT, 0, LITEMPLATE_ANY, 0, LICOMPTYPE_UINT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args127[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args130[] =
 {
     {"faceforward", AR_QUAL_OUT, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
     {"N", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
@@ -845,25 +869,25 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args127[] =
     {"Ng", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args128[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args131[] =
 {
     {"firstbithigh", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_UINT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_INT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args129[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args132[] =
 {
     {"firstbitlow", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_UINT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_INT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args130[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args133[] =
 {
     {"floor", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args131[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args134[] =
 {
     {"fma", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_DOUBLE_ONLY, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_DOUBLE_ONLY, IA_R, IA_C},
@@ -871,64 +895,64 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args131[] =
     {"c", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_DOUBLE_ONLY, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args132[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args135[] =
 {
     {"fmod", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"b", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args133[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args136[] =
 {
     {"frac", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args134[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args137[] =
 {
     {"frexp", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
     {"exp", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args135[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args138[] =
 {
     {"fwidth", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args136[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args139[] =
 {
     {"isfinite", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_BOOL, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args137[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args140[] =
 {
     {"isinf", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_BOOL, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args138[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args141[] =
 {
     {"isnan", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_BOOL, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args139[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args142[] =
 {
     {"ldexp", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"exp", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args140[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args143[] =
 {
     {"length", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 1, LICOMPTYPE_FLOAT_LIKE, 1, 1},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args141[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args144[] =
 {
     {"lerp", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
@@ -936,7 +960,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args141[] =
     {"s", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args142[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args145[] =
 {
     {"lit", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"l", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_FLOAT_LIKE, 1, 1},
@@ -944,25 +968,25 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args142[] =
     {"m", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 1, LICOMPTYPE_FLOAT_LIKE, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args143[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args146[] =
 {
     {"log", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args144[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args147[] =
 {
     {"log10", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args145[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args148[] =
 {
     {"log2", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args146[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args149[] =
 {
     {"mad", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
@@ -970,28 +994,28 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args146[] =
     {"c", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args147[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args150[] =
 {
     {"max", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"b", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args148[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args151[] =
 {
     {"min", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"b", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args149[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args152[] =
 {
     {"modf", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"ip", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args150[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args153[] =
 {
     {"msad4", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_UINT, 1, 4},
     {"reference", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
@@ -999,102 +1023,102 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args150[] =
     {"accum", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_UINT, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args151[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args154[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args152[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args155[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C2},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args153[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args156[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R2, IA_C2},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R2, IA_C2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args154[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args157[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args155[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args158[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args156[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args159[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C2},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C},
     {"b", AR_QUAL_IN | AR_QUAL_COLMAJOR, 2, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_C, IA_C2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args157[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args160[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args158[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args161[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_R},
     {"a", AR_QUAL_IN | AR_QUAL_ROWMAJOR, 1, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"b", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 0, LICOMPTYPE_NUMERIC, 1, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args159[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args162[] =
 {
     {"mul", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R, IA_C2},
     {"a", AR_QUAL_IN | AR_QUAL_ROWMAJOR, 1, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"b", AR_QUAL_IN | AR_QUAL_COLMAJOR, 2, LITEMPLATE_MATRIX, 0, LICOMPTYPE_NUMERIC, IA_C, IA_C2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args160[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args163[] =
 {
     {"normalize", AR_QUAL_OUT, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args161[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args164[] =
 {
     {"pow", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"y", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args162[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args165[] =
 {
     {"radians", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args163[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args166[] =
 {
     {"rcp", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_FLOAT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args164[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args167[] =
 {
     {"reflect", AR_QUAL_OUT, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
     {"i", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
     {"n", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args165[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args168[] =
 {
     {"refract", AR_QUAL_OUT, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
     {"i", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT_LIKE, 1, IA_C},
@@ -1102,43 +1126,43 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args165[] =
     {"ri", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_FLOAT_LIKE, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args166[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args169[] =
 {
     {"reversebits", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_INT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_INT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args167[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args170[] =
 {
     {"round", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args168[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args171[] =
 {
     {"rsqrt", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args169[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args172[] =
 {
     {"saturate", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_FLOAT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY_FLOAT, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args170[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args173[] =
 {
     {"sign", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_INT, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args171[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args174[] =
 {
     {"sin", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args172[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args175[] =
 {
     {"sincos", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
@@ -1146,13 +1170,13 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args172[] =
     {"c", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args173[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args176[] =
 {
     {"sinh", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args174[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args177[] =
 {
     {"smoothstep", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
@@ -1160,44 +1184,44 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args174[] =
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args175[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args178[] =
 {
     {"source_mark", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args176[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args179[] =
 {
     {"sqrt", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args177[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args180[] =
 {
     {"step", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args178[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args181[] =
 {
     {"tan", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args179[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args182[] =
 {
     {"tanh", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args180[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args183[] =
 {
     {"tex1D", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER1D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args181[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args184[] =
 {
     {"tex1D", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER1D, 1, 1},
@@ -1206,14 +1230,14 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args181[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args182[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args185[] =
 {
     {"tex1Dbias", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER1D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args183[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args186[] =
 {
     {"tex1Dgrad", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER1D, 1, 1},
@@ -1222,28 +1246,28 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args183[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args184[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args187[] =
 {
     {"tex1Dlod", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER1D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args185[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args188[] =
 {
     {"tex1Dproj", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER1D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args186[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args189[] =
 {
     {"tex2D", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER2D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args187[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args190[] =
 {
     {"tex2D", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER2D, 1, 1},
@@ -1252,14 +1276,14 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args187[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args188[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args191[] =
 {
     {"tex2Dbias", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER2D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args189[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args192[] =
 {
     {"tex2Dgrad", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER2D, 1, 1},
@@ -1268,28 +1292,28 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args189[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args190[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args193[] =
 {
     {"tex2Dlod", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER2D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args191[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args194[] =
 {
     {"tex2Dproj", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER2D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args192[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args195[] =
 {
     {"tex3D", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER3D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 3},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args193[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args196[] =
 {
     {"tex3D", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER3D, 1, 1},
@@ -1298,14 +1322,14 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args193[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 3},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args194[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args197[] =
 {
     {"tex3Dbias", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER3D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args195[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args198[] =
 {
     {"tex3Dgrad", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER3D, 1, 1},
@@ -1314,28 +1338,28 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args195[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 3},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args196[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args199[] =
 {
     {"tex3Dlod", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER3D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args197[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args200[] =
 {
     {"tex3Dproj", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLER3D, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args198[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args201[] =
 {
     {"texCUBE", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLERCUBE, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 3},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args199[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args202[] =
 {
     {"texCUBE", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLERCUBE, 1, 1},
@@ -1344,14 +1368,14 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args199[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 3},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args200[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args203[] =
 {
     {"texCUBEbias", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLERCUBE, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args201[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args204[] =
 {
     {"texCUBEgrad", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLERCUBE, 1, 1},
@@ -1360,27 +1384,27 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args201[] =
     {"ddy", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 3},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args202[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args205[] =
 {
     {"texCUBElod", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLERCUBE, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args203[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args206[] =
 {
     {"texCUBEproj", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT_LIKE, 1, 4},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_SAMPLERCUBE, 1, 1},
     {"x", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT_LIKE, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args204[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args207[] =
 {
     {"transpose", AR_QUAL_OUT, 1, LITEMPLATE_MATRIX, 1, LICOMPTYPE_ANY, IA_C, IA_R},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_MATRIX, 1, LICOMPTYPE_ANY, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args205[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args208[] =
 {
     {"trunc", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
     {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT_LIKE, IA_R, IA_C},
@@ -1510,90 +1534,93 @@ static const HLSL_INTRINSIC g_Intrinsics[] =
     {(UINT)hlsl::IntrinsicOp::IOP_determinant, false, true, -1, 2, g_Intrinsics_Args119},
     {(UINT)hlsl::IntrinsicOp::IOP_distance, false, true, -1, 3, g_Intrinsics_Args120},
     {(UINT)hlsl::IntrinsicOp::IOP_dot, false, true, -1, 3, g_Intrinsics_Args121},
-    {(UINT)hlsl::IntrinsicOp::IOP_dst, false, true, -1, 3, g_Intrinsics_Args122},
-    {(UINT)hlsl::IntrinsicOp::IOP_exp, false, true, -1, 2, g_Intrinsics_Args123},
-    {(UINT)hlsl::IntrinsicOp::IOP_exp2, false, true, -1, 2, g_Intrinsics_Args124},
-    {(UINT)hlsl::IntrinsicOp::IOP_f16tof32, false, true, -1, 2, g_Intrinsics_Args125},
-    {(UINT)hlsl::IntrinsicOp::IOP_f32tof16, false, true, -1, 2, g_Intrinsics_Args126},
-    {(UINT)hlsl::IntrinsicOp::IOP_faceforward, false, true, -1, 4, g_Intrinsics_Args127},
-    {(UINT)hlsl::IntrinsicOp::IOP_firstbithigh, false, true, 0, 2, g_Intrinsics_Args128},
-    {(UINT)hlsl::IntrinsicOp::IOP_firstbitlow, false, true, -1, 2, g_Intrinsics_Args129},
-    {(UINT)hlsl::IntrinsicOp::IOP_floor, false, true, -1, 2, g_Intrinsics_Args130},
-    {(UINT)hlsl::IntrinsicOp::IOP_fma, false, true, -1, 4, g_Intrinsics_Args131},
-    {(UINT)hlsl::IntrinsicOp::IOP_fmod, false, true, -1, 3, g_Intrinsics_Args132},
-    {(UINT)hlsl::IntrinsicOp::IOP_frac, false, true, -1, 2, g_Intrinsics_Args133},
-    {(UINT)hlsl::IntrinsicOp::IOP_frexp, false, false, -1, 3, g_Intrinsics_Args134},
-    {(UINT)hlsl::IntrinsicOp::IOP_fwidth, false, true, -1, 2, g_Intrinsics_Args135},
-    {(UINT)hlsl::IntrinsicOp::IOP_isfinite, false, true, -1, 2, g_Intrinsics_Args136},
-    {(UINT)hlsl::IntrinsicOp::IOP_isinf, false, true, -1, 2, g_Intrinsics_Args137},
-    {(UINT)hlsl::IntrinsicOp::IOP_isnan, false, true, -1, 2, g_Intrinsics_Args138},
-    {(UINT)hlsl::IntrinsicOp::IOP_ldexp, false, true, -1, 3, g_Intrinsics_Args139},
-    {(UINT)hlsl::IntrinsicOp::IOP_length, false, true, -1, 2, g_Intrinsics_Args140},
-    {(UINT)hlsl::IntrinsicOp::IOP_lerp, false, true, -1, 4, g_Intrinsics_Args141},
-    {(UINT)hlsl::IntrinsicOp::IOP_lit, false, true, -1, 4, g_Intrinsics_Args142},
-    {(UINT)hlsl::IntrinsicOp::IOP_log, false, true, -1, 2, g_Intrinsics_Args143},
-    {(UINT)hlsl::IntrinsicOp::IOP_log10, false, true, -1, 2, g_Intrinsics_Args144},
-    {(UINT)hlsl::IntrinsicOp::IOP_log2, false, true, -1, 2, g_Intrinsics_Args145},
-    {(UINT)hlsl::IntrinsicOp::IOP_mad, false, true, -1, 4, g_Intrinsics_Args146},
-    {(UINT)hlsl::IntrinsicOp::IOP_max, false, true, -1, 3, g_Intrinsics_Args147},
-    {(UINT)hlsl::IntrinsicOp::IOP_min, false, true, -1, 3, g_Intrinsics_Args148},
-    {(UINT)hlsl::IntrinsicOp::IOP_modf, false, false, -1, 3, g_Intrinsics_Args149},
-    {(UINT)hlsl::IntrinsicOp::IOP_msad4, false, true, -1, 4, g_Intrinsics_Args150},
-    {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args151},
-    {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args152},
-    {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args153},
+    {(UINT)hlsl::IntrinsicOp::IOP_dot2add, false, true, -1, 4, g_Intrinsics_Args122},
+    {(UINT)hlsl::IntrinsicOp::IOP_dot4add_i8packed, false, true, -1, 4, g_Intrinsics_Args123},
+    {(UINT)hlsl::IntrinsicOp::IOP_dot4add_u8packed, false, true, -1, 4, g_Intrinsics_Args124},
+    {(UINT)hlsl::IntrinsicOp::IOP_dst, false, true, -1, 3, g_Intrinsics_Args125},
+    {(UINT)hlsl::IntrinsicOp::IOP_exp, false, true, -1, 2, g_Intrinsics_Args126},
+    {(UINT)hlsl::IntrinsicOp::IOP_exp2, false, true, -1, 2, g_Intrinsics_Args127},
+    {(UINT)hlsl::IntrinsicOp::IOP_f16tof32, false, true, -1, 2, g_Intrinsics_Args128},
+    {(UINT)hlsl::IntrinsicOp::IOP_f32tof16, false, true, -1, 2, g_Intrinsics_Args129},
+    {(UINT)hlsl::IntrinsicOp::IOP_faceforward, false, true, -1, 4, g_Intrinsics_Args130},
+    {(UINT)hlsl::IntrinsicOp::IOP_firstbithigh, false, true, 0, 2, g_Intrinsics_Args131},
+    {(UINT)hlsl::IntrinsicOp::IOP_firstbitlow, false, true, -1, 2, g_Intrinsics_Args132},
+    {(UINT)hlsl::IntrinsicOp::IOP_floor, false, true, -1, 2, g_Intrinsics_Args133},
+    {(UINT)hlsl::IntrinsicOp::IOP_fma, false, true, -1, 4, g_Intrinsics_Args134},
+    {(UINT)hlsl::IntrinsicOp::IOP_fmod, false, true, -1, 3, g_Intrinsics_Args135},
+    {(UINT)hlsl::IntrinsicOp::IOP_frac, false, true, -1, 2, g_Intrinsics_Args136},
+    {(UINT)hlsl::IntrinsicOp::IOP_frexp, false, false, -1, 3, g_Intrinsics_Args137},
+    {(UINT)hlsl::IntrinsicOp::IOP_fwidth, false, true, -1, 2, g_Intrinsics_Args138},
+    {(UINT)hlsl::IntrinsicOp::IOP_isfinite, false, true, -1, 2, g_Intrinsics_Args139},
+    {(UINT)hlsl::IntrinsicOp::IOP_isinf, false, true, -1, 2, g_Intrinsics_Args140},
+    {(UINT)hlsl::IntrinsicOp::IOP_isnan, false, true, -1, 2, g_Intrinsics_Args141},
+    {(UINT)hlsl::IntrinsicOp::IOP_ldexp, false, true, -1, 3, g_Intrinsics_Args142},
+    {(UINT)hlsl::IntrinsicOp::IOP_length, false, true, -1, 2, g_Intrinsics_Args143},
+    {(UINT)hlsl::IntrinsicOp::IOP_lerp, false, true, -1, 4, g_Intrinsics_Args144},
+    {(UINT)hlsl::IntrinsicOp::IOP_lit, false, true, -1, 4, g_Intrinsics_Args145},
+    {(UINT)hlsl::IntrinsicOp::IOP_log, false, true, -1, 2, g_Intrinsics_Args146},
+    {(UINT)hlsl::IntrinsicOp::IOP_log10, false, true, -1, 2, g_Intrinsics_Args147},
+    {(UINT)hlsl::IntrinsicOp::IOP_log2, false, true, -1, 2, g_Intrinsics_Args148},
+    {(UINT)hlsl::IntrinsicOp::IOP_mad, false, true, -1, 4, g_Intrinsics_Args149},
+    {(UINT)hlsl::IntrinsicOp::IOP_max, false, true, -1, 3, g_Intrinsics_Args150},
+    {(UINT)hlsl::IntrinsicOp::IOP_min, false, true, -1, 3, g_Intrinsics_Args151},
+    {(UINT)hlsl::IntrinsicOp::IOP_modf, false, false, -1, 3, g_Intrinsics_Args152},
+    {(UINT)hlsl::IntrinsicOp::IOP_msad4, false, true, -1, 4, g_Intrinsics_Args153},
     {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args154},
     {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args155},
     {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args156},
     {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args157},
     {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args158},
     {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args159},
-    {(UINT)hlsl::IntrinsicOp::IOP_normalize, false, true, -1, 2, g_Intrinsics_Args160},
-    {(UINT)hlsl::IntrinsicOp::IOP_pow, false, true, -1, 3, g_Intrinsics_Args161},
-    {(UINT)hlsl::IntrinsicOp::IOP_radians, false, true, -1, 2, g_Intrinsics_Args162},
-    {(UINT)hlsl::IntrinsicOp::IOP_rcp, false, true, -1, 2, g_Intrinsics_Args163},
-    {(UINT)hlsl::IntrinsicOp::IOP_reflect, false, true, -1, 3, g_Intrinsics_Args164},
-    {(UINT)hlsl::IntrinsicOp::IOP_refract, false, true, -1, 4, g_Intrinsics_Args165},
-    {(UINT)hlsl::IntrinsicOp::IOP_reversebits, false, true, -1, 2, g_Intrinsics_Args166},
-    {(UINT)hlsl::IntrinsicOp::IOP_round, false, true, -1, 2, g_Intrinsics_Args167},
-    {(UINT)hlsl::IntrinsicOp::IOP_rsqrt, false, true, -1, 2, g_Intrinsics_Args168},
-    {(UINT)hlsl::IntrinsicOp::IOP_saturate, false, true, -1, 2, g_Intrinsics_Args169},
-    {(UINT)hlsl::IntrinsicOp::IOP_sign, false, true, -1, 2, g_Intrinsics_Args170},
-    {(UINT)hlsl::IntrinsicOp::IOP_sin, false, true, -1, 2, g_Intrinsics_Args171},
-    {(UINT)hlsl::IntrinsicOp::IOP_sincos, false, false, -1, 4, g_Intrinsics_Args172},
-    {(UINT)hlsl::IntrinsicOp::IOP_sinh, false, true, -1, 2, g_Intrinsics_Args173},
-    {(UINT)hlsl::IntrinsicOp::IOP_smoothstep, false, true, -1, 4, g_Intrinsics_Args174},
-    {(UINT)hlsl::IntrinsicOp::IOP_source_mark, false, false, -1, 1, g_Intrinsics_Args175},
-    {(UINT)hlsl::IntrinsicOp::IOP_sqrt, false, true, -1, 2, g_Intrinsics_Args176},
-    {(UINT)hlsl::IntrinsicOp::IOP_step, false, true, -1, 3, g_Intrinsics_Args177},
-    {(UINT)hlsl::IntrinsicOp::IOP_tan, false, true, -1, 2, g_Intrinsics_Args178},
-    {(UINT)hlsl::IntrinsicOp::IOP_tanh, false, true, -1, 2, g_Intrinsics_Args179},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex1D, true, false, -1, 3, g_Intrinsics_Args180},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex1D, true, false, -1, 5, g_Intrinsics_Args181},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dbias, true, false, -1, 3, g_Intrinsics_Args182},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dgrad, true, false, -1, 5, g_Intrinsics_Args183},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dlod, true, false, -1, 3, g_Intrinsics_Args184},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dproj, true, false, -1, 3, g_Intrinsics_Args185},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex2D, true, false, -1, 3, g_Intrinsics_Args186},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex2D, true, false, -1, 5, g_Intrinsics_Args187},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dbias, true, false, -1, 3, g_Intrinsics_Args188},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dgrad, true, false, -1, 5, g_Intrinsics_Args189},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dlod, true, false, -1, 3, g_Intrinsics_Args190},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dproj, true, false, -1, 3, g_Intrinsics_Args191},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex3D, true, false, -1, 3, g_Intrinsics_Args192},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex3D, true, false, -1, 5, g_Intrinsics_Args193},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dbias, true, false, -1, 3, g_Intrinsics_Args194},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dgrad, true, false, -1, 5, g_Intrinsics_Args195},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dlod, true, false, -1, 3, g_Intrinsics_Args196},
-    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dproj, true, false, -1, 3, g_Intrinsics_Args197},
-    {(UINT)hlsl::IntrinsicOp::IOP_texCUBE, true, false, -1, 3, g_Intrinsics_Args198},
-    {(UINT)hlsl::IntrinsicOp::IOP_texCUBE, true, false, -1, 5, g_Intrinsics_Args199},
-    {(UINT)hlsl::IntrinsicOp::IOP_texCUBEbias, true, false, -1, 3, g_Intrinsics_Args200},
-    {(UINT)hlsl::IntrinsicOp::IOP_texCUBEgrad, true, false, -1, 5, g_Intrinsics_Args201},
-    {(UINT)hlsl::IntrinsicOp::IOP_texCUBElod, true, false, -1, 3, g_Intrinsics_Args202},
-    {(UINT)hlsl::IntrinsicOp::IOP_texCUBEproj, true, false, -1, 3, g_Intrinsics_Args203},
-    {(UINT)hlsl::IntrinsicOp::IOP_transpose, false, true, -1, 2, g_Intrinsics_Args204},
-    {(UINT)hlsl::IntrinsicOp::IOP_trunc, false, true, -1, 2, g_Intrinsics_Args205},
+    {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args160},
+    {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args161},
+    {(UINT)hlsl::IntrinsicOp::IOP_mul, false, true, -1, 3, g_Intrinsics_Args162},
+    {(UINT)hlsl::IntrinsicOp::IOP_normalize, false, true, -1, 2, g_Intrinsics_Args163},
+    {(UINT)hlsl::IntrinsicOp::IOP_pow, false, true, -1, 3, g_Intrinsics_Args164},
+    {(UINT)hlsl::IntrinsicOp::IOP_radians, false, true, -1, 2, g_Intrinsics_Args165},
+    {(UINT)hlsl::IntrinsicOp::IOP_rcp, false, true, -1, 2, g_Intrinsics_Args166},
+    {(UINT)hlsl::IntrinsicOp::IOP_reflect, false, true, -1, 3, g_Intrinsics_Args167},
+    {(UINT)hlsl::IntrinsicOp::IOP_refract, false, true, -1, 4, g_Intrinsics_Args168},
+    {(UINT)hlsl::IntrinsicOp::IOP_reversebits, false, true, -1, 2, g_Intrinsics_Args169},
+    {(UINT)hlsl::IntrinsicOp::IOP_round, false, true, -1, 2, g_Intrinsics_Args170},
+    {(UINT)hlsl::IntrinsicOp::IOP_rsqrt, false, true, -1, 2, g_Intrinsics_Args171},
+    {(UINT)hlsl::IntrinsicOp::IOP_saturate, false, true, -1, 2, g_Intrinsics_Args172},
+    {(UINT)hlsl::IntrinsicOp::IOP_sign, false, true, -1, 2, g_Intrinsics_Args173},
+    {(UINT)hlsl::IntrinsicOp::IOP_sin, false, true, -1, 2, g_Intrinsics_Args174},
+    {(UINT)hlsl::IntrinsicOp::IOP_sincos, false, false, -1, 4, g_Intrinsics_Args175},
+    {(UINT)hlsl::IntrinsicOp::IOP_sinh, false, true, -1, 2, g_Intrinsics_Args176},
+    {(UINT)hlsl::IntrinsicOp::IOP_smoothstep, false, true, -1, 4, g_Intrinsics_Args177},
+    {(UINT)hlsl::IntrinsicOp::IOP_source_mark, false, false, -1, 1, g_Intrinsics_Args178},
+    {(UINT)hlsl::IntrinsicOp::IOP_sqrt, false, true, -1, 2, g_Intrinsics_Args179},
+    {(UINT)hlsl::IntrinsicOp::IOP_step, false, true, -1, 3, g_Intrinsics_Args180},
+    {(UINT)hlsl::IntrinsicOp::IOP_tan, false, true, -1, 2, g_Intrinsics_Args181},
+    {(UINT)hlsl::IntrinsicOp::IOP_tanh, false, true, -1, 2, g_Intrinsics_Args182},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex1D, true, false, -1, 3, g_Intrinsics_Args183},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex1D, true, false, -1, 5, g_Intrinsics_Args184},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dbias, true, false, -1, 3, g_Intrinsics_Args185},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dgrad, true, false, -1, 5, g_Intrinsics_Args186},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dlod, true, false, -1, 3, g_Intrinsics_Args187},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex1Dproj, true, false, -1, 3, g_Intrinsics_Args188},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex2D, true, false, -1, 3, g_Intrinsics_Args189},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex2D, true, false, -1, 5, g_Intrinsics_Args190},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dbias, true, false, -1, 3, g_Intrinsics_Args191},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dgrad, true, false, -1, 5, g_Intrinsics_Args192},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dlod, true, false, -1, 3, g_Intrinsics_Args193},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex2Dproj, true, false, -1, 3, g_Intrinsics_Args194},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex3D, true, false, -1, 3, g_Intrinsics_Args195},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex3D, true, false, -1, 5, g_Intrinsics_Args196},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dbias, true, false, -1, 3, g_Intrinsics_Args197},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dgrad, true, false, -1, 5, g_Intrinsics_Args198},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dlod, true, false, -1, 3, g_Intrinsics_Args199},
+    {(UINT)hlsl::IntrinsicOp::IOP_tex3Dproj, true, false, -1, 3, g_Intrinsics_Args200},
+    {(UINT)hlsl::IntrinsicOp::IOP_texCUBE, true, false, -1, 3, g_Intrinsics_Args201},
+    {(UINT)hlsl::IntrinsicOp::IOP_texCUBE, true, false, -1, 5, g_Intrinsics_Args202},
+    {(UINT)hlsl::IntrinsicOp::IOP_texCUBEbias, true, false, -1, 3, g_Intrinsics_Args203},
+    {(UINT)hlsl::IntrinsicOp::IOP_texCUBEgrad, true, false, -1, 5, g_Intrinsics_Args204},
+    {(UINT)hlsl::IntrinsicOp::IOP_texCUBElod, true, false, -1, 3, g_Intrinsics_Args205},
+    {(UINT)hlsl::IntrinsicOp::IOP_texCUBEproj, true, false, -1, 3, g_Intrinsics_Args206},
+    {(UINT)hlsl::IntrinsicOp::IOP_transpose, false, true, -1, 2, g_Intrinsics_Args207},
+    {(UINT)hlsl::IntrinsicOp::IOP_trunc, false, true, -1, 2, g_Intrinsics_Args208},
 };
 
 //
@@ -5757,7 +5784,7 @@ static const UINT g_uAppendStructuredBufferMethodsCount = 2;
 static const UINT g_uBufferMethodsCount = 3;
 static const UINT g_uByteAddressBufferMethodsCount = 9;
 static const UINT g_uConsumeStructuredBufferMethodsCount = 2;
-static const UINT g_uIntrinsicsCount = 206;
+static const UINT g_uIntrinsicsCount = 209;
 static const UINT g_uRWBufferMethodsCount = 3;
 static const UINT g_uRWByteAddressBufferMethodsCount = 29;
 static const UINT g_uRWStructuredBufferMethodsCount = 5;

@@ -662,39 +662,40 @@ Semantic Interpretations for each SemanticKind at each SigPointKind are as follo
 .. <py::lines('SEMINT-TABLE-RST')>hctdb_instrhelp.get_sem_interpretation_table_rst()</py>
 .. SEMINT-TABLE-RST:BEGIN
 
-====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
-Semantic               VSIn         VSOut PCIn         HSIn         HSCPIn HSCPOut PCOut      DSIn         DSCPIn DSOut GSVIn GSIn         GSOut PSIn          PSOut         CSIn
-====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
-Arbitrary              Arb          Arb   NA           NA           Arb    Arb     Arb        Arb          Arb    Arb   Arb   NA           Arb   Arb           NA            NA
-VertexID               SV           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NA
-InstanceID             SV           Arb   NA           NA           Arb    Arb     NA         NA           Arb    Arb   Arb   NA           Arb   Arb           NA            NA
-Position               Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
-RenderTargetArrayIndex Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
-ViewPortArrayIndex     Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
-ClipDistance           Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
-CullDistance           Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
-OutputControlPointID   NA           NA    NA           NotInSig     NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NA
-DomainLocation         NA           NA    NA           NA           NA     NA      NA         NotInSig     NA     NA    NA    NA           NA    NA            NA            NA
-PrimitiveID            NA           NA    NotInSig     NotInSig     NA     NA      NA         NotInSig     NA     NA    NA    Shadow       SGV   SGV           NA            NA
-GSInstanceID           NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NotInSig     NA    NA            NA            NA
-SampleIndex            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    Shadow _41    NA            NA
-IsFrontFace            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           SGV   SGV           NA            NA
-Coverage               NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotInSig _50  NotPacked _41 NA
-InnerCoverage          NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotInSig _50  NA            NA
-Target                 NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            Target        NA
-Depth                  NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked     NA
-DepthLessEqual         NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked _50 NA
-DepthGreaterEqual      NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked _50 NA
-StencilRef             NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked _50 NA
-DispatchThreadID       NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
-GroupID                NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
-GroupIndex             NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
-GroupThreadID          NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
-TessFactor             NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA            NA            NA
-InsideTessFactor       NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA            NA            NA
-ViewID                 NotInSig _61 NA    NotInSig _61 NotInSig _61 NA     NA      NA         NotInSig _61 NA     NA    NA    NotInSig _61 NA    NotInSig _61  NA            NA
-Barycentrics           NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotPacked _61 NA            NA
-====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
+====================== ============ ====== ============ ============ ====== ======= ========== ============ ====== ====== ====== ============ ====== ============= ============= ========
+Semantic               VSIn         VSOut  PCIn         HSIn         HSCPIn HSCPOut PCOut      DSIn         DSCPIn DSOut  GSVIn  GSIn         GSOut  PSIn          PSOut         CSIn
+====================== ============ ====== ============ ============ ====== ======= ========== ============ ====== ====== ====== ============ ====== ============= ============= ========
+Arbitrary              Arb          Arb    NA           NA           Arb    Arb     Arb        Arb          Arb    Arb    Arb    NA           Arb    Arb           NA            NA
+VertexID               SV           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NA            NA
+InstanceID             SV           Arb    NA           NA           Arb    Arb     NA         NA           Arb    Arb    Arb    NA           Arb    Arb           NA            NA
+Position               Arb          SV     NA           NA           SV     SV      Arb        Arb          SV     SV     SV     NA           SV     SV            NA            NA
+RenderTargetArrayIndex Arb          SV     NA           NA           SV     SV      Arb        Arb          SV     SV     SV     NA           SV     SV            NA            NA
+ViewPortArrayIndex     Arb          SV     NA           NA           SV     SV      Arb        Arb          SV     SV     SV     NA           SV     SV            NA            NA
+ClipDistance           Arb          SV     NA           NA           SV     SV      Arb        Arb          SV     SV     SV     NA           SV     SV            NA            NA
+CullDistance           Arb          SV     NA           NA           SV     SV      Arb        Arb          SV     SV     SV     NA           SV     SV            NA            NA
+OutputControlPointID   NA           NA     NA           NotInSig     NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NA            NA
+DomainLocation         NA           NA     NA           NA           NA     NA      NA         NotInSig     NA     NA     NA     NA           NA     NA            NA            NA
+PrimitiveID            NA           NA     NotInSig     NotInSig     NA     NA      NA         NotInSig     NA     NA     NA     Shadow       SGV    SGV           NA            NA
+GSInstanceID           NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NotInSig     NA     NA            NA            NA
+SampleIndex            NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     Shadow _41    NA            NA
+IsFrontFace            NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           SGV    SGV           NA            NA
+Coverage               NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NotInSig _50  NotPacked _41 NA
+InnerCoverage          NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NotInSig _50  NA            NA
+Target                 NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            Target        NA
+Depth                  NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NotPacked     NA
+DepthLessEqual         NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NotPacked _50 NA
+DepthGreaterEqual      NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NotPacked _50 NA
+StencilRef             NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NotPacked _50 NA
+DispatchThreadID       NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NA            NotInSig
+GroupID                NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NA            NotInSig
+GroupIndex             NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NA            NotInSig
+GroupThreadID          NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NA            NA            NotInSig
+TessFactor             NA           NA     NA           NA           NA     NA      TessFactor TessFactor   NA     NA     NA     NA           NA     NA            NA            NA
+InsideTessFactor       NA           NA     NA           NA           NA     NA      TessFactor TessFactor   NA     NA     NA     NA           NA     NA            NA            NA
+ViewID                 NotInSig _61 NA     NotInSig _61 NotInSig _61 NA     NA      NA         NotInSig _61 NA     NA     NA     NotInSig _61 NA     NotInSig _61  NA            NA
+Barycentrics           NA           NA     NA           NA           NA     NA      NA         NA           NA     NA     NA     NA           NA     NotPacked _61 NA            NA
+ShadingRate            NA           SV _64 NA           NA           SV _64 SV _64  NA         NA           SV _64 SV _64 SV _64 NA           SV _64 SV _64        NA            NA
+====================== ============ ====== ============ ============ ====== ======= ========== ============ ====== ====== ====== ============ ====== ============= ============= ========
 
 .. SEMINT-TABLE-RST:END
 
@@ -2248,6 +2249,9 @@ ID  Name                          Description
 159 CallShader                    Call a shader in the callable shader table supplied through the DispatchRays() API
 160 CreateHandleForLib            create resource handle from resource struct for library
 161 PrimitiveIndex                PrimitiveIndex for raytracing shaders
+162 Dot2AddHalf                   2D half dot product with accumulate to float
+163 Dot4AddI8Packed               signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32
+164 Dot4AddU8Packed               unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32
 === ============================= =======================================================================================================================================================================================================================
 
 

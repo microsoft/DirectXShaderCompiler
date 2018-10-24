@@ -129,6 +129,7 @@ public:
   void CloneDxilEntryProps(llvm::Function *F, llvm::Function *NewF);
   bool HasDxilEntryProps(const llvm::Function *F) const;
   DxilEntryProps &GetDxilEntryProps(const llvm::Function *F);
+  const DxilEntryProps &GetDxilEntryProps(const llvm::Function *F) const;
 
   // DxilFunctionProps.
   bool HasDxilFunctionProps(const llvm::Function *F) const;

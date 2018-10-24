@@ -849,6 +849,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((145 <= op && op <= 146))
     return (major > 6 || (major == 6 && minor >= 3))
         && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss || SK == DXIL::ShaderKind::Callable);
+  // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
+  if ((162 <= op && op <= 164))
+    return (major > 6 || (major == 6 && minor >= 4));
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -3491,7 +3494,7 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
           GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
         // This will need to be updated as dxil major/minor versions evolve,
         // depending on the degree of compat across versions.
-        if ((majorVer == 1 && minorVer < 4) &&
+        if ((majorVer == 1 && minorVer <= DXIL::kDxilMinor) &&
             (majorVer == ValCtx.m_DxilMajor && minorVer == ValCtx.m_DxilMinor)) {
           return;
         }
@@ -4024,6 +4027,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::GSInstanceID:
   case DXIL::SemanticKind::SampleIndex:
   case DXIL::SemanticKind::StencilRef:
+  case DXIL::SemanticKind::ShadingRate:
     if ((compKind != CompType::Kind::U32 && compKind != CompType::Kind::U16) || SE.GetCols() != 1) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "uint"});
@@ -5074,8 +5078,11 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - Library support
   // - Raytracing support
   // - i64/f64 overloads for rawBufferLoad/Store
+  // 1.4 adds:
+  // - packed u8x4/i8x4 dot with accumulate to i32
+  // - half dot2 with accumulate to float
   *pMajor = 1;
-  *pMinor = 3;
+  *pMinor = 4;
 }
 
 _Use_decl_annotations_ HRESULT
