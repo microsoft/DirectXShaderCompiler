@@ -11,13 +11,14 @@
 
 #pragma once
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilSignature.h"
-#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilSubobject.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 
 #include <memory>
@@ -148,6 +149,8 @@ public:
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
+  // Remove Subobjects from module metadata
+  void StripSubobjectsFromMetadata();
   // Update validator version metadata to current setting
   void UpdateValidatorVersionMetadata();
 
@@ -269,6 +272,11 @@ public:
 
   void SetShaderProperties(DxilFunctionProps *props);
 
+  DxilSubobjects *GetSubobjects();
+  const DxilSubobjects *GetSubobjects() const;
+  DxilSubobjects *ReleaseSubobjects();
+  void ResetSubobjects(DxilSubobjects *subobjects);
+
 private:
   // Signatures.
   std::vector<uint8_t> m_SerializedRootSignature;
@@ -327,6 +335,8 @@ private:
   bool m_bUseMinPrecision;
   bool m_bAllResourcesBound;
   uint32_t m_AutoBindingSpace;
+
+  std::unique_ptr<DxilSubobjects> m_pSubobjects;
 };
 
 } // namespace hlsl

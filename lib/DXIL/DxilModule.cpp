@@ -16,6 +16,7 @@
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/DXIL/DxilEntryProps.h"
+#include "dxc/DXIL/DxilSubobject.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -97,7 +98,9 @@ DxilModule::DxilModule(Module *pModule)
 , m_bDisableOptimizations(false)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bAllResourcesBound(false)
-, m_AutoBindingSpace(UINT_MAX) {
+, m_AutoBindingSpace(UINT_MAX)
+, m_pSubobjects(nullptr)
+{
 
   DXASSERT_NOMSG(m_pModule != nullptr);
 
@@ -998,6 +1001,26 @@ void DxilModule::StripRootSignatureFromMetadata() {
   }
 }
 
+DxilSubobjects *DxilModule::GetSubobjects() {
+  return m_pSubobjects.get();
+}
+const DxilSubobjects *DxilModule::GetSubobjects() const {
+  return m_pSubobjects.get();
+}
+DxilSubobjects *DxilModule::ReleaseSubobjects() {
+  return m_pSubobjects.release();
+}
+void DxilModule::ResetSubobjects(DxilSubobjects *subobjects) {
+  m_pSubobjects.reset(subobjects);
+}
+
+void DxilModule::StripSubobjectsFromMetadata() {
+  NamedMDNode *pSubobjectsNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilSubobjectsMDName);
+  if (pSubobjectsNamedMD) {
+    GetModule()->eraseNamedMetadata(pSubobjectsNamedMD);
+  }
+}
+
 void DxilModule::UpdateValidatorVersionMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
 }
@@ -1102,6 +1125,7 @@ void DxilModule::ClearDxilMetadata(Module &M) {
       name == DxilMDHelper::kDxilResourcesMDName ||
       name == DxilMDHelper::kDxilTypeSystemMDName ||
       name == DxilMDHelper::kDxilViewIdStateMDName ||
+      name == DxilMDHelper::kDxilSubobjectsMDName ||
       name.startswith(DxilMDHelper::kDxilTypeSystemHelperVariablePrefix)) {
       nodes.push_back(&b);
     }
@@ -1172,6 +1196,11 @@ void DxilModule::EmitDxilMetadata() {
       Entries.emplace_back(pSubEntry);
     }
     funcOrder.clear();
+
+    // Save Subobjects
+    if (GetSubobjects()) {
+      m_pMDHelper->EmitSubobjects(*GetSubobjects());
+    }
   }
   m_pMDHelper->EmitDxilEntryPoints(Entries);
 
@@ -1257,6 +1286,13 @@ void DxilModule::LoadDxilMetadata() {
       m_pMDHelper->LoadDxilSignatures(*pSignatures, pEntryProps->sig);
 
       m_DxilEntryPropsMap[pFunc] = std::move(pEntryProps);
+    }
+
+    // Load Subobjects
+    std::unique_ptr<DxilSubobjects> pSubobjects(new DxilSubobjects());
+    m_pMDHelper->LoadSubobjects(*pSubobjects);
+    if (pSubobjects->GetSubobjects().size()) {
+      ResetSubobjects(pSubobjects.release());
     }
   } else {
     std::unique_ptr<DxilEntryProps> pEntryProps =

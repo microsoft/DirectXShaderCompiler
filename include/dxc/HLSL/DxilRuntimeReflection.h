@@ -30,17 +30,19 @@ namespace RDAT {
 //    - else if part.Type is Index:
 //      uint32_t IndexData[part.Size / 4];
 
-enum class RuntimeDataPartType : uint32_t { // TODO: Rename: PartType
-  Invalid = 0,
-  StringBuffer = 1,
-  IndexArrays = 2,
-  ResourceTable = 3,
-  FunctionTable = 4,
+enum class RuntimeDataPartType : uint32_t {
+  Invalid         = 0,
+  StringBuffer    = 1,
+  IndexArrays     = 2,
+  ResourceTable   = 3,
+  FunctionTable   = 4,
+  RawBytes        = 5,
+  SubobjectTable  = 6,
 };
 
 enum RuntimeDataVersion {
   // Cannot be mistaken for part count from prerelease version
-  RDAT_Version_0 = 0x10,
+  RDAT_Version_10 = 0x10,
 };
 
 struct RuntimeDataHeader {
@@ -165,7 +167,7 @@ struct RuntimeDataFunctionInfo {
   uint32_t FunctionDependencies; // index to a list of functions that function
                                  // depends on
   uint32_t ShaderKind;
-  uint32_t PayloadSizeInBytes;   // 1) hit, miss, or closest shader: payload count
+  uint32_t PayloadSizeInBytes;   // 1) any/closest hit or miss shader: payload size
                                  // 2) call shader: parameter size 
   uint32_t AttributeSizeInBytes; // attribute size for closest hit and any hit
   uint32_t FeatureInfo1;         // first 32 bits of feature flag
@@ -174,14 +176,70 @@ struct RuntimeDataFunctionInfo {
   uint32_t MinShaderTarget;      // minimum shader target.
 };
 
+class RawBytesReader {
+  const void *m_table;
+  uint32_t m_size;
+public:
+  RawBytesReader() : m_table(nullptr), m_size(0) {}
+  RawBytesReader(const void *table, uint32_t size)
+      : m_table(table), m_size(size) {}
+  const void *Get(uint32_t offset) const {
+    _Analysis_assume_(offset < m_size && m_table);
+    return (const void*)(((const char*)m_table) + offset);
+  }
+};
+
+struct RuntimeDataSubobjectInfo {
+  uint32_t Kind;
+  uint32_t Name;
+
+  struct StateObjectConfig_t {
+    uint32_t Flags;
+  };
+  struct RootSignature_t {
+    uint32_t RawBytesOffset;
+    uint32_t SizeInBytes;
+  };
+  struct SubobjectToExportsAssociation_t {
+    uint32_t Subobject;       // string table offset for name of subobject
+    uint32_t Exports;         // index table offset for array of string table offsets for export names
+  };
+  struct RaytracingShaderConfig_t {
+    uint32_t MaxPayloadSizeInBytes;
+    uint32_t MaxAttributeSizeInBytes;
+  };
+  struct RaytracingPipelineConfig_t {
+    uint32_t MaxTraceRecursionDepth;
+  };
+  struct HitGroup_t {
+    // each is a string table offset for the shader name
+    // 0 points to empty name, indicating no shader.
+    uint32_t Intersection;
+    uint32_t AnyHit;
+    uint32_t ClosestHit;
+  };
+
+  union {
+    StateObjectConfig_t StateObjectConfig;
+    RootSignature_t RootSignature;
+    SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
+    RaytracingShaderConfig_t RaytracingShaderConfig;
+    RaytracingPipelineConfig_t RaytracingPipelineConfig;
+    HitGroup_t HitGroup;
+  };
+};
+
 class ResourceTableReader;
 class FunctionTableReader;
+class SubobjectTableReader;
 
 struct RuntimeDataContext {
   StringTableReader *pStringTableReader;
   IndexTableReader *pIndexTableReader;
+  RawBytesReader *pRawBytesReader;
   ResourceTableReader *pResourceTableReader;
   FunctionTableReader *pFunctionTableReader;
+  SubobjectTableReader *pSubobjectTableReader;
 };
 
 class ResourceReader {
@@ -379,20 +437,132 @@ public:
 class FunctionTableReader {
 private:
   TableReader m_Table;
-  RuntimeDataContext *m_context;
+  RuntimeDataContext *m_Context;
 
 public:
-  FunctionTableReader() : m_context(nullptr) {}
+  FunctionTableReader() : m_Context(nullptr) {}
 
   FunctionReader GetItem(uint32_t i) const {
-    return FunctionReader(m_Table.Row<RuntimeDataFunctionInfo>(i), m_context);
+    return FunctionReader(m_Table.Row<RuntimeDataFunctionInfo>(i), m_Context);
   }
   uint32_t GetNumFunctions() const { return m_Table.Count(); }
 
   void SetFunctionInfo(const char *ptr, uint32_t count, uint32_t recordStride) {
     m_Table.Init(ptr, count, recordStride);
   }
-  void SetContext(RuntimeDataContext *context) { m_context = context; }
+  void SetContext(RuntimeDataContext *context) { m_Context = context; }
+};
+
+class SubobjectReader {
+private:
+  const RuntimeDataSubobjectInfo *m_SubobjectInfo;
+  RuntimeDataContext *m_Context;
+
+public:
+  SubobjectReader(const RuntimeDataSubobjectInfo *info, RuntimeDataContext *context)
+    : m_SubobjectInfo(info), m_Context(context) {}
+
+  DXIL::SubobjectKind GetKind() const {
+    return m_SubobjectInfo ? (DXIL::SubobjectKind)(m_SubobjectInfo->Kind) :
+                             (DXIL::SubobjectKind)(-1);
+  }
+  const char *GetName() const {
+    return m_SubobjectInfo && m_SubobjectInfo->Name ?
+      m_Context->pStringTableReader->Get(m_SubobjectInfo->Name) : "";
+  }
+
+  // StateObjectConfig
+  uint32_t GetStateObjectConfig_Flags() const {
+    return (GetKind() == DXIL::SubobjectKind::StateObjectConfig) ?
+      m_SubobjectInfo->StateObjectConfig.Flags : (uint32_t)0;
+  }
+
+  // [Global|Local]RootSignature
+  // returns true if valid non-zero-length buffer found and set to output params
+  bool GetRootSignature(const void **ppOutBytes, uint32_t *pOutSizeInBytes) const {
+    if (!ppOutBytes || !pOutSizeInBytes)
+      return false;
+    if (m_SubobjectInfo &&
+        ( GetKind() == DXIL::SubobjectKind::GlobalRootSignature ||
+          GetKind() == DXIL::SubobjectKind::LocalRootSignature ) &&
+        m_SubobjectInfo->RootSignature.SizeInBytes > 0) {
+      *ppOutBytes = m_Context->pRawBytesReader->Get(m_SubobjectInfo->RootSignature.RawBytesOffset);
+      *pOutSizeInBytes = m_SubobjectInfo->RootSignature.SizeInBytes;
+      return true;
+    } else {
+      *ppOutBytes = nullptr;
+      *pOutSizeInBytes = 0;
+    }
+    return false;
+  }
+
+  // SubobjectToExportsAssociation
+  const char *GetSubobjectToExportsAssociation_Subobject() const {
+    return (GetKind() == DXIL::SubobjectKind::SubobjectToExportsAssociation) ?
+      m_Context->pStringTableReader->Get(m_SubobjectInfo->SubobjectToExportsAssociation.Subobject) : "";
+  }
+  uint32_t GetSubobjectToExportsAssociation_NumExports() const {
+    return (GetKind() == DXIL::SubobjectKind::SubobjectToExportsAssociation) ?
+      m_Context->pIndexTableReader->getRow(m_SubobjectInfo->SubobjectToExportsAssociation.Exports).Count() : 0;
+  }
+  const char *GetSubobjectToExportsAssociation_Export(uint32_t index) const {
+    if (!(GetKind() == DXIL::SubobjectKind::SubobjectToExportsAssociation))
+      return "";
+    auto row = m_Context->pIndexTableReader->getRow(
+      m_SubobjectInfo->SubobjectToExportsAssociation.Exports);
+    if (index >= row.Count())
+      return "";
+    return m_Context->pStringTableReader->Get(row.At(index));
+  }
+
+  // RaytracingShaderConfig
+  uint32_t GetRaytracingShaderConfig_MaxPayloadSizeInBytes() const {
+    return (GetKind() == DXIL::SubobjectKind::RaytracingShaderConfig) ?
+      m_SubobjectInfo->RaytracingShaderConfig.MaxPayloadSizeInBytes : 0;
+  }
+  uint32_t GetRaytracingShaderConfig_MaxAttributeSizeInBytes() const {
+    return (GetKind() == DXIL::SubobjectKind::RaytracingShaderConfig) ?
+      m_SubobjectInfo->RaytracingShaderConfig.MaxAttributeSizeInBytes : 0;
+  }
+
+  // RaytracingPipelineConfig
+  uint32_t GetRaytracingPipelineConfig_MaxTraceRecursionDepth() const {
+    return (GetKind() == DXIL::SubobjectKind::RaytracingPipelineConfig) ?
+      m_SubobjectInfo->RaytracingPipelineConfig.MaxTraceRecursionDepth : 0;
+  }
+
+  // HitGroup
+  const char *GetHitGroup_Intersection() const {
+    return (GetKind() == DXIL::SubobjectKind::HitGroup) ?
+      m_Context->pStringTableReader->Get(m_SubobjectInfo->HitGroup.Intersection) : "";
+  }
+  const char *GetHitGroup_AnyHit() const {
+    return (GetKind() == DXIL::SubobjectKind::HitGroup) ?
+      m_Context->pStringTableReader->Get(m_SubobjectInfo->HitGroup.AnyHit) : "";
+  }
+  const char *GetHitGroup_ClosestHit() const {
+    return (GetKind() == DXIL::SubobjectKind::HitGroup) ?
+      m_Context->pStringTableReader->Get(m_SubobjectInfo->HitGroup.ClosestHit) : "";
+  }
+};
+
+class SubobjectTableReader {
+private:
+  TableReader m_Table;
+  RuntimeDataContext *m_Context;
+
+public:
+  SubobjectTableReader() : m_Context(nullptr) {}
+
+  void SetContext(RuntimeDataContext *context) { m_Context = context; }
+  void SetSubobjectInfo(const char *ptr, uint32_t count, uint32_t recordStride) {
+    m_Table.Init(ptr, count, recordStride);
+  }
+
+  uint32_t GetCount() const { return m_Table.Count(); }
+  SubobjectReader GetItem(uint32_t i) const {
+    return SubobjectReader(m_Table.Row<RuntimeDataSubobjectInfo>(i), m_Context);
+  }
 };
 
 class DxilRuntimeData {
@@ -400,8 +570,10 @@ private:
   uint32_t m_TableCount;
   StringTableReader m_StringReader;
   IndexTableReader m_IndexTableReader;
+  RawBytesReader m_RawBytesReader;
   ResourceTableReader m_ResourceTableReader;
   FunctionTableReader m_FunctionTableReader;
+  SubobjectTableReader m_SubobjectTableReader;
   RuntimeDataContext m_Context;
 
 public:
@@ -413,12 +585,13 @@ public:
   bool InitFromRDAT_Prerelease(const void *pRDAT, size_t size);
   FunctionTableReader *GetFunctionTableReader();
   ResourceTableReader *GetResourceTableReader();
+  SubobjectTableReader *GetSubobjectTableReader();
 };
 
 //////////////////////////////////
 /// structures for library runtime
 
-typedef struct DxilResourceDesc {
+struct DxilResourceDesc {
   uint32_t Class; // hlsl::DXIL::ResourceClass
   uint32_t Kind;  // hlsl::DXIL::ResourceKind
   uint32_t ID;    // id per class
@@ -427,9 +600,9 @@ typedef struct DxilResourceDesc {
   uint32_t LowerBound;
   LPCWSTR Name;
   uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
-} DxilResourceDesc;
+};
 
-typedef struct DxilFunctionDesc {
+struct DxilFunctionDesc {
   LPCWSTR Name;
   LPCWSTR UnmangledName;
   uint32_t NumResources;
@@ -444,19 +617,55 @@ typedef struct DxilFunctionDesc {
   uint32_t FeatureInfo2;         // second 32 bits of feature flag
   uint32_t ShaderStageFlag;      // valid shader stage flag.
   uint32_t MinShaderTarget;      // minimum shader target.
-} DxilFunctionDesc;
+};
 
-typedef struct DxilSubobjectDesc {
-} DxilSubobjectDesc;
+struct DxilSubobjectDesc {
+  uint32_t Kind;        // DXIL::SubobjectKind / D3D12_STATE_SUBOBJECT_TYPE
+  LPCWSTR Name;
 
-typedef struct DxilLibraryDesc {
+  struct StateObjectConfig_t {
+    uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
+  };
+  struct RootSignature_t {
+    LPCVOID pSerializedSignature;
+    uint32_t SizeInBytes;
+  };    // GlobalRootSignature or LocalRootSignature
+  struct SubobjectToExportsAssociation_t {
+    LPCWSTR Subobject;
+    uint32_t NumExports;
+    const LPCWSTR* Exports;
+  };
+  struct RaytracingShaderConfig_t {
+    uint32_t MaxPayloadSizeInBytes;
+    uint32_t MaxAttributeSizeInBytes;
+  };
+  struct RaytracingPipelineConfig_t {
+    uint32_t MaxTraceRecursionDepth;
+  };
+  struct HitGroup_t {
+    LPCWSTR Intersection;
+    LPCWSTR AnyHit;
+    LPCWSTR ClosestHit;
+  };
+
+  union {
+    StateObjectConfig_t StateObjectConfig;
+    RootSignature_t RootSignature;    // GlobalRootSignature or LocalRootSignature
+    SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
+    RaytracingShaderConfig_t RaytracingShaderConfig;
+    RaytracingPipelineConfig_t RaytracingPipelineConfig;
+    HitGroup_t HitGroup;
+  };
+};
+
+struct DxilLibraryDesc {
   uint32_t NumFunctions;
   DxilFunctionDesc *pFunction;
   uint32_t NumResources;
   DxilResourceDesc *pResource;
   uint32_t NumSubobjects;
   DxilSubobjectDesc *pSubobjects;
-} DxilLibraryDesc;
+};
 
 class DxilRuntimeReflection {
 public:

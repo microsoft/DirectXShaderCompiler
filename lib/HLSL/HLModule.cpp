@@ -50,7 +50,12 @@ HLModule::HLModule(Module *pModule)
     , m_pSM(nullptr)
     , m_DxilMajor(DXIL::kDxilMajor)
     , m_DxilMinor(DXIL::kDxilMinor)
+    , m_ValMajor(0)
+    , m_ValMinor(0)
+    , m_Float32DenormMode(DXIL::Float32DenormMode::Any)
     , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
+    , m_AutoBindingSpace(UINT_MAX)
+    , m_DefaultLinkage(DXIL::DefaultLinkage::Default)
     , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule)) {
   DXASSERT_NOMSG(m_pModule != nullptr);
 
@@ -479,6 +484,11 @@ void HLModule::EmitHLMetadata() {
   if (!m_SerializedRootSignature.empty()) {
     m_pMDHelper->EmitRootSignature(m_SerializedRootSignature);
   }
+
+  // Save Subobjects
+  if (GetSubobjects()) {
+    m_pMDHelper->EmitSubobjects(*GetSubobjects());
+  }
 }
 
 void HLModule::LoadHLMetadata() {
@@ -533,6 +543,13 @@ void HLModule::LoadHLMetadata() {
   }
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
+
+  // Load Subobjects
+  std::unique_ptr<DxilSubobjects> pSubobjects(new DxilSubobjects());
+  m_pMDHelper->LoadSubobjects(*pSubobjects);
+  if (pSubobjects->GetSubobjects().size()) {
+    ResetSubobjects(pSubobjects.release());
+  }
 }
 
 void HLModule::ClearHLMetadata(llvm::Module &M) {
@@ -1235,6 +1252,24 @@ DebugInfoFinder &HLModule::GetOrCreateDebugInfoFinder() {
   }
   return *m_pDebugInfoFinder;
 }
+
+//------------------------------------------------------------------------------
+//
+// Subobject methods.
+//
+DxilSubobjects *HLModule::GetSubobjects() {
+  return m_pSubobjects.get();
+}
+const DxilSubobjects *HLModule::GetSubobjects() const {
+  return m_pSubobjects.get();
+}
+DxilSubobjects *HLModule::ReleaseSubobjects() {
+  return m_pSubobjects.release();
+}
+void HLModule::ResetSubobjects(DxilSubobjects *subobjects) {
+  m_pSubobjects.reset(subobjects);
+}
+
 //------------------------------------------------------------------------------
 //
 // Signature methods.
