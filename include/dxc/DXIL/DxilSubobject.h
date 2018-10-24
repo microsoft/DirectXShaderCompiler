@@ -67,30 +67,37 @@ private:
 
   std::vector<const char*> m_Exports;
 
+  struct StateObjectConfig_t {
+    uint32_t Flags;   // DXIL::StateObjectFlags
+  };
+  struct RootSignature_t {
+    uint32_t Size;
+    const void *Data;
+  };
+  struct SubobjectToExportsAssociation_t {
+    const char *Subobject;
+    // see m_Exports for export list
+  };
+  struct RaytracingShaderConfig_t {
+    uint32_t MaxPayloadSizeInBytes;
+    uint32_t MaxAttributeSizeInBytes;
+  };
+  struct RaytracingPipelineConfig_t {
+    uint32_t MaxTraceRecursionDepth;
+  };
+  struct HitGroup_t {
+    const char *Intersection;
+    const char *AnyHit;
+    const char *ClosestHit;
+  };
+
   union {
-    struct {
-      uint32_t Flags;   // DXIL::StateObjectFlags
-    } StateObjectConfig;
-    struct {
-      uint32_t Size;
-      const void *Data;
-    } RootSignature;
-    struct {
-      const char *Subobject;
-      // see m_Exports for export list
-    } SubobjectToExportsAssociation;
-    struct {
-      uint32_t MaxPayloadSizeInBytes;
-      uint32_t MaxAttributeSizeInBytes;
-    } RaytracingShaderConfig;
-    struct {
-      uint32_t MaxTraceRecursionDepth;
-    } RaytracingPipelineConfig;
-    struct {
-      const char *Intersection;
-      const char *AnyHit;
-      const char *ClosestHit;
-    } HitGroup;
+    StateObjectConfig_t StateObjectConfig;
+    RootSignature_t RootSignature;
+    SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
+    RaytracingShaderConfig_t RaytracingShaderConfig;
+    RaytracingPipelineConfig_t RaytracingPipelineConfig;
+    HitGroup_t HitGroup;
   };
 
   friend class DxilSubobjects;

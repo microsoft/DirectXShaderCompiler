@@ -192,32 +192,40 @@ public:
 struct RuntimeDataSubobjectInfo {
   uint32_t Kind;
   uint32_t Name;
+
+  struct StateObjectConfig_t {
+    uint32_t Flags;
+  };
+  struct RootSignature_t {
+    uint32_t RawBytesOffset;
+    uint32_t SizeInBytes;
+  };
+  struct SubobjectToExportsAssociation_t {
+    uint32_t Subobject;       // string table offset for name of subobject
+    uint32_t Exports;         // index table offset for array of string table offsets for export names
+  };
+  struct RaytracingShaderConfig_t {
+    uint32_t MaxPayloadSizeInBytes;
+    uint32_t MaxAttributeSizeInBytes;
+  };
+  struct RaytracingPipelineConfig_t {
+    uint32_t MaxTraceRecursionDepth;
+  };
+  struct HitGroup_t {
+    // each is a string table offset for the shader name
+    // 0 points to empty name, indicating no shader.
+    uint32_t Intersection;
+    uint32_t AnyHit;
+    uint32_t ClosestHit;
+  };
+
   union {
-    struct {
-      uint32_t Flags;
-    } StateObjectConfig;
-    struct {
-      uint32_t RawBytesOffset;
-      uint32_t SizeInBytes;
-    } RootSignature;
-    struct {
-      uint32_t Subobject;       // string table offset for name of subobject
-      uint32_t Exports;         // index table offset for array of string table offsets for export names
-    } SubobjectToExportsAssociation;
-    struct {
-      uint32_t MaxPayloadSizeInBytes;
-      uint32_t MaxAttributeSizeInBytes;
-    } RaytracingShaderConfig;
-    struct {
-      uint32_t MaxTraceRecursionDepth;
-    } RaytracingPipelineConfig;
-    struct {
-      // each is a string table offset for the shader name
-      // 0 points to empty name, indicating no shader.
-      uint32_t Intersection;
-      uint32_t AnyHit;
-      uint32_t ClosestHit;
-    } HitGroup;
+    StateObjectConfig_t StateObjectConfig;
+    RootSignature_t RootSignature;
+    SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
+    RaytracingShaderConfig_t RaytracingShaderConfig;
+    RaytracingPipelineConfig_t RaytracingPipelineConfig;
+    HitGroup_t HitGroup;
   };
 };
 
@@ -583,7 +591,7 @@ public:
 //////////////////////////////////
 /// structures for library runtime
 
-typedef struct DxilResourceDesc {
+struct DxilResourceDesc {
   uint32_t Class; // hlsl::DXIL::ResourceClass
   uint32_t Kind;  // hlsl::DXIL::ResourceKind
   uint32_t ID;    // id per class
@@ -592,9 +600,9 @@ typedef struct DxilResourceDesc {
   uint32_t LowerBound;
   LPCWSTR Name;
   uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
-} DxilResourceDesc;
+};
 
-typedef struct DxilFunctionDesc {
+struct DxilFunctionDesc {
   LPCWSTR Name;
   LPCWSTR UnmangledName;
   uint32_t NumResources;
@@ -609,47 +617,55 @@ typedef struct DxilFunctionDesc {
   uint32_t FeatureInfo2;         // second 32 bits of feature flag
   uint32_t ShaderStageFlag;      // valid shader stage flag.
   uint32_t MinShaderTarget;      // minimum shader target.
-} DxilFunctionDesc;
+};
 
-typedef struct DxilSubobjectDesc {
+struct DxilSubobjectDesc {
   uint32_t Kind;        // DXIL::SubobjectKind / D3D12_STATE_SUBOBJECT_TYPE
   LPCWSTR Name;
-  union {
-    struct {
-      uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
-    } StateObjectConfig;
-    struct {
-      LPCVOID pSerializedSignature;
-      uint32_t SizeInBytes;
-    } RootSignature;    // GlobalRootSignature or LocalRootSignature
-    struct {
-      LPCWSTR Subobject;
-      uint32_t NumExports;
-      const LPCWSTR* Exports;
-    } SubobjectToExportsAssociation;
-    struct {
-      uint32_t MaxPayloadSizeInBytes;
-      uint32_t MaxAttributeSizeInBytes;
-    } RaytracingShaderConfig;
-    struct {
-      uint32_t MaxTraceRecursionDepth;
-    } RaytracingPipelineConfig;
-    struct {
-      LPCWSTR Intersection;
-      LPCWSTR AnyHit;
-      LPCWSTR ClosestHit;
-    } HitGroup;
-  };
-} DxilSubobjectDesc;
 
-typedef struct DxilLibraryDesc {
+  struct StateObjectConfig_t {
+    uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
+  };
+  struct RootSignature_t {
+    LPCVOID pSerializedSignature;
+    uint32_t SizeInBytes;
+  };    // GlobalRootSignature or LocalRootSignature
+  struct SubobjectToExportsAssociation_t {
+    LPCWSTR Subobject;
+    uint32_t NumExports;
+    const LPCWSTR* Exports;
+  };
+  struct RaytracingShaderConfig_t {
+    uint32_t MaxPayloadSizeInBytes;
+    uint32_t MaxAttributeSizeInBytes;
+  };
+  struct RaytracingPipelineConfig_t {
+    uint32_t MaxTraceRecursionDepth;
+  };
+  struct HitGroup_t {
+    LPCWSTR Intersection;
+    LPCWSTR AnyHit;
+    LPCWSTR ClosestHit;
+  };
+
+  union {
+    StateObjectConfig_t StateObjectConfig;
+    RootSignature_t RootSignature;    // GlobalRootSignature or LocalRootSignature
+    SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
+    RaytracingShaderConfig_t RaytracingShaderConfig;
+    RaytracingPipelineConfig_t RaytracingPipelineConfig;
+    HitGroup_t HitGroup;
+  };
+};
+
+struct DxilLibraryDesc {
   uint32_t NumFunctions;
   DxilFunctionDesc *pFunction;
   uint32_t NumResources;
   DxilResourceDesc *pResource;
   uint32_t NumSubobjects;
   DxilSubobjectDesc *pSubobjects;
-} DxilLibraryDesc;
+};
 
 class DxilRuntimeReflection {
 public:
