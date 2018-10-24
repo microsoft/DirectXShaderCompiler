@@ -11061,6 +11061,56 @@ void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
         D.UnusualAnnotations.size()));
     D.UnusualAnnotations.clear();
   }
+  // pragma pack_matrix.
+  // Do this for struct member also.
+  if (ValueDecl *VD = dyn_cast<ValueDecl>(NewDecl)) {
+    QualType Ty = VD->getType();
+    QualType EltTy = Ty;
+    while (EltTy->isArrayType()) {
+      EltTy = EltTy->getAsArrayTypeUnsafe()->getElementType();
+    }
+    if (hlsl::IsHLSLMatType(EltTy)) {
+      bool bRowMajor = false;
+      if (!hlsl::HasHLSLMatOrientation(EltTy, &bRowMajor)) {
+        if (PackMatrixColMajorPragmaOn || PackMatrixRowMajorPragmaOn) {
+          // Add major.
+          QualType NewEltTy = Context.getAttributedType(
+              PackMatrixRowMajorPragmaOn
+                  ? AttributedType::attr_hlsl_row_major
+                  : AttributedType::attr_hlsl_column_major,
+              EltTy, EltTy);
+
+          QualType NewTy = NewEltTy;
+          if (Ty->isArrayType()) {
+            // Build new array type.
+            SmallVector<const ArrayType *, 2> arrayTys;
+            while (EltTy->isArrayType()) {
+              const ArrayType *AT = EltTy->getAsArrayTypeUnsafe();
+              arrayTys.emplace_back(AT);
+            }
+            for (auto rit = arrayTys.rbegin(); rit != arrayTys.rend(); rit++) {
+              // Create array type with NewTy.
+              const ArrayType *AT = *rit;
+              if (const ConstantArrayType *CAT =
+                      dyn_cast<ConstantArrayType>(AT)) {
+                NewTy = Context.getConstantArrayType(
+                    NewTy, CAT->getSize(), CAT->getSizeModifier(),
+                    CAT->getIndexTypeCVRQualifiers());
+              } else if (const IncompleteArrayType *IAT =
+                             dyn_cast<IncompleteArrayType>(AT)) {
+                NewTy = Context.getIncompleteArrayType(NewTy, IAT->getSizeModifier(),
+                    IAT->getIndexTypeCVRQualifiers());
+              } else {
+                DXASSERT(false, "");
+              }
+            }
+          }
+          // Update Type.
+          VD->setType(NewTy);
+        }
+      }
+    }
+  }
 }
 
 /// Checks whether a usage attribute is compatible with those seen so far and

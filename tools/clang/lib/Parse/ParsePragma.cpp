@@ -156,6 +156,15 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+struct PragmaPackMatrixHandler : public PragmaHandler {
+  PragmaPackMatrixHandler(Sema &S) : PragmaHandler("pack_matrix"), Actions(S) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &FirstToken) override;
+
+private:
+  Sema &Actions;
+};
+
 }  // end namespace
 
 void Parser::initializePragmaHandlers() {
@@ -240,6 +249,12 @@ void Parser::initializePragmaHandlers() {
   NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
   } // HLSL Change, matching HLSL check to remove pragma processing
+  else {
+    // HLSL Change Begin - packmatrix.
+    PackMatrixHandler.reset(new PragmaPackMatrixHandler(Actions));
+    PP.AddPragmaHandler(PackMatrixHandler.get());
+    // HLSL Change End.
+  }
 }
 
 void Parser::resetPragmaHandlers() {
@@ -311,6 +326,12 @@ void Parser::resetPragmaHandlers() {
   PP.RemovePragmaHandler(NoUnrollHintHandler.get());
   NoUnrollHintHandler.reset();
   } // HLSL Change - close conditional for skipping pragmas
+  else {
+    // HLSL Change Begin - packmatrix.
+    PP.RemovePragmaHandler(PackMatrixHandler.get());
+    PackMatrixHandler.reset();
+    // HLSL Change End.
+  }
 }
 
 /// \brief Handle the annotation token produced for #pragma unused(...)
@@ -2165,3 +2186,48 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
   PP.EnterTokenStream(TokenArray, 1, /*DisableMacroExpansion=*/false,
                       /*OwnsTokens=*/true);
 }
+
+// HLSL Change Begin - pack_matrix
+/// \brief Handle the pack_matrix pragmas.
+///  #pragma pack_matrix(row_major)
+///  #pragma pack_matrix(column_major)
+///
+void PragmaPackMatrixHandler::HandlePragma(Preprocessor &PP,
+                                           PragmaIntroducerKind Introducer,
+                                           Token &Tok) {
+  assert(PP.getLangOpts().HLSL && "only supported in HLSL");
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (!Tok.is(tok::l_paren)) {
+    PP.Diag(Tok, diag::err_expected) << tok::l_brace;
+    return;
+  }
+
+  PP.Lex(Tok);
+  Token PragmaArg = Tok;
+  bool bRowMajor = false;
+  if (Tok.is(tok::kw_row_major)) {
+    bRowMajor = true;
+  }
+  else if (Tok.isNot(tok::kw_column_major)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_invalid_keyword);
+    return;
+  }
+  // Make sure pragma finish correctly.
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::r_paren)) {
+    PP.Diag(Tok, diag::err_expected) << tok::r_brace;
+    return;
+  }
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol);
+    return;
+  }
+  // Note: to make things easy, pack_matrix will modify ast type directly in
+  // Sema::TransferUnusualAttributes.
+  // Another solution is create ast node for pack_matrix, and take care it at
+  // clang codegen.
+  Actions.ActOnPragmaPackMatrix(bRowMajor, PragmaArg.getLocation());
+}
+// HLSL Change End.
