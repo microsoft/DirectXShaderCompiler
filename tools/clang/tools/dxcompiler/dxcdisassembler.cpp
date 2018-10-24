@@ -592,9 +592,9 @@ static const char *SubobjectKindToString(DXIL::SubobjectKind kind) {
 static const char *FlagToString(DXIL::StateObjectFlags Flag) {
   switch (Flag) {
   case DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions:
-    return "AllowLocalDependenciesOnExternalDefinitions";
+    return "STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS";
   case DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions:
-    return "AllowExternalDependenciesOnLocalDefinitions";
+    return "STATE_OBJECT_FLAG_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS";
   }
   return "<invalid StateObjectFlag>";
 }
@@ -684,7 +684,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
         break;
       }
       OS << "MaxPayloadSizeInBytes = " << MaxPayloadSizeInBytes
-         << "MaxAttributeSizeInBytes = " << MaxAttributeSizeInBytes;
+         << ", MaxAttributeSizeInBytes = " << MaxAttributeSizeInBytes;
       break;
     }
     case DXIL::SubobjectKind::RaytracingPipelineConfig: {
