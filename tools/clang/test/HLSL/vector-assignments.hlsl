@@ -44,6 +44,10 @@ float3 f3_f2_f = { f2_all, 0.1f };
 // fxc error: error X3017: 'f3_f2_f_f': initializer does not match type
 float3 f3_f2_f_f = { f2_all, 0.1f, 0.2f }; // expected-error {{too many elements in vector initialization (expected 3 elements, have 4)}} fxc-error {{X3017: 'f3_f2_f_f': initializer does not match type}}
 
+// Initialization list with invalid types.
+Texture2D t;
+float2 f2err = { t, 0.1f };                /* expected-error {{type mismatch}} fxc-pass {{}} */
+
 // Constructor with wrong element count fails.
 // fxc error: error X3014: incorrect number of arguments to numeric-type constructor
 float2 f2c = float2(); // expected-error {{'float2' cannot have an explicit empty initializer}} fxc-error {{X3014: incorrect number of arguments to numeric-type constructor}}
