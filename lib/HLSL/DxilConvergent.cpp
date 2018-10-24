@@ -81,6 +81,8 @@ private:
   Value *FindConvergentOperand(Instruction *I);
   bool PropagateConvergent(Value *V, Function *F,
                            DominatorTreeBase<BasicBlock> &PostDom);
+  bool PropagateConvergentImpl(Value *V, Function *F,
+                           DominatorTreeBase<BasicBlock> &PostDom, std::set<Value*>& visited);
 };
 
 char DxilConvergentMark::ID = 0;
@@ -122,6 +124,17 @@ void DxilConvergentMark::MarkConvergent(Value *V, IRBuilder<> &Builder,
 
 bool DxilConvergentMark::PropagateConvergent(
     Value *V, Function *F, DominatorTreeBase<BasicBlock> &PostDom) {
+  std::set<Value *> visited;
+  return PropagateConvergentImpl(V, F, PostDom, visited);
+}
+
+bool DxilConvergentMark::PropagateConvergentImpl(Value *V, Function *F,
+  DominatorTreeBase<BasicBlock> &PostDom, std::set<Value*>& visited) {
+  // Don't go through already visted nodes
+  if (visited.find(V) != visited.end())
+    return false;
+  // Mark as visited
+  visited.insert(V);
   // Skip constant.
   if (isa<Constant>(V))
     return false;
@@ -137,7 +150,7 @@ bool DxilConvergentMark::PropagateConvergent(
     } else {
       // Propagete to each operand of I.
       for (Use &U : I->operands()) {
-        PropagateConvergent(U.get(), F, PostDom);
+        PropagateConvergentImpl(U.get(), F, PostDom, visited);
       }
       // return true for report warning.
       // TODO: static indexing cbuffer is fine.
