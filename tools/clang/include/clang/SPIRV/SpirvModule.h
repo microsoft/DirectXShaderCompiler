@@ -69,7 +69,7 @@ public:
   void addExecutionMode(SpirvExecutionMode *);
 
   // Adds an extension to the module.
-  void addExtension(SpirvExtension*);
+  void addExtension(SpirvExtension *);
 
   // Adds an extended instruction set to the module.
   void addExtInstSet(SpirvExtInstImport *);
@@ -87,9 +87,10 @@ public:
   void setShaderModelVersion(uint32_t v) { shaderModelVersion = v; }
   void setSourceFileName(llvm::StringRef name) { sourceFileName = name; }
   void setSourceFileContent(llvm::StringRef c) { sourceFileContent = c; }
+  void setBound(uint32_t b) { bound = b; }
 
 private:
-  uint32_t bound; ///< The <result-id> bound: the next unused one
+  uint32_t bound;
   uint32_t shaderModelVersion;
 
   // "Metadata" instructions

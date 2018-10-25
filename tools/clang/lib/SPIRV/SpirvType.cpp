@@ -37,9 +37,10 @@ bool MatrixType::operator==(const MatrixType &that) const {
          isRowMajor == that.isRowMajor;
 }
 
-ImageType::ImageType(const NumericalType *type, spv::Dim dim, bool arrayed,
-                     bool ms, WithSampler sampled, spv::ImageFormat format)
-    : SpirvType(TK_Image), sampledType(type), dimension(dim),
+ImageType::ImageType(const NumericalType *type, spv::Dim dim, WithDepth depth,
+                     bool arrayed, bool ms, WithSampler sampled,
+                     spv::ImageFormat format)
+    : SpirvType(TK_Image), sampledType(type), dimension(dim), imageDepth(depth),
       isArrayed(arrayed), isMultiSampled(ms), isSampled(sampled),
       imageFormat(format) {}
 
