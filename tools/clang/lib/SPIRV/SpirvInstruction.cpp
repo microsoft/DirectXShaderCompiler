@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
-#include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "clang/SPIRV/String.h"
 
@@ -83,7 +83,9 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 
 SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType type,
                                    uint32_t id, SourceLocation loc)
-    : kind(k), opcode(op), resultType(type), resultId(id), srcLoc(loc) {}
+    : kind(k), opcode(op), astResultType(type), resultId(id), srcLoc(loc),
+      debugName(), resultType(nullptr), resultTypeId(0),
+      layoutRule(SpirvLayoutRule::Void) {}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
     : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(),
@@ -156,11 +158,11 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::ArrayRef<uint32_t> p,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration,
-                       index.hasValue() ? spv::Op::OpMemberDecorate
-                                        : spv::Op::OpDecorate,
+                       idx.hasValue() ? spv::Op::OpMemberDecorate
+                                      : spv::Op::OpDecorate,
                        /*type*/ {}, /*id*/ 0, loc),
-      target(targetInst), decoration(decor), params(p.begin(), p.end()),
-      index(idx) {}
+      target(targetInst), decoration(decor), index(idx),
+      params(p.begin(), p.end()) {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
@@ -168,10 +170,10 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::StringRef strParam,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration,
-                       index.hasValue() ? spv::Op::OpMemberDecorate
-                                        : spv::Op::OpDecorate,
+                       idx.hasValue() ? spv::Op::OpMemberDecorate
+                                      : spv::Op::OpDecorate,
                        /*type*/ {}, /*id*/ 0, loc),
-      target(targetInst), decoration(decor), params(), index(idx) {
+      target(targetInst), decoration(decor), index(idx), params() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
   params.insert(params.end(), stringWords.begin(), stringWords.end());
 }

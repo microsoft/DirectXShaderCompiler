@@ -23,7 +23,7 @@ class LowerTypeVisitor : public Visitor {
 public:
   LowerTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
                    const SpirvCodeGenOptions &opts)
-      : Visitor(opts), astContext(astCtx), spvContext(spvCtx) {}
+      : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx) {}
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.

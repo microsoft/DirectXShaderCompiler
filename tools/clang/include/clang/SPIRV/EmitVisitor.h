@@ -8,20 +8,84 @@
 #ifndef LLVM_CLANG_SPIRV_EMITVISITOR_H
 #define LLVM_CLANG_SPIRV_EMITVISITOR_H
 
+#include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
+#include "llvm/ADT/DenseMap.h"
+
+#include <functional>
 
 namespace clang {
 namespace spirv {
 
-class SpirvModule;
 class SpirvFunction;
 class SpirvBasicBlock;
+class SpirvType;
+
+// Provides DenseMapInfo for SpirvLayoutRule so that we can use it as key to
+// DenseMap.
+//
+// Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
+struct SpirvLayoutRuleDenseMapInfo {
+  static inline SpirvLayoutRule getEmptyKey() { return SpirvLayoutRule::Void; }
+  static inline SpirvLayoutRule getTombstoneKey() {
+    return SpirvLayoutRule::Void;
+  }
+  static unsigned getHashValue(const SpirvLayoutRule &Val) {
+    return static_cast<unsigned>(Val) * 37U;
+  }
+  static bool isEqual(const SpirvLayoutRule &LHS, const SpirvLayoutRule &RHS) {
+    return LHS == RHS;
+  }
+};
+
+class EmitTypeHandler {
+public:
+  EmitTypeHandler(SpirvContext &c, std::vector<uint32_t> *decVec,
+                  std::vector<uint32_t> *typesVec,
+                  const std::function<uint32_t()> &takeNextIdFn)
+      : context(c), annotationsBinary(decVec), typeConstantBinary(typesVec),
+        takeNextIdFunction(takeNextIdFn) {
+    assert(decVec);
+    assert(typesVec);
+  }
+
+  // Disable copy constructor/assignment.
+  EmitTypeHandler(const EmitTypeHandler &) = delete;
+  EmitTypeHandler &operator=(const EmitTypeHandler &) = delete;
+
+  // Emits the instruction for the given type into the typeConstantBinary and
+  // returns the result-id for the type.
+  uint32_t emitType(const SpirvType *, SpirvLayoutRule);
+
+  uint32_t getResultIdForType(const SpirvType *, SpirvLayoutRule,
+                              bool *alreadyExists);
+
+private:
+  void initTypeInstruction(spv::Op op);
+  void finalizeTypeInstruction();
+
+private:
+  SpirvContext &context;
+  std::vector<uint32_t> curTypeInst;
+  std::vector<uint32_t> *annotationsBinary;
+  std::vector<uint32_t> *typeConstantBinary;
+  std::function<uint32_t()> takeNextIdFunction;
+
+  // emittedTypes is a map that caches the <result-id> of types in order to
+  // avoid translating a type multiple times.
+  using LayoutRuleToTypeIdMap =
+      llvm::DenseMap<SpirvLayoutRule, uint32_t, SpirvLayoutRuleDenseMapInfo>;
+  llvm::DenseMap<const SpirvType *, LayoutRuleToTypeIdMap> emittedTypes;
+};
 
 /// \breif The visitor class that emits the SPIR-V words from the in-memory
 /// representation.
 class EmitVisitor : public Visitor {
 public:
-  EmitVisitor() = default;
+  EmitVisitor(const SpirvCodeGenOptions &opts, SpirvContext &ctx)
+      : Visitor(opts, ctx), id(0),
+        typeHandler(ctx, &annotationsBinary, &typeConstantBinary,
+                    [this]() -> uint32_t { return takeNextId(); }) {}
 
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase);
@@ -84,8 +148,16 @@ public:
   bool visit(SpirvVectorShuffle *);
 
 private:
+  // Returns the next available result-id.
+  uint32_t takeNextId() { return ++id; }
+
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op);
+  // Initiates the creation of the given SPIR-V instruction.
+  // If the given instruction has a return type, it will also trigger emitting
+  // the necessary type (and its associated decorations) and uses its result-id
+  // in the instruction.
+  void initInstruction(SpirvInstruction *);
 
   // Finalizes the current instruction by encoding the instruction size into the
   // first word, and then appends the current instruction to the SPIR-V binary.
@@ -94,9 +166,6 @@ private:
   // Encodes the given string into the current instruction that is being built.
   void encodeString(llvm::StringRef value);
 
-  // Provides the next available <result-id>
-  uint32_t getNextId() { return ++id; }
-
   // Emits an OpName instruction into the debugBinary for the given target.
   void emitDebugNameForInstruction(uint32_t resultId, llvm::StringRef name);
 
@@ -104,7 +173,10 @@ private:
   // using the type information.
 
 private:
+  // The last result-id that's been used so far.
   uint32_t id;
+  // Handler for emitting types and their related instructions.
+  EmitTypeHandler typeHandler;
   // Current instruction being built
   SmallVector<uint32_t, 16> curInst;
   // All preamble instructions in the following order:
