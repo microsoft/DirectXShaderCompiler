@@ -1711,11 +1711,11 @@ Value *TranslateModF(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *outIntPtr = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
-  Value *Result =
+  Value *intP =
       TrivialDxilUnaryOperation(OP::OpCode::Round_z, val, hlslOP, Builder);
-  Value *intPortion = Builder.CreateFSub(val, Result);
-  Builder.CreateStore(intPortion, outIntPtr);
-  return Result;
+  Value *fracP = Builder.CreateFSub(val, intP);
+  Builder.CreateStore(intP, outIntPtr);
+  return fracP;
 }
 
 Value *TranslateDistance(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
