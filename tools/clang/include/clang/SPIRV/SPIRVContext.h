@@ -15,6 +15,7 @@
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/Constant.h"
 #include "clang/SPIRV/Decoration.h"
+#include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/DenseMap.h"
@@ -145,7 +146,7 @@ struct StorageClassDenseMapInfo {
 /// the SPIR-V entities allocated in memory.
 class SpirvContext {
 public:
-  SpirvContext();
+  SpirvContext(const ASTContext &ctx);
   ~SpirvContext() = default;
 
   // Forbid copy construction and assignment
@@ -177,8 +178,9 @@ public:
   const MatrixType *getMatrixType(const SpirvType *vecType, uint32_t vecCount,
                                   bool isRowMajor);
 
-  const ImageType *getImageType(const SpirvType *, spv::Dim, bool arrayed,
-                                bool ms, ImageType::WithSampler sampled,
+  const ImageType *getImageType(const SpirvType *, spv::Dim,
+                                ImageType::WithDepth, bool arrayed, bool ms,
+                                ImageType::WithSampler sampled,
                                 spv::ImageFormat);
   const SamplerType *getSamplerType() const { return samplerType; }
   const SampledImageType *getSampledImageType(const ImageType *image);
@@ -198,7 +200,12 @@ public:
 
   const StructType *getByteAddressBufferType(bool isWritable);
 
+  SpirvConstant *getConstantUint32(uint32_t value, SourceLocation loc = {});
+  // TODO: Add getConstant* methods for other types.
+
 private:
+  const ASTContext &astContext;
+
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
   /// SPIR-V entity objects are never destructed; rather, all memory associated
@@ -245,6 +252,12 @@ private:
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
 
   llvm::SmallVector<const FunctionType *, 8> functionTypes;
+
+  // Unique constants
+  // Avoid premature optimiztion: we do a linear search to find an existing
+  // constant (if any). This can be done faster if we use maps or use different
+  // vectors based on the constant type.
+  llvm::SmallVector<SpirvConstant *, 8> constants;
 };
 
 } // end namespace spirv
