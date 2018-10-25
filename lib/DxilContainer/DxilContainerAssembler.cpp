@@ -860,9 +860,8 @@ class StringBufferPart : public RDATPart {
 private:
   StringMap<uint32_t> m_StringMap;
   SmallVector<char, 256> m_StringBuffer;
-  uint32_t curIndex;
 public:
-  StringBufferPart() : m_StringMap(), m_StringBuffer(), curIndex(0) {
+  StringBufferPart() : m_StringMap(), m_StringBuffer() {
     // Always start string table with null so empty/null strings have offset of zero
     m_StringBuffer.push_back('\0');
   }
