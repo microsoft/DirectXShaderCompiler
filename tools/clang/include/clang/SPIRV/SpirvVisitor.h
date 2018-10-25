@@ -14,6 +14,7 @@
 namespace clang {
 namespace spirv {
 
+class SpirvContext;
 class SpirvModule;
 class SpirvFunction;
 class SpirvBasicBlock;
@@ -40,19 +41,19 @@ public:
   Visitor &operator=(Visitor &&) = delete;
 
   // Visiting different SPIR-V constructs.
-  virtual bool visit(SpirvModule *, Phase) {}
-  virtual bool visit(SpirvFunction *, Phase) {}
-  virtual bool visit(SpirvBasicBlock *, Phase) {}
+  virtual bool visit(SpirvModule *, Phase) { return true; }
+  virtual bool visit(SpirvFunction *, Phase) { return true; }
+  virtual bool visit(SpirvBasicBlock *, Phase) { return true; }
 
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  virtual bool visitInstruction(SpirvInstruction *) {}
+  virtual bool visitInstruction(SpirvInstruction *) { return true; }
 
 #define DEFINE_VISIT_METHOD(cls)                                               \
-  virtual bool visit(cls *i) { visitInstruction(i); }
+  virtual bool visit(cls *i) { return visitInstruction(i); }
 
   DEFINE_VISIT_METHOD(SpirvCapability)
   DEFINE_VISIT_METHOD(SpirvExtension)
@@ -114,12 +115,14 @@ public:
 #undef DEFINE_VISIT_METHOD
 
 protected:
-  explicit Visitor(const SpirvCodeGenOptions &opts) : spvOptions(opts) {}
+  explicit Visitor(const SpirvCodeGenOptions &opts, SpirvContext &ctx)
+      : spvOptions(opts), context(ctx) {}
 
   const SpirvCodeGenOptions &getCodeGenOptions() const { return spvOptions; }
 
-private:
+protected:
   const SpirvCodeGenOptions &spvOptions;
+  SpirvContext &context;
 };
 
 } // namespace spirv

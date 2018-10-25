@@ -235,8 +235,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return spvContext.getImageType(
           lowerType(getElementType(sampledType, srcLoc), rule, srcLoc), dim,
-          isArray, isMS, ImageType::WithSampler::Yes,
-          spv::ImageFormat::Unknown);
+          ImageType::WithDepth::Unknown, isArray, isMS,
+          ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     }
 
     // There is no RWTexture3DArray
@@ -250,7 +250,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
           translateSampledTypeToImageFormat(sampledType, srcLoc);
       return spvContext.getImageType(
           lowerType(getElementType(sampledType, srcLoc), rule, srcLoc), dim,
-          isArray,
+          ImageType::WithDepth::Unknown, isArray,
           /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
           format);
     }
@@ -334,7 +334,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
         lowerType(getElementType(sampledType, srcLoc), rule, srcLoc),
-        spv::Dim::Buffer,
+        spv::Dim::Buffer, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false, /*isMultiSampled=*/false,
         /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
                                      : ImageType::WithSampler::No,
@@ -365,7 +365,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return spvContext.getImageType(
         lowerType(getElementType(sampledType, srcLoc), rule, srcLoc),
-        spv::Dim::SubpassData, /*isArrayed=*/false,
+        spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
+        /*isArrayed=*/false,
         /*isMultipleSampled=*/name == "SubpassInputMS",
         ImageType::WithSampler::No, spv::ImageFormat::Unknown);
   }

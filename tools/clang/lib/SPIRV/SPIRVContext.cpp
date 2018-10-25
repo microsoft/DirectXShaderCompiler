@@ -74,9 +74,9 @@ const Decoration *SPIRVContext::registerDecoration(const Decoration &d) {
   return &*it;
 }
 
-SpirvContext::SpirvContext()
-    : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
-      uintTypes({}), floatTypes({}), samplerType(nullptr) {
+SpirvContext::SpirvContext(const ASTContext &ctx)
+    : astContext(ctx), allocator(), voidType(nullptr), boolType(nullptr),
+      sintTypes({}), uintTypes({}), floatTypes({}), samplerType(nullptr) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
@@ -164,7 +164,9 @@ const MatrixType *SpirvContext::getMatrixType(const SpirvType *elemType,
 }
 
 const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
-                                            spv::Dim dim, bool arrayed, bool ms,
+                                            spv::Dim dim,
+                                            ImageType::WithDepth depth,
+                                            bool arrayed, bool ms,
                                             ImageType::WithSampler sampled,
                                             spv::ImageFormat format) {
   // We are certain this should be a numerical type. Otherwise, cast causes an
@@ -172,7 +174,7 @@ const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
   const NumericalType *elemType = cast<NumericalType>(sampledType);
 
   // Create a temporary object for finding in the vector.
-  ImageType type(elemType, dim, arrayed, ms, sampled, format);
+  ImageType type(elemType, dim, depth, arrayed, ms, sampled, format);
 
   auto found = std::find_if(
       imageTypes.begin(), imageTypes.end(),
@@ -182,7 +184,7 @@ const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
     return *found;
 
   imageTypes.push_back(
-      new (this) ImageType(elemType, dim, arrayed, ms, sampled, format));
+      new (this) ImageType(elemType, dim, depth, arrayed, ms, sampled, format));
 
   return imageTypes.back();
 }
@@ -288,6 +290,21 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
                        isWritable ? "type.RWByteAddressBuffer"
                                   : "type.ByteAddressBuffer",
                        {}, !isWritable);
+}
+
+SpirvConstant *SpirvContext::getConstantUint32(uint32_t value,
+                                               SourceLocation loc) {
+  for (auto *constant : constants)
+    if (auto *intConst = dyn_cast<SpirvConstantInteger>(constant))
+      if (!intConst->isSigned() && intConst->getBitwidth() == 32 &&
+          intConst->getUnsignedInt32Value() == value)
+        return constant;
+
+  // Couldn't find the constant. Create one.
+  SpirvConstant *intConst =
+      new (this) SpirvConstantInteger(value, astContext.UnsignedIntTy, 0, loc);
+  constants.push_back(intConst);
+  return intConst;
 }
 
 } // end namespace spirv
