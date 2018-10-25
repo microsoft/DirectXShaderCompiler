@@ -943,6 +943,8 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
   return IRB.CreateBitCast(StoredVal, LoadedTy, "bitcast");
 }
 
+#if 0   // HLSL Change: Don't support bitcasting to different sizes.
+
 /// This function is called when we have a
 /// memdep query of a load that ends up being a clobbering memory write (store,
 /// memset, memcpy, memmove).  This means that the write *may* provide bits used
@@ -955,8 +957,6 @@ static int AnalyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
                                           Value *WritePtr,
                                           uint64_t WriteSizeInBits,
                                           const DataLayout &DL) {
-#if 0   // HLSL Change: Don't support bitcasting to different sizes.
-
   // If the loaded or stored value is a first class array or struct, don't try
   // to transform them.  We need to be able to bitcast to integer.
   if (LoadTy->isStructTy() || LoadTy->isArrayTy())
@@ -1024,9 +1024,10 @@ static int AnalyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
   // Okay, we can do this transformation.  Return the number of bytes into the
   // store that the load is.
   return LoadOffset-StoreOffset;
-#endif  // HLSL Change: Don't support bitcasting to different sizes.
   return -1;
 }
+
+#endif  // HLSL Change: Don't support bitcasting to different sizes.
 
 /// This function is called when we have a
 /// memdep query of a load that ends up being a clobbering store.

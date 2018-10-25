@@ -834,7 +834,7 @@ void DxilPatchShaderRecordBindings::InitializeViewTable() {
     // manually add it to the list of UAV register spaces used
     if (*pInputShaderInfo->pNumUAVSpaces == 0)
     {
-        ViewKey key = { (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer, 0 };
+        ViewKey key = { (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer, {0} };
         unsigned int index = FindOrInsertViewIntoList(
           key, 
           pInputShaderInfo->pUAVRegisterSpaceArray, 
