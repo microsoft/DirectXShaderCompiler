@@ -956,8 +956,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   else if (const auto *arrayType = dyn_cast<ArrayType>(type)) {
     // Emit the OpConstant instruction that is needed to get the result-id for
     // the array length.
-    SpirvConstant *constant =
-        context.getConstantUint32(arrayType->getElementCount());
+    auto *constant = context.getConstantUint32(arrayType->getElementCount());
     if (constant->getResultId() == 0) {
       constant->setResultId(takeNextIdFunction());
     }
