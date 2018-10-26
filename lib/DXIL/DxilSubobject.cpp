@@ -189,9 +189,11 @@ StringRef DxilSubobjects::GetSubobjectString(StringRef value) {
   if (it != m_StringStorage.end())
     return it->first;
 
-  std::string stored(value.begin(), value.size());
-  const char *ptr = stored.c_str();
-  m_StringStorage[ptr] = std::move(stored);
+  std::unique_ptr<char[]> storage(new char[value.size() + 1]);
+  memcpy(storage.get(), value.data(), value.size());
+  storage.get()[value.size()] = '\0';
+  const char *ptr = storage.get();
+  m_StringStorage[ptr] = std::move(storage);
   return ptr;
 }
 
@@ -203,11 +205,10 @@ const void *DxilSubobjects::GetRawBytes(const void *ptr, size_t size) {
   DXASSERT_NOMSG(size < UINT_MAX);
   if (size >= UINT_MAX)
     return nullptr;
-  std::vector<char> stored;
-  stored.reserve(size);
-  stored.assign((const char*)ptr, (const char*)ptr + size);
-  ptr = stored.data();
-  m_RawBytesStorage[ptr] = std::move(stored);
+  std::unique_ptr<char[]> storage(new char[size]);
+  memcpy(storage.get(), ptr, size);
+  ptr = storage.get();
+  m_RawBytesStorage[ptr] = std::move(storage);
   return ptr;
 }
 
