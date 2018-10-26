@@ -20,9 +20,6 @@ namespace spirv {
 
 class SpirvVisitor;
 
-// TODO: flesh this out
-class SpirvTypeConstant;
-
 /// The class representing a SPIR-V module in memory.
 ///
 /// A SPIR-V module contains two main parts: instructions for "metadata" (e.g.,
@@ -102,7 +99,7 @@ private:
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
   SpirvSource *debugSource;
   std::vector<SpirvDecoration *> decorations;
-  std::vector<SpirvTypeConstant *> typeConstants;
+  std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
 
   // Shader logic instructions
