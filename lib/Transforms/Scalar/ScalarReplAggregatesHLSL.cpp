@@ -37,7 +37,6 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -4181,7 +4180,6 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
 // SROA on function parameters.
 //===----------------------------------------------------------------------===//
 
-
 static void LegalizeDxilInputOutputs(Function *F,
                                      DxilFunctionAnnotation *EntryAnnotation,
                                      const DataLayout &DL,
@@ -4353,15 +4351,6 @@ public:
           }
         }
         GV->eraseFromParent();
-      }
-    }
-
-
-    for (Function &F : M.functions()) {
-      if (F.isDeclaration())
-        continue;
-      if (llvm::verifyFunction(F, &dbgs())) {
-        printf("oh my glob\n");
       }
     }
 
