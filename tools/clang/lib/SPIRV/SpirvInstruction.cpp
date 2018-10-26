@@ -14,6 +14,7 @@
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
+#include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "clang/SPIRV/String.h"
 
@@ -81,9 +82,9 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
-SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType type,
+SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
                                    uint32_t id, SourceLocation loc)
-    : kind(k), opcode(op), astResultType(type), resultId(id), srcLoc(loc),
+    : kind(k), opcode(op), astResultType(astType), resultId(id), srcLoc(loc),
       debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void) {}
 
@@ -353,153 +354,186 @@ SpirvComposite::SpirvComposite(
                        resultType, resultId, loc),
       consituents(constituentsVec.begin(), constituentsVec.end()) {}
 
-SpirvConstant::SpirvConstant(Kind kind, spv::Op op, QualType resultType,
-                             uint32_t resultId, SourceLocation loc)
-    : SpirvInstruction(kind, op, resultType, resultId, loc) {}
+SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType)
+    : SpirvInstruction(kind, op, QualType(), /*result-id*/ 0,
+                       /*SourceLocation*/ {}) {
+  setResultType(spvType);
+}
 
-SpirvConstantBoolean::SpirvConstantBoolean(bool val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
+SpirvConstantBoolean::SpirvConstantBoolean(const BoolType *type, bool val)
     : SpirvConstant(IK_ConstantBoolean,
                     val ? spv::Op::OpConstantTrue : spv::Op::OpConstantFalse,
-                    resultType, resultId, loc),
+                    type),
       value(val) {}
 
-SpirvConstantInteger::SpirvConstantInteger(uint16_t val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, resultType,
-                    resultId, loc),
-      bitwidth(16), value(static_cast<uint64_t>(val)) {
-  assert(resultType->isUnsignedIntegerType());
+bool SpirvConstantBoolean::operator==(const SpirvConstantBoolean &that) const {
+  return resultType == that.getResultType() && value == that.getValue();
 }
 
-SpirvConstantInteger::SpirvConstantInteger(int16_t val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, resultType,
-                    resultId, loc),
-      bitwidth(16), value(static_cast<uint64_t>(val)) {
-  assert(resultType->isSignedIntegerType());
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type,
+                                           uint16_t val)
+    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(val)) {
+  assert(type->getBitwidth() == 16);
+  assert(!type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(uint32_t val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, resultType,
-                    resultId, loc),
-      bitwidth(32), value(static_cast<uint64_t>(val)) {
-  assert(resultType->isUnsignedIntegerType());
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int16_t val)
+    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(val)) {
+  assert(type->getBitwidth() == 16);
+  assert(type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(int32_t val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, resultType,
-                    resultId, loc),
-      bitwidth(32), value(static_cast<uint64_t>(val)) {
-  assert(resultType->isSignedIntegerType());
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type,
+                                           uint32_t val)
+    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(val)) {
+  assert(type->getBitwidth() == 32);
+  assert(!type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(uint64_t val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, resultType,
-                    resultId, loc),
-      bitwidth(64), value(val) {
-  assert(resultType->isUnsignedIntegerType());
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int32_t val)
+    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(val)) {
+  assert(type->getBitwidth() == 32);
+  assert(type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(int64_t val, QualType resultType,
-                                           uint32_t resultId,
-                                           SourceLocation loc)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, resultType,
-                    resultId, loc),
-      bitwidth(64), value(static_cast<uint64_t>(val)) {
-  assert(resultType->isSignedIntegerType());
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type,
+                                           uint64_t val)
+    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type), value(val) {
+  assert(type->getBitwidth() == 64);
+  assert(!type->isSignedInt());
+}
+
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int64_t val)
+    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(val)) {
+  assert(type->getBitwidth() == 64);
+  assert(type->isSignedInt());
+}
+
+uint32_t SpirvConstantInteger::getBitwidth() const {
+  // By construction, it is guaranteed spirvType to be IntegerType.
+  return llvm::cast<IntegerType>(resultType)->getBitwidth();
+}
+
+bool SpirvConstantInteger::isSigned() const {
+  // By construction, it is guaranteed spirvType to be IntegerType.
+  return llvm::cast<IntegerType>(resultType)->isSignedInt();
 }
 
 uint16_t SpirvConstantInteger::getUnsignedInt16Value() const {
   assert(!isSigned());
-  assert(bitwidth == 16);
+  assert(getBitwidth() == 16);
   return static_cast<uint16_t>(value);
 }
 
 int16_t SpirvConstantInteger::getSignedInt16Value() const {
   assert(isSigned());
-  assert(bitwidth == 16);
+  assert(getBitwidth() == 16);
   return static_cast<int16_t>(value);
 }
 
 uint32_t SpirvConstantInteger::getUnsignedInt32Value() const {
   assert(!isSigned());
-  assert(bitwidth == 32);
+  assert(getBitwidth() == 32);
   return static_cast<uint32_t>(value);
 }
 
 int32_t SpirvConstantInteger::getSignedInt32Value() const {
   assert(isSigned());
-  assert(bitwidth == 32);
+  assert(getBitwidth() == 32);
   return static_cast<int32_t>(value);
 }
 
 uint64_t SpirvConstantInteger::getUnsignedInt64Value() const {
   assert(!isSigned());
-  assert(bitwidth == 64);
+  assert(getBitwidth() == 64);
   return value;
 }
 
 int64_t SpirvConstantInteger::getSignedInt64Value() const {
   assert(isSigned());
-  assert(bitwidth == 64);
+  assert(getBitwidth() == 64);
   return static_cast<int64_t>(value);
 }
 
-SpirvConstantFloat::SpirvConstantFloat(uint16_t val, QualType resultType,
-                                       uint32_t resultId, SourceLocation loc)
-    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, resultType, resultId,
-                    loc),
-      bitwidth(16), value(static_cast<uint64_t>(val)) {}
+bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {
+  return resultType == that.getResultType() && value == that.getValueBits();
+}
 
-SpirvConstantFloat::SpirvConstantFloat(float val, QualType resultType,
-                                       uint32_t resultId, SourceLocation loc)
-    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, resultType, resultId,
-                    loc),
-      bitwidth(32),
-      value(static_cast<uint64_t>(cast::BitwiseCast<uint32_t, float>(val))) {}
+SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, uint16_t val)
+    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(val)) {
+  assert(type->getBitwidth() == 16);
+}
 
-SpirvConstantFloat::SpirvConstantFloat(double val, QualType resultType,
-                                       uint32_t resultId, SourceLocation loc)
-    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, resultType, resultId,
-                    loc),
-      bitwidth(64), value(cast::BitwiseCast<uint64_t, double>(val)) {}
+SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, float val)
+    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, type),
+      value(static_cast<uint64_t>(cast::BitwiseCast<uint32_t, float>(val))) {
+  assert(type->getBitwidth() == 32);
+}
+
+SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, double val)
+    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, type),
+      value(cast::BitwiseCast<uint64_t, double>(val)) {
+  assert(type->getBitwidth() == 64);
+}
+
+uint32_t SpirvConstantFloat::getBitwidth() const {
+  // By construction, it is guaranteed spirvType to be FloatType.
+  return llvm::cast<FloatType>(resultType)->getBitwidth();
+}
 
 uint16_t SpirvConstantFloat::getValue16() const {
-  assert(bitwidth == 16);
+  assert(getBitwidth() == 16);
   return static_cast<uint16_t>(value);
 }
 
 float SpirvConstantFloat::getValue32() const {
-  assert(bitwidth == 32);
+  assert(getBitwidth() == 32);
   return cast::BitwiseCast<float, uint32_t>(static_cast<uint32_t>(value));
 }
 
 double SpirvConstantFloat::getValue64() const {
-  assert(bitwidth == 64);
+  assert(getBitwidth() == 64);
   return cast::BitwiseCast<double, uint64_t>(value);
 }
 
-SpirvConstantComposite::SpirvConstantComposite(
-    llvm::ArrayRef<SpirvConstant *> constituentsVec, QualType resultType,
-    uint32_t resultId, SourceLocation loc)
-    : SpirvConstant(IK_ConstantComposite, spv::Op::OpConstantComposite,
-                    resultType, resultId, loc),
-      constituents(constituentsVec) {}
+bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {
+  return resultType == that.getResultType() && value == that.getValueBits();
+}
 
-SpirvConstantNull::SpirvConstantNull(QualType resultType, uint32_t resultId,
-                                     SourceLocation loc)
-    : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, resultType,
-                    resultId, loc) {}
+SpirvConstantComposite::SpirvConstantComposite(
+    const SpirvType *type,
+    llvm::ArrayRef<const SpirvConstant *> constituentsVec)
+    : SpirvConstant(IK_ConstantComposite, spv::Op::OpConstantComposite, type),
+      constituents(constituentsVec.begin(), constituentsVec.end()) {}
+
+bool SpirvConstantComposite::
+operator==(const SpirvConstantComposite &other) const {
+  if (resultType != other.getResultType())
+    return false;
+
+  auto otherMembers = other.getConstituents();
+  if (constituents.size() != otherMembers.size())
+    return false;
+
+  for (size_t i = 0; i < constituents.size(); ++i)
+    if (constituents[i] != otherMembers[i])
+      return false;
+
+  return true;
+}
+
+SpirvConstantNull::SpirvConstantNull(const SpirvType *type)
+    : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
+
+bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
+  return resultType == that.getResultType();
+}
 
 SpirvCompositeExtract::SpirvCompositeExtract(QualType resultType,
                                              uint32_t resultId,
