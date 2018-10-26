@@ -146,7 +146,7 @@ struct StorageClassDenseMapInfo {
 /// the SPIR-V entities allocated in memory.
 class SpirvContext {
 public:
-  SpirvContext(const ASTContext &ctx);
+  SpirvContext();
   ~SpirvContext() = default;
 
   // Forbid copy construction and assignment
@@ -200,12 +200,10 @@ public:
 
   const StructType *getByteAddressBufferType(bool isWritable);
 
-  SpirvConstant *getConstantUint32(uint32_t value, SourceLocation loc = {});
+  SpirvConstant *getConstantUint32(uint32_t value);
   // TODO: Add getConstant* methods for other types.
 
 private:
-  const ASTContext &astContext;
-
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
   /// SPIR-V entity objects are never destructed; rather, all memory associated
@@ -254,10 +252,10 @@ private:
   llvm::SmallVector<const FunctionType *, 8> functionTypes;
 
   // Unique constants
-  // Avoid premature optimiztion: we do a linear search to find an existing
-  // constant (if any). This can be done faster if we use maps or use different
-  // vectors based on the constant type.
-  llvm::SmallVector<SpirvConstant *, 8> constants;
+  // We currently do a linear search to find an existing constant (if any). This
+  // can be done in a more efficient way if needed.
+  llvm::SmallVector<SpirvConstantInteger *, 8> integerConstants;
+  // TODO: Add vectors of other constant types here.
 };
 
 } // end namespace spirv

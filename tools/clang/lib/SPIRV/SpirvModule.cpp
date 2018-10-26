@@ -50,7 +50,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor) {
     if (!decoration->invokeVisitor(visitor))
       return false;
 
-  // TODO: type and constants
+  for (auto constant : constants)
+    constant->invokeVisitor(visitor);
 
   for (auto var : variables)
     if (!var->invokeVisitor(visitor))
