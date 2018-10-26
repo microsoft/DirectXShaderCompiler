@@ -39,7 +39,7 @@ CHECK-LTO-DAG: 	sym: _val, objAddr: 0x00000000000008EC, binAddr: 0x0000000100001
 CHECK-LTO: ...
 
 Check thet we correctly handle debug maps with archive members (including only
-opening the archive once if mulitple of its members are used).
+opening the archive once if multiple of its members are used).
 
 CHECK-ARCHIVE:      trying to open {{.*}}basic-archive.macho.x86_64'
 CHECK-ARCHIVE-NEXT: 	loaded file.
