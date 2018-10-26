@@ -189,8 +189,11 @@ StringRef DxilSubobjects::GetSubobjectString(StringRef value) {
   if (it != m_StringStorage.end())
     return it->first;
 
-  std::string stored(value.begin(), value.size());
-  const char *ptr = stored.c_str();
+  std::vector<char> stored;
+  stored.reserve(value.size() + 1);
+  stored.assign(value.begin(), value.end());
+  stored.push_back(0);
+  const char *ptr = stored.data();
   m_StringStorage[ptr] = std::move(stored);
   return ptr;
 }

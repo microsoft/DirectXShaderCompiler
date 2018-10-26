@@ -105,7 +105,7 @@ private:
 
 class DxilSubobjects {
 public:
-  typedef llvm::MapVector< llvm::StringRef, std::string > StringStorage;
+  typedef llvm::MapVector< llvm::StringRef, std::vector<char> > StringStorage;
   typedef llvm::MapVector< const void*, std::vector<char> > RawBytesStorage;
   typedef llvm::MapVector< llvm::StringRef, std::unique_ptr<DxilSubobject> > SubobjectStorage;
   using Kind = DXIL::SubobjectKind;
