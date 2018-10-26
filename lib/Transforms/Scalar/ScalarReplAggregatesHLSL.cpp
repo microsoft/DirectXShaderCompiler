@@ -37,6 +37,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -4180,6 +4181,7 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
 // SROA on function parameters.
 //===----------------------------------------------------------------------===//
 
+
 static void LegalizeDxilInputOutputs(Function *F,
                                      DxilFunctionAnnotation *EntryAnnotation,
                                      const DataLayout &DL,
@@ -4351,6 +4353,15 @@ public:
           }
         }
         GV->eraseFromParent();
+      }
+    }
+
+
+    for (Function &F : M.functions()) {
+      if (F.isDeclaration())
+        continue;
+      if (llvm::verifyFunction(F, &dbgs())) {
+        printf("oh my glob\n");
       }
     }
 
@@ -6045,7 +6056,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
     const int kRetArgNo = -1;
     for (unsigned i = 0; i < FlatRetList.size(); i++) {
-      FlatParamOriArgNoList.emplace_back(kRetArgNo);
+      FlatParamOriArgNoList.insert(FlatParamOriArgNoList.begin(), kRetArgNo);
     }
   }
 
@@ -6059,25 +6070,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     retType = Type::getVoidTy(retType->getContext());
     // Merge return data info param data.
 
-    std::vector<Value *>::iterator FlatParamListInsertPt = FlatParamList.end();
-    std::vector<DxilParameterAnnotation>::iterator FlatParamAnnotationListInsertPt = FlatParamAnnotationList.end();
-
-    // If we have a single return value, find the first output arg,
-    // and insert it before that. This is to match the behavior of
-    // legacy compiler.
-    if (FlatRetList.size() == 1) {
-      for (unsigned i = 0; i < FlatParamAnnotationList.size(); i++) {
-        DxilParamInputQual quality = FlatParamAnnotationList[i].GetParamInputQual();
-        if (quality == DxilParamInputQual::Out || quality == DxilParamInputQual::Inout) {
-          FlatParamListInsertPt = FlatParamList.begin()+i;
-          FlatParamAnnotationListInsertPt = FlatParamAnnotationList.begin()+i;
-          break;
-        }
-      }
-    }
-
-    FlatParamList.insert(FlatParamListInsertPt, FlatRetList.begin(), FlatRetList.end());
-    FlatParamAnnotationList.insert(FlatParamAnnotationListInsertPt,
+    FlatParamList.insert(FlatParamList.begin(), FlatRetList.begin(), FlatRetList.end());
+    FlatParamAnnotationList.insert(FlatParamAnnotationList.begin(),
                                     FlatRetAnnotationList.begin(),
                                     FlatRetAnnotationList.end());
   }
