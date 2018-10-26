@@ -6,7 +6,7 @@
 // License. See LICENSE.TXT for details.
 //===----------------------------------------------------------------------===//
 //
-//  This file implements the in-memory representation of SPIR-V instructions.
+//  This file implements the in-memory representation of SPIR-V types.
 //
 //===----------------------------------------------------------------------===//
 
