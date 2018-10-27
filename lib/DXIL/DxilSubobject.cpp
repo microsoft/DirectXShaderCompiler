@@ -193,9 +193,9 @@ StringRef DxilSubobjects::GetSubobjectString(StringRef value) {
   stored.reserve(value.size() + 1);
   stored.assign(value.begin(), value.end());
   stored.push_back(0);
-  const char *ptr = stored.data();
-  m_StringStorage[ptr] = std::move(stored);
-  return ptr;
+  llvm::StringRef key(stored.data(), value.size());
+  m_StringStorage[key] = std::move(stored);
+  return key;
 }
 
 const void *DxilSubobjects::GetRawBytes(const void *ptr, size_t size) {
