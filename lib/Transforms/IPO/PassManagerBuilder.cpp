@@ -29,6 +29,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h" // HLSL Change
 #include "dxc/HLSL/ComputeViewIdState.h" // HLSL Change
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change
 
 using namespace llvm;
 
@@ -218,6 +219,9 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   if (!NoOpt) {
     MPM.add(createHLDeadFunctionEliminationPass());
   }
+
+  MPM.add(createLoopRotatePass());
+  MPM.add(createDxilLoopUnrollPass());
 
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
