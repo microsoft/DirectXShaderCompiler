@@ -2,7 +2,7 @@
 
 // CHECK: domainLocation
 // CHECK: domainLocation
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: storeOutput
 
 //--------------------------------------------------------------------------------------

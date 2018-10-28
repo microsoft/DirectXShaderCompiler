@@ -1905,23 +1905,6 @@ Value *TranslateFWidth(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateFAdd(absDdx, absDdy);
 }
 
-Value *TranslateNormalize(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                          HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Type *Ty = CI->getType();
-  Value *op = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  IRBuilder<> Builder(CI);
-  Value *length = TranslateLength(CI, op, hlslOP);
-  if (Ty != length->getType()) {
-    VectorType *VT = cast<VectorType>(Ty);
-    Value *vecLength = UndefValue::get(VT);
-    for (unsigned i = 0; i < VT->getNumElements(); i++)
-      vecLength = Builder.CreateInsertElement(vecLength, length, i);
-    length = vecLength;
-  }
-  return Builder.CreateFDiv(op, length);
-}
-
 Value *TranslateLerp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                      HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   // x + s(y-x)
@@ -2017,6 +2000,49 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   } else {
     return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder);
   }
+}
+
+Value *TranslateNormalize(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                          HLOperationLowerHelper &helper,
+                          HLObjectOperationLowerHelper *pObjHelper,
+                          bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Type *Ty = CI->getType();
+  Value *op = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  VectorType *VT = dyn_cast<VectorType>(Ty);
+  if (!VT)
+    return op;
+  unsigned vecSize = VT->getNumElements();
+  if (vecSize == 1)
+    return op;
+  DXIL::OpCode dotOp = DXIL::OpCode::Dot2;
+  switch (vecSize) {
+  case 2: {
+    dotOp = DXIL::OpCode::Dot2;
+  } break;
+  case 3: {
+    dotOp = DXIL::OpCode::Dot3;
+  } break;
+  case 4: {
+    dotOp = DXIL::OpCode::Dot4;
+  } break;
+  default:
+    DXASSERT(0, "invalid vector size");
+    break;
+  }
+
+  IRBuilder<> Builder(CI);
+  Value *dot = TrivialDotOperation(dotOp, op, op, hlslOP, Builder);
+  DXIL::OpCode rsqrtOp = DXIL::OpCode::Rsqrt;
+  Function *dxilRsqrt = hlslOP->GetOpFunc(rsqrtOp, VT->getElementType());
+  Value *rsqrt = Builder.CreateCall(
+      dxilRsqrt, {hlslOP->GetI32Const((unsigned)rsqrtOp), dot},
+      hlslOP->GetOpCodeName(rsqrtOp));
+  Value *vecRsqrt = UndefValue::get(VT);
+  for (unsigned i = 0; i < VT->getNumElements(); i++)
+    vecRsqrt = Builder.CreateInsertElement(vecRsqrt, rsqrt, i);
+
+  return Builder.CreateFMul(op, vecRsqrt);
 }
 
 Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
