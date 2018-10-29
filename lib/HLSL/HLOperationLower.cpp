@@ -2009,30 +2009,11 @@ Value *TranslateNormalize(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Type *Ty = CI->getType();
   Value *op = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  VectorType *VT = dyn_cast<VectorType>(Ty);
-  if (!VT)
-    return op;
+  VectorType *VT = cast<VectorType>(Ty);
   unsigned vecSize = VT->getNumElements();
-  if (vecSize == 1)
-    return op;
-  DXIL::OpCode dotOp = DXIL::OpCode::Dot2;
-  switch (vecSize) {
-  case 2: {
-    dotOp = DXIL::OpCode::Dot2;
-  } break;
-  case 3: {
-    dotOp = DXIL::OpCode::Dot3;
-  } break;
-  case 4: {
-    dotOp = DXIL::OpCode::Dot4;
-  } break;
-  default:
-    DXASSERT(0, "invalid vector size");
-    break;
-  }
 
   IRBuilder<> Builder(CI);
-  Value *dot = TrivialDotOperation(dotOp, op, op, hlslOP, Builder);
+  Value *dot = TranslateFDot(op, op, vecSize, hlslOP, Builder);
   DXIL::OpCode rsqrtOp = DXIL::OpCode::Rsqrt;
   Function *dxilRsqrt = hlslOP->GetOpFunc(rsqrtOp, VT->getElementType());
   Value *rsqrt = Builder.CreateCall(
