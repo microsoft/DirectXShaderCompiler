@@ -6045,7 +6045,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
     const int kRetArgNo = -1;
     for (unsigned i = 0; i < FlatRetList.size(); i++) {
-      FlatParamOriArgNoList.emplace_back(kRetArgNo);
+      FlatParamOriArgNoList.insert(FlatParamOriArgNoList.begin(), kRetArgNo);
     }
   }
 
@@ -6058,9 +6058,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     // Change return value into out parameter.
     retType = Type::getVoidTy(retType->getContext());
     // Merge return data info param data.
-    FlatParamList.insert(FlatParamList.end(), FlatRetList.begin(), FlatRetList.end());
 
-    FlatParamAnnotationList.insert(FlatParamAnnotationList.end(),
+    FlatParamList.insert(FlatParamList.begin(), FlatRetList.begin(), FlatRetList.end());
+    FlatParamAnnotationList.insert(FlatParamAnnotationList.begin(),
                                     FlatRetAnnotationList.begin(),
                                     FlatRetAnnotationList.end());
   }
