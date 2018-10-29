@@ -602,12 +602,13 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), featureManager(diags, spirvOptions),
+      theContext(), spvContext(astContext), featureManager(diags, spirvOptions),
       theBuilder(&theContext, &featureManager, spirvOptions),
+      spvBuilder(astContext, spvContext, &featureManager, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, spirvOptions),
       declIdMapper(shaderModel, astContext, theBuilder, *this, typeTranslator,
                    featureManager, spirvOptions),
-      entryFunctionId(0), curFunction(nullptr), curThis(0),
+      entryFunction(nullptr), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
       foundNonUniformResourceIndex(false), needsLegalization(false),
       mainSourceFileId(0) {
@@ -699,6 +700,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
 
   theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
                            entryFunctionName, declIdMapper.collectStageVars());
+  spvBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunction,
+                           entryFunctionName, interfaces);
 
   // Add Location decorations to stage input/output variables.
   if (!declIdMapper.decorateStageIOLocations())
@@ -9329,17 +9332,17 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
   bool success = true;
   assert(shaderModel.IsGS());
   if (auto *vcAttr = decl->getAttr<HLSLMaxVertexCountAttr>()) {
-    theBuilder.addExecutionMode(entryFunctionId,
-                                spv::ExecutionMode::OutputVertices,
-                                {static_cast<uint32_t>(vcAttr->getCount())});
+    spvBuilder.addExecutionMode(
+        entryFunction, spv::ExecutionMode::OutputVertices,
+        {static_cast<uint32_t>(vcAttr->getCount())}, decl->getLocation());
   }
 
   uint32_t invocations = 1;
   if (auto *instanceAttr = decl->getAttr<HLSLInstanceAttr>()) {
     invocations = static_cast<uint32_t>(instanceAttr->getCount());
   }
-  theBuilder.addExecutionMode(entryFunctionId, spv::ExecutionMode::Invocations,
-                              {invocations});
+  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::Invocations,
+                              {invocations}, decl->getLocation());
 
   // Only one primitive type is permitted for the geometry shader.
   bool outPoint = false, outLine = false, outTriangle = false, inPoint = false,
@@ -9351,16 +9354,19 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
     if (param->hasAttr<HLSLInOutAttr>()) {
       const auto paramType = param->getType();
       if (hlsl::IsHLSLTriangleStreamType(paramType) && !outTriangle) {
-        theBuilder.addExecutionMode(
-            entryFunctionId, spv::ExecutionMode::OutputTriangleStrip, {});
+        spvBuilder.addExecutionMode(entryFunction,
+                                    spv::ExecutionMode::OutputTriangleStrip, {},
+                                    param->getLocation());
         outTriangle = true;
       } else if (hlsl::IsHLSLLineStreamType(paramType) && !outLine) {
-        theBuilder.addExecutionMode(entryFunctionId,
-                                    spv::ExecutionMode::OutputLineStrip, {});
+        spvBuilder.addExecutionMode(entryFunction,
+                                    spv::ExecutionMode::OutputLineStrip, {},
+                                    param->getLocation());
         outLine = true;
       } else if (hlsl::IsHLSLPointStreamType(paramType) && !outPoint) {
-        theBuilder.addExecutionMode(entryFunctionId,
-                                    spv::ExecutionMode::OutputPoints, {});
+        spvBuilder.addExecutionMode(entryFunction,
+                                    spv::ExecutionMode::OutputPoints, {},
+                                    param->getLocation());
         outPoint = true;
       }
       // An output stream parameter will not have the input primitive type
@@ -9371,28 +9377,31 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
     // Add an execution mode based on the input primitive type. Do not add an
     // execution mode more than once.
     if (param->hasAttr<HLSLPointAttr>() && !inPoint) {
-      theBuilder.addExecutionMode(entryFunctionId,
-                                  spv::ExecutionMode::InputPoints, {});
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::InputPoints, {},
+                                  param->getLocation());
       *arraySize = 1;
       inPoint = true;
     } else if (param->hasAttr<HLSLLineAttr>() && !inLine) {
-      theBuilder.addExecutionMode(entryFunctionId,
-                                  spv::ExecutionMode::InputLines, {});
+      spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::InputLines,
+                                  {}, param->getLocation());
       *arraySize = 2;
       inLine = true;
     } else if (param->hasAttr<HLSLTriangleAttr>() && !inTriangle) {
-      theBuilder.addExecutionMode(entryFunctionId,
-                                  spv::ExecutionMode::Triangles, {});
+      spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::Triangles,
+                                  {}, param->getLocation());
       *arraySize = 3;
       inTriangle = true;
     } else if (param->hasAttr<HLSLLineAdjAttr>() && !inLineAdj) {
-      theBuilder.addExecutionMode(entryFunctionId,
-                                  spv::ExecutionMode::InputLinesAdjacency, {});
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::InputLinesAdjacency, {},
+                                  param->getLocation());
       *arraySize = 4;
       inLineAdj = true;
     } else if (param->hasAttr<HLSLTriangleAdjAttr>() && !inTriangleAdj) {
-      theBuilder.addExecutionMode(
-          entryFunctionId, spv::ExecutionMode::InputTrianglesAdjacency, {});
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::InputTrianglesAdjacency,
+                                  {}, param->getLocation());
       *arraySize = 6;
       inTriangleAdj = true;
     }
@@ -9414,18 +9423,21 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
 }
 
 void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
-  theBuilder.addExecutionMode(entryFunctionId,
-                              spv::ExecutionMode::OriginUpperLeft, {});
+  spvBuilder.addExecutionMode(entryFunction,
+                              spv::ExecutionMode::OriginUpperLeft, {},
+                              decl->getLocation());
   if (decl->getAttr<HLSLEarlyDepthStencilAttr>()) {
-    theBuilder.addExecutionMode(entryFunctionId,
-                                spv::ExecutionMode::EarlyFragmentTests, {});
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::EarlyFragmentTests, {},
+                                decl->getLocation());
   }
   if (decl->getAttr<VKPostDepthCoverageAttr>()) {
     theBuilder.addExtension(Extension::KHR_post_depth_coverage,
                             "[[vk::post_depth_coverage]]", decl->getLocation());
     theBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
-    theBuilder.addExecutionMode(entryFunctionId,
-                                spv::ExecutionMode::PostDepthCoverage, {});
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::PostDepthCoverage, {},
+                                decl->getLocation());
   }
 }
 
@@ -9439,8 +9451,8 @@ void SPIRVEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
     z = static_cast<uint32_t>(numThreadsAttr->getZ());
   }
 
-  theBuilder.addExecutionMode(entryFunctionId, spv::ExecutionMode::LocalSize,
-                              {x, y, z});
+  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                              {x, y, z}, decl->getLocation());
 }
 
 bool SPIRVEmitter::processTessellationShaderAttributes(
@@ -9461,7 +9473,8 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
                 domain->getLocation());
       return false;
     }
-    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+    spvBuilder.addExecutionMode(entryFunction, hsExecMode, {},
+                                decl->getLocation());
   }
 
   // Early return for domain shaders as domain shaders only takes the 'domain'
@@ -9488,7 +9501,8 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
                 partitioning->getLocation());
       return false;
     }
-    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+    spvBuilder.addExecutionMode(entryFunction, hsExecMode, {},
+                                decl->getLocation());
   }
   if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
     const auto topology = outputTopology->getTopology().lower();
@@ -9502,7 +9516,8 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
     // default?
     if (topology != "line") {
       if (hsExecMode != spv::ExecutionMode::Max) {
-        theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+        spvBuilder.addExecutionMode(entryFunction, hsExecMode, {},
+                                    decl->getLocation());
       } else {
         emitError("unknown output topology in hull shader",
                   outputTopology->getLocation());
@@ -9512,9 +9527,9 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
   }
   if (auto *controlPoints = decl->getAttr<HLSLOutputControlPointsAttr>()) {
     *numOutputControlPoints = controlPoints->getCount();
-    theBuilder.addExecutionMode(entryFunctionId,
+    spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::OutputVertices,
-                                {*numOutputControlPoints});
+                                {*numOutputControlPoints}, decl->getLocation());
   }
   if (auto *pcf = decl->getAttr<HLSLPatchConstantFuncAttr>()) {
     llvm::StringRef pcf_name = pcf->getFunctionName();
@@ -9549,10 +9564,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunctionId =
-      theBuilder.beginFunction(funcType, voidType, decl->getName());
+  entryFunction = spvBuilder.beginFunction(
+      astContext.VoidTy, /*SourceLocation*/ {}, decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
-  declIdMapper.setEntryFunctionId(entryFunctionId);
+  declIdMapper.setEntryFunction(entryFunction);
 
   // Handle attributes specific to each shader stage
   if (shaderModel.IsPS()) {

@@ -68,5 +68,23 @@ bool StructType::operator==(const StructType &that) const {
          readOnly == that.readOnly;
 }
 
+HybridStructType::HybridStructType(
+    llvm::ArrayRef<HybridStructType::FieldInfo> fieldsVec, llvm::StringRef name,
+    bool isReadOnly, HybridStructType::InterfaceType iface)
+    : SpirvType(TK_HybridStruct), fields(fieldsVec.begin(), fieldsVec.end()),
+      structName(name), readOnly(isReadOnly), interfaceType(iface) {}
+
+bool HybridStructType::FieldInfo::
+operator==(const HybridStructType::FieldInfo &that) const {
+  return astType == that.astType && spirvType == that.spirvType &&
+         name == that.name && vkOffsetAttr == that.vkOffsetAttr &&
+         packOffsetAttr == that.packOffsetAttr;
+}
+
+bool HybridStructType::operator==(const HybridStructType &that) const {
+  return fields == that.fields && structName == that.structName &&
+         readOnly == that.readOnly;
+}
+
 } // namespace spirv
 } // namespace clang

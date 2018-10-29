@@ -29,6 +29,17 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
   return function;
 }
 
+SpirvFunction *SpirvBuilder::createFunction(QualType returnType,
+                                            SourceLocation loc,
+                                            llvm::StringRef funcName,
+                                            bool isAlias) {
+  function = new (context) SpirvFunction(
+      returnType, /*id*/ 0, spv::FunctionControlMask::MaskNone, loc, funcName);
+  function->setConstainsAliasComponent(isAlias);
+  module->addFunction(function);
+  return function;
+}
+
 SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  SourceLocation loc,
                                                  llvm::StringRef name) {
@@ -98,6 +109,17 @@ SpirvComposite *SpirvBuilder::createCompositeConstruct(
   return instruction;
 }
 
+SpirvComposite *SpirvBuilder::createCompositeConstruct(
+    const SpirvType *resultType,
+    llvm::ArrayRef<SpirvInstruction *> constituents, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context)
+      SpirvComposite(/*QualType*/ {}, /*id*/ 0, loc, constituents);
+  instruction->setResultType(resultType);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvCompositeExtract *SpirvBuilder::createCompositeExtract(
     QualType resultType, SpirvInstruction *composite,
     llvm::ArrayRef<uint32_t> indexes, SourceLocation loc) {
@@ -139,6 +161,17 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   return instruction;
 }
 
+SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
+                                    SpirvInstruction *pointer,
+                                    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction =
+      new (context) SpirvLoad(/*QualType*/ {}, /*id*/ 0, loc, pointer);
+  instruction->setResultType(resultType);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 void SpirvBuilder::createStore(SpirvInstruction *address,
                                SpirvInstruction *value, SourceLocation loc) {
   assert(insertPoint && "null insert point");
@@ -164,6 +197,17 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvAccessChain(resultType, /*id*/ 0, loc, base, indexes);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
+SpirvAccessChain *SpirvBuilder::createAccessChain(
+    const SpirvType *resultType, SpirvInstruction *base,
+    llvm::ArrayRef<SpirvInstruction *> indexes, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context)
+      SpirvAccessChain(/*QualType*/ {}, /*id*/ 0, loc, base, indexes);
+  instruction->setResultType(resultType);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -696,12 +740,15 @@ SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
   return var;
 }
 
-SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
+SpirvVariable *SpirvBuilder::addStageBuiltinVar(const SpirvType *type,
                                                 spv::StorageClass storageClass,
                                                 spv::BuiltIn builtin,
                                                 SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var = new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass);
+  // TODO(ehsan): type pointer should be added in lowering the type.
+  auto *var =
+      new (context) SpirvVariable(/*QualType*/ {}, /*id*/ 0, loc, storageClass);
+  var->setResultType(type);
   module->addVariable(var);
 
   // Decorate with the specified Builtin
@@ -720,6 +767,20 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   auto *var =
       new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass,
                                   init.hasValue() ? init.getValue() : nullptr);
+  var->setDebugName(name);
+  module->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addModuleVar(
+    const SpirvType *type, spv::StorageClass storageClass, llvm::StringRef name,
+    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+  assert(storageClass != spv::StorageClass::Function);
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var =
+      new (context) SpirvVariable(/*QualType*/ {}, /*id*/ 0, loc, storageClass,
+                                  init.hasValue() ? init.getValue() : nullptr);
+  var->setResultType(type);
   var->setDebugName(name);
   module->addVariable(var);
   return var;
@@ -767,15 +828,15 @@ void SpirvBuilder::decorateInputAttachmentIndex(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
-void SpirvBuilder::decorateCounterBufferId(SpirvInstruction *mainBuffer,
-                                           uint32_t counterBufferId,
-                                           SourceLocation srcLoc) {
+void SpirvBuilder::decorateCounterBuffer(SpirvInstruction *mainBuffer,
+                                         SpirvInstruction *counterBuffer,
+                                         SourceLocation srcLoc) {
   if (spirvOptions.enableReflect) {
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  srcLoc);
     auto *decor = new (context) SpirvDecoration(
         srcLoc, mainBuffer, spv::Decoration::HlslCounterBufferGOOGLE,
-        {counterBufferId});
+        {counterBuffer});
     module->addDecoration(decor);
   }
 }
