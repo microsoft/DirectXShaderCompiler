@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: sample
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: sample
 // CHECK: dot3
 // CHECK: Saturate

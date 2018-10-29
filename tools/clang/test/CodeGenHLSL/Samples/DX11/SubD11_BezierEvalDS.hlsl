@@ -3,7 +3,7 @@
 // CHECK: domainLocation
 // CHECK: domainLocation
 // CHECK: loadPatchConstant
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: sampleLevel
 // CHECK: storeOutput
 

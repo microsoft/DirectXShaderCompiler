@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: dot3
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: dot3
 // CHECK: storePatchConstant
 // CHECK: main
