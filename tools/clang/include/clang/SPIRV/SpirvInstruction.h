@@ -127,7 +127,7 @@ public:
 
   bool hasResultType() const { return resultType != nullptr; }
   const SpirvType *getResultType() const { return resultType; }
-  void setResultType(const SpirvType *t) { resultType = t; }
+  void setResultType(const SpirvType *type) { resultType = type; }
 
   // TODO: The responsibility of assigning the result-id of an instruction
   // shouldn't be on the instruction itself.
@@ -141,6 +141,27 @@ public:
 
   SpirvLayoutRule getLayoutRule() const { return layoutRule; }
   void setLayoutRule(SpirvLayoutRule rule) { layoutRule = rule; }
+
+  void setContainsAliasComponent(bool contains) { containsAlias = contains; }
+  bool containsAliasComponent() const { return containsAlias; }
+
+  void setStorageClass(spv::StorageClass sc) { storageClass = sc; }
+  spv::StorageClass getStorageClass() const { return storageClass; }
+
+  void setRValue(bool rvalue = true) { isRValue_ = rvalue; }
+  bool isRValue() const { return isRValue_; }
+
+  void setConstant() { isConstant_ = true; }
+  bool isConstant() const { return isConstant_; }
+
+  void setSpecConstant() { isSpecConstant_ = true; }
+  bool isSpecConstant() const { return isSpecConstant_; }
+
+  void setRelaxedPrecision() { isRelaxedPrecision_ = true; }
+  bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
+
+  void setNonUniform(bool nu = true) { isNonUniform_ = true; }
+  bool isNonUniform() const { return isNonUniform_; }
 
 protected:
   // Forbid creating SpirvInstruction directly
@@ -158,6 +179,23 @@ protected:
   const SpirvType *resultType;
   uint32_t resultTypeId;
   SpirvLayoutRule layoutRule;
+
+  /// Indicates whether this evaluation result contains alias variables
+  ///
+  /// This field should only be true for stand-alone alias variables, which is
+  /// of pointer-to-pointer type, or struct variables containing alias fields.
+  /// After dereferencing the alias variable, this should be set to false to let
+  /// CodeGen fall back to normal handling path.
+  ///
+  /// Note: legalization specific code
+  bool containsAlias;
+
+  spv::StorageClass storageClass;
+  bool isRValue_;
+  bool isConstant_;
+  bool isSpecConstant_;
+  bool isRelaxedPrecision_;
+  bool isNonUniform_;
 };
 
 #define DECLARE_INVOKE_VISITOR_FOR_CLASS(cls)                                  \
@@ -267,7 +305,7 @@ private:
 /// \brief OpExecutionMode and OpExecutionModeId instructions
 class SpirvExecutionMode : public SpirvInstruction {
 public:
-  SpirvExecutionMode(SourceLocation loc, SpirvEntryPoint *entryPoint,
+  SpirvExecutionMode(SourceLocation loc, SpirvFunction *entryPointFunction,
                      spv::ExecutionMode, llvm::ArrayRef<uint32_t> params,
                      bool usesIdParams);
 
@@ -278,12 +316,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
 
-  SpirvEntryPoint *getEntryPoint() const { return entryPoint; }
+  SpirvFunction *getEntryPoint() const { return entryPoint; }
   spv::ExecutionMode getExecutionMode() const { return execMode; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
 
 private:
-  SpirvEntryPoint *entryPoint;
+  SpirvFunction *entryPoint;
   spv::ExecutionMode execMode;
   llvm::SmallVector<uint32_t, 4> params;
 };
@@ -350,7 +388,7 @@ private:
   std::string process;
 };
 
-/// \brief OpDecorate and OpMemberDecorate instructions
+/// \brief OpDecorate(Id) and OpMemberDecorate instructions
 class SpirvDecoration : public SpirvInstruction {
 public:
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
@@ -359,6 +397,11 @@ public:
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor, llvm::StringRef stringParam,
                   llvm::Optional<uint32_t> index = llvm::None);
+
+  // Used for creating OpDecorateId instructions
+  SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
+                  spv::Decoration decor,
+                  llvm::ArrayRef<SpirvInstruction *> params);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -372,6 +415,7 @@ public:
 
   spv::Decoration getDecoration() const { return decoration; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
+  llvm::ArrayRef<SpirvInstruction *> getIdParams() const { return idParams; }
   bool isMemberDecoration() const { return index.hasValue(); }
   uint32_t getMemberIndex() const { return index.getValue(); }
 
@@ -380,11 +424,21 @@ private:
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
   llvm::SmallVector<uint32_t, 4> params;
+  llvm::SmallVector<SpirvInstruction *, 4> idParams;
 };
 
 /// \brief OpVariable instruction
 class SpirvVariable : public SpirvInstruction {
 public:
+  /// \brief An enum class for representing what the DeclContext is used for
+  enum class ContextUsageKind {
+    CBuffer = 0,
+    TBuffer = 1,
+    PushConstant = 2,
+    Globals = 3,
+    None = 4
+  };
+
   SpirvVariable(QualType resultType, uint32_t resultId, SourceLocation loc,
                 spv::StorageClass sc, SpirvInstruction *initializerId = 0);
 
@@ -397,11 +451,12 @@ public:
 
   bool hasInitializer() const { return initializer != nullptr; }
   SpirvInstruction *getInitializer() const { return initializer; }
-  spv::StorageClass getStorageClass() const { return storageClass; }
+  void setContextUsageKind(ContextUsageKind k) { contextUsageKind = k; }
+  ContextUsageKind getContextUsageKind() const { return contextUsageKind; }
 
 private:
-  spv::StorageClass storageClass;
   SpirvInstruction *initializer;
+  ContextUsageKind contextUsageKind;
 };
 
 class SpirvFunctionParameter : public SpirvInstruction {

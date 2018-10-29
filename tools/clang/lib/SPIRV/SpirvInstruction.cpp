@@ -86,7 +86,10 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
                                    uint32_t id, SourceLocation loc)
     : kind(k), opcode(op), astResultType(astType), resultId(id), srcLoc(loc),
       debugName(), resultType(nullptr), resultTypeId(0),
-      layoutRule(SpirvLayoutRule::Void) {}
+      layoutRule(SpirvLayoutRule::Void), containsAlias(false),
+      storageClass(spv::StorageClass::Max), isRValue_(false),
+      isConstant_(false), isSpecConstant_(false), isRelaxedPrecision_(false),
+      isNonUniform_(false) {}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
     : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(),
@@ -122,8 +125,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
       interfaceVec(iface.begin(), iface.end()) {}
 
 // OpExecutionMode and OpExecutionModeId instructions
-SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc,
-                                       SpirvEntryPoint *entry,
+SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc, SpirvFunction *entry,
                                        spv::ExecutionMode em,
                                        llvm::ArrayRef<uint32_t> paramsVec,
                                        bool usesIdParams)
@@ -163,7 +165,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                       : spv::Op::OpDecorate,
                        /*type*/ {}, /*id*/ 0, loc),
       target(targetInst), decoration(decor), index(idx),
-      params(p.begin(), p.end()) {}
+      params(p.begin(), p.end()), idParams() {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
@@ -174,17 +176,28 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                        idx.hasValue() ? spv::Op::OpMemberDecorate
                                       : spv::Op::OpDecorate,
                        /*type*/ {}, /*id*/ 0, loc),
-      target(targetInst), decoration(decor), index(idx), params() {
+      target(targetInst), decoration(decor), index(idx), params(), idParams() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
   params.insert(params.end(), stringWords.begin(), stringWords.end());
 }
+
+SpirvDecoration::SpirvDecoration(SourceLocation loc,
+                                 SpirvInstruction *targetInst,
+                                 spv::Decoration decor,
+                                 llvm::ArrayRef<SpirvInstruction *> ids)
+    : SpirvInstruction(IK_Decoration, spv::Op::OpDecorateId,
+                       /*type*/ {}, /*id*/ 0, loc),
+      target(targetInst), decoration(decor), index(llvm::None), params(),
+      idParams(ids.begin(), ids.end()) {}
 
 SpirvVariable::SpirvVariable(QualType resultType, uint32_t resultId,
                              SourceLocation loc, spv::StorageClass sc,
                              SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, resultId,
                        loc),
-      storageClass(sc), initializer(initializerInst) {}
+      initializer(initializerInst) {
+  setStorageClass(sc);
+}
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
                                                uint32_t resultId,

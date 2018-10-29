@@ -22,6 +22,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/Support/Casting.h"
 
 #include "SPIRVEmitter.h"
 
@@ -29,6 +30,92 @@ namespace clang {
 namespace spirv {
 
 namespace {
+
+bool shouldSkipInStructLayout(const Decl *decl) {
+  // Ignore implicit generated struct declarations/constructors/destructors
+  if (decl->isImplicit())
+    return true;
+  // Ignore embedded type decls
+  if (isa<TypeDecl>(decl))
+    return true;
+  // Ignore embeded function decls
+  if (isa<FunctionDecl>(decl))
+    return true;
+  // Ignore empty decls
+  if (isa<EmptyDecl>(decl))
+    return true;
+
+  // For the $Globals cbuffer, we only care about externally-visiable
+  // non-resource-type variables. The rest should be filtered out.
+
+  const auto *declContext = decl->getDeclContext();
+
+  // Special check for ConstantBuffer/TextureBuffer, whose DeclContext is a
+  // HLSLBufferDecl. So that we need to check the HLSLBufferDecl's parent decl
+  // to check whether this is a ConstantBuffer/TextureBuffer defined in the
+  // global namespace.
+  // Note that we should not be seeing ConstantBuffer/TextureBuffer for normal
+  // cbuffer/tbuffer or push constant blocks. So this case should only happen
+  // for $Globals cbuffer.
+  if (isConstantTextureBuffer(decl) &&
+      declContext->getLexicalParent()->isTranslationUnit())
+    return true;
+
+  // $Globals' "struct" is the TranslationUnit, so we should ignore resources
+  // in the TranslationUnit "struct" and its child namespaces.
+  if (declContext->isTranslationUnit() || declContext->isNamespace()) {
+    // External visibility
+    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
+      if (!declDecl->hasExternalFormalLinkage())
+        return true;
+
+    // cbuffer/tbuffer
+    if (isa<HLSLBufferDecl>(decl))
+      return true;
+
+    // Other resource types
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
+      if (isResourceType(valueDecl))
+        return true;
+  }
+
+  return false;
+}
+
+void collectDeclsInNamespace(const NamespaceDecl *nsDecl,
+                             llvm::SmallVector<const Decl *, 4> *decls) {
+  for (const auto *decl : nsDecl->decls()) {
+    collectDeclsInField(decl, decls);
+  }
+}
+
+void collectDeclsInField(const Decl *field,
+                         llvm::SmallVector<const Decl *, 4> *decls) {
+
+  // Case of nested namespaces.
+  if (const auto *nsDecl = dyn_cast<NamespaceDecl>(field)) {
+    collectDeclsInNamespace(nsDecl, decls);
+  }
+
+  if (shouldSkipInStructLayout(field))
+    return;
+
+  if (!isa<DeclaratorDecl>(field)) {
+    return;
+  }
+
+  decls->push_back(field);
+}
+
+llvm::SmallVector<const Decl *, 4>
+collectDeclsInDeclContext(const DeclContext *declContext) {
+  llvm::SmallVector<const Decl *, 4> decls;
+  for (const auto *field : declContext->decls()) {
+    collectDeclsInField(field, &decls);
+  }
+  return decls;
+}
+
 /// \brief Returns true if the given decl is a boolean stage I/O variable.
 /// Returns false if the type is not boolean, or the decl is a built-in stage
 /// variable.
@@ -132,14 +219,15 @@ std::string StageVar::getSemanticStr() const {
   return ss.str();
 }
 
-uint32_t CounterIdAliasPair::get(ModuleBuilder &builder,
-                                 TypeTranslator &translator) const {
+SpirvInstruction *CounterIdAliasPair::get(SpirvBuilder &builder,
+                                          SpirvContext &spvContext) const {
   if (isAlias) {
-    const uint32_t counterVarType = builder.getPointerType(
-        translator.getACSBufferCounter(), spv::StorageClass::Uniform);
-    return builder.createLoad(counterVarType, resultId);
+    const auto *counterType = spvContext.getACSBufferCounterType();
+    const auto *counterVarType =
+        spvContext.getPointerType(counterType, spv::StorageClass::Uniform);
+    return builder.createLoad(counterVarType, counterVar);
   }
-  return resultId;
+  return counterVar;
 }
 
 const CounterIdAliasPair *
@@ -151,14 +239,14 @@ CounterVarFields::get(const llvm::SmallVectorImpl<uint32_t> &indices) const {
 }
 
 bool CounterVarFields::assign(const CounterVarFields &srcFields,
-                              ModuleBuilder &builder,
-                              TypeTranslator &translator) const {
+                              SpirvBuilder &builder,
+                              SpirvContext &context) const {
   for (const auto &field : fields) {
     const auto *srcField = srcFields.get(field.indices);
     if (!srcField)
       return false;
 
-    field.counterVar.assign(*srcField, builder, translator);
+    field.counterVar.assign(*srcField, builder, context);
   }
 
   return true;
@@ -167,10 +255,10 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
 bool CounterVarFields::assign(const CounterVarFields &srcFields,
                               const llvm::SmallVector<uint32_t, 4> &dstPrefix,
                               const llvm::SmallVector<uint32_t, 4> &srcPrefix,
-                              ModuleBuilder &builder,
-                              TypeTranslator &translator) const {
+                              SpirvBuilder &builder,
+                              SpirvContext &context) const {
   if (dstPrefix.empty() && srcPrefix.empty())
-    return assign(srcFields, builder, translator);
+    return assign(srcFields, builder, context);
 
   llvm::SmallVector<uint32_t, 4> srcIndices = srcPrefix;
 
@@ -198,7 +286,7 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
       if (!srcField)
         return false;
 
-      field.counterVar.assign(*srcField, builder, translator);
+      field.counterVar.assign(*srcField, builder, context);
       for (uint32_t i = srcPrefix.size(); i < srcIndices.size(); ++i)
         srcIndices.pop_back();
     }
@@ -221,7 +309,7 @@ SemanticInfo DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
 }
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
-                                              uint32_t storedValue,
+                                              SpirvInstruction *storedValue,
                                               bool forPCF) {
   QualType type = getTypeOrFnRetType(decl);
 
@@ -245,7 +333,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   // Write back of stage output variables in GS is manually controlled by
   // .Append() intrinsic method, implemented in writeBackOutputStream(). So
   // ignoreValue should be set to true for GS.
-  const bool noWriteBack = storedValue == 0 || shaderModel.IsGS();
+  const bool noWriteBack = storedValue == nullptr || shaderModel.IsGS();
 
   return createStageVars(sigPoint, decl, /*asInput=*/false, type,
                          /*arraySize=*/0, "out.var", llvm::None, &storedValue,
@@ -254,8 +342,8 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
                                               uint32_t arraySize,
-                                              uint32_t invocationId,
-                                              uint32_t storedValue) {
+                                              SpirvInstruction *invocationId,
+                                              SpirvInstruction *storedValue) {
   assert(shaderModel.IsHS());
 
   QualType type = getTypeOrFnRetType(decl);
@@ -271,7 +359,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
-                                             uint32_t *loadedValue,
+                                             SpirvInstruction **loadedValue,
                                              bool forPCF) {
   uint32_t arraySize = 0;
   QualType type = paramDecl->getType();
@@ -310,25 +398,21 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   return nullptr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
+SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
   if (const auto *info = getDeclSpirvInfo(decl)) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
       // OpAccessChain to get the pointer to the variable since we created
       // a single variable for the whole buffer object.
 
-      const uint32_t varType = typeTranslator.translateType(
-          // Should only have VarDecls in a HLSLBufferDecl.
-          cast<VarDecl>(decl)->getType(),
-          // We need to set decorateLayout here to avoid creating SPIR-V
-          // instructions for the current type without decorations.
-          info->info.getLayoutRule());
+      // Should only have VarDecls in a HLSLBufferDecl.
+      QualType valueType = cast<VarDecl>(decl)->getType();
 
-      const uint32_t elemId = theBuilder.createAccessChain(
-          theBuilder.getPointerType(varType, info->info.getStorageClass()),
-          info->info, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
-
-      return info->info.substResultId(elemId);
+      // TODO(ehsan): Setting QualType of the value for the access chain. This
+      // used to be a pointer-to-transalted-qualtype.
+      return spvBuilder.createAccessChain(
+          valueType, info->instr,
+          {spvContext.getConstantInt32(info->indexInCTBuffer)});
     } else {
       return *info;
     }
@@ -343,17 +427,23 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
   return 0;
 }
 
-uint32_t DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
-  bool isAlias = false;
-  auto &info = astDecls[param].info;
-  const uint32_t type =
-      getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias, &info);
-  const uint32_t ptrType =
-      theBuilder.getPointerType(type, spv::StorageClass::Function);
-  const uint32_t id = theBuilder.addFnParam(ptrType, param->getName());
-  info.setResultId(id);
+SpirvFunctionParameter *
+DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
+  // TODO(ehsan): Setting QualType for function parameter. In SPIR-V, this
+  // should be a pointer-to-translated-qualtype (with Function storage class).
+  const auto type = getTypeOrFnRetType(param);
+  const auto loc = param->getLocation();
+  SpirvFunctionParameter *fnParamInstr =
+      spvBuilder.addFnParam(type, loc, param->getName());
 
-  return id;
+  bool isAlias = false;
+  (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
+  fnParamInstr->setContainsAliasComponent(isAlias);
+
+  assert(astDecls[param].instr == nullptr);
+  astDecls[param].instr = fnParamInstr;
+
+  return fnParamInstr;
 }
 
 void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
@@ -369,32 +459,44 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
   }
 }
 
-SpirvEvalInfo DeclResultIdMapper::createFnVar(const VarDecl *var,
-                                              llvm::Optional<uint32_t> init) {
-  bool isAlias = false;
-  auto &info = astDecls[var].info;
-  const uint32_t type =
-      getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias, &info);
-  const uint32_t id = theBuilder.addFnVar(type, var->getName(), init);
-  info.setResultId(id);
+SpirvVariable *
+DeclResultIdMapper::createFnVar(const VarDecl *var,
+                                llvm::Optional<SpirvInstruction *> init) {
+  const auto type = getTypeOrFnRetType(var);
+  const auto loc = var->getLocation();
+  const auto name = var->getName();
+  SpirvVariable *varInstr = spvBuilder.addFnVar(
+      type, loc, name, init.hasValue() ? init.getValue() : nullptr);
 
-  return info;
+  bool isAlias = false;
+  (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
+  varInstr->setContainsAliasComponent(isAlias);
+
+  assert(astDecls[var].instr == nullptr);
+  astDecls[var].instr = varInstr;
+
+  return varInstr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::createFileVar(const VarDecl *var,
-                                                llvm::Optional<uint32_t> init) {
-  bool isAlias = false;
-  auto &info = astDecls[var].info;
-  const uint32_t type =
-      getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias, &info);
-  const uint32_t id = theBuilder.addModuleVar(type, spv::StorageClass::Private,
-                                              var->getName(), init);
-  info.setResultId(id).setStorageClass(spv::StorageClass::Private);
+SpirvVariable *
+DeclResultIdMapper::createFileVar(const VarDecl *var,
+                                  llvm::Optional<SpirvInstruction *> init) {
+  const auto type = getTypeOrFnRetType(var);
+  const auto loc = var->getLocation();
+  SpirvVariable *varInstr = spvBuilder.addModuleVar(
+      type, spv::StorageClass::Private, var->getName(), init, loc);
 
-  return info;
+  bool isAlias = false;
+  (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
+  varInstr->setContainsAliasComponent(isAlias);
+
+  assert(astDecls[var].instr == nullptr);
+  astDecls[var].instr = varInstr;
+
+  return varInstr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
+SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = SpirvLayoutRule::Void;
   bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
@@ -402,7 +504,7 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (var->getAttr<HLSLGroupSharedAttr>()) {
     // For CS groupshared variables
     storageClass = spv::StorageClass::Workgroup;
-  } else if (TypeTranslator::isResourceType(var)) {
+  } else if (isResourceType(var)) {
     // See through the possible outer arrays
     QualType resourceType = var->getType();
     while (resourceType->isArrayType()) {
@@ -433,12 +535,13 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
     if (astDecls.count(var) == 0)
       createGlobalsCBuffer(var);
 
-    return astDecls[var].info;
+    assert(isa<SpirvVariable>(astDecls[var].instr));
+    return cast<SpirvVariable>(astDecls[var].instr);
   }
 
-  uint32_t varType = typeTranslator.translateType(var->getType(), rule);
-
   // Require corresponding capability for accessing 16-bit data.
+  // TODO(ehsan): This should be removed and moved to a pass.
+  /*
   if (storageClass == spv::StorageClass::Uniform &&
       spirvOptions.enable16BitTypes &&
       typeTranslator.isOrContains16BitType(var->getType())) {
@@ -446,61 +549,41 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
                             "16-bit types in resource", var->getLocation());
     theBuilder.requireCapability(spv::Capability::StorageUniformBufferBlock16);
   }
+  */
 
-  const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
-                                              var->getName(), llvm::None);
-  const auto info =
-      SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
+  const auto type = var->getType();
+  const auto loc = var->getLocation();
+  SpirvVariable *varInstr = spvBuilder.addModuleVar(
+      type, storageClass, var->getName(), llvm::None, loc);
+  varInstr->setLayoutRule(rule);
+  DeclSpirvInfo info(varInstr);
   astDecls[var] = info;
 
   // Variables in Workgroup do not need descriptor decorations.
   if (storageClass == spv::StorageClass::Workgroup)
-    return info;
+    return varInstr;
 
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
   const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
 
-  resourceVars.emplace_back(id, var->getLocation(), regAttr, bindingAttr,
+  resourceVars.emplace_back(varInstr, loc, regAttr, bindingAttr,
                             counterBindingAttr);
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
-    theBuilder.decorateInputAttachmentIndex(id, inputAttachment->getIndex());
+    spvBuilder.decorateInputAttachmentIndex(varInstr,
+                                            inputAttachment->getIndex(), loc);
 
   if (isACRWSBuffer) {
     // For {Append|Consume|RW}StructuredBuffer, we need to always create another
     // variable for its associated counter.
-    createCounterVar(var, id, /*isAlias=*/false);
+    createCounterVar(var, varInstr, /*isAlias=*/false);
   }
 
-  return info;
+  return varInstr;
 }
 
-uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
-                                                 spv::StorageClass sc,
-                                                 SpirvLayoutRule rule) {
-  const auto matType = matVar->getType();
-  assert(isMxNMatrix(matType));
-
-  auto &context = *theBuilder.getSPIRVContext();
-  llvm::SmallVector<const Decoration *, 4> decorations;
-  const bool isRowMajor = typeTranslator.isRowMajorMatrix(matType);
-
-  uint32_t stride;
-  (void)typeTranslator.getAlignmentAndSize(matType, rule, &stride);
-  decorations.push_back(Decoration::getOffset(context, 0, 0));
-  decorations.push_back(Decoration::getMatrixStride(context, stride, 0));
-  decorations.push_back(isRowMajor ? Decoration::getColMajor(context, 0)
-                                   : Decoration::getRowMajor(context, 0));
-  decorations.push_back(Decoration::getBlock(context));
-
-  // Get the type for the wrapping struct
-  const std::string structName = "type." + matVar->getName().str();
-  return theBuilder.getStructType({typeTranslator.translateType(matType)},
-                                  structName, {}, decorations);
-}
-
-uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
+SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
     llvm::StringRef typeName, llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
@@ -515,24 +598,11 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forGlobals = usageKind == ContextUsageKind::Globals;
   const bool forPC = usageKind == ContextUsageKind::PushConstant;
 
-  auto &context = *theBuilder.getSPIRVContext();
-  const SpirvLayoutRule layoutRule =
-      (forCBuffer || forGlobals)
-          ? spirvOptions.cBufferLayoutRule
-          : (forTBuffer ? spirvOptions.tBufferLayoutRule
-                        : spirvOptions.sBufferLayoutRule);
-  const auto *blockDec = forTBuffer ? Decoration::getBufferBlock(context)
-                                    : Decoration::getBlock(context);
-
   const llvm::SmallVector<const Decl *, 4> &declGroup =
-      typeTranslator.collectDeclsInDeclContext(decl);
-  auto decorations = typeTranslator.getLayoutDecorations(declGroup, layoutRule);
-  decorations.push_back(blockDec);
+      collectDeclsInDeclContext(decl);
 
   // Collect the type and name for each field
-  llvm::SmallVector<uint32_t, 4> fieldTypes;
-  llvm::SmallVector<llvm::StringRef, 4> fieldNames;
-  uint32_t fieldIndex = 0;
+  llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
@@ -543,10 +613,10 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     // We don't need it here.
     auto varType = declDecl->getType();
     varType.removeLocalConst();
+    HybridStructType::FieldInfo info(varType, nullptr, declDecl->getName());
 
-    fieldTypes.push_back(typeTranslator.translateType(varType, layoutRule));
-    fieldNames.push_back(declDecl->getName());
-
+    /*
+    // TODO(ehsan): This should be removed and moved to a pass.
     // Require corresponding capability for accessing 16-bit data.
     if (spirvOptions.enable16BitTypes &&
         typeTranslator.isOrContains16BitType(varType)) {
@@ -559,48 +629,51 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
               : forPC ? spv::Capability::StoragePushConstant16
                       : spv::Capability::StorageUniformBufferBlock16);
     }
-
-    // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate
-    // NonWritable must be applied to all fields.
-    if (forTBuffer) {
-      decorations.push_back(Decoration::getNonWritable(
-          *theBuilder.getSPIRVContext(), fieldIndex));
-    }
-    ++fieldIndex;
+    */
   }
 
   // Get the type for the whole struct
-  uint32_t resultType =
-      theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
+  // tbuffer/TextureBuffers are non-writable SSBOs.
+  const SpirvType *resultType = spvContext.getHybridStructType(
+      fields, typeName, /*isReadOnly*/ forTBuffer,
+      forTBuffer ? HybridStructType::InterfaceType::StorageBuffer
+                 : HybridStructType::InterfaceType::UniformBuffer);
 
   // Make an array if requested.
   if (arraySize > 0) {
-    resultType = theBuilder.getArrayType(
-        resultType, theBuilder.getConstantUint32(arraySize));
+    resultType = spvContext.getArrayType(resultType, arraySize);
   } else if (arraySize == -1) {
     // Runtime arrays of cbuffer/tbuffer needs additional capability.
-    theBuilder.addExtension(Extension::EXT_descriptor_indexing,
+    spvBuilder.addExtension(Extension::EXT_descriptor_indexing,
                             "runtime array of resources", {});
-    theBuilder.requireCapability(spv::Capability::RuntimeDescriptorArrayEXT);
-    resultType = theBuilder.getRuntimeArrayType(resultType);
+    spvBuilder.requireCapability(spv::Capability::RuntimeDescriptorArrayEXT);
+    resultType = spvContext.getRuntimeArrayType(resultType);
   }
 
   // Register the <type-id> for this decl
-  ctBufferPCTypeIds[decl] = resultType;
+  ctBufferPCTypes[decl] = resultType;
 
   const auto sc =
       forPC ? spv::StorageClass::PushConstant : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
-  return theBuilder.addModuleVar(resultType, sc, varName);
+  SpirvVariable *var = spvBuilder.addModuleVar(resultType, sc, varName);
+  const SpirvLayoutRule layoutRule =
+      (forCBuffer || forGlobals)
+          ? spirvOptions.cBufferLayoutRule
+          : (forTBuffer ? spirvOptions.tBufferLayoutRule
+                        : spirvOptions.sBufferLayoutRule);
+
+  var->setLayoutRule(layoutRule);
+  return var;
 }
 
-uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
   const std::string structName = "type." + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
-  const uint32_t bufferVar = createStructOrStructArrayVarOfExplicitLayout(
+  SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
       decl, /*arraySize*/ 0, usageKind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
@@ -609,16 +682,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // OpAccessChain.
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
-    if (TypeTranslator::shouldSkipInStructLayout(subDecl))
+    if (shouldSkipInStructLayout(subDecl))
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] =
-        SpirvEvalInfo(bufferVar)
-            .setStorageClass(spv::StorageClass::Uniform)
-            .setLayoutRule(decl->isCBuffer() ? spirvOptions.cBufferLayoutRule
-                                             : spirvOptions.tBufferLayoutRule);
-    astDecls[varDecl].indexInCTBuffer = index++;
+    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
   }
   resourceVars.emplace_back(
       bufferVar, decl->getLocation(), getResourceBinding(decl),
@@ -627,7 +695,7 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   return bufferVar;
 }
 
-uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
+SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   const RecordType *recordType = nullptr;
   int arraySize = 0;
 
@@ -659,15 +727,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   const std::string structName = "type." + std::string(ctBufferName) +
                                  recordType->getDecl()->getName().str();
 
-  const uint32_t bufferVar = createStructOrStructArrayVarOfExplicitLayout(
+  SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
       recordType->getDecl(), arraySize, usageKind, structName, decl->getName());
 
   // We register the VarDecl here.
-  astDecls[decl] =
-      SpirvEvalInfo(bufferVar)
-          .setStorageClass(spv::StorageClass::Uniform)
-          .setLayoutRule(context->isCBuffer() ? spirvOptions.cBufferLayoutRule
-                                              : spirvOptions.tBufferLayoutRule);
+  astDecls[decl] = DeclSpirvInfo(bufferVar);
   resourceVars.emplace_back(
       bufferVar, decl->getLocation(), getResourceBinding(context),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
@@ -675,21 +739,20 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   return bufferVar;
 }
 
-uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
+SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // The front-end errors out if non-struct type push constant is used.
   const auto *recordType = decl->getType()->getAs<RecordType>();
   assert(recordType);
 
   const std::string structName =
       "type.PushConstant." + recordType->getDecl()->getName().str();
-  const uint32_t var = createStructOrStructArrayVarOfExplicitLayout(
+  SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
       recordType->getDecl(), /*arraySize*/ 0, ContextUsageKind::PushConstant,
       structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = SpirvEvalInfo(var)
-                       .setStorageClass(spv::StorageClass::PushConstant)
-                       .setLayoutRule(spirvOptions.sBufferLayoutRule);
+  astDecls[decl] = DeclSpirvInfo(var);
+
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
 
@@ -701,7 +764,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
     return;
 
   const auto *context = var->getTranslationUnitDecl();
-  const uint32_t globals = createStructOrStructArrayVarOfExplicitLayout(
+  SpirvVariable *globals = createStructOrStructArrayVarOfExplicitLayout(
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
@@ -709,7 +772,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
                             nullptr);
 
   uint32_t index = 0;
-  for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
+  for (const auto *decl : collectDeclsInDeclContext(context))
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varDecl->getInit())
@@ -726,33 +789,31 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
         return;
       }
 
-      astDecls[varDecl] = SpirvEvalInfo(globals)
-                              .setStorageClass(spv::StorageClass::Uniform)
-                              .setLayoutRule(spirvOptions.cBufferLayoutRule);
-      astDecls[varDecl].indexInCTBuffer = index++;
+      astDecls[varDecl] = DeclSpirvInfo(globals, index++);
     }
 }
 
-uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
-  if (const auto *info = getDeclSpirvInfo(fn))
-    return info->info;
-
-  auto &info = astDecls[fn].info;
+SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
+  // Return it if it's already been created.
+  auto it = astFunctionDecls.find(fn);
+  if (it != astFunctionDecls.end()) {
+    return it->second;
+  }
 
   bool isAlias = false;
+  (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias);
 
-  (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias, &info);
+  SpirvFunction *spirvFunction = spvBuilder.createFunction(
+      fn->getReturnType(), fn->getLocation(), fn->getName(), isAlias);
 
-  const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
-  info.setResultId(id);
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
   // be normal rvalues.
-  if (!isAlias ||
-      !TypeTranslator::isAKindOfStructuredOrByteBuffer(fn->getReturnType()))
-    info.setRValue();
+  if (!isAlias || !isAKindOfStructuredOrByteBuffer(fn->getReturnType()))
+    spirvFunction->setRValue();
 
-  return id;
+  astFunctionDecls[fn] = spirvFunction;
+  return spirvFunction;
 }
 
 const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
@@ -788,12 +849,14 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 }
 
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
-                                              uint32_t specConstant) {
-  astDecls[decl].info.setResultId(specConstant).setRValue().setSpecConstant();
+                                              SpirvInstruction *specConstant) {
+  specConstant->setSpecConstant();
+  specConstant->setRValue();
+  astDecls[decl] = DeclSpirvInfo(specConstant);
 }
 
 void DeclResultIdMapper::createCounterVar(
-    const DeclaratorDecl *decl, uint32_t declId, bool isAlias,
+    const DeclaratorDecl *decl, SpirvInstruction *declInstr, bool isAlias,
     const llvm::SmallVector<uint32_t, 4> *indices) {
   std::string counterName = "counter.var." + decl->getName().str();
   if (indices) {
@@ -802,6 +865,7 @@ void DeclResultIdMapper::createCounterVar(
       counterName += "." + std::to_string(index);
   }
 
+  const SpirvType *counterType = spvContext.getACSBufferCounterType();
   uint32_t counterType = typeTranslator.getACSBufferCounter();
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
   // Alias counter variables should be created into the Private storage class.
@@ -811,27 +875,27 @@ void DeclResultIdMapper::createCounterVar(
   if (isAlias) {
     // Apply an extra level of pointer for alias counter variable
     counterType =
-        theBuilder.getPointerType(counterType, spv::StorageClass::Uniform);
+        spvContext.getPointerType(counterType, spv::StorageClass::Uniform);
   }
 
-  const uint32_t counterId =
-      theBuilder.addModuleVar(counterType, sc, counterName);
+  SpirvVariable *counterInstr = spvBuilder.addModuleVar(
+      counterType, spv::StorageClass::Uniform, counterName);
 
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
-    resourceVars.emplace_back(counterId, decl->getLocation(),
+    resourceVars.emplace_back(counterInstr, decl->getLocation(),
                               getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
-    assert(declId);
-    theBuilder.decorateCounterBufferId(declId, counterId);
+    assert(declInstr);
+    spvBuilder.decorateCounterBuffer(declInstr, counterInstr);
   }
 
   if (indices)
-    fieldCounterVars[decl].append(*indices, counterId);
+    fieldCounterVars[decl].append(*indices, counterInstr);
   else
-    counterVars[decl] = {counterId, isAlias};
+    counterVars[decl] = {counterInstr, isAlias};
 }
 
 void DeclResultIdMapper::createFieldCounterVars(
@@ -858,29 +922,23 @@ void DeclResultIdMapper::createFieldCounterVars(
   }
 }
 
-uint32_t
-DeclResultIdMapper::getCTBufferPushConstantTypeId(const DeclContext *decl) {
-  const auto found = ctBufferPCTypeIds.find(decl);
-  assert(found != ctBufferPCTypeIds.end());
+const SpirvType *
+DeclResultIdMapper::getCTBufferPushConstantType(const DeclContext *decl) {
+  const auto found = ctBufferPCTypes.find(decl);
+  assert(found != ctBufferPCTypes.end());
   return found->second;
 }
 
-std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {
-  std::vector<uint32_t> vars;
+std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
+  std::vector<SpirvVariable *> vars;
 
   for (auto var : glPerVertex.getStageInVars())
     vars.push_back(var);
   for (auto var : glPerVertex.getStageOutVars())
     vars.push_back(var);
 
-  llvm::DenseSet<uint32_t> seenVars;
-  for (const auto &var : stageVars) {
-    const auto id = var.getSpirvId();
-    if (seenVars.count(id) == 0) {
-      vars.push_back(id);
-      seenVars.insert(id);
-    }
-  }
+  for (const auto &var : stageVars)
+    vars.push_back(var.getSpirvInstr());
 
   return vars;
 }
@@ -1049,9 +1107,9 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       }
       locSet.useLoc(loc, idx);
 
-      theBuilder.decorateLocation(var.getSpirvId(), loc);
+      spvBuilder.decorateLocation(var.getSpirvInstr(), loc);
       if (var.getIndexAttr())
-        theBuilder.decorateIndex(var.getSpirvId(), idx);
+        spvBuilder.decorateIndex(var.getSpirvInstr(), idx);
     }
 
     return noError;
@@ -1079,7 +1137,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     // We should special rules for SV_Target: the location number comes from the
     // semantic string index.
     if (semaInfo.isTarget()) {
-      theBuilder.decorateLocation(var.getSpirvId(), semaInfo.index);
+      spvBuilder.decorateLocation(var.getSpirvInstr(), semaInfo.index);
       locSet.useLoc(semaInfo.index);
     } else {
       vars.push_back(&var);
@@ -1101,7 +1159,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   }
 
   for (const auto *var : vars)
-    theBuilder.decorateLocation(var->getSpirvId(),
+    spvBuilder.decorateLocation(var->getSpirvInstr(),
                                 locSet.useNextLocs(var->getLocationCount()));
 
   return true;
@@ -1235,7 +1293,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
                       var.getSourceLocation());
             return false;
           }
-          theBuilder.decorateDSetBinding(var.getSpirvId(), setNo, bindNo);
+          spvBuilder.decorateDSetBinding(var.getSpirvInstr(), setNo, bindNo);
         }
       } else {
         emitError(
@@ -1251,11 +1309,11 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
   // Decorates the given varId of the given category with set number
   // setNo, binding number bindingNo. Ignores overlaps.
-  const auto tryToDecorate = [this, &bindingSet](const uint32_t varId,
+  const auto tryToDecorate = [this, &bindingSet](SpirvInstruction *var,
                                                  const uint32_t setNo,
                                                  const uint32_t bindingNo) {
     bindingSet.useBinding(bindingNo, setNo);
-    theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
+    spvBuilder.decorateDSetBinding(var, setNo, bindingNo);
   };
 
   for (const auto &var : resourceVars) {
@@ -1268,12 +1326,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
 
-        tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding());
+        tryToDecorate(var.getSpirvInstr(), set, vkCBinding->getBinding());
       }
     } else {
       if (const auto *vkBinding = var.getBinding()) {
         // Process m1
-        tryToDecorate(var.getSpirvId(), vkBinding->getSet(),
+        tryToDecorate(var.getSpirvInstr(), vkBinding->getSet(),
                       vkBinding->getBinding());
       }
     }
@@ -1314,7 +1372,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           llvm_unreachable("unknown register type found");
         }
 
-        tryToDecorate(var.getSpirvId(), set, binding);
+        tryToDecorate(var.getSpirvInstr(), set, binding);
       }
 
   for (const auto &var : resourceVars) {
@@ -1327,18 +1385,18 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
 
-        theBuilder.decorateDSetBinding(var.getSpirvId(), set,
+        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
       }
     } else if (!var.getBinding()) {
       const auto *reg = var.getRegister();
       if (reg && reg->isSpaceOnly()) {
         const uint32_t set = reg->RegisterSpace;
-        theBuilder.decorateDSetBinding(var.getSpirvId(), set,
+        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
       } else if (!reg) {
         // Process m3
-        theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
+        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), 0,
                                        bindingSet.useNextBinding(0));
       }
     }
@@ -1347,13 +1405,11 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   return true;
 }
 
-bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
-                                         const NamedDecl *decl, bool asInput,
-                                         QualType type, uint32_t arraySize,
-                                         const llvm::StringRef namePrefix,
-                                         llvm::Optional<uint32_t> invocationId,
-                                         uint32_t *value, bool noWriteBack,
-                                         SemanticInfo *inheritSemantic) {
+bool DeclResultIdMapper::createStageVars(
+    const hlsl::SigPoint *sigPoint, const NamedDecl *decl, bool asInput,
+    QualType type, uint32_t arraySize, const llvm::StringRef namePrefix,
+    llvm::Optional<SpirvInstruction *> invocationId, SpirvInstruction **value,
+    bool noWriteBack, SemanticInfo *inheritSemantic) {
   // invocationId should only be used for handling HS per-vertex output.
   if (invocationId.hasValue()) {
     assert(shaderModel.IsHS() && arraySize != 0 && !asInput);
@@ -1366,8 +1422,8 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     return true;
   }
 
-  // The type the variable is evaluated as for SPIR-V.
-  QualType evalType = type;
+  // uint32_t typeId = typeTranslator.translateType(type);
+  const SpirvType *spvType = nullptr;
 
   // We have several cases regarding HLSL semantics to handle here:
   // * If the currrent decl inherits a semantic from some enclosing entity,
@@ -2645,8 +2701,8 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
   return sc;
 }
 
-uint32_t DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
-    const DeclaratorDecl *decl, bool *shouldBeAlias, SpirvEvalInfo *info) {
+QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
+    const DeclaratorDecl *decl, bool *shouldBeAlias) {
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     // This method is only intended to be used to create SPIR-V variables in the
     // Function or Private storage class.
@@ -2661,23 +2717,20 @@ uint32_t DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
     // For ConstantBuffer and TextureBuffer
     if (buffer->isConstantBufferView())
       genAlias = true;
-  } else if (TypeTranslator::isOrContainsAKindOfStructuredOrByteBuffer(type)) {
+  } else if (isOrContainsAKindOfStructuredOrByteBuffer(type)) {
     genAlias = true;
   }
 
+  // Return via parameter whether alias was generated.
   if (shouldBeAlias)
     *shouldBeAlias = genAlias;
 
   if (genAlias) {
     needsLegalization = true;
-
     createCounterVarForDecl(decl);
-
-    if (info)
-      info->setContainsAliasComponent(true);
   }
 
-  return typeTranslator.translateType(type);
+  return type;
 }
 
 } // end namespace spirv

@@ -14,7 +14,8 @@ namespace clang {
 namespace spirv {
 
 SpirvModule::SpirvModule()
-    : bound(1), shaderModelVersion(0), memoryModel(nullptr), debugSource(nullptr) {}
+    : bound(1), shaderModelVersion(0), memoryModel(nullptr),
+      debugSource(nullptr) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor) {
   if (!visitor->visit(this, Visitor::Phase::Init))
@@ -69,7 +70,7 @@ bool SpirvModule::invokeVisitor(Visitor *visitor) {
 
 void SpirvModule::addFunction(SpirvFunction *fn) {
   assert(fn && "cannot add null function to the module");
-  functions.push_back(fn);
+  functions.insert(fn);
 }
 
 void SpirvModule::addCapability(SpirvCapability *cap) {
@@ -82,7 +83,7 @@ void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
   memoryModel = model;
 }
 
-void SpirvModule::addEntryPoint(SpirvEntryPoint* ep) {
+void SpirvModule::addEntryPoint(SpirvEntryPoint *ep) {
   assert(ep && "cannot add null as an entry point");
   entryPoints.push_back(ep);
 }

@@ -63,6 +63,35 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
+/// Returns true if the given type is or contains any kind of structured-buffer
+/// or byte-address-buffer.
+bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
+
+/// \brief Returns true if the given type is SubpassInput.
+bool isSubpassInput(QualType);
+
+/// \brief Returns true if the given type is SubpassInputMS.
+bool isSubpassInputMS(QualType);
+
+/// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
+bool isConstantTextureBuffer(const Decl *decl);
+
+/// \brief Returns true if the decl will have a SPIR-V resource type.
+///
+/// Note that this function covers the following HLSL types:
+/// * ConstantBuffer/TextureBuffer
+/// * Various structured buffers
+/// * (RW)ByteAddressBuffer
+/// * SubpassInput(MS)
+bool isResourceType(const ValueDecl *decl);
+
+/// \brief Returns true if the given type is or contains 16-bit type.
+//bool isOrContains16BitType(QualType type);
+
+  /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
+  /// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
+bool isAKindOfStructuredOrByteBuffer(QualType type);
+
 } // namespace spirv
 } // namespace clang
 
