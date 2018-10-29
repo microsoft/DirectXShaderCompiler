@@ -305,8 +305,14 @@ bool EmitVisitor::visit(SpirvDecoration *inst) {
   if (inst->isMemberDecoration())
     curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
-  curInst.insert(curInst.end(), inst->getParams().begin(),
-                 inst->getParams().end());
+  if (!inst->getParams().empty()) {
+    curInst.insert(curInst.end(), inst->getParams().begin(),
+                   inst->getParams().end());
+  }
+  if (!inst->getIdParams().empty()) {
+    curInst.insert(curInst.end(), inst->getIdParams().begin(),
+                   inst->getIdParams().end());
+  }
   finalizeInstruction();
   return true;
 }

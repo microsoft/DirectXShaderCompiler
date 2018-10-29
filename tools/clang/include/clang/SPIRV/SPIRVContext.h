@@ -194,6 +194,12 @@ public:
                 StructType::InterfaceType interfaceType =
                     StructType::InterfaceType::InternalStorage);
 
+  const HybridStructType *
+  getHybridStructType(llvm::ArrayRef<HybridStructType::FieldInfo> fields,
+                      llvm::StringRef name, bool isReadOnly = false,
+                      HybridStructType::InterfaceType interfaceType =
+                          HybridStructType::InterfaceType::InternalStorage);
+
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
 
@@ -201,8 +207,10 @@ public:
                                       llvm::ArrayRef<const SpirvType *> param);
 
   const StructType *getByteAddressBufferType(bool isWritable);
+  const StructType *getACSBufferCounterType();
 
   SpirvConstant *getConstantUint32(uint32_t value);
+  SpirvConstant *getConstantInt32(int32_t value);
   // TODO: Add getConstant* methods for other types.
 
 private:
@@ -248,6 +256,7 @@ private:
   llvm::DenseMap<const SpirvType *, const RuntimeArrayType *> runtimeArrayTypes;
 
   llvm::SmallVector<const StructType *, 8> structTypes;
+  llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
 
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
 
