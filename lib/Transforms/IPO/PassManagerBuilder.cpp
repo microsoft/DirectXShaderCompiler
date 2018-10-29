@@ -220,6 +220,8 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createHLDeadFunctionEliminationPass());
   }
 
+  MPM.add(createPromoteMemoryToRegisterPass());
+  MPM.add(createSimplifyInstPass());
   MPM.add(createLoopRotatePass());
   MPM.add(createDxilLoopUnrollPass());
 
