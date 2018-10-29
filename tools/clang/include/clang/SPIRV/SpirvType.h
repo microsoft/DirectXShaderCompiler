@@ -37,6 +37,7 @@ public:
     TK_Array,
     TK_RuntimeArray,
     TK_Struct,
+    TK_HybridStruct, // TODO: Remove once HybridStrcut type is removed.
     TK_Pointer,
     TK_Function,
   };
@@ -334,6 +335,70 @@ public:
 private:
   const SpirvType *returnType;
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
+};
+
+/// **NOTE**: This type is created in order to facilitate transition of old
+/// infrastructure to the new infrastructure. Using this type should be avoided
+/// as much as possible.
+///
+/// This type uses a mix of SpirvType and QualType for the structure fields.
+class HybridStructType : public SpirvType {
+public:
+  enum class InterfaceType : uint32_t {
+    InternalStorage = 0,
+    StorageBuffer = 1,
+    UniformBuffer = 2,
+  };
+
+  struct FieldInfo {
+  public:
+    FieldInfo(QualType astType_, const SpirvType *type_,
+              llvm::StringRef name_ = "", clang::VKOffsetAttr *offset = nullptr,
+              hlsl::ConstantPacking *packOffset = nullptr)
+        : astType(astType_), spirvType(type_), name(name_),
+          vkOffsetAttr(offset), packOffsetAttr(packOffset) {}
+
+    bool operator==(const FieldInfo &that) const;
+
+    // The field's type.
+    QualType astType;
+    const SpirvType *spirvType;
+    // The field's name.
+    std::string name;
+    // vk::offset attributes associated with this field.
+    clang::VKOffsetAttr *vkOffsetAttr;
+    // :packoffset() annotations associated with this field.
+    hlsl::ConstantPacking *packOffsetAttr;
+  };
+
+  HybridStructType(
+      llvm::ArrayRef<FieldInfo> fields, llvm::StringRef name, bool isReadOnly,
+      InterfaceType interfaceType = InterfaceType::InternalStorage);
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_HybridStruct;
+  }
+
+  llvm::ArrayRef<FieldInfo> getFields() const { return fields; }
+  bool isReadOnly() const { return readOnly; }
+  std::string getStructName() const { return structName; }
+  InterfaceType getInterfaceType() const { return interfaceType; }
+
+  bool operator==(const HybridStructType &that) const;
+
+private:
+  // Reflection is heavily used in graphics pipelines. Reflection relies on
+  // struct names and field names. That basically means we cannot ignore these
+  // names when considering unification. Otherwise, reflection will be confused.
+
+  llvm::SmallVector<FieldInfo, 8> fields;
+  std::string structName;
+  bool readOnly;
+  // Indicates the interface type of this structure. If this structure is a
+  // storage buffer shader-interface, it will be decorated with 'BufferBlock'.
+  // If this structure is a uniform buffer shader-interface, it will be
+  // decorated with 'Block'.
+  InterfaceType interfaceType;
 };
 
 } // end namespace spirv

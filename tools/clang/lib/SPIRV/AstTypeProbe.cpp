@@ -211,5 +211,75 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
+bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
+      return true;
+
+    for (const auto *field : recordType->getDecl()->fields()) {
+      if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
+        return true;
+    }
+  }
+  return false;
+}
+
+bool isSubpassInput(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "SubpassInput";
+
+  return false;
+}
+
+bool isSubpassInputMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "SubpassInputMS";
+
+  return false;
+}
+
+bool isConstantTextureBuffer(const Decl *decl) {
+  if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext()))
+    // Make sure we are not returning true for VarDecls inside cbuffer/tbuffer.
+    return bufferDecl->isConstantBufferView();
+
+  return false;
+}
+
+bool isResourceType(const ValueDecl *decl) {
+  if (isConstantTextureBuffer(decl))
+    return true;
+
+  QualType declType = decl->getType();
+
+  // Deprive the arrayness to see the element type
+  while (declType->isArrayType()) {
+    declType = declType->getAsArrayTypeUnsafe()->getElementType();
+  }
+
+  if (isSubpassInput(declType) || isSubpassInputMS(declType))
+    return true;
+
+  return hlsl::IsHLSLResourceType(declType);
+}
+
+bool isAKindOfStructuredOrByteBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+           name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+           name == "AppendStructuredBuffer" ||
+           name == "ConsumeStructuredBuffer";
+  }
+  return false;
+}
+
 } // namespace spirv
 } // namespace clang

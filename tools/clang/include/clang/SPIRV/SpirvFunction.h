@@ -66,6 +66,12 @@ public:
   // Returns the result-id of the OpTypeFunction
   uint32_t getFunctionTypeId() const { return fnTypeId; }
 
+  void setConstainsAliasComponent(bool isAlias) { containsAlias = isAlias; }
+  bool constainsAliasComponent() { return containsAlias; }
+
+  void setRValue() { rvalue = true; }
+  bool isRValue() { return rvalue; }
+
   void setFunctionName(llvm::StringRef name) { functionName = name; }
   llvm::StringRef getFunctionName() const { return functionName; }
 
@@ -82,6 +88,9 @@ private:
 
   FunctionType *fnType; ///< The SPIR-V function type
   uint32_t fnTypeId;    ///< result-id for the SPIR-V function type
+
+  bool containsAlias; ///< Whether function return type is aliased
+  bool rvalue;        ///< Whether the return value is an rvalue
 
   spv::FunctionControlMask functionControl; ///< SPIR-V function control
   SourceLocation functionLoc;               ///< Location in source code
