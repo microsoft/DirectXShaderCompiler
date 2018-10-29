@@ -4,9 +4,11 @@
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>
@@ -64,6 +66,7 @@ struct ClonedIteration {
   SmallVector<BasicBlock *, 16> Body;
   BasicBlock *Latch = nullptr;
   BasicBlock *Header = nullptr;
+  ValueToValueMapTy VarMap;
 };
 
 static void ReplaceUsersIn(BasicBlock *BB, Value *Old, Value *New) {
@@ -109,28 +112,67 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
   }
 
+  BasicBlock *Header = L->getHeader();
+
+  SmallVector<PHINode *, 16> PHIs;
+  for (auto it = Header->begin(); it != Header->end(); it++) {
+    if (PHINode *PN = dyn_cast<PHINode>(it)) {
+      if (PN->getNumIncomingValues() != 2)
+        return false;
+      PHIs.push_back(PN);
+    }
+    else {
+      break;
+    }
+  }
+  //llvm::SimplifyInstructionsInBlock();
+
   SmallVector<ClonedIteration, 16> Clones;
   IRBuilder<> Builder(F->getContext());
+
   for (int i = 0; i < 16; i++) {
+    SmallVector<BasicBlock *, 16> ClonedBlocks;
     ClonedIteration Cloned;
     Value *NewCounter = Builder.getInt32(i);
-    ValueToValueMapTy ValueMap;
-    //ValueMap[Counter] = NewCounter;
+
     for (BasicBlock *BB : L->getBlocks()) {
-      BasicBlock *ClonedBB = CloneBasicBlock(BB, ValueMap);
+      BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
       ReplaceUsersIn(ClonedBB, Counter, NewCounter);
       Cloned.Body.push_back(ClonedBB);
       if (BB == Latch) {
         Cloned.Latch = ClonedBB;
       }
+      if (BB == Header) {
+        Cloned.Header = BB;
+      }
+
+      ClonedBlocks.push_back(ClonedBB);
     }
     for (BasicBlock *BB : ExitBlocks) {
       if (!DependentBlocks.count(BB))
         continue;
-      BasicBlock *ClonedBB = CloneBasicBlock(BB, ValueMap);
+      BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
       ReplaceUsersIn(ClonedBB, Counter, NewCounter);
       Cloned.Exits.push_back(ClonedBB);
+
+      ClonedBlocks.push_back(ClonedBB);
     }
+
+    if (Clones.size()) {
+      for (PHINode *PN : PHIs) {
+        PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
+      }
+    }
+    else {
+      for (PHINode *PN : PHIs) {
+        PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
+        Value *ReplacementVal = ClonedPN->getIncomingValue(0);
+        ClonedPN->replaceAllUsesWith(ClonedPN->getIncomingValue(0));
+        ClonedPN->eraseFromParent();
+      }
+    }
+
+    Clones.push_back(std::move(Cloned));
   }
 
   return false;
