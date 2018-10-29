@@ -215,8 +215,6 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWS
     secondPassList.push_back(L"-hlsl-passes-resume");
     secondPassList.insert(secondPassList.end(), passList.begin() + secondPassIdx, passList.begin() + secondPassIdx + secondPassCount);
 
-    if (firstPassList.size() >= 2 && !wcscmp(firstPassList[firstPassList.size() - 2], L"-scalarrepl-param-hlsl"))
-      printf("Hello\n");
     // Run a first pass.
     VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pHighLevelBlob, 
       firstPassList.data(), (UINT32)firstPassList.size(),
