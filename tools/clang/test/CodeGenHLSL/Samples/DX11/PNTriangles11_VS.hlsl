@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: FMax
 // CHECK: storeOutput
 

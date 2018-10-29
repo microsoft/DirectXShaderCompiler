@@ -4,7 +4,7 @@
 // CHECK: domainLocation
 // CHECK: domainLocation
 // CHECK: domainLocation
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: dot3
 // CHECK: FMax
 // CHECK: storeOutput

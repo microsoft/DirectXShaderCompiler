@@ -9,7 +9,7 @@
 // CHECK: sample
 // CHECK: Log
 // CHECK: Exp
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: dot3
 // CHECK: Saturate
 // CHECK: storeOutput

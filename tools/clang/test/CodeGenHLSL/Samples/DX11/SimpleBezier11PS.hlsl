@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: Sqrt
+// CHECK: Rsqrt
 // CHECK: dot3
 // CHECK: storeOutput
 
