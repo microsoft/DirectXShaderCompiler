@@ -13,6 +13,7 @@
 
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace clang {
@@ -103,7 +104,7 @@ private:
   std::vector<SpirvVariable *> variables;
 
   // Shader logic instructions
-  std::vector<SpirvFunction *> functions;
+  llvm::SetVector<SpirvFunction *> functions;
   std::string sourceFileName;
   std::string sourceFileContent;
 };

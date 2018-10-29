@@ -29,6 +29,8 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
+#include "clang/SPIRV/SpirvBuilder.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 
@@ -932,8 +934,10 @@ private:
   const hlsl::ShaderModel &shaderModel;
 
   SPIRVContext theContext;
+  SpirvContext spvContext;
   FeatureManager featureManager;
   ModuleBuilder theBuilder;
+  SpirvBuilder spvBuilder;
   TypeTranslator typeTranslator;
   DeclResultIdMapper declIdMapper;
 
@@ -945,7 +949,7 @@ private:
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
-  uint32_t entryFunctionId;
+  SpirvFunction *entryFunction;
   /// The current function under traversal.
   const FunctionDecl *curFunction;
   /// The SPIR-V function parameter for the current this object.
