@@ -249,6 +249,29 @@ SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
   return structTypes.back();
 }
 
+const HybridStructType *SpirvContext::getHybridStructType(
+    llvm::ArrayRef<HybridStructType::FieldInfo> fields, llvm::StringRef name,
+    bool isReadOnly, HybridStructType::InterfaceType interfaceType) {
+  // We are creating a temporary struct type here for querying whether the
+  // same type was already created. It is a little bit costly, but we can
+  // avoid allocating directly from the bump pointer allocator, from which
+  // then we are unable to reclaim until the allocator itself is destroyed.
+
+  HybridStructType type(fields, name, isReadOnly, interfaceType);
+
+  auto found = std::find_if(
+      hybridStructTypes.begin(), hybridStructTypes.end(),
+      [&type](const HybridStructType *cachedType) { return type == *cachedType; });
+
+  if (found != hybridStructTypes.end())
+    return *found;
+
+  hybridStructTypes.push_back(
+      new (this) HybridStructType(fields, name, isReadOnly, interfaceType));
+
+  return hybridStructTypes.back();
+}
+
 const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
                                                      spv::StorageClass sc) {
   auto foundPointee = pointerTypes.find(pointee);
@@ -293,8 +316,38 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
                        !isWritable);
 }
 
+const StructType *SpirvContext::getACSBufferCounterType() {
+  // Create int32.
+  const auto *int32Type = getSIntType(32);
+
+  // Create a struct containing the integer counter as its only member.
+  const StructType *type =
+      getStructType({int32Type}, "type.ACSBuffer.counter", {"counter"});
+
+  return type;
+}
+
 SpirvConstant *SpirvContext::getConstantUint32(uint32_t value) {
   const IntegerType *intType = getUIntType(32);
+  SpirvConstantInteger tempConstant(intType, value);
+
+  auto found =
+      std::find_if(integerConstants.begin(), integerConstants.end(),
+                   [&tempConstant](SpirvConstantInteger *cachedConstant) {
+                     return tempConstant == *cachedConstant;
+                   });
+
+  if (found != integerConstants.end())
+    return *found;
+
+  // Couldn't find the constant. Create one.
+  auto *intConst = new (this) SpirvConstantInteger(intType, value);
+  integerConstants.push_back(intConst);
+  return intConst;
+}
+
+SpirvConstant *SpirvContext::getConstantInt32(int32_t value) {
+  const IntegerType *intType = getSIntType(32);
   SpirvConstantInteger tempConstant(intType, value);
 
   auto found =

@@ -63,6 +63,14 @@ public:
   SpirvFunctionParameter *addFnParam(QualType ptrType, SourceLocation,
                                      llvm::StringRef name = "");
 
+  /// \brief Creates a SpirvFunction object and adds it to the list of module
+  /// functions. This does not change the current function under construction.
+  /// The handle can be used to create function call instructions for functions
+  /// that we have not yet discovered in the source code.
+  SpirvFunction *createFunction(QualType returnType, SourceLocation,
+                                llvm::StringRef name = "",
+                                bool isAlias = false);
+
   /// \brief Creates a local variable of the given type in the current
   /// function and returns it.
   ///
@@ -113,6 +121,10 @@ public:
   createCompositeConstruct(QualType resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
                            SourceLocation loc = {});
+  SpirvComposite *
+  createCompositeConstruct(const SpirvType *resultType,
+                           llvm::ArrayRef<SpirvInstruction *> constituents,
+                           SourceLocation loc = {});
 
   /// \brief Creates a composite extract instruction. The given composite is
   /// indexed using the given literal indexes to obtain the resulting element.
@@ -145,6 +157,8 @@ public:
   /// the loaded value.
   SpirvLoad *createLoad(QualType resultType, SpirvInstruction *pointer,
                         SourceLocation loc = {});
+  SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
+                        SourceLocation loc = {});
 
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
@@ -163,6 +177,10 @@ public:
   /// instruction pointer for the pointer to the element.
   SpirvAccessChain *
   createAccessChain(QualType resultType, SpirvInstruction *base,
+                    llvm::ArrayRef<SpirvInstruction *> indexes,
+                    SourceLocation loc = {});
+  SpirvAccessChain *
+  createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
                     SourceLocation loc = {});
 
@@ -403,8 +421,7 @@ public:
   inline void setSourceFileContent(llvm::StringRef content);
 
   /// \brief Adds an execution mode to the module under construction.
-  inline void addExecutionMode(SpirvEntryPoint *entryPoint,
-                               spv::ExecutionMode em,
+  inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
                                SourceLocation loc = {});
 
@@ -428,7 +445,7 @@ public:
   ///
   /// Note: The corresponding pointer type of the given type will not be
   /// constructed in this method.
-  SpirvVariable *addStageBuiltinVar(QualType type,
+  SpirvVariable *addStageBuiltinVar(const SpirvType *type,
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, SourceLocation loc = {});
 
@@ -439,6 +456,13 @@ public:
   /// constructed in this method.
   SpirvVariable *
   addModuleVar(QualType valueType, spv::StorageClass storageClass,
+               llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+  // TODO(ehsan): This API should be removed once aliasing has been moved to a
+  // pass.
+  SpirvVariable *
+  addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
@@ -467,9 +491,9 @@ public:
                                     SourceLocation srcLoc = {});
 
   /// \brief Decorates the given main buffer with the given counter buffer.
-  void decorateCounterBufferId(SpirvInstruction *mainBuffer,
-                               uint32_t counterBufferId,
-                               SourceLocation srcLoc = {});
+  void decorateCounterBuffer(SpirvInstruction *mainBuffer,
+                             SpirvInstruction *counterBuffer,
+                             SourceLocation srcLoc = {});
 
   /// \brief Decorates the given target with the given HLSL semantic string.
   void decorateHlslSemantic(SpirvInstruction *target, llvm::StringRef semantic,
@@ -564,7 +588,7 @@ void SpirvBuilder::setSourceFileContent(llvm::StringRef content) {
   module->setSourceFileContent(content);
 }
 
-void SpirvBuilder::addExecutionMode(SpirvEntryPoint *entryPoint,
+void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,
                                     spv::ExecutionMode em,
                                     llvm::ArrayRef<uint32_t> params,
                                     SourceLocation loc) {
