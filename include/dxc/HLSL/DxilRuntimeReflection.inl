@@ -10,7 +10,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilRuntimeReflection.h"
-#include "llvm/ADT/STLExtras.h"
 #include <unordered_map>
 #include <vector>
 #include <memory>
@@ -312,7 +311,7 @@ void DxilRuntimeReflection_impl::AddString(const char *ptr) {
     int size = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
                                      nullptr, 0);
     if (size != 0) {
-      auto pNew = llvm::make_unique<wchar_t[]>(size);
+      std::unique_ptr<wchar_t[]> pNew(new wchar_t[size]);
       ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
                             pNew.get(), size);
       m_StringMap[ptr] = std::move(pNew);
