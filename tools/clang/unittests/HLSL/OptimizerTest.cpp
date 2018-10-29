@@ -27,7 +27,6 @@
 #include "HLSLTestData.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
-#include <string.h>
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/Support/Global.h"
