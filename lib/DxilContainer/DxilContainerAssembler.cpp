@@ -29,8 +29,8 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "dxc/HLSL/DxilPipelineStateValidation.h"
-#include "dxc/HLSL/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include <algorithm>
 #include <functional>
 

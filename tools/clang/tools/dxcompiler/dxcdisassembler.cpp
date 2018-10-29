@@ -25,10 +25,11 @@
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
-#include "dxc/HLSL/DxilPipelineStateValidation.h"
-#include "dxc/HLSL/DxilRuntimeReflection.h"
-#include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilContainerReader.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxcutil.h"
 
@@ -1433,63 +1434,10 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
 
 namespace dxcutil {
 
-// TODO: Move DeserializeSubobjectsFromRuntimeData to more appropriate place
-void DeserializeSubobjectsFromRuntimeData(DxilSubobjects &subobjects, RDAT::DxilRuntimeData &runtimeData) {
-  RDAT::SubobjectTableReader *pSubobjectTableReader = runtimeData.GetSubobjectTableReader();
-  if (!pSubobjectTableReader)
-    return;
-  for (unsigned i = 0; i < pSubobjectTableReader->GetCount(); ++i) {
-    auto reader = pSubobjectTableReader->GetItem(i);
-    DXIL::SubobjectKind kind = reader.GetKind();
-    bool bLocalRS = false;
-    switch (kind) {
-    case DXIL::SubobjectKind::StateObjectConfig:
-      subobjects.CreateStateObjectConfig(reader.GetName(),
-        reader.GetStateObjectConfig_Flags());
-      break;
-    case DXIL::SubobjectKind::LocalRootSignature:
-      bLocalRS = true;
-    case DXIL::SubobjectKind::GlobalRootSignature: {
-      const void *pOutBytes;
-      uint32_t OutSizeInBytes;
-      reader.GetRootSignature(&pOutBytes, &OutSizeInBytes);
-      subobjects.CreateRootSignature(reader.GetName(), bLocalRS, pOutBytes, OutSizeInBytes);
-      break;
-    }
-    case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
-      uint32_t NumExports = reader.GetSubobjectToExportsAssociation_NumExports();
-      std::vector<const char*> Exports;
-      Exports.resize(NumExports);
-      for (unsigned i = 0; i < NumExports; ++i) {
-        Exports[i] = reader.GetSubobjectToExportsAssociation_Export(i);
-      }
-      subobjects.CreateSubobjectToExportsAssociation(reader.GetName(),
-        reader.GetSubobjectToExportsAssociation_Subobject(),
-        Exports.data(), NumExports);
-      break;
-    }
-    case DXIL::SubobjectKind::RaytracingShaderConfig:
-      subobjects.CreateRaytracingShaderConfig(reader.GetName(),
-        reader.GetRaytracingShaderConfig_MaxPayloadSizeInBytes(),
-        reader.GetRaytracingShaderConfig_MaxAttributeSizeInBytes());
-      break;
-    case DXIL::SubobjectKind::RaytracingPipelineConfig:
-      subobjects.CreateRaytracingPipelineConfig(reader.GetName(),
-        reader.GetRaytracingPipelineConfig_MaxTraceRecursionDepth());
-      break;
-    case DXIL::SubobjectKind::HitGroup:
-      subobjects.CreateHitGroup(reader.GetName(),
-        reader.GetHitGroup_Intersection(),
-        reader.GetHitGroup_AnyHit(),
-        reader.GetHitGroup_ClosestHit());
-      break;
-    }
-  }
-}
-
 HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   const char *pIL = (const char *)pProgram->GetBufferPointer();
   uint32_t pILLength = pProgram->GetBufferSize();
+  const DxilPartHeader *pRDATPart = nullptr;
   if (const DxilContainerHeader *pContainer =
           IsDxilContainerLike(pIL, pILLength)) {
     if (!IsValidDxilContainer(pContainer, pILLength)) {
@@ -1572,13 +1520,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     it = std::find_if(begin(pContainer), end(pContainer),
       DxilPartIsType(DFCC_RuntimeData));
     if (it != end(pContainer)) {
-      RDAT::DxilRuntimeData runtimeData(GetDxilPartData(*it), (*it)->PartSize);
-      Stream << ";" << " [RDAT] Begin\n";
-      // TODO: Print the rest of the RDAT info
-      DxilSubobjects subobjects;
-      DeserializeSubobjectsFromRuntimeData(subobjects, runtimeData);
-      PrintSubobjects(subobjects, Stream, /*comment*/ ";");
-      Stream << ";" << " [RDAT] End\n";
+      pRDATPart = *it;
     }
 
     GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
@@ -1600,6 +1542,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
   if (pModule->getNamedMetadata("dx.version")) {
     DxilModule &dxilModule = pModule->GetOrCreateDxilModule();
+
     if (!dxilModule.GetShaderModel()->IsLib()) {
       PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
                          /*comment*/ ";");
@@ -1612,6 +1555,16 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
     PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");
     PrintViewIdState(dxilModule, Stream, /*comment*/ ";");
+
+    if (pRDATPart) {
+      RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart), pRDATPart->PartSize);
+      // TODO: Print the rest of the RDAT info
+      if (RDAT::SubobjectTableReader *pSubobjectTableReader =
+        runtimeData.GetSubobjectTableReader()) {
+        dxilModule.ResetSubobjects(new DxilSubobjects());
+        LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), pSubobjectTableReader);
+      }
+    }
     if (dxilModule.GetSubobjects()) {
       PrintSubobjects(*dxilModule.GetSubobjects(), Stream, /*comment*/ ";");
     }

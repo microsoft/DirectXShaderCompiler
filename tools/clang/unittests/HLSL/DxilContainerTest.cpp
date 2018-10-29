@@ -43,7 +43,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/HLSL/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilUtil.h"
 
