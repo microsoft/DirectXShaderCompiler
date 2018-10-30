@@ -12,6 +12,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <unordered_set>
+#include <functional>
 
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
