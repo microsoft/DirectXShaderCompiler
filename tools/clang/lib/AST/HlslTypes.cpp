@@ -501,6 +501,35 @@ bool IsHLSLResourceType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLSubobjectType(clang::QualType type) {
+  DXIL::SubobjectKind kind;
+  return GetHLSLSubobjectKind(type, kind);
+}
+
+bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    switch (name.size()) {
+    case 17:
+      return name == "StateObjectConfig" ? (subobjectKind = DXIL::SubobjectKind::StateObjectConfig, true) : false;
+    case 18:
+      return name == "LocalRootSignature" ? (subobjectKind = DXIL::SubobjectKind::LocalRootSignature, true) : false;
+    case 19:
+      return name == "GlobalRootSignature" ? (subobjectKind = DXIL::SubobjectKind::GlobalRootSignature, true) : false;
+    case 29:
+      return name == "SubobjectToExportsAssociation" ? (subobjectKind = DXIL::SubobjectKind::SubobjectToExportsAssociation, true) : false;
+    case 22:
+      return name == "RaytracingShaderConfig" ? (subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig, true) : false;
+    case 24:
+      return name == "RaytracingPipelineConfig" ? (subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig, true) : false;
+    case 8:
+      return name == "HitGroup" ? (subobjectKind = DXIL::SubobjectKind::HitGroup, true) : false;
+    }
+  }
+  return false;
+}
+
 QualType GetHLSLResourceResultType(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);

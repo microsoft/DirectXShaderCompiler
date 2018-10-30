@@ -1359,7 +1359,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   switch (obj.GetKind()) {
   case DXIL::SubobjectKind::StateObjectConfig: {
     uint32_t Flags;
-    IFTBOOL(!obj.GetStateObjectConfig(Flags),
+    IFTBOOL(obj.GetStateObjectConfig(Flags),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(Uint32ToConstMD((unsigned)Flags));
     break;
@@ -1368,20 +1368,22 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
     bLocalRS = true;
     __fallthrough;
   case DXIL::SubobjectKind::GlobalRootSignature: {
+    const char * Text;
     const void * Data;
     uint32_t Size;
-    IFTBOOL(!obj.GetRootSignature(bLocalRS, Data, Size),
+    IFTBOOL(obj.GetRootSignature(bLocalRS, Data, Size, &Text),
       DXC_E_INCORRECT_DXIL_METADATA);
     Constant *V = ConstantDataArray::get(m_Ctx,
       ArrayRef<uint8_t>((const uint8_t *)Data, Size));
     Args.emplace_back(MDNode::get(m_Ctx, { ConstantAsMetadata::get(V) }));
+    Args.emplace_back(MDString::get(m_Ctx, Text));
     break;
   }
   case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
     StringRef Subobj;
     const char * const * Exports;
     uint32_t NumExports;
-    IFTBOOL(!obj.GetSubobjectToExportsAssociation(Subobj, Exports, NumExports),
+    IFTBOOL(obj.GetSubobjectToExportsAssociation(Subobj, Exports, NumExports),
       DXC_E_INCORRECT_DXIL_METADATA);
     SmallVector<Metadata *, 4> strArgs;
     for (unsigned i = 0; i < NumExports; ++i) {
@@ -1394,8 +1396,8 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   case DXIL::SubobjectKind::RaytracingShaderConfig: {
     uint32_t MaxPayloadSizeInBytes;
     uint32_t MaxAttributeSizeInBytes;
-    IFTBOOL(!obj.GetRaytracingShaderConfig(MaxPayloadSizeInBytes,
-                                           MaxAttributeSizeInBytes),
+    IFTBOOL(obj.GetRaytracingShaderConfig(MaxPayloadSizeInBytes,
+                                          MaxAttributeSizeInBytes),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(Uint32ToConstMD(MaxPayloadSizeInBytes));
     Args.emplace_back(Uint32ToConstMD(MaxAttributeSizeInBytes));
@@ -1403,14 +1405,14 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   case DXIL::SubobjectKind::RaytracingPipelineConfig: {
     uint32_t MaxTraceRecursionDepth;
-    IFTBOOL(!obj.GetRaytracingPipelineConfig(MaxTraceRecursionDepth),
+    IFTBOOL(obj.GetRaytracingPipelineConfig(MaxTraceRecursionDepth),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(Uint32ToConstMD(MaxTraceRecursionDepth));
     break;
   }
   case DXIL::SubobjectKind::HitGroup: {
     llvm::StringRef Intersection, AnyHit, ClosestHit;
-    IFTBOOL(!obj.GetHitGroup(Intersection, AnyHit, ClosestHit),
+    IFTBOOL(obj.GetHitGroup(Intersection, AnyHit, ClosestHit),
       DXC_E_INCORRECT_DXIL_METADATA);
     Args.emplace_back(MDString::get(m_Ctx, Intersection));
     Args.emplace_back(MDString::get(m_Ctx, AnyHit));
@@ -1442,24 +1444,27 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
     bLocalRS = true;
     __fallthrough;
   case DXIL::SubobjectKind::GlobalRootSignature: {
-    const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MD.getOperand(i++));
-    IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-    const ConstantDataArray *pData = dyn_cast<ConstantDataArray>(pMetaData->getValue());
+    const MDNode *pDataMDWrapper = dyn_cast<MDNode>(MD.getOperand(i++));
+    IFTBOOL(pDataMDWrapper != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    IFTBOOL(pDataMDWrapper->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+    const ConstantAsMetadata *pDataMD = dyn_cast<ConstantAsMetadata>(pDataMDWrapper->getOperand(0));
+    const ConstantDataArray *pData = dyn_cast<ConstantDataArray>(pDataMD->getValue());
     IFTBOOL(pData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
     IFTBOOL(pData->getElementType() == Type::getInt8Ty(m_Ctx), DXC_E_INCORRECT_DXIL_METADATA);
     IFTBOOL(pData->getRawDataValues().size() < UINT_MAX &&
             (pData->getRawDataValues().size() & 3) == 0, DXC_E_INCORRECT_DXIL_METADATA);
     const void *Data = pData->getRawDataValues().begin();
     uint32_t Size = pData->getRawDataValues().size();
-    Subobjects.CreateRootSignature(name, bLocalRS, Data, Size);
+    StringRef Text(StringMDToStringRef(MD.getOperand(i++)));
+    Subobjects.CreateRootSignature(name, bLocalRS, Data, Size, Text.size() ? &Text : nullptr);
     break;
   }
   case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
     StringRef Subobj(StringMDToStringRef(MD.getOperand(i++)));
     const MDNode *exportMD = dyn_cast<MDNode>(MD.getOperand(i++));
-    SmallVector<const char *, 4> Exports;
+    SmallVector<StringRef, 4> Exports;
     for (unsigned iExport = 0; iExport < exportMD->getNumOperands(); iExport++) {
-      Exports.push_back(StringMDToStringRef(exportMD->getOperand(iExport)).data());
+      Exports.push_back(StringMDToStringRef(exportMD->getOperand(iExport)));
     }
     Subobjects.CreateSubobjectToExportsAssociation(name, Subobj, Exports.data(), Exports.size());
     break;

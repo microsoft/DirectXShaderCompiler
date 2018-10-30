@@ -1507,10 +1507,12 @@ void InitListChecker::CheckVectorType(const InitializedEntity &Entity,
 
   // OpenCL requires all elements to be initialized.
   if (numEltsInit != maxElements && !extraElementsAllowed) {  // HLSL Change
-    if (!VerifyOnly)
+    if (!VerifyOnly) {
+      static const unsigned selectVectorIdx = 0;
       SemaRef.Diag(IList->getLocStart(),
-                   diag::err_vector_incorrect_num_initializers)
-        << (numEltsInit < maxElements) << maxElements << numEltsInit;
+                   diag::err_incorrect_num_initializers)
+        << (numEltsInit < maxElements) << selectVectorIdx << maxElements << numEltsInit;
+      }
     hadError = true;
   }
 }

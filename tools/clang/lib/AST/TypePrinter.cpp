@@ -152,13 +152,20 @@ void TypePrinter::print(const Type *T, Qualifiers Quals, raw_ostream &OS,
 
   // HLSL Change Starts
   // Print 'char *' as 'string' and 'const char *' as 'const string'
-  if (Policy.LangOpts.HLSL && T->isPointerType()) {
-    QualType Pointee = T->getPointeeType();
-    if (const BuiltinType* BIT = Pointee->getAs<BuiltinType>()) {
-      if (BIT->getKind() == BuiltinType::Char_S) {
+  if (Policy.LangOpts.HLSL) {
+    if (T->isPointerType()) {
+      QualType Pointee = T->getPointeeType();
+      if (Pointee->isSpecificBuiltinType(BuiltinType::Char_S)) {
         Quals = Pointee.getQualifiers();
         Quals.print(OS, Policy, /*appendSpaceIfNonEmpty=*/true);
         OS << "string";
+        return;
+      }
+    }
+    else if (T->isConstantArrayType()) {
+      const Type *pElemType = T->getArrayElementTypeNoTypeQual();
+      if (pElemType->isSpecificBuiltinType(BuiltinType::Char_S)) {
+        OS << "literal string";
         return;
       }
     }

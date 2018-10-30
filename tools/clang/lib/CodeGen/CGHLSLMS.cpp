@@ -120,6 +120,12 @@ private:
   uint32_t AddCBuffer(HLSLBufferDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
+  void CreateSubobject(DXIL::SubobjectKind kind, const StringRef name,
+                       clang::Expr **args, unsigned int argCount);
+  bool GetAsConstantString(clang::Expr *expr, StringRef *value);
+  bool GetAsConstantUInt32(clang::Expr *expr, uint32_t *value);
+  std::vector<StringRef> ParseSubobjectExportsAssociations(StringRef exports);
+
   // Save the entryFunc so don't need to find it with original name.
   struct EntryFunctionInfo {
     clang::SourceLocation SL = clang::SourceLocation();
@@ -157,10 +163,6 @@ private:
 
   DxilRootSignatureVersion  rootSigVer;
 
-  // Strings
-  std::vector<GlobalVariable *> globalStringsDecls;
-  std::vector<GlobalVariable *> globalStringsConstants;
-  
   Value *EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr, QualType Ty);
   void EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val, Value *DestPtr,
                            QualType Ty);
@@ -240,8 +242,6 @@ private:
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
 
-  bool IsHlslObjectType(llvm::Type * Ty) override;
-
   /// Add resouce to the program
   void addResource(Decl *D) override;
   void SetPatchConstantFunction(const EntryFunctionInfo &EntryFunc);
@@ -249,9 +249,8 @@ public:
       const EntryFunctionInfo &EntryFunc,
       const clang::HLSLPatchConstantFuncAttr *PatchConstantFuncAttr);
 
-  void AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) override;
-  void AddGlobalStringConstant(llvm::GlobalVariable *GV) override;
-  
+  void addSubobject(Decl *D) override;
+
   void FinishCodeGen() override;
   bool IsTrivalInitListExpr(CodeGenFunction &CGF, InitListExpr *E) override;
   Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E, Value *DestPtr) override;
@@ -453,9 +452,6 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   }
 }
 
-bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
-  return dxilutil::IsHLSLObjectType(Ty);
-}
 
 void CGMSHLSLRuntime::AddHLSLIntrinsicOpcodeToFunction(Function *F,
                                                        unsigned opcode) {
@@ -2166,7 +2162,7 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   return ElementType;
 }
 
-/// Add resouce to the program
+/// Add resource to the program
 void CGMSHLSLRuntime::addResource(Decl *D) {
   if (HLSLBufferDecl *BD = dyn_cast<HLSLBufferDecl>(D))
     GetOrCreateCBuffer(BD);
@@ -2212,6 +2208,36 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
       DXASSERT(0, "cbuffer should not be here");
       break;
     }
+  }
+}
+
+/// Add subobject to the module
+void CGMSHLSLRuntime::addSubobject(Decl *D) {
+  VarDecl *VD = dyn_cast<VarDecl>(D);
+  DXASSERT(VD != nullptr, "must be a global variable");
+ 
+  DXIL::SubobjectKind subobjKind;
+  if (!hlsl::GetHLSLSubobjectKind(VD->getType(), subobjKind)) {
+    DXASSERT(false, "not a valid subobject declaration");
+    return;
+  }
+
+  Expr *initExpr = const_cast<Expr*>(VD->getAnyInitializer());
+  if (!initExpr) {
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "subobject needs to be initialized");
+    Diags.Report(D->getLocStart(), DiagID);
+    return;
+  }
+
+  if (InitListExpr *initListExpr = dyn_cast<InitListExpr>(initExpr)) {
+    CreateSubobject(subobjKind, VD->getName(), initListExpr->getInits(), initListExpr->getNumInits());
+  }
+  else {
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "expected initialization list");
+    Diags.Report(initExpr->getLocStart(), DiagID);
+    return;
   }
 }
 
@@ -2365,6 +2391,147 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   hlslRes->SetID(m_pHLModule->GetSamplers().size());
   return m_pHLModule->AddSampler(std::move(hlslRes));
 }
+
+bool CGMSHLSLRuntime::GetAsConstantUInt32(clang::Expr *expr, uint32_t *value) {
+  APSInt result;
+  if (!expr->EvaluateAsInt(result, CGM.getContext())) {
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+      "cannot convert to constant unsigned int");
+    Diags.Report(expr->getLocStart(), DiagID);
+    return false;
+  }
+
+  *value = result.getLimitedValue(UINT32_MAX);
+  return true;
+}
+
+bool CGMSHLSLRuntime::GetAsConstantString(clang::Expr *expr, StringRef *value) {
+  Expr::EvalResult result;
+  if (expr->EvaluateAsRValue(result, CGM.getContext())) {
+    if (result.Val.isLValue()) {
+      DXASSERT_NOMSG(result.Val.getLValueOffset().isZero());
+      DXASSERT_NOMSG(result.Val.getLValueCallIndex() == 0);
+
+      const Expr *evExpr = result.Val.getLValueBase().get<const Expr *>();
+      if (const StringLiteral *strLit = dyn_cast<const StringLiteral>(evExpr)) {
+        *value = strLit->getBytes();
+        return true;
+      }
+    }
+  }
+
+  DiagnosticsEngine &Diags = CGM.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "cannot convert to constant string");
+  Diags.Report(expr->getLocStart(), DiagID);
+  return false;
+}
+
+std::vector<StringRef> CGMSHLSLRuntime::ParseSubobjectExportsAssociations(StringRef exports) {
+  std::vector<StringRef> parsedExports;
+  const char *pData = exports.data();
+  const char *pEnd = pData + exports.size();
+  const char *pLast = pData;
+
+  while (pData < pEnd) {
+    if (*pData == ';') {
+      if (pLast < pData) {
+        parsedExports.emplace_back(StringRef(pLast, pData - pLast));
+      }
+      pLast = pData + 1;
+    }
+    pData++;
+  }
+  if (pLast < pData) {
+    parsedExports.emplace_back(StringRef(pLast, pData - pLast));
+  }
+  
+  return std::move(parsedExports);
+}
+
+
+void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef name,
+                                      clang::Expr **args, unsigned int argCount) {
+  DxilSubobjects *subobjects = m_pHLModule->GetSubobjects();
+  if (!subobjects) {
+    subobjects = new DxilSubobjects();
+    m_pHLModule->ResetSubobjects(subobjects);
+  }
+ 
+  switch (kind) {
+    case DXIL::SubobjectKind::StateObjectConfig: {
+      uint32_t flags;
+      DXASSERT_NOMSG(argCount == 1);
+      if (GetAsConstantUInt32(args[0], &flags)) {
+        subobjects->CreateStateObjectConfig(name, flags);
+      }
+      break;
+    }
+    case DXIL::SubobjectKind::GlobalRootSignature:
+    case DXIL::SubobjectKind::LocalRootSignature: {
+      DXASSERT_NOMSG(argCount == 1);
+      StringRef signature;
+      if (!GetAsConstantString(args[0], &signature))
+        return;
+
+      RootSignatureHandle RootSigHandle;
+      CompileRootSignature(signature, CGM.getDiags(), args[0]->getLocStart(), rootSigVer, &RootSigHandle);
+
+      if (!RootSigHandle.IsEmpty()) {
+        RootSigHandle.EnsureSerializedAvailable();
+        subobjects->CreateRootSignature(name, kind == DXIL::SubobjectKind::LocalRootSignature, 
+          RootSigHandle.GetSerializedBytes(), RootSigHandle.GetSerializedSize(), &signature);
+      }
+      break;
+    }
+    case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
+      DXASSERT_NOMSG(argCount == 2);
+      StringRef subObjName, exports;
+      if (!GetAsConstantString(args[0], &subObjName) ||
+          !GetAsConstantString(args[1], &exports))
+        return;
+
+      std::vector<StringRef> exportList = ParseSubobjectExportsAssociations(exports);
+      subobjects->CreateSubobjectToExportsAssociation(name, subObjName, exportList.data(), exportList.size());
+      break;
+    }
+    case DXIL::SubobjectKind::RaytracingShaderConfig: {
+      DXASSERT_NOMSG(argCount == 2);
+      uint32_t maxPayloadSize;
+      uint32_t MaxAttributeSize;
+      if (!GetAsConstantUInt32(args[0], &maxPayloadSize) ||
+          !GetAsConstantUInt32(args[1], &MaxAttributeSize))
+        return;
+
+      subobjects->CreateRaytracingShaderConfig(name, maxPayloadSize, MaxAttributeSize);
+      break;
+    }
+    case DXIL::SubobjectKind::RaytracingPipelineConfig: {
+      DXASSERT_NOMSG(argCount == 1);
+      uint32_t maxTraceRecursionDepth;
+      if (!GetAsConstantUInt32(args[0], &maxTraceRecursionDepth))
+        return;
+
+      subobjects->CreateRaytracingPipelineConfig(name, maxTraceRecursionDepth);
+      break;
+    }
+    case DXIL::SubobjectKind::HitGroup: {
+      DXASSERT_NOMSG(argCount == 3);
+      StringRef intersection, anyhit, closesthit;
+      if (!GetAsConstantString(args[0], &intersection) ||
+          !GetAsConstantString(args[1], &anyhit) ||
+          !GetAsConstantString(args[2], &closesthit))
+        return;
+      subobjects->CreateHitGroup(name, intersection, anyhit, closesthit);
+      break;
+    }
+    default:
+      llvm_unreachable("unknown SubobjectKind");
+      break;
+  }
+}
+
 
 static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
   if (Ty->isRecordType()) {
@@ -4581,19 +4748,7 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
   }
 }
 
-void CGMSHLSLRuntime::AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) {
-  DXASSERT_NOMSG(hlsl::IsStringType(D->getType()));
-  DXASSERT(D->getDeclContext()->isTranslationUnit(), "must be a global");
 
-  globalStringsDecls.emplace_back(GV);
-}
-
-void CGMSHLSLRuntime::AddGlobalStringConstant(llvm::GlobalVariable *GV) {
-  DXASSERT(GV->getType()->isPointerTy() &&
-         GV->getType()->getPointerElementType()->isArrayTy() &&
-         GV->getType()->getPointerElementType()->getArrayElementType() == llvm::Type::getInt8Ty(Context), "must be i8[]");
-  globalStringsConstants.emplace_back(GV);
-}
 
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.

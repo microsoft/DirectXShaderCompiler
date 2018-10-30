@@ -112,11 +112,13 @@ bool DxilSubobject::GetStateObjectConfig(uint32_t &Flags) const {
 
 // Local/Global RootSignature
 bool DxilSubobject::GetRootSignature(
-    bool local, const void * &Data, uint32_t &Size) const {
+    bool local, const void * &Data, uint32_t &Size, const char **pText) const {
   Kind expected = local ? Kind::LocalRootSignature : Kind::GlobalRootSignature;
   if (m_Kind == expected) {
     Data = RootSignature.Data;
     Size = RootSignature.Size;
+    if (pText) 
+      *pText = RootSignature.Text;
     return true;
   }
   return false;
@@ -248,22 +250,25 @@ DxilSubobject &DxilSubobjects::CreateStateObjectConfig(
 }
 
 DxilSubobject &DxilSubobjects::CreateRootSignature(
-    llvm::StringRef Name, bool local, const void *Data, uint32_t Size) {
+    llvm::StringRef Name, bool local, const void *Data, uint32_t Size, llvm::StringRef *pText /*= nullptr*/) {
   auto &obj = CreateSubobject(local ? Kind::LocalRootSignature : Kind::GlobalRootSignature, Name);
   obj.RootSignature.Data = Data;
   obj.RootSignature.Size = Size;
+  obj.RootSignature.Text = (pText ? GetSubobjectString(*pText).data() : nullptr);
   return obj;
 }
 
 DxilSubobject &DxilSubobjects::CreateSubobjectToExportsAssociation(
     llvm::StringRef Name,
     llvm::StringRef Subobject,
-    const char * const *Exports,
+    llvm::StringRef *Exports,
     uint32_t NumExports) {
   auto &obj = CreateSubobject(Kind::SubobjectToExportsAssociation, Name);
   Subobject = GetSubobjectString(Subobject);
   obj.SubobjectToExportsAssociation.Subobject = Subobject.data();
-  obj.m_Exports.assign(Exports, Exports + NumExports);
+  for (unsigned i = 0; i < NumExports; i++) {
+    obj.m_Exports.emplace_back(GetSubobjectString(Exports[i]).data());
+  }
   return obj;
 }
 

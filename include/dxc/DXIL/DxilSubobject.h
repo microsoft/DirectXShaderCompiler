@@ -44,7 +44,8 @@ public:
 
 
   bool GetStateObjectConfig(uint32_t &Flags) const;
-  bool GetRootSignature(bool local, const void * &Data, uint32_t &Size) const;
+  bool GetRootSignature(bool local, const void * &Data, uint32_t &Size, 
+                        const char **pText = nullptr) const;
   bool GetSubobjectToExportsAssociation(llvm::StringRef &Subobject,
                                         const char * const * &Exports,
                                         uint32_t &NumExports) const;
@@ -73,6 +74,7 @@ private:
   struct RootSignature_t {
     uint32_t Size;
     const void *Data;
+    const char *Text; // can be null
   };
   struct SubobjectToExportsAssociation_t {
     const char *Subobject;
@@ -135,10 +137,11 @@ public:
   DxilSubobject &CreateRootSignature(llvm::StringRef Name,
                                      bool local,
                                      const void *Data,
-                                     uint32_t Size);
+                                     uint32_t Size,
+                                     llvm::StringRef *pText = nullptr);
   DxilSubobject &CreateSubobjectToExportsAssociation(
     llvm::StringRef Name,
-    llvm::StringRef Subobject, const char * const *Exports, uint32_t NumExports);
+    llvm::StringRef Subobject, llvm::StringRef *Exports, uint32_t NumExports);
   DxilSubobject &CreateRaytracingShaderConfig(
     llvm::StringRef Name,
     uint32_t MaxPayloadSizeInBytes,
