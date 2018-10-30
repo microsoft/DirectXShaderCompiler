@@ -50,18 +50,22 @@ bool ImageType::operator==(const ImageType &that) const {
          isSampled == that.isSampled && imageFormat == that.imageFormat;
 }
 
-StructType::StructType(llvm::ArrayRef<const SpirvType *> memberTypes,
-                       llvm::StringRef name,
-                       llvm::ArrayRef<llvm::StringRef> memberNames,
-                       bool isReadOnly)
-    : SpirvType(TK_Struct), structName(name),
-      fieldTypes(memberTypes.begin(), memberTypes.end()),
-      fieldNames(memberNames.begin(), memberNames.end()), readOnly(isReadOnly) {
+StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
+                       llvm::StringRef name, bool isReadOnly,
+                       StructType::InterfaceType iface)
+    : SpirvType(TK_Struct), fields(fieldsVec.begin(), fieldsVec.end()),
+      structName(name), readOnly(isReadOnly), interfaceType(iface) {}
+
+bool StructType::FieldInfo::
+operator==(const StructType::FieldInfo &that) const {
+  return type == that.type && name == that.name &&
+         vkOffsetAttr == that.vkOffsetAttr &&
+         packOffsetAttr == that.packOffsetAttr;
 }
 
 bool StructType::operator==(const StructType &that) const {
-  return structName == that.structName && fieldTypes == that.fieldTypes &&
-         fieldNames == that.fieldNames && readOnly == that.readOnly;
+  return fields == that.fields && structName == that.structName &&
+         readOnly == that.readOnly;
 }
 
 } // namespace spirv
