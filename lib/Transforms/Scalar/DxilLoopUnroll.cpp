@@ -18,6 +18,25 @@ using namespace llvm;
 
 namespace {
 
+static void Unroll_RemapInstruction(Instruction *I,
+                                    ValueToValueMapTy &VMap) {
+  for (unsigned op = 0, E = I->getNumOperands(); op != E; ++op) {
+    Value *Op = I->getOperand(op);
+    ValueToValueMapTy::iterator It = VMap.find(Op);
+    if (It != VMap.end())
+      I->setOperand(op, It->second);
+  }
+
+  if (PHINode *PN = dyn_cast<PHINode>(I)) {
+    for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+      ValueToValueMapTy::iterator It = VMap.find(PN->getIncomingBlock(i));
+      if (It != VMap.end())
+        PN->setIncomingBlock(i, cast<BasicBlock>(It->second));
+    }
+  }
+}
+
+
 class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
@@ -67,6 +86,18 @@ struct ClonedIteration {
   BasicBlock *Latch = nullptr;
   BasicBlock *Header = nullptr;
   ValueToValueMapTy VarMap;
+
+  ClonedIteration() {}
+  ClonedIteration(ClonedIteration &&o) {
+    for (auto Entry : o.VarMap) {
+      VarMap[Entry.first] = Entry.second;
+    }
+    Exits = std::move(o.Exits);
+    Body = std::move(o.Body);
+    Latch = o.Latch;
+    Header = o.Header;
+    o.VarMap.clear();
+  }
 };
 
 static void ReplaceUsersIn(BasicBlock *BB, Value *Old, Value *New) {
@@ -131,19 +162,21 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   IRBuilder<> Builder(F->getContext());
 
   for (int i = 0; i < 16; i++) {
+    std::map<BasicBlock *, BasicBlock *> CloneMap;
     SmallVector<BasicBlock *, 16> ClonedBlocks;
     ClonedIteration Cloned;
     Value *NewCounter = Builder.getInt32(i);
 
     for (BasicBlock *BB : L->getBlocks()) {
       BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
-      ReplaceUsersIn(ClonedBB, Counter, NewCounter);
+      CloneMap[BB] = ClonedBB;
+      //ReplaceUsersIn(ClonedBB, Counter, NewCounter);
       Cloned.Body.push_back(ClonedBB);
       if (BB == Latch) {
         Cloned.Latch = ClonedBB;
       }
       if (BB == Header) {
-        Cloned.Header = BB;
+        Cloned.Header = ClonedBB;
       }
 
       ClonedBlocks.push_back(ClonedBB);
@@ -152,24 +185,67 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       if (!DependentBlocks.count(BB))
         continue;
       BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
+      CloneMap[BB] = ClonedBB;
       ReplaceUsersIn(ClonedBB, Counter, NewCounter);
       Cloned.Exits.push_back(ClonedBB);
 
       ClonedBlocks.push_back(ClonedBB);
     }
 
+    for (int i = 0; i < ClonedBlocks.size(); i++) {
+      ClonedBlocks[i]->insertInto(F);
+    }
+
+    for (int i = 0; i < ClonedBlocks.size(); i++) {
+      for (Instruction &I : *ClonedBlocks[i]) {
+        Unroll_RemapInstruction(&I, Cloned.VarMap);
+      }
+    }
+
+    for (int i = 0; i < ClonedBlocks.size(); i++) {
+      BasicBlock *ClonedBB = ClonedBlocks[i];
+      TerminatorInst *TI = ClonedBB->getTerminator();
+      if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
+        for (int j = 0; j < (int)BI->getNumSuccessors(); j++) {
+          BasicBlock *OldSucc = BI->getSuccessor(j);
+          if (CloneMap.count(OldSucc)) {
+            BI->setSuccessor(j, CloneMap[OldSucc]);
+          }
+        }
+      }
+    }
+
     if (Clones.size()) {
+      ClonedIteration &LastIteration = Clones.back();
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
+        Value *ReplacementVal = LastIteration.VarMap[PN];
+        ClonedPN->replaceAllUsesWith(ReplacementVal);
+        ClonedPN->eraseFromParent();
+        Cloned.VarMap[PN] = ReplacementVal;
+      }
+
+      if (BranchInst *BI = dyn_cast<BranchInst>(LastIteration.Latch->getTerminator())) {
+        for (int i = 0; i < BI->getNumSuccessors(); i++) {
+          if (BI->getSuccessor(i) == LastIteration.Header) {
+            BI->setSuccessor(i, Cloned.Header);
+            break;
+          }
+        }
       }
     }
     else {
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
         Value *ReplacementVal = ClonedPN->getIncomingValue(0);
-        ClonedPN->replaceAllUsesWith(ClonedPN->getIncomingValue(0));
+        ClonedPN->replaceAllUsesWith(ReplacementVal);
         ClonedPN->eraseFromParent();
+        Cloned.VarMap[PN] = ReplacementVal;
       }
+    }
+
+    for (int i = 0; i < ClonedBlocks.size(); i++) {
+      SimplifyInstructionsInBlock(ClonedBlocks[i]);
     }
 
     Clones.push_back(std::move(Cloned));
