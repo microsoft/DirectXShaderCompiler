@@ -14,10 +14,10 @@
 #include <vector>
 
 #include "spirv/unified1/spirv.hpp11"
+#include "clang/AST/Attr.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Casting.h"
 
 namespace clang {
 namespace spirv {
@@ -73,8 +73,12 @@ public:
     return t->getKind() == TK_Integer || t->getKind() == TK_Float;
   }
 
+  uint32_t getBitwidth() const { return bitwidth; }
+
 protected:
-  NumericalType(Kind k) : ScalarType(k) {}
+  NumericalType(Kind k, uint32_t width) : ScalarType(k), bitwidth(width) {}
+
+  uint32_t bitwidth;
 };
 
 class BoolType : public ScalarType {
@@ -87,28 +91,21 @@ public:
 class IntegerType : public NumericalType {
 public:
   IntegerType(uint32_t numBits, bool sign)
-      : NumericalType(TK_Integer), bitwidth(numBits), isSigned(sign) {}
+      : NumericalType(TK_Integer, numBits), isSigned(sign) {}
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Integer; }
 
-  uint32_t getBitwidth() const { return bitwidth; }
   bool isSignedInt() const { return isSigned; }
 
 private:
-  uint32_t bitwidth;
   bool isSigned;
 };
 
 class FloatType : public NumericalType {
 public:
-  FloatType(uint32_t numBits) : NumericalType(TK_Float), bitwidth(numBits) {}
+  FloatType(uint32_t numBits) : NumericalType(TK_Float, numBits) {}
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Float; }
-
-  uint32_t getBitwidth() const { return bitwidth; }
-
-private:
-  uint32_t bitwidth;
 };
 
 class VectorType : public SpirvType {
@@ -118,9 +115,7 @@ public:
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Vector; }
 
-  const SpirvType *getElementType() const {
-    return llvm::cast<SpirvType>(elementType);
-  }
+  const SpirvType *getElementType() const { return elementType; }
   uint32_t getElementCount() const { return elementCount; }
 
 private:
@@ -136,11 +131,15 @@ public:
 
   bool operator==(const MatrixType &that) const;
 
-  const SpirvType *getVecType() const {
-    return llvm::cast<SpirvType>(vectorType);
+  const SpirvType *getVecType() const { return vectorType; }
+  const SpirvType *getElementType() const {
+    return vectorType->getElementType();
   }
   uint32_t getVecCount() const { return vectorCount; }
   bool isRowMajorMat() const { return isRowMajor; }
+
+  uint32_t numCols() const { return vectorCount; }
+  uint32_t numRows() const { return vectorType->getElementCount(); }
 
 private:
   const VectorType *vectorType;
@@ -174,9 +173,7 @@ public:
 
   bool operator==(const ImageType &that) const;
 
-  const SpirvType *getSampledType() const {
-    return llvm::cast<SpirvType>(sampledType);
-  }
+  const SpirvType *getSampledType() const { return sampledType; }
   spv::Dim getDimension() const { return dimension; }
   WithDepth getDepth() const { return imageDepth; }
   bool isArrayedImage() const { return isArrayed; }
@@ -210,7 +207,7 @@ public:
     return t->getKind() == TK_SampledImage;
   }
 
-  const ImageType *getImageType() const { return imageType; }
+  const SpirvType *getImageType() const { return imageType; }
 
 private:
   const ImageType *imageType;
@@ -248,16 +245,42 @@ private:
 
 class StructType : public SpirvType {
 public:
-  StructType(llvm::ArrayRef<const SpirvType *> memberTypes,
-             llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> memberNames,
-             bool isReadOnly);
+  enum class InterfaceType : uint32_t {
+    InternalStorage = 0,
+    StorageBuffer = 1,
+    UniformBuffer = 2,
+  };
+
+  struct FieldInfo {
+  public:
+    FieldInfo(const SpirvType *type_, llvm::StringRef name_ = "",
+              clang::VKOffsetAttr *offset = nullptr,
+              hlsl::ConstantPacking *packOffset = nullptr)
+        : type(type_), name(name_), vkOffsetAttr(offset),
+          packOffsetAttr(packOffset) {}
+
+    bool operator==(const FieldInfo &that) const;
+
+    // The field's type.
+    const SpirvType *type;
+    // The field's name.
+    std::string name;
+    // vk::offset attributes associated with this field.
+    clang::VKOffsetAttr *vkOffsetAttr;
+    // :packoffset() annotations associated with this field.
+    hlsl::ConstantPacking *packOffsetAttr;
+  };
+
+  StructType(llvm::ArrayRef<FieldInfo> fields, llvm::StringRef name,
+             bool isReadOnly,
+             InterfaceType interfaceType = InterfaceType::InternalStorage);
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Struct; }
 
+  llvm::ArrayRef<FieldInfo> getFields() const { return fields; }
   bool isReadOnly() const { return readOnly; }
   std::string getStructName() const { return structName; }
-  llvm::ArrayRef<const SpirvType *> getFieldTypes() const { return fieldTypes; }
-  llvm::ArrayRef<std::string> getFieldNames() const { return fieldNames; }
+  InterfaceType getInterfaceType() const { return interfaceType; }
 
   bool operator==(const StructType &that) const;
 
@@ -266,10 +289,14 @@ private:
   // struct names and field names. That basically means we cannot ignore these
   // names when considering unification. Otherwise, reflection will be confused.
 
+  llvm::SmallVector<FieldInfo, 8> fields;
   std::string structName;
-  llvm::SmallVector<const SpirvType *, 8> fieldTypes;
-  llvm::SmallVector<std::string, 8> fieldNames;
   bool readOnly;
+  // Indicates the interface type of this structure. If this structure is a
+  // storage buffer shader-interface, it will be decorated with 'BufferBlock'.
+  // If this structure is a uniform buffer shader-interface, it will be
+  // decorated with 'Block'.
+  InterfaceType interfaceType;
 };
 
 class SpirvPointerType : public SpirvType {
