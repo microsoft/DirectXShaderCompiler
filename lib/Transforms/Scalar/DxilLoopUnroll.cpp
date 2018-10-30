@@ -98,6 +98,17 @@ struct ClonedIteration {
     Header = o.Header;
     o.VarMap.clear();
   }
+
+  void Erase() {
+    for (BasicBlock *BB : Body) {
+      BB->eraseFromParent();
+    }
+    Body.clear();
+    for (BasicBlock *BB : Exits) {
+      BB->eraseFromParent();
+    }
+    Exits.clear();
+  }
 };
 
 static void ReplaceUsersIn(BasicBlock *BB, Value *Old, Value *New) {
@@ -113,6 +124,17 @@ static void ReplaceUsersIn(BasicBlock *BB, Value *Old, Value *New) {
   for (Use *U : Uses) {
     U->set(New);
   }
+}
+
+static bool IsConstantI1(Value *V, bool *Val=nullptr) {
+  if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
+    if (V->getType() == Type::getInt1Ty(V->getContext())) {
+      if (Val)
+        *Val = (bool)C->getLimitedValue();
+      return true;
+    }
+  }
+  return false;
 }
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
@@ -160,6 +182,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   SmallVector<ClonedIteration, 16> Clones;
   IRBuilder<> Builder(F->getContext());
+  bool Succeeded = false;
 
   for (int i = 0; i < 16; i++) {
     std::map<BasicBlock *, BasicBlock *> CloneMap;
@@ -186,9 +209,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         continue;
       BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
       CloneMap[BB] = ClonedBB;
-      ReplaceUsersIn(ClonedBB, Counter, NewCounter);
+      //ReplaceUsersIn(ClonedBB, Counter, NewCounter);
       Cloned.Exits.push_back(ClonedBB);
-
       ClonedBlocks.push_back(ClonedBB);
     }
 
@@ -219,14 +241,14 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       ClonedIteration &LastIteration = Clones.back();
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
-        Value *ReplacementVal = LastIteration.VarMap[PN];
+        Value *ReplacementVal = LastIteration.VarMap[PN->getIncomingValue(1)];
         ClonedPN->replaceAllUsesWith(ReplacementVal);
         ClonedPN->eraseFromParent();
         Cloned.VarMap[PN] = ReplacementVal;
       }
 
       if (BranchInst *BI = dyn_cast<BranchInst>(LastIteration.Latch->getTerminator())) {
-        for (int i = 0; i < BI->getNumSuccessors(); i++) {
+        for (unsigned i = 0; i < BI->getNumSuccessors(); i++) {
           if (BI->getSuccessor(i) == LastIteration.Header) {
             BI->setSuccessor(i, Cloned.Header);
             break;
@@ -245,13 +267,41 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
 
     for (int i = 0; i < ClonedBlocks.size(); i++) {
-      SimplifyInstructionsInBlock(ClonedBlocks[i]);
+      BasicBlock *ClonedBB = ClonedBlocks[i];
+      SimplifyInstructionsInBlock(ClonedBB);
+    }
+
+    if (BranchInst *BI = dyn_cast<BranchInst>(Cloned.Latch->getTerminator())) {
+      bool Cond = false;
+      if (!IsConstantI1(BI->getCondition(), &Cond)) {
+        break;
+      }
+
+      if (!Cond && BI->getSuccessor(0) == Cloned.Header) {
+        Succeeded = true;
+      }
+      else if (Cond && BI->getSuccessor(1) == Cloned.Header) {
+        Succeeded = true;
+      }
     }
 
     Clones.push_back(std::move(Cloned));
+
+    if (Succeeded) {
+      break;
+    }
   }
 
-  return false;
+  if (Succeeded) {
+  }
+  else if (Succeeded) {
+    for (ClonedIteration &Iteration : Clones) {
+      Iteration.Erase();
+    }
+    return false;
+  }
+
+  return true;
 }
 
 }
