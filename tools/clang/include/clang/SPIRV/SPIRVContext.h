@@ -188,9 +188,11 @@ public:
   const ArrayType *getArrayType(const SpirvType *elemType, uint32_t elemCount);
   const RuntimeArrayType *getRuntimeArrayType(const SpirvType *elemType);
 
-  const StructType *getStructType(
-      llvm::ArrayRef<const SpirvType *> fieldTypes, llvm::StringRef name,
-      llvm::ArrayRef<llvm::StringRef> fieldNames = {}, bool isReadOnly = false);
+  const StructType *
+  getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
+                llvm::StringRef name, bool isReadOnly = false,
+                StructType::InterfaceType interfaceType =
+                    StructType::InterfaceType::InternalStorage);
 
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
