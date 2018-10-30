@@ -1,5 +1,4 @@
 
-
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Transforms/Scalar.h"
@@ -8,13 +7,13 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>
 
 using namespace llvm;
-//using namespace hlsl;
 
 namespace {
 
@@ -178,22 +177,30 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       break;
     }
   }
-  //llvm::SimplifyInstructionsInBlock();
 
   SmallVector<ClonedIteration, 16> Clones;
   IRBuilder<> Builder(F->getContext());
   bool Succeeded = false;
 
+  std::map<BasicBlock *, BasicBlock *> CloneMap;
+  std::map<BasicBlock *, BasicBlock *> ReverseCloneMap;
   for (int i = 0; i < 16; i++) {
-    std::map<BasicBlock *, BasicBlock *> CloneMap;
+    CloneMap.clear();
     SmallVector<BasicBlock *, 16> ClonedBlocks;
     ClonedIteration Cloned;
     Value *NewCounter = Builder.getInt32(i);
 
-    for (BasicBlock *BB : L->getBlocks()) {
+    auto CloneBlock = [&Cloned, &CloneMap, &ReverseCloneMap, &ClonedBlocks, F](BasicBlock *BB) {
       BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
+      ClonedBB->insertInto(F);
+      ClonedBlocks.push_back(ClonedBB);
+      ReverseCloneMap[ClonedBB] = BB;
       CloneMap[BB] = ClonedBB;
-      //ReplaceUsersIn(ClonedBB, Counter, NewCounter);
+      return ClonedBB;
+    };
+
+    for (BasicBlock *BB : L->getBlocks()) {
+      BasicBlock *ClonedBB = CloneBlock(BB);
       Cloned.Body.push_back(ClonedBB);
       if (BB == Latch) {
         Cloned.Latch = ClonedBB;
@@ -201,21 +208,20 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       if (BB == Header) {
         Cloned.Header = ClonedBB;
       }
-
-      ClonedBlocks.push_back(ClonedBB);
     }
     for (BasicBlock *BB : ExitBlocks) {
-      if (!DependentBlocks.count(BB))
-        continue;
-      BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
-      CloneMap[BB] = ClonedBB;
-      //ReplaceUsersIn(ClonedBB, Counter, NewCounter);
+      BasicBlock *ClonedBB = CloneBlock(BB);
       Cloned.Exits.push_back(ClonedBB);
-      ClonedBlocks.push_back(ClonedBB);
-    }
-
-    for (int i = 0; i < ClonedBlocks.size(); i++) {
-      ClonedBlocks[i]->insertInto(F);
+      for (BasicBlock *Succ : successors(ClonedBB)) {
+        for (Instruction &I : *Succ) {
+          PHINode *PN = dyn_cast<PHINode>(&I);
+          if (!PN)
+            break;
+          Value *OldIncoming = PN->getIncomingValueForBlock(BB);
+          Value *NewIncoming = Cloned.VarMap[OldIncoming] ? Cloned.VarMap[OldIncoming] : OldIncoming;
+          PN->addIncoming(NewIncoming, ClonedBB);
+        }
+      }
     }
 
     for (int i = 0; i < ClonedBlocks.size(); i++) {
@@ -228,7 +234,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       BasicBlock *ClonedBB = ClonedBlocks[i];
       TerminatorInst *TI = ClonedBB->getTerminator();
       if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
-        for (int j = 0; j < (int)BI->getNumSuccessors(); j++) {
+        for (unsigned j = 0, NumSucc = BI->getNumSuccessors(); j < NumSucc; j++) {
           BasicBlock *OldSucc = BI->getSuccessor(j);
           if (CloneMap.count(OldSucc)) {
             BI->setSuccessor(j, CloneMap[OldSucc]);
@@ -266,6 +272,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
+    Clones.push_back(std::move(Cloned));
+
     for (int i = 0; i < ClonedBlocks.size(); i++) {
       BasicBlock *ClonedBB = ClonedBlocks[i];
       SimplifyInstructionsInBlock(ClonedBB);
@@ -279,28 +287,32 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       if (!Cond && BI->getSuccessor(0) == Cloned.Header) {
         Succeeded = true;
+        break;
       }
       else if (Cond && BI->getSuccessor(1) == Cloned.Header) {
         Succeeded = true;
+        break;
       }
-    }
-
-    Clones.push_back(std::move(Cloned));
-
-    if (Succeeded) {
-      break;
     }
   }
 
   if (Succeeded) {
-  }
-  else if (Succeeded) {
-    for (ClonedIteration &Iteration : Clones) {
-      Iteration.Erase();
+    SmallVector<BasicBlock *, 8> Preds(pred_begin(Header), pred_end(Header));
+    for (BasicBlock *PredBB : Preds) {
+      BranchInst *BI = cast<BranchInst>(PredBB->getTerminator());
+      for (unsigned i = 0, NumSucc = BI->getNumSuccessors(); i < NumSucc; i++) {
+        if (BI->getSuccessor(i) == Header) {
+          BI->setSuccessor(i, Clones.front().Header);
+        }
+      }
     }
-    return false;
+    llvm::removeUnreachableBlocks(*F);
   }
 
+  else {
+    llvm::removeUnreachableBlocks(*F);
+    return false;
+  }
   return true;
 }
 
