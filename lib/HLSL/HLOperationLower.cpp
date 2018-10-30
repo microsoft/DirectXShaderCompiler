@@ -75,7 +75,6 @@ private:
   };
   std::unordered_map<Value *, ResAttribute> HandleMetaMap;
   std::unordered_set<LoadInst *> &UpdateCounterSet;
-  std::unordered_set<Value *> &NonUniformSet;
   // Map from pointer of cbuffer to pointer of resource.
   // For cbuffer like this:
   //   cbuffer A {
@@ -87,9 +86,8 @@ private:
 
 public:
   HLObjectOperationLowerHelper(HLModule &HLM,
-                               std::unordered_set<LoadInst *> &UpdateCounter,
-                               std::unordered_set<Value *> &NonUniform)
-      : HLM(HLM), UpdateCounterSet(UpdateCounter), NonUniformSet(NonUniform) {}
+                               std::unordered_set<LoadInst *> &UpdateCounter)
+      : HLM(HLM), UpdateCounterSet(UpdateCounter) {}
   DXIL::ResourceClass GetRC(Value *Handle) {
     ResAttribute &Res = FindCreateHandleResourceBase(Handle);
     return Res.RC;
@@ -110,7 +108,6 @@ public:
     std::unordered_set<Value *> resSet;
     MarkHasCounterOnCreateHandle(handle, resSet);
   }
-  void MarkNonUniform(Value *V) { NonUniformSet.insert(V); }
 
   Value *GetOrCreateResourceForCbPtr(GetElementPtrInst *CbPtr,
                                      GlobalVariable *CbGV, MDNode *MD) {
@@ -538,11 +535,19 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   for (User *U : CI->users()) {
     if (CastInst *I = dyn_cast<CastInst>(U)) {
-      pObjHelper->MarkNonUniform(I);
+      for (User *U : CI->users()) {
+        if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
+          DxilMDHelper::MarkNonUniform(I);
+        }
+      }
+    }
+  }
+  for (User *U : CI->users()) {
+    if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
+      DxilMDHelper::MarkNonUniform(I);
     }
   }
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  pObjHelper->MarkNonUniform(V);
   CI->replaceAllUsesWith(V);
   return nullptr;
 }
@@ -7089,14 +7094,14 @@ namespace hlsl {
 
 void TranslateBuiltinOperations(
     HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
-    std::unordered_set<LoadInst *> &UpdateCounterSet,
-    std::unordered_set<Value *> &NonUniformSet) {
+    std::unordered_set<LoadInst *> &UpdateCounterSet) {
   HLOperationLowerHelper helper(HLM);
 
-  HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet,
-                                            NonUniformSet};
+  HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet};
 
   Module *M = HLM.GetModule();
+
+  SmallVector<Function *, 4> NonUniformResourceIndexIntrinsics;
 
   // generate dxil operation
   for (iplist<Function>::iterator F : M->getFunctionList()) {
@@ -7114,7 +7119,22 @@ void TranslateBuiltinOperations(
       TranslateHLExtension(F, extCodegenHelper, helper.hlslOP);
       continue;
     }
+    if (group == HLOpcodeGroup::HLIntrinsic) {
+      CallInst *CI = cast<CallInst>(*F->user_begin()); // must be call inst
+      unsigned opcode = hlsl::GetHLOpcode(CI);
+      if (opcode == (unsigned)IntrinsicOp::IOP_NonUniformResourceIndex) {
+        NonUniformResourceIndexIntrinsics.push_back(F);
+        continue;
+      }
+    }
     TranslateHLBuiltinOperation(F, helper, group, &objHelper);
+  }
+
+  // Translate last so value placed in NonUniformSet is still valid.
+  if (!NonUniformResourceIndexIntrinsics.empty()) {
+    for (auto F : NonUniformResourceIndexIntrinsics) {
+      TranslateHLBuiltinOperation(F, helper, HLOpcodeGroup::HLIntrinsic, &objHelper);
+    }
   }
 }
 
