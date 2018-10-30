@@ -1,22 +1,24 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilSignatureElement.h                                                    //
+// DxilContainerReader.h                                                     //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Validate HLSL signature element packing.                                  //
+// Helpers for reading from dxil container.                                  //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilSignature.h"
-#include "dxc/DXIL/DxilSigPoint.h"
-#include "dxc/HLSL/DxilSignatureAllocator.h"
+#pragma once
 
-using namespace hlsl;
-using namespace llvm;
+namespace hlsl {
 
-#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
-#include <functional>
-#include "dxc/HLSL/ViewIDPipelineValidation.inl"
+class DxilSubobjects;
+namespace RDAT {
+  class SubobjectTableReader;
+}
+
+void LoadSubobjectsFromRDAT(DxilSubobjects &subobjects,
+  RDAT::SubobjectTableReader *pSubobjectTableReader);
+
+} // namespace hlsl

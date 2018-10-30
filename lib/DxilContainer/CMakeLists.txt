@@ -3,6 +3,7 @@
 add_llvm_library(LLVMDxilContainer
   DxilContainer.cpp
   DxilContainerAssembler.cpp
+  DxilContainerReader.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
