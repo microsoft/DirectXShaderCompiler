@@ -5617,7 +5617,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
           Value *cCol = ConstantInt::get(idx->getType(), col);
           idx = Builder.CreateUDiv(idx, cCol);
           idx = Builder.CreateAdd(idx, legacyIdx);
-          // Just return a row.
+          // Just return a row; 'col' is the number of columns in the row.
           ldData = GenerateCBLoadLegacy(handle, idx, /*channelOffset*/ 0, EltTy,
                                         col, hlslOP, Builder);
         }
