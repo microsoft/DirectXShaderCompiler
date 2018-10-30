@@ -225,15 +225,16 @@ SpirvContext::getRuntimeArrayType(const SpirvType *elemType) {
   return runtimeArrayTypes[elemType] = new (this) RuntimeArrayType(elemType);
 }
 
-const StructType *SpirvContext::getStructType(
-    llvm::ArrayRef<const SpirvType *> fieldTypes, llvm::StringRef name,
-    llvm::ArrayRef<llvm::StringRef> fieldNames, bool isReadOnly) {
+const StructType *
+SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
+                            llvm::StringRef name, bool isReadOnly,
+                            StructType::InterfaceType interfaceType) {
   // We are creating a temporary struct type here for querying whether the
   // same type was already created. It is a little bit costly, but we can
   // avoid allocating directly from the bump pointer allocator, from which
   // then we are unable to reclaim until the allocator itself is destroyed.
 
-  StructType type(fieldTypes, name, fieldNames, isReadOnly);
+  StructType type(fields, name, isReadOnly, interfaceType);
 
   auto found = std::find_if(
       structTypes.begin(), structTypes.end(),
@@ -243,7 +244,7 @@ const StructType *SpirvContext::getStructType(
     return *found;
 
   structTypes.push_back(
-      new (this) StructType(fieldTypes, name, fieldNames, isReadOnly));
+      new (this) StructType(fields, name, isReadOnly, interfaceType));
 
   return structTypes.back();
 }
@@ -286,10 +287,10 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
   const auto *raType = getRuntimeArrayType(getUIntType(32));
 
   // Create a struct containing the runtime array as its only member.
-  return getStructType({raType},
+  return getStructType({StructType::FieldInfo(raType)},
                        isWritable ? "type.RWByteAddressBuffer"
                                   : "type.ByteAddressBuffer",
-                       {}, !isWritable);
+                       !isWritable);
 }
 
 SpirvConstant *SpirvContext::getConstantUint32(uint32_t value) {
