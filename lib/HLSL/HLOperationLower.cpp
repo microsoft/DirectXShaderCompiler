@@ -533,7 +533,9 @@ Value *TrivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
-  for (User *U : CI->users()) {
+  Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  CI->replaceAllUsesWith(V);
+  for (User *U : V->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
       DxilMDHelper::MarkNonUniform(I);
     } else if (CastInst *castI = dyn_cast<CastInst>(U)) {
@@ -544,8 +546,6 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
       }
     }
   }
-  Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  CI->replaceAllUsesWith(V);
   return nullptr;
 }
 
