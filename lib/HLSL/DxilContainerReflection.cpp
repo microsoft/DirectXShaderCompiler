@@ -2351,5 +2351,3 @@ DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerReflection)
 
 #endif // LLVM_ON_WIN32
 
-// DxilRuntimeReflection implementation
-#include "dxc/HLSL/DxilRuntimeReflection.inl"

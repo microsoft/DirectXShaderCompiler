@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilLibraryReflection.cpp                                                 //
+// DxilRuntimeReflection.inl                                                 //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -9,7 +9,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include <unordered_map>
 #include <vector>
 #include <memory>
