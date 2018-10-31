@@ -58,7 +58,7 @@ public:
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
-  SpirvEvalInfo doExpr(const Expr *expr);
+  SpirvInstruction *doExpr(const Expr *expr);
 
   /// Processes the given expression and emits SPIR-V instructions. If the
   /// result is a GLValue, does an additional load.
@@ -72,8 +72,8 @@ public:
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
-  uint32_t castToType(uint32_t value, QualType fromType, QualType toType,
-                      SourceLocation);
+  SpirvInstruction *castToType(SpirvInstruction *value, QualType fromType,
+                               QualType toType, SourceLocation);
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
@@ -316,17 +316,18 @@ private:
 
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToBool(uint32_t value, QualType fromType, QualType toType);
+  SpirvInstruction *castToBool(SpirvInstruction *value, QualType fromType,
+                               QualType toType);
 
   /// Processes the given expr, casts the result into the given integer (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToInt(uint32_t value, QualType fromType, QualType toType,
-                     SourceLocation);
+  SpirvInstruction *castToInt(SpirvInstruction *value, QualType fromType,
+                              QualType toType, SourceLocation);
 
   /// Processes the given expr, casts the result into the given float (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToFloat(uint32_t value, QualType fromType, QualType toType,
-                       SourceLocation);
+  SpirvInstruction *castToFloat(SpirvInstruction *value, QualType fromType,
+                                QualType toType, SourceLocation);
 
 private:
   /// Processes HLSL instrinsic functions.
