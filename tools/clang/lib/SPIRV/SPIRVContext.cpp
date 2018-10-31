@@ -76,7 +76,8 @@ const Decoration *SPIRVContext::registerDecoration(const Decoration &d) {
 
 SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
-      uintTypes({}), floatTypes({}), samplerType(nullptr) {
+      uintTypes({}), floatTypes({}), samplerType(nullptr),
+      boolTrueConstant(nullptr), boolFalseConstant(nullptr) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
@@ -259,9 +260,10 @@ const HybridStructType *SpirvContext::getHybridStructType(
 
   HybridStructType type(fields, name, isReadOnly, interfaceType);
 
-  auto found = std::find_if(
-      hybridStructTypes.begin(), hybridStructTypes.end(),
-      [&type](const HybridStructType *cachedType) { return type == *cachedType; });
+  auto found = std::find_if(hybridStructTypes.begin(), hybridStructTypes.end(),
+                            [&type](const HybridStructType *cachedType) {
+                              return type == *cachedType;
+                            });
 
   if (found != hybridStructTypes.end())
     return *found;
@@ -363,6 +365,43 @@ SpirvConstant *SpirvContext::getConstantInt32(int32_t value) {
   auto *intConst = new (this) SpirvConstantInteger(intType, value);
   integerConstants.push_back(intConst);
   return intConst;
+}
+
+SpirvConstant *SpirvContext::getConstantFloat32(float value) {
+  const FloatType *floatType = getFloatType(32);
+  SpirvConstantFloat tempConstant(floatType, value);
+
+  auto found =
+      std::find_if(floatConstants.begin(), floatConstants.end(),
+                   [&tempConstant](SpirvConstantFloat *cachedConstant) {
+                     return tempConstant == *cachedConstant;
+                   });
+
+  if (found != floatConstants.end())
+    return *found;
+
+  // Couldn't find the constant. Create one.
+  auto *floatConst = new (this) SpirvConstantFloat(floatType, value);
+  floatConstants.push_back(floatConst);
+  return floatConst;
+}
+
+SpirvConstant *SpirvContext::getConstantBool(bool value) {
+  if (value && boolTrueConstant)
+    return boolTrueConstant;
+
+  if (!value && boolFalseConstant)
+    return boolFalseConstant;
+
+  // Couldn't find the constant. Create one.
+  auto *boolConst = new (this) SpirvConstantBoolean(getBoolType(), value);
+
+  if (value)
+    boolTrueConstant = boolConst;
+  else
+    boolFalseConstant = boolConst;
+
+  return boolConst;
 }
 
 } // end namespace spirv

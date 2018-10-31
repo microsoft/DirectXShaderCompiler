@@ -20,7 +20,6 @@
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
 #include "clang/SPIRV/FeatureManager.h"
-#include "clang/SPIRV/ModuleBuilder.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -28,7 +27,6 @@
 
 #include "GlPerVertex.h"
 #include "SpirvEvalInfo.h"
-#include "TypeTranslator.h"
 
 namespace clang {
 namespace spirv {
@@ -55,10 +53,10 @@ struct SemanticInfo {
 class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
-                  const VKBuiltInAttr *builtin, const SpirvType *spvType,
+                  const VKBuiltInAttr *builtin, QualType astType,
                   uint32_t locCount)
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
-        type(spvType), value(nullptr), isBuiltin(false),
+        type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
         locationCount(locCount) {
     isBuiltin = builtinAttr != nullptr;
@@ -68,7 +66,7 @@ public:
   const SemanticInfo &getSemanticInfo() const { return semanticInfo; }
   std::string getSemanticStr() const;
 
-  const SpirvType *getSpirvType() const { return type; }
+  QualType getAstType() const { return type; }
 
   SpirvVariable *getSpirvInstr() const { return value; }
   void setSpirvInstr(SpirvVariable *spvInstr) { value = spvInstr; }
@@ -97,8 +95,8 @@ private:
   SemanticInfo semanticInfo;
   /// SPIR-V BuiltIn attribute.
   const VKBuiltInAttr *builtinAttr;
-  /// SPIR-V type.
-  const SpirvType *type;
+  /// The AST QualType.
+  QualType type;
   /// SPIR-V instruction.
   SpirvVariable *value;
   /// Indicates whether this stage variable should be a SPIR-V builtin.
@@ -262,14 +260,13 @@ private:
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            SpirvContext &spirvContext, ModuleBuilder &builder,
+                            SpirvContext &spirvContext,
                             SpirvBuilder &spirvBuilder, SPIRVEmitter &emitter,
-                            TypeTranslator &translator,
                             FeatureManager &features,
                             const SpirvCodeGenOptions &spirvOptions);
 
-  /// \brief Returns the <result-id> for a SPIR-V builtin variable.
-  uint32_t getBuiltinVar(spv::BuiltIn builtIn);
+  /// \brief Returns the SPIR-V builtin variable.
+  SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn);
 
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
@@ -442,7 +439,7 @@ public:
   /// This method is specially for writing back per-vertex data at the time of
   /// OpEmitVertex in GS.
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
-                             SpirvVariable *value);
+                             SpirvInstruction *value);
 
   /// \brief Negates to get the additive inverse of SV_Position.y if requested.
   SpirvInstruction *invertYIfRequested(SpirvInstruction *position);
@@ -634,16 +631,12 @@ private:
 
 private:
   const hlsl::ShaderModel &shaderModel;
-  ModuleBuilder &theBuilder;
   SpirvBuilder &spvBuilder;
   SPIRVEmitter &theEmitter;
   const SpirvCodeGenOptions &spirvOptions;
   ASTContext &astContext;
   SpirvContext &spvContext;
   DiagnosticsEngine &diags;
-
-  TypeTranslator &typeTranslator;
-
   SpirvFunction *entryFunction;
 
   /// Mapping of all Clang AST decls to their instruction pointers.
@@ -657,7 +650,7 @@ private:
   /// other cases, stage variable reading and writing is done at the time of
   /// creating that stage variable, so that we don't need to query them again
   /// for reading and writing.
-  llvm::DenseMap<const ValueDecl *, SpirvVariable *> stageVarIds;
+  llvm::DenseMap<const ValueDecl *, SpirvVariable *> stageVarInstructions;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
@@ -752,16 +745,16 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
   builder.createStore(counterVar, srcPair.get(builder, context));
 }
 
-DeclResultIdMapper::DeclResultIdMapper(
-    const hlsl::ShaderModel &model, ASTContext &context,
-    SpirvContext &spirvContext, ModuleBuilder &builder,
-    SpirvBuilder &spirvBuilder, SPIRVEmitter &emitter,
-    TypeTranslator &translator, FeatureManager &features,
-    const SpirvCodeGenOptions &options)
-    : shaderModel(model), theBuilder(builder), spvBuilder(spirvBuilder),
-      theEmitter(emitter), spirvOptions(options), astContext(context),
-      spvContext(spirvContext), diags(context.getDiagnostics()),
-      typeTranslator(translator), entryFunction(nullptr),
+DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
+                                       ASTContext &context,
+                                       SpirvContext &spirvContext,
+                                       SpirvBuilder &spirvBuilder,
+                                       SPIRVEmitter &emitter,
+                                       FeatureManager &features,
+                                       const SpirvCodeGenOptions &options)
+    : shaderModel(model), spvBuilder(spirvBuilder), theEmitter(emitter),
+      spirvOptions(options), astContext(context), spvContext(spirvContext),
+      diags(context.getDiagnostics()), entryFunction(nullptr),
       laneCountBuiltinVar(nullptr), laneIndexBuiltinVar(nullptr),
       needsLegalization(false),
       glPerVertex(model, context, spirvContext, spirvBuilder) {}

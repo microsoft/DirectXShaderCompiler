@@ -448,6 +448,9 @@ public:
   SpirvVariable *addStageBuiltinVar(const SpirvType *type,
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, SourceLocation loc = {});
+  SpirvVariable *addStageBuiltinVar(QualType type,
+                                    spv::StorageClass storageClass,
+                                    spv::BuiltIn, SourceLocation loc = {});
 
   /// \brief Adds a module variable. This variable should not have the Function
   /// storage class.
