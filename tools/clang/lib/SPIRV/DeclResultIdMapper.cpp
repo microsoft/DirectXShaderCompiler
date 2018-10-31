@@ -1422,8 +1422,8 @@ bool DeclResultIdMapper::createStageVars(
     return true;
   }
 
-  // uint32_t typeId = typeTranslator.translateType(type);
-  const SpirvType *spvType = nullptr;
+  // The type the variable is evaluated as for SPIR-V.
+  QualType evalType = type;
 
   // We have several cases regarding HLSL semantics to handle here:
   // * If the currrent decl inherits a semantic from some enclosing entity,
