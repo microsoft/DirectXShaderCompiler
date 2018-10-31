@@ -211,6 +211,8 @@ public:
 
   SpirvConstant *getConstantUint32(uint32_t value);
   SpirvConstant *getConstantInt32(int32_t value);
+  SpirvConstant *getConstantFloat32(float value);
+  SpirvConstant *getConstantBool(bool value);
   // TODO: Add getConstant* methods for other types.
 
 private:
@@ -266,6 +268,9 @@ private:
   // We currently do a linear search to find an existing constant (if any). This
   // can be done in a more efficient way if needed.
   llvm::SmallVector<SpirvConstantInteger *, 8> integerConstants;
+  llvm::SmallVector<SpirvConstantFloat *, 8> floatConstants;
+  SpirvConstantBoolean *boolTrueConstant;
+  SpirvConstantBoolean *boolFalseConstant;
   // TODO: Add vectors of other constant types here.
 };
 

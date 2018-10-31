@@ -44,24 +44,10 @@ private:
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
                                      SourceLocation);
 
-  QualType getElementType(QualType type, SourceLocation);
-
-  /// Returns true if all members in structType are of the same element
-  /// type and can be fit into a 4-component vector. Writes element type and
-  /// count to *elemType and *elemCount if not nullptr. Otherwise, emit errors
-  /// explaining why not.
-  bool canFitIntoOneRegister(QualType structType, QualType *elemType,
-                             uint32_t *elemCount = nullptr);
-
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType sampledType,
                                                      SourceLocation);
-
-  /// Returns true if the two types can be treated as the same scalar
-  /// type, which means they have the same canonical type, regardless of
-  /// constnesss and literalness.
-  bool canTreatAsSameScalarType(QualType type1, QualType type2);
 
   /// Strips the attributes and typedefs from the given type and returns the
   /// desugared one.
