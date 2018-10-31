@@ -1366,7 +1366,8 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     return true;
   }
 
-  uint32_t typeId = typeTranslator.translateType(type);
+  // The type the variable is evaluated as for SPIR-V.
+  QualType evalType = type;
 
   // We have several cases regarding HLSL semantics to handle here:
   // * If the currrent decl inherits a semantic from some enclosing entity,
@@ -1448,38 +1449,36 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
                                 noWriteBack))
       return true;
 
-    const uint32_t srcTypeId = typeId; // Variable type in source code
-    const QualType srcQualType = type; // Variable type in source code
-    uint32_t srcVecElemTypeId = 0;     // Variable element type if vector
-
     switch (semanticKind) {
     case hlsl::Semantic::Kind::DomainLocation:
-      typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 3);
+      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
       break;
     case hlsl::Semantic::Kind::TessFactor:
-      typeId = theBuilder.getArrayType(theBuilder.getFloat32Type(),
-                                       theBuilder.getConstantUint32(4));
+      evalType = astContext.getConstantArrayType(
+          astContext.FloatTy, llvm::APInt(32, 4), clang::ArrayType::Normal, 0);
       break;
     case hlsl::Semantic::Kind::InsideTessFactor:
-      typeId = theBuilder.getArrayType(theBuilder.getFloat32Type(),
-                                       theBuilder.getConstantUint32(2));
+      evalType = astContext.getConstantArrayType(
+          astContext.FloatTy, llvm::APInt(32, 2), clang::ArrayType::Normal, 0);
       break;
     case hlsl::Semantic::Kind::Coverage:
-      typeId = theBuilder.getArrayType(typeId, theBuilder.getConstantUint32(1));
+      evalType = astContext.getConstantArrayType(astContext.UnsignedIntTy,
+                                                 llvm::APInt(32, 1),
+                                                 clang::ArrayType::Normal, 0);
       break;
     case hlsl::Semantic::Kind::InnerCoverage:
-      typeId = theBuilder.getBoolType();
+      evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
-      typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 2);
+      evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
     case hlsl::Semantic::Kind::GroupID:
       // Keep the original integer signedness
-      srcVecElemTypeId = typeTranslator.translateType(
-          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type);
-      typeId = theBuilder.getVecType(srcVecElemTypeId, 3);
+      evalType = astContext.getExtVectorType(
+          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
+          3);
       break;
     default:
       // Only the semantic kinds mentioned above are handled.
@@ -1489,18 +1488,19 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     // Boolean stage I/O variables must be represented as unsigned integers.
     // Boolean built-in variables are represented as bool.
     if (isBooleanStageIOVar(decl, type, semanticKind, sigPoint->GetKind())) {
-      type = typeTranslator.getUintTypeWithSourceComponents(type);
-      typeId = typeTranslator.translateType(type);
+      evalType = typeTranslator.getUintTypeWithSourceComponents(type);
     }
 
     // Handle the extra arrayness
-    const uint32_t elementTypeId = typeId; // Array element's type
-    if (arraySize != 0)
-      typeId = theBuilder.getArrayType(typeId,
-                                       theBuilder.getConstantUint32(arraySize));
+    if (arraySize != 0) {
+      evalType = astContext.getConstantArrayType(
+          evalType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+    }
+
+    const uint32_t evalTypeId = typeTranslator.translateType(evalType);
 
     StageVar stageVar(
-        sigPoint, *semanticToUse, builtinAttr, typeId,
+        sigPoint, *semanticToUse, builtinAttr, evalTypeId,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
         typeTranslator.getLocationCount(type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
@@ -1545,7 +1545,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       decoratePSInterpolationMode(decl, type, varId);
 
     if (asInput) {
-      *value = theBuilder.createLoad(typeId, varId);
+      *value = theBuilder.createLoad(evalTypeId, varId);
 
       // Fix ups for corner cases
 
@@ -1594,7 +1594,8 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       // Special handling of SV_Coverage, which is an uint value. We need to
       // read SampleMask and extract its first element.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        *value = theBuilder.createCompositeExtract(srcTypeId, *value, {0});
+        *value = theBuilder.createCompositeExtract(
+            typeTranslator.translateType(type), *value, {0});
       }
       // Special handling of SV_InnerCoverage, which is an uint value. We need
       // to read FullyCoveredEXT, which is a boolean value, and convert it to an
@@ -1636,7 +1637,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
                 semanticKind == hlsl::Semantic::Kind::GroupID) &&
                (!hlsl::IsHLSLVecType(type) ||
                 hlsl::GetHLSLVecSize(type) != 3)) {
-        assert(srcVecElemTypeId);
+        const uint32_t srcVecElemTypeId = typeTranslator.translateType(
+            hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type)
+                                      : type);
         const auto vecSize =
             hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
         if (vecSize == 1)
@@ -1654,10 +1657,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
 
       // Since boolean stage input variables are represented as unsigned
       // integers, after loading them, we should cast them to boolean.
-      if (isBooleanStageIOVar(decl, srcQualType, semanticKind,
-                              sigPoint->GetKind())) {
-        *value = theEmitter.castToType(*value, type, srcQualType,
-                                       decl->getLocation());
+      if (isBooleanStageIOVar(decl, type, semanticKind, sigPoint->GetKind())) {
+        *value =
+            theEmitter.castToType(*value, evalType, type, decl->getLocation());
       }
     } else {
       if (noWriteBack)
@@ -1706,7 +1708,8 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       // write it to the first element in the SampleMask builtin.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
         ptr = theBuilder.createAccessChain(
-            theBuilder.getPointerType(srcTypeId, spv::StorageClass::Output),
+            theBuilder.getPointerType(typeTranslator.translateType(type),
+                                      spv::StorageClass::Output),
             varId, theBuilder.getConstantUint32(0));
         theBuilder.createStore(ptr, *value);
       }
@@ -1714,6 +1717,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       // element in the per-vertex data array: the one indexed by
       // SV_ControlPointID.
       else if (invocationId.hasValue()) {
+        // Remove the arrayness to get the element type.
+        assert(isa<ConstantArrayType>(evalType));
+        const uint32_t elementTypeId = typeTranslator.translateType(
+            astContext.getAsArrayType(evalType)->getElementType());
         const uint32_t ptrType =
             theBuilder.getPointerType(elementTypeId, spv::StorageClass::Output);
         const uint32_t index = invocationId.getValue();
@@ -1722,10 +1729,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       }
       // Since boolean output stage variables are represented as unsigned
       // integers, we must cast the value to uint before storing.
-      else if (isBooleanStageIOVar(decl, srcQualType, semanticKind,
+      else if (isBooleanStageIOVar(decl, type, semanticKind,
                                    sigPoint->GetKind())) {
-        *value = theEmitter.castToType(*value, srcQualType, type,
-                                       decl->getLocation());
+        *value =
+            theEmitter.castToType(*value, type, evalType, decl->getLocation());
         theBuilder.createStore(ptr, *value);
       }
       // For all normal cases
@@ -1777,7 +1784,8 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     }
 
     if (arraySize == 0) {
-      *value = theBuilder.createCompositeConstruct(typeId, subValues);
+      *value = theBuilder.createCompositeConstruct(
+          typeTranslator.translateType(evalType), subValues);
       return true;
     }
 
@@ -2195,8 +2203,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   // According to DXIL spec, the ClipDistance/CullDistance SV can be used by all
   // SigPoints other than PCIn, HSIn, GSIn, PSOut, CSIn.
-  // According to Vulkan spec, the ClipDistance/CullDistance BuiltIn can only
-  // be
+  // According to Vulkan spec, the ClipDistance/CullDistance BuiltIn can only be
   // used by VSOut, HS/DS/GS In/Out.
   case hlsl::Semantic::Kind::ClipDistance:
   case hlsl::Semantic::Kind::CullDistance: {
