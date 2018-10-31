@@ -602,11 +602,11 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), spvContext(astContext), featureManager(diags, spirvOptions),
+      theContext(), spvContext(), featureManager(diags, spirvOptions),
       theBuilder(&theContext, &featureManager, spirvOptions),
       spvBuilder(astContext, spvContext, &featureManager, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, spirvOptions),
-      declIdMapper(shaderModel, astContext, theBuilder, *this, typeTranslator,
+      declIdMapper(shaderModel, astContext, spvContext, spvBuilder, *this,
                    featureManager, spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
@@ -642,22 +642,20 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
   }
 
   // Set shader module version
-  theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
+  spvBuilder.setShaderModelVersion(shaderModel.GetMajor(),
                                    shaderModel.GetMinor());
 
   // Set debug info
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   if (spirvOptions.debugInfoFile && !inputFiles.empty()) {
     // File name
-    mainSourceFileId = theContext.takeNextId();
-    theBuilder.setSourceFileName(mainSourceFileId,
-                                 inputFiles.front().getFile().str());
+    spvBuilder.setSourceFileName(inputFiles.front().getFile().str());
 
     // Source code
     const auto &sm = ci.getSourceManager();
     const llvm::MemoryBuffer *mainFile =
         sm.getBuffer(sm.getMainFileID(), SourceLocation());
-    theBuilder.setSourceFileContent(
+    spvBuilder.setSourceFileContent(
         StringRef(mainFile->getBufferStart(), mainFile->getBufferSize()));
   }
 }
@@ -695,13 +693,11 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   AddRequiredCapabilitiesForShaderModel();
 
   // Addressing and memory model are required in a valid SPIR-V module.
-  theBuilder.setAddressingModel(spv::AddressingModel::Logical);
-  theBuilder.setMemoryModel(spv::MemoryModel::GLSL450);
+  spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
+                            spv::MemoryModel::GLSL450);
 
-  theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
-                           entryFunctionName, declIdMapper.collectStageVars());
   spvBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunction,
-                           entryFunctionName, interfaces);
+                           entryFunctionName, declIdMapper.collectStageVars());
 
   // Add Location decorations to stage input/output variables.
   if (!declIdMapper.decorateStageIOLocations())
@@ -712,6 +708,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   // Output the constructed module.
+  // TODO: Switch to new infra.
   std::vector<uint32_t> m = theBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
@@ -838,11 +835,12 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   }
 }
 
-SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
-  SpirvEvalInfo result(/*id*/ 0);
+SpirvInstruction *SPIRVEmitter::doExpr(const Expr *expr) {
+  SpirvInstruction *result = nullptr;
 
   // Provide a hint to the typeTranslator that if a literal is discovered, its
   // intended usage is as this expression type.
+  // TODO(ehsan): Literal type handling must be fixed.
   TypeTranslator::LiteralTypeHint hint(typeTranslator, expr->getType());
 
   expr = expr->IgnoreParens();
@@ -856,6 +854,8 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   } else if (const auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
     result = doInitListExpr(initListExpr);
   } else if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
+    // TODO: Wtf is isSpecConstantMode
+    // result = spvContext.getConstantBool(boolLiteral->getValue());
     const auto value =
         theBuilder.getConstantBool(boolLiteral->getValue(), isSpecConstantMode);
     result = SpirvEvalInfo(value).setConstant().setRValue();
@@ -1043,8 +1043,9 @@ bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr, SpirvEvalInfo &info) {
   return false;
 }
 
-uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
-                                  QualType toType, SourceLocation srcLoc) {
+SpirvInstruction *SPIRVEmitter::castToType(SpirvInstruction *value,
+                                           QualType fromType, QualType toType,
+                                           SourceLocation srcLoc) {
   if (isFloatOrVecOfFloatType(toType))
     return castToFloat(value, fromType, toType, srcLoc);
 
@@ -1059,7 +1060,7 @@ uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
     return castToInt(value, fromType, toType, srcLoc);
 
   emitError("casting to type %0 unimplemented", {}) << toType;
-  return 0;
+  return nullptr;
 }
 
 void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
@@ -5983,7 +5984,7 @@ void SPIRVEmitter::createSpecConstant(const VarDecl *varDecl) {
   // We are not creating a variable to hold the spec constant, instead, we
   // translate the varDecl directly into the spec constant here.
 
-  theBuilder.decorateSpecId(
+  spvBuilder.decorateSpecId(
       specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId());
 
   declIdMapper.registerSpecConstant(varDecl, specConstant);
@@ -6193,8 +6194,9 @@ SpirvEvalInfo &SPIRVEmitter::turnIntoElementPtr(
   return base;
 }
 
-uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
-                                  QualType toBoolType) {
+SpirvInstruction *SPIRVEmitter::castToBool(SpirvInstruction *fromVal,
+                                           QualType fromType,
+                                           QualType toBoolType) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toBoolType))
     return fromVal;
 
@@ -6226,8 +6228,9 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
   return theBuilder.createBinaryOp(spvOp, boolType, fromVal, zeroVal);
 }
 
-uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
-                                 QualType toIntType, SourceLocation srcLoc) {
+SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
+                                          QualType fromType, QualType toIntType,
+                                          SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
 
@@ -6330,9 +6333,10 @@ uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
   llvm_unreachable("invalid type passed to convertBitwidth");
 }
 
-uint32_t SPIRVEmitter::castToFloat(uint32_t fromVal, QualType fromType,
-                                   QualType toFloatType,
-                                   SourceLocation srcLoc) {
+SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
+                                            QualType fromType,
+                                            QualType toFloatType,
+                                            SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toFloatType))
     return fromVal;
 
@@ -9317,11 +9321,11 @@ SPIRVEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
 
 void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
   if (shaderModel.IsHS() || shaderModel.IsDS()) {
-    theBuilder.requireCapability(spv::Capability::Tessellation);
+    spvBuilder.requireCapability(spv::Capability::Tessellation);
   } else if (shaderModel.IsGS()) {
-    theBuilder.requireCapability(spv::Capability::Geometry);
+    spvBuilder.requireCapability(spv::Capability::Geometry);
   } else {
-    theBuilder.requireCapability(spv::Capability::Shader);
+    spvBuilder.requireCapability(spv::Capability::Shader);
   }
 }
 
