@@ -2679,7 +2679,9 @@ static void ValidateGradientOps(Function *F, ArrayRef<CallInst *> ops, ArrayRef<
     return;
   }
 
-  std::unique_ptr<WaveSensitivityAnalysis> WaveVal(WaveSensitivityAnalysis::create());
+    PostDominatorTree PDT;
+    PDT.runOnFunction(*F);
+  std::unique_ptr<WaveSensitivityAnalysis> WaveVal(WaveSensitivityAnalysis::create(PDT));
   WaveVal->Analyze(F);
   for (CallInst *op : ops) {
     if (WaveVal->IsWaveSensitive(op)) {

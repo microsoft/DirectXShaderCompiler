@@ -31,6 +31,8 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/Analysis/PostDominators.h"
+
 #ifdef _WIN32
 #include <winerror.h>
 #endif
@@ -42,6 +44,14 @@ using namespace std;
 
 namespace hlsl {
 
+// WaveSensitivityAnalysis is created to validate Gradient operations.
+// Gradient operations require all neighbor lanes to be active when calculate,
+// compiler will enable lanes to meet this requirement. If a wave operation
+// contributed gradient operation, it will get unexpected result because the
+// active lanes is modified.
+// To avoid unexpected result, validation will fail if gradient operations
+// dependent on wave-sensitive data or control flow.
+
 class WaveSensitivityAnalyzer : public WaveSensitivityAnalysis {
 private:
   enum WaveSensitivity {
@@ -49,6 +59,7 @@ private:
     KnownNotSensitive,
     Unknown
   };
+  PostDominatorTree *pPDT;
   map<Instruction *, WaveSensitivity> InstState;
   map<BasicBlock *, WaveSensitivity> BBState;
   std::vector<Instruction *> InstWorkList;
@@ -59,12 +70,13 @@ private:
   void UpdateInst(Instruction *I, WaveSensitivity WS);
   void VisitInst(Instruction *I);
 public:
+  WaveSensitivityAnalyzer(PostDominatorTree &PDT) : pPDT(&PDT) {}
   void Analyze(Function *F);
   bool IsWaveSensitive(Instruction *op);
 };
 
-WaveSensitivityAnalysis* WaveSensitivityAnalysis::create() {
-  return new WaveSensitivityAnalyzer();
+WaveSensitivityAnalysis* WaveSensitivityAnalysis::create(PostDominatorTree &PDT) {
+  return new WaveSensitivityAnalyzer(PDT);
 }
 
 void WaveSensitivityAnalyzer::Analyze(Function *F) {
@@ -132,9 +144,14 @@ void WaveSensitivityAnalyzer::UpdateInst(Instruction *I, WaveSensitivity WS) {
     InstState[I] = WS;
     InstWorkList.push_back(I);
     if (TerminatorInst * TI = dyn_cast<TerminatorInst>(I)) {
+      BasicBlock *CurBB = TI->getParent();
       for (unsigned i = 0; i < TI->getNumSuccessors(); ++i) {
         BasicBlock *BB = TI->getSuccessor(i);
-        UpdateBlock(BB, WS);
+        // Only propagate WS when BB not post dom CurBB.
+        WaveSensitivity TmpWS = pPDT->properlyDominates(BB, CurBB)
+                                    ? WaveSensitivity::KnownNotSensitive
+                                    : WS;
+        UpdateBlock(BB, TmpWS);
       }
     }
   }
@@ -153,9 +170,22 @@ void WaveSensitivityAnalyzer::VisitInst(Instruction *I) {
     }
   }
 
+
   if (CheckBBState(I->getParent(), KnownSensitive)) {
     UpdateInst(I, KnownSensitive);
     return;
+  }
+
+  // Catch control flow wave sensitive for phi.
+  if (PHINode *Phi = dyn_cast<PHINode>(I)) {
+    for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+      BasicBlock *BB = Phi->getIncomingBlock(i);
+      WaveSensitivity WS = GetInstState(BB->getTerminator());
+      if (WS == KnownSensitive) {
+        UpdateInst(I, KnownSensitive);
+        return;
+      }
+    }
   }
 
   bool allKnownNotSensitive = true;
