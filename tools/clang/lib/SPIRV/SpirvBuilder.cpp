@@ -759,6 +759,23 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(const SpirvType *type,
   return var;
 }
 
+SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
+                                                spv::StorageClass storageClass,
+                                                spv::BuiltIn builtin,
+                                                SourceLocation loc) {
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  // TODO(ehsan): type pointer should be added in lowering the type.
+  auto *var = new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass);
+  module->addVariable(var);
+
+  // Decorate with the specified Builtin
+  auto *decor = new (context) SpirvDecoration(
+      loc, var, spv::Decoration::BuiltIn, {static_cast<uint32_t>(builtin)});
+  module->addDecoration(decor);
+
+  return var;
+}
+
 SpirvVariable *SpirvBuilder::addModuleVar(
     QualType type, spv::StorageClass storageClass, llvm::StringRef name,
     llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {

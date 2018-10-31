@@ -10,6 +10,7 @@
 
 #include <string>
 
+#include "clang/AST/Decl.h"
 #include "clang/AST/Type.h"
 
 namespace clang {
@@ -85,12 +86,44 @@ bool isConstantTextureBuffer(const Decl *decl);
 /// * SubpassInput(MS)
 bool isResourceType(const ValueDecl *decl);
 
-/// \brief Returns true if the given type is or contains 16-bit type.
-//bool isOrContains16BitType(QualType type);
-
-  /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
-  /// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
+/// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
+/// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
 bool isAKindOfStructuredOrByteBuffer(QualType type);
+
+/// Returns true if the given type is or contains a 16-bit type.
+/// The caller must also specify whether 16-bit types have been enabled via
+/// command line options.
+bool isOrContains16BitType(QualType type, bool enable16BitTypesOption);
+
+/// NOTE: This method doesn't handle Literal types correctly at the moment.
+///
+/// Note: This method will be deprecated once resolving of literal types are
+/// moved to a dedicated pass.
+///
+/// \brief Returns the realized bitwidth of the given type when represented in
+/// SPIR-V. Panics if the given type is not a scalar, a vector/matrix of float
+/// or integer, or an array of them. In case of vectors, it returns the
+/// realized SPIR-V bitwidth of the vector elements.
+uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
+                                 bool is16BitTypeEnabled);
+
+/// Returns true if the two types can be treated as the same scalar
+/// type, which means they have the same canonical type, regardless of
+/// constnesss and literalness.
+bool canTreatAsSameScalarType(QualType type1, QualType type2);
+
+/// Returns true if all members in structType are of the same element
+/// type and can be fit into a 4-component vector. Writes element type and
+/// count to *elemType and *elemCount if not nullptr. Otherwise, emit errors
+/// explaining why not.
+bool canFitIntoOneRegister(QualType structType, QualType *elemType,
+                           uint32_t *elemCount = nullptr);
+
+/// Returns the element type of the given type. The given type may be a scalar
+/// type, vector type, matrix type, or array type. It may also be a struct with
+/// members that can fit into a register. In such case, the result would be the
+/// struct member type.
+QualType getElementType(QualType type);
 
 } // namespace spirv
 } // namespace clang

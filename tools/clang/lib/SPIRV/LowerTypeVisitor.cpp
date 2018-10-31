@@ -240,7 +240,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return spvContext.getImageType(
-          lowerType(getElementType(sampledType, srcLoc), rule, srcLoc), dim,
+          lowerType(getElementType(sampledType), rule, srcLoc), dim,
           ImageType::WithDepth::Unknown, isArray, isMS,
           ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     }
@@ -255,7 +255,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
       return spvContext.getImageType(
-          lowerType(getElementType(sampledType, srcLoc), rule, srcLoc), dim,
+          lowerType(getElementType(sampledType), rule, srcLoc), dim,
           ImageType::WithDepth::Unknown, isArray,
           /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
           format);
@@ -340,8 +340,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
-        lowerType(getElementType(sampledType, srcLoc), rule, srcLoc),
-        spv::Dim::Buffer, ImageType::WithDepth::Unknown,
+        lowerType(getElementType(sampledType), rule, srcLoc), spv::Dim::Buffer,
+        ImageType::WithDepth::Unknown,
         /*isArrayed=*/false, /*isMultiSampled=*/false,
         /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
                                      : ImageType::WithSampler::No,
@@ -371,7 +371,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   if (name == "SubpassInput" || name == "SubpassInputMS") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return spvContext.getImageType(
-        lowerType(getElementType(sampledType, srcLoc), rule, srcLoc),
+        lowerType(getElementType(sampledType), rule, srcLoc),
         spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false,
         /*isMultipleSampled=*/name == "SubpassInputMS",
@@ -379,77 +379,6 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   }
 
   return nullptr;
-}
-
-QualType LowerTypeVisitor::getElementType(QualType type,
-                                          SourceLocation srcLoc) {
-  QualType elemType = {};
-  if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-      isMxNMatrix(type, &elemType) || canFitIntoOneRegister(type, &elemType)) {
-    return elemType;
-  }
-
-  if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
-    return arrType->getElementType();
-  }
-
-  emitError("unsupported resource type parameter %0", srcLoc) << type;
-  // Note: We are returning the original type instead of a null QualType here
-  // to keep the translation going and avoid hitting asserts trying to query
-  // info from null QualType in other places of the compiler. Although we are
-  // likely generating invalid code here, it should be fine since the error
-  // reported will prevent the CodeGen from actually outputing.
-  return type;
-}
-
-bool LowerTypeVisitor::canFitIntoOneRegister(QualType structType,
-                                             QualType *elemType,
-                                             uint32_t *elemCount) {
-  if (structType->getAsStructureType() == nullptr)
-    return false;
-
-  const auto *structDecl = structType->getAsStructureType()->getDecl();
-  QualType firstElemType;
-  uint32_t totalCount = 0;
-
-  for (const auto *field : structDecl->fields()) {
-    QualType type;
-    uint32_t count = 1;
-
-    if (isScalarType(field->getType(), &type) ||
-        isVectorType(field->getType(), &type, &count)) {
-      if (firstElemType.isNull()) {
-        firstElemType = type;
-      } else {
-        if (!canTreatAsSameScalarType(firstElemType, type)) {
-          emitError("all struct members should have the same element type for "
-                    "resource template instantiation",
-                    structDecl->getLocation());
-          return false;
-        }
-      }
-      totalCount += count;
-    } else {
-      emitError("unsupported struct element type for resource template "
-                "instantiation",
-                structDecl->getLocation());
-      return false;
-    }
-  }
-
-  if (totalCount > 4) {
-    emitError(
-        "resource template element type %0 cannot fit into four 32-bit scalars",
-        structDecl->getLocation())
-        << structType;
-    return false;
-  }
-
-  if (elemType)
-    *elemType = firstElemType;
-  if (elemCount)
-    *elemCount = totalCount;
-  return true;
 }
 
 spv::ImageFormat
@@ -486,29 +415,6 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
       << sampledType;
 
   return spv::ImageFormat::Unknown;
-}
-
-bool LowerTypeVisitor::canTreatAsSameScalarType(QualType type1,
-                                                QualType type2) {
-  // Treat const int/float the same as const int/float
-  type1.removeLocalConst();
-  type2.removeLocalConst();
-
-  return (type1.getCanonicalType() == type2.getCanonicalType()) ||
-         // Treat 'literal float' and 'float' as the same
-         (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-          type2->isFloatingType()) ||
-         (type2->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-          type1->isFloatingType()) ||
-         // Treat 'literal int' and 'int'/'uint' as the same
-         (type1->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type2->isIntegerType() &&
-          // Disallow boolean types
-          !type2->isSpecificBuiltinType(BuiltinType::Bool)) ||
-         (type2->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type1->isIntegerType() &&
-          // Disallow boolean types
-          !type1->isSpecificBuiltinType(BuiltinType::Bool));
 }
 
 QualType LowerTypeVisitor::desugarType(QualType type) {
