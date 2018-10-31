@@ -45,12 +45,12 @@ using namespace std;
 namespace hlsl {
 
 // WaveSensitivityAnalysis is created to validate Gradient operations.
-// Gradient operations require all neighbor lanes to be active when calculate,
+// Gradient operations require all neighbor lanes to be active when calculated,
 // compiler will enable lanes to meet this requirement. If a wave operation
-// contributed gradient operation, it will get unexpected result because the
-// active lanes is modified.
+// contributed to gradient operation, it will get unexpected result because the
+// active lanes are modified.
 // To avoid unexpected result, validation will fail if gradient operations
-// dependent on wave-sensitive data or control flow.
+// are dependent on wave-sensitive data or control flow.
 
 class WaveSensitivityAnalyzer : public WaveSensitivityAnalysis {
 private:
