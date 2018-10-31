@@ -1661,6 +1661,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         // alloca.
         DeleteDeadInstructions();
         ++NumReplaced;
+        DXASSERT(AI->getNumUses() == 0, "must have zero users.");
         AI->eraseFromParent();
         Changed = true;
         continue;
@@ -4123,10 +4124,18 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         // Only remove one level bitcast generated from inline.
         if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
           Dest = BC->getOperand(0);
+
+        // If memcpy's dest address is calculated using GEP then we only allow
+        // lowering of memcpy if and only if the address is only used by the
+        // memcpy itself and no one else.
+        bool isUnsafeGepRefLowering = false;
+        if (GEPOperator *DestGEP = dyn_cast<GEPOperator>(Dest))
+          isUnsafeGepRefLowering = DestGEP->getNumUses() > 1;
+
         // For GEP, the ptr could have other GEP read/write.
         // Only scan one GEP is not enough.
         // And resource ptr should not be replaced.
-        if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
+        if (!isUnsafeGepRefLowering && !isa<CallInst>(Dest) &&
             !isa<BitCastOperator>(Dest)) {
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
