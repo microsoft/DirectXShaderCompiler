@@ -151,12 +151,6 @@ public:
   void setRValue(bool rvalue = true) { isRValue_ = rvalue; }
   bool isRValue() const { return isRValue_; }
 
-  void setConstant() { isConstant_ = true; }
-  bool isConstant() const { return isConstant_; }
-
-  void setSpecConstant() { isSpecConstant_ = true; }
-  bool isSpecConstant() const { return isSpecConstant_; }
-
   void setRelaxedPrecision() { isRelaxedPrecision_ = true; }
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
 
@@ -192,8 +186,6 @@ protected:
 
   spv::StorageClass storageClass;
   bool isRValue_;
-  bool isConstant_;
-  bool isSpecConstant_;
   bool isRelaxedPrecision_;
   bool isNonUniform_;
 };
