@@ -20,7 +20,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/HLSL/ReducibilityAnalysis.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilEntryProps.h"

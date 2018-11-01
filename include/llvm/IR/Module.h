@@ -690,6 +690,13 @@ public:
 /// @}
 
   // HLSL Change start
+  typedef void (*RemoveFunctionCallback)(llvm::Module*, llvm::Function*);
+  RemoveFunctionCallback   pHLModuleRemoveFunction = nullptr;
+  RemoveFunctionCallback pDxilModuleRemoveFunction = nullptr;
+  void RemoveFunctionHook(llvm::Function* F) {
+    if   (pHLModuleRemoveFunction)   (*pHLModuleRemoveFunction)(this, F);
+    if (pDxilModuleRemoveFunction) (*pDxilModuleRemoveFunction)(this, F);
+  }
   bool HasHLModule() const { return TheHLModule != nullptr; }
   void SetHLModule(hlsl::HLModule *pValue) { TheHLModule = pValue; }
   hlsl::HLModule &GetHLModule() { return *TheHLModule; }
