@@ -1525,6 +1525,17 @@ bool SROA_HLSL::ShouldAttemptScalarRepl(AllocaInst *AI) {
   return false;
 }
 
+static unsigned getNestedLevelInStruct(const Type *ty) {
+  unsigned lvl = 0;
+  while (ty->isStructTy()) {
+    if (ty->getStructNumElements() != 1)
+      break;
+    ty = ty->getStructElementType(0);
+    lvl++;
+  }
+  return lvl;
+}
+
 // performScalarRepl - This algorithm is a simple worklist driven algorithm,
 // which runs on all of the alloca instructions in the entry block, removing
 // them if they are only used by getelementptr instructions.
@@ -1538,8 +1549,15 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
   // alloca, it will be alloca flattened from big alloca instead of a GEP of big
   // alloca.
   auto size_cmp = [&DL](const AllocaInst *a0, const AllocaInst *a1) -> bool {
-    return DL.getTypeAllocSize(a0->getAllocatedType()) <
-           DL.getTypeAllocSize(a1->getAllocatedType());
+    Type* a0ty = a0->getAllocatedType();
+    Type* a1ty = a1->getAllocatedType();
+    bool isUnitSzStruct0 = a0ty->isStructTy() && a0ty->getStructNumElements() == 1;
+    bool isUnitSzStruct1 = a1ty->isStructTy() && a1ty->getStructNumElements() == 1;
+    auto sz0 = DL.getTypeAllocSize(a0ty);
+    auto sz1 = DL.getTypeAllocSize(a1ty);
+    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
+      return !(getNestedLevelInStruct(a0ty) > getNestedLevelInStruct(a1ty));;
+    return sz0 < sz1;
   };
   std::priority_queue<AllocaInst *, std::vector<AllocaInst *>,
                       std::function<bool(AllocaInst *, AllocaInst *)>>
@@ -4125,17 +4143,10 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
           Dest = BC->getOperand(0);
 
-        // If memcpy's dest address is calculated using GEP then we only allow
-        // lowering of memcpy if and only if the address is only used by the
-        // memcpy itself and no one else.
-        bool isUnsafeGepRefLowering = false;
-        if (GEPOperator *DestGEP = dyn_cast<GEPOperator>(Dest))
-          isUnsafeGepRefLowering = DestGEP->getNumUses() > 1;
-
         // For GEP, the ptr could have other GEP read/write.
         // Only scan one GEP is not enough.
         // And resource ptr should not be replaced.
-        if (!isUnsafeGepRefLowering && !isa<CallInst>(Dest) &&
+        if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
             !isa<BitCastOperator>(Dest)) {
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
