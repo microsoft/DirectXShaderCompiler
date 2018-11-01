@@ -219,7 +219,10 @@ public:
   SpirvConstant *getConstantFloat32(float value, bool specConst = false);
   SpirvConstant *getConstantFloat64(double value, bool specConst = false);
   SpirvConstant *getConstantBool(bool value, bool specConst = false);
-  // TODO: Add getConstant* methods for other types.
+  SpirvConstant *
+  getConstantComposite(QualType compositeType,
+                       llvm::ArrayRef<SpirvConstant *> constituents,
+                       bool specConst = false);
 
 private:
   template <class T>
@@ -317,13 +320,13 @@ private:
   // Unique constants
   // We currently do a linear search to find an existing constant (if any). This
   // can be done in a more efficient way if needed.
+  llvm::SmallVector<SpirvConstantComposite *, 8> compositeConstants;
   llvm::SmallVector<SpirvConstantInteger *, 8> integerConstants;
   llvm::SmallVector<SpirvConstantFloat *, 8> floatConstants;
   SpirvConstantBoolean *boolTrueConstant;
   SpirvConstantBoolean *boolFalseConstant;
   SpirvConstantBoolean *boolTrueSpecConstant;
   SpirvConstantBoolean *boolFalseSpecConstant;
-  // TODO: Add vectors of other constant types here.
 };
 
 } // end namespace spirv
