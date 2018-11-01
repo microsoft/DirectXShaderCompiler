@@ -708,7 +708,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   // Output the constructed module.
-  // TODO: Switch to new infra.
+  // TODO(ehsan): Switch to new infra. Should get the module binary from the
+  // EmitVisitor.
   std::vector<uint32_t> m = theBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
@@ -856,9 +857,11 @@ SpirvInstruction *SPIRVEmitter::doExpr(const Expr *expr) {
   } else if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
     // TODO: Wtf is isSpecConstantMode
     // result = spvContext.getConstantBool(boolLiteral->getValue());
+    result =
+        spvContext.getConstantBool(boolLiteral->getValue(), isSpecConstantMode);
+    result->setRValue();
     const auto value =
         theBuilder.getConstantBool(boolLiteral->getValue(), isSpecConstantMode);
-    result = SpirvEvalInfo(value).setConstant().setRValue();
   } else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
     const auto value = translateAPInt(intLiteral->getValue(), expr->getType());
     result = SpirvEvalInfo(value).setConstant().setRValue();
@@ -9132,7 +9135,7 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
             << std::to_string(intValue.getSExtValue());
         return 0;
       }
-      return theBuilder.getConstantInt32(
+      return spvBuilder.getConstantInt32(
           static_cast<int32_t>(intValue.getSExtValue()), isSpecConstantMode);
     } else {
       if (!intValue.isIntN(32)) {
@@ -9142,7 +9145,7 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
             << std::to_string(intValue.getZExtValue());
         return 0;
       }
-      return theBuilder.getConstantUint32(
+      return spvBuilder.getConstantUint32(
           static_cast<uint32_t>(intValue.getZExtValue()), isSpecConstantMode);
     }
   }
