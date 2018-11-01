@@ -41,7 +41,7 @@ void LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableRead
     }
     case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
       uint32_t NumExports = reader.GetSubobjectToExportsAssociation_NumExports();
-      std::vector<StringRef> Exports;
+      std::vector<llvm::StringRef> Exports;
       Exports.resize(NumExports);
       for (unsigned i = 0; i < NumExports; ++i) {
         Exports[i] = reader.GetSubobjectToExportsAssociation_Export(i);
