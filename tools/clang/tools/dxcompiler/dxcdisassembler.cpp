@@ -650,14 +650,17 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
       bLocalRS = true;
       __fallthrough;
     case DXIL::SubobjectKind::GlobalRootSignature: {
+      const char *Text = nullptr;
       const void *Data = nullptr;
       uint32_t Size = 0;
-      if (!obj.GetRootSignature(bLocalRS, Data, Size)) {
+      if (!obj.GetRootSignature(bLocalRS, Data, Size, &Text)) {
         OS << "<error getting subobject>";
         break;
       }
-      // TODO: Deserialize root signature?
       OS << "<" << Size << " bytes>";
+      if (Text && Text[0]) {
+        OS << ", \"" << Text << "\"";
+      }
       break;
     }
     case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
@@ -671,7 +674,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
       OS << "\"" << Subobject << "\", { ";
       if (Exports) {
         for (unsigned i = 0; i < NumExports; ++i) {
-          OS << "\"" << Exports[i] << "\"" << (i ? ", " : "");
+          OS << (i ? ", " : "") << "\"" << Exports[i] << "\"";
         }
       }
       OS << " } ";
@@ -699,21 +702,22 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
       break;
     }
     case DXIL::SubobjectKind::HitGroup: {
-      StringRef Intersection;
       StringRef AnyHit;
       StringRef ClosestHit;
-      if (!obj.GetHitGroup(Intersection, AnyHit, ClosestHit)) {
+      StringRef Intersection;
+      if (!obj.GetHitGroup(AnyHit, ClosestHit, Intersection)) {
         OS << "<error getting subobject>";
         break;
       }
-      OS << "intersection = \"" << Intersection
-         << "\", anyhit = \"" << AnyHit
-         << "\", closesthit = \"" << ClosestHit << "\"";
+      OS << "anyhit = \"" << AnyHit
+         << "\", closesthit = \"" << ClosestHit
+         << "\", intersection = \"" << Intersection << "\"";
       break;
     }
     }
     OS << " };\n";
   }
+  OS << comment << "\n";
 }
 
 void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,

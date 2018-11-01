@@ -556,6 +556,14 @@ void hlsl::AddHitKinds(ASTContext& context) {
   AddConstUInt(context, curDC, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"), (unsigned)DXIL::HitKind::TriangleBackFace);
 }
 
+/// <summary> Adds a constant integers for state object flags </summary>
+void hlsl::AddStateObjectFlags(ASTContext& context) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+ 
+  AddConstUInt(context, curDC, StringRef("STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS"), (unsigned)DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions);
+  AddConstUInt(context, curDC, StringRef("STATE_OBJECT_FLAGS_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
+}
+
 static
 Expr* IntConstantAsBoolExpr(clang::Sema& sema, uint64_t value)
 {

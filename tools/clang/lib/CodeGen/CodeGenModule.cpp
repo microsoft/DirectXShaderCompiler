@@ -1869,11 +1869,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
   if (AddrSpace != Ty->getAddressSpace() && !LangOpts.HLSL) // HLSL Change -TODO: do we put address space in type?
     return llvm::ConstantExpr::getAddrSpaceCast(GV, Ty);
 
-  // HLSL Change start
-  if (hlsl::IsStringType(D->getType())) {
-    getHLSLRuntime().AddGlobalStringDecl(D, GV);
-  }
-  // HLSL Change end
 
   return GV;
 }
@@ -3049,10 +3044,6 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
     GV->setComdat(M.getOrInsertComdat(GV->getName()));
   }
 
-  // HLSL Change Start
-  CGM.getHLSLRuntime().AddGlobalStringConstant(GV);
-  // HLSL CHange End
-
   return GV;
 }
 
@@ -3395,7 +3386,14 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
       return;
   case Decl::VarTemplateSpecialization:
     EmitGlobal(cast<VarDecl>(D));
-    getHLSLRuntime().addResource(D); // HLSL Change - add resource for global variables
+    // HLSL Change Start - add resource or subobject for global variables
+    if (hlsl::IsHLSLSubobjectType(cast<VarDecl>(D)->getType())) {
+      getHLSLRuntime().addSubobject(D);
+    }
+    else {
+      getHLSLRuntime().addResource(D);
+    }
+    // HLSL Change End
     break;
 
   // Indirect fields from global anonymous structs and unions can be

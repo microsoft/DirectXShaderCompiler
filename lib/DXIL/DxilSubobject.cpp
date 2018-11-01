@@ -71,9 +71,9 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     RaytracingPipelineConfig.MaxTraceRecursionDepth = other.RaytracingPipelineConfig.MaxTraceRecursionDepth;
     break;
   case Kind::HitGroup:
-    HitGroup.Intersection = other.HitGroup.Intersection;
     HitGroup.AnyHit = other.HitGroup.AnyHit;
     HitGroup.ClosestHit = other.HitGroup.ClosestHit;
+    HitGroup.Intersection = other.HitGroup.Intersection;
     break;
   }
 }
@@ -88,9 +88,9 @@ void DxilSubobject::InternStrings() {
       ptr = m_Owner.GetSubobjectString(ptr).data();
     break;
   case Kind::HitGroup:
-    HitGroup.Intersection = m_Owner.GetSubobjectString(HitGroup.Intersection).data();
     HitGroup.AnyHit = m_Owner.GetSubobjectString(HitGroup.AnyHit).data();
     HitGroup.ClosestHit = m_Owner.GetSubobjectString(HitGroup.ClosestHit).data();
+    HitGroup.Intersection = m_Owner.GetSubobjectString(HitGroup.Intersection).data();
     break;
   default:
     break;
@@ -112,11 +112,13 @@ bool DxilSubobject::GetStateObjectConfig(uint32_t &Flags) const {
 
 // Local/Global RootSignature
 bool DxilSubobject::GetRootSignature(
-    bool local, const void * &Data, uint32_t &Size) const {
+    bool local, const void * &Data, uint32_t &Size, const char **pText) const {
   Kind expected = local ? Kind::LocalRootSignature : Kind::GlobalRootSignature;
   if (m_Kind == expected) {
     Data = RootSignature.Data;
     Size = RootSignature.Size;
+    if (pText) 
+      *pText = RootSignature.Text;
     return true;
   }
   return false;
@@ -158,13 +160,13 @@ bool DxilSubobject::GetRaytracingPipelineConfig(
 }
 
 // HitGroup
-bool DxilSubobject::GetHitGroup(llvm::StringRef &Intersection,
-                                llvm::StringRef &AnyHit,
-                                llvm::StringRef &ClosestHit) const {
+bool DxilSubobject::GetHitGroup(llvm::StringRef &AnyHit,
+                                llvm::StringRef &ClosestHit,
+                                llvm::StringRef &Intersection) const {
   if (m_Kind == Kind::HitGroup) {
-    Intersection = HitGroup.Intersection;
     AnyHit = HitGroup.AnyHit;
     ClosestHit = HitGroup.ClosestHit;
+    Intersection = HitGroup.Intersection;
     return true;
   }
   return false;
@@ -248,22 +250,25 @@ DxilSubobject &DxilSubobjects::CreateStateObjectConfig(
 }
 
 DxilSubobject &DxilSubobjects::CreateRootSignature(
-    llvm::StringRef Name, bool local, const void *Data, uint32_t Size) {
+    llvm::StringRef Name, bool local, const void *Data, uint32_t Size, llvm::StringRef *pText /*= nullptr*/) {
   auto &obj = CreateSubobject(local ? Kind::LocalRootSignature : Kind::GlobalRootSignature, Name);
   obj.RootSignature.Data = Data;
   obj.RootSignature.Size = Size;
+  obj.RootSignature.Text = (pText ? GetSubobjectString(*pText).data() : nullptr);
   return obj;
 }
 
 DxilSubobject &DxilSubobjects::CreateSubobjectToExportsAssociation(
     llvm::StringRef Name,
     llvm::StringRef Subobject,
-    const char * const *Exports,
+    llvm::StringRef *Exports,
     uint32_t NumExports) {
   auto &obj = CreateSubobject(Kind::SubobjectToExportsAssociation, Name);
   Subobject = GetSubobjectString(Subobject);
   obj.SubobjectToExportsAssociation.Subobject = Subobject.data();
-  obj.m_Exports.assign(Exports, Exports + NumExports);
+  for (unsigned i = 0; i < NumExports; i++) {
+    obj.m_Exports.emplace_back(GetSubobjectString(Exports[i]).data());
+  }
   return obj;
 }
 
@@ -286,16 +291,16 @@ DxilSubobject &DxilSubobjects::CreateRaytracingPipelineConfig(
 }
 
 DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
-                                              llvm::StringRef Intersection,
                                               llvm::StringRef AnyHit,
-                                              llvm::StringRef ClosestHit) {
+                                              llvm::StringRef ClosestHit,
+                                              llvm::StringRef Intersection) {
   auto &obj = CreateSubobject(Kind::HitGroup, Name);
-  Intersection = GetSubobjectString(Intersection);
   AnyHit = GetSubobjectString(AnyHit);
   ClosestHit = GetSubobjectString(ClosestHit);
-  obj.HitGroup.Intersection = Intersection.data();
+  Intersection = GetSubobjectString(Intersection);
   obj.HitGroup.AnyHit = AnyHit.data();
   obj.HitGroup.ClosestHit = ClosestHit.data();
+  obj.HitGroup.Intersection = Intersection.data();
   return obj;
 }
 
