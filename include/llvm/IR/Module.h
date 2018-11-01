@@ -690,23 +690,24 @@ public:
 /// @}
 
   // HLSL Change start
-  typedef void (*RemoveFunctionCallback)(llvm::Module*, llvm::Function*);
-  RemoveFunctionCallback   pHLModuleRemoveFunction = nullptr;
-  RemoveFunctionCallback pDxilModuleRemoveFunction = nullptr;
-  void RemoveFunctionHook(llvm::Function* F) {
-    if   (pHLModuleRemoveFunction)   (*pHLModuleRemoveFunction)(this, F);
-    if (pDxilModuleRemoveFunction) (*pDxilModuleRemoveFunction)(this, F);
+  typedef void (*RemoveGlobalCallback)(llvm::Module*, llvm::GlobalObject*);
+  typedef void(*ResetModuleCallback)(llvm::Module*);
+  RemoveGlobalCallback pfnRemoveGlobal = nullptr;
+  void CallRemoveGlobalHook(llvm::GlobalObject* G) {
+    if (pfnRemoveGlobal) (*pfnRemoveGlobal)(this, G);
   }
   bool HasHLModule() const { return TheHLModule != nullptr; }
   void SetHLModule(hlsl::HLModule *pValue) { TheHLModule = pValue; }
   hlsl::HLModule &GetHLModule() { return *TheHLModule; }
   hlsl::HLModule &GetOrCreateHLModule(bool skipInit = false);
-  void ResetHLModule();
+  ResetModuleCallback pfnResetHLModule = nullptr;
+  void ResetHLModule() { if (pfnResetHLModule) (*pfnResetHLModule)(this); }
   bool HasDxilModule() const { return TheDxilModule != nullptr; }
   void SetDxilModule(hlsl::DxilModule *pValue) { TheDxilModule = pValue; }
   hlsl::DxilModule &GetDxilModule() const { return *TheDxilModule; }
   hlsl::DxilModule &GetOrCreateDxilModule(bool skipInit = false);
-  void ResetDxilModule();
+  ResetModuleCallback pfnResetDxilModule = nullptr;
+  void ResetDxilModule() { if (pfnResetDxilModule) (*pfnResetDxilModule)(this); }
   // HLSL Change end
 };
 

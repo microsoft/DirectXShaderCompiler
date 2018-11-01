@@ -19,7 +19,6 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
-#include "dxc/HLSL/HLModule.h" // HLSL Change
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
@@ -189,12 +188,12 @@ void GlobalVariable::setParent(Module *parent) {
 }
 
 void GlobalVariable::removeFromParent() {
-  if (getParent()->HasHLModule()) getParent()->GetHLModule().RemoveGlobal(this);
+  getParent()->CallRemoveGlobalHook(this);  // HLSL Change
   getParent()->getGlobalList().remove(this);
 }
 
 void GlobalVariable::eraseFromParent() {
-  if (getParent()->HasHLModule()) getParent()->GetHLModule().RemoveGlobal(this);
+  getParent()->CallRemoveGlobalHook(this);  // HLSL Change
   getParent()->getGlobalList().erase(this);
 }
 

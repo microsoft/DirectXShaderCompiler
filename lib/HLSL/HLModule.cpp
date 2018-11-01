@@ -36,9 +36,18 @@ using std::unique_ptr;
 namespace hlsl {
 
 // Avoid dependency on HLModule from llvm::Module using this:
-void HLModule_RemoveFunction(llvm::Module* M, llvm::Function* F) {
-  if (M && F && M->HasHLModule())
-    M->GetHLModule().RemoveFunction(F);
+void HLModule_RemoveGlobal(llvm::Module* M, llvm::GlobalObject* G) {
+  if (M && G && M->HasHLModule()) {
+    if (llvm::GlobalVariable *GV = dyn_cast<llvm::GlobalVariable>(G))
+      M->GetHLModule().RemoveGlobal(GV);
+    else if (llvm::Function *F = dyn_cast<llvm::Function>(G))
+      M->GetHLModule().RemoveFunction(F);
+  }
+}
+void HLModule_ResetModule(llvm::Module* M) {
+  if (M && M->HasHLModule())
+    delete &M->GetHLModule();
+  M->SetHLModule(nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -64,7 +73,8 @@ HLModule::HLModule(Module *pModule)
     , m_DefaultLinkage(DXIL::DefaultLinkage::Default)
     , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule)) {
   DXASSERT_NOMSG(m_pModule != nullptr);
-  m_pModule->pHLModuleRemoveFunction = &HLModule_RemoveFunction;
+  m_pModule->pfnRemoveGlobal = &HLModule_RemoveGlobal;
+  m_pModule->pfnResetHLModule = &HLModule_ResetModule;
 
   // Pin LLVM dump methods. TODO: make debug-only.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
@@ -73,7 +83,8 @@ HLModule::HLModule(Module *pModule)
 }
 
 HLModule::~HLModule() {
-  m_pModule->pHLModuleRemoveFunction = nullptr;
+  if (m_pModule->pfnRemoveGlobal == &HLModule_RemoveGlobal)
+    m_pModule->pfnRemoveGlobal = nullptr;
 }
 
 LLVMContext &HLModule::GetCtx() const { return m_Ctx; }
@@ -1310,13 +1321,6 @@ hlsl::HLModule &Module::GetOrCreateHLModule(bool skipInit) {
     SetHLModule(M.release());
   }
   return GetHLModule();
-}
-
-void Module::ResetHLModule() {
-  if (HasHLModule()) {
-    delete TheHLModule;
-    TheHLModule = nullptr;
-  }
 }
 
 }
