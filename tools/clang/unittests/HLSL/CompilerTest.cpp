@@ -163,8 +163,9 @@ public:
   struct LoadSourceCallResult {
     HRESULT hr;
     std::string source;
-    LoadSourceCallResult() : hr(E_FAIL) { }
-    LoadSourceCallResult(const char *pSource) : hr(S_OK), source(pSource) { }
+    UINT32 codePage;
+    LoadSourceCallResult() : hr(E_FAIL), codePage(0) { }
+    LoadSourceCallResult(const char *pSource, UINT32 codePage = CP_UTF8) : hr(S_OK), source(pSource), codePage(codePage) { }
   };
   std::vector<LoadSourceCallResult> CallResults;
   size_t callIndex;
@@ -182,7 +183,8 @@ public:
     if (FAILED(CallResults[callIndex].hr)) {
       return CallResults[callIndex++].hr;
     }
-    Utf8ToBlob(m_dllSupport, CallResults[callIndex].source, ppIncludeSource);
+    MultiByteStringToBlob(m_dllSupport, CallResults[callIndex].source,
+                          CallResults[callIndex].codePage, ppIncludeSource);
     return CallResults[callIndex++].hr;
   }
 };
@@ -222,6 +224,7 @@ public:
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
   TEST_METHOD(CompileWhenIncludeHasPathThenOK)
+  TEST_METHOD(CompileWhenIncludeEmptyThenOK)
 
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
@@ -2297,6 +2300,27 @@ TEST_F(CompilerTest, CompileWhenIncludeHasPathThenOK) {
     VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
     VERIFY_SUCCEEDED(hr);
  }
+}
+
+TEST_F(CompilerTest, CompileWhenIncludeEmptyThenOK) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("#include \"empty.h\"\r\n"
+                     "float4 main() : SV_Target { return 0; }",
+                     &pSource);
+
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back("", CP_ACP); // An empty file would get detected as ACP code page
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", nullptr, 0, nullptr, 0,
+                                      pInclude, &pResult));
+  VerifyOperationSucceeded(pResult);
+  VERIFY_ARE_EQUAL_WSTR(L"./empty.h;", pInclude->GetAllFileNames().c_str());
 }
 
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";
