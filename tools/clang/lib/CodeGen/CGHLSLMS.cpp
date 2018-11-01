@@ -2518,12 +2518,12 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
     }
     case DXIL::SubobjectKind::HitGroup: {
       DXASSERT_NOMSG(argCount == 3);
-      StringRef intersection, anyhit, closesthit;
-      if (!GetAsConstantString(args[0], &intersection) ||
-          !GetAsConstantString(args[1], &anyhit) ||
-          !GetAsConstantString(args[2], &closesthit))
+      StringRef anyhit, closesthit, intersection;
+      if (!GetAsConstantString(args[0], &anyhit) ||
+          !GetAsConstantString(args[1], &closesthit) ||
+          !GetAsConstantString(args[2], &intersection))
         return;
-      subobjects->CreateHitGroup(name, intersection, anyhit, closesthit);
+      subobjects->CreateHitGroup(name, anyhit, closesthit, intersection);
       break;
     }
     default:

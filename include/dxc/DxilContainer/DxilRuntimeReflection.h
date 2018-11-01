@@ -214,9 +214,9 @@ struct RuntimeDataSubobjectInfo {
   struct HitGroup_t {
     // each is a string table offset for the shader name
     // 0 points to empty name, indicating no shader.
-    uint32_t Intersection;
     uint32_t AnyHit;
     uint32_t ClosestHit;
+    uint32_t Intersection;
   };
 
   union {
@@ -643,9 +643,9 @@ struct DxilSubobjectDesc {
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
-    LPCWSTR Intersection;
     LPCWSTR AnyHit;
     LPCWSTR ClosestHit;
+    LPCWSTR Intersection;
   };
 
   union {

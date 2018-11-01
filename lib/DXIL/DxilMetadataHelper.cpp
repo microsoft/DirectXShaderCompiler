@@ -1484,7 +1484,7 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
     StringRef Intersection(StringMDToStringRef(MD.getOperand(i++)));
     StringRef AnyHit(StringMDToStringRef(MD.getOperand(i++)));
     StringRef ClosestHit(StringMDToStringRef(MD.getOperand(i++)));
-    Subobjects.CreateHitGroup(name, Intersection, AnyHit, ClosestHit);
+    Subobjects.CreateHitGroup(name, AnyHit, ClosestHit, Intersection);
     break;
   }
   default:

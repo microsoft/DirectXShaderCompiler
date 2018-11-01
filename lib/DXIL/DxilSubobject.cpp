@@ -71,9 +71,9 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     RaytracingPipelineConfig.MaxTraceRecursionDepth = other.RaytracingPipelineConfig.MaxTraceRecursionDepth;
     break;
   case Kind::HitGroup:
-    HitGroup.Intersection = other.HitGroup.Intersection;
     HitGroup.AnyHit = other.HitGroup.AnyHit;
     HitGroup.ClosestHit = other.HitGroup.ClosestHit;
+    HitGroup.Intersection = other.HitGroup.Intersection;
     break;
   }
 }
@@ -88,9 +88,9 @@ void DxilSubobject::InternStrings() {
       ptr = m_Owner.GetSubobjectString(ptr).data();
     break;
   case Kind::HitGroup:
-    HitGroup.Intersection = m_Owner.GetSubobjectString(HitGroup.Intersection).data();
     HitGroup.AnyHit = m_Owner.GetSubobjectString(HitGroup.AnyHit).data();
     HitGroup.ClosestHit = m_Owner.GetSubobjectString(HitGroup.ClosestHit).data();
+    HitGroup.Intersection = m_Owner.GetSubobjectString(HitGroup.Intersection).data();
     break;
   default:
     break;
@@ -160,13 +160,13 @@ bool DxilSubobject::GetRaytracingPipelineConfig(
 }
 
 // HitGroup
-bool DxilSubobject::GetHitGroup(llvm::StringRef &Intersection,
-                                llvm::StringRef &AnyHit,
-                                llvm::StringRef &ClosestHit) const {
+bool DxilSubobject::GetHitGroup(llvm::StringRef &AnyHit,
+                                llvm::StringRef &ClosestHit,
+                                llvm::StringRef &Intersection) const {
   if (m_Kind == Kind::HitGroup) {
-    Intersection = HitGroup.Intersection;
     AnyHit = HitGroup.AnyHit;
     ClosestHit = HitGroup.ClosestHit;
+    Intersection = HitGroup.Intersection;
     return true;
   }
   return false;
@@ -291,16 +291,16 @@ DxilSubobject &DxilSubobjects::CreateRaytracingPipelineConfig(
 }
 
 DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
-                                              llvm::StringRef Intersection,
                                               llvm::StringRef AnyHit,
-                                              llvm::StringRef ClosestHit) {
+                                              llvm::StringRef ClosestHit,
+                                              llvm::StringRef Intersection) {
   auto &obj = CreateSubobject(Kind::HitGroup, Name);
-  Intersection = GetSubobjectString(Intersection);
   AnyHit = GetSubobjectString(AnyHit);
   ClosestHit = GetSubobjectString(ClosestHit);
-  obj.HitGroup.Intersection = Intersection.data();
+  Intersection = GetSubobjectString(Intersection);
   obj.HitGroup.AnyHit = AnyHit.data();
   obj.HitGroup.ClosestHit = ClosestHit.data();
+  obj.HitGroup.Intersection = Intersection.data();
   return obj;
 }
 

@@ -52,9 +52,9 @@ public:
   bool GetRaytracingShaderConfig(uint32_t &MaxPayloadSizeInBytes,
                                  uint32_t &MaxAttributeSizeInBytes) const;
   bool GetRaytracingPipelineConfig(uint32_t &MaxTraceRecursionDepth) const;
-  bool GetHitGroup(llvm::StringRef &Intersection,
-                   llvm::StringRef &AnyHit,
-                   llvm::StringRef &ClosestHit) const;
+  bool GetHitGroup(llvm::StringRef &AnyHit,
+                   llvm::StringRef &ClosestHit,
+                   llvm::StringRef &Intersection) const;
 
 private:
   DxilSubobject(DxilSubobjects &owner, Kind kind, llvm::StringRef name);
@@ -88,9 +88,9 @@ private:
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
-    const char *Intersection;
     const char *AnyHit;
     const char *ClosestHit;
+    const char *Intersection;
   };
 
   union {
@@ -150,9 +150,9 @@ public:
     llvm::StringRef Name,
     uint32_t MaxTraceRecursionDepth);
   DxilSubobject &CreateHitGroup(llvm::StringRef Name,
-                                llvm::StringRef Intersection,
                                 llvm::StringRef AnyHit,
-                                llvm::StringRef ClosestHit);
+                                llvm::StringRef ClosestHit,
+                                llvm::StringRef Intersection);
 
 private:
   DxilSubobject &CreateSubobject(Kind kind, llvm::StringRef Name);

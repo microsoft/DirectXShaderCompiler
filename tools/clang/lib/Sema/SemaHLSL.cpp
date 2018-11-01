@@ -2531,15 +2531,15 @@ static CXXRecordDecl *CreateSubobjectRaytracingPipelineConfig(ASTContext& contex
 
 // struct HitGroup
 // {
-//   string intersection;
 //   string anyhit;
 //   string closesthit;
+//   string intersection;
 // };
 static CXXRecordDecl *CreateSubobjectHitGroup(ASTContext& context) {
   CXXRecordDecl *decl = StartSubobjectDecl(context, "HitGroup");
-  CreateSimpleField(context, decl, "Intersection", context.HLSLStringTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "AnyHit",       context.HLSLStringTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit",   context.HLSLStringTy, AccessSpecifier::AS_private);
+  CreateSimpleField(context, decl, "Intersection", context.HLSLStringTy, AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
   return decl;
 }

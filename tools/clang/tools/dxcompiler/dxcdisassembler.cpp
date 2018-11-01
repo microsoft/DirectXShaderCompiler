@@ -702,16 +702,16 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
       break;
     }
     case DXIL::SubobjectKind::HitGroup: {
-      StringRef Intersection;
       StringRef AnyHit;
       StringRef ClosestHit;
-      if (!obj.GetHitGroup(Intersection, AnyHit, ClosestHit)) {
+      StringRef Intersection;
+      if (!obj.GetHitGroup(AnyHit, ClosestHit, Intersection)) {
         OS << "<error getting subobject>";
         break;
       }
-      OS << "intersection = \"" << Intersection
-         << "\", anyhit = \"" << AnyHit
-         << "\", closesthit = \"" << ClosestHit << "\"";
+      OS << "anyhit = \"" << AnyHit
+         << "\", closesthit = \"" << ClosestHit
+         << "\", intersection = \"" << Intersection << "\"";
       break;
     }
     }
