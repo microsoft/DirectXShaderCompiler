@@ -77,7 +77,8 @@ const Decoration *SPIRVContext::registerDecoration(const Decoration &d) {
 SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
       uintTypes({}), floatTypes({}), samplerType(nullptr),
-      boolTrueConstant(nullptr), boolFalseConstant(nullptr) {
+      boolTrueConstant(nullptr), boolFalseConstant(nullptr),
+      boolTrueSpecConstant(nullptr), boolFalseSpecConstant(nullptr) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
@@ -329,9 +330,9 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   return type;
 }
 
-SpirvConstant *SpirvContext::getConstantUint32(uint32_t value) {
+SpirvConstant *SpirvContext::getConstantUint32(uint32_t value, bool specConst) {
   const IntegerType *intType = getUIntType(32);
-  SpirvConstantInteger tempConstant(intType, value);
+  SpirvConstantInteger tempConstant(intType, value, specConst);
 
   auto found =
       std::find_if(integerConstants.begin(), integerConstants.end(),
@@ -343,14 +344,14 @@ SpirvConstant *SpirvContext::getConstantUint32(uint32_t value) {
     return *found;
 
   // Couldn't find the constant. Create one.
-  auto *intConst = new (this) SpirvConstantInteger(intType, value);
+  auto *intConst = new (this) SpirvConstantInteger(intType, value, specConst);
   integerConstants.push_back(intConst);
   return intConst;
 }
 
-SpirvConstant *SpirvContext::getConstantInt32(int32_t value) {
+SpirvConstant *SpirvContext::getConstantInt32(int32_t value, bool specConst) {
   const IntegerType *intType = getSIntType(32);
-  SpirvConstantInteger tempConstant(intType, value);
+  SpirvConstantInteger tempConstant(intType, value, specConst);
 
   auto found =
       std::find_if(integerConstants.begin(), integerConstants.end(),
@@ -362,14 +363,14 @@ SpirvConstant *SpirvContext::getConstantInt32(int32_t value) {
     return *found;
 
   // Couldn't find the constant. Create one.
-  auto *intConst = new (this) SpirvConstantInteger(intType, value);
+  auto *intConst = new (this) SpirvConstantInteger(intType, value, specConst);
   integerConstants.push_back(intConst);
   return intConst;
 }
 
-SpirvConstant *SpirvContext::getConstantFloat32(float value) {
+SpirvConstant *SpirvContext::getConstantFloat32(float value, bool specConst) {
   const FloatType *floatType = getFloatType(32);
-  SpirvConstantFloat tempConstant(floatType, value);
+  SpirvConstantFloat tempConstant(floatType, value, specConst);
 
   auto found =
       std::find_if(floatConstants.begin(), floatConstants.end(),
@@ -381,25 +382,41 @@ SpirvConstant *SpirvContext::getConstantFloat32(float value) {
     return *found;
 
   // Couldn't find the constant. Create one.
-  auto *floatConst = new (this) SpirvConstantFloat(floatType, value);
+  auto *floatConst = new (this) SpirvConstantFloat(floatType, value, specConst);
   floatConstants.push_back(floatConst);
   return floatConst;
 }
 
-SpirvConstant *SpirvContext::getConstantBool(bool value) {
-  if (value && boolTrueConstant)
-    return boolTrueConstant;
-
-  if (!value && boolFalseConstant)
-    return boolFalseConstant;
+SpirvConstant *SpirvContext::getConstantBool(bool value, bool specConst) {
+  if (value) {
+    if (specConst) {
+      return boolTrueSpecConstant;
+    } else {
+      return boolTrueConstant;
+    }
+  } else {
+    if (specConst) {
+      return boolFalseSpecConstant;
+    } else {
+      return boolFalseConstant;
+    }
+  }
 
   // Couldn't find the constant. Create one.
-  auto *boolConst = new (this) SpirvConstantBoolean(getBoolType(), value);
+  auto *boolConst =
+      new (this) SpirvConstantBoolean(getBoolType(), value, specConst);
 
-  if (value)
-    boolTrueConstant = boolConst;
-  else
-    boolFalseConstant = boolConst;
+  if (value) {
+    if (specConst)
+      boolTrueSpecConstant = boolConst;
+    else
+      boolTrueConstant = boolConst;
+  } else {
+    if (specConst)
+      boolFalseSpecConstant = boolConst;
+    else
+      boolFalseConstant = boolConst;
+  }
 
   return boolConst;
 }
