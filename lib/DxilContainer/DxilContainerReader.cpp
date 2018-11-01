@@ -41,7 +41,7 @@ void LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableRead
     }
     case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
       uint32_t NumExports = reader.GetSubobjectToExportsAssociation_NumExports();
-      std::vector<const char*> Exports;
+      std::vector<llvm::StringRef> Exports;
       Exports.resize(NumExports);
       for (unsigned i = 0; i < NumExports; ++i) {
         Exports[i] = reader.GetSubobjectToExportsAssociation_Export(i);
@@ -62,10 +62,10 @@ void LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableRead
       break;
     case DXIL::SubobjectKind::HitGroup:
       subobjects.CreateHitGroup(reader.GetName(),
-        reader.GetHitGroup_Intersection(),
         reader.GetHitGroup_AnyHit(),
-        reader.GetHitGroup_ClosestHit());
-      break;
+        reader.GetHitGroup_ClosestHit(),
+        reader.GetHitGroup_Intersection());
+        break;
     }
   }
 }

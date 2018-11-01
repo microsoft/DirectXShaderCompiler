@@ -12,7 +12,7 @@ snorm bool sb;         // expected-error {{snorm and unorm qualifier can only be
 
 // Used to generate this undesirable error:
 // cannot initialize a variable of type 'min16float' (aka 'half') with an lvalue of type 'const char [4]'
-min16float foobar = "foo"; // expected-error {{cannot initialize a variable of type 'min16float' with an lvalue of type 'const char [4]'}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3017: cannot implicitly convert from 'const string' to 'min16float'}}
+min16float foobar = "foo"; // expected-error {{cannot initialize a variable of type 'min16float' with an lvalue of type 'literal string'}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3017: cannot implicitly convert from 'const string' to 'min16float'}}
 
 /*
 (let (

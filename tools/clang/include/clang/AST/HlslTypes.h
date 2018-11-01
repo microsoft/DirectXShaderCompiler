@@ -315,6 +315,7 @@ void AddRecordTypeWithHandle(
 
 void AddRayFlags(clang::ASTContext& context);
 void AddHitKinds(clang::ASTContext& context);
+void AddStateObjectFlags(clang::ASTContext& context);
 
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
@@ -387,6 +388,9 @@ clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
 unsigned GetHLSLInputPatchCount(clang::QualType type);
 clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
 unsigned GetHLSLOutputPatchCount(clang::QualType type);
+
+bool IsHLSLSubobjectType(clang::QualType type);
+bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind);
 
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);

@@ -42,16 +42,17 @@ public:
 
 
   bool GetStateObjectConfig(uint32_t &Flags) const;
-  bool GetRootSignature(bool local, const void * &Data, uint32_t &Size) const;
+  bool GetRootSignature(bool local, const void * &Data, uint32_t &Size, 
+                        const char **pText = nullptr) const;
   bool GetSubobjectToExportsAssociation(llvm::StringRef &Subobject,
                                         const char * const * &Exports,
                                         uint32_t &NumExports) const;
   bool GetRaytracingShaderConfig(uint32_t &MaxPayloadSizeInBytes,
                                  uint32_t &MaxAttributeSizeInBytes) const;
   bool GetRaytracingPipelineConfig(uint32_t &MaxTraceRecursionDepth) const;
-  bool GetHitGroup(llvm::StringRef &Intersection,
-                   llvm::StringRef &AnyHit,
-                   llvm::StringRef &ClosestHit) const;
+  bool GetHitGroup(llvm::StringRef &AnyHit,
+                   llvm::StringRef &ClosestHit,
+                   llvm::StringRef &Intersection) const;
 
 private:
   DxilSubobject(DxilSubobjects &owner, Kind kind, llvm::StringRef name);
@@ -71,6 +72,7 @@ private:
   struct RootSignature_t {
     uint32_t Size;
     const void *Data;
+    const char *Text; // can be null
   };
   struct SubobjectToExportsAssociation_t {
     const char *Subobject;
@@ -84,9 +86,9 @@ private:
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
-    const char *Intersection;
     const char *AnyHit;
     const char *ClosestHit;
+    const char *Intersection;
   };
 
   union {
@@ -133,10 +135,11 @@ public:
   DxilSubobject &CreateRootSignature(llvm::StringRef Name,
                                      bool local,
                                      const void *Data,
-                                     uint32_t Size);
+                                     uint32_t Size,
+                                     llvm::StringRef *pText = nullptr);
   DxilSubobject &CreateSubobjectToExportsAssociation(
     llvm::StringRef Name,
-    llvm::StringRef Subobject, const char * const *Exports, uint32_t NumExports);
+    llvm::StringRef Subobject, llvm::StringRef *Exports, uint32_t NumExports);
   DxilSubobject &CreateRaytracingShaderConfig(
     llvm::StringRef Name,
     uint32_t MaxPayloadSizeInBytes,
@@ -145,9 +148,9 @@ public:
     llvm::StringRef Name,
     uint32_t MaxTraceRecursionDepth);
   DxilSubobject &CreateHitGroup(llvm::StringRef Name,
-                                llvm::StringRef Intersection,
                                 llvm::StringRef AnyHit,
-                                llvm::StringRef ClosestHit);
+                                llvm::StringRef ClosestHit,
+                                llvm::StringRef Intersection);
 
 private:
   DxilSubobject &CreateSubobject(Kind kind, llvm::StringRef Name);
