@@ -964,6 +964,7 @@ public:
 
 protected:
   SpirvConstant(Kind, spv::Op, const SpirvType *);
+  SpirvConstant(Kind, spv::Op, QualType);
 };
 
 class SpirvConstantBoolean : public SpirvConstant {
@@ -1061,6 +1062,9 @@ private:
 class SpirvConstantComposite : public SpirvConstant {
 public:
   SpirvConstantComposite(const SpirvType *type,
+                         llvm::ArrayRef<const SpirvConstant *> constituents,
+                         bool isSpecConst = false);
+  SpirvConstantComposite(QualType type,
                          llvm::ArrayRef<const SpirvConstant *> constituents,
                          bool isSpecConst = false);
 
