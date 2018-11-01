@@ -394,5 +394,26 @@ SpirvConstant *SpirvContext::getConstantBool(bool value, bool specConst) {
   return boolConst;
 }
 
+SpirvConstant *
+SpirvContext::getConstantComposite(QualType compositeType,
+                                   llvm::ArrayRef<SpirvConstant *> constituents,
+                                   bool specConst) {
+  SpirvConstantComposite tempConstant(compositeType, constituents, specConst);
+  auto found =
+      std::find_if(compositeConstants.begin(), compositeConstants.end(),
+                   [&tempConstant](SpirvConstantComposite *cachedConstant) {
+                     return tempConstant == *cachedConstant;
+                   });
+
+  if (found != compositeConstants.end())
+    return *found;
+
+  // Couldn't find the constant. Create one.
+  auto *compositeConst =
+      new (this) SpirvConstantComposite(compositeType, constituents, specConst);
+  compositeConstants.push_back(compositeConst);
+  return compositeConst;
+}
+
 } // end namespace spirv
 } // end namespace clang
