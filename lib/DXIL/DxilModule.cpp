@@ -75,6 +75,12 @@ const char* kFP32DenormValuePreserveString = "preserve";
 const char* kFP32DenormValueFtzString      = "ftz";
 }
 
+// Avoid dependency on DxilModule from llvm::Module using this:
+void DxilModule_RemoveFunction(llvm::Module* M, llvm::Function* F) {
+  if (M && F && M->HasHLModule())
+    M->GetDxilModule().RemoveFunction(F);
+}
+
 //------------------------------------------------------------------------------
 //
 //  DxilModule methods.
@@ -103,6 +109,7 @@ DxilModule::DxilModule(Module *pModule)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
+  m_pModule->pDxilModuleRemoveFunction = &DxilModule_RemoveFunction;
 
 #if defined(_DEBUG) || defined(DBG)
   // Pin LLVM dump methods.
@@ -115,6 +122,7 @@ DxilModule::DxilModule(Module *pModule)
 }
 
 DxilModule::~DxilModule() {
+  m_pModule->pDxilModuleRemoveFunction = nullptr;
 }
 
 LLVMContext &DxilModule::GetCtx() const { return m_Ctx; }
