@@ -53,6 +53,7 @@ add_llvm_library(LLVMAnalysis
   PHITransAddr.cpp
   PostDominators.cpp
   PtrUseVisitor.cpp
+  ReducibilityAnalysis.cpp
   regioninfo.cpp
   RegionPass.cpp
   regionprinter.cpp
