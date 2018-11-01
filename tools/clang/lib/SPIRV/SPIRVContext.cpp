@@ -330,61 +330,34 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   return type;
 }
 
+SpirvConstant *SpirvContext::getConstantUint16(uint16_t value, bool specConst) {
+  return getConstantInt<uint16_t>(value, /*isSigned*/ false, 16, specConst);
+}
+SpirvConstant *SpirvContext::getConstantInt16(int16_t value, bool specConst) {
+  return getConstantInt<int16_t>(value, /*isSigned*/ true, 16, specConst);
+}
 SpirvConstant *SpirvContext::getConstantUint32(uint32_t value, bool specConst) {
-  const IntegerType *intType = getUIntType(32);
-  SpirvConstantInteger tempConstant(intType, value, specConst);
-
-  auto found =
-      std::find_if(integerConstants.begin(), integerConstants.end(),
-                   [&tempConstant](SpirvConstantInteger *cachedConstant) {
-                     return tempConstant == *cachedConstant;
-                   });
-
-  if (found != integerConstants.end())
-    return *found;
-
-  // Couldn't find the constant. Create one.
-  auto *intConst = new (this) SpirvConstantInteger(intType, value, specConst);
-  integerConstants.push_back(intConst);
-  return intConst;
+  return getConstantInt<uint32_t>(value, /*isSigned*/ false, 32, specConst);
 }
-
 SpirvConstant *SpirvContext::getConstantInt32(int32_t value, bool specConst) {
-  const IntegerType *intType = getSIntType(32);
-  SpirvConstantInteger tempConstant(intType, value, specConst);
-
-  auto found =
-      std::find_if(integerConstants.begin(), integerConstants.end(),
-                   [&tempConstant](SpirvConstantInteger *cachedConstant) {
-                     return tempConstant == *cachedConstant;
-                   });
-
-  if (found != integerConstants.end())
-    return *found;
-
-  // Couldn't find the constant. Create one.
-  auto *intConst = new (this) SpirvConstantInteger(intType, value, specConst);
-  integerConstants.push_back(intConst);
-  return intConst;
+  return getConstantInt<int32_t>(value, /*isSigned*/ true, 32, specConst);
+}
+SpirvConstant *SpirvContext::getConstantUint64(uint64_t value, bool specConst) {
+  return getConstantInt<uint64_t>(value, /*isSigned*/ false, 64, specConst);
+}
+SpirvConstant *SpirvContext::getConstantInt64(int64_t value, bool specConst) {
+  return getConstantInt<int64_t>(value, /*isSigned*/ true, 64, specConst);
 }
 
+SpirvConstant *SpirvContext::getConstantFloat16(uint16_t value,
+                                                bool specConst) {
+  return getConstantFloat<uint16_t>(value, 16, specConst);
+}
 SpirvConstant *SpirvContext::getConstantFloat32(float value, bool specConst) {
-  const FloatType *floatType = getFloatType(32);
-  SpirvConstantFloat tempConstant(floatType, value, specConst);
-
-  auto found =
-      std::find_if(floatConstants.begin(), floatConstants.end(),
-                   [&tempConstant](SpirvConstantFloat *cachedConstant) {
-                     return tempConstant == *cachedConstant;
-                   });
-
-  if (found != floatConstants.end())
-    return *found;
-
-  // Couldn't find the constant. Create one.
-  auto *floatConst = new (this) SpirvConstantFloat(floatType, value, specConst);
-  floatConstants.push_back(floatConst);
-  return floatConst;
+  return getConstantFloat<float>(value, 32, specConst);
+}
+SpirvConstant *SpirvContext::getConstantFloat64(double value, bool specConst) {
+  return getConstantFloat<double>(value, 64, specConst);
 }
 
 SpirvConstant *SpirvContext::getConstantBool(bool value, bool specConst) {

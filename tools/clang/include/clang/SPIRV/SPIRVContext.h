@@ -209,11 +209,61 @@ public:
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
 
+  SpirvConstant *getConstantUint16(uint16_t value, bool specConst = false);
+  SpirvConstant *getConstantInt16(int16_t value, bool specConst = false);
   SpirvConstant *getConstantUint32(uint32_t value, bool specConst = false);
   SpirvConstant *getConstantInt32(int32_t value, bool specConst = false);
+  SpirvConstant *getConstantUint64(uint64_t value, bool specConst = false);
+  SpirvConstant *getConstantInt64(int64_t value, bool specConst = false);
+  SpirvConstant *getConstantFloat16(uint16_t value, bool specConst = false);
   SpirvConstant *getConstantFloat32(float value, bool specConst = false);
+  SpirvConstant *getConstantFloat64(double value, bool specConst = false);
   SpirvConstant *getConstantBool(bool value, bool specConst = false);
   // TODO: Add getConstant* methods for other types.
+
+private:
+  template <class T>
+  SpirvConstant *getConstantInt(T value, bool isSigned, uint32_t bitwidth,
+                                bool specConst) {
+    const IntegerType *intType =
+        isSigend ? getSIntType(bitwidth) : getUIntType(bitwidth);
+    SpirvConstantInteger tempConstant(intType, value, specConst);
+
+    auto found =
+        std::find_if(integerConstants.begin(), integerConstants.end(),
+                     [&tempConstant](SpirvConstantInteger *cachedConstant) {
+                       return tempConstant == *cachedConstant;
+                     });
+
+    if (found != integerConstants.end())
+      return *found;
+
+    // Couldn't find the constant. Create one.
+    auto *intConst = new (this) SpirvConstantInteger(intType, value, specConst);
+    integerConstants.push_back(intConst);
+    return intConst;
+  }
+
+  template <class T>
+  SpirvConstant *getConstantFloat(T value, uint32_t bitwidth, bool specConst) {
+    const FloatType *floatType = getFloatType(bitwidth);
+    SpirvConstantFloat tempConstant(floatType, value, specConst);
+
+    auto found =
+        std::find_if(floatConstants.begin(), floatConstants.end(),
+                     [&tempConstant](SpirvConstantFloat *cachedConstant) {
+                       return tempConstant == *cachedConstant;
+                     });
+
+    if (found != floatConstants.end())
+      return *found;
+
+    // Couldn't find the constant. Create one.
+    auto *floatConst =
+        new (this) SpirvConstantFloat(floatType, value, specConst);
+    floatConstants.push_back(floatConst);
+    return floatConst;
+  }
 
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
