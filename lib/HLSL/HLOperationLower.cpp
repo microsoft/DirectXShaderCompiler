@@ -4576,14 +4576,15 @@ Value *TranslateDot2Add(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                         bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
-  Type *srcTy = src0->getType();
   const unsigned vecSize = 2;
-  DXASSERT(srcTy->isVectorTy() && vecSize == srcTy->getVectorNumElements() &&
-           srcTy->getScalarType()->isHalfTy(),
+  DXASSERT(src0->getType()->isVectorTy() &&
+               vecSize == src0->getType()->getVectorNumElements() &&
+               src0->getType()->getScalarType()->isHalfTy(),
            "otherwise, unexpected input dimension or component type");
 
   Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
-  DXASSERT(srcTy == src1->getType(), "otherwise, mismatched argument types");
+  DXASSERT(src0->getType() == src1->getType(),
+           "otherwise, mismatched argument types");
   Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
   Type *accTy = accArg->getType();
   DXASSERT(!accTy->isVectorTy() && accTy->isFloatTy(),
@@ -4609,11 +4610,11 @@ Value *TranslateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
-  Type *srcTy = src0->getType();
-  DXASSERT(!srcTy->isVectorTy() && srcTy->isIntegerTy(32),
-    "otherwise, unexpected vector support in high level intrinsic tempalte");
+  DXASSERT(
+      !src0->getType()->isVectorTy() && src0->getType()->isIntegerTy(32),
+      "otherwise, unexpected vector support in high level intrinsic tempalte");
   Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
-  DXASSERT(srcTy == src1->getType(), "otherwise, mismatched argument types");
+  DXASSERT(src0->getType() == src1->getType(), "otherwise, mismatched argument types");
   Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
   Type *accTy = accArg->getType();
   DXASSERT(!accTy->isVectorTy() && accTy->isIntegerTy(32),
