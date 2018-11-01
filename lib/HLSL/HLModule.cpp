@@ -35,6 +35,12 @@ using std::unique_ptr;
 
 namespace hlsl {
 
+// Avoid dependency on HLModule from llvm::Module using this:
+void HLModule_RemoveFunction(llvm::Module* M, llvm::Function* F) {
+  if (M && F && M->HasHLModule())
+    M->GetHLModule().RemoveFunction(F);
+}
+
 //------------------------------------------------------------------------------
 //
 //  HLModule methods.
@@ -58,6 +64,7 @@ HLModule::HLModule(Module *pModule)
     , m_DefaultLinkage(DXIL::DefaultLinkage::Default)
     , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule)) {
   DXASSERT_NOMSG(m_pModule != nullptr);
+  m_pModule->pHLModuleRemoveFunction = &HLModule_RemoveFunction;
 
   // Pin LLVM dump methods. TODO: make debug-only.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
@@ -66,6 +73,7 @@ HLModule::HLModule(Module *pModule)
 }
 
 HLModule::~HLModule() {
+  m_pModule->pHLModuleRemoveFunction = nullptr;
 }
 
 LLVMContext &HLModule::GetCtx() const { return m_Ctx; }

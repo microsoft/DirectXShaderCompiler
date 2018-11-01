@@ -19,8 +19,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringRef.h"
 
-using namespace llvm;
-
 namespace hlsl {
 
 class DxilSubobjects;
@@ -121,11 +119,11 @@ public:
   DxilSubobjects &operator=(const DxilSubobjects &other) = delete;
 
   // Add/find string in owned subobject strings, returning canonical ptr
-  llvm::StringRef GetSubobjectString(StringRef value);
+  llvm::StringRef GetSubobjectString(llvm::StringRef value);
   // Add/find raw bytes, returning canonical ptr
   const void *GetRawBytes(const void *ptr, size_t size);
-  DxilSubobject *FindSubobject(StringRef name);
-  void RemoveSubobject(StringRef name);
+  DxilSubobject *FindSubobject(llvm::StringRef name);
+  void RemoveSubobject(llvm::StringRef name);
   DxilSubobject &CloneSubobject(const DxilSubobject &Subobject, llvm::StringRef Name);
   const SubobjectStorage &GetSubobjects() const { return m_Subobjects;  }
 

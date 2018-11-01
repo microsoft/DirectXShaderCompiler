@@ -186,7 +186,7 @@ DxilSubobjects::DxilSubobjects(DxilSubobjects &&other)
 DxilSubobjects::~DxilSubobjects() {}
 
 
-StringRef DxilSubobjects::GetSubobjectString(StringRef value) {
+llvm::StringRef DxilSubobjects::GetSubobjectString(llvm::StringRef value) {
   auto it = m_StringStorage.find(value);
   if (it != m_StringStorage.end())
     return it->first;
@@ -215,14 +215,14 @@ const void *DxilSubobjects::GetRawBytes(const void *ptr, size_t size) {
   return ptr;
 }
 
-DxilSubobject *DxilSubobjects::FindSubobject(StringRef name) {
+DxilSubobject *DxilSubobjects::FindSubobject(llvm::StringRef name) {
   auto it = m_Subobjects.find(name);
   if (it != m_Subobjects.end())
     return it->second.get();
   return nullptr;
 }
 
-void DxilSubobjects::RemoveSubobject(StringRef name) {
+void DxilSubobjects::RemoveSubobject(llvm::StringRef name) {
   auto it = m_Subobjects.find(name);
   if (it != m_Subobjects.end())
     m_Subobjects.erase(it);

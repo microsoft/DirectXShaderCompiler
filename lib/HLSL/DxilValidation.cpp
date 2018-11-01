@@ -20,7 +20,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/HLSL/ReducibilityAnalysis.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilEntryProps.h"
@@ -2679,7 +2679,9 @@ static void ValidateGradientOps(Function *F, ArrayRef<CallInst *> ops, ArrayRef<
     return;
   }
 
-  std::unique_ptr<WaveSensitivityAnalysis> WaveVal(WaveSensitivityAnalysis::create());
+    PostDominatorTree PDT;
+    PDT.runOnFunction(*F);
+  std::unique_ptr<WaveSensitivityAnalysis> WaveVal(WaveSensitivityAnalysis::create(PDT));
   WaveVal->Analyze(F);
   for (CallInst *op : ops) {
     if (WaveVal->IsWaveSensitive(op)) {

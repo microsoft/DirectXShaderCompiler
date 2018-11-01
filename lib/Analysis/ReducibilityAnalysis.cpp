@@ -7,7 +7,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/ReducibilityAnalysis.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/IR/LLVMContext.h"

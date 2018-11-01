@@ -31,7 +31,6 @@ add_llvm_library(LLVMHLSL
   HLResource.cpp
   HLSignatureLower.cpp
   PauseResumePasses.cpp
-  ReducibilityAnalysis.cpp
   WaveSensitivityAnalysis.cpp
 
   ADDITIONAL_HEADER_DIRS

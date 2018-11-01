@@ -280,14 +280,12 @@ public:
     }
 
     std::unordered_set<LoadInst *> UpdateCounterSet;
-    std::unordered_set<Value *> NonUniformSet;
 
-    GenerateDxilOperations(M, UpdateCounterSet, NonUniformSet);
+    GenerateDxilOperations(M, UpdateCounterSet);
 
-    GenerateDxilCBufferHandles(NonUniformSet);
+    GenerateDxilCBufferHandles();
     MarkUpdateCounter(UpdateCounterSet);
     LowerHLCreateHandle();
-    MarkNonUniform(NonUniformSet);
 
     // LowerHLCreateHandle() should have translated HLCreateHandle to CreateHandleForLib.
     // Clean up HLCreateHandle functions.
@@ -333,14 +331,12 @@ private:
   void MarkUpdateCounter(std::unordered_set<LoadInst *> &UpdateCounterSet);
   // Generate DXIL cbuffer handles.
   void
-  GenerateDxilCBufferHandles(std::unordered_set<Value *> &NonUniformSet);
+  GenerateDxilCBufferHandles();
 
   // change built-in funtion into DXIL operations
   void GenerateDxilOperations(Module &M,
-                              std::unordered_set<LoadInst *> &UpdateCounterSet,
-                              std::unordered_set<Value *> &NonUniformSet);
+                              std::unordered_set<LoadInst *> &UpdateCounterSet);
   void LowerHLCreateHandle();
-  void MarkNonUniform(std::unordered_set<Value *> &NonUniformSet);
 
   // Translate precise attribute into HL function call.
   void TranslatePreciseAttribute();
@@ -398,17 +394,6 @@ void DxilGenerationPass::LowerHLCreateHandle() {
   }
 }
 
-void DxilGenerationPass::MarkNonUniform(
-    std::unordered_set<Value *> &NonUniformSet) {
-  for (Value *V : NonUniformSet) {
-    for (User *U : V->users()) {
-      if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
-        DxilMDHelper::MarkNonUniform(I);
-      }
-    }
-  }
-}
-
 static void
 MarkUavUpdateCounter(Value* LoadOrGEP,
                      DxilResource &res,
@@ -449,8 +434,7 @@ void DxilGenerationPass::MarkUpdateCounter(
   }
 }
 
-void DxilGenerationPass::GenerateDxilCBufferHandles(
-    std::unordered_set<Value *> &NonUniformSet) {
+void DxilGenerationPass::GenerateDxilCBufferHandles() {
   // For CBuffer, handle are mapped to HLCreateHandle.
   OP *hlslOP = m_pHLModule->GetOP();
   Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandleForLib);
@@ -512,14 +496,6 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
         }
         // Add GEP for cbv array use.
         Value *GEP = Builder.CreateGEP(GV, {zeroIdx, CBIndex});
-        /*
-        if (!NonUniformSet.count(CBIndex))
-          args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-              hlslOP->GetI1Const(0);
-        else
-          args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-              hlslOP->GetI1Const(1);*/
-
         Value *V = Builder.CreateLoad(GEP);
         CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
         CI->replaceAllUsesWith(handle);
@@ -530,8 +506,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
 }
 
 void DxilGenerationPass::GenerateDxilOperations(
-    Module &M, std::unordered_set<LoadInst *> &UpdateCounterSet,
-    std::unordered_set<Value *> &NonUniformSet) {
+    Module &M, std::unordered_set<LoadInst *> &UpdateCounterSet) {
   // remove all functions except entry function
   Function *entry = m_pHLModule->GetEntryFunction();
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();
@@ -557,7 +532,7 @@ void DxilGenerationPass::GenerateDxilOperations(
   }
 
   TranslateBuiltinOperations(*m_pHLModule, m_extensionsCodegenHelper,
-                             UpdateCounterSet, NonUniformSet);
+                             UpdateCounterSet);
 
   // Remove unused HL Operation functions.
   std::vector<Function *> deadList;
