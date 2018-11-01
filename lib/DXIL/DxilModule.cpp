@@ -77,7 +77,7 @@ const char* kFP32DenormValueFtzString      = "ftz";
 
 // Avoid dependency on DxilModule from llvm::Module using this:
 void DxilModule_RemoveFunction(llvm::Module* M, llvm::Function* F) {
-  if (M && F && M->HasHLModule())
+  if (M && F && M->HasDxilModule())
     M->GetDxilModule().RemoveFunction(F);
 }
 
