@@ -235,12 +235,12 @@ Type *Function::getReturnType() const {
 }
 
 void Function::removeFromParent() {
-  getParent()->RemoveFunctionHook(this); // HLSL Change
+  getParent()->CallRemoveGlobalHook(this); // HLSL Change
   getParent()->getFunctionList().remove(this);
 }
 
 void Function::eraseFromParent() {
-  getParent()->RemoveFunctionHook(this); // HLSL Change
+  getParent()->CallRemoveGlobalHook(this); // HLSL Change
   getParent()->getFunctionList().erase(this);
 }
 

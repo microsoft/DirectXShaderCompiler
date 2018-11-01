@@ -76,9 +76,16 @@ const char* kFP32DenormValueFtzString      = "ftz";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
-void DxilModule_RemoveFunction(llvm::Module* M, llvm::Function* F) {
-  if (M && F && M->HasDxilModule())
-    M->GetDxilModule().RemoveFunction(F);
+void DxilModule_RemoveGlobal(llvm::Module* M, llvm::GlobalObject* G) {
+  if (M && G && M->HasDxilModule()) {
+    if (llvm::Function *F = dyn_cast<llvm::Function>(G))
+      M->GetDxilModule().RemoveFunction(F);
+  }
+}
+void DxilModule_ResetModule(llvm::Module* M) {
+  if (M && M->HasDxilModule())
+    delete &M->GetDxilModule();
+  M->SetDxilModule(nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -109,7 +116,7 @@ DxilModule::DxilModule(Module *pModule)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
-  m_pModule->pDxilModuleRemoveFunction = &DxilModule_RemoveFunction;
+  m_pModule->pfnRemoveGlobal = &DxilModule_RemoveGlobal;
 
 #if defined(_DEBUG) || defined(DBG)
   // Pin LLVM dump methods.
@@ -122,7 +129,8 @@ DxilModule::DxilModule(Module *pModule)
 }
 
 DxilModule::~DxilModule() {
-  m_pModule->pDxilModuleRemoveFunction = nullptr;
+  if (m_pModule->pfnRemoveGlobal == &DxilModule_RemoveGlobal)
+    m_pModule->pfnRemoveGlobal = nullptr;
 }
 
 LLVMContext &DxilModule::GetCtx() const { return m_Ctx; }
@@ -1577,13 +1585,6 @@ hlsl::DxilModule &Module::GetOrCreateDxilModule(bool skipInit) {
     SetDxilModule(M.release());
   }
   return GetDxilModule();
-}
-
-void Module::ResetDxilModule() {
-  if (HasDxilModule()) {
-    delete TheDxilModule;
-    TheDxilModule = nullptr;
-  }
 }
 
 }
