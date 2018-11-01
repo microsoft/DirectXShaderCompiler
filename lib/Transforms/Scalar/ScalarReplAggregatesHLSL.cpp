@@ -4142,7 +4142,6 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         // Only remove one level bitcast generated from inline.
         if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
           Dest = BC->getOperand(0);
-
         // For GEP, the ptr could have other GEP read/write.
         // Only scan one GEP is not enough.
         // And resource ptr should not be replaced.
