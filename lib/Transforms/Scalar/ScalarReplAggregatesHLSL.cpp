@@ -1556,7 +1556,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
     auto sz0 = DL.getTypeAllocSize(a0ty);
     auto sz1 = DL.getTypeAllocSize(a1ty);
     if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
-      return !(getNestedLevelInStruct(a0ty) > getNestedLevelInStruct(a1ty));;
+      return getNestedLevelInStruct(a0ty) < getNestedLevelInStruct(a1ty);
     return sz0 < sz1;
   };
   std::priority_queue<AllocaInst *, std::vector<AllocaInst *>,
