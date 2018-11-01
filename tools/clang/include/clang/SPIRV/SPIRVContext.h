@@ -209,10 +209,10 @@ public:
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
 
-  SpirvConstant *getConstantUint32(uint32_t value);
-  SpirvConstant *getConstantInt32(int32_t value);
-  SpirvConstant *getConstantFloat32(float value);
-  SpirvConstant *getConstantBool(bool value);
+  SpirvConstant *getConstantUint32(uint32_t value, bool specConst = false);
+  SpirvConstant *getConstantInt32(int32_t value, bool specConst = false);
+  SpirvConstant *getConstantFloat32(float value, bool specConst = false);
+  SpirvConstant *getConstantBool(bool value, bool specConst = false);
   // TODO: Add getConstant* methods for other types.
 
 private:
@@ -271,6 +271,8 @@ private:
   llvm::SmallVector<SpirvConstantFloat *, 8> floatConstants;
   SpirvConstantBoolean *boolTrueConstant;
   SpirvConstantBoolean *boolFalseConstant;
+  SpirvConstantBoolean *boolTrueSpecConstant;
+  SpirvConstantBoolean *boolFalseSpecConstant;
   // TODO: Add vectors of other constant types here.
 };
 
