@@ -589,8 +589,9 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) thro
     codePage = DxcCodePageFromBytes((const char *)pBlob->GetBufferPointer(), blobLen);
   }
 
-  if (codePage == CP_UTF8) {
+  if (codePage == CP_UTF8 || blobLen == 0) {
     // Reuse the underlying blob but create an object with the encoding known.
+    // Empty blobs are encoding-agnostic, so we can consider them UTF-8 and avoid useless conversion.
     InternalDxcBlobEncoding* internalEncoding;
     hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), true, CP_UTF8, &internalEncoding);
     if (SUCCEEDED(hr)) {
