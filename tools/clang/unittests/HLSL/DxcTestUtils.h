@@ -118,6 +118,8 @@ bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs
 void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart);
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlob **ppBlob);
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, UINT32 codePoint, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
