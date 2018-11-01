@@ -372,6 +372,10 @@ SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType)
   setResultType(spvType);
 }
 
+SpirvConstant::SpirvConstant(Kind kind, spv::Op op, QualType resultType)
+    : SpirvInstruction(kind, op, resultType, /*result-id*/ 0,
+                       /*SourceLocation*/ {}) {}
+
 bool SpirvConstant::isSpecConstant() const {
   return opcode == spv::Op::OpSpecConstant ||
          opcode == spv::Op::OpSpecConstantTrue ||
@@ -566,12 +570,24 @@ SpirvConstantComposite::SpirvConstantComposite(
                     type),
       constituents(constituentsVec.begin(), constituentsVec.end()) {}
 
+SpirvConstantComposite::SpirvConstantComposite(
+    QualType type, llvm::ArrayRef<const SpirvConstant *> constituentsVec,
+    bool isSpecConst)
+    : SpirvConstant(IK_ConstantComposite,
+                    isSpecConst ? spv::Op::OpSpecConstantComposite
+                                : spv::Op::OpConstantComposite,
+                    type),
+      constituents(constituentsVec.begin(), constituentsVec.end()) {}
+
 bool SpirvConstantComposite::
 operator==(const SpirvConstantComposite &other) const {
   if (opcode != other.getopcode())
     return false;
 
   if (resultType != other.getResultType())
+    return false;
+
+  if (astResultType != other.getAstResultType())
     return false;
 
   auto otherMembers = other.getConstituents();
