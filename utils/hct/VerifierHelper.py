@@ -81,6 +81,7 @@ VerifierTests = {
     'RunSemantics': 'semantics.hlsl',
     'RunString': 'string.hlsl',
     'RunStructAssignments': 'struct-assignments.hlsl',
+    'RunSubobjects': 'subobjects-syntax.hlsl',
     'RunTemplateChecks': 'template-checks.hlsl',
     'RunTypemodsSyntax': 'typemods-syntax.hlsl',
     'RunUint4Add3': 'uint4_add3.hlsl',
@@ -105,6 +106,7 @@ fxcExcludedTests = [
     'RunScalarAssignmentsExactPrecision',
     'RunScalarOperatorsAssignExactPrecision',
     'RunScalarOperatorsExactPrecision',
+    'RunSubobjects',
     'RunVectorSyntaxExactPrecision',
     'RunWave',
 ]

@@ -949,6 +949,7 @@ public:
   TEST_METHOD(HoistConstantArray)
   TEST_METHOD(VecElemConstEval)
   TEST_METHOD(ViewID)
+  TEST_METHOD(SubobjectCodeGenErrors)
   TEST_METHOD(ShaderCompatSuite)
   TEST_METHOD(QuickTest)
   TEST_METHOD(QuickLlTest)
@@ -5918,6 +5919,40 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid19.hlsl");
+}
+
+TEST_F(CompilerTest, SubobjectCodeGenErrors) {
+  struct SubobjectErrorTestCase {
+    const char *shaderText;
+    const char *expectedError;
+  };
+  SubobjectErrorTestCase testCases[] = {
+    { "GlobalRootSignature grs;",           "1:1: error: subobject needs to be initialized" },
+    { "StateObjectConfig soc;",             "1:1: error: subobject needs to be initialized" },
+    { "LocalRootSignature lrs;",            "1:1: error: subobject needs to be initialized" },
+    { "SubobjectToExportsAssociation sea;", "1:1: error: subobject needs to be initialized" },
+    { "RaytracingShaderConfig rsc;",        "1:1: error: subobject needs to be initialized" },
+    { "RaytracingPipelineConfig rpc;",      "1:1: error: subobject needs to be initialized" },
+    { "HitGroup hitGt;",                    "1:1: error: subobject needs to be initialized" },
+    { "GlobalRootSignature grs2 = {\"\"};", "1:29: error: empty string not expected here" },
+    { "LocalRootSignature lrs2 = {\"\"};",  "1:28: error: empty string not expected here" },
+    { "SubobjectToExportsAssociation sea2 = { \"\", \"x\" };", "1:40: error: empty string not expected here" },
+    { "SubobjectToExportsAssociation sea3 = { \"x\", \"\" };", "1:45: error: empty string not expected here" },
+    { "string s; SubobjectToExportsAssociation sea4 = { \"x\", s };", "1:55: error: cannot convert to constant string" },
+    { "extern int v; RaytracingPipelineConfig rpc2 = { v + 16 };", "1:49: error: cannot convert to constant unsigned int" }
+  };
+
+  for (unsigned i = 0; i < _countof(testCases); i++) {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+    CreateBlobFromText(testCases[i].shaderText, &pSource);
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"", L"lib_6_4", nullptr, 0, nullptr, 0, nullptr, &pResult));
+    std::string failLog(VerifyOperationFailed(pResult));
+    VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find(testCases[i].expectedError));
+  }
 }
 
 TEST_F(CompilerTest, ShaderCompatSuite) {
