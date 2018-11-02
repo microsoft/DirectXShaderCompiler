@@ -4,7 +4,7 @@ static const string s_global1 = "my global string 1";
 /*verify-ast
   VarDecl <col:1, col:33> col:21 used s_global1 'string':'string' static cinit
   `-ImplicitCastExpr <col:33> 'const string' <ArrayToPointerDecay>
-    `-StringLiteral <col:33> 'const char [19]' lvalue "my global string 1"
+    `-StringLiteral <col:33> 'literal string' lvalue "my global string 1"
   */
 
 string s_global2 = "my global string 2";
@@ -19,7 +19,7 @@ string s_global_concat = "my string " "with "
 /*verify-ast
   VarDecl <col:1, line:25:4> line:18:8 s_global_concat 'string':'string' static cinit
   `-ImplicitCastExpr <col:26, line:25:4> 'const string' <ArrayToPointerDecay>
-    `-StringLiteral <col:26, line:25:4> 'const char [31]' lvalue "my string with broken up parts"
+    `-StringLiteral <col:26, line:25:4> 'literal string' lvalue "my string with broken up parts"
   */
    "broken up"
    " parts";

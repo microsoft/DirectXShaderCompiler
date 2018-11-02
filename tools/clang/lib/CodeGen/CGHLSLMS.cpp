@@ -122,7 +122,7 @@ private:
 
   void CreateSubobject(DXIL::SubobjectKind kind, const StringRef name,
                        clang::Expr **args, unsigned int argCount);
-  bool GetAsConstantString(clang::Expr *expr, StringRef *value);
+  bool GetAsConstantString(clang::Expr *expr, StringRef *value, bool failWhenEmpty = false);
   bool GetAsConstantUInt32(clang::Expr *expr, uint32_t *value);
   std::vector<StringRef> ParseSubobjectExportsAssociations(StringRef exports);
 
@@ -2406,8 +2406,11 @@ bool CGMSHLSLRuntime::GetAsConstantUInt32(clang::Expr *expr, uint32_t *value) {
   return true;
 }
 
-bool CGMSHLSLRuntime::GetAsConstantString(clang::Expr *expr, StringRef *value) {
+bool CGMSHLSLRuntime::GetAsConstantString(clang::Expr *expr, StringRef *value, bool failWhenEmpty /*=false*/) {
   Expr::EvalResult result;
+  DiagnosticsEngine &Diags = CGM.getDiags();
+  unsigned DiagID = 0;
+
   if (expr->EvaluateAsRValue(result, CGM.getContext())) {
     if (result.Val.isLValue()) {
       DXASSERT_NOMSG(result.Val.getLValueOffset().isZero());
@@ -2416,14 +2419,16 @@ bool CGMSHLSLRuntime::GetAsConstantString(clang::Expr *expr, StringRef *value) {
       const Expr *evExpr = result.Val.getLValueBase().get<const Expr *>();
       if (const StringLiteral *strLit = dyn_cast<const StringLiteral>(evExpr)) {
         *value = strLit->getBytes();
-        return true;
+        if (!failWhenEmpty || !(*value).empty()) {
+          return true;
+        }
+        DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "empty string not expected here");
       }
     }
   }
 
-  DiagnosticsEngine &Diags = CGM.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-    "cannot convert to constant string");
+  if (!DiagID)
+    DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "cannot convert to constant string");
   Diags.Report(expr->getLocStart(), DiagID);
   return false;
 }
@@ -2472,7 +2477,7 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
     case DXIL::SubobjectKind::LocalRootSignature: {
       DXASSERT_NOMSG(argCount == 1);
       StringRef signature;
-      if (!GetAsConstantString(args[0], &signature))
+      if (!GetAsConstantString(args[0], &signature, true))
         return;
 
       RootSignatureHandle RootSigHandle;
@@ -2488,8 +2493,8 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
     case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
       DXASSERT_NOMSG(argCount == 2);
       StringRef subObjName, exports;
-      if (!GetAsConstantString(args[0], &subObjName) ||
-          !GetAsConstantString(args[1], &exports))
+      if (!GetAsConstantString(args[0], &subObjName, true) ||
+          !GetAsConstantString(args[1], &exports, true))
         return;
 
       std::vector<StringRef> exportList = ParseSubobjectExportsAssociations(exports);
