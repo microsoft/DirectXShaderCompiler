@@ -34,17 +34,15 @@ public:
   explicit DxilEliminateOutputDynamicIndexing() : ModulePass(ID) {}
 
   const char *getPassName() const override {
-    return "DXIL eliminate ouptut dynamic indexing";
+    return "DXIL eliminate output dynamic indexing";
   }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
     bool bUpdated = false;
     if (DM.GetShaderModel()->IsHS()) {
-      hlsl::OP *hlslOP = DM.GetOP();
-      bUpdated = EliminateDynamicOutput(
-          hlslOP, DXIL::OpCode::StorePatchConstant,
-          DM.GetPatchConstantSignature(), DM.GetPatchConstantFunction());
+      // HS write outputs into share memory, dynamic indexing is OK.
+      return bUpdated;
     }
 
     // Skip pass thru entry.
@@ -208,4 +206,4 @@ ModulePass *llvm::createDxilEliminateOutputDynamicIndexingPass() {
 
 INITIALIZE_PASS(DxilEliminateOutputDynamicIndexing,
                 "hlsl-dxil-eliminate-output-dynamic",
-                "DXIL eliminate ouptut dynamic indexing", false, false)
+                "DXIL eliminate output dynamic indexing", false, false)
