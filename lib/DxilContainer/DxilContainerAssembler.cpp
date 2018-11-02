@@ -1261,10 +1261,10 @@ private:
     m_Parts.emplace_back(llvm::make_unique<type>()); \
     m_p##type = reinterpret_cast<type*>(m_Parts.back().get());
     ADD_PART(StringBufferPart);
+    ADD_PART(ResourceTable);
+    ADD_PART(FunctionTable);
     ADD_PART(IndexArraysPart);
     ADD_PART(RawBytesPart);
-    ADD_PART(FunctionTable);
-    ADD_PART(ResourceTable);
     ADD_PART(SubobjectTable);
 #undef ADD_PART
   }
