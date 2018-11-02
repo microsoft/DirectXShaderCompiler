@@ -356,7 +356,6 @@ public:
   TEST_METHOD(CodeGenEliminateDynamicIndexing2)
   TEST_METHOD(CodeGenEliminateDynamicIndexing3)
   TEST_METHOD(CodeGenEliminateDynamicIndexing4)
-  TEST_METHOD(CodeGenEliminateDynamicIndexing5)
   TEST_METHOD(CodeGenEliminateDynamicIndexing6)
   TEST_METHOD(CodeGenEmpty)
   TEST_METHOD(CodeGenEmptyStruct)
@@ -3342,10 +3341,6 @@ TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing3) {
 
 TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing4) {
   CodeGenTestCheck(L"eliminate_dynamic_output4.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing5) {
-  CodeGenTestCheck(L"eliminate_dynamic_output5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing6) {
