@@ -1,8 +1,7 @@
 // RUN: %dxc -E main -T ps_6_3 %s | FileCheck %s
 
-// TODO: Check intrinsic earlier in front end
-// CHECK: Opcode Dot4AddU8Packed not valid in shader model ps_6_3
-// CHECK: Opcode Dot4AddI8Packed not valid in shader model ps_6_3
+// CHECK-DAG: Opcode Dot4AddU8Packed not valid in shader model ps_6_3
+// CHECK-DAG: Opcode Dot4AddI8Packed not valid in shader model ps_6_3
 
 float2 f2;
 
