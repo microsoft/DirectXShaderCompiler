@@ -11,7 +11,7 @@
 
 GlobalRootSignature grs = {"CBV(b0)"};
 StateObjectConfig soc = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS };
-LocalRootSignature lrs = {"UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY)"};
+LocalRootSignature lrs = {"UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY), RootFlags(LOCAL_ROOT_SIGNATURE)"};
 SubobjectToExportsAssociation sea = { "grs", "a;b;foo;c" };
 SubobjectToExportsAssociation sea2 = { "grs", ";" };
 RaytracingShaderConfig rsc = { 128, 64 };

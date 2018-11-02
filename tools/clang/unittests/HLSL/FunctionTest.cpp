@@ -183,6 +183,7 @@ TEST_F(FunctionTest, ParseRootSignature) {
   TestHLSLRootSignatureCase("RootFlags( 20 )", E_FAIL);
   TestHLSLRootSignatureCase("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)", S_OK);
   TestHLSLRootSignatureCase("RootFlags(ALLOW_STREAM_OUTPUT)", S_OK);
+  TestHLSLRootSignatureCase("RootFlags(LOCAL_ROOT_SIGNATURE)", E_FAIL);
   TestHLSLRootSignatureCase("RootFlags( LLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)", E_FAIL);
   TestHLSLRootSignatureCase("  RootFlags   ( ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT   ) ", S_OK);
   TestHLSLRootSignatureCase("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | DENY_VERTEX_SHADER_ROOT_ACCESS | DENY_HULL_SHADER_ROOT_ACCESS | DENY_DOMAIN_SHADER_ROOT_ACCESS | DENY_GEOMETRY_SHADER_ROOT_ACCESS | DENY_PIXEL_SHADER_ROOT_ACCESS)", S_OK);
@@ -307,7 +308,8 @@ TEST_F(FunctionTest, ParseRootSignature) {
   TestHLSLRootSignature11Case("DescriptorTable(UAV(u2, flags = DESCRIPTORS_VOLATILE | DATA_STATIC_WHILE_SET_AT_EXECUTE))", S_OK);
   TestHLSLRootSignature11Case("DescriptorTable(Sampler(s2, flags = DESCRIPTORS_VOLATILE))", S_OK);
   TestHLSLRootSignature11Case("DescriptorTable(UAV(u2, flags = DESCRIPTORS_VOLATILE | DATA_STATIC_WHILE_SET_AT_EXECUTE, offset =17))", S_OK);
-
+  TestHLSLRootSignature11Case("DescriptorTable(UAV(u2, flags = DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS))", S_OK);
+  
   TestHLSLRootSignature10Case("DescriptorTable(CBV(b2, flags = 0))", E_FAIL);
   TestHLSLRootSignature10Case("DescriptorTable(SRV(t2, flags = DESCRIPTORS_VOLATILE))", E_FAIL);
   TestHLSLRootSignature10Case("DescriptorTable(UAV(u2, flags = DATA_VOLATILE))", E_FAIL);

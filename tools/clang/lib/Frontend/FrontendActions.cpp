@@ -758,7 +758,8 @@ void HLSLRootSignatureAction::ExecuteAction() {
   }
 
   // Compile the expanded root signature.
-  clang::CompileRootSignature(rootSigString, Diags, SLoc, rootSigVer, rootSigHandle.get());
+  clang::CompileRootSignature(rootSigString, Diags, SLoc, rootSigVer, 
+    hlsl::DxilRootSignatureCompilationFlags::GlobalRootSignature, rootSigHandle.get());
 }
 
 std::unique_ptr<hlsl::RootSignatureHandle> HLSLRootSignatureAction::takeRootSigHandle() {
