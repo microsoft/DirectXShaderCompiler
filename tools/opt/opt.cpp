@@ -54,7 +54,7 @@
 
 // HLSL Change Starts
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/ReducibilityAnalysis.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
 // HLSL Change Ends
