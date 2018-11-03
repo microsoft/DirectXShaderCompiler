@@ -159,6 +159,22 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+echo #define main "CBV(b0)"> test-global-rs.hlsl
+dxc -T rootsig_1_1 test-global-rs.hlsl -rootsig-define main -Fo test-global-rs.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to compile rootsig_1_1 from define
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+echo #define main "CBV(b0), RootFlags(LOCAL_ROOT_SIGNATURE)"> test-local-rs.hlsl
+dxc -T rootsig_1_1 test-local-rs.hlsl -rootsig-define main -Fo test-local-rs.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to compile rootsig_1_1 from define with LOCAL_ROOT_SIGNATURE
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /HV 2016 1>nul
 if %errorlevel% neq 0 (
   echo Failed to compile with HLSL version 2016
@@ -655,6 +671,10 @@ rem SPIR-V Change Ends
 del %CD%\lib_res_match.dxbc
 del %CD%\lib_entry4.dxbc
 del %CD%\res_match_entry.dxbc
+del %CD%\test-global-rs.hlsl
+del %CD%\test-local-rs.hlsl
+del %CD%\test-global-rs.cso
+del %CD%\test-local-rs.cso
 
 exit /b 0
 

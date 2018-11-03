@@ -495,10 +495,6 @@ HRESULT RootSignatureParser::Parse(DxilVersionedRootSignatureDesc **ppRootSignat
                (bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::LocalRootSignature)),
              "global and local cannot be both set");
 
-    if (m_CompilationFlags == DxilRootSignatureCompilationFlags::None) {
-      m_CompilationFlags = DxilRootSignatureCompilationFlags::GlobalRootSignature;
-    }
-
     if(ppRootSignature != NULL)
     {
         IFC(ParseRootSignature(&pRS));
