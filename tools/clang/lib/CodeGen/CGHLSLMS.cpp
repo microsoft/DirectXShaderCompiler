@@ -322,13 +322,14 @@ public:
 void clang::CompileRootSignature(
     StringRef rootSigStr, DiagnosticsEngine &Diags, SourceLocation SLoc,
     hlsl::DxilRootSignatureVersion rootSigVer,
+    hlsl::DxilRootSignatureCompilationFlags flags,
     hlsl::RootSignatureHandle *pRootSigHandle) {
   std::string OSStr;
   llvm::raw_string_ostream OS(OSStr);
   hlsl::DxilVersionedRootSignatureDesc *D = nullptr;
 
   if (ParseHLSLRootSignature(rootSigStr.data(), rootSigStr.size(), rootSigVer,
-                             &D, SLoc, Diags)) {
+                             flags, &D, SLoc, Diags)) {
     CComPtr<IDxcBlob> pSignature;
     CComPtr<IDxcBlobEncoding> pErrors;
     hlsl::SerializeRootSignature(D, &pSignature, &pErrors, false);
@@ -2464,6 +2465,7 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
     m_pHLModule->ResetSubobjects(subobjects);
   }
  
+  DxilRootSignatureCompilationFlags flags = DxilRootSignatureCompilationFlags::GlobalRootSignature;
   switch (kind) {
     case DXIL::SubobjectKind::StateObjectConfig: {
       uint32_t flags;
@@ -2473,15 +2475,17 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
       }
       break;
     }
-    case DXIL::SubobjectKind::GlobalRootSignature:
-    case DXIL::SubobjectKind::LocalRootSignature: {
+    case DXIL::SubobjectKind::LocalRootSignature:
+      flags = DxilRootSignatureCompilationFlags::LocalRootSignature;
+      __fallthrough;
+    case DXIL::SubobjectKind::GlobalRootSignature: {
       DXASSERT_NOMSG(argCount == 1);
       StringRef signature;
       if (!GetAsConstantString(args[0], &signature, true))
         return;
 
       RootSignatureHandle RootSigHandle;
-      CompileRootSignature(signature, CGM.getDiags(), args[0]->getLocStart(), rootSigVer, &RootSigHandle);
+      CompileRootSignature(signature, CGM.getDiags(), args[0]->getLocStart(), rootSigVer, flags, &RootSigHandle);
 
       if (!RootSigHandle.IsEmpty()) {
         RootSigHandle.EnsureSerializedAvailable();
@@ -5013,7 +5017,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
          RootSignatureHandle RootSigHandle;
           CompileRootSignature(customRootSig.RootSignature, Diags,
                                SourceLocation::getFromRawEncoding(customRootSig.EncodedSourceLocation),
-                               rootSigVer, &RootSigHandle);
+                               rootSigVer, DxilRootSignatureCompilationFlags::GlobalRootSignature, &RootSigHandle);
           if (!RootSigHandle.IsEmpty()) {
             RootSigHandle.EnsureSerializedAvailable();
             m_pHLModule->SetSerializedRootSignature(
@@ -6970,7 +6974,7 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
   DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
   SourceLocation SLoc = RSA->getLocation();
   RootSignatureHandle RootSigHandle;
-  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, &RootSigHandle);
+  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, DxilRootSignatureCompilationFlags::GlobalRootSignature, &RootSigHandle);
   if (!RootSigHandle.IsEmpty()) {
     RootSigHandle.EnsureSerializedAvailable();
     m_pHLModule->SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),

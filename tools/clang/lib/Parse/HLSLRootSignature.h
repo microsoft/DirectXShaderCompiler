@@ -59,6 +59,7 @@ public:
             DATA_VOLATILE,
             DATA_STATIC,
             DATA_STATIC_WHILE_SET_AT_EXECUTE,
+            DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS,
 
             // Visibility
             visibility,
@@ -78,6 +79,7 @@ public:
             DENY_GEOMETRY_SHADER_ROOT_ACCESS,
             DENY_PIXEL_SHADER_ROOT_ACCESS,
             ALLOW_STREAM_OUTPUT,
+            LOCAL_ROOT_SIGNATURE,
 
             // Filter
             filter,
@@ -224,6 +226,7 @@ class RootSignatureParser
 public:
     RootSignatureParser(RootSignatureTokenizer *pTokenizer,
                         DxilRootSignatureVersion DefaultVersion,
+                        DxilRootSignatureCompilationFlags Flags,
                         llvm::raw_ostream &OS);
 
     HRESULT Parse(DxilVersionedRootSignatureDesc **ppRootSignature);
@@ -233,6 +236,7 @@ private:
 
     RootSignatureTokenizer *m_pTokenizer;
     DxilRootSignatureVersion m_Version;
+    DxilRootSignatureCompilationFlags m_CompilationFlags;
     llvm::raw_ostream &m_OS;
 
     HRESULT GetAndMatchToken(TokenType & Token, TokenType::Type Type);

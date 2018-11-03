@@ -35,6 +35,7 @@ using namespace hlsl;
 #define ERR_RS_NOT_ALLOWED_FOR_HS_PATCH_CONST 4618  
 #define ERR_RS_WRONG_ROOT_DESC_FLAG         4619  
 #define ERR_RS_WRONG_DESC_RANGE_FLAG        4620
+#define ERR_RS_LOCAL_FLAG_ON_GLOBAL         4621
 #define ERR_RS_BAD_FLOAT                    5000
 
 // Non-throwing new
@@ -43,6 +44,7 @@ using namespace hlsl;
 DEFINE_ENUM_FLAG_OPERATORS(DxilRootSignatureFlags)
 DEFINE_ENUM_FLAG_OPERATORS(DxilRootDescriptorFlags)
 DEFINE_ENUM_FLAG_OPERATORS(DxilDescriptorRangeFlags)
+DEFINE_ENUM_FLAG_OPERATORS(DxilRootSignatureCompilationFlags)
 
 RootSignatureTokenizer::RootSignatureTokenizer(const char *pStr, size_t len)
   : m_pStrPos(pStr)
@@ -288,8 +290,9 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
               KW(DESCRIPTORS_VOLATILE) ||
               KW(DATA_VOLATILE) ||
               KW(DATA_STATIC) ||
-              KW(DATA_STATIC_WHILE_SET_AT_EXECUTE);
-        break;
+              KW(DATA_STATIC_WHILE_SET_AT_EXECUTE) ||
+              KW(DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS);
+          break;
 
     case 'F':
         bKW = KW(flags) ||
@@ -330,6 +333,10 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
               KW(FILTER_MAXIMUM_MIN_MAG_LINEAR_MIP_POINT) || 
               KW(FILTER_MAXIMUM_MIN_MAG_MIP_LINEAR) || 
               KW(FILTER_MAXIMUM_ANISOTROPIC);
+        break;
+
+    case 'L':
+        bKW = KW(LOCAL_ROOT_SIGNATURE);
         break;
 
     case 'M':
@@ -476,13 +483,17 @@ bool RootSignatureTokenizer::IsAlpha(char c) const
 
 RootSignatureParser::RootSignatureParser(
     RootSignatureTokenizer *pTokenizer, DxilRootSignatureVersion DefaultVersion,
-    llvm::raw_ostream &OS)
-    : m_pTokenizer(pTokenizer), m_Version(DefaultVersion), m_OS(OS) {}
+    DxilRootSignatureCompilationFlags CompilationFlags, llvm::raw_ostream &OS)
+    : m_pTokenizer(pTokenizer), m_Version(DefaultVersion), m_CompilationFlags(CompilationFlags), m_OS(OS) {}
 
 HRESULT RootSignatureParser::Parse(DxilVersionedRootSignatureDesc **ppRootSignature)
 {
     HRESULT hr = S_OK;
     DxilVersionedRootSignatureDesc *pRS = NULL;
+
+    DXASSERT(!((bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::GlobalRootSignature) && 
+               (bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::LocalRootSignature)),
+             "global and local cannot be both set");
 
     if(ppRootSignature != NULL)
     {
@@ -631,6 +642,10 @@ HRESULT RootSignatureParser::ParseRootSignature(DxilVersionedRootSignatureDesc *
         pRS->Desc_1_1.pStaticSamplers = pStaticSamplers;
     }
 
+    // Set local signature flag if not already on
+    if ((bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::LocalRootSignature))
+      pRS->Desc_1_1.Flags |= DxilRootSignatureFlags::LocalRootSignature;
+
     // Down-convert root signature to the right version, if needed.
     if(pRS->Version != m_Version)
     {
@@ -664,6 +679,7 @@ HRESULT RootSignatureParser::ParseRootSignatureFlags(DxilRootSignatureFlags & Fl
     //  DENY_GEOMETRY_SHADER_ROOT_ACCESS
     //  DENY_PIXEL_SHADER_ROOT_ACCESS
     //  ALLOW_STREAM_OUTPUT
+    //  LOCAL_ROOT_SIGNATURE
 
     HRESULT hr = S_OK;
     TokenType Token;
@@ -710,6 +726,11 @@ HRESULT RootSignatureParser::ParseRootSignatureFlags(DxilRootSignatureFlags & Fl
                 break;
             case TokenType::ALLOW_STREAM_OUTPUT:
                 Flags |= DxilRootSignatureFlags::AllowStreamOutput;
+                break;
+            case TokenType::LOCAL_ROOT_SIGNATURE:
+                if ((bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::GlobalRootSignature))
+                  IFC(Error(ERR_RS_LOCAL_FLAG_ON_GLOBAL, "LOCAL_ROOT_SIGNATURE flag used in global root signature"));
+                Flags |= DxilRootSignatureFlags::LocalRootSignature;
                 break;
             default:
                 IFC(Error(ERR_RS_UNEXPECTED_TOKEN, "Expected a root signature flag value, found: '%s'", Token.GetStr()));
@@ -1166,7 +1187,7 @@ Cleanup:
 HRESULT RootSignatureParser::ParseDescRangeFlags(DxilDescriptorRangeType,
                                                  DxilDescriptorRangeFlags & Flags)
 {
-    // flags=DESCRIPTORS_VOLATILE | DATA_VOLATILE | DATA_STATIC | DATA_STATIC_WHILE_SET_AT_EXECUTE
+    // flags=DESCRIPTORS_VOLATILE | DATA_VOLATILE | DATA_STATIC | DATA_STATIC_WHILE_SET_AT_EXECUTE | DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS
 
     HRESULT hr = S_OK;
     TokenType Token;
@@ -1209,6 +1230,9 @@ HRESULT RootSignatureParser::ParseDescRangeFlags(DxilDescriptorRangeType,
                 break;
             case TokenType::DATA_STATIC_WHILE_SET_AT_EXECUTE:
                 Flags |= DxilDescriptorRangeFlags::DataStaticWhileSetAtExecute;
+                break;
+            case TokenType::DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS:
+                Flags |= DxilDescriptorRangeFlags::DescriptorsStaticKeepingBufferBoundsChecks;
                 break;
             default:
                 IFC(Error(ERR_RS_UNEXPECTED_TOKEN, "Expected a descriptor range flag value, found: '%s'", Token.GetStr()));
@@ -1638,13 +1662,13 @@ Cleanup:
 _Use_decl_annotations_
 bool clang::ParseHLSLRootSignature(
     const char *pData, unsigned Len, hlsl::DxilRootSignatureVersion Ver,
-    hlsl::DxilVersionedRootSignatureDesc **ppDesc, SourceLocation Loc,
-    clang::DiagnosticsEngine &Diags) {
+    hlsl::DxilRootSignatureCompilationFlags Flags, hlsl::DxilVersionedRootSignatureDesc **ppDesc, 
+    SourceLocation Loc, clang::DiagnosticsEngine &Diags) {
   *ppDesc = nullptr;
   std::string OSStr;
   llvm::raw_string_ostream OS(OSStr);
   hlsl::RootSignatureTokenizer RST(pData, Len);
-  hlsl::RootSignatureParser RSP(&RST, Ver, OS);
+  hlsl::RootSignatureParser RSP(&RST, Ver, Flags, OS);
   hlsl::DxilVersionedRootSignatureDesc *D = nullptr;
   if (SUCCEEDED(RSP.Parse(&D))) {
     *ppDesc = D;
