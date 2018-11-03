@@ -69,7 +69,8 @@ enum class DxilDescriptorRangeFlags : unsigned {
   DataVolatile = 0x2,
   DataStaticWhileSetAtExecute = 0x4,
   DataStatic = 0x8,
-  ValidFlags = 0xf,
+  DescriptorsStaticKeepingBufferBoundsChecks = 0x10000,
+  ValidFlags = 0x1000f,
   ValidSamplerFlags = DescriptorsVolatile
 };
 enum class DxilDescriptorRangeType : unsigned {
@@ -90,6 +91,11 @@ enum class DxilRootSignatureVersion {
   Version_1_0 = 1,
   Version_1_1 = 2
 };
+enum class DxilRootSignatureCompilationFlags {
+  None = 0x0,
+  LocalRootSignature = 0x1,
+  GlobalRootSignature = 0x2,
+};
 enum class DxilRootSignatureFlags : uint32_t {
   None = 0,
   AllowInputAssemblerInputLayout = 0x1,
@@ -99,8 +105,9 @@ enum class DxilRootSignatureFlags : uint32_t {
   DenyGeometryShaderRootAccess = 0x10,
   DenyPixelShaderRootAccess = 0x20,
   AllowStreamOutput = 0x40,
+  LocalRootSignature = 0x80,
   AllowLowTierReservedHwCbLimit = 0x80000000,
-  ValidFlags = 0x8000007f
+  ValidFlags = 0x800000ff
 };
 enum class DxilRootParameterType {
   DescriptorTable = 0,
