@@ -1,4 +1,31 @@
 // Rewrite unchanged result:
+int unroll_noarg() {
+  int result = 2;
+  [unroll]
+  for (int i = 0; i < 100; i++) 
+    result++;
+  return result;
+}
+
+
+int unroll_zero() {
+  int result = 2;
+  [unroll]
+  for (int i = 0; i < 100; i++) 
+    result++;
+  return result;
+}
+
+
+int unroll_one() {
+  int result = 2;
+  [unroll(1)]
+  for (int i = 0; i < 100; i++) 
+    result++;
+  return result;
+}
+
+
 int short_unroll() {
   int result = 2;
   [unroll(2)]
