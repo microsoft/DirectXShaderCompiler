@@ -1265,9 +1265,6 @@ TEST_F(FileTest, SpirvOptOconfigAndO2) {
 TEST_F(FileTest, SpirvOptOconfigAndO3) {
   runFileTest("spirv.opt.with-O3.cl.oconfig.hlsl", Expect::Failure);
 }
-TEST_F(FileTest, SpirvOptOconfigAndO4) {
-  runFileTest("spirv.opt.with-O4.cl.oconfig.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, SpirvOptOconfigInvalidFlag) {
   runFileTest("spirv.opt.invalid-flag.cl.oconfig.hlsl", Expect::Failure);
 }
