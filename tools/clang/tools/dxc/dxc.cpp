@@ -873,6 +873,14 @@ void DxcContext::Preprocess() {
   if (m_Opts.LegacyMacroExpansion)
     args.push_back(L"-flegacy-macro-expansion");
 
+  std::vector<std::wstring> includePath;
+  for (const llvm::opt::Arg *A : m_Opts.Args.filtered(hlsl::options::OPT_I))
+    includePath.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(A->getValue()));
+  for (const std::wstring &directory : includePath) {
+    args.emplace_back(L"-I");
+    args.emplace_back(directory.c_str()); // The strings are kept alive in the includePath vector
+  }
+
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
   IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
   IFT(pCompiler->Preprocess(pSource, StringRefUtf16(m_Opts.InputFile), args.data(), args.size(), m_Opts.Defines.data(), m_Opts.Defines.size(), pIncludeHandler, &pPreprocessResult));
