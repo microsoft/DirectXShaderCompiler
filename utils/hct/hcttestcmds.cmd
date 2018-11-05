@@ -618,6 +618,13 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl >nul
+if %errorlevel% neq 0 (
+  echo Failed to preprocess subfolder\include-main.hlsl
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0
@@ -665,6 +672,7 @@ del %CD%\smoke.opt.ll
 del %CD%\smoke.opt.prn.txt
 del %CD%\smoke.rebuilt-container.cso
 del %CD%\smoke.rebuilt-container2.cso
+del %CD%\include-main.hlsl.pp
 rem SPIR-V Change Starts
 del %CD%\smoke.spirv.log
 rem SPIR-V Change Ends
