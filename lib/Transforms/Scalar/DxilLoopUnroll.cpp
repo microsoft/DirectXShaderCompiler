@@ -4,12 +4,17 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include <set>
 
@@ -39,28 +44,43 @@ static void Unroll_RemapInstruction(Instruction *I,
 class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
+  LoopInfo *LI = nullptr;
   DxilLoopUnroll() : LoopPass(ID) {}
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    //AU.addRequired<AssumptionCacheTracker>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addRequiredID(LoopSimplifyID);
+    //AU.addPreservedID(LoopSimplifyID);
+    AU.addRequiredID(LCSSAID);
+    //AU.addPreservedID(LCSSAID);
+    //AU.addRequired<ScalarEvolution>();
+    //AU.addPreserved<ScalarEvolution>();
+    //AU.addRequired<TargetTransformInfoWrapperPass>();
+    // FIXME: Loop unroll requires LCSSA. And LCSSA requires dom info.
+    // If loop unroll does not preserve dom info then LCSSA pass on next
+    // loop will receive invalid dom info.
+    // For now, recreate dom info, if loop is unrolled.
+    AU.addPreserved<DominatorTreeWrapperPass>();
+  }
 };
 
 char DxilLoopUnroll::ID;
 
-static bool SimplifyPHIs(Function &F) {
+static bool SimplifyPHIs(BasicBlock *BB) {
   bool Changed = false;
-  for (BasicBlock &BB : F) {
-    for (Instruction &I : BB) {
-      PHINode *PN = dyn_cast<PHINode>(&I);
-      if (!PN)
-        continue;
+  for (Instruction &I : *BB) {
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    if (!PN)
+      continue;
 
-      if (PN->getNumIncomingValues() == 1) {
-        Value *V = PN->getIncomingValue(0);
-        PN->replaceAllUsesWith(V);
-        Changed = true;
-      }
+    if (PN->getNumIncomingValues() == 1) {
+      Value *V = PN->getIncomingValue(0);
+      PN->replaceAllUsesWith(V);
+      Changed = true;
     }
   }
-
   return Changed;
 }
 
@@ -98,17 +118,27 @@ struct ClonedIteration {
     o.VarMap.clear();
   }
 
-  void Erase() {
-    for (BasicBlock *BB : Body) {
-      BB->eraseFromParent();
-    }
-    Body.clear();
-    for (BasicBlock *BB : Exits) {
-      BB->eraseFromParent();
-    }
-    Exits.clear();
-  }
+  void dump() const;
 };
+
+LLVM_DUMP_METHOD
+void ClonedIteration::dump() const {
+  dbgs() << "********** DUMP **********\n";
+  for (auto Entry : VarMap) {
+    if (Entry.second != nullptr)
+      continue;
+    dbgs() << "\n*------------------------------------*\n";
+    dbgs() << *Entry.first;
+    dbgs() << "  -------->>>>> ";
+    if (&*Entry.second) {
+      dbgs() << *Entry.second;
+    }
+    else {
+      dbgs() << "<null>";
+    }
+    dbgs() << "\n*------------------------------------*\n";
+  }
+}
 
 static void ReplaceUsersIn(BasicBlock *BB, Value *Old, Value *New) {
   SmallVector<Use *, 16> Uses;
@@ -136,36 +166,134 @@ static bool IsConstantI1(Value *V, bool *Val=nullptr) {
   return false;
 }
 
-bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
-  Function *F = L->getBlocks()[0]->getParent();
+static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
+                                       const TargetLibraryInfo *TLI) {
+  bool MadeChange = false;
 
-  bool safe = L->isSafeToClone();
-  BasicBlock *Latch = L->getLoopLatch();
-  if (!Latch)
-    return false;
+#ifndef NDEBUG
+  // In debug builds, ensure that the terminator of the block is never replaced
+  // or deleted by these simplifications. The idea of simplification is that it
+  // cannot introduce new instructions, and there is no way to replace the
+  // terminator of a block without introducing a new instruction.
+  AssertingVH<Instruction> TerminatorVH(--BB->end());
+#endif
 
-  SimplifyPHIs(*F);
+  for (BasicBlock::iterator BI = BB->begin(), E = --BB->end(); BI != E; ) {
+    assert(!BI->isTerminator());
+    Instruction *Inst = BI++;
 
-  PHINode *Counter = L->getCanonicalInductionVariable();
-  std::set<Instruction *> DependentInst;
-  std::set<BasicBlock *> DependentBlocks;
-  FindAllDataDependency(Counter, DependentInst, DependentBlocks);
+    WeakVH BIHandle(BI);
+    if (recursivelySimplifyInstruction(Inst, TLI)) {
+      MadeChange = true;
+      if (BIHandle != BI)
+        BI = BB->begin();
+      continue;
+    }
 
-  SmallVector<BasicBlock *, 16> ToBeCloned;
+//    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI);
+    if (BIHandle != BI)
+      BI = BB->begin();
+  }
+  return MadeChange;
+}
+
+static bool HasUnrollElements(BasicBlock *BB, Loop *L) {
+  for (Instruction &I : *BB) {
+    if (LoadInst *Load = dyn_cast<LoadInst>(&I)) {
+      Value *PtrV = Load->getPointerOperand();
+      if (hlsl::dxilutil::IsHLSLObjectType(PtrV->getType()->getPointerElementType())) {
+        if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(PtrV)) {
+          if (GEP->hasAllConstantIndices())
+            continue;
+          for (auto It = GEP->idx_begin(); It != GEP->idx_end(); It++) {
+            Value *Idx = *It;
+            if (!L->isLoopInvariant(Idx)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+bool IsMarkedFullUnroll(Loop *L) {
+  if (MDNode *LoopID = L->getLoopID())
+    return GetUnrollMetadata(LoopID, "llvm.loop.unroll.full");
+  return false;
+}
+
+static bool HeuristicallyDetermineUnrollNecessary(Loop *L) {
+  Module *M = L->getBlocks().front()->getParent()->getParent();
+  SmallPtrSet<BasicBlock *, 10> BlocksInLoop;
+  SmallPtrSet<Value *, 16> GlobalVariables;
+  for (GlobalVariable &GV : M->globals()) {
+    GlobalVariables.insert(&GV);
+  }
   for (BasicBlock *BB : L->getBlocks()) {
-    ToBeCloned.push_back(BB);
+    BlocksInLoop.insert(BB);
+  }
+
+  bool Needunroll = false;
+  for (BasicBlock *BB : L->getBlocks()) {
+    if (HasUnrollElements(BB, L))
+      return true;
   }
 
   SmallVector<BasicBlock *, 16> ExitBlocks;
   L->getExitBlocks(ExitBlocks);
-  for (BasicBlock *BB : ExitBlocks) {
-    if (DependentBlocks.count(BB)) {
-      ToBeCloned.push_back(BB);
+  for (BasicBlock *BB : ExitBlocks)
+    if (HasUnrollElements(BB, L))
+      return true;
+  return false;
+}
+
+static bool HasSuccessorsInLoop(BasicBlock *BB, Loop *L) {
+  bool PartOfOuterLoop = false;
+  for (BasicBlock *Succ : successors(BB)) {
+    if (L->contains(Succ)) {
+      return true;
     }
   }
+  return false;
+}
 
+bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
+  if (!IsMarkedFullUnroll(L))
+    return false;
+
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  Function *F = L->getBlocks()[0]->getParent();
+
+  BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
+  SmallVector<BasicBlock *, 16> ExitBlocks;
+  L->getExitBlocks(ExitBlocks);
 
+  SmallVector<BasicBlock *, 16> BlocksInLoop(L->getBlocks().begin(), L->getBlocks().end());
+  BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
+
+  // Quit if we don't have a single latch block
+  if (!Latch)
+    return false;
+  if (!L->isSafeToClone())
+    return false;
+
+  // Simplify the PHI nodes that have single incoming value.
+  for (BasicBlock *BB : BlocksInLoop)
+    SimplifyPHIs(BB);
+
+  //ExitBlocks.clear();
+  SmallPtrSet<BasicBlock *, 16> ExitBlocksSet;
+
+#if 0
+  // Determine if we absolutely
+  if (!HeuristicallyDetermineUnrollNecessary(L))
+    return false;
+#endif
+
+  // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;
   for (auto it = Header->begin(); it != Header->end(); it++) {
     if (PHINode *PN = dyn_cast<PHINode>(it)) {
@@ -178,49 +306,63 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
   }
 
+  std::set<BasicBlock *> ToBeCloned;
+  for (BasicBlock *BB : L->getBlocks())
+    ToBeCloned.insert(BB);
+  for (BasicBlock *BB : ExitBlocks) {
+    ToBeCloned.insert(BB);
+    ExitBlocksSet.insert(BB);
+  }
+
   SmallVector<ClonedIteration, 16> Clones;
-  IRBuilder<> Builder(F->getContext());
+  SmallVector<BasicBlock *, 16> ClonedBlocks;
   bool Succeeded = false;
 
   std::map<BasicBlock *, BasicBlock *> CloneMap;
   std::map<BasicBlock *, BasicBlock *> ReverseCloneMap;
   for (int i = 0; i < 16; i++) {
+    ClonedBlocks.clear();
     CloneMap.clear();
-    SmallVector<BasicBlock *, 16> ClonedBlocks;
     ClonedIteration Cloned;
-    Value *NewCounter = Builder.getInt32(i);
 
-    auto CloneBlock = [&Cloned, &CloneMap, &ReverseCloneMap, &ClonedBlocks, F](BasicBlock *BB) {
+    // Helper function for cloning a block
+    auto CloneBlock = [&ToBeCloned, &Cloned, &CloneMap, &ReverseCloneMap, &ClonedBlocks, F](BasicBlock *BB) {
       BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
-      ClonedBB->insertInto(F);
       ClonedBlocks.push_back(ClonedBB);
       ReverseCloneMap[ClonedBB] = BB;
       CloneMap[BB] = ClonedBB;
-      return ClonedBB;
-    };
+      ClonedBB->insertInto(F);
+      Cloned.VarMap[BB] = ClonedBB;
 
-    for (BasicBlock *BB : L->getBlocks()) {
-      BasicBlock *ClonedBB = CloneBlock(BB);
-      Cloned.Body.push_back(ClonedBB);
-      if (BB == Latch) {
-        Cloned.Latch = ClonedBB;
-      }
-      if (BB == Header) {
-        Cloned.Header = ClonedBB;
-      }
-    }
-    for (BasicBlock *BB : ExitBlocks) {
-      BasicBlock *ClonedBB = CloneBlock(BB);
-      Cloned.Exits.push_back(ClonedBB);
       for (BasicBlock *Succ : successors(ClonedBB)) {
+        if (ToBeCloned.count(Succ))
+          continue;
         for (Instruction &I : *Succ) {
           PHINode *PN = dyn_cast<PHINode>(&I);
           if (!PN)
             break;
           Value *OldIncoming = PN->getIncomingValueForBlock(BB);
-          Value *NewIncoming = Cloned.VarMap[OldIncoming] ? Cloned.VarMap[OldIncoming] : OldIncoming;
+          Value *NewIncoming = OldIncoming;
+          if (Cloned.VarMap.count(OldIncoming)) {
+            NewIncoming = Cloned.VarMap[OldIncoming];
+          }
           PN->addIncoming(NewIncoming, ClonedBB);
         }
+      }
+
+      return ClonedBB;
+    };
+
+    for (BasicBlock *BB : ToBeCloned) {
+      BasicBlock *ClonedBB = CloneBlock(BB);
+      Cloned.Body.push_back(ClonedBB);
+      if (ExitBlocksSet.count(BB))
+        Cloned.Exits.push_back(ClonedBB);
+      if (BB == Latch) {
+        Cloned.Latch = ClonedBB;
+      }
+      if (BB == Header) {
+        Cloned.Header = ClonedBB;
       }
     }
 
@@ -243,7 +385,17 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-    if (Clones.size()) {
+    // If this is the first block
+    if (!Clones.size()) {
+      for (PHINode *PN : PHIs) {
+        PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
+        Value *ReplacementVal = ClonedPN->getIncomingValue(0);
+        ClonedPN->replaceAllUsesWith(ReplacementVal);
+        ClonedPN->eraseFromParent();
+        Cloned.VarMap[PN] = ReplacementVal;
+      }
+    }
+    else {
       ClonedIteration &LastIteration = Clones.back();
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
@@ -262,21 +414,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         }
       }
     }
-    else {
-      for (PHINode *PN : PHIs) {
-        PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
-        Value *ReplacementVal = ClonedPN->getIncomingValue(0);
-        ClonedPN->replaceAllUsesWith(ReplacementVal);
-        ClonedPN->eraseFromParent();
-        Cloned.VarMap[PN] = ReplacementVal;
-      }
-    }
 
     Clones.push_back(std::move(Cloned));
-
     for (int i = 0; i < ClonedBlocks.size(); i++) {
       BasicBlock *ClonedBB = ClonedBlocks[i];
-      SimplifyInstructionsInBlock(ClonedBB);
+      SimplifyInstructionsInBlock_NoDelete(ClonedBB, NULL);
     }
 
     if (BranchInst *BI = dyn_cast<BranchInst>(Cloned.Latch->getTerminator())) {
@@ -297,8 +439,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
+    // Go through the predecessors of the old header and
+    // make them branch to the new header.
     SmallVector<BasicBlock *, 8> Preds(pred_begin(Header), pred_end(Header));
     for (BasicBlock *PredBB : Preds) {
+      if (L->contains(PredBB))
+        continue;
       BranchInst *BI = cast<BranchInst>(PredBB->getTerminator());
       for (unsigned i = 0, NumSucc = BI->getNumSuccessors(); i < NumSucc; i++) {
         if (BI->getSuccessor(i) == Header) {
@@ -306,14 +452,59 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         }
       }
     }
-    llvm::removeUnreachableBlocks(*F);
+
+    Loop *OuterL = L->getParentLoop();
+    // If there's an outer loop, insert the new blocks
+    // into
+    if (OuterL) {
+      auto &FirstIteration = Clones.front();
+      for (auto &Iteration : Clones) {
+        for (BasicBlock *BB :Iteration.Body) {
+          if (HasSuccessorsInLoop(BB, OuterL))
+            OuterL->addBasicBlockToLoop(BB, *LI);
+        }
+      }
+
+      for (BasicBlock *BB : ToBeCloned) {
+        if (OuterL->contains(BB))
+          OuterL->removeBlockFromLoop(BB);
+      }
+    }
+    else {
+      // Remove old blocks from the loop
+      llvm::removeUnreachableBlocks(*F);
+    }
+
+    // Remove flattened loop from queue.
+    // If there's an outer loop, this will also take care
+    // of removing blocks.
+    LPM.deleteLoopFromQueue(L);
+
+    for (BasicBlock *BB : ToBeCloned) {
+      SmallVector<BasicBlock *, 16> Successors(succ_begin(BB), succ_end(BB));
+      for (BasicBlock *Succ : Successors) {
+        Succ->removePredecessor(BB);
+      }
+      BB->getTerminator()->eraseFromParent();
+      BB->dropAllReferences();
+    }
+    for (BasicBlock *BB : ToBeCloned) {
+      BB->eraseFromParent();
+    }
+
+    SmallVector<BasicBlock *, 16> OuterExits;
+    SmallVector<BasicBlock *, 16> OuterLatches;
+    OuterL->getExitBlocks(OuterExits);
+    OuterL->getLoopLatches(OuterLatches);
+
+    return true;
   }
 
   else {
+    // Remove blocks that were added.
     llvm::removeUnreachableBlocks(*F);
     return false;
   }
-  return true;
 }
 
 }
