@@ -252,6 +252,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
   bool hasMulticomponentUAVLoadsBackCompat = valMajor == 1 && valMinor == 0;
+  bool hasViewportOrRTArrayIndexBackCombat = valMajor == 1 && valMinor < 4;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
@@ -392,12 +393,20 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   if (M->HasDxilEntryProps(F)) {
     const DxilEntryProps &entryProps = M->GetDxilEntryProps(F);
 
-    bool checkInputRTArrayIndex =
-      entryProps.props.IsGS() || entryProps.props.IsDS() ||
-      entryProps.props.IsHS() || entryProps.props.IsPS();
+    // Val ver < 1.4 has a bug where input case was always clobbered by the
+    // output check.  The only case where it made a difference such that an
+    // incorrect flag would be set was for the HS and DS input cases.
+    // It was also checking PS input and output, but PS output could not have
+    // the semantic, and since it was clobbering the result, it would always
+    // clear it.  Since this flag should not be set for PS at all,
+    // it produced the correct result for PS by accident.
+    bool checkInputRTArrayIndex = entryProps.props.IsGS();
+    if (!hasViewportOrRTArrayIndexBackCombat)
+      checkInputRTArrayIndex |= entryProps.props.IsDS() ||
+                                entryProps.props.IsHS();
     bool checkOutputRTArrayIndex =
       entryProps.props.IsVS() || entryProps.props.IsDS() ||
-      entryProps.props.IsHS() || entryProps.props.IsPS();
+      entryProps.props.IsHS();
 
     for (auto &&E : entryProps.sig.InputSignature.GetElements()) {
       switch (E->GetKind()) {
