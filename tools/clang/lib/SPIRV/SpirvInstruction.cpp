@@ -360,55 +360,83 @@ SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType)
   setResultType(spvType);
 }
 
-SpirvConstantBoolean::SpirvConstantBoolean(const BoolType *type, bool val)
+bool SpirvConstant::isSpecConstant() const {
+  return opcode == spv::Op::OpSpecConstant ||
+         opcode == spv::Op::OpSpecConstantTrue ||
+         opcode == spv::Op::OpSpecConstantFalse ||
+         opcode == spv::Op::OpSpecConstantComposite;
+}
+
+SpirvConstantBoolean::SpirvConstantBoolean(const BoolType *type, bool val,
+                                           bool isSpecConst)
     : SpirvConstant(IK_ConstantBoolean,
-                    val ? spv::Op::OpConstantTrue : spv::Op::OpConstantFalse,
+                    val ? (isSpecConst ? spv::Op::OpSpecConstantTrue
+                                       : spv::Op::OpConstantTrue)
+                        : (isSpecConst ? spv::Op::OpSpecConstantFalse
+                                       : spv::Op::OpConstantFalse),
                     type),
       value(val) {}
 
 bool SpirvConstantBoolean::operator==(const SpirvConstantBoolean &that) const {
-  return resultType == that.getResultType() && value == that.getValue();
+  return resultType == that.getResultType() && value == that.getValue() &&
+         opcode == that.getopcode();
 }
 
 SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type,
-                                           uint16_t val)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+                                           uint16_t val, bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(val)) {
   assert(type->getBitwidth() == 16);
   assert(!type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int16_t val)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int16_t val,
+                                           bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(val)) {
   assert(type->getBitwidth() == 16);
   assert(type->isSignedInt());
 }
 
 SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type,
-                                           uint32_t val)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+                                           uint32_t val, bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(val)) {
   assert(type->getBitwidth() == 32);
   assert(!type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int32_t val)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int32_t val,
+                                           bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(val)) {
   assert(type->getBitwidth() == 32);
   assert(type->isSignedInt());
 }
 
 SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type,
-                                           uint64_t val)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type), value(val) {
+                                           uint64_t val, bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
+      value(val) {
   assert(type->getBitwidth() == 64);
   assert(!type->isSignedInt());
 }
 
-SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int64_t val)
-    : SpirvConstant(IK_ConstantInteger, spv::Op::OpConstant, type),
+SpirvConstantInteger::SpirvConstantInteger(const IntegerType *type, int64_t val,
+                                           bool isSpecConst)
+    : SpirvConstant(IK_ConstantInteger,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(val)) {
   assert(type->getBitwidth() == 64);
   assert(type->isSignedInt());
@@ -461,23 +489,33 @@ int64_t SpirvConstantInteger::getSignedInt64Value() const {
 }
 
 bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {
-  return resultType == that.getResultType() && value == that.getValueBits();
+  return resultType == that.getResultType() && value == that.getValueBits() &&
+         opcode == that.getopcode();
 }
 
-SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, uint16_t val)
-    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, type),
+SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, uint16_t val,
+                                       bool isSpecConst)
+    : SpirvConstant(IK_ConstantFloat,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(val)) {
   assert(type->getBitwidth() == 16);
 }
 
-SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, float val)
-    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, type),
+SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, float val,
+                                       bool isSpecConst)
+    : SpirvConstant(IK_ConstantFloat,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(static_cast<uint64_t>(cast::BitwiseCast<uint32_t, float>(val))) {
   assert(type->getBitwidth() == 32);
 }
 
-SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, double val)
-    : SpirvConstant(IK_ConstantFloat, spv::Op::OpConstant, type),
+SpirvConstantFloat::SpirvConstantFloat(const FloatType *type, double val,
+                                       bool isSpecConst)
+    : SpirvConstant(IK_ConstantFloat,
+                    isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
+                    type),
       value(cast::BitwiseCast<uint64_t, double>(val)) {
   assert(type->getBitwidth() == 64);
 }
@@ -503,17 +541,24 @@ double SpirvConstantFloat::getValue64() const {
 }
 
 bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {
-  return resultType == that.getResultType() && value == that.getValueBits();
+  return resultType == that.getResultType() && value == that.getValueBits() &&
+         opcode == that.getopcode();
 }
 
 SpirvConstantComposite::SpirvConstantComposite(
     const SpirvType *type,
-    llvm::ArrayRef<const SpirvConstant *> constituentsVec)
-    : SpirvConstant(IK_ConstantComposite, spv::Op::OpConstantComposite, type),
+    llvm::ArrayRef<const SpirvConstant *> constituentsVec, bool isSpecConst)
+    : SpirvConstant(IK_ConstantComposite,
+                    isSpecConst ? spv::Op::OpSpecConstantComposite
+                                : spv::Op::OpConstantComposite,
+                    type),
       constituents(constituentsVec.begin(), constituentsVec.end()) {}
 
 bool SpirvConstantComposite::
 operator==(const SpirvConstantComposite &other) const {
+  if (opcode != other.getopcode())
+    return false;
+
   if (resultType != other.getResultType())
     return false;
 
