@@ -194,4 +194,46 @@ TEST(SpirvConstant, CheckOperatorEqualOnComposite2) {
   EXPECT_FALSE(arrayConstant1 == arrayConstant2);
 }
 
+TEST(SpirvConstant, BoolConstNotEqualSpecConst) {
+  SpirvContext ctx;
+  SpirvConstantBoolean constant1(ctx.getBoolType(), true, /*SpecConst*/ true);
+  SpirvConstantBoolean constant2(ctx.getBoolType(), false, /*SpecConst*/ false);
+  EXPECT_FALSE(constant1 == constant2);
+}
+
+TEST(SpirvConstant, IntConstNotEqualSpecConst) {
+  SpirvContext ctx;
+  SpirvConstantInteger constant1(ctx.getSIntType(32), 5, /*SpecConst*/ true);
+  SpirvConstantInteger constant2(ctx.getSIntType(32), 7, /*SpecConst*/ false);
+  EXPECT_FALSE(constant1 == constant2);
+}
+
+TEST(SpirvConstant, FloatConstNotEqualSpecConst) {
+  SpirvContext ctx;
+  SpirvConstantFloat constant1(ctx.getFloatType(64), 3.14, /*SpecConst*/ true);
+  SpirvConstantFloat constant2(ctx.getFloatType(64), 3.15, /*SpecConst*/ false);
+  EXPECT_FALSE(constant1 == constant2);
+}
+
+TEST(SpirvConstant, CompositeConstNotEqualSpecConstComposite) {
+  // Make a constant array of size 2.
+  // Each array element is a vector of 4 floats.
+  SpirvContext ctx;
+  const FloatType *f32Type = ctx.getFloatType(32);
+  const VectorType *vecType = ctx.getVectorType(f32Type, 4);
+  const ArrayType *arrType = ctx.getArrayType(vecType, 2);
+  SpirvConstantFloat f1(f32Type, 3.14);
+  SpirvConstantFloat f2(f32Type, 5.f);
+  SpirvConstantFloat f3(f32Type, -1.f);
+  SpirvConstantFloat f4(f32Type, 0.f);
+  llvm::SmallVector<SpirvConstant *, 4> vectorValues = {&f1, &f2, &f3, &f4};
+  SpirvConstantComposite vec4(vecType, vectorValues);
+  llvm::SmallVector<SpirvConstant *, 2> arrayValues = {&vec4, &vec4};
+  SpirvConstantComposite arrayConstant1(arrType, arrayValues,
+                                        /*SpecConst*/ true);
+  SpirvConstantComposite arrayConstant2(arrType, arrayValues,
+                                        /*SpecConst*/ false);
+  EXPECT_FALSE(arrayConstant1 == arrayConstant2);
+}
+
 } // anonymous namespace
