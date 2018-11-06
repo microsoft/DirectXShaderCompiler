@@ -27,7 +27,7 @@ InitListHandler::InitListHandler(const ASTContext &ctx, SPIRVEmitter &emitter)
       spvBuilder(emitter.getSpirvBuilder()),
       diags(emitter.getDiagnosticsEngine()) {}
 
-SpirvInstruction *InitListHandler::process(const InitListExpr *expr) {
+SpirvInstruction *InitListHandler::processInit(const InitListExpr *expr) {
   initializers.clear();
   scalars.clear();
 
@@ -36,7 +36,22 @@ SpirvInstruction *InitListHandler::process(const InitListExpr *expr) {
   // tail of the vector. This is more efficient than using a deque.
   std::reverse(std::begin(initializers), std::end(initializers));
 
-  auto *init = createInitForType(expr->getType(), expr->getExprLoc());
+  return doProcess(expr->getType(), expr->getExprLoc());
+}
+
+SpirvInstruction *InitListHandler::processCast(QualType toType,
+                                               const Expr *expr) {
+  initializers.clear();
+  scalars.clear();
+
+  initializers.push_back(expr);
+
+  return doProcess(toType, expr->getExprLoc());
+}
+
+SpirvInstruction *InitListHandler::doProcess(QualType type,
+                                             SourceLocation srcLoc) {
+  auto *init = createInitForType(type, srcLoc);
 
   if (init) {
     // For successful translation, we should have consumed all initializers and

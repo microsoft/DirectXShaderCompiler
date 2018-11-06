@@ -83,7 +83,11 @@ public:
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
-  SpirvInstruction *process(const InitListExpr *expr);
+  SpirvInstruction *processInit(const InitListExpr *expr);
+
+  /// Casts the given Expr to the given toType and returns the <result-id> for
+  /// the final SPIR-V value.
+  SpirvInstruction *processCast(QualType toType, const Expr *expr);
 
 private:
   /// \brief Wrapper method to create an error message and report it
@@ -97,7 +101,7 @@ private:
 
   /// Processes the expressions in initializers and returns the <result-id> for
   /// the final SPIR-V value of the given type.
-  uint32_t doProcess(QualType type, SourceLocation srcLoc);
+  SpirvInstruction *doProcess(QualType type, SourceLocation srcLoc);
 
   /// Flattens the given InitListExpr and puts all non-InitListExpr AST nodes
   /// into initializers.
