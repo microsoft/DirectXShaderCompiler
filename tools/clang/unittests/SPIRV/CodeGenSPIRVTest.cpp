@@ -72,6 +72,9 @@ TEST_F(FileTest, BufferTypeStructError2) {
 TEST_F(FileTest, BufferTypeStructError3) {
   runFileTest("type.buffer.struct.error3.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, RWBufferTypeHalfElementType) {
+  runFileTest("type.rwbuffer.half.hlsl");
+}
 TEST_F(FileTest, RWBufferTypeStructError) {
   runFileTest("type.rwbuffer.struct.error.hlsl", Expect::Failure);
 }
