@@ -2291,8 +2291,10 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     // as FlatConversion. For such cases, we can rely on the InitListHandler,
     // which can decompse vectors/matrices.
     else if (subExprType->isArrayType()) {
-      auto valId = InitListHandler(*this).processCast(expr->getType(), subExpr);
-      return SpirvEvalInfo(valId).setRValue();
+      auto *valInstr = InitListHandler(astContext, *this)
+                           .processCast(expr->getType(), subExpr);
+      valInstr->setRValue();
+      return valInstr;
     }
 
     if (!subExprInstr)
@@ -4429,7 +4431,7 @@ SpirvInstruction *SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
     return id;
   }
 
-  SpirvInstruction *result = InitListHandler(astContext, *this).process(expr);
+  auto *result = InitListHandler(astContext, *this).processInit(expr);
   result->setRValue();
   return result;
 }
