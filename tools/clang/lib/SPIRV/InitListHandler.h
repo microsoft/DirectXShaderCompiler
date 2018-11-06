@@ -85,7 +85,11 @@ public:
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
-  uint32_t process(const InitListExpr *expr);
+  uint32_t processInit(const InitListExpr *expr);
+
+  /// Casts the given Expr to the given toType and returns the <result-id> for
+  /// the final SPIR-V value.
+  uint32_t processCast(QualType toType, const Expr *expr);
 
 private:
   /// \brief Wrapper method to create an error message and report it
@@ -96,6 +100,10 @@ private:
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
     return diags.Report(loc, diagId);
   }
+
+  /// Processes the expressions in initializers and returns the <result-id> for
+  /// the final SPIR-V value of the given type.
+  uint32_t doProcess(QualType type, SourceLocation srcLoc);
 
   /// Flattens the given InitListExpr and puts all non-InitListExpr AST nodes
   /// into initializers.

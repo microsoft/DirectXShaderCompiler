@@ -26,7 +26,7 @@ InitListHandler::InitListHandler(SPIRVEmitter &emitter)
       typeTranslator(emitter.getTypeTranslator()),
       diags(emitter.getDiagnosticsEngine()) {}
 
-uint32_t InitListHandler::process(const InitListExpr *expr) {
+uint32_t InitListHandler::processInit(const InitListExpr *expr) {
   initializers.clear();
   scalars.clear();
 
@@ -35,7 +35,20 @@ uint32_t InitListHandler::process(const InitListExpr *expr) {
   // tail of the vector. This is more efficient than using a deque.
   std::reverse(std::begin(initializers), std::end(initializers));
 
-  const uint32_t init = createInitForType(expr->getType(), expr->getExprLoc());
+  return doProcess(expr->getType(), expr->getExprLoc());
+}
+
+uint32_t InitListHandler::processCast(QualType toType, const Expr *expr) {
+  initializers.clear();
+  scalars.clear();
+
+  initializers.push_back(expr);
+
+  return doProcess(toType, expr->getExprLoc());
+}
+
+uint32_t InitListHandler::doProcess(QualType type, SourceLocation srcLoc) {
+  const uint32_t init = createInitForType(type, srcLoc);
 
   if (init) {
     // For successful translation, we should have consumed all initializers and
