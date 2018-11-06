@@ -2465,6 +2465,14 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
              typeTranslator.isSameType(expr->getType(), subExprType)) {
       return doExpr(subExpr);
     }
+    // We can have casts changing the shape but without affecting memory order,
+    // e.g., `float4 a[2]; float b[8] = (float[8])a;`. This is also represented
+    // as FlatConversion. For such cases, we can rely on the InitListHandler,
+    // which can decompse vectors/matrices.
+    else if (subExprType->isArrayType()) {
+      auto valId = InitListHandler(*this).processCast(expr->getType(), subExpr);
+      return SpirvEvalInfo(valId).setRValue();
+    }
 
     if (!subExprId)
       subExprId = doExpr(subExpr);
@@ -4652,7 +4660,7 @@ SpirvEvalInfo SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
   if (const uint32_t id = tryToEvaluateAsConst(expr))
     return SpirvEvalInfo(id).setRValue();
 
-  return SpirvEvalInfo(InitListHandler(*this).process(expr)).setRValue();
+  return SpirvEvalInfo(InitListHandler(*this).processInit(expr)).setRValue();
 }
 
 SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
