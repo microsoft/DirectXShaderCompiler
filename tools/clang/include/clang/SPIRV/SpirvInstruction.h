@@ -913,13 +913,16 @@ public:
            inst->getKind() <= IK_ConstantNull;
   }
 
+  bool isSpecConstant() const;
+
 protected:
   SpirvConstant(Kind, spv::Op, const SpirvType *);
 };
 
 class SpirvConstantBoolean : public SpirvConstant {
 public:
-  SpirvConstantBoolean(const BoolType *type, bool value);
+  SpirvConstantBoolean(const BoolType *type, bool value,
+                       bool isSpecConst = false);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -939,12 +942,18 @@ private:
 /// \brief Represent OpConstant for integer values.
 class SpirvConstantInteger : public SpirvConstant {
 public:
-  SpirvConstantInteger(const IntegerType *type, uint16_t value);
-  SpirvConstantInteger(const IntegerType *type, int16_t value);
-  SpirvConstantInteger(const IntegerType *type, uint32_t value);
-  SpirvConstantInteger(const IntegerType *type, int32_t value);
-  SpirvConstantInteger(const IntegerType *type, uint64_t value);
-  SpirvConstantInteger(const IntegerType *type, int64_t value);
+  SpirvConstantInteger(const IntegerType *type, uint16_t value,
+                       bool isSpecConst = false);
+  SpirvConstantInteger(const IntegerType *type, int16_t value,
+                       bool isSpecConst = false);
+  SpirvConstantInteger(const IntegerType *type, uint32_t value,
+                       bool isSpecConst = false);
+  SpirvConstantInteger(const IntegerType *type, int32_t value,
+                       bool isSpecConst = false);
+  SpirvConstantInteger(const IntegerType *type, uint64_t value,
+                       bool isSpecConst = false);
+  SpirvConstantInteger(const IntegerType *type, int64_t value,
+                       bool isSpecConst = false);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -974,9 +983,12 @@ private:
 
 class SpirvConstantFloat : public SpirvConstant {
 public:
-  SpirvConstantFloat(const FloatType *type, uint16_t value);
-  SpirvConstantFloat(const FloatType *type, float value);
-  SpirvConstantFloat(const FloatType *type, double value);
+  SpirvConstantFloat(const FloatType *type, uint16_t value,
+                     bool isSpecConst = false);
+  SpirvConstantFloat(const FloatType *type, float value,
+                     bool isSpecConst = false);
+  SpirvConstantFloat(const FloatType *type, double value,
+                     bool isSpecConst = false);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1002,7 +1014,8 @@ private:
 class SpirvConstantComposite : public SpirvConstant {
 public:
   SpirvConstantComposite(const SpirvType *type,
-                         llvm::ArrayRef<const SpirvConstant *> constituents);
+                         llvm::ArrayRef<const SpirvConstant *> constituents,
+                         bool isSpecConst = false);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
