@@ -253,8 +253,9 @@ void Parser::initializePragmaHandlers() {
     // HLSL Change Begin - packmatrix.
     // The pointer ownership goes to PP, which deletes it in its destructor
     // unless it is removed & deleted via resetPragmaHandlers
-    pPackMatrixHandler = new PragmaPackMatrixHandler(Actions);
-    PP.AddPragmaHandler(pPackMatrixHandler); 
+    std::unique_ptr<PragmaHandler> pHandler(new PragmaPackMatrixHandler(Actions));
+    PP.AddPragmaHandler(pHandler.get());
+    pPackMatrixHandler = pHandler.release();
     // HLSL Change End.
   }
 }
