@@ -116,6 +116,7 @@ DxilModule::DxilModule(Module *pModule)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
+  m_pModule->pfnResetDxilModule = &DxilModule_ResetModule;
   m_pModule->pfnRemoveGlobal = &DxilModule_RemoveGlobal;
 
 #if defined(_DEBUG) || defined(DBG)
