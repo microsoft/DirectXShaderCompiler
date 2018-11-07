@@ -2565,6 +2565,17 @@ public:
   }
 
   virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
+
+  void DumpLeaks() {
+    PtrData *ptr = (PtrData*)AllocList.Flink;;
+    PtrData *end = (PtrData*)AllocList.Blink;;
+
+    WEX::Logging::Log::Comment(FormatToWString(L"Leaks total size: %d", (signed int)m_Size).data());
+    while (ptr != end) {
+      WEX::Logging::Log::Comment(FormatToWString(L"Memory leak at 0x0%X, size %d, alloc# %d", ptr + 1, ptr->Size, ptr->AllocAtCount).data());
+      ptr = (PtrData*)ptr->Entry.Flink;
+    }
+  }
 };
 
 #ifndef DXC_ON_APPVEYOR_CI
@@ -2615,7 +2626,12 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   // allocations or references.
   //
   // First leak is in ((InstrumentedHeapMalloc::PtrData *)InstrMalloc.AllocList.Flink)
-  VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
+  if (InstrMalloc.GetSize() != 0) {
+    WEX::Logging::Log::Comment(L"Memory leak(s) detected");
+    InstrMalloc.DumpLeaks();
+    VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
+  }
+
   VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
 
   // In Debug, without /D_ITERATOR_DEBUG_LEVEL=0, debug iterators will be used;
@@ -2651,7 +2667,12 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
       VERIFY_FAILED(hrOp);
     pCompiler.Release();
     pResult.Release();
-    VERIFY_IS_TRUE(0 == InstrMalloc.GetSize()); // breakpoint for i failure - i == val
+    
+    if (InstrMalloc.GetSize() != 0) {
+      WEX::Logging::Log::Comment(FormatToWString(L"Memory leak(s) detected, allocCount = %d", i).data()); 
+      InstrMalloc.DumpLeaks();
+      VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
+    }
     VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
   }
 }
