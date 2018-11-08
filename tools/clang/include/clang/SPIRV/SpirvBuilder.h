@@ -371,6 +371,10 @@ public:
                                   GLSLstd450 instId,
                                   llvm::ArrayRef<SpirvInstruction *> operands,
                                   SourceLocation loc = {});
+  SpirvInstruction *createExtInst(const SpirvType *resultType,
+                                  SpirvExtInstImport *set, GLSLstd450 instId,
+                                  llvm::ArrayRef<SpirvInstruction *> operands,
+                                  SourceLocation loc = {});
 
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier

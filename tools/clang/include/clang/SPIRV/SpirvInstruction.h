@@ -1486,6 +1486,9 @@ private:
 };
 
 /// \brief OpImageTexelPointer instruction
+/// Note: The resultType stored in objects of this class are the underlying
+/// type. The real result type of OpImageTexelPointer must always be an
+/// OpTypePointer whose Storage Class operand is Image.
 class SpirvImageTexelPointer : public SpirvInstruction {
 public:
   SpirvImageTexelPointer(QualType resultType, uint32_t resultId,
