@@ -604,8 +604,12 @@ operator==(const SpirvConstantComposite &other) const {
 SpirvConstantNull::SpirvConstantNull(const SpirvType *type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
 
+SpirvConstantNull::SpirvConstantNull(QualType type)
+    : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
+
 bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
-  return resultType == that.getResultType();
+  return resultType == that.getResultType() &&
+         astResultType == that.getAstResultType();
 }
 
 SpirvCompositeExtract::SpirvCompositeExtract(QualType resultType,
