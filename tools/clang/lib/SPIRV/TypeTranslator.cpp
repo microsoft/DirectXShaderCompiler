@@ -1086,7 +1086,16 @@ QualType TypeTranslator::getElementType(QualType type) {
   return type;
 }
 
-uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
+QualType TypeTranslator::getComponentVectorType(QualType matrixType) {
+  assert(isMxNMatrix(matrixType));
+
+  const QualType elemType = hlsl::GetHLSLMatElementType(matrixType);
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
+  return astContext.getExtVectorType(elemType, colCount);
+}
+
+uint32_t TypeTranslator::getComponentVectorTypeId(QualType matrixType) {
   assert(isMxNMatrix(matrixType));
 
   const uint32_t elemType =

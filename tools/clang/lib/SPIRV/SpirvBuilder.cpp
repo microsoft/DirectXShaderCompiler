@@ -664,6 +664,17 @@ SpirvInstruction *SpirvBuilder::createExtInst(
   return extInst;
 }
 
+SpirvInstruction *SpirvBuilder::createExtInst(
+    const SpirvType *resultType, SpirvExtInstImport *set, GLSLstd450 inst,
+    llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *extInst = new (context)
+      SpirvExtInst(/*QualType*/ {}, /*id*/ 0, loc, set, inst, operands);
+  extInst->setResultType(resultType);
+  insertPoint->addInstruction(extInst);
+  return extInst;
+}
+
 void SpirvBuilder::createBarrier(spv::Scope memoryScope,
                                  spv::MemorySemanticsMask memorySemantics,
                                  llvm::Optional<spv::Scope> exec,
