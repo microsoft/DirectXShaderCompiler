@@ -222,8 +222,9 @@ private:
 
   /// Splits the given vector into the last element and the rest (as a new
   /// vector).
-  void splitVecLastElement(QualType vecType, uint32_t vec, uint32_t *residual,
-                           uint32_t *lastElement);
+  void splitVecLastElement(QualType vecType, SpirvInstruction *vec,
+                           SpirvInstruction **residual,
+                           SpirvInstruction **lastElement);
 
   /// Converts a vector value into the given struct type with its element type's
   /// <result-id> as elemTypeId.
@@ -342,159 +343,172 @@ private:
 
   /// Processes the 'clip' intrinsic function. Discards the current pixel if the
   /// specified value is less than zero.
-  uint32_t processIntrinsicClip(const CallExpr *);
+  SpirvInstruction *processIntrinsicClip(const CallExpr *);
 
   /// Processes the 'dst' intrinsic function.
-  uint32_t processIntrinsicDst(const CallExpr *);
+  SpirvInstruction *processIntrinsicDst(const CallExpr *);
 
   /// Processes the 'clamp' intrinsic function.
-  uint32_t processIntrinsicClamp(const CallExpr *);
+  SpirvInstruction *processIntrinsicClamp(const CallExpr *);
 
   /// Processes the 'frexp' intrinsic function.
-  uint32_t processIntrinsicFrexp(const CallExpr *);
+  SpirvInstruction *processIntrinsicFrexp(const CallExpr *);
 
   /// Processes the 'ldexp' intrinsic function.
-  uint32_t processIntrinsicLdexp(const CallExpr *);
+  SpirvInstruction *processIntrinsicLdexp(const CallExpr *);
 
   /// Processes the 'D3DCOLORtoUBYTE4' intrinsic function.
-  uint32_t processD3DCOLORtoUBYTE4(const CallExpr *);
+  SpirvInstruction *processD3DCOLORtoUBYTE4(const CallExpr *);
 
   /// Processes the 'lit' intrinsic function.
-  uint32_t processIntrinsicLit(const CallExpr *);
+  SpirvInstruction *processIntrinsicLit(const CallExpr *);
 
   /// Processes the 'GroupMemoryBarrier', 'GroupMemoryBarrierWithGroupSync',
   /// 'DeviceMemoryBarrier', 'DeviceMemoryBarrierWithGroupSync',
   /// 'AllMemoryBarrier', and 'AllMemoryBarrierWithGroupSync' intrinsic
   /// functions.
-  uint32_t processIntrinsicMemoryBarrier(const CallExpr *, bool isDevice,
-                                         bool groupSync, bool isAllBarrier);
+  SpirvInstruction *processIntrinsicMemoryBarrier(const CallExpr *,
+                                                  bool isDevice, bool groupSync,
+                                                  bool isAllBarrier);
 
   /// Processes the 'mad' intrinsic function.
   uint32_t processIntrinsicMad(const CallExpr *);
 
   /// Processes the 'modf' intrinsic function.
-  uint32_t processIntrinsicModf(const CallExpr *);
+  SpirvInstruction *processIntrinsicModf(const CallExpr *);
 
   /// Processes the 'msad4' intrinsic function.
-  uint32_t processIntrinsicMsad4(const CallExpr *);
+  SpirvInstruction *processIntrinsicMsad4(const CallExpr *);
 
   /// Processes the 'mul' intrinsic function.
-  uint32_t processIntrinsicMul(const CallExpr *);
+  SpirvInstruction *processIntrinsicMul(const CallExpr *);
 
   /// Transposes a non-floating point matrix and returns the result-id of the
   /// transpose.
-  uint32_t processNonFpMatrixTranspose(QualType matType, uint32_t matId);
+  SpirvInstruction *processNonFpMatrixTranspose(QualType matType,
+                                                SpirvInstruction *matrix);
 
   /// Processes the dot product of two non-floating point vectors. The SPIR-V
   /// OpDot only accepts float vectors. Assumes that the two vectors are of the
   /// same size and have the same element type (elemType).
-  uint32_t processNonFpDot(uint32_t vec1Id, uint32_t vec2Id, uint32_t vecSize,
-                           QualType elemType);
+  SpirvInstruction *processNonFpDot(SpirvInstruction *vec1Id,
+                                    SpirvInstruction *vec2Id, uint32_t vecSize,
+                                    QualType elemType);
 
   /// Processes the multiplication of a *non-floating point* matrix by a scalar.
   /// Assumes that the matrix element type and the scalar type are the same.
-  uint32_t processNonFpScalarTimesMatrix(QualType scalarType, uint32_t scalarId,
-                                         QualType matType, uint32_t matId);
+  SpirvInstruction *processNonFpScalarTimesMatrix(QualType scalarType,
+                                                  SpirvInstruction *scalar,
+                                                  QualType matType,
+                                                  SpirvInstruction *matrix);
 
   /// Processes the multiplication of a *non-floating point* matrix by a vector.
   /// Assumes the matrix element type and the vector element type are the same.
   /// Notice that the vector in this case is a "row vector" and will be
   /// multiplied by the matrix columns (dot product). As a result, the given
   /// matrix must be transposed in order to easily get each column. If
-  /// 'matTransposeId' is non-zero, it will be used as the transpose matrix
+  /// 'matrixTranspose' is non-zero, it will be used as the transpose matrix
   /// result-id; otherwise the function will perform the transpose itself.
-  uint32_t processNonFpVectorTimesMatrix(QualType vecType, uint32_t vecId,
-                                         QualType matType, uint32_t matId,
-                                         uint32_t matTransposeId = 0);
+  SpirvInstruction *
+  processNonFpVectorTimesMatrix(QualType vecType, SpirvInstruction *vector,
+                                QualType matType, SpirvInstruction *matrix,
+                                SpirvInstruction *matrixTranspose = nullptr);
 
   /// Processes the multiplication of a vector by a *non-floating point* matrix.
   /// Assumes the matrix element type and the vector element type are the same.
-  uint32_t processNonFpMatrixTimesVector(QualType matType, uint32_t matId,
-                                         QualType vecType, uint32_t vecId);
+  SpirvInstruction *processNonFpMatrixTimesVector(QualType matType,
+                                                  SpirvInstruction *matrix,
+                                                  QualType vecType,
+                                                  SpirvInstruction *vector);
 
   /// Processes a non-floating point matrix multiplication. Assumes that the
   /// number of columns in lhs matrix is the same as number of rows in the rhs
   /// matrix. Also assumes that the two matrices have the same element type.
-  uint32_t processNonFpMatrixTimesMatrix(QualType lhsType, uint32_t lhsId,
-                                         QualType rhsType, uint32_t rhsId);
+  SpirvInstruction *processNonFpMatrixTimesMatrix(QualType lhsType,
+                                                  SpirvInstruction *lhs,
+                                                  QualType rhsType,
+                                                  SpirvInstruction *rhs);
 
   /// Processes the 'dot' intrinsic function.
-  uint32_t processIntrinsicDot(const CallExpr *);
+  SpirvInstruction *processIntrinsicDot(const CallExpr *);
 
   /// Processes the 'log10' intrinsic function.
-  uint32_t processIntrinsicLog10(const CallExpr *);
+  SpirvInstruction *processIntrinsicLog10(const CallExpr *);
 
   /// Processes the 'all' and 'any' intrinsic functions.
-  uint32_t processIntrinsicAllOrAny(const CallExpr *, spv::Op);
+  SpirvInstruction *processIntrinsicAllOrAny(const CallExpr *, spv::Op);
 
   /// Processes the 'asfloat', 'asint', and 'asuint' intrinsic functions.
-  uint32_t processIntrinsicAsType(const CallExpr *);
+  SpirvInstruction *processIntrinsicAsType(const CallExpr *);
 
   /// Processes the 'saturate' intrinsic function.
-  uint32_t processIntrinsicSaturate(const CallExpr *);
+  SpirvInstruction *processIntrinsicSaturate(const CallExpr *);
 
   /// Processes the 'sincos' intrinsic function.
-  uint32_t processIntrinsicSinCos(const CallExpr *);
+  SpirvInstruction *processIntrinsicSinCos(const CallExpr *);
 
   /// Processes the 'isFinite' intrinsic function.
-  uint32_t processIntrinsicIsFinite(const CallExpr *);
+  SpirvInstruction *processIntrinsicIsFinite(const CallExpr *);
 
   /// Processes the 'rcp' intrinsic function.
-  uint32_t processIntrinsicRcp(const CallExpr *);
+  SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
   /// casting from float to integer is therefore performed by this method.
-  uint32_t processIntrinsicFloatSign(const CallExpr *);
+  SpirvInstruction *processIntrinsicFloatSign(const CallExpr *);
 
   /// Processes the 'f16to32' intrinsic function.
-  uint32_t processIntrinsicF16ToF32(const CallExpr *);
+  SpirvInstruction *processIntrinsicF16ToF32(const CallExpr *);
   /// Processes the 'f32tof16' intrinsic function.
-  uint32_t processIntrinsicF32ToF16(const CallExpr *);
+  SpirvInstruction *processIntrinsicF32ToF16(const CallExpr *);
 
   /// Processes the given intrinsic function call using the given GLSL
   /// extended instruction. If the given instruction cannot operate on matrices,
   /// it performs the instruction on each row of the matrix and uses composite
   /// construction to generate the resulting matrix.
-  uint32_t processIntrinsicUsingGLSLInst(const CallExpr *, GLSLstd450 instr,
-                                         bool canOperateOnMatrix);
+  SpirvInstruction *processIntrinsicUsingGLSLInst(const CallExpr *,
+                                                  GLSLstd450 instr,
+                                                  bool canOperateOnMatrix);
 
   /// Processes the given intrinsic function call using the given SPIR-V
   /// instruction. If the given instruction cannot operate on matrices, it
   /// performs the instruction on each row of the matrix and uses composite
   /// construction to generate the resulting matrix.
-  uint32_t processIntrinsicUsingSpirvInst(const CallExpr *, spv::Op,
-                                          bool canOperateOnMatrix);
+  SpirvInstruction *processIntrinsicUsingSpirvInst(const CallExpr *, spv::Op,
+                                                   bool canOperateOnMatrix);
 
   /// Processes the given intrinsic member call.
-  SpirvEvalInfo processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
-                                           hlsl::IntrinsicOp opcode);
+  SpirvInstruction *processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
+                                               hlsl::IntrinsicOp opcode);
 
   /// Processes Interlocked* intrinsic functions.
-  uint32_t processIntrinsicInterlockedMethod(const CallExpr *,
-                                             hlsl::IntrinsicOp);
+  SpirvInstruction *processIntrinsicInterlockedMethod(const CallExpr *,
+                                                      hlsl::IntrinsicOp);
   /// Processes SM6.0 wave query intrinsic calls.
-  uint32_t processWaveQuery(const CallExpr *, spv::Op opcode);
+  SpirvInstruction *processWaveQuery(const CallExpr *, spv::Op opcode);
 
   /// Processes SM6.0 wave vote intrinsic calls.
-  uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
+  SpirvInstruction *processWaveVote(const CallExpr *, spv::Op opcode);
 
   /// Processes SM6.0 wave active/prefix count bits.
-  uint32_t processWaveCountBits(const CallExpr *, spv::GroupOperation groupOp);
+  SpirvInstruction *processWaveCountBits(const CallExpr *,
+                                         spv::GroupOperation groupOp);
 
   /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
-  uint32_t processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
-                                        spv::GroupOperation groupOp);
+  SpirvInstruction *processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
+                                                 spv::GroupOperation groupOp);
 
   /// Processes SM6.0 wave broadcast intrinsic calls.
-  uint32_t processWaveBroadcast(const CallExpr *);
+  SpirvInstruction *processWaveBroadcast(const CallExpr *);
 
   /// Processes SM6.0 quad-wide shuffle.
-  uint32_t processWaveQuadWideShuffle(const CallExpr *, hlsl::IntrinsicOp op);
+  SpirvInstruction *processWaveQuadWideShuffle(const CallExpr *,
+                                               hlsl::IntrinsicOp op);
 
   /// Processes the NonUniformResourceIndex intrinsic function.
-  SpirvEvalInfo processIntrinsicNonUniformResourceIndex(const CallExpr *);
+  SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -733,11 +747,12 @@ private:
   /// the <result-id> to either *constOffset or *varOffset, depending on the
   /// constantness of the offset.
   void handleOffsetInMethodCall(const CXXMemberCallExpr *expr, uint32_t index,
-                                uint32_t *constOffset, uint32_t *varOffset);
+                                SpirvInstruction **constOffset,
+                                SpirvInstruction **varOffset);
 
   /// \brief Processes .Load() method call for Buffer/RWBuffer and texture
   /// objects.
-  SpirvEvalInfo processBufferTextureLoad(const CXXMemberCallExpr *);
+  SpirvInstruction *processBufferTextureLoad(const CXXMemberCallExpr *);
 
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
@@ -752,29 +767,30 @@ private:
                                              SpirvInstruction *residencyCode);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
-  uint32_t processTextureSampleGather(const CXXMemberCallExpr *expr,
-                                      bool isSample);
+  SpirvInstruction *processTextureSampleGather(const CXXMemberCallExpr *expr,
+                                               bool isSample);
 
   /// \brief Processes .SampleBias() and .SampleLevel() method calls for texture
   /// objects.
-  uint32_t processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
-                                         bool isBias);
+  SpirvInstruction *processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
+                                                  bool isBias);
 
   /// \brief Processes .SampleGrad() method call for texture objects.
-  uint32_t processTextureSampleGrad(const CXXMemberCallExpr *expr);
+  SpirvInstruction *processTextureSampleGrad(const CXXMemberCallExpr *expr);
 
   /// \brief Processes .SampleCmp() or .SampleCmpLevelZero() method call for
   /// texture objects.
-  uint32_t processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
-                                               bool isCmp);
+  SpirvInstruction *
+  processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
+                                      bool isCmp);
 
   /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
   /// types.
-  uint32_t processTextureGatherRGBACmpRGBA(const CXXMemberCallExpr *expr,
+  SpirvInstruction *processTextureGatherRGBACmpRGBA(const CXXMemberCallExpr *expr,
                                            bool isCmp, uint32_t component);
 
   /// \brief Handles .GatherCmp() calls on texture types.
-  uint32_t processTextureGatherCmp(const CXXMemberCallExpr *expr);
+  SpirvInstruction *processTextureGatherCmp(const CXXMemberCallExpr *expr);
 
   /// \brief Returns the calculated level-of-detail (a single float value) for
   /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail or
@@ -784,7 +800,7 @@ private:
                                                 bool unclamped);
 
   /// \brief Processes the .GetDimensions() call on supported objects.
-  uint32_t processGetDimensions(const CXXMemberCallExpr *);
+  SpirvInstruction *processGetDimensions(const CXXMemberCallExpr *);
 
   /// \brief Queries the given (RW)Buffer/(RW)Texture image in the given expr
   /// for the requested information. Based on the dimension of the image, the
@@ -795,13 +811,14 @@ private:
 
   /// \brief Generates an OpAccessChain instruction for the given
   /// (RW)StructuredBuffer.Load() method call.
-  SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
+  SpirvInstruction *processStructuredBufferLoad(const CXXMemberCallExpr *expr);
 
   /// \brief Increments or decrements the counter for RW/Append/Consume
   /// structured buffer. If loadObject is true, the object upon which the call
   /// is made will be evaluated and translated into SPIR-V.
-  uint32_t incDecRWACSBufferCounter(const CXXMemberCallExpr *call, bool isInc,
-                                    bool loadObject = true);
+  SpirvInstruction *incDecRWACSBufferCounter(const CXXMemberCallExpr *call,
+                                             bool isInc,
+                                             bool loadObject = true);
 
   /// Assigns the counter variable associated with srcExpr to the one associated
   /// with dstDecl if the dstDecl is an internal RW/Append/Consume structured
@@ -834,9 +851,9 @@ private:
   /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
   /// RWByteAddressBuffer. Storing is allowed only to RWByteAddressBuffer.
   /// Panics if it is not the case.
-  SpirvEvalInfo processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
-                                                  uint32_t numWords,
-                                                  bool doStore);
+  SpirvInstruction *processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
+                                                      uint32_t numWords,
+                                                      bool doStore);
 
   /// \brief Processes the GetDimensions intrinsic function call on a
   /// (RW)ByteAddressBuffer by querying the image in the given expr.
@@ -860,14 +877,15 @@ private:
   /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
   /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
   /// the loaded value for .Consume; returns zero for .Append().
-  SpirvEvalInfo processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
+  SpirvInstruction *
+  processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
   /// \brief Generates SPIR-V instructions to emit the current vertex in GS.
-  uint32_t processStreamOutputAppend(const CXXMemberCallExpr *expr);
+  SpirvInstruction *processStreamOutputAppend(const CXXMemberCallExpr *expr);
 
   /// \brief Generates SPIR-V instructions to end emitting the current
   /// primitive in GS.
-  uint32_t processStreamOutputRestart(const CXXMemberCallExpr *expr);
+  SpirvInstruction *processStreamOutputRestart(const CXXMemberCallExpr *expr);
 
   /// \brief Emulates GetSamplePosition() for standard sample settings, i.e.,
   /// with 1, 2, 4, 8, or 16 samples. Returns float2(0) for other cases.
@@ -890,14 +908,15 @@ private:
   /// HLSL image sampling methods may return a scalar, vec1, vec2, vec3, or
   /// vec4. But non-Dref image sampling instructions in SPIR-V must always
   /// return a vec4. As a result, an extra processing step is necessary.
-  uint32_t createImageSample(QualType retType, uint32_t imageType,
-                             uint32_t image, uint32_t sampler,
-                             bool isNonUniform, uint32_t coordinate,
-                             uint32_t compareVal, uint32_t bias, uint32_t lod,
-                             std::pair<uint32_t, uint32_t> grad,
-                             uint32_t constOffset, uint32_t varOffset,
-                             uint32_t constOffsets, uint32_t sample,
-                             uint32_t minLod, uint32_t residencyCodeId);
+  SpirvInstruction *createImageSample(
+      QualType retType, QualType imageType, SpirvInstruction *image,
+      SpirvInstruction *sampler, bool isNonUniform,
+      SpirvInstruction *coordinate, SpirvInstruction *compareVal,
+      SpirvInstruction *bias, SpirvInstruction *lod,
+      std::pair<SpirvInstruction *, SpirvInstruction *> grad,
+      SpirvInstruction *constOffset, SpirvInstruction *varOffset,
+      SpirvInstruction *constOffsets, SpirvInstruction *sample,
+      SpirvInstruction *minLod, SpirvInstruction *residencyCodeId);
 
   /// \brief Emit an OpLine instruction for the given source location.
   void emitDebugLine(SourceLocation);

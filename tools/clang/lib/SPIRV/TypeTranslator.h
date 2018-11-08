@@ -189,7 +189,8 @@ public:
   ///
   /// This method will panic if the given matrix type is not a SPIR-V acceptable
   /// matrix type.
-  uint32_t getComponentVectorType(QualType matrixType);
+  QualType getComponentVectorType(QualType matrixType);
+  uint32_t getComponentVectorTypeId(QualType matrixType);
 
   /// \brief Returns the QualType that has the same components as the source
   /// type, but with boolean element type. For instance, if the source type is a

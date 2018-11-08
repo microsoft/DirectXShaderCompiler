@@ -81,7 +81,7 @@ public:
   /// Constructs an InitListHandler which uses the given emitter for normal
   /// translation tasks. It will reuse the ModuleBuilder embedded in the given
   /// emitter.
-  explicit InitListHandler(ASTContext &, SPIRVEmitter &);
+  explicit InitListHandler(const ASTContext &, SPIRVEmitter &);
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
@@ -134,7 +134,7 @@ private:
                                                   SourceLocation);
 
 private:
-  ASTContext &astContext;
+  const ASTContext &astContext;
   SPIRVEmitter &theEmitter;
   SpirvBuilder &spvBuilder;
   TypeTranslator &typeTranslator;
