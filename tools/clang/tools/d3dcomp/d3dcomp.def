@@ -7,3 +7,4 @@ EXPORTS
     D3DDisassemble=BridgeD3DDisassemble
     D3DReflect=BridgeD3DReflect
     D3DReadFileToBlob=BridgeReadFileToBlob
+    D3DPreprocess=BridgeD3DPreprocess
