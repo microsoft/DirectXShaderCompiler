@@ -146,7 +146,7 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
 
   // Until we actually wrap the include handler, fail if there's a user-supplied handler.
   if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
-    IFT(library->CreateIncludeHandler(&includeHandler));
+    IFR(library->CreateIncludeHandler(&includeHandler));
   } else if (pInclude) {
     return E_INVALIDARG;
   }
@@ -327,7 +327,7 @@ HRESULT PreprocessFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   }
 }
 
-HRESULT WINAPI BridgePreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
+HRESULT WINAPI BridgeD3DPreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
                              _In_ SIZE_T SrcDataSize,
                              _In_opt_ LPCSTR pSourceName,
                              _In_opt_ const D3D_SHADER_MACRO *pDefines,
@@ -349,7 +349,7 @@ HRESULT WINAPI BridgePreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
   // Until we actually wrap the include handler, fail if there's a user-supplied
   // handler.
   if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
-    IFT(library->CreateIncludeHandler(&includeHandler));
+    IFR(library->CreateIncludeHandler(&includeHandler));
   } else if (pInclude) {
     return E_INVALIDARG;
   }
