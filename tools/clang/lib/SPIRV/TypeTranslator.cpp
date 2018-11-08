@@ -1490,6 +1490,7 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
                               : elemCount == 2 ? spv::ImageFormat::Rg32ui
                                                : spv::ImageFormat::Rgba32ui;
       case BuiltinType::Float:
+      case BuiltinType::HalfFloat:
         return elemCount == 1 ? spv::ImageFormat::R32f
                               : elemCount == 2 ? spv::ImageFormat::Rg32f
                                                : spv::ImageFormat::Rgba32f;
