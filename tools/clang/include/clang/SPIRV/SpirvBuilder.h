@@ -87,7 +87,7 @@ public:
 
   /// \brief Creates a SPIR-V basic block. On success, returns the <label-id>
   /// for the basic block. On failure, returns zero.
-  SpirvBasicBlock *createBasicBlock(llvm::StringRef name);
+  SpirvBasicBlock *createBasicBlock(llvm::StringRef name = "");
 
   /// \brief Adds the basic block with the given label as a successor to the
   /// current basic block.
