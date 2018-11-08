@@ -10618,8 +10618,8 @@ static Attr* HandleClipPlanes(Sema& S, const AttributeList &A)
 static Attr* HandleUnrollAttribute(Sema& S, const AttributeList &Attr)
 {
   int argValue = ValidateAttributeIntArg(S, Attr);
-  // Default value is 1.
-  if (Attr.getNumArgs() == 0) argValue = 1;
+  // Default value is 0 (full unroll).
+  if (Attr.getNumArgs() == 0) argValue = 0;
   return ::new (S.Context) HLSLUnrollAttr(Attr.getRange(), S.Context,
     argValue, Attr.getAttributeSpellingListIndex());
 }
@@ -12238,7 +12238,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Attr * noconst = const_cast<Attr*>(A);
     HLSLUnrollAttr *ACast = static_cast<HLSLUnrollAttr*>(noconst);
     Indent(Indentation, Out);
-    Out << "[unroll(" << ACast->getCount() << ")]\n";
+    if (ACast->getCount() == 0)
+      Out << "[unroll]\n";
+    else
+      Out << "[unroll(" << ACast->getCount() << ")]\n";
     break;
   }
   
