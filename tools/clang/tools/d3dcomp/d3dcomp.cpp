@@ -271,6 +271,99 @@ BridgeReadFileToBlob(_In_ LPCWSTR pFileName,
   return S_OK;
 }
 
+HRESULT PreprocessFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
+                           const D3D_SHADER_MACRO *pDefines,
+                           IDxcIncludeHandler *pInclude, ID3DBlob **ppCodeText,
+                           ID3DBlob **ppErrorMsgs) {
+  CComPtr<IDxcCompiler> compiler;
+  CComPtr<IDxcOperationResult> operationResult;
+  HRESULT hr;
+
+  try {
+    std::vector<std::wstring> defineValues;
+    std::vector<DxcDefine> defines;
+    if (pDefines) {
+      CONST D3D_SHADER_MACRO *pCursor = pDefines;
+
+      // Convert to UTF-16.
+      while (pCursor->Name) {
+        defineValues.push_back(std::wstring(CA2W(pCursor->Name)));
+        if (pCursor->Definition)
+          defineValues.push_back(std::wstring(CA2W(pCursor->Definition)));
+        else
+          defineValues.push_back(std::wstring());
+        ++pCursor;
+      }
+
+      // Build up array.
+      pCursor = pDefines;
+      size_t i = 0;
+      while (pCursor->Name) {
+        defines.push_back(
+            DxcDefine{defineValues[i++].c_str(), defineValues[i++].c_str()});
+        ++pCursor;
+      }
+    }
+
+    std::vector<LPCWSTR> arguments;
+
+    IFR(CreateCompiler(&compiler));
+    IFR(compiler->Preprocess(pSource, pSourceName, arguments.data(),
+                             (UINT)arguments.size(), defines.data(),
+                             (UINT)defines.size(), pInclude, &operationResult));
+  } catch (const std::bad_alloc &) {
+    return E_OUTOFMEMORY;
+  } catch (const CAtlException &err) {
+    return err.m_hr;
+  }
+
+  operationResult->GetStatus(&hr);
+  if (SUCCEEDED(hr)) {
+    return operationResult->GetResult((IDxcBlob **)ppCodeText);
+  } else {
+    if (ppErrorMsgs)
+      operationResult->GetErrorBuffer((IDxcBlobEncoding **)ppErrorMsgs);
+    return hr;
+  }
+}
+
+HRESULT WINAPI BridgePreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcData,
+                             _In_ SIZE_T SrcDataSize,
+                             _In_opt_ LPCSTR pSourceName,
+                             _In_opt_ const D3D_SHADER_MACRO *pDefines,
+                             _In_opt_ ID3DInclude *pInclude,
+                             _Out_ ID3DBlob **ppCodeText,
+                             _Out_opt_ ID3DBlob **ppErrorMsgs) {
+  CComPtr<IDxcLibrary> library;
+  CComPtr<IDxcBlobEncoding> source;
+  CComPtr<IDxcIncludeHandler> includeHandler;
+
+  *ppCodeText = nullptr;
+  if (ppErrorMsgs != nullptr)
+    *ppErrorMsgs = nullptr;
+
+  IFR(CreateLibrary(&library));
+  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
+                                                CP_ACP, &source));
+
+  // Until we actually wrap the include handler, fail if there's a user-supplied
+  // handler.
+  if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
+    IFT(library->CreateIncludeHandler(&includeHandler));
+  } else if (pInclude) {
+    return E_INVALIDARG;
+  }
+
+  try {
+    CA2W pFileName(pSourceName);
+    return PreprocessFromBlob(source, pFileName, pDefines, includeHandler,
+                              ppCodeText, ppErrorMsgs);
+  } catch (const std::bad_alloc &) {
+    return E_OUTOFMEMORY;
+  } catch (const CAtlException &err) {
+    return err.m_hr;
+  }
+}
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
   BOOL result = TRUE;
