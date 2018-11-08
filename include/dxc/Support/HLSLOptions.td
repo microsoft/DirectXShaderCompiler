@@ -96,8 +96,6 @@ def O2 : Flag<["-", "/"], "O2">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 2">;
 def O3 : Flag<["-", "/"], "O3">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 3 (Default)">;
-def O4 : Flag<["-", "/"], "O4">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-    HelpText<"Optimization Level 4">;
 def Odump : Flag<["-", "/"], "Odump">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
     HelpText<"Print the optimizer commands.">;
 def Qunused_arguments : Flag<["-"], "Qunused-arguments">, Group<hlslcore_Group>, Flags<[CoreOption]>,

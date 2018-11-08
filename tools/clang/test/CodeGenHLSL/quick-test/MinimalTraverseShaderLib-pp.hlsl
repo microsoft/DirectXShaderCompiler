@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -Zi -HV 2017 -O4 -Zpr -default-linkage external %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -Zi -HV 2017 -O3 -Zpr -default-linkage external %s | FileCheck %s
 
 // CHECK: define void @"\01?Fallback_TraceRay
 

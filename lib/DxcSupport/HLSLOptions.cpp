@@ -696,7 +696,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       errors << "-Oconfig should not be specified more than once";
       return 1;
     }
-    if (Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_O4)) {
+    if (Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3)) {
       errors << "-Oconfig should not be used together with -O";
       return 1;
     }
