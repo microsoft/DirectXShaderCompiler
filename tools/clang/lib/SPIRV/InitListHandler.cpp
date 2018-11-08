@@ -21,7 +21,7 @@
 namespace clang {
 namespace spirv {
 
-InitListHandler::InitListHandler(ASTContext &ctx, SPIRVEmitter &emitter)
+InitListHandler::InitListHandler(const ASTContext &ctx, SPIRVEmitter &emitter)
     : astContext(ctx), theEmitter(emitter),
       spvBuilder(emitter.getModuleBuilder()),
       typeTranslator(emitter.getTypeTranslator()),
