@@ -52,9 +52,12 @@ struct LoopAttributes {
   unsigned VectorizerUnroll;
 
   // HLSL Change Begins.
-  /// \brief hlsl [loop] attribute
-  bool     HlslLoop;
-  /// \brief hlsl [unroll] attribute
+  /// \brief hlsl loop unrolling policy based on [loop] and [unroll] attributes
+  enum HlslUnrollPolicyEnum { HlslAllowUnroll, HlslDisableUnroll, HlslForceUnroll };
+
+  /// \brief hlsl unrolling policy
+  HlslUnrollPolicyEnum HlslUnrollPolicy;
+  /// \brief argument to hlsl [unroll] attribute, 0 = full unroll
   unsigned HlslUnrollCount;
   // HLSL Change Ends.
 };
@@ -130,9 +133,14 @@ public:
 
   // HLSL Change Begins
   /// \brief Set the hlsl unroll count for the next loop pushed.
-  void setHlslUnrollCount(unsigned U) { StagedAttrs.HlslUnrollCount = U; }
+  void setHlslUnroll(unsigned U) {
+    StagedAttrs.HlslUnrollPolicy = LoopAttributes::HlslForceUnroll;
+    StagedAttrs.HlslUnrollCount = U;
+  }
   /// \brief Set the hlsl loop for the next loop pushed.
-  void setHlslLoop(bool Enable = true) { StagedAttrs.HlslLoop = Enable; }
+  void setHlslLoop() {
+    StagedAttrs.HlslUnrollPolicy = LoopAttributes::HlslDisableUnroll;
+  }
   // HLSL Chagne Ends
 
 private:

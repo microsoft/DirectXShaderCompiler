@@ -22,7 +22,7 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs) {
 
   if (!Attrs.IsParallel && Attrs.VectorizerWidth == 0 &&
       Attrs.VectorizerUnroll == 0 &&
-      Attrs.HlslLoop == false && // HLSL Change
+      Attrs.HlslUnrollPolicy == LoopAttributes::HlslAllowUnroll && // HLSL Change
       Attrs.HlslUnrollCount == 0 && // HLSL Change
       Attrs.VectorizerEnable == LoopAttributes::VecUnspecified)
     return nullptr;
@@ -59,15 +59,15 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs) {
   }
 
   // HLSL Change Begins.
-  if (Attrs.HlslLoop) {
+  if (Attrs.HlslUnrollPolicy == LoopAttributes::HlslDisableUnroll) {
     // Disable unroll.
     SmallVector<Metadata *, 1> DisableOperands;
     DisableOperands.push_back(MDString::get(Ctx, "llvm.loop.unroll.disable"));
     MDNode *DisableNode = MDNode::get(Ctx, DisableOperands);
     Args.push_back(DisableNode);
   }
-  else if (Attrs.HlslUnrollCount) {
-    if (Attrs.HlslUnrollCount == 1) {
+  else if (Attrs.HlslUnrollPolicy == LoopAttributes::HlslForceUnroll) {
+    if (Attrs.HlslUnrollCount == 0) {
       // Full unroll.
       SmallVector<Metadata *, 1> FullOperands;
       FullOperands.push_back(MDString::get(Ctx, "llvm.loop.unroll.full"));
@@ -91,14 +91,14 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs) {
 LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), VectorizerEnable(LoopAttributes::VecUnspecified),
       VectorizerWidth(0), VectorizerUnroll(0),
-      HlslLoop(false), HlslUnrollCount(0) {} // HLSL Change
+      HlslUnrollPolicy(LoopAttributes::HlslAllowUnroll), HlslUnrollCount(0) {} // HLSL Change
 
 void LoopAttributes::clear() {
   IsParallel = false;
   VectorizerWidth = 0;
   VectorizerUnroll = 0;
   VectorizerEnable = LoopAttributes::VecUnspecified;
-  HlslLoop = false; // HLSL Change
+  HlslUnrollPolicy = LoopAttributes::HlslAllowUnroll; // HLSL Change
   HlslUnrollCount = 0; // HLSL Change
 }
 
@@ -113,11 +113,11 @@ void LoopInfoStack::push(BasicBlock *Header,
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(Attr);
     // HLSL Change Begins
     if (dyn_cast<HLSLLoopAttr>(Attr)) {
-      setHlslLoop(true);
+      setHlslLoop();
     } else if (const HLSLUnrollAttr *UnrollAttr =
                    dyn_cast<HLSLUnrollAttr>(Attr)) {
       unsigned count = UnrollAttr->getCount();
-      setHlslUnrollCount(count);
+      setHlslUnroll(count);
     }
     // HLSL Change Ends
     // Skip non loop hint attributes
