@@ -680,8 +680,8 @@ private:
   /// label for the default basic block through the defaultBB parameter. This
   /// method panics if it finds a case value that is not an integer literal.
   void discoverAllCaseStmtInSwitchStmt(
-      const Stmt *root, uint32_t *defaultBB,
-      std::vector<std::pair<uint32_t, uint32_t>> *targets);
+      const Stmt *root, SpirvBasicBlock **defaultBB,
+      std::vector<std::pair<uint32_t, SpirvBasicBlock *>> *targets);
 
   /// Flattens structured AST of the given switch statement into a vector of AST
   /// nodes and stores into flatSwitch.
@@ -786,8 +786,9 @@ private:
 
   /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
   /// types.
-  SpirvInstruction *processTextureGatherRGBACmpRGBA(const CXXMemberCallExpr *expr,
-                                           bool isCmp, uint32_t component);
+  SpirvInstruction *
+  processTextureGatherRGBACmpRGBA(const CXXMemberCallExpr *expr, bool isCmp,
+                                  uint32_t component);
 
   /// \brief Handles .GatherCmp() calls on texture types.
   SpirvInstruction *processTextureGatherCmp(const CXXMemberCallExpr *expr);
