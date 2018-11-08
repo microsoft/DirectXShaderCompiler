@@ -415,5 +415,13 @@ SpirvContext::getConstantComposite(QualType compositeType,
   return compositeConst;
 }
 
+SpirvConstant *SpirvContext::getConstantNull(const SpirvType *type) {
+  return getConstantNullOfType<const SpirvType *>(type);
+}
+
+SpirvConstant *SpirvContext::getConstantNull(QualType type) {
+  return getConstantNullOfType<QualType>(type);
+}
+
 } // end namespace spirv
 } // end namespace clang
