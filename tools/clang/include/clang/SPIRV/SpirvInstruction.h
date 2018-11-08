@@ -1088,6 +1088,7 @@ private:
 class SpirvConstantNull : public SpirvConstant {
 public:
   SpirvConstantNull(const SpirvType *type);
+  SpirvConstantNull(QualType type);
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
 
