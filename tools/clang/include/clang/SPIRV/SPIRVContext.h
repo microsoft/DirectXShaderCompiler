@@ -224,6 +224,9 @@ public:
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
 
+  SpirvConstant *getConstantNull(const SpirvType *);
+  SpirvConstant *getConstantNull(QualType);
+
 private:
   template <class T>
   SpirvConstant *getConstantInt(T value, bool isSigned, uint32_t bitwidth,
@@ -266,6 +269,23 @@ private:
         new (this) SpirvConstantFloat(floatType, value, specConst);
     floatConstants.push_back(floatConst);
     return floatConst;
+  }
+
+  template <class T> SpirvConstant *getConstantNullOfType(T type) {
+    SpirvConstantNull tempConstant(type);
+    auto found =
+        std::find_if(nullConstants.begin(), nullConstants.end(),
+                     [&tempConstant](SpirvConstantNull *cachedConstant) {
+                       return tempConstant == *cachedConstant;
+                     });
+
+    if (found != nullConstants.end())
+      return *found;
+
+    // Couldn't find the constant. Create one.
+    auto *nullConst = new (this) SpirvConstantNull(type);
+    nullConstants.push_back(nullConst);
+    return nullConst;
   }
 
 private:
@@ -327,6 +347,7 @@ private:
   SpirvConstantBoolean *boolFalseConstant;
   SpirvConstantBoolean *boolTrueSpecConstant;
   SpirvConstantBoolean *boolFalseSpecConstant;
+  llvm::SmallVector<SpirvConstantNull *, 8> nullConstants;
 };
 
 } // end namespace spirv
