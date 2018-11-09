@@ -1087,37 +1087,39 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   // We are about to start translation for a new function. Clear the break stack
   // and the continue stack.
-  breakStack = std::stack<uint32_t>();
-  continueStack = std::stack<uint32_t>();
+  breakStack = std::stack<SpirvBasicBlock *>();
+  continueStack = std::stack<SpirvBasicBlock *>();
 
   // This will allow the entry-point name to be something like
   // myNamespace::myEntrypointFunc.
   std::string funcName = getFnName(decl);
 
-  uint32_t funcId = 0;
+  SpirvFunction *func = nullptr;
 
   if (funcName == entryFunctionName) {
     // The entry function surely does not have pre-assigned <result-id> for
     // it like other functions that got added to the work queue following
     // function calls.
-    funcId = theContext.takeNextId();
+    func = declIdMapper.getOrRegisterFn(decl);
     funcName = "src." + funcName;
 
     // Create wrapper for the entry function
-    if (!emitEntryFunctionWrapper(decl, funcId))
+    if (!emitEntryFunctionWrapper(decl, func))
       return;
   } else {
     // Non-entry functions are added to the work queue following function
     // calls. We have already assigned <result-id>s for it when translating
     // its call site. Query it here.
-    funcId = declIdMapper.getDeclEvalInfo(decl);
+    // TODO(ehsan): just call getOrRegisterFn in both cases.
+    func = declIdMapper.getOrRegisterFn(decl);
+    // funcId = declIdMapper.getDeclEvalInfo(decl);
   }
 
-  const uint32_t retType =
+  const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
   // Construct the function signature.
-  llvm::SmallVector<uint32_t, 4> paramTypes;
+  llvm::SmallVector<const SpirvType *, 4> paramTypes;
 
   bool isNonStaticMemberFn = false;
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
@@ -1126,29 +1128,29 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     if (isNonStaticMemberFn) {
       // For non-static member function, the first parameter should be the
       // object on which we are invoking this method.
-      const uint32_t valueType = typeTranslator.translateType(
-          memberFn->getThisType(astContext)->getPointeeType());
-      const uint32_t ptrType =
-          theBuilder.getPointerType(valueType, spv::StorageClass::Function);
+      const QualType valueType =
+          memberFn->getThisType(astContext)->getPointeeType();
+      const SpirvType *ptrType =
+          spvContext.getPointerType(valueType, spv::StorageClass::Function);
       paramTypes.push_back(ptrType);
     }
   }
 
   for (const auto *param : decl->params()) {
-    const uint32_t valueType =
+    const QualType valueType =
         declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
-    const uint32_t ptrType =
-        theBuilder.getPointerType(valueType, spv::StorageClass::Function);
+    const SpirvType *ptrType =
+        spvContext.getPointerType(valueType, spv::StorageClass::Function);
     paramTypes.push_back(ptrType);
   }
 
-  const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
-  theBuilder.beginFunction(funcType, retType, funcName, funcId);
+  const auto *funcType = spvContext.getFunctionType(retType, paramTypes);
+  spvBuilder.beginFunction(retType, funcType, decl->getLocation(), funcName);
 
   if (isNonStaticMemberFn) {
     // Remember the parameter for the this object so later we can handle
     // CXXThisExpr correctly.
-    curThis = theBuilder.addFnParam(paramTypes[0], "param.this");
+    curThis = spvBuilder.addFnParam(paramTypes[0], "param.this");
   }
 
   // Create all parameters.
@@ -1159,25 +1161,24 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   if (decl->hasBody()) {
     // The entry basic block.
-    const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
-    theBuilder.setInsertPoint(entryLabel);
+    auto *entryLabel = spvBuilder.createBasicBlock("bb.entry");
+    spvBuilder.setInsertPoint(entryLabel);
 
     // Process all statments in the body.
     doStmt(decl->getBody());
 
     // We have processed all Stmts in this function and now in the last
     // basic block. Make sure we have a termination instruction.
-    if (!theBuilder.isCurrentBasicBlockTerminated()) {
+    if (!spvBuilder.isCurrentBasicBlockTerminated()) {
       const auto retType = decl->getReturnType();
 
       if (retType->isVoidType()) {
-        theBuilder.createReturn();
+        spvBuilder.createReturn();
       } else {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
         // value here.
-        theBuilder.createReturnValue(
-            theBuilder.getConstantNull(typeTranslator.translateType(retType)));
+        spvBuilder.createReturnValue(spvContext.getConstantNull(retType));
       }
     }
   }
@@ -6774,7 +6775,8 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 #undef INTRINSIC_OP_CASE
 #undef INTRINSIC_OP_CASE_INT_FLOAT
 
-  return SpirvEvalInfo(retVal).setRValue();
+  retVal->setRValue();
+  return retVal;
 }
 
 SpirvInstruction *
@@ -9385,13 +9387,15 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
 }
 
 bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
-                                            const uint32_t entryFuncId) {
+                                            SpirvFunction *entryFuncInstr) {
   // HS specific attributes
   uint32_t numOutputControlPoints = 0;
-  uint32_t outputControlPointIdVal = 0; // SV_OutputControlPointID value
-  uint32_t primitiveIdVar = 0;          // SV_PrimitiveID variable
-  uint32_t viewIdVar = 0;               // SV_ViewID variable
-  uint32_t hullMainInputPatchParam = 0; // Temporary parameter for InputPatch<>
+  SpirvInstruction *outputControlPointIdVal =
+      nullptr;                                // SV_OutputControlPointID value
+  SpirvInstruction *primitiveIdVar = nullptr; // SV_PrimitiveID variable
+  SpirvInstruction *viewIdVar = nullptr;      // SV_ViewID variable
+  SpirvInstruction *hullMainInputPatchParam =
+      nullptr; // Temporary parameter for InputPatch<>
 
   // The array size of per-vertex input/output variables
   // Used by HS/DS/GS for the additional arrayness, zero means not an array.
@@ -9399,14 +9403,14 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   uint32_t outputArraySize = 0;
 
   // Construct the wrapper function signature.
-  const uint32_t voidType = theBuilder.getVoidType();
-  const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
+  const SpirvType *voidType = spvContext.getVoidType();
+  const FunctionType *funcType = spvContext.getFunctionType(voidType, {});
 
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
   entryFunction = spvBuilder.beginFunction(
-      astContext.VoidTy, /*SourceLocation*/ {}, decl->getName());
+      astContext.VoidTy, funcType, /*SourceLocation*/ {}, decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
@@ -9487,8 +9491,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   declIdMapper.glPerVertex.requireCapabilityIfNecessary();
 
   // The entry basic block.
-  const uint32_t entryLabel = theBuilder.createBasicBlock();
-  theBuilder.setInsertPoint(entryLabel);
+  auto *entryLabel = spvBuilder.createBasicBlock();
+  spvBuilder.setInsertPoint(entryLabel);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -9502,18 +9506,19 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // If not explicitly initialized, initialize with their zero values if not
     // resource objects
     else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
-      const auto typeId = typeTranslator.translateType(varDecl->getType());
-      theBuilder.createStore(varInfo, theBuilder.getConstantNull(typeId));
+      const QualType type = varDecl->getType();
+      auto *nullValue = spvContext.getConstantNull(varDecl->getType());
+      spvBuilder.createStore(varInfo, nullValue);
     }
   }
 
   // Create temporary variables for holding function call arguments
-  llvm::SmallVector<uint32_t, 4> params;
+  llvm::SmallVector<SpirvInstruction *, 4> params;
   for (const auto *param : decl->params()) {
     const auto paramType = param->getType();
-    const uint32_t typeId = typeTranslator.translateType(paramType);
     std::string tempVarName = "param.var." + param->getNameAsString();
-    const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
+    auto *tempVar =
+        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName);
 
     params.push_back(tempVar);
 
@@ -9528,14 +9533,14 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
         hullMainInputPatchParam = tempVar;
       }
 
-      uint32_t loadedValue = 0;
+      SpirvInstruction *loadedValue = nullptr;
 
       if (!declIdMapper.createStageInputVar(param, &loadedValue, false))
         return false;
 
       // Only initialize the temporary variable if the parameter is indeed used.
       if (param->isUsed()) {
-        theBuilder.createStore(tempVar, loadedValue);
+        spvBuilder.createStore(tempVar, loadedValue);
       }
 
       // Record the temporary variable holding SV_OutputControlPointID,
@@ -9551,9 +9556,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   }
 
   // Call the original entry function
-  const uint32_t retType = typeTranslator.translateType(decl->getReturnType());
-  const uint32_t retVal =
-      theBuilder.createFunctionCall(retType, entryFuncId, params);
+  const QualType retType = decl->getReturnType();
+  auto *retVal = spvBuilder.createFunctionCall(retType, entryFuncInstr, params);
 
   // Create and write stage output variables for return value. Special case for
   // Hull shaders since they operate differently in 2 ways:
@@ -9582,8 +9586,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     const auto *param = decl->getParamDecl(i);
     if (canActAsOutParmVar(param)) {
       // Load the value from the parameter after function call
-      const uint32_t typeId = typeTranslator.translateType(param->getType());
-      uint32_t loadedParam = 0;
+      SpirvInstruction *loadedParam = nullptr;
 
       // No need to write back the value if the parameter is not used at all in
       // the original entry function.
@@ -9592,15 +9595,15 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       // .Append() intrinsic method. No need to load the parameter since we
       // won't need to write back here.
       if (param->isUsed() && !shaderModel.IsGS())
-        loadedParam = theBuilder.createLoad(typeId, params[i]);
+        loadedParam = spvBuilder.createLoad(param->getType(), params[i]);
 
       if (!declIdMapper.createStageOutputVar(param, loadedParam, false))
         return false;
     }
   }
 
-  theBuilder.createReturn();
-  theBuilder.endFunction();
+  spvBuilder.createReturn();
+  spvBuilder.endFunction();
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
   // We should invoke a translation of the PCF manually.
@@ -9611,9 +9614,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 }
 
 bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
-    const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
-    uint32_t numOutputControlPoints, uint32_t outputControlPointId,
-    uint32_t primitiveId, uint32_t viewId, uint32_t hullMainInputPatch) {
+    const FunctionDecl *hullMainFuncDecl, QualType retType,
+    SpirvInstruction *retVal, uint32_t numOutputControlPoints,
+    SpirvInstruction *outputControlPointId, SpirvInstruction *primitiveId,
+    SpirvInstruction *viewId, SpirvInstruction *hullMainInputPatch) {
   // This method may only be called for Hull shaders.
   assert(shaderModel.IsHS());
 
@@ -9639,19 +9643,21 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
     return false;
   }
 
-  uint32_t hullMainOutputPatch = 0;
+  SpirvInstruction *hullMainOutputPatch = nullptr;
   // If the patch constant function (PCF) takes the result of the Hull main
   // entry point, create a temporary function-scope variable and write the
   // results to it, so it can be passed to the PCF.
   if (patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
-    const uint32_t hullMainRetType = theBuilder.getArrayType(
-        retType, theBuilder.getConstantUint32(numOutputControlPoints));
-    hullMainOutputPatch =
-        theBuilder.addFnVar(hullMainRetType, "temp.var.hullMainRetVal");
-    const auto tempLocation = theBuilder.createAccessChain(
-        theBuilder.getPointerType(retType, spv::StorageClass::Function),
-        hullMainOutputPatch, {outputControlPointId});
-    theBuilder.createStore(tempLocation, retVal);
+    // ehsan was here.
+    const QualType hullMainRetType = astContext.getConstantArrayType(
+        retType, llvm::APInt(32, numOutputControlPoints),
+        clang::ArrayType::Normal, 0);
+    hullMainOutputPatch = spvBuilder.addFnVar(
+        hullMainRetType, /*SourceLocation*/ {}, "temp.var.hullMainRetVal");
+    // Note (ehsan): Using value type rather than pointer type in access chain.
+    auto *tempLocation = spvBuilder.createAccessChain(
+        retType, hullMainOutputPatch, {outputControlPointId});
+    spvBuilder.createStore(tempLocation, retVal);
   }
 
   // Now create a barrier before calling the Patch Constant Function (PCF).
@@ -9659,32 +9665,30 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
   // Execution Barrier scope = Workgroup (2)
   // Memory Barrier scope = Invocation (4)
   // Memory Semantics Barrier scope = None (0)
-  const auto constZero = theBuilder.getConstantUint32(0);
-  const auto constFour = theBuilder.getConstantUint32(4);
-  const auto constTwo = theBuilder.getConstantUint32(2);
-  theBuilder.createBarrier(constTwo, constFour, constZero);
+  spvBuilder.createBarrier(spv::Scope::Invocation,
+                           spv::MemorySemanticsMask::MaskNone,
+                           spv::Scope::Workgroup);
 
   // The PCF should be called only once. Therefore, we check the invocationID,
   // and we only allow ID 0 to call the PCF.
-  const uint32_t condition = theBuilder.createBinaryOp(
-      spv::Op::OpIEqual, theBuilder.getBoolType(), outputControlPointId,
-      theBuilder.getConstantUint32(0));
-  const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
-  const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
-  theBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
-  theBuilder.addSuccessor(thenBB);
-  theBuilder.addSuccessor(mergeBB);
-  theBuilder.setMergeTarget(mergeBB);
+  auto *condition = spvBuilder.createBinaryOp(
+      spv::Op::OpIEqual, astContext.BoolTy, outputControlPointId,
+      spvContext.getConstantUint32(0));
+  auto *thenBB = spvBuilder.createBasicBlock("if.true");
+  auto *mergeBB = spvBuilder.createBasicBlock("if.merge");
+  spvBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  spvBuilder.addSuccessor(thenBB);
+  spvBuilder.addSuccessor(mergeBB);
+  spvBuilder.setMergeTarget(mergeBB);
 
-  theBuilder.setInsertPoint(thenBB);
+  spvBuilder.setInsertPoint(thenBB);
 
   // Call the PCF. Since the function is not explicitly called, we must first
   // register an ID for it.
-  const uint32_t pcfId = declIdMapper.getOrRegisterFnResultId(patchConstFunc);
-  const uint32_t pcfRetType =
-      typeTranslator.translateType(patchConstFunc->getReturnType());
+  SpirvFunction *pcfId = declIdMapper.getOrRegisterFn(patchConstFunc);
+  const QualType pcfRetType = patchConstFunc->getReturnType();
 
-  std::vector<uint32_t> pcfParams;
+  std::vector<SpirvInstruction *> pcfParams;
 
   // A lambda for creating a stage input variable and its associated temporary
   // variable for function call. Also initializes the temporary variable using
@@ -9692,12 +9696,13 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
   // of the temporary variable.
   const auto createParmVarAndInitFromStageInputVar =
       [this](const ParmVarDecl *param) {
-        const uint32_t typeId = typeTranslator.translateType(param->getType());
+        const QualType type = param->getType();
         std::string tempVarName = "param.var." + param->getNameAsString();
-        const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
-        uint32_t loadedValue = 0;
+        auto *tempVar =
+            spvBuilder.addFnVar(type, param->getLocation(), tempVarName);
+        SpirvInstruction *loadedValue = nullptr;
         declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
-        theBuilder.createStore(tempVar, loadedValue);
+        spvBuilder.createStore(tempVar, loadedValue);
         return tempVar;
       };
 
@@ -9726,15 +9731,15 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
           << param->getName();
     }
   }
-  const uint32_t pcfResultId =
-      theBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
+  auto *pcfResultId =
+      spvBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
   if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
                                          /*forPCF*/ true))
     return false;
 
-  theBuilder.createBranch(mergeBB);
-  theBuilder.addSuccessor(mergeBB);
-  theBuilder.setInsertPoint(mergeBB);
+  spvBuilder.createBranch(mergeBB);
+  spvBuilder.addSuccessor(mergeBB);
+  spvBuilder.setInsertPoint(mergeBB);
   return true;
 }
 

@@ -24,8 +24,9 @@ class SpirvVisitor;
 /// The class representing a SPIR-V function in memory.
 class SpirvFunction {
 public:
-  SpirvFunction(QualType type, uint32_t id, spv::FunctionControlMask,
-                SourceLocation, llvm::StringRef name = "");
+  SpirvFunction(QualType returnType, const SpirvType *fnSpirvType, uint32_t id,
+                spv::FunctionControlMask, SourceLocation,
+                llvm::StringRef name = "");
   ~SpirvFunction() = default;
 
   // Forbid copy construction and assignment
@@ -59,7 +60,7 @@ public:
   // Sets the SPIR-V type of the function
   void setFunctionType(FunctionType *type) { fnType = type; }
   // Returns the SPIR-V type of the function
-  FunctionType *getFunctionType() const { return fnType; }
+  const FunctionType *getFunctionType() const { return fnType; }
 
   // Sets the result-id of the OpTypeFunction
   void setFunctionTypeId(uint32_t id) { fnTypeId = id; }
@@ -86,8 +87,8 @@ private:
   SpirvType *returnType;  ///< The lowered return type
   uint32_t returnTypeId;  ///< result-id for the return type
 
-  FunctionType *fnType; ///< The SPIR-V function type
-  uint32_t fnTypeId;    ///< result-id for the SPIR-V function type
+  const SpirvType *fnType; ///< The SPIR-V function type
+  uint32_t fnTypeId;       ///< result-id for the SPIR-V function type
 
   bool containsAlias; ///< Whether function return type is aliased
   bool rvalue;        ///< Whether the return value is an rvalue
