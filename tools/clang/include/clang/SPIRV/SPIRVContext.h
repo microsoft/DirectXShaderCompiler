@@ -202,9 +202,12 @@ public:
 
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
+  const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
 
   const FunctionType *getFunctionType(const SpirvType *ret,
                                       llvm::ArrayRef<const SpirvType *> param);
+  const HybridFunctionType *
+  getFunctionType(QualType ret, llvm::ArrayRef<const SpirvType *> param);
 
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
@@ -316,6 +319,9 @@ private:
   using SCToPtrTyMap =
       llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
                      StorageClassDenseMapInfo>;
+  using SCToHybridPtrTyMap =
+      llvm::DenseMap<spv::StorageClass, const HybridPointerType *,
+                     StorageClassDenseMapInfo>;
 
   // Vector/matrix types for each possible element count.
   // Type at index is for vector of index components. Index 0/1 is unused.
@@ -334,8 +340,10 @@ private:
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
 
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
+  llvm::DenseMap<QualType, SCToHybridPtrTyMap> hybridPointerTypes;
 
   llvm::SmallVector<const FunctionType *, 8> functionTypes;
+  llvm::SmallVector<const HybridFunctionType *, 8> hybridFunctionTypes;
 
   // Unique constants
   // We currently do a linear search to find an existing constant (if any). This

@@ -628,7 +628,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
-                                uint32_t entryFuncId);
+                                SpirvFunction *entryFuncId);
 
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
@@ -652,12 +652,11 @@ private:
   ///
   /// The method panics if it is called for any shader kind other than Hull
   /// shaders.
-  bool processHSEntryPointOutputAndPCF(const FunctionDecl *hullMainFuncDecl,
-                                       uint32_t retType, uint32_t retVal,
-                                       uint32_t numOutputControlPoints,
-                                       uint32_t outputControlPointId,
-                                       uint32_t primitiveId, uint32_t viewId,
-                                       uint32_t hullMainInputPatch);
+  bool processHSEntryPointOutputAndPCF(
+      const FunctionDecl *hullMainFuncDecl, QualType retType,
+      SpirvInstruction *retVal, uint32_t numOutputControlPoints,
+      SpirvInstruction *outputControlPointId, SpirvInstruction *primitiveId,
+      SpirvInstruction *viewId, SpirvInstruction *hullMainInputPatch);
 
 private:
   /// \brief Returns true iff *all* the case values in the given switch
