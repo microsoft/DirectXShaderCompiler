@@ -2190,8 +2190,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     AddGlobalAnnotations(D, GV);
 
   // HLSL Change Begins.
-  if (!D->isExternallyVisible() || D->isStaticDataMember())
-    GV->setInitializer(Init); // $Globals cbuffer entries need no initialization
+  if (!getLangOpts().HLSL || !D->isExternallyVisible())
+    GV->setInitializer(Init); // Resources and $Globals are not initialized
   // HLSL Change Ends.
 
   // If it is safe to mark the global 'constant', do so now.
@@ -2218,6 +2218,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   if (!D->isStaticLocal() && D->getTLSKind() == VarDecl::TLS_Dynamic &&
       Context.getTargetInfo().getTriple().isMacOSX())
     Linkage = llvm::GlobalValue::InternalLinkage;
+
+  // HLSL Change Begins.
+  if (getLangOpts().HLSL && D->isExternallyVisible())
+    Linkage = llvm::GlobalValue::ExternalLinkage; //Resources and $Globals have no definition
+  // HLSL Change Ends.
 
   GV->setLinkage(Linkage);
   if (D->hasAttr<DLLImportAttr>())
