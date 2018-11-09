@@ -2189,7 +2189,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, GV);
 
-  GV->setInitializer(Init);
+  // HLSL Change Begins.
+  if (!D->isExternallyVisible() || D->isStaticDataMember())
+    GV->setInitializer(Init); // $Globals cbuffer entries need no initialization
+  // HLSL Change Ends.
 
   // If it is safe to mark the global 'constant', do so now.
   GV->setConstant(!NeedsGlobalCtor && !NeedsGlobalDtor &&
