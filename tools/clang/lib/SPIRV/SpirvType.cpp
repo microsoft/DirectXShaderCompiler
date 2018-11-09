@@ -71,7 +71,7 @@ bool StructType::operator==(const StructType &that) const {
 HybridStructType::HybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fieldsVec, llvm::StringRef name,
     bool isReadOnly, HybridStructType::InterfaceType iface)
-    : SpirvType(TK_HybridStruct), fields(fieldsVec.begin(), fieldsVec.end()),
+    : HybridType(TK_HybridStruct), fields(fieldsVec.begin(), fieldsVec.end()),
       structName(name), readOnly(isReadOnly), interfaceType(iface) {}
 
 bool HybridStructType::FieldInfo::

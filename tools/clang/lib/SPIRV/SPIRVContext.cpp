@@ -290,6 +290,22 @@ const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
   return pointerTypes[pointee][sc] = new (this) SpirvPointerType(pointee, sc);
 }
 
+const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
+                                                      spv::StorageClass sc) {
+  auto foundPointee = hybridPointerTypes.find(pointee);
+
+  if (foundPointee != hybridPointerTypes.end()) {
+    auto &pointeeMap = foundPointee->second;
+    auto foundSC = pointeeMap.find(sc);
+
+    if (foundSC != pointeeMap.end())
+      return foundSC->second;
+  }
+
+  return hybridPointerTypes[pointee][sc] =
+             new (this) HybridPointerType(pointee, sc);
+}
+
 const FunctionType *
 SpirvContext::getFunctionType(const SpirvType *ret,
                               llvm::ArrayRef<const SpirvType *> param) {
@@ -306,6 +322,26 @@ SpirvContext::getFunctionType(const SpirvType *ret,
   functionTypes.push_back(new (this) FunctionType(ret, param));
 
   return functionTypes.back();
+}
+
+const HybridFunctionType *
+SpirvContext::getFunctionType(QualType ret,
+                              llvm::ArrayRef<const SpirvType *> param) {
+  // Create a temporary object for finding in the vector.
+  HybridFunctionType type(ret, param);
+
+  auto found =
+      std::find_if(hybridFunctionTypes.begin(), hybridFunctionTypes.end(),
+                   [&type](const HybridFunctionType *cachedType) {
+                     return type == *cachedType;
+                   });
+
+  if (found != hybridFunctionTypes.end())
+    return *found;
+
+  hybridFunctionTypes.push_back(new (this) HybridFunctionType(ret, param));
+
+  return hybridFunctionTypes.back();
 }
 
 const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {

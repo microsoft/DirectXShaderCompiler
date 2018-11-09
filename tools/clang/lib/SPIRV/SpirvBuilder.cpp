@@ -21,20 +21,24 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
+                                           const SpirvType *functionType,
                                            SourceLocation loc,
                                            llvm::StringRef funcName) {
   assert(!function && "found nested function");
-  function = new (context) SpirvFunction(
-      returnType, /*id*/ 0, spv::FunctionControlMask::MaskNone, loc, funcName);
+  function = new (context)
+      SpirvFunction(returnType, functionType, /*id*/ 0,
+                    spv::FunctionControlMask::MaskNone, loc, funcName);
   return function;
 }
 
 SpirvFunction *SpirvBuilder::createFunction(QualType returnType,
+                                            const SpirvType *functionType,
                                             SourceLocation loc,
                                             llvm::StringRef funcName,
                                             bool isAlias) {
-  function = new (context) SpirvFunction(
-      returnType, /*id*/ 0, spv::FunctionControlMask::MaskNone, loc, funcName);
+  SpirvFunction *fn = new (context)
+      SpirvFunction(returnType, functionType, /*id*/ 0,
+                    spv::FunctionControlMask::MaskNone, loc, funcName);
   function->setConstainsAliasComponent(isAlias);
   module->addFunction(function);
   return function;
@@ -45,6 +49,18 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  llvm::StringRef name) {
   assert(function && "found detached parameter");
   auto *param = new (context) SpirvFunctionParameter(ptrType, /*id*/ 0, loc);
+  param->setDebugName(name);
+  function->addParameter(param);
+  return param;
+}
+
+SpirvFunctionParameter *SpirvBuilder::addFnParam(const SpirvType *ptrType,
+                                                 SourceLocation loc,
+                                                 llvm::StringRef name) {
+  assert(function && "found detached parameter");
+  auto *param =
+      new (context) SpirvFunctionParameter(/*QualType*/ {}, /*id*/ 0, loc);
+  param->setResultType(ptrType);
   param->setDebugName(name);
   function->addParameter(param);
   return param;
