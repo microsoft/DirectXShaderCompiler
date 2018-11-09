@@ -39,8 +39,7 @@ void DxilResource::SetCompType(const CompType CT) {
 }
 
 Type *DxilResource::GetRetType() const {
-  Constant *GV = GetGlobalSymbol();
-  Type *Ty = GV->getType()->getPointerElementType();
+  Type *Ty = GetGlobalSymbol()->getType()->getPointerElementType();
   // For resource array, use element type.
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();

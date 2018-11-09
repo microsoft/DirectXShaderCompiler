@@ -237,26 +237,11 @@ void HLModule::RemoveFunction(llvm::Function *F) {
 }
 
 template <typename TResource>
-bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable) {
+bool RemoveResourceSymbol(std::vector<std::unique_ptr<TResource>> &vec,
+                          GlobalVariable *pVariable) {
   for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
     if ((*p)->GetGlobalSymbol() == pVariable) {
-      p = vec.erase(p);
-      // Update ID.
-      for (e = vec.end();p != e; ++p) {
-        unsigned ID = (*p)->GetID()-1;
-        (*p)->SetID(ID);
-      }
-      return true;
-    }
-  }
-  return false;
-}
-bool RemoveResource(std::vector<GlobalVariable *> &vec,
-                    llvm::GlobalVariable *pVariable) {
-  for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
-    if (*p == pVariable) {
-      vec.erase(p);
+      (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
       return true;
     }
   }
@@ -264,29 +249,19 @@ bool RemoveResource(std::vector<GlobalVariable *> &vec,
 }
 
 void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
-  RemoveResources(&GV, 1);
-}
-
-void HLModule::RemoveResources(llvm::GlobalVariable **ppVariables,
-                               unsigned count) {
-  DXASSERT_NOMSG(count == 0 || ppVariables != nullptr);
-  unsigned resourcesRemoved = count;
-  for (unsigned i = 0; i < count; ++i) {
-    GlobalVariable *pVariable = ppVariables[i];
-    // This could be considerably faster - check variable type to see which
-    // resource type this is rather than scanning all lists, and look for
-    // usage and removal patterns.
-    if (RemoveResource(m_CBuffers, pVariable))
-      continue;
-    if (RemoveResource(m_SRVs, pVariable))
-      continue;
-    if (RemoveResource(m_UAVs, pVariable))
-      continue;
-    if (RemoveResource(m_Samplers, pVariable))
-      continue;
-    // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
-    --resourcesRemoved; // Global variable is not a resource?
-  }
+  DXASSERT_NOMSG(GV != nullptr);
+  // This could be considerably faster - check variable type to see which
+  // resource type this is rather than scanning all lists, and look for
+  // usage and removal patterns.
+  if (RemoveResourceSymbol(m_CBuffers, GV))
+    return;
+  if (RemoveResourceSymbol(m_SRVs, GV))
+    return;
+  if (RemoveResourceSymbol(m_UAVs, GV))
+    return;
+  if (RemoveResourceSymbol(m_Samplers, GV))
+    return;
+  // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }
 
 HLModule::tgsm_iterator HLModule::tgsm_begin() {

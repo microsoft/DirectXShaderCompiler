@@ -98,6 +98,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_bDisableOptimizations(false)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bAllResourcesBound(false)
+, m_IntermediateFlags(0)
 , m_AutoBindingSpace(UINT_MAX)
 , m_pSubobjects(nullptr)
 {
@@ -481,6 +482,19 @@ bool DxilModule::GetAllResourcesBound() const {
   return m_bAllResourcesBound;
 }
 
+void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
+  m_IntermediateFlags &= ~LegacyResourceReservation;
+  if (legacyResourceReservation) m_IntermediateFlags |= LegacyResourceReservation;
+}
+
+bool DxilModule::GetLegacyResourceReservation() const {
+  return (m_IntermediateFlags & LegacyResourceReservation) != 0;
+}
+
+void DxilModule::ClearIntermediateOptions() {
+  m_IntermediateFlags = 0;
+}
+
 unsigned DxilModule::GetInputControlPointCount() const {
   if (!(m_pSM->IsHS() || m_pSM->IsDS()))
     return 0;
@@ -850,11 +864,12 @@ static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) 
   unsigned resID = 0;
   for (auto p = vec.begin(); p != vec.end();) {
     auto c = p++;
-    GlobalVariable *GV = cast<GlobalVariable>((*c)->GetGlobalSymbol());
-    GV->removeDeadConstantUsers();
-    if (GV->user_empty()) {
+    Constant *symbol = (*c)->GetGlobalSymbol();
+    symbol->removeDeadConstantUsers();
+    if (symbol->user_empty()) {
       p = vec.erase(c);
-      GV->eraseFromParent();
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
+        GV->eraseFromParent();
       continue;
     }
     if ((*c)->GetID() != resID) {
@@ -1122,6 +1137,7 @@ void DxilModule::ClearDxilMetadata(Module &M) {
       name == DxilMDHelper::kDxilShaderModelMDName ||
       name == DxilMDHelper::kDxilEntryPointsMDName ||
       name == DxilMDHelper::kDxilRootSignatureMDName ||
+      name == DxilMDHelper::kDxilIntermediateOptionsMDName ||
       name == DxilMDHelper::kDxilResourcesMDName ||
       name == DxilMDHelper::kDxilTypeSystemMDName ||
       name == DxilMDHelper::kDxilViewIdStateMDName ||
@@ -1139,6 +1155,7 @@ void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
+  m_pMDHelper->EmitDxilIntermediateOptions(m_IntermediateFlags);
 
   MDTuple *pMDProperties = nullptr;
   uint64_t flag = m_ShaderFlags.GetShaderFlagsRaw();
@@ -1218,6 +1235,7 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
   m_pMDHelper->LoadDxilShaderModel(loadedSM);
+  m_pMDHelper->LoadDxilIntermediateOptions(m_IntermediateFlags);
 
   // This must be set before LoadDxilEntryProperties
   m_pMDHelper->SetShaderModel(loadedSM);
@@ -1242,15 +1260,8 @@ void DxilModule::LoadDxilMetadata() {
   uint64_t rawShaderFlags = 0;
   DxilFunctionProps entryFuncProps;
   entryFuncProps.shaderKind = loadedSM->GetKind();
-  if (loadedSM->IsLib()) {
-    // Get rawShaderFlags and m_AutoBindingSpace; entryFuncProps unused.
-    m_pMDHelper->LoadDxilEntryProperties(*pEntryProperties, rawShaderFlags,
-                                         entryFuncProps, m_AutoBindingSpace);
-  }
-  else {
-    m_pMDHelper->LoadDxilEntryProperties(*pEntryProperties, rawShaderFlags,
-                                         entryFuncProps, m_AutoBindingSpace);
-  }
+  m_pMDHelper->LoadDxilEntryProperties(*pEntryProperties, rawShaderFlags,
+                                       entryFuncProps, m_AutoBindingSpace);
 
   m_bUseMinPrecision = true;
   if (rawShaderFlags) {

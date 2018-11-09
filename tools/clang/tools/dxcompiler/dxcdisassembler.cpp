@@ -877,8 +877,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   llvm::Type *RetTy = buf->GetRetType();
   // Skip none struct type.
   if (!RetTy->isStructTy() || HLMatrixLower::IsMatrixType(RetTy)) {
-    Value *GV = buf->GetGlobalSymbol();
-    llvm::Type *Ty = GV->getType()->getPointerElementType();
+    llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
     // For resource array, use element type.
     if (Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
@@ -919,8 +918,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
 void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
                                    raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
-  Value *GV = buf->GetGlobalSymbol();
-  llvm::Type *Ty = GV->getType()->getPointerElementType();
+  llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
   // For TextureBuffer<> buf[2], the array size is in Resource binding count
   // part.
   if (Ty->isArrayTy())
@@ -946,8 +944,7 @@ void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
 void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
                                    raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
-  Value *GV = buf->GetGlobalSymbol();
-  llvm::Type *Ty = GV->getType()->getPointerElementType();
+  llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
   if (Ty->isArrayTy())

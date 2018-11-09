@@ -65,9 +65,10 @@ public:
   TEST_METHOD(OptimizerWhenSlice1ThenOK)
   TEST_METHOD(OptimizerWhenSlice2ThenOK)
   TEST_METHOD(OptimizerWhenSlice3ThenOK)
+  TEST_METHOD(OptimizerWhenSliceWithIntermediateOptionsThenOK)
 
   void OptimizerWhenSliceNThenOK(int optLevel);
-  void OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWSTR pTarget);
+  void OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -106,6 +107,19 @@ TEST_F(OptimizerTest, OptimizerWhenSlice1ThenOK) { OptimizerWhenSliceNThenOK(1);
 TEST_F(OptimizerTest, OptimizerWhenSlice2ThenOK) { OptimizerWhenSliceNThenOK(2); }
 TEST_F(OptimizerTest, OptimizerWhenSlice3ThenOK) { OptimizerWhenSliceNThenOK(3); }
 
+TEST_F(OptimizerTest, OptimizerWhenSliceWithIntermediateOptionsThenOK) {
+  // The program below working depends on the LegacyResourceReservation option being
+  // carried through to the resource register allocator, even though it is not
+  // preserved in the final shader.
+  LPCWSTR SampleProgram =
+    L"Texture2D tex0 : register(t0);\r\n"
+    L"Texture2D tex1;\r\n" // tex1 should get register t1
+    L"float4 main() : SV_Target {\r\n"
+    L"  return tex1.Load((int3)0);\r\n"
+    L"}";
+  OptimizerWhenSliceNThenOK(1, SampleProgram, L"ps_6_0", { L"-flegacy_resource_reservation" });
+}
+
 void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {
   LPCWSTR SampleProgram =
     L"Texture2D g_Tex;\r\n"
@@ -138,7 +152,7 @@ static void ExtractFunctionPasses(std::vector<LPCWSTR> &passes, std::vector<LPCW
   passes.erase(firstPass, lastPass);
 }
 
-void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWSTR pTarget) {
+void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOptimizer> pOptimizer;
   CComPtr<IDxcOperationResult> pResult;
@@ -157,22 +171,25 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWS
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
 
-  // Create the target program with a single invocation.
+  // Set up compilation args vector
   wchar_t OptArg[4] = L"/O0";
   OptArg[2] = L'0' + optLevel;
   Utf16ToBlob(m_dllSupport, pText, &pSource);
-  LPCWSTR args[] = { L"/Vd", OptArg };
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    pTarget, args, _countof(args), nullptr, 0, nullptr, &pResult));
+  std::vector<LPCWSTR> highLevelArgs = { L"/Vd", OptArg };
+  highLevelArgs.insert(highLevelArgs.end(), args.begin(), args.end());
+
+  // Create the target program with a single invocation.
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", pTarget,
+    highLevelArgs.data(), static_cast<UINT32>(highLevelArgs.size()), nullptr, 0, nullptr, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   pResult.Release();
   std::string originalAssembly = DisassembleProgram(m_dllSupport, pProgram);
 
   // Get a list of passes for this configuration.
-  LPCWSTR optDumpArgs[] = { L"/Vd", OptArg, L"/Odump" };
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    pTarget, optDumpArgs, _countof(optDumpArgs), nullptr, 0, nullptr, &pResult));
+  highLevelArgs.emplace_back(L"/Odump");
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", pTarget,
+    highLevelArgs.data(), static_cast<UINT32>(highLevelArgs.size()), nullptr, 0, nullptr, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_SUCCEEDED(pResult->GetResult(&pOptDump));
   pResult.Release();
@@ -180,9 +197,10 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWS
   CA2W passesW(passes.c_str(), CP_UTF8);
 
   // Get the high-level compile of the program.
-  LPCWSTR highLevelArgs[] = { L"/Vd", OptArg, L"/fcgl" };
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    pTarget, highLevelArgs, _countof(highLevelArgs), nullptr, 0, nullptr, &pResult));
+  highLevelArgs.pop_back(); // Remove /Odump
+  highLevelArgs.emplace_back(L"/fcgl");
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", pTarget,
+    highLevelArgs.data(), static_cast<UINT32>(highLevelArgs.size()), nullptr, 0, nullptr, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_SUCCEEDED(pResult->GetResult(&pHighLevelBlob));
   pResult.Release();

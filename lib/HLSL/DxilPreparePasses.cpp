@@ -307,6 +307,9 @@ public:
       // Update Validator Version
       DM.UpgradeToMinValidatorVersion();
 
+      // Clear intermediate options that shouldn't be in the final DXIL
+      DM.ClearIntermediateOptions();
+
       return true;
     }
 

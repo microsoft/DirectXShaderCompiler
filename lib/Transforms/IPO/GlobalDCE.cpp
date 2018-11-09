@@ -148,13 +148,6 @@ bool GlobalDCE::runOnModule(Module &M) {
       }
     }
 
-  // HLSL Change Starts - remove resource metadata
-  hlsl::HLModule *HLM = M.HasHLModule() ? &M.GetHLModule() : nullptr;
-  if (!DeadGlobalVars.empty() && HLM != nullptr) {
-    HLM->RemoveResources(DeadGlobalVars.data(), DeadGlobalVars.size());
-  }
-  // HLSL Change Ends
-
   // The second pass drops the bodies of functions which are dead...
   std::vector<Function*> DeadFunctions;
   for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I)
@@ -171,7 +164,9 @@ bool GlobalDCE::runOnModule(Module &M) {
     if (!AliveGlobals.count(I)) {
       DeadAliases.push_back(I);
       I->setAliasee(nullptr);
-    }
+    } 
+
+  hlsl::HLModule *HLM = M.HasHLModule() ? &M.GetHLModule() : nullptr; // HLSL Change
 
   if (!DeadFunctions.empty()) {
     // Now that all interferences have been dropped, delete the actual objects

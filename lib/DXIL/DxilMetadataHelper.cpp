@@ -54,6 +54,7 @@ const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valv
 
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
+const char DxilMDHelper::kDxilIntermediateOptionsMDName[]             = "dx.intermediateOptions";
 const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.viewIdState";
 const char DxilMDHelper::kDxilSubobjectsMDName[]                      = "dx.subobjects";
 
@@ -193,6 +194,43 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
                      "Unknown shader model '%s'", ShaderModelName.c_str());
     string ErrorMsg(ErrorMsgTxt);
     throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
+  }
+}
+
+//
+// intermediate options.
+//
+void DxilMDHelper::EmitDxilIntermediateOptions(uint32_t flags) {
+  if (flags == 0) return;
+
+  NamedMDNode *pIntermediateOptionsNamedMD = m_pModule->getNamedMetadata(kDxilIntermediateOptionsMDName);
+  IFTBOOL(pIntermediateOptionsNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pIntermediateOptionsNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilIntermediateOptionsMDName);
+
+  pIntermediateOptionsNamedMD->addOperand(
+    MDNode::get(m_Ctx, { Uint32ToConstMD(kDxilIntermediateOptionsFlags), Uint32ToConstMD(flags) }));
+}
+
+void DxilMDHelper::LoadDxilIntermediateOptions(uint32_t &flags) {
+  flags = 0;
+
+  NamedMDNode *pIntermediateOptionsNamedMD = m_pModule->getNamedMetadata(kDxilIntermediateOptionsMDName);
+  if (pIntermediateOptionsNamedMD == nullptr) return;
+
+  for (unsigned i = 0; i < pIntermediateOptionsNamedMD->getNumOperands(); i++) {
+    MDTuple *pEntry = dyn_cast<MDTuple>(pIntermediateOptionsNamedMD->getOperand(i));
+    IFTBOOL(pEntry != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    IFTBOOL(pEntry->getNumOperands() >= 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+    uint32_t id = ConstMDToUint32(pEntry->getOperand(0));
+    switch (id) {
+    case kDxilIntermediateOptionsFlags:
+      IFTBOOL(pEntry->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
+      flags = ConstMDToUint32(pEntry->getOperand(1));
+      break;
+
+    default: throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, "Unrecognized intermediate options metadata");
+    }
   }
 }
 

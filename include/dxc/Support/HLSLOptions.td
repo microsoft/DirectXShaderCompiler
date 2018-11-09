@@ -382,3 +382,5 @@ def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOpt
 
 def flegacy_macro_expansion : Flag<["-"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
     HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
+def flegacy_resource_reservation : Flag<["-"], "flegacy_resource_reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+    HelpText<"Reserve unused explicit register assignments for compatibility with shader model 5.0 and below">;
