@@ -37,9 +37,11 @@ public:
     TK_Array,
     TK_RuntimeArray,
     TK_Struct,
-    TK_HybridStruct, // TODO: Remove once HybridStrcut type is removed.
     TK_Pointer,
     TK_Function,
+    TK_HybridStruct,
+    TK_HybridPointer,
+    TK_HybridFunction,
   };
 
   virtual ~SpirvType() = default;
@@ -310,6 +312,10 @@ public:
   const SpirvType *getPointeeType() const { return pointeeType; }
   spv::StorageClass getStorageClass() const { return storageClass; }
 
+  bool operator==(const SpirvPointerType &that) const {
+    return pointeeType == that.pointeeType && storageClass == that.storageClass;
+  }
+
 private:
   const SpirvType *pointeeType;
   spv::StorageClass storageClass;
@@ -337,12 +343,22 @@ private:
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
 };
 
+class HybridType : public SpirvType {
+public:
+  static bool classof(const SpirvType *t) {
+    return t->getKind() >= TK_HybridStruct && t->getKind() <= TK_HybridFunction;
+  }
+
+protected:
+  HybridType(Kind k) : SpirvType(k) {}
+};
+
 /// **NOTE**: This type is created in order to facilitate transition of old
 /// infrastructure to the new infrastructure. Using this type should be avoided
 /// as much as possible.
 ///
 /// This type uses a mix of SpirvType and QualType for the structure fields.
-class HybridStructType : public SpirvType {
+class HybridStructType : public HybridType {
 public:
   enum class InterfaceType : uint32_t {
     InternalStorage = 0,
@@ -399,6 +415,48 @@ private:
   // If this structure is a uniform buffer shader-interface, it will be
   // decorated with 'Block'.
   InterfaceType interfaceType;
+};
+
+class HybridPointerType : public HybridType {
+public:
+  HybridPointerType(QualType pointee, spv::StorageClass sc)
+      : HybridType(TK_HybridPointer), pointeeType(pointee), storageClass(sc) {}
+
+  static bool classof(const SpirvType *t) { return t->getKind() == TK_Pointer; }
+
+  QualType getPointeeType() const { return pointeeType; }
+  spv::StorageClass getStorageClass() const { return storageClass; }
+
+  bool operator==(const HybridPointerType &that) const {
+    return pointeeType == that.pointeeType && storageClass == that.storageClass;
+  }
+
+private:
+  QualType pointeeType;
+  spv::StorageClass storageClass;
+};
+
+// This class can be extended to also accept QualType vector as param types.
+class HybridFunctionType : public HybridType {
+public:
+  HybridFunctionType(QualType ret, llvm::ArrayRef<const SpirvType *> param)
+      : HybridType(TK_HybridFunction), returnType(ret),
+        paramTypes(param.begin(), param.end()) {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_Function;
+  }
+
+  bool operator==(const HybridFunctionType &that) const {
+    return returnType == that.returnType && paramTypes == that.paramTypes;
+  }
+
+  QualType getReturnType() const { return returnType; }
+  llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
+
+private:
+  QualType returnType;
+  llvm::SmallVector<const SpirvType *, 8> paramTypes;
 };
 
 } // end namespace spirv

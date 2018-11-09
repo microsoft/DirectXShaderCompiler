@@ -55,19 +55,23 @@ public:
   /// on failure.
   ///
   /// At any time, there can only exist at most one function under building.
-  SpirvFunction *beginFunction(QualType returnType, SourceLocation,
+  SpirvFunction *beginFunction(QualType returnType,
+                               const SpirvType *functionType, SourceLocation,
                                llvm::StringRef name = "");
 
   /// \brief Creates and registers a function parameter of the given pointer
   /// type in the current function and returns its pointer.
   SpirvFunctionParameter *addFnParam(QualType ptrType, SourceLocation,
                                      llvm::StringRef name = "");
+  SpirvFunctionParameter *addFnParam(const SpirvType *ptrType, SourceLocation,
+                                     llvm::StringRef name = "");
 
   /// \brief Creates a SpirvFunction object and adds it to the list of module
   /// functions. This does not change the current function under construction.
   /// The handle can be used to create function call instructions for functions
-  /// that we have not yet discovered in the source code.
-  SpirvFunction *createFunction(QualType returnType, SourceLocation,
+  /// that we have not yet been discovered in the source code.
+  SpirvFunction *createFunction(QualType returnType,
+                                const SpirvType *functionType, SourceLocation,
                                 llvm::StringRef name = "",
                                 bool isAlias = false);
 
