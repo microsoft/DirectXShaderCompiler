@@ -7,7 +7,8 @@
 // CHECK: ; SubobjectToExportsAssociation sea2 = { "grs", { }  };
 // CHECK: ; RaytracingShaderConfig rsc = { MaxPayloadSizeInBytes = 128, MaxAttributeSizeInBytes = 64 };
 // CHECK: ; RaytracingPipelineConfig rpc = { MaxTraceRecursionDepth = 512 };
-// CHECK: ; HitGroup hitGt = { anyhit = "a", closesthit = "b", intersection = "c" };
+// CHECK: ; HitGroup trHitGt = { HitGroupType = Triangle, Anyhit = "a", Closesthit = "b", Intersection = "" };
+// CHECK: ; HitGroup ppHitGt = { HitGroupType = ProceduralPrimitive, Anyhit = "a", Closesthit = "b", Intersection = "c" };
 
 GlobalRootSignature grs = {"CBV(b0)"};
 StateObjectConfig soc = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS };
@@ -16,7 +17,8 @@ SubobjectToExportsAssociation sea = { "grs", "a;b;foo;c" };
 SubobjectToExportsAssociation sea2 = { "grs", ";" };
 RaytracingShaderConfig rsc = { 128, 64 };
 RaytracingPipelineConfig rpc = { 512 };
-HitGroup hitGt = { "a", "b", "c"};
+TriangleHitGroup trHitGt = { "a", "b" };
+ProceduralPrimitiveHitGroup ppHitGt = { "a", "b", "c"};
 
 int main(int i : INDEX) : SV_Target {
   return 1;

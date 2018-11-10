@@ -66,24 +66,38 @@ RaytracingShaderConfig rsc2_7 = "foo";                      /* expected-error {{
 RaytracingShaderConfig rsc2_8 = 128;                        /* expected-error {{cannot initialize a variable of type 'RaytracingShaderConfig' with an rvalue of type 'literal int'}} */
 
 RaytracingPipelineConfig rpc1_1 = { 512 };
-RaytracingPipelineConfig rpc1_2 = { 512f };                 /* expected-error {{invalid digit 'f' in decimal constant}} */
+RaytracingPipelineConfig rpc1_2 = { 512.15f };                 /* expected-warning {{implicit conversion from 'float' to 'unsigned int' changes value from 512.15002 to 512}} */
 
 RaytracingPipelineConfig rpc2_2 = { 512, 128 };             /* expected-error {{too many elements in subobject initialization (expected 1 element, have 2)}} */
 RaytracingPipelineConfig rpc2_3 = 512;                      /* expected-error {{cannot initialize a variable of type 'RaytracingPipelineConfig' with an rvalue of type 'literal int'}} */
 RaytracingPipelineConfig rpc2_4 = 51.1f;                    /* expected-error {{cannot initialize a variable of type 'RaytracingPipelineConfig' with an rvalue of type 'float'}} */
 RaytracingPipelineConfig rpc2_5 = "foo";                    /* expected-error {{cannot initialize a variable of type 'RaytracingPipelineConfig' with an lvalue of type 'literal string'}} */
 
-HitGroup hitGt1_1 = { "a", "b", "c"};
-HitGroup hitGt1_2 = { s1, s2, s3 };
-HitGroup hitGt1_3 = { "", "", "" };
+TriangleHitGroup trHitGt1_1 = { "a", "b" };
+TriangleHitGroup trHitGt1_2 = { s1, s2 };
+TriangleHitGroup trHitGt1_3 = { "", "" };
 
-HitGroup hitGt2_2 = { "a", "b"};                            /* expected-error {{too few elements in subobject initialization (expected 3 elements, have 2)}} */
-HitGroup hitGt2_3 = { "a", "b", 10 };                       /* expected-error {{type mismatch}} */
-HitGroup hitGt2_4 = { 1, 2, 3 };                            /* expected-error {{type mismatch}} */
-HitGroup hitGt2_5 = "foo";                                  /* expected-error {{cannot initialize a variable of type 'HitGroup' with an lvalue of type 'literal string'}} */
-HitGroup hitGt2_6 = 115;                                    /* expected-error {{cannot initialize a variable of type 'HitGroup' with an rvalue of type 'literal int'}} */
-HitGroup hitGt2_7 = s2;                                     /* expected-error {{cannot initialize a variable of type 'HitGroup' with an lvalue of type 'string'}} */
-HitGroup hitGt2_8 = { s1, "", s4 };
+TriangleHitGroup trHitGt2_2 = { "a", "b", "c"};               /* expected-error {{too many elements in subobject initialization (expected 2 elements, have 3)}} */
+TriangleHitGroup trHitGt2_3 = { "a", 10 };                    /* expected-error {{type mismatch}} */
+TriangleHitGroup trHitGt2_4 = { 1, 2 };                       /* expected-error {{type mismatch}} */
+TriangleHitGroup trHitGt2_5 = "foo";                          /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an lvalue of type 'literal string'}} */
+TriangleHitGroup trHitGt2_6 = 115;                            /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an rvalue of type 'literal int'}} */
+TriangleHitGroup trHitGt2_7 = s2;                             /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an lvalue of type 'string'}} */
+
+ProceduralPrimitiveHitGroup ppHitGt1_1 = { "a", "b", "c"};
+ProceduralPrimitiveHitGroup ppHitGt1_2 = { s1, s2, s3 };
+ProceduralPrimitiveHitGroup ppHitGt1_3 = { "", "", "c" };
+
+ProceduralPrimitiveHitGroup ppHitGt2_2 = { "a", "b"};         /* expected-error {{too few elements in subobject initialization (expected 3 elements, have 2)}} */
+ProceduralPrimitiveHitGroup ppHitGt2_3 = { "a", "b", 10 };    /* expected-error {{type mismatch}} */
+ProceduralPrimitiveHitGroup ppHitGt2_4 = { 1, 2, 3 };         /* expected-error {{type mismatch}} */
+ProceduralPrimitiveHitGroup ppHitGt2_5 = "foo";               /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an lvalue of type 'literal string'}} */
+ProceduralPrimitiveHitGroup ppHitGt2_6 = 115;                 /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an rvalue of type 'literal int'}} */
+ProceduralPrimitiveHitGroup ppHitGt2_7 = s2;                  /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an lvalue of type 'string'}} */
+
+TriangleHitGroup trHitGt2_8 = { s1, s4 };
+ProceduralPrimitiveHitGroup ppHitGt2_8 = { s1, "", s4 };
+ProceduralPrimitiveHitGroup ppHitGt2_9 = { "a", "b", ""};
 
 int main(int i : INDEX) : SV_Target {
   return 1;
