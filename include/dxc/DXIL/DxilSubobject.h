@@ -50,7 +50,8 @@ public:
   bool GetRaytracingShaderConfig(uint32_t &MaxPayloadSizeInBytes,
                                  uint32_t &MaxAttributeSizeInBytes) const;
   bool GetRaytracingPipelineConfig(uint32_t &MaxTraceRecursionDepth) const;
-  bool GetHitGroup(llvm::StringRef &AnyHit,
+  bool GetHitGroup(DXIL::HitGroupType &hitGroupType,
+                   llvm::StringRef &AnyHit,
                    llvm::StringRef &ClosestHit,
                    llvm::StringRef &Intersection) const;
 
@@ -86,6 +87,7 @@ private:
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
+    DXIL::HitGroupType Type;
     const char *AnyHit;
     const char *ClosestHit;
     const char *Intersection;
@@ -147,7 +149,8 @@ public:
   DxilSubobject &CreateRaytracingPipelineConfig(
     llvm::StringRef Name,
     uint32_t MaxTraceRecursionDepth);
-  DxilSubobject &CreateHitGroup(llvm::StringRef Name,
+  DxilSubobject &CreateHitGroup(llvm::StringRef Name, 
+                                DXIL::HitGroupType hitGroupType,
                                 llvm::StringRef AnyHit,
                                 llvm::StringRef ClosestHit,
                                 llvm::StringRef Intersection);

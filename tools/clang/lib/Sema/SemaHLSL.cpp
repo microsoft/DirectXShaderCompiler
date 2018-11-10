@@ -196,7 +196,8 @@ enum ArBasicKind {
   AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
   AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-  AR_OBJECT_HIT_GROUP,
+  AR_OBJECT_TRIANGLE_HIT_GROUP,
+  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
 
   AR_BASIC_MAXIMUM_COUNT
 };
@@ -472,8 +473,9 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
   0,      //AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-  0,      //AR_OBJECT_HIT_GROUP,
-    
+  0,      //AR_OBJECT_TRIANGLE_HIT_GROUP,
+  0,      //AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1283,7 +1285,8 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
   AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-  AR_OBJECT_HIT_GROUP,
+  AR_OBJECT_TRIANGLE_HIT_GROUP,
+  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1361,7 +1364,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
   0, // AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-  0, // AR_OBJECT_HIT_GROUP,
+  0, // AR_OBJECT_TRIANGLE_HIT_GROUP,
+  0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1449,7 +1453,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HIT_GROUP,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_HIT_GROUP,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1561,7 +1567,8 @@ const char* g_ArBasicTypeNames[] =
   "SubobjectToExportsAssociation", 
   "RaytracingShaderConfig",
   "RaytracingPipelineConfig",
-  "HitGroup",
+  "TriangleHitGroup",
+  "ProceduralPrimitiveHitGroup"
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -2529,16 +2536,29 @@ static CXXRecordDecl *CreateSubobjectRaytracingPipelineConfig(ASTContext& contex
   return decl;
 }
 
-// struct HitGroup
+// struct TriangleHitGroup
 // {
-//   string anyhit;
-//   string closesthit;
-//   string intersection;
+//   string AnyHit;
+//   string ClosestHit;
 // };
-static CXXRecordDecl *CreateSubobjectHitGroup(ASTContext& context) {
-  CXXRecordDecl *decl = StartSubobjectDecl(context, "HitGroup");
+static CXXRecordDecl *CreateSubobjectTriangleHitGroup(ASTContext& context) {
+  CXXRecordDecl *decl = StartSubobjectDecl(context, "TriangleHitGroup");
   CreateSimpleField(context, decl, "AnyHit",       context.HLSLStringTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "ClosestHit",   context.HLSLStringTy, AccessSpecifier::AS_private);
+  FinishSubobjectDecl(context, decl);
+  return decl;
+}
+
+// struct ProceduralPrimitiveHitGroup
+// {
+//   string AnyHit;
+//   string ClosestHit;
+//   string Intersection;
+// };
+static CXXRecordDecl *CreateSubobjectProceduralPrimitiveHitGroup(ASTContext& context) {
+  CXXRecordDecl *decl = StartSubobjectDecl(context, "ProceduralPrimitiveHitGroup");
+  CreateSimpleField(context, decl, "AnyHit", context.HLSLStringTy, AccessSpecifier::AS_private);
+  CreateSimpleField(context, decl, "ClosestHit", context.HLSLStringTy, AccessSpecifier::AS_private);
   CreateSimpleField(context, decl, "Intersection", context.HLSLStringTy, AccessSpecifier::AS_private);
   FinishSubobjectDecl(context, decl);
   return decl;
@@ -3189,8 +3209,11 @@ private:
         case AR_OBJECT_RAYTRACING_PIPELINE_CONFIG:
           recordDecl = CreateSubobjectRaytracingPipelineConfig(*m_context);
           break;
-        case AR_OBJECT_HIT_GROUP:
-          recordDecl = CreateSubobjectHitGroup(*m_context);
+        case AR_OBJECT_TRIANGLE_HIT_GROUP:
+          recordDecl = CreateSubobjectTriangleHitGroup(*m_context);
+          break;
+        case AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP:
+          recordDecl = CreateSubobjectProceduralPrimitiveHitGroup(*m_context);
           break;
         }
       }
@@ -3386,7 +3409,7 @@ public:
   }
 
   static bool IsSubobjectBasicKind(ArBasicKind kind) {
-    return kind >= AR_OBJECT_STATE_OBJECT_CONFIG && kind <= AR_OBJECT_HIT_GROUP;
+    return kind >= AR_OBJECT_STATE_OBJECT_CONFIG && kind <= AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP;
   }
 
   bool IsSubobjectType(QualType type) {

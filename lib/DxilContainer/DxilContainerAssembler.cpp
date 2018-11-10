@@ -1243,10 +1243,12 @@ private:
           info.RaytracingPipelineConfig.MaxTraceRecursionDepth);
         break;
       case DXIL::SubobjectKind::HitGroup:
+        HitGroupType hgType;
         StringRef AnyHit;
         StringRef ClosestHit;
         StringRef Intersection;
-        obj.GetHitGroup(AnyHit, ClosestHit, Intersection);
+        obj.GetHitGroup(hgType, AnyHit, ClosestHit, Intersection);
+        info.HitGroup.Type = (uint32_t)hgType;
         info.HitGroup.AnyHit = m_pStringBufferPart->Insert(AnyHit);
         info.HitGroup.ClosestHit = m_pStringBufferPart->Insert(ClosestHit);
         info.HitGroup.Intersection = m_pStringBufferPart->Insert(Intersection);

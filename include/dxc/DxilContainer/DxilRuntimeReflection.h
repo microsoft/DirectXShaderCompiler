@@ -212,6 +212,7 @@ struct RuntimeDataSubobjectInfo {
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
+    uint32_t Type;
     // each is a string table offset for the shader name
     // 0 points to empty name, indicating no shader.
     uint32_t AnyHit;
@@ -532,6 +533,10 @@ public:
   }
 
   // HitGroup
+  DXIL::HitGroupType GetHitGroup_Type() const {
+    return (GetKind() == DXIL::SubobjectKind::HitGroup) ?
+      (DXIL::HitGroupType)m_SubobjectInfo->HitGroup.Type : (DXIL::HitGroupType)(-1);
+  }
   const char *GetHitGroup_Intersection() const {
     return (GetKind() == DXIL::SubobjectKind::HitGroup) ?
       m_Context->pStringTableReader->Get(m_SubobjectInfo->HitGroup.Intersection) : "";
@@ -643,6 +648,7 @@ struct DxilSubobjectDesc {
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
+    uint32_t Type;  // DXIL::HitGroupType / D3D12_HIT_GROUP_TYPE
     LPCWSTR AnyHit;
     LPCWSTR ClosestHit;
     LPCWSTR Intersection;

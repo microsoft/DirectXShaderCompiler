@@ -71,6 +71,7 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     RaytracingPipelineConfig.MaxTraceRecursionDepth = other.RaytracingPipelineConfig.MaxTraceRecursionDepth;
     break;
   case Kind::HitGroup:
+    HitGroup.Type = other.HitGroup.Type;
     HitGroup.AnyHit = other.HitGroup.AnyHit;
     HitGroup.ClosestHit = other.HitGroup.ClosestHit;
     HitGroup.Intersection = other.HitGroup.Intersection;
@@ -160,10 +161,12 @@ bool DxilSubobject::GetRaytracingPipelineConfig(
 }
 
 // HitGroup
-bool DxilSubobject::GetHitGroup(llvm::StringRef &AnyHit,
+bool DxilSubobject::GetHitGroup(DXIL::HitGroupType &hitGroupType, 
+                                llvm::StringRef &AnyHit,
                                 llvm::StringRef &ClosestHit,
                                 llvm::StringRef &Intersection) const {
   if (m_Kind == Kind::HitGroup) {
+    hitGroupType = HitGroup.Type;
     AnyHit = HitGroup.AnyHit;
     ClosestHit = HitGroup.ClosestHit;
     Intersection = HitGroup.Intersection;
@@ -291,6 +294,7 @@ DxilSubobject &DxilSubobjects::CreateRaytracingPipelineConfig(
 }
 
 DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
+                                              DXIL::HitGroupType hitGroupType,
                                               llvm::StringRef AnyHit,
                                               llvm::StringRef ClosestHit,
                                               llvm::StringRef Intersection) {
@@ -298,6 +302,7 @@ DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
   AnyHit = GetSubobjectString(AnyHit);
   ClosestHit = GetSubobjectString(ClosestHit);
   Intersection = GetSubobjectString(Intersection);
+  obj.HitGroup.Type = hitGroupType;
   obj.HitGroup.AnyHit = AnyHit.data();
   obj.HitGroup.ClosestHit = ClosestHit.data();
   obj.HitGroup.Intersection = Intersection.data();

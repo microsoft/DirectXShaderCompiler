@@ -601,6 +601,16 @@ static const char *FlagToString(DXIL::StateObjectFlags Flag) {
   return "<invalid StateObjectFlag>";
 }
 
+static const char *HitGroupTypeToString(DXIL::HitGroupType type) {
+  switch (type) {
+  case DXIL::HitGroupType::Triangle:
+    return "Triangle";
+  case DXIL::HitGroupType::ProceduralPrimitive:
+    return "ProceduralPrimitive";
+  }
+  return "<invalid HitGroupType>";
+}
+
 template <typename _T>
 void PrintFlags(raw_string_ostream &OS, uint32_t Flags) {
   if (!Flags) {
@@ -702,16 +712,18 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
       break;
     }
     case DXIL::SubobjectKind::HitGroup: {
+      HitGroupType hgType;
       StringRef AnyHit;
       StringRef ClosestHit;
       StringRef Intersection;
-      if (!obj.GetHitGroup(AnyHit, ClosestHit, Intersection)) {
+      if (!obj.GetHitGroup(hgType, AnyHit, ClosestHit, Intersection)) {
         OS << "<error getting subobject>";
         break;
       }
-      OS << "anyhit = \"" << AnyHit
-         << "\", closesthit = \"" << ClosestHit
-         << "\", intersection = \"" << Intersection << "\"";
+      OS << "HitGroupType = " << HitGroupTypeToString(hgType) 
+         << ", Anyhit = \"" << AnyHit
+         << "\", Closesthit = \"" << ClosestHit
+         << "\", Intersection = \"" << Intersection << "\"";
       break;
     }
     }

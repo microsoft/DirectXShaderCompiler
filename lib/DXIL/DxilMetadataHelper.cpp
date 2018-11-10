@@ -1412,8 +1412,10 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   case DXIL::SubobjectKind::HitGroup: {
     llvm::StringRef Intersection, AnyHit, ClosestHit;
-    IFTBOOL(obj.GetHitGroup(Intersection, AnyHit, ClosestHit),
+    DXIL::HitGroupType hgType;
+    IFTBOOL(obj.GetHitGroup(hgType, Intersection, AnyHit, ClosestHit),
       DXC_E_INCORRECT_DXIL_METADATA);
+    Args.emplace_back(Uint32ToConstMD((uint32_t)hgType));
     Args.emplace_back(MDString::get(m_Ctx, Intersection));
     Args.emplace_back(MDString::get(m_Ctx, AnyHit));
     Args.emplace_back(MDString::get(m_Ctx, ClosestHit));
@@ -1481,10 +1483,11 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
     break;
   }
   case DXIL::SubobjectKind::HitGroup: {
+    uint32_t hgType = ConstMDToUint32(MD.getOperand(i++));
     StringRef Intersection(StringMDToStringRef(MD.getOperand(i++)));
     StringRef AnyHit(StringMDToStringRef(MD.getOperand(i++)));
     StringRef ClosestHit(StringMDToStringRef(MD.getOperand(i++)));
-    Subobjects.CreateHitGroup(name, AnyHit, ClosestHit, Intersection);
+    Subobjects.CreateHitGroup(name, (DXIL::HitGroupType)hgType, AnyHit, ClosestHit, Intersection);
     break;
   }
   default:

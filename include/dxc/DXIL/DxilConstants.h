@@ -1157,6 +1157,7 @@ namespace DXIL {
     HitGroup                          = 11,
     NumKinds // aka D3D12_STATE_SUBOBJECT_TYPE_MAX_VALID
   };
+
   inline bool IsValidSubobjectKind(SubobjectKind kind) {
     return (kind < SubobjectKind::NumKinds &&
       ( kind <= SubobjectKind::LocalRootSignature ||
@@ -1168,6 +1169,16 @@ namespace DXIL {
     AllowExternalDependenciesOnLocalDefinitions = 0x2,
     ValidMask = 0x3,
   };
+
+  enum class HitGroupType : uint32_t {
+    Triangle = 0x0,
+    ProceduralPrimitive = 0x1,
+    LastEntry,
+  };
+
+  inline bool IsValidHitGroupType(HitGroupType type) {
+    return (type >= HitGroupType::Triangle && type < HitGroupType::LastEntry);
+  }
 
   extern const char* kLegacyLayoutString;
   extern const char* kNewLayoutString;

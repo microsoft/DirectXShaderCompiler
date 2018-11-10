@@ -120,8 +120,8 @@ private:
   uint32_t AddCBuffer(HLSLBufferDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
-  void CreateSubobject(DXIL::SubobjectKind kind, const StringRef name,
-                       clang::Expr **args, unsigned int argCount);
+  void CreateSubobject(DXIL::SubobjectKind kind, const StringRef name, clang::Expr **args,
+                       unsigned int argCount, DXIL::HitGroupType hgType = (DXIL::HitGroupType)(-1));
   bool GetAsConstantString(clang::Expr *expr, StringRef *value, bool failWhenEmpty = false);
   bool GetAsConstantUInt32(clang::Expr *expr, uint32_t *value);
   std::vector<StringRef> ParseSubobjectExportsAssociations(StringRef exports);
@@ -2218,7 +2218,8 @@ void CGMSHLSLRuntime::addSubobject(Decl *D) {
   DXASSERT(VD != nullptr, "must be a global variable");
  
   DXIL::SubobjectKind subobjKind;
-  if (!hlsl::GetHLSLSubobjectKind(VD->getType(), subobjKind)) {
+  DXIL::HitGroupType hgType;
+  if (!hlsl::GetHLSLSubobjectKind(VD->getType(), subobjKind, hgType)) {
     DXASSERT(false, "not a valid subobject declaration");
     return;
   }
@@ -2232,7 +2233,7 @@ void CGMSHLSLRuntime::addSubobject(Decl *D) {
   }
 
   if (InitListExpr *initListExpr = dyn_cast<InitListExpr>(initExpr)) {
-    CreateSubobject(subobjKind, VD->getName(), initListExpr->getInits(), initListExpr->getNumInits());
+    CreateSubobject(subobjKind, VD->getName(), initListExpr->getInits(), initListExpr->getNumInits(), hgType);
   }
   else {
     DiagnosticsEngine &Diags = CGM.getDiags();
@@ -2458,7 +2459,8 @@ std::vector<StringRef> CGMSHLSLRuntime::ParseSubobjectExportsAssociations(String
 
 
 void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef name,
-                                      clang::Expr **args, unsigned int argCount) {
+                                      clang::Expr **args, unsigned int argCount,
+                                      DXIL::HitGroupType hgType /*= (DXIL::HitGroupType)(-1)*/) {
   DxilSubobjects *subobjects = m_pHLModule->GetSubobjects();
   if (!subobjects) {
     subobjects = new DxilSubobjects();
@@ -2526,13 +2528,29 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
       break;
     }
     case DXIL::SubobjectKind::HitGroup: {
-      DXASSERT_NOMSG(argCount == 3);
-      StringRef anyhit, closesthit, intersection;
-      if (!GetAsConstantString(args[0], &anyhit) ||
-          !GetAsConstantString(args[1], &closesthit) ||
-          !GetAsConstantString(args[2], &intersection))
-        return;
-      subobjects->CreateHitGroup(name, anyhit, closesthit, intersection);
+      switch (hgType) {
+        case DXIL::HitGroupType::Triangle: {
+          DXASSERT_NOMSG(argCount == 2);
+          StringRef anyhit, closesthit;
+          if (!GetAsConstantString(args[0], &anyhit) ||
+            !GetAsConstantString(args[1], &closesthit))
+            return;
+          subobjects->CreateHitGroup(name, DXIL::HitGroupType::Triangle, anyhit, closesthit, llvm::StringRef(""));
+          break;
+        }
+        case DXIL::HitGroupType::ProceduralPrimitive: {
+          DXASSERT_NOMSG(argCount == 3);
+          StringRef anyhit, closesthit, intersection;
+          if (!GetAsConstantString(args[0], &anyhit) ||
+              !GetAsConstantString(args[1], &closesthit) ||
+              !GetAsConstantString(args[2], &intersection, true))
+            return;
+          subobjects->CreateHitGroup(name, DXIL::HitGroupType::ProceduralPrimitive, anyhit, closesthit, intersection);
+          break;
+        }
+        default:
+          llvm_unreachable("unknown HitGroupType");
+      }
       break;
     }
     default:

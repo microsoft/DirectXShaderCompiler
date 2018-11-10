@@ -390,7 +390,8 @@ clang::QualType GetHLSLOutputPatchElementType(clang::QualType type);
 unsigned GetHLSLOutputPatchCount(clang::QualType type);
 
 bool IsHLSLSubobjectType(clang::QualType type);
-bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind);
+bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 
+                          DXIL::HitGroupType &ghType);
 
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);
