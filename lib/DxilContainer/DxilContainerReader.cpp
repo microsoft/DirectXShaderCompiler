@@ -62,6 +62,7 @@ void LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableRead
       break;
     case DXIL::SubobjectKind::HitGroup:
       subobjects.CreateHitGroup(reader.GetName(),
+        reader.GetHitGroup_Type(),
         reader.GetHitGroup_AnyHit(),
         reader.GetHitGroup_ClosestHit(),
         reader.GetHitGroup_Intersection());

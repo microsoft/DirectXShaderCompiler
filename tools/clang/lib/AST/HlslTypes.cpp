@@ -503,10 +503,12 @@ bool IsHLSLResourceType(clang::QualType type) {
 
 bool IsHLSLSubobjectType(clang::QualType type) {
   DXIL::SubobjectKind kind;
-  return GetHLSLSubobjectKind(type, kind);
+  DXIL::HitGroupType hgType;
+  return GetHLSLSubobjectKind(type, kind, hgType);
 }
 
-bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind) {
+bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, DXIL::HitGroupType &hgType) {
+  hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
@@ -523,8 +525,20 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
       return name == "RaytracingShaderConfig" ? (subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig, true) : false;
     case 24:
       return name == "RaytracingPipelineConfig" ? (subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig, true) : false;
-    case 8:
-      return name == "HitGroup" ? (subobjectKind = DXIL::SubobjectKind::HitGroup, true) : false;
+    case 16:
+      if (name == "TriangleHitGroup") {
+        subobjectKind = DXIL::SubobjectKind::HitGroup;
+        hgType = DXIL::HitGroupType::Triangle;
+        return true;
+      }
+      return false;
+    case 27:
+      if (name == "ProceduralPrimitiveHitGroup") {
+        subobjectKind = DXIL::SubobjectKind::HitGroup;
+        hgType = DXIL::HitGroupType::ProceduralPrimitive;
+        return true;
+      }
+      return false;
     }
   }
   return false;
