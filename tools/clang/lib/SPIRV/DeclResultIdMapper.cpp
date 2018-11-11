@@ -1013,8 +1013,14 @@ std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
   for (auto var : glPerVertex.getStageOutVars())
     vars.push_back(var);
 
-  for (const auto &var : stageVars)
-    vars.push_back(var.getSpirvInstr());
+  llvm::DenseSet<SpirvInstruction *> seenVars;
+  for (const auto &var : stageVars) {
+    auto *instr = var.getSpirvInstr();
+    if (seenVars.count(instr) == 0) {
+      vars.push_back(instr);
+      seenVars.insert(instr);
+    }
+  }
 
   return vars;
 }
@@ -1115,7 +1121,7 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
     }
 
     // Allow builtin variables to alias each other. We already have uniqify
-    // mechanism in ModuleBuilder.
+    // mechanism in SpirvBuilder.
     if (var.isSpirvBuitin())
       continue;
 

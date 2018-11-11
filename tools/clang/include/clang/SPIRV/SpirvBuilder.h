@@ -594,6 +594,17 @@ private:
 
   llvm::SetVector<spv::Capability> existingCapabilities;
   llvm::SetVector<Extension> existingExtensions;
+
+  /// A struct containing information regarding a builtin variable.
+  struct BuiltInVarInfo {
+    BuiltInVarInfo(spv::StorageClass s, spv::BuiltIn b, SpirvVariable *v)
+        : sc(s), builtIn(b), variable(v) {}
+    spv::StorageClass sc;
+    spv::BuiltIn builtIn;
+    SpirvVariable *variable;
+  };
+  /// Used as caches for all created builtin variables to avoid duplication.
+  llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
