@@ -524,6 +524,19 @@ private:
   InstBuilder instBuilder;
   std::vector<uint32_t> constructSite; ///< InstBuilder construction site.
   uint32_t glslExtSetId; ///< The <result-id> of GLSL extended instruction set.
+
+  /// A struct containing information regarding a builtin variable.
+  struct BuiltInVarInfo {
+    BuiltInVarInfo(spv::StorageClass s, spv::BuiltIn b, uint32_t v)
+        : sc(s), builtIn(b), variable(v) {}
+
+    spv::StorageClass sc;
+    spv::BuiltIn builtIn;
+    uint32_t variable;
+  };
+
+  /// Used as caches for all created builtin variables to avoid duplication.
+  llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
 };
 
 SPIRVContext *ModuleBuilder::getSPIRVContext() { return &theContext; }
