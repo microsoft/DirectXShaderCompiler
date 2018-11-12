@@ -44,8 +44,9 @@ bool SpirvModule::invokeVisitor(Visitor *visitor) {
     if (!execMode->invokeVisitor(visitor))
       return false;
 
-  if (!debugSource->invokeVisitor(visitor))
-    return false;
+  if (debugSource)
+    if (!debugSource->invokeVisitor(visitor))
+      return false;
 
   for (auto decoration : decorations)
     if (!decoration->invokeVisitor(visitor))

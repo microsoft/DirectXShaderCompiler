@@ -36,7 +36,8 @@ public:
   SpirvBasicBlock &operator=(SpirvBasicBlock &&) = delete;
 
   /// Returns the label's <result-id> of this basic block.
-  uint32_t getLabelId() const { return labelId; }
+  uint32_t getResultId() const { return labelId; }
+  void setResultId(uint32_t id) { labelId = id; }
 
   /// Returns the debug name of this basic block.
   llvm::StringRef getName() const { return labelName; }

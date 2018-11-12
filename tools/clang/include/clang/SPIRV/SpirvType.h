@@ -39,8 +39,10 @@ public:
     TK_Struct,
     TK_Pointer,
     TK_Function,
+    // Order matters: all the following are hybrid types
     TK_HybridStruct,
     TK_HybridPointer,
+    TK_HybridSampledImage,
     TK_HybridFunction,
   };
 
@@ -335,6 +337,7 @@ public:
     return returnType == that.returnType && paramTypes == that.paramTypes;
   }
 
+  //void setReturnType(const SpirvType *t) { returnType = t; }
   const SpirvType *getReturnType() const { return returnType; }
   llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
 
@@ -436,26 +439,44 @@ private:
   spv::StorageClass storageClass;
 };
 
+class HybridSampledImageType : public HybridType {
+public:
+  HybridSampledImageType(QualType image)
+      : HybridType(TK_HybridSampledImage), imageType(image) {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_HybridSampledImage;
+  }
+
+  QualType getImageType() const { return imageType; }
+
+private:
+  QualType imageType;
+};
+
 // This class can be extended to also accept QualType vector as param types.
 class HybridFunctionType : public HybridType {
 public:
   HybridFunctionType(QualType ret, llvm::ArrayRef<const SpirvType *> param)
-      : HybridType(TK_HybridFunction), returnType(ret),
+      : HybridType(TK_HybridFunction), astReturnType(ret),
         paramTypes(param.begin(), param.end()) {}
 
   static bool classof(const SpirvType *t) {
-    return t->getKind() == TK_Function;
+    return t->getKind() == TK_HybridFunction;
   }
 
   bool operator==(const HybridFunctionType &that) const {
-    return returnType == that.returnType && paramTypes == that.paramTypes;
+    return astReturnType == that.astReturnType &&
+           returnType == that.returnType && paramTypes == that.paramTypes;
   }
 
-  QualType getReturnType() const { return returnType; }
+  void setReturnType(const SpirvType *t) { returnType = t; }
+  const SpirvType *getReturnType() const { return returnType; }
   llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
 
 private:
-  QualType returnType;
+  QualType astReturnType;
+  const SpirvType *returnType;
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
 };
 
