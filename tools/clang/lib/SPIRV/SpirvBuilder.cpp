@@ -18,7 +18,10 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            FeatureManager *fm, const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), module(nullptr), function(nullptr),
-      featureManager(fm), spirvOptions(opt) {
+      featureManager(fm), spirvOptions(opt), compositeConstants({}),
+      integerConstants({}), floatConstants({}), nullConstants({}),
+      boolTrueConstant(nullptr), boolFalseConstant(nullptr),
+      boolTrueSpecConstant(nullptr), boolFalseSpecConstant(nullptr) {
   module = new (context) SpirvModule;
 }
 
@@ -40,21 +43,6 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
 
   return function;
 }
-
-/*
-SpirvFunction *SpirvBuilder::createFunction(QualType returnType,
-                                            const SpirvType *functionType,
-                                            SourceLocation loc,
-                                            llvm::StringRef funcName,
-                                            bool isAlias) {
-  SpirvFunction *fn = new (context)
-      SpirvFunction(returnType, functionType,  0,
-                    spv::FunctionControlMask::MaskNone, loc, funcName);
-  function->setConstainsAliasComponent(isAlias);
-  module->addFunction(function);
-  return function;
-}
-*/
 
 SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  SourceLocation loc,
@@ -989,13 +977,193 @@ void SpirvBuilder::decorateNonUniformEXT(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
+/*
+SpirvConstant *SpirvBuilder::getConstantUint16(uint16_t value, bool specConst) {
+  SpirvConstant *result = context.getConstantUint16(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantInt16(int16_t value, bool specConst) {
+  SpirvConstant *result = context.getConstantInt16(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantUint32(uint32_t value, bool specConst) {
+  SpirvConstant *result = context.getConstantUint32(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantInt32(int32_t value, bool specConst) {
+  SpirvConstant *result = context.getConstantInt32(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantUint64(uint64_t value, bool specConst) {
+  SpirvConstant *result = context.getConstantUint64(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantInt64(int64_t value, bool specConst) {
+  SpirvConstant *result = context.getConstantInt64(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantFloat16(uint16_t value,
+                                                bool specConst) {
+  SpirvConstant *result = context.getConstantFloat16(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantFloat32(float value, bool specConst) {
+  SpirvConstant *result = context.getConstantFloat32(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantFloat64(double value, bool specConst) {
+  SpirvConstant *result = context.getConstantFloat64(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
+  SpirvConstant *result = context.getConstantBool(value, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *
+SpirvBuilder::getConstantComposite(QualType compositeType,
+                                   llvm::ArrayRef<SpirvConstant *> constituents,
+                                   bool specConst) {
+  SpirvConstant *result =
+      context.getConstantComposite(compositeType, constituents, specConst);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantNull(const SpirvType *type) {
+  SpirvConstant *result = context.getConstantNull(type);
+  module->addConstant(result);
+  return result;
+}
+
+SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
+  SpirvConstant *result = context.getConstantNull(type);
+  module->addConstant(result);
+  return result;
+}
+*/
+
+SpirvConstant *SpirvBuilder::getConstantUint16(uint16_t value, bool specConst) {
+  return getConstantInt<uint16_t>(value, /*isSigned*/ false, 16, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantInt16(int16_t value, bool specConst) {
+  return getConstantInt<int16_t>(value, /*isSigned*/ true, 16, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantUint32(uint32_t value, bool specConst) {
+  return getConstantInt<uint32_t>(value, /*isSigned*/ false, 32, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantInt32(int32_t value, bool specConst) {
+  return getConstantInt<int32_t>(value, /*isSigned*/ true, 32, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantUint64(uint64_t value, bool specConst) {
+  return getConstantInt<uint64_t>(value, /*isSigned*/ false, 64, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantInt64(int64_t value, bool specConst) {
+  return getConstantInt<int64_t>(value, /*isSigned*/ true, 64, specConst);
+}
+
+SpirvConstant *SpirvBuilder::getConstantFloat16(uint16_t value,
+                                                bool specConst) {
+  return getConstantFloat<uint16_t>(value, 16, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantFloat32(float value, bool specConst) {
+  return getConstantFloat<float>(value, 32, specConst);
+}
+SpirvConstant *SpirvBuilder::getConstantFloat64(double value, bool specConst) {
+  return getConstantFloat<double>(value, 64, specConst);
+}
+
+SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
+  if (value) {
+    if (specConst) {
+      return boolTrueSpecConstant;
+    } else {
+      return boolTrueConstant;
+    }
+  } else {
+    if (specConst) {
+      return boolFalseSpecConstant;
+    } else {
+      return boolFalseConstant;
+    }
+  }
+
+  // Couldn't find the constant. Create one.
+  auto *boolConst = new (context)
+      SpirvConstantBoolean(context.getBoolType(), value, specConst);
+
+  if (value) {
+    if (specConst)
+      boolTrueSpecConstant = boolConst;
+    else
+      boolTrueConstant = boolConst;
+  } else {
+    if (specConst)
+      boolFalseSpecConstant = boolConst;
+    else
+      boolFalseConstant = boolConst;
+  }
+
+  module->addConstant(boolConst);
+  return boolConst;
+}
+
+SpirvConstant *
+SpirvBuilder::getConstantComposite(QualType compositeType,
+                                   llvm::ArrayRef<SpirvConstant *> constituents,
+                                   bool specConst) {
+  SpirvConstantComposite tempConstant(compositeType, constituents, specConst);
+  auto found =
+      std::find_if(compositeConstants.begin(), compositeConstants.end(),
+                   [&tempConstant](SpirvConstantComposite *cachedConstant) {
+                     return tempConstant == *cachedConstant;
+                   });
+
+  if (found != compositeConstants.end())
+    return *found;
+
+  // Couldn't find the constant. Create one.
+  auto *compositeConst = new (context)
+      SpirvConstantComposite(compositeType, constituents, specConst);
+  compositeConstants.push_back(compositeConst);
+  module->addConstant(compositeConst);
+  return compositeConst;
+}
+
+SpirvConstant *SpirvBuilder::getConstantNull(const SpirvType *type) {
+  return getConstantNullOfType<const SpirvType *>(type);
+}
+
+SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
+  return getConstantNullOfType<QualType>(type);
+}
+
 std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
-  EmitVisitor emitVisitor(astContext, context, spirvOptions);
+  EmitVisitor emitVisitor(astContext, context, spirvOptions, *this);
   module->invokeVisitor(&lowerTypeVisitor);
   module->invokeVisitor(&emitVisitor);
-  
+
   return emitVisitor.takeBinary();
 }
 

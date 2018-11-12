@@ -13,6 +13,7 @@
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/String.h"
 
@@ -183,6 +184,10 @@ std::vector<uint32_t> EmitVisitor::takeBinary() {
   result.insert(result.end(), typeConstantBinary.begin(),
                 typeConstantBinary.end());
   result.insert(result.end(), mainBinary.begin(), mainBinary.end());
+
+  for (auto word : result) {
+    printf("%08" PRIx32 "\n", word);
+  }
   return result;
 }
 
@@ -1075,7 +1080,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     // Emit the OpConstant instruction that is needed to get the result-id for
     // the array length.
     SpirvConstant *constant =
-        spirvContext.getConstantUint32(arrayType->getElementCount());
+        spirvBuilder.getConstantUint32(arrayType->getElementCount());
     if (getResultId<SpirvInstruction>(constant) == 0) {
       constant->setResultId(takeNextIdFunction());
     }
