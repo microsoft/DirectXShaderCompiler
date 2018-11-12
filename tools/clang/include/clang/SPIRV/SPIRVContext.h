@@ -137,6 +137,20 @@ struct StorageClassDenseMapInfo {
   }
 };
 
+// Provides DenseMapInfo for QualType so that we can use it key to DenseMap.
+//
+// Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
+struct QualTypeDenseMapInfo {
+  static inline QualType getEmptyKey() { return {}; }
+  static inline QualType getTombstoneKey() { return {}; }
+  static unsigned getHashValue(const QualType &Val) {
+    return static_cast<unsigned>(Val.getTypePtr()->getScalarTypeKind()) * 37U;
+  }
+  static bool isEqual(const QualType &LHS, const QualType &RHS) {
+    return LHS == RHS;
+  }
+};
+
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
 ///
 /// All entities should be allocated from an object of this class using
@@ -184,6 +198,7 @@ public:
                                 spv::ImageFormat);
   const SamplerType *getSamplerType() const { return samplerType; }
   const SampledImageType *getSampledImageType(const ImageType *image);
+  const HybridSampledImageType *getSampledImageType(QualType image);
 
   const ArrayType *getArrayType(const SpirvType *elemType, uint32_t elemCount);
   const RuntimeArrayType *getRuntimeArrayType(const SpirvType *elemType);
@@ -204,10 +219,10 @@ public:
                                          spv::StorageClass);
   const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
 
-  const FunctionType *getFunctionType(const SpirvType *ret,
+  FunctionType *getFunctionType(const SpirvType *ret,
+                                llvm::ArrayRef<const SpirvType *> param);
+  HybridFunctionType *getFunctionType(QualType ret,
                                       llvm::ArrayRef<const SpirvType *> param);
-  const HybridFunctionType *
-  getFunctionType(QualType ret, llvm::ArrayRef<const SpirvType *> param);
 
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
@@ -235,7 +250,7 @@ private:
   SpirvConstant *getConstantInt(T value, bool isSigned, uint32_t bitwidth,
                                 bool specConst) {
     const IntegerType *intType =
-        isSigend ? getSIntType(bitwidth) : getUIntType(bitwidth);
+        isSigned ? getSIntType(bitwidth) : getUIntType(bitwidth);
     SpirvConstantInteger tempConstant(intType, value, specConst);
 
     auto found =
@@ -332,6 +347,8 @@ private:
   llvm::SmallVector<const ImageType *, 8> imageTypes;
   const SamplerType *samplerType;
   llvm::DenseMap<const ImageType *, const SampledImageType *> sampledImageTypes;
+  llvm::DenseMap<QualType, const HybridSampledImageType *, QualTypeDenseMapInfo>
+      hybridSampledImageTypes;
 
   llvm::DenseMap<const SpirvType *, CountToArrayMap> arrayTypes;
   llvm::DenseMap<const SpirvType *, const RuntimeArrayType *> runtimeArrayTypes;
@@ -340,10 +357,11 @@ private:
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
 
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
-  llvm::DenseMap<QualType, SCToHybridPtrTyMap> hybridPointerTypes;
+  llvm::DenseMap<QualType, SCToHybridPtrTyMap, QualTypeDenseMapInfo>
+      hybridPointerTypes;
 
-  llvm::SmallVector<const FunctionType *, 8> functionTypes;
-  llvm::SmallVector<const HybridFunctionType *, 8> hybridFunctionTypes;
+  llvm::SmallVector<FunctionType *, 8> functionTypes;
+  llvm::SmallVector<HybridFunctionType *, 8> hybridFunctionTypes;
 
   // Unique constants
   // We currently do a linear search to find an existing constant (if any). This
