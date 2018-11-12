@@ -159,6 +159,9 @@ struct QualTypeDenseMapInfo {
 /// context is deleted. Therefore, this context should outlive the usages of the
 /// the SPIR-V entities allocated in memory.
 class SpirvContext {
+  friend class SpirvBuilder;
+  friend class EmitTypeHandler;
+
 public:
   SpirvContext();
   ~SpirvContext() = default;
@@ -227,85 +230,6 @@ public:
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
 
-  SpirvConstant *getConstantUint16(uint16_t value, bool specConst = false);
-  SpirvConstant *getConstantInt16(int16_t value, bool specConst = false);
-  SpirvConstant *getConstantUint32(uint32_t value, bool specConst = false);
-  SpirvConstant *getConstantInt32(int32_t value, bool specConst = false);
-  SpirvConstant *getConstantUint64(uint64_t value, bool specConst = false);
-  SpirvConstant *getConstantInt64(int64_t value, bool specConst = false);
-  SpirvConstant *getConstantFloat16(uint16_t value, bool specConst = false);
-  SpirvConstant *getConstantFloat32(float value, bool specConst = false);
-  SpirvConstant *getConstantFloat64(double value, bool specConst = false);
-  SpirvConstant *getConstantBool(bool value, bool specConst = false);
-  SpirvConstant *
-  getConstantComposite(QualType compositeType,
-                       llvm::ArrayRef<SpirvConstant *> constituents,
-                       bool specConst = false);
-
-  SpirvConstant *getConstantNull(const SpirvType *);
-  SpirvConstant *getConstantNull(QualType);
-
-private:
-  template <class T>
-  SpirvConstant *getConstantInt(T value, bool isSigned, uint32_t bitwidth,
-                                bool specConst) {
-    const IntegerType *intType =
-        isSigned ? getSIntType(bitwidth) : getUIntType(bitwidth);
-    SpirvConstantInteger tempConstant(intType, value, specConst);
-
-    auto found =
-        std::find_if(integerConstants.begin(), integerConstants.end(),
-                     [&tempConstant](SpirvConstantInteger *cachedConstant) {
-                       return tempConstant == *cachedConstant;
-                     });
-
-    if (found != integerConstants.end())
-      return *found;
-
-    // Couldn't find the constant. Create one.
-    auto *intConst = new (this) SpirvConstantInteger(intType, value, specConst);
-    integerConstants.push_back(intConst);
-    return intConst;
-  }
-
-  template <class T>
-  SpirvConstant *getConstantFloat(T value, uint32_t bitwidth, bool specConst) {
-    const FloatType *floatType = getFloatType(bitwidth);
-    SpirvConstantFloat tempConstant(floatType, value, specConst);
-
-    auto found =
-        std::find_if(floatConstants.begin(), floatConstants.end(),
-                     [&tempConstant](SpirvConstantFloat *cachedConstant) {
-                       return tempConstant == *cachedConstant;
-                     });
-
-    if (found != floatConstants.end())
-      return *found;
-
-    // Couldn't find the constant. Create one.
-    auto *floatConst =
-        new (this) SpirvConstantFloat(floatType, value, specConst);
-    floatConstants.push_back(floatConst);
-    return floatConst;
-  }
-
-  template <class T> SpirvConstant *getConstantNullOfType(T type) {
-    SpirvConstantNull tempConstant(type);
-    auto found =
-        std::find_if(nullConstants.begin(), nullConstants.end(),
-                     [&tempConstant](SpirvConstantNull *cachedConstant) {
-                       return tempConstant == *cachedConstant;
-                     });
-
-    if (found != nullConstants.end())
-      return *found;
-
-    // Couldn't find the constant. Create one.
-    auto *nullConst = new (this) SpirvConstantNull(type);
-    nullConstants.push_back(nullConst);
-    return nullConst;
-  }
-
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -362,18 +286,6 @@ private:
 
   llvm::SmallVector<FunctionType *, 8> functionTypes;
   llvm::SmallVector<HybridFunctionType *, 8> hybridFunctionTypes;
-
-  // Unique constants
-  // We currently do a linear search to find an existing constant (if any). This
-  // can be done in a more efficient way if needed.
-  llvm::SmallVector<SpirvConstantComposite *, 8> compositeConstants;
-  llvm::SmallVector<SpirvConstantInteger *, 8> integerConstants;
-  llvm::SmallVector<SpirvConstantFloat *, 8> floatConstants;
-  SpirvConstantBoolean *boolTrueConstant;
-  SpirvConstantBoolean *boolFalseConstant;
-  SpirvConstantBoolean *boolTrueSpecConstant;
-  SpirvConstantBoolean *boolFalseSpecConstant;
-  llvm::SmallVector<SpirvConstantNull *, 8> nullConstants;
 };
 
 } // end namespace spirv

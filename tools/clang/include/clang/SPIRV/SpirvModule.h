@@ -82,6 +82,9 @@ public:
   // Adds a decoration to the module.
   void addDecoration(SpirvDecoration *);
 
+  // Adds a constant to the module.
+  void addConstant(SpirvConstant *);
+
   void setShaderModelVersion(uint32_t v) { shaderModelVersion = v; }
   void setSourceFileName(llvm::StringRef name) { sourceFileName = name; }
   void setSourceFileContent(llvm::StringRef c) { sourceFileContent = c; }
