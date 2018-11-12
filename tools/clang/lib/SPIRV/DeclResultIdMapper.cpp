@@ -182,19 +182,14 @@ bool shouldSkipInStructLayout(const Decl *decl) {
   return false;
 }
 
-void collectDeclsInNamespace(const NamespaceDecl *nsDecl,
-                             llvm::SmallVector<const Decl *, 4> *decls) {
-  for (const auto *decl : nsDecl->decls()) {
-    collectDeclsInField(decl, decls);
-  }
-}
-
 void collectDeclsInField(const Decl *field,
                          llvm::SmallVector<const Decl *, 4> *decls) {
 
   // Case of nested namespaces.
   if (const auto *nsDecl = dyn_cast<NamespaceDecl>(field)) {
-    collectDeclsInNamespace(nsDecl, decls);
+    for (const auto *decl : nsDecl->decls()) {
+      collectDeclsInField(decl, decls);
+    }
   }
 
   if (shouldSkipInStructLayout(field))
@@ -895,8 +890,9 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias);
 
-  SpirvFunction *spirvFunction = spvBuilder.createFunction(
-      fn->getReturnType(), fn->getLocation(), fn->getName(), isAlias);
+  SpirvFunction *spirvFunction = new (spvContext) SpirvFunction(
+      fn->getReturnType(), /*functionType*/ nullptr, /*id*/ 0,
+      spv::FunctionControlMask::MaskNone, fn->getLocation(), fn->getName());
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
@@ -2058,7 +2054,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     const auto found = stageVarInstructions.find(cast<DeclaratorDecl>(decl));
 
     // We should have recorded its stage output variable previously.
-    assert(found != stageVarIds.end());
+    assert(found != stageVarInstructions.end());
 
     // Negate SV_Position.y if requested
     if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)

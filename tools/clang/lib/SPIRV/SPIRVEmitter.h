@@ -290,16 +290,11 @@ private:
                                     SpirvInstruction *initValue);
 
   /// Collects all indices from consecutive MemberExprs
-  /// or ArraySubscriptExprs or operator[] calls. If indices is not null,
-  /// SPIR-V constant values are written into *indices. Returns the real base.
-  /// If rawIndices is not null, the raw integer indices will be written to
-  /// *rawIndices, and the base returned can be nullptr, which means some
-  /// indices are not constant.
-  /// Either indices or rawIndices must be non-null.
+  /// TODO: Update method description here.
   const Expr *
-  collectArrayStructIndices(const Expr *expr,
-                            llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-                            llvm::SmallVectorImpl<uint32_t> *rawIndices);
+  collectArrayStructIndices(const Expr *expr, bool rawIndex,
+                            llvm::SmallVectorImpl<uint32_t> *rawIndices,
+                            llvm::SmallVectorImpl<SpirvInstruction *> *indices);
 
   /// Creates an access chain to index into the given SPIR-V evaluation result
   /// and returns the new SPIR-V evaluation result.
@@ -319,8 +314,9 @@ private:
   /// If resultType is not nullptr, the resulting value's type will be written
   /// to resultType. Panics if the given types are not scalar or vector of
   /// float/integer type.
-  uint32_t convertBitwidth(uint32_t value, QualType fromType, QualType toType,
-                           uint32_t *resultType = nullptr);
+  SpirvInstruction *convertBitwidth(SpirvInstruction *value, QualType fromType,
+                                    QualType toType,
+                                    QualType *resultType = nullptr);
 
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.

@@ -708,9 +708,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   // Output the constructed module.
-  // TODO(ehsan): Switch to new infra. Should get the module binary from the
-  // EmitVisitor.
-  std::vector<uint32_t> m = theBuilder.takeModule();
+  std::vector<uint32_t> m = spvBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
     // Run legalization passes
@@ -1144,13 +1142,14 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     paramTypes.push_back(ptrType);
   }
 
-  const auto *funcType = spvContext.getFunctionType(retType, paramTypes);
+  auto *funcType = spvContext.getFunctionType(retType, paramTypes);
   spvBuilder.beginFunction(retType, funcType, decl->getLocation(), funcName);
 
   if (isNonStaticMemberFn) {
     // Remember the parameter for the this object so later we can handle
     // CXXThisExpr correctly.
-    curThis = spvBuilder.addFnParam(paramTypes[0], "param.this");
+    curThis = spvBuilder.addFnParam(paramTypes[0], /*SourceLocation*/ {},
+                                    "param.this");
   }
 
   // Create all parameters.
@@ -1183,7 +1182,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     }
   }
 
-  theBuilder.endFunction();
+  spvBuilder.endFunction();
 }
 
 bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
@@ -1515,7 +1514,7 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
   if (const Stmt *body = theDoStmt->getBody()) {
     doStmt(body);
   }
-  if (!theBuilder.isCurrentBasicBlockTerminated())
+  if (!spvBuilder.isCurrentBasicBlockTerminated())
     spvBuilder.createBranch(continueBB);
   spvBuilder.addSuccessor(continueBB);
 
@@ -1857,7 +1856,7 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
   doStmt(ifStmt->getThen());
-  if (!theBuilder.isCurrentBasicBlockTerminated())
+  if (!spvBuilder.isCurrentBasicBlockTerminated())
     spvBuilder.createBranch(mergeBB);
   spvBuilder.addSuccessor(mergeBB);
 
@@ -1993,8 +1992,8 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   assert(!foundNonUniformResourceIndex);
 
   llvm::SmallVector<SpirvInstruction *, 4> indices;
-  const auto *base =
-      collectArrayStructIndices(expr, &indices, /*rawIndices*/ nullptr);
+  const auto *base = collectArrayStructIndices(
+      expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
   auto *info = loadIfAliasVarRef(base);
 
   if (foundNonUniformResourceIndex) {
@@ -2323,6 +2322,8 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     // is casting from size-4 vector to size-2-by-2 matrix.
 
     auto *vec = loadIfGLValue(subExpr);
+    // TODO: remove this line:
+    (void)vec;
 
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
@@ -3039,9 +3040,7 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   auto *samplerState = doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(1));
 
-  // EHSAN: need to create SPIRV sampledImageType that takes QualType :(
-  const auto *sampledImageType =
-      spvContext.getSampledImageType(object->getType());
+  auto *sampledImageType = spvContext.getSampledImageType(object->getType());
   // EHSAN: need to create createBinaryOp that takes SpirvType :(
   auto *sampledImage = spvBuilder.createBinaryOp(
       spv::Op::OpSampledImage, sampledImageType, objectInfo, samplerState);
@@ -3531,21 +3530,21 @@ SPIRVEmitter::getFinalACSBufferCounter(const Expr *expr) {
     return declIdMapper.getCounterIdAliasPair(decl);
 
   // AssocCounter#2: referencing some non-struct field
-  llvm::SmallVector<uint32_t, 4> indices;
+  llvm::SmallVector<uint32_t, 4> rawIndices;
 
-  const auto *base =
-      collectArrayStructIndices(expr, &indices, /*rawIndex=*/true);
+  const auto *base = collectArrayStructIndices(
+      expr, /*rawIndex=*/true, &rawIndices, /*indices*/ nullptr);
   const auto *decl =
       (base && isa<CXXThisExpr>(base))
           ? getOrCreateDeclForMethodObject(cast<CXXMethodDecl>(curFunction))
           : getReferencedDef(base);
-  return declIdMapper.getCounterIdAliasPair(decl, &indices);
+  return declIdMapper.getCounterIdAliasPair(decl, &rawIndices);
 }
 
 const CounterVarFields *SPIRVEmitter::getIntermediateACSBufferCounter(
-    const Expr *expr, llvm::SmallVector<uint32_t, 4> *indices) {
-  const auto *base =
-      collectArrayStructIndices(expr, indices, /*rawIndex=*/true);
+    const Expr *expr, llvm::SmallVector<uint32_t, 4> *rawIndices) {
+  const auto *base = collectArrayStructIndices(expr, /*rawIndex=*/true,
+                                               rawIndices, /*indices*/ nullptr);
   const auto *decl =
       (base && isa<CXXThisExpr>(base))
           // Use the decl we created to represent the implicit object
@@ -3617,7 +3616,7 @@ SPIRVEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
   auto *value = doExpr(expr->getArg(0));
 
   declIdMapper.writeBackOutputStream(stream, stream->getType(), value);
-  theBuilder.createEmitVertex();
+  spvBuilder.createEmitVertex();
 
   return nullptr;
 }
@@ -3688,7 +3687,6 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //   }
 
   const auto v2f32Type = astContext.getExtVectorType(astContext.FloatTy, 2);
-  const uint32_t boolType = theBuilder.getBoolType();
 
   // Creates a SPIR-V function scope variable of type float2[len].
   const auto createArray = [this, v2f32Type](const Float2 *ptr, uint32_t len) {
@@ -4000,8 +3998,6 @@ SpirvInstruction *SPIRVEmitter::createImageSample(
     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
     SpirvInstruction *constOffsets, SpirvInstruction *sample,
     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId) {
-
-  const auto retType = retType;
 
   // SampleDref* instructions in SPIR-V always return a scalar.
   // They also have the correct type in HLSL.
@@ -4490,8 +4486,9 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
     }
   }
 
-  llvm::SmallVector<uint32_t, 4> indices;
-  const Expr *baseExpr = collectArrayStructIndices(expr, &indices);
+  llvm::SmallVector<SpirvInstruction *, 4> indices;
+  const Expr *baseExpr = collectArrayStructIndices(
+      expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
 
   auto base = loadIfAliasVarRef(baseExpr);
 
@@ -4503,7 +4500,7 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
   //
   // TODO: We can optimize the codegen by emitting OpCompositeExtract if
   // all indices are contant integers.
-  if (base.isRValue()) {
+  if (base->isRValue()) {
     base = createTemporaryVar(baseExpr->getType(), "vector", base);
   }
 
@@ -4688,8 +4685,9 @@ SpirvInstruction *SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 }
 
 SpirvInstruction *SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
-  llvm::SmallVector<uint32_t, 4> indices;
-  const Expr *base = collectArrayStructIndices(expr, &indices);
+  llvm::SmallVector<SpirvInstruction *, 4> indices;
+  const Expr *base = collectArrayStructIndices(
+      expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
   auto *instr = loadIfAliasVarRef(base);
 
   if (!indices.empty()) {
@@ -5749,6 +5747,7 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
                                                       {accessor.Swz0}, rhs);
       auto *result = tryToAssignToRWBufferRWTexture(base, newVec);
       assert(result); // Definitely RWBuffer/RWTexture assignment
+      (void)result;
       return rhs;     // TODO: incorrect for compound assignments
     } else {
       // Assigning to one normal vector component. Nothing special, just fall
@@ -6037,9 +6036,11 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 }
 
 const Expr *SPIRVEmitter::collectArrayStructIndices(
-    const Expr *expr, llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-    llvm::SmallVectorImpl<uint32_t> *rawIndices) {
-  assert(indices || rawIndices);
+    const Expr *expr, bool rawIndex,
+    llvm::SmallVectorImpl<uint32_t> *rawIndices,
+    llvm::SmallVectorImpl<SpirvInstruction *> *indices) {
+  assert((rawIndex && rawIndices) || (!rawIndex && indices));
+
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
     // First check whether this is referring to a static member. If it is, we
     // create a DeclRefExpr for it.
@@ -6051,8 +6052,8 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
             varDecl->getType(), VK_LValue);
 
     const Expr *base = collectArrayStructIndices(
-        indexing->getBase()->IgnoreParenNoopCasts(astContext), indices,
-        rawIndices);
+        indexing->getBase()->IgnoreParenNoopCasts(astContext), rawIndex,
+        rawIndices, indices);
 
     // Append the index of the current level
     const auto *fieldDecl = cast<FieldDecl>(indexing->getMemberDecl());
@@ -6062,10 +6063,11 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     // derived struct.
     const uint32_t index = getNumBaseClasses(indexing->getBase()->getType()) +
                            fieldDecl->getFieldIndex();
-    if (indices)
-      indices->push_back(spvContext.getConstantInt32(index));
-    if (rawIndices)
+    if (rawIndex) {
       rawIndices->push_back(index);
+    } else {
+      indices->push_back(spvContext.getConstantInt32(index));
+    }
 
     return base;
   }
@@ -6075,20 +6077,21 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
   TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
 
   if (const auto *indexing = dyn_cast<ArraySubscriptExpr>(expr)) {
-    if (rawIndices)
+    if (rawIndex)
       return nullptr; // TODO: handle constant array index
 
     // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
     // cast. We need to ingore it to avoid creating OpLoad.
     const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
-    const Expr *base = collectArrayStructIndices(thisBase, indices, rawIndices);
+    const Expr *base =
+        collectArrayStructIndices(thisBase, rawIndex, rawIndices, indices);
     indices->push_back(doExpr(indexing->getIdx()));
     return base;
   }
 
   if (const auto *indexing = dyn_cast<CXXOperatorCallExpr>(expr))
     if (indexing->getOperator() == OverloadedOperatorKind::OO_Subscript) {
-      if (rawIndices)
+      if (rawIndex)
         return nullptr; // TODO: handle constant array index
 
       // If this is indexing into resources, we need specific OpImage*
@@ -6102,7 +6105,7 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
 
       const auto thisBaseType = thisBase->getType();
       const Expr *base =
-          collectArrayStructIndices(thisBase, indices, rawIndices);
+          collectArrayStructIndices(thisBase, rawIndex, rawIndices, indices);
 
       if (thisBaseType != base->getType() &&
           TypeTranslator::isAKindOfStructuredOrByteBuffer(thisBaseType)) {
@@ -6136,7 +6139,7 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     const Expr *index = nullptr;
     // TODO: the following is duplicating the logic in doCXXMemberCallExpr.
     if (const auto *object = isStructuredBufferLoad(expr, &index)) {
-      if (rawIndices)
+      if (rawIndex)
         return nullptr; // TODO: handle constant array index
 
       // For object.Load(index), there should be no more indexing into the
@@ -6215,14 +6218,11 @@ SpirvInstruction *SPIRVEmitter::castToBool(SpirvInstruction *fromVal,
   return spvBuilder.createBinaryOp(spvOp, toBoolType, fromVal, zeroVal);
 }
 
-// TODO: casting bitwidths is a problem
 SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
                                           QualType fromType, QualType toIntType,
                                           SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
-
-  uint32_t intType = typeTranslator.translateType(toIntType);
 
   if (isBoolOrVecOfBoolType(fromType)) {
     auto *one = getValueOne(toIntType);
@@ -6232,21 +6232,23 @@ SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
-    uint32_t convertedType = 0;
+    QualType convertedType = {};
     fromVal = convertBitwidth(fromVal, fromType, toIntType, &convertedType);
     // If bitwidth conversion was the only thing we needed to do, we're done.
-    if (convertedType == typeTranslator.translateType(toIntType))
+    if (convertedType == toIntType)
       return fromVal;
-    return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toIntType, fromVal);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
     fromVal = convertBitwidth(fromVal, fromType, toIntType);
     if (isSintOrVecOfSintType(toIntType)) {
-      return theBuilder.createUnaryOp(spv::Op::OpConvertFToS, intType, fromVal);
+      return spvBuilder.createUnaryOp(spv::Op::OpConvertFToS, toIntType,
+                                      fromVal);
     } else if (isUintOrVecOfUintType(toIntType)) {
-      return theBuilder.createUnaryOp(spv::Op::OpConvertFToU, intType, fromVal);
+      return spvBuilder.createUnaryOp(spv::Op::OpConvertFToU, toIntType,
+                                      fromVal);
     } else {
       emitError("casting from floating point to integer unimplemented", srcLoc);
     }
@@ -6268,27 +6270,29 @@ SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
 
       // Casting to a matrix of integers: Cast each row and construct a
       // composite.
-      llvm::SmallVector<uint32_t, 4> castedRows;
-      const uint32_t vecType = typeTranslator.getComponentVectorType(fromType);
+      llvm::SmallVector<SpirvInstruction *, 4> castedRows;
+      const QualType vecType = typeTranslator.getComponentVectorType(fromType);
       const auto fromVecQualType =
           astContext.getExtVectorType(elemType, numCols);
       const auto toIntVecQualType =
           astContext.getExtVectorType(toElemType, numCols);
       for (uint32_t row = 0; row < numRows; ++row) {
-        const auto rowId =
-            theBuilder.createCompositeExtract(vecType, fromVal, {row});
+        auto *rowId =
+            spvBuilder.createCompositeExtract(vecType, fromVal, {row});
         castedRows.push_back(
             castToInt(rowId, fromVecQualType, toIntVecQualType, srcLoc));
       }
-      return theBuilder.createCompositeConstruct(intType, castedRows);
+      return spvBuilder.createCompositeConstruct(toIntType, castedRows);
     }
   }
 
-  return 0;
+  return nullptr;
 }
 
-uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
-                                       QualType toType, uint32_t *resultType) {
+SpirvInstruction *SPIRVEmitter::convertBitwidth(SpirvInstruction *fromVal,
+                                                QualType fromType,
+                                                QualType toType,
+                                                QualType *resultType) {
   // At the moment, we will not make bitwidth conversions for literal int and
   // literal float types because they always indicate 64-bit and do not
   // represent what SPIR-V was actually resolved to.
@@ -6302,34 +6306,31 @@ uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
   const auto toBitwidth = typeTranslator.getElementSpirvBitwidth(toType);
   if (fromBitwidth == toBitwidth) {
     if (resultType)
-      *resultType = typeTranslator.translateType(fromType);
+      *resultType = fromType;
     return fromVal;
   }
 
   // We want the 'fromType' with the 'toBitwidth'.
-  const uint32_t targetTypeId =
-      typeTranslator.getTypeWithCustomBitwidth(fromType, toBitwidth);
+  const QualType targetType =
+      getTypeWithCustomBitwidth(astContext, fromType, toBitwidth);
   if (resultType)
-    *resultType = targetTypeId;
+    *resultType = targetType;
 
   if (isFloatOrVecOfFloatType(fromType))
-    return theBuilder.createUnaryOp(spv::Op::OpFConvert, targetTypeId, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpFConvert, targetType, fromVal);
   if (isSintOrVecOfSintType(fromType))
-    return theBuilder.createUnaryOp(spv::Op::OpSConvert, targetTypeId, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpSConvert, targetType, fromVal);
   if (isUintOrVecOfUintType(fromType))
-    return theBuilder.createUnaryOp(spv::Op::OpUConvert, targetTypeId, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpUConvert, targetType, fromVal);
   llvm_unreachable("invalid type passed to convertBitwidth");
 }
 
-// TODO: converting bitwidths is a problem
 SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
                                             QualType fromType,
                                             QualType toFloatType,
                                             SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toFloatType))
     return fromVal;
-
-  const uint32_t floatType = typeTranslator.translateType(toFloatType);
 
   if (isBoolOrVecOfBoolType(fromType)) {
     auto *one = getValueOne(toFloatType);
@@ -6340,13 +6341,15 @@ SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
   if (isSintOrVecOfSintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
     fromVal = convertBitwidth(fromVal, fromType, toFloatType);
-    return theBuilder.createUnaryOp(spv::Op::OpConvertSToF, floatType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpConvertSToF, toFloatType,
+                                    fromVal);
   }
 
   if (isUintOrVecOfUintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
     fromVal = convertBitwidth(fromVal, fromType, toFloatType);
-    return theBuilder.createUnaryOp(spv::Op::OpConvertUToF, floatType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpConvertUToF, toFloatType,
+                                    fromVal);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
@@ -6371,24 +6374,24 @@ SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
 
       // Casting to a matrix of floats: Cast each row and construct a
       // composite.
-      llvm::SmallVector<uint32_t, 4> castedRows;
-      const uint32_t vecType = typeTranslator.getComponentVectorType(fromType);
+      llvm::SmallVector<SpirvInstruction *, 4> castedRows;
+      const QualType vecType = typeTranslator.getComponentVectorType(fromType);
       const auto fromVecQualType =
           astContext.getExtVectorType(elemType, numCols);
       const auto toIntVecQualType =
           astContext.getExtVectorType(toElemType, numCols);
       for (uint32_t row = 0; row < numRows; ++row) {
-        const auto rowId =
-            theBuilder.createCompositeExtract(vecType, fromVal, {row});
+        auto *rowId =
+            spvBuilder.createCompositeExtract(vecType, fromVal, {row});
         castedRows.push_back(
             castToFloat(rowId, fromVecQualType, toIntVecQualType, srcLoc));
       }
-      return theBuilder.createCompositeConstruct(floatType, castedRows);
+      return spvBuilder.createCompositeConstruct(toFloatType, castedRows);
     }
   }
 
   emitError("casting to floating point unimplemented", srcLoc);
-  return 0;
+  return nullptr;
 }
 
 // ehsan was here.
@@ -6412,7 +6415,7 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
 #define INTRINSIC_SPIRV_OP_WITH_CAP_CASE(intrinsicOp, spirvOp, doEachVec, cap) \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
-    theBuilder.requireCapability(cap);                                         \
+    spvBuilder.requireCapability(cap);                                         \
     retVal = processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,    \
                                             doEachVec);                        \
   } break
@@ -6616,20 +6619,17 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneCount",
                                     callExpr->getExprLoc());
-    const uint32_t retType =
-        typeTranslator.translateType(callExpr->getCallReturnType(astContext));
-    const uint32_t varId =
-        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize);
-    retVal = theBuilder.createLoad(retType, varId);
+    const QualType retType = callExpr->getCallReturnType(astContext);
+    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize);
+    retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
                                     callExpr->getExprLoc());
-    const uint32_t retType =
-        typeTranslator.translateType(callExpr->getCallReturnType(astContext));
-    const uint32_t varId =
+    const QualType retType = callExpr->getCallReturnType(astContext);
+    auto *var =
         declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId);
-    retVal = theBuilder.createLoad(retType, varId);
+    retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
     retVal = processWaveQuery(callExpr, spv::Op::OpGroupNonUniformElect);
@@ -6808,7 +6808,6 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   // where necessary. To ensure SPIR-V validity, we add that where necessary.
 
   auto *zero = spvContext.getConstantUint32(0);
-  auto *scope = spvContext.getConstantUint32(1); // Device
   const auto *dest = expr->getArg(0);
   const auto baseType = dest->getType();
 
@@ -9275,9 +9274,9 @@ void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
                                 decl->getLocation());
   }
   if (decl->getAttr<VKPostDepthCoverageAttr>()) {
-    theBuilder.addExtension(Extension::KHR_post_depth_coverage,
+    spvBuilder.addExtension(Extension::KHR_post_depth_coverage,
                             "[[vk::post_depth_coverage]]", decl->getLocation());
-    theBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
+    spvBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::PostDepthCoverage, {},
                                 decl->getLocation());
@@ -9404,13 +9403,14 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // Construct the wrapper function signature.
   const SpirvType *voidType = spvContext.getVoidType();
-  const FunctionType *funcType = spvContext.getFunctionType(voidType, {});
+  FunctionType *funcType = spvContext.getFunctionType(voidType, {});
 
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunction = spvBuilder.beginFunction(
-      astContext.VoidTy, funcType, /*SourceLocation*/ {}, decl->getName());
+  entryFunction = spvBuilder.beginFunction(astContext.VoidTy, funcType,
+                                           /*SourceLocation*/ {},
+                                           decl->getName(), entryFuncInstr);
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 

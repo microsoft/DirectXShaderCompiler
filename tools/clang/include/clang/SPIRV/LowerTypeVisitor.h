@@ -25,6 +25,18 @@ public:
                    const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx) {}
 
+  // Visiting different SPIR-V constructs.
+  bool visit(SpirvModule *, Phase) { return true; }
+  bool visit(SpirvFunction *, Phase);
+  bool visit(SpirvBasicBlock *, Phase) { return true; }
+
+  /// The "sink" visit function for all instructions.
+  ///
+  /// By default, all other visit instructions redirect to this visit function.
+  /// So that you want override this visit function to handle all instructions,
+  /// regardless of their polymorphism.
+  bool visitInstruction(SpirvInstruction *instr);
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>

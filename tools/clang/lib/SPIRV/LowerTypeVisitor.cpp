@@ -7,15 +7,46 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LowerTypeVisitor.h"
-
+#include "clang/SPIRV/LowerTypeVisitor.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/SPIRV/SpirvFunction.h"
 
 namespace clang {
 namespace spirv {
+
+bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
+  if (phase == Visitor::Phase::Init) {
+    // Lower the function return type.
+    const SpirvType *spirvReturnType =
+        lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
+                  /*SourceLocation*/ {});
+    fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
+
+    // In case the function type is a hybrid type, we should also lower the
+    // return type of the SPIR-V function type.
+    if (auto *fnRetType = dyn_cast<HybridFunctionType>(fn->getFunctionType())) {
+      fnRetType->setReturnType(spirvReturnType);
+    }
+  }
+  return true;
+}
+
+bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
+  if (instr->getAstResultType() != QualType({})) {
+    const auto loweredType =
+        lowerType(instr->getAstResultType(), instr->getLayoutRule(),
+                  instr->getSourceLocation());
+
+    instr->setResultType(loweredType);
+
+    return loweredType != nullptr;
+  }
+
+  return true;
+}
 
 const SpirvType *LowerTypeVisitor::lowerType(QualType type,
                                              SpirvLayoutRule rule,

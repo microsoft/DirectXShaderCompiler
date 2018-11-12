@@ -18,6 +18,9 @@
 
 namespace {
 
+constexpr uint32_t kGeneratorNumber = 14;
+constexpr uint32_t kToolVersion = 0;
+
 /// The alignment for 4-component float vectors.
 constexpr uint32_t kStd140Vec4Alignment = 16u;
 
@@ -77,10 +80,28 @@ uint32_t signExtendTo32Bits(int16_t value) {
   }
   return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
 }
+
 } // anonymous namespace
 
 namespace clang {
 namespace spirv {
+
+EmitVisitor::Header::Header(uint32_t bound_)
+    // We are using the unfied header, which shows spv::Version as the newest
+    // version. But we need to stick to 1.0 for Vulkan consumption by default.
+    : magicNumber(spv::MagicNumber), version(0x00010000),
+      generator((kGeneratorNumber << 16) | kToolVersion), bound(bound_),
+      reserved(0) {}
+
+std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
+  std::vector<uint32_t> words;
+  words.push_back(magicNumber);
+  words.push_back(version);
+  words.push_back(generator);
+  words.push_back(bound);
+  words.push_back(reserved);
+  return words;
+}
 
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
                                               llvm::StringRef debugName) {
@@ -150,6 +171,21 @@ void EmitVisitor::finalizeInstruction() {
   }
 }
 
+std::vector<uint32_t> EmitVisitor::takeBinary() {
+  std::vector<uint32_t> result;
+  Header header(takeNextId());
+  auto headerBinary = header.takeBinary();
+  result.insert(result.end(), headerBinary.begin(), headerBinary.end());
+  result.insert(result.end(), preambleBinary.begin(), preambleBinary.end());
+  result.insert(result.end(), debugBinary.begin(), debugBinary.end());
+  result.insert(result.end(), annotationsBinary.begin(),
+                annotationsBinary.end());
+  result.insert(result.end(), typeConstantBinary.begin(),
+                typeConstantBinary.end());
+  result.insert(result.end(), mainBinary.begin(), mainBinary.end());
+  return result;
+}
+
 void EmitVisitor::encodeString(llvm::StringRef value) {
   const auto &words = string::encodeSPIRVString(value);
   curInst.insert(curInst.end(), words.begin(), words.end());
@@ -179,12 +215,13 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     // Emit OpFunction
     initInstruction(spv::Op::OpFunction);
     curInst.push_back(returnTypeId);
-    curInst.push_back(fn->getResultId());
+    curInst.push_back(getResultId<SpirvFunction>(fn));
     curInst.push_back(
         static_cast<uint32_t>(spv::FunctionControlMask::MaskNone));
     curInst.push_back(functionTypeId);
     finalizeInstruction();
-    emitDebugNameForInstruction(fn->getResultId(), fn->getFunctionName());
+    emitDebugNameForInstruction(getResultId<SpirvFunction>(fn),
+                                fn->getFunctionName());
   }
   // After emitting the function
   else if (phase == Visitor::Phase::Done) {
@@ -203,9 +240,10 @@ bool EmitVisitor::visit(SpirvBasicBlock *bb, Phase phase) {
   if (phase == Visitor::Phase::Init) {
     // Emit OpLabel
     initInstruction(spv::Op::OpLabel);
-    curInst.push_back(bb->getLabelId());
+    curInst.push_back(getResultId<SpirvBasicBlock>(bb));
     finalizeInstruction();
-    emitDebugNameForInstruction(bb->getLabelId(), bb->getName());
+    emitDebugNameForInstruction(getResultId<SpirvBasicBlock>(bb),
+                                bb->getName());
   }
   // After emitting the basic block
   else if (phase == Visitor::Phase::Done) {
@@ -230,7 +268,7 @@ bool EmitVisitor::visit(SpirvExtension *ext) {
 
 bool EmitVisitor::visit(SpirvExtInstImport *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   encodeString(inst->getExtendedInstSetName());
   finalizeInstruction();
   return true;
@@ -247,18 +285,19 @@ bool EmitVisitor::visit(SpirvMemoryModel *inst) {
 bool EmitVisitor::visit(SpirvEntryPoint *inst) {
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getExecModel()));
-  curInst.push_back(inst->getEntryPoint()->getResultId());
+  curInst.push_back(getResultId<SpirvFunction>(inst->getEntryPoint()));
   encodeString(inst->getEntryPointName());
   for (auto *var : inst->getInterface())
-    curInst.push_back(var->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(var));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvExecutionMode *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getEntryPoint()->getResultId());
+  curInst.push_back(getResultId<SpirvFunction>(inst->getEntryPoint()));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionMode()));
   curInst.insert(curInst.end(), inst->getParams().begin(),
                  inst->getParams().end());
@@ -268,7 +307,7 @@ bool EmitVisitor::visit(SpirvExecutionMode *inst) {
 
 bool EmitVisitor::visit(SpirvString *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   encodeString(inst->getString());
   finalizeInstruction();
   return true;
@@ -279,7 +318,7 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
   if (inst->hasFile())
-    curInst.push_back(inst->getFile()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getFile()));
   if (!inst->getSource().empty()) {
     // Note: in order to improve performance and avoid multiple copies, we
     // encode this (potentially large) string directly into the debugBinary.
@@ -301,7 +340,7 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getTarget()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getTarget()));
   if (inst->isMemberDecoration())
     curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
@@ -310,8 +349,8 @@ bool EmitVisitor::visit(SpirvDecoration *inst) {
                    inst->getParams().end());
   }
   if (!inst->getIdParams().empty()) {
-    curInst.insert(curInst.end(), inst->getIdParams().begin(),
-                   inst->getIdParams().end());
+    for (auto *paramInstr : inst->getIdParams())
+      curInst.push_back(getResultId<SpirvInstruction>(paramInstr));
   }
   finalizeInstruction();
   return true;
@@ -320,104 +359,115 @@ bool EmitVisitor::visit(SpirvDecoration *inst) {
 bool EmitVisitor::visit(SpirvVariable *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getStorageClass()));
   if (inst->hasInitializer())
-    curInst.push_back(inst->getInitializer()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getInitializer()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvFunctionParameter *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvLoopMerge *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getMergeBlock()->getLabelId());
-  curInst.push_back(inst->getContinueTarget()->getLabelId());
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getMergeBlock()));
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getContinueTarget()));
   curInst.push_back(static_cast<uint32_t>(inst->getLoopControlMask()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSelectionMerge *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getMergeBlock()->getLabelId());
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getMergeBlock()));
   curInst.push_back(static_cast<uint32_t>(inst->getSelectionControlMask()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvBranch *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getTargetLabel()->getLabelId());
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getTargetLabel()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvBranchConditional *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getCondition()->getResultId());
-  curInst.push_back(inst->getTrueLabel()->getLabelId());
-  curInst.push_back(inst->getFalseLabel()->getLabelId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getCondition()));
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getTrueLabel()));
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getFalseLabel()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvKill *inst) {
   initInstruction(inst);
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvReturn *inst) {
   initInstruction(inst);
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSwitch *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getSelector()->getResultId());
-  curInst.push_back(inst->getDefaultLabel()->getLabelId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getSelector()));
+  curInst.push_back(getResultId<SpirvBasicBlock>(inst->getDefaultLabel()));
   for (const auto &target : inst->getTargets()) {
     curInst.push_back(target.first);
-    curInst.push_back(target.second->getLabelId());
+    curInst.push_back(getResultId<SpirvBasicBlock>(target.second));
   }
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvUnreachable *inst) {
   initInstruction(inst);
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvAccessChain *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getBase()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getBase()));
   for (const auto index : inst->getIndexes())
-    curInst.push_back(index->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(index));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
@@ -426,19 +476,20 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
   initInstruction(inst);
   if (op != spv::Op::OpAtomicStore && op != spv::Op::OpAtomicFlagClear) {
     curInst.push_back(inst->getResultTypeId());
-    curInst.push_back(inst->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst));
   }
-  curInst.push_back(inst->getPointer()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getPointer()));
   curInst.push_back(static_cast<uint32_t>(inst->getScope()));
   curInst.push_back(static_cast<uint32_t>(inst->getMemorySemantics()));
   if (inst->hasComparator())
     curInst.push_back(static_cast<uint32_t>(inst->getMemorySemanticsUnequal()));
   if (inst->hasValue())
-    curInst.push_back(inst->getValue()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getValue()));
   if (inst->hasComparator())
-    curInst.push_back(inst->getComparator()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getComparator()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
@@ -449,59 +500,64 @@ bool EmitVisitor::visit(SpirvBarrier *inst) {
   curInst.push_back(static_cast<uint32_t>(inst->getMemoryScope()));
   curInst.push_back(static_cast<uint32_t>(inst->getMemorySemantics()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvBinaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getOperand1()->getResultId());
-  curInst.push_back(inst->getOperand2()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOperand1()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOperand2()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvBitFieldExtract *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getBase()->getResultId());
-  curInst.push_back(inst->getOffset()->getResultId());
-  curInst.push_back(inst->getCount()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getBase()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOffset()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getCount()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvBitFieldInsert *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getBase()->getResultId());
-  curInst.push_back(inst->getInsert()->getResultId());
-  curInst.push_back(inst->getOffset()->getResultId());
-  curInst.push_back(inst->getCount()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getBase()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getInsert()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOffset()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getCount()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantBoolean *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantInteger *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   // 16-bit cases
   if (inst->getBitwidth() == 16) {
     if (inst->isSigned()) {
@@ -536,14 +592,15 @@ bool EmitVisitor::visit(SpirvConstantInteger *inst) {
     curInst.push_back(words.word1);
   }
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantFloat *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   if (inst->getBitwidth() == 16) {
     // According to the SPIR-V Spec:
     // When the type's bit width is less than 32-bits, the literal's value
@@ -564,63 +621,69 @@ bool EmitVisitor::visit(SpirvConstantFloat *inst) {
     curInst.push_back(words.word1);
   }
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantComposite *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  for (const auto constituent : inst->getConstituents())
-    curInst.push_back(constituent->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  for (auto constituent : inst->getConstituents())
+    curInst.push_back(getResultId<SpirvInstruction>(constituent));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantNull *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvComposite *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   for (const auto constituent : inst->getConstituents())
-    curInst.push_back(constituent->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(constituent));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvCompositeExtract *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getComposite()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getComposite()));
   for (const auto constituent : inst->getIndexes())
     curInst.push_back(constituent);
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvCompositeInsert *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getObject()->getResultId());
-  curInst.push_back(inst->getComposite()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getObject()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getComposite()));
   for (const auto constituent : inst->getIndexes())
     curInst.push_back(constituent);
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
@@ -639,60 +702,65 @@ bool EmitVisitor::visit(SpirvEndPrimitive *inst) {
 bool EmitVisitor::visit(SpirvExtInst *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getInstructionSet()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getInstruction());
   for (const auto operand : inst->getOperands())
-    curInst.push_back(operand->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(operand));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvFunctionCall *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getFunction()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvFunction>(inst->getFunction()));
   for (const auto arg : inst->getArgs())
-    curInst.push_back(arg->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(arg));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
-  curInst.push_back(inst->getArg1()->getResultId());
-  curInst.push_back(inst->getArg2()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getArg1()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getArg2()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvNonUniformElect *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvNonUniformUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
-  curInst.push_back(inst->getArg()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getArg()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
@@ -701,170 +769,182 @@ bool EmitVisitor::visit(SpirvImageOp *inst) {
 
   if (!inst->isImageWrite()) {
     curInst.push_back(inst->getResultTypeId());
-    curInst.push_back(inst->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst));
   }
 
-  curInst.push_back(inst->getImage()->getResultId());
-  curInst.push_back(inst->getCoordinate()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getImage()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getCoordinate()));
 
   if (inst->isImageWrite())
-    curInst.push_back(inst->getTexelToWrite()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getTexelToWrite()));
 
   if (inst->hasDref())
-    curInst.push_back(inst->getDref()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getDref()));
   if (inst->hasComponent())
-    curInst.push_back(inst->getComponent()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getComponent()));
   if (inst->getImageOperandsMask() != spv::ImageOperandsMask::MaskNone) {
     curInst.push_back(static_cast<uint32_t>(inst->getImageOperandsMask()));
     if (inst->hasBias())
-      curInst.push_back(inst->getBias()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getBias()));
     if (inst->hasLod())
-      curInst.push_back(inst->getLod()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getLod()));
     if (inst->hasGrad()) {
-      curInst.push_back(inst->getGradDx()->getResultId());
-      curInst.push_back(inst->getGradDy()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getGradDx()));
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getGradDy()));
     }
     if (inst->hasConstOffset())
-      curInst.push_back(inst->getConstOffset()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getConstOffset()));
     if (inst->hasOffset())
-      curInst.push_back(inst->getOffset()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getOffset()));
     if (inst->hasConstOffsets())
-      curInst.push_back(inst->getConstOffsets()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getConstOffsets()));
     if (inst->hasSample())
-      curInst.push_back(inst->getSample()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getSample()));
     if (inst->hasMinLod())
-      curInst.push_back(inst->getMinLod()->getResultId());
+      curInst.push_back(getResultId<SpirvInstruction>(inst->getMinLod()));
   }
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvImageQuery *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getImage()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getImage()));
   if (inst->hasCoordinate())
-    curInst.push_back(inst->getCoordinate()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getCoordinate()));
   if (inst->hasLod())
-    curInst.push_back(inst->getLod()->getResultId());
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getLod()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvImageSparseTexelsResident *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getResidentCode()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getResidentCode()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvImageTexelPointer *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getImage()->getResultId());
-  curInst.push_back(inst->getCoordinate()->getResultId());
-  curInst.push_back(inst->getSample()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getImage()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getCoordinate()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getSample()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvLoad *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getPointer()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getPointer()));
   if (inst->hasMemoryAccessSemantics())
     curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSampledImage *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getImage()->getResultId());
-  curInst.push_back(inst->getSampler()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getImage()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getSampler()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSelect *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getCondition()->getResultId());
-  curInst.push_back(inst->getTrueObject()->getResultId());
-  curInst.push_back(inst->getFalseObject()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getCondition()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getTrueObject()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getFalseObject()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSpecConstantBinaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
-  curInst.push_back(inst->getOperand1()->getResultId());
-  curInst.push_back(inst->getOperand2()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOperand1()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOperand2()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSpecConstantUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
-  curInst.push_back(inst->getOperand()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOperand()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvStore *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getPointer()->getResultId());
-  curInst.push_back(inst->getObject()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getPointer()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getObject()));
   if (inst->hasMemoryAccessSemantics())
     curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getOperand()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getOperand()));
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvVectorShuffle *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getVec1()->getResultId());
-  curInst.push_back(inst->getVec2()->getResultId());
+  curInst.push_back(getResultId<SpirvInstruction>(inst));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getVec1()));
+  curInst.push_back(getResultId<SpirvInstruction>(inst->getVec2()));
   for (const auto component : inst->getComponents())
     curInst.push_back(component);
   finalizeInstruction();
-  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
   return true;
 }
 
@@ -996,14 +1076,14 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     // the array length.
     SpirvConstant *constant =
         spirvContext.getConstantUint32(arrayType->getElementCount());
-    if (constant->getResultId() == 0) {
+    if (getResultId<SpirvInstruction>(constant) == 0) {
       constant->setResultId(takeNextIdFunction());
     }
     IntegerType constantIntType(32, 0);
     const uint32_t uint32TypeId = emitType(&constantIntType, rule);
     initTypeInstruction(spv::Op::OpConstant);
     curTypeInst.push_back(uint32TypeId);
-    curTypeInst.push_back(constant->getResultId());
+    curTypeInst.push_back(getResultId<SpirvInstruction>(constant));
     curTypeInst.push_back(arrayType->getElementCount());
     finalizeTypeInstruction();
 
@@ -1012,7 +1092,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     initTypeInstruction(spv::Op::OpTypeArray);
     curTypeInst.push_back(id);
     curTypeInst.push_back(elemTypeId);
-    curTypeInst.push_back(constant->getResultId());
+    curTypeInst.push_back(getResultId<SpirvInstruction>(constant));
     finalizeTypeInstruction();
 
     // ArrayStride decoration is needed for array types, but we won't have
@@ -1077,6 +1157,20 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   }
   // Function types
   else if (const auto *fnType = dyn_cast<FunctionType>(type)) {
+    const uint32_t retTypeId = emitType(fnType->getReturnType(), rule);
+    llvm::SmallVector<uint32_t, 4> paramTypeIds;
+    for (auto *paramType : fnType->getParamTypes())
+      paramTypeIds.push_back(emitType(paramType, rule));
+
+    initTypeInstruction(spv::Op::OpTypeFunction);
+    curTypeInst.push_back(id);
+    curTypeInst.push_back(retTypeId);
+    for (auto paramTypeId : paramTypeIds)
+      curTypeInst.push_back(paramTypeId);
+    finalizeTypeInstruction();
+  }
+  // Hybrid Function types
+  else if (const auto *fnType = dyn_cast<HybridFunctionType>(type)) {
     const uint32_t retTypeId = emitType(fnType->getReturnType(), rule);
     llvm::SmallVector<uint32_t, 4> paramTypeIds;
     for (auto *paramType : fnType->getParamTypes())

@@ -125,6 +125,9 @@ bool canFitIntoOneRegister(QualType structType, QualType *elemType,
 /// struct member type.
 QualType getElementType(QualType type);
 
+QualType getTypeWithCustomBitwidth(const ASTContext &, QualType type,
+                                   uint32_t bitwidth);
+
 } // namespace spirv
 } // namespace clang
 
