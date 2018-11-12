@@ -201,6 +201,17 @@ SpirvContext::getSampledImageType(const ImageType *image) {
   return sampledImageTypes[image] = new (this) SampledImageType(image);
 }
 
+const HybridSampledImageType *
+SpirvContext::getSampledImageType(QualType image) {
+  auto found = hybridSampledImageTypes.find(image);
+
+  if (found != hybridSampledImageTypes.end())
+    return found->second;
+
+  return hybridSampledImageTypes[image] =
+             new (this) HybridSampledImageType(image);
+}
+
 const ArrayType *SpirvContext::getArrayType(const SpirvType *elemType,
                                             uint32_t elemCount) {
   auto foundElemType = arrayTypes.find(elemType);
@@ -306,7 +317,7 @@ const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
              new (this) HybridPointerType(pointee, sc);
 }
 
-const FunctionType *
+FunctionType *
 SpirvContext::getFunctionType(const SpirvType *ret,
                               llvm::ArrayRef<const SpirvType *> param) {
   // Create a temporary object for finding in the vector.
@@ -324,7 +335,7 @@ SpirvContext::getFunctionType(const SpirvType *ret,
   return functionTypes.back();
 }
 
-const HybridFunctionType *
+HybridFunctionType *
 SpirvContext::getFunctionType(QualType ret,
                               llvm::ArrayRef<const SpirvType *> param) {
   // Create a temporary object for finding in the vector.

@@ -9,6 +9,8 @@
 
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "TypeTranslator.h"
+#include "clang/SPIRV/EmitVisitor.h"
+#include "clang/SPIRV/LowerTypeVisitor.h"
 
 namespace clang {
 namespace spirv {
@@ -21,28 +23,38 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
-                                           const SpirvType *functionType,
+                                           SpirvType *functionType,
                                            SourceLocation loc,
-                                           llvm::StringRef funcName) {
+                                           llvm::StringRef funcName,
+                                           SpirvFunction *func) {
   assert(!function && "found nested function");
-  function = new (context)
-      SpirvFunction(returnType, functionType, /*id*/ 0,
-                    spv::FunctionControlMask::MaskNone, loc, funcName);
+  if (func) {
+    function = func;
+    function->setAstReturnType(returnType);
+    function->setFunctionType(functionType);
+  } else {
+    function = new (context)
+        SpirvFunction(returnType, functionType, /*id*/ 0,
+                      spv::FunctionControlMask::MaskNone, loc, funcName);
+  }
+
   return function;
 }
 
+/*
 SpirvFunction *SpirvBuilder::createFunction(QualType returnType,
                                             const SpirvType *functionType,
                                             SourceLocation loc,
                                             llvm::StringRef funcName,
                                             bool isAlias) {
   SpirvFunction *fn = new (context)
-      SpirvFunction(returnType, functionType, /*id*/ 0,
+      SpirvFunction(returnType, functionType,  0,
                     spv::FunctionControlMask::MaskNone, loc, funcName);
   function->setConstainsAliasComponent(isAlias);
   module->addFunction(function);
   return function;
 }
+*/
 
 SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  SourceLocation loc,
@@ -255,6 +267,28 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvBinaryOp(op, resultType, /*id*/ 0, loc, lhs, rhs);
+  insertPoint->addInstruction(instruction);
+  switch (op) {
+  case spv::Op::OpImageQueryLod:
+  case spv::Op::OpImageQuerySizeLod:
+    requireCapability(spv::Capability::ImageQuery);
+    break;
+  default:
+    // Only checking for ImageQueries, the other Ops can be ignored.
+    break;
+  }
+  return instruction;
+}
+
+SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op,
+                                            const SpirvType *resultType,
+                                            SpirvInstruction *lhs,
+                                            SpirvInstruction *rhs,
+                                            SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction =
+      new (context) SpirvBinaryOp(op, /*QualType*/ {}, /*id*/ 0, loc, lhs, rhs);
+  instruction->setResultType(resultType);
   insertPoint->addInstruction(instruction);
   switch (op) {
   case spv::Op::OpImageQueryLod:
@@ -953,6 +987,16 @@ void SpirvBuilder::decorateNonUniformEXT(SpirvInstruction *target,
   auto *decor = new (context)
       SpirvDecoration(srcLoc, target, spv::Decoration::NonUniformEXT);
   module->addDecoration(decor);
+}
+
+std::vector<uint32_t> SpirvBuilder::takeModule() {
+  // Run necessary visitor passes first
+  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  EmitVisitor emitVisitor(astContext, context, spirvOptions);
+  module->invokeVisitor(&lowerTypeVisitor);
+  module->invokeVisitor(&emitVisitor);
+  
+  return emitVisitor.takeBinary();
 }
 
 } // end namespace spirv

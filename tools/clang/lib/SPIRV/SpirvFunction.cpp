@@ -13,7 +13,7 @@
 namespace clang {
 namespace spirv {
 
-SpirvFunction::SpirvFunction(QualType returnType, const SpirvType *functionType,
+SpirvFunction::SpirvFunction(QualType returnType, SpirvType *functionType,
                              uint32_t id, spv::FunctionControlMask control,
                              SourceLocation loc, llvm::StringRef name)
     : functionId(id), astReturnType(returnType), returnType(nullptr),
@@ -26,6 +26,9 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor) {
 
   for (auto *param : parameters)
     visitor->visit(param);
+
+  for (auto *var : variables)
+    visitor->visit(var);
 
   for (auto *bb : basicBlocks)
     if (!bb->invokeVisitor(visitor))
