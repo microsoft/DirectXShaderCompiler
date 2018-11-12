@@ -21,9 +21,17 @@ bool SpirvBasicBlock::hasTerminator() const {
   return !instructions.empty() && isa<SpirvTerminator>(instructions.back());
 }
 
-bool SpirvBasicBlock::invokeVisitor(Visitor *visitor) {
+bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
+                                    llvm::ArrayRef<SpirvVariable *> vars) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
+
+  // If a basic block is the first basic block of a function, it should include
+  // all the variables of the function.
+  if (!vars.empty())
+    for (auto *var : vars)
+      if (!var->invokeVisitor(visitor))
+        return false;
 
   for (auto *inst : instructions)
     if (!inst->invokeVisitor(visitor))

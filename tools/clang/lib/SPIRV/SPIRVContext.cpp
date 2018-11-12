@@ -76,9 +76,7 @@ const Decoration *SPIRVContext::registerDecoration(const Decoration &d) {
 
 SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
-      uintTypes({}), floatTypes({}), samplerType(nullptr),
-      boolTrueConstant(nullptr), boolFalseConstant(nullptr),
-      boolTrueSpecConstant(nullptr), boolFalseSpecConstant(nullptr) {
+      uintTypes({}), floatTypes({}), samplerType(nullptr) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
@@ -377,98 +375,6 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   return type;
 }
 
-SpirvConstant *SpirvContext::getConstantUint16(uint16_t value, bool specConst) {
-  return getConstantInt<uint16_t>(value, /*isSigned*/ false, 16, specConst);
-}
-SpirvConstant *SpirvContext::getConstantInt16(int16_t value, bool specConst) {
-  return getConstantInt<int16_t>(value, /*isSigned*/ true, 16, specConst);
-}
-SpirvConstant *SpirvContext::getConstantUint32(uint32_t value, bool specConst) {
-  return getConstantInt<uint32_t>(value, /*isSigned*/ false, 32, specConst);
-}
-SpirvConstant *SpirvContext::getConstantInt32(int32_t value, bool specConst) {
-  return getConstantInt<int32_t>(value, /*isSigned*/ true, 32, specConst);
-}
-SpirvConstant *SpirvContext::getConstantUint64(uint64_t value, bool specConst) {
-  return getConstantInt<uint64_t>(value, /*isSigned*/ false, 64, specConst);
-}
-SpirvConstant *SpirvContext::getConstantInt64(int64_t value, bool specConst) {
-  return getConstantInt<int64_t>(value, /*isSigned*/ true, 64, specConst);
-}
-
-SpirvConstant *SpirvContext::getConstantFloat16(uint16_t value,
-                                                bool specConst) {
-  return getConstantFloat<uint16_t>(value, 16, specConst);
-}
-SpirvConstant *SpirvContext::getConstantFloat32(float value, bool specConst) {
-  return getConstantFloat<float>(value, 32, specConst);
-}
-SpirvConstant *SpirvContext::getConstantFloat64(double value, bool specConst) {
-  return getConstantFloat<double>(value, 64, specConst);
-}
-
-SpirvConstant *SpirvContext::getConstantBool(bool value, bool specConst) {
-  if (value) {
-    if (specConst) {
-      return boolTrueSpecConstant;
-    } else {
-      return boolTrueConstant;
-    }
-  } else {
-    if (specConst) {
-      return boolFalseSpecConstant;
-    } else {
-      return boolFalseConstant;
-    }
-  }
-
-  // Couldn't find the constant. Create one.
-  auto *boolConst =
-      new (this) SpirvConstantBoolean(getBoolType(), value, specConst);
-
-  if (value) {
-    if (specConst)
-      boolTrueSpecConstant = boolConst;
-    else
-      boolTrueConstant = boolConst;
-  } else {
-    if (specConst)
-      boolFalseSpecConstant = boolConst;
-    else
-      boolFalseConstant = boolConst;
-  }
-
-  return boolConst;
-}
-
-SpirvConstant *
-SpirvContext::getConstantComposite(QualType compositeType,
-                                   llvm::ArrayRef<SpirvConstant *> constituents,
-                                   bool specConst) {
-  SpirvConstantComposite tempConstant(compositeType, constituents, specConst);
-  auto found =
-      std::find_if(compositeConstants.begin(), compositeConstants.end(),
-                   [&tempConstant](SpirvConstantComposite *cachedConstant) {
-                     return tempConstant == *cachedConstant;
-                   });
-
-  if (found != compositeConstants.end())
-    return *found;
-
-  // Couldn't find the constant. Create one.
-  auto *compositeConst =
-      new (this) SpirvConstantComposite(compositeType, constituents, specConst);
-  compositeConstants.push_back(compositeConst);
-  return compositeConst;
-}
-
-SpirvConstant *SpirvContext::getConstantNull(const SpirvType *type) {
-  return getConstantNullOfType<const SpirvType *>(type);
-}
-
-SpirvConstant *SpirvContext::getConstantNull(QualType type) {
-  return getConstantNullOfType<QualType>(type);
-}
 
 } // end namespace spirv
 } // end namespace clang
