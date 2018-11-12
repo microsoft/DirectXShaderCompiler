@@ -14,8 +14,10 @@ namespace clang {
 namespace spirv {
 
 SpirvModule::SpirvModule()
-    : bound(1), shaderModelVersion(0), memoryModel(nullptr),
-      debugSource(nullptr) {}
+    : bound(0), shaderModelVersion(0), capabilities({}), extensions({}),
+      extInstSets({}), memoryModel(nullptr), entryPoints({}),
+      executionModes({}), debugSource(nullptr), decorations({}), constants({}),
+      variables({}), functions({}), sourceFileName(""), sourceFileContent("") {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor) {
   if (!visitor->visit(this, Visitor::Phase::Init))
@@ -127,6 +129,14 @@ void SpirvModule::addVariable(SpirvVariable *var) {
 void SpirvModule::addDecoration(SpirvDecoration *decor) {
   assert(decor && "cannot add null decoration to the module");
   decorations.push_back(decor);
+}
+
+void SpirvModule::addConstant(SpirvConstant *constant) {
+  assert(constant);
+  if (constants.empty()) {
+    printf("wtf\n");
+  }
+  constants.push_back(constant);
 }
 
 } // end namespace spirv
