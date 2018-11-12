@@ -55,9 +55,9 @@ public:
   /// on failure.
   ///
   /// At any time, there can only exist at most one function under building.
-  SpirvFunction *beginFunction(QualType returnType,
-                               const SpirvType *functionType, SourceLocation,
-                               llvm::StringRef name = "");
+  SpirvFunction *beginFunction(QualType returnType, SpirvType *functionType,
+                               SourceLocation, llvm::StringRef name = "",
+                               SpirvFunction *func = nullptr);
 
   /// \brief Creates and registers a function parameter of the given pointer
   /// type in the current function and returns its pointer.
@@ -70,10 +70,12 @@ public:
   /// functions. This does not change the current function under construction.
   /// The handle can be used to create function call instructions for functions
   /// that we have not yet been discovered in the source code.
+  /*
   SpirvFunction *createFunction(QualType returnType,
                                 const SpirvType *functionType, SourceLocation,
                                 llvm::StringRef name = "",
                                 bool isAlias = false);
+  */
 
   /// \brief Creates a local variable of the given type in the current
   /// function and returns it.
@@ -197,6 +199,9 @@ public:
   /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
+                                SpirvInstruction *lhs, SpirvInstruction *rhs,
+                                SourceLocation loc = {});
+  SpirvBinaryOp *createBinaryOp(spv::Op op, const SpirvType *,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc = {});
   SpirvSpecConstantBinaryOp *
@@ -537,6 +542,9 @@ public:
   /// \brief Decorates the given target with nonuniformEXT
   void decorateNonUniformEXT(SpirvInstruction *target,
                              SourceLocation srcLoc = {});
+
+public:
+  std::vector<uint32_t> takeModule();
 
 private:
   /// \brief Returns the composed ImageOperandsMask from non-zero parameters

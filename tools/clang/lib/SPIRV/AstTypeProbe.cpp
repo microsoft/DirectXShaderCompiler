@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/HlslTypes.h"
 
@@ -536,6 +537,56 @@ QualType getElementType(QualType type) {
 
   assert(false && "unsupported resource type parameter");
   return type;
+}
+
+QualType getTypeWithCustomBitwidth(const ASTContext &ctx, QualType type,
+                                   uint32_t bitwidth) {
+  // Cases where the given type is a vector of float/int.
+  {
+    QualType elemType = {};
+    uint32_t elemCount = 0;
+    const bool isVec = isVectorType(type, &elemType, &elemCount);
+    if (isVec) {
+      return ctx.getExtVectorType(
+          getTypeWithCustomBitwidth(ctx, elemType, bitwidth), elemCount);
+    }
+  }
+
+  // Scalar cases.
+  assert(!type->isBooleanType());
+  assert(type->isIntegerType() || type->isFloatingType());
+  if (type->isFloatingType()) {
+    switch (bitwidth) {
+    case 16:
+      return ctx.HalfTy;
+    case 32:
+      return ctx.FloatTy;
+    case 64:
+      return ctx.DoubleTy;
+    }
+  }
+  if (type->isSignedIntegerType()) {
+    switch (bitwidth) {
+    case 16:
+      return ctx.ShortTy;
+    case 32:
+      return ctx.IntTy;
+    case 64:
+      return ctx.LongLongTy;
+    }
+  }
+  if (type->isUnsignedIntegerType()) {
+    switch (bitwidth) {
+    case 16:
+      return ctx.UnsignedShortTy;
+    case 32:
+      return ctx.UnsignedIntTy;
+    case 64:
+      return ctx.UnsignedLongLongTy;
+    }
+  }
+  llvm_unreachable(
+      "invalid type or bitwidth passed to getTypeWithCustomBitwidth");
 }
 
 } // namespace spirv

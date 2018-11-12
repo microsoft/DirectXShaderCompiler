@@ -26,9 +26,9 @@ class SpirvType;
 //
 // Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
 struct SpirvLayoutRuleDenseMapInfo {
-  static inline SpirvLayoutRule getEmptyKey() { return SpirvLayoutRule::Void; }
+  static inline SpirvLayoutRule getEmptyKey() { return SpirvLayoutRule::Max; }
   static inline SpirvLayoutRule getTombstoneKey() {
-    return SpirvLayoutRule::Void;
+    return SpirvLayoutRule::Max;
   }
   static unsigned getHashValue(const SpirvLayoutRule &Val) {
     return static_cast<unsigned>(Val) * 37U;
@@ -85,6 +85,17 @@ private:
 
   void emitLayoutDecorations(const StructType *, SpirvLayoutRule);
 
+  // There is no guarantee that an instruction or a function or a basic block
+  // has been assigned result-id. This method returns the result-id for the
+  // given object. If a result-id has not been assigned yet, it'll assign
+  // one and return it.
+  template <class T> uint32_t getResultId(T *obj) {
+    if (!obj->getResultId()) {
+      obj->setResultId(takeNextIdFunction());
+    }
+    return obj->getResultId();
+  }
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
@@ -115,6 +126,22 @@ private:
 /// representation.
 class EmitVisitor : public Visitor {
 public:
+  /// \brief The struct representing a SPIR-V module header.
+  struct Header {
+    /// \brief Default constructs a SPIR-V module header with id bound 0.
+    Header(uint32_t bound);
+
+    /// \brief Feeds the consumer with all the SPIR-V words for this header.
+    std::vector<uint32_t> takeBinary();
+
+    const uint32_t magicNumber;
+    uint32_t version;
+    const uint32_t generator;
+    uint32_t bound;
+    const uint32_t reserved;
+  };
+
+public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), id(0),
@@ -142,7 +169,6 @@ public:
   bool visit(SpirvFunctionParameter *);
   bool visit(SpirvLoopMerge *);
   bool visit(SpirvSelectionMerge *);
-  bool visit(SpirvBranching *);
   bool visit(SpirvBranch *);
   bool visit(SpirvBranchConditional *);
   bool visit(SpirvKill *);
@@ -181,9 +207,23 @@ public:
   bool visit(SpirvUnaryOp *);
   bool visit(SpirvVectorShuffle *);
 
+  // Returns the assembled binary built up in this visitor.
+  std::vector<uint32_t> takeBinary();
+
 private:
   // Returns the next available result-id.
   uint32_t takeNextId() { return ++id; }
+
+  // There is no guarantee that an instruction or a function or a basic block
+  // has been assigned result-id. This method returns the result-id for the
+  // given object. If a result-id has not been assigned yet, it'll assign
+  // one and return it.
+  template <class T> uint32_t getResultId(T *obj) {
+    if (!obj->getResultId()) {
+      obj->setResultId(takeNextId());
+    }
+    return obj->getResultId();
+  }
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op);
