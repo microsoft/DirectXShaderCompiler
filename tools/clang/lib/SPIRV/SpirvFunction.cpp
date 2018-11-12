@@ -27,12 +27,20 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor) {
   for (auto *param : parameters)
     visitor->visit(param);
 
-  for (auto *var : variables)
-    visitor->visit(var);
-
-  for (auto *bb : basicBlocks)
-    if (!bb->invokeVisitor(visitor))
-      return false;
+  for (auto *bb : basicBlocks) {
+    // The first basic block of the function should first visit the function
+    // variables.
+    if (bb == basicBlocks[0]) {
+      if (!bb->invokeVisitor(visitor, variables))
+        return false;
+    }
+    // The rest of the basic blocks in the function do not need to visit
+    // function variables.
+    else {
+      if (!bb->invokeVisitor(visitor))
+        return false;
+    }
+  }
 
   if (!visitor->visit(this, Visitor::Phase::Done))
     return false;

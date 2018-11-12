@@ -40,11 +40,11 @@ struct SpirvLayoutRuleDenseMapInfo {
 
 class EmitTypeHandler {
 public:
-  EmitTypeHandler(ASTContext &astCtx, SpirvContext &spvCtx,
+  EmitTypeHandler(ASTContext &astCtx, SpirvBuilder &builder,
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), spirvContext(spvCtx), annotationsBinary(decVec),
+      : astContext(astCtx), spirvBuilder(builder), annotationsBinary(decVec),
         typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn) {
     assert(decVec);
     assert(typesVec);
@@ -108,7 +108,7 @@ private:
 
 private:
   ASTContext &astContext;
-  SpirvContext &spirvContext;
+  SpirvBuilder &spirvBuilder;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
   std::vector<uint32_t> *annotationsBinary;
@@ -143,9 +143,9 @@ public:
 
 public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-              const SpirvCodeGenOptions &opts)
+              const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
       : Visitor(opts, spvCtx), id(0),
-        typeHandler(astCtx, spvCtx, &annotationsBinary, &typeConstantBinary,
+        typeHandler(astCtx, builder, &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }) {}
 
   // Visit different SPIR-V constructs for emitting.
@@ -264,7 +264,7 @@ private:
   // All annotation instructions: OpDecorate, OpMemberDecorate, OpGroupDecorate,
   // OpGroupMemberDecorate, and OpDecorationGroup.
   std::vector<uint32_t> annotationsBinary;
-  // All OpLine instructions
+  // All type and constant instructions
   std::vector<uint32_t> typeConstantBinary;
   // All other instructions
   std::vector<uint32_t> mainBinary;
