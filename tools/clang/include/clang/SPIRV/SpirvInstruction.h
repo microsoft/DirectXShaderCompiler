@@ -1062,10 +1062,10 @@ private:
 class SpirvConstantComposite : public SpirvConstant {
 public:
   SpirvConstantComposite(const SpirvType *type,
-                         llvm::ArrayRef<const SpirvConstant *> constituents,
+                         llvm::ArrayRef<SpirvConstant *> constituents,
                          bool isSpecConst = false);
   SpirvConstantComposite(QualType type,
-                         llvm::ArrayRef<const SpirvConstant *> constituents,
+                         llvm::ArrayRef<SpirvConstant *> constituents,
                          bool isSpecConst = false);
 
   // For LLVM-style RTTI
@@ -1077,12 +1077,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 
-  llvm::ArrayRef<const SpirvConstant *> getConstituents() const {
+  llvm::ArrayRef<SpirvConstant *> getConstituents() const {
     return constituents;
   }
 
 private:
-  llvm::SmallVector<const SpirvConstant *, 4> constituents;
+  llvm::SmallVector<SpirvConstant *, 4> constituents;
 };
 
 class SpirvConstantNull : public SpirvConstant {

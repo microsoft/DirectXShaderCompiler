@@ -118,7 +118,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  SpirvFunction *entryPointFn,
                                  llvm::StringRef nameStr,
                                  llvm::ArrayRef<SpirvVariable *> iface)
-    : SpirvInstruction(IK_EntryPoint, spv::Op::OpMemoryModel, QualType(),
+    : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(),
                        /*resultId=*/0, loc),
       execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
       interfaceVec(iface.begin(), iface.end()) {}
@@ -562,8 +562,8 @@ bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {
 }
 
 SpirvConstantComposite::SpirvConstantComposite(
-    const SpirvType *type,
-    llvm::ArrayRef<const SpirvConstant *> constituentsVec, bool isSpecConst)
+    const SpirvType *type, llvm::ArrayRef<SpirvConstant *> constituentsVec,
+    bool isSpecConst)
     : SpirvConstant(IK_ConstantComposite,
                     isSpecConst ? spv::Op::OpSpecConstantComposite
                                 : spv::Op::OpConstantComposite,
@@ -571,7 +571,7 @@ SpirvConstantComposite::SpirvConstantComposite(
       constituents(constituentsVec.begin(), constituentsVec.end()) {}
 
 SpirvConstantComposite::SpirvConstantComposite(
-    QualType type, llvm::ArrayRef<const SpirvConstant *> constituentsVec,
+    QualType type, llvm::ArrayRef<SpirvConstant *> constituentsVec,
     bool isSpecConst)
     : SpirvConstant(IK_ConstantComposite,
                     isSpecConst ? spv::Op::OpSpecConstantComposite

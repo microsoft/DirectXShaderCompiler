@@ -24,7 +24,7 @@ class SpirvVisitor;
 /// The class representing a SPIR-V function in memory.
 class SpirvFunction {
 public:
-  SpirvFunction(QualType returnType, const SpirvType *fnSpirvType, uint32_t id,
+  SpirvFunction(QualType astReturnType, SpirvType *fnSpirvType, uint32_t id,
                 spv::FunctionControlMask, SourceLocation,
                 llvm::StringRef name = "");
   ~SpirvFunction() = default;
@@ -40,9 +40,8 @@ public:
   // Handle SPIR-V function visitors.
   bool invokeVisitor(Visitor *);
 
-  // TODO: The responsibility of assigning the result-id of a function shouldn't
-  // be on the function itself.
   uint32_t getResultId() const { return functionId; }
+  void setResultId(uint32_t id) { functionId = id; }
 
   // TODO: There should be a pass for lowering QualType to SPIR-V type,
   // and this method should be able to return the result-id of the SPIR-V type.
@@ -52,15 +51,18 @@ public:
   uint32_t getReturnTypeId() const { return returnTypeId; }
   void setReturnTypeId(uint32_t id) { returnTypeId = id; }
 
-  // Sets the lowered (SPIR-V) function type.
+  // Sets the lowered (SPIR-V) return type.
   void setReturnType(SpirvType *type) { returnType = type; }
-  // Returns the lowered (SPIR-V) function type.
-  const SpirvType *getReturnType() const { return returnType; }
+  // Returns the lowered (SPIR-V) return type.
+  SpirvType *getReturnType() const { return returnType; }
+
+  void setAstReturnType(QualType type) { astReturnType = type; }
+  QualType getAstReturnType() const { return astReturnType; }
 
   // Sets the SPIR-V type of the function
-  void setFunctionType(FunctionType *type) { fnType = type; }
+  void setFunctionType(SpirvType *type) { fnType = type; }
   // Returns the SPIR-V type of the function
-  const FunctionType *getFunctionType() const { return fnType; }
+  SpirvType *getFunctionType() const { return fnType; }
 
   // Sets the result-id of the OpTypeFunction
   void setFunctionTypeId(uint32_t id) { fnTypeId = id; }
@@ -87,8 +89,8 @@ private:
   SpirvType *returnType;  ///< The lowered return type
   uint32_t returnTypeId;  ///< result-id for the return type
 
-  const SpirvType *fnType; ///< The SPIR-V function type
-  uint32_t fnTypeId;       ///< result-id for the SPIR-V function type
+  SpirvType *fnType; ///< The SPIR-V function type
+  uint32_t fnTypeId; ///< result-id for the SPIR-V function type
 
   bool containsAlias; ///< Whether function return type is aliased
   bool rvalue;        ///< Whether the return value is an rvalue
