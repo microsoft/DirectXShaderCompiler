@@ -10,10 +10,10 @@
 #include "clang/SPIRV/EmitVisitor.h"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
-#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/String.h"
 
@@ -1146,9 +1146,9 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
 
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
-    if (interfaceType == StructType::InterfaceType::StorageBuffer)
+    if (interfaceType == StructInterfaceType::StorageBuffer)
       emitDecoration(id, spv::Decoration::BufferBlock, {});
-    else if (interfaceType == StructType::InterfaceType::UniformBuffer)
+    else if (interfaceType == StructInterfaceType::UniformBuffer)
       emitDecoration(id, spv::Decoration::Block, {});
   }
   // Pointer types

@@ -5750,7 +5750,7 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
       auto *result = tryToAssignToRWBufferRWTexture(base, newVec);
       assert(result); // Definitely RWBuffer/RWTexture assignment
       (void)result;
-      return rhs;     // TODO: incorrect for compound assignments
+      return rhs; // TODO: incorrect for compound assignments
     } else {
       // Assigning to one normal vector component. Nothing special, just fall
       // back to the normal CodeGen path.
@@ -7354,8 +7354,8 @@ SpirvInstruction *SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
     if (isScalarType(argType) || isVectorType(argType)) {
       // The struct members *must* have the same type.
       const auto modfStructType = spvContext.getHybridStructType(
-          {HybridStructType::FieldInfo(argType, nullptr, "frac"),
-           HybridStructType::FieldInfo(argType, nullptr, "ip")},
+          {HybridStructType::FieldInfo(argType, "frac"),
+           HybridStructType::FieldInfo(argType, "ip")},
           "ModfStructType");
       auto *modf = spvBuilder.createExtInst(modfStructType, glslInstSet,
                                             GLSLstd450::GLSLstd450ModfStruct,
@@ -7377,8 +7377,8 @@ SpirvInstruction *SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
     if (isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
       const auto colType = astContext.getExtVectorType(elemType, colCount);
       const auto modfStructType = spvContext.getHybridStructType(
-          {HybridStructType::FieldInfo(colType, nullptr, "frac"),
-           HybridStructType::FieldInfo(colType, nullptr, "ip")},
+          {HybridStructType::FieldInfo(colType, "frac"),
+           HybridStructType::FieldInfo(colType, "ip")},
           "ModfStructType");
       llvm::SmallVector<SpirvInstruction *, 4> fracs;
       llvm::SmallVector<SpirvInstruction *, 4> ips;
@@ -7470,8 +7470,8 @@ SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
               ? astContext.IntTy
               : astContext.getExtVectorType(astContext.IntTy, elemCount);
       const auto *frexpStructType = spvContext.getHybridStructType(
-          {HybridStructType::FieldInfo(argType, nullptr, "mantissa"),
-           HybridStructType::FieldInfo(expType, nullptr, "exponent")},
+          {HybridStructType::FieldInfo(argType, "mantissa"),
+           HybridStructType::FieldInfo(expType, "exponent")},
           "FrexpStructType");
       auto *frexp = spvBuilder.createExtInst(frexpStructType, glslInstSet,
                                              GLSLstd450::GLSLstd450FrexpStruct,
@@ -7498,8 +7498,8 @@ SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
       const auto colType =
           astContext.getExtVectorType(astContext.FloatTy, colCount);
       const auto *frexpStructType = spvContext.getHybridStructType(
-          {HybridStructType::FieldInfo(colType, nullptr, "mantissa"),
-           HybridStructType::FieldInfo(expType, nullptr, "exponent")},
+          {HybridStructType::FieldInfo(colType, "mantissa"),
+           HybridStructType::FieldInfo(expType, "exponent")},
           "FrexpStructType");
       llvm::SmallVector<SpirvInstruction *, 4> exponents;
       llvm::SmallVector<SpirvInstruction *, 4> mantissas;
@@ -9508,7 +9508,6 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // If not explicitly initialized, initialize with their zero values if not
     // resource objects
     else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
-      const QualType type = varDecl->getType();
       auto *nullValue = spvBuilder.getConstantNull(varDecl->getType());
       spvBuilder.createStore(varInfo, nullValue);
     }
