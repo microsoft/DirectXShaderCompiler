@@ -496,6 +496,7 @@ DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const SubobjectReade
     subobject.RaytracingPipelineConfig.MaxTraceRecursionDepth = subobjectReader.GetRaytracingPipelineConfig_MaxTraceRecursionDepth();
     break;
   case DXIL::SubobjectKind::HitGroup:
+    subobject.HitGroup.Type = (uint32_t)subobjectReader.GetHitGroup_Type();
     subobject.HitGroup.Intersection = GetWideString(subobjectReader.GetHitGroup_Intersection());
     subobject.HitGroup.AnyHit = GetWideString(subobjectReader.GetHitGroup_AnyHit());
     subobject.HitGroup.ClosestHit = GetWideString(subobjectReader.GetHitGroup_ClosestHit());
