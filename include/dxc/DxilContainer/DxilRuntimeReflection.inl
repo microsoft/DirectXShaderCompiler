@@ -91,7 +91,7 @@ public:
 
 DxilRuntimeData::DxilRuntimeData() : DxilRuntimeData(nullptr, 0) {}
 
-DxilRuntimeData::DxilRuntimeData(const char *ptr, size_t size)
+DxilRuntimeData::DxilRuntimeData(const void *ptr, size_t size)
     : m_TableCount(0), m_StringReader(), m_IndexTableReader(), m_RawBytesReader(),
       m_ResourceTableReader(), m_FunctionTableReader(),
       m_SubobjectTableReader(), m_Context() {
@@ -342,6 +342,9 @@ const DxilLibraryDesc DxilRuntimeReflection_impl::GetLibraryReflection() {
     reflection.NumFunctions =
         m_RuntimeData.GetFunctionTableReader()->GetNumFunctions();
     reflection.pFunction = m_Functions.data();
+    reflection.NumSubobjects =
+        m_RuntimeData.GetSubobjectTableReader()->GetCount();
+    reflection.pSubobjects = m_Subobjects.data();
   }
   return reflection;
 }

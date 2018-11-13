@@ -1011,11 +1011,13 @@ bool DxilModule::IsEntryThatUsesSignatures(const llvm::Function *F) const {
   return IsPatchConstantShader(F);
 }
 
-void DxilModule::StripRootSignatureFromMetadata() {
+bool DxilModule::StripRootSignatureFromMetadata() {
   NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
   if (pRootSignatureNamedMD) {
     GetModule()->eraseNamedMetadata(pRootSignatureNamedMD);
+    return true;
   }
+  return false;
 }
 
 DxilSubobjects *DxilModule::GetSubobjects() {
@@ -1031,11 +1033,13 @@ void DxilModule::ResetSubobjects(DxilSubobjects *subobjects) {
   m_pSubobjects.reset(subobjects);
 }
 
-void DxilModule::StripSubobjectsFromMetadata() {
+bool DxilModule::StripSubobjectsFromMetadata() {
   NamedMDNode *pSubobjectsNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilSubobjectsMDName);
   if (pSubobjectsNamedMD) {
     GetModule()->eraseNamedMetadata(pSubobjectsNamedMD);
+    return true;
   }
+  return false;
 }
 
 void DxilModule::UpdateValidatorVersionMetadata() {

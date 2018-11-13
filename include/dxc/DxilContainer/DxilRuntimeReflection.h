@@ -583,7 +583,7 @@ private:
 
 public:
   DxilRuntimeData();
-  DxilRuntimeData(const char *ptr, size_t size);
+  DxilRuntimeData(const void *ptr, size_t size);
   // initializing reader from RDAT. return true if no error has occured.
   bool InitFromRDAT(const void *pRDAT, size_t size);
   // read prerelease data:
