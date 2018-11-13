@@ -435,6 +435,9 @@ bool EmitVisitor::visit(SpirvKill *inst) {
 
 bool EmitVisitor::visit(SpirvReturn *inst) {
   initInstruction(inst);
+  if (inst->hasReturnValue()) {
+    curInst.push_back(getResultId<SpirvInstruction>(inst->getReturnValue()));
+  }
   finalizeInstruction();
   emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
