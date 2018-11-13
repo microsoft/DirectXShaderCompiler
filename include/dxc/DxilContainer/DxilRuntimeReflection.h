@@ -625,8 +625,8 @@ struct DxilFunctionDesc {
 };
 
 struct DxilSubobjectDesc {
-  uint32_t Kind;        // DXIL::SubobjectKind / D3D12_STATE_SUBOBJECT_TYPE
   LPCWSTR Name;
+  uint32_t Kind;        // DXIL::SubobjectKind / D3D12_STATE_SUBOBJECT_TYPE
 
   struct StateObjectConfig_t {
     uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
