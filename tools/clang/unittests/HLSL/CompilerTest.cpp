@@ -20,6 +20,7 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
+#include <cfloat>
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
@@ -374,6 +375,7 @@ public:
   TEST_METHOD(CodeGenExternRes)
   TEST_METHOD(CodeGenExpandTrig)
   TEST_METHOD(CodeGenFloatCast)
+  TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
@@ -3450,6 +3452,28 @@ TEST_F(CompilerTest, CodeGenExpandTrig) {
 
 TEST_F(CompilerTest, CodeGenFloatCast) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\float_cast.hlsl");
+}
+
+struct FPEnableExceptionsScope
+{
+  // _controlfp_s is non-standard and <cfenv> doesn't have a function to enable exceptions
+#ifdef _WIN32
+  unsigned int previousValue;
+  FPEnableExceptionsScope() {
+    VERIFY_IS_TRUE(_controlfp_s(&previousValue, 0, _MCW_EM) == 0); // _MCW_EM == 0 means enable all exceptions
+  }
+  ~FPEnableExceptionsScope() {
+    unsigned int newValue;
+    errno_t error = _controlfp_s(&newValue, previousValue, _MCW_EM);
+    DXASSERT(error == 0, "Failed to restore floating-point environment.");
+    (void)error;
+  }
+#endif
+};
+
+TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
+  FPEnableExceptionsScope fpEnableExceptions;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\fpexcept.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFloatToBool) {
