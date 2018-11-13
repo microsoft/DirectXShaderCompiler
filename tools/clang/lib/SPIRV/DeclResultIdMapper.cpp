@@ -524,8 +524,6 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
 
 SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
-  // TODO(ehsan): Setting QualType for function parameter. In SPIR-V, this
-  // should be a pointer-to-translated-qualtype (with Function storage class).
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
   SpirvFunctionParameter *fnParamInstr =
