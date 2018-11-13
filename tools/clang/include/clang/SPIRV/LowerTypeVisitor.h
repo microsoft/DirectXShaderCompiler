@@ -32,6 +32,9 @@ public:
 
   // Custom visitor for variables. Variables must have a pointer result-type.
   bool visit(SpirvVariable *);
+  // Custom visitor for function parameters. We use pointer type for function
+  // parameters.
+  bool visit(SpirvFunctionParameter *);
 
   /// The "sink" visit function for all instructions.
   ///
