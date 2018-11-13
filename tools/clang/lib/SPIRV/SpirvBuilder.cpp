@@ -51,6 +51,7 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  llvm::StringRef name) {
   assert(function && "found detached parameter");
   auto *param = new (context) SpirvFunctionParameter(ptrType, /*id*/ 0, loc);
+  param->setStorageClass(spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
   return param;
