@@ -27,25 +27,82 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
 
     // In case the function type is a hybrid type, we should also lower the
     // return type of the SPIR-V function type.
-    if (auto *fnRetType = dyn_cast<HybridFunctionType>(fn->getFunctionType())) {
-      fnRetType->setReturnType(spirvReturnType);
+    if (auto *fnRetType = dyn_cast<HybridType>(fn->getFunctionType())) {
+      fn->setFunctionType(const_cast<SpirvType *>(lowerType(
+          fnRetType, SpirvLayoutRule::Void, fn->getSourceLocation())));
     }
   }
   return true;
 }
 
 bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
-  if (instr->getAstResultType() != QualType({})) {
-    const auto loweredType =
-        lowerType(instr->getAstResultType(), instr->getLayoutRule(),
-                  instr->getSourceLocation());
+  const QualType astType = instr->getAstResultType();
+  const SpirvType *hybridType = instr->getResultType();
 
-    instr->setResultType(loweredType);
-
-    return loweredType != nullptr;
+  // Lower QualType to SpirvType
+  if (astType != QualType({})) {
+    const SpirvType *spirvType =
+        lowerType(astType, instr->getLayoutRule(), instr->getSourceLocation());
+    instr->setResultType(spirvType);
+    return spirvType != nullptr;
+  }
+  // Lower Hybrid type to SpirvType
+  else if (hybridType) {
+    if (const auto *hybridType = dyn_cast<HybridType>(instr->getResultType())) {
+      const SpirvType *spirvType = lowerType(hybridType, instr->getLayoutRule(),
+                                             instr->getSourceLocation());
+      instr->setResultType(spirvType);
+    }
   }
 
+  // The instruction does not have a result-type, so nothing to do.
   return true;
+}
+
+const SpirvType *LowerTypeVisitor::lowerType(const HybridType *hybrid,
+                                             SpirvLayoutRule rule,
+                                             SourceLocation loc) {
+  if (const auto *hybridPointer = dyn_cast<HybridPointerType>(hybrid)) {
+    const QualType pointeeType = hybridPointer->getPointeeType();
+    const SpirvType *pointeeSpirvType = lowerType(pointeeType, rule, loc);
+    return spvContext.getPointerType(pointeeSpirvType,
+                                     hybridPointer->getStorageClass());
+  } else if (const auto *hybridSampledImage =
+                 dyn_cast<HybridSampledImageType>(hybrid)) {
+    const QualType imageAstType = hybridSampledImage->getImageType();
+    const SpirvType *imageSpirvType = lowerType(imageAstType, rule, loc);
+    assert(isa<ImageType>(imageSpirvType));
+    return spvContext.getSampledImageType(cast<ImageType>(imageSpirvType));
+  } else if (const auto *hybridFn = dyn_cast<HybridFunctionType>(hybrid)) {
+    // Lower the return type.
+    const QualType astReturnType = hybridFn->getAstReturnType();
+    const SpirvType *spirvReturnType = lowerType(astReturnType, rule, loc);
+
+    // Go over all params. If any of them is hybrid, lower it.
+    std::vector<const SpirvType *> paramTypes;
+    for (auto *paramType : hybridFn->getParamTypes()) {
+      if (const auto *hybridParam = dyn_cast<HybridType>(paramType)) {
+        paramTypes.push_back(lowerType(hybridParam, rule, loc));
+      } else {
+        paramTypes.push_back(paramType);
+      }
+    }
+
+    return spvContext.getFunctionType(spirvReturnType, paramTypes);
+  } else if (const auto *hybridStruct = dyn_cast<HybridStructType>(hybrid)) {
+    // lower all fields of the struct.
+    std::vector<StructType::FieldInfo> structFields;
+    for (auto field : hybridStruct->getFields()) {
+      const SpirvType *fieldSpirvType = lowerType(field.astType, rule, loc);
+      structFields.push_back(StructType::FieldInfo(fieldSpirvType, field.name,
+                                                   field.vkOffsetAttr,
+                                                   field.packOffsetAttr));
+    }
+    return spvContext.getStructType(structFields, hybridStruct->getStructName(),
+                                    hybridStruct->isReadOnly(),
+                                    hybridStruct->getInterfaceType());
+  }
+  llvm_unreachable("lowering of hybrid type not implemented");
 }
 
 const SpirvType *LowerTypeVisitor::lowerType(QualType type,
