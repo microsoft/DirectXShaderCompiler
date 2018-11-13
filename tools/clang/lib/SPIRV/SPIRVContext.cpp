@@ -239,7 +239,7 @@ SpirvContext::getRuntimeArrayType(const SpirvType *elemType) {
 const StructType *
 SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
                             llvm::StringRef name, bool isReadOnly,
-                            StructType::InterfaceType interfaceType) {
+                            StructInterfaceType interfaceType) {
   // We are creating a temporary struct type here for querying whether the
   // same type was already created. It is a little bit costly, but we can
   // avoid allocating directly from the bump pointer allocator, from which
@@ -262,7 +262,7 @@ SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
 
 const HybridStructType *SpirvContext::getHybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, llvm::StringRef name,
-    bool isReadOnly, HybridStructType::InterfaceType interfaceType) {
+    bool isReadOnly, StructInterfaceType interfaceType) {
   // We are creating a temporary struct type here for querying whether the
   // same type was already created. It is a little bit costly, but we can
   // avoid allocating directly from the bump pointer allocator, from which
@@ -374,7 +374,6 @@ const StructType *SpirvContext::getACSBufferCounterType() {
 
   return type;
 }
-
 
 } // end namespace spirv
 } // end namespace clang

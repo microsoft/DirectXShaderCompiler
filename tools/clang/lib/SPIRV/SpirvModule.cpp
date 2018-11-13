@@ -133,9 +133,6 @@ void SpirvModule::addDecoration(SpirvDecoration *decor) {
 
 void SpirvModule::addConstant(SpirvConstant *constant) {
   assert(constant);
-  if (constants.empty()) {
-    printf("wtf\n");
-  }
   constants.push_back(constant);
 }
 
