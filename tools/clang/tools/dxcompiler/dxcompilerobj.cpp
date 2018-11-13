@@ -108,11 +108,15 @@ struct DefaultFPEnvScope
   unsigned int previousValue;
   DefaultFPEnvScope() {
     // No exceptions, preserve denormals & round to nearest.
-    _controlfp_s(&previousValue, _MCW_EM | _DN_SAVE | _RC_NEAR, _MCW_EM | _MCW_DN | _MCW_RC);
+    errno_t error = _controlfp_s(&previousValue, _MCW_EM | _DN_SAVE | _RC_NEAR, _MCW_EM | _MCW_DN | _MCW_RC);
+    IFT(error == 0 ? S_OK : E_FAIL);
   }
   ~DefaultFPEnvScope() {
     unsigned int newValue;
-    _controlfp_s(&newValue, previousValue, _MCW_EM | _MCW_DN | _MCW_RC);
+    errno_t error = _controlfp_s(&newValue, previousValue, _MCW_EM | _MCW_DN | _MCW_RC);
+    // During cleanup we can't throw as we might already be handling another one.
+    DXASSERT(error == 0, "Failed to restore floating-point environment.");
+    (void)error;
   }
 #else
   DefaultFPEnvScope() {} // Dummy ctor to avoid unused local warning
@@ -320,8 +324,6 @@ public:
     AssignToOutOpt(nullptr, ppDebugBlobName);
     AssignToOutOpt(nullptr, ppDebugBlob);
 
-    DefaultFPEnvScope fpEnvScope;
-
     HRESULT hr = S_OK;
     CComPtr<IDxcBlobEncoding> utf8Source;
     CComPtr<AbstractMemoryStream> pOutputStream;
@@ -332,6 +334,8 @@ public:
     DxcThreadMalloc TM(m_pMalloc);
 
     try {
+      DefaultFPEnvScope fpEnvScope;
+
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
 
       // Parse command-line options into DxcOpts
@@ -663,8 +667,6 @@ public:
       return E_INVALIDARG;
     *ppResult = nullptr;
 
-    DefaultFPEnvScope fpEnvScope;
-
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerPreprocess_Start();
     DxcThreadMalloc TM(m_pMalloc);
@@ -672,6 +674,8 @@ public:
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
+      DefaultFPEnvScope fpEnvScope;
+
       CComPtr<AbstractMemoryStream> pOutputStream;
       dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
@@ -775,12 +779,12 @@ public:
 
     *ppDisassembly = nullptr;
 
-    DefaultFPEnvScope fpEnvScope;
-
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerDisassemble_Start();
     DxcThreadMalloc TM(m_pMalloc); 
     try {
+      DefaultFPEnvScope fpEnvScope;
+
       ::llvm::sys::fs::MSFileSystem *msfPtr;
       IFT(CreateMSFileSystemForDisk(&msfPtr));
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);

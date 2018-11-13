@@ -3423,7 +3423,9 @@ struct FPEnableExceptionsScope
   }
   ~FPEnableExceptionsScope() {
     unsigned int newValue;
-    _controlfp_s(&newValue, previousValue, _MCW_EM);
+    errno_t error = _controlfp_s(&newValue, previousValue, _MCW_EM);
+    DXASSERT(error == 0, "Failed to restore floating-point environment.");
+    (void)error;
   }
 #endif
 };
