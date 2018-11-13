@@ -144,7 +144,7 @@ struct QualTypeDenseMapInfo {
   static inline QualType getEmptyKey() { return {}; }
   static inline QualType getTombstoneKey() { return {}; }
   static unsigned getHashValue(const QualType &Val) {
-    return static_cast<unsigned>(Val.getTypePtr()->getScalarTypeKind()) * 37U;
+    return llvm::hash_combine(Val.getTypePtr(), Val.getCVRQualifiers());
   }
   static bool isEqual(const QualType &LHS, const QualType &RHS) {
     return LHS == RHS;
