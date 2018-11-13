@@ -88,11 +88,7 @@ public:
   // Adds the debug source to the module.
   void addDebugSource(SpirvSource *);
 
-  void setBound(uint32_t b) { bound = b; }
-
 private:
-  uint32_t bound;
-
   // "Metadata" instructions
   llvm::SmallVector<SpirvCapability *, 8> capabilities;
   llvm::SmallVector<SpirvExtension *, 4> extensions;

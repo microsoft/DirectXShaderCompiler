@@ -220,10 +220,6 @@ void EmitVisitor::encodeString(llvm::StringRef value) {
 
 bool EmitVisitor::visit(SpirvModule *m, Phase phase) {
   // No pre-visit operations needed for SpirvModule.
-
-  if (phase == Visitor::Phase::Done)
-    m->setBound(takeNextId());
-
   return true;
 }
 
@@ -317,8 +313,6 @@ bool EmitVisitor::visit(SpirvEntryPoint *inst) {
   for (auto *var : inst->getInterface())
     curInst.push_back(getResultId<SpirvInstruction>(var));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -443,8 +437,6 @@ bool EmitVisitor::visit(SpirvLoopMerge *inst) {
   curInst.push_back(getResultId<SpirvBasicBlock>(inst->getContinueTarget()));
   curInst.push_back(static_cast<uint32_t>(inst->getLoopControlMask()));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -453,8 +445,6 @@ bool EmitVisitor::visit(SpirvSelectionMerge *inst) {
   curInst.push_back(getResultId<SpirvBasicBlock>(inst->getMergeBlock()));
   curInst.push_back(static_cast<uint32_t>(inst->getSelectionControlMask()));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -462,8 +452,6 @@ bool EmitVisitor::visit(SpirvBranch *inst) {
   initInstruction(inst);
   curInst.push_back(getResultId<SpirvBasicBlock>(inst->getTargetLabel()));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -473,16 +461,12 @@ bool EmitVisitor::visit(SpirvBranchConditional *inst) {
   curInst.push_back(getResultId<SpirvBasicBlock>(inst->getTrueLabel()));
   curInst.push_back(getResultId<SpirvBasicBlock>(inst->getFalseLabel()));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvKill *inst) {
   initInstruction(inst);
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -492,8 +476,6 @@ bool EmitVisitor::visit(SpirvReturn *inst) {
     curInst.push_back(getResultId<SpirvInstruction>(inst->getReturnValue()));
   }
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -506,16 +488,12 @@ bool EmitVisitor::visit(SpirvSwitch *inst) {
     curInst.push_back(getResultId<SpirvBasicBlock>(target.second));
   }
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvUnreachable *inst) {
   initInstruction(inst);
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -561,8 +539,6 @@ bool EmitVisitor::visit(SpirvBarrier *inst) {
   curInst.push_back(static_cast<uint32_t>(inst->getMemoryScope()));
   curInst.push_back(static_cast<uint32_t>(inst->getMemorySemantics()));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
@@ -979,8 +955,6 @@ bool EmitVisitor::visit(SpirvStore *inst) {
   if (inst->hasMemoryAccessSemantics())
     curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
   finalizeInstruction();
-  emitDebugNameForInstruction(getResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
   return true;
 }
 
