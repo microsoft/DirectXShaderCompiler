@@ -30,6 +30,9 @@ public:
   bool visit(SpirvFunction *, Phase);
   bool visit(SpirvBasicBlock *, Phase) { return true; }
 
+  // Custom visitor for variables. Variables must have a pointer result-type.
+  bool visit(SpirvVariable *);
+
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
