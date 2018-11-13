@@ -29,8 +29,8 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
+#include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/SpirvBuilder.h"
-#include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 

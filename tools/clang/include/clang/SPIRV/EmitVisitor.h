@@ -20,6 +20,7 @@ namespace spirv {
 class SpirvFunction;
 class SpirvBasicBlock;
 class SpirvType;
+class SpirvBuilder;
 
 // Provides DenseMapInfo for SpirvLayoutRule so that we can use it as key to
 // DenseMap.

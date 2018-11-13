@@ -51,6 +51,12 @@ private:
   /// The lowering is recursive; all the types that the target type depends
   /// on will be created in SpirvContext.
   const SpirvType *lowerType(QualType type, SpirvLayoutRule, SourceLocation);
+  /// Lowers the given Hybrid type into a SPIR-V type.
+  ///
+  /// Uses the above lowerType method to lower the QualType components of hybrid
+  /// types.
+  const SpirvType *lowerType(const HybridType *, SpirvLayoutRule,
+                             SourceLocation);
 
   /// Lowers the given HLSL resource type into its SPIR-V type.
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
