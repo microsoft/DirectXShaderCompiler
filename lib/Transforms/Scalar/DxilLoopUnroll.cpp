@@ -16,13 +16,1013 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/ADT/SetVector.h"
+
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include <set>
+#include <unordered_map>
 
 using namespace llvm;
+using namespace hlsl;
 
 namespace {
+
+typedef std::unordered_map<Value*, Value*> ValueToValueMap;
+typedef llvm::SetVector<Value*> ValueSetVector;
+typedef llvm::SmallVector<Value*, 4> IndexVector;
+typedef std::unordered_map<Value*, IndexVector> ValueToIdxMap;
+
+// Errors:
+class ResourceUseErrors
+{
+  bool m_bErrorsReported;
+public:
+  ResourceUseErrors() : m_bErrorsReported(false) {}
+
+  enum ErrorCode {
+    // Collision between use of one resource GV and another.
+    // All uses must be guaranteed to resolve to only one GV.
+    // Additionally, when writing resource to alloca, all uses
+    // of that alloca are considered resolving to a single GV.
+    GVConflicts,
+
+    // static global resources are disallowed for libraries at this time.
+    // for non-library targets, they should have been eliminated already.
+    StaticGVUsed,
+
+    // user function calls with resource params or return type are
+    // are currently disallowed for libraries.
+    UserCallsWithResources,
+
+    // When searching up from store pointer looking for alloca,
+    // we encountered an unexpted value type
+    UnexpectedValuesFromStorePointer,
+
+    // When remapping values to be replaced, we add them to RemappedValues
+    // so we don't use dead values stored in other sets/maps.  Circular
+    // remaps that should not happen are aadded to RemappingCyclesDetected.
+    RemappingCyclesDetected,
+
+    // Without SUPPORT_SELECT_ON_ALLOCA, phi/select on alloca based
+    // pointer is disallowed, since this scenario is still untested.
+    // This error also covers any other unknown alloca pointer uses.
+    // Supported:
+    // alloca (-> gep)? -> load -> ...
+    // alloca (-> gep)? -> store.
+    // Unsupported without SUPPORT_SELECT_ON_ALLOCA:
+    // alloca (-> gep)? -> phi/select -> ...
+    AllocaUserDisallowed,
+
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+    // Conflict in select/phi between GV pointer and alloca pointer.  This
+    // algorithm can't handle this case.
+    AllocaSelectConflict,
+#endif
+
+    ErrorCodeCount
+  };
+
+  const StringRef ErrorText[ErrorCodeCount] = {
+    "local resource not guaranteed to map to unique global resource.",
+    "static global resource use is disallowed for library functions.",
+    "exported library functions cannot have resource parameters or return value.",
+    "internal error: unexpected instruction type when looking for alloca from store.",
+    "internal error: cycles detected in value remapping.",
+    "phi/select disallowed on pointers to local resources."
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+    ,"unable to resolve merge of global and local resource pointers."
+#endif
+  };
+
+  ValueSetVector ErrorSets[ErrorCodeCount];
+
+  // Ulitimately, the goal of ErrorUsers is to mark all create handles
+  // so we don't try to report errors on them again later.
+  std::unordered_set<Value*> ErrorUsers;  // users of error values
+  bool AddErrorUsers(Value* V) {
+    auto it = ErrorUsers.insert(V);
+    if (!it.second)
+      return false;   // already there
+    if (isa<GEPOperator>(V) ||
+        isa<LoadInst>(V) ||
+        isa<PHINode>(V) ||
+        isa<SelectInst>(V) ||
+        isa<AllocaInst>(V)) {
+      for (auto U : V->users()) {
+        AddErrorUsers(U);
+      }
+    } else if(isa<StoreInst>(V)) {
+      AddErrorUsers(cast<StoreInst>(V)->getPointerOperand());
+    }
+    // create handle will be marked, but users not followed
+    return true;
+  }
+  void ReportError(ErrorCode ec, Value* V) {
+    DXASSERT_NOMSG(ec < ErrorCodeCount);
+    if (!ErrorSets[ec].insert(V))
+      return;   // Error already reported
+    AddErrorUsers(V);
+    m_bErrorsReported = true;
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      dxilutil::EmitErrorOnInstruction(I, ErrorText[ec]);
+    } else {
+      StringRef Name = V->getName();
+      std::string escName;
+      if (isa<Function>(V)) {
+        llvm::raw_string_ostream os(escName);
+        dxilutil::PrintEscapedString(Name, os);
+        os.flush();
+        Name = escName;
+      }
+      Twine msg = Twine(ErrorText[ec]) + " Value: " + Name;
+      V->getContext().emitError(msg);
+    }
+  }
+
+  bool ErrorsReported() {
+    return m_bErrorsReported;
+  }
+};
+
+unsigned CountArrayDimensions(Type* Ty,
+    // Optionally collect dimensions
+    SmallVector<unsigned, 4> *dims = nullptr) {
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  unsigned dim = 0;
+  if (dims)
+    dims->clear();
+  while (Ty->isArrayTy()) {
+    if (dims)
+      dims->push_back(Ty->getArrayNumElements());
+    dim++;
+    Ty = Ty->getArrayElementType();
+  }
+  return dim;
+}
+
+// Helper class for legalizing resource use
+// Convert select/phi on resources to select/phi on index to GEP on GV.
+// Convert resource alloca to index alloca.
+// Assumes createHandleForLib has no select/phi
+class LegalizeResourceUseHelper {
+  // Change:
+  //  gep1 = GEP gRes, i1
+  //  res1 = load gep1
+  //  gep2 = GEP gRes, i2
+  //  gep3 = GEP gRes, i3
+  //  gep4 = phi gep2, gep3           <-- handle select/phi on GEP
+  //  res4 = load gep4
+  //  res5 = phi res1, res4
+  //  res6 = load GEP gRes, 23        <-- handle constant GepExpression
+  //  res = select cnd2, res5, res6
+  //  handle = createHandleForLib(res)
+  // To:
+  //  i4 = phi i2, i3
+  //  i5 = phi i1, i4
+  //  i6 = select cnd, i5, 23
+  //  gep = GEP gRes, i6
+  //  res = load gep
+  //  handle = createHandleForLib(res)
+
+  // Also handles alloca
+  //  resArray = alloca [2 x Resource]
+  //  gep1 = GEP gRes, i1
+  //  res1 = load gep1
+  //  gep2 = GEP gRes, i2
+  //  gep3 = GEP gRes, i3
+  //  phi4 = phi gep2, gep3
+  //  res4 = load phi4
+  //  gep5 = GEP resArray, 0
+  //  gep6 = GEP resArray, 1
+  //  store gep5, res1
+  //  store gep6, res4
+  //  gep7 = GEP resArray, i7   <-- dynamically index array
+  //  res = load gep7
+  //  handle = createHandleForLib(res)
+  // Desired result:
+  //  idxArray = alloca [2 x i32]
+  //  phi4 = phi i2, i3
+  //  gep5 = GEP idxArray, 0
+  //  gep6 = GEP idxArray, 1
+  //  store gep5, i1
+  //  store gep6, phi4
+  //  gep7 = GEP idxArray, i7
+  //  gep8 = GEP gRes, gep7
+  //  res = load gep8
+  //  handle = createHandleForLib(res)
+
+  // Also handles multi-dim resource index and multi-dim resource array allocas
+
+  // Basic algorithm:
+  // - recursively mark each GV user with GV (ValueToResourceGV)
+  //  - verify only one GV used for any given value
+  // - handle allocas by searching up from store for alloca
+  //  - then recursively mark alloca users
+  // - ResToIdxReplacement keeps track of vector of indices that
+  //   will be used to replace a given resource value or pointer
+  // - Next, create selects/phis for indices corresponding to
+  //   selects/phis on resource pointers or values.
+  //  - leave incoming index values undef for now
+  // - Create index allocas to replace resource allocas
+  // - Create GEPs on index allocas to replace GEPs on resource allocas
+  // - Create index loads on index allocas to replace loads on resource alloca GEP
+  // - Fill in replacements for GEPs on resource GVs
+  //  - copy replacement index vectors to corresponding loads
+  // - Create index stores to replace resource stores to alloca/GEPs
+  // - Update selects/phis incoming index values
+  // - SimplifyMerges: replace index phis/selects on same value with that value
+  //  - RemappedValues[phi/select] set to replacement value
+  //  - use LookupValue from now on when reading from ResToIdxReplacement
+  // - Update handles by replacing load/GEP chains that go through select/phi
+  //   with direct GV GEP + load, with select/phi on GEP indices instead.
+
+public:
+  ResourceUseErrors m_Errors;
+
+  ValueToValueMap ValueToResourceGV;
+  ValueToIdxMap ResToIdxReplacement;
+  // Value sets we can use to iterate
+  ValueSetVector Selects, GEPs, Stores, Handles;
+  ValueSetVector Allocas, AllocaGEPs, AllocaLoads;
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+  ValueSetVector AllocaSelects;
+#endif
+
+  std::unordered_set<Value *> NonUniformSet;
+
+  // New index selects created by pass, so we can try simplifying later
+  ValueSetVector NewSelects;
+
+  // Values that have been replaced with other values need remapping
+  ValueToValueMap RemappedValues;
+
+  // Things to clean up if no users:
+  std::unordered_set<Instruction*> CleanupInsts;
+
+  GlobalVariable *LookupResourceGV(Value *V) {
+    auto itGV = ValueToResourceGV.find(V);
+    if (itGV == ValueToResourceGV.end())
+      return nullptr;
+    return cast<GlobalVariable>(itGV->second);
+  }
+
+  // Follow RemappedValues, return input if not remapped
+  Value *LookupValue(Value *V) {
+    auto it = RemappedValues.find(V);
+    SmallPtrSet<Value*, 4> visited;
+    while (it != RemappedValues.end()) {
+      // Cycles should not happen, but are bad if they do.
+      if (visited.count(it->second)) {
+        DXASSERT(false, "otherwise, circular remapping");
+        m_Errors.ReportError(ResourceUseErrors::RemappingCyclesDetected, V);
+        break;
+      }
+      V = it->second;
+      it = RemappedValues.find(V);
+      if (it != RemappedValues.end())
+        visited.insert(V);
+    }
+    return V;
+  }
+
+  bool AreLoadUsersTrivial(LoadInst *LI) {
+    for (auto U : LI->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        Function *F = CI->getCalledFunction();
+        DxilModule &DM = F->getParent()->GetDxilModule();
+        hlsl::OP *hlslOP = DM.GetOP();
+        if (hlslOP->IsDxilOpFunc(F)) {
+          hlsl::OP::OpCodeClass opClass;
+          if (hlslOP->GetOpCodeClass(F, opClass) &&
+            opClass == DXIL::OpCodeClass::CreateHandleForLib) {
+            continue;
+          }
+        }
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // This is used to quickly skip the common case where no work is needed
+  bool AreGEPUsersTrivial(GEPOperator *GEP) {
+    if (GlobalVariable *GV = LookupResourceGV(GEP)) {
+      if (GEP->getPointerOperand() != LookupResourceGV(GEP))
+        return false;
+    }
+    for (auto U : GEP->users()) {
+      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+        if (AreLoadUsersTrivial(LI))
+          continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // AssignResourceGVFromStore is used on pointer being stored to.
+  // Follow GEP/Phi/Select up to Alloca, then CollectResourceGVUsers on Alloca
+  void AssignResourceGVFromStore(GlobalVariable *GV, Value *V,
+                                 SmallPtrSet<Value*, 4> &visited,
+                                 bool bNonUniform) {
+    // Prevent cycles as we search up
+    if (visited.count(V) != 0)
+      return;
+    // Verify and skip if already processed
+    auto it = ValueToResourceGV.find(V);
+    if (it != ValueToResourceGV.end()) {
+      if (it->second != GV) {
+        m_Errors.ReportError(ResourceUseErrors::GVConflicts, V);
+      }
+      return;
+    }
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+      CollectResourceGVUsers(GV, AI, /*bAlloca*/true, bNonUniform);
+      return;
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+      // follow the pointer up
+      AssignResourceGVFromStore(GV, GEP->getPointerOperand(), visited, bNonUniform);
+      return;
+    } else if (PHINode *Phi = dyn_cast<PHINode>(V)) {
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+      // follow all incoming values
+      for (auto it : Phi->operand_values())
+        AssignResourceGVFromStore(GV, it, visited, bNonUniform);
+#else
+      m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
+#endif
+      return;
+    } else if (SelectInst *Sel = dyn_cast<SelectInst>(V)) {
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+      // follow all incoming values
+      AssignResourceGVFromStore(GV, Sel->getTrueValue(), visited, bNonUniform);
+      AssignResourceGVFromStore(GV, Sel->getFalseValue(), visited, bNonUniform);
+#else
+      m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
+#endif
+      return;
+    } else if (isa<GlobalVariable>(V) &&
+               cast<GlobalVariable>(V)->getLinkage() ==
+                    GlobalVariable::LinkageTypes::InternalLinkage) {
+      // this is writing to global static, which is disallowed at this point.
+      m_Errors.ReportError(ResourceUseErrors::StaticGVUsed, V);
+      return;
+    } else {
+      // Most likely storing to output parameter
+      m_Errors.ReportError(ResourceUseErrors::UserCallsWithResources, V);
+      return;
+    }
+    return;
+  }
+
+  // Recursively mark values with GV, following users.
+  // Starting value V should be GV itself.
+  // Returns true if value/uses reference no other GV in map.
+  void CollectResourceGVUsers(GlobalVariable *GV, Value *V, bool bAlloca = false, bool bNonUniform = false) {
+    // Recursively tag value V and its users as using GV.
+    auto it = ValueToResourceGV.find(V);
+    if (it != ValueToResourceGV.end()) {
+      if (it->second != GV) {
+        m_Errors.ReportError(ResourceUseErrors::GVConflicts, V);
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+      } else {
+        // if select/phi, make sure bAlloca is consistent
+        if (isa<PHINode>(V) || isa<SelectInst>(V))
+          if ((bAlloca && AllocaSelects.count(V) == 0) ||
+              (!bAlloca && Selects.count(V) == 0))
+            m_Errors.ReportError(ResourceUseErrors::AllocaSelectConflict, V);
+#endif
+      }
+      return;
+    }
+    ValueToResourceGV[V] = GV;
+    if (GV == V) {
+      // Just add and recurse users
+      // make sure bAlloca is clear for users
+      bAlloca = false;
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+      if (bAlloca)
+        AllocaGEPs.insert(GEP);
+      else if (!AreGEPUsersTrivial(GEP))
+        GEPs.insert(GEP);
+      else
+        return; // Optimization: skip trivial GV->GEP->load->createHandle
+      if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
+        if (DxilMDHelper::IsMarkedNonUniform(GEPInst))
+          bNonUniform = true;
+      }
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
+      if (bAlloca)
+        AllocaLoads.insert(LI);
+      // clear bAlloca for users
+      bAlloca = false;
+      if (bNonUniform)
+        NonUniformSet.insert(LI);
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(V)) {
+      Stores.insert(SI);
+      if (!bAlloca) {
+        // Find and mark allocas this store could be storing to
+        SmallPtrSet<Value*, 4> visited;
+        AssignResourceGVFromStore(GV, SI->getPointerOperand(), visited, bNonUniform);
+      }
+      return;
+    } else if (PHINode *Phi = dyn_cast<PHINode>(V)) {
+      if (bAlloca) {
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+        AllocaSelects.insert(Phi);
+#else
+        m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
+#endif
+      } else {
+        Selects.insert(Phi);
+      }
+    } else if (SelectInst *Sel = dyn_cast<SelectInst>(V)) {
+      if (bAlloca) {
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+        AllocaSelects.insert(Sel);
+#else
+        m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
+#endif
+      } else {
+        Selects.insert(Sel);
+      }
+    } else if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+      Allocas.insert(AI);
+      // set bAlloca for users
+      bAlloca = true;
+    } else if (Constant *C = dyn_cast<Constant>(V)) {
+      // skip @llvm.used entry
+      return;
+    } else if (bAlloca) {
+      m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
+    } else {
+      // Must be createHandleForLib or user function call.
+      CallInst *CI = cast<CallInst>(V);
+      Function *F = CI->getCalledFunction();
+      hlsl::OP *hlslOP = nullptr;
+      if (GV->getParent()->HasDxilModule()) {
+        DxilModule &DM = GV->getParent()->GetDxilModule();
+        hlslOP = DM.GetOP();
+      }
+      else {
+        HLModule &HM = GV->getParent()->GetHLModule();
+        hlslOP = HM.GetOP();
+      }
+      if (hlslOP->IsDxilOpFunc(F)) {
+        hlsl::OP::OpCodeClass opClass;
+        if (hlslOP->GetOpCodeClass(F, opClass) &&
+            opClass == DXIL::OpCodeClass::CreateHandleForLib) {
+          Handles.insert(CI);
+          if (bNonUniform)
+            NonUniformSet.insert(CI);
+          return;
+        }
+      }
+      // This could be user call with resource param, which is disallowed for lib_6_3
+      m_Errors.ReportError(ResourceUseErrors::UserCallsWithResources, V);
+      return;
+    }
+
+    // Recurse users
+    for (auto U : V->users())
+      CollectResourceGVUsers(GV, U, bAlloca, bNonUniform);
+    return;
+  }
+
+  // Remove conflicting values from sets before
+  // transforming the remainder.
+  void RemoveConflictingValue(Value* V) {
+    bool bRemoved = false;
+    if (isa<GEPOperator>(V)) {
+      bRemoved = GEPs.remove(V) || AllocaGEPs.remove(V);
+    } else if (isa<LoadInst>(V)) {
+      bRemoved = AllocaLoads.remove(V);
+    } else if (isa<StoreInst>(V)) {
+      bRemoved = Stores.remove(V);
+    } else if (isa<PHINode>(V) || isa<SelectInst>(V)) {
+      bRemoved = Selects.remove(V);
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+      bRemoved |= AllocaSelects.remove(V);
+#endif
+    } else if (isa<AllocaInst>(V)) {
+      bRemoved = Allocas.remove(V);
+    } else if (isa<CallInst>(V)) {
+      bRemoved = Handles.remove(V);
+      return; // don't recurse
+    }
+    if (bRemoved) {
+      // Recurse users
+      for (auto U : V->users())
+        RemoveConflictingValue(U);
+    }
+  }
+  void RemoveConflicts() {
+    for (auto V : m_Errors.ErrorSets[ResourceUseErrors::GVConflicts]) {
+      RemoveConflictingValue(V);
+      ValueToResourceGV.erase(V);
+    }
+  }
+
+  void CreateSelects() {
+    if (Selects.empty()
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+        && AllocaSelects.empty()
+#endif
+        )
+      return;
+    LLVMContext &Ctx =
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+      Selects.empty() ? AllocaSelects[0]->getContext() :
+#endif
+      Selects[0]->getContext();
+    Type *i32Ty = IntegerType::getInt32Ty(Ctx);
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+    for (auto &SelectSet : {Selects, AllocaSelects}) {
+      bool bAlloca = !(&SelectSet == &Selects);
+#else
+    for (auto &SelectSet : { Selects }) {
+#endif
+      for (auto pValue : SelectSet) {
+        Type *SelectTy = i32Ty;
+#ifdef SUPPORT_SELECT_ON_ALLOCA
+        // For alloca case, type needs to match dimensionality of incoming value
+        if (bAlloca) {
+          // TODO: Not sure if this case will actually work
+          //      (or whether it can even be generated from HLSL)
+          Type *Ty = pValue->getType();
+          SmallVector<unsigned, 4> dims;
+          unsigned dim = CountArrayDimensions(Ty, &dims);
+          for (unsigned i = 0; i < dim; i++)
+            SelectTy = ArrayType::get(SelectTy, (uint64_t)dims[dim - i - 1]);
+          if (Ty->isPointerTy())
+            SelectTy = PointerType::get(SelectTy, 0);
+        }
+#endif
+        Value *UndefValue = UndefValue::get(SelectTy);
+        if (PHINode *Phi = dyn_cast<PHINode>(pValue)) {
+          GlobalVariable *GV = LookupResourceGV(Phi);
+          if (!GV)
+            continue; // skip value removed due to conflict
+          IRBuilder<> PhiBuilder(Phi);
+          unsigned gvDim = CountArrayDimensions(GV->getType());
+          IndexVector &idxVector = ResToIdxReplacement[Phi];
+          idxVector.resize(gvDim, nullptr);
+          unsigned numIncoming = Phi->getNumIncomingValues();
+          for (unsigned i = 0; i < gvDim; i++) {
+            PHINode *newPhi = PhiBuilder.CreatePHI(SelectTy, numIncoming);
+            NewSelects.insert(newPhi);
+            idxVector[i] = newPhi;
+            for (unsigned j = 0; j < numIncoming; j++) {
+              // Set incoming values to undef until next pass
+              newPhi->addIncoming(UndefValue, Phi->getIncomingBlock(j));
+            }
+          }
+        } else if (SelectInst *Sel = dyn_cast<SelectInst>(pValue)) {
+          GlobalVariable *GV = LookupResourceGV(Sel);
+          if (!GV)
+            continue; // skip value removed due to conflict
+          IRBuilder<> Builder(Sel);
+          unsigned gvDim = CountArrayDimensions(GV->getType());
+          IndexVector &idxVector = ResToIdxReplacement[Sel];
+          idxVector.resize(gvDim, nullptr);
+          for (unsigned i = 0; i < gvDim; i++) {
+            Value *newSel = Builder.CreateSelect(Sel->getCondition(), UndefValue, UndefValue);
+            NewSelects.insert(newSel);
+            idxVector[i] = newSel;
+          }
+        } else {
+          DXASSERT(false, "otherwise, non-select/phi in Selects set");
+        }
+      }
+    }
+  }
+
+  // Create index allocas to replace resource allocas
+  void CreateIndexAllocas() {
+    if (Allocas.empty())
+      return;
+    Type *i32Ty = IntegerType::getInt32Ty(Allocas[0]->getContext());
+    for (auto pValue : Allocas) {
+      AllocaInst *pAlloca = cast<AllocaInst>(pValue);
+      GlobalVariable *GV = LookupResourceGV(pAlloca);
+      if (!GV)
+        continue; // skip value removed due to conflict
+      IRBuilder<> AllocaBuilder(pAlloca);
+      unsigned gvDim = CountArrayDimensions(GV->getType());
+      SmallVector<unsigned, 4> dimVector;
+      unsigned allocaTyDim = CountArrayDimensions(pAlloca->getType(), &dimVector);
+      Type *pIndexType = i32Ty;
+      for (unsigned i = 0; i < allocaTyDim; i++) {
+        pIndexType = ArrayType::get(pIndexType, dimVector[allocaTyDim - i - 1]);
+      }
+      Value *arraySize = pAlloca->getArraySize();
+      IndexVector &idxVector = ResToIdxReplacement[pAlloca];
+      idxVector.resize(gvDim, nullptr);
+      for (unsigned i = 0; i < gvDim; i++) {
+        AllocaInst *pAlloca = AllocaBuilder.CreateAlloca(pIndexType, arraySize);
+        pAlloca->setAlignment(4);
+        idxVector[i] = pAlloca;
+      }
+    }
+  }
+
+  // Add corresponding GEPs for index allocas
+  IndexVector &ReplaceAllocaGEP(GetElementPtrInst *GEP) {
+    IndexVector &idxVector = ResToIdxReplacement[GEP];
+    if (!idxVector.empty())
+      return idxVector;
+
+    Value *Ptr = GEP->getPointerOperand();
+
+    // Recurse for partial GEPs
+    IndexVector &ptrIndices = isa<GetElementPtrInst>(Ptr) ?
+      ReplaceAllocaGEP(cast<GetElementPtrInst>(Ptr)) : ResToIdxReplacement[Ptr];
+
+    IRBuilder<> Builder(GEP);
+    SmallVector<Value*, 4> gepIndices;
+    for (auto it = GEP->idx_begin(), idxEnd = GEP->idx_end(); it != idxEnd; it++)
+      gepIndices.push_back(*it);
+    idxVector.resize(ptrIndices.size(), nullptr);
+    for (unsigned i = 0; i < ptrIndices.size(); i++) {
+      idxVector[i] = Builder.CreateInBoundsGEP(ptrIndices[i], gepIndices);
+    }
+    return idxVector;
+  }
+
+  void ReplaceAllocaGEPs() {
+    for (auto V : AllocaGEPs) {
+      ReplaceAllocaGEP(cast<GetElementPtrInst>(V));
+    }
+  }
+
+  void ReplaceAllocaLoads() {
+    for (auto V : AllocaLoads) {
+      LoadInst *LI = cast<LoadInst>(V);
+      Value *Ptr = LI->getPointerOperand();
+      IRBuilder<> Builder(LI);
+      IndexVector &idxVector = ResToIdxReplacement[V];
+      IndexVector &ptrIndices = ResToIdxReplacement[Ptr];
+      idxVector.resize(ptrIndices.size(), nullptr);
+      for (unsigned i = 0; i < ptrIndices.size(); i++) {
+        idxVector[i] = Builder.CreateLoad(ptrIndices[i]);
+      }
+    }
+  }
+
+  // Add GEP to ResToIdxReplacement with indices from incoming + GEP
+  IndexVector &ReplaceGVGEPs(GEPOperator *GEP) {
+    IndexVector &idxVector = ResToIdxReplacement[GEP];
+    // Skip if already done
+    // (we recurse into partial GEP and iterate all GEPs)
+    if (!idxVector.empty())
+      return idxVector;
+
+    Type *i32Ty = IntegerType::getInt32Ty(GEP->getContext());
+    Constant *Zero = Constant::getIntegerValue(i32Ty, APInt(32, 0));
+
+    Value *Ptr = GEP->getPointerOperand();
+
+    unsigned idx = 0;
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+      unsigned gvDim = CountArrayDimensions(GV->getType());
+      idxVector.resize(gvDim, Zero);
+    } else if (isa<GEPOperator>(Ptr) || isa<PHINode>(Ptr) || isa<SelectInst>(Ptr)) {
+      // Recurse for partial GEPs
+      IndexVector &ptrIndices = isa<GEPOperator>(Ptr) ?
+        ReplaceGVGEPs(cast<GEPOperator>(Ptr)) : ResToIdxReplacement[Ptr];
+      unsigned ptrDim = CountArrayDimensions(Ptr->getType());
+      unsigned gvDim = ptrIndices.size();
+      DXASSERT(ptrDim <= gvDim, "otherwise incoming pointer has more dimensions than associated GV");
+      unsigned gepStart = gvDim - ptrDim;
+      // Copy indices and add ours
+      idxVector.resize(ptrIndices.size(), Zero);
+      for (; idx < gepStart; idx++)
+        idxVector[idx] = ptrIndices[idx];
+    }
+    if (GEP->hasIndices()) {
+      auto itIdx = GEP->idx_begin();
+      ++itIdx;  // Always skip leading zero (we don't support GV+n pointer arith)
+      while (itIdx != GEP->idx_end())
+        idxVector[idx++] = *itIdx++;
+    }
+    return idxVector;
+  }
+
+  // Add GEPs to ResToIdxReplacement and update loads
+  void ReplaceGVGEPs() {
+    if (GEPs.empty())
+      return;
+    for (auto V : GEPs) {
+      GEPOperator *GEP = cast<GEPOperator>(V);
+      IndexVector &gepVector = ReplaceGVGEPs(GEP);
+      for (auto U : GEP->users()) {
+        if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+          // Just copy incoming indices
+          ResToIdxReplacement[LI] = gepVector;
+        }
+      }
+    }
+  }
+
+  // Create new index stores for incoming indices
+  void ReplaceStores() {
+    // generate stores of incoming indices to corresponding index pointers
+    if (Stores.empty())
+      return;
+    for (auto V : Stores) {
+      StoreInst *SI = cast<StoreInst>(V);
+      IRBuilder<> Builder(SI);
+      IndexVector &idxVector = ResToIdxReplacement[SI];
+      Value *Ptr = SI->getPointerOperand();
+      Value *Val = SI->getValueOperand();
+      IndexVector &ptrIndices = ResToIdxReplacement[Ptr];
+      IndexVector &valIndices = ResToIdxReplacement[Val];
+      DXASSERT_NOMSG(ptrIndices.size() == valIndices.size());
+      idxVector.resize(ptrIndices.size(), nullptr);
+      for (unsigned i = 0; i < idxVector.size(); i++) {
+        idxVector[i] = Builder.CreateStore(valIndices[i], ptrIndices[i]);
+      }
+    }
+  }
+
+  // For each Phi/Select: update matching incoming values for new phis
+  void UpdateSelects() {
+    for (auto V : Selects) {
+      // update incoming index values corresponding to incoming resource values
+      IndexVector &idxVector = ResToIdxReplacement[V];
+      Instruction *I = cast<Instruction>(V);
+      unsigned numOperands = I->getNumOperands();
+      unsigned startOp = isa<PHINode>(V) ? 0 : 1;
+      for (unsigned iOp = startOp; iOp < numOperands; iOp++) {
+        IndexVector &incomingIndices = ResToIdxReplacement[I->getOperand(iOp)];
+        DXASSERT_NOMSG(idxVector.size() == incomingIndices.size());
+        for (unsigned i = 0; i < idxVector.size(); i++) {
+          // must be instruction (phi/select)
+          Instruction *indexI = cast<Instruction>(idxVector[i]);
+          indexI->setOperand(iOp, incomingIndices[i]);
+        }
+
+        // Now clear incoming operand (adding to cleanup) to break cycles
+        if (Instruction *OpI = dyn_cast<Instruction>(I->getOperand(iOp)))
+          CleanupInsts.insert(OpI);
+        I->setOperand(iOp, UndefValue::get(I->getType()));
+      }
+    }
+  }
+
+  // ReplaceHandles
+  //  - iterate handles
+  //    - insert GEP using new indices associated with resource value
+  //    - load resource from new GEP
+  //    - replace resource use in createHandleForLib with new load
+  // Assumes: no users of handle are phi/select or store
+  void ReplaceHandles() {
+    if (Handles.empty())
+      return;
+    Type *i32Ty = IntegerType::getInt32Ty(Handles[0]->getContext());
+    Constant *Zero = Constant::getIntegerValue(i32Ty, APInt(32, 0));
+    for (auto V : Handles) {
+      CallInst *CI = cast<CallInst>(V);
+      DxilInst_CreateHandleForLib createHandle(CI);
+      Value *res = createHandle.get_Resource();
+      // Skip extra work if nothing between load and create handle
+      if (LoadInst *LI = dyn_cast<LoadInst>(res)) {
+        Value *Ptr = LI->getPointerOperand();
+        if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr))
+          Ptr = GEP->getPointerOperand();
+        if (isa<GlobalVariable>(Ptr))
+          continue;
+      }
+      GlobalVariable *GV = LookupResourceGV(res);
+      if (!GV)
+        continue; // skip value removed due to conflict
+      IRBuilder<> Builder(CI);
+      IndexVector &idxVector = ResToIdxReplacement[res];
+      DXASSERT(idxVector.size() == CountArrayDimensions(GV->getType()), "replacements empty or invalid");
+      SmallVector<Value*, 4> gepIndices;
+      gepIndices.push_back(Zero);
+      for (auto idxVal : idxVector)
+        gepIndices.push_back(LookupValue(idxVal));
+      Value *GEP = Builder.CreateInBoundsGEP(GV, gepIndices);
+      // Mark new GEP instruction non-uniform if necessary
+      if (NonUniformSet.count(res) != 0 || NonUniformSet.count(CI) != 0)
+        if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP))
+          DxilMDHelper::MarkNonUniform(GEPInst);
+      LoadInst *LI = Builder.CreateLoad(GEP);
+      createHandle.set_Resource(LI);
+      if (Instruction *resI = dyn_cast<Instruction>(res))
+        CleanupInsts.insert(resI);
+    }
+  }
+
+  // Delete unused CleanupInsts, restarting when changed
+  // Return true if something was deleted
+  bool CleanupUnusedValues() {
+    //  - delete unused CleanupInsts, restarting when changed
+    bool bAnyChanges = false;
+    bool bChanged = false;
+    do {
+      bChanged = false;
+      for (auto it = CleanupInsts.begin(); it != CleanupInsts.end();) {
+        Instruction *I = *(it++);
+        if (I->user_empty()) {
+          // Add instructions operands CleanupInsts
+          for (unsigned iOp = 0; iOp < I->getNumOperands(); iOp++) {
+            if (Instruction *opI = dyn_cast<Instruction>(I->getOperand(iOp)))
+              CleanupInsts.insert(opI);
+          }
+          I->eraseFromParent();
+          CleanupInsts.erase(I);
+          bChanged = true;
+        }
+      }
+      if (bChanged)
+        bAnyChanges = true;
+    } while (bChanged);
+    return bAnyChanges;
+  }
+
+  void SimplifyMerges() {
+    // Loop if changed
+    bool bChanged = false;
+    do {
+      bChanged = false;
+      for (auto V : NewSelects) {
+        if (LookupValue(V) != V)
+          continue;
+        Instruction *I = cast<Instruction>(V);
+        unsigned startOp = isa<PHINode>(I) ? 0 : 1;
+        Value *newV = dxilutil::MergeSelectOnSameValue(
+          cast<Instruction>(V), startOp, I->getNumOperands());
+        if (newV) {
+          RemappedValues[V] = newV;
+          bChanged = true;
+        }
+      }
+    } while (bChanged);
+  }
+
+  void CleanupDeadInsts() {
+    // Assuming everything was successful:
+    // delete stores to allocas to remove cycles
+    for (auto V : Stores) {
+      StoreInst *SI = cast<StoreInst>(V);
+      if (Instruction *I = dyn_cast<Instruction>(SI->getValueOperand()))
+        CleanupInsts.insert(I);
+      if (Instruction *I = dyn_cast<Instruction>(SI->getPointerOperand()))
+        CleanupInsts.insert(I);
+      SI->eraseFromParent();
+    }
+    CleanupUnusedValues();
+  }
+
+  void VerifyComplete(DxilModule &DM) {
+    // Check that all handles now resolve to a global variable, otherwise,
+    // they are likely loading from resource function parameter, which
+    // is disallowed.
+    hlsl::OP *hlslOP = DM.GetOP();
+    for (Function &F : DM.GetModule()->functions()) {
+      if (hlslOP->IsDxilOpFunc(&F)) {
+        hlsl::OP::OpCodeClass opClass;
+        if (hlslOP->GetOpCodeClass(&F, opClass) &&
+          opClass == DXIL::OpCodeClass::CreateHandleForLib) {
+          for (auto U : F.users()) {
+            CallInst *CI = cast<CallInst>(U);
+            if (m_Errors.ErrorUsers.count(CI))
+              continue;   // Error already reported
+            DxilInst_CreateHandleForLib createHandle(CI);
+            Value *res = createHandle.get_Resource();
+            LoadInst *LI = dyn_cast<LoadInst>(res);
+            if (LI) {
+              Value *Ptr = LI->getPointerOperand();
+              if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr))
+                Ptr = GEP->getPointerOperand();
+              if (isa<GlobalVariable>(Ptr))
+                continue;
+            }
+            // handle wasn't processed
+            // Right now, the most likely cause is user call with resources, but
+            // this should be updated if there are other reasons for this to happen.
+            m_Errors.ReportError(ResourceUseErrors::UserCallsWithResources, U);
+          }
+        }
+      }
+    }
+  }
+
+  // Fix resource global variable properties to external constant
+  bool SetExternalConstant(GlobalVariable *GV) {
+    if (GV->hasInitializer() || !GV->isConstant() ||
+        GV->getLinkage() != GlobalVariable::LinkageTypes::ExternalLinkage) {
+      GV->setInitializer(nullptr);
+      GV->setConstant(true);
+      GV->setLinkage(GlobalVariable::LinkageTypes::ExternalLinkage);
+      return true;
+    }
+    return false;
+  }
+
+  bool CollectResources(HLModule &HM) {
+    bool bChanged = false;
+    for (const auto &res : HM.GetCBuffers()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    for (const auto &res : HM.GetSRVs()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    for (const auto &res : HM.GetUAVs()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    for (const auto &res : HM.GetSamplers()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    return bChanged;
+  }
+
+  bool CollectResources(DxilModule &DM) {
+    bool bChanged = false;
+    for (const auto &res : DM.GetCBuffers()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    for (const auto &res : DM.GetSRVs()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    for (const auto &res : DM.GetUAVs()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    for (const auto &res : DM.GetSamplers()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        bChanged |= SetExternalConstant(GV);
+        CollectResourceGVUsers(GV, GV);
+      }
+    }
+    return bChanged;
+  }
+
+  void DoTransform() {
+    RemoveConflicts();
+    CreateSelects();
+    CreateIndexAllocas();
+    ReplaceAllocaGEPs();
+    ReplaceAllocaLoads();
+    ReplaceGVGEPs();
+    ReplaceStores();
+    UpdateSelects();
+    SimplifyMerges();
+    ReplaceHandles();
+    if (!m_Errors.ErrorsReported())
+      CleanupDeadInsts();
+  }
+
+  bool ErrorsReported() {
+    return m_Errors.ErrorsReported();
+  }
+
+  bool runOnModule(llvm::Module &M) {
+    DxilModule &DM = M.GetOrCreateDxilModule();
+
+    bool bChanged = CollectResources(DM);
+
+    // If no selects or allocas are involved, there isn't anything to do
+    if (Selects.empty() && Allocas.empty())
+      return bChanged;
+
+    DoTransform();
+    VerifyComplete(DM);
+
+    return true;
+  }
+};
+
+
 
 template<typename T>
 static std::string DumpValue(T *V) {
@@ -66,7 +1066,6 @@ public:
     AU.addRequiredID(LoopSimplifyID);
 
     AU.addRequired<DominatorTreeWrapperPass>();
-    //AU.addRequiredID(createLoopRotatePass);
     //AU.addPreservedID(LoopSimplifyID);
     //AU.addRequiredID(LCSSAID);
     //AU.addPreservedID(LCSSAID);
@@ -77,7 +1076,7 @@ public:
     // If loop unroll does not preserve dom info then LCSSA pass on next
     // loop will receive invalid dom info.
     // For now, recreate dom info, if loop is unrolled.
-    AU.addPreserved<DominatorTreeWrapperPass>();
+    //AU.addPreserved<DominatorTreeWrapperPass>();
   }
 };
 
@@ -194,6 +1193,18 @@ static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
   return MadeChange;
 }
 
+static bool IsLoopInvariant(Value *V, Loop *L) {
+  if (L->isLoopInvariant(V)) {
+    return true;
+  }
+  if (PHINode *PN = dyn_cast<PHINode>(V)) {
+    if (PN->getNumIncomingValues() == 0) {
+      return IsLoopInvariant(PN->getIncomingValue(0), L);
+    }
+  }
+  return false;
+}
+
 static bool HasUnrollElements(BasicBlock *BB, Loop *L) {
   for (Instruction &I : *BB) {
     if (LoadInst *Load = dyn_cast<LoadInst>(&I)) {
@@ -204,7 +1215,7 @@ static bool HasUnrollElements(BasicBlock *BB, Loop *L) {
             continue;
           for (auto It = GEP->idx_begin(); It != GEP->idx_end(); It++) {
             Value *Idx = *It;
-            if (!L->isLoopInvariant(Idx)) {
+            if (!IsLoopInvariant(Idx, L)) {
               return true;
             }
           }
@@ -222,22 +1233,10 @@ bool IsMarkedFullUnroll(Loop *L) {
 }
 
 static bool HeuristicallyDetermineUnrollNecessary(Loop *L) {
-  Module *M = L->getBlocks().front()->getParent()->getParent();
-  SmallPtrSet<BasicBlock *, 10> BlocksInLoop;
-  SmallPtrSet<Value *, 16> GlobalVariables;
-  for (GlobalVariable &GV : M->globals()) {
-    GlobalVariables.insert(&GV);
-  }
-  for (BasicBlock *BB : L->getBlocks()) {
-    BlocksInLoop.insert(BB);
-  }
-
-  bool Needunroll = false;
   for (BasicBlock *BB : L->getBlocks()) {
     if (HasUnrollElements(BB, L))
       return true;
   }
-
   SmallVector<BasicBlock *, 16> ExitBlocks;
   L->getExitBlocks(ExitBlocks);
   for (BasicBlock *BB : ExitBlocks)
@@ -256,12 +1255,11 @@ static bool HasSuccessorsInLoop(BasicBlock *BB, Loop *L) {
   return false;
 }
 
-static void ParepareBlockForRemoval(BasicBlock *BB) {
+static void DetachFromSuccessors(BasicBlock *BB) {
   SmallVector<BasicBlock *, 16> Successors(succ_begin(BB), succ_end(BB));
   for (BasicBlock *Succ : Successors) {
     Succ->removePredecessor(BB);
   }
-  //BB->getTerminator()->eraseFromParent();
 }
 
 /// Return true if the specified block is in the list.
@@ -468,9 +1466,71 @@ static bool CreateLCSSA(std::set<BasicBlock *> &Body, std::set<BasicBlock *> &Ex
   return Changed;
 }
 
+static bool IsInExitBlocks(Instruction *I, SmallVectorImpl<BasicBlock *> &Exits) {
+  for (BasicBlock *BB : Exits)
+    if (I->getParent() == BB)
+      return true;
+  return false;
+}
+
+static void FindAllocas(Value *V, std::set<AllocaInst *> &Insts) {
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+    Insts.insert(AI);
+  }
+  else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    FindAllocas(GEP->getPointerOperand(), Insts);
+  }
+  else if (StoreInst *StoreI = dyn_cast<StoreInst>(V)) {
+    FindAllocas(StoreI->getPointerOperand(), Insts);
+  }
+  else if (LoadInst *LoadI = dyn_cast<LoadInst>(V)) {
+    FindAllocas(LoadI->getPointerOperand(), Insts);
+  }
+}
+
+static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &ProblemBlocks) {
+  Module *M = L->getHeader()->getModule();
+
+  SmallVector<BasicBlock *, 16> ExitBlocks;
+  L->getExitBlocks(ExitBlocks);
+
+  LegalizeResourceUseHelper Helper;
+  Helper.CollectResources(M->GetHLModule());
+  ValueSetVector &ProblemInsts = Helper.m_Errors.ErrorSets[ResourceUseErrors::GVConflicts];
+
+  std::set<AllocaInst *> ProblemAllocas;
+
+  bool ContainsInstsNeedToUnroll = false;
+  for (Value *V : ProblemInsts) {
+    FindAllocas(V, ProblemAllocas);
+  }
+
+  for (AllocaInst *AI : ProblemAllocas) {
+    for (User *U : AI->users()) {
+      if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+        if (!GEP->hasAllConstantIndices()) {
+          if (L->contains(GEP->getParent()) || IsInExitBlocks(GEP, ExitBlocks)) {
+            ProblemBlocks.insert(GEP->getParent());
+          }
+        }
+      }
+    }
+  }
+}
+
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
-  if (!IsMarkedFullUnroll(L))
+
+  Module *M = L->getHeader()->getModule();
+
+  SmallVector<BasicBlock *, 16> ExitBlocks;
+  L->getExitBlocks(ExitBlocks);
+
+  std::set<BasicBlock *> ProblemBlocks;
+  FindProblemUsers(L, ProblemBlocks);
+
+  if (!IsMarkedFullUnroll(L) && !ProblemBlocks.size())
     return false;
+
   if (!L->isSafeToClone())
     return false;
 
@@ -479,12 +1539,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   Function *F = L->getBlocks()[0]->getParent();
 
   BasicBlock *Latch = L->getLoopLatch();
-
-  std::string ModuleString = DumpValue(F->getParent());
-
   BasicBlock *Header = L->getHeader();
-  SmallVector<BasicBlock *, 16> ExitBlocks;
-  L->getExitBlocks(ExitBlocks);
 
   SmallVector<BasicBlock *, 16> BlocksInLoop(L->getBlocks().begin(), L->getBlocks().end());
   BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
@@ -531,8 +1586,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   std::set<BasicBlock *> NewExits;
   for (BasicBlock *BB : ExitBlocks) {
     ExitBlockSet.insert(BB);
-    bool CloneThisExitBlock = false;
-    // TODO: See if this needs to be cloned
+    bool CloneThisExitBlock = !!ProblemBlocks.count(BB);
 
     if (CloneThisExitBlock) {
       ToBeCloned.insert(BB);
@@ -556,11 +1610,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   SmallVector<BasicBlock *, 16> ClonedBlocks;
   bool Succeeded = false;
 
-  std::string ModuleS = DumpValue(F->getParent());
   // Reistablish LCSSA form to get ready for unrolling.
   CreateLCSSA(ToBeCloned, NewExits, L, *DT, LI);
-
-  std::string ModuleStringLCCA = DumpValue(F->getParent());
 
   std::map<BasicBlock *, BasicBlock *> CloneMap;
   std::map<BasicBlock *, BasicBlock *> ReverseCloneMap;
@@ -575,21 +1626,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     ClonedIteration &Cloned = Clones.back();
 
     // Helper function for cloning a block
-    auto CloneBlock = [Header, &ExitBlockSet, &ToBeCloned, &Cloned, &CloneMap, &ReverseCloneMap, &ClonedBlocks, F](BasicBlock *BB) {
-      bool HasSinglePred = ([&]() {
-        for (Instruction &I : *BB) {
-          if (auto PN = dyn_cast<PHINode>(&I)) {
-            if (PN->getNumIncomingValues() == 1)
-              return true;
-          }
-        }
-        return false;
-      })();
-
-      if (HasSinglePred) {
-        dbgs() << "Single incoming\n";
-      }
-
+    auto CloneBlock = [Header, &ExitBlockSet, &ToBeCloned, &Cloned, &CloneMap, &ReverseCloneMap, &ClonedBlocks, F](BasicBlock *BB) { // TODO: Cleanup
       BasicBlock *ClonedBB = CloneBasicBlock(BB, Cloned.VarMap);
       ClonedBlocks.push_back(ClonedBB);
       ReverseCloneMap[ClonedBB] = BB;
@@ -712,7 +1749,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
   }
 
-  std::string AfterCloning = DumpValue(F->getParent());
   if (Succeeded) {
     // Go through the predecessors of the old header and
     // make them branch to the new header.
@@ -727,20 +1763,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         }
       }
     }
-
-#if 0
-    for (BasicBlock *BB : ToBeCloned) {
-      for (Instruction &I : *BB) {
-        for (Use &U : I.uses()) {
-          if (Instruction *UserI = dyn_cast<Instruction>(U.getUser())) {
-            if (!dyn_cast<PHINode>(UserI) && !ToBeCloned.count(UserI->getParent())) {
-              U.set(Clones.back().VarMap[&I]);
-            }
-          }
-        }
-      }
-    }
-#endif
 
     Loop *OuterL = L->getParentLoop();
     // If there's an outer loop, insert the new blocks
@@ -776,19 +1798,13 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     LPM.deleteLoopFromQueue(L); // TODO: Figure out the impact of this.
     // TODO: Update dominator tree
 
-    for (BasicBlock *BB : ToBeCloned) {
-      ParepareBlockForRemoval(BB);
-    }
-
-    std::string Func2 = DumpValue(F->getParent());
+    for (BasicBlock *BB : ToBeCloned)
+      DetachFromSuccessors(BB);
     for (BasicBlock *BB : ToBeCloned)
       BB->dropAllReferences();
-//    std::string Func3 = DumpValue(F->getParent());
-
     for (BasicBlock *BB : ToBeCloned)
       BB->eraseFromParent();
 
-    std::string TheEnd = DumpValue(F->getParent());
     return true;
   }
 
@@ -797,7 +1813,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Remove all the cloned blocks
     for (ClonedIteration &Iteration : Clones)
       for (BasicBlock *BB : Iteration.Body)
-        ParepareBlockForRemoval(BB);
+        DetachFromSuccessors(BB);
+    for (ClonedIteration &Iteration : Clones)
+      for (BasicBlock *BB : Iteration.Body)
+        BB->dropAllReferences();
     for (ClonedIteration &Iteration : Clones)
       for (BasicBlock *BB : Iteration.Body)
         BB->eraseFromParent();
