@@ -1488,6 +1488,19 @@ static void FindAllocas(Value *V, std::set<AllocaInst *> &Insts) {
   }
 }
 
+static Instruction *GetNonConstIdx(Value *V) {
+  if (PHINode *PN = dyn_cast<PHINode>(V)) {
+    if (PN->getNumIncomingValues() == 1) {
+      return GetNonConstIdx(PN->getIncomingValue(0));
+    }
+    return PN;
+  }
+  else if (Instruction *I = dyn_cast<Instruction>(V)) {
+    return I;
+  }
+  return nullptr;
+}
+#if 0
 static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &ProblemBlocks) {
   Module *M = L->getHeader()->getModule();
 
@@ -1508,22 +1521,57 @@ static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &ProblemBlocks) {
   for (AllocaInst *AI : ProblemAllocas) {
     for (User *U : AI->users()) {
       if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-        if (!GEP->hasAllConstantIndices()) {
-          if (L->contains(GEP->getParent()) || IsInExitBlocks(GEP, ExitBlocks)) {
-            ProblemBlocks.insert(GEP->getParent());
+        //if (!GEP->hasAllConstantIndices()) {
+        if (L->contains(GEP->getParent()) || IsInExitBlocks(GEP, ExitBlocks)) {
+          for (auto IdxIt = GEP->idx_begin(); IdxIt != GEP->idx_end(); IdxIt++) {
+            Value *Idx = *IdxIt;
+            if (Instruction *NonConstIdx = GetNonConstIdx(Idx)) {
+              if (L->contains(NonConstIdx->getParent())) {
+                ProblemBlocks.insert(GEP->getParent());
+                break;
+              }
+            }
           }
         }
       }
     }
   }
 }
+#endif
+
+bool IsProblemBlock(BasicBlock *BB, Loop *L) {
+  //SimplifyPHIs(BB);
+  for (Instruction &I : *BB) {
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+      for (auto IdxIt = GEP->idx_begin(); IdxIt != GEP->idx_end(); IdxIt++) {
+        Value *Idx = *IdxIt;
+        if (Instruction *NonConstIdx = GetNonConstIdx(Idx)) {
+          if (L->contains(NonConstIdx->getParent())) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &Blocks) {
+  SmallVector<BasicBlock *, 16> ExitBlocks;
+  L->getExitBlocks(ExitBlocks);
+
+  for (BasicBlock *BB : L->getBlocks()) {
+    if (IsProblemBlock(BB, L))
+      Blocks.insert(BB);
+  }
+  for (BasicBlock *BB : ExitBlocks) {
+    if (IsProblemBlock(BB, L))
+      Blocks.insert(BB);
+  }
+}
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   Module *M = L->getHeader()->getModule();
-
-  SmallVector<BasicBlock *, 16> ExitBlocks;
-  L->getExitBlocks(ExitBlocks);
 
   std::set<BasicBlock *> ProblemBlocks;
   FindProblemUsers(L, ProblemBlocks);
@@ -1541,6 +1589,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
 
+  SmallVector<BasicBlock *, 16> ExitBlocks;
+  L->getExitBlocks(ExitBlocks);
   SmallVector<BasicBlock *, 16> BlocksInLoop(L->getBlocks().begin(), L->getBlocks().end());
   BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
   std::set<BasicBlock *> ExitBlockSet;
@@ -1584,9 +1634,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     ToBeCloned.insert(BB);
 
   std::set<BasicBlock *> NewExits;
+  std::set<BasicBlock *> FakeExits;
   for (BasicBlock *BB : ExitBlocks) {
     ExitBlockSet.insert(BB);
-    bool CloneThisExitBlock = !!ProblemBlocks.count(BB);
+    bool CloneThisExitBlock = true;// !!ProblemBlocks.count(BB);
 
     if (CloneThisExitBlock) {
       ToBeCloned.insert(BB);
@@ -1599,7 +1650,19 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       FakeExit->getInstList().push_back(OldTerm);
 
       BranchInst::Create(FakeExit, BB);
+      for (BasicBlock *Succ : successors(FakeExit)) {
+        for (Instruction &I : *Succ) {
+          if (PHINode *PN = dyn_cast<PHINode>(&I)) {
+            for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
+              if (PN->getIncomingBlock(i) == BB)
+                PN->setIncomingBlock(i, FakeExit);
+            }
+          }
+        }
+      }
+
       NewExits.insert(FakeExit);
+      FakeExits.insert(FakeExit);
     }
     else {
       NewExits.insert(BB);
@@ -1666,9 +1729,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
           Value *NewIncoming = OldIncoming;
           if (Cloned.VarMap.count(OldIncoming)) { // TODO: Query once
             NewIncoming = Cloned.VarMap[OldIncoming];
-          }
-          else {
-            dbgs() << "Couldn't find mapping for incoming.\n";
           }
           PN->addIncoming(NewIncoming, ClonedBB);
         }
@@ -1768,15 +1828,22 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // If there's an outer loop, insert the new blocks
     // into
     if (OuterL) {
-      auto &FirstIteration = Clones.front();
       for (size_t i = 0; i < Clones.size(); i++) {
         auto &Iteration = Clones[i];
-        for (BasicBlock *BB :Iteration.Body) {
+        for (BasicBlock *BB : Iteration.Body) {
           if (!Iteration.Extended.count(BB))
-          //if (i < Clones.size()-1 || HasSuccessorsInLoop(BB, OuterL)) // FIXME: Fix this. It still has return blocks being added to the outer loop.
+            //if (i < Clones.size()-1 || HasSuccessorsInLoop(BB, OuterL)) // FIXME: Fix this. It still has return blocks being added to the outer loop.
             OuterL->addBasicBlockToLoop(BB, *LI);
         }
+      }
 
+      for (BasicBlock *BB : FakeExits) {
+        if (HasSuccessorsInLoop(BB, OuterL)) // FIXME: Fix this. It still has return blocks being added to the outer loop.
+          OuterL->addBasicBlockToLoop(BB, *LI);
+      }
+
+      for (size_t i = 0; i < Clones.size(); i++) {
+        auto &Iteration = Clones[i];
         for (BasicBlock *BB : Iteration.Extended) {
           if (HasSuccessorsInLoop(BB, OuterL)) // FIXME: Fix this. It still has return blocks being added to the outer loop.
             OuterL->addBasicBlockToLoop(BB, *LI);
