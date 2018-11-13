@@ -641,23 +641,24 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
     spirvOptions.sBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
   }
 
-  // Set shader module version
-  spvBuilder.setShaderModelVersion(shaderModel.GetMajor(),
-                                   shaderModel.GetMinor());
-
-  // Set debug info
+  // Set shader module version, source file name, and source file content (if
+  // needed).
+  llvm::StringRef source = "";
+  llvm::StringRef fileName = "";
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
+  // File name
   if (spirvOptions.debugInfoFile && !inputFiles.empty()) {
-    // File name
-    spvBuilder.setSourceFileName(inputFiles.front().getFile().str());
-
-    // Source code
+    fileName = inputFiles.front().getFile();
+  }
+  // Source code
+  if (spirvOptions.debugInfoSource) {
     const auto &sm = ci.getSourceManager();
     const llvm::MemoryBuffer *mainFile =
         sm.getBuffer(sm.getMainFileID(), SourceLocation());
-    spvBuilder.setSourceFileContent(
-        StringRef(mainFile->getBufferStart(), mainFile->getBufferSize()));
+    source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
   }
+  spvBuilder.setDebugSource(shaderModel.GetMajor(), shaderModel.GetMinor(),
+                            fileName, source);
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -3025,7 +3026,6 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   return nullptr;
 }
 
-// ehsan was here.
 SpirvInstruction *
 SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
                                           bool unclamped) {
@@ -6395,7 +6395,6 @@ SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
   return nullptr;
 }
 
-// ehsan was here.
 SpirvInstruction *
 SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   const FunctionDecl *callee = callExpr->getDirectCallee();
@@ -9648,7 +9647,6 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
   // entry point, create a temporary function-scope variable and write the
   // results to it, so it can be passed to the PCF.
   if (patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
-    // ehsan was here.
     const QualType hullMainRetType = astContext.getConstantArrayType(
         retType, llvm::APInt(32, numOutputControlPoints),
         clang::ArrayType::Normal, 0);
