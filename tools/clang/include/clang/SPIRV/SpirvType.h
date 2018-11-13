@@ -22,6 +22,12 @@
 namespace clang {
 namespace spirv {
 
+enum class StructInterfaceType : uint32_t {
+  InternalStorage = 0,
+  StorageBuffer = 1,
+  UniformBuffer = 2,
+};
+
 class SpirvType {
 public:
   enum Kind {
@@ -250,12 +256,6 @@ private:
 
 class StructType : public SpirvType {
 public:
-  enum class InterfaceType : uint32_t {
-    InternalStorage = 0,
-    StorageBuffer = 1,
-    UniformBuffer = 2,
-  };
-
   struct FieldInfo {
   public:
     FieldInfo(const SpirvType *type_, llvm::StringRef name_ = "",
@@ -276,16 +276,16 @@ public:
     hlsl::ConstantPacking *packOffsetAttr;
   };
 
-  StructType(llvm::ArrayRef<FieldInfo> fields, llvm::StringRef name,
-             bool isReadOnly,
-             InterfaceType interfaceType = InterfaceType::InternalStorage);
+  StructType(
+      llvm::ArrayRef<FieldInfo> fields, llvm::StringRef name, bool isReadOnly,
+      StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Struct; }
 
   llvm::ArrayRef<FieldInfo> getFields() const { return fields; }
   bool isReadOnly() const { return readOnly; }
   std::string getStructName() const { return structName; }
-  InterfaceType getInterfaceType() const { return interfaceType; }
+  StructInterfaceType getInterfaceType() const { return interfaceType; }
 
   bool operator==(const StructType &that) const;
 
@@ -301,7 +301,7 @@ private:
   // storage buffer shader-interface, it will be decorated with 'BufferBlock'.
   // If this structure is a uniform buffer shader-interface, it will be
   // decorated with 'Block'.
-  InterfaceType interfaceType;
+  StructInterfaceType interfaceType;
 };
 
 class SpirvPointerType : public SpirvType {
@@ -337,7 +337,7 @@ public:
     return returnType == that.returnType && paramTypes == that.paramTypes;
   }
 
-  //void setReturnType(const SpirvType *t) { returnType = t; }
+  // void setReturnType(const SpirvType *t) { returnType = t; }
   const SpirvType *getReturnType() const { return returnType; }
   llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
 
@@ -363,25 +363,18 @@ protected:
 /// This type uses a mix of SpirvType and QualType for the structure fields.
 class HybridStructType : public HybridType {
 public:
-  enum class InterfaceType : uint32_t {
-    InternalStorage = 0,
-    StorageBuffer = 1,
-    UniformBuffer = 2,
-  };
-
   struct FieldInfo {
   public:
-    FieldInfo(QualType astType_, const SpirvType *type_,
-              llvm::StringRef name_ = "", clang::VKOffsetAttr *offset = nullptr,
+    FieldInfo(QualType astType_, llvm::StringRef name_ = "",
+              clang::VKOffsetAttr *offset = nullptr,
               hlsl::ConstantPacking *packOffset = nullptr)
-        : astType(astType_), spirvType(type_), name(name_),
-          vkOffsetAttr(offset), packOffsetAttr(packOffset) {}
+        : astType(astType_), name(name_), vkOffsetAttr(offset),
+          packOffsetAttr(packOffset) {}
 
     bool operator==(const FieldInfo &that) const;
 
     // The field's type.
     QualType astType;
-    const SpirvType *spirvType;
     // The field's name.
     std::string name;
     // vk::offset attributes associated with this field.
@@ -392,7 +385,7 @@ public:
 
   HybridStructType(
       llvm::ArrayRef<FieldInfo> fields, llvm::StringRef name, bool isReadOnly,
-      InterfaceType interfaceType = InterfaceType::InternalStorage);
+      StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_HybridStruct;
@@ -401,7 +394,7 @@ public:
   llvm::ArrayRef<FieldInfo> getFields() const { return fields; }
   bool isReadOnly() const { return readOnly; }
   std::string getStructName() const { return structName; }
-  InterfaceType getInterfaceType() const { return interfaceType; }
+  StructInterfaceType getInterfaceType() const { return interfaceType; }
 
   bool operator==(const HybridStructType &that) const;
 
@@ -417,7 +410,7 @@ private:
   // storage buffer shader-interface, it will be decorated with 'BufferBlock'.
   // If this structure is a uniform buffer shader-interface, it will be
   // decorated with 'Block'.
-  InterfaceType interfaceType;
+  StructInterfaceType interfaceType;
 };
 
 class HybridPointerType : public HybridType {
@@ -470,6 +463,7 @@ public:
            returnType == that.returnType && paramTypes == that.paramTypes;
   }
 
+  QualType getAstReturnType() const { return astReturnType; }
   void setReturnType(const SpirvType *t) { returnType = t; }
   const SpirvType *getReturnType() const { return returnType; }
   llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
