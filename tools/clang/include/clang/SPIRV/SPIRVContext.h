@@ -123,7 +123,7 @@ uint32_t SPIRVContext::takeNextId() { return nextId++; }
 // Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
 struct StorageClassDenseMapInfo {
   static inline spv::StorageClass getEmptyKey() {
-    return spv::StorageClass::Function;
+    return spv::StorageClass::Max;
   }
   static inline spv::StorageClass getTombstoneKey() {
     return spv::StorageClass::Max;
