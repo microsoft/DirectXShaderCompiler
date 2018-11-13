@@ -41,7 +41,7 @@ Before you build, you will need to have some additional software installed. This
 
 After cloning the project, you can set up a build environment shortcut by double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut on your desktop with a default configuration.
 
-Tests are built using the TAEF framework. Unless you have the Windows Driver Kit installed, you should run the script at `utils\hct\hctgettaef.py` from your build environment before you start building to download and unzip it as an external dependency. You should only need to do this once.
+Tests are built using the TAEF framework which is a part of Windows Driver Kit and is integrated with Visual Studio 2017. It should be already installed with Visual Studio 2017. In case it is not, download and install Windows Driver Kit.
 
 To build, run this command on the HLSL Console.
 

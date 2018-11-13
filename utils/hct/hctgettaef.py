@@ -1,30 +1,33 @@
-import urllib
-import os
-import ssl
-import zipfile
+print "hctgetatef.py is no longer supported."
+print "TAEF framework should be installed as part of Windows Driver Kit that is integrated with Visual Studio 2017."
 
-url = "https://github.com/Microsoft/WinObjC/raw/develop/deps/prebuilt/nuget/taef.redist.wlk.1.0.170206001-nativetargets.nupkg"
-zipfile_name = os.path.join(os.environ['TEMP'], "taef.redist.wlk.1.0.170206001-nativetargets.nupkg.zip")
-src_dir = os.environ['HLSL_SRC_DIR']
-taef_dir = os.path.join(src_dir, "external", "taef")
+# import urllib
+# import os
+# import ssl
+# import zipfile
 
-if not os.path.isdir(taef_dir):
-  os.makedirs(taef_dir)
+# url = "https://github.com/Microsoft/WinObjC/raw/develop/deps/prebuilt/nuget/taef.redist.wlk.1.0.170206001-nativetargets.nupkg"
+# zipfile_name = os.path.join(os.environ['TEMP'], "taef.redist.wlk.1.0.170206001-nativetargets.nupkg.zip")
+# src_dir = os.environ['HLSL_SRC_DIR']
+# taef_dir = os.path.join(src_dir, "external", "taef")
 
-try:
-  ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-  response = urllib.urlopen(url, context=ctx)
-  f = open(zipfile_name, 'wb')
-  f.write(response.read())
-  f.close()
-except:
-  print("Unable to read file with urllib, trying via powershell...")
-  from subprocess import check_call
-  cmd = ""
-  cmd += "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12;"
-  cmd += "(new-object System.Net.WebClient).DownloadFile('" + url + "', '" + zipfile_name + "')"
-  check_call(['powershell.exe', '-Command', cmd])
+# if not os.path.isdir(taef_dir):
+#   os.makedirs(taef_dir)
 
-z = zipfile.ZipFile(zipfile_name)
-z.extractall(taef_dir)
-z.close()
+# try:
+#   ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+#   response = urllib.urlopen(url, context=ctx)
+#   f = open(zipfile_name, 'wb')
+#   f.write(response.read())
+#   f.close()
+# except:
+#   print("Unable to read file with urllib, trying via powershell...")
+#   from subprocess import check_call
+#   cmd = ""
+#   cmd += "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12;"
+#   cmd += "(new-object System.Net.WebClient).DownloadFile('" + url + "', '" + zipfile_name + "')"
+#   check_call(['powershell.exe', '-Command', cmd])
+
+# z = zipfile.ZipFile(zipfile_name)
+# z.extractall(taef_dir)
+# z.close()
