@@ -69,6 +69,7 @@ public:
   // Returns the result-id of the OpTypeFunction
   uint32_t getFunctionTypeId() const { return fnTypeId; }
 
+  void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
 
   void setConstainsAliasComponent(bool isAlias) { containsAlias = isAlias; }

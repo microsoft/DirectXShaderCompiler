@@ -59,6 +59,17 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   return true;
 }
 
+bool LowerTypeVisitor::visit(SpirvVariable *var) {
+  if (!visitInstruction(var))
+    return false;
+
+  const SpirvType *valueType = var->getResultType();
+  const SpirvType *pointerType =
+      spvContext.getPointerType(valueType, var->getStorageClass());
+  var->setResultType(pointerType);
+  return true;
+}
+
 const SpirvType *LowerTypeVisitor::lowerType(const HybridType *hybrid,
                                              SpirvLayoutRule rule,
                                              SourceLocation loc) {

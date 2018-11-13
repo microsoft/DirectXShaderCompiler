@@ -35,6 +35,8 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
     function = func;
     function->setAstReturnType(returnType);
     function->setFunctionType(functionType);
+    function->setSourceLocation(loc);
+    function->setFunctionName(funcName);
   } else {
     function = new (context)
         SpirvFunction(returnType, functionType, /*id*/ 0,
