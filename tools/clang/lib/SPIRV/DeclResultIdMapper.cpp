@@ -704,7 +704,8 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     // We don't need it here.
     auto varType = declDecl->getType();
     varType.removeLocalConst();
-    HybridStructType::FieldInfo info(varType, nullptr, declDecl->getName());
+    HybridStructType::FieldInfo info(varType, declDecl->getName());
+    fields.push_back(info);
 
     if (spirvOptions.enable16BitTypes &&
         isOrContains16BitType(varType, spirvOptions.enable16BitTypes)) {
@@ -723,8 +724,8 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // tbuffer/TextureBuffers are non-writable SSBOs.
   const SpirvType *resultType = spvContext.getHybridStructType(
       fields, typeName, /*isReadOnly*/ forTBuffer,
-      forTBuffer ? HybridStructType::InterfaceType::StorageBuffer
-                 : HybridStructType::InterfaceType::UniformBuffer);
+      forTBuffer ? StructInterfaceType::StorageBuffer
+                 : StructInterfaceType::UniformBuffer);
 
   // Make an array if requested.
   if (arraySize > 0) {
@@ -968,8 +969,8 @@ void DeclResultIdMapper::createCounterVar(
         spvContext.getPointerType(counterType, spv::StorageClass::Uniform);
   }
 
-  SpirvVariable *counterInstr = spvBuilder.addModuleVar(
-      counterType, spv::StorageClass::Uniform, counterName);
+  SpirvVariable *counterInstr =
+      spvBuilder.addModuleVar(counterType, sc, counterName);
 
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that

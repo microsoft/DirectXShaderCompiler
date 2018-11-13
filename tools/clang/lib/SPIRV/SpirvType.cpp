@@ -52,7 +52,7 @@ bool ImageType::operator==(const ImageType &that) const {
 
 StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
                        llvm::StringRef name, bool isReadOnly,
-                       StructType::InterfaceType iface)
+                       StructInterfaceType iface)
     : SpirvType(TK_Struct), fields(fieldsVec.begin(), fieldsVec.end()),
       structName(name), readOnly(isReadOnly), interfaceType(iface) {}
 
@@ -70,14 +70,14 @@ bool StructType::operator==(const StructType &that) const {
 
 HybridStructType::HybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fieldsVec, llvm::StringRef name,
-    bool isReadOnly, HybridStructType::InterfaceType iface)
+    bool isReadOnly, StructInterfaceType iface)
     : HybridType(TK_HybridStruct), fields(fieldsVec.begin(), fieldsVec.end()),
       structName(name), readOnly(isReadOnly), interfaceType(iface) {}
 
 bool HybridStructType::FieldInfo::
 operator==(const HybridStructType::FieldInfo &that) const {
-  return astType == that.astType && spirvType == that.spirvType &&
-         name == that.name && vkOffsetAttr == that.vkOffsetAttr &&
+  return astType == that.astType && name == that.name &&
+         vkOffsetAttr == that.vkOffsetAttr &&
          packOffsetAttr == that.packOffsetAttr;
 }
 
