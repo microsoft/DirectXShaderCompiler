@@ -1578,7 +1578,9 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
       if (RDAT::SubobjectTableReader *pSubobjectTableReader =
         runtimeData.GetSubobjectTableReader()) {
         dxilModule.ResetSubobjects(new DxilSubobjects());
-        LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), pSubobjectTableReader);
+        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), pSubobjectTableReader)) {
+          Stream << "; error occurred while loading Subobjects from RDAT.\n";
+        }
       }
     }
     if (dxilModule.GetSubobjects()) {

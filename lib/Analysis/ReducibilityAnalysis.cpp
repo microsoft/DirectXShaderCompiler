@@ -50,10 +50,10 @@ public:
 
   ReducibilityAnalysis()
       : FunctionPass(ID), m_Action(IrreducibilityAction::ThrowException),
-        m_bReducible(false) {}
+        m_bReducible(true) {}
 
   explicit ReducibilityAnalysis(IrreducibilityAction Action)
-      : FunctionPass(ID), m_Action(Action), m_bReducible(false) {}
+      : FunctionPass(ID), m_Action(Action), m_bReducible(true) {}
 
   virtual bool runOnFunction(Function &F);
 

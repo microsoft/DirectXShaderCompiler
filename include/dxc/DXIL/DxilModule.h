@@ -147,10 +147,10 @@ public:
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
   bool IsEntryThatUsesSignatures(const llvm::Function *F) const ;
 
-  // Remove Root Signature from module metadata
-  void StripRootSignatureFromMetadata();
-  // Remove Subobjects from module metadata
-  void StripSubobjectsFromMetadata();
+  // Remove Root Signature from module metadata, return true if changed
+  bool StripRootSignatureFromMetadata();
+  // Remove Subobjects from module metadata, return true if changed
+  bool StripSubobjectsFromMetadata();
   // Update validator version metadata to current setting
   void UpdateValidatorVersionMetadata();
 

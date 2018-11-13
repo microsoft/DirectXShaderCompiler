@@ -18,7 +18,7 @@ namespace RDAT {
   class SubobjectTableReader;
 }
 
-void LoadSubobjectsFromRDAT(DxilSubobjects &subobjects,
+bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects,
   RDAT::SubobjectTableReader *pSubobjectTableReader);
 
 } // namespace hlsl

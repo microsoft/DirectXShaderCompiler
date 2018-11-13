@@ -311,8 +311,8 @@ DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
 
 DxilSubobject &DxilSubobjects::CreateSubobject(Kind kind, llvm::StringRef Name) {
   Name = GetSubobjectString(Name);
-  DXASSERT(FindSubobject(Name) == nullptr,
-    "otherwise, name collision between subobjects");
+  IFTBOOLMSG(FindSubobject(Name) == nullptr, DXC_E_GENERAL_INTERNAL_ERROR, "Subobject name collision");
+  IFTBOOLMSG(!Name.empty(), DXC_E_GENERAL_INTERNAL_ERROR, "Empty Subobject name");
   std::unique_ptr<DxilSubobject> ptr(new DxilSubobject(*this, kind, Name));
   DxilSubobject &ref = *ptr;
   m_Subobjects[Name] = std::move(ptr);
