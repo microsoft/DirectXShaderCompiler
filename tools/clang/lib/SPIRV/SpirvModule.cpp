@@ -14,10 +14,9 @@ namespace clang {
 namespace spirv {
 
 SpirvModule::SpirvModule()
-    : bound(0), capabilities({}), extensions({}), extInstSets({}),
-      memoryModel(nullptr), entryPoints({}), executionModes({}),
-      debugSource(nullptr), decorations({}), constants({}), variables({}),
-      functions({}) {}
+    : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
+      entryPoints({}), executionModes({}), debugSource(nullptr),
+      decorations({}), constants({}), variables({}), functions({}) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor) {
   if (!visitor->visit(this, Visitor::Phase::Init))
