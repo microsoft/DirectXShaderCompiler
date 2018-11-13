@@ -2216,6 +2216,15 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
 void CGMSHLSLRuntime::addSubobject(Decl *D) {
   VarDecl *VD = dyn_cast<VarDecl>(D);
   DXASSERT(VD != nullptr, "must be a global variable");
+
+  if (CGM.getCodeGenOpts().HLSLValidatorMajorVer == 1 &&
+      CGM.getCodeGenOpts().HLSLValidatorMinorVer < 4) {
+    // subobjects unsupported with this validator
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "subobjects are not supported by current validator version");
+    Diags.Report(D->getLocStart(), DiagID);
+    return;
+  }
  
   DXIL::SubobjectKind subobjKind;
   DXIL::HitGroupType hgType;
@@ -2233,7 +2242,14 @@ void CGMSHLSLRuntime::addSubobject(Decl *D) {
   }
 
   if (InitListExpr *initListExpr = dyn_cast<InitListExpr>(initExpr)) {
-    CreateSubobject(subobjKind, VD->getName(), initListExpr->getInits(), initListExpr->getNumInits(), hgType);
+    try {
+      CreateSubobject(subobjKind, VD->getName(), initListExpr->getInits(), initListExpr->getNumInits(), hgType);
+    } catch (hlsl::Exception&) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "internal error creating subobject");
+      Diags.Report(initExpr->getLocStart(), DiagID);
+      return;
+    }
   }
   else {
     DiagnosticsEngine &Diags = CGM.getDiags();
@@ -2500,7 +2516,7 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
       DXASSERT_NOMSG(argCount == 2);
       StringRef subObjName, exports;
       if (!GetAsConstantString(args[0], &subObjName, true) ||
-          !GetAsConstantString(args[1], &exports, true))
+          !GetAsConstantString(args[1], &exports, false))
         return;
 
       std::vector<StringRef> exportList = ParseSubobjectExportsAssociations(exports);

@@ -9,20 +9,23 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/FileIOHelper.h"
+
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilContainerReader.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
-#include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilEntryProps.h"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -5245,11 +5248,34 @@ static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
 }
 
+
 static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
                               _In_reads_bytes_(RDATSize) const void *pRDATData,
                               _In_ uint32_t RDATSize) {
+  const char *PartName = "Runtime Data (RDAT)";
+  // If DxilModule subobjects already loaded, validate these against the RDAT blob,
+  // otherwise, load subobject into DxilModule to generate reference RDAT.
+  if (!ValCtx.DxilMod.GetSubobjects()) {
+    RDAT::DxilRuntimeData rdat(pRDATData, RDATSize);
+    auto *pSubobjReader = rdat.GetSubobjectTableReader();
+    if (pSubobjReader && pSubobjReader->GetCount() > 0) {
+      ValCtx.DxilMod.ResetSubobjects(new DxilSubobjects());
+      if (!LoadSubobjectsFromRDAT(*ValCtx.DxilMod.GetSubobjects(), pSubobjReader)) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, { PartName });
+        return;
+      }
+    }
+  }
+
   unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod, 0));
-  VerifyBlobPartMatches(ValCtx, "Runtime Data (RDAT)", pWriter.get(), pRDATData, RDATSize);
+  VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
+
+  // Verify no errors when runtime reflection from RDAT:
+  RDAT::DxilRuntimeReflection *pReflection = RDAT::CreateDxilRuntimeReflection();
+  if (!pReflection->InitFromRDAT(pRDATData, RDATSize)) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, { PartName });
+    return;
+  }
 }
 
 _Use_decl_annotations_
@@ -5325,16 +5351,28 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     switch (pPart->PartFourCC)
     {
     case DFCC_InputSignature:
-      VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, GetDxilPartData(pPart), pPart->PartSize);
+      if (ValCtx.isLibProfile) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      } else {
+        VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, GetDxilPartData(pPart), pPart->PartSize);
+      }
       break;
     case DFCC_OutputSignature:
-      VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, GetDxilPartData(pPart), pPart->PartSize);
+      if (ValCtx.isLibProfile) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      } else {
+        VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, GetDxilPartData(pPart), pPart->PartSize);
+      }
       break;
     case DFCC_PatchConstantSignature:
-      if (bTess) {
-        VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, GetDxilPartData(pPart), pPart->PartSize);
+      if (ValCtx.isLibProfile) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
       } else {
-        ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, {"Program Patch Constant Signature"});
+        if (bTess) {
+          VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, GetDxilPartData(pPart), pPart->PartSize);
+        } else {
+          ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, {"Program Patch Constant Signature"});
+        }
       }
       break;
     case DFCC_FeatureInfo:
@@ -5342,10 +5380,17 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       break;
     case DFCC_RootSignature:
       pRootSignaturePart = pPart;
+      if (ValCtx.isLibProfile) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      }
       break;
     case DFCC_PipelineStateValidation:
       pPSVPart = pPart;
-      VerifyPSVMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
+      if (ValCtx.isLibProfile) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      } else {
+        VerifyPSVMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
+      }
       break;
 
     // Skip these
@@ -5359,7 +5404,11 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
 
     // Runtime Data (RDAT) for libraries
     case DFCC_RuntimeData:
-      VerifyRDATMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
+      if (ValCtx.isLibProfile) {
+        VerifyRDATMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
+      } else {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      }
       break;
 
     case DFCC_Container:
@@ -5370,41 +5419,46 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   }
 
   // Verify required parts found
-  if (FourCCFound.find(DFCC_InputSignature) == FourCCFound.end() && !ValCtx.isLibProfile) {
-    VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, nullptr, 0);
-  }
-  if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end() && !ValCtx.isLibProfile) {
-    VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, nullptr, 0);
-  }
-  if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&
-      pDxilModule->GetPatchConstantSignature().GetElements().size())
-  {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {"Program Patch Constant Signature"});
-  }
-  if (FourCCFound.find(DFCC_FeatureInfo) == FourCCFound.end()) {
-    // Could be optional, but RS1 runtime doesn't handle this case properly.
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {"Feature Info"});
-  }
-
-  // Validate Root Signature
-  if (pPSVPart) {
-    if (pRootSignaturePart) {
-      try {
-        RootSignatureHandle RS;
-        RS.LoadSerialized((const uint8_t*)GetDxilPartData(pRootSignaturePart), pRootSignaturePart->PartSize);
-        RS.Deserialize();
-        IFTBOOL(VerifyRootSignatureWithShaderPSV(RS.GetDesc(),
-                                                  pDxilModule->GetShaderModel()->GetKind(),
-                                                  GetDxilPartData(pPSVPart), pPSVPart->PartSize,
-                                                  DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
-      } catch (...) {
-        ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
-      }
+  if (ValCtx.isLibProfile) {
+    if (FourCCFound.find(DFCC_RuntimeData) == FourCCFound.end()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, { "Runtime Data (RDAT)" });
     }
   } else {
-    // Not for lib.
-    if (!ValCtx.isLibProfile)
+    if (FourCCFound.find(DFCC_InputSignature) == FourCCFound.end()) {
+      VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, nullptr, 0);
+    }
+    if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end()) {
+      VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, nullptr, 0);
+    }
+    if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&
+        pDxilModule->GetPatchConstantSignature().GetElements().size())
+    {
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, { "Program Patch Constant Signature" });
+    }
+    if (FourCCFound.find(DFCC_FeatureInfo) == FourCCFound.end()) {
+      // Could be optional, but RS1 runtime doesn't handle this case properly.
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, { "Feature Info" });
+    }
+
+    // Validate Root Signature
+    if (pPSVPart) {
+      if (pRootSignaturePart) {
+        try {
+          RootSignatureHandle RS;
+          RS.LoadSerialized((const uint8_t*)GetDxilPartData(pRootSignaturePart), pRootSignaturePart->PartSize);
+          RS.Deserialize();
+          IFTBOOL(VerifyRootSignatureWithShaderPSV(RS.GetDesc(),
+                                                   pDxilModule->GetShaderModel()->GetKind(),
+                                                   GetDxilPartData(pPSVPart), pPSVPart->PartSize,
+                                                   DiagStream),
+                  DXC_E_INCORRECT_ROOT_SIGNATURE);
+        } catch (...) {
+          ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
+        }
+      }
+    } else {
       ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {"Pipeline State Validation"});
+    }
   }
 
   if (ValCtx.Failed) {

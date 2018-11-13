@@ -1526,28 +1526,36 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
+  RootSignatureWriter rootSigWriter(pModule->GetSerializedRootSignature());
+
+  bool bModuleDirty = false;
   if (pModule->GetShaderModel()->IsLib()) {
+    DXASSERT(pModule->GetSerializedRootSignature().empty(),
+             "otherwise, library has root signature outside subobject definitions");
     // Write the DxilRuntimeData (RDAT) part.
     pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
-    pModule->StripSubobjectsFromMetadata();
+    bModuleDirty |= pModule->StripSubobjectsFromMetadata();
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
-  }
-  // Write the root signature (RTS0) part.
-  RootSignatureWriter rootSigWriter(pModule->GetSerializedRootSignature());
-  CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (!pModule->GetSerializedRootSignature().empty()) {
-    writer.AddPart(
+    // Write the root signature (RTS0) part.
+    if (!pModule->GetSerializedRootSignature().empty()) {
+      writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
-    pModule->StripRootSignatureFromMetadata();
+      bModuleDirty |= pModule->StripRootSignatureFromMetadata();
+    }
+  }
+
+  // If metadata was stripped, re-serialize the module.
+  CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
+  if (bModuleDirty) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
     raw_stream_ostream outStream(pInputProgramStream.p);

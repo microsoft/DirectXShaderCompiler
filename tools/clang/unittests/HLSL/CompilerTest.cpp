@@ -5983,7 +5983,6 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
     { "GlobalRootSignature grs2 = {\"\"};", "1:29: error: empty string not expected here" },
     { "LocalRootSignature lrs2 = {\"\"};",  "1:28: error: empty string not expected here" },
     { "SubobjectToExportsAssociation sea2 = { \"\", \"x\" };", "1:40: error: empty string not expected here" },
-    { "SubobjectToExportsAssociation sea3 = { \"x\", \"\" };", "1:45: error: empty string not expected here" },
     { "string s; SubobjectToExportsAssociation sea4 = { \"x\", s };", "1:55: error: cannot convert to constant string" },
     { "extern int v; RaytracingPipelineConfig rpc2 = { v + 16 };", "1:49: error: cannot convert to constant unsigned int" },
     { "string s; TriangleHitGroup trHitGt2_8 = { s, \"foo\" };", "1:43: error: cannot convert to constant string" },
