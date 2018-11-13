@@ -184,10 +184,6 @@ std::vector<uint32_t> EmitVisitor::takeBinary() {
   result.insert(result.end(), typeConstantBinary.begin(),
                 typeConstantBinary.end());
   result.insert(result.end(), mainBinary.begin(), mainBinary.end());
-
-  for (auto word : result) {
-    printf("%08" PRIx32 "\n", word);
-  }
   return result;
 }
 
