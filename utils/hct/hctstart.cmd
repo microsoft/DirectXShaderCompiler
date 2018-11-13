@@ -124,6 +124,16 @@ if "%ERRORLEVEL%"=="0" (
   echo Path adjusted to include cmake from Visual Studio 2017 Community
   exit /b 0
 )
+call :ifexistaddpath "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+if "%ERRORLEVEL%"=="0" (
+  echo Path adjusted to include cmake from Visual Studio 2017 Professional
+  exit /b 0
+)
+call :ifexistaddpath "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+if "%ERRORLEVEL%"=="0" (
+  echo Path adjusted to include cmake from Visual Studio 2017 Enterprise
+  exit /b 0
+)
 if errorlevel 1 if exist "%programfiles%\CMake\bin" set path=%path%;%programfiles%\CMake\bin
 if errorlevel 1 if exist "%programfiles(x86)%\CMake\bin" set path=%path%;%programfiles(x86)%\CMake\bin
 where cmake.exe 1>nul 2>nul
@@ -246,7 +256,7 @@ cmake --version | findstr 3.9.0-MSVC 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
 cmake --version | findstr 3.11.2 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
-cmake --version | findstr /R 3.6.*MSVC 1>nul 2>nul
+cmake --version | findstr /R 3.*MSVC 1>nul 2>nul
 if errorlevel 1 (
   echo CMake 3.4.3, 3.7.2, 3.9.0 or 3.11.2 are the currently supported versions for VS 2015 and VS 2017 - your installed cmake is not supported.
   echo See README.md at the root for an explanation of dependencies.
