@@ -19,6 +19,32 @@
 
 namespace {
 
+/// Chops the given original string into multiple smaller ones to make sure they
+/// can be encoded in a sequence of OpSourceContinued instructions following an
+/// OpSource instruction.
+void chopString(llvm::StringRef original,
+                llvm::SmallVectorImpl<llvm::StringRef> *chopped) {
+  const uint32_t maxCharInOpSource = 0xFFFFu - 5u; // Minus operands and nul
+  const uint32_t maxCharInContinue = 0xFFFFu - 2u; // Minus opcode and nul
+
+  chopped->clear();
+  if (original.size() > maxCharInOpSource) {
+    chopped->push_back(llvm::StringRef(original.data(), maxCharInOpSource));
+    original = llvm::StringRef(original.data() + maxCharInOpSource,
+                               original.size() - maxCharInOpSource);
+    while (original.size() > maxCharInContinue) {
+      chopped->push_back(llvm::StringRef(original.data(), maxCharInContinue));
+      original = llvm::StringRef(original.data() + maxCharInContinue,
+                                 original.size() - maxCharInContinue);
+    }
+    if (!original.empty()) {
+      chopped->push_back(original);
+    }
+  } else if (!original.empty()) {
+    chopped->push_back(original);
+  }
+}
+
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
@@ -315,20 +341,51 @@ bool EmitVisitor::visit(SpirvString *inst) {
 }
 
 bool EmitVisitor::visit(SpirvSource *inst) {
+  // Emit the OpString for the file name.
+  if (inst->hasFile())
+    visit(inst->getFile());
+
+  // Chop up the source into multiple segments if it is too long.
+  llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;
+  llvm::SmallVector<llvm::StringRef, 2> choppedSrcCode;
+  if (!inst->getSource().empty()) {
+    chopString(inst->getSource(), &choppedSrcCode);
+    if (!choppedSrcCode.empty()) {
+      firstSnippet = llvm::Optional<llvm::StringRef>(choppedSrcCode.front());
+    }
+  }
+
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
-  if (inst->hasFile())
+  if (inst->hasFile()) {
     curInst.push_back(getResultId<SpirvInstruction>(inst->getFile()));
-  if (!inst->getSource().empty()) {
+  }
+  if (firstSnippet.hasValue()) {
     // Note: in order to improve performance and avoid multiple copies, we
     // encode this (potentially large) string directly into the debugBinary.
-    const auto &words = string::encodeSPIRVString(inst->getSource());
+    const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
+    const auto numWordsInInstr = curInst.size() + words.size();
+    curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
+    debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
+    debugBinary.insert(debugBinary.end(), words.begin(), words.end());
+  } else {
+    curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
+    debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
+  }
+
+  // Now emit OpSourceContinued for the [second:last] snippet.
+  for (uint32_t i = 1; i < choppedSrcCode.size(); ++i) {
+    initInstruction(spv::Op::OpSourceContinued);
+    // Note: in order to improve performance and avoid multiple copies, we
+    // encode this (potentially large) string directly into the debugBinary.
+    const auto &words = string::encodeSPIRVString(choppedSrcCode[i]);
     const auto numWordsInInstr = curInst.size() + words.size();
     curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
     debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
     debugBinary.insert(debugBinary.end(), words.begin(), words.end());
   }
+
   return true;
 }
 

@@ -415,12 +415,10 @@ public:
                             llvm::ArrayRef<SpirvVariable *> interfaces,
                             SourceLocation loc = {});
 
-  inline void setShaderModelVersion(uint32_t major, uint32_t minor);
-
-  /// \brief Sets the source file name.
-  inline void setSourceFileName(llvm::StringRef name);
-  /// \brief Sets the main source file content.
-  inline void setSourceFileContent(llvm::StringRef content);
+  /// \brief Sets the shader model version, source file name, and source file
+  /// content.
+  inline void setDebugSource(uint32_t major, uint32_t minor,
+                             llvm::StringRef name, llvm::StringRef content);
 
   /// \brief Adds an execution mode to the module under construction.
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
@@ -569,8 +567,8 @@ private:
   template <class T>
   SpirvConstant *getConstantInt(T value, bool isSigned, uint32_t bitwidth,
                                 bool specConst) {
-    const IntegerType *intType =
-        isSigned ? context.getSIntType(bitwidth) : context.getUIntType(bitwidth);
+    const IntegerType *intType = isSigned ? context.getSIntType(bitwidth)
+                                          : context.getUIntType(bitwidth);
     SpirvConstantInteger tempConstant(intType, value, specConst);
 
     auto found =
@@ -630,7 +628,6 @@ private:
     return nullConst;
   }
 
-
 private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
@@ -682,16 +679,20 @@ void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
       new (context) SpirvEntryPoint(loc, em, target, targetName, interfaces));
 }
 
-void SpirvBuilder::setShaderModelVersion(uint32_t major, uint32_t minor) {
-  module->setShaderModelVersion(100 * major + 10 * minor);
-}
+void SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
+                                  llvm::StringRef name,
+                                  llvm::StringRef content) {
+  uint32_t version = 100 * major + 10 * minor;
 
-void SpirvBuilder::setSourceFileName(llvm::StringRef name) {
-  module->setSourceFileName(name);
-}
+  SpirvString *fileString =
+      name.empty() ? nullptr
+                   : new (context) SpirvString(/*SourceLocation*/ {}, name);
 
-void SpirvBuilder::setSourceFileContent(llvm::StringRef content) {
-  module->setSourceFileContent(content);
+  SpirvSource *debugSource = new (context)
+      SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
+                  fileString, content);
+
+  module->addDebugSource(debugSource);
 }
 
 void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,

@@ -85,14 +85,13 @@ public:
   // Adds a constant to the module.
   void addConstant(SpirvConstant *);
 
-  void setShaderModelVersion(uint32_t v) { shaderModelVersion = v; }
-  void setSourceFileName(llvm::StringRef name) { sourceFileName = name; }
-  void setSourceFileContent(llvm::StringRef c) { sourceFileContent = c; }
+  // Adds the debug source to the module.
+  void addDebugSource(SpirvSource *);
+
   void setBound(uint32_t b) { bound = b; }
 
 private:
   uint32_t bound;
-  uint32_t shaderModelVersion;
 
   // "Metadata" instructions
   llvm::SmallVector<SpirvCapability *, 8> capabilities;
@@ -108,8 +107,6 @@ private:
 
   // Shader logic instructions
   llvm::SetVector<SpirvFunction *> functions;
-  std::string sourceFileName;
-  std::string sourceFileContent;
 };
 
 } // end namespace spirv
