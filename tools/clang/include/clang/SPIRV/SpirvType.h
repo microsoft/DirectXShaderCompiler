@@ -418,7 +418,9 @@ public:
   HybridPointerType(QualType pointee, spv::StorageClass sc)
       : HybridType(TK_HybridPointer), pointeeType(pointee), storageClass(sc) {}
 
-  static bool classof(const SpirvType *t) { return t->getKind() == TK_Pointer; }
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_HybridPointer;
+  }
 
   QualType getPointeeType() const { return pointeeType; }
   spv::StorageClass getStorageClass() const { return storageClass; }
