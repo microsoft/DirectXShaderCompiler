@@ -46,6 +46,7 @@
 #endif
 #include "dxillib.h"
 #include <algorithm>
+#include <cfloat>
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -99,6 +100,24 @@ static void CreateOperationResultFromOutputs(
   CreateOperationResultFromOutputs(pResultBlob, msfPtr, warnings, diags,
                                    ppResult);
 }
+
+struct DefaultFPEnvScope
+{
+  // _controlfp_s is non-standard and <cfenv>.feholdexceptions doesn't work on windows...?
+#ifdef _WIN32
+  unsigned int previousValue;
+  DefaultFPEnvScope() {
+    // No exceptions, preserve denormals & round to nearest.
+    _controlfp_s(&previousValue, _MCW_EM | _DN_SAVE | _RC_NEAR, _MCW_EM | _MCW_DN | _MCW_RC);
+  }
+  ~DefaultFPEnvScope() {
+    unsigned int newValue;
+    _controlfp_s(&newValue, previousValue, _MCW_EM | _MCW_DN | _MCW_RC);
+  }
+#else
+  DefaultFPEnvScope() {} // Dummy ctor to avoid unused local warning
+#endif
+};
 
 class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
@@ -300,6 +319,8 @@ public:
     *ppResult = nullptr;
     AssignToOutOpt(nullptr, ppDebugBlobName);
     AssignToOutOpt(nullptr, ppDebugBlob);
+
+    DefaultFPEnvScope fpEnvScope;
 
     HRESULT hr = S_OK;
     CComPtr<IDxcBlobEncoding> utf8Source;
@@ -642,6 +663,8 @@ public:
       return E_INVALIDARG;
     *ppResult = nullptr;
 
+    DefaultFPEnvScope fpEnvScope;
+
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerPreprocess_Start();
     DxcThreadMalloc TM(m_pMalloc);
@@ -751,6 +774,8 @@ public:
       return E_INVALIDARG;
 
     *ppDisassembly = nullptr;
+
+    DefaultFPEnvScope fpEnvScope;
 
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerDisassemble_Start();
