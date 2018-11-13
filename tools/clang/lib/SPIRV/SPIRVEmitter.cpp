@@ -1143,7 +1143,8 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   auto *funcType = spvContext.getFunctionType(retType, paramTypes);
-  spvBuilder.beginFunction(retType, funcType, decl->getLocation(), funcName);
+  spvBuilder.beginFunction(retType, funcType, decl->getLocation(), funcName,
+                           func);
 
   if (isNonStaticMemberFn) {
     // Remember the parameter for the this object so later we can handle
@@ -9408,9 +9409,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunction = spvBuilder.beginFunction(astContext.VoidTy, funcType,
-                                           /*SourceLocation*/ {},
-                                           decl->getName(), entryFuncInstr);
+  entryFunction =
+      spvBuilder.beginFunction(astContext.VoidTy, funcType,
+                               /*SourceLocation*/ {}, decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
