@@ -1778,6 +1778,54 @@ HRESULT DxilShaderReflection::Load(IDxcBlob *pBlob,
   CATCH_CPP_RETURN_HRESULT();
 }
 
+static D3D_PRIMITIVE_TOPOLOGY ToD3DEnum(PrimitiveTopology value) {
+  switch (value) {
+    case PrimitiveTopology::Undefined: return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    case PrimitiveTopology::PointList: return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+    case PrimitiveTopology::LineList: return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+    case PrimitiveTopology::LineStrip: return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+    case PrimitiveTopology::TriangleList: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    case PrimitiveTopology::TriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+  }
+  DXASSERT(false, "Unexpected primitive topology enumerant.");
+  return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+}
+
+static D3D_TESSELLATOR_OUTPUT_PRIMITIVE ToD3DEnum(TessellatorOutputPrimitive value) {
+  switch (value) {
+    case TessellatorOutputPrimitive::Undefined: return D3D_TESSELLATOR_OUTPUT_UNDEFINED;
+    case TessellatorOutputPrimitive::Point: return D3D_TESSELLATOR_OUTPUT_POINT;
+    case TessellatorOutputPrimitive::Line: return D3D_TESSELLATOR_OUTPUT_LINE;
+    case TessellatorOutputPrimitive::TriangleCW: return D3D_TESSELLATOR_OUTPUT_TRIANGLE_CW;
+    case TessellatorOutputPrimitive::TriangleCCW: return D3D_TESSELLATOR_OUTPUT_TRIANGLE_CCW;
+  }
+  DXASSERT(false, "Unexpected tessellator output primitive enumerant.");
+  return D3D_TESSELLATOR_OUTPUT_UNDEFINED;
+}
+
+static D3D_TESSELLATOR_PARTITIONING ToD3DEnum(TessellatorPartitioning value) {
+  switch (value) {
+    case TessellatorPartitioning::Undefined: return D3D_TESSELLATOR_PARTITIONING_UNDEFINED;
+    case TessellatorPartitioning::Integer: return D3D_TESSELLATOR_PARTITIONING_INTEGER;
+    case TessellatorPartitioning::Pow2: return D3D_TESSELLATOR_PARTITIONING_POW2;
+    case TessellatorPartitioning::FractionalOdd: return D3D_TESSELLATOR_PARTITIONING_FRACTIONAL_ODD;
+    case TessellatorPartitioning::FractionalEven:  return D3D_TESSELLATOR_PARTITIONING_FRACTIONAL_EVEN;
+  }
+  DXASSERT(false, "Unexpected tessellator partitioning enumerant.");
+  return D3D_TESSELLATOR_PARTITIONING_UNDEFINED;
+}
+
+static D3D_TESSELLATOR_DOMAIN ToD3DEnum(TessellatorDomain value) {
+  switch (value) {
+    case TessellatorDomain::Undefined: return D3D_TESSELLATOR_DOMAIN_UNDEFINED;
+    case TessellatorDomain::IsoLine: return D3D_TESSELLATOR_DOMAIN_ISOLINE;
+    case TessellatorDomain::Tri: return D3D_TESSELLATOR_DOMAIN_TRI;
+    case TessellatorDomain::Quad: return D3D_TESSELLATOR_DOMAIN_QUAD;
+  }
+  DXASSERT(false, "Unexpected tessellator domain enumerant.");
+  return D3D_TESSELLATOR_DOMAIN_UNDEFINED;
+}
+
 _Use_decl_annotations_
 HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
   IFR(ZeroMemoryToOut(pDesc));
@@ -1813,14 +1861,14 @@ HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
   // Unset:  UINT                    ArrayInstructionCount;       // Number of array instructions used
   // Unset:  UINT                    CutInstructionCount;         // Number of cut instructions used
   // Unset:  UINT                    EmitInstructionCount;        // Number of emit instructions used
-  // Unset:  D3D_PRIMITIVE_TOPOLOGY  GSOutputTopology;            // Geometry shader output topology
-  // Unset:  UINT                    GSMaxOutputVertexCount;      // Geometry shader maximum output vertex count
-  // Unset:  D3D_PRIMITIVE           InputPrimitive;              // GS/HS input primitive
-  // Unset:  UINT                    cGSInstanceCount;            // Number of Geometry shader instances
-  // Unset:  UINT                    cControlPoints;              // Number of control points in the HS->DS stage
-  // Unset:  D3D_TESSELLATOR_OUTPUT_PRIMITIVE HSOutputPrimitive;  // Primitive output by the tessellator
-  // Unset:  D3D_TESSELLATOR_PARTITIONING HSPartitioning;         // Partitioning mode of the tessellator
-  // Unset:  D3D_TESSELLATOR_DOMAIN  TessellatorDomain;           // Domain of the tessellator (quad, tri, isoline)
+  pDesc->GSOutputTopology = ToD3DEnum(M.GetStreamPrimitiveTopology());
+  pDesc->GSMaxOutputVertexCount = M.GetMaxVertexCount();
+  pDesc->InputPrimitive = (D3D_PRIMITIVE)M.GetInputPrimitive();
+  pDesc->cGSInstanceCount = M.GetGSInstanceCount();
+  pDesc->cControlPoints = M.GetInputControlPointCount();
+  pDesc->HSOutputPrimitive = ToD3DEnum(M.GetTessellatorOutputPrimitive());
+  pDesc->HSPartitioning = ToD3DEnum(M.GetTessellatorPartitioning());
+  pDesc->TessellatorDomain = ToD3DEnum(M.GetTessellatorDomain());
   // instruction counts
   // Unset:  UINT cBarrierInstructions;                           // Number of barrier instructions in a compute shader
   // Unset:  UINT cInterlockedInstructions;                       // Number of interlocked instructions
