@@ -3808,7 +3808,9 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
 
   FromTy = FromTy->getPointerElementType();
   ToTy = ToTy->getPointerElementType();
+
   // Take care case like %2 = bitcast %struct.T* %1 to <1 x float>*.
+  bool GEPCreated = false;
   if (FromTy->isStructTy()) {
     IRBuilder<> Builder(FromTy->getContext());
     if (Instruction *I = dyn_cast<Instruction>(BC))
@@ -3822,6 +3824,7 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
     }
     std::vector<Value *> idxList(nestLevel, zeroIdx);
     Ptr = Builder.CreateGEP(Ptr, idxList);
+    GEPCreated = true;
   }
 
   for (User *U : BC->users()) {
@@ -3848,6 +3851,14 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
     } else {
       DXASSERT(0, "not support yet");
     }
+  }
+
+  // We created a GEP instruction but didn't end up consuming it, so delete it.
+  if (GEPCreated && Ptr->use_empty()) {
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr))
+      GEP->eraseFromParent();
+    else
+      cast<Constant>(Ptr)->destroyConstant();
   }
 }
 

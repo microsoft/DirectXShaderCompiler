@@ -2470,21 +2470,14 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
 
     for (auto U = GV->user_begin(); U != GV->user_end();) {
       Value *user = *(U++);
-      if (CallInst *CI = dyn_cast<CallInst>(user)) {
-        HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-        if (group == HLOpcodeGroup::HLMatLoadStore) {
-          TranslateMatLoadStoreOnGlobal(GV, arrayMat, CI);
-        }
-        else {
-          DXASSERT(group == HLOpcodeGroup::HLSubscript, "Must be subscript operation");
-          TranslateMatSubscriptOnGlobalPtr(CI, arrayMat);
-        }
+      CallInst *CI = cast<CallInst>(user);
+      HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLMatLoadStore) {
+        TranslateMatLoadStoreOnGlobal(GV, arrayMat, CI);
       }
       else {
-        // Apparently someone generates unused GEP operators
-        GEPOperator *GEPOp = cast<GEPOperator>(user);
-        DXASSERT(GEPOp->use_empty(), "Unhandled GEP operator global matrix user.");
-        (void)GEPOp;
+        DXASSERT(group == HLOpcodeGroup::HLSubscript, "Must be subscript operation");
+        TranslateMatSubscriptOnGlobalPtr(CI, arrayMat);
       }
     }
     GV->removeDeadConstantUsers();
