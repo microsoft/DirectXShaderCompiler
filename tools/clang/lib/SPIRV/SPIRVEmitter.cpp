@@ -3364,10 +3364,10 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
       const QualType resultType =
           astContext.getExtVectorType(addressType, numWords);
       result = spvBuilder.createCompositeConstruct(resultType, values);
+      result->setRValue();
     }
   }
 
-  result->setRValue();
   return result;
 }
 
