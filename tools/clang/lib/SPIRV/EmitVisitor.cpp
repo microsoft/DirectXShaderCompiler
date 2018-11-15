@@ -1591,14 +1591,15 @@ void EmitTypeHandler::emitLayoutDecorations(const StructType *structType,
 void EmitTypeHandler::emitDecoration(uint32_t typeResultId,
                                      spv::Decoration decoration,
                                      llvm::ArrayRef<uint32_t> decorationParams,
-                                     uint32_t memberIndex) {
+                                     llvm::Optional<uint32_t> memberIndex) {
 
-  spv::Op op = memberIndex ? spv::Op::OpMemberDecorate : spv::Op::OpDecorate;
+  spv::Op op =
+      memberIndex.hasValue() ? spv::Op::OpMemberDecorate : spv::Op::OpDecorate;
   assert(curDecorationInst.empty());
   curDecorationInst.push_back(static_cast<uint32_t>(op));
   curDecorationInst.push_back(typeResultId);
-  if (memberIndex)
-    curDecorationInst.push_back(memberIndex);
+  if (memberIndex.hasValue())
+    curDecorationInst.push_back(memberIndex.getValue());
   curDecorationInst.push_back(static_cast<uint32_t>(decoration));
   for (auto param : decorationParams)
     curDecorationInst.push_back(param);
