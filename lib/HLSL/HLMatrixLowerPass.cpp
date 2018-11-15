@@ -1794,12 +1794,11 @@ void HLMatrixLowerPass::TranslateMatSubscriptOnGlobalPtr(
   // Cannot generate vector pointer
   // Replace all uses with scalar pointers.
   if (!matSubInst->getType()->getPointerElementType()->isVectorTy()) {
-    DXASSERT(idxList.size() == 1, "Expected a single matrix subscript index if the result is not a vector");
+    DXASSERT(idxList.size() == 1, "Expected a single matrix element index if the result is not a vector");
     Value *Ptr =
       subBuilder.CreateInBoundsGEP(vecPtr, { zeroIdx, idxList[0] });
     matSubInst->replaceAllUsesWith(Ptr);
-  }
-  else {
+  } else {
     // Split the use of CI with Ptrs.
     for (auto U = matSubInst->user_begin(); U != matSubInst->user_end();) {
       Instruction *subsUser = cast<Instruction>(*(U++));
