@@ -32,7 +32,7 @@ class UseDefaultAllocatorForThisBlock {
       DxcSwapThreadMallocOrDefault(nullptr, &previousMalloc);
     }
     ~UseDefaultAllocatorForThisBlock() {
-      DxcSetThreadMalloc(previousMalloc);
+      DxcSwapThreadMallocOrDefault(previousMalloc, &previousMalloc);
     }
   private:
     IMalloc * previousMalloc;
