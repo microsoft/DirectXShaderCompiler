@@ -176,6 +176,7 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvLoad(resultType, /*id*/ 0, loc, pointer);
+  instruction->setStorageClass(pointer->getStorageClass());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -187,6 +188,7 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   auto *instruction =
       new (context) SpirvLoad(/*QualType*/ {}, /*id*/ 0, loc, pointer);
   instruction->setResultType(resultType);
+  instruction->setStorageClass(pointer->getStorageClass());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -216,6 +218,7 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvAccessChain(resultType, /*id*/ 0, loc, base, indexes);
+  instruction->setStorageClass(base->getStorageClass());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -227,6 +230,7 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
   auto *instruction = new (context)
       SpirvAccessChain(/*QualType*/ {}, /*id*/ 0, loc, base, indexes);
   instruction->setResultType(resultType);
+  instruction->setStorageClass(base->getStorageClass());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
