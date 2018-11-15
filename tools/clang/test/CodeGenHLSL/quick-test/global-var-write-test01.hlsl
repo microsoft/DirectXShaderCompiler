@@ -24,11 +24,13 @@ float4 main(uint a : A) : SV_Target {
   for (uint i = 0; i < 2; i++)
     for (uint j = 0; j < 2; j++)
       g_m[i][j] = a + i + j;
+  g_m._12 = 42;
       
   // update global row_major matrix
   for (uint i = 0; i < 2; i++)
     for (uint j = 0; j < 2; j++)
       g_m_rm[i][j] = a + i + j;
+  g_m_rm._12 = 42;
 
   // update global boolean
   g_b = true;

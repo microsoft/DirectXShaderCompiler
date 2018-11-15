@@ -1791,55 +1791,65 @@ void HLMatrixLowerPass::TranslateMatSubscriptOnGlobalPtr(
     break;
   }
 
-  // Split the use of CI with Ptrs.
-  for (auto U = matSubInst->user_begin(); U != matSubInst->user_end();) {
-    Instruction *subsUser = cast<Instruction>(*(U++));
-    IRBuilder<> userBuilder(subsUser);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
-      Value *IndexPtr =
-          HLMatrixLower::LowerGEPOnMatIndexListToIndex(GEP, idxList);
-      Value *Ptr = userBuilder.CreateInBoundsGEP(vecPtr,
-                                                  {zeroIdx, IndexPtr});
-      for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
-        Instruction *gepUser = cast<Instruction>(*(gepU++));
-        IRBuilder<> gepUserBuilder(gepUser);
-        if (StoreInst *stUser = dyn_cast<StoreInst>(gepUser)) {
-          Value *subData = stUser->getValueOperand();
-          gepUserBuilder.CreateStore(subData, Ptr);
-          stUser->eraseFromParent();
-        } else if (LoadInst *ldUser = dyn_cast<LoadInst>(gepUser)) {
-          Value *subData = gepUserBuilder.CreateLoad(Ptr);
-          ldUser->replaceAllUsesWith(subData);
-          ldUser->eraseFromParent();
-        } else {
-          AddrSpaceCastInst *Cast = cast<AddrSpaceCastInst>(gepUser);
-          Cast->setOperand(0, Ptr);
+  // Cannot generate vector pointer
+  // Replace all uses with scalar pointers.
+  if (!matSubInst->getType()->getPointerElementType()->isVectorTy()) {
+    DXASSERT(idxList.size() == 1, "Expected a single matrix subscript index if the result is not a vector");
+    Value *Ptr =
+      subBuilder.CreateInBoundsGEP(vecPtr, { zeroIdx, idxList[0] });
+    matSubInst->replaceAllUsesWith(Ptr);
+  }
+  else {
+    // Split the use of CI with Ptrs.
+    for (auto U = matSubInst->user_begin(); U != matSubInst->user_end();) {
+      Instruction *subsUser = cast<Instruction>(*(U++));
+      IRBuilder<> userBuilder(subsUser);
+      if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
+        Value *IndexPtr =
+            HLMatrixLower::LowerGEPOnMatIndexListToIndex(GEP, idxList);
+        Value *Ptr = userBuilder.CreateInBoundsGEP(vecPtr,
+                                                   {zeroIdx, IndexPtr});
+        for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
+          Instruction *gepUser = cast<Instruction>(*(gepU++));
+          IRBuilder<> gepUserBuilder(gepUser);
+          if (StoreInst *stUser = dyn_cast<StoreInst>(gepUser)) {
+            Value *subData = stUser->getValueOperand();
+            gepUserBuilder.CreateStore(subData, Ptr);
+            stUser->eraseFromParent();
+          } else if (LoadInst *ldUser = dyn_cast<LoadInst>(gepUser)) {
+            Value *subData = gepUserBuilder.CreateLoad(Ptr);
+            ldUser->replaceAllUsesWith(subData);
+            ldUser->eraseFromParent();
+          } else {
+            AddrSpaceCastInst *Cast = cast<AddrSpaceCastInst>(gepUser);
+            Cast->setOperand(0, Ptr);
+          }
         }
-      }
-      GEP->eraseFromParent();
-    } else if (StoreInst *stUser = dyn_cast<StoreInst>(subsUser)) {
-      Value *val = stUser->getValueOperand();
-      for (unsigned i = 0; i < idxList.size(); i++) {
-        Value *Elt = userBuilder.CreateExtractElement(val, i);
-        Value *Ptr = userBuilder.CreateInBoundsGEP(vecPtr,
-                                                    {zeroIdx, idxList[i]});
-        userBuilder.CreateStore(Elt, Ptr);
-      }
-      stUser->eraseFromParent();
-    } else {
+        GEP->eraseFromParent();
+      } else if (StoreInst *stUser = dyn_cast<StoreInst>(subsUser)) {
+        Value *val = stUser->getValueOperand();
+        for (unsigned i = 0; i < idxList.size(); i++) {
+          Value *Elt = userBuilder.CreateExtractElement(val, i);
+          Value *Ptr = userBuilder.CreateInBoundsGEP(vecPtr,
+                                                     {zeroIdx, idxList[i]});
+          userBuilder.CreateStore(Elt, Ptr);
+        }
+        stUser->eraseFromParent();
+      } else {
 
-      Value *ldVal =
-          UndefValue::get(matSubInst->getType()->getPointerElementType());
-      for (unsigned i = 0; i < idxList.size(); i++) {
-        Value *Ptr = userBuilder.CreateInBoundsGEP(vecPtr,
-                                                    {zeroIdx, idxList[i]});
-        Value *Elt = userBuilder.CreateLoad(Ptr);
-        ldVal = userBuilder.CreateInsertElement(ldVal, Elt, i);
+        Value *ldVal =
+            UndefValue::get(matSubInst->getType()->getPointerElementType());
+        for (unsigned i = 0; i < idxList.size(); i++) {
+          Value *Ptr = userBuilder.CreateInBoundsGEP(vecPtr,
+                                                     {zeroIdx, idxList[i]});
+          Value *Elt = userBuilder.CreateLoad(Ptr);
+          ldVal = userBuilder.CreateInsertElement(ldVal, Elt, i);
+        }
+        // Must be load here.
+        LoadInst *ldUser = cast<LoadInst>(subsUser);
+        ldUser->replaceAllUsesWith(ldVal);
+        ldUser->eraseFromParent();
       }
-      // Must be load here.
-      LoadInst *ldUser = cast<LoadInst>(subsUser);
-      ldUser->replaceAllUsesWith(ldVal);
-      ldUser->eraseFromParent();
     }
   }
   matSubInst->eraseFromParent();
