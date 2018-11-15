@@ -1617,6 +1617,8 @@ void EmitTypeHandler::emitDecoration(uint32_t typeResultId,
 void EmitTypeHandler::emitNameForType(llvm::StringRef name,
                                       uint32_t targetTypeId,
                                       llvm::Optional<uint32_t> memberIndex) {
+  if (name.empty())
+    return;
   std::vector<uint32_t> nameInstr;
   auto op = memberIndex.hasValue() ? spv::Op::OpMemberName : spv::Op::OpName;
   nameInstr.push_back(static_cast<uint32_t>(op));
