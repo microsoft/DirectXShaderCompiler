@@ -263,6 +263,7 @@ namespace {
 class DxilRuntimeReflection_impl : public DxilRuntimeReflection {
 private:
   typedef std::unordered_map<const char *, std::unique_ptr<wchar_t[]>> StringMap;
+  typedef std::unordered_map<const void *, std::unique_ptr<char[]>> BytesMap;
   typedef std::vector<const wchar_t *> WStringList;
   typedef std::vector<DxilResourceDesc> ResourceList;
   typedef std::vector<DxilResourceDesc *> ResourceRefList;
@@ -271,17 +272,19 @@ private:
 
   DxilRuntimeData m_RuntimeData;
   StringMap m_StringMap;
+  BytesMap m_BytesMap;
   ResourceList m_Resources;
   FunctionList m_Functions;
   SubobjectList m_Subobjects;
   std::unordered_map<ResourceKey, DxilResourceDesc *> m_ResourceMap;
   std::unordered_map<DxilFunctionDesc *, ResourceRefList> m_FuncToResMap;
-  std::unordered_map<DxilFunctionDesc *, WStringList> m_FuncToStringMap;
-  std::unordered_map<DxilSubobjectDesc *, WStringList> m_SubobjectToStringMap;
+  std::unordered_map<DxilFunctionDesc *, WStringList> m_FuncToDependenciesMap;
+  std::unordered_map<DxilSubobjectDesc *, WStringList> m_SubobjectToExportsMap;
   bool m_initialized;
 
   const wchar_t *GetWideString(const char *ptr);
   void AddString(const char *ptr);
+  const void *GetBytes(const void *ptr, size_t size);
   void InitializeReflection();
   const DxilResourceDesc * const*GetResourcesForFunction(DxilFunctionDesc &function,
                              const FunctionReader &functionReader);
@@ -297,8 +300,8 @@ public:
   // TODO: Implement pipeline state validation with runtime data
   // TODO: Update BlobContainer.h to recognize 'RDAT' blob
   DxilRuntimeReflection_impl()
-      : m_RuntimeData(), m_StringMap(), m_Resources(), m_Functions(),
-        m_FuncToResMap(), m_FuncToStringMap(), m_SubobjectToStringMap(),
+      : m_RuntimeData(), m_StringMap(), m_BytesMap(), m_Resources(), m_Functions(),
+        m_FuncToResMap(), m_FuncToDependenciesMap(), m_SubobjectToExportsMap(),
         m_initialized(false) {}
   virtual ~DxilRuntimeReflection_impl() {}
   // This call will allocate memory for GetLibraryReflection call
@@ -326,7 +329,19 @@ const wchar_t *DxilRuntimeReflection_impl::GetWideString(const char *ptr) {
   return m_StringMap.at(ptr).get();
 }
 
+const void *DxilRuntimeReflection_impl::GetBytes(const void *ptr, size_t size) {
+  auto it = m_BytesMap.find(ptr);
+  if (it != m_BytesMap.end())
+    return it->second.get();
+
+  auto inserted = m_BytesMap.insert(std::make_pair(ptr, std::unique_ptr<char[]>(new char[size])));
+  void *newPtr = inserted.first->second.get();
+  memcpy(newPtr, ptr, size);
+  return newPtr;
+}
+
 bool DxilRuntimeReflection_impl::InitFromRDAT(const void *pRDAT, size_t size) {
+  assert(!m_initialized && "may only initialize once");
   m_initialized = m_RuntimeData.InitFromRDAT(pRDAT, size);
   if (m_initialized)
     InitializeReflection();
@@ -399,30 +414,28 @@ DxilRuntimeReflection_impl::AddResource(const ResourceReader &resourceReader) {
 
 const DxilResourceDesc * const*DxilRuntimeReflection_impl::GetResourcesForFunction(
     DxilFunctionDesc &function, const FunctionReader &functionReader) {
-  if (m_FuncToResMap.find(&function) == m_FuncToResMap.end())
-    m_FuncToResMap.insert(std::pair<DxilFunctionDesc *, ResourceRefList>(
-        &function, ResourceRefList()));
-  ResourceRefList &resourceList = m_FuncToResMap.at(&function);
-  if (resourceList.empty()) {
-    resourceList.reserve(functionReader.GetNumResources());
-    for (uint32_t i = 0; i < functionReader.GetNumResources(); ++i) {
-      const ResourceReader resourceReader = functionReader.GetResource(i);
-      ResourceKey key((uint32_t)resourceReader.GetResourceClass(),
-                      resourceReader.GetID());
-      auto it = m_ResourceMap.find(key);
-      assert(it != m_ResourceMap.end() && it->second && "Otherwise, resource was not in map, or was null");
-      resourceList.emplace_back(it->second);
-    }
+  if (!functionReader.GetNumResources())
+    return nullptr;
+  auto it = m_FuncToResMap.insert(std::make_pair(&function, ResourceRefList()));
+  assert(it.second && "otherwise, collision");
+  ResourceRefList &resourceList = it.first->second;
+  resourceList.reserve(functionReader.GetNumResources());
+  for (uint32_t i = 0; i < functionReader.GetNumResources(); ++i) {
+    const ResourceReader resourceReader = functionReader.GetResource(i);
+    ResourceKey key((uint32_t)resourceReader.GetResourceClass(),
+                    resourceReader.GetID());
+    auto it = m_ResourceMap.find(key);
+    assert(it != m_ResourceMap.end() && it->second && "Otherwise, resource was not in map, or was null");
+    resourceList.emplace_back(it->second);
   }
-  return resourceList.empty() ? nullptr : resourceList.data();
+  return resourceList.data();
 }
 
 const wchar_t **DxilRuntimeReflection_impl::GetDependenciesForFunction(
     DxilFunctionDesc &function, const FunctionReader &functionReader) {
-  if (m_FuncToStringMap.find(&function) == m_FuncToStringMap.end())
-    m_FuncToStringMap.insert(
-        std::pair<DxilFunctionDesc *, WStringList>(&function, WStringList()));
-  WStringList &wStringList = m_FuncToStringMap.at(&function);
+  auto it = m_FuncToDependenciesMap.insert(std::make_pair(&function, WStringList()));
+  assert(it.second && "otherwise, collision");
+  WStringList &wStringList = it.first->second;
   for (uint32_t i = 0; i < functionReader.GetNumDependencies(); ++i) {
     wStringList.emplace_back(GetWideString(functionReader.GetDependency(i)));
   }
@@ -455,10 +468,9 @@ DxilRuntimeReflection_impl::AddFunction(const FunctionReader &functionReader) {
 
 const wchar_t **DxilRuntimeReflection_impl::GetExportsForAssociation(
   DxilSubobjectDesc &subobject, const SubobjectReader &subobjectReader) {
-  if (m_SubobjectToStringMap.find(&subobject) == m_SubobjectToStringMap.end())
-    m_SubobjectToStringMap.insert(
-      std::pair<DxilSubobjectDesc *, WStringList>(&subobject, WStringList()));
-  WStringList &wStringList = m_SubobjectToStringMap.at(&subobject);
+  auto it = m_SubobjectToExportsMap.insert(std::make_pair(&subobject, WStringList()));
+  assert(it.second && "otherwise, collision");
+  WStringList &wStringList = it.first->second;
   for (uint32_t i = 0; i < subobjectReader.GetSubobjectToExportsAssociation_NumExports(); ++i) {
     wStringList.emplace_back(GetWideString(subobjectReader.GetSubobjectToExportsAssociation_Export(i)));
   }
@@ -481,6 +493,7 @@ DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const SubobjectReade
   case DXIL::SubobjectKind::LocalRootSignature:
     if (!subobjectReader.GetRootSignature(&subobject.RootSignature.pSerializedSignature, &subobject.RootSignature.SizeInBytes))
       return nullptr;
+    subobject.RootSignature.pSerializedSignature = GetBytes(subobject.RootSignature.pSerializedSignature, subobject.RootSignature.SizeInBytes);
     break;
   case DXIL::SubobjectKind::SubobjectToExportsAssociation:
     subobject.SubobjectToExportsAssociation.Subobject =

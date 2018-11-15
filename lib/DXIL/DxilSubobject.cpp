@@ -22,7 +22,7 @@ namespace hlsl {
 DxilSubobject::DxilSubobject(DxilSubobject &&other)
   : m_Owner(other.m_Owner),
     m_Kind(other.m_Kind),
-    m_Name(m_Owner.GetSubobjectString(other.m_Name)),
+    m_Name(m_Owner.InternString(other.m_Name)),
     m_Exports(std::move(other.m_Exports))
 {
   DXASSERT_NOMSG(DXIL::IsValidSubobjectKind(m_Kind));
@@ -32,7 +32,7 @@ DxilSubobject::DxilSubobject(DxilSubobject &&other)
 DxilSubobject::DxilSubobject(DxilSubobjects &owner, Kind kind, llvm::StringRef name)
   : m_Owner(owner),
     m_Kind(kind),
-    m_Name(m_Owner.GetSubobjectString(name)),
+    m_Name(m_Owner.InternString(name)),
     m_Exports()
 {
   DXASSERT_NOMSG(DXIL::IsValidSubobjectKind(m_Kind));
@@ -81,17 +81,17 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
 
 void DxilSubobject::InternStrings() {
   // Transfer strings if necessary
-  m_Name = m_Owner.GetSubobjectString(m_Name).data();
+  m_Name = m_Owner.InternString(m_Name).data();
   switch (m_Kind) {
   case Kind::SubobjectToExportsAssociation:
-    SubobjectToExportsAssociation.Subobject = m_Owner.GetSubobjectString(SubobjectToExportsAssociation.Subobject).data();
+    SubobjectToExportsAssociation.Subobject = m_Owner.InternString(SubobjectToExportsAssociation.Subobject).data();
     for (auto &ptr : m_Exports)
-      ptr = m_Owner.GetSubobjectString(ptr).data();
+      ptr = m_Owner.InternString(ptr).data();
     break;
   case Kind::HitGroup:
-    HitGroup.AnyHit = m_Owner.GetSubobjectString(HitGroup.AnyHit).data();
-    HitGroup.ClosestHit = m_Owner.GetSubobjectString(HitGroup.ClosestHit).data();
-    HitGroup.Intersection = m_Owner.GetSubobjectString(HitGroup.Intersection).data();
+    HitGroup.AnyHit = m_Owner.InternString(HitGroup.AnyHit).data();
+    HitGroup.ClosestHit = m_Owner.InternString(HitGroup.ClosestHit).data();
+    HitGroup.Intersection = m_Owner.InternString(HitGroup.Intersection).data();
     break;
   default:
     break;
@@ -177,45 +177,40 @@ bool DxilSubobject::GetHitGroup(DXIL::HitGroupType &hitGroupType,
 
 
 DxilSubobjects::DxilSubobjects()
-  : m_StringStorage()
-  , m_RawBytesStorage()
+  : m_BytesStorage()
   , m_Subobjects()
 {}
 DxilSubobjects::DxilSubobjects(DxilSubobjects &&other)
-  : m_StringStorage(std::move(other.m_StringStorage))
-  , m_RawBytesStorage(std::move(other.m_RawBytesStorage))
+  : m_BytesStorage(std::move(other.m_BytesStorage))
   , m_Subobjects(std::move(other.m_Subobjects))
 {}
 DxilSubobjects::~DxilSubobjects() {}
 
 
-llvm::StringRef DxilSubobjects::GetSubobjectString(llvm::StringRef value) {
-  auto it = m_StringStorage.find(value);
-  if (it != m_StringStorage.end())
+llvm::StringRef DxilSubobjects::InternString(llvm::StringRef value) {
+  auto it = m_BytesStorage.find(value);
+  if (it != m_BytesStorage.end())
     return it->first;
 
   size_t size = value.size();
-  StoredBytes stored(std::unique_ptr<char[]>(new char[size + 1]), size + 1);
+  StoredBytes stored(std::make_pair(std::unique_ptr<char[]>(new char[size + 1]), size + 1));
   memcpy(stored.first.get(), value.data(), size);
   stored.first[size] = 0;
   llvm::StringRef key(stored.first.get(), size);
-  m_StringStorage[key] = std::move(stored);
+  m_BytesStorage[key] = std::move(stored);
   return key;
 }
 
-const void *DxilSubobjects::GetRawBytes(const void *ptr, size_t size) {
-  auto it = m_RawBytesStorage.find(ptr);
-  if (it != m_RawBytesStorage.end())
-    return ptr;
+const void *DxilSubobjects::InternRawBytes(const void *ptr, size_t size) {
+  auto it = m_BytesStorage.find(llvm::StringRef((const char *)ptr, size));
+  if (it != m_BytesStorage.end())
+    return it->first.data();
 
-  DXASSERT_NOMSG(size < UINT_MAX);
-  if (size >= UINT_MAX)
-    return nullptr;
-  StoredBytes stored(std::unique_ptr<char[]>(new char[size]), size);
+  StoredBytes stored(std::make_pair(std::unique_ptr<char[]>(new char[size]), size));
   memcpy(stored.first.get(), ptr, size);
-  ptr = stored.first.get();
-  m_RawBytesStorage[ptr] = std::move(stored);
-  return ptr;
+  llvm::StringRef key(stored.first.get(), size);
+  m_BytesStorage[key] = std::move(stored);
+  return key.data();
 }
 
 DxilSubobject *DxilSubobjects::FindSubobject(llvm::StringRef name) {
@@ -233,7 +228,7 @@ void DxilSubobjects::RemoveSubobject(llvm::StringRef name) {
 
 DxilSubobject &DxilSubobjects::CloneSubobject(
     const DxilSubobject &Subobject, llvm::StringRef Name) {
-  Name = GetSubobjectString(Name);
+  Name = InternString(Name);
   DXASSERT(FindSubobject(Name) == nullptr,
     "otherwise, name collision between subobjects");
   std::unique_ptr<DxilSubobject> ptr(new DxilSubobject(*this, Subobject, Name));
@@ -255,9 +250,9 @@ DxilSubobject &DxilSubobjects::CreateStateObjectConfig(
 DxilSubobject &DxilSubobjects::CreateRootSignature(
     llvm::StringRef Name, bool local, const void *Data, uint32_t Size, llvm::StringRef *pText /*= nullptr*/) {
   auto &obj = CreateSubobject(local ? Kind::LocalRootSignature : Kind::GlobalRootSignature, Name);
-  obj.RootSignature.Data = Data;
+  obj.RootSignature.Data = InternRawBytes(Data, Size);
   obj.RootSignature.Size = Size;
-  obj.RootSignature.Text = (pText ? GetSubobjectString(*pText).data() : nullptr);
+  obj.RootSignature.Text = (pText ? InternString(*pText).data() : nullptr);
   return obj;
 }
 
@@ -267,10 +262,10 @@ DxilSubobject &DxilSubobjects::CreateSubobjectToExportsAssociation(
     llvm::StringRef *Exports,
     uint32_t NumExports) {
   auto &obj = CreateSubobject(Kind::SubobjectToExportsAssociation, Name);
-  Subobject = GetSubobjectString(Subobject);
+  Subobject = InternString(Subobject);
   obj.SubobjectToExportsAssociation.Subobject = Subobject.data();
   for (unsigned i = 0; i < NumExports; i++) {
-    obj.m_Exports.emplace_back(GetSubobjectString(Exports[i]).data());
+    obj.m_Exports.emplace_back(InternString(Exports[i]).data());
   }
   return obj;
 }
@@ -299,9 +294,9 @@ DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
                                               llvm::StringRef ClosestHit,
                                               llvm::StringRef Intersection) {
   auto &obj = CreateSubobject(Kind::HitGroup, Name);
-  AnyHit = GetSubobjectString(AnyHit);
-  ClosestHit = GetSubobjectString(ClosestHit);
-  Intersection = GetSubobjectString(Intersection);
+  AnyHit = InternString(AnyHit);
+  ClosestHit = InternString(ClosestHit);
+  Intersection = InternString(Intersection);
   obj.HitGroup.Type = hitGroupType;
   obj.HitGroup.AnyHit = AnyHit.data();
   obj.HitGroup.ClosestHit = ClosestHit.data();
@@ -310,7 +305,7 @@ DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
 }
 
 DxilSubobject &DxilSubobjects::CreateSubobject(Kind kind, llvm::StringRef Name) {
-  Name = GetSubobjectString(Name);
+  Name = InternString(Name);
   IFTBOOLMSG(FindSubobject(Name) == nullptr, DXC_E_GENERAL_INTERNAL_ERROR, "Subobject name collision");
   IFTBOOLMSG(!Name.empty(), DXC_E_GENERAL_INTERNAL_ERROR, "Empty Subobject name");
   std::unique_ptr<DxilSubobject> ptr(new DxilSubobject(*this, kind, Name));

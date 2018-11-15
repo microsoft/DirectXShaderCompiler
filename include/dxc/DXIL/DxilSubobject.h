@@ -108,8 +108,7 @@ private:
 class DxilSubobjects {
 public:
   typedef std::pair<std::unique_ptr<char[]>, size_t> StoredBytes;
-  typedef llvm::MapVector< llvm::StringRef, StoredBytes > StringStorage;
-  typedef llvm::MapVector< const void*, StoredBytes > RawBytesStorage;
+  typedef llvm::MapVector< llvm::StringRef, StoredBytes > BytesStorage;
   typedef llvm::MapVector< llvm::StringRef, std::unique_ptr<DxilSubobject> > SubobjectStorage;
   using Kind = DXIL::SubobjectKind;
 
@@ -121,9 +120,9 @@ public:
   DxilSubobjects &operator=(const DxilSubobjects &other) = delete;
 
   // Add/find string in owned subobject strings, returning canonical ptr
-  llvm::StringRef GetSubobjectString(llvm::StringRef value);
+  llvm::StringRef InternString(llvm::StringRef value);
   // Add/find raw bytes, returning canonical ptr
-  const void *GetRawBytes(const void *ptr, size_t size);
+  const void *InternRawBytes(const void *ptr, size_t size);
   DxilSubobject *FindSubobject(llvm::StringRef name);
   void RemoveSubobject(llvm::StringRef name);
   DxilSubobject &CloneSubobject(const DxilSubobject &Subobject, llvm::StringRef Name);
@@ -158,8 +157,7 @@ public:
 private:
   DxilSubobject &CreateSubobject(Kind kind, llvm::StringRef Name);
 
-  StringStorage m_StringStorage;
-  RawBytesStorage m_RawBytesStorage;
+  BytesStorage m_BytesStorage;
   SubobjectStorage m_Subobjects;
 };
 
