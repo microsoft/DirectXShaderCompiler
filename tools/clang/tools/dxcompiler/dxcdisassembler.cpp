@@ -732,11 +732,11 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
   OS << comment << "\n";
 }
 
-void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
-                              raw_string_ostream &OS, StringRef comment,
-                              StringRef varName, unsigned offset,
-                              unsigned indent, unsigned arraySize,
-                              unsigned sizeOfStruct = 0);
+void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout *DL,
+                       raw_string_ostream &OS, StringRef comment,
+                       StringRef varName, unsigned offset,
+                       unsigned indent, unsigned arraySize,
+                       unsigned sizeOfStruct = 0);
 
 void PrintTypeAndName(llvm::Type *Ty, DxilFieldAnnotation &annotation,
                              std::string &StreamStr, unsigned arraySize, bool minPrecision) {
@@ -772,13 +772,13 @@ void PrintTypeAndName(llvm::Type *Ty, DxilFieldAnnotation &annotation,
 }
 
 void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
-                             DxilTypeSystem &typeSys, raw_string_ostream &OS,
-                             StringRef comment, unsigned offset,
-                             unsigned indent, unsigned offsetIndent,
-                             unsigned sizeToPrint = 0) {
-  offset += annotation.GetCBufferOffset();
+                      DxilTypeSystem &typeSys, const DataLayout* DL,
+                      raw_string_ostream &OS,
+                      StringRef comment, unsigned offset,
+                      unsigned indent, unsigned offsetIndent,
+                      unsigned sizeToPrint = 0) {
   if (Ty->isStructTy() && !annotation.HasMatrixAnnotation()) {
-    PrintStructLayout(cast<StructType>(Ty), typeSys, OS, comment,
+    PrintStructLayout(cast<StructType>(Ty), typeSys, DL, OS, comment,
                       annotation.GetFieldName(), offset, indent, offsetIndent);
   } else {
     llvm::Type *EltTy = Ty;
@@ -825,7 +825,7 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
       Stream << ";";
       Stream.flush();
 
-      PrintStructLayout(cast<StructType>(EltTy), typeSys, OS, comment,
+      PrintStructLayout(cast<StructType>(EltTy), typeSys, DL, OS, comment,
                         NameTypeStr, offset, indent, offsetIndent);
     } else {
       (OS << comment).indent(indent);
@@ -842,11 +842,12 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
   }
 }
 
-void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
-                              raw_string_ostream &OS, StringRef comment,
-                              StringRef varName, unsigned offset,
-                              unsigned indent, unsigned offsetIndent,
-                              unsigned sizeOfStruct) {
+// null DataLayout => assume constant buffer layout
+void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout *DL,
+                       raw_string_ostream &OS, StringRef comment,
+                       StringRef varName, unsigned offset,
+                       unsigned indent, unsigned offsetIndent,
+                       unsigned sizeOfStruct) {
   DxilStructAnnotation *annotation = typeSys.GetStructAnnotation(ST);
   (OS << comment).indent(indent) << "struct " << ST->getName() << "\n";
   (OS << comment).indent(indent) << "{\n";
@@ -862,9 +863,17 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
     }
   } else {
     for (unsigned i = 0; i < ST->getNumElements(); i++) {
-      PrintFieldLayout(ST->getElementType(i), annotation->GetFieldAnnotation(i),
-                       typeSys, OS, comment, offset, fieldIndent,
-                       offsetIndent - 4);
+      DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(i);
+      unsigned int fieldOffset;
+      if (DL == nullptr) { // Constant buffer data layout
+        fieldOffset = offset + fieldAnnotation.GetCBufferOffset();
+      } else { // Normal data layout
+        fieldOffset = offset + DL->getStructLayout(ST)->getElementOffset(i);
+      }
+
+      PrintFieldLayout(ST->getElementType(i), fieldAnnotation,
+                       typeSys, DL, OS, comment, fieldOffset,
+                       fieldIndent, offsetIndent - 4);
     }
   }
   (OS << comment).indent(indent) << "\n";
@@ -908,7 +917,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
     } else {
       DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(0);
       fieldAnnotation.SetFieldName("$Element");
-      PrintFieldLayout(RetTy, fieldAnnotation, typeSys, OS, comment,
+      PrintFieldLayout(RetTy, fieldAnnotation, typeSys, /*DL*/ nullptr, OS, comment,
                        /*offset*/ 0, /*indent*/ 3, offsetIndent,
                        DL.getTypeAllocSize(ST));
     }
@@ -916,14 +925,12 @@ void PrintStructBufferDefinition(DxilResource *buf,
   } else {
     StructType *ST = cast<StructType>(RetTy);
 
-    // TODO: struct buffer has different layout.
-    // Cannot use cbuffer layout here.
     DxilStructAnnotation *annotation = typeSys.GetStructAnnotation(ST);
     if (nullptr == annotation) {
       OS << comment << "   [" << DL.getTypeAllocSize(ST)
          << " x i8] (type annotation not present)\n";
     } else {
-      PrintStructLayout(ST, typeSys, OS, comment, "$Element;",
+      PrintStructLayout(ST, typeSys, &DL, OS, comment, "$Element;",
                         /*offset*/ 0, /*indent*/ 3, offsetIndent,
                         DL.getTypeAllocSize(ST));
     }
@@ -951,7 +958,7 @@ void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
     OS << comment << "   (type annotation not present)\n";
     OS << comment << "\n";
   } else {
-    PrintStructLayout(cast<StructType>(Ty), typeSys, OS, comment,
+    PrintStructLayout(cast<StructType>(Ty), typeSys, /*DL*/ nullptr, OS, comment,
                       buf->GetGlobalName(), /*offset*/ 0, /*indent*/ 3,
                       offsetIndent, annotation->GetCBufferSize());
   }
@@ -979,7 +986,7 @@ void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
        << " x i8] (type annotation not present)\n";
     OS << comment << "\n";
   } else {
-    PrintStructLayout(cast<StructType>(Ty), typeSys, OS, comment,
+    PrintStructLayout(cast<StructType>(Ty), typeSys, /*DL*/ nullptr, OS, comment,
                       buf->GetGlobalName(), /*offset*/ 0, /*indent*/ 3,
                       offsetIndent, buf->GetSize());
   }
