@@ -1157,8 +1157,18 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   }
   // Structure types
   else if (const auto *structType = dyn_cast<StructType>(type)) {
+    llvm::ArrayRef<StructType::FieldInfo> fields = structType->getFields();
+    size_t numFields = fields.size();
+
+    // Emit OpName for the struct.
+    emitNameForType(structType->getStructName(), id);
+
+    // Emit OpMemberName for the struct members.
+    for (size_t i = 0; i < numFields; ++i)
+      emitNameForType(fields[i].name, id, i);
+
     llvm::SmallVector<uint32_t, 4> fieldTypeIds;
-    for (auto &field : structType->getFields())
+    for (auto &field : fields)
       fieldTypeIds.push_back(emitType(field.type, rule));
     initTypeInstruction(spv::Op::OpTypeStruct);
     curTypeInst.push_back(id);
@@ -1171,7 +1181,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
 
     // Emit NonWritable decorations
     if (structType->isReadOnly())
-      for (size_t i = 0; i < structType->getFields().size(); ++i)
+      for (size_t i = 0; i < numFields; ++i)
         emitDecoration(id, spv::Decoration::NonWritable, {}, i);
 
     // Emit Block or BufferBlock decorations if necessary.
@@ -1609,6 +1619,22 @@ void EmitTypeHandler::emitDecoration(uint32_t typeResultId,
   annotationsBinary->insert(annotationsBinary->end(), curDecorationInst.begin(),
                             curDecorationInst.end());
   curDecorationInst.clear();
+}
+
+void EmitTypeHandler::emitNameForType(llvm::StringRef name,
+                                      uint32_t targetTypeId,
+                                      llvm::Optional<uint32_t> memberIndex) {
+  std::vector<uint32_t> nameInstr;
+  auto op =
+      memberIndex.hasValue() ? spv::Op::OpMemberName : spv::Op::OpName;
+  nameInstr.push_back(static_cast<uint32_t>(op));
+  nameInstr.push_back(targetTypeId);
+  if (memberIndex.hasValue())
+    nameInstr.push_back(memberIndex.getValue());
+  const auto &words = string::encodeSPIRVString(name);
+  nameInstr.insert(nameInstr.end(), words.begin(), words.end());
+  nameInstr[0] |= static_cast<uint32_t>(nameInstr.size()) << 16;
+  debugBinary->insert(debugBinary->end(), nameInstr.begin(), nameInstr.end());
 }
 
 } // end namespace spirv
