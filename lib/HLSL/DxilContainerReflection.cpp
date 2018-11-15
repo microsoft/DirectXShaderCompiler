@@ -1785,6 +1785,7 @@ HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
   const ShaderModel *pSM = M.GetShaderModel();
 
   pDesc->Version = EncodeVersion(pSM->GetKind(), pSM->GetMajor(), pSM->GetMinor());
+
   // Unset:  LPCSTR                  Creator;                     // Creator string
   // Unset:  UINT                    Flags;                       // Shader compilation/parse flags
 
@@ -1813,18 +1814,31 @@ HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
   // Unset:  UINT                    ArrayInstructionCount;       // Number of array instructions used
   // Unset:  UINT                    CutInstructionCount;         // Number of cut instructions used
   // Unset:  UINT                    EmitInstructionCount;        // Number of emit instructions used
-  // Unset:  D3D_PRIMITIVE_TOPOLOGY  GSOutputTopology;            // Geometry shader output topology
-  // Unset:  UINT                    GSMaxOutputVertexCount;      // Geometry shader maximum output vertex count
-  // Unset:  D3D_PRIMITIVE           InputPrimitive;              // GS/HS input primitive
-  // Unset:  UINT                    cGSInstanceCount;            // Number of Geometry shader instances
-  // Unset:  UINT                    cControlPoints;              // Number of control points in the HS->DS stage
-  // Unset:  D3D_TESSELLATOR_OUTPUT_PRIMITIVE HSOutputPrimitive;  // Primitive output by the tessellator
-  // Unset:  D3D_TESSELLATOR_PARTITIONING HSPartitioning;         // Partitioning mode of the tessellator
-  // Unset:  D3D_TESSELLATOR_DOMAIN  TessellatorDomain;           // Domain of the tessellator (quad, tri, isoline)
+
+  pDesc->GSOutputTopology = (D3D_PRIMITIVE_TOPOLOGY)M.GetStreamPrimitiveTopology();
+  pDesc->GSMaxOutputVertexCount = M.GetMaxVertexCount();
+
+  if (pSM->IsHS())
+    pDesc->InputPrimitive = (D3D_PRIMITIVE)(D3D_PRIMITIVE_1_CONTROL_POINT_PATCH + M.GetInputControlPointCount() - 1);
+  else
+    pDesc->InputPrimitive = (D3D_PRIMITIVE)M.GetInputPrimitive();
+
+  pDesc->cGSInstanceCount = M.GetGSInstanceCount();
+
+  if (pSM->IsHS())
+    pDesc->cControlPoints = M.GetOutputControlPointCount();
+  else if (pSM->IsDS())
+    pDesc->cControlPoints = M.GetInputControlPointCount();
+
+  pDesc->HSOutputPrimitive = (D3D_TESSELLATOR_OUTPUT_PRIMITIVE)M.GetTessellatorOutputPrimitive();
+  pDesc->HSPartitioning = (D3D_TESSELLATOR_PARTITIONING)M.GetTessellatorPartitioning();
+  pDesc->TessellatorDomain = (D3D_TESSELLATOR_DOMAIN)M.GetTessellatorDomain();
+
   // instruction counts
   // Unset:  UINT cBarrierInstructions;                           // Number of barrier instructions in a compute shader
   // Unset:  UINT cInterlockedInstructions;                       // Number of interlocked instructions
   // Unset:  UINT cTextureStoreInstructions;                      // Number of texture writes
+
   return S_OK;
 }
 

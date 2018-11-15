@@ -92,6 +92,7 @@ namespace DXIL {
     SNormF16, UNormF16, SNormF32, UNormF32, SNormF64, UNormF64,
     LastEntry };
 
+  // Must match D3D_INTERPOLATION_MODE
   enum class InterpolationMode : uint8_t {
     Undefined                   = 0,
     Constant                    = 1,
@@ -118,6 +119,7 @@ namespace DXIL {
     PatchConstant,
   };
 
+  // Must match D3D11_SHADER_VERSION_TYPE
   enum class ShaderKind {
     Pixel = 0,
     Vertex,
@@ -935,7 +937,7 @@ namespace DXIL {
   const unsigned kGenericPointerAddrSpace = 4;
   const unsigned kImmediateCBufferAddrSpace = 5;
 
-  // Input primitive.
+  // Input primitive, must match D3D_PRIMITIVE
   enum class InputPrimitive : unsigned {
     Undefined = 0,
     Point = 1,
@@ -981,7 +983,7 @@ namespace DXIL {
     LastEntry,
   };
 
-  // Primitive topology.
+  // Primitive topology, must match D3D_PRIMITIVE_TOPOLOGY
   enum class PrimitiveTopology : unsigned {
     Undefined = 0,
     PointList = 1,
@@ -993,6 +995,7 @@ namespace DXIL {
     LastEntry,
   };
 
+  // Must match D3D_TESSELLATOR_DOMAIN
   enum class TessellatorDomain
   {
     Undefined = 0,
@@ -1003,6 +1006,7 @@ namespace DXIL {
     LastEntry,
   };
 
+  // Must match D3D_TESSELLATOR_OUTPUT_PRIMITIVE
   enum class TessellatorOutputPrimitive
   {
     Undefined = 0,
@@ -1014,7 +1018,7 @@ namespace DXIL {
     LastEntry,
   };
 
-  // Tessellator partitioning.
+  // Tessellator partitioning, must match D3D_TESSELLATOR_PARTITIONING
   enum class TessellatorPartitioning : unsigned {
     Undefined = 0,
     Integer,
