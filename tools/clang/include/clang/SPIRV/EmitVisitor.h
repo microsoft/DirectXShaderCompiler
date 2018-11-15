@@ -60,7 +60,7 @@ public:
   // parameters.
   void emitDecoration(uint32_t typeResultId, spv::Decoration,
                       llvm::ArrayRef<uint32_t> decorationParams,
-                      uint32_t memberIndex = 0);
+                      llvm::Optional<uint32_t> memberIndex = llvm::None);
 
   // Emits the instruction for the given type into the typeConstantBinary and
   // returns the result-id for the type.
