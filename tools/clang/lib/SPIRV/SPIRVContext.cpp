@@ -361,7 +361,7 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
   return getStructType({StructType::FieldInfo(raType)},
                        isWritable ? "type.RWByteAddressBuffer"
                                   : "type.ByteAddressBuffer",
-                       !isWritable);
+                       !isWritable, StructInterfaceType::StorageBuffer);
 }
 
 const StructType *SpirvContext::getACSBufferCounterType() {
@@ -370,7 +370,8 @@ const StructType *SpirvContext::getACSBufferCounterType() {
 
   // Create a struct containing the integer counter as its only member.
   const StructType *type =
-      getStructType({int32Type}, "type.ACSBuffer.counter", {"counter"});
+      getStructType({int32Type}, "type.ACSBuffer.counter", {"counter"},
+                    StructInterfaceType::StorageBuffer);
 
   return type;
 }
