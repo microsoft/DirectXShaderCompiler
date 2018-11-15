@@ -19,71 +19,73 @@ PSInput main(float4 position: POSITION, float4 color: COLOR) {
 // ; Generator: Google spiregg; 0
 // ; Bound: 37
 // ; Schema: 0
-// OpCapability Shader
-// OpMemoryModel Logical GLSL450
-// OpEntryPoint Vertex %main "main" %in_var_POSITION %in_var_COLOR %gl_Position %out_var_COLOR
-// OpSource HLSL 600
-// OpName %bb_entry "bb.entry"
-// OpName %src_main "src.main"
-// OpName %main "main"
-// OpName %param_var_position "param.var.position"
-// OpName %in_var_POSITION "in.var.POSITION"
-// OpName %param_var_color "param.var.color"
-// OpName %in_var_COLOR "in.var.COLOR"
-// OpName %PSInput "PSInput"
-// OpMemberName %PSInput 0 "position"
-// OpMemberName %PSInput 1 "color"
-// OpName %out_var_COLOR "out.var.COLOR"
-// OpName %position "position"
-// OpName %color "color"
-// OpName %result "result"
-// OpDecorate %gl_Position BuiltIn Position
-// OpDecorate %in_var_POSITION Location 0
-// OpDecorate %in_var_COLOR Location 1
-// OpDecorate %out_var_COLOR Location 0
-// %void = OpTypeVoid
-// %3 = OpTypeFunction %void
-// %float = OpTypeFloat 32
-// %v4float = OpTypeVector %float 4
-// %_ptr_Function_v4float = OpTypePointer Function %v4float
+//                OpCapability Shader
+//                OpMemoryModel Logical GLSL450
+//                OpEntryPoint Vertex %main "main" %in_var_POSITION %in_var_COLOR %gl_Position %out_var_COLOR
+//                OpSource HLSL 600
+//                OpName %in_var_POSITION "in.var.POSITION"
+//                OpName %in_var_COLOR "in.var.COLOR"
+//                OpName %out_var_COLOR "out.var.COLOR"
+//                OpName %main "main"
+//                OpName %param_var_position "param.var.position"
+//                OpName %param_var_color "param.var.color"
+//                OpName %PSInput "PSInput"
+//                OpMemberName %PSInput 0 "position"
+//                OpMemberName %PSInput 1 "color"
+//                OpName %src_main "src.main"
+//                OpName %position "position"
+//                OpName %color "color"
+//                OpName %bb_entry "bb.entry"
+//                OpName %result "result"
+//                OpDecorate %gl_Position BuiltIn Position
+//                OpDecorate %in_var_POSITION Location 0
+//                OpDecorate %in_var_COLOR Location 1
+//                OpDecorate %out_var_COLOR Location 0
+//                OpMemberDecorate %PSInput 0 Offset 0
+//                OpMemberDecorate %PSInput 1 Offset 16
+//         %int = OpTypeInt 32 1
+//       %float = OpTypeFloat 32
+//     %v4float = OpTypeVector %float 4
 // %_ptr_Input_v4float = OpTypePointer Input %v4float
-// %PSInput = OpTypeStruct %v4float %v4float
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
-// %23 = OpTypeFunction %PSInput %_ptr_Function_v4float %_ptr_Function_v4float
+//        %void = OpTypeVoid
+//          %14 = OpTypeFunction %void
+// %_ptr_Function_v4float = OpTypePointer Function %v4float
+//     %PSInput = OpTypeStruct %v4float %v4float
+//          %26 = OpTypeFunction %PSInput %_ptr_Function_v4float %_ptr_Function_v4float
 // %_ptr_Function_PSInput = OpTypePointer Function %PSInput
-// %int = OpTypeInt 32 1
-// %int_0 = OpConstant %int 0
-// %int_1 = OpConstant %int 1
+//       %int_0 = OpConstant %int 0
+//       %int_1 = OpConstant %int 1
 // %in_var_POSITION = OpVariable %_ptr_Input_v4float Input
 // %in_var_COLOR = OpVariable %_ptr_Input_v4float Input
 // %gl_Position = OpVariable %_ptr_Output_v4float Output
 // %out_var_COLOR = OpVariable %_ptr_Output_v4float Output
-// %main = OpFunction %void None %3
-// %5 = OpLabel
+//        %main = OpFunction %void None %14
+//          %15 = OpLabel
 // %param_var_position = OpVariable %_ptr_Function_v4float Function
 // %param_var_color = OpVariable %_ptr_Function_v4float Function
-// %12 = OpLoad %v4float %in_var_POSITION
-// OpStore %param_var_position %12
-// %15 = OpLoad %v4float %in_var_COLOR
-// OpStore %param_var_color %15
-// %17 = OpFunctionCall %PSInput %src_main %param_var_position %param_var_color
-// %18 = OpCompositeExtract %v4float %17 0
-// OpStore %gl_Position %18
-// %21 = OpCompositeExtract %v4float %17 1
-// OpStore %out_var_COLOR %21
-// OpReturn
-// OpFunctionEnd
-// %src_main = OpFunction %PSInput None %23
-// %position = OpFunctionParameter %_ptr_Function_v4float
-// %color = OpFunctionParameter %_ptr_Function_v4float
-// %bb_entry = OpLabel
-// %result = OpVariable %_ptr_Function_PSInput Function
-// %29 = OpLoad %v4float %position
-// %32 = OpAccessChain %_ptr_Function_v4float %result %int_0
-// OpStore %32 %29
-// %33 = OpLoad %v4float %color
-// %35 = OpAccessChain %_ptr_Function_v4float %result %int_1
-// OpStore %35 %33
-// %36 = OpLoad %PSInput %result
-// OpReturnValue %36
-// OpFunctionEnd
+//          %19 = OpLoad %v4float %in_var_POSITION
+//                OpStore %param_var_position %19
+//          %20 = OpLoad %v4float %in_var_COLOR
+//                OpStore %param_var_color %20
+//          %22 = OpFunctionCall %PSInput %src_main %param_var_position %param_var_color
+//          %24 = OpCompositeExtract %v4float %22 0
+//                OpStore %gl_Position %24
+//          %25 = OpCompositeExtract %v4float %22 1
+//                OpStore %out_var_COLOR %25
+//                OpReturn
+//                OpFunctionEnd
+//    %src_main = OpFunction %PSInput None %26
+//    %position = OpFunctionParameter %_ptr_Function_v4float
+//       %color = OpFunctionParameter %_ptr_Function_v4float
+//    %bb_entry = OpLabel
+//      %result = OpVariable %_ptr_Function_PSInput Function
+//          %32 = OpLoad %v4float %position
+//          %33 = OpAccessChain %_ptr_Function_v4float %result %int_0
+//                OpStore %33 %32
+//          %34 = OpLoad %v4float %color
+//          %35 = OpAccessChain %_ptr_Function_v4float %result %int_1
+//                OpStore %35 %34
+//          %36 = OpLoad %PSInput %result
+//                OpReturnValue %36
+//                OpFunctionEnd
