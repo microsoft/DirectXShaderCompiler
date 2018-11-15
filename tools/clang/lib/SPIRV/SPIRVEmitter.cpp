@@ -749,6 +749,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
+    UseDefaultAllocatorForThisBlock dummy;
     std::string messages;
     if (!spirvToolsValidate(
             targetEnv, &m, &messages, declIdMapper.requiresLegalization(),
