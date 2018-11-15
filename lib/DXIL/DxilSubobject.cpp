@@ -177,45 +177,40 @@ bool DxilSubobject::GetHitGroup(DXIL::HitGroupType &hitGroupType,
 
 
 DxilSubobjects::DxilSubobjects()
-  : m_StringStorage()
-  , m_RawBytesStorage()
+  : m_BytesStorage()
   , m_Subobjects()
 {}
 DxilSubobjects::DxilSubobjects(DxilSubobjects &&other)
-  : m_StringStorage(std::move(other.m_StringStorage))
-  , m_RawBytesStorage(std::move(other.m_RawBytesStorage))
+  : m_BytesStorage(std::move(other.m_BytesStorage))
   , m_Subobjects(std::move(other.m_Subobjects))
 {}
 DxilSubobjects::~DxilSubobjects() {}
 
 
 llvm::StringRef DxilSubobjects::GetSubobjectString(llvm::StringRef value) {
-  auto it = m_StringStorage.find(value);
-  if (it != m_StringStorage.end())
+  auto it = m_BytesStorage.find(value);
+  if (it != m_BytesStorage.end())
     return it->first;
 
   size_t size = value.size();
-  StoredBytes stored(std::unique_ptr<char[]>(new char[size + 1]), size + 1);
+  StoredBytes stored(std::make_pair(std::unique_ptr<char[]>(new char[size + 1]), size + 1));
   memcpy(stored.first.get(), value.data(), size);
   stored.first[size] = 0;
   llvm::StringRef key(stored.first.get(), size);
-  m_StringStorage[key] = std::move(stored);
+  m_BytesStorage[key] = std::move(stored);
   return key;
 }
 
 const void *DxilSubobjects::GetRawBytes(const void *ptr, size_t size) {
-  auto it = m_RawBytesStorage.find(ptr);
-  if (it != m_RawBytesStorage.end())
-    return ptr;
+  auto it = m_BytesStorage.find(llvm::StringRef((const char *)ptr, size));
+  if (it != m_BytesStorage.end())
+    return it->first.data();
 
-  DXASSERT_NOMSG(size < UINT_MAX);
-  if (size >= UINT_MAX)
-    return nullptr;
-  StoredBytes stored(std::unique_ptr<char[]>(new char[size]), size);
+  StoredBytes stored(std::make_pair(std::unique_ptr<char[]>(new char[size]), size));
   memcpy(stored.first.get(), ptr, size);
-  ptr = stored.first.get();
-  m_RawBytesStorage[ptr] = std::move(stored);
-  return ptr;
+  llvm::StringRef key(stored.first.get(), size);
+  m_BytesStorage[key] = std::move(stored);
+  return key.data();
 }
 
 DxilSubobject *DxilSubobjects::FindSubobject(llvm::StringRef name) {
@@ -255,7 +250,7 @@ DxilSubobject &DxilSubobjects::CreateStateObjectConfig(
 DxilSubobject &DxilSubobjects::CreateRootSignature(
     llvm::StringRef Name, bool local, const void *Data, uint32_t Size, llvm::StringRef *pText /*= nullptr*/) {
   auto &obj = CreateSubobject(local ? Kind::LocalRootSignature : Kind::GlobalRootSignature, Name);
-  obj.RootSignature.Data = Data;
+  obj.RootSignature.Data = GetRawBytes(Data, Size);
   obj.RootSignature.Size = Size;
   obj.RootSignature.Text = (pText ? GetSubobjectString(*pText).data() : nullptr);
   return obj;
