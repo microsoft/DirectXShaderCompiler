@@ -17,6 +17,7 @@
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "llvm/ADT/StringExtras.h"
+#include "dxc/Support/Global.h"
 
 #include "InitListHandler.h"
 
@@ -24,6 +25,18 @@ namespace clang {
 namespace spirv {
 
 namespace {
+
+class UseDefaultAllocatorForThisBlock {
+  public:
+    UseDefaultAllocatorForThisBlock() {
+      DxcSwapThreadMallocOrDefault(nullptr, &previousMalloc);
+    }
+    ~UseDefaultAllocatorForThisBlock() {
+      DxcSetThreadMalloc(previousMalloc);
+    }
+  private:
+    IMalloc * previousMalloc;
+};
 
 // Returns true if the given decl has the given semantic.
 bool hasSemantic(const DeclaratorDecl *decl,
@@ -703,6 +716,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   std::vector<uint32_t> m = theBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
+    UseDefaultAllocatorForThisBlock dummy;
     // Run legalization passes
     if (needsLegalization || declIdMapper.requiresLegalization()) {
       std::string messages;
