@@ -1214,19 +1214,12 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
       curTypeInst.push_back(paramTypeId);
     finalizeTypeInstruction();
   }
-  // Hybrid Function types
-  else if (const auto *fnType = dyn_cast<HybridFunctionType>(type)) {
-    const uint32_t retTypeId = emitType(fnType->getReturnType(), rule);
-    llvm::SmallVector<uint32_t, 4> paramTypeIds;
-    for (auto *paramType : fnType->getParamTypes())
-      paramTypeIds.push_back(emitType(paramType, rule));
-
-    initTypeInstruction(spv::Op::OpTypeFunction);
-    curTypeInst.push_back(id);
-    curTypeInst.push_back(retTypeId);
-    for (auto paramTypeId : paramTypeIds)
-      curTypeInst.push_back(paramTypeId);
-    finalizeTypeInstruction();
+  // Hybrid Types
+  // Note: The type lowering pass should lower all types to SpirvTypes.
+  // Therefore, if we find a hybrid type when going through the emitting pass,
+  // that is clearly a bug.
+  else if (const auto *hybridType = dyn_cast<HybridType>(type)) {
+    assert(false && "found hybrid type when emitting SPIR-V");
   }
   // Unhandled types
   else {
@@ -1625,8 +1618,7 @@ void EmitTypeHandler::emitNameForType(llvm::StringRef name,
                                       uint32_t targetTypeId,
                                       llvm::Optional<uint32_t> memberIndex) {
   std::vector<uint32_t> nameInstr;
-  auto op =
-      memberIndex.hasValue() ? spv::Op::OpMemberName : spv::Op::OpName;
+  auto op = memberIndex.hasValue() ? spv::Op::OpMemberName : spv::Op::OpName;
   nameInstr.push_back(static_cast<uint32_t>(op));
   nameInstr.push_back(targetTypeId);
   if (memberIndex.hasValue())
