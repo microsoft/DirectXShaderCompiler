@@ -120,9 +120,9 @@ public:
   DxilSubobjects &operator=(const DxilSubobjects &other) = delete;
 
   // Add/find string in owned subobject strings, returning canonical ptr
-  llvm::StringRef GetSubobjectString(llvm::StringRef value);
+  llvm::StringRef InternString(llvm::StringRef value);
   // Add/find raw bytes, returning canonical ptr
-  const void *GetRawBytes(const void *ptr, size_t size);
+  const void *InternRawBytes(const void *ptr, size_t size);
   DxilSubobject *FindSubobject(llvm::StringRef name);
   void RemoveSubobject(llvm::StringRef name);
   DxilSubobject &CloneSubobject(const DxilSubobject &Subobject, llvm::StringRef Name);
