@@ -794,7 +794,7 @@ void DxilModule::RemoveFunction(llvm::Function *F) {
 }
 
 void DxilModule::RemoveUnusedResources() {
-  DXASSERT(!m_pSM->IsLib(), "this function not work on library");
+  DXASSERT(!m_pSM->IsLib(), "this function does not work on libraries");
   hlsl::OP *hlslOP = GetOP();
   Function *createHandleFunc = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(GetCtx()));
   if (createHandleFunc->user_empty()) {
@@ -848,11 +848,11 @@ void DxilModule::RemoveUnusedResources() {
   std::unordered_set<unsigned> immSamplerID;
   std::unordered_set<unsigned> immCBufID;
   ConvertUsedResource(immUAVID, usedUAVID);
-  RemoveResources(m_UAVs, immUAVID);
   ConvertUsedResource(immSRVID, usedSRVID);
   ConvertUsedResource(immSamplerID, usedSamplerID);
   ConvertUsedResource(immCBufID, usedCBufID);
 
+  RemoveResources(m_UAVs, immUAVID);
   RemoveResources(m_SRVs, immSRVID);
   RemoveResources(m_Samplers, immSamplerID);
   RemoveResources(m_CBuffers, immCBufID);
@@ -860,7 +860,7 @@ void DxilModule::RemoveUnusedResources() {
 
 namespace {
 template <typename TResource>
-static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) {
+static void RemoveResourcesWithUnusedSymbolsHelper(std::vector<std::unique_ptr<TResource>> &vec) {
   unsigned resID = 0;
   for (auto p = vec.begin(); p != vec.end();) {
     auto c = p++;
@@ -880,11 +880,11 @@ static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) 
 }
 }
 
-void DxilModule::RemoveUnusedResourceSymbols() {
-  RemoveResourceSymbols(m_SRVs);
-  RemoveResourceSymbols(m_UAVs);
-  RemoveResourceSymbols(m_CBuffers);
-  RemoveResourceSymbols(m_Samplers);
+void DxilModule::RemoveResourcesWithUnusedSymbols() {
+  RemoveResourcesWithUnusedSymbolsHelper(m_SRVs);
+  RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
+  RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
+  RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
 }
 
 DxilSignature &DxilModule::GetInputSignature() {

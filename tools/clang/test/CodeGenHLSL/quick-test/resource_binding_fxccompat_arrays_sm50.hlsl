@@ -1,4 +1,4 @@
-// RUN: %dxc /T ps_6_0 /E main -flegacy_resource_reservation %s | FileCheck %s
+// RUN: %dxc /T ps_6_0 /E main -flegacy-resource-reservation %s | FileCheck %s
 
 // Until SM 5.0, fxc takes into account explicit register allocation of unused resources
 // when allocating registers for used resources.

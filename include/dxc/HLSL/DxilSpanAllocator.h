@@ -62,14 +62,14 @@ public:
   }
 
   // Finds the farthest position at which an element could be allocated.
-  bool FindForUnbounded(T_index &pos) {
+  bool FindForUnbounded(T_index &pos, T_index align = 1) {
     if (m_Spans.empty()) {
       pos = m_Min;
-      return true;
+      return UpdatePos(pos, /*size*/1, align);
     }
 
     pos = m_Spans.crbegin()->end;
-    return IncPos(pos);
+    return IncPos(pos, /*inc*/ 1, /*size*/1, align);
   }
 
   // allocate element size in first available space, returns false on failure
