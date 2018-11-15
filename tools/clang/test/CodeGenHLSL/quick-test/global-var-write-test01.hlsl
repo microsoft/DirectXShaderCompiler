@@ -8,6 +8,7 @@ float g_s;
 float4 g_v = float4(1.0, -1.0, 0.0, 1.0);
 int2x2 g_m;
 row_major int2x2 g_m_rm;
+int2x2 g_m2;
 bool g_b = false;
 int g_a[5];
 int g_a2d[3][2];
@@ -24,13 +25,16 @@ float4 main(uint a : A) : SV_Target {
   for (uint i = 0; i < 2; i++)
     for (uint j = 0; j < 2; j++)
       g_m[i][j] = a + i + j;
-  g_m._12 = 42;
       
   // update global row_major matrix
   for (uint i = 0; i < 2; i++)
     for (uint j = 0; j < 2; j++)
       g_m_rm[i][j] = a + i + j;
-  g_m_rm._12 = 42;
+
+  // update global matrix through element access
+  g_m2._11 = a;
+  g_m2._12_21 = float2(a, a + 1);
+  g_m2._21_22 = a + 3;
 
   // update global boolean
   g_b = true;
