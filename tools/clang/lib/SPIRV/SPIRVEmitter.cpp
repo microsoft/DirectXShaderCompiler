@@ -2834,9 +2834,10 @@ SpirvInstruction *SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
   auto *address = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
                                             astContext.UnsignedIntTy, offset,
                                             spvBuilder.getConstantUint32(2));
-  // Note (ehsan): Using uintType instead of pointer-to-uint-type.
-  auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, objectInfo,
-                                           {zero, address});
+  auto *ptr = spvBuilder.createAccessChain(
+      spvContext.getPointerType(astContext.UnsignedIntTy,
+                                objectInfo->getStorageClass()),
+      objectInfo, {zero, address});
 
   const bool isCompareExchange =
       opcode == hlsl::IntrinsicOp::MOP_InterlockedCompareExchange;
@@ -3042,7 +3043,6 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   auto *coordinate = doExpr(expr->getArg(1));
 
   auto *sampledImageType = spvContext.getSampledImageType(object->getType());
-  // EHSAN: need to create createBinaryOp that takes SpirvType :(
   auto *sampledImage = spvBuilder.createBinaryOp(
       spv::Op::OpSampledImage, sampledImageType, objectInfo, samplerState);
 
@@ -3319,7 +3319,8 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
   // runtimeArray). The second index passed to OpAccessChain should be
   // the address.
   auto *constUint0 = spvBuilder.getConstantUint32(0);
-
+  const auto *ptrType = spvContext.getPointerType(
+      astContext.UnsignedIntTy, objectInfo->getStorageClass());
   if (doStore) {
     auto *values = doExpr(expr->getArg(1));
     auto *curStoreAddress = address;
@@ -3338,16 +3339,13 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
       }
 
       // Store the word to the right address at the output.
-      // Note (ehsan): using value type rather than pointer type in access
-      // chain.
       auto *storePtr = spvBuilder.createAccessChain(
-          astContext.UnsignedIntTy, objectInfo, {constUint0, curStoreAddress});
+          ptrType, objectInfo, {constUint0, curStoreAddress});
       spvBuilder.createStore(storePtr, curValue);
     }
   } else {
-    // Note (ehsan): using value type rather than pointer type in access chain.
-    auto *loadPtr = spvBuilder.createAccessChain(
-        astContext.UnsignedIntTy, objectInfo, {constUint0, address});
+    auto *loadPtr = spvBuilder.createAccessChain(ptrType, objectInfo,
+                                                 {constUint0, address});
     result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr);
     if (numWords > 1) {
       // Load word 2, 3, and 4 where necessary. Use OpCompositeConstruct to
@@ -3358,10 +3356,8 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
         auto *offset = spvBuilder.getConstantUint32(wordCounter - 1);
         auto *newAddress = spvBuilder.createBinaryOp(
             spv::Op::OpIAdd, addressType, address, offset);
-        // Note (ehsan): using value type rather than pointer type in access
-        // chain.
-        loadPtr = spvBuilder.createAccessChain(
-            astContext.UnsignedIntTy, objectInfo, {constUint0, newAddress});
+        loadPtr = spvBuilder.createAccessChain(ptrType, objectInfo,
+                                               {constUint0, newAddress});
         values.push_back(
             spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr));
       }
@@ -3420,10 +3416,10 @@ SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     return nullptr;
   }
 
-  // Note (ehsan): using value type rather than pointer type (Uniform) in access
-  // chain.
+  const auto *counterPtrType =
+      spvContext.getPointerType(astContext.IntTy, spv::StorageClass::Uniform);
   auto *counterPtr = spvBuilder.createAccessChain(
-      astContext.IntTy, counterPair->get(spvBuilder, spvContext), {zero});
+      counterPtrType, counterPair->get(spvBuilder, spvContext), {zero});
 
   SpirvInstruction *index = nullptr;
   if (isInc) {
@@ -3688,6 +3684,8 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //   }
 
   const auto v2f32Type = astContext.getExtVectorType(astContext.FloatTy, 2);
+  const auto *ptrType =
+      spvContext.getPointerType(v2f32Type, spv::StorageClass::Function);
 
   // Creates a SPIR-V function scope variable of type float2[len].
   const auto createArray = [this, v2f32Type](const Float2 *ptr, uint32_t len) {
@@ -3744,8 +3742,7 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //     position = pos2[index];
   //   }
   spvBuilder.setInsertPoint(then2BB);
-  // Note (ehsan): Using value type rather than pointer type.
-  auto *ac = spvBuilder.createAccessChain(v2f32Type, pos2Arr, {sampleIndex});
+  auto *ac = spvBuilder.createAccessChain(ptrType, pos2Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
   spvBuilder.createBranch(merge2BB);
   spvBuilder.addSuccessor(merge2BB);
@@ -3763,8 +3760,7 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //     position = pos4[index];
   //   }
   spvBuilder.setInsertPoint(then4BB);
-  // Note (ehsan): Using value type rather than pointer type.
-  ac = spvBuilder.createAccessChain(v2f32Type, pos4Arr, {sampleIndex});
+  ac = spvBuilder.createAccessChain(ptrType, pos4Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
   spvBuilder.createBranch(merge4BB);
   spvBuilder.addSuccessor(merge4BB);
@@ -3782,8 +3778,7 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //     position = pos8[index];
   //   }
   spvBuilder.setInsertPoint(then8BB);
-  // Note (ehsan): Using value type rather than pointer type.
-  ac = spvBuilder.createAccessChain(v2f32Type, pos8Arr, {sampleIndex});
+  ac = spvBuilder.createAccessChain(ptrType, pos8Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
   spvBuilder.createBranch(merge8BB);
   spvBuilder.addSuccessor(merge8BB);
@@ -3801,8 +3796,7 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //     position = pos16[index];
   //   }
   spvBuilder.setInsertPoint(then16BB);
-  // Note (ehsan): Using value type rather than pointer type.
-  ac = spvBuilder.createAccessChain(v2f32Type, pos16Arr, {sampleIndex});
+  ac = spvBuilder.createAccessChain(ptrType, pos16Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
   spvBuilder.createBranch(merge16BB);
   spvBuilder.addSuccessor(merge16BB);
@@ -4547,9 +4541,9 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
       if (!indices.empty()) {
         assert(!baseInfo->isRValue());
         // Load the element via access chain
-        // Note (ehsan): using type instead of ptr type.
-        elem =
-            spvBuilder.createAccessChain(elemType, baseInfo, indexInstructions);
+        elem = spvBuilder.createAccessChain(
+            spvContext.getPointerType(elemType, baseInfo->getStorageClass()),
+            baseInfo, indexInstructions);
       } else {
         // The matrix is of size 1x1. No need to use access chain, base should
         // be the source pointer.
@@ -4624,9 +4618,9 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     if (!baseInfo->isRValue()) { // E.g., v.x;
       auto *index = spvBuilder.getConstantInt32(accessor.Swz0);
       // We need a lvalue here. Do not try to load.
-      // Note (ehsan): result type of access chain used to be pointer to type.
-      // now we're using type.
-      return spvBuilder.createAccessChain(type, baseInfo, {index});
+      return spvBuilder.createAccessChain(
+          spvContext.getPointerType(type, baseInfo->getStorageClass()),
+          baseInfo, {index});
     } else { // E.g., (v + w).x;
       // The original base vector may not be a rvalue. Need to load it if
       // it is lvalue since ImplicitCastExpr (LValueToRValue) will be missing
@@ -5012,10 +5006,10 @@ void SPIRVEmitter::storeValue(SpirvInstruction *lhsPtr,
     // Do separate load of each element via access chain
     llvm::SmallVector<SpirvInstruction *, 8> elements;
     for (uint32_t i = 0; i < arraySize; ++i) {
-      // Note (ehsan): We used to use pointer to elemType as access chain result
-      // type. Now we are just using the elemType.
+      const auto *subRhsPtrType =
+          spvContext.getPointerType(elemType, rhsVal->getStorageClass());
       auto *subRhsPtr = spvBuilder.createAccessChain(
-          elemType, rhsVal, {spvBuilder.getConstantInt32(i)});
+          subRhsPtrType, rhsVal, {spvBuilder.getConstantInt32(i)});
       elements.push_back(spvBuilder.createLoad(elemType, subRhsPtr));
     }
 
@@ -5874,10 +5868,9 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
       // assert fails?
       assert(!base->isRValue());
       // Load the element via access chain
-      // Note (ehsan): the result type of this access chain was ptr to elemType
-      // with the storage class of base. Changed to elemType.
-      lhsElemPtr =
-          spvBuilder.createAccessChain(elemType, lhsElemPtr, indexInstructions);
+      lhsElemPtr = spvBuilder.createAccessChain(
+          spvContext.getPointerType(elemType, lhsElemPtr->getStorageClass()),
+          lhsElemPtr, indexInstructions);
     }
 
     spvBuilder.createStore(lhsElemPtr, rhsElem);
@@ -6169,9 +6162,9 @@ SpirvInstruction *SPIRVEmitter::turnIntoElementPtr(
     var->setStorageClass(spv::StorageClass::Function);
   }
 
-  // Note (ehsan):We used to get a pointer to elemType as the access chain
-  // result type. Now we are just passing the QualType.
-  base = spvBuilder.createAccessChain(elemType, base, indices);
+  base = spvBuilder.createAccessChain(
+      spvContext.getPointerType(elemType, base->getStorageClass()), base,
+      indices);
 
   // Okay, this part seems weird, but it is intended:
   // If the base is originally a rvalue, the whole AST involving the base
@@ -9652,9 +9645,9 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
         clang::ArrayType::Normal, 0);
     hullMainOutputPatch = spvBuilder.addFnVar(
         hullMainRetType, /*SourceLocation*/ {}, "temp.var.hullMainRetVal");
-    // Note (ehsan): Using value type rather than pointer type in access chain.
     auto *tempLocation = spvBuilder.createAccessChain(
-        retType, hullMainOutputPatch, {outputControlPointId});
+        spvContext.getPointerType(retType, spv::StorageClass::Function),
+        hullMainOutputPatch, {outputControlPointId});
     spvBuilder.createStore(tempLocation, retVal);
   }
 
