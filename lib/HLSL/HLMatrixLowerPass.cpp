@@ -1793,9 +1793,10 @@ void HLMatrixLowerPass::TranslateMatSubscriptOnGlobalPtr(
 
   // Cannot generate vector pointer
   // Replace all uses with scalar pointers.
-  if (idxList.size() == 1) {
+  if (!matSubInst->getType()->getPointerElementType()->isVectorTy()) {
+    DXASSERT(idxList.size() == 1, "Expected a single matrix element index if the result is not a vector");
     Value *Ptr =
-        subBuilder.CreateInBoundsGEP(vecPtr, {zeroIdx, idxList[0]});
+      subBuilder.CreateInBoundsGEP(vecPtr, { zeroIdx, idxList[0] });
     matSubInst->replaceAllUsesWith(Ptr);
   } else {
     // Split the use of CI with Ptrs.
@@ -2347,7 +2348,6 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
     HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, VecGV);
   }
 
-  DenseMap<Instruction *, Value *> matToVecMap;
   for (User *U : GV->users()) {
     Value *VecGEP = nullptr;
     // Must be GEP or GEPOperator.
