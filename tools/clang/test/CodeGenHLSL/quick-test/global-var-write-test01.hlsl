@@ -58,6 +58,7 @@ float4 main(uint a : A) : SV_Target {
          g_v +
          float4(g_m[0][0], g_m[0][1], g_m[1][0], g_m[1][1]) +
          float4(g_m_rm[0][0], g_m_rm[0][1], g_m_rm[1][0], g_m_rm[1][1]) +
+         float4(g_m2._11, g_m2._12, g_m2._21_22) +
          float4(g_a[0], g_a[1], g_a[2], g_a[3]) +
          float4(g_a2d[0][0], g_a2d[0][1], g_a2d[1][0], g_a2d[1][1]) +
          float4(g_ma[0][0][0], g_ma[1][0][1], g_ma[2][1][0], g_ma[3][1][1]);
