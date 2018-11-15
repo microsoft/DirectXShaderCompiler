@@ -502,11 +502,11 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
 
       // Should only have VarDecls in a HLSLBufferDecl.
       QualType valueType = cast<VarDecl>(decl)->getType();
+      const auto *ptrType =
+          spvContext.getPointerType(valueType, info->instr->getStorageClass());
 
-      // TODO(ehsan): Setting QualType of the value for the access chain. This
-      // used to be a pointer-to-transalted-qualtype.
       return spvBuilder.createAccessChain(
-          valueType, info->instr,
+          ptrType, info->instr,
           {spvBuilder.getConstantInt32(info->indexInCTBuffer)});
     } else {
       return *info;
@@ -1854,8 +1854,9 @@ bool DeclResultIdMapper::createStageVars(
       // Special handling of SV_Coverage, which is an unit value. We need to
       // write it to the first element in the SampleMask builtin.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        // Note(ehsan): used type rather than spir-v pointer to type.
-        ptr = spvBuilder.createAccessChain(type, varInstr,
+        const auto *ptrType =
+            spvContext.getPointerType(type, spv::StorageClass::Output);
+        ptr = spvBuilder.createAccessChain(ptrType, varInstr,
                                            spvBuilder.getConstantUint32(0));
         ptr->setStorageClass(spv::StorageClass::Output);
         spvBuilder.createStore(ptr, *value);
@@ -1869,8 +1870,9 @@ bool DeclResultIdMapper::createStageVars(
         const auto elementType =
             astContext.getAsArrayType(evalType)->getElementType();
         auto index = invocationId.getValue();
-        // Note(ehsan): used type rather than spir-v pointer to type.
-        ptr = spvBuilder.createAccessChain(elementType, varInstr, index);
+        ptr = spvBuilder.createAccessChain(
+            spvContext.getPointerType(elementType, spv::StorageClass::Output),
+            varInstr, index);
         ptr->setStorageClass(spv::StorageClass::Output);
         spvBuilder.createStore(ptr, *value);
       }
