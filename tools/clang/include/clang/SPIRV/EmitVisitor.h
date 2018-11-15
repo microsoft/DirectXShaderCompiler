@@ -42,11 +42,13 @@ struct SpirvLayoutRuleDenseMapInfo {
 class EmitTypeHandler {
 public:
   EmitTypeHandler(ASTContext &astCtx, SpirvBuilder &builder,
+                  std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), spirvBuilder(builder), annotationsBinary(decVec),
-        typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn) {
+      : astContext(astCtx), spirvBuilder(builder), debugBinary(debugVec),
+        annotationsBinary(decVec), typeConstantBinary(typesVec),
+        takeNextIdFunction(takeNextIdFn) {
     assert(decVec);
     assert(typesVec);
   }
@@ -86,6 +88,11 @@ private:
 
   void emitLayoutDecorations(const StructType *, SpirvLayoutRule);
 
+  // Emits an OpName (if memberIndex is not provided) or OpMemberName (if
+  // memberIndex is provided) for the given target result-id.
+  void emitNameForType(llvm::StringRef name, uint32_t targetTypeId,
+                       llvm::Optional<uint32_t> memberIndex = llvm::None);
+
   // There is no guarantee that an instruction or a function or a basic block
   // has been assigned result-id. This method returns the result-id for the
   // given object. If a result-id has not been assigned yet, it'll assign
@@ -112,6 +119,7 @@ private:
   SpirvBuilder &spirvBuilder;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
+  std::vector<uint32_t> *debugBinary;
   std::vector<uint32_t> *annotationsBinary;
   std::vector<uint32_t> *typeConstantBinary;
   std::function<uint32_t()> takeNextIdFunction;
@@ -146,7 +154,8 @@ public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
       : Visitor(opts, spvCtx), id(0),
-        typeHandler(astCtx, builder, &annotationsBinary, &typeConstantBinary,
+        typeHandler(astCtx, builder, &debugBinary, &annotationsBinary,
+                    &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }) {}
 
   // Visit different SPIR-V constructs for emitting.
