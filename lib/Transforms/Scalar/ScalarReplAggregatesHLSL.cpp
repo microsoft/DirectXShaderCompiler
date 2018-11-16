@@ -3558,9 +3558,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     return false;
 
   Module *M = GV->getParent();
-  Constant *Init = GV->getInitializer();
-  if (!Init)
-    Init = UndefValue::get(Ty);
+  Constant *Init = GV->hasInitializer() ? GV->getInitializer() : UndefValue::get(Ty);
   bool isConst = GV->isConstant();
 
   GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
