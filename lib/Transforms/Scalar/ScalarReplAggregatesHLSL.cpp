@@ -4214,7 +4214,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
   const char *getPassName() const override { return "SROA Parameter HLSL"; }
-  static void CopyElementsOfStructsWithIdenticalLayout(IRBuilder<>& builder, Value* destPtr, Value* srcPtr, Type *ty, std::vector<unsigned> idxlist);
+  static void CopyElementsOfStructsWithIdenticalLayout(IRBuilder<>& builder, Value* destPtr, Value* srcPtr, Type *ty, std::vector<unsigned>& idxlist);
   static void RewriteBitcastWithIdenticalStructs(Function *F);
 
   bool runOnModule(Module &M) override {
@@ -4484,18 +4484,20 @@ SROA_Parameter_HLSL::GetConstValueIdxList(IRBuilder<> &builder,
 
 void SROA_Parameter_HLSL::CopyElementsOfStructsWithIdenticalLayout(
     IRBuilder<> &builder, Value *destPtr, Value *srcPtr, Type *ty,
-    std::vector<unsigned> idxlist) {
+    std::vector<unsigned>& idxlist) {
   if (ty->isStructTy()) {
     for (unsigned i = 0; i < ty->getStructNumElements(); i++) {
       idxlist.push_back(i);
       CopyElementsOfStructsWithIdenticalLayout(
           builder, destPtr, srcPtr, ty->getStructElementType(i), idxlist);
+      idxlist.pop_back();
     }
   } else if (ty->isArrayTy()) {
     for (unsigned i = 0; i < ty->getArrayNumElements(); i++) {
       idxlist.push_back(i);
       CopyElementsOfStructsWithIdenticalLayout(
           builder, destPtr, srcPtr, ty->getArrayElementType(), idxlist);
+      idxlist.pop_back();
     }
   } else if (ty->isIntegerTy() || ty->isFloatTy() || ty->isDoubleTy() ||
              ty->isHalfTy() || ty->isVectorTy()) {
