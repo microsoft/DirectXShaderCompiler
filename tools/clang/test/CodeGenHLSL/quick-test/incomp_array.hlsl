@@ -2,8 +2,8 @@
 
 // Verify no hang on incomplete array
 
-// CHECK: %struct.Special = type { <4 x float>, [3 x i32] }
 // CHECK: %"$Globals" = type { i32, %struct.Special }
+// CHECK: %struct.Special = type { <4 x float>, [3 x i32] }
 
 typedef const int inta[];
 

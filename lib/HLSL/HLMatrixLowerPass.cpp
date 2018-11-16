@@ -2326,11 +2326,13 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
     Ty = ArrayType::get(Ty, *arraySize);
 
   Type *VecArrayTy = Ty;
-  Constant *OldInitVal = GV->getInitializer();
-  Constant *InitVal =
-      isa<UndefValue>(OldInitVal)
-          ? UndefValue::get(VecArrayTy)
-          : LowerMatrixArrayConst(OldInitVal, cast<ArrayType>(VecArrayTy));
+  Constant *InitVal = nullptr;
+  if (GV->hasInitializer()) {
+    Constant *OldInitVal = GV->getInitializer();
+    InitVal = isa<UndefValue>(OldInitVal)
+      ? UndefValue::get(VecArrayTy)
+      : LowerMatrixArrayConst(OldInitVal, cast<ArrayType>(VecArrayTy));
+  }
 
   bool isConst = GV->isConstant();
   GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();

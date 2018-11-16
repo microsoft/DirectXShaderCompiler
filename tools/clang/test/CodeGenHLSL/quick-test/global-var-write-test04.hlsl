@@ -2,14 +2,14 @@
 
 // Writing to globals only supported with HV <= 2016
 
-// CHECK: {{.*g_s1.*}} = constant float 0.000000e+00, align 4
-// CHECK: {{.*g_s2.*}} = constant float 0.000000e+00, align 4
-// CHECK: {{.*g_v.*}} = constant <4 x float> zeroinitializer, align 4
-// CHECK: {{.*g_m1.*}} = constant %class.matrix.int.2.2 zeroinitializer, align 4
-// CHECK: {{.*g_m2.*}} = constant %class.matrix.int.2.2 zeroinitializer, align 4
-// CHECK: {{.*g_b.*}} = constant i32 0, align 1
-// CHECK: {{.*g_a.*}} = constant [5 x i32] zeroinitializer, align 4
-// CHECK: {{.*g_a2d.*}} = constant [3 x [2 x i32]] zeroinitializer, align 4
+// CHECK: {{.*g_s1.*}} = external constant float, align 4
+// CHECK: {{.*g_s2.*}} = external constant float, align 4
+// CHECK: {{.*g_v.*}} = external constant <4 x float>, align 4
+// CHECK: {{.*g_m1.*}} = external constant %class.matrix.int.2.2, align 4
+// CHECK: {{.*g_m2.*}} = external constant %class.matrix.int.2.2, align 4
+// CHECK: {{.*g_b.*}} = external constant i32, align 1
+// CHECK: {{.*g_a.*}} = external constant [5 x i32], align 4
+// CHECK: {{.*g_a2d.*}} = external constant [3 x [2 x i32]], align 4
 // CHECK-NOT: {{(.*g_s1.*)(.*static.copy.*)}} = internal global float 0.000000e+00
 // CHECK: {{(.*g_s2.*)(.*static.copy.*)}} = internal global float 0.000000e+00
 // CHECK-NOT: {{(.*g_v.*)(.*static.copy.*)}} = internal global <4 x float> zeroinitializer

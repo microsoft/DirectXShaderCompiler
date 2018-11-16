@@ -4770,6 +4770,9 @@ static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
   GlobalVariable *NGV = cast<GlobalVariable>(GC);
   if (GV->hasInitializer()) {
     NGV->setInitializer(GV->getInitializer());
+  } else {
+    // The copy being static, it should be initialized per llvm rules
+    NGV->setInitializer(Constant::getNullValue(GV->getType()->getPointerElementType()));
   }
   // static global should have internal linkage
   NGV->setLinkage(GlobalValue::InternalLinkage);
