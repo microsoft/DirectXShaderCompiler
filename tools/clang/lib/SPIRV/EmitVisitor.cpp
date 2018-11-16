@@ -1000,6 +1000,12 @@ uint32_t EmitTypeHandler::getResultIdForType(const SpirvType *type,
                                              SpirvLayoutRule rule,
                                              bool *alreadyExists) {
   assert(alreadyExists);
+
+  // Note: Layout rules only affect struct types. Therefore, for non-struct
+  // types, we must use the same result-id regardless of the layout rule.
+  if (!isa<StructType>(type))
+    rule = SpirvLayoutRule::Void;
+
   // Check if the type has already been emitted.
   auto foundType = emittedTypes.find(type);
   if (foundType != emittedTypes.end()) {
@@ -1114,8 +1120,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     if (getResultId<SpirvInstruction>(constant) == 0) {
       constant->setResultId(takeNextIdFunction());
     }
-    IntegerType constantIntType(32, 0);
-    const uint32_t uint32TypeId = emitType(&constantIntType, rule);
+    const uint32_t uint32TypeId = emitType(constant->getResultType(), rule);
     initTypeInstruction(spv::Op::OpConstant);
     curTypeInst.push_back(uint32TypeId);
     curTypeInst.push_back(getResultId<SpirvInstruction>(constant));
@@ -1427,11 +1432,22 @@ EmitTypeHandler::getAlignmentAndSize(const SpirvType *type,
   }
 
   // Rule 4, 6, 8, and 10
-  if (auto *arrayType = dyn_cast<ArrayType>(type)) {
-    const auto elemCount = arrayType->getElementCount();
+  auto *arrayType = dyn_cast<ArrayType>(type);
+  auto *raType = dyn_cast<RuntimeArrayType>(type);
+  if (arrayType || raType) {
+    // Some exaplanation about runtime arrays:
+    // The number of elements in a runtime array is unknown at compile time. As
+    // a result, it would in fact be illegal to have a runtime array in a
+    // structure *unless* it is the *only* member in the structure. In such a
+    // case, we don't care about size and stride, and only care about alignment.
+    // Therefore, to re-use the logic of array types, we'll consider a runtime
+    // array as an array of size 1.
+    const auto elemCount = arrayType ? arrayType->getElementCount() : 1;
+    const auto *elemType =
+        arrayType ? arrayType->getElementType() : raType->getElementType();
+
     uint32_t alignment = 0, size = 0;
-    std::tie(alignment, size) =
-        getAlignmentAndSize(arrayType->getElementType(), rule, stride);
+    std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
 
     if (rule == SpirvLayoutRule::FxcSBuffer) {
       *stride = size;
