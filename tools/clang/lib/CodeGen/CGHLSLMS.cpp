@@ -1546,12 +1546,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   unsigned ParmIdx = 0;
 
   if (const CXXMethodDecl *MethodDecl = dyn_cast<CXXMethodDecl>(FD)) {
-    QualType ThisTy = MethodDecl->getThisType(FD->getASTContext());
-    DxilParameterAnnotation &paramAnnotation =
-        FuncAnnotation->GetParameterAnnotation(ArgNo++);
-    // Construct annoation for this pointer.
-    ConstructFieldAttributedAnnotation(paramAnnotation, ThisTy,
-                                       bDefaultRowMajor);
+    if (MethodDecl->isInstance()) {
+      QualType ThisTy = MethodDecl->getThisType(FD->getASTContext());
+      DxilParameterAnnotation &paramAnnotation =
+          FuncAnnotation->GetParameterAnnotation(ArgNo++);
+      // Construct annoation for this pointer.
+      ConstructFieldAttributedAnnotation(paramAnnotation, ThisTy,
+                                         bDefaultRowMajor);
+    }
   }
 
   // Ret Info
