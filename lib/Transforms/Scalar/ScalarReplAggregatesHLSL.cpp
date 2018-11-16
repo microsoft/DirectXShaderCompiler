@@ -35,6 +35,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
@@ -4213,6 +4214,8 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
   const char *getPassName() const override { return "SROA Parameter HLSL"; }
+  static void CopyElementsOfStructsWithIdenticalLayout(IRBuilder<>& builder, Value* destPtr, Value* srcPtr, Type *ty, std::vector<unsigned> idxlist);
+  static void RewriteBitcastWithIdenticalStructs(Function *F);
 
   bool runOnModule(Module &M) override {
     // Patch memcpy to cover case bitcast (gep ptr, 0,0) is transformed into
@@ -4278,6 +4281,7 @@ public:
     while (!WorkList.empty()) {
       Function *F = WorkList.front();
       WorkList.pop_front();
+      RewriteBitcastWithIdenticalStructs(F);
       createFlattenedFunction(F);
     }
 
@@ -4406,6 +4410,7 @@ private:
     unsigned startArgIndex, llvm::StringMap<Type *> &semanticTypeMap);
   bool hasDynamicVectorIndexing(Value *V);
   void flattenGlobal(GlobalVariable *GV);
+  static std::vector<Value*> GetConstValueIdxList(IRBuilder<>& builder, std::vector<unsigned> idxlist);
   /// DeadInsts - Keep track of instructions we have made dead, so that
   /// we can remove them after we are done working.
   SmallVector<Value *, 32> DeadInsts;
@@ -4426,6 +4431,84 @@ char SROA_Parameter_HLSL::ID = 0;
 INITIALIZE_PASS(SROA_Parameter_HLSL, "scalarrepl-param-hlsl",
   "Scalar Replacement of Aggregates HLSL (parameters)", false,
   false)
+
+void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(Function *F) {
+  if (F->isDeclaration())
+    return;
+  // Gather list of bitcast involving src and dest structs with identical layout
+  std::vector<BitCastInst*> worklist;
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(&*I)) {
+      Type *DstTy = BCI->getDestTy();
+      Type *SrcTy = BCI->getSrcTy();
+      if (!SrcTy->isPointerTy() || !DstTy->isPointerTy())
+        continue;
+      DstTy = DstTy->getPointerElementType();
+      SrcTy = SrcTy->getPointerElementType();
+      if (!SrcTy->isStructTy() || !DstTy->isStructTy())
+        continue;
+      StructType *DstST = cast<StructType>(DstTy);
+      StructType *SrcST = cast<StructType>(SrcTy);
+      if (!SrcST->isLayoutIdentical(DstST))
+        continue;
+      worklist.push_back(BCI);
+    }
+  }
+
+  // Replace bitcast involving src and dest structs with identical layout
+  while (!worklist.empty()) {
+    BitCastInst *BCI = worklist.back();
+    worklist.pop_back();
+    StructType *srcStTy = cast<StructType>(BCI->getSrcTy()->getPointerElementType());
+    StructType *destStTy = cast<StructType>(BCI->getDestTy()->getPointerElementType());
+    Value* srcPtr = BCI->getOperand(0);
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(BCI->getParent()->getParent()));
+    AllocaInst *destPtr = AllocaBuilder.CreateAlloca(destStTy);
+    IRBuilder<> InstBuilder(BCI);
+    std::vector<unsigned> idxlist = { 0 };
+    CopyElementsOfStructsWithIdenticalLayout(InstBuilder, destPtr, srcPtr, srcStTy, idxlist);
+    BCI->replaceAllUsesWith(destPtr);
+    BCI->eraseFromParent();
+  }
+}
+
+std::vector<Value *>
+SROA_Parameter_HLSL::GetConstValueIdxList(IRBuilder<> &builder,
+                                          std::vector<unsigned> idxlist) {
+  std::vector<Value *> idxConstList;
+  for (unsigned idx : idxlist) {
+    idxConstList.push_back(ConstantInt::get(builder.getInt32Ty(), idx));
+  }
+  return idxConstList;
+}
+
+void SROA_Parameter_HLSL::CopyElementsOfStructsWithIdenticalLayout(
+    IRBuilder<> &builder, Value *destPtr, Value *srcPtr, Type *ty,
+    std::vector<unsigned> idxlist) {
+  if (ty->isStructTy()) {
+    for (unsigned i = 0; i < ty->getStructNumElements(); i++) {
+      idxlist.push_back(i);
+      CopyElementsOfStructsWithIdenticalLayout(
+          builder, destPtr, srcPtr, ty->getStructElementType(i), idxlist);
+    }
+  } else if (ty->isArrayTy()) {
+    for (unsigned i = 0; i < ty->getArrayNumElements(); i++) {
+      idxlist.push_back(i);
+      CopyElementsOfStructsWithIdenticalLayout(
+          builder, destPtr, srcPtr, ty->getArrayElementType(), idxlist);
+    }
+  } else if (ty->isIntegerTy() || ty->isFloatTy() || ty->isDoubleTy() ||
+             ty->isHalfTy() || ty->isVectorTy()) {
+    Value *srcGEP =
+        builder.CreateInBoundsGEP(srcPtr, GetConstValueIdxList(builder, idxlist));
+    Value *destGEP =
+        builder.CreateInBoundsGEP(destPtr, GetConstValueIdxList(builder, idxlist));
+    LoadInst *LI = builder.CreateLoad(srcGEP);
+    builder.CreateStore(LI, destGEP);
+  } else {
+    DXASSERT(0, "encountered unspported type when copying elements of identical structs.");
+  }
+}
 
 /// DeleteDeadInstructions - Erase instructions on the DeadInstrs list,
 /// recursively including all their operands that become trivially dead.
