@@ -177,6 +177,7 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   auto *instruction =
       new (context) SpirvLoad(resultType, /*id*/ 0, loc, pointer);
   instruction->setStorageClass(pointer->getStorageClass());
+  instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -189,6 +190,7 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
       new (context) SpirvLoad(/*QualType*/ {}, /*id*/ 0, loc, pointer);
   instruction->setResultType(resultType);
   instruction->setStorageClass(pointer->getStorageClass());
+  instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
 }
