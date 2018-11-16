@@ -369,9 +369,9 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   const auto *int32Type = getSIntType(32);
 
   // Create a struct containing the integer counter as its only member.
-  const StructType *type =
-      getStructType({int32Type}, "type.ACSBuffer.counter", {"counter"},
-                    StructInterfaceType::StorageBuffer);
+  const StructType *type = getStructType(
+      {StructType::FieldInfo(int32Type, "counter")}, "type.ACSBuffer.counter",
+      /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
 
   return type;
 }
