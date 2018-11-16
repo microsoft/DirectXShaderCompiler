@@ -10,6 +10,17 @@
 // CHECK-NOT: {{.*extern_const_var.*}} = constant float 0.000000e+00, align 4
 // CHECK-NOT: {{.*extern_const_var_init.*}} = constant float 0.000000e+00, align 4
 
+// ... they should only exist in their CBuffer declaration
+// CHECK: cbuffer $Globals
+// CHECK: float var;
+// CHECK: float var_init;
+// CHECK: float const_var;
+// CHECK: float const_var_init;
+// CHECK: float extern_var;
+// CHECK: float extern_var_init;
+// CHECK: float extern_const_var;
+// CHECK: float extern_const_var_init;
+
 Texture2D tex;
 float var;
 float var_init = 1;
