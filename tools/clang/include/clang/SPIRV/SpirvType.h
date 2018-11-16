@@ -242,7 +242,7 @@ private:
 class RuntimeArrayType : public SpirvType {
 public:
   RuntimeArrayType(const SpirvType *elemType)
-      : SpirvType(TK_Array), elementType(elemType) {}
+      : SpirvType(TK_RuntimeArray), elementType(elemType) {}
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_RuntimeArray;
