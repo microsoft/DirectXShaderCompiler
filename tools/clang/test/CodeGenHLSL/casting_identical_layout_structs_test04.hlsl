@@ -70,7 +70,7 @@
 // o2.f7 = input.f7
 // CHECK: call void  @dx.op.storeOutput.i32(i32 5, i32 13, i32 0, i8 0, i32 1)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 
-// o1.f2 (column_major)
+// o1.f2 (column_major) = input.f2
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 0, float 5.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 1, float 7.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 2, float 9.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
@@ -80,7 +80,7 @@
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 1, i32 1, i8 2, float 1.000000e+01)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 1, i32 1, i8 3, float 1.200000e+01)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 
-// o2.f2 (column_major)
+// o2.f2 (column_major) = input.f2
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 8, i32 0, i8 0, float 5.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 8, i32 0, i8 1, float 7.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 8, i32 0, i8 2, float 9.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
@@ -99,7 +99,7 @@ struct VSIn_1
 struct VSIn
 {
     float4 f1 : VIN0;
-    row_major float4x2 f2 : VIN1;
+    float4x2 f2 : VIN1;
     float2 f3[4] : VIN2;
     uint3 f4 : VIN3;
     VSIn_1 s;
@@ -116,7 +116,7 @@ struct VSOut_1
 struct VSOut
 {
     float4 f1 : VOUT0;
-    row_major float4x2 f2 : VOUT1;
+    float4x2 f2 : VOUT1;
     float2 f3[4] : VOUT2;
     uint3 f4 : VOUT3;
     VSOut_1 s;

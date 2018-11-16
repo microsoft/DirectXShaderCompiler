@@ -4506,7 +4506,7 @@ void SROA_Parameter_HLSL::CopyElementsOfStructsWithIdenticalLayout(
     LoadInst *LI = builder.CreateLoad(srcGEP);
     builder.CreateStore(LI, destGEP);
   } else {
-    DXASSERT(0, "encountered unspported type when copying elements of identical structs.");
+    DXASSERT(0, "encountered unsupported type when copying elements of identical structs.");
   }
 }
 
