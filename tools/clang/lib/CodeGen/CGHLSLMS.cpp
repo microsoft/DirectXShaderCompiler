@@ -2300,6 +2300,31 @@ hlsl::DxilResourceBase::Class CGMSHLSLRuntime::TypeToClass(clang::QualType Ty) {
   return hlsl::GetResourceClassForType(CGM.getContext(), Ty);
 }
 
+namespace {
+  void GetResourceDeclElemTypeAndRangeSize(CodeGenModule &CGM, HLModule &HL, VarDecl &VD,
+    QualType &ElemType, unsigned& rangeSize) {
+    ElemType = VD.getType().getCanonicalType();
+    rangeSize = 1;
+    while (const clang::ArrayType *arrayType = CGM.getContext().getAsArrayType(ElemType)) {
+      if (rangeSize != UINT_MAX) {
+        if (arrayType->isConstantArrayType()) {
+          rangeSize *= cast<ConstantArrayType>(arrayType)->getSize().getLimitedValue();
+        }
+        else {
+          if (HL.GetHLOptions().bLegacyResourceReservation) {
+            DiagnosticsEngine &Diags = CGM.getDiags();
+            unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+              "unbounded resources are not supported with -flegacy-resource-reservation");
+            Diags.Report(VD.getLocation(), DiagID);
+          }
+          rangeSize = UINT_MAX;
+        }
+      }
+      ElemType = arrayType->getElementType();
+    }
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   llvm::GlobalVariable *val =
     cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobalVar(samplerDecl));
@@ -2308,34 +2333,12 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   hlslRes->SetLowerBound(UINT_MAX);
   hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(samplerDecl->getName());
-  QualType VarTy = samplerDecl->getType();
-  if (const clang::ArrayType *arrayType =
-          CGM.getContext().getAsArrayType(VarTy)) {
-    if (arrayType->isConstantArrayType()) {
-      uint32_t arraySize =
-          cast<ConstantArrayType>(arrayType)->getSize().getLimitedValue();
-      hlslRes->SetRangeSize(arraySize);
-    } else {
-      hlslRes->SetRangeSize(UINT_MAX);
-    }
-    // use elementTy
-    VarTy = arrayType->getElementType();
-    // Support more dim.
-    while (const clang::ArrayType *arrayType =
-               CGM.getContext().getAsArrayType(VarTy)) {
-      unsigned rangeSize = hlslRes->GetRangeSize();
-      if (arrayType->isConstantArrayType()) {
-        uint32_t arraySize =
-            cast<ConstantArrayType>(arrayType)->getSize().getLimitedValue();
-        if (rangeSize != UINT_MAX)
-          hlslRes->SetRangeSize(rangeSize * arraySize);
-      } else
-        hlslRes->SetRangeSize(UINT_MAX);
-      // use elementTy
-      VarTy = arrayType->getElementType();
-    }
-  } else
-    hlslRes->SetRangeSize(1);
+
+  QualType VarTy;
+  unsigned rangeSize;
+  GetResourceDeclElemTypeAndRangeSize(CGM, *m_pHLModule, *samplerDecl,
+    VarTy, rangeSize);
+  hlslRes->SetRangeSize(rangeSize);
 
   const RecordType *RT = VarTy->getAs<RecordType>();
   DxilSampler::SamplerKind kind = KeywordToSamplerKind(RT->getDecl()->getName());
@@ -2551,38 +2554,16 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   llvm::GlobalVariable *val =
       cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobalVar(decl));
 
-  QualType VarTy = decl->getType().getCanonicalType();
-
   unique_ptr<HLResource> hlslRes(new HLResource);
   hlslRes->SetLowerBound(UINT_MAX);
   hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(decl->getName());
-  if (const clang::ArrayType *arrayType =
-          CGM.getContext().getAsArrayType(VarTy)) {
-    if (arrayType->isConstantArrayType()) {
-      uint32_t arraySize =
-          cast<ConstantArrayType>(arrayType)->getSize().getLimitedValue();
-      hlslRes->SetRangeSize(arraySize);
-    } else
-      hlslRes->SetRangeSize(UINT_MAX);
-    // use elementTy
-    VarTy = arrayType->getElementType();
-    // Support more dim.
-    while (const clang::ArrayType *arrayType =
-               CGM.getContext().getAsArrayType(VarTy)) {
-      unsigned rangeSize = hlslRes->GetRangeSize();
-      if (arrayType->isConstantArrayType()) {
-        uint32_t arraySize =
-            cast<ConstantArrayType>(arrayType)->getSize().getLimitedValue();
-        if (rangeSize != UINT_MAX)
-          hlslRes->SetRangeSize(rangeSize * arraySize);
-      } else
-        hlslRes->SetRangeSize(UINT_MAX);
-      // use elementTy
-      VarTy = arrayType->getElementType();
-    }
-  } else
-    hlslRes->SetRangeSize(1);
+
+  QualType VarTy;
+  unsigned rangeSize;
+  GetResourceDeclElemTypeAndRangeSize(CGM, *m_pHLModule, *decl,
+    VarTy, rangeSize);
+  hlslRes->SetRangeSize(rangeSize);
 
   for (hlsl::UnusualAnnotation *it : decl->getUnusualAnnotations()) {
     switch (it->getKind()) {

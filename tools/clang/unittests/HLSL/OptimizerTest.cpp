@@ -117,7 +117,7 @@ TEST_F(OptimizerTest, OptimizerWhenSliceWithIntermediateOptionsThenOK) {
     L"float4 main() : SV_Target {\r\n"
     L"  return tex1.Load((int3)0);\r\n"
     L"}";
-  OptimizerWhenSliceNThenOK(1, SampleProgram, L"ps_6_0", { L"-flegacy_resource_reservation" });
+  OptimizerWhenSliceNThenOK(1, SampleProgram, L"ps_6_0", { L"-flegacy-resource-reservation" });
 }
 
 void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {

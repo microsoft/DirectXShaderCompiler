@@ -236,30 +236,50 @@ void HLModule::RemoveFunction(llvm::Function *F) {
   m_pOP->RemoveFunction(F);
 }
 
-template <typename TResource>
-bool RemoveResourceSymbol(std::vector<std::unique_ptr<TResource>> &vec,
-                          GlobalVariable *pVariable) {
-  for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
-    if ((*p)->GetGlobalSymbol() == pVariable) {
-      (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
+namespace {
+  template <typename TResource>
+  bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
+    GlobalVariable *pVariable, bool keepAllocated) {
+    for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
+      if ((*p)->GetGlobalSymbol() != pVariable)
+        continue;
+
+      if (keepAllocated && (*p)->IsAllocated()) {
+        // Keep the resource, but it has no more symbol.
+        (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
+      } else {
+        // Erase the resource alltogether and update IDs of subsequent ones
+        p = vec.erase(p);
+        for (e = vec.end(); p != e; ++p) {
+          unsigned ID = (*p)->GetID() - 1;
+          (*p)->SetID(ID);
+        }
+      }
+
       return true;
     }
+    return false;
   }
-  return false;
 }
 
 void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
   DXASSERT_NOMSG(GV != nullptr);
+
+  // With legacy resource reservation, we must keep unused resources around
+  // when they have a register allocation because they prevent that
+  // register range from being allocated to other resources.
+  bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
+
   // This could be considerably faster - check variable type to see which
   // resource type this is rather than scanning all lists, and look for
   // usage and removal patterns.
-  if (RemoveResourceSymbol(m_CBuffers, GV))
+  if (RemoveResource(m_CBuffers, GV, keepAllocated))
     return;
-  if (RemoveResourceSymbol(m_SRVs, GV))
+  if (RemoveResource(m_SRVs, GV, keepAllocated))
     return;
-  if (RemoveResourceSymbol(m_UAVs, GV))
+  if (RemoveResource(m_UAVs, GV, keepAllocated))
     return;
-  if (RemoveResourceSymbol(m_Samplers, GV))
+  if (RemoveResource(m_Samplers, GV, keepAllocated))
     return;
   // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }
