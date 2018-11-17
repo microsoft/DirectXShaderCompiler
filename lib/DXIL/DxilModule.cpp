@@ -563,8 +563,9 @@ void DxilModule::SetOutputControlPointCount(unsigned NumOCPs) {
 }
 
 DXIL::TessellatorPartitioning DxilModule::GetTessellatorPartitioning() const {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsHS(),
-           "only works for HS profile");
+  if (!m_pSM->IsHS())
+    return DXIL::TessellatorPartitioning::Undefined;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
   DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT(props.IsHS(), "Must be HS profile");
   return props.ShaderProps.HS.partition;
