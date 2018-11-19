@@ -922,6 +922,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     std::string fieldSemName = "";
 
     QualType fieldTy = fieldDecl->getType();
+    DXASSERT(!fieldDecl->isBitField(), "We should have already ensured we have no bitfields.");
     
     // Align offset.
     offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, dataLayout);

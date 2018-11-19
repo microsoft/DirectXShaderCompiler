@@ -51,9 +51,9 @@ unsigned int g_unsigned_int;
 //__FUNCTION__ g___FUNCTION; // expected-error {{expected unqualified-id}}
 //__PRETTY__ g___PRETTY; // expected-error {{unknown type name '__PRETTY__'}}
 
-struct s_with_bitfield {
-  int f_bitfield : 3;
-};
+//struct s_with_bitfield {
+//  int f_bitfield : 3; // expected-error {{bitfields are not supported in HLSL}}
+//};
 
 //struct s_with_friend {
 //  friend void some_fn(); // expected-error {{'friend' is a reserved keyword in HLSL}}
