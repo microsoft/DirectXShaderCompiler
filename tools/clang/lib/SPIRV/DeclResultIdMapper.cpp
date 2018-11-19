@@ -632,14 +632,6 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     return cast<SpirvVariable>(astDecls[var].instr);
   }
 
-  if (storageClass == spv::StorageClass::Uniform &&
-      spirvOptions.enable16BitTypes &&
-      isOrContains16BitType(var->getType(), spirvOptions.enable16BitTypes)) {
-    spvBuilder.addExtension(Extension::KHR_16bit_storage,
-                            "16-bit types in resource", var->getLocation());
-    spvBuilder.requireCapability(spv::Capability::StorageUniformBufferBlock16);
-  }
-
   const auto type = var->getType();
   const auto loc = var->getLocation();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
@@ -704,18 +696,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     varType.removeLocalConst();
     HybridStructType::FieldInfo info(varType, declDecl->getName());
     fields.push_back(info);
-
-    if (spirvOptions.enable16BitTypes &&
-        isOrContains16BitType(varType, spirvOptions.enable16BitTypes)) {
-      spvBuilder.addExtension(Extension::KHR_16bit_storage,
-                              "16-bit types in resource",
-                              declDecl->getLocation());
-      spvBuilder.requireCapability(
-          (forCBuffer || forGlobals)
-              ? spv::Capability::StorageUniform16
-              : forPC ? spv::Capability::StoragePushConstant16
-                      : spv::Capability::StorageUniformBufferBlock16);
-    }
   }
 
   // Get the type for the whole struct
@@ -729,10 +709,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   if (arraySize > 0) {
     resultType = spvContext.getArrayType(resultType, arraySize);
   } else if (arraySize == -1) {
-    // Runtime arrays of cbuffer/tbuffer needs additional capability.
-    spvBuilder.addExtension(Extension::EXT_descriptor_indexing,
-                            "runtime array of resources", {});
-    spvBuilder.requireCapability(spv::Capability::RuntimeDescriptorArrayEXT);
     resultType = spvContext.getRuntimeArrayType(resultType);
   }
 
@@ -1670,14 +1646,6 @@ bool DeclResultIdMapper::createStageVars(
     // Mark that we have used one index for this semantic
     ++semanticToUse->index;
 
-    // Require extension and capability if using 16-bit types
-    if (getElementSpirvBitwidth(astContext, type,
-                                spirvOptions.enable16BitTypes) == 16) {
-      spvBuilder.addExtension(Extension::KHR_16bit_storage,
-                              "16-bit stage IO variables", decl->getLocation());
-      spvBuilder.requireCapability(spv::Capability::StorageInputOutput16);
-    }
-
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
         hlsl::DXIL::SignatureKind::PatchConstant)
@@ -2168,7 +2136,6 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
     if (decl->getAttr<HLSLNoPerspectiveAttr>())
       spvBuilder.decorateNoPerspective(varInstr, loc);
     if (decl->getAttr<HLSLSampleAttr>()) {
-      spvBuilder.requireCapability(spv::Capability::SampleRateShading, loc);
       spvBuilder.decorateSample(varInstr, loc);
     }
   }
@@ -2190,8 +2157,6 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
     assert(false && "unsupported builtin case");
     return nullptr;
   }
-
-  spvBuilder.requireCapability(spv::Capability::GroupNonUniform);
 
   // Create a dummy StageVar for this builtin variable
   auto var = spvBuilder.addStageBuiltinVar(spvContext.getUIntType(32),
@@ -2253,26 +2218,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
-
-    switch (spvBuiltIn) {
-    case BuiltIn::BaseVertex:
-    case BuiltIn::BaseInstance:
-    case BuiltIn::DrawIndex:
-      spvBuilder.addExtension(Extension::KHR_shader_draw_parameters,
-                              builtinAttr->getBuiltIn(),
-                              builtinAttr->getLocation());
-      spvBuilder.requireCapability(spv::Capability::DrawParameters);
-      break;
-    case BuiltIn::DeviceIndex:
-      spvBuilder.addExtension(Extension::KHR_device_group,
-                              stageVar->getSemanticStr(), srcLoc);
-      spvBuilder.requireCapability(spv::Capability::DeviceGroup);
-      break;
-    default:
-      // Just seeking builtins requiring extensions. The rest can be ignored.
-      break;
-    }
-
     return spvBuilder.addStageBuiltinVar(type, sc, spvBuiltIn);
   }
 
@@ -2440,11 +2385,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to Vulkan spec, the PrimitiveId BuiltIn can only be used in
   // HS/DS/PS In, GS In/Out.
   case hlsl::Semantic::Kind::PrimitiveID: {
-    // PrimitiveId requires either Tessellation or Geometry capability.
-    // Need to require one for PSIn.
-    if (sigPointKind == hlsl::SigPoint::Kind::PSIn)
-      spvBuilder.requireCapability(spv::Capability::Geometry);
-
     // Translate to PrimitiveId BuiltIn for all valid SigPoints.
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId);
@@ -2481,17 +2421,11 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to DXIL spec, the SampleIndex SV can only be used by PSIn.
   // According to Vulkan spec, the SampleId BuiltIn can only be used in PSIn.
   case hlsl::Semantic::Kind::SampleIndex: {
-    spvBuilder.requireCapability(spv::Capability::SampleRateShading);
-
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId);
   }
   // According to DXIL spec, the StencilRef SV can only be used by PSOut.
   case hlsl::Semantic::Kind::StencilRef: {
-    spvBuilder.addExtension(Extension::EXT_shader_stencil_export,
-                            stageVar->getSemanticStr(), srcLoc);
-    spvBuilder.requireCapability(spv::Capability::StencilExportEXT);
-
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT);
   }
@@ -2539,17 +2473,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
       return spvBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
-      spvBuilder.addExtension(Extension::EXT_shader_viewport_index_layer,
-                              "SV_RenderTargetArrayIndex", srcLoc);
-      spvBuilder.requireCapability(
-          spv::Capability::ShaderViewportIndexLayerEXT);
-
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer);
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
-      spvBuilder.requireCapability(spv::Capability::Geometry);
-
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer);
     default:
@@ -2572,17 +2499,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
       return spvBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
-      spvBuilder.addExtension(Extension::EXT_shader_viewport_index_layer,
-                              "SV_ViewPortArrayIndex", srcLoc);
-      spvBuilder.requireCapability(
-          spv::Capability::ShaderViewportIndexLayerEXT);
-
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex);
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
-      spvBuilder.requireCapability(spv::Capability::MultiViewport);
-
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex);
     default:
@@ -2601,10 +2521,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to Vulkan spec, the ViewIndex BuiltIn can only be used in
   // VS/HS/DS/GS/PS input.
   case hlsl::Semantic::Kind::ViewID: {
-    spvBuilder.addExtension(Extension::KHR_multiview,
-                            stageVar->getSemanticStr(), srcLoc);
-    spvBuilder.requireCapability(spv::Capability::MultiView);
-
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex);
   }
@@ -2612,10 +2528,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
     // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
-    spvBuilder.addExtension(Extension::EXT_fragment_fully_covered,
-                            stageVar->getSemanticStr(), srcLoc);
-    spvBuilder.requireCapability(spv::Capability::FragmentFullyCoveredEXT);
-
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT);
   }

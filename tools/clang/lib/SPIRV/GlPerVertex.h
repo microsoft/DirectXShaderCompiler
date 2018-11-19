@@ -68,10 +68,6 @@ public:
   /// Returns the stage output variables.
   llvm::SmallVector<SpirvVariable *, 2> getStageOutVars() const;
 
-  /// Requires the ClipDistance/CullDistance capability if we've seen
-  /// definition of SV_ClipDistance/SV_CullDistance.
-  void requireCapabilityIfNecessary();
-
   /// Tries to access the builtin translated from the given HLSL semantic of the
   /// given index.
   ///

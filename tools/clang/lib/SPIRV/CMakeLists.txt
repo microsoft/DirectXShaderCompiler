@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
 add_clang_library(clangSPIRV
   AstTypeProbe.cpp
   BlockReadableOrder.cpp
+  CapabilityVisitor.cpp
   Constant.cpp
   DeclResultIdMapper.cpp
   Decoration.cpp

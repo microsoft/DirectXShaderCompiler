@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvBuilder.h"
+#include "CapabilityVisitor.h"
 #include "TypeTranslator.h"
 #include "clang/SPIRV/EmitVisitor.h"
 #include "clang/SPIRV/LowerTypeVisitor.h"
@@ -244,16 +245,6 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
   auto *instruction =
       new (context) SpirvUnaryOp(op, resultType, /*id*/ 0, loc, operand);
   insertPoint->addInstruction(instruction);
-  switch (op) {
-  case spv::Op::OpImageQuerySize:
-  case spv::Op::OpImageQueryLevels:
-  case spv::Op::OpImageQuerySamples:
-    requireCapability(spv::Capability::ImageQuery);
-    break;
-  default:
-    // Only checking for ImageQueries, the other Ops can be ignored.
-    break;
-  }
   return instruction;
 }
 
@@ -265,15 +256,6 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   auto *instruction =
       new (context) SpirvBinaryOp(op, resultType, /*id*/ 0, loc, lhs, rhs);
   insertPoint->addInstruction(instruction);
-  switch (op) {
-  case spv::Op::OpImageQueryLod:
-  case spv::Op::OpImageQuerySizeLod:
-    requireCapability(spv::Capability::ImageQuery);
-    break;
-  default:
-    // Only checking for ImageQueries, the other Ops can be ignored.
-    break;
-  }
   return instruction;
 }
 
@@ -287,15 +269,6 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op,
       new (context) SpirvBinaryOp(op, /*QualType*/ {}, /*id*/ 0, loc, lhs, rhs);
   instruction->setResultType(resultType);
   insertPoint->addInstruction(instruction);
-  switch (op) {
-  case spv::Op::OpImageQueryLod:
-  case spv::Op::OpImageQuerySizeLod:
-    requireCapability(spv::Capability::ImageQuery);
-    break;
-  default:
-    // Only checking for ImageQueries, the other Ops can be ignored.
-    break;
-  }
   return instruction;
 }
 
@@ -402,17 +375,14 @@ spv::ImageOperandsMask SpirvBuilder::composeImageOperandsMask(
   }
   if (varOffset) {
     mask = mask | ImageOperandsMask::Offset;
-    requireCapability(spv::Capability::ImageGatherExtended);
   }
   if (constOffsets) {
     mask = mask | ImageOperandsMask::ConstOffsets;
-    requireCapability(spv::Capability::ImageGatherExtended);
   }
   if (sample) {
     mask = mask | ImageOperandsMask::Sample;
   }
   if (minLod) {
-    requireCapability(spv::Capability::MinLod);
     mask = mask | ImageOperandsMask::MinLod;
   }
   return mask;
@@ -451,10 +421,6 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   // This means that we cannot have Lod and minLod together because Lod requires
   // explicit insturctions. So either lod or minLod or both must be zero.
   assert(lod == nullptr || minLod == nullptr);
-
-  if (isSparse) {
-    requireCapability(spv::Capability::SparseResidency);
-  }
 
   // An OpSampledImage is required to do the image sampling.
   auto *sampledImage =
@@ -502,19 +468,11 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
       varOffset, constOffsets, sample, /*minLod*/ nullptr);
 
   const bool isSparse = (residencyCode != nullptr);
-  if (isSparse) {
-    requireCapability(spv::Capability::SparseResidency);
-  }
 
   spv::Op op =
       doImageFetch
           ? (isSparse ? spv::Op::OpImageSparseFetch : spv::Op::OpImageFetch)
           : (isSparse ? spv::Op::OpImageSparseRead : spv::Op::OpImageRead);
-
-  if (!doImageFetch) {
-    requireCapability(
-        TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
-  }
 
   auto *fetchOrReadInst = new (context) SpirvImageOp(
       op, texelType, /*id*/ 0, loc, image, coordinate, mask,
@@ -539,8 +497,6 @@ void SpirvBuilder::createImageWrite(QualType imageType, SpirvInstruction *image,
                                     SpirvInstruction *texel,
                                     SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  requireCapability(
-      TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
   auto *writeInst = new (context) SpirvImageOp(
       spv::Op::OpImageWrite, imageType, /*id*/ 0, loc, image, coord,
       spv::ImageOperandsMask::MaskNone,
@@ -559,10 +515,6 @@ SpirvInstruction *SpirvBuilder::createImageGather(
     SpirvInstruction *constOffsets, SpirvInstruction *sample,
     SpirvInstruction *residencyCode, SourceLocation loc) {
   assert(insertPoint && "null insert point");
-
-  if (residencyCode) {
-    requireCapability(spv::Capability::SparseResidency);
-  }
 
   // An OpSampledImage is required to do the image sampling.
   auto *sampledImage =
@@ -1169,8 +1121,16 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
 std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  CapabilityVisitor capabilityVisitor(context, spirvOptions, *this);
   EmitVisitor emitVisitor(astContext, context, spirvOptions, *this);
+
+  // Lower types
   module->invokeVisitor(&lowerTypeVisitor);
+
+  // Add necessary capabilities and extensions
+  module->invokeVisitor(&capabilityVisitor);
+
+  // Emit SPIR-V
   module->invokeVisitor(&emitVisitor);
 
   return emitVisitor.takeBinary();
