@@ -1384,6 +1384,7 @@ public:
   SpirvInstruction *getCoordinate() const { return coordinate; }
   spv::ImageOperandsMask getImageOperandsMask() const { return operandsMask; }
 
+  bool isSparse() const;
   bool hasDref() const { return dref != nullptr; }
   bool hasBias() const { return bias != nullptr; }
   bool hasLod() const { return lod != nullptr; }
@@ -1540,7 +1541,8 @@ private:
 
 /// \brief OpSampledImage instruction
 /// Result Type must be the OpTypeSampledImage type whose Image Type operand is
-/// the type of Image. We store the QualType for the underlying image as result type.
+/// the type of Image. We store the QualType for the underlying image as result
+/// type.
 class SpirvSampledImage : public SpirvInstruction {
 public:
   SpirvSampledImage(QualType resultType, uint32_t resultId, SourceLocation loc,

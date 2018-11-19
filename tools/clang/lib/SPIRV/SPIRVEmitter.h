@@ -588,8 +588,6 @@ private:
   static spv::ExecutionModel
   getSpirvShaderStage(const hlsl::ShaderModel &model);
 
-  void AddRequiredCapabilitiesForShaderModel();
-
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control

@@ -501,44 +501,6 @@ void getBaseClassIndices(const CastExpr *expr,
   }
 }
 
-spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
-  switch (opcode) {
-  case spv::Op::OpGroupNonUniformElect:
-    return spv::Capability::GroupNonUniform;
-  case spv::Op::OpGroupNonUniformAny:
-  case spv::Op::OpGroupNonUniformAll:
-  case spv::Op::OpGroupNonUniformAllEqual:
-    return spv::Capability::GroupNonUniformVote;
-  case spv::Op::OpGroupNonUniformBallot:
-  case spv::Op::OpGroupNonUniformBallotBitCount:
-  case spv::Op::OpGroupNonUniformBroadcast:
-  case spv::Op::OpGroupNonUniformBroadcastFirst:
-    return spv::Capability::GroupNonUniformBallot;
-  case spv::Op::OpGroupNonUniformIAdd:
-  case spv::Op::OpGroupNonUniformFAdd:
-  case spv::Op::OpGroupNonUniformIMul:
-  case spv::Op::OpGroupNonUniformFMul:
-  case spv::Op::OpGroupNonUniformSMax:
-  case spv::Op::OpGroupNonUniformUMax:
-  case spv::Op::OpGroupNonUniformFMax:
-  case spv::Op::OpGroupNonUniformSMin:
-  case spv::Op::OpGroupNonUniformUMin:
-  case spv::Op::OpGroupNonUniformFMin:
-  case spv::Op::OpGroupNonUniformBitwiseAnd:
-  case spv::Op::OpGroupNonUniformBitwiseOr:
-  case spv::Op::OpGroupNonUniformBitwiseXor:
-    return spv::Capability::GroupNonUniformArithmetic;
-  case spv::Op::OpGroupNonUniformQuadBroadcast:
-  case spv::Op::OpGroupNonUniformQuadSwap:
-    return spv::Capability::GroupNonUniformQuad;
-  default:
-    assert(false && "unhandled opcode");
-    break;
-  }
-  assert(false && "unhandled opcode");
-  return spv::Capability::Max;
-}
-
 std::string getNamespacePrefix(const Decl *decl) {
   std::string nsPrefix = "";
   const DeclContext *dc = decl->getDeclContext();
@@ -690,8 +652,6 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   const spv_target_env targetEnv = featureManager.getTargetEnv();
-
-  AddRequiredCapabilitiesForShaderModel();
 
   // Addressing and memory model are required in a valid SPIR-V module.
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
@@ -1999,9 +1959,6 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   auto *info = loadIfAliasVarRef(base);
 
   if (foundNonUniformResourceIndex) {
-    // Add the necessary capability required for indexing into this kind
-    // of resource
-    spvBuilder.requireCapability(getNonUniformCapability(base->getType()));
     info->setNonUniform(); // Carry forward the NonUniformEXT decoration
     foundNonUniformResourceIndex = false;
   }
@@ -6406,13 +6363,6 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
   SpirvInstruction *retVal = nullptr;
 
-#define INTRINSIC_SPIRV_OP_WITH_CAP_CASE(intrinsicOp, spirvOp, doEachVec, cap) \
-  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
-    spvBuilder.requireCapability(cap);                                         \
-    retVal = processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,    \
-                                            doEachVec);                        \
-  } break
-
 #define INTRINSIC_SPIRV_OP_CASE(intrinsicOp, spirvOp, doEachVec)               \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     retVal = processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,    \
@@ -6700,15 +6650,11 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     break;
   }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
-    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_coarse, DPdxCoarse, false,
-                                     spv::Capability::DerivativeControl);
-    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_fine, DPdxFine, false,
-                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
+    INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
     INTRINSIC_SPIRV_OP_CASE(ddy, DPdy, true);
-    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddy_coarse, DPdyCoarse, false,
-                                     spv::Capability::DerivativeControl);
-    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddy_fine, DPdyFine, false,
-                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_CASE(ddy_coarse, DPdyCoarse, false);
+    INTRINSIC_SPIRV_OP_CASE(ddy_fine, DPdyFine, false);
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(isinf, IsInf, true);
     INTRINSIC_SPIRV_OP_CASE(isnan, IsNan, true);
@@ -6916,10 +6862,6 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
 SpirvInstruction *
 SPIRVEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   foundNonUniformResourceIndex = true;
-  spvBuilder.addExtension(Extension::EXT_descriptor_indexing,
-                          "NonUniformResourceIndex", expr->getExprLoc());
-  spvBuilder.requireCapability(spv::Capability::ShaderNonUniformEXT);
-
   auto *index = doExpr(expr->getArg(0));
   index->setNonUniform();
 
@@ -7108,7 +7050,6 @@ SpirvInstruction *SPIRVEmitter::processWaveQuery(const CallExpr *callExpr,
   assert(callExpr->getNumArgs() == 0);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  spvBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformElect(opcode, retType,
                                                spv::Scope::Subgroup);
@@ -7123,7 +7064,6 @@ SpirvInstruction *SPIRVEmitter::processWaveVote(const CallExpr *callExpr,
   assert(callExpr->getNumArgs() == 1);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  spvBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformUnaryOp(
@@ -7209,9 +7149,6 @@ SPIRVEmitter::processWaveCountBits(const CallExpr *callExpr,
 
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  spvBuilder.requireCapability(getCapabilityForGroupNonUniform(
-      spv::Op::OpGroupNonUniformBallotBitCount));
-
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType u32Type = astContext.UnsignedIntTy;
   const QualType v4u32Type = astContext.getExtVectorType(u32Type, 4);
@@ -7242,7 +7179,6 @@ SpirvInstruction *SPIRVEmitter::processWaveReductionOrPrefix(
   assert(callExpr->getNumArgs() == 1);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  spvBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformUnaryOp(
@@ -7258,7 +7194,6 @@ SpirvInstruction *SPIRVEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   assert(numArgs == 1 || numArgs == 2);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  spvBuilder.requireCapability(spv::Capability::GroupNonUniformBallot);
   auto *value = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   if (numArgs == 2)
@@ -7282,7 +7217,6 @@ SPIRVEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
   assert(callExpr->getNumArgs() == 1 || callExpr->getNumArgs() == 2);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  spvBuilder.requireCapability(spv::Capability::GroupNonUniformQuad);
 
   auto *value = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
@@ -9152,16 +9086,6 @@ SPIRVEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
   llvm_unreachable("unknown shader model");
 }
 
-void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
-  if (shaderModel.IsHS() || shaderModel.IsDS()) {
-    spvBuilder.requireCapability(spv::Capability::Tessellation);
-  } else if (shaderModel.IsGS()) {
-    spvBuilder.requireCapability(spv::Capability::Geometry);
-  } else {
-    spvBuilder.requireCapability(spv::Capability::Shader);
-  }
-}
-
 bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -9269,7 +9193,6 @@ void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
   if (decl->getAttr<VKPostDepthCoverageAttr>()) {
     spvBuilder.addExtension(Extension::KHR_post_depth_coverage,
                             "[[vk::post_depth_coverage]]", decl->getLocation());
-    spvBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::PostDepthCoverage, {},
                                 decl->getLocation());
@@ -9472,16 +9395,6 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // CullDistance, which belongs to gl_PerVertex.
     declIdMapper.glPerVertex.generateVars(inputArraySize, outputArraySize);
   }
-
-  // Require the ClipDistance/CullDistance capability if necessary.
-  // It is legal to just use the ClipDistance/CullDistance builtin without
-  // requiring the ClipDistance/CullDistance capability, as long as we don't
-  // read or write the builtin variable.
-  // For our CodeGen, that corresponds to not seeing SV_ClipDistance or
-  // SV_CullDistance at all. If we see them, we will generate code to read
-  // them to initialize temporary variable for calling the source code entry
-  // function or write to them after calling the source code entry function.
-  declIdMapper.glPerVertex.requireCapabilityIfNecessary();
 
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
