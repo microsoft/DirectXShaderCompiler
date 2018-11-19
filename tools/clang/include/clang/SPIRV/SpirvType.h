@@ -56,6 +56,16 @@ public:
 
   Kind getKind() const { return kind; }
 
+  static bool isTexture(const SpirvType *);
+  static bool isRWTexture(const SpirvType *);
+  static bool isSampler(const SpirvType *);
+  static bool isBuffer(const SpirvType *);
+  static bool isRWBuffer(const SpirvType *);
+  static bool isSubpassInput(const SpirvType *);
+  static bool isSubpassInputMS(const SpirvType *);
+  static bool isResourceType(const SpirvType *);
+  static bool isOrContains16BitType(const SpirvType *);
+
 protected:
   SpirvType(Kind k) : kind(k) {}
 
