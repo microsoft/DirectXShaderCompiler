@@ -402,10 +402,12 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       structName = getAstTypeName(innerType);
 
     const auto *raType = spvContext.getRuntimeArrayType(structType);
+    const bool isReadOnly = (name == "StructuredBuffer");
 
     const std::string typeName = "type." + name.str() + "." + structName;
-    const auto *valType =
-        spvContext.getStructType({StructType::FieldInfo(raType)}, typeName);
+    const auto *valType = spvContext.getStructType(
+        {StructType::FieldInfo(raType)}, typeName, isReadOnly,
+        StructInterfaceType::StorageBuffer);
 
     if (asAlias) {
       // All structured buffers are in the Uniform storage class.

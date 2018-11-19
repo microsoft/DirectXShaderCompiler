@@ -773,6 +773,17 @@ SpirvImageOp::SpirvImageOp(
   }
 }
 
+bool SpirvImageOp::isSparse() const {
+  return opcode == spv::Op::OpImageSparseSampleImplicitLod ||
+         opcode == spv::Op::OpImageSparseSampleExplicitLod ||
+         opcode == spv::Op::OpImageSparseSampleDrefImplicitLod ||
+         opcode == spv::Op::OpImageSparseSampleDrefExplicitLod ||
+         opcode == spv::Op::OpImageSparseFetch ||
+         opcode == spv::Op::OpImageSparseGather ||
+         opcode == spv::Op::OpImageSparseDrefGather ||
+         opcode == spv::Op::OpImageSparseRead;
+}
+
 SpirvImageQuery::SpirvImageQuery(spv::Op op, QualType resultType,
                                  uint32_t resultId, SourceLocation loc,
                                  SpirvInstruction *img,
