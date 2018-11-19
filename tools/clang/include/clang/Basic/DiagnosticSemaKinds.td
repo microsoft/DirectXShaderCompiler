@@ -7446,6 +7446,8 @@ def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_bitfields: Error<
+  "bitfields are not supported in HLSL">;
 def err_hlsl_cannot_convert: Error<
   "cannot %select{implicitly |}0convert %select{|output parameter }1from %2 to %3">;
 def err_hlsl_half_load_store: Error<
