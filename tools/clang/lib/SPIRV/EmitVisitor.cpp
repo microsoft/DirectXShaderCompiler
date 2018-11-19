@@ -543,11 +543,37 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
 }
 
 bool EmitVisitor::visit(SpirvBarrier *inst) {
+  // Note: do not invoke this lambda in the middle of creating an instruction.
+  // This lambda changes the curInst variable
+  auto emitConstant = [this](uint32_t value) {
+    SpirvConstant *constInstr = spirvBuilder.getConstantUint32(value);
+    // This constant has never been emitted
+    if (constInstr->getResultId() == 0) {
+      const uint32_t uint32TypeId = typeHandler.emitType(
+          constInstr->getResultType(), SpirvLayoutRule::Void);
+      initInstruction(spv::Op::OpConstant);
+      curInst.push_back(uint32TypeId);
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(constInstr));
+      curInst.push_back(value);
+      finalizeInstruction();
+    }
+    return constInstr->getResultId();
+  };
+
+  const uint32_t executionScopeId =
+      inst->isControlBarrier()
+          ? emitConstant(static_cast<uint32_t>(inst->getExecutionScope()))
+          : 0;
+  const uint32_t memoryScopeId =
+      emitConstant(static_cast<uint32_t>(inst->getMemoryScope()));
+  const uint32_t memorySemanticsId =
+      emitConstant(static_cast<uint32_t>(inst->getMemorySemantics()));
+
   initInstruction(inst);
   if (inst->isControlBarrier())
-    curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
-  curInst.push_back(static_cast<uint32_t>(inst->getMemoryScope()));
-  curInst.push_back(static_cast<uint32_t>(inst->getMemorySemantics()));
+    curInst.push_back(executionScopeId);
+  curInst.push_back(memoryScopeId);
+  curInst.push_back(memorySemanticsId);
   finalizeInstruction();
   return true;
 }
@@ -1147,7 +1173,6 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     SpirvConstant *constant =
         spirvBuilder.getConstantUint32(arrayType->getElementCount());
     if (constant->getResultId() == 0) {
-      constant->setResultId(getOrAssignResultId<SpirvInstruction>(constant));
       const uint32_t uint32TypeId = emitType(constant->getResultType(), rule);
       initTypeInstruction(spv::Op::OpConstant);
       curTypeInst.push_back(uint32TypeId);

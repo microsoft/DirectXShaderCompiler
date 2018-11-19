@@ -315,8 +315,8 @@ SpirvBarrier::SpirvBarrier(SourceLocation loc, spv::Scope memScope,
                            spv::MemorySemanticsMask memSemantics,
                            llvm::Optional<spv::Scope> execScope)
     : SpirvInstruction(IK_Barrier,
-                       execScope.hasValue() ? spv::Op::OpMemoryBarrier
-                                            : spv::Op::OpControlBarrier,
+                       execScope.hasValue() ? spv::Op::OpControlBarrier
+                                            : spv::Op::OpMemoryBarrier,
                        QualType(), /*resultId=*/0, loc),
       memoryScope(memScope), memorySemantics(memSemantics),
       executionScope(execScope) {}
