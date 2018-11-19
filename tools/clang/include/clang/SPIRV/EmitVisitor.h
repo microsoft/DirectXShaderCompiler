@@ -156,7 +156,8 @@ public:
       : Visitor(opts, spvCtx), id(0),
         typeHandler(astCtx, builder, &debugBinary, &annotationsBinary,
                     &typeConstantBinary,
-                    [this]() -> uint32_t { return takeNextId(); }) {}
+                    [this]() -> uint32_t { return takeNextId(); }),
+        spirvBuilder(builder) {}
 
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase);
@@ -261,6 +262,8 @@ private:
   uint32_t id;
   // Handler for emitting types and their related instructions.
   EmitTypeHandler typeHandler;
+  // Use spirvBuilder in case we need to create constants.
+  SpirvBuilder &spirvBuilder;
   // Current instruction being built
   SmallVector<uint32_t, 16> curInst;
   // All preamble instructions in the following order:
