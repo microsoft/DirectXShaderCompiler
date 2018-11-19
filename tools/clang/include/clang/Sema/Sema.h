@@ -8995,7 +8995,7 @@ private:
   mutable IdentifierInfo *Ident___float128;
 
   // HLSL Change Starts
-  bool DiagnoseHLSLDecl(Declarator& D, DeclContext* DC, TypeSourceInfo* TInfo, bool isParameter);
+  bool DiagnoseHLSLDecl(Declarator& D, DeclContext* DC, Expr *BitWidth, TypeSourceInfo* TInfo, bool isParameter);
   bool DiagnoseHLSLLookup(const LookupResult &R);
   void TransferUnusualAttributes(Declarator& D, NamedDecl* NewDecl);
   // HLSL Change Ends

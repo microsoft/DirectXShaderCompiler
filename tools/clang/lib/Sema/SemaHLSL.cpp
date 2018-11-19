@@ -11361,7 +11361,7 @@ static bool IsUsageAttributeCompatible(AttributeList::Kind kind, bool &usageIn,
 }
 
 // Diagnose valid/invalid modifiers for HLSL.
-bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
+bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
                             TypeSourceInfo *TInfo, bool isParameter) {
   assert(getLangOpts().HLSL &&
          "otherwise this is called without checking language first");
@@ -11819,6 +11819,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   }
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
+
+  // Disallow bitfields
+  if (BitWidth) {
+    Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
+    result = false;
+  }
 
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);

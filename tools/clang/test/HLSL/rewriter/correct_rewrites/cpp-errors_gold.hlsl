@@ -9,9 +9,6 @@ const s_arr_i_f arr_struct_one[] = { 1, 2 };
 const s_arr_i_f arr_struct_two[] = { 1, 2, 3, 4 };
 const int g_int;
 const unsigned int g_unsigned_int;
-struct s_with_bitfield {
-  int f_bitfield : 3;
-};
 static int static_int() {
   return 1;
 }

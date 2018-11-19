@@ -52,7 +52,7 @@ __FUNCTION__ g___FUNCTION; // expected-error {{expected unqualified-id}}
 __PRETTY__ g___PRETTY; // expected-error {{unknown type name '__PRETTY__'}}
 
 struct s_with_bitfield {
-  int f_bitfield : 3;
+  int f_bitfield : 3; // expected-error {{bitfields are not supported in HLSL}}
 };
 
 struct s_with_friend {
