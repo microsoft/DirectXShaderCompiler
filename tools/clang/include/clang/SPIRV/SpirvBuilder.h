@@ -657,12 +657,18 @@ private:
   SpirvConstantBoolean *boolFalseConstant;
   SpirvConstantBoolean *boolTrueSpecConstant;
   SpirvConstantBoolean *boolFalseSpecConstant;
+
+  llvm::SetVector<spv::Capability> existingCapabilities;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
   if (cap != spv::Capability::Max) {
-    auto *capability = new (context) SpirvCapability(loc, cap);
-    module->addCapability(capability);
+    // No need to create a new capability nor add it to the module if it has
+    // already been added.
+    if (existingCapabilities.insert(cap)) {
+      auto *capability = new (context) SpirvCapability(loc, cap);
+      module->addCapability(capability);
+    }
   }
 }
 
