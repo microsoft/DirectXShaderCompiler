@@ -97,7 +97,7 @@ private:
   // has been assigned result-id. This method returns the result-id for the
   // given object. If a result-id has not been assigned yet, it'll assign
   // one and return it.
-  template <class T> uint32_t getResultId(T *obj) {
+  template <class T> uint32_t getOrAssignResultId(T *obj) {
     if (!obj->getResultId()) {
       obj->setResultId(takeNextIdFunction());
     }
@@ -228,7 +228,7 @@ private:
   // has been assigned result-id. This method returns the result-id for the
   // given object. If a result-id has not been assigned yet, it'll assign
   // one and return it.
-  template <class T> uint32_t getResultId(T *obj) {
+  template <class T> uint32_t getOrAssignResultId(T *obj) {
     if (!obj->getResultId()) {
       obj->setResultId(takeNextId());
     }
