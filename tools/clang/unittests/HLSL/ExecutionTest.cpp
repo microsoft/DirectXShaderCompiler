@@ -443,7 +443,7 @@ public:
 
   const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
-// Do not remove the following line - it is used bqy TranslateExecutionTest.py
+// Do not remove the following line - it is used by TranslateExecutionTest.py
 // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
   bool UseDxbc() {
