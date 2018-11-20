@@ -1052,39 +1052,80 @@ void EmitTypeHandler::finalizeTypeInstruction() {
 }
 
 uint32_t EmitTypeHandler::getResultIdForType(const SpirvType *type,
-                                             SpirvLayoutRule rule,
+                                             const DecorationList &decs,
                                              bool *alreadyExists) {
   assert(alreadyExists);
-
-  // Note: Layout rules only affect struct types. Therefore, for non-struct
-  // types, we must use the same result-id regardless of the layout rule.
-  if (!isa<StructType>(type))
-    rule = SpirvLayoutRule::Void;
-
-  // Check if the type has already been emitted.
   auto foundType = emittedTypes.find(type);
   if (foundType != emittedTypes.end()) {
-    auto foundLayoutRule = foundType->second.find(rule);
-    if (foundLayoutRule != foundType->second.end()) {
+    auto foundDecorationSet = foundType->second.find(decs);
+    if (foundDecorationSet != foundType->second.end()) {
       *alreadyExists = true;
-      return foundLayoutRule->second;
+      return foundDecorationSet->second;
     }
   }
 
   *alreadyExists = false;
   const uint32_t id = takeNextIdFunction();
-  emittedTypes[type][rule] = id;
+  emittedTypes[type][decs] = id;
   return id;
+}
+
+void EmitTypeHandler::getDecorationsForType(const SpirvType *type,
+                                            SpirvLayoutRule rule,
+                                            DecorationList *decs) {
+  // Array types
+  if (const auto *arrayType = dyn_cast<ArrayType>(type)) {
+    // ArrayStride decoration is needed for array types, but we won't have
+    // stride information for structured/byte buffers since they contain runtime
+    // arrays.
+    if (rule != SpirvLayoutRule::Void &&
+        !isAKindOfStructuredOrByteBuffer(type)) {
+      uint32_t stride = 0;
+      (void)getAlignmentAndSize(type, rule, &stride);
+      decs->push_back(DecorationInfo(spv::Decoration::ArrayStride, {stride}));
+    }
+  }
+  // RuntimeArray types
+  else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
+    // ArrayStride decoration is needed for runtime array types.
+    if (rule != SpirvLayoutRule::Void) {
+      uint32_t stride = 0;
+      (void)getAlignmentAndSize(type, rule, &stride);
+      decs->push_back(DecorationInfo(spv::Decoration::ArrayStride, {stride}));
+    }
+  }
+  // Structure types
+  else if (const auto *structType = dyn_cast<StructType>(type)) {
+    llvm::ArrayRef<StructType::FieldInfo> fields = structType->getFields();
+    size_t numFields = fields.size();
+
+    // Emit the layout decorations for the structure.
+    getLayoutDecorations(structType, rule, decs);
+
+    // Emit NonWritable decorations
+    if (structType->isReadOnly())
+      for (size_t i = 0; i < numFields; ++i)
+        decs->push_back(DecorationInfo(spv::Decoration::NonWritable, {}, i));
+
+    // Emit Block or BufferBlock decorations if necessary.
+    auto interfaceType = structType->getInterfaceType();
+    if (interfaceType == StructInterfaceType::StorageBuffer)
+      decs->push_back(DecorationInfo(spv::Decoration::BufferBlock, {}));
+    else if (interfaceType == StructInterfaceType::UniformBuffer)
+      decs->push_back(DecorationInfo(spv::Decoration::Block, {}));
+  }
+
+  // We currently only have decorations for arrays, runtime arrays, and
+  // structure types.
 }
 
 uint32_t EmitTypeHandler::emitType(const SpirvType *type,
                                    SpirvLayoutRule rule) {
-  //
-  // TODO: This method is currently missing decorations for types completely.
-  //
-
+  // First get the decorations that would apply to this type.
   bool alreadyExists = false;
-  const uint32_t id = getResultIdForType(type, rule, &alreadyExists);
+  DecorationList decs;
+  getDecorationsForType(type, rule, &decs);
+  const uint32_t id = getResultIdForType(type, decs, &alreadyExists);
 
   // If the type has already been emitted, we just need to return its
   // <result-id>.
@@ -1188,16 +1229,6 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     curTypeInst.push_back(elemTypeId);
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constant));
     finalizeTypeInstruction();
-
-    // ArrayStride decoration is needed for array types, but we won't have
-    // stride information for structured/byte buffers since they contain runtime
-    // arrays.
-    if (rule != SpirvLayoutRule::Void &&
-        !isAKindOfStructuredOrByteBuffer(type)) {
-      uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, rule, &stride);
-      emitDecoration(id, spv::Decoration::ArrayStride, {stride});
-    }
   }
   // RuntimeArray types
   else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
@@ -1206,13 +1237,6 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     curTypeInst.push_back(id);
     curTypeInst.push_back(elemTypeId);
     finalizeTypeInstruction();
-
-    // ArrayStride decoration is needed for runtime array types.
-    if (rule != SpirvLayoutRule::Void) {
-      uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, rule, &stride);
-      emitDecoration(id, spv::Decoration::ArrayStride, {stride});
-    }
   }
   // Structure types
   else if (const auto *structType = dyn_cast<StructType>(type)) {
@@ -1234,21 +1258,6 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
     for (auto fieldTypeId : fieldTypeIds)
       curTypeInst.push_back(fieldTypeId);
     finalizeTypeInstruction();
-
-    // Emit the layout decorations for the structure.
-    emitLayoutDecorations(structType, rule);
-
-    // Emit NonWritable decorations
-    if (structType->isReadOnly())
-      for (size_t i = 0; i < numFields; ++i)
-        emitDecoration(id, spv::Decoration::NonWritable, {}, i);
-
-    // Emit Block or BufferBlock decorations if necessary.
-    auto interfaceType = structType->getInterfaceType();
-    if (interfaceType == StructInterfaceType::StorageBuffer)
-      emitDecoration(id, spv::Decoration::BufferBlock, {});
-    else if (interfaceType == StructInterfaceType::UniformBuffer)
-      emitDecoration(id, spv::Decoration::Block, {});
   }
   // Pointer types
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
@@ -1284,6 +1293,11 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   else {
     llvm_unreachable("unhandled type in emitType");
   }
+
+  // Finally, emit decorations for the type into the annotationsBinary.
+  for (auto &decorInfo : decs)
+    emitDecoration(id, decorInfo.decoration, decorInfo.decorationParams,
+                   decorInfo.memberIndex);
 
   return id;
 }
@@ -1570,14 +1584,10 @@ void EmitTypeHandler::alignUsingHLSLRelaxedLayout(const SpirvType *fieldType,
   }
 }
 
-void EmitTypeHandler::emitLayoutDecorations(const StructType *structType,
-                                            SpirvLayoutRule rule) {
-  // Decorations for a type can be emitted after the type itself has been
-  // visited, because we need the result-id of the type as the target of the
-  // decoration.
-  bool visited = false;
-  const uint32_t typeResultId = getResultIdForType(structType, rule, &visited);
-  assert(visited);
+void EmitTypeHandler::getLayoutDecorations(const StructType *structType,
+                                           SpirvLayoutRule rule,
+                                           DecorationList *decs) {
+  assert(decs);
 
   uint32_t offset = 0, index = 0;
   for (auto &field : structType->getFields()) {
@@ -1618,7 +1628,7 @@ void EmitTypeHandler::emitLayoutDecorations(const StructType *structType,
     }
 
     // Each structure-type member must have an Offset Decoration.
-    emitDecoration(typeResultId, spv::Decoration::Offset, {offset}, index);
+    decs->push_back(DecorationInfo(spv::Decoration::Offset, {offset}, index));
     offset += memberSize;
 
     // Each structure-type member that is a matrix or array-of-matrices must be
@@ -1640,19 +1650,19 @@ void EmitTypeHandler::emitLayoutDecorations(const StructType *structType,
         std::tie(memberAlignment, memberSize) =
             getAlignmentAndSize(fieldType, rule, &stride);
 
-        emitDecoration(typeResultId, spv::Decoration::MatrixStride, {stride},
-                       index);
+        decs->push_back(
+            DecorationInfo(spv::Decoration::MatrixStride, {stride}, index));
 
         // We need to swap the RowMajor and ColMajor decorations since HLSL
         // matrices are conceptually row-major while SPIR-V are conceptually
         // column-major.
         if (matType->isRowMajorMat()) {
-          emitDecoration(typeResultId, spv::Decoration::ColMajor, {}, index);
+          decs->push_back(DecorationInfo(spv::Decoration::ColMajor, {}, index));
         } else {
           // If the source code has neither row_major nor column_major
           // annotated, it should be treated as column_major since that's the
           // default.
-          emitDecoration(typeResultId, spv::Decoration::RowMajor, {}, index);
+          decs->push_back(DecorationInfo(spv::Decoration::RowMajor, {}, index));
         }
       }
     }
