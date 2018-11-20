@@ -543,31 +543,15 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
 }
 
 bool EmitVisitor::visit(SpirvBarrier *inst) {
-  // Note: do not invoke this lambda in the middle of creating an instruction.
-  // This lambda changes the curInst variable
-  auto emitConstant = [this](uint32_t value) {
-    SpirvConstant *constInstr = spirvBuilder.getConstantUint32(value);
-    // This constant has never been emitted
-    if (constInstr->getResultId() == 0) {
-      const uint32_t uint32TypeId = typeHandler.emitType(
-          constInstr->getResultType(), SpirvLayoutRule::Void);
-      initInstruction(spv::Op::OpConstant);
-      curInst.push_back(uint32TypeId);
-      curInst.push_back(getOrAssignResultId<SpirvInstruction>(constInstr));
-      curInst.push_back(value);
-      finalizeInstruction();
-    }
-    return constInstr->getResultId();
-  };
-
   const uint32_t executionScopeId =
       inst->isControlBarrier()
-          ? emitConstant(static_cast<uint32_t>(inst->getExecutionScope()))
+          ? typeHandler.getOrCreateConstantUint32(
+                static_cast<uint32_t>(inst->getExecutionScope()))
           : 0;
-  const uint32_t memoryScopeId =
-      emitConstant(static_cast<uint32_t>(inst->getMemoryScope()));
-  const uint32_t memorySemanticsId =
-      emitConstant(static_cast<uint32_t>(inst->getMemorySemantics()));
+  const uint32_t memoryScopeId = typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getMemoryScope()));
+  const uint32_t memorySemanticsId = typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getMemorySemantics()));
 
   initInstruction(inst);
   if (inst->isControlBarrier())
@@ -628,6 +612,15 @@ bool EmitVisitor::visit(SpirvConstantBoolean *inst) {
 }
 
 bool EmitVisitor::visit(SpirvConstantInteger *inst) {
+  // Note: Since array types need to create uint 32-bit constants for result-id
+  // of array length, the typeHandler keeps track of uint32 constant uniqueness.
+  // Therefore emitting uint32 constants should be handled by the typeHandler.
+  if (!inst->isSigned() && inst->getBitwidth() == 32) {
+    inst->setResultId(
+        typeHandler.getOrCreateConstantUint32(inst->getUnsignedInt32Value()));
+    return true;
+  }
+
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -645,7 +638,9 @@ bool EmitVisitor::visit(SpirvConstantInteger *inst) {
       curInst.push_back(
           cast::BitwiseCast<uint32_t, int32_t>(inst->getSignedInt32Value()));
     } else {
-      curInst.push_back(inst->getUnsignedInt32Value());
+      // Unsigned 32-bit integers are special cases that are handled above.
+      assert(false && "typeHandler should handle creation of unsigned 32-bit "
+                      "integer constants");
     }
   }
   // 64-bit cases
@@ -1070,6 +1065,25 @@ uint32_t EmitTypeHandler::getResultIdForType(const SpirvType *type,
   return id;
 }
 
+uint32_t EmitTypeHandler::getOrCreateConstantUint32(uint32_t value) {
+  // If this constant has already been emitted, return its result-id.
+  auto foundResultId = UintConstantValueToResultIdMap.find(value);
+  if (foundResultId != UintConstantValueToResultIdMap.end())
+    return foundResultId->second;
+
+  const uint32_t constantResultId = takeNextIdFunction();
+  const SpirvType *uintType = context.getUIntType(32);
+  const uint32_t uint32TypeId = emitType(uintType, SpirvLayoutRule::Void);
+  initTypeInstruction(spv::Op::OpConstant);
+  curTypeInst.push_back(uint32TypeId);
+  curTypeInst.push_back(constantResultId);
+  curTypeInst.push_back(value);
+  finalizeTypeInstruction();
+
+  UintConstantValueToResultIdMap[value] = constantResultId;
+  return constantResultId;
+}
+
 void EmitTypeHandler::getDecorationsForType(const SpirvType *type,
                                             SpirvLayoutRule rule,
                                             DecorationList *decs) {
@@ -1211,23 +1225,14 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   else if (const auto *arrayType = dyn_cast<ArrayType>(type)) {
     // Emit the OpConstant instruction that is needed to get the result-id for
     // the array length.
-    SpirvConstant *constant =
-        spirvBuilder.getConstantUint32(arrayType->getElementCount());
-    if (constant->getResultId() == 0) {
-      const uint32_t uint32TypeId = emitType(constant->getResultType(), rule);
-      initTypeInstruction(spv::Op::OpConstant);
-      curTypeInst.push_back(uint32TypeId);
-      curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constant));
-      curTypeInst.push_back(arrayType->getElementCount());
-      finalizeTypeInstruction();
-    }
+    const auto length = getOrCreateConstantUint32(arrayType->getElementCount());
 
     // Emit the OpTypeArray instruction
     const uint32_t elemTypeId = emitType(arrayType->getElementType(), rule);
     initTypeInstruction(spv::Op::OpTypeArray);
     curTypeInst.push_back(id);
     curTypeInst.push_back(elemTypeId);
-    curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constant));
+    curTypeInst.push_back(length);
     finalizeTypeInstruction();
   }
   // RuntimeArray types

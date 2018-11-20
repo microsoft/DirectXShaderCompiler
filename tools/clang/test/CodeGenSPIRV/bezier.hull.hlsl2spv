@@ -138,6 +138,7 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 //                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 5 Offset 192
 //                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 6 Offset 256
 //        %uint = OpTypeInt 32 0
+//      %uint_0 = OpConstant %uint 0
 //       %float = OpTypeFloat 32
 //         %int = OpTypeInt 32 1
 //      %uint_3 = OpConstant %uint 3
@@ -178,7 +179,6 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %_ptr_Function_VS_CONTROL_POINT_OUTPUT = OpTypePointer Function %VS_CONTROL_POINT_OUTPUT
 // %_ptr_Function_BEZIER_CONTROL_POINT = OpTypePointer Function %BEZIER_CONTROL_POINT
 // %_ptr_Function_v3float = OpTypePointer Function %v3float
-//      %uint_0 = OpConstant %uint 0
 //     %float_1 = OpConstant %float 1
 //       %int_0 = OpConstant %int 0
 //     %float_2 = OpConstant %float 2
