@@ -334,6 +334,7 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
     context, currentDeclContext, NoLoc, DeclarationName(&matrixId),
     templateParameterList, templateRecordDecl, nullptr);
   templateRecordDecl->setDescribedClassTemplate(classTemplateDecl);
+  templateRecordDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
 
   // Requesting the class name specialization will fault in required types.
   QualType T = classTemplateDecl->getInjectedClassNameSpecialization();
@@ -436,6 +437,7 @@ void hlsl::AddHLSLVectorTemplate(ASTContext& context, ClassTemplateDecl** vector
     context, currentDeclContext, NoLoc, DeclarationName(&vectorId),
     templateParameterList, templateRecordDecl, nullptr);
   templateRecordDecl->setDescribedClassTemplate(classTemplateDecl);
+  templateRecordDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
 
   // Requesting the class name specialization will fault in required types.
   QualType T = classTemplateDecl->getInjectedClassNameSpecialization();
@@ -503,6 +505,7 @@ void hlsl::AddRecordTypeWithHandle(ASTContext& context, _Outptr_ CXXRecordDecl**
     context, TagDecl::TagKind::TTK_Struct, currentDeclContext, NoLoc, NoLoc, &newTypeId, nullptr);
   newDecl->setLexicalDeclContext(currentDeclContext);
   newDecl->setFreeStanding();
+  newDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   newDecl->startDefinition();
   AddHLSLHandleField(context, newDecl, QualType(GetHLSLObjectHandleType(context)));
   currentDeclContext->addDecl(newDecl);
@@ -788,6 +791,7 @@ void hlsl::AddTemplateTypeWithHandle(
     context, currentDeclContext, NoLoc, DeclarationName(&typeId),
     templateParameterList, templateRecordDecl, nullptr);
   templateRecordDecl->setDescribedClassTemplate(classTemplateDecl);
+  templateRecordDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   
   // Requesting the class name specialization will fault in required types.
   QualType T = classTemplateDecl->getInjectedClassNameSpecialization();
