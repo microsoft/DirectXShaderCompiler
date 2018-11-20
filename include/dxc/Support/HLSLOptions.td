@@ -215,6 +215,10 @@ def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Fl
   HelpText<"External function name to load for compiler support">;
 def fcgl : Flag<["-", "/"], "fcgl">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Generate high-level code only">;
+def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+    HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
+def flegacy_resource_reservation : Flag<["-", "/"], "flegacy-resource-reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+    HelpText<"Reserve unused explicit register assignments for compatibility with shader model 5.0 and below">;
 def not_use_legacy_cbuf_load : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Do not use legacy cbuffer load">;
 def pack_prefix_stable : Flag<["-", "/"], "pack_prefix_stable">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
@@ -379,6 +383,3 @@ def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOpt
 
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.
-
-def flegacy_macro_expansion : Flag<["-"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
-    HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;

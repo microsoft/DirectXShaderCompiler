@@ -181,6 +181,8 @@ public:
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
   bool HLSLNotUseLegacyCBufLoad = false;
+  /// Whether use legacy resource reservation.
+  bool HLSLLegacyResourceReservation = false;
   /// Set [branch] on every if.
   bool HLSLPreferControlFlow = false;
   /// Set [flatten] on every if.

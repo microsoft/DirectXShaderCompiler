@@ -783,7 +783,7 @@ bool DxilPatchShaderRecordBindings::GetHandleInfo(
     shaderRegister = Resource->GetLowerBound();
     kind = Resource->GetKind();
     resClass = Resource->GetClass();
-    resType = cast<GlobalVariable>(Resource->GetGlobalSymbol())->getType()->getPointerElementType();
+    resType = Resource->GetGlobalSymbol()->getType()->getPointerElementType();
   }
   return Resource != nullptr;
 }
