@@ -940,91 +940,6 @@ void SpirvBuilder::decorateNonUniformEXT(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
-/*
-SpirvConstant *SpirvBuilder::getConstantUint16(uint16_t value, bool specConst) {
-  SpirvConstant *result = context.getConstantUint16(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantInt16(int16_t value, bool specConst) {
-  SpirvConstant *result = context.getConstantInt16(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantUint32(uint32_t value, bool specConst) {
-  SpirvConstant *result = context.getConstantUint32(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantInt32(int32_t value, bool specConst) {
-  SpirvConstant *result = context.getConstantInt32(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantUint64(uint64_t value, bool specConst) {
-  SpirvConstant *result = context.getConstantUint64(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantInt64(int64_t value, bool specConst) {
-  SpirvConstant *result = context.getConstantInt64(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantFloat16(uint16_t value,
-                                                bool specConst) {
-  SpirvConstant *result = context.getConstantFloat16(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantFloat32(float value, bool specConst) {
-  SpirvConstant *result = context.getConstantFloat32(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantFloat64(double value, bool specConst) {
-  SpirvConstant *result = context.getConstantFloat64(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
-  SpirvConstant *result = context.getConstantBool(value, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *
-SpirvBuilder::getConstantComposite(QualType compositeType,
-                                   llvm::ArrayRef<SpirvConstant *> constituents,
-                                   bool specConst) {
-  SpirvConstant *result =
-      context.getConstantComposite(compositeType, constituents, specConst);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantNull(const SpirvType *type) {
-  SpirvConstant *result = context.getConstantNull(type);
-  module->addConstant(result);
-  return result;
-}
-
-SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
-  SpirvConstant *result = context.getConstantNull(type);
-  module->addConstant(result);
-  return result;
-}
-*/
-
 SpirvConstant *SpirvBuilder::getConstantUint16(uint16_t value, bool specConst) {
   return getConstantInt<uint16_t>(value, /*isSigned*/ false, 16, specConst);
 }
@@ -1124,7 +1039,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
   CapabilityVisitor capabilityVisitor(context, spirvOptions, *this);
-  EmitVisitor emitVisitor(astContext, context, spirvOptions, *this);
+  EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   // Lower types
   module->invokeVisitor(&lowerTypeVisitor);

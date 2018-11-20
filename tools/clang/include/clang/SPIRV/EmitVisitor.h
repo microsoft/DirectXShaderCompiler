@@ -20,7 +20,6 @@ namespace spirv {
 class SpirvFunction;
 class SpirvBasicBlock;
 class SpirvType;
-class SpirvBuilder;
 
 class EmitTypeHandler {
 public:
@@ -82,12 +81,12 @@ public:
   };
 
 public:
-  EmitTypeHandler(ASTContext &astCtx, SpirvBuilder &builder,
+  EmitTypeHandler(ASTContext &astCtx, SpirvContext &spvContext,
                   std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), spirvBuilder(builder), debugBinary(debugVec),
+      : astContext(astCtx), context(spvContext), debugBinary(debugVec),
         annotationsBinary(decVec), typeConstantBinary(typesVec),
         takeNextIdFunction(takeNextIdFn) {
     assert(decVec);
@@ -108,6 +107,12 @@ public:
   // If any decorations apply to the type, it also emits the decoration
   // instructions into the annotationsBinary.
   uint32_t emitType(const SpirvType *, SpirvLayoutRule);
+
+  // Emits an OpConstant instruction with uint32 type and returns its result-id.
+  // If such constant has already been emitted, just returns its resutl-id.
+  // Modifies the curTypeInst. Do not call in the middle of construction of
+  // another instruction.
+  uint32_t getOrCreateConstantUint32(uint32_t value);
 
 private:
   void initTypeInstruction(spv::Op op);
@@ -174,13 +179,18 @@ private:
 
 private:
   ASTContext &astContext;
-  SpirvBuilder &spirvBuilder;
+  SpirvContext &context;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
   std::vector<uint32_t> *debugBinary;
   std::vector<uint32_t> *annotationsBinary;
   std::vector<uint32_t> *typeConstantBinary;
   std::function<uint32_t()> takeNextIdFunction;
+
+  // The array type requires the result-id of an OpConstant for its length. In
+  // order to avoid duplicate OpConstant instructions, we keep a map of constant
+  // uint value to the result-id of the OpConstant for that value.
+  llvm::DenseMap<uint32_t, uint32_t> UintConstantValueToResultIdMap;
 
   // emittedTypes is a map that caches the result-id of types with a given list
   // of decorations in order to avoid emitting an identical type multiple times.
@@ -210,12 +220,11 @@ public:
 
 public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-              const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
+              const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), id(0),
-        typeHandler(astCtx, builder, &debugBinary, &annotationsBinary,
+        typeHandler(astCtx, spvCtx, &debugBinary, &annotationsBinary,
                     &typeConstantBinary,
-                    [this]() -> uint32_t { return takeNextId(); }),
-        spirvBuilder(builder) {}
+                    [this]() -> uint32_t { return takeNextId(); }) {}
 
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase);
@@ -320,8 +329,6 @@ private:
   uint32_t id;
   // Handler for emitting types and their related instructions.
   EmitTypeHandler typeHandler;
-  // Use spirvBuilder in case we need to create constants.
-  SpirvBuilder &spirvBuilder;
   // Current instruction being built
   SmallVector<uint32_t, 16> curInst;
   // All preamble instructions in the following order:
