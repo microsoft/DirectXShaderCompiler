@@ -22,24 +22,65 @@ class SpirvBasicBlock;
 class SpirvType;
 class SpirvBuilder;
 
-// Provides DenseMapInfo for SpirvLayoutRule so that we can use it as key to
-// DenseMap.
-//
-// Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
-struct SpirvLayoutRuleDenseMapInfo {
-  static inline SpirvLayoutRule getEmptyKey() { return SpirvLayoutRule::Max; }
-  static inline SpirvLayoutRule getTombstoneKey() {
-    return SpirvLayoutRule::Max;
-  }
-  static unsigned getHashValue(const SpirvLayoutRule &Val) {
-    return static_cast<unsigned>(Val) * 37U;
-  }
-  static bool isEqual(const SpirvLayoutRule &LHS, const SpirvLayoutRule &RHS) {
-    return LHS == RHS;
-  }
-};
-
 class EmitTypeHandler {
+public:
+  struct DecorationInfo {
+    DecorationInfo(spv::Decoration decor, llvm::ArrayRef<uint32_t> params = {},
+                   llvm::Optional<uint32_t> index = llvm::None)
+        : decoration(decor), decorationParams(params.begin(), params.end()),
+          memberIndex(index) {}
+
+    bool operator==(const DecorationInfo &other) const {
+      return decoration == other.decoration &&
+             decorationParams == other.decorationParams &&
+             memberIndex.hasValue() == other.memberIndex.hasValue() &&
+             (!memberIndex.hasValue() ||
+              memberIndex.getValue() == other.memberIndex.getValue());
+    }
+
+    spv::Decoration decoration;
+    llvm::SmallVector<uint32_t, 4> decorationParams;
+    llvm::Optional<uint32_t> memberIndex;
+  };
+
+  using DecorationList = llvm::SmallVector<DecorationInfo, 4>;
+
+  // Provides DenseMapInfo for SpirvLayoutRule so that we can use it as key to
+  // DenseMap.
+  struct DecorationSetDenseMapInfo {
+    static inline DecorationList getEmptyKey() {
+      return {DecorationInfo(spv::Decoration::Max)};
+    }
+    static inline DecorationList getTombstoneKey() {
+      return {DecorationInfo(spv::Decoration::Max)};
+    }
+    static unsigned getHashValue(const DecorationList &Val) {
+      unsigned hashValue = Val.size();
+      for (auto &decorationInfo : Val)
+        hashValue += static_cast<unsigned>(decorationInfo.decoration);
+
+      return hashValue;
+    }
+
+    static bool isEqual(const DecorationList &LHS, const DecorationList &RHS) {
+      // Must have the same number of decorations.
+      if (LHS.size() != RHS.size())
+        return false;
+
+      // Order of decorations does not matter.
+      for (auto &dec : LHS) {
+        auto found = std::find_if(
+            RHS.begin(), RHS.end(),
+            [&dec](const DecorationInfo &otherDec) { return dec == otherDec; });
+
+        if (found == RHS.end())
+          return false;
+      }
+
+      return true;
+    }
+  };
+
 public:
   EmitTypeHandler(ASTContext &astCtx, SpirvBuilder &builder,
                   std::vector<uint32_t> *debugVec,
@@ -57,36 +98,38 @@ public:
   EmitTypeHandler(const EmitTypeHandler &) = delete;
   EmitTypeHandler &operator=(const EmitTypeHandler &) = delete;
 
+  // Emits the instruction for the given type into the typeConstantBinary and
+  // returns the result-id for the type. If the type has already been emitted,
+  // it only returns its result-id.
+  //
+  // If any names are associated with the type (or its members in case of
+  // structs), the OpName/OpMemberNames will also be emitted.
+  //
+  // If any decorations apply to the type, it also emits the decoration
+  // instructions into the annotationsBinary.
+  uint32_t emitType(const SpirvType *, SpirvLayoutRule);
+
+private:
+  void initTypeInstruction(spv::Op op);
+  void finalizeTypeInstruction();
+
+  // Figures out the decorations that apply to the given type with the given
+  // layout rule, and populates the given decoration set.
+  void getDecorationsForType(const SpirvType *type, SpirvLayoutRule rule,
+                             DecorationList *decorations);
+
+  // Returns the result-id for the given type and decorations. If a type with
+  // the same decorations have already been used, it returns the existing
+  // result-id. If not, creates a new result-id for such type and returns it.
+  uint32_t getResultIdForType(const SpirvType *, const DecorationList &,
+                              bool *alreadyExists);
+
   // Emits OpDecorate (or OpMemberDecorate if memberIndex is non-zero)
   // targetting the given type. Uses the given decoration kind and its
   // parameters.
   void emitDecoration(uint32_t typeResultId, spv::Decoration,
                       llvm::ArrayRef<uint32_t> decorationParams,
                       llvm::Optional<uint32_t> memberIndex = llvm::None);
-
-  // Emits the instruction for the given type into the typeConstantBinary and
-  // returns the result-id for the type.
-  uint32_t emitType(const SpirvType *, SpirvLayoutRule);
-
-  uint32_t getResultIdForType(const SpirvType *, SpirvLayoutRule,
-                              bool *alreadyExists);
-
-private:
-  void initTypeInstruction(spv::Op op);
-  void finalizeTypeInstruction();
-
-  // Methods associated with layout calculations ----
-
-  // TODO: This function should be merged into the Type class hierarchy.
-  std::pair<uint32_t, uint32_t> getAlignmentAndSize(const SpirvType *type,
-                                                    SpirvLayoutRule rule,
-                                                    uint32_t *stride);
-
-  void alignUsingHLSLRelaxedLayout(const SpirvType *fieldType,
-                                   uint32_t fieldSize, uint32_t fieldAlignment,
-                                   uint32_t *currentOffset);
-
-  void emitLayoutDecorations(const StructType *, SpirvLayoutRule);
 
   // Emits an OpName (if memberIndex is not provided) or OpMemberName (if
   // memberIndex is provided) for the given target result-id.
@@ -103,6 +146,21 @@ private:
     }
     return obj->getResultId();
   }
+
+  // ---- Methods associated with layout calculations ----
+
+  std::pair<uint32_t, uint32_t> getAlignmentAndSize(const SpirvType *type,
+                                                    SpirvLayoutRule rule,
+                                                    uint32_t *stride);
+
+  void alignUsingHLSLRelaxedLayout(const SpirvType *fieldType,
+                                   uint32_t fieldSize, uint32_t fieldAlignment,
+                                   uint32_t *currentOffset);
+
+  // Adds the layout decorations for the given type and layout rule to the given
+  // vector of decorations.
+  void getLayoutDecorations(const StructType *, SpirvLayoutRule,
+                            DecorationList *);
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
@@ -124,11 +182,11 @@ private:
   std::vector<uint32_t> *typeConstantBinary;
   std::function<uint32_t()> takeNextIdFunction;
 
-  // emittedTypes is a map that caches the <result-id> of types in order to
-  // avoid translating a type multiple times.
-  using LayoutRuleToTypeIdMap =
-      llvm::DenseMap<SpirvLayoutRule, uint32_t, SpirvLayoutRuleDenseMapInfo>;
-  llvm::DenseMap<const SpirvType *, LayoutRuleToTypeIdMap> emittedTypes;
+  // emittedTypes is a map that caches the result-id of types with a given list
+  // of decorations in order to avoid emitting an identical type multiple times.
+  using DecorationSetToTypeIdMap =
+      llvm::DenseMap<DecorationList, uint32_t, DecorationSetDenseMapInfo>;
+  llvm::DenseMap<const SpirvType *, DecorationSetToTypeIdMap> emittedTypes;
 };
 
 /// \breif The visitor class that emits the SPIR-V words from the in-memory

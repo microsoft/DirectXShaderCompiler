@@ -222,6 +222,7 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
   auto *instruction =
       new (context) SpirvAccessChain(resultType, /*id*/ 0, loc, base, indexes);
   instruction->setStorageClass(base->getStorageClass());
+  instruction->setLayoutRule(base->getLayoutRule());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -234,6 +235,7 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
       SpirvAccessChain(/*QualType*/ {}, /*id*/ 0, loc, base, indexes);
   instruction->setResultType(resultType);
   instruction->setStorageClass(base->getStorageClass());
+  instruction->setLayoutRule(base->getLayoutRule());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
