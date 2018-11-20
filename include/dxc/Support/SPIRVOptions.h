@@ -31,6 +31,7 @@ enum class SpirvLayoutRule {
   RelaxedGLSLStd430, // std430 with relaxed vector layout
   FxcCTBuffer,       // fxc.exe layout rule for cbuffer/tbuffer
   FxcSBuffer,        // fxc.exe layout rule for structured buffers
+  Scalar,            // VK_EXT_scalar_block_layout
 };
 
 struct SpirvCodeGenOptions {
@@ -50,6 +51,7 @@ struct SpirvCodeGenOptions {
   bool noWarnIgnoredFeatures;
   bool useDxLayout;
   bool useGlLayout;
+  bool useScalarLayout;
   SpirvLayoutRule cBufferLayoutRule;
   SpirvLayoutRule sBufferLayoutRule;
   SpirvLayoutRule tBufferLayoutRule;

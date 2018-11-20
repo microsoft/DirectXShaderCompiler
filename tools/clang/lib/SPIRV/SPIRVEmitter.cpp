@@ -242,9 +242,9 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
   return optimizer.Run(module->data(), module->size(), module, options);
 }
 
-bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
-                        std::string *messages, bool relaxLogicalPointer,
-                        bool glLayout, bool dxLayout) {
+bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
+                        bool relaxLogicalPointer, std::vector<uint32_t> *module,
+                        std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -257,8 +257,13 @@ bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
   // GL: strict block layout rules
   // VK: relaxed block layout rules
   // DX: Skip block layout rules
-  options.SetRelaxBlockLayout(!glLayout && !dxLayout);
-  options.SetSkipBlockLayout(dxLayout);
+  if (opts.useScalarLayout || opts.useDxLayout) {
+    options.SetSkipBlockLayout(true);
+  } else if (opts.useGlLayout) {
+    // spirv-val by default checks this.
+  } else {
+    options.SetRelaxBlockLayout(true);
+  }
 
   return tools.Validate(module->data(), module->size(), options);
 }
@@ -625,6 +630,10 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
     spirvOptions.cBufferLayoutRule = SpirvLayoutRule::GLSLStd140;
     spirvOptions.tBufferLayoutRule = SpirvLayoutRule::GLSLStd430;
     spirvOptions.sBufferLayoutRule = SpirvLayoutRule::GLSLStd430;
+  } else if (spirvOptions.useScalarLayout) {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::Scalar;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::Scalar;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::Scalar;
   } else {
     spirvOptions.cBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd140;
     spirvOptions.tBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
@@ -736,9 +745,9 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(
-            targetEnv, &m, &messages, declIdMapper.requiresLegalization(),
-            spirvOptions.useGlLayout, spirvOptions.useDxLayout)) {
+    if (!spirvToolsValidate(targetEnv, spirvOptions,
+                            declIdMapper.requiresLegalization(), &m,
+                            &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "

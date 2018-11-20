@@ -35,6 +35,7 @@ public:
   void setRelaxLogicalPointer() { relaxLogicalPointer = true; }
   void setGlLayout() { glLayout = true; }
   void setDxLayout() { dxLayout = true; }
+  void setScalarLayout() { scalarLayout = true; }
 
   /// \brief Runs a File Test! (See class description for more info)
   void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
@@ -55,6 +56,7 @@ private:
   bool relaxLogicalPointer;
   bool glLayout;
   bool dxLayout;
+  bool scalarLayout;
 };
 
 } // end namespace spirv

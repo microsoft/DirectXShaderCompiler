@@ -1190,6 +1190,7 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
       offset = roundToPow2(offset, memberAlignment);
     }
 
+
     // The vk::offset attribute takes precedence over all.
     if (const auto *offsetAttr = decl->getAttr<VKOffsetAttr>()) {
       offset = offsetAttr->getOffset();
@@ -1713,9 +1714,10 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
     if (isVectorType(type, &elemType, &elemCount)) {
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
-      // Use element alignment for fxc rules
+      // Use element alignment for fxc rules and VK_EXT_scalar_block_layout
       if (rule != SpirvLayoutRule::FxcCTBuffer &&
-          rule != SpirvLayoutRule::FxcSBuffer)
+          rule != SpirvLayoutRule::FxcSBuffer &&
+          rule != SpirvLayoutRule::Scalar)
         alignment = (elemCount == 3 ? 4 : elemCount) * size;
 
       return {alignment, elemCount * size};
@@ -1737,9 +1739,11 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
 
       const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
 
-      if (rule == SpirvLayoutRule::FxcSBuffer) {
+      if (rule == SpirvLayoutRule::FxcSBuffer ||
+          rule == SpirvLayoutRule::Scalar) {
         *stride = vecStorageSize * size;
-        // Use element alignment for fxc structured buffers
+        // Use element alignment for fxc structured buffers and
+        // VK_EXT_scalar_block_layout
         return {alignment, rowCount * colCount * size};
       }
 
@@ -1794,6 +1798,12 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
       structSize += memberSize;
     }
 
+    if (rule == SpirvLayoutRule::Scalar) {
+      // A structure has a scalar alignment equal to the largest scalar
+      // alignment of any of its members in VK_EXT_scalar_block_layout.
+      return {maxAlignment, structSize};
+    }
+
     if (rule == SpirvLayoutRule::GLSLStd140 ||
         rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
         rule == SpirvLayoutRule::FxcCTBuffer) {
@@ -1817,9 +1827,11 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
     std::tie(alignment, size) =
         getAlignmentAndSize(arrayType->getElementType(), rule, stride);
 
-    if (rule == SpirvLayoutRule::FxcSBuffer) {
+    if (rule == SpirvLayoutRule::FxcSBuffer ||
+        rule == SpirvLayoutRule::Scalar) {
       *stride = size;
-      // Use element alignment for fxc structured buffers
+      // Use element alignment for fxc structured buffers and
+      // VK_EXT_scalar_block_layout
       return {alignment, size * elemCount};
     }
 

@@ -1623,6 +1623,12 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
   runFileTest("vk.layout.cbuffer.fxc.1.hlsl");
 }
 
+TEST_F(FileTest, VulkanLayoutCBufferScalar) {
+  // VK_EXT_scalar_block_layout
+  setScalarLayout();
+  runFileTest("vk.layout.cbuffer.scalar.hlsl");
+}
+
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");

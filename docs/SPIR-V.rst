@@ -803,7 +803,7 @@ To know more about the Vulkan buffer types, please refer to the Vulkan spec
 Memory layout rules
 ~~~~~~~~~~~~~~~~~~~
 
-SPIR-V CodeGen supports three sets of memory layout rules for buffer resources
+SPIR-V CodeGen supports four sets of memory layout rules for buffer resources
 right now:
 
 1. Vector-relaxed OpenGL ``std140`` for uniform buffers and vector-relaxed
@@ -817,6 +817,14 @@ right now:
 3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
    for storage buffers: they allow packing data on the application side that
    can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
+4. Scalar layout rules introduced via `VK_EXT_scalar_block_layout`, which
+   basically aligns all aggregrate types according to their elements'
+   natural alignment. They can be enabled by ``-fvk-use-scalar-layout``.
+
+To use scalar layout, the application side need to request
+``VK_EXT_scalar_block_layout``. This is also true for using DirectX memory
+layout since there is no dedicated DirectX layout extension for Vulkan
+(at least for now). So we must request something more permissive.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
@@ -846,19 +854,19 @@ As an exmaple, for the following HLSL definition:
 
 We will have the following offsets for each member:
 
-============== ====== ====== ====== ====== ====== ======
-     HLSL         Uniform Buffer      Storage Buffer
--------------- -------------------- --------------------
-    Member     1 (VK) 2 (DX) 3 (GL) 1 (VK) 2 (DX) 3 (GL)
-============== ====== ====== ====== ====== ====== ======
-``a_float``      0      0      0      0      0     0
-``b_float3``     4      4      16     4      4     16
-``c_S_float3``   16     16     32     16     16    32
-``d_float2x3``   32     32     48     32     28    48
-``e_float2x3``   80     80     96     64     52    80
-``f_int_3``      112    112    128    96     76    112
-``g_float2_2``   160    160    176    112    88    128
-============== ====== ====== ====== ====== ====== ======
+============== ====== ====== ====== ========== ====== ====== ====== ==========
+     HLSL             Uniform Buffer                Storage Buffer
+-------------- ------------------------------- -------------------------------
+    Member     1 (VK) 2 (DX) 3 (GL) 4 (Scalar) 1 (VK) 2 (DX) 3 (GL) 4 (Scalar)
+============== ====== ====== ====== ========== ====== ====== ====== ==========
+``a_float``      0      0      0        0        0      0     0        0
+``b_float3``     4      4      16       4        4      4     16       4
+``c_S_float3``   16     16     32       16       16     16    32       16
+``d_float2x3``   32     32     48       28       32     28    48       28
+``e_float2x3``   80     80     96       52       64     52    80       52
+``f_int_3``      112    112    128      76       96     76    112      76
+``g_float2_2``   160    160    176      88       112    88    128      88
+============== ====== ====== ====== ========== ====== ====== ====== ==========
 
 If the above layout rules do not satisfy your needs and you want to manually
 control the layout of struct members, you can use either
