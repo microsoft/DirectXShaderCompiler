@@ -17,6 +17,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Analysis/AssumptionCache.h"
 
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
@@ -1061,6 +1063,7 @@ class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
   LoopInfo *LI = nullptr;
+  bool CleandupAllocas = false;
   DxilLoopUnroll() : LoopPass(ID) {}
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -1068,6 +1071,7 @@ public:
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequiredID(LoopSimplifyID);
+    AU.addRequired<AssumptionCacheTracker>();
 
     AU.addRequired<DominatorTreeWrapperPass>();
     //AU.addPreservedID(LoopSimplifyID);
@@ -1579,6 +1583,38 @@ static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &Blocks) {
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   Module *M = L->getHeader()->getModule();
+
+  if (!CleandupAllocas) {
+    CleandupAllocas = true;
+
+    std::vector<AllocaInst*> Allocas;
+    Function &F = *L->getBlocks().front()->getParent();
+
+    BasicBlock &BB = F.getEntryBlock();  // Get the entry node for the function
+
+    bool Changed  = false;
+
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    AssumptionCache &AC =
+        getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+
+    while (1) {
+      Allocas.clear();
+
+      // Find allocas that are safe to promote, by looking at all instructions in
+      // the entry node
+      for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
+        if (AllocaInst *AI = dyn_cast<AllocaInst>(I))       // Is it an alloca?
+          if (isAllocaPromotable(AI) && !HLModule::HasPreciseAttributeWithMetadata(AI))
+            Allocas.push_back(AI);
+
+      if (Allocas.empty()) break;
+
+      PromoteMemToReg(Allocas, DT, nullptr, &AC);
+      //NumPromoted += Allocas.size();
+      Changed = true;
+    }
+  }
 
   std::string Before = DumpValue(M);
   SetVector<BasicBlock *> ProblemBlocks;

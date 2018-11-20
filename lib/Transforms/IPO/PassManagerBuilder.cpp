@@ -221,7 +221,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   }
 
   if (!NoOpt) {
-    MPM.add(createPromoteMemoryToRegisterPass());
     MPM.add(createLoopRotatePass());
     MPM.add(createDxilLoopUnrollPass());
   }
