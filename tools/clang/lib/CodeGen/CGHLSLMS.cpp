@@ -572,26 +572,15 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
   bool needNewAlign = Ty->isArrayType();
 
   if (IsHLSLMatType(Ty)) {
-    bool bColMajor = !bDefaultRowMajor;
-    if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-      switch (AT->getAttrKind()) {
-      case AttributedType::Kind::attr_hlsl_column_major:
-        bColMajor = true;
-        break;
-      case AttributedType::Kind::attr_hlsl_row_major:
-        bColMajor = false;
-        break;
-      default:
-        // Do nothing
-        break;
-      }
-    }
+    bool bRowMajor = false;
+    if (!hlsl::HasHLSLMatOrientation(Ty, &bRowMajor))
+      bRowMajor = bDefaultRowMajor;
 
     unsigned row, col;
     hlsl::GetHLSLMatRowColCount(Ty, row, col);
 
-    needNewAlign |= bColMajor && col > 1;
-    needNewAlign |= !bColMajor && row > 1;
+    needNewAlign |= !bRowMajor && col > 1;
+    needNewAlign |= bRowMajor && row > 1;
   }
 
   unsigned scalarSizeInBytes = 4;
@@ -628,20 +617,9 @@ static unsigned AlignBaseOffset(QualType Ty, unsigned baseOffset,
 
 static unsigned GetMatrixSizeInCB(QualType Ty, bool defaultRowMajor,
                                   bool b64Bit) {
-  bool bColMajor = !defaultRowMajor;
-  if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-    switch (AT->getAttrKind()) {
-    case AttributedType::Kind::attr_hlsl_column_major:
-      bColMajor = true;
-      break;
-    case AttributedType::Kind::attr_hlsl_row_major:
-      bColMajor = false;
-      break;
-    default:
-      // Do nothing
-      break;
-    }
-  }
+  bool bRowMajor;
+  if (!hlsl::HasHLSLMatOrientation(Ty, &bRowMajor))
+    bRowMajor = defaultRowMajor;
 
   unsigned row, col;
   hlsl::GetHLSLMatRowColCount(Ty, row, col);
@@ -651,19 +629,19 @@ static unsigned GetMatrixSizeInCB(QualType Ty, bool defaultRowMajor,
   // Align to 4 * 4bytes.
   unsigned alignment = 4 * 4;
 
-  if (bColMajor) {
+  if (bRowMajor) {
+    unsigned rowSize = EltSize * col;
+    // 3x64bit or 4x64bit align to 32 bytes.
+    if (rowSize > alignment)
+      alignment <<= 1;
+    return alignment * (row - 1) + col * EltSize;
+  } else {
     unsigned rowSize = EltSize * row;
     // 3x64bit or 4x64bit align to 32 bytes.
     if (rowSize > alignment)
       alignment <<= 1;
 
     return alignment * (col - 1) + row * EltSize;
-  } else {
-    unsigned rowSize = EltSize * col;
-    // 3x64bit or 4x64bit align to 32 bytes.
-    if (rowSize > alignment)
-      alignment <<= 1;
-    return alignment * (row - 1) + col * EltSize;
   }
 }
 
@@ -2692,25 +2670,11 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
 
     EltTy = EltTy.getCanonicalType();
     bool bSNorm = false;
-    bool bUNorm = false;
-
-    if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-      switch (AT->getAttrKind()) {
-      case AttributedType::Kind::attr_hlsl_snorm:
-        bSNorm = true;
-        break;
-      case AttributedType::Kind::attr_hlsl_unorm:
-        bUNorm = true;
-        break;
-      default:
-        // Do nothing
-        break;
-      }
-    }
+    bool bHasNormAttribute = hlsl::HasHLSLUNormSNorm(Ty, &bSNorm);
 
     if (EltTy->isBuiltinType()) {
       const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
-      CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
+      CompType::Kind kind = BuiltinTyToCompTy(BTy, bHasNormAttribute && bSNorm, bHasNormAttribute && !bSNorm);
       // 64bits types are implemented with u32.
       if (kind == CompType::Kind::U64 || kind == CompType::Kind::I64 ||
           kind == CompType::Kind::SNormF64 ||
@@ -2719,7 +2683,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       }
       hlslRes->SetCompType(kind);
     } else {
-      DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type");
+      DXASSERT(!bHasNormAttribute, "snorm/unorm on invalid type");
     }
   }
 
