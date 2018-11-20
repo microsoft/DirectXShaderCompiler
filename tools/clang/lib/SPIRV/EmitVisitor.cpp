@@ -1101,8 +1101,10 @@ void EmitTypeHandler::getDecorationsForType(const SpirvType *type,
   }
   // RuntimeArray types
   else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
-    // ArrayStride decoration is needed for runtime array types.
-    if (rule != SpirvLayoutRule::Void) {
+    // ArrayStride decoration is needed for runtime arrays containing structures
+    // (StructuredBuffers).
+    if (rule != SpirvLayoutRule::Void &&
+        !isa<ImageType>(raType->getElementType())) {
       uint32_t stride = 0;
       (void)getAlignmentAndSize(type, rule, &stride);
       decs->push_back(DecorationInfo(spv::Decoration::ArrayStride, {stride}));
