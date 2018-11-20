@@ -862,6 +862,13 @@ public:
     return O.BarycentricsSupported != FALSE;
   }
 
+  bool DoesDeviceSupportNative16bitOps(ID3D12Device *pDevice) {
+    D3D12_FEATURE_DATA_D3D12_OPTIONS4 O;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS4, &O, sizeof(O))))
+      return false;
+    return O.Native16BitShaderOpsSupported != FALSE;
+  }
+    
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
     CW2A pEntryPointA(pEntryPoint, CP_UTF8);
@@ -5938,8 +5945,16 @@ void ExecutionTest::RunRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBuffer
        return;
      }
      break;
-   case RawBufferLdStType::Float:
+   case RawBufferLdStType::I16:
    case RawBufferLdStType::Half:
+     if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+       WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+       return;
+     }
+     break;
+   case RawBufferLdStType::I32:
+   case RawBufferLdStType::Float:
      break;
    default:
      DXASSERT_NOMSG("Invalid RawBufferLdStType");
