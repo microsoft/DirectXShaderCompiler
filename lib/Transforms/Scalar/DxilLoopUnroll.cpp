@@ -1616,11 +1616,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
   }
 
-  std::string Before = DumpValue(M);
   SetVector<BasicBlock *> ProblemBlocks;
   FindProblemUsers(L, ProblemBlocks);
-  std::string After = DumpValue(M);
-  bool Changed = Before != After;
 
   if (!IsMarkedFullUnroll(L) && !ProblemBlocks.size())
     return false;
