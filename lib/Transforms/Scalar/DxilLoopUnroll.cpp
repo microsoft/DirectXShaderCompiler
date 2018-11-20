@@ -33,6 +33,10 @@ using namespace hlsl;
 
 namespace {
 
+static std::string GetBlockName(BasicBlock *BB) {
+  return BB->getName();
+}
+
 typedef std::unordered_map<Value*, Value*> ValueToValueMap;
 typedef llvm::SetVector<Value*> ValueSetVector;
 typedef llvm::SmallVector<Value*, 4> IndexVector;
@@ -130,7 +134,7 @@ public:
     AddErrorUsers(V);
     m_bErrorsReported = true;
     if (Instruction *I = dyn_cast<Instruction>(V)) {
-      dxilutil::EmitErrorOnInstruction(I, ErrorText[ec]);
+      //dxilutil::EmitErrorOnInstruction(I, ErrorText[ec]);
     } else {
       StringRef Name = V->getName();
       std::string escName;
@@ -933,25 +937,25 @@ public:
     bool bChanged = false;
     for (const auto &res : HM.GetCBuffers()) {
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
-        bChanged |= SetExternalConstant(GV);
+        //bChanged |= SetExternalConstant(GV);
         CollectResourceGVUsers(GV, GV);
       }
     }
     for (const auto &res : HM.GetSRVs()) {
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
-        bChanged |= SetExternalConstant(GV);
+        //bChanged |= SetExternalConstant(GV);
         CollectResourceGVUsers(GV, GV);
       }
     }
     for (const auto &res : HM.GetUAVs()) {
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
-        bChanged |= SetExternalConstant(GV);
+        //bChanged |= SetExternalConstant(GV);
         CollectResourceGVUsers(GV, GV);
       }
     }
     for (const auto &res : HM.GetSamplers()) {
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
-        bChanged |= SetExternalConstant(GV);
+        //bChanged |= SetExternalConstant(GV);
         CollectResourceGVUsers(GV, GV);
       }
     }
@@ -1124,11 +1128,13 @@ struct ClonedIteration {
   BasicBlock *Latch = nullptr;
   BasicBlock *Header = nullptr;
   ValueToValueMapTy VarMap;
-  std::set<BasicBlock *> Extended;
+  SetVector<BasicBlock *> Extended;
 
   ClonedIteration(const ClonedIteration &o) {
     Body = o.Body;
     Latch = o.Latch;
+    Header = o.Header;
+    Extended = o.Extended;
     for (ValueToValueMapTy::const_iterator It = o.VarMap.begin(), End = o.VarMap.end(); It != End; It++)
       VarMap[It->first] = It->second;
   }
@@ -1271,7 +1277,7 @@ static bool isExitBlock(BasicBlock *BB,
   return false;
 }
 
-static bool processInstruction(std::set<BasicBlock *> &Body, Loop &L, Instruction &Inst, DominatorTree &DT, // HLSL Change
+static bool processInstruction(SetVector<BasicBlock *> &Body, Loop &L, Instruction &Inst, DominatorTree &DT, // HLSL Change
                                const SmallVectorImpl<BasicBlock *> &ExitBlocks,
                                PredIteratorCache &PredCache, LoopInfo *LI) {
 
@@ -1424,7 +1430,7 @@ static bool blockDominatesAnExit(BasicBlock *BB,
 
 // We need to recreate the LCSSA form since our loop boundary is potentially different from
 // the canonical one.
-static bool CreateLCSSA(std::set<BasicBlock *> &Body, std::set<BasicBlock *> &ExitBlockSet, Loop *L, DominatorTree &DT, LoopInfo *LI) {
+static bool CreateLCSSA(SetVector<BasicBlock *> &Body, SetVector<BasicBlock *> &ExitBlockSet, Loop *L, DominatorTree &DT, LoopInfo *LI) {
   /*
   std::set<BasicBlock *> ExitBlockSet;
   for (BasicBlock *BB : Body) {
@@ -1440,7 +1446,7 @@ static bool CreateLCSSA(std::set<BasicBlock *> &Body, std::set<BasicBlock *> &Ex
   bool Changed = false;
   // Look at all the instructions in the loop, checking to see if they have uses
   // outside the loop.  If so, rewrite those uses.
-  for (std::set<BasicBlock *>::iterator BBI = Body.begin(), BBE = Body.end();
+  for (SetVector<BasicBlock *>::iterator BBI = Body.begin(), BBE = Body.end();
        BBI != BBE; ++BBI) {
     BasicBlock *BB = *BBI;
 
@@ -1473,7 +1479,7 @@ static bool IsInExitBlocks(Instruction *I, SmallVectorImpl<BasicBlock *> &Exits)
   return false;
 }
 
-static void FindAllocas(Value *V, std::set<AllocaInst *> &Insts) {
+static void FindAllocas(Value *V, SetVector<AllocaInst *> &Insts) {
   if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
     Insts.insert(AI);
   }
@@ -1500,8 +1506,8 @@ static Instruction *GetNonConstIdx(Value *V) {
   }
   return nullptr;
 }
-#if 0
-static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &ProblemBlocks) {
+#if 1
+static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &ProblemBlocks) {
   Module *M = L->getHeader()->getModule();
 
   SmallVector<BasicBlock *, 16> ExitBlocks;
@@ -1511,7 +1517,7 @@ static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &ProblemBlocks) {
   Helper.CollectResources(M->GetHLModule());
   ValueSetVector &ProblemInsts = Helper.m_Errors.ErrorSets[ResourceUseErrors::GVConflicts];
 
-  std::set<AllocaInst *> ProblemAllocas;
+  SetVector<AllocaInst *> ProblemAllocas;
 
   bool ContainsInstsNeedToUnroll = false;
   for (Value *V : ProblemInsts) {
@@ -1537,9 +1543,9 @@ static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &ProblemBlocks) {
     }
   }
 }
-#endif
+#else
 
-bool IsProblemBlock(BasicBlock *BB, Loop *L) {
+static bool IsProblemBlock(BasicBlock *BB, Loop *L) {
   //SimplifyPHIs(BB);
   for (Instruction &I : *BB) {
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
@@ -1555,7 +1561,8 @@ bool IsProblemBlock(BasicBlock *BB, Loop *L) {
   }
   return false;
 }
-static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &Blocks) {
+
+static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &Blocks) {
   SmallVector<BasicBlock *, 16> ExitBlocks;
   L->getExitBlocks(ExitBlocks);
 
@@ -1568,13 +1575,16 @@ static void FindProblemUsers(Loop *L, std::set<BasicBlock *> &Blocks) {
       Blocks.insert(BB);
   }
 }
+#endif
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
-
   Module *M = L->getHeader()->getModule();
 
-  std::set<BasicBlock *> ProblemBlocks;
+  std::string Before = DumpValue(M);
+  SetVector<BasicBlock *> ProblemBlocks;
   FindProblemUsers(L, ProblemBlocks);
+  std::string After = DumpValue(M);
+  bool Changed = Before != After;
 
   if (!IsMarkedFullUnroll(L) && !ProblemBlocks.size())
     return false;
@@ -1593,7 +1603,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   L->getExitBlocks(ExitBlocks);
   SmallVector<BasicBlock *, 16> BlocksInLoop(L->getBlocks().begin(), L->getBlocks().end());
   BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
-  std::set<BasicBlock *> ExitBlockSet;
+  SetVector<BasicBlock *> ExitBlockSet;
 
   // Quit if we don't have a single latch block
   if (!Latch)
@@ -1610,12 +1620,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   for (BasicBlock *BB : BlocksInLoop)
     SimplifyPHIs(BB);
 
-#if 0
-  // Determine if we absolutely
-  if (!HeuristicallyDetermineUnrollNecessary(L))
-    return false;
-#endif
-
   // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;
   for (auto it = Header->begin(); it != Header->end(); it++) {
@@ -1629,15 +1633,15 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
   }
 
-  std::set<BasicBlock *> ToBeCloned;
+  SetVector<BasicBlock *> ToBeCloned;
   for (BasicBlock *BB : L->getBlocks())
     ToBeCloned.insert(BB);
 
-  std::set<BasicBlock *> NewExits;
-  std::set<BasicBlock *> FakeExits;
+  SetVector<BasicBlock *> NewExits;
+  SetVector<BasicBlock *> FakeExits;
   for (BasicBlock *BB : ExitBlocks) {
     ExitBlockSet.insert(BB);
-    bool CloneThisExitBlock = true;// !!ProblemBlocks.count(BB);
+    bool CloneThisExitBlock = !!ProblemBlocks.count(BB);
 
     if (CloneThisExitBlock) {
       ToBeCloned.insert(BB);
@@ -1663,6 +1667,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       NewExits.insert(FakeExit);
       FakeExits.insert(FakeExit);
+
+      if (!DT->getNode(FakeExit))
+        DT->addNewBlock(FakeExit, BB);
     }
     else {
       NewExits.insert(BB);
@@ -1681,12 +1688,13 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   for (int i = 0; i < 128; i++) { // TODO: Num of iterations
     ClonedBlocks.clear();
     CloneMap.clear();
-    ClonedIteration *PrevIteration = nullptr;
-    if (Clones.size())
-      PrevIteration = &Clones.back();
 
     Clones.resize(Clones.size() + 1);
     ClonedIteration &Cloned = Clones.back();
+
+    ClonedIteration *PrevIteration = nullptr;
+    if (Clones.size() >= 2)
+      PrevIteration = &Clones[Clones.size()-2];
 
     // Helper function for cloning a block
     auto CloneBlock = [Header, &ExitBlockSet, &ToBeCloned, &Cloned, &CloneMap, &ReverseCloneMap, &ClonedBlocks, F](BasicBlock *BB) { // TODO: Cleanup
@@ -1810,6 +1818,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
+    auto &FirstIteration = Clones.front();
     // Go through the predecessors of the old header and
     // make them branch to the new header.
     SmallVector<BasicBlock *, 8> Preds(pred_begin(Header), pred_end(Header));
@@ -1819,7 +1828,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       BranchInst *BI = cast<BranchInst>(PredBB->getTerminator());
       for (unsigned i = 0, NumSucc = BI->getNumSuccessors(); i < NumSucc; i++) {
         if (BI->getSuccessor(i) == Header) {
-          BI->setSuccessor(i, Clones.front().Header);
+          BI->setSuccessor(i, FirstIteration.Header);
         }
       }
     }
@@ -1872,6 +1881,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (BasicBlock *BB : ToBeCloned)
       BB->eraseFromParent();
 
+    DXASSERT(!llvm::verifyFunction(*F), "Failed verification");
+    //std::string Dat = DumpValue(M);
     return true;
   }
 
@@ -1887,6 +1898,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (ClonedIteration &Iteration : Clones)
       for (BasicBlock *BB : Iteration.Body)
         BB->eraseFromParent();
+
+    L->verifyLoop();
+    DXASSERT(!llvm::verifyFunction(*F), "Failed verification");
     return false;
   }
 }
