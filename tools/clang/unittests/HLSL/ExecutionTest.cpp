@@ -5820,8 +5820,8 @@ TEST_F(ExecutionTest, BarycentricsTest) {
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Barycentrics", nullptr);
     MappedData data;
     D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-    UINT width = (UINT64)D.Width;
-    UINT height = (UINT64)D.Height;
+    UINT width = (UINT)D.Width;
+    UINT height = D.Height;
     UINT pixelSize = GetByteSizeForFormat(D.Format);
 
     test->Test->GetReadBackData("RTarget", &data);
@@ -5855,8 +5855,8 @@ TEST_F(ExecutionTest, BarycentricsTest) {
         float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
         float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
         // map from x1 y1 to rtv pixels
-        int pixelX = (x1 + 1) * (width - 1) / 2;
-        int pixelY = (1 - y1) * (height - 1) / 2;
+        int pixelX = (int)((x1 + 1) * (width - 1) / 2);
+        int pixelY = (int)((1 - y1) * (height - 1) / 2);
         int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
         LogCommentFmt(L"location  %u %u, value %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2]);
         VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset], w0, tolerance));
