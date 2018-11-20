@@ -222,45 +222,6 @@ private:
       }
     }
 
-    // Allocate unallocated and unbounded resources,
-    // these happen last since they go after everything else.
-    for (auto &res : resourceList) {
-      if (!res->IsAllocated() && res->IsUnbounded()) {
-        DXASSERT(res->GetSpaceID() == 0,
-          "otherwise non-zero space has no user register assignment");
-        if (alloc0.GetUnbounded() != nullptr) {
-          const T *unbounded = alloc0.GetUnbounded();
-          Ctx.emitError(Twine("more than one unbounded resource (") +
-            unbounded->GetGlobalName() + Twine(" and ") +
-            res->GetGlobalName() + Twine(") in space ") +
-            Twine(space));
-          continue;
-        }
-
-        unsigned reg = 0;
-        if (reservedAlloc0.FindForUnbounded(reg)) {
-          unsigned end = UINT_MAX;
-
-          bool success = reservedAlloc0.Insert(res.get(), reg, end) == nullptr;
-          DXASSERT_NOMSG(success);
-          reservedAlloc0.SetUnbounded(res.get());
-
-          success = alloc0.Insert(res.get(), reg, end) == nullptr;
-          DXASSERT_NOMSG(success);
-          alloc0.SetUnbounded(res.get());
-
-          res->SetLowerBound(reg);
-          res->SetSpaceID(space);
-          bChanged = true;
-        }
-        else {
-          Ctx.emitError(((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
-            Twine("resource ") + res->GetGlobalName() +
-            Twine(" could not be allocated"));
-        }
-      }
-    }
-
     return bChanged;
   }
 
