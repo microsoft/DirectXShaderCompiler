@@ -61,6 +61,17 @@ public:
     return Find(size, next, pos, align);
   }
 
+  // Finds the farthest position at which an element could be allocated.
+  bool FindForUnbounded(T_index &pos, T_index align = 1) {
+    if (m_Spans.empty()) {
+      pos = m_Min;
+      return UpdatePos(pos, /*size*/1, align);
+    }
+
+    pos = m_Spans.crbegin()->end;
+    return IncPos(pos, /*inc*/ 1, /*size*/1, align);
+  }
+
   // allocate element size in first available space, returns false on failure
   bool Allocate(const T_element *element, T_index size, T_index &pos, T_index align = 1) {
     DXASSERT_NOMSG(size);
@@ -113,6 +124,21 @@ public:
       return result.first->element;
     AdvanceFirstFree(result.first);
     return nullptr;
+  }
+
+  // Insert at specific location, overwriting anything previously there,
+  // losing their element pointer, but conserving the spans they represented.
+  void ForceInsertAndClobber(const T_element *element, T_index start, T_index end) {
+    DXASSERT_NOMSG(m_Min <= start && start <= end && end <= m_Max);
+    for (;;) {
+      auto result = m_Spans.emplace(element, start, end);
+      if (result.second)
+        break;
+      // Delete the spans we overlap with, but make sure our new span covers what they covered.
+      start = std::min(result.first->start, start);
+      end = std::max(result.first->end, end);
+      m_Spans.erase(result.first);
+    }
   }
 
 private:

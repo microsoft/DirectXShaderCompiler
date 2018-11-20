@@ -74,6 +74,10 @@ public:
   static const unsigned kDxilShaderModelMajorIdx  = 1;  // Shader model major.
   static const unsigned kDxilShaderModelMinorIdx  = 2;  // Shader model minor.
 
+  // Intermediate codegen/optimizer options, not valid in final DXIL module.
+  static const char kDxilIntermediateOptionsMDName[];
+  static const unsigned kDxilIntermediateOptionsFlags = 0;  // Unique element ID.
+
   // Entry points.
   static const char kDxilEntryPointsMDName[];
 
@@ -285,6 +289,10 @@ public:
   // Shader model.
   void EmitDxilShaderModel(const ShaderModel *pSM);
   void LoadDxilShaderModel(const ShaderModel *&pSM);
+
+  // Intermediate flags
+  void EmitDxilIntermediateOptions(uint32_t flags);
+  void LoadDxilIntermediateOptions(uint32_t &flags);
 
   // Entry points.
   void EmitDxilEntryPoints(std::vector<llvm::MDNode *> &MDEntries);

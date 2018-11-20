@@ -159,6 +159,7 @@ public:
   bool DisassembleByteOffset = false; //OPT_No
   bool DisaseembleHex = false; //OPT_Lx
   bool LegacyMacroExpansion = false; // OPT_flegacy_macro_expansion
+  bool LegacyResourceReservation = false; // OPT_flegacy_resource_reservation
   unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
   bool ExportShadersOnly = false; // OPT_export_shaders_only
 

@@ -255,57 +255,52 @@ void HLModule::RemoveFunction(llvm::Function *F) {
   m_pOP->RemoveFunction(F);
 }
 
-template <typename TResource>
-bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
-                    GlobalVariable *pVariable) {
-  for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
-    if ((*p)->GetGlobalSymbol() == pVariable) {
-      p = vec.erase(p);
-      // Update ID.
-      for (e = vec.end();p != e; ++p) {
-        unsigned ID = (*p)->GetID()-1;
-        (*p)->SetID(ID);
+namespace {
+  template <typename TResource>
+  bool RemoveResource(std::vector<std::unique_ptr<TResource>> &vec,
+    GlobalVariable *pVariable, bool keepAllocated) {
+    for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
+      if ((*p)->GetGlobalSymbol() != pVariable)
+        continue;
+
+      if (keepAllocated && (*p)->IsAllocated()) {
+        // Keep the resource, but it has no more symbol.
+        (*p)->SetGlobalSymbol(UndefValue::get(pVariable->getType()));
+      } else {
+        // Erase the resource alltogether and update IDs of subsequent ones
+        p = vec.erase(p);
+        for (e = vec.end(); p != e; ++p) {
+          unsigned ID = (*p)->GetID() - 1;
+          (*p)->SetID(ID);
+        }
       }
+
       return true;
     }
+    return false;
   }
-  return false;
-}
-bool RemoveResource(std::vector<GlobalVariable *> &vec,
-                    llvm::GlobalVariable *pVariable) {
-  for (auto p = vec.begin(), e = vec.end(); p != e; ++p) {
-    if (*p == pVariable) {
-      vec.erase(p);
-      return true;
-    }
-  }
-  return false;
 }
 
 void HLModule::RemoveGlobal(llvm::GlobalVariable *GV) {
-  RemoveResources(&GV, 1);
-}
+  DXASSERT_NOMSG(GV != nullptr);
 
-void HLModule::RemoveResources(llvm::GlobalVariable **ppVariables,
-                               unsigned count) {
-  DXASSERT_NOMSG(count == 0 || ppVariables != nullptr);
-  unsigned resourcesRemoved = count;
-  for (unsigned i = 0; i < count; ++i) {
-    GlobalVariable *pVariable = ppVariables[i];
-    // This could be considerably faster - check variable type to see which
-    // resource type this is rather than scanning all lists, and look for
-    // usage and removal patterns.
-    if (RemoveResource(m_CBuffers, pVariable))
-      continue;
-    if (RemoveResource(m_SRVs, pVariable))
-      continue;
-    if (RemoveResource(m_UAVs, pVariable))
-      continue;
-    if (RemoveResource(m_Samplers, pVariable))
-      continue;
-    // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
-    --resourcesRemoved; // Global variable is not a resource?
-  }
+  // With legacy resource reservation, we must keep unused resources around
+  // when they have a register allocation because they prevent that
+  // register range from being allocated to other resources.
+  bool keepAllocated = GetHLOptions().bLegacyResourceReservation;
+
+  // This could be considerably faster - check variable type to see which
+  // resource type this is rather than scanning all lists, and look for
+  // usage and removal patterns.
+  if (RemoveResource(m_CBuffers, GV, keepAllocated))
+    return;
+  if (RemoveResource(m_SRVs, GV, keepAllocated))
+    return;
+  if (RemoveResource(m_UAVs, GV, keepAllocated))
+    return;
+  if (RemoveResource(m_Samplers, GV, keepAllocated))
+    return;
+  // TODO: do m_TGSMVariables and m_StreamOutputs need maintenance?
 }
 
 HLModule::tgsm_iterator HLModule::tgsm_begin() {

@@ -110,7 +110,7 @@ public:
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   void RemoveUnusedResources();
-  void RemoveUnusedResourceSymbols();
+  void RemoveResourcesWithUnusedSymbols();
   void RemoveFunction(llvm::Function *F);
 
   // Signatures.
@@ -249,6 +249,11 @@ public:
   void SetAllResourcesBound(bool resourcesBound);
   bool GetAllResourcesBound() const;
 
+  // Intermediate options that do not make it to DXIL
+  void SetLegacyResourceReservation(bool legacyResourceReservation);
+  bool GetLegacyResourceReservation() const;
+  void ClearIntermediateOptions();
+
   // Hull and Domain shaders.
   unsigned GetInputControlPointCount() const;
   void SetInputControlPointCount(unsigned NumICPs);
@@ -292,6 +297,11 @@ private:
   unsigned m_ActiveStreamMask;
 
 private:
+  enum IntermediateFlags : uint32_t {
+    LegacyResourceReservation = 1 << 0,
+  };
+
+private:
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule;
   llvm::Function *m_pEntryFunc;
@@ -330,10 +340,13 @@ private:
   template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
   void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig, bool bInput);
 
-  // properties from HLModule
+  // properties from HLModule preserved as ShaderFlags
   bool m_bDisableOptimizations;
   bool m_bUseMinPrecision;
   bool m_bAllResourcesBound;
+
+  // properties from HLModule that should not make it to the final DXIL
+  uint32_t m_IntermediateFlags;
   uint32_t m_AutoBindingSpace;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;

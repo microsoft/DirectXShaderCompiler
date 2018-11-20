@@ -1138,8 +1138,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   // Create reflection type, if we have the necessary annotation info
 
   // Extract the `struct` that wraps element type of the buffer resource
-  Constant *GV = R.GetGlobalSymbol();
-  Type *Ty = GV->getType()->getPointerElementType();
+  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
   if(Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
   StructType *ST = cast<StructType>(Ty);
