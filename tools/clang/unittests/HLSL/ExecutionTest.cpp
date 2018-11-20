@@ -485,6 +485,7 @@ public:
      Float,
      I64,
      Double,
+     I16,
      Half
   };
 
@@ -5866,7 +5867,7 @@ TEST_F(ExecutionTest, BarycentricsTest) {
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
-  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdStI32");
+  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "ComputeRawBufferLdStI32");
 }
 
 TEST_F(ExecutionTest,    ComputeRawBufferLdStFloat)  {
@@ -5882,7 +5883,7 @@ TEST_F(ExecutionTest,  ComputeRawBufferLdStDouble)  {
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
-  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdStI16");
+  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "ComputeRawBufferLdStI16");
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
@@ -5890,11 +5891,11 @@ TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI32)  {
-   RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "GraphicsRawBufferLdStI32");
+   RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "GraphicsRawBufferLdStI32");
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStFloat)  {
-   RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I64, "GraphicsRawBufferLdStFloat");
+   RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "GraphicsRawBufferLdStFloat");
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI64)  {
@@ -5906,7 +5907,7 @@ TEST_F(ExecutionTest,  GraphicsRawBufferLdStDouble)  {
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
-  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "GraphicsRawBufferLdStI16");
+  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "GraphicsRawBufferLdStI16");
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
