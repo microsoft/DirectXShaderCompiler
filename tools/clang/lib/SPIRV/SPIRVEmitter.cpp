@@ -524,37 +524,6 @@ std::string getFnName(const FunctionDecl *fn) {
   return getNamespacePrefix(fn) + classOrStructName + fn->getName().str();
 }
 
-/// Returns the capability required to non-uniformly index into the given type.
-spv::Capability getNonUniformCapability(QualType type) {
-  using spv::Capability;
-
-  if (type->isArrayType()) {
-    return getNonUniformCapability(
-        type->getAsArrayTypeUnsafe()->getElementType());
-  }
-  if (TypeTranslator::isTexture(type) || TypeTranslator::isSampler(type)) {
-    return Capability::SampledImageArrayNonUniformIndexingEXT;
-  }
-  if (TypeTranslator::isRWTexture(type)) {
-    return Capability::StorageImageArrayNonUniformIndexingEXT;
-  }
-  if (TypeTranslator::isBuffer(type)) {
-    return Capability::UniformTexelBufferArrayNonUniformIndexingEXT;
-  }
-  if (TypeTranslator::isRWBuffer(type)) {
-    return Capability::StorageTexelBufferArrayNonUniformIndexingEXT;
-  }
-  if (const auto *recordType = type->getAs<RecordType>()) {
-    const auto name = recordType->getDecl()->getName();
-
-    if (name == "SubpassInput" || name == "SubpassInputMS") {
-      return Capability::InputAttachmentArrayNonUniformIndexingEXT;
-    }
-  }
-
-  return Capability::Max;
-}
-
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
@@ -2999,9 +2968,8 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   auto *samplerState = doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(1));
 
-  auto *sampledImageType = spvContext.getSampledImageType(object->getType());
   auto *sampledImage = spvBuilder.createBinaryOp(
-      spv::Op::OpSampledImage, sampledImageType, objectInfo, samplerState);
+      spv::Op::OpSampledImage, object->getType(), objectInfo, samplerState);
 
   if (objectInfo->isNonUniform() || samplerState->isNonUniform()) {
     // The sampled image will be used to access resource's memory, so we need
