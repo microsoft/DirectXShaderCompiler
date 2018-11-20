@@ -32,9 +32,15 @@ public:
 
   // Custom visitor for variables. Variables must have a pointer result-type.
   bool visit(SpirvVariable *);
+
   // Custom visitor for function parameters. We use pointer type for function
   // parameters.
   bool visit(SpirvFunctionParameter *);
+
+  // Custom visitor for OpSampledImage. The result type of OpSampledImage should
+  // be OpTypeSampledImage, but instruction stores the QualType for the
+  // underlying image.
+  bool visit(SpirvSampledImage *);
 
   /// The "sink" visit function for all instructions.
   ///
@@ -61,7 +67,7 @@ private:
   ///
   /// Uses the above lowerType method to lower the QualType components of hybrid
   /// types.
-  const SpirvType *lowerType(const HybridType *, SpirvLayoutRule,
+  const SpirvType *lowerType(const SpirvType *, SpirvLayoutRule,
                              SourceLocation);
 
   /// Lowers the given HLSL resource type into its SPIR-V type.
