@@ -2420,6 +2420,7 @@ static CXXRecordDecl *CreateRayDescStruct(clang::ASTContext &context,
   CXXRecordDecl *rayDescDecl = CXXRecordDecl::Create(
       context, TagTypeKind::TTK_Struct, currentDeclContext, NoLoc, NoLoc,
       &rayDesc, nullptr, DelayTypeCreationTrue);
+  rayDescDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   rayDescDecl->startDefinition();
 
   QualType floatTy = context.FloatTy;
@@ -2451,6 +2452,7 @@ static CXXRecordDecl *AddBuiltInTriangleIntersectionAttributes(ASTContext& conte
     CXXRecordDecl *attributesDecl = CXXRecordDecl::Create(
         context, TagTypeKind::TTK_Struct, curDC, NoLoc, NoLoc,
         &attributesId, nullptr, DelayTypeCreationTrue);
+    attributesDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
     attributesDecl->startDefinition();
     // float2 barycentrics;
     CreateSimpleField(context, attributesDecl, "barycentrics", baryType);
@@ -2467,6 +2469,7 @@ static CXXRecordDecl *StartSubobjectDecl(ASTContext& context, const char *name) 
   IdentifierInfo &id = context.Idents.get(StringRef(name), tok::TokenKind::identifier);
   CXXRecordDecl *decl = CXXRecordDecl::Create( context, TagTypeKind::TTK_Struct, 
     context.getTranslationUnitDecl(), NoLoc, NoLoc, &id, nullptr, DelayTypeCreationTrue);
+  decl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   decl->startDefinition();
   return decl;
 }
