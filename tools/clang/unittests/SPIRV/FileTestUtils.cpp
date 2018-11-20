@@ -36,11 +36,16 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 
 bool validateSpirvBinary(spv_target_env env, std::vector<uint32_t> &binary,
                          bool relaxLogicalPointer, bool glLayout, bool dxLayout,
-                         std::string *message) {
+                         bool scalarLayout, std::string *message) {
   spvtools::ValidatorOptions options;
   options.SetRelaxLogicalPointer(relaxLogicalPointer);
-  options.SetRelaxBlockLayout(!glLayout && !dxLayout);
-  options.SetSkipBlockLayout(dxLayout);
+  if (dxLayout || scalarLayout) {
+    options.SetSkipBlockLayout(true);
+  } else if (glLayout) {
+    // The default for spirv-val.
+  } else {
+    options.SetRelaxBlockLayout(true);
+  }
   spvtools::SpirvTools spirvTools(env);
   spirvTools.SetMessageConsumer([message](spv_message_level_t, const char *,
                                           const spv_position_t &,
