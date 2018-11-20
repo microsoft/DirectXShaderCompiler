@@ -412,11 +412,13 @@ public:
   TEST_METHOD(ComputeRawBufferLdStFloat);
   TEST_METHOD(ComputeRawBufferLdStI64);
   TEST_METHOD(ComputeRawBufferLdStDouble);
+  TEST_METHOD(ComputeRawBufferLdStI16);
   TEST_METHOD(ComputeRawBufferLdStHalf);
   TEST_METHOD(GraphicsRawBufferLdStI32);
   TEST_METHOD(GraphicsRawBufferLdStFloat);
   TEST_METHOD(GraphicsRawBufferLdStI64);
   TEST_METHOD(GraphicsRawBufferLdStDouble);
+  TEST_METHOD(GraphicsRawBufferLdStI16);
   TEST_METHOD(GraphicsRawBufferLdStHalf);
 
   // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
@@ -850,6 +852,13 @@ public:
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
       return false;
     return O.WaveOps != FALSE;
+  }
+
+  bool DoesDeviceSupportBarycentrics(ID3D12Device *pDevice) {
+    D3D12_FEATURE_DATA_D3D12_OPTIONS3 O;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS3, &O, sizeof(O))))
+      return false;
+    return O.BarycentricsSupported != FALSE;
   }
 
 #ifndef _HLK_CONF
@@ -5801,6 +5810,12 @@ TEST_F(ExecutionTest, BarycentricsTest) {
     if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_1))
         return;
 
+    if (!DoesDeviceSupportBarycentrics(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support barycentrics.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Barycentrics", nullptr);
     MappedData data;
     D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
@@ -5866,6 +5881,10 @@ TEST_F(ExecutionTest,  ComputeRawBufferLdStDouble)  {
    RunRawBufferLdStTest(D3D_SHADER_MODEL_6_3, RawBufferLdStType::Double, "ComputeRawBufferLdStDouble");
 }
 
+TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
+  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdStI16");
+}
+
 TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
    RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "ComputeRawBufferLdStHalf");
 }
@@ -5884,6 +5903,10 @@ TEST_F(ExecutionTest,  GraphicsRawBufferLdStI64)  {
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStDouble)  {
    RunRawBufferLdStTest(D3D_SHADER_MODEL_6_3, RawBufferLdStType::Double, "GraphicsRawBufferLdStDouble");
+}
+
+TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
+  RunRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "GraphicsRawBufferLdStI16");
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {

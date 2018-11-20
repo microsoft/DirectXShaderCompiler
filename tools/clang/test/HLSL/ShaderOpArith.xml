@@ -590,6 +590,8 @@
   </ShaderOp>>
   <ShaderOp Name="ComputeRawBufferLdStDouble" CS="CS">
   </ShaderOp>>
+  <ShaderOp Name="ComputeRawBufferLdStI16" CS="CS">
+  </ShaderOp>>
   <ShaderOp Name="ComputeRawBufferLdStHalf" CS="CS">
   </ShaderOp>>
   
@@ -600,6 +602,8 @@
   <ShaderOp Name="GraphicsRawBufferLdStI64" PS="PS" VS="VS">
   </ShaderOp>
   <ShaderOp Name="GraphicsRawBufferLdStDouble" PS="PS" VS="VS">
+  </ShaderOp>
+  <ShaderOp Name="GraphicsRawBufferLdSt16" PS="PS" VS="VS">
   </ShaderOp>
   <ShaderOp Name="GraphicsRawBufferLdStHalf" PS="PS" VS="VS">
   </ShaderOp>
