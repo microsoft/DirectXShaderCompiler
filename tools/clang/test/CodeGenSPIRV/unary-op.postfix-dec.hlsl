@@ -2,6 +2,9 @@
 
 // CHECK: [[v3float_1_1_1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
 
+RWTexture2D<float>  MyTexture : register(u1);
+RWBuffer<int> intbuf;
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
     int a, b;
@@ -31,4 +34,25 @@ void main() {
 // CHECK-NEXT: OpStore %x [[x1]]
 // CHECK-NEXT: OpStore %y [[x0]]
     y = x--;
+
+  uint2 index;
+// CHECK:      [[index:%\d+]] = OpLoad %v2uint %index
+// CHECK-NEXT:   [[img:%\d+]] = OpLoad %type_2d_image %MyTexture
+// CHECK-NEXT:   [[vec:%\d+]] = OpImageRead %v4float [[img]] [[index]] None
+// CHECK-NEXT:   [[val:%\d+]] = OpCompositeExtract %float [[vec]] 0
+// CHECK-NEXT:   [[dec:%\d+]] = OpFSub %float [[val]] %float_1
+// CHECK:      [[index:%\d+]] = OpLoad %v2uint %index
+// CHECK-NEXT:   [[img:%\d+]] = OpLoad %type_2d_image %MyTexture
+// CHECK-NEXT:                  OpImageWrite [[img]] [[index]] [[dec]]
+// CHECK-NEXT:                  OpStore %s [[val]]
+  float s = MyTexture[index]--;
+
+// CHECK:      [[img:%\d+]] = OpLoad %type_buffer_image %intbuf
+// CHECK-NEXT: [[vec:%\d+]] = OpImageRead %v4int [[img]] %uint_1 None
+// CHECK-NEXT: [[val:%\d+]] = OpCompositeExtract %int [[vec]] 0
+// CHECK-NEXT: [[dec:%\d+]] = OpISub %int [[val]] %int_1
+// CHECK-NEXT: [[img:%\d+]] = OpLoad %type_buffer_image %intbuf
+// CHECK-NEXT:       OpImageWrite [[img]] %uint_1 [[dec]]
+// CHECK-NEXT:       OpStore %t [[val]]
+  int t = intbuf[1]--;
 }
