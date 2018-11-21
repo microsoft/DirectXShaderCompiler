@@ -431,6 +431,9 @@ public:
   /// \brief Decorates the given target <result-id> with nonuniformEXT
   void decorateNonUniformEXT(uint32_t targetId);
 
+  /// \brief Decorates the given target <result-id> with NoContraction
+  void decorateNoContraction(uint32_t targetId);
+
   // === Type ===
 
   uint32_t getVoidType();
