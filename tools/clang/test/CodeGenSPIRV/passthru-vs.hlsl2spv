@@ -44,6 +44,8 @@ PSInput main(float4 position: POSITION, float4 color: COLOR) {
 //                OpMemberDecorate %PSInput 0 Offset 0
 //                OpMemberDecorate %PSInput 1 Offset 16
 //         %int = OpTypeInt 32 1
+//       %int_0 = OpConstant %int 0
+//       %int_1 = OpConstant %int 1
 //       %float = OpTypeFloat 32
 //     %v4float = OpTypeVector %float 4
 // %_ptr_Input_v4float = OpTypePointer Input %v4float
@@ -54,8 +56,6 @@ PSInput main(float4 position: POSITION, float4 color: COLOR) {
 //     %PSInput = OpTypeStruct %v4float %v4float
 //          %26 = OpTypeFunction %PSInput %_ptr_Function_v4float %_ptr_Function_v4float
 // %_ptr_Function_PSInput = OpTypePointer Function %PSInput
-//       %int_0 = OpConstant %int 0
-//       %int_1 = OpConstant %int 1
 // %in_var_POSITION = OpVariable %_ptr_Input_v4float Input
 // %in_var_COLOR = OpVariable %_ptr_Input_v4float Input
 // %gl_Position = OpVariable %_ptr_Output_v4float Output

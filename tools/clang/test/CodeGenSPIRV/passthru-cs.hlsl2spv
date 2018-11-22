@@ -50,6 +50,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
 //                OpMemberDecorate %type_RWByteAddressBuffer 0 Offset 0
 //                OpDecorate %type_RWByteAddressBuffer BufferBlock
 //         %int = OpTypeInt 32 1
+//       %int_0 = OpConstant %int 0
 //        %uint = OpTypeInt 32 0
 //      %uint_4 = OpConstant %uint 4
 //      %uint_2 = OpConstant %uint 2
@@ -67,7 +68,6 @@ void main( uint3 DTid : SV_DispatchThreadID )
 //          %26 = OpTypeFunction %void %_ptr_Function_v3uint
 // %_ptr_Function_uint = OpTypePointer Function %uint
 // %_ptr_Uniform_uint = OpTypePointer Uniform %uint
-//       %int_0 = OpConstant %int 0
 //     %Buffer0 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
 //   %BufferOut = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
 // %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
