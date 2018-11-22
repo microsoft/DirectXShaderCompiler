@@ -55,6 +55,7 @@ public:
   virtual ~SpirvType() = default;
 
   Kind getKind() const { return kind; }
+  llvm::StringRef getName() const { return debugName; }
 
   static bool isTexture(const SpirvType *);
   static bool isRWTexture(const SpirvType *);
@@ -67,10 +68,11 @@ public:
   static bool isOrContains16BitType(const SpirvType *);
 
 protected:
-  SpirvType(Kind k) : kind(k) {}
+  SpirvType(Kind k, llvm::StringRef name = "") : kind(k), debugName(name) {}
 
 private:
   const Kind kind;
+  std::string debugName;
 };
 
 class VoidType : public SpirvType {
@@ -203,6 +205,9 @@ public:
   spv::ImageFormat getImageFormat() const { return imageFormat; }
 
 private:
+  std::string getImageName(spv::Dim, bool arrayed);
+
+private:
   const NumericalType *sampledType;
   spv::Dim dimension;
   WithDepth imageDepth;
@@ -214,7 +219,7 @@ private:
 
 class SamplerType : public SpirvType {
 public:
-  SamplerType() : SpirvType(TK_Sampler) {}
+  SamplerType() : SpirvType(TK_Sampler, "type.sampler") {}
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Sampler; }
 };
@@ -222,7 +227,7 @@ public:
 class SampledImageType : public SpirvType {
 public:
   SampledImageType(const ImageType *image)
-      : SpirvType(TK_SampledImage), imageType(image) {}
+      : SpirvType(TK_SampledImage, "type.sampled.image"), imageType(image) {}
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_SampledImage;
@@ -294,7 +299,7 @@ public:
 
   llvm::ArrayRef<FieldInfo> getFields() const { return fields; }
   bool isReadOnly() const { return readOnly; }
-  std::string getStructName() const { return structName; }
+  llvm::StringRef getStructName() const { return getName(); }
   StructInterfaceType getInterfaceType() const { return interfaceType; }
 
   bool operator==(const StructType &that) const;
@@ -305,7 +310,6 @@ private:
   // names when considering unification. Otherwise, reflection will be confused.
 
   llvm::SmallVector<FieldInfo, 8> fields;
-  std::string structName;
   bool readOnly;
   // Indicates the interface type of this structure. If this structure is a
   // storage buffer shader-interface, it will be decorated with 'BufferBlock'.
@@ -363,7 +367,7 @@ public:
   }
 
 protected:
-  HybridType(Kind k) : SpirvType(k) {}
+  HybridType(Kind k, llvm::StringRef name = "") : SpirvType(k, name) {}
 };
 
 /// **NOTE**: This type is created in order to facilitate transition of old
@@ -403,7 +407,7 @@ public:
 
   llvm::ArrayRef<FieldInfo> getFields() const { return fields; }
   bool isReadOnly() const { return readOnly; }
-  std::string getStructName() const { return structName; }
+  llvm::StringRef getStructName() const { return getName(); }
   StructInterfaceType getInterfaceType() const { return interfaceType; }
 
   bool operator==(const HybridStructType &that) const;
@@ -414,7 +418,6 @@ private:
   // names when considering unification. Otherwise, reflection will be confused.
 
   llvm::SmallVector<FieldInfo, 8> fields;
-  std::string structName;
   bool readOnly;
   // Indicates the interface type of this structure. If this structure is a
   // storage buffer shader-interface, it will be decorated with 'BufferBlock'.
