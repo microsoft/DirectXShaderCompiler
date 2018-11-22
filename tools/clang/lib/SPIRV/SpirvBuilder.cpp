@@ -723,13 +723,15 @@ void SpirvBuilder::addExtension(Extension ext, llvm::StringRef target,
   // TODO: The extension management should be removed from here and added as a
   // separate pass.
 
-  assert(featureManager);
-  featureManager->requestExtension(ext, target, loc);
-  // Do not emit OpExtension if the given extension is natively supported in the
-  // target environment.
-  if (featureManager->isExtensionRequiredForTargetEnv(ext))
-    module->addExtension(new (context) SpirvExtension(
-        loc, featureManager->getExtensionName(ext)));
+  if (existingExtensions.insert(ext)) {
+    assert(featureManager);
+    featureManager->requestExtension(ext, target, loc);
+    // Do not emit OpExtension if the given extension is natively supported in
+    // the target environment.
+    if (featureManager->isExtensionRequiredForTargetEnv(ext))
+      module->addExtension(new (context) SpirvExtension(
+          loc, featureManager->getExtensionName(ext)));
+  }
 }
 
 SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet(SourceLocation loc) {

@@ -141,9 +141,41 @@ bool MatrixType::operator==(const MatrixType &that) const {
 ImageType::ImageType(const NumericalType *type, spv::Dim dim, WithDepth depth,
                      bool arrayed, bool ms, WithSampler sampled,
                      spv::ImageFormat format)
-    : SpirvType(TK_Image), sampledType(type), dimension(dim), imageDepth(depth),
-      isArrayed(arrayed), isMultiSampled(ms), isSampled(sampled),
-      imageFormat(format) {}
+    : SpirvType(TK_Image, getImageName(dim, arrayed)), sampledType(type),
+      dimension(dim), imageDepth(depth), isArrayed(arrayed), isMultiSampled(ms),
+      isSampled(sampled), imageFormat(format) {}
+
+std::string ImageType::getImageName(spv::Dim dim, bool arrayed) {
+  const char *dimStr = "";
+  switch (dim) {
+  case spv::Dim::Dim1D:
+    dimStr = "1d.";
+    break;
+  case spv::Dim::Dim2D:
+    dimStr = "2d.";
+    break;
+  case spv::Dim::Dim3D:
+    dimStr = "3d.";
+    break;
+  case spv::Dim::Cube:
+    dimStr = "cube.";
+    break;
+  case spv::Dim::Rect:
+    dimStr = "rect.";
+    break;
+  case spv::Dim::Buffer:
+    dimStr = "buffer.";
+    break;
+  case spv::Dim::SubpassData:
+    dimStr = "subpass.";
+    break;
+  default:
+    break;
+  }
+  std::string name =
+      std::string("type.") + dimStr + "image" + (arrayed ? ".array" : "");
+  return name;
+}
 
 bool ImageType::operator==(const ImageType &that) const {
   return sampledType == that.sampledType && dimension == that.dimension &&
@@ -154,37 +186,36 @@ bool ImageType::operator==(const ImageType &that) const {
 StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
                        llvm::StringRef name, bool isReadOnly,
                        StructInterfaceType iface)
-    : SpirvType(TK_Struct), fields(fieldsVec.begin(), fieldsVec.end()),
-      structName(name), readOnly(isReadOnly), interfaceType(iface) {}
+    : SpirvType(TK_Struct, name), fields(fieldsVec.begin(), fieldsVec.end()),
+      readOnly(isReadOnly), interfaceType(iface) {}
 
 bool StructType::FieldInfo::
 operator==(const StructType::FieldInfo &that) const {
-  return type == that.type && name == that.name &&
-         vkOffsetAttr == that.vkOffsetAttr &&
+  return type == that.type && vkOffsetAttr == that.vkOffsetAttr &&
          packOffsetAttr == that.packOffsetAttr;
 }
 
 bool StructType::operator==(const StructType &that) const {
-  return fields == that.fields && structName == that.structName &&
-         readOnly == that.readOnly;
+  return fields == that.fields && getName() == that.getName() &&
+         readOnly == that.readOnly && interfaceType == that.interfaceType;
 }
 
 HybridStructType::HybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fieldsVec, llvm::StringRef name,
     bool isReadOnly, StructInterfaceType iface)
-    : HybridType(TK_HybridStruct), fields(fieldsVec.begin(), fieldsVec.end()),
-      structName(name), readOnly(isReadOnly), interfaceType(iface) {}
+    : HybridType(TK_HybridStruct, name),
+      fields(fieldsVec.begin(), fieldsVec.end()), readOnly(isReadOnly),
+      interfaceType(iface) {}
 
 bool HybridStructType::FieldInfo::
 operator==(const HybridStructType::FieldInfo &that) const {
-  return astType == that.astType && name == that.name &&
-         vkOffsetAttr == that.vkOffsetAttr &&
+  return astType == that.astType && vkOffsetAttr == that.vkOffsetAttr &&
          packOffsetAttr == that.packOffsetAttr;
 }
 
 bool HybridStructType::operator==(const HybridStructType &that) const {
-  return fields == that.fields && structName == that.structName &&
-         readOnly == that.readOnly;
+  return fields == that.fields && getName() == that.getName() &&
+         readOnly == that.readOnly && interfaceType == that.interfaceType;
 }
 
 } // namespace spirv
