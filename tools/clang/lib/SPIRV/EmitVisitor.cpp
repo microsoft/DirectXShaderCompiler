@@ -192,6 +192,16 @@ void EmitVisitor::finalizeInstruction() {
     annotationsBinary.insert(annotationsBinary.end(), curInst.begin(),
                              curInst.end());
     break;
+  case spv::Op::OpConstant:
+  case spv::Op::OpConstantNull:
+  case spv::Op::OpConstantFalse:
+  case spv::Op::OpConstantTrue:
+  case spv::Op::OpSpecConstantTrue:
+  case spv::Op::OpSpecConstantFalse:
+  case spv::Op::OpSpecConstant:
+    typeConstantBinary.insert(typeConstantBinary.end(), curInst.begin(),
+                              curInst.end());
+    break;
   default:
     mainBinary.insert(mainBinary.end(), curInst.begin(), curInst.end());
     break;
