@@ -4476,9 +4476,12 @@ SpirvInstruction *SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
     const bool isInc = opcode == UO_PreInc || opcode == UO_PostInc;
 
     const spv::Op spvOp = translateOp(isInc ? BO_Add : BO_Sub, subType);
-    auto *originValue = spvBuilder.createLoad(subType, subValue);
+    SpirvInstruction *originValue =
+        subValue->isRValue() ? subValue
+                             : spvBuilder.createLoad(subType, subValue);
     auto *one = hlsl::IsHLSLMatType(subType) ? getMatElemValueOne(subType)
                                              : getValueOne(subType);
+
     SpirvInstruction *incValue = nullptr;
     if (isMxNMatrix(subType)) {
       // For matrices, we can only increment/decrement each vector of it.
@@ -4493,7 +4496,15 @@ SpirvInstruction *SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
     } else {
       incValue = spvBuilder.createBinaryOp(spvOp, subType, originValue, one);
     }
-    spvBuilder.createStore(subValue, incValue);
+
+    // If this is a RWBuffer/RWTexture assignment, OpImageWrite will be used.
+    // Otherwise, store using OpStore.
+    if (tryToAssignToRWBufferRWTexture(subExpr, incValue)) {
+      incValue->setRValue();
+      subValue = incValue;
+    } else {
+      spvBuilder.createStore(subValue, incValue);
+    }
 
     // Prefix increment/decrement operator returns a lvalue, while postfix
     // increment/decrement returns a rvalue.
