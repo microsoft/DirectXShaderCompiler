@@ -4711,7 +4711,9 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
     const bool isInc = opcode == UO_PreInc || opcode == UO_PostInc;
 
     const spv::Op spvOp = translateOp(isInc ? BO_Add : BO_Sub, subType);
-    const uint32_t originValue = theBuilder.createLoad(subTypeId, subValue);
+    const uint32_t originValue =
+        subValue.isRValue() ? subValue
+                            : theBuilder.createLoad(subTypeId, subValue);
     const uint32_t one = hlsl::IsHLSLMatType(subType)
                              ? getMatElemValueOne(subType)
                              : getValueOne(subType);
@@ -4729,7 +4731,14 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
     } else {
       incValue = theBuilder.createBinaryOp(spvOp, subTypeId, originValue, one);
     }
-    theBuilder.createStore(subValue, incValue);
+
+    // If this is a RWBuffer/RWTexture assignment, OpImageWrite will be used.
+    // Otherwise, store using OpStore.
+    if (tryToAssignToRWBufferRWTexture(subExpr, incValue)) {
+      subValue.setResultId(incValue).setRValue();
+    } else {
+      theBuilder.createStore(subValue, incValue);
+    }
 
     // Prefix increment/decrement operator returns a lvalue, while postfix
     // increment/decrement returns a rvalue.
