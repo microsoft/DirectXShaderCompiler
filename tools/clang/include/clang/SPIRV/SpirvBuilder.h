@@ -659,6 +659,7 @@ private:
   SpirvConstantBoolean *boolFalseSpecConstant;
 
   llvm::SetVector<spv::Capability> existingCapabilities;
+  llvm::SetVector<Extension> existingExtensions;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
