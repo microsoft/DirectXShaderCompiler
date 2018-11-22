@@ -1148,6 +1148,9 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   if (alreadyExists)
     return id;
 
+  // Emit OpName for the type (if any).
+  emitNameForType(type->getName(), id);
+
   if (isa<VoidType>(type)) {
     initTypeInstruction(spv::Op::OpTypeVoid);
     curTypeInst.push_back(id);
@@ -1249,9 +1252,6 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type,
   else if (const auto *structType = dyn_cast<StructType>(type)) {
     llvm::ArrayRef<StructType::FieldInfo> fields = structType->getFields();
     size_t numFields = fields.size();
-
-    // Emit OpName for the struct.
-    emitNameForType(structType->getStructName(), id);
 
     // Emit OpMemberName for the struct members.
     for (size_t i = 0; i < numFields; ++i)
