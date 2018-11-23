@@ -873,8 +873,8 @@ bool EmitVisitor::visit(SpirvImageOp *inst) {
   if (inst->hasComponent())
     curInst.push_back(
         getOrAssignResultId<SpirvInstruction>(inst->getComponent()));
+  curInst.push_back(static_cast<uint32_t>(inst->getImageOperandsMask()));
   if (inst->getImageOperandsMask() != spv::ImageOperandsMask::MaskNone) {
-    curInst.push_back(static_cast<uint32_t>(inst->getImageOperandsMask()));
     if (inst->hasBias())
       curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getBias()));
     if (inst->hasLod())
