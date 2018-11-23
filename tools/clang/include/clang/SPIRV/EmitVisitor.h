@@ -206,7 +206,7 @@ public:
   /// \brief The struct representing a SPIR-V module header.
   struct Header {
     /// \brief Default constructs a SPIR-V module header with id bound 0.
-    Header(uint32_t bound);
+    Header(uint32_t bound, uint32_t version);
 
     /// \brief Feeds the consumer with all the SPIR-V words for this header.
     std::vector<uint32_t> takeBinary();

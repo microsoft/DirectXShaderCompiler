@@ -15,6 +15,6 @@ RWStructuredBuffer<S> values;
 void main(uint3 id: SV_DispatchThreadID) {
     uint x = id.x;
 // CHECK:      [[cmp:%\d+]] = OpIEqual %bool {{%\d+}} %uint_1
-// CHECK-NEXT:     {{%\d+}} = OpGroupNonUniformAll %bool %int_3 [[cmp]]
+// CHECK-NEXT:     {{%\d+}} = OpGroupNonUniformAll %bool %uint_3 [[cmp]]
     values[x].res = WaveActiveAllTrue(values[x].val == 1);
 }
