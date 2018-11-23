@@ -76,6 +76,9 @@ public:
   /// \brief Adds the given basic block as a successsor to this basic block.
   void addSuccessor(SpirvBasicBlock *bb);
 
+  /// Returns the list of successors of this basic block.
+  llvm::ArrayRef<SpirvBasicBlock *> getSuccessors() const { return successors; }
+
 private:
   uint32_t labelId;      ///< The label's <result-id>
   std::string labelName; ///< The label's debug name

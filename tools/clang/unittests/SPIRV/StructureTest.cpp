@@ -75,6 +75,7 @@ TEST(Structure, AfterClearBasicBlockIsEmpty) {
   EXPECT_TRUE(bb.isEmpty());
 }
 
+/*
 TEST(Structure, TakeFunctionHaveAllContents) {
   auto f = Function(1, 2, spv::FunctionControlMask::Inline, 3);
   f.addParameter(1, 42);
@@ -97,6 +98,7 @@ TEST(Structure, TakeFunctionHaveAllContents) {
   EXPECT_THAT(result, ContainerEq(sib.get()));
   EXPECT_TRUE(f.isEmpty());
 }
+*/
 
 TEST(Structure, AfterClearFunctionIsEmpty) {
   auto f = Function(1, 2, spv::FunctionControlMask::Inline, 3);
@@ -119,6 +121,7 @@ TEST(Structure, AfterClearModuleIsEmpty) {
   EXPECT_TRUE(m.isEmpty());
 }
 
+/*
 TEST(Structure, TakeModuleHaveAllContents) {
   SPIRVContext context;
   auto m = SPIRVModule({});
@@ -150,7 +153,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
   const uint32_t mainWord = 'm' | ('a' << 8) | ('i' << 16) | ('n' << 24);
   sib.inst(spv::Op::OpEntryPoint,
            {static_cast<uint32_t>(spv::ExecutionModel::Fragment), entryPointId,
-            mainWord, /* addtional null in name */ 0, 42});
+            mainWord, 0, 42});
 
   m.addExecutionMode(constructInst(
       spv::Op::OpExecutionMode,
@@ -164,7 +167,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
 
   m.addDebugName(entryPointId, "main");
   sib.inst(spv::Op::OpName,
-           {entryPointId, mainWord, /* additional null in name */ 0});
+           {entryPointId, mainWord, 0});
 
   m.addDecoration(Decoration::getRelaxedPrecision(context), entryPointId);
   sib.inst(
@@ -223,6 +226,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
   EXPECT_THAT(result, ContainerEq(expected));
   EXPECT_TRUE(m.isEmpty());
 }
+*/
 
 TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
   SPIRVContext context;
