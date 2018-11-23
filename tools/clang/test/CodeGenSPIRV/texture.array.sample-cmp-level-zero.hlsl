@@ -8,11 +8,11 @@ TextureCubeArray <float>  t3 : register(t3);
 
 // CHECK: OpCapability SparseResidency
 
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %float
+
 // CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_1
 // CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_1
-
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %float
 
 float4 main(int2 offset: A, float comparator: B) : SV_Target {
 // CHECK:              [[t1:%\d+]] = OpLoad %type_1d_image_array %t1

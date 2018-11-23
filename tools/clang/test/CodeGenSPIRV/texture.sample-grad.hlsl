@@ -16,22 +16,18 @@ Texture2D   <float2> t6 : register(t6);
 // CHECK: OpCapability SparseResidency
 
 // CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image
+// CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image
+// CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_3d_image
+// CHECK: %type_sampled_image_2 = OpTypeSampledImage %type_cube_image
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
+
 // CHECK: [[v2f_1:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
 // CHECK: [[v2f_2:%\d+]] = OpConstantComposite %v2float %float_2 %float_2
 // CHECK: [[v2f_3:%\d+]] = OpConstantComposite %v2float %float_3 %float_3
-
-// CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image
 // CHECK: [[v3f_1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
 // CHECK: [[v3f_2:%\d+]] = OpConstantComposite %v3float %float_2 %float_2 %float_2
 // CHECK: [[v3f_3:%\d+]] = OpConstantComposite %v3float %float_3 %float_3 %float_3
 // CHECK:   [[v3i_3:%\d+]] = OpConstantComposite %v3int %int_3 %int_3 %int_3
-
-// CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_3d_image
-// CHECK: %type_sampled_image_2 = OpTypeSampledImage %type_cube_image
-
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
-
-
 float4 main(int2 offset : A) : SV_Target {
 // CHECK:              [[t1:%\d+]] = OpLoad %type_1d_image %t1
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
