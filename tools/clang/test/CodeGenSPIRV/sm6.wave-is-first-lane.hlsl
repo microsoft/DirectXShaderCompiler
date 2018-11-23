@@ -8,6 +8,6 @@ RWStructuredBuffer<uint> values;
 
 [numthreads(32, 1, 1)]
 void main(uint3 id: SV_DispatchThreadID) {
-// CHECK: {{%\d+}} = OpGroupNonUniformElect %bool %int_3
+// CHECK: {{%\d+}} = OpGroupNonUniformElect %bool %uint_3
     values[id.x] = WaveIsFirstLane();
 }
