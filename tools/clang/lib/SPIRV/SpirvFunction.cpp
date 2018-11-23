@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvFunction.h"
+#include "BlockReadableOrder.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {
@@ -27,10 +28,19 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor) {
   for (auto *param : parameters)
     visitor->visit(param);
 
-  for (auto *bb : basicBlocks) {
+  // Collect basic blocks in a human-readable order that satisfies SPIR-V
+  // validation rules.
+  std::vector<SpirvBasicBlock *> orderedBlocks;
+  if (!basicBlocks.empty()) {
+    BlockReadableOrderVisitor([&orderedBlocks](SpirvBasicBlock *block) {
+      orderedBlocks.push_back(block);
+    }).visit(basicBlocks.front());
+  }
+
+  for (auto *bb : orderedBlocks) {
     // The first basic block of the function should first visit the function
     // variables.
-    if (bb == basicBlocks[0]) {
+    if (bb == orderedBlocks[0]) {
       if (!bb->invokeVisitor(visitor, variables))
         return false;
     }

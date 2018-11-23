@@ -28,7 +28,7 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_BLOCKREADABLEORDER_H
 #define LLVM_CLANG_LIB_SPIRV_BLOCKREADABLEORDER_H
 
-#include "clang/SPIRV/Structure.h"
+#include "clang/SPIRV/SpirvBasicBlock.h"
 #include "llvm/ADT/DenseSet.h"
 
 namespace clang {
@@ -38,19 +38,19 @@ namespace spirv {
 /// order and calling a pre-set callback on each basic block.
 class BlockReadableOrderVisitor {
 public:
-  explicit BlockReadableOrderVisitor(std::function<void(BasicBlock *)> cb)
+  explicit BlockReadableOrderVisitor(std::function<void(SpirvBasicBlock *)> cb)
       : callback(cb) {}
 
   /// \brief Recursively visits all blocks reachable from the given starting
   /// basic block in a depth-first manner and calls the callback passed-in
   /// during construction on each basic block.
-  void visit(BasicBlock *block);
+  void visit(SpirvBasicBlock *block);
 
 private:
-  std::function<void(BasicBlock *)> callback;
+  std::function<void(SpirvBasicBlock *)> callback;
 
-  llvm::DenseSet<BasicBlock *> doneBlocks; ///< Blocks already visited
-  llvm::DenseSet<BasicBlock *> todoBlocks; ///< Blocks to be visited later
+  llvm::DenseSet<SpirvBasicBlock *> doneBlocks; ///< Blocks already visited
+  llvm::DenseSet<SpirvBasicBlock *> todoBlocks; ///< Blocks to be visited later
 };
 
 } // end namespace spirv
