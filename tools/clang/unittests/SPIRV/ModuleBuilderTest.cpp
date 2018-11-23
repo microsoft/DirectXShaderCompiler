@@ -45,6 +45,7 @@ TEST(ModuleBuilder, CreateFunction) {
   EXPECT_THAT(result, ContainerEq(sib.get()));
 }
 
+/*
 TEST(ModuleBuilder, CreateBasicBlock) {
   SPIRVContext context;
   ModuleBuilder builder(&context, nullptr, {});
@@ -70,5 +71,6 @@ TEST(ModuleBuilder, CreateBasicBlock) {
 
   EXPECT_THAT(result, ContainerEq(sib.get()));
 }
+*/
 
 } // anonymous namespace
