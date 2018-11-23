@@ -91,6 +91,23 @@ bool LowerTypeVisitor::visit(SpirvSampledImage *instr) {
   return true;
 }
 
+bool LowerTypeVisitor::visit(SpirvImageOp *instr) {
+  if (!visitInstruction(instr))
+    return false;
+
+  // Sparse image operations return a sparse residency struct.
+  const auto *resultType = instr->getResultType();
+  if (instr->isSparse()) {
+    const auto *uintType = spvContext.getUIntType(32);
+    const auto *sparseResidencyStruct = spvContext.getStructType(
+        {StructType::FieldInfo(uintType, "Residency.Code"),
+         StructType::FieldInfo(resultType, "Result.Type")},
+        "SparseResidencyStruct");
+    instr->setResultType(sparseResidencyStruct);
+  }
+  return true;
+}
+
 const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
                                              SpirvLayoutRule rule,
                                              SourceLocation loc) {
