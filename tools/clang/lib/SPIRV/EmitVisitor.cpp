@@ -113,10 +113,10 @@ uint32_t signExtendTo32Bits(int16_t value) {
 namespace clang {
 namespace spirv {
 
-EmitVisitor::Header::Header(uint32_t bound_)
+EmitVisitor::Header::Header(uint32_t bound_, uint32_t version_)
     // We are using the unfied header, which shows spv::Version as the newest
     // version. But we need to stick to 1.0 for Vulkan consumption by default.
-    : magicNumber(spv::MagicNumber), version(0x00010000),
+    : magicNumber(spv::MagicNumber), version(version_),
       generator((kGeneratorNumber << 16) | kToolVersion), bound(bound_),
       reserved(0) {}
 
@@ -210,7 +210,8 @@ void EmitVisitor::finalizeInstruction() {
 
 std::vector<uint32_t> EmitVisitor::takeBinary() {
   std::vector<uint32_t> result;
-  Header header(takeNextId());
+  Header header(takeNextId(),
+                spvOptions.targetEnv == "vulkan1.1" ? 0x00010300u : 0x00010000);
   auto headerBinary = header.takeBinary();
   result.insert(result.end(), headerBinary.begin(), headerBinary.end());
   result.insert(result.end(), preambleBinary.begin(), preambleBinary.end());
@@ -537,10 +538,13 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   }
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPointer()));
-  curInst.push_back(static_cast<uint32_t>(inst->getScope()));
-  curInst.push_back(static_cast<uint32_t>(inst->getMemorySemantics()));
+  curInst.push_back(typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getScope())));
+  curInst.push_back(typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getMemorySemantics())));
   if (inst->hasComparator())
-    curInst.push_back(static_cast<uint32_t>(inst->getMemorySemanticsUnequal()));
+    curInst.push_back(typeHandler.getOrCreateConstantUint32(
+        static_cast<uint32_t>(inst->getMemorySemanticsUnequal())));
   if (inst->hasValue())
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getValue()));
   if (inst->hasComparator())
@@ -811,7 +815,8 @@ bool EmitVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
+  curInst.push_back(typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getExecutionScope())));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg1()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg2()));
   finalizeInstruction();
@@ -824,7 +829,8 @@ bool EmitVisitor::visit(SpirvNonUniformElect *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
+  curInst.push_back(typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getExecutionScope())));
   finalizeInstruction();
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
@@ -835,7 +841,8 @@ bool EmitVisitor::visit(SpirvNonUniformUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
+  curInst.push_back(typeHandler.getOrCreateConstantUint32(
+      static_cast<uint32_t>(inst->getExecutionScope())));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg()));
