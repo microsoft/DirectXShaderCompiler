@@ -42,6 +42,10 @@ public:
   // underlying image.
   bool visit(SpirvSampledImage *);
 
+  // Custom visitor for sparse image operations: the result type must be the
+  // Sparse Residency Struct.
+  bool visit(SpirvImageOp *);
+
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
