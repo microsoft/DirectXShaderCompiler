@@ -172,11 +172,13 @@ void Function::take(InstBuilder *builder) {
   // Collect basic blocks in a human-readable order that satisfies SPIR-V
   // validation rules.
   std::vector<BasicBlock *> orderedBlocks;
+  /*
   if (!blocks.empty()) {
     BlockReadableOrderVisitor(
         [&orderedBlocks](BasicBlock *block) { orderedBlocks.push_back(block); })
         .visit(blocks.front().get());
   }
+  */
 
   // Write out all basic blocks.
   for (auto *block : orderedBlocks) {
@@ -196,11 +198,13 @@ void Function::addVariable(uint32_t varType, uint32_t varId,
 }
 
 void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
+  /*
   if (!blocks.empty()) {
     BlockReadableOrderVisitor(
         [&bbVec](BasicBlock *block) { bbVec->push_back(block); })
         .visit(blocks.front().get());
   }
+  */
 }
 
 // === Module components implementations ===
