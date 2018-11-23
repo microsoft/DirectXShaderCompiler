@@ -6684,7 +6684,8 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 #undef INTRINSIC_OP_CASE
 #undef INTRINSIC_OP_CASE_INT_FLOAT
 
-  retVal->setRValue();
+  if (retVal)
+    retVal->setRValue();
   return retVal;
 }
 
