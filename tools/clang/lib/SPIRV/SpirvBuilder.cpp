@@ -975,15 +975,19 @@ SpirvConstant *SpirvBuilder::getConstantFloat64(double value, bool specConst) {
 SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
   if (value) {
     if (specConst) {
-      return boolTrueSpecConstant;
+      if (boolTrueSpecConstant)
+        return boolTrueSpecConstant;
     } else {
-      return boolTrueConstant;
+      if (boolTrueConstant)
+        return boolTrueConstant;
     }
   } else {
     if (specConst) {
-      return boolFalseSpecConstant;
+      if (boolFalseSpecConstant)
+        return boolFalseSpecConstant;
     } else {
-      return boolFalseConstant;
+      if (boolFalseConstant)
+        return boolFalseConstant;
     }
   }
 
