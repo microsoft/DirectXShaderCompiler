@@ -6,10 +6,9 @@ Texture2DArray <float4> t2 : register(t2);
 
 // CHECK: OpCapability SparseResidency
 
-// CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_1 %int_2 %int_3
-
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 
+// CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_1 %int_2 %int_3
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 
 float4 main(int4 location: A) : SV_Target {

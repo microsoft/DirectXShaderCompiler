@@ -10,17 +10,15 @@ TextureCube<uint4> tCube : register(t3);
 // CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
+// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4uint
+
 // CHECK:      [[c12:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 // CHECK:      [[c34:%\d+]] = OpConstantComposite %v2int %int_3 %int_4
 // CHECK:      [[c56:%\d+]] = OpConstantComposite %v2int %int_5 %int_6
 // CHECK:      [[c78:%\d+]] = OpConstantComposite %v2int %int_7 %int_8
 // CHECK:    [[c1to8:%\d+]] = OpConstantComposite %_arr_v2int_uint_4 [[c12]] [[c34]] [[c56]] [[c78]]
-
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
-
 // CHECK: [[cv3f_1_5:%\d+]] = OpConstantComposite %v3float %float_1_5 %float_1_5 %float_1_5
-
-// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4uint
 
 float4 main(float2 location: A) : SV_Target {
 // CHECK:            [[t2f4:%\d+]] = OpLoad %type_2d_image %t2f4
