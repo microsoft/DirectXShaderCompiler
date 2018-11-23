@@ -16,8 +16,8 @@ void main(uint3 id: SV_DispatchThreadID) {
     uint x = id.x;
 
 // CHECK:         [[cmp:%\d+]] = OpIEqual %bool {{%\d+}} %uint_0
-// CHECK-NEXT: [[ballot:%\d+]] = OpGroupNonUniformBallot %v4uint %int_3 [[cmp]]
-// CHECK:             {{%\d+}} = OpGroupNonUniformBallotBitCount %uint %int_3 Reduce [[ballot]]
+// CHECK-NEXT: [[ballot:%\d+]] = OpGroupNonUniformBallot %v4uint %uint_3 [[cmp]]
+// CHECK:             {{%\d+}} = OpGroupNonUniformBallotBitCount %uint %uint_3 Reduce [[ballot]]
     results[x].val = WaveActiveCountBits(values[x].val == 0);
 }
 

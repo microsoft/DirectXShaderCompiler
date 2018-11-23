@@ -21,12 +21,12 @@ void main(uint3 id: SV_DispatchThreadID) {
     float val3 = values[x].val3;
 
 // CHECK:      [[val1:%\d+]] = OpLoad %v4int %val1
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformQuadSwap %v4int %int_3 [[val1]] %uint_2
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformQuadSwap %v4int %uint_3 [[val1]] %uint_2
     values[x].val1 = QuadReadAcrossDiagonal(val1);
 // CHECK:      [[val2:%\d+]] = OpLoad %v3uint %val2
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformQuadSwap %v3uint %int_3 [[val2]] %uint_2
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformQuadSwap %v3uint %uint_3 [[val2]] %uint_2
     values[x].val2 = QuadReadAcrossDiagonal(val2);
 // CHECK:      [[val3:%\d+]] = OpLoad %float %val3
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformQuadSwap %float %int_3 [[val3]] %uint_2
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformQuadSwap %float %uint_3 [[val3]] %uint_2
     values[x].val3 = QuadReadAcrossDiagonal(val3);
 }
