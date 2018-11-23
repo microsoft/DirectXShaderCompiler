@@ -944,7 +944,7 @@ SpirvInstruction *SPIRVEmitter::loadIfAliasVarRef(const Expr *expr) {
 bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr,
                                      SpirvInstruction **instr) {
   assert(instr);
-  if ((*instr)->containsAliasComponent() &&
+  if ((*instr) && (*instr)->containsAliasComponent() &&
       isAKindOfStructuredOrByteBuffer(varExpr->getType())) {
     // Aliased-to variables are all in the Uniform storage class with GLSL
     // std430 layout rules.
@@ -954,15 +954,16 @@ bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr,
     // (Note that we translate alias function return values as pointer types,
     // not pointer to pointer types.)
 
-    // Note: TODO(ehsan): We used to use a ptr type for load result type. We are
-    // now using the qualtype. verify.
     if (varExpr->isGLValue())
-      *instr = spvBuilder.createLoad(varExpr->getType(), *instr);
+      *instr = spvBuilder.createLoad(
+          spvContext.getPointerType(varExpr->getType(),
+                                    spv::StorageClass::Uniform),
+          *instr);
 
     (*instr)->setStorageClass(spv::StorageClass::Uniform);
     (*instr)->setLayoutRule(spirvOptions.sBufferLayoutRule);
     // Now it is a pointer to the global resource, which is lvalue.
-    (*instr)->setRValue();
+    (*instr)->setRValue(false);
     // Set to false to indicate that we've performed dereference over the
     // pointer-to-pointer and now should fallback to the normal path
     (*instr)->setContainsAliasComponent(false);
