@@ -2795,9 +2795,9 @@ SpirvInstruction *SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
 SpirvInstruction *
 SPIRVEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
-  auto *sampleCount =
-      spvBuilder.createUnaryOp(spv::Op::OpImageQuerySamples,
-                               astContext.UnsignedIntTy, loadIfGLValue(object));
+  auto *sampleCount = spvBuilder.createImageQuery(
+      spv::Op::OpImageQuerySamples, astContext.UnsignedIntTy,
+      expr->getExprLoc(), loadIfGLValue(object));
   if (!spirvOptions.noWarnEmulatedFeatures)
     emitWarning("GetSamplePosition is emulated using many SPIR-V instructions "
                 "due to lack of direct SPIR-V equivalent, so it only supports "
@@ -2921,10 +2921,12 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   }
 
   SpirvInstruction *query =
-      lod ? cast<SpirvInstruction>(spvBuilder.createBinaryOp(
-                spv::Op::OpImageQuerySizeLod, resultQualType, objectInstr, lod))
-          : cast<SpirvInstruction>(spvBuilder.createUnaryOp(
-                spv::Op::OpImageQuerySize, resultQualType, objectInstr));
+      lod ? cast<SpirvInstruction>(spvBuilder.createImageQuery(
+                spv::Op::OpImageQuerySizeLod, resultQualType,
+                expr->getExprLoc(), objectInstr, lod))
+          : cast<SpirvInstruction>(spvBuilder.createImageQuery(
+                spv::Op::OpImageQuerySize, resultQualType, expr->getExprLoc(),
+                objectInstr));
 
   if (querySize == 1) {
     const uint32_t argIndex = mipLevel ? 1 : 0;
@@ -2945,8 +2947,8 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
     const Expr *numLevelsSamplesArg = numLevels ? numLevels : numSamples;
     const spv::Op opcode =
         numLevels ? spv::Op::OpImageQueryLevels : spv::Op::OpImageQuerySamples;
-    auto *numLevelsSamplesQuery =
-        spvBuilder.createUnaryOp(opcode, astContext.UnsignedIntTy, objectInstr);
+    auto *numLevelsSamplesQuery = spvBuilder.createImageQuery(
+        opcode, astContext.UnsignedIntTy, expr->getExprLoc(), objectInstr);
     storeToOutputArg(numLevelsSamplesArg, numLevelsSamplesQuery,
                      astContext.UnsignedIntTy);
   }
@@ -2981,8 +2983,9 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   // The result type of OpImageQueryLod must be a float2.
   const QualType queryResultType =
       astContext.getExtVectorType(astContext.FloatTy, 2u);
-  auto *query = spvBuilder.createBinaryOp(
-      spv::Op::OpImageQueryLod, queryResultType, sampledImage, coordinate);
+  auto *query =
+      spvBuilder.createImageQuery(spv::Op::OpImageQueryLod, queryResultType,
+                                  expr->getExprLoc(), sampledImage, coordinate);
 
   // The first component of the float2 contains the mipmap array layer.
   // The second component of the float2 represents the unclamped lod.
