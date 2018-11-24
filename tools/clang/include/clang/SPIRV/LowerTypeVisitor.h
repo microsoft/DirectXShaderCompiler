@@ -30,22 +30,6 @@ public:
   bool visit(SpirvFunction *, Phase);
   bool visit(SpirvBasicBlock *, Phase) { return true; }
 
-  // Custom visitor for variables. Variables must have a pointer result-type.
-  bool visit(SpirvVariable *);
-
-  // Custom visitor for function parameters. We use pointer type for function
-  // parameters.
-  bool visit(SpirvFunctionParameter *);
-
-  // Custom visitor for OpSampledImage. The result type of OpSampledImage should
-  // be OpTypeSampledImage, but instruction stores the QualType for the
-  // underlying image.
-  bool visit(SpirvSampledImage *);
-
-  // Custom visitor for sparse image operations: the result type must be the
-  // Sparse Residency Struct.
-  bool visit(SpirvImageOp *);
-
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
