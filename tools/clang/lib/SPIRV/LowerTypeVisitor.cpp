@@ -42,7 +42,6 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     const SpirvType *spirvType =
         lowerType(astType, instr->getLayoutRule(), instr->getSourceLocation());
     instr->setResultType(spirvType);
-    return spirvType != nullptr;
   }
   // Lower Hybrid type to SpirvType
   else if (hybridType) {
@@ -51,60 +50,49 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(spirvType);
   }
 
-  // The instruction does not have a result-type, so nothing to do.
-  return true;
-}
+  // Instruction-specific type updates
 
-bool LowerTypeVisitor::visit(SpirvVariable *var) {
-  if (!visitInstruction(var))
-    return false;
-
-  const SpirvType *valueType = var->getResultType();
-  const SpirvType *pointerType =
-      spvContext.getPointerType(valueType, var->getStorageClass());
-  var->setResultType(pointerType);
-  return true;
-}
-
-bool LowerTypeVisitor::visit(SpirvFunctionParameter *param) {
-  if (!visitInstruction(param))
-    return false;
-
-  const SpirvType *valueType = param->getResultType();
-  const SpirvType *pointerType =
-      spvContext.getPointerType(valueType, param->getStorageClass());
-  param->setResultType(pointerType);
-  return true;
-}
-
-bool LowerTypeVisitor::visit(SpirvSampledImage *instr) {
-  if (!visitInstruction(instr))
-    return false;
-
-  // Wrap the image type in sampled image type if necessary.
   const auto *resultType = instr->getResultType();
-  if (!isa<SampledImageType>(resultType)) {
-    assert(isa<ImageType>(resultType));
-    instr->setResultType(
-        spvContext.getSampledImageType(cast<ImageType>(resultType)));
+  switch (instr->getopcode()) {
+  case spv::Op::OpSampledImage: {
+    // Wrap the image type in sampled image type if necessary.
+    if (!isa<SampledImageType>(resultType)) {
+      assert(isa<ImageType>(resultType));
+      instr->setResultType(
+          spvContext.getSampledImageType(cast<ImageType>(resultType)));
+    }
+    break;
   }
-  return true;
-}
-
-bool LowerTypeVisitor::visit(SpirvImageOp *instr) {
-  if (!visitInstruction(instr))
-    return false;
-
+  // Variables and function parameters must have a pointer type.
+  case spv::Op::OpFunctionParameter:
+  case spv::Op::OpVariable: {
+    const SpirvType *pointerType =
+        spvContext.getPointerType(resultType, instr->getStorageClass());
+    instr->setResultType(pointerType);
+    break;
+  }
   // Sparse image operations return a sparse residency struct.
-  const auto *resultType = instr->getResultType();
-  if (instr->isSparse()) {
+  case spv::Op::OpImageSparseSampleImplicitLod:
+  case spv::Op::OpImageSparseSampleExplicitLod:
+  case spv::Op::OpImageSparseSampleDrefImplicitLod:
+  case spv::Op::OpImageSparseSampleDrefExplicitLod:
+  case spv::Op::OpImageSparseFetch:
+  case spv::Op::OpImageSparseGather:
+  case spv::Op::OpImageSparseDrefGather:
+  case spv::Op::OpImageSparseRead: {
     const auto *uintType = spvContext.getUIntType(32);
     const auto *sparseResidencyStruct = spvContext.getStructType(
         {StructType::FieldInfo(uintType, "Residency.Code"),
          StructType::FieldInfo(resultType, "Result.Type")},
         "SparseResidencyStruct");
     instr->setResultType(sparseResidencyStruct);
+    break;
   }
+  default:
+    break;
+  }
+
+  // The instruction does not have a result-type, so nothing to do.
   return true;
 }
 
