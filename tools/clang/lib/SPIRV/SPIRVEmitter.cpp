@@ -4535,7 +4535,7 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
   if (accessorSize == 1) {
     auto *baseInfo = doExpr(baseExpr);
 
-    if (baseSize == 1) {
+    if (!baseInfo || baseSize == 1) {
       // Selecting one element from a size-1 vector. The underlying vector is
       // already treated as a scalar.
       return baseInfo;
@@ -4618,7 +4618,7 @@ SpirvInstruction *SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
       expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
   auto *instr = loadIfAliasVarRef(base);
 
-  if (!indices.empty()) {
+  if (instr && !indices.empty()) {
     instr =
         turnIntoElementPtr(base->getType(), instr, expr->getType(), indices);
   }
@@ -5421,7 +5421,7 @@ SpirvInstruction *SPIRVEmitter::createVectorSplat(const Expr *scalarExpr,
     scalarVal = doExpr(scalarExpr);
   }
 
-  if (size == 1) {
+  if (!scalarVal || size == 1) {
     // Just return the scalar value for vector splat with size 1.
     // Note that can be used as an lvalue, so we need to carry over
     // the lvalueness for non-constant cases.
