@@ -539,6 +539,11 @@ SpirvInstruction *SpirvBuilder::createImageGather(
                           : (residencyCode ? spv::Op::OpImageSparseGather
                                            : spv::Op::OpImageGather);
 
+  // Note: OpImageSparseDrefGather and OpImageDrefGather do not take the
+  // component parameter.
+  if (compareVal)
+    component = nullptr;
+
   auto *imageInstruction = new (context) SpirvImageOp(
       op, texelType, /*id*/ 0, loc, sampledImage, coordinate, mask, compareVal,
       /*bias*/ nullptr, /*lod*/ nullptr, /*gradDx*/ nullptr,
