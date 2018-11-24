@@ -835,7 +835,7 @@ SpirvInstruction *SPIRVEmitter::loadIfGLValue(const Expr *expr) {
 SpirvInstruction *SPIRVEmitter::loadIfGLValue(const Expr *expr,
                                               SpirvInstruction *info) {
   // Do nothing if this is already rvalue
-  if (info->isRValue())
+  if (!info || info->isRValue())
     return info;
 
   // Check whether we are trying to load an array of opaque objects as a whole.
@@ -1811,6 +1811,9 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
     tryToAssignCounterVar(curFunction, retVal);
 
     auto *retInfo = loadIfGLValue(retVal);
+    if (!retInfo)
+      return;
+
     auto retType = retVal->getType();
     if (retInfo->getStorageClass() != spv::StorageClass::Function &&
         retType->isStructureType()) {
@@ -3910,7 +3913,8 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return nullptr;
   }
 
-  retVal->setRValue();
+  if(retVal)
+    retVal->setRValue();
   return retVal;
 }
 
