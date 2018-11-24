@@ -568,6 +568,26 @@ SpirvBuilder::createImageSparseTexelsResident(SpirvInstruction *residentCode,
   return inst;
 }
 
+SpirvImageQuery *SpirvBuilder::createImageQuery(spv::Op opcode,
+                                                QualType resultType,
+                                                SourceLocation loc,
+                                                SpirvInstruction *image,
+                                                SpirvInstruction *lod) {
+  assert(insertPoint && "null insert point");
+  SpirvInstruction *lodParam = nullptr;
+  SpirvInstruction *coordinateParam = nullptr;
+  if (opcode == spv::Op::OpImageQuerySizeLod)
+    lodParam = lod;
+  if (opcode == spv::Op::OpImageQueryLod)
+    coordinateParam = lod;
+
+  auto *inst =
+      new (context) SpirvImageQuery(opcode, resultType, /*result-id*/ 0, loc,
+                                    image, lodParam, coordinateParam);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 SpirvSelect *SpirvBuilder::createSelect(QualType resultType,
                                         SpirvInstruction *condition,
                                         SpirvInstruction *trueValue,
