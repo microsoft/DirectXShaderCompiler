@@ -314,6 +314,15 @@ public:
   createImageSparseTexelsResident(SpirvInstruction *resident_code,
                                   SourceLocation loc = {});
 
+  /// \brief Creates an image query instruction.
+  /// The given 'lod' is used as the Lod argument in the case of
+  /// OpImageQuerySizeLod, and it is used as the 'coordinate' parameter in the
+  /// case of OpImageQueryLod.
+  SpirvImageQuery *
+  SpirvBuilder::createImageQuery(spv::Op opcode, QualType resultType,
+                                 SourceLocation loc, SpirvInstruction *image,
+                                 SpirvInstruction *lod = nullptr);
+
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the instruction pointer.
   SpirvSelect *createSelect(QualType resultType, SpirvInstruction *condition,
