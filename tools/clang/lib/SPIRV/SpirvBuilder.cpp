@@ -146,6 +146,7 @@ SpirvCompositeExtract *SpirvBuilder::createCompositeExtract(
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvCompositeExtract(resultType, /*id*/ 0, loc, composite, indexes);
+  instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -167,6 +168,7 @@ SpirvVectorShuffle *SpirvBuilder::createVectorShuffle(
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvVectorShuffle(
       resultType, /*id*/ 0, loc, vector1, vector2, selectors);
+  instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -210,6 +212,7 @@ SpirvBuilder::createFunctionCall(QualType returnType, SpirvFunction *func,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvFunctionCall(returnType, /*id*/ 0, loc, func, params);
+  instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -741,6 +744,17 @@ void SpirvBuilder::createEndPrimitive(SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *inst = new (context) SpirvEndPrimitive(loc);
   insertPoint->addInstruction(inst);
+}
+
+SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
+                                                  SourceLocation loc,
+                                                  SpirvInstruction *structure,
+                                                  uint32_t arrayMember) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvArrayLength(resultType, /*result-id*/ 0, loc,
+                                              structure, arrayMember);
+  insertPoint->addInstruction(inst);
+  return inst;
 }
 
 void SpirvBuilder::addExtension(Extension ext, llvm::StringRef target,
