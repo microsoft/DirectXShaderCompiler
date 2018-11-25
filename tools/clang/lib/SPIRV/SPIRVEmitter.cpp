@@ -4712,7 +4712,7 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
 
     const spv::Op spvOp = translateOp(isInc ? BO_Add : BO_Sub, subType);
     const uint32_t originValue =
-        subValue.isRValue() ? subValue
+        subValue.isRValue() ? uint32_t(subValue)
                             : theBuilder.createLoad(subTypeId, subValue);
     const uint32_t one = hlsl::IsHLSLMatType(subType)
                              ? getMatElemValueOne(subType)
