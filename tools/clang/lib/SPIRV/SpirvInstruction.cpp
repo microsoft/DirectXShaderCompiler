@@ -88,7 +88,7 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
     : kind(k), opcode(op), astResultType(astType), resultId(id), srcLoc(loc),
       debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
-      storageClass(spv::StorageClass::Max), isRValue_(false),
+      storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false) {}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
