@@ -2719,8 +2719,8 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   // (RW)ByteAddressBuffers/(RW)StructuredBuffers are represented as a structure
   // with only one member that is a runtime array. We need to perform
   // OpArrayLength on member 0.
-  auto *length = spvBuilder.createBinaryOp(
-      spv::Op::OpArrayLength, astContext.UnsignedIntTy, objectInstr, 0);
+  SpirvInstruction *length = spvBuilder.createArrayLength(
+      astContext.UnsignedIntTy, expr->getExprLoc(), objectInstr, 0);
   // For (RW)ByteAddressBuffers, GetDimensions() must return the array length
   // in bytes, but OpArrayLength returns the number of uints in the runtime
   // array. Therefore we must multiply the results by 4.
@@ -2732,7 +2732,6 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   spvBuilder.createStore(doExpr(expr->getArg(0)), length);
 
   if (isStructuredBuffer) {
-    /*
     // TODO (ehsan): We don't want to use getAlignmentAndSize :-(
 
     // For (RW)StructuredBuffer, the stride of the runtime array (which is the
@@ -2740,9 +2739,8 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
     uint32_t size = 0, stride = 0;
     std::tie(std::ignore, size) = typeTranslator.getAlignmentAndSize(
         type, spirvOptions.sBufferLayoutRule, &stride);
-    const auto sizeId = theBuilder.getConstantUint32(size);
-    theBuilder.createStore(doExpr(expr->getArg(1)), sizeId);
-    */
+    auto *sizeInstr = spvBuilder.getConstantUint32(size);
+    spvBuilder.createStore(doExpr(expr->getArg(1)), sizeInstr);
   }
 
   return nullptr;
