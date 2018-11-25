@@ -63,8 +63,7 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     }
     break;
   }
-  // Variables and function parameters must have a pointer type.
-  case spv::Op::OpFunctionParameter:
+  // Variables must have a pointer type.
   case spv::Op::OpVariable: {
     const SpirvType *pointerType =
         spvContext.getPointerType(resultType, instr->getStorageClass());
