@@ -1050,6 +1050,18 @@ bool EmitVisitor::visit(SpirvVectorShuffle *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvArrayLength *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getStructure()));
+  curInst.push_back(inst->getArrayMember());
+  finalizeInstruction();
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
