@@ -284,6 +284,7 @@ public:
   bool visit(SpirvStore *);
   bool visit(SpirvUnaryOp *);
   bool visit(SpirvVectorShuffle *);
+  bool visit(SpirvArrayLength *);
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();
