@@ -1689,17 +1689,10 @@ void EmitTypeHandler::getLayoutDecorations(const StructType *structType,
         decs->push_back(
             DecorationInfo(spv::Decoration::MatrixStride, {stride}, index));
 
-        // We need to swap the RowMajor and ColMajor decorations since HLSL
-        // matrices are conceptually row-major while SPIR-V are conceptually
-        // column-major.
-        if (matType->isRowMajorMat()) {
-          decs->push_back(DecorationInfo(spv::Decoration::ColMajor, {}, index));
-        } else {
-          // If the source code has neither row_major nor column_major
-          // annotated, it should be treated as column_major since that's the
-          // default.
+        if (matType->isRowMajorMat())
           decs->push_back(DecorationInfo(spv::Decoration::RowMajor, {}, index));
-        }
+        else
+          decs->push_back(DecorationInfo(spv::Decoration::ColMajor, {}, index));
       }
     }
 
