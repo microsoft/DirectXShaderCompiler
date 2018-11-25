@@ -111,6 +111,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvStore)
   DEFINE_VISIT_METHOD(SpirvUnaryOp)
   DEFINE_VISIT_METHOD(SpirvVectorShuffle)
+  DEFINE_VISIT_METHOD(SpirvArrayLength)
 
 #undef DEFINE_VISIT_METHOD
 

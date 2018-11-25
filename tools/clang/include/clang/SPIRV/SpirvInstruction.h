@@ -111,6 +111,7 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
+    IK_ArrayLength,               // OpArrayLength
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1740,6 +1741,27 @@ private:
   SpirvInstruction *vec2;
   llvm::SmallVector<uint32_t, 4> components;
 };
+
+class SpirvArrayLength : public SpirvInstruction {
+public:
+  SpirvArrayLength(QualType resultType, uint32_t resultId, SourceLocation loc,
+                   SpirvInstruction *structure, uint32_t arrayMember);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ArrayLength;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
+
+  SpirvInstruction *getStructure() const { return structure; }
+  uint32_t getArrayMember() const { return arrayMember; }
+
+private:
+  SpirvInstruction *structure;
+  uint32_t arrayMember;
+};
+
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
 

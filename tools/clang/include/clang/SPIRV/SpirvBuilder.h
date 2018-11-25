@@ -411,6 +411,11 @@ public:
   /// \brief Creates an OpEndPrimitive instruction.
   void createEndPrimitive(SourceLocation loc = {});
 
+  /// \brief Creates an OpArrayLength instruction.
+  SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,
+                                      SpirvInstruction *structure,
+                                      uint32_t arrayMember);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability, SourceLocation loc = {});
