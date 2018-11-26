@@ -106,7 +106,8 @@ public:
   //
   // If any decorations apply to the type, it also emits the decoration
   // instructions into the annotationsBinary.
-  uint32_t emitType(const SpirvType *, SpirvLayoutRule);
+  uint32_t emitType(const SpirvType *, SpirvLayoutRule,
+                    llvm::Optional<bool> isRowMajor = llvm::None);
 
   // Emits an OpConstant instruction with uint32 type and returns its result-id.
   // If such constant has already been emitted, just returns its resutl-id.
@@ -121,6 +122,7 @@ private:
   // Figures out the decorations that apply to the given type with the given
   // layout rule, and populates the given decoration set.
   void getDecorationsForType(const SpirvType *type, SpirvLayoutRule rule,
+                             llvm::Optional<bool> isRowMajor,
                              DecorationList *decorations);
 
   // Returns the result-id for the given type and decorations. If a type with
@@ -154,9 +156,12 @@ private:
 
   // ---- Methods associated with layout calculations ----
 
-  std::pair<uint32_t, uint32_t> getAlignmentAndSize(const SpirvType *type,
-                                                    SpirvLayoutRule rule,
-                                                    uint32_t *stride);
+  // If the given type is a matrix type inside a struct, its majorness should
+  // also be passed to this method in order to determine the correct alignment.
+  std::pair<uint32_t, uint32_t>
+  getAlignmentAndSize(const SpirvType *type, SpirvLayoutRule rule,
+                      uint32_t *stride,
+                      llvm::Optional<bool> isRowMajorStructMember = llvm::None);
 
   void alignUsingHLSLRelaxedLayout(const SpirvType *fieldType,
                                    uint32_t fieldSize, uint32_t fieldAlignment,

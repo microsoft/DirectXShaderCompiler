@@ -130,9 +130,10 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     std::vector<StructType::FieldInfo> structFields;
     for (auto field : hybridStruct->getFields()) {
       const SpirvType *fieldSpirvType = lowerType(field.astType, rule, loc);
-      structFields.push_back(StructType::FieldInfo(fieldSpirvType, field.name,
-                                                   field.vkOffsetAttr,
-                                                   field.packOffsetAttr));
+      llvm::Optional<bool> isRowMajor = isRowMajorMatrix(field.astType);
+      structFields.push_back(
+          StructType::FieldInfo(fieldSpirvType, field.name, field.vkOffsetAttr,
+                                field.packOffsetAttr, isRowMajor));
     }
     return spvContext.getStructType(structFields, hybridStruct->getStructName(),
                                     hybridStruct->isReadOnly(),
@@ -165,7 +166,8 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     // If array didn't contain any hybrid types, return itself.
     if (arrType->getElementType() == loweredElemType)
       return arrType;
-    return spvContext.getArrayType(loweredElemType, arrType->getElementCount());
+    return spvContext.getArrayType(loweredElemType, arrType->getElementCount(),
+                                   arrType->hasRowMajorElement());
   }
   // Runtime arrays could contain a hybrid type
   else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
@@ -185,9 +187,9 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
       const auto *loweredFieldType = lowerType(field.type, rule, loc);
       if (loweredFieldType != field.type) {
         wasLowered = true;
-        loweredFields.push_back(
-            StructType::FieldInfo(loweredFieldType, field.name,
-                                  field.vkOffsetAttr, field.packOffsetAttr));
+        loweredFields.push_back(StructType::FieldInfo(
+            loweredFieldType, field.name, field.vkOffsetAttr,
+            field.packOffsetAttr, field.isRowMajor));
       } else {
         loweredFields.push_back(field);
       }
@@ -242,11 +244,6 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
   if (desugaredType != type) {
     const auto *spvType = lowerType(desugaredType, rule, srcLoc);
-    // Clear matrix majorness potentially set by previous desugarType() calls.
-    // This field will only be set when we were saying a matrix type. And the
-    // above lowerType() call already takes the majorness into consideration.
-    // So should be fine to clear now.
-    typeMatMajorAttr = llvm::None;
     return spvType;
   }
 
@@ -348,15 +345,12 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       // Non-float matrices are represented as an array of vectors.
       if (!elemType->isFloatingType()) {
         // This return type is ArrayType
-        return spvContext.getArrayType(vecType, rowCount);
+        // This is an array of vectors. No majorness information needed.
+        return spvContext.getArrayType(vecType, rowCount,
+                                       /*rowMajorElem*/ llvm::None);
       }
 
-      // HLSL matrices are conceptually row major, while SPIR-V matrices are
-      // conceptually column major. We are mapping what HLSL semantically mean
-      // a row into a column here.
-      const bool isSpirvRowMajor = !isRowMajorMatrix(type);
-
-      return spvContext.getMatrixType(vecType, rowCount, isSpirvRowMajor);
+      return spvContext.getMatrixType(vecType, rowCount);
     }
   }
 
@@ -385,7 +379,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // Create fields for all members of this struct
     for (const auto *field : decl->fields()) {
       const SpirvType *fieldType = lowerType(field->getType(), rule, srcLoc);
-      fields.push_back(StructType::FieldInfo(fieldType, field->getName()));
+      llvm::Optional<bool> isRowMajor = isRowMajorMatrix(field->getType());
+      fields.push_back(StructType::FieldInfo(
+          fieldType, field->getName(), /*vkoffset*/ nullptr,
+          /*packoffset*/ nullptr, isRowMajor));
     }
 
     return spvContext.getStructType(fields, decl->getName());
@@ -397,7 +394,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
     if (const auto *caType = astContext.getAsConstantArrayType(type)) {
       const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
-      return spvContext.getArrayType(elemType, size);
+      llvm::Optional<bool> isRowMajor = isRowMajorMatrix(type);
+      return spvContext.getArrayType(elemType, size, isRowMajor);
     }
 
     assert(type->isIncompleteArrayType());
@@ -572,15 +570,17 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   if (name == "InputPatch") {
     const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
-    return spvContext.getArrayType(lowerType(elemType, rule, srcLoc),
-                                   elemCount);
+    llvm::Optional<bool> isRowMajor = isRowMajorMatrix(type);
+    return spvContext.getArrayType(lowerType(elemType, rule, srcLoc), elemCount,
+                                   isRowMajor);
   }
   // OutputPatch
   if (name == "OutputPatch") {
     const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
+    llvm::Optional<bool> isRowMajor = isRowMajorMatrix(type);
     return spvContext.getArrayType(lowerType(elemType, rule, srcLoc),
-                                   elemCount);
+                                   elemCount, isRowMajor);
   }
   // Output stream objects (TriangleStream, LineStream, and PointStream)
   if (name == "TriangleStream" || name == "LineStream" ||
@@ -639,16 +639,6 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
 
 QualType LowerTypeVisitor::desugarType(QualType type) {
   if (const auto *attrType = type->getAs<AttributedType>()) {
-    switch (auto kind = attrType->getAttrKind()) {
-    case AttributedType::attr_hlsl_row_major:
-    case AttributedType::attr_hlsl_column_major:
-      typeMatMajorAttr = kind;
-      break;
-    default:
-      // We only need to update internal bookkeeping for matrix majorness.
-      break;
-    }
-
     return desugarType(
         attrType->getLocallyUnqualifiedSingleStepDesugaredType());
   }
@@ -660,23 +650,38 @@ QualType LowerTypeVisitor::desugarType(QualType type) {
   return type;
 }
 
-bool LowerTypeVisitor::isRowMajorMatrix(QualType type) const {
-  assert(isMxNMatrix(type));
-
-  // Use the majorness info we recorded before.
-  if (typeMatMajorAttr.hasValue()) {
-    switch (typeMatMajorAttr.getValue()) {
+llvm::Optional<bool>
+LowerTypeVisitor::isHLSLRowMajorMatrix(QualType type) const {
+  if (const auto *attrType = type->getAs<AttributedType>()) {
+    switch (auto kind = attrType->getAttrKind()) {
     case AttributedType::attr_hlsl_row_major:
       return true;
     case AttributedType::attr_hlsl_column_major:
       return false;
+      break;
     default:
-      // Only oriented matrices are relevant.
       break;
     }
   }
-
+  if (const auto *typedefType = type->getAs<TypedefType>()) {
+    return isHLSLRowMajorMatrix(typedefType->desugar());
+  }
+  if (const auto *arrayType = astContext.getAsArrayType(type)) {
+    return isHLSLRowMajorMatrix(arrayType->getElementType());
+  }
   return getCodeGenOptions().defaultRowMajor;
+}
+
+llvm::Optional<bool> LowerTypeVisitor::isRowMajorMatrix(QualType type) const {
+  // Row/Col majorness only applies to matrices or array of matrices.
+  if (!isMatrixOrArrayOfMatrix(astContext, type))
+    return llvm::None;
+
+  const auto hlslRowMajor = isHLSLRowMajorMatrix(type);
+  if (!hlslRowMajor.hasValue())
+    return hlslRowMajor;
+
+  return !hlslRowMajor.getValue();
 }
 
 } // namespace spirv
