@@ -26,10 +26,10 @@
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 0 Offset 0
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 1 Offset 576
 
-// CHECK: OpDecorate %type_TextureBuffer_T BufferBlock
-
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 0 NonWritable
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 1 NonWritable
+
+// CHECK: OpDecorate %type_TextureBuffer_T BufferBlock
 
 struct S {
                  float    a[2];
