@@ -395,10 +395,12 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     break;
   case spv::Op::OpGroupNonUniformElect:
     spvBuilder.requireCapability(spv::Capability::GroupNonUniform);
+    break;
   case spv::Op::OpGroupNonUniformAny:
   case spv::Op::OpGroupNonUniformAll:
   case spv::Op::OpGroupNonUniformAllEqual:
     spvBuilder.requireCapability(spv::Capability::GroupNonUniformVote);
+    break;
   case spv::Op::OpGroupNonUniformBallot:
   case spv::Op::OpGroupNonUniformInverseBallot:
   case spv::Op::OpGroupNonUniformBallotBitExtract:
@@ -408,6 +410,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformBroadcast:
   case spv::Op::OpGroupNonUniformBroadcastFirst:
     spvBuilder.requireCapability(spv::Capability::GroupNonUniformBallot);
+    break;
   case spv::Op::OpGroupNonUniformIAdd:
   case spv::Op::OpGroupNonUniformFAdd:
   case spv::Op::OpGroupNonUniformIMul:
@@ -425,9 +428,13 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformLogicalOr:
   case spv::Op::OpGroupNonUniformLogicalXor:
     spvBuilder.requireCapability(spv::Capability::GroupNonUniformArithmetic);
+    break;
   case spv::Op::OpGroupNonUniformQuadBroadcast:
   case spv::Op::OpGroupNonUniformQuadSwap:
     spvBuilder.requireCapability(spv::Capability::GroupNonUniformQuad);
+    break;
+  default:
+    break;
   }
 
   return true;
