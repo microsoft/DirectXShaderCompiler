@@ -26,10 +26,10 @@
 // CHECK: OpMemberDecorate %type_myTbuffer 0 Offset 0
 // CHECK: OpMemberDecorate %type_myTbuffer 1 Offset 576
 
-// CHECK: OpDecorate %type_myTbuffer BufferBlock
-
 // CHECK: OpMemberDecorate %type_myTbuffer 0 NonWritable
 // CHECK: OpMemberDecorate %type_myTbuffer 1 NonWritable
+
+// CHECK: OpDecorate %type_myTbuffer BufferBlock
 
 struct S {
                  float    a[2];
