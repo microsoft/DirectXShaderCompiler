@@ -31,6 +31,15 @@ namespace spirv {
 
 namespace {
 
+/// Returns the :packoffset() annotation on the given decl. Returns nullptr if
+/// the decl does not have one.
+hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations())
+    if (auto *packing = llvm::dyn_cast<hlsl::ConstantPacking>(annotation))
+      return packing;
+  return nullptr;
+}
+
 QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                                          QualType sourceType) {
   if (isScalarType(sourceType)) {
@@ -696,7 +705,9 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     // We don't need it here.
     auto varType = declDecl->getType();
     varType.removeLocalConst();
-    HybridStructType::FieldInfo info(varType, declDecl->getName());
+    HybridStructType::FieldInfo info(varType, declDecl->getName(),
+                                     declDecl->getAttr<VKOffsetAttr>(),
+                                     getPackOffset(declDecl));
     fields.push_back(info);
   }
 
