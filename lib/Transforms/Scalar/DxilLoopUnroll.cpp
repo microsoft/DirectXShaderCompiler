@@ -156,6 +156,26 @@ public:
   }
 };
 
+static bool IsPrimitiveType(Type *Ty) {
+  if (Ty->isIntegerTy() || Ty->isFloatingPointTy()) {
+    return true;
+  }
+  else if (Ty->isVectorTy()) {
+    return IsPrimitiveType(Ty->getVectorElementType());
+  }
+  else if (Ty->isArrayTy()) {
+    return IsPrimitiveType(Ty->getArrayElementType());
+  }
+  else if (Ty->isStructTy()) {
+    for (unsigned i = 0; i < Ty->getStructNumElements(); i++) {
+      if (!IsPrimitiveType(Ty->getStructElementType(i)))
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 unsigned CountArrayDimensions(Type* Ty,
     // Optionally collect dimensions
     SmallVector<unsigned, 4> *dims = nullptr) {
@@ -425,6 +445,11 @@ public:
           bNonUniform = true;
       }
     } else if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
+      // If everything loaded is only primitive types, then we are
+      // loading out of a struct that has mixture of resources and
+      // primitives. Stop propagating down the use-def of primitives.
+      if (IsPrimitiveType(LI->getType()) && !hlsl::dxilutil::IsHLSLObjectType(LI->getType()))
+        return;
       if (bAlloca)
         AllocaLoads.insert(LI);
       // clear bAlloca for users
@@ -1918,6 +1943,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     //std::string Dat = DumpValue(M);
     return true;
   }
+
 
   // If we were unsuccessful in unrolling the loop
   else {
