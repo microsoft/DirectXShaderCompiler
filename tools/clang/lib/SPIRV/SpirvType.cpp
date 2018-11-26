@@ -55,8 +55,6 @@ bool SpirvType::isSampler(const SpirvType *type) {
 
 bool SpirvType::isBuffer(const SpirvType *type) {
   if (const auto *imageType = dyn_cast<ImageType>(type)) {
-    const auto dim = imageType->getDimension();
-    const auto withSampler = imageType->withSampler();
     return imageType->getDimension() == spv::Dim::Buffer &&
            imageType->withSampler() == ImageType::WithSampler::Yes;
   }
@@ -110,11 +108,11 @@ bool SpirvType::isOrContains16BitType(const SpirvType *type) {
     return isOrContains16BitType(vecType->getElementType());
   if (const auto *matType = dyn_cast<MatrixType>(type))
     return isOrContains16BitType(matType->getElementType());
-  if (const auto *arrType = dyn_cast<MatrixType>(type))
+  if (const auto *arrType = dyn_cast<ArrayType>(type))
     return isOrContains16BitType(arrType->getElementType());
   if (const auto *pointerType = dyn_cast<SpirvPointerType>(type))
     return isOrContains16BitType(pointerType->getPointeeType());
-  if (const auto *raType = dyn_cast<MatrixType>(type))
+  if (const auto *raType = dyn_cast<RuntimeArrayType>(type))
     return isOrContains16BitType(raType->getElementType());
   if (const auto *imgType = dyn_cast<ImageType>(type))
     return isOrContains16BitType(imgType->getSampledType());
