@@ -709,7 +709,10 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
 
   // Make an array if requested.
   if (arraySize > 0) {
-    resultType = spvContext.getArrayType(resultType, arraySize);
+    // The array element is a structure, therefore no majorness information is
+    // needed.
+    resultType = spvContext.getArrayType(resultType, arraySize,
+                                         /*rowMajorElement*/ llvm::None);
   } else if (arraySize == -1) {
     resultType = spvContext.getRuntimeArrayType(resultType);
   }

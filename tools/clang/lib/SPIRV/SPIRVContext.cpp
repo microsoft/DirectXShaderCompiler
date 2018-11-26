@@ -137,26 +137,32 @@ const VectorType *SpirvContext::getVectorType(const SpirvType *elemType,
   return vecTypes[scalarType][count] = new (this) VectorType(scalarType, count);
 }
 
-const MatrixType *SpirvContext::getMatrixType(const SpirvType *elemType,
-                                              uint32_t count, bool isRowMajor) {
+const SpirvType *SpirvContext::getMatrixType(const SpirvType *elemType,
+                                             uint32_t count) {
   // We are certain this should be a vector type. Otherwise, cast causes an
   // assertion failure.
   const VectorType *vecType = cast<VectorType>(elemType);
   assert(count == 2 || count == 3 || count == 4);
+
+  // In the case of non-floating-point matrices, we represent them as array of
+  // vectors.
+  if (!isa<FloatType>(vecType->getElementType())) {
+    return getArrayType(elemType, count, llvm::None);
+  }
 
   auto foundVec = matTypes.find(vecType);
 
   if (foundVec != matTypes.end()) {
     const auto &matVector = foundVec->second;
     // Create a temporary object for finding in the vector.
-    MatrixType type(vecType, count, isRowMajor);
+    MatrixType type(vecType, count);
 
     for (const auto *cachedType : matVector)
       if (type == *cachedType)
         return cachedType;
   }
 
-  const auto *ptr = new (this) MatrixType(vecType, count, isRowMajor);
+  const auto *ptr = new (this) MatrixType(vecType, count);
 
   matTypes[vecType].push_back(ptr);
 
@@ -211,7 +217,20 @@ SpirvContext::getSampledImageType(QualType image) {
 }
 
 const ArrayType *SpirvContext::getArrayType(const SpirvType *elemType,
-                                            uint32_t elemCount) {
+                                            uint32_t elemCount,
+                                            llvm::Optional<bool> rowMajorElem) {
+  ArrayType type(elemType, elemCount, rowMajorElem);
+  auto found = std::find_if(
+      arrayTypes.begin(), arrayTypes.end(),
+      [&type](const ArrayType *cachedType) { return type == *cachedType; });
+
+  if (found != arrayTypes.end())
+    return *found;
+
+  arrayTypes.push_back(new (this) ArrayType(elemType, elemCount, rowMajorElem));
+  return arrayTypes.back();
+
+  /*
   auto foundElemType = arrayTypes.find(elemType);
 
   if (foundElemType != arrayTypes.end()) {
@@ -224,6 +243,7 @@ const ArrayType *SpirvContext::getArrayType(const SpirvType *elemType,
 
   return arrayTypes[elemType][elemCount] =
              new (this) ArrayType(elemType, elemCount);
+  */
 }
 
 const RuntimeArrayType *
