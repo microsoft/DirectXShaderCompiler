@@ -106,58 +106,6 @@ static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
 #endif
 // SPIRV Change Ends
 
-struct NoSerializeHeapMalloc : public IMalloc {
-private:
-  HANDLE m_Handle;
-public:
-  void SetHandle(HANDLE Handle) { m_Handle = Handle; }
-  ULONG STDMETHODCALLTYPE AddRef() {
-    return 1;
-  }
-  ULONG STDMETHODCALLTYPE Release() {
-    return 1;
-  }
-  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
-    return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
-  }
-  virtual void *STDMETHODCALLTYPE Alloc(
-    _In_  SIZE_T cb) {
-    return HeapAlloc(m_Handle, 0, cb);
-  }
-
-  virtual void *STDMETHODCALLTYPE Realloc(
-    _In_opt_  void *pv,
-    _In_  SIZE_T cb)
-  {
-    return HeapReAlloc(m_Handle, 0, pv, cb);
-  }
-
-  virtual void STDMETHODCALLTYPE Free(
-    _In_opt_  void *pv)
-  {
-    HeapFree(m_Handle, 0, pv);
-  }
-
-  virtual SIZE_T STDMETHODCALLTYPE GetSize(
-    /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
-  {
-    return HeapSize(m_Handle, 0, pv);
-  }
-
-  virtual int STDMETHODCALLTYPE DidAlloc(
-    /* [annotation][in] */
-    _In_opt_  void *pv)
-  {
-    return -1; // don't know
-  }
-
-
-  virtual void STDMETHODCALLTYPE HeapMinimize(void)
-  {
-  }
-};
-
 inline bool wcseq(LPCWSTR a, LPCWSTR b) {
   return (a == nullptr && b == nullptr) || (a != nullptr && b != nullptr && wcscmp(a, b) == 0);
 }
@@ -171,8 +119,6 @@ class DxcContext {
 private:
   DxcOpts &m_Opts;
   DxcDllSupport &m_dxcSupport;
-  NoSerializeHeapMalloc m_Malloc;
-  HANDLE m_MallocHeap;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -194,22 +140,12 @@ private:
 
   template <typename TInterface>
   HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface** pResult) {
-    if (m_dxcSupport.HasCreateWithMalloc())
-      return m_dxcSupport.CreateInstance2(&m_Malloc, clsid, pResult);
-    else
-      return m_dxcSupport.CreateInstance(clsid, pResult);
+  return m_dxcSupport.CreateInstance(clsid, pResult);
   }
 
 public:
   DxcContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
-      : m_Opts(Opts), m_dxcSupport(dxcSupport), m_MallocHeap(nullptr) {
-    if (m_dxcSupport.HasCreateWithMalloc()) {
-      m_MallocHeap = HeapCreate(HEAP_NO_SERIALIZE, 1024 * 1024 * 2, 0);
-      if (m_MallocHeap == NULL)
-        IFT_Data(HRESULT_FROM_WIN32(GetLastError()), L"unable to create custom heap");
-      m_Malloc.SetHandle(m_MallocHeap);
-      // We never free the heap because it's tied to the dxc process lifetime
-    }
+      : m_Opts(Opts), m_dxcSupport(dxcSupport) {
   }
 
   int  Compile();
