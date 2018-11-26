@@ -73,22 +73,25 @@ private:
   /// This method will update internal bookkeeping regarding matrix majorness.
   QualType desugarType(QualType type);
 
-  /// Returns true if type is a HLSL row-major matrix, either with explicit
-  /// attribute or implicit command-line option.
-  bool isRowMajorMatrix(QualType type) const;
+  /// Returns true if type is an HLSL row-major matrix or array of matrices.
+  /// Returns false if type is an HLSL col-major matrix or array of matrices.
+  /// Returns llvm::None if the type is not a matrix or array of matrices.
+  /// It does so by checking the majorness of the HLSL matrix either with
+  /// explicit attribute or implicit command-line option.
+  llvm::Optional<bool> isHLSLRowMajorMatrix(QualType type) const;
+
+  /// Returns true if type is a SPIR-V row-major matrix or array of matrices.
+  /// Returns false if type is a SPIR-V col-major matrix or array of matrices.
+  /// Returns llvm::None if the type is not a matrix or array of matrices.
+  /// 
+  /// Note that HLSL matrices are conceptually row major, while SPIR-V matrices
+  /// are conceptually column major. We are mapping what HLSL semantically mean
+  /// a row into a column here.
+  llvm::Optional<bool> isRowMajorMatrix(QualType type) const;
 
 private:
   ASTContext &astContext;   /// AST context
   SpirvContext &spvContext; /// SPIR-V context
-
-  /// A place to keep the matrix majorness attributes so that we can retrieve
-  /// the information when really processing the desugared matrix type.
-  ///
-  /// This is needed because the majorness attribute is decorated on a
-  /// TypedefType (i.e., floatMxN) of the real matrix type (i.e., matrix<elem,
-  /// row, col>). When we reach the desugared matrix type, this information
-  /// is already gone.
-  llvm::Optional<AttributedType::Kind> typeMatMajorAttr;
 };
 
 } // end namespace spirv

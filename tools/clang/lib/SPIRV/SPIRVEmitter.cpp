@@ -912,10 +912,9 @@ SpirvInstruction *SPIRVEmitter::loadIfGLValue(const Expr *expr,
             astContext.getExtVectorType(uintType, numCols);
         const auto boolRowQualType =
             astContext.getExtVectorType(boolType, numCols);
-        // TODO(ehsan): Verify the isRowMajor argument.
         const SpirvType *resultType = spvContext.getMatrixType(
             spvContext.getVectorType(spvContext.getBoolType(), numCols),
-            numRows, /*isRowMajor*/ false);
+            numRows);
 
         llvm::SmallVector<SpirvInstruction *, 4> rows;
         for (uint32_t i = 0; i < numRows; ++i) {
@@ -4467,7 +4466,8 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
       indices.push_back(col);
 
     if (baseExpr->isGLValue()) {
-      llvm::SmallVector<SpirvInstruction *, 2> indexInstructions;
+      llvm::SmallVector<SpirvInstruction *, 2> indexInstructions(indices.size(),
+                                                                 nullptr);
       for (uint32_t i = 0; i < indices.size(); ++i)
         indexInstructions[i] = spvBuilder.getConstantInt32(indices[i]);
 
@@ -5776,7 +5776,6 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     accessor.GetPosition(i, &row, &col);
 
     llvm::SmallVector<uint32_t, 2> indices;
-    llvm::SmallVector<SpirvInstruction *, 2> indexInstructions;
     // If the matrix only have one row/column, we are indexing into a vector
     // then. Only one index is needed for such cases.
     if (rowCount > 1)
@@ -5784,6 +5783,8 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     if (colCount > 1)
       indices.push_back(col);
 
+    llvm::SmallVector<SpirvInstruction *, 2> indexInstructions(indices.size(),
+                                                               nullptr);
     for (uint32_t i = 0; i < indices.size(); ++i)
       indexInstructions[i] = spvBuilder.getConstantInt32(indices[i]);
 

@@ -308,13 +308,15 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
 
 SpirvVariable *GlPerVertex::createClipCullDistanceVar(bool asInput, bool isClip,
                                                       uint32_t arraySize) {
-  const ArrayType *type =
-      spvContext.getArrayType(spvContext.getFloatType(32), arraySize);
+  const ArrayType *type = spvContext.getArrayType(
+      spvContext.getFloatType(32), arraySize, /*rowMajorElem*/ llvm::None);
 
   if (asInput && inArraySize != 0) {
-    type = spvContext.getArrayType(type, inArraySize);
+    type =
+        spvContext.getArrayType(type, inArraySize, /*rowMajorElem*/ llvm::None);
   } else if (!asInput && outArraySize != 0) {
-    type = spvContext.getArrayType(type, outArraySize);
+    type = spvContext.getArrayType(type, outArraySize,
+                                   /*rowMajorElem*/ llvm::None);
   }
 
   spv::StorageClass sc =
@@ -429,7 +431,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip,
   const ArrayType *arrayType = nullptr;
 
   if (isScalarType(asType)) {
-    arrayType = spvContext.getArrayType(f32Type, inArraySize);
+    arrayType = spvContext.getArrayType(f32Type, inArraySize,
+                                        /*rowMajorElem*/ llvm::None);
     for (uint32_t i = 0; i < inArraySize; ++i) {
       auto *ptr = spvBuilder.createAccessChain(
           ptrType, clipCullVar,
@@ -438,8 +441,9 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip,
       arrayElements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
     }
   } else if (isVectorType(asType, &elemType, &count)) {
-    arrayType = spvContext.getArrayType(
-        spvContext.getVectorType(f32Type, count), inArraySize);
+    arrayType =
+        spvContext.getArrayType(spvContext.getVectorType(f32Type, count),
+                                inArraySize, /*rowMajorElem*/ llvm::None);
 
     for (uint32_t i = 0; i < inArraySize; ++i) {
       // For each gl_PerVertex block, we need to read a vector from it.

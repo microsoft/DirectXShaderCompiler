@@ -192,8 +192,9 @@ public:
   const FloatType *getFloatType(uint32_t bitwidth);
 
   const VectorType *getVectorType(const SpirvType *elemType, uint32_t count);
-  const MatrixType *getMatrixType(const SpirvType *vecType, uint32_t vecCount,
-                                  bool isRowMajor);
+  // Note: In the case of non-floating-point matrices, this method returns an
+  // array of vectors.
+  const SpirvType *getMatrixType(const SpirvType *vecType, uint32_t vecCount);
 
   const ImageType *getImageType(const SpirvType *, spv::Dim,
                                 ImageType::WithDepth, bool arrayed, bool ms,
@@ -203,7 +204,8 @@ public:
   const SampledImageType *getSampledImageType(const ImageType *image);
   const HybridSampledImageType *getSampledImageType(QualType image);
 
-  const ArrayType *getArrayType(const SpirvType *elemType, uint32_t elemCount);
+  const ArrayType *getArrayType(const SpirvType *elemType, uint32_t elemCount,
+                                llvm::Optional<bool> rowMajorElem);
   const RuntimeArrayType *getRuntimeArrayType(const SpirvType *elemType);
 
   const StructType *getStructType(
@@ -272,7 +274,8 @@ private:
   llvm::DenseMap<QualType, const HybridSampledImageType *, QualTypeDenseMapInfo>
       hybridSampledImageTypes;
 
-  llvm::DenseMap<const SpirvType *, CountToArrayMap> arrayTypes;
+  //llvm::DenseMap<const SpirvType *, CountToArrayMap> arrayTypes;
+  llvm::SmallVector<const ArrayType *, 8> arrayTypes;
   llvm::DenseMap<const SpirvType *, const RuntimeArrayType *> runtimeArrayTypes;
 
   llvm::SmallVector<const StructType *, 8> structTypes;
