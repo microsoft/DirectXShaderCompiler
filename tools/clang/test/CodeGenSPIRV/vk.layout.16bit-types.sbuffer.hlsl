@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_2 -E main -enable-16bit-types
 
-// CHECK: OpCapability StorageBuffer16BitAccess
+// XXXXX: OpCapability StorageBuffer16BitAccess
 
 // CHECK: OpExtension "SPV_KHR_16bit_storage"
 
