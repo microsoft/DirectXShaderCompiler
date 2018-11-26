@@ -14,6 +14,18 @@
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvFunction.h"
 
+namespace {
+/// Returns the :packoffset() annotation on the given decl. Returns nullptr if
+/// the decl does not have one.
+hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations())
+    if (auto *packing = llvm::dyn_cast<hlsl::ConstantPacking>(annotation))
+      return packing;
+  return nullptr;
+}
+
+} // end anonymous namespace
+
 namespace clang {
 namespace spirv {
 
@@ -381,8 +393,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       const SpirvType *fieldType = lowerType(field->getType(), rule, srcLoc);
       llvm::Optional<bool> isRowMajor = isRowMajorMatrix(field->getType());
       fields.push_back(StructType::FieldInfo(
-          fieldType, field->getName(), /*vkoffset*/ nullptr,
-          /*packoffset*/ nullptr, isRowMajor));
+          fieldType, field->getName(),
+          /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
+          /*packoffset*/ getPackOffset(field), isRowMajor));
     }
 
     return spvContext.getStructType(fields, decl->getName());
