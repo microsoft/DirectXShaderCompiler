@@ -23,8 +23,7 @@ class CapabilityVisitor : public Visitor {
 public:
   CapabilityVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts,
                     SpirvBuilder &builder)
-      : Visitor(opts, spvCtx), spvContext(spvCtx), spvBuilder(builder) {}
-
+      : Visitor(opts, spvCtx), spvBuilder(builder) {}
 
   bool visit(SpirvDecoration *decor);
   bool visit(SpirvEntryPoint *);
@@ -53,7 +52,6 @@ private:
   spv::Capability getNonUniformCapability(const SpirvType *);
 
 private:
-  SpirvContext &spvContext;        /// SPIR-V context
   SpirvBuilder &spvBuilder;        /// SPIR-V builder
   spv::ExecutionModel shaderModel; /// Execution model
 };
