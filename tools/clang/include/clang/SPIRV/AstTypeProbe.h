@@ -128,6 +128,10 @@ QualType getElementType(QualType type);
 QualType getTypeWithCustomBitwidth(const ASTContext &, QualType type,
                                    uint32_t bitwidth);
 
+/// Returns true if the given type is a matrix or an array of matrices.
+bool isMatrixOrArrayOfMatrix(const ASTContext &, QualType type);
+                             
+
 } // namespace spirv
 } // namespace clang
 

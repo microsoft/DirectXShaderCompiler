@@ -589,5 +589,16 @@ QualType getTypeWithCustomBitwidth(const ASTContext &ctx, QualType type,
       "invalid type or bitwidth passed to getTypeWithCustomBitwidth");
 }
 
+bool isMatrixOrArrayOfMatrix(const ASTContext &context, QualType type) {
+  if (isMxNMatrix(type)) {
+    return true;
+  }
+
+  if (const auto *arrayType = context.getAsArrayType(type))
+    return isMatrixOrArrayOfMatrix(context, arrayType->getElementType());
+
+  return false;
+}
+
 } // namespace spirv
 } // namespace clang

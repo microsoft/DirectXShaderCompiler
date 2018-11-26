@@ -128,14 +128,20 @@ bool SpirvType::isOrContains16BitType(const SpirvType *type) {
   return false;
 }
 
-MatrixType::MatrixType(const VectorType *vecType, uint32_t vecCount,
-                       bool rowMajor)
-    : SpirvType(TK_Matrix), vectorType(vecType), vectorCount(vecCount),
-      isRowMajor(rowMajor) {}
+bool SpirvType::isMatrixOrArrayOfMatrix(const SpirvType *type) {
+  if (isa<MatrixType>(type))
+    return true;
+  if (const auto *arrayType = dyn_cast<ArrayType>(type))
+    return isMatrixOrArrayOfMatrix(arrayType->getElementType());
+
+  return false;
+}
+
+MatrixType::MatrixType(const VectorType *vecType, uint32_t vecCount)
+    : SpirvType(TK_Matrix), vectorType(vecType), vectorCount(vecCount) {}
 
 bool MatrixType::operator==(const MatrixType &that) const {
-  return vectorType == that.vectorType && vectorCount == that.vectorCount &&
-         isRowMajor == that.isRowMajor;
+  return vectorType == that.vectorType && vectorCount == that.vectorCount;
 }
 
 ImageType::ImageType(const NumericalType *type, spv::Dim dim, WithDepth depth,
@@ -183,6 +189,13 @@ bool ImageType::operator==(const ImageType &that) const {
          isSampled == that.isSampled && imageFormat == that.imageFormat;
 }
 
+bool ArrayType::operator==(const ArrayType &that) const {
+  return elementType == that.elementType && elementCount == that.elementCount &&
+         rowMajorElem.hasValue() == that.rowMajorElem.hasValue() &&
+         (!rowMajorElem.hasValue() ||
+          rowMajorElem.getValue() == that.rowMajorElem.getValue());
+}
+
 StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
                        llvm::StringRef name, bool isReadOnly,
                        StructInterfaceType iface)
@@ -192,7 +205,10 @@ StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
 bool StructType::FieldInfo::
 operator==(const StructType::FieldInfo &that) const {
   return type == that.type && vkOffsetAttr == that.vkOffsetAttr &&
-         packOffsetAttr == that.packOffsetAttr;
+         packOffsetAttr == that.packOffsetAttr &&
+         isRowMajor.hasValue() == that.isRowMajor.hasValue() &&
+         (!isRowMajor.hasValue() ||
+          isRowMajor.getValue() == that.isRowMajor.getValue());
 }
 
 bool StructType::operator==(const StructType &that) const {

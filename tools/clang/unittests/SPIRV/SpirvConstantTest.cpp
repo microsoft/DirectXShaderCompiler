@@ -158,7 +158,7 @@ TEST(SpirvConstant, CheckOperatorEqualOnComposite) {
   SpirvContext ctx;
   const FloatType *f32Type = ctx.getFloatType(32);
   const VectorType *vecType = ctx.getVectorType(f32Type, 4);
-  const ArrayType *arrType = ctx.getArrayType(vecType, 2);
+  const ArrayType *arrType = ctx.getArrayType(vecType, 2, llvm::None);
   SpirvConstantFloat f1(f32Type, 3.14);
   SpirvConstantFloat f2(f32Type, 5.f);
   SpirvConstantFloat f3(f32Type, -1.f);
@@ -177,7 +177,7 @@ TEST(SpirvConstant, CheckOperatorEqualOnComposite2) {
   SpirvContext ctx;
   const FloatType *f32Type = ctx.getFloatType(32);
   const VectorType *vecType = ctx.getVectorType(f32Type, 4);
-  const ArrayType *arrType = ctx.getArrayType(vecType, 1);
+  const ArrayType *arrType = ctx.getArrayType(vecType, 1, llvm::None);
   SpirvConstantFloat f1(f32Type, 3.14);
   SpirvConstantFloat f2(f32Type, 5.f);
   SpirvConstantFloat f3(f32Type, -1.f);
@@ -221,7 +221,7 @@ TEST(SpirvConstant, CompositeConstNotEqualSpecConstComposite) {
   SpirvContext ctx;
   const FloatType *f32Type = ctx.getFloatType(32);
   const VectorType *vecType = ctx.getVectorType(f32Type, 4);
-  const ArrayType *arrType = ctx.getArrayType(vecType, 2);
+  const ArrayType *arrType = ctx.getArrayType(vecType, 2, llvm::None);
   SpirvConstantFloat f1(f32Type, 3.14);
   SpirvConstantFloat f2(f32Type, 5.f);
   SpirvConstantFloat f3(f32Type, -1.f);
