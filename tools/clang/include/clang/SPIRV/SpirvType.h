@@ -66,6 +66,7 @@ public:
   static bool isSubpassInputMS(const SpirvType *);
   static bool isResourceType(const SpirvType *);
   static bool isOrContains16BitType(const SpirvType *);
+  static bool isMatrixOrArrayOfMatrix(const SpirvType *);
 
 protected:
   SpirvType(Kind k, llvm::StringRef name = "") : kind(k), debugName(name) {}
@@ -148,7 +149,7 @@ private:
 
 class MatrixType : public SpirvType {
 public:
-  MatrixType(const VectorType *vecType, uint32_t vecCount, bool rowMajor);
+  MatrixType(const VectorType *vecType, uint32_t vecCount);
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Matrix; }
 
@@ -159,20 +160,12 @@ public:
     return vectorType->getElementType();
   }
   uint32_t getVecCount() const { return vectorCount; }
-  bool isRowMajorMat() const { return isRowMajor; }
-
   uint32_t numCols() const { return vectorCount; }
   uint32_t numRows() const { return vectorType->getElementCount(); }
 
 private:
   const VectorType *vectorType;
   uint32_t vectorCount;
-  // It's debatable whether we should put majorness as a field in the type
-  // itself. Majorness only matters at the time of emitting SPIR-V words since
-  // we need the layout decoration then. However, if we don't put it here,
-  // we will need to rediscover the majorness information from QualType at
-  // the time of emitting SPIR-V words.
-  bool isRowMajor;
 };
 
 class ImageType : public SpirvType {
@@ -241,17 +234,29 @@ private:
 
 class ArrayType : public SpirvType {
 public:
-  ArrayType(const SpirvType *elemType, uint32_t elemCount)
-      : SpirvType(TK_Array), elementType(elemType), elementCount(elemCount) {}
+  ArrayType(const SpirvType *elemType, uint32_t elemCount,
+            llvm::Optional<bool> hasRowMajorElem)
+      : SpirvType(TK_Array), elementType(elemType), elementCount(elemCount),
+        rowMajorElem(hasRowMajorElem) {}
 
   const SpirvType *getElementType() const { return elementType; }
   uint32_t getElementCount() const { return elementCount; }
+  llvm::Optional<bool> hasRowMajorElement() const { return rowMajorElem; }
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Array; }
+
+  bool operator==(const ArrayType &that) const;
 
 private:
   const SpirvType *elementType;
   uint32_t elementCount;
+  // Two arrays types with different ArrayStride decorations, are in fact two
+  // different array types. In general, the combination of element type and
+  // element count is enough to determine the array stride. However, in the case
+  // of arrays of matrices, we also need to know the majorness of the matrices.
+  // An array of 5 row_major 2x3 matrices is a different type from
+  // an array of 5 col_major 2x3 matrices.
+  llvm::Optional<bool> rowMajorElem;
 };
 
 class RuntimeArrayType : public SpirvType {
@@ -275,9 +280,10 @@ public:
   public:
     FieldInfo(const SpirvType *type_, llvm::StringRef name_ = "",
               clang::VKOffsetAttr *offset = nullptr,
-              hlsl::ConstantPacking *packOffset = nullptr)
+              hlsl::ConstantPacking *packOffset = nullptr,
+              llvm::Optional<bool> rowMajor = llvm::None)
         : type(type_), name(name_), vkOffsetAttr(offset),
-          packOffsetAttr(packOffset) {}
+          packOffsetAttr(packOffset), isRowMajor(rowMajor) {}
 
     bool operator==(const FieldInfo &that) const;
 
@@ -289,6 +295,8 @@ public:
     clang::VKOffsetAttr *vkOffsetAttr;
     // :packoffset() annotations associated with this field.
     hlsl::ConstantPacking *packOffsetAttr;
+    // The majorness of this field (if it is a matrix).
+    llvm::Optional<bool> isRowMajor;
   };
 
   StructType(

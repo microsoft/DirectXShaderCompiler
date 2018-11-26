@@ -126,6 +126,9 @@ SpirvComposite *SpirvBuilder::createCompositeConstruct(
   auto *instruction =
       new (context) SpirvComposite(resultType, /*id*/ 0, loc, constituents);
   insertPoint->addInstruction(instruction);
+  if (!constituents.empty()) {
+    instruction->setLayoutRule(constituents[0]->getLayoutRule());
+  }
   return instruction;
 }
 
@@ -136,6 +139,9 @@ SpirvComposite *SpirvBuilder::createCompositeConstruct(
   auto *instruction = new (context)
       SpirvComposite(/*QualType*/ {}, /*id*/ 0, loc, constituents);
   instruction->setResultType(resultType);
+  if (!constituents.empty()) {
+    instruction->setLayoutRule(constituents[0]->getLayoutRule());
+  }
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -181,6 +187,7 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
       new (context) SpirvLoad(resultType, /*id*/ 0, loc, pointer);
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setRValue();
+  instruction->setLayoutRule(pointer->getLayoutRule());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -194,6 +201,7 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   instruction->setResultType(resultType);
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setRValue();
+  instruction->setLayoutRule(pointer->getLayoutRule());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
