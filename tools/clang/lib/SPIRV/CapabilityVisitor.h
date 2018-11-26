@@ -32,7 +32,6 @@ public:
   bool visit(SpirvImageQuery *);
   bool visit(SpirvImageOp *);
   bool visit(SpirvImageSparseTexelsResident *);
-  bool visit(SpirvVariable *);
 
   /// The "sink" visit function for all instructions.
   ///
@@ -46,8 +45,8 @@ private:
   /// The called may also provide the storage class for variable types, because
   /// in the case of variable types, the storage class may affect the capability
   /// that is used.
-  void addCapabilityForType(const SpirvType *, SourceLocation loc = {},
-                            spv::StorageClass sc = spv::StorageClass::Max);
+  void addCapabilityForType(const SpirvType *, SourceLocation loc,
+                            spv::StorageClass sc);
 
   /// Returns the capability required to non-uniformly index into the given
   /// type.
