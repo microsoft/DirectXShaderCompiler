@@ -1756,7 +1756,7 @@ bool DeclResultIdMapper::createStageVars(
                                                   astContext.FloatTy, x, y);
         const auto z =
             spvBuilder.createBinaryOp(spv::Op::OpFSub, astContext.FloatTy,
-                                      spvBuilder.getConstantInt32(1), xy);
+                                      spvBuilder.getConstantFloat32(1), xy);
         *value = spvBuilder.createCompositeConstruct(
             astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z});
       }
