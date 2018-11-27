@@ -765,6 +765,13 @@ SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
   return inst;
 }
 
+void SpirvBuilder::createLineInfo(SpirvString *file, uint32_t line,
+                                  uint32_t column) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvLineInfo(file, line, column);
+  insertPoint->addInstruction(inst);
+}
+
 void SpirvBuilder::addExtension(Extension ext, llvm::StringRef target,
                                 SourceLocation loc) {
   // TODO: The extension management should be removed from here and added as a
@@ -779,6 +786,10 @@ void SpirvBuilder::addExtension(Extension ext, llvm::StringRef target,
       module->addExtension(new (context) SpirvExtension(
           loc, featureManager->getExtensionName(ext)));
   }
+}
+
+void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
+  module->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
 
 SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet(SourceLocation loc) {

@@ -1063,7 +1063,7 @@ private:
   FunctionDecl *patchConstFunc;
 
   /// The <result-id> of the OpString containing the main source file's path.
-  uint32_t mainSourceFileId;
+  SpirvString *mainSourceFile;
 };
 
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
