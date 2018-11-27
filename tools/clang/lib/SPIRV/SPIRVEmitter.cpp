@@ -2445,10 +2445,11 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_HLSLDerivedToBase: {
     // Find the index sequence of the base to which we are casting
     llvm::SmallVector<uint32_t, 4> baseIndices;
-    llvm::SmallVector<SpirvInstruction *, 4> baseIndexInstructions;
     getBaseClassIndices(expr, &baseIndices);
 
     // Turn them in to SPIR-V constants
+    llvm::SmallVector<SpirvInstruction *, 4> baseIndexInstructions(
+        baseIndices.size(), nullptr);
     for (uint32_t i = 0; i < baseIndices.size(); ++i)
       baseIndexInstructions[i] = spvBuilder.getConstantUint32(baseIndices[i]);
 
@@ -6538,15 +6539,16 @@ SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneCount",
                                     callExpr->getExprLoc());
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize);
+    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize,
+                                           callExpr->getExprLoc());
     retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
                                     callExpr->getExprLoc());
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var =
-        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId);
+    auto *var = declIdMapper.getBuiltinVar(
+        spv::BuiltIn::SubgroupLocalInvocationId, callExpr->getExprLoc());
     retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:

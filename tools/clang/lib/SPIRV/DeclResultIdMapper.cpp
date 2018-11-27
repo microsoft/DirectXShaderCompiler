@@ -2157,7 +2157,8 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
   }
 }
 
-SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
+SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
+                                                 SourceLocation loc) {
   // Guarantee uniqueness
   switch (builtIn) {
   case spv::BuiltIn::SubgroupSize:
@@ -2175,8 +2176,8 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
   }
 
   // Create a dummy StageVar for this builtin variable
-  auto var = spvBuilder.addStageBuiltinVar(spvContext.getUIntType(32),
-                                           spv::StorageClass::Input, builtIn);
+  auto var = spvBuilder.addStageBuiltinVar(
+      spvContext.getUIntType(32), spv::StorageClass::Input, builtIn, loc);
 
   const hlsl::SigPoint *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
@@ -2234,7 +2235,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
-    return spvBuilder.addStageBuiltinVar(type, sc, spvBuiltIn);
+    return spvBuilder.addStageBuiltinVar(type, sc, spvBuiltIn, srcLoc);
   }
 
   // The following translation assumes that semantic validity in the current
@@ -2259,10 +2260,11 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::GSVIn:
     case hlsl::SigPoint::Kind::GSOut:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position, srcLoc);
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragCoord);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragCoord,
+                                           srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_Position sneaked in");
     }
@@ -2272,7 +2274,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSIn.
   case hlsl::Semantic::Kind::VertexID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::VertexIndex);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::VertexIndex,
+                                         srcLoc);
   }
   // According to DXIL spec, the InstanceID SV can be used by VSIn, VSOut,
   // HSCPIn, HSCPOut, DSCPIn, DSOut, GSVIn, GSOut, PSIn.
@@ -2282,7 +2285,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::InstanceIndex);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::InstanceIndex,
+                                           srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -2312,7 +2316,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     else if (semanticKind == hlsl::Semantic::Kind::DepthLessEqual)
       spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::DepthLess,
                                   {});
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth, srcLoc);
   }
   // According to DXIL spec, the ClipDistance/CullDistance SV can be used by all
   // SigPoints other than PCIn, HSIn, GSIn, PSOut, CSIn.
@@ -2348,7 +2352,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
       return spvBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing,
+                                           srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_IsFrontFace sneaked in");
     }
@@ -2367,19 +2372,22 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to Vulkan spec, the GlobalInvocationId can only be used in CSIn.
   case hlsl::Semantic::Kind::DispatchThreadID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::GlobalInvocationId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::GlobalInvocationId,
+                                         srcLoc);
   }
   // According to DXIL spec, the GroupID SV can only be used by CSIn.
   // According to Vulkan spec, the WorkgroupId can only be used in CSIn.
   case hlsl::Semantic::Kind::GroupID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::WorkgroupId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::WorkgroupId,
+                                         srcLoc);
   }
   // According to DXIL spec, the GroupThreadID SV can only be used by CSIn.
   // According to Vulkan spec, the LocalInvocationId can only be used in CSIn.
   case hlsl::Semantic::Kind::GroupThreadID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::LocalInvocationId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::LocalInvocationId,
+                                         srcLoc);
   }
   // According to DXIL spec, the GroupIndex SV can only be used by CSIn.
   // According to Vulkan spec, the LocalInvocationIndex can only be used in
@@ -2387,14 +2395,15 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   case hlsl::Semantic::Kind::GroupIndex: {
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc,
-                                         BuiltIn::LocalInvocationIndex);
+                                         BuiltIn::LocalInvocationIndex, srcLoc);
   }
   // According to DXIL spec, the OutputControlID SV can only be used by HSIn.
   // According to Vulkan spec, the InvocationId BuiltIn can only be used in
   // HS/GS In.
   case hlsl::Semantic::Kind::OutputControlPointID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId,
+                                         srcLoc);
   }
   // According to DXIL spec, the PrimitiveID SV can only be used by PCIn, HSIn,
   // DSIn, GSIn, GSOut, and PSIn.
@@ -2403,7 +2412,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   case hlsl::Semantic::Kind::PrimitiveID: {
     // Translate to PrimitiveId BuiltIn for all valid SigPoints.
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId,
+                                         srcLoc);
   }
   // According to DXIL spec, the TessFactor SV can only be used by PCOut and
   // DSIn.
@@ -2411,7 +2421,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // PCOut and DSIn.
   case hlsl::Semantic::Kind::TessFactor: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelOuter);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelOuter,
+                                         srcLoc);
   }
   // According to DXIL spec, the InsideTessFactor SV can only be used by PCOut
   // and DSIn.
@@ -2419,31 +2430,34 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // PCOut and DSIn.
   case hlsl::Semantic::Kind::InsideTessFactor: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner,
+                                         srcLoc);
   }
   // According to DXIL spec, the DomainLocation SV can only be used by DSIn.
   // According to Vulkan spec, the TessCoord BuiltIn can only be used in DSIn.
   case hlsl::Semantic::Kind::DomainLocation: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord, srcLoc);
   }
   // According to DXIL spec, the GSInstanceID SV can only be used by GSIn.
   // According to Vulkan spec, the InvocationId BuiltIn can only be used in
   // HS/GS In.
   case hlsl::Semantic::Kind::GSInstanceID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId,
+                                         srcLoc);
   }
   // According to DXIL spec, the SampleIndex SV can only be used by PSIn.
   // According to Vulkan spec, the SampleId BuiltIn can only be used in PSIn.
   case hlsl::Semantic::Kind::SampleIndex: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId, srcLoc);
   }
   // According to DXIL spec, the StencilRef SV can only be used by PSOut.
   case hlsl::Semantic::Kind::StencilRef: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT,
+                                         srcLoc);
   }
   // According to DXIL spec, the ViewID SV can only be used by PSIn.
   case hlsl::Semantic::Kind::Barycentrics: {
@@ -2471,7 +2485,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
       }
     }
 
-    return spvBuilder.addStageBuiltinVar(type, sc, bi);
+    return spvBuilder.addStageBuiltinVar(type, sc, bi, srcLoc);
   }
   // According to DXIL spec, the RenderTargetArrayIndex SV can only be used by
   // VSIn, VSOut, HSCPIn, HSCPOut, DSIn, DSOut, GSVIn, GSOut, PSIn.
@@ -2490,11 +2504,11 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer, srcLoc);
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer, srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_RenderTargetArrayIndex sneaked in");
     }
@@ -2516,11 +2530,13 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex,
+                                           srcLoc);
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex);
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex,
+                                           srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_ViewportArrayIndex sneaked in");
     }
@@ -2530,7 +2546,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // PSIn and PSOut.
   case hlsl::Semantic::Kind::Coverage: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleMask);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleMask, srcLoc);
   }
   // According to DXIL spec, the ViewID SV can only be used by VSIn, PCIn,
   // HSIn, DSIn, GSIn, PSIn.
@@ -2538,14 +2554,15 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VS/HS/DS/GS/PS input.
   case hlsl::Semantic::Kind::ViewID: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex, srcLoc);
   }
     // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
     // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
     // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
     stageVar->setIsSpirvBuiltin();
-    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT);
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT,
+                                         srcLoc);
   }
   default:
     emitError("semantic %0 unimplemented", srcLoc)
