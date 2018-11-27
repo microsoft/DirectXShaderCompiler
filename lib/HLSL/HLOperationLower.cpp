@@ -5422,10 +5422,8 @@ Value *TranslateConstBufMatLdLegacy(Type *matType, Value *handle,
                                     bool memElemRepr, const DataLayout &DL,
                                     IRBuilder<> &Builder) {
   unsigned col, row;
-  Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
-
-  if (EltTy->isIntegerTy(1) && memElemRepr)
-    EltTy = Builder.getInt32Ty();
+  HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/memElemRepr)->getVectorElementType();
 
   unsigned matSize = col * row;
   std::vector<Value *> elts(matSize);
