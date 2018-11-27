@@ -413,6 +413,10 @@ public:
   uint32_t getMemberIndex() const { return index.getValue(); }
 
 private:
+  spv::Op getDecorateOpcode(spv::Decoration,
+                            const llvm::Optional<uint32_t> &memberIndex);
+
+private:
   SpirvInstruction *target;
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
