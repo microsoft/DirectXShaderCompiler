@@ -160,9 +160,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  spv::Decoration decor,
                                  llvm::ArrayRef<uint32_t> p,
                                  llvm::Optional<uint32_t> idx)
-    : SpirvInstruction(IK_Decoration,
-                       idx.hasValue() ? spv::Op::OpMemberDecorate
-                                      : spv::Op::OpDecorate,
+    : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, /*id*/ 0, loc),
       target(targetInst), decoration(decor), index(idx),
       params(p.begin(), p.end()), idParams() {}
@@ -172,9 +170,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  spv::Decoration decor,
                                  llvm::StringRef strParam,
                                  llvm::Optional<uint32_t> idx)
-    : SpirvInstruction(IK_Decoration,
-                       idx.hasValue() ? spv::Op::OpMemberDecorate
-                                      : spv::Op::OpDecorate,
+    : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, /*id*/ 0, loc),
       target(targetInst), decoration(decor), index(idx), params(), idParams() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
@@ -189,6 +185,16 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                        /*type*/ {}, /*id*/ 0, loc),
       target(targetInst), decoration(decor), index(llvm::None), params(),
       idParams(ids.begin(), ids.end()) {}
+
+spv::Op SpirvDecoration::getDecorateOpcode(
+    spv::Decoration decoration, const llvm::Optional<uint32_t> &memberIndex) {
+  if (decoration == spv::Decoration::HlslSemanticGOOGLE)
+    return memberIndex.hasValue() ? spv::Op::OpMemberDecorateStringGOOGLE
+                                  : spv::Op::OpDecorateStringGOOGLE;
+
+  return memberIndex.hasValue() ? spv::Op::OpMemberDecorate
+                                : spv::Op::OpDecorate;
+}
 
 SpirvVariable::SpirvVariable(QualType resultType, uint32_t resultId,
                              SourceLocation loc, spv::StorageClass sc,
