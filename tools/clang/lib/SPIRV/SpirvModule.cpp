@@ -16,7 +16,8 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), debugSource(nullptr),
-      decorations({}), constants({}), variables({}), functions({}) {}
+      moduleProcesses({}), decorations({}), constants({}), variables({}),
+      functions({}) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor) {
   if (!visitor->visit(this, Visitor::Phase::Init))
@@ -47,6 +48,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor) {
 
   if (debugSource)
     if (!debugSource->invokeVisitor(visitor))
+      return false;
+
+  for (auto moduleProcess : moduleProcesses)
+    if (!moduleProcess->invokeVisitor(visitor))
       return false;
 
   for (auto decoration : decorations)
@@ -138,6 +143,11 @@ void SpirvModule::addConstant(SpirvConstant *constant) {
 void SpirvModule::addDebugSource(SpirvSource *src) {
   assert(src);
   debugSource = src;
+}
+
+void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {
+  assert(p);
+  moduleProcesses.push_back(p);
 }
 
 } // end namespace spirv
