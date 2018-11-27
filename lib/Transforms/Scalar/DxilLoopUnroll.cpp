@@ -38,7 +38,7 @@ namespace {
 static std::string GetBlockName(BasicBlock *BB) {
   return BB->getName();
 }
-
+#if 0
 typedef std::unordered_map<Value*, Value*> ValueToValueMap;
 typedef llvm::SetVector<Value*> ValueSetVector;
 typedef llvm::SmallVector<Value*, 4> IndexVector;
@@ -156,22 +156,21 @@ public:
   }
 };
 
-static bool IsPrimitiveType(Type *Ty) {
-  if (Ty->isIntegerTy() || Ty->isFloatingPointTy()) {
+static bool ContainsHLSLType(Type *Ty) {
+  if (hlsl::dxilutil::IsHLSLObjectType(Ty)) {
     return true;
   }
   else if (Ty->isVectorTy()) {
-    return IsPrimitiveType(Ty->getVectorElementType());
+    return ContainsHLSLType(Ty->getVectorElementType());
   }
   else if (Ty->isArrayTy()) {
-    return IsPrimitiveType(Ty->getArrayElementType());
+    return ContainsHLSLType(Ty->getArrayElementType());
   }
   else if (Ty->isStructTy()) {
     for (unsigned i = 0; i < Ty->getStructNumElements(); i++) {
-      if (!IsPrimitiveType(Ty->getStructElementType(i)))
-        return false;
+      if (ContainsHLSLType(Ty->getStructElementType(i)))
+        return true;
     }
-    return true;
   }
   return false;
 }
@@ -270,6 +269,8 @@ class LegalizeResourceUseHelper {
   //   with direct GV GEP + load, with select/phi on GEP indices instead.
 
 public:
+  bool AllowNonResourcePropagation = false;
+
   ResourceUseErrors m_Errors;
 
   ValueToValueMap ValueToResourceGV;
@@ -448,8 +449,8 @@ public:
       // If everything loaded is only primitive types, then we are
       // loading out of a struct that has mixture of resources and
       // primitives. Stop propagating down the use-def of primitives.
-      if (IsPrimitiveType(LI->getType()) && !hlsl::dxilutil::IsHLSLObjectType(LI->getType()))
-        return;
+      //if (!ContainsHLSLType(LI->getType()))
+      //  return;
       if (bAlloca)
         AllocaLoads.insert(LI);
       // clear bAlloca for users
@@ -494,6 +495,10 @@ public:
     } else if (bAlloca) {
       m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
     } else {
+      // If we encountered some other type of instructions..
+      if (AllowNonResourcePropagation)
+        return;
+
       // Must be createHandleForLib or user function call.
       CallInst *CI = cast<CallInst>(V);
       Function *F = CI->getCalledFunction();
@@ -1053,7 +1058,7 @@ public:
   }
 };
 
-
+#endif
 
 template<typename T>
 static std::string DumpValue(T *V) {
@@ -1135,6 +1140,19 @@ static bool SimplifyPHIs(BasicBlock *BB) {
     I->eraseFromParent();
 
   return Changed;
+}
+
+static void FindAllDataDependency(Instruction *I, const SetVector<BasicBlock *> &Blocks, SetVector<Instruction *> &Dependencies) {
+  for (User *U : I->users()) {
+    if (Instruction *UserI = dyn_cast<Instruction>(U)) {
+      if (Dependencies.count(UserI))
+        continue;
+      if (!Blocks.count(UserI->getParent()))
+        continue;
+      Dependencies.insert(UserI);
+      FindAllDataDependency(UserI, Blocks, Dependencies);
+    }
+  }
 }
 
 static void FindAllDataDependency(Instruction *I, std::set<Instruction *> &Set, std::set<BasicBlock *> &Blocks) {
@@ -1535,7 +1553,8 @@ static Instruction *GetNonConstIdx(Value *V) {
   }
   return nullptr;
 }
-#if 1
+
+#if 0
 static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &ProblemBlocks) {
   Module *M = L->getHeader()->getModule();
 
@@ -1543,6 +1562,7 @@ static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &ProblemBlocks) {
   L->getExitBlocks(ExitBlocks);
 
   LegalizeResourceUseHelper Helper;
+  Helper.AllowNonResourcePropagation = true;
   Helper.CollectResources(M->GetHLModule());
   ValueSetVector &ProblemInsts = Helper.m_Errors.ErrorSets[ResourceUseErrors::GVConflicts];
 
@@ -1574,16 +1594,14 @@ static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &ProblemBlocks) {
 }
 #else
 
-static bool IsProblemBlock(BasicBlock *BB, Loop *L) {
-  //SimplifyPHIs(BB);
+static bool IsProblemBlock(BasicBlock *BB, const SetVector<Instruction *> &LoopDependencies) {
   for (Instruction &I : *BB) {
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
       for (auto IdxIt = GEP->idx_begin(); IdxIt != GEP->idx_end(); IdxIt++) {
         Value *Idx = *IdxIt;
         if (Instruction *NonConstIdx = GetNonConstIdx(Idx)) {
-          if (L->contains(NonConstIdx->getParent())) {
+          if (LoopDependencies.count(NonConstIdx))
             return true;
-          }
         }
       }
     }
@@ -1591,17 +1609,19 @@ static bool IsProblemBlock(BasicBlock *BB, Loop *L) {
   return false;
 }
 
-static void FindProblemUsers(Loop *L, SetVector<BasicBlock *> &Blocks) {
-  SmallVector<BasicBlock *, 16> ExitBlocks;
-  L->getExitBlocks(ExitBlocks);
-
-  for (BasicBlock *BB : L->getBlocks()) {
-    if (IsProblemBlock(BB, L))
-      Blocks.insert(BB);
+static void FindProblemUsers(BasicBlock *Header, const SetVector<BasicBlock *> &BlocksInLoop, SetVector<BasicBlock *> &ProblemBlocks) {
+  SetVector<Instruction *> LoopDependencies;
+  SmallVector<PHINode *, 8> HeaderPHI;
+  for (Instruction &I : *Header) {
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    if (!PN)
+      break;
+    FindAllDataDependency(PN, BlocksInLoop, LoopDependencies);
   }
-  for (BasicBlock *BB : ExitBlocks) {
-    if (IsProblemBlock(BB, L))
-      Blocks.insert(BB);
+
+  for (BasicBlock *BB : BlocksInLoop) {
+    if (IsProblemBlock(BB, LoopDependencies))
+      ProblemBlocks.insert(BB);
   }
 }
 #endif
@@ -1641,42 +1661,45 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
   }
 
-  SetVector<BasicBlock *> ProblemBlocks;
-  FindProblemUsers(L, ProblemBlocks);
-
-  if (!IsMarkedFullUnroll(L) && !ProblemBlocks.size())
-    return false;
-
   if (!L->isSafeToClone())
     return false;
 
-  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree(); // TODO: Update the Dom tree
-  Function *F = L->getBlocks()[0]->getParent();
-
   BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
+  BasicBlock *Predecessor = L->getLoopPredecessor();
 
-  SmallVector<BasicBlock *, 16> ExitBlocks;
-  L->getExitBlocks(ExitBlocks);
-  SmallVector<BasicBlock *, 16> BlocksInLoop(L->getBlocks().begin(), L->getBlocks().end());
-  BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
-  SetVector<BasicBlock *> ExitBlockSet;
-
-  // Quit if we don't have a single latch block
-  if (!Latch)
+  // Quit if we don't have a single latch block or predecessor
+  if (!Latch || !Predecessor)
     return false;
 
-  // TODO: See if possible to do this without requiring loop rotation.
   // If the loop exit condition is not in the latch, then the loop is not rotated. Give up.
   if (!cast<BranchInst>(Latch->getTerminator())->isConditional())
     return false;
+
+  SmallVector<BasicBlock *, 16> ExitBlocks;
+  L->getExitBlocks(ExitBlocks);
+  SetVector<BasicBlock *> ExitBlockSet(ExitBlocks.begin(), ExitBlocks.end());
+
+  SmallVector<BasicBlock *, 16> BlocksInLoop(L->getBlocks().begin(), L->getBlocks().end());
+  BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
+  SetVector<BasicBlock *> FullLoopSet(BlocksInLoop.begin(), BlocksInLoop.end());
 
   // Simplify the PHI nodes that have single incoming value. The original LCSSA form
   // (if exists) does not necessarily work for our unroll because we may be unrolling
   // from a different boundary.
   for (BasicBlock *BB : BlocksInLoop)
     SimplifyPHIs(BB);
+
+  // Heuristically find blocks that likely need to be unrolled
+  SetVector<BasicBlock *> ProblemBlocks;
+  FindProblemUsers(L->getHeader(), FullLoopSet, ProblemBlocks);
+
+  if (!IsMarkedFullUnroll(L) && !ProblemBlocks.size())
+    return false;
+
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree(); // TODO: Update the Dom tree
+  Function *F = L->getBlocks()[0]->getParent();
 
   // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;
@@ -1695,11 +1718,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   for (BasicBlock *BB : L->getBlocks())
     ToBeCloned.insert(BB);
 
-  SetVector<BasicBlock *> NewExits;
-  SetVector<BasicBlock *> FakeExits;
+  SetVector<BasicBlock *> NewExits; // We need to define a new set of exit blocks as boundaries for LCSSA
+  SetVector<BasicBlock *> FakeExits; // Set of blocks created to allow cloning original exit blocks.
   for (BasicBlock *BB : ExitBlocks) {
-    ExitBlockSet.insert(BB);
-    bool CloneThisExitBlock = !!ProblemBlocks.count(BB);
+    bool CloneThisExitBlock = ProblemBlocks.count(BB);
 
     if (CloneThisExitBlock) {
       ToBeCloned.insert(BB);
@@ -1738,11 +1760,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   SmallVector<BasicBlock *, 16> ClonedBlocks;
   bool Succeeded = false;
 
-  // Reistablish LCSSA form to get ready for unrolling.
+  // Re-establish LCSSA form to get ready for unrolling.
   CreateLCSSA(ToBeCloned, NewExits, L, *DT, LI);
 
-  std::map<BasicBlock *, BasicBlock *> CloneMap;
-  std::map<BasicBlock *, BasicBlock *> ReverseCloneMap;
+  std::unordered_map<BasicBlock *, BasicBlock *> CloneMap;
+  std::unordered_map<BasicBlock *, BasicBlock *> ReverseCloneMap;
   for (int i = 0; i < 128; i++) { // TODO: Num of iterations
     ClonedBlocks.clear();
     CloneMap.clear();
@@ -1827,7 +1849,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       // from outside of the loop
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
-        Value *ReplacementVal = ClonedPN->getIncomingValue(0); // TODO: Actually find the right one, also make sure there's only a single one.
+        Value *ReplacementVal = ClonedPN->getIncomingValueForBlock(Predecessor);
         ClonedPN->replaceAllUsesWith(ReplacementVal);
         ClonedPN->eraseFromParent();
         Cloned.VarMap[PN] = ReplacementVal;
@@ -1836,7 +1858,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     else {
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(Cloned.VarMap[PN]);
-        Value *ReplacementVal = PrevIteration->VarMap[PN->getIncomingValue(1)]; // TODO: Actually find the right one, also make sure there's only a single one.
+        Value *ReplacementVal = PrevIteration->VarMap[PN->getIncomingValueForBlock(Latch)];
         ClonedPN->replaceAllUsesWith(ReplacementVal);
         ClonedPN->eraseFromParent();
         Cloned.VarMap[PN] = ReplacementVal;
