@@ -306,23 +306,25 @@ New Variable Modifiers
 ======================
 
 .. table:: New variable modifiers.
-+----------------------------------------+-----------------------------------------------+----------------+
-| **Name**                               |                                               |                |
-+----------------------------------------+-----------------------------------------------+----------------+
-| deviceshared _1_                       | NonPrivate{Pointer|Texel}KHR                  | Device         |
-+----------------------------------------+ Make{Pointer|Texel}{Available|Visible}KHR _2_ +----------------+
-| globallycoherent/queuefamilyshared _1_ |                                               | QueueFamilyKHR |
-+----------------------------------------+                                               +----------------+
-| groupshared _3_                        |                                               | Workgroup      |
-+----------------------------------------+                                               +----------------+
-| subgroupshared _1_                     |                                               | Subgroup       |
-+----------------------------------------+-----------------------------------------------+----------------+
-| spv_NonPrivate _4_                     | NonPrivate{Pointer|Texel}KHR                  |                |
-+----------------------------------------+-----------------------------------------------+----------------+
-| volatile                               | NonPrivate{Pointer|Texel}KHR                  | QueueFamilyKHR |
-|                                        | Make{Pointer|Texel}{Available|Visible}KHR     |                |
-|                                        | {Volatile|VolatileTexelKHR} _5_               |                |
-+----------------------------------------+-----------------------------------------------+----------------+
++----------------------------------------+-----------------------------------------------+-------------------------+
+| **Name**                               | **SPIR-V Access Masks**                       | **SPIR-V Memory Scope** |
++----------------------------------------+-----------------------------------------------+-------------------------+
+| deviceshared _1_                       | NonPrivate{Pointer|Texel}KHR                  | Device                  |
++----------------------------------------+                                               +-------------------------+
+| globallycoherent/queuefamilyshared _1_ | Make{Pointer|Texel}{Available|Visible}KHR _2_ | QueueFamilyKHR          |
++----------------------------------------+                                               +-------------------------+
+| groupshared _3_                        |                                               | Workgroup               |
++----------------------------------------+                                               +-------------------------+
+| subgroupshared _1_                     |                                               | Subgroup                |
++----------------------------------------+-----------------------------------------------+-------------------------+
+| spv_NonPrivate _4_                     | NonPrivate{Pointer|Texel}KHR                  |                         |
++----------------------------------------+-----------------------------------------------+-------------------------+
+| volatile                               | NonPrivate{Pointer|Texel}KHR                  | QueueFamilyKHR          |
+|                                        |                                               |                         |
+|                                        | Make{Pointer|Texel}{Available|Visible}KHR     |                         |
+|                                        |                                               |                         |
+|                                        | {Volatile|VolatileTexelKHR} _5_               |                         |
++----------------------------------------+-----------------------------------------------+-------------------------+
 
 1. Only applies to Uniform and SSBO storage images.
 2. Pointer variants OpLoad, OpStore and OpCopyMemory*. Texel variants
@@ -363,7 +365,7 @@ Enabling the Vulkan Memory Model in DXC
 =======================================
 
 A new command line option should be added to specify the memory model:
--fspirv-memory-model. The valid values should be glsl and vulkan. This option
+-fspv-memory-model. The valid values should be glsl and vulkan. This option
 should only apply if SPIR-V is being generated. The compiler should also infer
 the Vulkan memory model if any of the new intrinsics or variable modifiers are
 used in the translation unit. It should be a compiler error if any new
