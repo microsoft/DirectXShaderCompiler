@@ -145,11 +145,14 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
 }
 
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
+  // Emit the result type if the instruction has a result type.
   if (inst->hasResultType()) {
     const uint32_t resultTypeId =
         typeHandler.emitType(inst->getResultType(), inst->getLayoutRule());
     inst->setResultTypeId(resultTypeId);
   }
+
+  // Initialize the current instruction for emitting.
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(inst->getopcode()));
 }
@@ -178,9 +181,9 @@ void EmitVisitor::finalizeInstruction() {
   case spv::Op::OpSourceContinued:
   case spv::Op::OpName:
   case spv::Op::OpMemberName:
-  case spv::Op::OpModuleProcessed:
     debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
     break;
+  case spv::Op::OpModuleProcessed:
   case spv::Op::OpDecorate:
   case spv::Op::OpDecorateId:
   case spv::Op::OpMemberDecorate:
@@ -397,6 +400,24 @@ bool EmitVisitor::visit(SpirvSource *inst) {
 bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
   initInstruction(inst);
   encodeString(inst->getProcess());
+  finalizeInstruction();
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvLineInfo *inst) {
+  if (!spvOptions.debugInfoLine)
+    return true;
+
+  SpirvString *file = inst->getSourceFile();
+  uint32_t line = inst->getSourceLine();
+  uint32_t column = inst->getSourceColumn();
+  if (!file || line == 0 || column == 0)
+    return true;
+
+  initInstruction(inst);
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(file));
+  curInst.push_back(line);
+  curInst.push_back(column);
   finalizeInstruction();
   return true;
 }
@@ -1714,7 +1735,6 @@ void EmitTypeHandler::getLayoutDecorations(const StructType *structType,
                 DecorationInfo(spv::Decoration::ColMajor, {}, index));
           }
         }
-
       }
     }
 

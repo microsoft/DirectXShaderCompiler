@@ -415,6 +415,8 @@ public:
                                       SpirvInstruction *structure,
                                       uint32_t arrayMember);
 
+  void createLineInfo(SpirvString *file, uint32_t line, uint32_t column);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability, SourceLocation loc = {});
@@ -429,9 +431,10 @@ public:
                             SourceLocation loc = {});
 
   /// \brief Sets the shader model version, source file name, and source file
-  /// content.
-  inline void setDebugSource(uint32_t major, uint32_t minor,
-                             llvm::StringRef name, llvm::StringRef content);
+  /// content. Returns the SpirvString instruction of the file name.
+  inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
+                                     llvm::StringRef name,
+                                     llvm::StringRef content);
 
   /// \brief Adds an execution mode to the module under construction.
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
@@ -441,6 +444,10 @@ public:
   /// \brief Adds an extension to the module under construction for translating
   /// the given target at the given source location.
   void addExtension(Extension, llvm::StringRef target, SourceLocation);
+
+  /// \brief Adds an OpModuleProcessed instruction to the module under
+  /// construction.
+  void addModuleProcessed(llvm::StringRef process);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the  the imported
@@ -699,9 +706,9 @@ void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
       new (context) SpirvEntryPoint(loc, em, target, targetName, interfaces));
 }
 
-void SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
-                                  llvm::StringRef name,
-                                  llvm::StringRef content) {
+SpirvString *SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
+                                          llvm::StringRef name,
+                                          llvm::StringRef content) {
   uint32_t version = 100 * major + 10 * minor;
 
   SpirvString *fileString =
@@ -713,6 +720,8 @@ void SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
                   fileString, content);
 
   module->addDebugSource(debugSource);
+
+  return fileString;
 }
 
 void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,
