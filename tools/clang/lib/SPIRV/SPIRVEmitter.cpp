@@ -2056,12 +2056,14 @@ SpirvInstruction *SPIRVEmitter::processCall(const CallExpr *callExpr) {
                      objInstr->getStorageClass() != spv::StorageClass::Function;
 
       if (needsTempVar) {
-        objInstr = createTemporaryVar(objectType, getAstTypeName(objectType),
-                                      // May need to load to use as initializer
-                                      loadIfGLValue(object, objInstr));
+        args.push_back(
+            createTemporaryVar(objectType, getAstTypeName(objectType),
+                               // May need to load to use as initializer
+                               loadIfGLValue(object, objInstr)));
+      } else {
+        args.push_back(objInstr);
       }
 
-      args.push_back(objInstr);
       // We do not need to create a new temporary variable for the this
       // object. Use the evaluated argument.
       vars.push_back(args.back());
