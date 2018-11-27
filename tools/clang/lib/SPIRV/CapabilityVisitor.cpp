@@ -289,7 +289,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                                 "SV_ViewPortArrayIndex", loc);
         spvBuilder.requireCapability(
             spv::Capability::ShaderViewportIndexLayerEXT);
-      } else if (shaderModel == spv::ExecutionModel::Fragment) {
+      } else if (shaderModel == spv::ExecutionModel::Fragment ||
+                 shaderModel == spv::ExecutionModel::Geometry) {
         // SV_ViewportArrayIndex can be used as PSIn.
         spvBuilder.requireCapability(spv::Capability::MultiViewport);
       }
