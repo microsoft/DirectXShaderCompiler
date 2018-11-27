@@ -266,7 +266,7 @@ public:
                             const SpirvCodeGenOptions &spirvOptions);
 
   /// \brief Returns the SPIR-V builtin variable.
-  SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn);
+  SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, SourceLocation);
 
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns

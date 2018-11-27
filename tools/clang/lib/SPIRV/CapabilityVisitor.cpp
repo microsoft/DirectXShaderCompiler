@@ -53,7 +53,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       // TODO: Re-enable adding Float16 capability below.
       // spvBuilder.requireCapability(spv::Capability::Float16);
       spvBuilder.addExtension(Extension::AMD_gpu_shader_half_float,
-                              "16-bit float", {});
+                              "16-bit float", loc);
 
       // Usage of a 16-bit float type as stage I/O.
       if (sc == spv::StorageClass::Input || sc == spv::StorageClass::Output) {
@@ -88,7 +88,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     if (SpirvType::isResourceType(raType->getElementType())) {
       // the elements inside the runtime array are resources
       spvBuilder.addExtension(Extension::EXT_descriptor_indexing,
-                              "runtime array of resources", {});
+                              "runtime array of resources", loc);
       spvBuilder.requireCapability(spv::Capability::RuntimeDescriptorArrayEXT);
     }
     addCapabilityForType(raType->getElementType(), loc, sc);
