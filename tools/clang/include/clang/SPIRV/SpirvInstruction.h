@@ -27,6 +27,7 @@ class SpirvBasicBlock;
 class SpirvFunction;
 class SpirvType;
 class SpirvVariable;
+class SpirvString;
 class Visitor;
 
 /// \brief The base class for representing SPIR-V instructions.
@@ -46,6 +47,7 @@ public:
     IK_Source,          // OpSource (debug)
     IK_Name,            // Op*Name (debug)
     IK_ModuleProcessed, // OpModuleProcessed (debug)
+    IK_LineInfo,        // OpLine (debug)
     IK_Decoration,      // Op*Decorate
     IK_Type,            // OpType*
     IK_Variable,        // OpVariable
@@ -1766,6 +1768,26 @@ private:
   uint32_t arrayMember;
 };
 
+class SpirvLineInfo : public SpirvInstruction {
+public:
+  SpirvLineInfo(SpirvString *srcFile, uint32_t srcLine, uint32_t srcCol);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_LineInfo;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLineInfo)
+
+  SpirvString *getSourceFile() { return file; }
+  uint32_t getSourceLine() { return line; }
+  uint32_t getSourceColumn() { return column; }
+
+private:
+  SpirvString *file;
+  uint32_t line;
+  uint32_t column;
+};
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
 
