@@ -1,8 +1,8 @@
 // Run: %dxc -T ds_6_0 -E main -fspv-reflect
 
+// CHECK: OpCapability Tessellation
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
-// CHECK: OpCapability Tessellation
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
