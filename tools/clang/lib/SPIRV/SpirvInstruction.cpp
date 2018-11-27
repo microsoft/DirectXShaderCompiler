@@ -309,7 +309,7 @@ SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, uint32_t resultId,
       pointer(pointerInst), scope(s), memorySemantic(semanticsEqual),
       memorySemanticUnequal(semanticsUnequal), value(valueInst),
       comparator(comparatorInst) {
-  assert(op == spv::Op::OpAtomicExchange);
+  assert(op == spv::Op::OpAtomicCompareExchange);
 }
 
 SpirvBarrier::SpirvBarrier(SourceLocation loc, spv::Scope memScope,

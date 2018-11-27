@@ -82,6 +82,14 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(pointerType);
     break;
   }
+  // OpImageTexelPointer's result type must be a pointer with image storage
+  // class.
+  case spv::Op::OpImageTexelPointer: {
+    const SpirvType *pointerType =
+        spvContext.getPointerType(resultType, spv::StorageClass::Image);
+    instr->setResultType(pointerType);
+    break;
+  }
   // Sparse image operations return a sparse residency struct.
   case spv::Op::OpImageSparseSampleImplicitLod:
   case spv::Op::OpImageSparseSampleExplicitLod:
