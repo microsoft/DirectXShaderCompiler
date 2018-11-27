@@ -64,6 +64,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvString)
   DEFINE_VISIT_METHOD(SpirvSource)
   DEFINE_VISIT_METHOD(SpirvModuleProcessed)
+  DEFINE_VISIT_METHOD(SpirvLineInfo)
   DEFINE_VISIT_METHOD(SpirvDecoration)
   DEFINE_VISIT_METHOD(SpirvVariable)
 

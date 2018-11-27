@@ -88,6 +88,9 @@ public:
   // Adds the debug source to the module.
   void addDebugSource(SpirvSource *);
 
+  // Adds the given OpModuleProcessed to the module.
+  void addModuleProcessed(SpirvModuleProcessed *);
+
 private:
   // "Metadata" instructions
   llvm::SmallVector<SpirvCapability *, 8> capabilities;
@@ -97,6 +100,7 @@ private:
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
   SpirvSource *debugSource;
+  std::vector<SpirvModuleProcessed *> moduleProcesses;
   std::vector<SpirvDecoration *> decorations;
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;

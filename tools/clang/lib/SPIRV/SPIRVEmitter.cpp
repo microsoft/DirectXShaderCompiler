@@ -20,6 +20,15 @@
 
 #include "InitListHandler.h"
 
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+#include "clang/Basic/Version.h"
+#else
+namespace clang {
+uint32_t getGitCommitCount() { return 0; }
+const char *getGitCommitHash() { return "<unknown-hash>"; }
+} // namespace clang
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
 namespace clang {
 namespace spirv {
 
@@ -539,10 +548,10 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       typeTranslator(astContext, theBuilder, diags, spirvOptions),
       declIdMapper(shaderModel, astContext, spvContext, spvBuilder, *this,
                    featureManager, spirvOptions),
-      entryFunction(nullptr), curFunction(nullptr), curThis(0),
+      entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false),
       foundNonUniformResourceIndex(false), needsLegalization(false),
-      mainSourceFileId(0) {
+      mainSourceFile(nullptr) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
@@ -588,8 +597,23 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
         sm.getBuffer(sm.getMainFileID(), SourceLocation());
     source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
   }
-  spvBuilder.setDebugSource(shaderModel.GetMajor(), shaderModel.GetMinor(),
-                            fileName, source);
+  mainSourceFile = spvBuilder.setDebugSource(
+      shaderModel.GetMajor(), shaderModel.GetMinor(), fileName, source);
+
+  if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
+    // Emit OpModuleProcessed to indicate the commit information.
+    std::string commitHash =
+        std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
+    spvBuilder.addModuleProcessed(commitHash);
+
+    // Emit OpModuleProcessed to indicate the command line options that were
+    // used to generate this module.
+    if (!spirvOptions.clOptions.empty()) {
+      // Using this format: "dxc-cl-option: XXXXXX"
+      std::string clOptionStr = "dxc-cl-option:" + spirvOptions.clOptions;
+      spvBuilder.addModuleProcessed(clOptionStr);
+    }
+  }
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -3911,7 +3935,7 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return nullptr;
   }
 
-  if(retVal)
+  if (retVal)
     retVal->setRValue();
   return retVal;
 }
@@ -9898,10 +9922,11 @@ SpirvInstruction *SPIRVEmitter::extractVecFromVec4(SpirvInstruction *from,
 }
 
 void SPIRVEmitter::emitDebugLine(SourceLocation loc) {
-  if (spirvOptions.debugInfoLine && mainSourceFileId != 0) {
+  if (spirvOptions.debugInfoLine && mainSourceFile != nullptr) {
     auto floc = FullSourceLoc(loc, theCompilerInstance.getSourceManager());
-    theBuilder.debugLine(mainSourceFileId, floc.getSpellingLineNumber(),
-                         floc.getSpellingColumnNumber());
+    uint32_t line = floc.getSpellingLineNumber();
+    uint32_t column = floc.getSpellingColumnNumber();
+    spvBuilder.createLineInfo(mainSourceFile, line, column);
   }
 }
 
