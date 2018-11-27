@@ -247,6 +247,7 @@ public:
   bool visit(SpirvString *);
   bool visit(SpirvSource *);
   bool visit(SpirvModuleProcessed *);
+  bool visit(SpirvLineInfo *);
   bool visit(SpirvDecoration *);
   bool visit(SpirvVariable *);
   bool visit(SpirvFunctionParameter *);
