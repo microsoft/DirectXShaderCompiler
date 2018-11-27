@@ -2,9 +2,9 @@
 
 #define NumOutPoints 2
 
+// CHECK: OpCapability Tessellation
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
-// CHECK: OpCapability Tessellation
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
