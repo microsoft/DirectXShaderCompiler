@@ -69,7 +69,7 @@ DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
 }
 
 // Translate matrix type to vector type.
-Type *LowerMatrixType(Type *Ty) {
+Type *LowerMatrixType(Type *Ty, bool forMem) {
   // Only translate matrix type and function type which use matrix type.
   // Not translate struct has matrix or matrix pointer.
   // Struct should be flattened before.
@@ -84,6 +84,8 @@ Type *LowerMatrixType(Type *Ty) {
   } else if (IsMatrixType(Ty)) {
     unsigned row, col;
     Type *EltTy = GetMatrixInfo(Ty, col, row);
+    if (forMem && EltTy->isIntegerTy(1))
+      EltTy = Type::getInt32Ty(Ty->getContext());
     return VectorType::get(EltTy, row * col);
   } else {
     return Ty;
@@ -122,7 +124,7 @@ bool IsMatrixArrayPointer(llvm::Type *Ty) {
     Ty = Ty->getArrayElementType();
   return IsMatrixType(Ty);
 }
-Type *LowerMatrixArrayPointer(Type *Ty) {
+Type *LowerMatrixArrayPointer(Type *Ty, bool forMem) {
   unsigned addrSpace = Ty->getPointerAddressSpace();
   Ty = Ty->getPointerElementType();
   std::vector<unsigned> arraySizeList;
@@ -130,7 +132,7 @@ Type *LowerMatrixArrayPointer(Type *Ty) {
     arraySizeList.push_back(Ty->getArrayNumElements());
     Ty = Ty->getArrayElementType();
   }
-  Ty = LowerMatrixType(Ty);
+  Ty = LowerMatrixType(Ty, forMem);
 
   for (auto arraySize = arraySizeList.rbegin();
        arraySize != arraySizeList.rend(); arraySize++)
@@ -155,11 +157,67 @@ Type *LowerMatrixArrayPointerToOneDimArray(Type *Ty) {
   return PointerType::get(Ty, addrSpace);
 }
 Value *BuildVector(Type *EltTy, unsigned size, ArrayRef<llvm::Value *> elts,
-                   IRBuilder<> &Builder) {
+  IRBuilder<> &Builder) {
   Value *Vec = UndefValue::get(VectorType::get(EltTy, size));
   for (unsigned i = 0; i < size; i++)
     Vec = Builder.CreateInsertElement(Vec, elts[i], i);
   return Vec;
+}
+
+llvm::Value *VecMatrixMemToReg(llvm::Value *VecVal, llvm::Type *MatType,
+  llvm::IRBuilder<> &Builder)
+{
+  llvm::Type *VecMatRegTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/false);
+  if (VecVal->getType() == VecMatRegTy) {
+    return VecVal;
+  }
+
+  DXASSERT(VecMatRegTy->getVectorElementType()->isIntegerTy(1),
+    "Vector matrix mem to reg type mismatch should only happen for bools.");
+  llvm::Type *VecMatMemTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/true);
+  return Builder.CreateICmpNE(VecVal, Constant::getNullValue(VecMatMemTy));
+}
+
+llvm::Value *VecMatrixRegToMem(llvm::Value* VecVal, llvm::Type *MatType,
+  llvm::IRBuilder<> &Builder)
+{
+  llvm::Type *VecMatMemTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/true);
+  if (VecVal->getType() == VecMatMemTy) {
+    return VecVal;
+  }
+
+  DXASSERT(VecVal->getType()->getVectorElementType()->isIntegerTy(1),
+    "Vector matrix reg to mem type mismatch should only happen for bools.");
+  return Builder.CreateZExt(VecVal, VecMatMemTy);
+}
+
+llvm::Instruction *CreateVecMatrixLoad(
+  llvm::Value *VecPtr, llvm::Type *MatType, llvm::IRBuilder<> &Builder)
+{
+  llvm::Instruction *VecVal = Builder.CreateLoad(VecPtr);
+  return cast<llvm::Instruction>(VecMatrixMemToReg(VecVal, MatType, Builder));
+}
+
+llvm::Instruction *CreateVecMatrixStore(llvm::Value* VecVal, llvm::Value *VecPtr,
+  llvm::Type *MatType, llvm::IRBuilder<> &Builder)
+{
+  llvm::Type *VecMatMemTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/true);
+  if (VecVal->getType() == VecMatMemTy) {
+    return Builder.CreateStore(VecVal, VecPtr);
+  }
+
+  // We need to convert to the memory representation, and we want to return
+  // the conversion instruction rather than the store since that's what
+  // accepts the register-typed i1 values.
+
+  // Do not use VecMatrixRegToMem as it may constant fold the conversion
+  // instruction, which is what we want to return.
+  DXASSERT(VecVal->getType()->getVectorElementType()->isIntegerTy(1),
+    "Vector matrix reg to mem type mismatch should only happen for bools.");
+
+  llvm::Instruction *ConvInst = Builder.Insert(new ZExtInst(VecVal, VecMatMemTy));
+  Builder.CreateStore(ConvInst, VecPtr);
+  return ConvInst;
 }
 
 Value *LowerGEPOnMatIndexListToIndex(
@@ -508,7 +566,7 @@ Instruction *HLMatrixLowerPass::MatLdStToVec(CallInst *CI) {
     if (isa<AllocaInst>(matPtr) || GetIfMatrixGEPOfUDTAlloca(matPtr) ||
         GetIfMatrixGEPOfUDTArg(matPtr, *m_pHLModule)) {
       Value *vecPtr = matToVecMap[cast<Instruction>(matPtr)];
-      result = Builder.CreateLoad(vecPtr);
+      result = CreateVecMatrixLoad(vecPtr, matPtr->getType()->getPointerElementType(), Builder);
     } else
       result = MatIntrinsicToVec(CI);
   } break;
@@ -519,9 +577,8 @@ Instruction *HLMatrixLowerPass::MatLdStToVec(CallInst *CI) {
         GetIfMatrixGEPOfUDTArg(matPtr, *m_pHLModule)) {
       Value *vecPtr = matToVecMap[cast<Instruction>(matPtr)];
       Value *matVal = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-      Value *vecVal =
-          UndefValue::get(HLMatrixLower::LowerMatrixType(matVal->getType()));
-      result = Builder.CreateStore(vecVal, vecPtr);
+      Value *vecVal = UndefValue::get(HLMatrixLower::LowerMatrixType(matVal->getType()));
+      result = CreateVecMatrixStore(vecVal, vecPtr, matVal->getType(), Builder);
     } else
       result = MatIntrinsicToVec(CI);
   } break;
@@ -905,11 +962,11 @@ void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
     
     IRBuilder<> AllocaBuilder(AI);
     if (Ty->isArrayTy()) {
-      Type *vecTy = HLMatrixLower::LowerMatrixArrayPointer(AI->getType());
+      Type *vecTy = HLMatrixLower::LowerMatrixArrayPointer(AI->getType(), /*forMem*/ true);
       vecTy = vecTy->getPointerElementType();
       vecVal = AllocaBuilder.CreateAlloca(vecTy, nullptr, AI->getName());
     } else {
-      Type *vecTy = HLMatrixLower::LowerMatrixType(matTy);
+      Type *vecTy = HLMatrixLower::LowerMatrixType(matTy, /*forMem*/ true);
       vecVal = AllocaBuilder.CreateAlloca(vecTy, nullptr, AI->getName());
     }
     // Update debug info.
@@ -2059,7 +2116,8 @@ void HLMatrixLowerPass::TranslateMatArrayGEP(Value *matInst,
           // Skip the vector version.
           if (useCall->getType()->isVectorTy())
             continue;
-          Value *newLd = Builder.CreateLoad(newGEP);
+          Type *matTy = useCall->getType();
+          Value *newLd = CreateVecMatrixLoad(newGEP, matTy, Builder);
           DXASSERT(matToVecMap.count(useCall), "must have vec version");
           Value *oldLd = matToVecMap[useCall];
           // Delete the oldLd.
@@ -2082,7 +2140,7 @@ void HLMatrixLowerPass::TranslateMatArrayGEP(Value *matInst,
 
           DXASSERT(matToVecMap.count(matInst), "must have vec version");
           Value *vecVal = matToVecMap[matInst];
-          Builder.CreateStore(vecVal, vecPtr);
+          CreateVecMatrixStore(vecVal, vecPtr, matVal->getType(), Builder);
         } break;
         }
       } break;
@@ -2174,9 +2232,17 @@ void HLMatrixLowerPass::replaceMatWithVec(Value *matVal,
           // Load Already translated in lowerToVec.
           // Store val operand will be set by the val use.
           // Do nothing here.
-        } else if (StoreInst *stInst = dyn_cast<StoreInst>(vecUser))
+        } else if (StoreInst *stInst = dyn_cast<StoreInst>(vecUser)) {
+          DXASSERT(vecVal->getType() == stInst->getValueOperand()->getType(),
+            "Mismatched vector matrix store value types.");
           stInst->setOperand(0, vecVal);
-        else
+        } else if (ZExtInst *zextInst = dyn_cast<ZExtInst>(vecUser)) {
+          // This happens when storing bool matrices,
+          // which must first undergo conversion from i1's to i32's.
+          DXASSERT(vecVal->getType() == zextInst->getOperand(0)->getType(),
+            "Mismatched vector matrix store value types.");
+          zextInst->setOperand(0, vecVal);
+        } else
           TrivialMatReplace(matVal, vecVal, useCall);
 
       } break;
