@@ -5084,8 +5084,10 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // 1.4 adds:
   // - packed u8x4/i8x4 dot with accumulate to i32
   // - half dot2 with accumulate to float
+  // 1.5 adds:
+  // TODO: Fill this in.
   *pMajor = 1;
-  *pMinor = 4;
+  *pMinor = 5;
 }
 
 _Use_decl_annotations_ HRESULT
