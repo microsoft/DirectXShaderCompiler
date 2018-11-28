@@ -48,37 +48,6 @@ void chopString(llvm::StringRef original,
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
-/// The alignment for 4-component float vectors.
-constexpr uint32_t kStd140Vec4Alignment = 16u;
-
-/// Rounds the given value up to the given power of 2.
-inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
-  assert(pow2 != 0);
-  return (val + pow2 - 1) & ~(pow2 - 1);
-}
-
-/// Returns true if the given vector type (of the given size) crosses the
-/// 4-component vector boundary if placed at the given offset.
-bool improperStraddle(const clang::spirv::VectorType *type, int size,
-                      int offset) {
-  return size <= 16 ? offset / 16 != (offset + size - 1) / 16
-                    : offset % 16 != 0;
-}
-
-bool isAKindOfStructuredOrByteBuffer(const clang::spirv::SpirvType *type) {
-  // Strip outer arrayness first
-  while (llvm::isa<clang::spirv::ArrayType>(type))
-    type = llvm::cast<clang::spirv::ArrayType>(type)->getElementType();
-
-  // They are structures with the first member that is of RuntimeArray type.
-  if (auto *structType = llvm::dyn_cast<clang::spirv::StructType>(type))
-    return structType->getFields().size() == 1 &&
-           llvm::isa<clang::spirv::RuntimeArrayType>(
-               structType->getFields()[0].type);
-
-  return false;
-}
-
 uint32_t zeroExtendTo32Bits(uint16_t value) {
   // TODO: The ordering of the 2 words depends on the endian-ness of the host
   // machine. Assuming Little Endian at the moment.
@@ -147,8 +116,7 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   // Emit the result type if the instruction has a result type.
   if (inst->hasResultType()) {
-    const uint32_t resultTypeId =
-        typeHandler.emitType(inst->getResultType(), inst->getLayoutRule());
+    const uint32_t resultTypeId = typeHandler.emitType(inst->getResultType());
     inst->setResultTypeId(resultTypeId);
   }
 
@@ -242,10 +210,8 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
 
   // Before emitting the function
   if (phase == Visitor::Phase::Init) {
-    const uint32_t returnTypeId =
-        typeHandler.emitType(fn->getReturnType(), SpirvLayoutRule::Void);
-    const uint32_t functionTypeId =
-        typeHandler.emitType(fn->getFunctionType(), SpirvLayoutRule::Void);
+    const uint32_t returnTypeId = typeHandler.emitType(fn->getReturnType());
+    const uint32_t functionTypeId = typeHandler.emitType(fn->getFunctionType());
     fn->setReturnTypeId(returnTypeId);
     fn->setFunctionTypeId(functionTypeId);
 
@@ -1098,21 +1064,17 @@ void EmitTypeHandler::finalizeTypeInstruction() {
 }
 
 uint32_t EmitTypeHandler::getResultIdForType(const SpirvType *type,
-                                             const DecorationList &decs,
                                              bool *alreadyExists) {
   assert(alreadyExists);
   auto foundType = emittedTypes.find(type);
   if (foundType != emittedTypes.end()) {
-    auto foundDecorationSet = foundType->second.find(decs);
-    if (foundDecorationSet != foundType->second.end()) {
-      *alreadyExists = true;
-      return foundDecorationSet->second;
-    }
+    *alreadyExists = true;
+    return foundType->second;
   }
 
   *alreadyExists = false;
   const uint32_t id = takeNextIdFunction();
-  emittedTypes[type][decs] = id;
+  emittedTypes[type] = id;
   return id;
 }
 
@@ -1124,7 +1086,7 @@ uint32_t EmitTypeHandler::getOrCreateConstantUint32(uint32_t value) {
 
   const uint32_t constantResultId = takeNextIdFunction();
   const SpirvType *uintType = context.getUIntType(32);
-  const uint32_t uint32TypeId = emitType(uintType, SpirvLayoutRule::Void);
+  const uint32_t uint32TypeId = emitType(uintType);
   initTypeInstruction(spv::Op::OpConstant);
   curTypeInst.push_back(uint32TypeId);
   curTypeInst.push_back(constantResultId);
@@ -1135,66 +1097,10 @@ uint32_t EmitTypeHandler::getOrCreateConstantUint32(uint32_t value) {
   return constantResultId;
 }
 
-void EmitTypeHandler::getDecorationsForType(const SpirvType *type,
-                                            SpirvLayoutRule rule,
-                                            llvm::Optional<bool> isRowMajor,
-                                            DecorationList *decs) {
-  // Array types
-  if (const auto *arrayType = dyn_cast<ArrayType>(type)) {
-    // ArrayStride decoration is needed for array types, but we won't have
-    // stride information for structured/byte buffers since they contain runtime
-    // arrays.
-    if (rule != SpirvLayoutRule::Void &&
-        !isAKindOfStructuredOrByteBuffer(type)) {
-      uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, rule, &stride,
-                                arrayType->hasRowMajorElement());
-      decs->push_back(DecorationInfo(spv::Decoration::ArrayStride, {stride}));
-    }
-  }
-  // RuntimeArray types
-  else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
-    // ArrayStride decoration is needed for runtime arrays containing structures
-    // (StructuredBuffers).
-    if (rule != SpirvLayoutRule::Void &&
-        !isa<ImageType>(raType->getElementType())) {
-      uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, rule, &stride, isRowMajor);
-      decs->push_back(DecorationInfo(spv::Decoration::ArrayStride, {stride}));
-    }
-  }
-  // Structure types
-  else if (const auto *structType = dyn_cast<StructType>(type)) {
-    llvm::ArrayRef<StructType::FieldInfo> fields = structType->getFields();
-    size_t numFields = fields.size();
-
-    // Emit the layout decorations for the structure.
-    getLayoutDecorations(structType, rule, decs);
-
-    // Emit NonWritable decorations
-    if (structType->isReadOnly())
-      for (size_t i = 0; i < numFields; ++i)
-        decs->push_back(DecorationInfo(spv::Decoration::NonWritable, {}, i));
-
-    // Emit Block or BufferBlock decorations if necessary.
-    auto interfaceType = structType->getInterfaceType();
-    if (interfaceType == StructInterfaceType::StorageBuffer)
-      decs->push_back(DecorationInfo(spv::Decoration::BufferBlock, {}));
-    else if (interfaceType == StructInterfaceType::UniformBuffer)
-      decs->push_back(DecorationInfo(spv::Decoration::Block, {}));
-  }
-
-  // We currently only have decorations for arrays, runtime arrays, and
-  // structure types.
-}
-
-uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
-                                   llvm::Optional<bool> isRowMajor) {
+uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // First get the decorations that would apply to this type.
   bool alreadyExists = false;
-  DecorationList decs;
-  getDecorationsForType(type, rule, isRowMajor, &decs);
-  const uint32_t id = getResultIdForType(type, decs, &alreadyExists);
+  const uint32_t id = getResultIdForType(type, &alreadyExists);
 
   // If the type has already been emitted, we just need to return its
   // <result-id>.
@@ -1232,8 +1138,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
   }
   // Vector types
   else if (const auto *vecType = dyn_cast<VectorType>(type)) {
-    const uint32_t elementTypeId =
-        emitType(vecType->getElementType(), rule, isRowMajor);
+    const uint32_t elementTypeId = emitType(vecType->getElementType());
     initTypeInstruction(spv::Op::OpTypeVector);
     curTypeInst.push_back(id);
     curTypeInst.push_back(elementTypeId);
@@ -1242,8 +1147,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
   }
   // Matrix types
   else if (const auto *matType = dyn_cast<MatrixType>(type)) {
-    const uint32_t vecTypeId =
-        emitType(matType->getVecType(), rule, isRowMajor);
+    const uint32_t vecTypeId = emitType(matType->getVecType());
     initTypeInstruction(spv::Op::OpTypeMatrix);
     curTypeInst.push_back(id);
     curTypeInst.push_back(vecTypeId);
@@ -1254,8 +1158,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
   }
   // Image types
   else if (const auto *imageType = dyn_cast<ImageType>(type)) {
-    const uint32_t sampledTypeId =
-        emitType(imageType->getSampledType(), rule, isRowMajor);
+    const uint32_t sampledTypeId = emitType(imageType->getSampledType());
     initTypeInstruction(spv::Op::OpTypeImage);
     curTypeInst.push_back(id);
     curTypeInst.push_back(sampledTypeId);
@@ -1275,8 +1178,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
   }
   // SampledImage types
   else if (const auto *sampledImageType = dyn_cast<SampledImageType>(type)) {
-    const uint32_t imageTypeId =
-        emitType(sampledImageType->getImageType(), rule, isRowMajor);
+    const uint32_t imageTypeId = emitType(sampledImageType->getImageType());
     initTypeInstruction(spv::Op::OpTypeSampledImage);
     curTypeInst.push_back(id);
     curTypeInst.push_back(imageTypeId);
@@ -1289,22 +1191,28 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
     const auto length = getOrCreateConstantUint32(arrayType->getElementCount());
 
     // Emit the OpTypeArray instruction
-    const uint32_t elemTypeId =
-        emitType(arrayType->getElementType(), rule, isRowMajor);
+    const uint32_t elemTypeId = emitType(arrayType->getElementType());
     initTypeInstruction(spv::Op::OpTypeArray);
     curTypeInst.push_back(id);
     curTypeInst.push_back(elemTypeId);
     curTypeInst.push_back(length);
     finalizeTypeInstruction();
+
+    auto stride = arrayType->getStride();
+    if (stride.hasValue())
+      emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
   }
   // RuntimeArray types
   else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
-    const uint32_t elemTypeId =
-        emitType(raType->getElementType(), rule, isRowMajor);
+    const uint32_t elemTypeId = emitType(raType->getElementType());
     initTypeInstruction(spv::Op::OpTypeRuntimeArray);
     curTypeInst.push_back(id);
     curTypeInst.push_back(elemTypeId);
     finalizeTypeInstruction();
+
+    auto stride = raType->getStride();
+    if (stride.hasValue())
+      emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
   }
   // Structure types
   else if (const auto *structType = dyn_cast<StructType>(type)) {
@@ -1316,8 +1224,41 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
       emitNameForType(fields[i].name, id, i);
 
     llvm::SmallVector<uint32_t, 4> fieldTypeIds;
-    for (auto &field : fields)
-      fieldTypeIds.push_back(emitType(field.type, rule, field.isRowMajor));
+    for (auto &field : fields) {
+      fieldTypeIds.push_back(emitType(field.type));
+    }
+
+    for (size_t i = 0; i < numFields; ++i) {
+      auto &field = fields[i];
+      // Offset decorations
+      if (field.offset.hasValue())
+        emitDecoration(id, spv::Decoration::Offset, {field.offset.getValue()},
+                       i);
+
+      // MatrixStride decorations
+      if (field.matrixStride.hasValue())
+        emitDecoration(id, spv::Decoration::MatrixStride,
+                       {field.matrixStride.getValue()}, i);
+
+      // RowMajor/ColMajor decorations
+      if (field.isRowMajor.hasValue())
+        emitDecoration(id,
+                       field.isRowMajor.getValue() ? spv::Decoration::RowMajor
+                                                   : spv::Decoration::ColMajor,
+                       {}, i);
+
+      // NonWritable decorations
+      if (structType->isReadOnly())
+        emitDecoration(id, spv::Decoration::NonWritable, {}, i);
+    }
+
+    // Emit Block or BufferBlock decorations if necessary.
+    auto interfaceType = structType->getInterfaceType();
+    if (interfaceType == StructInterfaceType::StorageBuffer)
+      emitDecoration(id, spv::Decoration::BufferBlock, {});
+    else if (interfaceType == StructInterfaceType::UniformBuffer)
+      emitDecoration(id, spv::Decoration::Block, {});
+
     initTypeInstruction(spv::Op::OpTypeStruct);
     curTypeInst.push_back(id);
     for (auto fieldTypeId : fieldTypeIds)
@@ -1326,8 +1267,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
   }
   // Pointer types
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
-    const uint32_t pointeeType =
-        emitType(ptrType->getPointeeType(), rule, isRowMajor);
+    const uint32_t pointeeType = emitType(ptrType->getPointeeType());
     initTypeInstruction(spv::Op::OpTypePointer);
     curTypeInst.push_back(id);
     curTypeInst.push_back(static_cast<uint32_t>(ptrType->getStorageClass()));
@@ -1336,11 +1276,10 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
   }
   // Function types
   else if (const auto *fnType = dyn_cast<FunctionType>(type)) {
-    const uint32_t retTypeId =
-        emitType(fnType->getReturnType(), rule, isRowMajor);
+    const uint32_t retTypeId = emitType(fnType->getReturnType());
     llvm::SmallVector<uint32_t, 4> paramTypeIds;
     for (auto *paramType : fnType->getParamTypes())
-      paramTypeIds.push_back(emitType(paramType, rule, isRowMajor));
+      paramTypeIds.push_back(emitType(paramType));
 
     initTypeInstruction(spv::Op::OpTypeFunction);
     curTypeInst.push_back(id);
@@ -1361,385 +1300,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type, SpirvLayoutRule rule,
     llvm_unreachable("unhandled type in emitType");
   }
 
-  // Finally, emit decorations for the type into the annotationsBinary.
-  for (auto &decorInfo : decs)
-    emitDecoration(id, decorInfo.decoration, decorInfo.decorationParams,
-                   decorInfo.memberIndex);
-
   return id;
-}
-
-std::pair<uint32_t, uint32_t>
-EmitTypeHandler::getAlignmentAndSize(const SpirvType *type,
-                                     SpirvLayoutRule rule, uint32_t *stride,
-                                     llvm::Optional<bool> isRowMajor) {
-  // std140 layout rules:
-
-  // 1. If the member is a scalar consuming N basic machine units, the base
-  //    alignment is N.
-  //
-  // 2. If the member is a two- or four-component vector with components
-  //    consuming N basic machine units, the base alignment is 2N or 4N,
-  //    respectively.
-  //
-  // 3. If the member is a three-component vector with components consuming N
-  //    basic machine units, the base alignment is 4N.
-  //
-  // 4. If the member is an array of scalars or vectors, the base alignment and
-  //    array stride are set to match the base alignment of a single array
-  //    element, according to rules (1), (2), and (3), and rounded up to the
-  //    base alignment of a vec4. The array may have padding at the end; the
-  //    base offset of the member following the array is rounded up to the next
-  //    multiple of the base alignment.
-  //
-  // 5. If the member is a column-major matrix with C columns and R rows, the
-  //    matrix is stored identically to an array of C column vectors with R
-  //    components each, according to rule (4).
-  //
-  // 6. If the member is an array of S column-major matrices with C columns and
-  //    R rows, the matrix is stored identically to a row of S X C column
-  //    vectors with R components each, according to rule (4).
-  //
-  // 7. If the member is a row-major matrix with C columns and R rows, the
-  //    matrix is stored identically to an array of R row vectors with C
-  //    components each, according to rule (4).
-  //
-  // 8. If the member is an array of S row-major matrices with C columns and R
-  //    rows, the matrix is stored identically to a row of S X R row vectors
-  //    with C components each, according to rule (4).
-  //
-  // 9. If the member is a structure, the base alignment of the structure is N,
-  //    where N is the largest base alignment value of any of its members, and
-  //    rounded up to the base alignment of a vec4. The individual members of
-  //    this substructure are then assigned offsets by applying this set of
-  //    rules recursively, where the base offset of the first member of the
-  //    sub-structure is equal to the aligned offset of the structure. The
-  //    structure may have padding at the end; the base offset of the member
-  //    following the sub-structure is rounded up to the next multiple of the
-  //    base alignment of the structure.
-  //
-  // 10. If the member is an array of S structures, the S elements of the array
-  //     are laid out in order, according to rule (9).
-  //
-  // This method supports multiple layout rules, all of them modifying the
-  // std140 rules listed above:
-  //
-  // std430:
-  // - Array base alignment and stride does not need to be rounded up to a
-  //   multiple of 16.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
-  //
-  // Relaxed std140/std430:
-  // - Vector base alignment is set as its element type's base alignment.
-  //
-  // FxcCTBuffer:
-  // - Vector base alignment is set as its element type's base alignment.
-  // - Arrays/structs do not need to have padding at the end; arrays/structs do
-  //   not affect the base offset of the member following them.
-  //
-  // FxcSBuffer:
-  // - Vector/matrix/array base alignment is set as its element type's base
-  //   alignment.
-  // - Arrays/structs do not need to have padding at the end; arrays/structs do
-  //   not affect the base offset of the member following them.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
-
-  { // Rule 1
-    if (isa<BoolType>(type))
-      return {4, 4};
-    // Integer and Float types are NumericalType
-    if (auto *numericType = dyn_cast<NumericalType>(type)) {
-      switch (numericType->getBitwidth()) {
-      case 64:
-        return {8, 8};
-      case 32:
-        return {4, 4};
-      case 16:
-        return {2, 2};
-      default:
-        emitError("alignment and size calculation unimplemented for type");
-        return {0, 0};
-      }
-    }
-  }
-
-  { // Rule 2 and 3
-    if (auto *vecType = dyn_cast<VectorType>(type)) {
-      uint32_t alignment = 0, size = 0;
-      uint32_t elemCount = vecType->getElementCount();
-      const SpirvType *elemType = vecType->getElementType();
-      std::tie(alignment, size) =
-          getAlignmentAndSize(elemType, rule, stride, isRowMajor);
-      // Use element alignment for fxc rules
-      if (rule != SpirvLayoutRule::FxcCTBuffer &&
-          rule != SpirvLayoutRule::FxcSBuffer)
-        alignment = (elemCount == 3 ? 4 : elemCount) * size;
-
-      return {alignment, elemCount * size};
-    }
-  }
-
-  { // Rule 5 and 7
-    if (auto *matType = dyn_cast<MatrixType>(type)) {
-      const SpirvType *elemType = matType->getElementType();
-      uint32_t rowCount = matType->numRows();
-      uint32_t colCount = matType->numCols();
-      uint32_t alignment = 0, size = 0;
-      std::tie(alignment, size) =
-          getAlignmentAndSize(elemType, rule, stride, isRowMajor);
-
-      // Matrices are treated as arrays of vectors:
-      // The base alignment and array stride are set to match the base alignment
-      // of a single array element, according to rules 1, 2, and 3, and rounded
-      // up to the base alignment of a vec4.
-      assert(isRowMajor.hasValue());
-      bool rowMajor = isRowMajor.getValue();
-      const uint32_t vecStorageSize = rowMajor ? colCount : rowCount;
-
-      if (rule == SpirvLayoutRule::FxcSBuffer) {
-        *stride = vecStorageSize * size;
-        // Use element alignment for fxc structured buffers
-        return {alignment, rowCount * colCount * size};
-      }
-
-      alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
-      if (rule == SpirvLayoutRule::GLSLStd140 ||
-          rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-          rule == SpirvLayoutRule::FxcCTBuffer) {
-        alignment = roundToPow2(alignment, kStd140Vec4Alignment);
-      }
-      *stride = alignment;
-      size = (rowMajor ? rowCount : colCount) * alignment;
-
-      return {alignment, size};
-    }
-  }
-
-  // Rule 9
-  if (auto *structType = dyn_cast<StructType>(type)) {
-    // Special case for handling empty structs, whose size is 0 and has no
-    // requirement over alignment (thus 1).
-    if (structType->getFields().size() == 0)
-      return {1, 0};
-
-    uint32_t maxAlignment = 0;
-    uint32_t structSize = 0;
-
-    for (auto &field : structType->getFields()) {
-      uint32_t memberAlignment = 0, memberSize = 0;
-      std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(field.type, rule, stride, field.isRowMajor);
-
-      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-          rule == SpirvLayoutRule::FxcCTBuffer) {
-        alignUsingHLSLRelaxedLayout(field.type, memberSize, memberAlignment,
-                                    &structSize);
-      } else {
-        structSize = roundToPow2(structSize, memberAlignment);
-      }
-
-      // Reset the current offset to the one specified in the source code
-      // if exists. It's debatable whether we should do sanity check here.
-      // If the developers want manually control the layout, we leave
-      // everything to them.
-      if (field.vkOffsetAttr) {
-        structSize = field.vkOffsetAttr->getOffset();
-      }
-
-      // The base alignment of the structure is N, where N is the largest
-      // base alignment value of any of its members...
-      maxAlignment = std::max(maxAlignment, memberAlignment);
-      structSize += memberSize;
-    }
-
-    if (rule == SpirvLayoutRule::GLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      // ... and rounded up to the base alignment of a vec4.
-      maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
-    }
-
-    if (rule != SpirvLayoutRule::FxcCTBuffer &&
-        rule != SpirvLayoutRule::FxcSBuffer) {
-      // The base offset of the member following the sub-structure is rounded up
-      // to the next multiple of the base alignment of the structure.
-      structSize = roundToPow2(structSize, maxAlignment);
-    }
-    return {maxAlignment, structSize};
-  }
-
-  // Rule 4, 6, 8, and 10
-  auto *arrayType = dyn_cast<ArrayType>(type);
-  auto *raType = dyn_cast<RuntimeArrayType>(type);
-  if (arrayType)
-    isRowMajor = arrayType->hasRowMajorElement();
-  if (arrayType || raType) {
-    // Some exaplanation about runtime arrays:
-    // The number of elements in a runtime array is unknown at compile time. As
-    // a result, it would in fact be illegal to have a runtime array in a
-    // structure *unless* it is the *only* member in the structure. In such a
-    // case, we don't care about size and stride, and only care about alignment.
-    // Therefore, to re-use the logic of array types, we'll consider a runtime
-    // array as an array of size 1.
-    const auto elemCount = arrayType ? arrayType->getElementCount() : 1;
-    const auto *elemType =
-        arrayType ? arrayType->getElementType() : raType->getElementType();
-
-    uint32_t alignment = 0, size = 0;
-    std::tie(alignment, size) =
-        getAlignmentAndSize(elemType, rule, stride, isRowMajor);
-
-    if (rule == SpirvLayoutRule::FxcSBuffer) {
-      *stride = size;
-      // Use element alignment for fxc structured buffers
-      return {alignment, size * elemCount};
-    }
-
-    if (rule == SpirvLayoutRule::GLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      // The base alignment and array stride are set to match the base alignment
-      // of a single array element, according to rules 1, 2, and 3, and rounded
-      // up to the base alignment of a vec4.
-      alignment = roundToPow2(alignment, kStd140Vec4Alignment);
-    }
-    if (rule == SpirvLayoutRule::FxcCTBuffer) {
-      // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data
-      // packing after it. But we still need to make sure paddings are inserted
-      // internally if necessary.
-      *stride = roundToPow2(size, alignment);
-      size += *stride * (elemCount - 1);
-    } else {
-      // Need to round size up considering stride for scalar types
-      size = roundToPow2(size, alignment);
-      *stride = size; // Use size instead of alignment here for Rule 10
-      size *= elemCount;
-      // The base offset of the member following the array is rounded up to the
-      // next multiple of the base alignment.
-      size = roundToPow2(size, alignment);
-    }
-
-    return {alignment, size};
-  }
-
-  emitError("alignment and size calculation unimplemented for type");
-  return {0, 0};
-}
-
-void EmitTypeHandler::alignUsingHLSLRelaxedLayout(const SpirvType *fieldType,
-                                                  uint32_t fieldSize,
-                                                  uint32_t fieldAlignment,
-                                                  uint32_t *currentOffset) {
-  if (auto *vecType = dyn_cast<VectorType>(fieldType)) {
-    const SpirvType *elemType = vecType->getElementType();
-    // Adjust according to HLSL relaxed layout rules.
-    // Aligning vectors as their element types so that we can pack a float
-    // and a float3 tightly together.
-    uint32_t scalarAlignment = 0;
-    std::tie(scalarAlignment, std::ignore) =
-        getAlignmentAndSize(elemType, SpirvLayoutRule::Void, nullptr);
-    if (scalarAlignment <= 4)
-      fieldAlignment = scalarAlignment;
-
-    *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
-
-    // Adjust according to HLSL relaxed layout rules.
-    // Bump to 4-component vector alignment if there is a bad straddle
-    if (improperStraddle(vecType, fieldSize, *currentOffset)) {
-      fieldAlignment = kStd140Vec4Alignment;
-      *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
-    }
-  }
-  // Cases where the field is not a vector
-  else {
-    *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
-  }
-}
-
-void EmitTypeHandler::getLayoutDecorations(const StructType *structType,
-                                           SpirvLayoutRule rule,
-                                           DecorationList *decs) {
-  assert(decs);
-
-  uint32_t offset = 0, index = 0;
-  for (auto &field : structType->getFields()) {
-    const SpirvType *fieldType = field.type;
-    uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
-    std::tie(memberAlignment, memberSize) =
-        getAlignmentAndSize(fieldType, rule, &stride, field.isRowMajor);
-
-    // The next avaiable location after laying out the previous members
-    const uint32_t nextLoc = offset;
-
-    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      alignUsingHLSLRelaxedLayout(fieldType, memberSize, memberAlignment,
-                                  &offset);
-    } else {
-      offset = roundToPow2(offset, memberAlignment);
-    }
-
-    // The vk::offset attribute takes precedence over all.
-    if (field.vkOffsetAttr) {
-      offset = field.vkOffsetAttr->getOffset();
-    }
-    // The :packoffset() annotation takes precedence over normal layout
-    // calculation.
-    else if (field.packOffsetAttr) {
-      const uint32_t packOffset = field.packOffsetAttr->Subcomponent * 16 +
-                                  field.packOffsetAttr->ComponentOffset * 4;
-      // Do minimal check to make sure the offset specified by packoffset does
-      // not cause overlap.
-      if (packOffset < nextLoc) {
-        emitError("packoffset caused overlap with previous members",
-                  field.packOffsetAttr->Loc);
-      } else {
-        offset = packOffset;
-      }
-    }
-
-    // Each structure-type member must have an Offset Decoration.
-    decs->push_back(DecorationInfo(spv::Decoration::Offset, {offset}, index));
-    offset += memberSize;
-
-    // Each structure-type member that is a matrix or array-of-matrices must be
-    // decorated with
-    // * A MatrixStride decoration, and
-    // * one of the RowMajor or ColMajor Decorations.
-    if (auto *arrayType = dyn_cast<ArrayType>(fieldType)) {
-      // We have an array of matrices as a field, we need to decorate
-      // MatrixStride on the field. So skip possible arrays here.
-      fieldType = arrayType->getElementType();
-    }
-
-    // Non-floating point matrices are represented as arrays of vectors, and
-    // therefore ColMajor and RowMajor decorations should not be applied to
-    // them.
-    if (auto *matType = dyn_cast<MatrixType>(fieldType)) {
-      if (isa<FloatType>(matType->getElementType())) {
-        memberAlignment = memberSize = stride = 0;
-        std::tie(memberAlignment, memberSize) =
-            getAlignmentAndSize(fieldType, rule, &stride, field.isRowMajor);
-
-        decs->push_back(
-            DecorationInfo(spv::Decoration::MatrixStride, {stride}, index));
-
-        if (field.isRowMajor.hasValue()) {
-          if (field.isRowMajor.getValue()) {
-            decs->push_back(
-                DecorationInfo(spv::Decoration::RowMajor, {}, index));
-          } else {
-            decs->push_back(
-                DecorationInfo(spv::Decoration::ColMajor, {}, index));
-          }
-        }
-      }
-    }
-
-    ++index;
-  }
 }
 
 void EmitTypeHandler::emitDecoration(uint32_t typeResultId,
