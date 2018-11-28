@@ -1,4 +1,18 @@
+//===- DxilLoopUnroll.cpp - Special Unroll for Constant Values ------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+//
+// Special loop unroll routine for creating mandatory constant values and
+// loops that have exits.
+//
+//===----------------------------------------------------------------------===//
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Transforms/Scalar.h"
@@ -142,7 +156,7 @@ struct LoopIteration {
   BasicBlock *Latch = nullptr;
   BasicBlock *Header = nullptr;
   ValueToValueMapTy VarMap;
-  SetVector<BasicBlock *> Extended;
+  SetVector<BasicBlock *> Extended; // Blocks that are included in the clone that are not in the core loop body.
 
   LoopIteration(const LoopIteration &o) {
     Body = o.Body;
@@ -166,7 +180,7 @@ static bool GetConstantI1(Value *V, bool *Val=nullptr) {
   return false;
 }
 
-// Figure out what to do with this.
+// Copied from llvm::SimplifyInstructionsInBlock
 static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
                                        const TargetLibraryInfo *TLI) {
   bool MadeChange = false;
@@ -190,27 +204,16 @@ static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
         BI = BB->begin();
       continue;
     }
-
-//    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI); // HLSL Change
+#if 0 // HLSL Change
+    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI);
+#endif // HLSL Change
     if (BIHandle != BI)
       BI = BB->begin();
   }
   return MadeChange;
 }
 
-static bool IsLoopInvariant(Value *V, Loop *L) {
-  if (L->isLoopInvariant(V)) {
-    return true;
-  }
-  if (PHINode *PN = dyn_cast<PHINode>(V)) {
-    if (PN->getNumIncomingValues() == 0) {
-      return IsLoopInvariant(PN->getIncomingValue(0), L);
-    }
-  }
-  return false;
-}
-
-bool IsMarkedFullUnroll(Loop *L) {
+static bool IsMarkedFullUnroll(Loop *L) {
   if (MDNode *LoopID = L->getLoopID())
     return GetUnrollMetadata(LoopID, "llvm.loop.unroll.full");
   return false;
@@ -264,9 +267,9 @@ static bool processInstruction(SetVector<BasicBlock *> &Body, Loop &L, Instructi
   // If there are no uses outside the loop, exit with no change.
   if (UsesToRewrite.empty())
     return false;
-#if 0
+#if 0 // HLSL Change
   ++NumLCSSA; // We are applying the transformation
-#endif
+#endif // HLSL Change
   // Invoke instructions are special in that their result value is not available
   // along their unwind edge. The code below tests to see whether DomBB
   // dominates
@@ -384,6 +387,7 @@ static bool processInstruction(SetVector<BasicBlock *> &Body, Loop &L, Instructi
 
 }
 
+// Copied from LCSSA.cpp
 static bool blockDominatesAnExit(BasicBlock *BB,
                      DominatorTree &DT,
                      const SmallVectorImpl<BasicBlock *> &ExitBlocks) {
@@ -808,6 +812,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       LPM.deleteLoopFromQueue(L);
 
+      // This process may have created multiple back edges for the
+      // parent loop. Simplify to keep it well-formed.
       simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
     }
     else {
@@ -821,10 +827,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       BB->dropAllReferences();
     for (BasicBlock *BB : ToBeCloned)
       BB->eraseFromParent();
-
-    DT->recalculate(*F);
-
-    DXASSERT(!llvm::verifyFunction(*F), "Failed verification");
     
     return true;
   }
@@ -842,8 +844,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       for (BasicBlock *BB : Iteration.Body)
         BB->eraseFromParent();
 
-    L->verifyLoop();
-    DXASSERT(!llvm::verifyFunction(*F), "Failed verification");
     return false;
   }
 }
