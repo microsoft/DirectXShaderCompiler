@@ -73,7 +73,10 @@ public:
   static char ID;
   LoopInfo *LI = nullptr;
   bool CleanedUpAllocas = false;
-  DxilLoopUnroll() : LoopPass(ID) {}
+  DxilLoopUnroll() : LoopPass(ID) {
+    initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
+  }
+  const char *getPassName() const override { return "Dxil Loop Unroll"; }
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     //AU.addRequired<AssumptionCacheTracker>();
@@ -188,7 +191,7 @@ static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
       continue;
     }
 
-//    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI);
+//    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI); // HLSL Change
     if (BIHandle != BI)
       BI = BB->begin();
   }
@@ -464,6 +467,25 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
   }
 }
 
+static bool ContainsFloatingPointType(Type *Ty) {
+  if (Ty->isFloatingPointTy()) {
+    return true;
+  }
+  else if (Ty->isArrayTy()) {
+    return ContainsFloatingPointType(Ty->getArrayElementType());
+  }
+  else if (Ty->isVectorTy()) {
+    return ContainsFloatingPointType(Ty->getVectorElementType());
+  }
+  else if (Ty->isStructTy()) {
+    for (unsigned i = 0, NumStructElms = Ty->getStructNumElements(); i < NumStructElms; i++) {
+      if (ContainsFloatingPointType(Ty->getStructElementType(i)))
+        return true;
+    }
+  }
+  return false;
+}
+
 static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   BasicBlock &BB = F.getEntryBlock();  // Get the entry node for the function
   bool Changed  = false;
@@ -476,7 +498,7 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I))       // Is it an alloca?
         if (isAllocaPromotable(AI) &&
-          !HLModule::HasPreciseAttributeWithMetadata(AI))
+          (!HLModule::HasPreciseAttributeWithMetadata(AI) || !ContainsFloatingPointType(AI->getAllocatedType())))
           Allocas.push_back(AI);
 
     if (Allocas.empty()) break;
@@ -753,11 +775,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-    Loop *OuterL = L->getParentLoop();
-    // If there's an outer loop, insert the new blocks
-    // into
-    if (OuterL) {
-
+    if (Loop *OuterL = L->getParentLoop()) {
       // Core body blocks need to be added to outer loop
       for (size_t i = 0; i < Clones.size(); i++) {
         auto &Iteration = Clones[i];
@@ -790,11 +808,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       LPM.deleteLoopFromQueue(L);
 
-      // TODO: Simplify here, since outer loop is now weird (multiple latches etc).
       simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
     }
     else {
-      // Remove flattened loop from queue.
       LPM.deleteLoopFromQueue(L);
     }
 
@@ -812,7 +828,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     
     return true;
   }
-
 
   // If we were unsuccessful in unrolling the loop
   else {
