@@ -24,9 +24,8 @@
 // CHECK: OpDecorate %_arr_S_uint_2 ArrayStride 288
 
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 0 Offset 0
-// CHECK: OpMemberDecorate %type_TextureBuffer_T 1 Offset 576
-
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 0 NonWritable
+// CHECK: OpMemberDecorate %type_TextureBuffer_T 1 Offset 576
 // CHECK: OpMemberDecorate %type_TextureBuffer_T 1 NonWritable
 
 // CHECK: OpDecorate %type_TextureBuffer_T BufferBlock

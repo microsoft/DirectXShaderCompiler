@@ -189,9 +189,14 @@ bool ImageType::operator==(const ImageType &that) const {
 
 bool ArrayType::operator==(const ArrayType &that) const {
   return elementType == that.elementType && elementCount == that.elementCount &&
-         rowMajorElem.hasValue() == that.rowMajorElem.hasValue() &&
-         (!rowMajorElem.hasValue() ||
-          rowMajorElem.getValue() == that.rowMajorElem.getValue());
+         stride.hasValue() == that.stride.hasValue() &&
+         (!stride.hasValue() || stride.getValue() == that.stride.getValue());
+}
+
+bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
+  return elementType == that.elementType &&
+         stride.hasValue() == that.stride.hasValue() &&
+         (!stride.hasValue() || stride.getValue() == that.stride.getValue());
 }
 
 StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
@@ -202,9 +207,15 @@ StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
 
 bool StructType::FieldInfo::
 operator==(const StructType::FieldInfo &that) const {
-  return type == that.type && vkOffsetAttr == that.vkOffsetAttr &&
-         packOffsetAttr == that.packOffsetAttr &&
+  return type == that.type && offset.hasValue() == that.offset.hasValue() &&
+         matrixStride.hasValue() == that.matrixStride.hasValue() &&
          isRowMajor.hasValue() == that.isRowMajor.hasValue() &&
+         // Either not have offset value, or have the same value
+         (!offset.hasValue() || offset.getValue() == that.offset.getValue()) &&
+         // Either not have matrix stride value, or have the same value
+         (!matrixStride.hasValue() ||
+          matrixStride.getValue() == that.matrixStride.getValue()) &&
+         // Either not have row major value, or have the same value
          (!isRowMajor.hasValue() ||
           isRowMajor.getValue() == that.isRowMajor.getValue());
 }
