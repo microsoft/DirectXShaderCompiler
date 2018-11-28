@@ -24,9 +24,8 @@
 // CHECK: OpDecorate %_arr_S_uint_2 ArrayStride 288
 
 // CHECK: OpMemberDecorate %type_myTbuffer 0 Offset 0
-// CHECK: OpMemberDecorate %type_myTbuffer 1 Offset 576
-
 // CHECK: OpMemberDecorate %type_myTbuffer 0 NonWritable
+// CHECK: OpMemberDecorate %type_myTbuffer 1 Offset 576
 // CHECK: OpMemberDecorate %type_myTbuffer 1 NonWritable
 
 // CHECK: OpDecorate %type_myTbuffer BufferBlock

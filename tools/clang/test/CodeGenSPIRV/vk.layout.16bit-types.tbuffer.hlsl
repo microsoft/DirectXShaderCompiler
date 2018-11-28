@@ -5,12 +5,12 @@
 // CHECK: OpExtension "SPV_KHR_16bit_storage"
 
 // CHECK: OpMemberDecorate %type_MyTBuffer 0 Offset 0
+// CHECK: OpMemberDecorate %type_MyTBuffer 0 NonWritable
 // CHECK: OpMemberDecorate %type_MyTBuffer 1 Offset 4
+// CHECK: OpMemberDecorate %type_MyTBuffer 1 NonWritable
 // CHECK: OpMemberDecorate %type_MyTBuffer 2 Offset 8
 // CHECK: OpMemberDecorate %type_MyTBuffer 2 MatrixStride 8
 // CHECK: OpMemberDecorate %type_MyTBuffer 2 RowMajor
-// CHECK: OpMemberDecorate %type_MyTBuffer 0 NonWritable
-// CHECK: OpMemberDecorate %type_MyTBuffer 1 NonWritable
 // CHECK: OpMemberDecorate %type_MyTBuffer 2 NonWritable
 // CHECK: OpDecorate %type_MyTBuffer BufferBlock
 

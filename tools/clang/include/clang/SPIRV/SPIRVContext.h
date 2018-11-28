@@ -205,8 +205,10 @@ public:
   const HybridSampledImageType *getSampledImageType(QualType image);
 
   const ArrayType *getArrayType(const SpirvType *elemType, uint32_t elemCount,
-                                llvm::Optional<bool> rowMajorElem);
-  const RuntimeArrayType *getRuntimeArrayType(const SpirvType *elemType);
+                                llvm::Optional<uint32_t> arrayStride);
+  const RuntimeArrayType *
+  getRuntimeArrayType(const SpirvType *elemType,
+                      llvm::Optional<uint32_t> arrayStride);
 
   const StructType *getStructType(
       llvm::ArrayRef<StructType::FieldInfo> fields, llvm::StringRef name,
@@ -254,7 +256,6 @@ private:
 
   using VectorTypeArray = std::array<const VectorType *, 5>;
   using MatrixTypeVector = std::vector<const MatrixType *>;
-  using CountToArrayMap = llvm::DenseMap<uint32_t, const ArrayType *>;
   using SCToPtrTyMap =
       llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
                      StorageClassDenseMapInfo>;
@@ -274,9 +275,8 @@ private:
   llvm::DenseMap<QualType, const HybridSampledImageType *, QualTypeDenseMapInfo>
       hybridSampledImageTypes;
 
-  //llvm::DenseMap<const SpirvType *, CountToArrayMap> arrayTypes;
   llvm::SmallVector<const ArrayType *, 8> arrayTypes;
-  llvm::DenseMap<const SpirvType *, const RuntimeArrayType *> runtimeArrayTypes;
+  llvm::SmallVector<const RuntimeArrayType *, 8> runtimeArrayTypes;
 
   llvm::SmallVector<const StructType *, 8> structTypes;
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
