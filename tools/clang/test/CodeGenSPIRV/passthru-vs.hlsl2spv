@@ -41,8 +41,6 @@ PSInput main(float4 position: POSITION, float4 color: COLOR) {
 //                OpDecorate %in_var_POSITION Location 0
 //                OpDecorate %in_var_COLOR Location 1
 //                OpDecorate %out_var_COLOR Location 0
-//                OpMemberDecorate %PSInput 0 Offset 0
-//                OpMemberDecorate %PSInput 1 Offset 16
 //         %int = OpTypeInt 32 1
 //       %int_0 = OpConstant %int 0
 //       %int_1 = OpConstant %int 1

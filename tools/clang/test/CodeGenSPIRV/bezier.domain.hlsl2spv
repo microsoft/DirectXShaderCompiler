@@ -109,19 +109,6 @@ DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
 //                OpDecorate %out_var_TEXCOORD Location 1
 //                OpDecorate %out_var_TANGENT Location 2
 //                OpDecorate %out_var_BITANGENT Location 3
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 0 Offset 0
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 1 Offset 16
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 2 Offset 32
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 3 Offset 96
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 4 Offset 128
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 5 Offset 192
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 6 Offset 256
-//                OpMemberDecorate %BEZIER_CONTROL_POINT 0 Offset 0
-//                OpMemberDecorate %DS_OUTPUT 0 Offset 0
-//                OpMemberDecorate %DS_OUTPUT 1 Offset 16
-//                OpMemberDecorate %DS_OUTPUT 2 Offset 32
-//                OpMemberDecorate %DS_OUTPUT 3 Offset 48
-//                OpMemberDecorate %DS_OUTPUT 4 Offset 64
 //        %uint = OpTypeInt 32 0
 //      %uint_4 = OpConstant %uint 4
 //       %float = OpTypeFloat 32
