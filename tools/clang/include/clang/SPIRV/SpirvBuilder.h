@@ -547,6 +547,9 @@ public:
   /// \brief Decorates the given target with patch
   void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc = {});
 
+  /// \brief Decorates the given target with NoContraction
+  void decorateNoContraction(SpirvInstruction *target, SourceLocation loc = {});
+
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.
