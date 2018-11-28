@@ -365,7 +365,7 @@ private:
                                                   bool isAllBarrier);
 
   /// Processes the 'mad' intrinsic function.
-  uint32_t processIntrinsicMad(const CallExpr *);
+  SpirvInstruction *processIntrinsicMad(const CallExpr *);
 
   /// Processes the 'modf' intrinsic function.
   SpirvInstruction *processIntrinsicModf(const CallExpr *);
