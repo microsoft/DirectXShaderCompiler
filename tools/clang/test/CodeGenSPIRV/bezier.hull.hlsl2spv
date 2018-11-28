@@ -126,17 +126,6 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 //                OpDecorate %out_var_TANVCORNER Location 9
 //                OpDecorate %out_var_TANWEIGHTS Location 13
 //                OpDecorate %out_var_TEXCOORD Location 14
-//                OpMemberDecorate %VS_CONTROL_POINT_OUTPUT 0 Offset 0
-//                OpMemberDecorate %VS_CONTROL_POINT_OUTPUT 1 Offset 16
-//                OpMemberDecorate %VS_CONTROL_POINT_OUTPUT 2 Offset 32
-//                OpMemberDecorate %BEZIER_CONTROL_POINT 0 Offset 0
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 0 Offset 0
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 1 Offset 16
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 2 Offset 32
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 3 Offset 96
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 4 Offset 128
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 5 Offset 192
-//                OpMemberDecorate %HS_CONSTANT_DATA_OUTPUT 6 Offset 256
 //        %uint = OpTypeInt 32 0
 //      %uint_0 = OpConstant %uint 0
 //       %float = OpTypeFloat 32

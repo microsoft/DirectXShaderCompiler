@@ -218,8 +218,8 @@ SpirvContext::getSampledImageType(QualType image) {
 
 const ArrayType *SpirvContext::getArrayType(const SpirvType *elemType,
                                             uint32_t elemCount,
-                                            llvm::Optional<bool> rowMajorElem) {
-  ArrayType type(elemType, elemCount, rowMajorElem);
+                                            llvm::Optional<uint32_t> arrayStride) {
+  ArrayType type(elemType, elemCount, arrayStride);
   auto found = std::find_if(
       arrayTypes.begin(), arrayTypes.end(),
       [&type](const ArrayType *cachedType) { return type == *cachedType; });
@@ -227,33 +227,25 @@ const ArrayType *SpirvContext::getArrayType(const SpirvType *elemType,
   if (found != arrayTypes.end())
     return *found;
 
-  arrayTypes.push_back(new (this) ArrayType(elemType, elemCount, rowMajorElem));
+  arrayTypes.push_back(new (this) ArrayType(elemType, elemCount, arrayStride));
   return arrayTypes.back();
-
-  /*
-  auto foundElemType = arrayTypes.find(elemType);
-
-  if (foundElemType != arrayTypes.end()) {
-    auto &elemTypeMap = foundElemType->second;
-    auto foundCount = elemTypeMap.find(elemCount);
-
-    if (foundCount != elemTypeMap.end())
-      return foundCount->second;
-  }
-
-  return arrayTypes[elemType][elemCount] =
-             new (this) ArrayType(elemType, elemCount);
-  */
 }
 
 const RuntimeArrayType *
-SpirvContext::getRuntimeArrayType(const SpirvType *elemType) {
-  auto found = runtimeArrayTypes.find(elemType);
+SpirvContext::getRuntimeArrayType(const SpirvType *elemType,
+                                  llvm::Optional<uint32_t> arrayStride) {
+  RuntimeArrayType type(elemType, arrayStride);
+  auto found = std::find_if(runtimeArrayTypes.begin(), runtimeArrayTypes.end(),
+                            [&type](const RuntimeArrayType *cachedType) {
+                              return type == *cachedType;
+                            });
 
   if (found != runtimeArrayTypes.end())
-    return found->second;
+    return *found;
 
-  return runtimeArrayTypes[elemType] = new (this) RuntimeArrayType(elemType);
+  runtimeArrayTypes.push_back(new (this)
+                                  RuntimeArrayType(elemType, arrayStride));
+  return runtimeArrayTypes.back();
 }
 
 const StructType *
@@ -375,13 +367,14 @@ SpirvContext::getFunctionType(QualType ret,
 
 const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
   // Create a uint RuntimeArray.
-  const auto *raType = getRuntimeArrayType(getUIntType(32));
+  const auto *raType =
+      getRuntimeArrayType(getUIntType(32), /* ArrayStride */ 4);
 
   // Create a struct containing the runtime array as its only member.
-  return getStructType({StructType::FieldInfo(raType)},
-                       isWritable ? "type.RWByteAddressBuffer"
-                                  : "type.ByteAddressBuffer",
-                       !isWritable, StructInterfaceType::StorageBuffer);
+  return getStructType(
+      {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0)},
+      isWritable ? "type.RWByteAddressBuffer" : "type.ByteAddressBuffer",
+      !isWritable, StructInterfaceType::StorageBuffer);
 }
 
 const StructType *SpirvContext::getACSBufferCounterType() {
@@ -389,9 +382,10 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   const auto *int32Type = getSIntType(32);
 
   // Create a struct containing the integer counter as its only member.
-  const StructType *type = getStructType(
-      {StructType::FieldInfo(int32Type, "counter")}, "type.ACSBuffer.counter",
-      /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
+  const StructType *type =
+      getStructType({StructType::FieldInfo(int32Type, "counter", /*offset*/ 0)},
+                    "type.ACSBuffer.counter",
+                    /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
 
   return type;
 }

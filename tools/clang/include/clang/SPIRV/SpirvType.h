@@ -22,6 +22,8 @@
 namespace clang {
 namespace spirv {
 
+class HybridType;
+
 enum class StructInterfaceType : uint32_t {
   InternalStorage = 0,
   StorageBuffer = 1,
@@ -235,13 +237,13 @@ private:
 class ArrayType : public SpirvType {
 public:
   ArrayType(const SpirvType *elemType, uint32_t elemCount,
-            llvm::Optional<bool> hasRowMajorElem)
+            llvm::Optional<uint32_t> arrayStride)
       : SpirvType(TK_Array), elementType(elemType), elementCount(elemCount),
-        rowMajorElem(hasRowMajorElem) {}
+        stride(arrayStride) {}
 
   const SpirvType *getElementType() const { return elementType; }
   uint32_t getElementCount() const { return elementCount; }
-  llvm::Optional<bool> hasRowMajorElement() const { return rowMajorElem; }
+  llvm::Optional<uint32_t> getStride() const { return stride; }
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Array; }
 
@@ -251,39 +253,49 @@ private:
   const SpirvType *elementType;
   uint32_t elementCount;
   // Two arrays types with different ArrayStride decorations, are in fact two
-  // different array types. In general, the combination of element type and
-  // element count is enough to determine the array stride. However, in the case
-  // of arrays of matrices, we also need to know the majorness of the matrices.
-  // An array of 5 row_major 2x3 matrices is a different type from
-  // an array of 5 col_major 2x3 matrices.
-  llvm::Optional<bool> rowMajorElem;
+  // different array types. If no layout information is needed, use llvm::None.
+  llvm::Optional<uint32_t> stride;
 };
 
 class RuntimeArrayType : public SpirvType {
 public:
-  RuntimeArrayType(const SpirvType *elemType)
-      : SpirvType(TK_RuntimeArray), elementType(elemType) {}
+  RuntimeArrayType(const SpirvType *elemType,
+                   llvm::Optional<uint32_t> arrayStride)
+      : SpirvType(TK_RuntimeArray), elementType(elemType), stride(arrayStride) {
+  }
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_RuntimeArray;
   }
 
+  bool operator==(const RuntimeArrayType &that) const;
+
   const SpirvType *getElementType() const { return elementType; }
+  llvm::Optional<uint32_t> getStride() const { return stride; }
 
 private:
   const SpirvType *elementType;
+  // Two runtime arrays with different ArrayStride decorations, are in fact two
+  // different types. If no layout information is needed, use llvm::None.
+  llvm::Optional<uint32_t> stride;
 };
 
+// The StructType is the lowered type that best represents what a structure type
+// is in SPIR-V. Contains all necessary information for properly emitting a
+// SPIR-V structure type.
 class StructType : public SpirvType {
 public:
   struct FieldInfo {
   public:
     FieldInfo(const SpirvType *type_, llvm::StringRef name_ = "",
-              clang::VKOffsetAttr *offset = nullptr,
-              hlsl::ConstantPacking *packOffset = nullptr,
-              llvm::Optional<bool> rowMajor = llvm::None)
-        : type(type_), name(name_), vkOffsetAttr(offset),
-          packOffsetAttr(packOffset), isRowMajor(rowMajor) {}
+              llvm::Optional<uint32_t> offset_ = llvm::None,
+              llvm::Optional<uint32_t> matrixStride_ = llvm::None,
+              llvm::Optional<bool> isRowMajor_ = llvm::None)
+        : type(type_), name(name_), offset(offset_),
+          matrixStride(matrixStride_), isRowMajor(isRowMajor_) {
+      // A StructType may not contain any hybrid types.
+      assert(!isa<HybridType>(type_));
+    }
 
     bool operator==(const FieldInfo &that) const;
 
@@ -291,11 +303,11 @@ public:
     const SpirvType *type;
     // The field's name.
     std::string name;
-    // vk::offset attributes associated with this field.
-    clang::VKOffsetAttr *vkOffsetAttr;
-    // :packoffset() annotations associated with this field.
-    hlsl::ConstantPacking *packOffsetAttr;
-    // The majorness of this field (if it is a matrix).
+    // The integer offset for this field.
+    llvm::Optional<uint32_t> offset;
+    // The matrix stride for this field (if applicable).
+    llvm::Optional<uint32_t> matrixStride;
+    // The majorness of this field (if applicable).
     llvm::Optional<bool> isRowMajor;
   };
 
