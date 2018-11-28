@@ -2624,11 +2624,25 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
   if (kind == hlsl::DxilResource::Kind::Texture2DMS ||
       kind == hlsl::DxilResource::Kind::Texture2DMSArray) {
     const ClassTemplateSpecializationDecl *templateDecl =
-        dyn_cast<ClassTemplateSpecializationDecl>(RD);
+        cast<ClassTemplateSpecializationDecl>(RD);
     const clang::TemplateArgument &sampleCountArg =
         templateDecl->getTemplateArgs()[1];
     uint32_t sampleCount = sampleCountArg.getAsIntegral().getLimitedValue();
     hlslRes->SetSampleCount(sampleCount);
+  }
+
+  if (hlsl::DxilResource::IsAnyTexture(kind)) {
+    const ClassTemplateSpecializationDecl *templateDecl = cast<ClassTemplateSpecializationDecl>(RD);
+    const clang::TemplateArgument &retTyArg = templateDecl->getTemplateArgs()[0];
+    llvm::Type *texelType = CGM.getTypes().ConvertType(retTyArg.getAsType());
+    if (!texelType->isFloatingPointTy() && !texelType->isIntegerTy()
+      && !hlsl::IsHLSLVecType(retTyArg.getAsType())) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+        "texture resource texel type must be scalar or vector");
+      Diags.Report(loc, DiagID);
+      return false;
+    }
   }
 
   if (kind != hlsl::DxilResource::Kind::StructuredBuffer) {
@@ -2697,7 +2711,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
   if (kind == hlsl::DxilResource::Kind::TypedBuffer ||
       kind == hlsl::DxilResource::Kind::StructuredBuffer) {
     const ClassTemplateSpecializationDecl *templateDecl =
-        dyn_cast<ClassTemplateSpecializationDecl>(RD);
+        cast<ClassTemplateSpecializationDecl>(RD);
 
     const clang::TemplateArgument &retTyArg =
         templateDecl->getTemplateArgs()[0];

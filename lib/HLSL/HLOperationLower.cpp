@@ -3299,6 +3299,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   Type *Ty = helper.retVal->getType();
   if (Ty->isPointerTy()) {
+    DXASSERT(!DxilResource::IsAnyTexture(RK), "Textures should not be treated as structured buffers.");
     TranslateStructBufSubscript(cast<CallInst>(helper.retVal), helper.handle,
                                 helper.status, OP, DL);
     return;
