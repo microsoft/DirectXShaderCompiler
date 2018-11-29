@@ -6113,17 +6113,19 @@ SpirvInstruction *SPIRVEmitter::turnIntoElementPtr(
   // If this is a rvalue, we need a temporary object to hold it
   // so that we can get access chain from it.
   const bool needTempVar = base->isRValue();
+  SpirvInstruction *accessChainBase = base;
 
   if (needTempVar) {
     auto varName = getAstTypeName(baseType);
     const auto var = createTemporaryVar(baseType, varName, base);
     var->setLayoutRule(SpirvLayoutRule::Void);
     var->setStorageClass(spv::StorageClass::Function);
+    accessChainBase = var;
   }
 
   base = spvBuilder.createAccessChain(
-      spvContext.getPointerType(elemType, base->getStorageClass()), base,
-      indices);
+      spvContext.getPointerType(elemType, accessChainBase->getStorageClass()),
+      accessChainBase, indices);
 
   // Okay, this part seems weird, but it is intended:
   // If the base is originally a rvalue, the whole AST involving the base
