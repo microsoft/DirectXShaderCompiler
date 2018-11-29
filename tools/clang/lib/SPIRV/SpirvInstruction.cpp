@@ -726,6 +726,14 @@ SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
     : SpirvInstruction(IK_UnaryOp, opcode, resultType, resultId, loc),
       operand(op) {}
 
+bool SpirvUnaryOp::isConversionOp() const {
+  return opcode == spv::Op::OpConvertFToU || opcode == spv::Op::OpConvertFToS ||
+         opcode == spv::Op::OpConvertSToF || opcode == spv::Op::OpConvertUToF ||
+         opcode == spv::Op::OpUConvert || opcode == spv::Op::OpSConvert ||
+         opcode == spv::Op::OpFConvert || opcode == spv::Op::OpQuantizeToF16 ||
+         opcode == spv::Op::OpBitcast;
+}
+
 SpirvVectorShuffle::SpirvVectorShuffle(QualType resultType, uint32_t resultId,
                                        SourceLocation loc,
                                        SpirvInstruction *vec1Inst,

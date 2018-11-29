@@ -600,5 +600,71 @@ bool isMatrixOrArrayOfMatrix(const ASTContext &context, QualType type) {
   return false;
 }
 
+bool isLitTypeOrVecOfLitType(QualType type) {
+  if (type == QualType())
+    return false;
+
+  if (type->isSpecificBuiltinType(BuiltinType::LitInt) ||
+      type->isSpecificBuiltinType(BuiltinType::LitFloat))
+    return true;
+
+  // For vector cases
+  {
+    QualType elemType = {};
+    uint32_t elemCount = 0;
+    if (isVectorType(type, &elemType, &elemCount))
+      return isLitTypeOrVecOfLitType(elemType);
+  }
+
+  return false;
+}
+
+bool isSameScalarOrVecType(QualType type1, QualType type2) {
+  { // Scalar types
+    QualType scalarType1 = {}, scalarType2 = {};
+    if (isScalarType(type1, &scalarType1) && isScalarType(type2, &scalarType2))
+      return canTreatAsSameScalarType(scalarType1, scalarType2);
+  }
+
+  { // Vector types
+    QualType elemType1 = {}, elemType2 = {};
+    uint32_t count1 = {}, count2 = {};
+    if (isVectorType(type1, &elemType1, &count1) &&
+        isVectorType(type2, &elemType2, &count2))
+      return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
+  }
+
+  return false;
+}
+
+bool isSameType(const ASTContext &astContext, QualType type1, QualType type2) {
+  if (isSameScalarOrVecType(type1, type2))
+    return true;
+
+  type1.removeLocalConst();
+  type2.removeLocalConst();
+
+  { // Matrix types
+    QualType elemType1 = {}, elemType2 = {};
+    uint32_t row1 = 0, row2 = 0, col1 = 0, col2 = 0;
+    if (isMxNMatrix(type1, &elemType1, &row1, &col1) &&
+        isMxNMatrix(type2, &elemType2, &row2, &col2))
+      return row1 == row2 && col1 == col2 &&
+             canTreatAsSameScalarType(elemType1, elemType2);
+  }
+
+  { // Array types
+    if (const auto *arrType1 = astContext.getAsConstantArrayType(type1))
+      if (const auto *arrType2 = astContext.getAsConstantArrayType(type2))
+        return hlsl::GetArraySize(type1) == hlsl::GetArraySize(type2) &&
+               isSameType(astContext, arrType1->getElementType(),
+                          arrType2->getElementType());
+  }
+
+  // TODO: support other types if needed
+
+  return false;
+}
+
 } // namespace spirv
 } // namespace clang

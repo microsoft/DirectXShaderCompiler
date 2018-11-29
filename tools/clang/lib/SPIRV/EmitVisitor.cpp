@@ -1057,54 +1057,15 @@ uint32_t EmitTypeHandler::getOrCreateConstantNull(SpirvConstantNull *inst) {
 
 uint32_t EmitTypeHandler::getOrCreateConstantFloat(llvm::APFloat value,
                                                    const SpirvType *type) {
-  // If this constant has already been emitted, return its result-id.
-  auto valueTypePair = std::pair<uint64_t, const SpirvType *>(
-      value.bitcastToAPInt().getZExtValue(), type);
-  auto foundResultId = emittedConstantFloats.find(valueTypePair);
-  if (foundResultId != emittedConstantFloats.end())
-    return foundResultId->second;
-
   assert(isa<FloatType>(type));
   const auto *floatType = dyn_cast<FloatType>(type);
   const auto typeBitwidth = floatType->getBitwidth();
   const auto valueBitwidth = llvm::APFloat::getSizeInBits(value.getSemantics());
+  auto valueToUse = value;
 
-  // Start constructing the instruction
-  const uint32_t constantResultId = takeNextIdFunction();
-  const uint32_t typeId = emitType(type);
-  initTypeInstruction(spv::Op::OpConstant);
-  curTypeInst.push_back(typeId);
-  curTypeInst.push_back(constantResultId);
-
-  // Start constructing the value word / words
-  if (valueBitwidth == typeBitwidth) {
-    if (typeBitwidth == 16) {
-      // According to the SPIR-V Spec:
-      // When the type's bit width is less than 32-bits, the literal's value
-      // appears in the low-order bits of the word, and the high-order bits must
-      // be 0 for a floating-point type.
-      curTypeInst.push_back(
-          static_cast<uint32_t>(value.bitcastToAPInt().getZExtValue()));
-    } else if (typeBitwidth == 32) {
-      curTypeInst.push_back(
-          cast::BitwiseCast<uint32_t, float>(value.convertToFloat()));
-    } else {
-      // TODO: The ordering of the 2 words depends on the endian-ness of the
-      // host machine.
-      struct wideFloat {
-        uint32_t word0;
-        uint32_t word1;
-      };
-      wideFloat words =
-          cast::BitwiseCast<wideFloat, double>(value.convertToDouble());
-      curTypeInst.push_back(words.word0);
-      curTypeInst.push_back(words.word1);
-    }
-  }
-  // The type and the value have different widths. We need to convert the value
-  // to the width of the type. Error out if the conversion is lossy.
-  else {
-    auto valueToUse = value;
+  // If the type and the value have different widths, we need to convert the
+  // value to the width of the type. Error out if the conversion is lossy.
+  if (valueBitwidth != typeBitwidth) {
     bool losesInfo = false;
     const llvm::fltSemantics &targetSemantics =
         typeBitwidth == 16 ? llvm::APFloat::IEEEhalf
@@ -1121,11 +1082,47 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(llvm::APFloat value,
           // So only 32/64-bit values can reach here.
           << std::to_string(valueBitwidth == 32 ? valueToUse.convertToFloat()
                                                 : valueToUse.convertToDouble());
-      curTypeInst.push_back(0u);
-    } else {
-      curTypeInst.push_back(
-          cast::BitwiseCast<uint32_t, float>(valueToUse.convertToFloat()));
+      return 0;
     }
+  }
+
+  // If this constant has already been emitted, return its result-id.
+  auto valueTypePair = std::pair<uint64_t, const SpirvType *>(
+      valueToUse.bitcastToAPInt().getZExtValue(), type);
+  auto foundResultId = emittedConstantFloats.find(valueTypePair);
+  if (foundResultId != emittedConstantFloats.end())
+    return foundResultId->second;
+
+  // Start constructing the instruction
+  const uint32_t constantResultId = takeNextIdFunction();
+  const uint32_t typeId = emitType(type);
+  initTypeInstruction(spv::Op::OpConstant);
+  curTypeInst.push_back(typeId);
+  curTypeInst.push_back(constantResultId);
+
+  // Start constructing the value word / words
+
+  if (typeBitwidth == 16) {
+    // According to the SPIR-V Spec:
+    // When the type's bit width is less than 32-bits, the literal's value
+    // appears in the low-order bits of the word, and the high-order bits must
+    // be 0 for a floating-point type.
+    curTypeInst.push_back(
+        static_cast<uint32_t>(valueToUse.bitcastToAPInt().getZExtValue()));
+  } else if (typeBitwidth == 32) {
+    curTypeInst.push_back(
+        cast::BitwiseCast<uint32_t, float>(valueToUse.convertToFloat()));
+  } else {
+    // TODO: The ordering of the 2 words depends on the endian-ness of the
+    // host machine.
+    struct wideFloat {
+      uint32_t word0;
+      uint32_t word1;
+    };
+    wideFloat words =
+        cast::BitwiseCast<wideFloat, double>(valueToUse.convertToDouble());
+    curTypeInst.push_back(words.word0);
+    curTypeInst.push_back(words.word1);
   }
 
   finalizeTypeInstruction();
