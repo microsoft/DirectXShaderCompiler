@@ -2633,10 +2633,10 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
 
   if (hlsl::DxilResource::IsAnyTexture(kind)) {
     const ClassTemplateSpecializationDecl *templateDecl = cast<ClassTemplateSpecializationDecl>(RD);
-    const clang::TemplateArgument &retTyArg = templateDecl->getTemplateArgs()[0];
-    llvm::Type *texelType = CGM.getTypes().ConvertType(retTyArg.getAsType());
-    if (!texelType->isFloatingPointTy() && !texelType->isIntegerTy()
-      && !hlsl::IsHLSLVecType(retTyArg.getAsType())) {
+    const clang::TemplateArgument &texelTyArg = templateDecl->getTemplateArgs()[0];
+    llvm::Type *texelTy = CGM.getTypes().ConvertType(texelTyArg.getAsType());
+    if (!texelTy->isFloatingPointTy() && !texelTy->isIntegerTy()
+      && !hlsl::IsHLSLVecType(texelTyArg.getAsType())) {
       DiagnosticsEngine &Diags = CGM.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
         "texture resource texel type must be scalar or vector");
