@@ -1573,24 +1573,26 @@ const char* g_ArBasicTypeNames[] =
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
 
+static bool IsValidBasicKind(ArBasicKind kind) {
+  return kind != AR_BASIC_COUNT &&
+    kind != AR_BASIC_NONE &&
+    kind != AR_BASIC_UNKNOWN &&
+    kind != AR_BASIC_NOCAST &&
+    kind != AR_BASIC_POINTER &&
+    kind != AR_OBJECT_RENDERTARGETVIEW &&
+    kind != AR_OBJECT_DEPTHSTENCILVIEW &&
+    kind != AR_OBJECT_COMPUTESHADER &&
+    kind != AR_OBJECT_DOMAINSHADER &&
+    kind != AR_OBJECT_GEOMETRYSHADER &&
+    kind != AR_OBJECT_HULLSHADER &&
+    kind != AR_OBJECT_PIXELSHADER &&
+    kind != AR_OBJECT_VERTEXSHADER &&
+    kind != AR_OBJECT_PIXELFRAGMENT &&
+    kind != AR_OBJECT_VERTEXFRAGMENT;
+}
 // kind should never be a flag value or effects framework type - we simply do not expect to deal with these
 #define DXASSERT_VALIDBASICKIND(kind) \
-  DXASSERT(\
-  kind != AR_BASIC_COUNT && \
-  kind != AR_BASIC_NONE && \
-  kind != AR_BASIC_UNKNOWN && \
-  kind != AR_BASIC_NOCAST && \
-  kind != AR_BASIC_POINTER && \
-  kind != AR_OBJECT_RENDERTARGETVIEW && \
-  kind != AR_OBJECT_DEPTHSTENCILVIEW && \
-  kind != AR_OBJECT_COMPUTESHADER && \
-  kind != AR_OBJECT_DOMAINSHADER && \
-  kind != AR_OBJECT_GEOMETRYSHADER && \
-  kind != AR_OBJECT_HULLSHADER && \
-  kind != AR_OBJECT_PIXELSHADER && \
-  kind != AR_OBJECT_VERTEXSHADER && \
-  kind != AR_OBJECT_PIXELFRAGMENT && \
-  kind != AR_OBJECT_VERTEXFRAGMENT, "otherwise caller is using a special flag or an unsupported kind value");
+  DXASSERT(IsValidBasicKind(kind), "otherwise caller is using a special flag or an unsupported kind value");
 
 static
 const char* g_DeprecatedEffectObjectNames[] =
@@ -5582,7 +5584,10 @@ bool HLSLExternalSource::MatchArguments(
           return false;
         }
         pEltType = GetTypeElementKind(objectElement);
-        DXASSERT_VALIDBASICKIND(pEltType);
+        if (!IsValidBasicKind(pEltType)) {
+          // This can happen with Texture2D<Struct> or other invalid declarations
+          return false;
+        }
       }
       else {
         pEltType = ComponentType[pArgument->uComponentTypeId];
