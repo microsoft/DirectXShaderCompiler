@@ -215,6 +215,7 @@ blockDominatesAnExit(BasicBlock *BB,
 bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
                      ScalarEvolution *SE) {
   bool Changed = false;
+  bool shouldExpectLCSSAform = true;
 
   // Get the set of exiting blocks.
   SmallVector<BasicBlock *, 8> ExitBlocks;
@@ -245,6 +246,15 @@ bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
            !isa<PHINode>(I->user_back())))
         continue;
 
+      // HLSL changes begin
+      // Skip inserting redundant PHI nodes on instruction of struct type
+      // as the resultant IR is not considered a valid DXIL.
+      if (I->getType()->isStructTy()) {
+        shouldExpectLCSSAform = false;
+        continue;
+      }
+      // HLSL changes end
+
       Changed |= processInstruction(L, *I, DT, ExitBlocks, PredCache, LI);
     }
   }
@@ -255,7 +265,8 @@ bool llvm::formLCSSA(Loop &L, DominatorTree &DT, LoopInfo *LI,
   if (SE && Changed)
     SE->forgetLoop(&L);
 
-  assert(L.isLCSSAForm(DT));
+  if(shouldExpectLCSSAform)
+    assert(L.isLCSSAForm(DT));
 
   return Changed;
 }
