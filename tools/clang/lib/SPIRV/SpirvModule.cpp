@@ -19,7 +19,13 @@ SpirvModule::SpirvModule()
       moduleProcesses({}), decorations({}), constants({}), variables({}),
       functions({}) {}
 
-bool SpirvModule::invokeVisitor(Visitor *visitor) {
+bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
+  // Note: It is debatable whether reverse order of visiting the module should
+  // reverse everything in this method. For the time being, we just reverse the
+  // order of the function visitors, and keeping everything else the same.
+  // For example, it is not clear what the value would be of vising the last
+  // function first. We can update this methodology if needed.
+
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
@@ -66,7 +72,7 @@ bool SpirvModule::invokeVisitor(Visitor *visitor) {
       return false;
 
   for (auto fn : functions)
-    if (!fn->invokeVisitor(visitor))
+    if (!fn->invokeVisitor(visitor, reverseOrder))
       return false;
 
   if (!visitor->visit(this, Visitor::Phase::Done))

@@ -38,7 +38,7 @@ public:
   SpirvFunction &operator=(SpirvFunction &&) = delete;
 
   // Handle SPIR-V function visitors.
-  bool invokeVisitor(Visitor *);
+  bool invokeVisitor(Visitor *, bool reverseOrder = false);
 
   uint32_t getResultId() const { return functionId; }
   void setResultId(uint32_t id) { functionId = id; }
