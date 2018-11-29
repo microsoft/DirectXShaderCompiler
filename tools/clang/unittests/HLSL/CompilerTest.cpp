@@ -231,9 +231,7 @@ public:
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
 
-#ifndef DXC_ON_APPVEYOR_CI
   TEST_METHOD(CompileWhenNoMemThenOOM)
-#endif // DXC_ON_APPVEYOR_CI
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
@@ -2580,7 +2578,6 @@ public:
   }
 };
 
-#ifndef DXC_ON_APPVEYOR_CI
 TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -2678,7 +2675,6 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
     VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
   }
 }
-#endif // DXC_ON_APPVEYOR_CI
 
 TEST_F(CompilerTest, CompileWhenShaderModelMismatchAttributeThenFail) {
   CComPtr<IDxcCompiler> pCompiler;
