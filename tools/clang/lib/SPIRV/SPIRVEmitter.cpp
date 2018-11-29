@@ -8810,12 +8810,15 @@ SpirvConstant *SPIRVEmitter::getMaskForBitwidthValue(QualType type) {
     switch (bitwidth) {
     case 16:
       mask = spvBuilder.getConstantUint16(bitwidth - 1);
+      elemType = astContext.UnsignedShortTy;
       break;
     case 32:
       mask = spvBuilder.getConstantUint32(bitwidth - 1);
+      elemType = astContext.UnsignedIntTy;
       break;
     case 64:
       mask = spvBuilder.getConstantUint64(bitwidth - 1);
+      elemType = astContext.UnsignedLongLongTy;
       break;
     default:
       assert(false && "this method only supports 16-, 32-, and 64-bit types");
