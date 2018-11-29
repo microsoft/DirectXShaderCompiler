@@ -890,6 +890,8 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   if (!isAlias || !isAKindOfStructuredOrByteBuffer(fn->getReturnType()))
     spirvFunction->setRValue();
 
+  spirvFunction->setConstainsAliasComponent(isAlias);
+
   astFunctionDecls[fn] = spirvFunction;
   return spirvFunction;
 }
