@@ -2153,6 +2153,8 @@ SpirvInstruction *SPIRVEmitter::processCall(const CallExpr *callExpr) {
   // Inherit the SpirvEvalInfo from the function definition
   // TODO (ehsan): Verify this is OK.
   // return declIdMapper.getDeclEvalInfo(callee).setResultId(retVal);
+  retVal->setContainsAliasComponent(func->constainsAliasComponent());
+  retVal->setRValue(func->isRValue());
   return retVal;
 }
 
