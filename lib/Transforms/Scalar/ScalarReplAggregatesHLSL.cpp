@@ -4108,6 +4108,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // For GEP, the ptr could have other GEP read/write.
           // Only scan one GEP is not enough.
           Value *Ptr = GEP->getPointerOperand();
+          while (GEPOperator *NestedGEP = dyn_cast<GEPOperator>(Ptr))
+            Ptr = NestedGEP->getPointerOperand();
+
           if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
             hlsl::HLOpcodeGroup group =
                 hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
