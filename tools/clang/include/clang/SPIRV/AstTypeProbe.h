@@ -112,6 +112,14 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
 /// constnesss and literalness.
 bool canTreatAsSameScalarType(QualType type1, QualType type2);
 
+/// \brief Returns true if the two types are the same scalar or vector type,
+/// regardless of constness and literalness.
+bool isSameScalarOrVecType(QualType type1, QualType type2);
+
+  /// \brief Returns true if the two types are the same type, regardless of
+  /// constness and literalness.
+bool isSameType(const ASTContext &, QualType type1, QualType type2);
+
 /// Returns true if all members in structType are of the same element
 /// type and can be fit into a 4-component vector. Writes element type and
 /// count to *elemType and *elemCount if not nullptr. Otherwise, emit errors
@@ -130,6 +138,10 @@ QualType getTypeWithCustomBitwidth(const ASTContext &, QualType type,
 
 /// Returns true if the given type is a matrix or an array of matrices.
 bool isMatrixOrArrayOfMatrix(const ASTContext &, QualType type);
+
+/// Returns true if the given type is a LitInt or LitFloat type or a vector of
+/// them. Returns false otherwise.
+bool isLitTypeOrVecOfLitType(QualType type);
 
 } // namespace spirv
 } // namespace clang

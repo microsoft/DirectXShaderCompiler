@@ -126,6 +126,8 @@ public:
   Kind getKind() const { return kind; }
   spv::Op getopcode() const { return opcode; }
   QualType getAstResultType() const { return astResultType; }
+  void setAstResultType(QualType type) { astResultType = type; }
+  bool hasAstResultType() const { return astResultType != QualType(); }
 
   uint32_t getResultTypeId() const { return resultTypeId; }
   void setResultTypeId(uint32_t id) { resultTypeId = id; }
@@ -1688,6 +1690,7 @@ public:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 
   SpirvInstruction *getOperand() const { return operand; }
+  bool isConversionOp() const;
 
 private:
   SpirvInstruction *operand;

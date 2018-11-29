@@ -12,7 +12,6 @@
 
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
-#include "llvm/ADT/Optional.h"
 
 namespace clang {
 namespace spirv {
