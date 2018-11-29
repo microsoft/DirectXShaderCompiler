@@ -2449,7 +2449,7 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     //        `- <rhs>
     // This FlatConversion does not affect CodeGen, so that we can ignore it.
     else if (subExprType->isArrayType() &&
-             typeTranslator.isSameType(expr->getType(), subExprType)) {
+             isSameType(astContext, expr->getType(), subExprType)) {
       return doExpr(subExpr);
     }
     // We can have casts changing the shape but without affecting memory order,
@@ -6178,7 +6178,7 @@ SpirvInstruction *SPIRVEmitter::turnIntoElementPtr(
 SpirvInstruction *SPIRVEmitter::castToBool(SpirvInstruction *fromVal,
                                            QualType fromType,
                                            QualType toBoolType) {
-  if (TypeTranslator::isSameScalarOrVecType(fromType, toBoolType))
+  if (isSameScalarOrVecType(fromType, toBoolType))
     return fromVal;
 
   { // Special case handling for converting to a matrix of booleans.
@@ -6208,7 +6208,7 @@ SpirvInstruction *SPIRVEmitter::castToBool(SpirvInstruction *fromVal,
 SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
                                           QualType fromType, QualType toIntType,
                                           SourceLocation srcLoc) {
-  if (TypeTranslator::isSameScalarOrVecType(fromType, toIntType))
+  if (isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
@@ -6222,7 +6222,7 @@ SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
     QualType convertedType = {};
     fromVal = convertBitwidth(fromVal, fromType, toIntType, &convertedType);
     // If bitwidth conversion was the only thing we needed to do, we're done.
-    if (convertedType == toIntType)
+    if (isSameScalarOrVecType(convertedType, toIntType))
       return fromVal;
     return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toIntType, fromVal);
   }
@@ -6316,7 +6316,7 @@ SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
                                             QualType fromType,
                                             QualType toFloatType,
                                             SourceLocation srcLoc) {
-  if (TypeTranslator::isSameScalarOrVecType(fromType, toFloatType))
+  if (isSameScalarOrVecType(fromType, toFloatType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
@@ -7814,7 +7814,7 @@ SpirvInstruction *SPIRVEmitter::processNonFpScalarTimesMatrix(
   uint32_t numRows = 0, numCols = 0;
   const bool isMat = isMxNMatrix(matrixType, &elemType, &numRows, &numCols);
   assert(isMat);
-  assert(typeTranslator.isSameType(scalarType, elemType));
+  assert(isSameType(astContext, scalarType, elemType));
   (void)isMat;
 
   // We need to multiply the scalar by each vector of the matrix.
@@ -7844,7 +7844,7 @@ SpirvInstruction *SPIRVEmitter::processNonFpVectorTimesMatrix(
   uint32_t vecSize = 0, numRows = 0, numCols = 0;
   const bool isVec = isVectorType(vecType, &vecElemType, &vecSize);
   const bool isMat = isMxNMatrix(matType, &matElemType, &numRows, &numCols);
-  assert(typeTranslator.isSameType(vecElemType, matElemType));
+  assert(isSameType(astContext, vecElemType, matElemType));
   assert(isVec);
   assert(isMat);
   assert(vecSize == numRows);
@@ -7878,7 +7878,7 @@ SpirvInstruction *SPIRVEmitter::processNonFpMatrixTimesVector(
   uint32_t vecSize = 0, numRows = 0, numCols = 0;
   const bool isVec = isVectorType(vecType, &vecElemType, &vecSize);
   const bool isMat = isMxNMatrix(matType, &matElemType, &numRows, &numCols);
-  assert(typeTranslator.isSameType(vecElemType, matElemType));
+  assert(isSameType(astContext, vecElemType, matElemType));
   assert(isVec);
   assert(isMat);
   assert(vecSize == numCols);
@@ -7910,7 +7910,7 @@ SpirvInstruction *SPIRVEmitter::processNonFpMatrixTimesMatrix(
       isMxNMatrix(lhsType, &lhsElemType, &lhsNumRows, &lhsNumCols);
   const bool rhsIsMat =
       isMxNMatrix(rhsType, &rhsElemType, &rhsNumRows, &rhsNumCols);
-  assert(typeTranslator.isSameType(lhsElemType, rhsElemType));
+  assert(isSameType(astContext, lhsElemType, rhsElemType));
   assert(lhsIsMat && rhsIsMat);
   assert(lhsNumCols == rhsNumRows);
   (void)rhsIsMat;
@@ -8288,7 +8288,7 @@ SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   const QualType argType = arg0->getType();
 
   // Method 3 return type may be the same as arg type, so it would be a no-op.
-  if (typeTranslator.isSameType(returnType, argType))
+  if (isSameType(astContext, returnType, argType))
     return doExpr(arg0);
 
   switch (numArgs) {

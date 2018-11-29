@@ -21,7 +21,7 @@ SpirvFunction::SpirvFunction(QualType returnType, SpirvType *functionType,
       returnTypeId(0), fnType(functionType), fnTypeId(0),
       functionControl(control), functionLoc(loc), functionName(name) {}
 
-bool SpirvFunction::invokeVisitor(Visitor *visitor) {
+bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
@@ -37,17 +37,25 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor) {
     }).visit(basicBlocks.front());
   }
 
+  if (reverseOrder)
+    std::reverse(orderedBlocks.begin(), orderedBlocks.end());
+
+  SpirvBasicBlock *firstBB =
+      orderedBlocks.empty()
+          ? nullptr
+          : reverseOrder ? orderedBlocks.back() : orderedBlocks[0];
+
   for (auto *bb : orderedBlocks) {
     // The first basic block of the function should first visit the function
     // variables.
-    if (bb == orderedBlocks[0]) {
-      if (!bb->invokeVisitor(visitor, variables))
+    if (bb == firstBB) {
+      if (!bb->invokeVisitor(visitor, variables, reverseOrder))
         return false;
     }
     // The rest of the basic blocks in the function do not need to visit
     // function variables.
     else {
-      if (!bb->invokeVisitor(visitor))
+      if (!bb->invokeVisitor(visitor, {}, reverseOrder))
         return false;
     }
   }

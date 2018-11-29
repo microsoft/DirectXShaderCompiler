@@ -22,20 +22,35 @@ bool SpirvBasicBlock::hasTerminator() const {
 }
 
 bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
-                                    llvm::ArrayRef<SpirvVariable *> vars) {
+                                    llvm::ArrayRef<SpirvVariable *> vars,
+                                    bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
-  // If a basic block is the first basic block of a function, it should include
-  // all the variables of the function.
-  if (!vars.empty())
-    for (auto *var : vars)
-      if (!var->invokeVisitor(visitor))
+  if (reverseOrder) {
+    for (auto inst = instructions.rbegin(); inst != instructions.rend();
+         ++inst) {
+      if (!(*inst)->invokeVisitor(visitor))
         return false;
+    }
+    // If a basic block is the first basic block of a function, it should
+    // include all the variables of the function.
+    if (!vars.empty())
+      for (auto var = vars.rbegin(); var != vars.rend(); ++var)
+        if (!(*var)->invokeVisitor(visitor))
+          return false;
+  } else {
+    // If a basic block is the first basic block of a function, it should
+    // include all the variables of the function.
+    if (!vars.empty())
+      for (auto *var : vars)
+        if (!var->invokeVisitor(visitor))
+          return false;
 
-  for (auto *inst : instructions)
-    if (!inst->invokeVisitor(visitor))
-      return false;
+    for (auto *inst : instructions)
+      if (!inst->invokeVisitor(visitor))
+        return false;
+  }
 
   if (!visitor->visit(this, Visitor::Phase::Done))
     return false;
