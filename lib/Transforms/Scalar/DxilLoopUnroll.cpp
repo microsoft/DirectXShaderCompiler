@@ -15,34 +15,28 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/PredIteratorCache.h"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "llvm/Analysis/AssumptionCache.h"
 
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/DXIL/DxilInstructions.h"
-
-#include <set>
-#include <unordered_map>
 
 using namespace llvm;
 using namespace hlsl;
@@ -220,7 +214,6 @@ static bool IsMarkedFullUnroll(Loop *L) {
 }
 
 static bool HasSuccessorsInLoop(BasicBlock *BB, Loop *L) {
-  bool PartOfOuterLoop = false;
   for (BasicBlock *Succ : successors(BB)) {
     if (L->contains(Succ)) {
       return true;
@@ -428,7 +421,6 @@ static bool CreateLCSSA(SetVector<BasicBlock *> &Body, SetVector<BasicBlock *> &
            !isa<PHINode>(I->user_back())))
         continue;
 
-      Instruction *Inst = &*I;
       Changed |= processInstruction(Body, *L, *I, DT, ExitBlocks, PredCache, LI);
     }
   }
@@ -518,7 +510,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!L->isSafeToClone())
     return false;
 
-  Module *M = L->getHeader()->getModule();
   Function *F = L->getHeader()->getParent();
 
   // Analysis passes
@@ -639,8 +630,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     if (Clones.size() >= 2)
       PrevIteration = &Clones[Clones.size()-2];
 
-    // Helper function for cloning a block
-    auto CloneBlock = [Header, &ExitBlockSet, &CurIteration, F](BasicBlock *BB) {
+    // Clone the blocks.
+    for (BasicBlock *BB : ToBeCloned) {
+
       BasicBlock *ClonedBB = CloneBasicBlock(BB, CurIteration.VarMap);
       CurIteration.VarMap[BB] = ClonedBB;
       ClonedBB->insertInto(F, Header);
@@ -648,12 +640,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       if (ExitBlockSet.count(BB))
         CurIteration.Extended.insert(ClonedBB);
 
-      return ClonedBB;
-    };
-
-    // Clone the blocks.
-    for (BasicBlock *BB : ToBeCloned) {
-      BasicBlock *ClonedBB = CloneBlock(BB);
       CurIteration.Body.push_back(ClonedBB);
 
       // Identify the special blocks.
@@ -779,7 +765,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-    if (Loop *OuterL = L->getParentLoop()) {
+    Loop *OuterL = L->getParentLoop();
+
+    if (OuterL) {
       // Core body blocks need to be added to outer loop
       for (size_t i = 0; i < Clones.size(); i++) {
         auto &Iteration = Clones[i];
@@ -806,19 +794,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       // Remove the original blocks that we've cloned from outer loop.
       for (BasicBlock *BB : ToBeCloned) {
-        if (OuterL->contains(BB))
+        if (OuterL->contains(BB)) // This check is necessary because of possible exit blocks.
           OuterL->removeBlockFromLoop(BB);
       }
-
-      LPM.deleteLoopFromQueue(L);
-
-      // This process may have created multiple back edges for the
-      // parent loop. Simplify to keep it well-formed.
-      simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
     }
-    else {
-      LPM.deleteLoopFromQueue(L);
-    }
+
+    LPM.deleteLoopFromQueue(L);
 
     // Remove dead blocks.
     for (BasicBlock *BB : ToBeCloned)
@@ -827,6 +808,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       BB->dropAllReferences();
     for (BasicBlock *BB : ToBeCloned)
       BB->eraseFromParent();
+
+    if (OuterL) {
+      // This process may have created multiple back edges for the
+      // parent loop. Simplify to keep it well-formed.
+      simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
+    }
     
     return true;
   }
