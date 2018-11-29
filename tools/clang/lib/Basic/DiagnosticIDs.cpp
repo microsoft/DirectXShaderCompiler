@@ -278,7 +278,12 @@ namespace clang {
 
       unsigned getOrCreateDiagID(DiagnosticIDs::Level L, StringRef Message,
                                  DiagnosticIDs &Diags) {
-        DiagDesc D(L, Message);
+        // HLSL Change Starts
+        // ".str()" is a workaround for a bug in VC++'s STL where std::pair<T,U>::pair<T2,U2>(T2&&,U2&&)
+        // may cause a conversion operator from U2 to U to be invoked within a noexcept function.
+        // This would cause a call std::terminate if we ran out of memory and throw std::bad_alloc
+        DiagDesc D(L, Message.str());
+        // HLSL Change Ends
         // Check to see if it already exists.
         std::map<DiagDesc, unsigned>::iterator I = DiagIDs.lower_bound(D);
         if (I != DiagIDs.end() && I->first == D)
