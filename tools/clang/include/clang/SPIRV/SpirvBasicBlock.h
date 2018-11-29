@@ -71,7 +71,8 @@ public:
   /// Handle SPIR-V basic block visitors.
   /// If a basic block is the first basic block in a function, it must include
   /// all the variable definitions of the entire function.
-  bool invokeVisitor(Visitor *, llvm::ArrayRef<SpirvVariable *> vars = {});
+  bool invokeVisitor(Visitor *, llvm::ArrayRef<SpirvVariable *> vars,
+                     bool reverseOrder = false);
 
   /// \brief Adds the given basic block as a successsor to this basic block.
   void addSuccessor(SpirvBasicBlock *bb);

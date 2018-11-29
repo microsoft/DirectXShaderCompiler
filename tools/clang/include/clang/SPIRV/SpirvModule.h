@@ -49,7 +49,7 @@ public:
   SpirvModule &operator=(SpirvModule &&) = delete;
 
   // Handle SPIR-V module visitors.
-  bool invokeVisitor(Visitor *);
+  bool invokeVisitor(Visitor *, bool reverseOrder = false);
 
   // Add a function to the list of module functions.
   void addFunction(SpirvFunction *);

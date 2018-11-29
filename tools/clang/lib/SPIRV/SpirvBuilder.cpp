@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "CapabilityVisitor.h"
+#include "LiteralTypeVisitor.h"
 #include "TypeTranslator.h"
 #include "clang/SPIRV/EmitVisitor.h"
 #include "clang/SPIRV/LowerTypeVisitor.h"
@@ -1042,9 +1043,12 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
 
 std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
+  LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
   CapabilityVisitor capabilityVisitor(context, spirvOptions, *this);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
+
+  module->invokeVisitor(&literalTypeVisitor, true);
 
   // Lower types
   module->invokeVisitor(&lowerTypeVisitor);
