@@ -507,6 +507,7 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
 }
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
+
   if (!L->isSafeToClone())
     return false;
 
@@ -791,11 +792,13 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
             OuterL->addBasicBlockToLoop(BB, *LI);
         }
       }
+    }
 
-      // Remove the original blocks that we've cloned from outer loop.
+    // Remove the original blocks that we've cloned from outer loops.
+    for (Loop *TopLoop = L->getParentLoop(); TopLoop; TopLoop = TopLoop->getParentLoop()) {
       for (BasicBlock *BB : ToBeCloned) {
-        if (OuterL->contains(BB)) // This check is necessary because of possible exit blocks.
-          OuterL->removeBlockFromLoop(BB);
+        if (TopLoop->contains(BB)) // This check is necessary because of possible exit blocks.
+          TopLoop->removeBlockFromLoop(BB);
       }
     }
 
@@ -814,7 +817,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       // parent loop. Simplify to keep it well-formed.
       simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
     }
-    
+
     return true;
   }
 
