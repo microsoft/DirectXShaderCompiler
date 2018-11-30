@@ -87,23 +87,11 @@ public:
   const char *getPassName() const override { return "Dxil Loop Unroll"; }
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    //AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequiredID(LoopSimplifyID);
     AU.addRequired<AssumptionCacheTracker>();
-
     AU.addRequired<DominatorTreeWrapperPass>();
-    //AU.addPreservedID(LoopSimplifyID);
-    //AU.addRequiredID(LCSSAID);
-    //AU.addPreservedID(LCSSAID);
-    //AU.addRequired<ScalarEvolution>();
-    //AU.addPreserved<ScalarEvolution>();
-    //AU.addRequired<TargetTransformInfoWrapperPass>();
-    // FIXME: Loop unroll requires LCSSA. And LCSSA requires dom info.
-    // If loop unroll does not preserve dom info then LCSSA pass on next
-    // loop will receive invalid dom info.
-    // For now, recreate dom info, if loop is unrolled.
     AU.addPreserved<DominatorTreeWrapperPass>();
   }
 };
