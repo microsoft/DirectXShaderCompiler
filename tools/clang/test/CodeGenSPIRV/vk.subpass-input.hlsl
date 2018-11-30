@@ -2,6 +2,8 @@
 
 // CHECK: OpCapability InputAttachment
 
+// CHECK:  [[v2i00:%\d+]] = OpConstantComposite %v2int %int_0 %int_0
+
 // CHECK: %type_subpass_image = OpTypeImage %float SubpassData 2 0 0 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image = OpTypePointer UniformConstant %type_subpass_image
 
@@ -19,8 +21,6 @@
 
 // CHECK: %type_subpass_image_4 = OpTypeImage %int SubpassData 2 0 1 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_4 = OpTypePointer UniformConstant %type_subpass_image_4
-
-// CHECK:  [[v2i00:%\d+]] = OpConstantComposite %v2int %int_0 %int_0
 
 // CHCK:   %SI_f4 = OpVariable %_ptr_UniformConstant_type_subpass_image UniformConstant
 [[vk::input_attachment_index(0)]]  SubpassInput           SI_f4;

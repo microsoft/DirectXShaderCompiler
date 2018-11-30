@@ -19,10 +19,7 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            FeatureManager *fm, const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), module(nullptr), function(nullptr),
-      featureManager(fm), spirvOptions(opt), compositeConstants({}),
-      integerConstants({}), floatConstants({}), nullConstants({}),
-      boolTrueConstant(nullptr), boolFalseConstant(nullptr),
-      boolTrueSpecConstant(nullptr), boolFalseSpecConstant(nullptr) {
+      featureManager(fm), spirvOptions(opt) {
   module = new (context) SpirvModule;
 }
 
@@ -1000,71 +997,27 @@ void SpirvBuilder::decorateNonUniformEXT(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
-SpirvConstant *SpirvBuilder::getConstantUint16(uint16_t value, bool specConst) {
-  return getConstantInt<uint16_t>(value, /*isSigned*/ false, 16, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantInt16(int16_t value, bool specConst) {
-  return getConstantInt<int16_t>(value, /*isSigned*/ true, 16, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantUint32(uint32_t value, bool specConst) {
-  return getConstantInt<uint32_t>(value, /*isSigned*/ false, 32, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantInt32(int32_t value, bool specConst) {
-  return getConstantInt<int32_t>(value, /*isSigned*/ true, 32, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantUint64(uint64_t value, bool specConst) {
-  return getConstantInt<uint64_t>(value, /*isSigned*/ false, 64, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantInt64(int64_t value, bool specConst) {
-  return getConstantInt<int64_t>(value, /*isSigned*/ true, 64, specConst);
+SpirvConstant *SpirvBuilder::getConstantInt(QualType type, llvm::APInt value,
+                                            bool specConst) {
+  // We do not reuse existing constant integers. Just create a new one.
+  auto *intConst = new (context) SpirvConstantInteger(type, value, specConst);
+  module->addConstant(intConst);
+  return intConst;
 }
 
-SpirvConstant *SpirvBuilder::getConstantFloat16(uint16_t value,
-                                                bool specConst) {
-  return getConstantFloat<uint16_t>(value, 16, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantFloat32(float value, bool specConst) {
-  return getConstantFloat<float>(value, 32, specConst);
-}
-SpirvConstant *SpirvBuilder::getConstantFloat64(double value, bool specConst) {
-  return getConstantFloat<double>(value, 64, specConst);
+SpirvConstant *SpirvBuilder::getConstantFloat(QualType type,
+                                              llvm::APFloat value,
+                                              bool specConst) {
+  // We do not reuse existing constant floats. Just create a new one.
+  auto *floatConst = new (context) SpirvConstantFloat(type, value, specConst);
+  module->addConstant(floatConst);
+  return floatConst;
 }
 
 SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
-  if (value) {
-    if (specConst) {
-      if (boolTrueSpecConstant)
-        return boolTrueSpecConstant;
-    } else {
-      if (boolTrueConstant)
-        return boolTrueConstant;
-    }
-  } else {
-    if (specConst) {
-      if (boolFalseSpecConstant)
-        return boolFalseSpecConstant;
-    } else {
-      if (boolFalseConstant)
-        return boolFalseConstant;
-    }
-  }
-
-  // Couldn't find the constant. Create one.
+  // We do not care about making unique constants at this point.
   auto *boolConst = new (context)
       SpirvConstantBoolean(context.getBoolType(), value, specConst);
-
-  if (value) {
-    if (specConst)
-      boolTrueSpecConstant = boolConst;
-    else
-      boolTrueConstant = boolConst;
-  } else {
-    if (specConst)
-      boolFalseSpecConstant = boolConst;
-    else
-      boolFalseConstant = boolConst;
-  }
-
   module->addConstant(boolConst);
   return boolConst;
 }
@@ -1073,30 +1026,18 @@ SpirvConstant *
 SpirvBuilder::getConstantComposite(QualType compositeType,
                                    llvm::ArrayRef<SpirvConstant *> constituents,
                                    bool specConst) {
-  SpirvConstantComposite tempConstant(compositeType, constituents, specConst);
-  auto found =
-      std::find_if(compositeConstants.begin(), compositeConstants.end(),
-                   [&tempConstant](SpirvConstantComposite *cachedConstant) {
-                     return tempConstant == *cachedConstant;
-                   });
-
-  if (found != compositeConstants.end())
-    return *found;
-
-  // Couldn't find the constant. Create one.
+  // We do not care about making unique constants at this point.
   auto *compositeConst = new (context)
       SpirvConstantComposite(compositeType, constituents, specConst);
-  compositeConstants.push_back(compositeConst);
   module->addConstant(compositeConst);
   return compositeConst;
 }
 
-SpirvConstant *SpirvBuilder::getConstantNull(const SpirvType *type) {
-  return getConstantNullOfType<const SpirvType *>(type);
-}
-
 SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
-  return getConstantNullOfType<QualType>(type);
+  // We do not care about making unique constants at this point.
+  auto *nullConst = new (context) SpirvConstantNull(type);
+  module->addConstant(nullConst);
+  return nullConst;
 }
 
 std::vector<uint32_t> SpirvBuilder::takeModule() {
