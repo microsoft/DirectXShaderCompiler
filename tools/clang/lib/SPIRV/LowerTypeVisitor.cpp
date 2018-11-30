@@ -41,20 +41,6 @@ bool improperStraddle(clang::QualType type, int size, int offset) {
                     : offset % 16 != 0;
 }
 
-bool isAKindOfStructuredOrByteBuffer(const clang::spirv::SpirvType *type) {
-  // Strip outer arrayness first
-  while (llvm::isa<clang::spirv::ArrayType>(type))
-    type = llvm::cast<clang::spirv::ArrayType>(type)->getElementType();
-
-  // They are structures with the first member that is of RuntimeArray type.
-  if (auto *structType = llvm::dyn_cast<clang::spirv::StructType>(type))
-    return structType->getFields().size() == 1 &&
-           llvm::isa<clang::spirv::RuntimeArrayType>(
-               structType->getFields()[0].type);
-
-  return false;
-}
-
 } // end anonymous namespace
 
 namespace clang {
