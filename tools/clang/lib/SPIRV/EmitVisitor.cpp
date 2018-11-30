@@ -48,35 +48,6 @@ void chopString(llvm::StringRef original,
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
-uint32_t zeroExtendTo32Bits(uint16_t value) {
-  // TODO: The ordering of the 2 words depends on the endian-ness of the host
-  // machine. Assuming Little Endian at the moment.
-  struct two16Bits {
-    uint16_t low;
-    uint16_t high;
-  };
-
-  two16Bits result = {value, 0};
-  return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
-}
-
-uint32_t signExtendTo32Bits(int16_t value) {
-  // TODO: The ordering of the 2 words depends on the endian-ness of the host
-  // machine. Assuming Little Endian at the moment.
-  struct two16Bits {
-    int16_t low;
-    uint16_t high;
-  };
-
-  two16Bits result = {value, 0};
-
-  // Sign bit is 1
-  if (value >> 15) {
-    result.high = 0xffff;
-  }
-  return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
-}
-
 } // anonymous namespace
 
 namespace clang {
@@ -525,13 +496,21 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   }
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPointer()));
-  curInst.push_back(typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getScope())));
-  curInst.push_back(typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getMemorySemantics())));
+
+  curInst.push_back(typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getScope())),
+      context.getUIntType(32)));
+
+  curInst.push_back(typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getMemorySemantics())),
+      context.getUIntType(32)));
+
   if (inst->hasComparator())
-    curInst.push_back(typeHandler.getOrCreateConstantUint32(
-        static_cast<uint32_t>(inst->getMemorySemanticsUnequal())));
+    curInst.push_back(typeHandler.getOrCreateConstantInt(
+        llvm::APInt(32,
+                    static_cast<uint32_t>(inst->getMemorySemanticsUnequal())),
+        context.getUIntType(32)));
+
   if (inst->hasValue())
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getValue()));
   if (inst->hasComparator())
@@ -546,13 +525,19 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
 bool EmitVisitor::visit(SpirvBarrier *inst) {
   const uint32_t executionScopeId =
       inst->isControlBarrier()
-          ? typeHandler.getOrCreateConstantUint32(
-                static_cast<uint32_t>(inst->getExecutionScope()))
+          ? typeHandler.getOrCreateConstantInt(
+                llvm::APInt(32,
+                            static_cast<uint32_t>(inst->getExecutionScope())),
+                context.getUIntType(32))
           : 0;
-  const uint32_t memoryScopeId = typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getMemoryScope()));
-  const uint32_t memorySemanticsId = typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getMemorySemantics()));
+
+  const uint32_t memoryScopeId = typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getMemoryScope())),
+      context.getUIntType(32));
+
+  const uint32_t memorySemanticsId = typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getMemorySemantics())),
+      context.getUIntType(32));
 
   initInstruction(inst);
   if (inst->isControlBarrier())
@@ -603,10 +588,7 @@ bool EmitVisitor::visit(SpirvBitFieldInsert *inst) {
 }
 
 bool EmitVisitor::visit(SpirvConstantBoolean *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  finalizeInstruction();
+  typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
@@ -616,102 +598,28 @@ bool EmitVisitor::visit(SpirvConstantInteger *inst) {
   // Note: Since array types need to create uint 32-bit constants for result-id
   // of array length, the typeHandler keeps track of uint32 constant uniqueness.
   // Therefore emitting uint32 constants should be handled by the typeHandler.
-  if (!inst->isSigned() && inst->getBitwidth() == 32) {
-    inst->setResultId(
-        typeHandler.getOrCreateConstantUint32(inst->getUnsignedInt32Value()));
-    return true;
-  }
-
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  // 16-bit cases
-  if (inst->getBitwidth() == 16) {
-    if (inst->isSigned()) {
-      curInst.push_back(signExtendTo32Bits(inst->getSignedInt16Value()));
-    } else {
-      curInst.push_back(zeroExtendTo32Bits(inst->getUnsignedInt16Value()));
-    }
-  }
-  // 32-bit cases
-  else if (inst->getBitwidth() == 32) {
-    if (inst->isSigned()) {
-      curInst.push_back(
-          cast::BitwiseCast<uint32_t, int32_t>(inst->getSignedInt32Value()));
-    } else {
-      // Unsigned 32-bit integers are special cases that are handled above.
-      assert(false && "typeHandler should handle creation of unsigned 32-bit "
-                      "integer constants");
-    }
-  }
-  // 64-bit cases
-  else {
-    struct wideInt {
-      uint32_t word0;
-      uint32_t word1;
-    };
-    wideInt words;
-    if (inst->isSigned()) {
-      words = cast::BitwiseCast<wideInt, int64_t>(inst->getSignedInt64Value());
-    } else {
-      words =
-          cast::BitwiseCast<wideInt, uint64_t>(inst->getUnsignedInt64Value());
-    }
-    curInst.push_back(words.word0);
-    curInst.push_back(words.word1);
-  }
-  finalizeInstruction();
+  typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantFloat *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  if (inst->getBitwidth() == 16) {
-    // According to the SPIR-V Spec:
-    // When the type's bit width is less than 32-bits, the literal's value
-    // appears in the low-order bits of the word, and the high-order bits must
-    // be 0 for a floating-point type.
-    curInst.push_back(zeroExtendTo32Bits(inst->getValue16()));
-  } else if (inst->getBitwidth() == 32) {
-    curInst.push_back(cast::BitwiseCast<uint32_t, float>(inst->getValue32()));
-  } else {
-    // TODO: The ordering of the 2 words depends on the endian-ness of the host
-    // machine.
-    struct wideFloat {
-      uint32_t word0;
-      uint32_t word1;
-    };
-    wideFloat words = cast::BitwiseCast<wideFloat, double>(inst->getValue64());
-    curInst.push_back(words.word0);
-    curInst.push_back(words.word1);
-  }
-  finalizeInstruction();
+  typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantComposite *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  for (auto constituent : inst->getConstituents())
-    curInst.push_back(getOrAssignResultId<SpirvInstruction>(constituent));
-  finalizeInstruction();
+  typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
 }
 
 bool EmitVisitor::visit(SpirvConstantNull *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  finalizeInstruction();
+  typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
@@ -802,8 +710,9 @@ bool EmitVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getExecutionScope())));
+  curInst.push_back(typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
+      context.getUIntType(32)));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg1()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg2()));
   finalizeInstruction();
@@ -816,8 +725,9 @@ bool EmitVisitor::visit(SpirvNonUniformElect *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getExecutionScope())));
+  curInst.push_back(typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
+      context.getUIntType(32)));
   finalizeInstruction();
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
@@ -828,8 +738,9 @@ bool EmitVisitor::visit(SpirvNonUniformUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(typeHandler.getOrCreateConstantUint32(
-      static_cast<uint32_t>(inst->getExecutionScope())));
+  curInst.push_back(typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
+      context.getUIntType(32)));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg()));
@@ -1078,23 +989,246 @@ uint32_t EmitTypeHandler::getResultIdForType(const SpirvType *type,
   return id;
 }
 
-uint32_t EmitTypeHandler::getOrCreateConstantUint32(uint32_t value) {
+uint32_t EmitTypeHandler::getOrCreateConstant(SpirvConstant *inst) {
+  if (auto *constInt = dyn_cast<SpirvConstantInteger>(inst)) {
+    const uint32_t resultId =
+        getOrCreateConstantInt(constInt->getValue(), constInt->getResultType());
+    inst->setResultId(resultId);
+    return resultId;
+  } else if (auto *constFloat = dyn_cast<SpirvConstantFloat>(inst)) {
+    const uint32_t resultId = getOrCreateConstantFloat(
+        constFloat->getValue(), constFloat->getResultType());
+    inst->setResultId(resultId);
+    return resultId;
+  } else if (auto *constComposite = dyn_cast<SpirvConstantComposite>(inst)) {
+    return getOrCreateConstantComposite(constComposite);
+  } else if (auto *constNull = dyn_cast<SpirvConstantNull>(inst)) {
+    return getOrCreateConstantNull(constNull);
+  } else if (auto *constBool = dyn_cast<SpirvConstantBoolean>(inst)) {
+    return getOrCreateConstantBool(constBool);
+  }
+
+  llvm_unreachable("cannot emit unknown constant type");
+}
+
+uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
+  const auto index = static_cast<uint32_t>(inst->getValue());
+
+  if (emittedConstantBools[index]) {
+    // Already emitted this constant. Reuse.
+    inst->setResultId(emittedConstantBools[index]->getResultId());
+  } else {
+    // Constant wasn't emitted in the past.
+    const uint32_t typeId = emitType(inst->getResultType());
+    initTypeInstruction(inst->getopcode());
+    curTypeInst.push_back(typeId);
+    curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+    finalizeTypeInstruction();
+    // Remember this constant for the future
+    emittedConstantBools[index] = inst;
+  }
+
+  return inst->getResultId();
+}
+
+uint32_t EmitTypeHandler::getOrCreateConstantNull(SpirvConstantNull *inst) {
+  auto found =
+      std::find_if(emittedConstantNulls.begin(), emittedConstantNulls.end(),
+                   [inst](SpirvConstantNull *cachedConstant) {
+                     return *cachedConstant == *inst;
+                   });
+
+  if (found != emittedConstantNulls.end()) {
+    // We have already emitted this constant. Reuse.
+    inst->setResultId((*found)->getResultId());
+  } else {
+    // Constant wasn't emitted in the past.
+    const uint32_t typeId = emitType(inst->getResultType());
+    initTypeInstruction(spv::Op::OpConstantNull);
+    curTypeInst.push_back(typeId);
+    curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+    finalizeTypeInstruction();
+    // Remember this constant for the future
+    emittedConstantNulls.push_back(inst);
+  }
+
+  return inst->getResultId();
+}
+
+uint32_t EmitTypeHandler::getOrCreateConstantFloat(llvm::APFloat value,
+                                                   const SpirvType *type) {
   // If this constant has already been emitted, return its result-id.
-  auto foundResultId = UintConstantValueToResultIdMap.find(value);
-  if (foundResultId != UintConstantValueToResultIdMap.end())
+  auto valueTypePair = std::pair<uint64_t, const SpirvType *>(
+      value.bitcastToAPInt().getZExtValue(), type);
+  auto foundResultId = emittedConstantFloats.find(valueTypePair);
+  if (foundResultId != emittedConstantFloats.end())
     return foundResultId->second;
 
+  assert(isa<FloatType>(type));
+  const auto *floatType = dyn_cast<FloatType>(type);
+  const auto typeBitwidth = floatType->getBitwidth();
+  const auto valueBitwidth = llvm::APFloat::getSizeInBits(value.getSemantics());
+
+  // Start constructing the instruction
   const uint32_t constantResultId = takeNextIdFunction();
-  const SpirvType *uintType = context.getUIntType(32);
-  const uint32_t uint32TypeId = emitType(uintType);
+  const uint32_t typeId = emitType(type);
   initTypeInstruction(spv::Op::OpConstant);
-  curTypeInst.push_back(uint32TypeId);
+  curTypeInst.push_back(typeId);
   curTypeInst.push_back(constantResultId);
-  curTypeInst.push_back(value);
+
+  // Start constructing the value word / words
+  if (valueBitwidth == typeBitwidth) {
+    if (typeBitwidth == 16) {
+      // According to the SPIR-V Spec:
+      // When the type's bit width is less than 32-bits, the literal's value
+      // appears in the low-order bits of the word, and the high-order bits must
+      // be 0 for a floating-point type.
+      curTypeInst.push_back(
+          static_cast<uint32_t>(value.bitcastToAPInt().getZExtValue()));
+    } else if (typeBitwidth == 32) {
+      curTypeInst.push_back(
+          cast::BitwiseCast<uint32_t, float>(value.convertToFloat()));
+    } else {
+      // TODO: The ordering of the 2 words depends on the endian-ness of the
+      // host machine.
+      struct wideFloat {
+        uint32_t word0;
+        uint32_t word1;
+      };
+      wideFloat words =
+          cast::BitwiseCast<wideFloat, double>(value.convertToDouble());
+      curTypeInst.push_back(words.word0);
+      curTypeInst.push_back(words.word1);
+    }
+  }
+  // The type and the value have different widths. We need to convert the value
+  // to the width of the type. Error out if the conversion is lossy.
+  else {
+    auto valueToUse = value;
+    bool losesInfo = false;
+    const llvm::fltSemantics &targetSemantics =
+        typeBitwidth == 16 ? llvm::APFloat::IEEEhalf
+                           : typeBitwidth == 32 ? llvm::APFloat::IEEEsingle
+                                                : llvm::APFloat::IEEEdouble;
+    const auto status = valueToUse.convert(
+        targetSemantics, llvm::APFloat::roundingMode::rmTowardZero, &losesInfo);
+    if (status != llvm::APFloat::opStatus::opOK &&
+        status != llvm::APFloat::opStatus::opInexact) {
+      emitError(
+          "evaluating float literal %0 at a lower bitwidth loses information",
+          {})
+          // Converting from 16bit to 32/64-bit won't lose information.
+          // So only 32/64-bit values can reach here.
+          << std::to_string(valueBitwidth == 32 ? valueToUse.convertToFloat()
+                                                : valueToUse.convertToDouble());
+      curTypeInst.push_back(0u);
+    } else {
+      curTypeInst.push_back(
+          cast::BitwiseCast<uint32_t, float>(valueToUse.convertToFloat()));
+    }
+  }
+
   finalizeTypeInstruction();
 
-  UintConstantValueToResultIdMap[value] = constantResultId;
+  // Remember this constant for future
+  emittedConstantFloats[valueTypePair] = constantResultId;
   return constantResultId;
+}
+
+uint32_t EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
+                                                 const SpirvType *type) {
+  // If this constant has already been emitted, return its result-id.
+  auto valueTypePair =
+      std::pair<uint64_t, const SpirvType *>(value.getZExtValue(), type);
+  auto foundResultId = emittedConstantInts.find(valueTypePair);
+  if (foundResultId != emittedConstantInts.end())
+    return foundResultId->second;
+
+  assert(isa<IntegerType>(type));
+  const auto *intType = dyn_cast<IntegerType>(type);
+  const auto bitwidth = intType->getBitwidth();
+  const auto isSigned = intType->isSignedInt();
+
+  // Start constructing the instruction
+  const uint32_t constantResultId = takeNextIdFunction();
+  const uint32_t typeId = emitType(type);
+  initTypeInstruction(spv::Op::OpConstant);
+  curTypeInst.push_back(typeId);
+  curTypeInst.push_back(constantResultId);
+
+  // Start constructing the value word / words
+
+  // For 16-bit and 32-bit cases, the value occupies 1 word in the instruction
+  if (bitwidth == 16 || bitwidth == 32) {
+    if (isSigned) {
+      curTypeInst.push_back(static_cast<int32_t>(value.getSExtValue()));
+    } else {
+      curTypeInst.push_back(static_cast<uint32_t>(value.getZExtValue()));
+    }
+  }
+  // 64-bit cases
+  else {
+    struct wideInt {
+      uint32_t word0;
+      uint32_t word1;
+    };
+    wideInt words;
+    if (isSigned) {
+      words = cast::BitwiseCast<wideInt, int64_t>(value.getSExtValue());
+    } else {
+      words = cast::BitwiseCast<wideInt, uint64_t>(value.getZExtValue());
+    }
+    curTypeInst.push_back(words.word0);
+    curTypeInst.push_back(words.word1);
+  }
+
+  finalizeTypeInstruction();
+
+  // Remember this constant for future
+  emittedConstantInts[valueTypePair] = constantResultId;
+  return constantResultId;
+}
+
+uint32_t
+EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
+  // First make sure all constituents have been visited and have a result-id.
+  for (auto constituent : inst->getConstituents())
+    getOrCreateConstant(constituent);
+
+  auto found = std::find_if(
+      emittedConstantComposites.begin(), emittedConstantComposites.end(),
+      [inst](SpirvConstantComposite *cachedConstant) {
+        if (inst->getopcode() != cachedConstant->getopcode())
+          return false;
+        auto instConstituents = inst->getConstituents();
+        auto cachedConstituents = cachedConstant->getConstituents();
+        if (instConstituents.size() != cachedConstituents.size())
+          return false;
+        for (size_t i = 0; i < instConstituents.size(); ++i)
+          if (instConstituents[i]->getResultId() !=
+              cachedConstituents[i]->getResultId())
+            return false;
+        return true;
+      });
+
+  if (found != emittedConstantComposites.end()) {
+    // We have already emitted this constant. Reuse.
+    inst->setResultId((*found)->getResultId());
+  } else {
+    // Constant wasn't emitted in the past.
+    const uint32_t typeId = emitType(inst->getResultType());
+    initTypeInstruction(spv::Op::OpConstantComposite);
+    curTypeInst.push_back(typeId);
+    curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+    for (auto constituent : inst->getConstituents())
+      curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constituent));
+    finalizeTypeInstruction();
+
+    // Remember this constant for the future
+    emittedConstantComposites.push_back(inst);
+  }
+
+  return inst->getResultId();
 }
 
 uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
@@ -1188,7 +1322,8 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   else if (const auto *arrayType = dyn_cast<ArrayType>(type)) {
     // Emit the OpConstant instruction that is needed to get the result-id for
     // the array length.
-    const auto length = getOrCreateConstantUint32(arrayType->getElementCount());
+    const auto length = getOrCreateConstantInt(
+        llvm::APInt(32, arrayType->getElementCount()), context.getUIntType(32));
 
     // Emit the OpTypeArray instruction
     const uint32_t elemTypeId = emitType(arrayType->getElementType());

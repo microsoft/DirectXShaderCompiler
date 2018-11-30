@@ -50,7 +50,9 @@ public:
                   const std::function<uint32_t()> &takeNextIdFn)
       : astContext(astCtx), context(spvContext), debugBinary(debugVec),
         annotationsBinary(decVec), typeConstantBinary(typesVec),
-        takeNextIdFunction(takeNextIdFn) {
+        takeNextIdFunction(takeNextIdFn), emittedConstantInts({}),
+        emittedConstantFloats({}), emittedConstantComposites({}),
+        emittedConstantNulls({}), emittedConstantBools() {
     assert(decVec);
     assert(typesVec);
   }
@@ -70,11 +72,16 @@ public:
   // instructions into the annotationsBinary.
   uint32_t emitType(const SpirvType *);
 
-  // Emits an OpConstant instruction with uint32 type and returns its result-id.
+  // Emits an inter OpConstant instruction and returns its result-id.
   // If such constant has already been emitted, just returns its resutl-id.
   // Modifies the curTypeInst. Do not call in the middle of construction of
   // another instruction.
-  uint32_t getOrCreateConstantUint32(uint32_t value);
+  uint32_t getOrCreateConstant(SpirvConstant *);
+  uint32_t getOrCreateConstantInt(llvm::APInt value, const SpirvType *type);
+  uint32_t getOrCreateConstantFloat(llvm::APFloat value, const SpirvType *type);
+  uint32_t getOrCreateConstantComposite(SpirvConstantComposite *inst);
+  uint32_t getOrCreateConstantNull(SpirvConstantNull *);
+  uint32_t getOrCreateConstantBool(SpirvConstantBoolean *);
 
 private:
   void initTypeInstruction(spv::Op op);
@@ -131,7 +138,13 @@ private:
   // The array type requires the result-id of an OpConstant for its length. In
   // order to avoid duplicate OpConstant instructions, we keep a map of constant
   // uint value to the result-id of the OpConstant for that value.
-  llvm::DenseMap<uint32_t, uint32_t> UintConstantValueToResultIdMap;
+  llvm::DenseMap<std::pair<uint64_t, const SpirvType *>, uint32_t>
+      emittedConstantInts;
+  llvm::DenseMap<std::pair<uint64_t, const SpirvType *>, uint32_t>
+      emittedConstantFloats;
+  llvm::SmallVector<SpirvConstantComposite *, 8> emittedConstantComposites;
+  llvm::SmallVector<SpirvConstantNull *, 8> emittedConstantNulls;
+  SpirvConstantBoolean *emittedConstantBools[2];
 
   // emittedTypes is a map that caches the result-id of types in order to avoid
   // emitting an identical type multiple times.
