@@ -393,7 +393,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip,
     uint32_t count = {};
 
     if (isScalarType(asType)) {
-      auto *spirvConstant = spvBuilder.getConstantUint32(offset);
+      auto *spirvConstant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                      llvm::APInt(32, offset));
       auto *ptr =
           spvBuilder.createAccessChain(ptrType, clipCullVar, {spirvConstant});
       return spvBuilder.createLoad(astContext.FloatTy, ptr);
@@ -405,7 +406,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip,
       llvm::SmallVector<SpirvInstruction *, 4> elements;
       for (uint32_t i = 0; i < count; ++i) {
         // Read elements sequentially from the float array
-        auto *spirvConstant = spvBuilder.getConstantUint32(offset + i);
+        auto *spirvConstant = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy, llvm::APInt(32, offset + i));
         auto *ptr =
             spvBuilder.createAccessChain(ptrType, clipCullVar, {spirvConstant});
         elements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
@@ -436,8 +438,10 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip,
     for (uint32_t i = 0; i < inArraySize; ++i) {
       auto *ptr = spvBuilder.createAccessChain(
           ptrType, clipCullVar,
-          {spvBuilder.getConstantUint32(i), // Block array index
-           spvBuilder.getConstantUint32(offset)});
+          {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                     llvm::APInt(32, i)), // Block array index
+           spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                     llvm::APInt(32, offset))});
       arrayElements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
     }
   } else if (isVectorType(asType, &elemType, &count)) {
@@ -452,9 +456,11 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(bool isClip,
         auto *ptr = spvBuilder.createAccessChain(
             ptrType, clipCullVar,
             // Block array index
-            {spvBuilder.getConstantUint32(i),
+            {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                       llvm::APInt(32, i)),
              // Read elements sequentially from the float array
-             spvBuilder.getConstantUint32(offset + j)});
+             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                       llvm::APInt(32, offset + j))});
         vecElements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
       }
       arrayElements.push_back(spvBuilder.createCompositeConstruct(
@@ -518,7 +524,8 @@ void GlPerVertex::writeClipCullArrayFromType(
     uint32_t count = {};
 
     if (isScalarType(fromType)) {
-      auto *constant = spvBuilder.getConstantUint32(offset);
+      auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                 llvm::APInt(32, offset));
       auto *ptr =
           spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
       spvBuilder.createStore(ptr, fromValue);
@@ -530,7 +537,8 @@ void GlPerVertex::writeClipCullArrayFromType(
       // type. We need to write each component in the vector out.
       for (uint32_t i = 0; i < count; ++i) {
         // Write elements sequentially into the float array
-        auto *constant = spvBuilder.getConstantUint32(offset + i);
+        auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                   llvm::APInt(32, offset + i));
         auto *ptr =
             spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
         auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
@@ -564,7 +572,8 @@ void GlPerVertex::writeClipCullArrayFromType(
   if (isScalarType(fromType)) {
     auto *ptr = spvBuilder.createAccessChain(
         ptrType, clipCullVar,
-        {arrayIndex, spvBuilder.getConstantUint32(offset)});
+        {arrayIndex, spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                               llvm::APInt(32, offset))});
     spvBuilder.createStore(ptr, fromValue);
     return;
   }
@@ -577,7 +586,8 @@ void GlPerVertex::writeClipCullArrayFromType(
           // Block array index
           {arrayIndex,
            // Write elements sequentially into the float array
-           spvBuilder.getConstantUint32(offset + i)});
+           spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                     llvm::APInt(32, offset + i))});
 
       auto *subValue =
           spvBuilder.createCompositeExtract(astContext.FloatTy, fromValue, {i});

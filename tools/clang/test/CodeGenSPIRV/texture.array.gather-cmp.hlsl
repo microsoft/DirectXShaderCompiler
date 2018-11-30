@@ -8,11 +8,11 @@ Texture2DArray<float>  t3 : register(t3);
 TextureCubeArray<float>t4 : register(t4);
 // .GatherCmp() does not support Texture1DArray.
 
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
-
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_3
 // CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_1_5 %float_1_5 %float_1_5 %float_1_5
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 
 float4 main(float3 location: A, float comparator: B, int2 offset: C) : SV_Target {
 // CHECK:              [[t2:%\d+]] = OpLoad %type_2d_image_array %t1

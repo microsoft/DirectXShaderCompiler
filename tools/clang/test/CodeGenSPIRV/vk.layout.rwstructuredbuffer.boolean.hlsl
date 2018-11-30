@@ -1,5 +1,8 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// CHECK: [[v3uint1:%\d+]] = OpConstantComposite %v3uint %uint_1 %uint_1 %uint_1
+// CHECK: [[v3uint0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
+
 // CHECK: %T = OpTypeStruct %_arr_uint_uint_1
 struct T {
   bool boolArray[1];
@@ -19,9 +22,6 @@ RWStructuredBuffer<S> values;
 // These are the types that hold SPIR-V booleans, rather than Uints.
 // CHECK: %T_0 = OpTypeStruct %_arr_bool_uint_1
 // CHECK: %S_0 = OpTypeStruct %bool %v3bool %_arr_v3bool_uint_2 %T_0
-
-// CHECK: [[v3uint1:%\d+]] = OpConstantComposite %v3uint %uint_1 %uint_1 %uint_1
-// CHECK: [[v3uint0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
 
 void main()
 {

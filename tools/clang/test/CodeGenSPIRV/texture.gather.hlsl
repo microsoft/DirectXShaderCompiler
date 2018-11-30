@@ -10,11 +10,11 @@ TextureCube <float>  t8 : register(t8);
 
 // CHECK: OpCapability SparseResidency
 
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
-// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4float
-
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_3
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
+// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4float
 
 float4 main(float2 location: A) : SV_Target {
 

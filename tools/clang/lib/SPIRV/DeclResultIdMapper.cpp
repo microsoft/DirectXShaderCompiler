@@ -516,7 +516,8 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
 
       return spvBuilder.createAccessChain(
           ptrType, info->instr,
-          {spvBuilder.getConstantInt32(info->indexInCTBuffer)});
+          {spvBuilder.getConstantInt(
+              astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))});
     } else {
       return *info;
     }
@@ -1740,8 +1741,10 @@ bool DeclResultIdMapper::createStageVars(
       // represents a Boolean value where false must be exactly 0, but true can
       // be any odd (i.e. bit 0 set) non-zero value)."
       else if (semanticKind == hlsl::Semantic::Kind::InnerCoverage) {
-        const auto constOne = spvBuilder.getConstantUint32(1);
-        const auto constZero = spvBuilder.getConstantUint32(0);
+        const auto constOne = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy, llvm::APInt(32, 1));
+        const auto constZero = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy, llvm::APInt(32, 0));
         *value = spvBuilder.createSelect(astContext.UnsignedIntTy, *value,
                                          constOne, constZero);
       }
@@ -1755,9 +1758,11 @@ bool DeclResultIdMapper::createStageVars(
             spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {1});
         const auto xy = spvBuilder.createBinaryOp(spv::Op::OpFAdd,
                                                   astContext.FloatTy, x, y);
-        const auto z =
-            spvBuilder.createBinaryOp(spv::Op::OpFSub, astContext.FloatTy,
-                                      spvBuilder.getConstantFloat32(1), xy);
+        const auto z = spvBuilder.createBinaryOp(
+            spv::Op::OpFSub, astContext.FloatTy,
+            spvBuilder.getConstantFloat(astContext.FloatTy,
+                                        llvm::APFloat(1.0f)),
+            xy);
         *value = spvBuilder.createCompositeConstruct(
             astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z});
       }
@@ -1813,8 +1818,10 @@ bool DeclResultIdMapper::createStageVars(
         for (uint32_t i = 0; i < tessFactorSize; ++i) {
           const auto ptrType = spvContext.getPointerType(
               spvContext.getFloatType(32), spv::StorageClass::Output);
-          ptr = spvBuilder.createAccessChain(ptrType, varInstr,
-                                             {spvBuilder.getConstantUint32(i)});
+          ptr = spvBuilder.createAccessChain(
+              ptrType, varInstr,
+              {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                         llvm::APInt(32, i))});
           spvBuilder.createStore(ptr, spvBuilder.createCompositeExtract(
                                           astContext.FloatTy, *value, {i}));
         }
@@ -1830,7 +1837,9 @@ bool DeclResultIdMapper::createStageVars(
         ptr = spvBuilder.createAccessChain(
             spvContext.getPointerType(spvContext.getFloatType(32),
                                       spv::StorageClass::Output),
-            varInstr, spvBuilder.getConstantUint32(0));
+            varInstr,
+            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                      llvm::APInt(32, 0)));
         if (type->isArrayType()) // float[1]
           *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
                                                      {0});
@@ -1841,8 +1850,10 @@ bool DeclResultIdMapper::createStageVars(
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
         const auto *ptrType =
             spvContext.getPointerType(type, spv::StorageClass::Output);
-        ptr = spvBuilder.createAccessChain(ptrType, varInstr,
-                                           spvBuilder.getConstantUint32(0));
+        ptr = spvBuilder.createAccessChain(
+            ptrType, varInstr,
+            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                      llvm::APInt(32, 0)));
         ptr->setStorageClass(spv::StorageClass::Output);
         spvBuilder.createStore(ptr, *value);
       }
@@ -2115,9 +2126,10 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position) {
   if (spirvOptions.invertW && shaderModel.IsPS()) {
     const auto oldW =
         spvBuilder.createCompositeExtract(astContext.FloatTy, position, {3});
-    const auto newW =
-        spvBuilder.createBinaryOp(spv::Op::OpFDiv, astContext.FloatTy,
-                                  spvBuilder.getConstantFloat32(1), oldW);
+    const auto newW = spvBuilder.createBinaryOp(
+        spv::Op::OpFDiv, astContext.FloatTy,
+        spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
+        oldW);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {3},
         newW);
