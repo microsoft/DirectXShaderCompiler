@@ -948,6 +948,7 @@ public:
   TEST_METHOD(VecElemConstEval)
   TEST_METHOD(ViewID)
   TEST_METHOD(ShaderCompatSuite)
+  TEST_METHOD(Unroll)
   TEST_METHOD(QuickTest)
   TEST_METHOD(QuickLlTest)
   BEGIN_TEST_METHOD(SingleFileCheckTest)
@@ -5899,6 +5900,19 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid19.hlsl");
+}
+
+TEST_F(CompilerTest, Unroll) {
+  using namespace WEX::TestExecution;
+  std::wstring suitePath = L"..\\CodeGenHLSL\\unroll";
+
+  WEX::Common::String value;
+  if (!DXC_FAILED(RuntimeParameters::TryGetValue(L"SuitePath", value)))
+  {
+    suitePath = value;
+  }
+
+  CodeGenTestCheckBatchDir(suitePath);
 }
 
 TEST_F(CompilerTest, ShaderCompatSuite) {
