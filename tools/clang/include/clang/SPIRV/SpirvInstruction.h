@@ -13,6 +13,8 @@
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceLocation.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
@@ -997,17 +999,7 @@ private:
 /// \brief Represent OpConstant for integer values.
 class SpirvConstantInteger : public SpirvConstant {
 public:
-  SpirvConstantInteger(const IntegerType *type, uint16_t value,
-                       bool isSpecConst = false);
-  SpirvConstantInteger(const IntegerType *type, int16_t value,
-                       bool isSpecConst = false);
-  SpirvConstantInteger(const IntegerType *type, uint32_t value,
-                       bool isSpecConst = false);
-  SpirvConstantInteger(const IntegerType *type, int32_t value,
-                       bool isSpecConst = false);
-  SpirvConstantInteger(const IntegerType *type, uint64_t value,
-                       bool isSpecConst = false);
-  SpirvConstantInteger(const IntegerType *type, int64_t value,
+  SpirvConstantInteger(QualType type, llvm::APInt value,
                        bool isSpecConst = false);
 
   // For LLVM-style RTTI
@@ -1019,30 +1011,15 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 
-  uint16_t getUnsignedInt16Value() const;
-  int16_t getSignedInt16Value() const;
-  uint32_t getUnsignedInt32Value() const;
-  int32_t getSignedInt32Value() const;
-  uint64_t getUnsignedInt64Value() const;
-  int64_t getSignedInt64Value() const;
-
-  uint32_t getBitwidth() const;
-  bool isSigned() const;
+  llvm::APInt getValue() const { return value; }
 
 private:
-  uint64_t getValueBits() const { return value; }
-
-private:
-  uint64_t value;
+  llvm::APInt value;
 };
 
 class SpirvConstantFloat : public SpirvConstant {
 public:
-  SpirvConstantFloat(const FloatType *type, uint16_t value,
-                     bool isSpecConst = false);
-  SpirvConstantFloat(const FloatType *type, float value,
-                     bool isSpecConst = false);
-  SpirvConstantFloat(const FloatType *type, double value,
+  SpirvConstantFloat(QualType type, llvm::APFloat value,
                      bool isSpecConst = false);
 
   // For LLVM-style RTTI
@@ -1054,16 +1031,10 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 
-  uint16_t getValue16() const;
-  float getValue32() const;
-  double getValue64() const;
-  uint32_t getBitwidth() const;
+  llvm::APFloat getValue() const { return value; }
 
 private:
-  uint64_t getValueBits() const { return value; }
-
-private:
-  uint64_t value;
+  llvm::APFloat value;
 };
 
 class SpirvConstantComposite : public SpirvConstant {
@@ -1079,8 +1050,6 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantComposite;
   }
-
-  bool operator==(const SpirvConstantComposite &that) const;
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 

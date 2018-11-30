@@ -553,21 +553,15 @@ public:
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.
-  SpirvConstant *getConstantUint16(uint16_t value, bool specConst = false);
-  SpirvConstant *getConstantInt16(int16_t value, bool specConst = false);
-  SpirvConstant *getConstantUint32(uint32_t value, bool specConst = false);
-  SpirvConstant *getConstantInt32(int32_t value, bool specConst = false);
-  SpirvConstant *getConstantUint64(uint64_t value, bool specConst = false);
-  SpirvConstant *getConstantInt64(int64_t value, bool specConst = false);
-  SpirvConstant *getConstantFloat16(uint16_t value, bool specConst = false);
-  SpirvConstant *getConstantFloat32(float value, bool specConst = false);
-  SpirvConstant *getConstantFloat64(double value, bool specConst = false);
+  SpirvConstant *getConstantInt(QualType type, llvm::APInt value,
+                                bool specConst = false);
+  SpirvConstant *getConstantFloat(QualType type, llvm::APFloat value,
+                                  bool specConst = false);
   SpirvConstant *getConstantBool(bool value, bool specConst = false);
   SpirvConstant *
   getConstantComposite(QualType compositeType,
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
-  SpirvConstant *getConstantNull(const SpirvType *);
   SpirvConstant *getConstantNull(QualType);
 
 public:
@@ -582,71 +576,6 @@ private:
       SpirvInstruction *constOffset, SpirvInstruction *varOffset,
       SpirvInstruction *constOffsets, SpirvInstruction *sample,
       SpirvInstruction *minLod);
-
-private:
-  template <class T>
-  SpirvConstant *getConstantInt(T value, bool isSigned, uint32_t bitwidth,
-                                bool specConst) {
-    const IntegerType *intType = isSigned ? context.getSIntType(bitwidth)
-                                          : context.getUIntType(bitwidth);
-    SpirvConstantInteger tempConstant(intType, value, specConst);
-
-    auto found =
-        std::find_if(integerConstants.begin(), integerConstants.end(),
-                     [&tempConstant](SpirvConstantInteger *cachedConstant) {
-                       return tempConstant == *cachedConstant;
-                     });
-
-    if (found != integerConstants.end())
-      return *found;
-
-    // Couldn't find the constant. Create one.
-    auto *intConst =
-        new (context) SpirvConstantInteger(intType, value, specConst);
-    integerConstants.push_back(intConst);
-    module->addConstant(intConst);
-    return intConst;
-  }
-
-  template <class T>
-  SpirvConstant *getConstantFloat(T value, uint32_t bitwidth, bool specConst) {
-    const FloatType *floatType = context.getFloatType(bitwidth);
-    SpirvConstantFloat tempConstant(floatType, value, specConst);
-
-    auto found =
-        std::find_if(floatConstants.begin(), floatConstants.end(),
-                     [&tempConstant](SpirvConstantFloat *cachedConstant) {
-                       return tempConstant == *cachedConstant;
-                     });
-
-    if (found != floatConstants.end())
-      return *found;
-
-    // Couldn't find the constant. Create one.
-    auto *floatConst =
-        new (context) SpirvConstantFloat(floatType, value, specConst);
-    floatConstants.push_back(floatConst);
-    module->addConstant(floatConst);
-    return floatConst;
-  }
-
-  template <class T> SpirvConstant *getConstantNullOfType(T type) {
-    SpirvConstantNull tempConstant(type);
-    auto found =
-        std::find_if(nullConstants.begin(), nullConstants.end(),
-                     [&tempConstant](SpirvConstantNull *cachedConstant) {
-                       return tempConstant == *cachedConstant;
-                     });
-
-    if (found != nullConstants.end())
-      return *found;
-
-    // Couldn't find the constant. Create one.
-    auto *nullConst = new (context) SpirvConstantNull(type);
-    nullConstants.push_back(nullConst);
-    module->addConstant(nullConst);
-    return nullConst;
-  }
 
 private:
   ASTContext &astContext;
@@ -665,18 +594,6 @@ private:
 
   FeatureManager *featureManager; ///< SPIR-V version/extension manager.
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
-
-  // Unique constants
-  // We currently do a linear search to find an existing constant (if any). This
-  // can be done in a more efficient way if needed.
-  llvm::SmallVector<SpirvConstantComposite *, 8> compositeConstants;
-  llvm::SmallVector<SpirvConstantInteger *, 8> integerConstants;
-  llvm::SmallVector<SpirvConstantFloat *, 8> floatConstants;
-  llvm::SmallVector<SpirvConstantNull *, 8> nullConstants;
-  SpirvConstantBoolean *boolTrueConstant;
-  SpirvConstantBoolean *boolFalseConstant;
-  SpirvConstantBoolean *boolTrueSpecConstant;
-  SpirvConstantBoolean *boolFalseSpecConstant;
 
   llvm::SetVector<spv::Capability> existingCapabilities;
   llvm::SetVector<Extension> existingExtensions;

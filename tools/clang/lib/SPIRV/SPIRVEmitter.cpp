@@ -2479,7 +2479,8 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     llvm::SmallVector<SpirvInstruction *, 4> baseIndexInstructions(
         baseIndices.size(), nullptr);
     for (uint32_t i = 0; i < baseIndices.size(); ++i)
-      baseIndexInstructions[i] = spvBuilder.getConstantUint32(baseIndices[i]);
+      baseIndexInstructions[i] = spvBuilder.getConstantInt(
+          astContext.UnsignedIntTy, llvm::APInt(32, baseIndices[i]));
 
     auto *derivedInfo = doExpr(subExpr);
     return turnIntoElementPtr(subExpr->getType(), derivedInfo, expr->getType(),
@@ -2753,9 +2754,10 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   // in bytes, but OpArrayLength returns the number of uints in the runtime
   // array. Therefore we must multiply the results by 4.
   if (isByteAddressBuffer) {
-    length =
-        spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
-                                  length, spvBuilder.getConstantUint32(4u));
+    length = spvBuilder.createBinaryOp(
+        spv::Op::OpIMul, astContext.UnsignedIntTy, length,
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                  llvm::APInt(32, 4u)));
   }
   spvBuilder.createStore(doExpr(expr->getArg(0)), length);
 
@@ -2767,7 +2769,8 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
     uint32_t size = 0, stride = 0;
     std::tie(std::ignore, size) = typeTranslator.getAlignmentAndSize(
         type, spirvOptions.sBufferLayoutRule, &stride);
-    auto *sizeInstr = spvBuilder.getConstantUint32(size);
+    auto *sizeInstr = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, size));
     spvBuilder.createStore(doExpr(expr->getArg(1)), sizeInstr);
   }
 
@@ -2783,13 +2786,14 @@ SpirvInstruction *SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
   const auto *object = expr->getImplicitObjectArgument();
   auto *objectInfo = loadIfAliasVarRef(object);
 
-  auto *zero = spvBuilder.getConstantUint32(0);
+  auto *zero =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   auto *offset = doExpr(expr->getArg(0));
 
   // Right shift by 2 to convert the byte offset to uint32_t offset
-  auto *address = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
-                                            astContext.UnsignedIntTy, offset,
-                                            spvBuilder.getConstantUint32(2));
+  auto *address = spvBuilder.createBinaryOp(
+      spv::Op::OpShiftRightLogical, astContext.UnsignedIntTy, offset,
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2)));
   auto *ptr = spvBuilder.createAccessChain(
       spvContext.getPointerType(astContext.UnsignedIntTy,
                                 objectInfo->getStorageClass()),
@@ -2841,7 +2845,7 @@ SPIRVEmitter::processSubpassLoad(const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
   SpirvInstruction *sample =
       expr->getNumArgs() == 1 ? doExpr(expr->getArg(0)) : nullptr;
-  auto *zero = spvBuilder.getConstantInt32(0);
+  auto *zero = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
   auto *location = spvBuilder.getConstantComposite(
       astContext.getExtVectorType(astContext.IntTy, 2), {zero, zero});
 
@@ -2945,7 +2949,7 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
       lod = doExpr(mipLevel);
     } else {
       // For Texture types when mipLevel argument is omitted.
-      lod = spvBuilder.getConstantInt32(0);
+      lod = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
     }
   }
 
@@ -3106,7 +3110,9 @@ SpirvInstruction *SPIRVEmitter::processTextureGatherRGBACmpRGBA(
       varOffset = doExpr(expr->getArg(2 + isCmp + i));
       auto *gatherRet = spvBuilder.createImageGather(
           retType, imageType, image, sampler, isNonUniform, coordinate,
-          spvBuilder.getConstantInt32(component), compareVal,
+          spvBuilder.getConstantInt(astContext.IntTy,
+                                    llvm::APInt(32, component, true)),
+          compareVal,
           /*constOffset*/ nullptr, varOffset, /*constOffsets*/ nullptr,
           /*sampleNumber*/ nullptr, status);
       texels[i] = spvBuilder.createCompositeExtract(elemType, gatherRet, {i});
@@ -3117,8 +3123,10 @@ SpirvInstruction *SPIRVEmitter::processTextureGatherRGBACmpRGBA(
 
   return spvBuilder.createImageGather(
       retType, imageType, image, sampler, isNonUniform, coordinate,
-      spvBuilder.getConstantInt32(component), compareVal, constOffset,
-      varOffset, constOffsets, /*sampleNumber*/ nullptr, status);
+      spvBuilder.getConstantInt(astContext.IntTy,
+                                llvm::APInt(32, component, true)),
+      compareVal, constOffset, varOffset, constOffsets,
+      /*sampleNumber*/ nullptr, status);
 }
 
 SpirvInstruction *
@@ -3268,7 +3276,8 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
   // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
   // access). The AST always casts the address to unsinged integer, so shift
   // by unsinged integer 2.
-  auto *constUint2 = spvBuilder.getConstantUint32(2);
+  auto *constUint2 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
   auto *address = spvBuilder.createBinaryOp(
       spv::Op::OpShiftRightLogical, addressType, byteAddress, constUint2);
 
@@ -3276,7 +3285,8 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
   // First index must be zero (member 0 of the struct is a
   // runtimeArray). The second index passed to OpAccessChain should be
   // the address.
-  auto *constUint0 = spvBuilder.getConstantUint32(0);
+  auto *constUint0 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto *ptrType = spvContext.getPointerType(
       astContext.UnsignedIntTy, objectInfo->getStorageClass());
   if (doStore) {
@@ -3291,7 +3301,8 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
 
       // Update the output address if necessary.
       if (wordCounter > 0) {
-        auto *offset = spvBuilder.getConstantUint32(wordCounter);
+        auto *offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                 llvm::APInt(32, wordCounter));
         curStoreAddress = spvBuilder.createBinaryOp(
             spv::Op::OpIAdd, addressType, address, offset);
       }
@@ -3311,7 +3322,8 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
       llvm::SmallVector<SpirvInstruction *, 4> values;
       values.push_back(result);
       for (uint32_t wordCounter = 2; wordCounter <= numWords; ++wordCounter) {
-        auto *offset = spvBuilder.getConstantUint32(wordCounter - 1);
+        auto *offset = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy, llvm::APInt(32, wordCounter - 1));
         auto *newAddress = spvBuilder.createBinaryOp(
             spv::Op::OpIAdd, addressType, address, offset);
         loadPtr = spvBuilder.createAccessChain(ptrType, objectInfo,
@@ -3344,7 +3356,7 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   const QualType structType =
       hlsl::GetHLSLResourceResultType(buffer->getType());
 
-  auto *zero = spvBuilder.getConstantInt32(0);
+  auto *zero = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
   auto *index = doExpr(expr->getArg(0));
 
   return turnIntoElementPtr(buffer->getType(), info, structType, {zero, index});
@@ -3353,8 +3365,10 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
                                        bool isInc, bool loadObject) {
-  auto *zero = spvBuilder.getConstantUint32(0);
-  auto *sOne = spvBuilder.getConstantInt32(1);
+  auto *zero =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+  auto *sOne =
+      spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 1, true));
 
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
@@ -3529,7 +3543,8 @@ SpirvInstruction *
 SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   const bool isAppend = expr->getNumArgs() == 1;
 
-  auto *zero = spvBuilder.getConstantUint32(0);
+  auto *zero =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
 
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
@@ -3649,8 +3664,10 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   const auto createArray = [this, v2f32Type](const Float2 *ptr, uint32_t len) {
     llvm::SmallVector<SpirvConstant *, 16> components;
     for (uint32_t i = 0; i < len; ++i) {
-      auto *x = spvBuilder.getConstantFloat32(ptr[i].x);
-      auto *y = spvBuilder.getConstantFloat32(ptr[i].y);
+      auto *x = spvBuilder.getConstantFloat(astContext.FloatTy,
+                                            llvm::APFloat(ptr[i].x));
+      auto *y = spvBuilder.getConstantFloat(astContext.FloatTy,
+                                            llvm::APFloat(ptr[i].y));
       components.push_back(spvBuilder.getConstantComposite(v2f32Type, {x, y}));
     }
 
@@ -3689,9 +3706,9 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   auto *merge16BB = spvBuilder.createBasicBlock("if.GetSamplePosition.merge16");
 
   //   if (count == 2) {
-  const auto check2 =
-      spvBuilder.createBinaryOp(spv::Op::OpIEqual, astContext.BoolTy,
-                                sampleCount, spvBuilder.getConstantUint32(2));
+  const auto check2 = spvBuilder.createBinaryOp(
+      spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2)));
   spvBuilder.createConditionalBranch(check2, then2BB, else2BB, merge2BB);
   spvBuilder.addSuccessor(then2BB);
   spvBuilder.addSuccessor(else2BB);
@@ -3707,9 +3724,9 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
 
   //   else if (count == 4) {
   spvBuilder.setInsertPoint(else2BB);
-  const auto check4 =
-      spvBuilder.createBinaryOp(spv::Op::OpIEqual, astContext.BoolTy,
-                                sampleCount, spvBuilder.getConstantUint32(4));
+  const auto check4 = spvBuilder.createBinaryOp(
+      spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4)));
   spvBuilder.createConditionalBranch(check4, then4BB, else4BB, merge4BB);
   spvBuilder.addSuccessor(then4BB);
   spvBuilder.addSuccessor(else4BB);
@@ -3725,9 +3742,9 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
 
   //   else if (count == 8) {
   spvBuilder.setInsertPoint(else4BB);
-  const auto check8 =
-      spvBuilder.createBinaryOp(spv::Op::OpIEqual, astContext.BoolTy,
-                                sampleCount, spvBuilder.getConstantUint32(8));
+  const auto check8 = spvBuilder.createBinaryOp(
+      spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8)));
   spvBuilder.createConditionalBranch(check8, then8BB, else8BB, merge8BB);
   spvBuilder.addSuccessor(then8BB);
   spvBuilder.addSuccessor(else8BB);
@@ -3743,9 +3760,9 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
 
   //   else if (count == 16) {
   spvBuilder.setInsertPoint(else8BB);
-  const auto check16 =
-      spvBuilder.createBinaryOp(spv::Op::OpIEqual, astContext.BoolTy,
-                                sampleCount, spvBuilder.getConstantUint32(16));
+  const auto check16 = spvBuilder.createBinaryOp(
+      spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16)));
   spvBuilder.createConditionalBranch(check16, then16BB, else16BB, merge16BB);
   spvBuilder.addSuccessor(then16BB);
   spvBuilder.addSuccessor(else16BB);
@@ -3763,7 +3780,8 @@ SPIRVEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //     position = float2(0.0f, 0.0f);
   //   }
   spvBuilder.setInsertPoint(else16BB);
-  auto *zero = spvBuilder.getConstantFloat32(0);
+  auto *zero =
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
   auto *v2f32Zero = spvBuilder.getConstantComposite(v2f32Type, {zero, zero});
   spvBuilder.createStore(resultVar, v2f32Zero);
   spvBuilder.createBranch(merge16BB);
@@ -4065,8 +4083,9 @@ SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
     return spvBuilder.createImageGather(
         retType, imageType, image, sampler, isNonUniform, coordinate,
         // .Gather() doc says we return four components of red data.
-        spvBuilder.getConstantInt32(0), /*compareVal*/ nullptr, constOffset,
-        varOffset, /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status);
+        spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)),
+        /*compareVal*/ nullptr, constOffset, varOffset,
+        /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status);
   }
 }
 
@@ -4282,7 +4301,9 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
-  auto *lod = isCmp ? nullptr : spvBuilder.getConstantFloat32(0);
+  auto *lod = isCmp ? nullptr
+                    : spvBuilder.getConstantFloat(astContext.FloatTy,
+                                                  llvm::APFloat(0.0f));
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
@@ -4423,7 +4444,8 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
     // For Textures, regular indexing (operator[]) uses slice 0.
     if (isBufferTextureIndexing(expr, &baseExpr, &indexExpr)) {
       auto *lod = TypeTranslator::isTexture(baseExpr->getType())
-                      ? spvBuilder.getConstantUint32(0)
+                      ? spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                  llvm::APInt(32, 0))
                       : nullptr;
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
                                       /*constOffset*/ nullptr,
@@ -4496,7 +4518,8 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
       llvm::SmallVector<SpirvInstruction *, 2> indexInstructions(indices.size(),
                                                                  nullptr);
       for (uint32_t i = 0; i < indices.size(); ++i)
-        indexInstructions[i] = spvBuilder.getConstantInt32(indices[i]);
+        indexInstructions[i] = spvBuilder.getConstantInt(
+            astContext.IntTy, llvm::APInt(32, indices[i], true));
 
       if (!indices.empty()) {
         assert(!baseInfo->isRValue());
@@ -4576,7 +4599,8 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     const auto type = expr->getType();
 
     if (!baseInfo->isRValue()) { // E.g., v.x;
-      auto *index = spvBuilder.getConstantInt32(accessor.Swz0);
+      auto *index = spvBuilder.getConstantInt(
+          astContext.IntTy, llvm::APInt(32, accessor.Swz0, true));
       // We need a lvalue here. Do not try to load.
       return spvBuilder.createAccessChain(
           spvContext.getPointerType(type, baseInfo->getStorageClass()),
@@ -4969,7 +4993,9 @@ void SPIRVEmitter::storeValue(SpirvInstruction *lhsPtr,
       const auto *subRhsPtrType =
           spvContext.getPointerType(elemType, rhsVal->getStorageClass());
       auto *subRhsPtr = spvBuilder.createAccessChain(
-          subRhsPtrType, rhsVal, {spvBuilder.getConstantInt32(i)});
+          subRhsPtrType, rhsVal,
+          {spvBuilder.getConstantInt(astContext.IntTy,
+                                     llvm::APInt(32, i, true))});
       elements.push_back(spvBuilder.createLoad(elemType, subRhsPtr));
     }
 
@@ -5813,7 +5839,8 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     llvm::SmallVector<SpirvInstruction *, 2> indexInstructions(indices.size(),
                                                                nullptr);
     for (uint32_t i = 0; i < indices.size(); ++i)
-      indexInstructions[i] = spvBuilder.getConstantInt32(indices[i]);
+      indexInstructions[i] = spvBuilder.getConstantInt(
+          astContext.IntTy, llvm::APInt(32, indices[i], true));
 
     // If we are writing to only one element, the rhs should already be a
     // scalar value.
@@ -6021,7 +6048,8 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     if (rawIndex) {
       rawIndices->push_back(index);
     } else {
-      indices->push_back(spvBuilder.getConstantInt32(index));
+      indices->push_back(spvBuilder.getConstantInt(
+          astContext.IntTy, llvm::APInt(32, index, true)));
     }
 
     return base;
@@ -6078,7 +6106,8 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
       // here. This is because we created an additional OpTypeRuntimeArray
       // in the structure.
       if (TypeTranslator::isStructuredBuffer(thisBaseType))
-        indices->push_back(spvBuilder.getConstantInt32(0));
+        indices->push_back(
+            spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)));
 
       if ((hlsl::IsHLSLVecType(thisBaseType) &&
            (hlsl::GetHLSLVecSize(thisBaseType) == 1)) ||
@@ -6099,7 +6128,8 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
 
       // For object.Load(index), there should be no more indexing into the
       // object.
-      indices->push_back(spvBuilder.getConstantInt32(0));
+      indices->push_back(
+          spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)));
       indices->push_back(doExpr(index));
       return object;
     }
@@ -6754,7 +6784,8 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   // Moreover, the frontend does not add a cast AST node to cast uint to int
   // where necessary. To ensure SPIR-V validity, we add that where necessary.
 
-  auto *zero = spvBuilder.getConstantUint32(0);
+  auto *zero =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto *dest = expr->getArg(0);
   const auto baseType = dest->getType();
 
@@ -6925,10 +6956,14 @@ SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   auto *reference = doExpr(callExpr->getArg(0));
   auto *source = doExpr(callExpr->getArg(1));
   auto *accum = doExpr(callExpr->getArg(2));
-  const auto uint0 = spvBuilder.getConstantUint32(0);
-  const auto uint8 = spvBuilder.getConstantUint32(8);
-  const auto uint16 = spvBuilder.getConstantUint32(16);
-  const auto uint24 = spvBuilder.getConstantUint32(24);
+  const auto uint0 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+  const auto uint8 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8));
+  const auto uint16 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
+  const auto uint24 =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 24));
 
   // Step 1.
   auto *v1x = spvBuilder.createCompositeExtract(uintType, source, {0});
@@ -7014,7 +7049,9 @@ SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   llvm::SmallVector<SpirvInstruction *, 4> isRefByteZero;
   for (uint32_t i = 0; i < 4; ++i) {
     refBytes.push_back(spvBuilder.createBitFieldExtract(
-        uintType, reference, /*offset*/ spvBuilder.getConstantUint32(i * 8),
+        uintType, reference, /*offset*/
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                  llvm::APInt(32, i * 8)),
         /*count*/ uint8, /*isSigned*/ false));
     signedRefBytes.push_back(
         spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refBytes.back()));
@@ -7027,7 +7064,9 @@ SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
       // 'count' is always 8 because we are extracting 8 bits out of 32.
       auto *srcByte = spvBuilder.createBitFieldExtract(
           uintType, sources[msadNum],
-          /*offset*/ spvBuilder.getConstantUint32(8 * byteCount),
+          /*offset*/
+          spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                    llvm::APInt(32, 8 * byteCount)),
           /*count*/ uint8, /*isSigned*/ false);
       auto *signedSrcByte =
           spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
@@ -7233,13 +7272,16 @@ SPIRVEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
   spv::Op opcode = spv::Op::OpGroupNonUniformQuadSwap;
   switch (op) {
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossX:
-    target = spvBuilder.getConstantUint32(0);
+    target =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
     break;
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossY:
-    target = spvBuilder.getConstantUint32(1);
+    target =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
     break;
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossDiagonal:
-    target = spvBuilder.getConstantUint32(2);
+    target =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
     break;
   case hlsl::IntrinsicOp::IOP_QuadReadLaneAt:
     target = doExpr(callExpr->getArg(1));
@@ -7355,8 +7397,10 @@ SpirvInstruction *SPIRVEmitter::processIntrinsicLit(const CallExpr *callExpr) {
   auto *m = doExpr(callExpr->getArg(2));
   const QualType floatType = astContext.FloatTy;
   const QualType boolType = astContext.BoolTy;
-  SpirvInstruction *floatZero = spvBuilder.getConstantFloat32(0);
-  SpirvInstruction *floatOne = spvBuilder.getConstantFloat32(1);
+  SpirvInstruction *floatZero =
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
+  SpirvInstruction *floatOne =
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f));
   const QualType retType = callExpr->getType();
   auto *diffuse = spvBuilder.createExtInst(
       floatType, glslInstSet, GLSLstd450::GLSLstd450FMax, {floatZero, nDotL});
@@ -7527,7 +7571,8 @@ SpirvInstruction *SPIRVEmitter::processIntrinsicDst(const CallExpr *callExpr) {
       spvBuilder.createBinaryOp(spv::Op::OpFMul, f32, arg0y, arg1y);
   return spvBuilder.createCompositeConstruct(
       callExpr->getType(),
-      {spvBuilder.getConstantFloat32(1.0), arg0yMularg1y, arg0z, arg1w});
+      {spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
+       arg0yMularg1y, arg0z, arg1w});
 }
 
 SpirvInstruction *SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
@@ -8325,9 +8370,9 @@ SPIRVEmitter::processD3DCOLORtoUBYTE4(const CallExpr *callExpr) {
   const auto argType = arg->getType();
   auto *swizzle =
       spvBuilder.createVectorShuffle(argType, argId, argId, {2, 1, 0, 3});
-  auto *scaled =
-      spvBuilder.createBinaryOp(spv::Op::OpVectorTimesScalar, argType, swizzle,
-                                spvBuilder.getConstantFloat32(255.002f));
+  auto *scaled = spvBuilder.createBinaryOp(
+      spv::Op::OpVectorTimesScalar, argType, swizzle,
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(255.002f)));
   return castToInt(scaled, arg->getType(), callExpr->getType(),
                    callExpr->getExprLoc());
 }
@@ -8490,7 +8535,7 @@ SPIRVEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
   const QualType f32Type = astContext.FloatTy;
   const QualType u32Type = astContext.UnsignedIntTy;
   const QualType v2f32Type = astContext.getExtVectorType(f32Type, 2);
-  auto *zero = spvBuilder.getConstantFloat32(0);
+  auto *zero = spvBuilder.getConstantFloat(f32Type, llvm::APFloat(0.0f));
 
   const auto *arg = callExpr->getArg(0);
   auto *argId = doExpr(arg);
@@ -8657,7 +8702,8 @@ SPIRVEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
   // Since there is no log10 instruction in SPIR-V, we can use:
   // log10(x) = log2(x) * ( 1 / log2(10) )
   // 1 / log2(10) = 0.30103
-  auto *scale = spvBuilder.getConstantFloat32(0.30103f);
+  auto *scale =
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.30103f));
   auto *log2 =
       processIntrinsicUsingGLSLInst(callExpr, GLSLstd450::GLSLstd450Log2, true);
   const auto returnType = callExpr->getType();
@@ -8674,15 +8720,17 @@ SpirvConstant *SPIRVEmitter::getValueZero(QualType type) {
     QualType scalarType = {};
     if (isScalarType(type, &scalarType)) {
       if (scalarType->isSignedIntegerType()) {
-        return spvBuilder.getConstantInt32(0);
+        return spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
       }
 
       if (scalarType->isUnsignedIntegerType()) {
-        return spvBuilder.getConstantUint32(0);
+        return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                         llvm::APInt(32, 0));
       }
 
       if (scalarType->isFloatingType()) {
-        return spvBuilder.getConstantFloat32(0.0);
+        return spvBuilder.getConstantFloat(astContext.FloatTy,
+                                           llvm::APFloat(0.0f));
       }
     }
   }
@@ -8728,37 +8776,11 @@ SpirvConstant *SPIRVEmitter::getValueOne(QualType type) {
       if (scalarType->isBooleanType()) {
         return spvBuilder.getConstantBool(true);
       }
-
-      const auto bitWidth = typeTranslator.getElementSpirvBitwidth(scalarType);
-      if (scalarType->isSignedIntegerType()) {
-        switch (bitWidth) {
-        case 16:
-          return spvBuilder.getConstantInt16(1);
-        case 32:
-          return spvBuilder.getConstantInt32(1);
-        case 64:
-          return spvBuilder.getConstantInt64(1);
-        }
-      }
-      if (scalarType->isUnsignedIntegerType()) {
-        switch (bitWidth) {
-        case 16:
-          return spvBuilder.getConstantUint16(1);
-        case 32:
-          return spvBuilder.getConstantUint32(1);
-        case 64:
-          return spvBuilder.getConstantUint64(1);
-        }
+      if (scalarType->isIntegerType()) {
+        return spvBuilder.getConstantInt(scalarType, llvm::APInt(32, 1));
       }
       if (scalarType->isFloatingType()) {
-        switch (bitWidth) {
-        case 16:
-          return spvBuilder.getConstantFloat16(1);
-        case 32:
-          return spvBuilder.getConstantFloat32(1.0);
-        case 64:
-          return spvBuilder.getConstantFloat64(1.0);
-        }
+        return spvBuilder.getConstantFloat(scalarType, llvm::APFloat(1.0f));
       }
     }
   }
@@ -8809,16 +8831,16 @@ SpirvConstant *SPIRVEmitter::getMaskForBitwidthValue(QualType type) {
     SpirvConstant *mask = nullptr;
     switch (bitwidth) {
     case 16:
-      mask = spvBuilder.getConstantUint16(bitwidth - 1);
       elemType = astContext.UnsignedShortTy;
+      mask = spvBuilder.getConstantInt(elemType, llvm::APInt(16, bitwidth - 1));
       break;
     case 32:
-      mask = spvBuilder.getConstantUint32(bitwidth - 1);
       elemType = astContext.UnsignedIntTy;
+      mask = spvBuilder.getConstantInt(elemType, llvm::APInt(32, bitwidth - 1));
       break;
     case 64:
-      mask = spvBuilder.getConstantUint64(bitwidth - 1);
       elemType = astContext.UnsignedLongLongTy;
+      mask = spvBuilder.getConstantInt(elemType, llvm::APInt(64, bitwidth - 1));
       break;
     default:
       assert(false && "this method only supports 16-, 32-, and 64-bit types");
@@ -8877,64 +8899,8 @@ SpirvConstant *SPIRVEmitter::translateAPValue(const APValue &value,
 
 SpirvConstant *SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                             QualType targetType) {
-  targetType = typeTranslator.getIntendedLiteralType(targetType);
-  const auto targetTypeBitWidth = astContext.getTypeSize(targetType);
-  const bool isSigned = targetType->isSignedIntegerType();
-  switch (targetTypeBitWidth) {
-  case 16: {
-    if (spirvOptions.enable16BitTypes) {
-      if (isSigned) {
-        return spvBuilder.getConstantInt16(
-            static_cast<int16_t>(intValue.getSExtValue()));
-      } else {
-        return spvBuilder.getConstantUint16(
-            static_cast<uint16_t>(intValue.getZExtValue()));
-      }
-    } else {
-      // If enable16BitTypes option is not true, treat as 32-bit integer.
-      if (isSigned)
-        return spvBuilder.getConstantInt32(
-            static_cast<int32_t>(intValue.getSExtValue()), isSpecConstantMode);
-      else
-        return spvBuilder.getConstantUint32(
-            static_cast<uint32_t>(intValue.getZExtValue()), isSpecConstantMode);
-    }
-  }
-  case 32: {
-    if (isSigned) {
-      if (!intValue.isSignedIntN(32)) {
-        emitError("evaluating integer literal %0 as a 32-bit integer loses "
-                  "inforamtion",
-                  {})
-            << std::to_string(intValue.getSExtValue());
-        return nullptr;
-      }
-      return spvBuilder.getConstantInt32(
-          static_cast<int32_t>(intValue.getSExtValue()), isSpecConstantMode);
-    } else {
-      if (!intValue.isIntN(32)) {
-        emitError("evaluating integer literal %0 as a 32-bit integer loses "
-                  "inforamtion",
-                  {})
-            << std::to_string(intValue.getZExtValue());
-        return nullptr;
-      }
-      return spvBuilder.getConstantUint32(
-          static_cast<uint32_t>(intValue.getZExtValue()), isSpecConstantMode);
-    }
-  }
-  case 64: {
-    if (isSigned)
-      return spvBuilder.getConstantInt64(intValue.getSExtValue());
-    else
-      return spvBuilder.getConstantUint64(intValue.getZExtValue());
-  }
-  }
-
-  emitError("APInt for target bitwidth %0 unimplemented", {})
-      << astContext.getIntWidth(targetType);
-
-  return nullptr;
+  targetType = typeTranslator.getIntendedLiteralType(targetType);	
+  return spvBuilder.getConstantInt(targetType, intValue, isSpecConstantMode);
 }
 
 bool SPIRVEmitter::isLiteralLargerThan32Bits(const Expr *expr) {
@@ -8969,12 +8935,10 @@ bool SPIRVEmitter::isLiteralLargerThan32Bits(const Expr *expr) {
 SpirvConstant *SPIRVEmitter::tryToEvaluateAsInt32(const llvm::APInt &intValue,
                                                   bool isSigned) {
   if (isSigned && intValue.isSignedIntN(32)) {
-    return spvBuilder.getConstantInt32(
-        static_cast<int32_t>(intValue.getSExtValue()));
+    return spvBuilder.getConstantInt(astContext.IntTy, intValue);
   }
   if (!isSigned && intValue.isIntN(32)) {
-    return spvBuilder.getConstantUint32(
-        static_cast<uint32_t>(intValue.getZExtValue()));
+    return spvBuilder.getConstantInt(astContext.UnsignedIntTy, intValue);
   }
 
   // Couldn't evaluate as a 32-bit int without losing information.
@@ -8986,8 +8950,8 @@ SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
   const auto &semantics = floatValue.getSemantics();
   // If the given value is already a 32-bit float, there is no need to convert.
   if (&semantics == &llvm::APFloat::IEEEsingle) {
-    return spvBuilder.getConstantFloat32(floatValue.convertToFloat(),
-                                         isSpecConstantMode);
+    return spvBuilder.getConstantFloat(astContext.FloatTy, floatValue,
+                                       isSpecConstantMode);
   }
 
   // Try to see if this literal float can be represented in 32-bit.
@@ -8999,7 +8963,8 @@ SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
       eval.convert(llvm::APFloat::IEEEsingle,
                    llvm::APFloat::rmNearestTiesToEven, &losesInfo);
   if (convertStatus == llvm::APFloat::opOK && !losesInfo)
-    return spvBuilder.getConstantFloat32(eval.convertToFloat());
+    return spvBuilder.getConstantFloat(astContext.FloatTy,
+                                       llvm::APFloat(eval.convertToFloat()));
 
   // Couldn't evaluate as a 32-bit float without losing information.
   return nullptr;
@@ -9007,55 +8972,9 @@ SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
 
 SpirvConstant *SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
                                               QualType targetType) {
-  using llvm::APFloat;
-  const auto originalValue = floatValue;
-  const auto valueBitwidth = APFloat::getSizeInBits(floatValue.getSemantics());
-
-  // Find out the target bitwidth.
-  targetType = typeTranslator.getIntendedLiteralType(targetType);
-  auto targetBitwidth =
-      APFloat::getSizeInBits(astContext.getFloatTypeSemantics(targetType));
-  // If 16-bit types are not enabled, treat them as 32-bit float.
-  if (targetBitwidth == 16 && !spirvOptions.enable16BitTypes)
-    targetBitwidth = 32;
-
-  if (targetBitwidth != valueBitwidth) {
-    bool losesInfo = false;
-    const llvm::fltSemantics &targetSemantics =
-        targetBitwidth == 16
-            ? APFloat::IEEEhalf
-            : targetBitwidth == 32 ? APFloat::IEEEsingle : APFloat::IEEEdouble;
-    const auto status = floatValue.convert(
-        targetSemantics, APFloat::roundingMode::rmTowardZero, &losesInfo);
-    if (status != APFloat::opStatus::opOK &&
-        status != APFloat::opStatus::opInexact) {
-      emitError(
-          "evaluating float literal %0 at a lower bitwidth loses information",
-          {})
-          // Converting from 16bit to 32/64-bit won't lose information.
-          // So only 32/64-bit values can reach here.
-          << std::to_string(valueBitwidth == 32
-                                ? originalValue.convertToFloat()
-                                : originalValue.convertToDouble());
-      return nullptr;
-    }
-  }
-
-  switch (targetBitwidth) {
-  case 16:
-    return spvBuilder.getConstantFloat16(
-        static_cast<uint16_t>(floatValue.bitcastToAPInt().getZExtValue()));
-  case 32:
-    return spvBuilder.getConstantFloat32(floatValue.convertToFloat(),
-                                         isSpecConstantMode);
-  case 64:
-    return spvBuilder.getConstantFloat64(floatValue.convertToDouble());
-  default:
-    break;
-  }
-  emitError("APFloat for target bitwidth %0 unimplemented", {})
-      << targetBitwidth;
-  return nullptr;
+  targetType = typeTranslator.getIntendedLiteralType(targetType);	
+  return spvBuilder.getConstantFloat(targetType, floatValue,
+                                     isSpecConstantMode);
 }
 
 SpirvConstant *SPIRVEmitter::tryToEvaluateAsConst(const Expr *expr) {
@@ -9588,7 +9507,7 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
   // and we only allow ID 0 to call the PCF.
   auto *condition = spvBuilder.createBinaryOp(
       spv::Op::OpIEqual, astContext.BoolTy, outputControlPointId,
-      spvBuilder.getConstantUint32(0));
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0)));
   auto *thenBB = spvBuilder.createBasicBlock("if.true");
   auto *mergeBB = spvBuilder.createBasicBlock("if.merge");
   spvBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
