@@ -13,14 +13,14 @@ TextureCubeArray <float3> t5 : register(t5);
 // CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
+// CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
+// CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_1
+// CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_1
+
 // CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image_array
 // CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image_array
 // CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_cube_image_array
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
-
-// CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
-// CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_1
-// CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_1
 
 float4 main(int2 offset : A) : SV_Target {
 // CHECK:              [[t1:%\d+]] = OpLoad %type_1d_image_array %t1
