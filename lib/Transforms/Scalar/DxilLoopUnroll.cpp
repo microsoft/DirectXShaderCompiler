@@ -761,8 +761,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       for (size_t i = 0; i < Clones.size(); i++) {
         auto &Iteration = Clones[i];
         for (BasicBlock *BB : Iteration.Body) {
-          if (!Iteration.Extended.count(BB))
+          if (!Iteration.Extended.count(BB)) {
             OuterL->addBasicBlockToLoop(BB, *LI);
+          }
         }
       }
 
@@ -782,12 +783,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-    // Remove the original blocks that we've cloned from outer loops.
-    for (Loop *TopLoop = L->getParentLoop(); TopLoop; TopLoop = TopLoop->getParentLoop()) {
-      for (BasicBlock *BB : ToBeCloned) {
-        if (TopLoop->contains(BB)) // This check is necessary because of possible exit blocks.
-          TopLoop->removeBlockFromLoop(BB);
-      }
+    // Remove the original blocks that we've cloned from all loops.
+    for (BasicBlock *BB : ToBeCloned) {
+      LI->removeBlock(BB);
     }
 
     LPM.deleteLoopFromQueue(L);
