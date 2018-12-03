@@ -4389,7 +4389,7 @@ private:
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
-                  IRBuilder<> &Builder, DbgDeclareInst *DDI);
+                  BasicBlock *EntryBlock, DbgDeclareInst *DDI);
   Value *castResourceArgIfRequired(Value *V, Type *Ty, bool bOut,
                                    DxilParamInputQual inputQual,
                                    IRBuilder<> &Builder);
@@ -5334,8 +5334,7 @@ void SROA_Parameter_HLSL::flattenArgument(
     DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
-    IRBuilder<> &Builder, DbgDeclareInst *DDI) {
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+    BasicBlock *EntryBlock, DbgDeclareInst *DDI) {
   std::deque<Value *> WorkList;
   WorkList.push_back(Arg);
 
@@ -5392,6 +5391,11 @@ void SROA_Parameter_HLSL::flattenArgument(
     DxilFieldAnnotation &annotation = annotationMap[V];
     const bool bAllowReplace = !bOut;
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
+
+    // Now is safe to create the IRBuilders.
+    // If we create it before LowerMemcpy, the insertion pointer instruction may get deleted
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
 
     std::vector<Value *> Elts;
 
@@ -6036,11 +6040,17 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
   LLVMContext &Ctx = m_pHLModule->GetCtx();
   std::unique_ptr<BasicBlock> TmpBlockForFuncDecl;
+  BasicBlock *EntryBlock;
   if (F->isDeclaration()) {
+    // We still want to SROA the parameters, so creaty a dummy
+    // function body block to avoid special cases.
     TmpBlockForFuncDecl.reset(BasicBlock::Create(Ctx));
     // Create return as terminator.
     IRBuilder<> RetBuilder(TmpBlockForFuncDecl.get());
     RetBuilder.CreateRetVoid();
+    EntryBlock = TmpBlockForFuncDecl.get();
+  } else {
+    EntryBlock = &F->getEntryBlock();
   }
 
   std::vector<Value *> FlatParamList;
@@ -6053,13 +6063,6 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
     HLModule::MergeGepUse(&Arg);
-    // Insert point may be removed. So recreate builder every time.
-    IRBuilder<> Builder(Ctx);
-    if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
-    } else {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(TmpBlockForFuncDecl.get()));
-    }
 
     unsigned prevFlatParamCount = FlatParamList.size();
 
@@ -6067,7 +6070,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
     flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
-                    FlatParamAnnotationList, Builder, DDI);
+                    FlatParamAnnotationList, EntryBlock, DDI);
 
     unsigned newFlatParamCount = FlatParamList.size() - prevFlatParamCount;
     for (unsigned i = 0; i < newFlatParamCount; i++) {
@@ -6081,15 +6084,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
-    IRBuilder<> Builder(Ctx);
-    IRBuilder<> AllocaBuilder(Ctx);
-    if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
-      AllocaBuilder.SetInsertPoint(dxilutil::FindAllocaInsertionPt(F));
-    } else {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(TmpBlockForFuncDecl.get()));
-      AllocaBuilder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
-    }
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
     Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
         funcAnnotation->GetRetTypeAnnotation();
@@ -6143,7 +6139,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
     flattenArgument(F, retValAddr, bForParamTrue,
                     funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
-                    FlatRetAnnotationList, Builder, DDI);
+                    FlatRetAnnotationList, EntryBlock, DDI);
 
     const int kRetArgNo = -1;
     for (unsigned i = 0; i < FlatRetList.size(); i++) {
