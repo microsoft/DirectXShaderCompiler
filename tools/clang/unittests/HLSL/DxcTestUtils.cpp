@@ -379,4 +379,4 @@ bool VersionSupportInfo::SkipDxilVersion(unsigned major, unsigned minor) {
   }
   return false;
 }
-bool VersionSupportInfo::SkipOutOfMemoryTest() { return false; }
+bool VersionSupportInfo::SkipOutOfMemoryTest() { return true; }
