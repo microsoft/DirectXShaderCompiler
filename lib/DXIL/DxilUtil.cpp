@@ -343,26 +343,27 @@ llvm::Instruction *SkipAllocas(llvm::Instruction *I) {
     I = I->getNextNode();
   return I;
 }
+llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB) {
+  return &*BB->getFirstInsertionPt();
+}
+llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
+  return FindAllocaInsertionPt(&F->getEntryBlock());
+}
 llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I) {
   Function *F = I->getParent()->getParent();
   if (F)
-    return &*F->getEntryBlock().getFirstInsertionPt();
+    return FindAllocaInsertionPt(F);
   else // BB with no parent function
-    return &*I->getParent()->getFirstInsertionPt();
-}
-llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
-  return &*F->getEntryBlock().getFirstInsertionPt();
+    return FindAllocaInsertionPt(I->getParent());
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I) {
   return SkipAllocas(FindAllocaInsertionPt(I));
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB) {
-  return SkipAllocas(
-    &*BB->getFirstInsertionPt());
+  return SkipAllocas(FindAllocaInsertionPt(BB));
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
-  return SkipAllocas(
-    &*F->getEntryBlock().getFirstInsertionPt());
+  return SkipAllocas(FindAllocaInsertionPt(F));
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
