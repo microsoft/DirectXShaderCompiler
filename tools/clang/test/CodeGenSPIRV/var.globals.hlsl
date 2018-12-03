@@ -12,21 +12,6 @@
 
 // CHECK: OpName %_Globals "$Globals"
 
-// CHECK: OpMemberDecorate %type__Globals 0 Offset 0
-// CHECK: OpMemberDecorate %type__Globals 1 Offset 4
-// CHECK: OpMemberDecorate %type__Globals 2 Offset 16
-// CHECK: OpMemberDecorate %type__Globals 2 MatrixStride 16
-// CHECK: OpMemberDecorate %type__Globals 2 RowMajor
-// CHECK: OpMemberDecorate %type__Globals 3 Offset 64
-// CHECK: OpMemberDecorate %type__Globals 3 MatrixStride 16
-// CHECK: OpMemberDecorate %type__Globals 3 ColMajor
-// CHECK: OpMemberDecorate %type__Globals 4 Offset 96
-// CHECK: OpMemberDecorate %type__Globals 4 MatrixStride 16
-// CHECK: OpMemberDecorate %type__Globals 4 ColMajor
-// CHECK: OpMemberDecorate %type__Globals 5 Offset 160
-// CHECK: OpMemberDecorate %type__Globals 6 Offset 176
-// CHECK: OpDecorate %type__Globals Block
-
 // CHECK: OpDecorate %_Globals DescriptorSet 0
 // CHECK: OpDecorate %_Globals Binding 0
 
@@ -41,6 +26,21 @@
 // CHECK: OpDecorate %gSPInput Binding 8
 // CHECK: OpDecorate %gRWBuffer DescriptorSet 0
 // CHECK: OpDecorate %gRWBuffer Binding 9
+
+// CHECK: OpMemberDecorate %type__Globals 0 Offset 0
+// CHECK: OpMemberDecorate %type__Globals 1 Offset 4
+// CHECK: OpMemberDecorate %type__Globals 2 Offset 16
+// CHECK: OpMemberDecorate %type__Globals 2 MatrixStride 16
+// CHECK: OpMemberDecorate %type__Globals 2 RowMajor
+// CHECK: OpMemberDecorate %type__Globals 3 Offset 64
+// CHECK: OpMemberDecorate %type__Globals 3 MatrixStride 16
+// CHECK: OpMemberDecorate %type__Globals 3 ColMajor
+// CHECK: OpMemberDecorate %type__Globals 4 Offset 96
+// CHECK: OpMemberDecorate %type__Globals 4 MatrixStride 16
+// CHECK: OpMemberDecorate %type__Globals 4 ColMajor
+// CHECK: OpMemberDecorate %type__Globals 5 Offset 160
+// CHECK: OpMemberDecorate %type__Globals 6 Offset 176
+// CHECK: OpDecorate %type__Globals Block
 
           int           gScalar;   // 0
           SamplerState  gSampler;  // Not included - 1
