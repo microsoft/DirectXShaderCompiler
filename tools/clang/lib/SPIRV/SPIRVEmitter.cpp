@@ -549,8 +549,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       declIdMapper(shaderModel, astContext, spvContext, spvBuilder, *this,
                    featureManager, spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
-      seenPushConstantAt(), isSpecConstantMode(false),
-      foundNonUniformResourceIndex(false), needsLegalization(false),
+      seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
       mainSourceFile(nullptr) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
@@ -902,12 +901,6 @@ SpirvInstruction *SPIRVEmitter::loadIfGLValue(const Expr *expr,
     loadedInstr = spvBuilder.createLoad(expr->getType(), info);
   }
   assert(loadedInstr);
-
-  // Decorate with NonUniformEXT if loading from a pointer with that property.
-  // We are likely loading an element from the resource array here.
-  if (info->isNonUniform()) {
-    spvBuilder.decorateNonUniformEXT(loadedInstr);
-  }
 
   // Special-case: According to the SPIR-V Spec: There is no physical size or
   // bit pattern defined for boolean type. Therefore an unsigned integer is used
@@ -1946,18 +1939,10 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvInstruction *
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
-  // Make sure we don't have previously unhandled NonUniformResourceIndex()
-  assert(!foundNonUniformResourceIndex);
-
   llvm::SmallVector<SpirvInstruction *, 4> indices;
   const auto *base = collectArrayStructIndices(
       expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
   auto *info = loadIfAliasVarRef(base);
-
-  if (foundNonUniformResourceIndex) {
-    info->setNonUniform(); // Carry forward the NonUniformEXT decoration
-    foundNonUniformResourceIndex = false;
-  }
 
   if (!indices.empty()) {
     info = turnIntoElementPtr(base->getType(), info, expr->getType(), indices);
@@ -3004,14 +2989,8 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   auto *samplerState = doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(1));
 
-  auto *sampledImage = spvBuilder.createBinaryOp(
-      spv::Op::OpSampledImage, object->getType(), objectInfo, samplerState);
-
-  if (objectInfo->isNonUniform() || samplerState->isNonUniform()) {
-    // The sampled image will be used to access resource's memory, so we need
-    // to decorate it with NonUniformEXT.
-    spvBuilder.decorateNonUniformEXT(sampledImage);
-  }
+  auto *sampledImage = spvBuilder.createSampledImage(
+      object->getType(), objectInfo, samplerState, expr->getExprLoc());
 
   // The result type of OpImageQueryLod must be a float2.
   const QualType queryResultType =
@@ -3100,7 +3079,6 @@ SpirvInstruction *SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   }
 
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
-  const bool isNonUniform = image->isNonUniform() || sampler->isNonUniform();
 
   if (needsEmulation) {
     const auto elemType = hlsl::GetHLSLVecElementType(callee->getReturnType());
@@ -3109,7 +3087,7 @@ SpirvInstruction *SPIRVEmitter::processTextureGatherRGBACmpRGBA(
     for (uint32_t i = 0; i < 4; ++i) {
       varOffset = doExpr(expr->getArg(2 + isCmp + i));
       auto *gatherRet = spvBuilder.createImageGather(
-          retType, imageType, image, sampler, isNonUniform, coordinate,
+          retType, imageType, image, sampler, coordinate,
           spvBuilder.getConstantInt(astContext.IntTy,
                                     llvm::APInt(32, component, true)),
           compareVal,
@@ -3122,7 +3100,7 @@ SpirvInstruction *SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   }
 
   return spvBuilder.createImageGather(
-      retType, imageType, image, sampler, isNonUniform, coordinate,
+      retType, imageType, image, sampler, coordinate,
       spvBuilder.getConstantInt(astContext.IntTy,
                                 llvm::APInt(32, component, true)),
       compareVal, constOffset, varOffset, constOffsets,
@@ -3173,8 +3151,7 @@ SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
       hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
   return spvBuilder.createImageGather(
-      retType, imageType, image, sampler,
-      image->isNonUniform() || sampler->isNonUniform(), coordinate,
+      retType, imageType, image, sampler, coordinate,
       /*component*/ nullptr, comparator, constOffset, varOffset,
       /*constOffsets*/ nullptr,
       /*sampleNumber*/ nullptr, status);
@@ -3196,11 +3173,6 @@ SpirvInstruction *SPIRVEmitter::processBufferTextureLoad(
       TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
 
   auto *objectInfo = loadIfGLValue(object);
-
-  if (objectInfo->isNonUniform()) {
-    // Decoreate the image handle for OpImageFetch/OpImageRead
-    spvBuilder.decorateNonUniformEXT(objectInfo);
-  }
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
   SpirvInstruction *sampleNumber = nullptr;
@@ -3964,7 +3936,7 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
 
 SpirvInstruction *SPIRVEmitter::createImageSample(
     QualType retType, QualType imageType, SpirvInstruction *image,
-    SpirvInstruction *sampler, bool isNonUniform, SpirvInstruction *coordinate,
+    SpirvInstruction *sampler, SpirvInstruction *coordinate,
     SpirvInstruction *compareVal, SpirvInstruction *bias, SpirvInstruction *lod,
     std::pair<SpirvInstruction *, SpirvInstruction *> grad,
     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
@@ -3974,10 +3946,10 @@ SpirvInstruction *SPIRVEmitter::createImageSample(
   // SampleDref* instructions in SPIR-V always return a scalar.
   // They also have the correct type in HLSL.
   if (compareVal) {
-    return spvBuilder.createImageSample(
-        retType, imageType, image, sampler, isNonUniform, coordinate,
-        compareVal, bias, lod, grad, constOffset, varOffset, constOffsets,
-        sample, minLod, residencyCodeId);
+    return spvBuilder.createImageSample(retType, imageType, image, sampler,
+                                        coordinate, compareVal, bias, lod, grad,
+                                        constOffset, varOffset, constOffsets,
+                                        sample, minLod, residencyCodeId);
   }
 
   // Non-Dref Sample instructions in SPIR-V must always return a vec4.
@@ -4001,9 +3973,9 @@ SpirvInstruction *SPIRVEmitter::createImageSample(
     needsLegalization = true;
 
   auto *retVal = spvBuilder.createImageSample(
-      texelType, imageType, image, sampler, isNonUniform, coordinate,
-      compareVal, bias, lod, grad, constOffset, varOffset, constOffsets, sample,
-      minLod, residencyCodeId);
+      texelType, imageType, image, sampler, coordinate, compareVal, bias, lod,
+      grad, constOffset, varOffset, constOffsets, sample, minLod,
+      residencyCodeId);
 
   // Extract smaller vector from the vec4 result if necessary.
   if (texelType != retType) {
@@ -4069,19 +4041,18 @@ SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
-  const bool isNonUniform = image->isNonUniform() || sampler->isNonUniform();
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
-    return createImageSample(
-        retType, imageType, image, sampler, isNonUniform, coordinate,
-        /*compareVal*/ nullptr, /*bias*/ nullptr, /*lod*/ nullptr,
-        std::make_pair(nullptr, nullptr), constOffset, varOffset,
-        /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr,
-        /*minLod*/ clamp, status);
+    return createImageSample(retType, imageType, image, sampler, coordinate,
+                             /*compareVal*/ nullptr, /*bias*/ nullptr,
+                             /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
+                             constOffset, varOffset,
+                             /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr,
+                             /*minLod*/ clamp, status);
   } else {
     return spvBuilder.createImageGather(
-        retType, imageType, image, sampler, isNonUniform, coordinate,
+        retType, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
         spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)),
         /*compareVal*/ nullptr, constOffset, varOffset,
@@ -4159,13 +4130,12 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
-  return createImageSample(
-      retType, imageType, image, sampler,
-      image->isNonUniform() || sampler->isNonUniform(), coordinate,
-      /*compareVal*/ nullptr, bias, lod, std::make_pair(nullptr, nullptr),
-      constOffset, varOffset,
-      /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, /*minLod*/ clamp,
-      status);
+  return createImageSample(retType, imageType, image, sampler, coordinate,
+                           /*compareVal*/ nullptr, bias, lod,
+                           std::make_pair(nullptr, nullptr), constOffset,
+                           varOffset,
+                           /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr,
+                           /*minLod*/ clamp, status);
 }
 
 SpirvInstruction *
@@ -4217,13 +4187,12 @@ SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
     handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
-  return createImageSample(
-      retType, imageType, image, sampler,
-      image->isNonUniform() || sampler->isNonUniform(), coordinate,
-      /*compareVal*/ nullptr, /*bias*/ nullptr, /*lod*/ nullptr,
-      std::make_pair(ddx, ddy), constOffset, varOffset,
-      /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr,
-      /*minLod*/ clamp, status);
+  return createImageSample(retType, imageType, image, sampler, coordinate,
+                           /*compareVal*/ nullptr, /*bias*/ nullptr,
+                           /*lod*/ nullptr, std::make_pair(ddx, ddy),
+                           constOffset, varOffset,
+                           /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr,
+                           /*minLod*/ clamp, status);
 }
 
 SpirvInstruction *
@@ -4309,8 +4278,7 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   const auto imageType = imageExpr->getType();
 
   return createImageSample(
-      retType, imageType, image, sampler,
-      image->isNonUniform() || sampler->isNonUniform(), coordinate, compareVal,
+      retType, imageType, image, sampler, coordinate, compareVal,
       /*bias*/ nullptr, lod, std::make_pair(nullptr, nullptr), constOffset,
       varOffset,
       /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, /*minLod*/ clamp,
@@ -5258,9 +5226,6 @@ SpirvInstruction *SPIRVEmitter::processBinaryOp(
     // Propagate RelaxedPrecision
     if (lhsVal->isRelaxedPrecision() || rhsVal->isRelaxedPrecision())
       val->setRelaxedPrecision();
-    // Propagate NonUniformEXT
-    if (lhsVal->isNonUniform() || rhsVal->isNonUniform())
-      val->setNonUniform();
 
     return val;
   }
@@ -5795,10 +5760,6 @@ SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
     auto *baseInfo = doExpr(baseExpr);
     auto *image = spvBuilder.createLoad(imageType, baseInfo);
     spvBuilder.createImageWrite(imageType, image, loc, rhs);
-    if (baseInfo->isNonUniform()) {
-      // Decorate the image handle for OpImageWrite
-      spvBuilder.decorateNonUniformEXT(image);
-    }
     return rhs;
   }
   return nullptr;
@@ -6839,11 +6800,6 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       auto *coordInstr = doExpr(index);
       ptr = spvBuilder.createImageTexelPointer(baseType, baseInstr, coordInstr,
                                                zero);
-      if (baseInstr->isNonUniform()) {
-        // Image texel pointer will used to access image memory. Vulkan requires
-        // it to be decorated with NonUniformEXT.
-        spvBuilder.decorateNonUniformEXT(ptr);
-      }
     }
   }
   if (!ptr) {
@@ -6900,10 +6856,7 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
 
 SpirvInstruction *
 SPIRVEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
-  foundNonUniformResourceIndex = true;
   auto *index = doExpr(expr->getArg(0));
-  index->setNonUniform();
-
   // Decorate the expression in NonUniformResourceIndex() with NonUniformEXT.
   // Aside from this, we also need to eventually populate the NonUniformEXT
   // status to the usage of this expression: the "pointer" operand to a memory
@@ -6913,8 +6866,7 @@ SPIRVEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   // image instructions) and the resource descriptor being accessed is not
   // dynamically uniform, then the operand corresponding to that resource (e.g.
   // the pointer or sampled image operand) must be decorated with NonUniformEXT.
-  spvBuilder.decorateNonUniformEXT(index);
-
+  index->setNonUniform();
   return index;
 }
 
@@ -8899,7 +8851,7 @@ SpirvConstant *SPIRVEmitter::translateAPValue(const APValue &value,
 
 SpirvConstant *SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                             QualType targetType) {
-  targetType = typeTranslator.getIntendedLiteralType(targetType);	
+  targetType = typeTranslator.getIntendedLiteralType(targetType);
   return spvBuilder.getConstantInt(targetType, intValue, isSpecConstantMode);
 }
 
@@ -8972,7 +8924,7 @@ SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
 
 SpirvConstant *SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
                                               QualType targetType) {
-  targetType = typeTranslator.getIntendedLiteralType(targetType);	
+  targetType = typeTranslator.getIntendedLiteralType(targetType);
   return spvBuilder.getConstantFloat(targetType, floatValue,
                                      isSpecConstantMode);
 }
