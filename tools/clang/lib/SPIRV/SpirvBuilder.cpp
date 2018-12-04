@@ -999,13 +999,6 @@ void SpirvBuilder::decoratePatch(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
-void SpirvBuilder::decorateNonUniformEXT(SpirvInstruction *target,
-                                         SourceLocation srcLoc) {
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, target, spv::Decoration::NonUniformEXT);
-  module->addDecoration(decor);
-}
-
 SpirvConstant *SpirvBuilder::getConstantInt(QualType type, llvm::APInt value,
                                             bool specConst) {
   // We do not reuse existing constant integers. Just create a new one.
