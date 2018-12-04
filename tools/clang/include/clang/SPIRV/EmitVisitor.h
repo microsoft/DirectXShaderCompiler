@@ -72,14 +72,28 @@ public:
   // instructions into the annotationsBinary.
   uint32_t emitType(const SpirvType *);
 
-  // Emits an inter OpConstant instruction and returns its result-id.
-  // If such constant has already been emitted, just returns its resutl-id.
-  // Modifies the curTypeInst. Do not call in the middle of construction of
-  // another instruction.
   uint32_t getOrCreateConstant(SpirvConstant *);
-  uint32_t getOrCreateConstantInt(llvm::APInt value, const SpirvType *type);
-  uint32_t getOrCreateConstantFloat(llvm::APFloat value, const SpirvType *type);
-  uint32_t getOrCreateConstantComposite(SpirvConstantComposite *inst);
+
+  // Emits an OpConstant instruction and returns its result-id.
+  // For non-specialization constants, if an identical constant has already been
+  // emitted, returns the existing constant's result-id.
+  //
+  // Note1: This method modifies the curTypeInst. Do not call in the middle of
+  // construction of another instruction.
+  //
+  // Note 2: Integer constants may need to be generated for cases where there is
+  // no SpirvConstantInteger instruction in the module. For example, we need to
+  // emit an integer in order to create an array type. Therefore,
+  // 'getOrCreateConstantInt' has a different signature than others. If a
+  // constant instruction is provided, and it already has a result-id assigned,
+  // it will be used. Otherwise a new result-id will be allocated for the
+  // instruction.
+  uint32_t
+  getOrCreateConstantInt(llvm::APInt value, const SpirvType *type,
+                         bool isSpecConst,
+                         SpirvInstruction *constantInstruction = nullptr);
+  uint32_t getOrCreateConstantFloat(SpirvConstantFloat *);
+  uint32_t getOrCreateConstantComposite(SpirvConstantComposite *);
   uint32_t getOrCreateConstantNull(SpirvConstantNull *);
   uint32_t getOrCreateConstantBool(SpirvConstantBoolean *);
 
