@@ -815,7 +815,6 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(const SpirvType *type,
                                                 spv::BuiltIn builtin,
                                                 SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  // TODO(ehsan): type pointer should be added in lowering the type.
   auto *var =
       new (context) SpirvVariable(/*QualType*/ {}, /*id*/ 0, loc, storageClass);
   var->setResultType(type);
@@ -834,7 +833,6 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
                                                 spv::BuiltIn builtin,
                                                 SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  // TODO(ehsan): type pointer should be added in lowering the type.
   auto *var = new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass);
   module->addVariable(var);
 
