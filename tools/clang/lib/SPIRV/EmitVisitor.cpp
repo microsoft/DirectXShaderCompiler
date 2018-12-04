@@ -91,6 +91,12 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
     inst->setResultTypeId(resultTypeId);
   }
 
+  // Emit NonUniformEXT decoration (if any).
+  if (inst->isNonUniform()) {
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::NonUniformEXT, {});
+  }
+
   // Initialize the current instruction for emitting.
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(inst->getopcode()));
