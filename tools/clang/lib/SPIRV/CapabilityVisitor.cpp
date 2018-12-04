@@ -381,6 +381,9 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
 
   // Add NonUniform capabilities if necessary
   if (instr->isNonUniform()) {
+    spvBuilder.addExtension(Extension::EXT_descriptor_indexing, "NonUniformEXT",
+                            instr->getSourceLocation());
+    spvBuilder.requireCapability(spv::Capability::ShaderNonUniformEXT);
     spvBuilder.requireCapability(getNonUniformCapability(resultType));
   }
 

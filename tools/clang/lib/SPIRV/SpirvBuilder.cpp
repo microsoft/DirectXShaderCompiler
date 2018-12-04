@@ -186,6 +186,7 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setRValue();
   instruction->setLayoutRule(pointer->getLayoutRule());
+  instruction->setNonUniform(pointer->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -200,6 +201,7 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setRValue();
   instruction->setLayoutRule(pointer->getLayoutRule());
+  instruction->setNonUniform(pointer->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -232,6 +234,10 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
       new (context) SpirvAccessChain(resultType, /*id*/ 0, loc, base, indexes);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
+  bool isNonUniform = base->isNonUniform();
+  for (auto *index : indexes)
+    isNonUniform = isNonUniform || index->isNonUniform();
+  instruction->setNonUniform(isNonUniform);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -245,6 +251,10 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
   instruction->setResultType(resultType);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
+  bool isNonUniform = base->isNonUniform();
+  for (auto *index : indexes)
+    isNonUniform = isNonUniform || index->isNonUniform();
+  instruction->setNonUniform(isNonUniform);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -255,6 +265,7 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvUnaryOp(op, resultType, /*id*/ 0, loc, operand);
+  instruction->setNonUniform(operand->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -266,6 +277,7 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvBinaryOp(op, resultType, /*id*/ 0, loc, lhs, rhs);
+  instruction->setNonUniform(lhs->isNonUniform() || rhs->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -279,6 +291,7 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op,
   auto *instruction =
       new (context) SpirvBinaryOp(op, /*QualType*/ {}, /*id*/ 0, loc, lhs, rhs);
   instruction->setResultType(resultType);
+  instruction->setNonUniform(lhs->isNonUniform() || rhs->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -351,12 +364,25 @@ SpirvAtomic *SpirvBuilder::createAtomicCompareExchange(
   return instruction;
 }
 
+SpirvSampledImage *SpirvBuilder::createSampledImage(QualType imageType,
+                                                    SpirvInstruction *image,
+                                                    SpirvInstruction *sampler,
+                                                    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *sampledImage =
+      new (context) SpirvSampledImage(imageType, /*id*/ 0, loc, image, sampler);
+  sampledImage->setNonUniform(image->isNonUniform() || sampler->isNonUniform());
+  insertPoint->addInstruction(sampledImage);
+  return sampledImage;
+}
+
 SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
     QualType resultType, SpirvInstruction *image, SpirvInstruction *coordinate,
     SpirvInstruction *sample, SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvImageTexelPointer(
       resultType, /*id*/ 0, loc, image, coordinate, sample);
+  instruction->setNonUniform(image->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -401,7 +427,7 @@ spv::ImageOperandsMask SpirvBuilder::composeImageOperandsMask(
 
 SpirvInstruction *SpirvBuilder::createImageSample(
     QualType texelType, QualType imageType, SpirvInstruction *image,
-    SpirvInstruction *sampler, bool isNonUniform, SpirvInstruction *coordinate,
+    SpirvInstruction *sampler, SpirvInstruction *coordinate,
     SpirvInstruction *compareVal, SpirvInstruction *bias, SpirvInstruction *lod,
     std::pair<SpirvInstruction *, SpirvInstruction *> grad,
     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
@@ -434,15 +460,7 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   assert(lod == nullptr || minLod == nullptr);
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      new (context) SpirvSampledImage(imageType, /*id*/ 0, loc, image, sampler);
-  insertPoint->addInstruction(sampledImage);
-
-  if (isNonUniform) {
-    // The sampled image will be used to access resource's memory, so we need
-    // to decorate it with NonUniformEXT.
-    decorateNonUniformEXT(sampledImage, loc);
-  }
+  auto *sampledImage = createSampledImage(imageType, image, sampler, loc);
 
   const auto mask = composeImageOperandsMask(
       bias, lod, grad, constOffset, varOffset, constOffsets, sample, minLod);
@@ -520,7 +538,7 @@ void SpirvBuilder::createImageWrite(QualType imageType, SpirvInstruction *image,
 
 SpirvInstruction *SpirvBuilder::createImageGather(
     QualType texelType, QualType imageType, SpirvInstruction *image,
-    SpirvInstruction *sampler, bool isNonUniform, SpirvInstruction *coordinate,
+    SpirvInstruction *sampler, SpirvInstruction *coordinate,
     SpirvInstruction *component, SpirvInstruction *compareVal,
     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
     SpirvInstruction *constOffsets, SpirvInstruction *sample,
@@ -528,15 +546,7 @@ SpirvInstruction *SpirvBuilder::createImageGather(
   assert(insertPoint && "null insert point");
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      new (context) SpirvSampledImage(imageType, /*id*/ 0, loc, image, sampler);
-  insertPoint->addInstruction(sampledImage);
-
-  if (isNonUniform) {
-    // The sampled image will be used to access resource's memory, so we need
-    // to decorate it with NonUniformEXT.
-    decorateNonUniformEXT(sampledImage, loc);
-  }
+  auto *sampledImage = createSampledImage(imageType, image, sampler, loc);
 
   // TODO: Update ImageGather to accept minLod if necessary.
   const auto mask = composeImageOperandsMask(
