@@ -289,8 +289,9 @@ bool LiteralTypeVisitor::visit(SpirvCompositeExtract *inst) {
     const QualType newType =
         getTypeWithCustomBitwidth(astContext, baseType, resultTypeBitwidth);
     updateTypeForInstruction(base, newType);
-    return true;
   }
+
+  return true;
 }
 
 bool LiteralTypeVisitor::updateTypeForCompositeMembers(
