@@ -161,7 +161,7 @@ public:
   void setRelaxedPrecision() { isRelaxedPrecision_ = true; }
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
 
-  void setNonUniform(bool nu = true) { isNonUniform_ = true; }
+  void setNonUniform(bool nu = true) { isNonUniform_ = nu; }
   bool isNonUniform() const { return isNonUniform_; }
 
 protected:
