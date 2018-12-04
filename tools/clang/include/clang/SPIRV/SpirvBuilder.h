@@ -229,6 +229,12 @@ public:
       SpirvInstruction *valueToOp, SpirvInstruction *comparator,
       SourceLocation loc = {});
 
+  /// \brief Creates an OpSampledImage SPIR-V instruction with proper
+  /// decorations for the given parameters.
+  SpirvSampledImage *createSampledImage(QualType, SpirvInstruction *image,
+                                        SpirvInstruction *sampler,
+                                        SourceLocation loc = {});
+
   /// \brief Creates an OpImageTexelPointer SPIR-V instruction with the given
   /// parameters.
   SpirvImageTexelPointer *createImageTexelPointer(QualType resultType,
@@ -259,9 +265,8 @@ public:
   SpirvInstruction *
   createImageSample(QualType texelType, QualType imageType,
                     SpirvInstruction *image, SpirvInstruction *sampler,
-                    bool isNonUniform, SpirvInstruction *coordinate,
-                    SpirvInstruction *compareVal, SpirvInstruction *bias,
-                    SpirvInstruction *lod,
+                    SpirvInstruction *coordinate, SpirvInstruction *compareVal,
+                    SpirvInstruction *bias, SpirvInstruction *lod,
                     std::pair<SpirvInstruction *, SpirvInstruction *> grad,
                     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
                     SpirvInstruction *constOffsets, SpirvInstruction *sample,
@@ -302,11 +307,11 @@ public:
   SpirvInstruction *
   createImageGather(QualType texelType, QualType imageType,
                     SpirvInstruction *image, SpirvInstruction *sampler,
-                    bool isNonUniform, SpirvInstruction *coordinate,
-                    SpirvInstruction *component, SpirvInstruction *compareVal,
-                    SpirvInstruction *constOffset, SpirvInstruction *varOffset,
-                    SpirvInstruction *constOffsets, SpirvInstruction *sample,
-                    SpirvInstruction *residencyCode, SourceLocation loc = {});
+                    SpirvInstruction *coordinate, SpirvInstruction *component,
+                    SpirvInstruction *compareVal, SpirvInstruction *constOffset,
+                    SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
+                    SpirvInstruction *sample, SpirvInstruction *residencyCode,
+                    SourceLocation loc = {});
 
   /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
   /// given Resident Code and returns the instruction pointer.

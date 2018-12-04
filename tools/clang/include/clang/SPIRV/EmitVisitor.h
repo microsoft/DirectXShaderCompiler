@@ -72,6 +72,13 @@ public:
   // instructions into the annotationsBinary.
   uint32_t emitType(const SpirvType *);
 
+  // Emits OpDecorate (or OpMemberDecorate if memberIndex is non-zero)
+  // targetting the given type. Uses the given decoration kind and its
+  // parameters.
+  void emitDecoration(uint32_t typeResultId, spv::Decoration,
+                      llvm::ArrayRef<uint32_t> decorationParams,
+                      llvm::Optional<uint32_t> memberIndex = llvm::None);
+
   uint32_t getOrCreateConstant(SpirvConstant *);
 
   // Emits an OpConstant instruction and returns its result-id.
@@ -105,13 +112,6 @@ private:
   // the same decorations have already been used, it returns the existing
   // result-id. If not, creates a new result-id for such type and returns it.
   uint32_t getResultIdForType(const SpirvType *, bool *alreadyExists);
-
-  // Emits OpDecorate (or OpMemberDecorate if memberIndex is non-zero)
-  // targetting the given type. Uses the given decoration kind and its
-  // parameters.
-  void emitDecoration(uint32_t typeResultId, spv::Decoration,
-                      llvm::ArrayRef<uint32_t> decorationParams,
-                      llvm::Optional<uint32_t> memberIndex = llvm::None);
 
   // Emits an OpName (if memberIndex is not provided) or OpMemberName (if
   // memberIndex is provided) for the given target result-id.
