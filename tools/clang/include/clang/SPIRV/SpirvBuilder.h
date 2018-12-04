@@ -551,10 +551,6 @@ public:
   /// \brief Decorates the given target with patch
   void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc = {});
 
-  /// \brief Decorates the given target with nonuniformEXT
-  void decorateNonUniformEXT(SpirvInstruction *target,
-                             SourceLocation srcLoc = {});
-
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.
