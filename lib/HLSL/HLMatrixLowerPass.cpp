@@ -412,26 +412,14 @@ INITIALIZE_PASS(HLMatrixLowerPass, "hlmatrixlower", "HLSL High-Level Matrix Lowe
 static Instruction *CreateTypeCast(HLCastOpcode castOp, Type *toTy, Value *src,
                                    IRBuilder<> Builder) {
   // Cast to bool.
-  if (toTy->getScalarType()->isIntegerTy() &&
-      toTy->getScalarType()->getIntegerBitWidth() == 1) {
+  if (toTy->getScalarType()->isIntegerTy(1)) {
     Type *fromTy = src->getType();
+    Constant *zero = llvm::Constant::getNullValue(src->getType());
     bool isFloat = fromTy->getScalarType()->isFloatingPointTy();
-    Constant *zero;
     if (isFloat)
-      zero = llvm::ConstantFP::get(fromTy->getScalarType(), 0);
+      return cast<Instruction>(Builder.CreateFCmpONE(src, zero));
     else
-      zero = llvm::ConstantInt::get(fromTy->getScalarType(), 0);
-
-    if (toTy->getScalarType() != toTy) {
-      // Create constant vector.
-      unsigned size = toTy->getVectorNumElements();
-      std::vector<Constant *> zeros(size, zero);
-      zero = llvm::ConstantVector::get(zeros);
-    }
-    if (isFloat)
-      return cast<Instruction>(Builder.CreateFCmpOEQ(src, zero));
-    else
-      return cast<Instruction>(Builder.CreateICmpEQ(src, zero));
+      return cast<Instruction>(Builder.CreateICmpNE(src, zero));
   }
 
   Type *eltToTy = toTy->getScalarType();
