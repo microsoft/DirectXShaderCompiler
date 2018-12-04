@@ -902,15 +902,16 @@ private:
   /// HLSL image sampling methods may return a scalar, vec1, vec2, vec3, or
   /// vec4. But non-Dref image sampling instructions in SPIR-V must always
   /// return a vec4. As a result, an extra processing step is necessary.
-  SpirvInstruction *createImageSample(
-      QualType retType, QualType imageType, SpirvInstruction *image,
-      SpirvInstruction *sampler, bool isNonUniform,
-      SpirvInstruction *coordinate, SpirvInstruction *compareVal,
-      SpirvInstruction *bias, SpirvInstruction *lod,
-      std::pair<SpirvInstruction *, SpirvInstruction *> grad,
-      SpirvInstruction *constOffset, SpirvInstruction *varOffset,
-      SpirvInstruction *constOffsets, SpirvInstruction *sample,
-      SpirvInstruction *minLod, SpirvInstruction *residencyCodeId);
+  SpirvInstruction *
+  createImageSample(QualType retType, QualType imageType,
+                    SpirvInstruction *image, SpirvInstruction *sampler,
+                    SpirvInstruction *coordinate, SpirvInstruction *compareVal,
+                    SpirvInstruction *bias, SpirvInstruction *lod,
+                    std::pair<SpirvInstruction *, SpirvInstruction *> grad,
+                    SpirvInstruction *constOffset, SpirvInstruction *varOffset,
+                    SpirvInstruction *constOffsets, SpirvInstruction *sample,
+                    SpirvInstruction *minLod,
+                    SpirvInstruction *residencyCodeId);
 
   /// \brief Emit an OpLine instruction for the given source location.
   void emitDebugLine(SourceLocation);
@@ -994,13 +995,6 @@ private:
   /// Indicates whether the current emitter is in specialization constant mode:
   /// all 32-bit scalar constants will be translated into OpSpecConstant.
   bool isSpecConstantMode;
-
-  /// Indicates that we have found a NonUniformResourceIndex call when
-  /// traversing.
-  /// This field is used to convery information in a bottom-up manner; if we
-  /// have something like `aResource[NonUniformResourceIndex(aIndex)]`, we need
-  /// to attach `aResource` with proper decorations.
-  bool foundNonUniformResourceIndex;
 
   /// Whether the translated SPIR-V binary needs legalization.
   ///
