@@ -89,7 +89,6 @@ namespace llvm {
           memcpy(chunk, Ptr, len);
           chunk[len] = '\0';
           OutputDebugStringA(chunk);
-          printf(chunk);
           Size -= len;
           Ptr += len;
         }

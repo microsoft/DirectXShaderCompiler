@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 // CHECK: @main
 
 AppendStructuredBuffer<float4> buf0;

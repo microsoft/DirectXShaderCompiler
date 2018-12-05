@@ -140,7 +140,7 @@ struct LoopIteration {
 
 static bool GetConstantI1(Value *V, bool *Val=nullptr) {
   if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
-    if (V->getType() == Type::getInt1Ty(V->getContext())) {
+    if (V->getType()->isIntegerTy(1)) {
       if (Val)
         *Val = (bool)C->getLimitedValue();
       return true;
@@ -713,11 +713,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       if (!GetConstantI1(BI->getCondition(), &Cond))
         break;
 
-      if (!Cond && BI->getSuccessor(0) == CurIteration.Header) {
-        Succeeded = true;
-        break;
-      }
-      else if (Cond && BI->getSuccessor(1) == CurIteration.Header) {
+      if (BI->getSuccessor(Cond ? 1 : 0) == CurIteration.Header) {
         Succeeded = true;
         break;
       }

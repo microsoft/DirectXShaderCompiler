@@ -219,10 +219,9 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createHLDeadFunctionEliminationPass());
   }
 
-  if (!NoOpt) {
-    MPM.add(createLoopRotatePass());
-    MPM.add(createDxilLoopUnrollPass());
-  }
+  // Passes to handle [unroll]
+  MPM.add(createLoopRotatePass());
+  MPM.add(createDxilLoopUnrollPass());
 
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
