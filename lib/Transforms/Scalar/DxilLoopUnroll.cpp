@@ -63,19 +63,6 @@ static inline void RemapInstruction(Instruction *I,
 
 namespace {
 
-static std::string GetBlockName(BasicBlock *BB) {
-  return BB->getName();
-}
-
-template<typename T>
-static std::string DumpValue(T *V) {
-  std::string Val;
-  raw_string_ostream OS(Val);
-  OS << *V;
-  OS.flush();
-  return Val;
-}
-
 class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
@@ -496,6 +483,10 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
+  // If the loop is not marked as [unroll], don't do anything.
+  if (!IsMarkedFullUnroll(L))
+    return false;
+
   if (!L->isSafeToClone())
     return false;
 
@@ -536,11 +527,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Heuristically find blocks that likely need to be unrolled
   SetVector<BasicBlock *> ProblemBlocks;
   FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks);
-
-  // If the loop is neither marked as [unroll] nor has blocks that
-  // need to be unrolled, give up.
-  if (!IsMarkedFullUnroll(L) && !ProblemBlocks.size())
-    return false;
 
   // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;
@@ -809,6 +795,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
+    // TODO: Fail compilation. Unable to unroll fully.
     // Remove all the cloned blocks
     for (LoopIteration &Iteration : Clones)
       for (BasicBlock *BB : Iteration.Body)
