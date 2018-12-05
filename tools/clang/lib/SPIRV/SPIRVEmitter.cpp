@@ -878,7 +878,6 @@ SpirvInstruction *SPIRVEmitter::loadIfGLValue(const Expr *expr,
   //
   // Note: legalization specific code
   if (isReferencingNonAliasStructuredOrByteBuffer(expr)) {
-    info->setRValue();
     return info;
   }
 
@@ -962,30 +961,12 @@ bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr,
   assert(instr);
   if ((*instr) && (*instr)->containsAliasComponent() &&
       isAKindOfStructuredOrByteBuffer(varExpr->getType())) {
-    // Aliased-to variables are all in the Uniform storage class with GLSL
-    // std430 layout rules.
-
     // Load the pointer of the aliased-to-variable if the expression has a
-    // pointer to pointer type. That is, the expression itself is a lvalue.
-    // (Note that we translate alias function return values as pointer types,
-    // not pointer to pointer types.)
-
+    // pointer to pointer type.
     if (varExpr->isGLValue())
-      *instr = spvBuilder.createLoad(
-          spvContext.getPointerType(varExpr->getType(),
-                                    spv::StorageClass::Uniform),
-          *instr);
-
-    (*instr)->setStorageClass(spv::StorageClass::Uniform);
-    (*instr)->setLayoutRule(spirvOptions.sBufferLayoutRule);
-    // Now it is a pointer to the global resource, which is lvalue.
-    (*instr)->setRValue(false);
-    // Set to false to indicate that we've performed dereference over the
-    // pointer-to-pointer and now should fallback to the normal path
-    (*instr)->setContainsAliasComponent(false);
+      *instr = spvBuilder.createLoad(varExpr->getType(), *instr);
     return true;
   }
-
   return false;
 }
 
@@ -2135,11 +2116,6 @@ SpirvInstruction *SPIRVEmitter::processCall(const CallExpr *callExpr) {
     }
   }
 
-  // Inherit the SpirvEvalInfo from the function definition
-  // TODO (ehsan): Verify this is OK.
-  // return declIdMapper.getDeclEvalInfo(callee).setResultId(retVal);
-  retVal->setContainsAliasComponent(func->constainsAliasComponent());
-  retVal->setRValue(func->isRValue());
   return retVal;
 }
 
@@ -6113,6 +6089,7 @@ SpirvInstruction *SPIRVEmitter::turnIntoElementPtr(
     const auto var = createTemporaryVar(baseType, varName, base);
     var->setLayoutRule(SpirvLayoutRule::Void);
     var->setStorageClass(spv::StorageClass::Function);
+    var->setContainsAliasComponent(base->containsAliasComponent());
     accessChainBase = var;
   }
 

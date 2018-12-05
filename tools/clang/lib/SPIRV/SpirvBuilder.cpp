@@ -11,6 +11,7 @@
 #include "CapabilityVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "TypeTranslator.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/EmitVisitor.h"
 #include "clang/SPIRV/LowerTypeVisitor.h"
 
@@ -184,9 +185,20 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   auto *instruction =
       new (context) SpirvLoad(resultType, /*id*/ 0, loc, pointer);
   instruction->setStorageClass(pointer->getStorageClass());
-  instruction->setRValue();
   instruction->setLayoutRule(pointer->getLayoutRule());
   instruction->setNonUniform(pointer->isNonUniform());
+  instruction->setRValue(true);
+
+  if (pointer->containsAliasComponent() &&
+      isAKindOfStructuredOrByteBuffer(resultType)) {
+    instruction->setStorageClass(spv::StorageClass::Uniform);
+    // Now it is a pointer to the global resource, which is lvalue.
+    instruction->setRValue(false);
+    // Set to false to indicate that we've performed dereference over the
+    // pointer-to-pointer and now should fallback to the normal path
+    instruction->setContainsAliasComponent(false);
+  }
+
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -199,9 +211,9 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
       new (context) SpirvLoad(/*QualType*/ {}, /*id*/ 0, loc, pointer);
   instruction->setResultType(resultType);
   instruction->setStorageClass(pointer->getStorageClass());
-  instruction->setRValue();
   instruction->setLayoutRule(pointer->getLayoutRule());
   instruction->setNonUniform(pointer->isNonUniform());
+  instruction->setRValue(true);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -220,7 +232,19 @@ SpirvBuilder::createFunctionCall(QualType returnType, SpirvFunction *func,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvFunctionCall(returnType, /*id*/ 0, loc, func, params);
-  instruction->setRValue();
+  instruction->setRValue(func->isRValue());
+  instruction->setContainsAliasComponent(func->constainsAliasComponent());
+
+  if (func->constainsAliasComponent() &&
+      isAKindOfStructuredOrByteBuffer(returnType)) {
+    instruction->setStorageClass(spv::StorageClass::Uniform);
+    // Now it is a pointer to the global resource, which is lvalue.
+    instruction->setRValue(false);
+    // Set to false to indicate that we've performed dereference over the
+    // pointer-to-pointer and now should fallback to the normal path
+    instruction->setContainsAliasComponent(false);
+  }
+
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -238,6 +262,14 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
   for (auto *index : indexes)
     isNonUniform = isNonUniform || index->isNonUniform();
   instruction->setNonUniform(isNonUniform);
+  instruction->setContainsAliasComponent(base->containsAliasComponent());
+
+  // If doing an access chain into a structured or byte address buffer, make
+  // sure the layout rule is sBufferLayoutRule.
+  if (base->hasAstResultType() &&
+      isAKindOfStructuredOrByteBuffer(base->getAstResultType()))
+    instruction->setLayoutRule(spirvOptions.sBufferLayoutRule);
+
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -255,6 +287,14 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
   for (auto *index : indexes)
     isNonUniform = isNonUniform || index->isNonUniform();
   instruction->setNonUniform(isNonUniform);
+  instruction->setContainsAliasComponent(base->containsAliasComponent());
+
+  // If doing an access chain into a structured or byte address buffer, make
+  // sure the layout rule is sBufferLayoutRule.
+  if (base->hasAstResultType() &&
+      isAKindOfStructuredOrByteBuffer(base->getAstResultType()))
+    instruction->setLayoutRule(spirvOptions.sBufferLayoutRule);
+
   insertPoint->addInstruction(instruction);
   return instruction;
 }
