@@ -84,7 +84,7 @@ private:
   /// Returns false if type is a SPIR-V col-major matrix or array of matrices.
   /// It does so by checking the majorness of the HLSL matrix either with
   /// explicit attribute or implicit command-line option.
-  /// 
+  ///
   /// Note that HLSL matrices are conceptually row major, while SPIR-V matrices
   /// are conceptually column major. We are mapping what HLSL semantically mean
   /// a row into a column here.
