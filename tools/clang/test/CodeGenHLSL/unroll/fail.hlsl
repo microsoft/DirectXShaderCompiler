@@ -1,5 +1,5 @@
 // RUN: %dxc -Od -E main -T ps_6_0 %s | FileCheck %s
-// CHECK-NOT: @main
+// CHECK: Could not unroll loop.
 
 // Check that the compilation fails due to unable to
 // find the loop bound.

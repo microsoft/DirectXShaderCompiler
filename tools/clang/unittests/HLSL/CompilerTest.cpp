@@ -925,6 +925,7 @@ public:
   TEST_METHOD(CodeGenDx12MiniEngineParticlesortindirectargscs)
   TEST_METHOD(CodeGenDx12MiniEngineParticlespawncs)
   TEST_METHOD(CodeGenDx12MiniEngineParticletilecullingcs)
+  TEST_METHOD(CodeGenDx12MiniEngineParticletilecullingcs_fail_unroll)
   TEST_METHOD(CodeGenDx12MiniEngineParticletilerendercs)
   TEST_METHOD(CodeGenDx12MiniEngineParticletilerenderfastcs)
   TEST_METHOD(CodeGenDx12MiniEngineParticletilerenderfastdynamiccs)
@@ -5655,6 +5656,10 @@ TEST_F(CompilerTest, CodeGenDx12MiniEngineParticlespawncs){
 
 TEST_F(CompilerTest, CodeGenDx12MiniEngineParticletilecullingcs){
   CodeGenTestCheck(L"..\\CodeGenHLSL\\Samples\\MiniEngine\\ParticleTileCullingCS.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenDx12MiniEngineParticletilecullingcs_fail_unroll){
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\Samples\\MiniEngine\\ParticleTileCullingCS_fail_unroll.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenDx12MiniEngineParticletilerendercs){

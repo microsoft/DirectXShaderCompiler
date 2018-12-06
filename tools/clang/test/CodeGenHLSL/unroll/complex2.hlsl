@@ -10,6 +10,8 @@
 // CHECK: call float @dx.op.dot3
 // CHECK: call float @dx.op.dot3
 
+// CHECK-NOT: call float @dx.op.dot3
+
 uint gc[4];
 uint g_bound;
 

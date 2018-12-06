@@ -19,6 +19,8 @@
 // CHECK: call i32 @dx.op.bufferUpdateCounter
 // CHECK: call i32 @dx.op.bufferUpdateCounter
 
+// CHECK-NOT: call i32 @dx.op.bufferUpdateCounter
+
 AppendStructuredBuffer<float4> buf0;
 AppendStructuredBuffer<float4> buf1;
 AppendStructuredBuffer<float4> buf2;
