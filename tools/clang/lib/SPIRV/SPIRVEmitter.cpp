@@ -5789,8 +5789,6 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     // chain. base is already the dest pointer.
     auto *lhsElemPtr = base;
     if (!indexInstructions.empty()) {
-      // Note (ehsan): If rvalue is not propagated yet, it is possible that this
-      // assert fails?
       assert(!base->isRValue());
       // Load the element via access chain
       lhsElemPtr = spvBuilder.createAccessChain(
