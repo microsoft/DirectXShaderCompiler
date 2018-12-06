@@ -8712,10 +8712,6 @@ SpirvConstant *SPIRVEmitter::translateAPValue(const APValue &value,
                                               const QualType targetType) {
   SpirvConstant *result = nullptr;
 
-  // Provide a hint to the typeTranslator that if a literal is discovered, its
-  // intended usage is targetType.
-  TypeTranslator::LiteralTypeHint hint(typeTranslator, targetType);
-
   if (targetType->isBooleanType()) {
     result = spvBuilder.getConstantBool(value.getInt().getBoolValue(),
                                         isSpecConstantMode);
@@ -8749,7 +8745,6 @@ SpirvConstant *SPIRVEmitter::translateAPValue(const APValue &value,
 
 SpirvConstant *SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                             QualType targetType) {
-  targetType = typeTranslator.getIntendedLiteralType(targetType);
   return spvBuilder.getConstantInt(targetType, intValue, isSpecConstantMode);
 }
 
@@ -8822,7 +8817,6 @@ SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
 
 SpirvConstant *SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
                                               QualType targetType) {
-  targetType = typeTranslator.getIntendedLiteralType(targetType);
   return spvBuilder.getConstantFloat(targetType, floatValue,
                                      isSpecConstantMode);
 }
