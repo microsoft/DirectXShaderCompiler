@@ -5915,10 +5915,6 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     return base;
   }
 
-  // Provide a hint to the TypeTranslator that the integer literal used to
-  // index into the following cases should be translated as a 32-bit integer.
-  TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
-
   if (const auto *indexing = dyn_cast<ArraySubscriptExpr>(expr)) {
     if (rawIndex)
       return nullptr; // TODO: handle constant array index
