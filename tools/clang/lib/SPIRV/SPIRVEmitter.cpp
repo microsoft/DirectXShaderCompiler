@@ -789,12 +789,6 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
 
 SpirvInstruction *SPIRVEmitter::doExpr(const Expr *expr) {
   SpirvInstruction *result = nullptr;
-
-  // Provide a hint to the typeTranslator that if a literal is discovered, its
-  // intended usage is as this expression type.
-  // TODO(ehsan): Literal type handling must be fixed.
-  TypeTranslator::LiteralTypeHint hint(typeTranslator, expr->getType());
-
   expr = expr->IgnoreParens();
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
