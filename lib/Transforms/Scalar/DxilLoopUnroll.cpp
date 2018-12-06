@@ -118,19 +118,6 @@ static bool SimplifyPHIs(BasicBlock *BB) {
   return Changed;
 }
 
-static void FindAllDataDependency(Instruction *I, const SetVector<BasicBlock *> &Blocks, SetVector<Instruction *> &Dependencies) {
-  Dependencies.insert(I);
-  for (User *U : I->users()) {
-    if (Instruction *UserI = dyn_cast<Instruction>(U)) {
-      if (Dependencies.count(UserI))
-        continue;
-      if (!Blocks.count(UserI->getParent()))
-        continue;
-      FindAllDataDependency(UserI, Blocks, Dependencies);
-    }
-  }
-}
-
 struct LoopIteration {
   SmallVector<BasicBlock *, 16> Body;
   BasicBlock *Latch = nullptr;
@@ -372,9 +359,7 @@ static bool blockDominatesAnExit(BasicBlock *BB,
 //
 // We need to recreate the LCSSA form since our loop boundary is potentially different from
 // the canonical one.
-static bool CreateLCSSA(SetVector<BasicBlock *> &Body, SetVector<BasicBlock *> &ExitBlockSet, Loop *L, DominatorTree &DT, LoopInfo *LI) {
-
-  SmallVector<BasicBlock *, 4> ExitBlocks(ExitBlockSet.begin(), ExitBlockSet.end());
+static bool CreateLCSSA(SetVector<BasicBlock *> &Body, const SmallVectorImpl<BasicBlock *> &ExitBlocks, Loop *L, DominatorTree &DT, LoopInfo *LI) {
 
   PredIteratorCache PredCache;
   bool Changed = false;
@@ -405,38 +390,40 @@ static bool CreateLCSSA(SetVector<BasicBlock *> &Body, SetVector<BasicBlock *> &
   return Changed;
 }
 
-static bool DoesBlockNeedUnroll(BasicBlock *BB, const SetVector<Instruction *> &LoopDependencies) {
-  for (Instruction &I : *BB) {
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
-      Type *EltType = GEP->getType()->getPointerElementType();
-      if (!hlsl::dxilutil::IsHLSLObjectType(EltType))
-        continue;
-      for (auto IdxIt = GEP->idx_begin(); IdxIt != GEP->idx_end(); IdxIt++) {
-        Value *Idx = *IdxIt;
-        if (Instruction *NonConstIdx = dyn_cast<Instruction>(Idx)) {
-          if (LoopDependencies.count(NonConstIdx))
-            return true;
-        }
-      }
-    }
-  }
-  return false;
-}
+static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlock *> &BlocksInLoop, std::unordered_set<BasicBlock *> &ProblemBlocks) {
+  SmallVector<Instruction *, 16> WorkList;
 
-static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlock *> &BlocksInLoop, SetVector<BasicBlock *> &ProblemBlocks) {
-  SetVector<BasicBlock *> BlocksInLoopSet(BlocksInLoop.begin(), BlocksInLoop.end());
-  SetVector<Instruction *> LoopDependencies;
-  SmallVector<PHINode *, 8> HeaderPHI;
+  std::unordered_set<BasicBlock *> BlocksInLoopSet(BlocksInLoop.begin(), BlocksInLoop.end());
+  std::unordered_set<Instruction *> InstructionsSeen;
+
   for (Instruction &I : *Header) {
     PHINode *PN = dyn_cast<PHINode>(&I);
     if (!PN)
       break;
-    FindAllDataDependency(PN, BlocksInLoopSet, LoopDependencies);
+    WorkList.push_back({ PN });
   }
 
-  for (BasicBlock *BB : BlocksInLoop) {
-    if (DoesBlockNeedUnroll(BB, LoopDependencies))
-      ProblemBlocks.insert(BB);
+  while (WorkList.size()) {
+    Instruction *I = WorkList.pop_back_val();
+    if (InstructionsSeen.count(I))
+      continue;
+    if (!BlocksInLoopSet.count(I->getParent()))
+      continue;
+    InstructionsSeen.insert(I);
+
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      Type *EltType = GEP->getType()->getPointerElementType();
+      if (hlsl::dxilutil::IsHLSLObjectType(EltType)) {
+        ProblemBlocks.insert(GEP->getParent());
+        continue; // Stop Propagating
+      }
+    }
+
+    for (User *U : I->users()) {
+      if (Instruction *UserI = dyn_cast<Instruction>(U)) {
+        WorkList.push_back(UserI);
+      }
+    }
   }
 }
 
@@ -523,14 +510,14 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   SmallVector<BasicBlock *, 16> ExitBlocks;
   L->getExitBlocks(ExitBlocks);
-  SetVector<BasicBlock *> ExitBlockSet(ExitBlocks.begin(), ExitBlocks.end());
+  std::unordered_set<BasicBlock *> ExitBlockSet(ExitBlocks.begin(), ExitBlocks.end());
 
   SmallVector<BasicBlock *, 16> BlocksInLoop;
   BlocksInLoop.append(L->getBlocks().begin(), L->getBlocks().end());
   BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
 
   // Heuristically find blocks that likely need to be unrolled
-  SetVector<BasicBlock *> ProblemBlocks;
+  std::unordered_set<BasicBlock *> ProblemBlocks;
   FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks);
 
   // Keep track of the PHI nodes at the header.
@@ -548,8 +535,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   for (BasicBlock *BB : L->getBlocks())
     ToBeCloned.insert(BB);
 
-  SetVector<BasicBlock *> NewExits; // New set of exit blocks as boundaries for LCSSA
-  SetVector<BasicBlock *> FakeExits; // Set of blocks created to allow cloning original exit blocks.
+  SmallVector<BasicBlock *, 8> NewExits; // New set of exit blocks as boundaries for LCSSA
+  SmallVector<BasicBlock *, 8> FakeExits; // Set of blocks created to allow cloning original exit blocks.
   for (BasicBlock *BB : ExitBlocks) {
     bool CloneThisExitBlock = ProblemBlocks.count(BB);
 
@@ -575,15 +562,15 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         }
       }
 
-      NewExits.insert(FakeExit);
-      FakeExits.insert(FakeExit);
+      NewExits.push_back(FakeExit);
+      FakeExits.push_back(FakeExit);
 
       // Update Dom tree
       if (!DT->getNode(FakeExit))
         DT->addNewBlock(FakeExit, BB);
     }
     else {
-      NewExits.insert(BB);
+      NewExits.push_back(BB);
     }
   }
 
