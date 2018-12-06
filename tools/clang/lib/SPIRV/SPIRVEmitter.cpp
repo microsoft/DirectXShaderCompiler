@@ -2124,31 +2124,6 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   const QualType subExprType = subExpr->getType();
   const QualType toType = expr->getType();
 
-  // Unfortunately the front-end fails to deduce some types in certain cases.
-  // Provide a hint about literal type usage if possible.
-  TypeTranslator::LiteralTypeHint hint(typeTranslator);
-
-  // 'literal int' to 'float' conversion. If a literal integer is to be used as
-  // a 32-bit float, the hint is a 32-bit integer.
-  if (toType->isFloatingType() &&
-      subExprType->isSpecificBuiltinType(BuiltinType::LitInt) &&
-      llvm::APFloat::getSizeInBits(astContext.getFloatTypeSemantics(toType)) ==
-          32)
-    hint.setHint(astContext.IntTy);
-  // 'literal float' to 'float' conversion where intended type is float32.
-  if (toType->isFloatingType() &&
-      subExprType->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-      llvm::APFloat::getSizeInBits(astContext.getFloatTypeSemantics(toType)) ==
-          32)
-    hint.setHint(astContext.FloatTy);
-
-  // TODO: We could provide other useful hints. For instance:
-  // For the case of toType being a boolean, if the fromType is a literal float,
-  // we could provide a FloatTy hint and if the fromType is a literal integer,
-  // we could provide an IntTy hint. The front-end, however, seems to deduce the
-  // correct type in these cases; therefore we currently don't provide any
-  // additional hints.
-
   switch (expr->getCastKind()) {
   case CastKind::CK_LValueToRValue:
     return loadIfGLValue(subExpr);
@@ -2379,7 +2354,6 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return subExprInstr;
     }
 
-    TypeTranslator::LiteralTypeHint hint(typeTranslator);
     // Try to evaluate float literals as float rather than double.
     if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr)) {
       subExprInstr = tryToEvaluateAsFloat32(floatLiteral->getValue());
@@ -2392,7 +2366,6 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     // 'literal float' type.
     else if (subExprType->isSpecificBuiltinType(BuiltinType::LitFloat)) {
       evalType = astContext.FloatTy;
-      hint.setHint(astContext.FloatTy);
     }
     // Try to evaluate integer literals as 32-bit int rather than 64-bit int.
     else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr)) {
@@ -5073,19 +5046,6 @@ SpirvInstruction *SPIRVEmitter::processBinaryOp(
     const spv::Op mandateGenOpcode) {
   const QualType lhsType = lhs->getType();
   const QualType rhsType = rhs->getType();
-
-  // Binary logical operations (such as ==, !=, etc) that return a boolean type
-  // may get a literal (e.g. 0, 1, etc.) as lhs or rhs args. Since only
-  // non-zero-ness of these literals matter, they can be translated as 32-bits.
-  TypeTranslator::LiteralTypeHint hint(typeTranslator);
-  if (resultType->isBooleanType()) {
-    if (lhsType->isSpecificBuiltinType(BuiltinType::LitInt) ||
-        rhsType->isSpecificBuiltinType(BuiltinType::LitInt))
-      hint.setHint(astContext.IntTy);
-    if (lhsType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
-        rhsType->isSpecificBuiltinType(BuiltinType::LitFloat))
-      hint.setHint(astContext.FloatTy);
-  }
 
   // If the operands are of matrix type, we need to dispatch the operation
   // onto each element vector iff the operands are not degenerated matrices
