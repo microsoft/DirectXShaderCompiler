@@ -2571,41 +2571,6 @@ SpirvInstruction *
 SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const auto type = expr->getType();
 
-  // Enhancement for special case when the ConditionalOperator return type is a
-  // literal type. For example:
-  //
-  // float a = cond ? 1 : 2;
-  // int   b = cond ? 1.5 : 2.5;
-  //
-  // There will be no indications about whether '1' and '2' should be used as
-  // 32-bit or 64-bit integers. Similarly, there will be no indication about
-  // whether '1.5' and '2.5' should be used as 32-bit or 64-bit floats.
-  //
-  // We want to avoid using 64-bit int and 64-bit float as much as possible.
-  //
-  // Note that if the literal is in fact large enough that it can't be
-  // represented in 32 bits (e.g. integer larger than 3e+9), we should *not*
-  // provide a hint.
-
-  TypeTranslator::LiteralTypeHint hint(typeTranslator);
-  const bool isLitInt = type->isSpecificBuiltinType(BuiltinType::LitInt);
-  const bool isLitFloat = type->isSpecificBuiltinType(BuiltinType::LitFloat);
-  // Return type of ConditionalOperator is a 'literal int' or 'literal float'
-  if (isLitInt || isLitFloat) {
-    // There is no hint about the intended usage of the literal type.
-    if (typeTranslator.getIntendedLiteralType(type) == type) {
-      // If either branch is a literal that is larger than 32-bits, do not
-      // provide a hint.
-      if (!isLiteralLargerThan32Bits(expr->getTrueExpr()) &&
-          !isLiteralLargerThan32Bits(expr->getFalseExpr())) {
-        if (isLitInt)
-          hint.setHint(astContext.IntTy);
-        else if (isLitFloat)
-          hint.setHint(astContext.FloatTy);
-      }
-    }
-  }
-
   // According to HLSL doc, all sides of the ?: expression are always evaluated.
 
   // If we are selecting between two SampleState objects, none of the three
