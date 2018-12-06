@@ -24,8 +24,15 @@ namespace spirv {
 // -- SpirvSpecConstantBinaryOp
 // -- SpirvSpecConstantUnaryOp
 
-// SpirvConstantComposite
-// SpirvComposite
+bool LiteralTypeVisitor::isLiteralLargerThan32Bits(
+    SpirvConstantInteger *constant) {
+  assert(constant->hasAstResultType());
+  QualType type = constant->getAstResultType();
+  const bool isSigned = type->isSignedIntegerType();
+  const llvm::APInt &value = constant->getValue();
+  return (isSigned && !value.isSignedIntN(32)) ||
+         (!isSigned && !value.isIntN(32));
+}
 
 bool LiteralTypeVisitor::canDeduceTypeFromLitType(QualType litType,
                                                   QualType newType) {
@@ -351,6 +358,20 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
     }
   }
 
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvAccessChain *inst) {
+  for (auto *index : inst->getIndexes()) {
+    if (auto *constInt = dyn_cast<SpirvConstantInteger>(index)) {
+      if (!isLiteralLargerThan32Bits(constInt)) {
+        updateTypeForInstruction(
+            constInt, constInt->getAstResultType()->isSignedIntegerType()
+                          ? astContext.IntTy
+                          : astContext.UnsignedIntTy);
+      }
+    }
+  }
   return true;
 }
 
