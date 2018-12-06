@@ -1,19 +1,6 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// CHECK: groupId
-// CHECK: flattenedThreadIdInGroup
-// CHECK: threadIdInGroup
-// CHECK: bufferLoad
-// CHECK: textureLoad
-// CHECK: UMin
-// CHECK: Countbits
-// CHECK: FirstbitHi
-// CHECK: barrier
-// CHECK: bufferStore
-// CHECK: IMax
-// CHECK: IMin
-// CHECK: bufferStore
-// CHECK: AtomicAdd
+// CHECK: Could not unroll loop.
 
 //
 // Copyright (c) Microsoft. All rights reserved.

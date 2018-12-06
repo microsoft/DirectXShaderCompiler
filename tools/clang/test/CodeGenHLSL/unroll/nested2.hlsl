@@ -31,3 +31,4 @@ float main() : SV_Target {
 
   return ret;
 }
+

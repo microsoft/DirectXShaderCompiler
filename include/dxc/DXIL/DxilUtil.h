@@ -30,6 +30,7 @@ class BasicBlock;
 class raw_ostream;
 class ModulePass;
 class PassRegistry;
+class DebugLoc;
 
 ModulePass *createDxilLoadMetadataPass();
 void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
@@ -66,6 +67,8 @@ namespace dxilutil {
                              llvm::Function *PatchConstantFunc, bool IsLib);
   void EmitErrorOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
   void EmitResMappingError(llvm::Instruction *Res);
+  void EmitErrorAtLocation(llvm::LLVMContext &Ctx, const llvm::DebugLoc &DL, llvm::Twine Msg);
+  void EmitErrorWithoutLocation(llvm::LLVMContext &Ctx, llvm::Twine Msg);
   // Simple demangle just support case "\01?name@" pattern.
   llvm::StringRef DemangleFunctionName(llvm::StringRef name);
   // ReplaceFunctionName replaces the undecorated portion of originalName with undecorated newName

@@ -67,7 +67,9 @@ class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
   LoopInfo *LI = nullptr;
-  bool CleanedUpAllocas = false;
+
+  std::unordered_set<Function *> CleanedUpAlloca;
+
   DxilLoopUnroll() : LoopPass(ID) {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
@@ -84,6 +86,15 @@ public:
 };
 
 char DxilLoopUnroll::ID;
+
+static void FailLoopUnroll(Loop *L, const char *Message) {
+  DebugLoc DL = L->getStartLoc();
+  LLVMContext &Ctx = L->getHeader()->getContext();
+  if (DL.get())
+    hlsl::dxilutil::EmitErrorAtLocation(Ctx, DL, Message);
+  else
+    hlsl::dxilutil::EmitErrorWithoutLocation(Ctx, Message);
+}
 
 static bool SimplifyPHIs(BasicBlock *BB) {
   bool Changed = false;
@@ -126,15 +137,6 @@ struct LoopIteration {
   BasicBlock *Header = nullptr;
   ValueToValueMapTy VarMap;
   SetVector<BasicBlock *> Extended; // Blocks that are included in the clone that are not in the core loop body.
-
-  LoopIteration(const LoopIteration &o) {
-    Body = o.Body;
-    Latch = o.Latch;
-    Header = o.Header;
-    Extended = o.Extended;
-    for (ValueToValueMapTy::const_iterator It = o.VarMap.begin(), End = o.VarMap.end(); It != End; It++)
-      VarMap[It->first] = It->second;
-  }
   LoopIteration() {}
 };
 
@@ -495,24 +497,27 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Analysis passes
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   AssumptionCache *AC =
-      &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+    &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
+  Loop *OuterL = L->getParentLoop();
   BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
   BasicBlock *Predecessor = L->getLoopPredecessor();
 
   // Quit if we don't have a single latch block or predecessor
-  if (!Latch || !Predecessor)
+  if (!Latch || !Predecessor) {
     return false;
+  }
 
   // If the loop exit condition is not in the latch, then the loop is not rotated. Give up.
-  if (!cast<BranchInst>(Latch->getTerminator())->isConditional())
+  if (!cast<BranchInst>(Latch->getTerminator())->isConditional()) {
     return false;
+  }
 
   // Promote alloca's
-  if (!CleanedUpAllocas) {
-    CleanedUpAllocas = true;
+  if (!CleanedUpAlloca.count(F)) {
+    CleanedUpAlloca.insert(F);
     Mem2Reg(*F, *DT, *AC);
   }
 
@@ -591,7 +596,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Re-establish LCSSA form to get ready for unrolling.
   CreateLCSSA(ToBeCloned, NewExits, L, *DT, LI);
 
-  SmallVector<LoopIteration, 16> Clones;
+  SmallVector<std::unique_ptr<LoopIteration>, 16> Iterations;
 
   const unsigned MaxIterations = 128;
 
@@ -599,11 +604,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   for (unsigned IterationI = 0; IterationI < MaxIterations; IterationI++) {
 
-    Clones.resize(Clones.size() + 1);
-    LoopIteration &CurIteration = Clones.back();
     LoopIteration *PrevIteration = nullptr;
-    if (Clones.size() >= 2)
-      PrevIteration = &Clones[Clones.size()-2];
+    if (Iterations.size())
+      PrevIteration = Iterations.back().get();
+    Iterations.push_back(std::make_unique<LoopIteration>());
+    LoopIteration &CurIteration = *Iterations.back().get();
 
     // Clone the blocks.
     for (BasicBlock *BB : ToBeCloned) {
@@ -721,14 +726,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
-    auto &FirstIteration = Clones.front();
-    // Go through the predecessors of the old header and
-    // make them branch to the new header.
-    SmallVector<BasicBlock *, 8> Preds(pred_begin(Header), pred_end(Header));
-    for (BasicBlock *PredBB : Preds) {
-      if (L->contains(PredBB))
-        continue;
-      BranchInst *BI = cast<BranchInst>(PredBB->getTerminator());
+    LoopIteration &FirstIteration = *Iterations.front().get();
+    // Make the predecessor branch to the first new header.
+    {
+      BranchInst *BI = cast<BranchInst>(Predecessor->getTerminator());
       for (unsigned i = 0, NumSucc = BI->getNumSuccessors(); i < NumSucc; i++) {
         if (BI->getSuccessor(i) == Header) {
           BI->setSuccessor(i, FirstIteration.Header);
@@ -736,12 +737,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-    Loop *OuterL = L->getParentLoop();
-
     if (OuterL) {
       // Core body blocks need to be added to outer loop
-      for (size_t i = 0; i < Clones.size(); i++) {
-        auto &Iteration = Clones[i];
+      for (size_t i = 0; i < Iterations.size(); i++) {
+        LoopIteration &Iteration = *Iterations[i].get();
         for (BasicBlock *BB : Iteration.Body) {
           if (!Iteration.Extended.count(BB)) {
             OuterL->addBasicBlockToLoop(BB, *LI);
@@ -756,8 +755,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
 
       // Cloned exit blocks may need to be added to outer loop
-      for (size_t i = 0; i < Clones.size(); i++) {
-        auto &Iteration = Clones[i];
+      for (size_t i = 0; i < Iterations.size(); i++) {
+        LoopIteration &Iteration = *Iterations[i].get();
         for (BasicBlock *BB : Iteration.Extended) {
           if (HasSuccessorsInLoop(BB, OuterL))
             OuterL->addBasicBlockToLoop(BB, *LI);
@@ -766,9 +765,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
 
     // Remove the original blocks that we've cloned from all loops.
-    for (BasicBlock *BB : ToBeCloned) {
+    for (BasicBlock *BB : ToBeCloned)
       LI->removeBlock(BB);
-    }
 
     LPM.deleteLoopFromQueue(L);
 
@@ -791,17 +789,24 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
-    // TODO: Fail compilation. Unable to unroll fully.
+    FailLoopUnroll(L, "Could not unroll loop.");
+
     // Remove all the cloned blocks
-    for (LoopIteration &Iteration : Clones)
+    for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
+      LoopIteration &Iteration = *Ptr.get();
       for (BasicBlock *BB : Iteration.Body)
         DetachFromSuccessors(BB);
-    for (LoopIteration &Iteration : Clones)
+    }
+    for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
+      LoopIteration &Iteration = *Ptr.get();
       for (BasicBlock *BB : Iteration.Body)
         BB->dropAllReferences();
-    for (LoopIteration &Iteration : Clones)
+    }
+    for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
+      LoopIteration &Iteration = *Ptr.get();
       for (BasicBlock *BB : Iteration.Body)
         BB->eraseFromParent();
+    }
 
     return false;
   }
