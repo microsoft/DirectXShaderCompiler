@@ -38,6 +38,7 @@ public:
   bool visit(SpirvConstantComposite *);
   bool visit(SpirvComposite *);
   bool visit(SpirvCompositeExtract *);
+  bool visit(SpirvAccessChain *);
 
   /// The "sink" visit function for all instructions.
   ///
@@ -59,6 +60,10 @@ private:
 
   bool updateTypeForCompositeMembers(
       QualType compositeType, llvm::ArrayRef<SpirvInstruction *> constituents);
+
+  /// Returns true if the given constant integer instruction contains a value
+  /// that cannot fit in 32 bits.
+  bool isLiteralLargerThan32Bits(SpirvConstantInteger *);
 
 private:
   const ASTContext &astContext;
