@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/LowerTypeVisitor.h"
+#include "LowerTypeVisitor.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"

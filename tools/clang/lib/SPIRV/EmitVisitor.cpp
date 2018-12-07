@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/EmitVisitor.h"
+#include "EmitVisitor.h"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvBuilder.h"
