@@ -9,11 +9,11 @@
 
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "CapabilityVisitor.h"
+#include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
+#include "LowerTypeVisitor.h"
 #include "TypeTranslator.h"
 #include "clang/SPIRV/AstTypeProbe.h"
-#include "clang/SPIRV/EmitVisitor.h"
-#include "clang/SPIRV/LowerTypeVisitor.h"
 
 namespace clang {
 namespace spirv {
