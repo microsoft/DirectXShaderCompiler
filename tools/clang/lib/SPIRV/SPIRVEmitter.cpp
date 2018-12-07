@@ -1014,25 +1014,13 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // myNamespace::myEntrypointFunc.
   std::string funcName = getFnName(decl);
 
-  SpirvFunction *func = nullptr;
+  SpirvFunction *func = declIdMapper.getOrRegisterFn(decl);
 
   if (funcName == entryFunctionName) {
-    // The entry function surely does not have pre-assigned <result-id> for
-    // it like other functions that got added to the work queue following
-    // function calls.
-    func = declIdMapper.getOrRegisterFn(decl);
     funcName = "src." + funcName;
-
     // Create wrapper for the entry function
     if (!emitEntryFunctionWrapper(decl, func))
       return;
-  } else {
-    // Non-entry functions are added to the work queue following function
-    // calls. We have already assigned <result-id>s for it when translating
-    // its call site. Query it here.
-    // TODO(ehsan): just call getOrRegisterFn in both cases.
-    func = declIdMapper.getOrRegisterFn(decl);
-    // funcId = declIdMapper.getDeclEvalInfo(decl);
   }
 
   const QualType retType =
