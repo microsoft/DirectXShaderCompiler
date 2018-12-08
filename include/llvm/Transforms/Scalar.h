@@ -123,7 +123,7 @@ void initializeSROA_DT_HLSLPass(PassRegistry&);
 ModulePass *createSROA_Parameter_HLSL();
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
 
-Pass *createDxilLoopUnrollPass();
+Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
 void initializeDxilLoopUnrollPass(PassRegistry&);
 //===----------------------------------------------------------------------===//
 //

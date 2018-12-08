@@ -66,11 +66,14 @@ namespace {
 class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
-  LoopInfo *LI = nullptr;
 
   std::unordered_set<Function *> CleanedUpAlloca;
+  unsigned MaxIterationAttempt = 0;
 
-  DxilLoopUnroll() : LoopPass(ID) {
+  DxilLoopUnroll(unsigned MaxIterationAttempt = 128) :
+    LoopPass(ID),
+    MaxIterationAttempt(MaxIterationAttempt)
+  {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
   const char *getPassName() const override { return "Dxil Loop Unroll"; }
@@ -87,13 +90,21 @@ public:
 
 char DxilLoopUnroll::ID;
 
-static void FailLoopUnroll(Loop *L, const char *Message) {
+static void FailLoopUnroll(bool WarnOnly, Loop *L, const char *Message) {
   DebugLoc DL = L->getStartLoc();
   LLVMContext &Ctx = L->getHeader()->getContext();
-  if (DL.get())
-    hlsl::dxilutil::EmitErrorAtLocation(Ctx, DL, Message);
-  else
-    hlsl::dxilutil::EmitErrorWithoutLocation(Ctx, Message);
+  if (WarnOnly) {
+    if (DL.get())
+      Ctx.emitWarning(hlsl::dxilutil::EmitMessageAtLocation(DL, Message));
+    else
+      Ctx.emitWarning(hlsl::dxilutil::EmitMessageWithoutLocation(Message));
+  }
+  else {
+    if (DL.get())
+      Ctx.emitError(hlsl::dxilutil::EmitMessageAtLocation(DL, Message));
+    else
+      Ctx.emitError(hlsl::dxilutil::EmitMessageWithoutLocation(Message));
+  }
 }
 
 static bool SimplifyPHIs(BasicBlock *BB) {
@@ -480,6 +491,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     return false;
 
   Function *F = L->getHeader()->getParent();
+  HLModule *HM = &F->getParent()->GetHLModule();
 
   // Analysis passes
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -585,11 +597,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   SmallVector<std::unique_ptr<LoopIteration>, 16> Iterations;
 
-  const unsigned MaxIterations = 128;
-
   bool Succeeded = false;
 
-  for (unsigned IterationI = 0; IterationI < MaxIterations; IterationI++) {
+  for (unsigned IterationI = 0; IterationI < this->MaxIterationAttempt; IterationI++) {
 
     LoopIteration *PrevIteration = nullptr;
     if (Iterations.size())
@@ -646,6 +656,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
+#if 1
     // Remap branch instruction successors.
     for (BasicBlock *ClonedBB : CurIteration.Body) {
       BranchInst *BI = dyn_cast<BranchInst>(ClonedBB->getTerminator());
@@ -656,10 +667,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         BasicBlock *OldSucc = BI->getSuccessor(j);
         ValueToValueMapTy::iterator Iter = CurIteration.VarMap.find(OldSucc);
         if (Iter != CurIteration.VarMap.end()) {
+          DXASSERT(false, "Found reason we need to remap more branch insts.");
           BI->setSuccessor(j, cast<BasicBlock>(Iter->second));
         }
       }
     }
+#endif
 
     // If this is the first block
     if (!PrevIteration) {
@@ -776,7 +789,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
-    FailLoopUnroll(L, "Could not unroll loop.");
+    FailLoopUnroll(HM->GetHLOptions().bFXCCompatMode, L, "Could not unroll loop.");
 
     // Remove all the cloned blocks
     for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
@@ -801,8 +814,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
 }
 
-Pass *llvm::createDxilLoopUnrollPass() {
-  return new DxilLoopUnroll();
+Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt) {
+  return new DxilLoopUnroll(MaxIterationAttempt);
 }
 
 INITIALIZE_PASS(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
