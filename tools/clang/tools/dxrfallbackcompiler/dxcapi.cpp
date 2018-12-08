@@ -11,7 +11,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 
-#define DXC_API_IMPORT __declspec(dllexport)
+#define BUILDING_DXC_DLL
 
 #include "dxc/dxctools.h"
 #include "dxc/Support/Global.h"
@@ -37,7 +37,7 @@ static HRESULT ThreadMallocDxcCreateInstance(
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
+DXC_API HRESULT __stdcall
 DxcCreateDxrFallbackCompiler(
   _In_ REFCLSID   rclsid,
   _In_ REFIID     riid,

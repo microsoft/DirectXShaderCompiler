@@ -511,7 +511,7 @@ public:                                                                        \
 private:                                                                       \
   static const char T##_ID;
 
-#define DEFINE_CROSS_PLATFORM_UUIDOF(T) const char T::T##_ID = '\0';
+#define DEFINE_CROSS_PLATFORM_UUIDOF(T) __attribute__((visibility("default"))) const char T::T##_ID = '\0';
 #define __uuidof(T) T::uuidof()
 #define IID_PPV_ARGS(ppType)                                                   \
   (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)

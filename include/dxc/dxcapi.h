@@ -13,8 +13,18 @@
 #ifndef __DXC_API__
 #define __DXC_API__
 
-#ifndef DXC_API_IMPORT
-#define DXC_API_IMPORT __declspec(dllimport)
+#ifdef _WIN32
+#define DXC_SYMBOL_IMPORT __declspec(dllimport)
+#define DXC_SYMBOL_EXPORT __declspec(dllexport)
+#else
+#define DXC_SYMBOL_IMPORT __attribute__((visibility("default")))
+#define DXC_SYMBOL_EXPORT __attribute__((visibility("default")))
+#endif
+
+#ifdef BUILDING_DXC_DLL
+#define DXC_API DXC_SYMBOL_EXPORT
+#else
+#define DXC_API DXC_SYMBOL_IMPORT
 #endif
 
 #ifdef _WIN32
@@ -80,7 +90,7 @@ typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(
 #ifndef _MSC_VER
 extern "C"
 #endif
-DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(
+DXC_API HRESULT __stdcall DxcCreateInstance(
   _In_ REFCLSID   rclsid,
   _In_ REFIID     riid,
   _Out_ LPVOID*   ppv
@@ -89,7 +99,7 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(
 #ifndef _MSC_VER
 extern "C"
 #endif
-DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(
+DXC_API HRESULT __stdcall DxcCreateInstance2(
   _In_ IMalloc    *pMalloc,
   _In_ REFCLSID   rclsid,
   _In_ REFIID     riid,
