@@ -746,12 +746,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Check exit condition to see if we fully unrolled the loop
     if (BranchInst *BI = dyn_cast<BranchInst>(CurIteration.Latch->getTerminator())) {
       bool Cond = false;
-      if (!GetConstantI1(BI->getCondition(), &Cond))
-        break;
-
-      if (BI->getSuccessor(Cond ? 1 : 0) == CurIteration.Header) {
-        Succeeded = true;
-        break;
+      if (GetConstantI1(BI->getCondition(), &Cond)) {
+        if (BI->getSuccessor(Cond ? 1 : 0) == CurIteration.Header) {
+          Succeeded = true;
+          break;
+        }
       }
     }
   }
