@@ -12,7 +12,47 @@
 // Special loop unroll routine for creating mandatory constant values and
 // loops that have exits.
 //
+// Overview of algorithm:
+// 
+// 1. Identify a set of blocks to unroll.
+//
+//    LLVM's concept of loop excludes exit blocks, which are blocks that no
+//    longer have a path to the loop latch. However, some exit blocks in HLSL
+//    also need to be unrolled. For example:
+//
+//        [unroll]
+//        for (uint i = 0; i < 4; i++)
+//        {
+//          if (...)
+//          {
+//            // This block here is an exit block, since it's.
+//            // guaranteed to exit the loop.
+//            ...
+//            a[i] = ...; // Indexing requires unroll.
+//            return;
+//          }
+//        }
+//
+//
+// 2. Create LCSSA based on the new loop boundary.
+//
+//    See LCSSA.cpp for more details. It creates trivial PHI nodes for any
+//    outgoing values of the loop at the exit blocks, so when the loop body
+//    gets cloned, the outgoing values can be added to those PHI nodes easily.
+//
+//    We are using a modified LCSSA routine here because we are including some
+//    of the original exit blocks in the unroll.
+//
+//
+// 3. Unroll the loop until we succeed.
+//
+//    Unlike LLVM, we do not try to find a loop count before unrolling.
+//    Instead, we unroll to find a constant terminal condition. Give up when we
+//    fail to do so.
+//
+//
 //===----------------------------------------------------------------------===//
+
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -481,45 +521,7 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
-// Overview of algorithm:
-// 
-// 1. Identify a set of blocks to unroll.
-//
-//    LLVM's concept of loop excludes exit blocks, which are blocks that no
-//    longer have a path to the loop latch. However, some exit blocks in HLSL
-//    also need to be unrolled. For example:
-//
-//        [unroll]
-//        for (uint i = 0; i < 4; i++)
-//        {
-//          if (...)
-//          {
-//            // This block here is an exit block, since it's.
-//            // guaranteed to exit the loop.
-//            ...
-//            a[i] = ...; // Indexing requires unroll.
-//            return;
-//          }
-//        }
-//
-//
-// 2. Create LCSSA based on the new loop boundary.
-//
-//    See LCSSA.cpp for more details. It creates trivial PHI nodes for any
-//    outgoing values of the loop at the exit blocks, so when the loop body
-//    gets cloned, the outgoing values can be added to those PHI nodes easily.
-//
-//    We are using a modified LCSSA routine here because we are including some
-//    of the original exit blocks in the unroll.
-//
-//
-// 3. Unroll the loop until we succeed.
-//
-//    Unlike LLVM, we do not try to find a loop count before unrolling.
-//    Instead, we unroll to find a constant terminal condition. Give up when we
-//    fail to do so.
-//
-//
+
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If the loop is not marked as [unroll], don't do anything.
