@@ -481,6 +481,45 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
+// Overview of algorithm:
+// 
+// 1. Identify a set of blocks to unroll.
+//
+//    LLVM's concept of loop excludes exit blocks, which are blocks that no
+//    longer have a path to the loop latch. However, some exit blocks in HLSL
+//    also need to be unrolled. For example:
+//
+//        [unroll]
+//        for (uint i = 0; i < 4; i++)
+//        {
+//          if (...)
+//          {
+//            // This block here is an exit block, since it's.
+//            // guaranteed to exit the loop.
+//            ...
+//            a[i] = ...; // Indexing requires unroll.
+//            return;
+//          }
+//        }
+//
+//
+// 2. Create LCSSA based on the new loop boundary.
+//
+//    See LCSSA.cpp for more details. It creates trivial PHI nodes for any
+//    outgoing values of the loop at the exit blocks, so when the loop body
+//    gets cloned, the outgoing values can be added to those PHI nodes easily.
+//
+//    We are using a modified LCSSA routine here because we are including some
+//    of the original exit blocks in the unroll.
+//
+//
+// 3. Unroll the loop until we succeed.
+//
+//    Unlike LLVM, we do not try to find a loop count before unrolling.
+//    Instead, we unroll to find a constant terminal condition. Give up when we
+//    fail to do so.
+//
+//
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If the loop is not marked as [unroll], don't do anything.
@@ -524,7 +563,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   L->getExitBlocks(ExitBlocks);
   std::unordered_set<BasicBlock *> ExitBlockSet(ExitBlocks.begin(), ExitBlocks.end());
 
-  SmallVector<BasicBlock *, 16> BlocksInLoop;
+  SmallVector<BasicBlock *, 16> BlocksInLoop; // Set of blocks including both body and exits
   BlocksInLoop.append(L->getBlocks().begin(), L->getBlocks().end());
   BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
 
@@ -544,9 +583,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   SetVector<BasicBlock *> ToBeCloned; // List of blocks that will be cloned.
-  for (BasicBlock *BB : L->getBlocks())
+  for (BasicBlock *BB : L->getBlocks()) // Include the body right away
     ToBeCloned.insert(BB);
 
+  // Find the exit blocks that also need to be included
+  // in the unroll.
   SmallVector<BasicBlock *, 8> NewExits; // New set of exit blocks as boundaries for LCSSA
   SmallVector<BasicBlock *, 8> FakeExits; // Set of blocks created to allow cloning original exit blocks.
   for (BasicBlock *BB : ExitBlocks) {
@@ -555,6 +596,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     if (CloneThisExitBlock) {
       ToBeCloned.insert(BB);
 
+      // If we are cloning this basic block, we must create a new exit
+      // block for inserting LCSSA PHI nodes.
       BasicBlock *FakeExit = BasicBlock::Create(BB->getContext(), "loop.exit.new");
       F->getBasicBlockList().insert(BB, FakeExit);
 
@@ -577,11 +620,13 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       NewExits.push_back(FakeExit);
       FakeExits.push_back(FakeExit);
 
-      // Update Dom tree
+      // Update Dom tree with new exit
       if (!DT->getNode(FakeExit))
         DT->addNewBlock(FakeExit, BB);
     }
     else {
+      // If we are not including this exit block in the unroll,
+      // use it for LCSSA as normal.
       NewExits.push_back(BB);
     }
   }
@@ -595,8 +640,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Re-establish LCSSA form to get ready for unrolling.
   CreateLCSSA(ToBeCloned, NewExits, L, *DT, LI);
 
-  SmallVector<std::unique_ptr<LoopIteration>, 16> Iterations;
-
+  SmallVector<std::unique_ptr<LoopIteration>, 16> Iterations; // List of cloned iterations
   bool Succeeded = false;
 
   for (unsigned IterationI = 0; IterationI < this->MaxIterationAttempt; IterationI++) {
@@ -639,6 +683,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
           PHINode *PN = dyn_cast<PHINode>(&I);
           if (!PN)
             break;
+
+          // Find the incoming value for this new block. If there is an entry
+          // for this block in the map, then it was defined in the loop, use it.
+          // Otherwise it came from outside the loop.
           Value *OldIncoming = PN->getIncomingValueForBlock(BB);
           Value *NewIncoming = OldIncoming;
           ValueToValueMapTy::iterator Itor = CurIteration.VarMap.find(OldIncoming);
@@ -656,24 +704,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-#if 1
-    // Remap branch instruction successors.
-    for (BasicBlock *ClonedBB : CurIteration.Body) {
-      BranchInst *BI = dyn_cast<BranchInst>(ClonedBB->getTerminator());
-      if (!BI)
-        continue;
-
-      for (unsigned j = 0, NumSucc = BI->getNumSuccessors(); j < NumSucc; j++) {
-        BasicBlock *OldSucc = BI->getSuccessor(j);
-        ValueToValueMapTy::iterator Iter = CurIteration.VarMap.find(OldSucc);
-        if (Iter != CurIteration.VarMap.end()) {
-          DXASSERT(false, "Found reason we need to remap more branch insts.");
-          BI->setSuccessor(j, cast<BasicBlock>(Iter->second));
-        }
-      }
-    }
-#endif
-
     // If this is the first block
     if (!PrevIteration) {
       // Replace the phi nodes in the clone block with the values coming
@@ -687,6 +717,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
     else {
+      // Replace the phi nodes with the value defined INSIDE the previous iteration.
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(CurIteration.VarMap[PN]);
         Value *ReplacementVal = PrevIteration->VarMap[PN->getIncomingValueForBlock(Latch)];
