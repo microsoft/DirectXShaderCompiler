@@ -44,8 +44,6 @@ float routine(float value) {
 
 float main(float3 a : A, float3 b : B) : SV_Target {
 
-  AppendStructuredBuffer<float4> buffers[] = { buf0, buf1, buf2, buf3, };
-
   float ret = 0;
   [unroll]
   for (uint i = 0; i < 4; i++) {
