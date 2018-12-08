@@ -147,28 +147,6 @@ static void FailLoopUnroll(bool WarnOnly, Loop *L, const char *Message) {
   }
 }
 
-static bool SimplifyPHIs(BasicBlock *BB) {
-  bool Changed = false;
-  SmallVector<Instruction *, 16> Removed;
-  for (Instruction &I : *BB) {
-    PHINode *PN = dyn_cast<PHINode>(&I);
-    if (!PN)
-      continue;
-
-    if (PN->getNumIncomingValues() == 1) {
-      Value *V = PN->getIncomingValue(0);
-      PN->replaceAllUsesWith(V);
-      Removed.push_back(PN);
-      Changed = true;
-    }
-  }
-
-  for (Instruction *I : Removed)
-    I->eraseFromParent();
-
-  return Changed;
-}
-
 struct LoopIteration {
   SmallVector<BasicBlock *, 16> Body;
   BasicBlock *Latch = nullptr;
@@ -637,7 +615,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   // (if exists) does not necessarily work for our unroll because we may be unrolling
   // from a different boundary.
   for (BasicBlock *BB : BlocksInLoop)
-    SimplifyPHIs(BB);
+    hlsl::dxilutil::SimplifyTrivialPHIs(BB);
 
   // Re-establish LCSSA form to get ready for unrolling.
   CreateLCSSA(ToBeCloned, NewExits, L, *DT, LI);

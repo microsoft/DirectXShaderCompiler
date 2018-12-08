@@ -94,6 +94,7 @@ namespace dxilutil {
   llvm::Value *MergeSelectOnSameValue(llvm::Instruction *SelInst,
                                       unsigned startOpIdx,
                                       unsigned numOperands);
+  bool SimplifyTrivialPHIs(llvm::BasicBlock *BB);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,

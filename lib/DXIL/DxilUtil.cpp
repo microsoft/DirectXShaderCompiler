@@ -305,6 +305,28 @@ Value *MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
   return op0;
 }
 
+bool SimplifyTrivialPHIs(BasicBlock *BB) {
+  bool Changed = false;
+  SmallVector<Instruction *, 16> Removed;
+  for (Instruction &I : *BB) {
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    if (!PN)
+      continue;
+
+    if (PN->getNumIncomingValues() == 1) {
+      Value *V = PN->getIncomingValue(0);
+      PN->replaceAllUsesWith(V);
+      Removed.push_back(PN);
+      Changed = true;
+    }
+  }
+
+  for (Instruction *I : Removed)
+    I->eraseFromParent();
+
+  return Changed;
+}
+
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
   Instruction *prototype = Inst;
   for (unsigned i = 0; i < prototype->getNumOperands(); i++) {
