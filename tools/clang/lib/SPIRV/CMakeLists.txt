@@ -3,6 +3,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_library(clangSPIRV
+  AlignmentSizeCalculator.cpp
   AstTypeProbe.cpp
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp

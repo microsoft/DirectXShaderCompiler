@@ -10,6 +10,7 @@
 
 #include <string>
 
+#include "dxc/Support/SPIRVOptions.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Type.h"
 
@@ -142,6 +143,22 @@ bool isMatrixOrArrayOfMatrix(const ASTContext &, QualType type);
 /// Returns true if the given type is a LitInt or LitFloat type or a vector of
 /// them. Returns false otherwise.
 bool isLitTypeOrVecOfLitType(QualType type);
+
+/// Strips the attributes and typedefs from the given type and returns the
+/// desugared one. If isRowMajor is not nullptr, and a 'row_major' or
+/// 'column-major' attribute is found during desugaring, this information is
+/// written to *isRowMajor.
+QualType desugarType(QualType type, llvm::Optional<bool>* isRowMajor);
+
+/// Returns true if type is a SPIR-V row-major matrix or array of matrices.
+/// Returns false if type is a SPIR-V col-major matrix or array of matrices.
+/// It does so by checking the majorness of the HLSL matrix either with
+/// explicit attribute or implicit command-line option.
+///
+/// Note that HLSL matrices are conceptually row major, while SPIR-V matrices
+/// are conceptually column major. We are mapping what HLSL semantically mean
+/// a row into a column here.
+bool isRowMajorMatrix(const SpirvCodeGenOptions &, QualType type);
 
 } // namespace spirv
 } // namespace clang
