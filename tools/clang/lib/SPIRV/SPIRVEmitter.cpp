@@ -13,6 +13,7 @@
 
 #include "SPIRVEmitter.h"
 
+#include "AlignmentSizeCalculator.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
@@ -2643,13 +2644,13 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   spvBuilder.createStore(doExpr(expr->getArg(0)), length);
 
   if (isStructuredBuffer) {
-    // TODO (ehsan): We don't want to use getAlignmentAndSize :-(
-
     // For (RW)StructuredBuffer, the stride of the runtime array (which is the
     // size of the struct) must also be written to the second argument.
+    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t size = 0, stride = 0;
-    std::tie(std::ignore, size) = typeTranslator.getAlignmentAndSize(
-        type, spirvOptions.sBufferLayoutRule, &stride);
+    std::tie(std::ignore, size) =
+        alignmentCalc.getAlignmentAndSize(type, spirvOptions.sBufferLayoutRule,
+                                          /*isRowMajor*/ llvm::None, &stride);
     auto *sizeInstr = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                 llvm::APInt(32, size));
     spvBuilder.createStore(doExpr(expr->getArg(1)), sizeInstr);
