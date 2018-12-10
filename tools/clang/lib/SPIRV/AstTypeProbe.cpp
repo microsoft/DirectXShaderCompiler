@@ -666,5 +666,40 @@ bool isSameType(const ASTContext &astContext, QualType type1, QualType type2) {
   return false;
 }
 
+QualType desugarType(QualType type, llvm::Optional<bool> *isRowMajor) {
+  if (const auto *attrType = type->getAs<AttributedType>()) {
+    switch (auto kind = attrType->getAttrKind()) {
+    // HLSL row-major is SPIR-V col-major
+    case AttributedType::attr_hlsl_row_major:
+      *isRowMajor = false;
+      break;
+    // HLSL col-major is SPIR-V row-major
+    case AttributedType::attr_hlsl_column_major:
+      *isRowMajor = true;
+      break;
+    default:
+      // Only looking matrix majorness attributes.
+      break;
+    }
+    return desugarType(attrType->getLocallyUnqualifiedSingleStepDesugaredType(),
+                       isRowMajor);
+  }
+
+  if (const auto *typedefType = type->getAs<TypedefType>()) {
+    return desugarType(typedefType->desugar(), isRowMajor);
+  }
+
+  return type;
+}
+
+bool isRowMajorMatrix(const SpirvCodeGenOptions &spvOptions, QualType type) {
+  // SPIR-V row-major is HLSL col-major and SPIR-V col-major is HLSL row-major.
+  bool attrRowMajor = false;
+  if (hlsl::HasHLSLMatOrientation(type, &attrRowMajor))
+    return !attrRowMajor;
+
+  return !spvOptions.defaultRowMajor;
+}
+
 } // namespace spirv
 } // namespace clang

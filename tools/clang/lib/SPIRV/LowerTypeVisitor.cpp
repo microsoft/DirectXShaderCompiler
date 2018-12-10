@@ -24,21 +24,10 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
   return nullptr;
 }
 
-/// The alignment for 4-component float vectors.
-constexpr uint32_t kStd140Vec4Alignment = 16u;
-
 /// Rounds the given value up to the given power of 2.
 inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   assert(pow2 != 0);
   return (val + pow2 - 1) & ~(pow2 - 1);
-}
-
-/// Returns true if the given vector type (of the given size) crosses the
-/// 4-component vector boundary if placed at the given offset.
-bool improperStraddle(clang::QualType type, int size, int offset) {
-  assert(clang::spirv::isVectorType(type));
-  return size <= 16 ? offset / 16 != (offset + size - 1) / 16
-                    : offset % 16 != 0;
 }
 
 } // end anonymous namespace
@@ -51,6 +40,7 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
     // Lower the function return type.
     const SpirvType *spirvReturnType =
         lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
+                  /*isRowMajor*/ llvm::None,
                   /*SourceLocation*/ {});
     fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
 
@@ -69,7 +59,8 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   // Lower QualType to SpirvType
   if (astType != QualType({})) {
     const SpirvType *spirvType =
-        lowerType(astType, instr->getLayoutRule(), instr->getSourceLocation());
+        lowerType(astType, instr->getLayoutRule(), /*isRowMajor*/ llvm::None,
+                  instr->getSourceLocation());
     instr->setResultType(spirvType);
   }
   // Lower Hybrid type to SpirvType
@@ -137,19 +128,22 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
                                              SourceLocation loc) {
   if (const auto *hybridPointer = dyn_cast<HybridPointerType>(type)) {
     const QualType pointeeType = hybridPointer->getPointeeType();
-    const SpirvType *pointeeSpirvType = lowerType(pointeeType, rule, loc);
+    const SpirvType *pointeeSpirvType =
+        lowerType(pointeeType, rule, /*isRowMajor*/ llvm::None, loc);
     return spvContext.getPointerType(pointeeSpirvType,
                                      hybridPointer->getStorageClass());
   } else if (const auto *hybridSampledImage =
                  dyn_cast<HybridSampledImageType>(type)) {
     const QualType imageAstType = hybridSampledImage->getImageType();
-    const SpirvType *imageSpirvType = lowerType(imageAstType, rule, loc);
+    const SpirvType *imageSpirvType =
+        lowerType(imageAstType, rule, /*isRowMajor*/ llvm::None, loc);
     assert(isa<ImageType>(imageSpirvType));
     return spvContext.getSampledImageType(cast<ImageType>(imageSpirvType));
   } else if (const auto *hybridFn = dyn_cast<HybridFunctionType>(type)) {
     // Lower the return type.
     const QualType astReturnType = hybridFn->getAstReturnType();
-    const SpirvType *spirvReturnType = lowerType(astReturnType, rule, loc);
+    const SpirvType *spirvReturnType =
+        lowerType(astReturnType, rule, /*isRowMajor*/ llvm::None, loc);
 
     // Go over all params. If any of them is hybrid, lower it.
     std::vector<const SpirvType *> paramTypes;
@@ -252,16 +246,12 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
 
 const SpirvType *LowerTypeVisitor::lowerType(QualType type,
                                              SpirvLayoutRule rule,
+                                             llvm::Optional<bool> isRowMajor,
                                              SourceLocation srcLoc) {
-  const auto desugaredType = desugarType(type);
+  const auto desugaredType = desugarType(type, &isRowMajor);
 
   if (desugaredType != type) {
-    const auto *spvType = lowerType(desugaredType, rule, srcLoc);
-    // Clear matrix majorness potentially set by previous desugarType() calls.
-    // This field will only be set when we were saying a matrix type. And the
-    // above lowerType() call already takes the majorness into consideration.
-    // So should be fine to clear now.
-    typeMatMajorAttr = llvm::None;
+    const auto *spvType = lowerType(desugaredType, rule, isRowMajor, srcLoc);
     return spvType;
   }
 
@@ -352,16 +342,16 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     QualType elemType = {};
     uint32_t elemCount = {};
     if (isVectorType(type, &elemType, &elemCount))
-      return spvContext.getVectorType(lowerType(elemType, rule, srcLoc),
-                                      elemCount);
+      return spvContext.getVectorType(
+          lowerType(elemType, rule, isRowMajor, srcLoc), elemCount);
   }
 
   { // Matrix types
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
-      const auto *vecType =
-          spvContext.getVectorType(lowerType(elemType, rule, srcLoc), colCount);
+      const auto *vecType = spvContext.getVectorType(
+          lowerType(elemType, rule, isRowMajor, srcLoc), colCount);
 
       // Non-float matrices are represented as an array of vectors.
       if (!elemType->isFloatingType()) {
@@ -369,7 +359,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         // If there is a layout rule, we need array stride information.
         if (rule != SpirvLayoutRule::Void) {
           uint32_t stride = 0;
-          (void)getAlignmentAndSize(type, rule, &stride);
+          alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
           arrayStride = stride;
         }
 
@@ -420,7 +410,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   if (const auto *arrayType = astContext.getAsArrayType(type)) {
     const auto elemType = arrayType->getElementType();
     const auto *loweredElemType =
-        lowerType(arrayType->getElementType(), rule, srcLoc);
+        lowerType(arrayType->getElementType(), rule, isRowMajor, srcLoc);
     llvm::Optional<uint32_t> arrayStride = llvm::None;
 
     if (rule != SpirvLayoutRule::Void &&
@@ -428,7 +418,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         // they contain runtime arrays.
         !isAKindOfStructuredOrByteBuffer(elemType)) {
       uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, rule, &stride);
+      alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
       arrayStride = stride;
     }
 
@@ -449,13 +439,13 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // We already pass function arguments via pointers to tempoary local
     // variables. So it should be fine to drop the pointer type and treat it
     // as the underlying pointee type here.
-    return lowerType(refType->getPointeeType(), rule, srcLoc);
+    return lowerType(refType->getPointeeType(), rule, isRowMajor, srcLoc);
   }
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>()) {
     // The this object in a struct member function is of pointer type.
-    return lowerType(ptrType->getPointeeType(), rule, srcLoc);
+    return lowerType(ptrType->getPointeeType(), rule, isRowMajor, srcLoc);
   }
 
   emitError("lower type %0 unimplemented", srcLoc) << type->getTypeClassName();
@@ -495,8 +485,9 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return spvContext.getImageType(
-          lowerType(getElementType(sampledType), rule, srcLoc), dim,
-          ImageType::WithDepth::Unknown, isArray, isMS,
+          lowerType(getElementType(sampledType), rule,
+                    /*isRowMajor*/ llvm::None, srcLoc),
+          dim, ImageType::WithDepth::Unknown, isArray, isMS,
           ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     }
 
@@ -510,8 +501,9 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
       return spvContext.getImageType(
-          lowerType(getElementType(sampledType), rule, srcLoc), dim,
-          ImageType::WithDepth::Unknown, isArray,
+          lowerType(getElementType(sampledType), rule,
+                    /*isRowMajor*/ llvm::None, srcLoc),
+          dim, ImageType::WithDepth::Unknown, isArray,
           /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
           format);
     }
@@ -538,7 +530,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     }
 
     const auto s = hlsl::GetHLSLResourceResultType(type);
-    const auto *structType = lowerType(s, rule, srcLoc);
+    const auto *structType =
+        lowerType(s, rule, /*isRowMajor*/ llvm::None, srcLoc);
     std::string structName;
     const auto innerType = hlsl::GetHLSLResourceResultType(type);
     if (innerType->isStructureType())
@@ -547,7 +540,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       structName = getAstTypeName(innerType);
 
     uint32_t size = 0, stride = 0;
-    std::tie(std::ignore, size) = getAlignmentAndSize(s, rule, &stride);
+    std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
+        s, rule, /*isRowMajor*/ llvm::None, &stride);
 
     // We have a runtime array of structures. So:
     // The stride of the runtime array is the size of the struct.
@@ -556,7 +550,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
     // Attach majorness decoration if this is a *StructuredBuffer<matrix>.
     llvm::Optional<bool> isRowMajor =
-        isMxNMatrix(s) ? llvm::Optional<bool>(isRowMajorMatrix(s)) : llvm::None;
+        isMxNMatrix(s) ? llvm::Optional<bool>(isRowMajorMatrix(spvOptions, s))
+                       : llvm::None;
 
     const std::string typeName = "type." + name.str() + "." + structName;
     const auto *valType = spvContext.getStructType(
@@ -607,8 +602,9 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
-        lowerType(getElementType(sampledType), rule, srcLoc), spv::Dim::Buffer,
-        ImageType::WithDepth::Unknown,
+        lowerType(getElementType(sampledType), rule, /*isRowMajor*/ llvm::None,
+                  srcLoc),
+        spv::Dim::Buffer, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false, /*isMultiSampled=*/false,
         /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
                                      : ImageType::WithSampler::No,
@@ -619,26 +615,30 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   if (name == "InputPatch") {
     const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
-    return spvContext.getArrayType(lowerType(elemType, rule, srcLoc), elemCount,
-                                   /*ArrayStride*/ llvm::None);
+    return spvContext.getArrayType(
+        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc), elemCount,
+        /*ArrayStride*/ llvm::None);
   }
   // OutputPatch
   if (name == "OutputPatch") {
     const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
-    return spvContext.getArrayType(lowerType(elemType, rule, srcLoc), elemCount,
-                                   /*ArrayStride*/ llvm::None);
+    return spvContext.getArrayType(
+        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc), elemCount,
+        /*ArrayStride*/ llvm::None);
   }
   // Output stream objects (TriangleStream, LineStream, and PointStream)
   if (name == "TriangleStream" || name == "LineStream" ||
       name == "PointStream") {
-    return lowerType(hlsl::GetHLSLResourceResultType(type), rule, srcLoc);
+    return lowerType(hlsl::GetHLSLResourceResultType(type), rule,
+                     /*isRowMajor*/ llvm::None, srcLoc);
   }
 
   if (name == "SubpassInput" || name == "SubpassInputMS") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return spvContext.getImageType(
-        lowerType(getElementType(sampledType), rule, srcLoc),
+        lowerType(getElementType(sampledType), rule, /*isRowMajor*/ llvm::None,
+                  srcLoc),
         spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false,
         /*isMultipleSampled=*/name == "SubpassInputMS",
@@ -684,53 +684,6 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
   return spv::ImageFormat::Unknown;
 }
 
-QualType LowerTypeVisitor::desugarType(QualType type) {
-  if (const auto *attrType = type->getAs<AttributedType>()) {
-    switch (auto kind = attrType->getAttrKind()) {
-    case AttributedType::attr_hlsl_row_major:
-    case AttributedType::attr_hlsl_column_major:
-      typeMatMajorAttr = kind;
-      break;
-    default:
-      // Only matrices should apply to typeMatMajorAttr.
-      break;
-    }
-    return desugarType(
-        attrType->getLocallyUnqualifiedSingleStepDesugaredType());
-  }
-
-  if (const auto *typedefType = type->getAs<TypedefType>()) {
-    return desugarType(typedefType->desugar());
-  }
-
-  return type;
-}
-
-bool LowerTypeVisitor::isHLSLRowMajorMatrix(QualType type) const {
-  // The type passed in may not be desugared. Check attributes on itself first.
-  bool attrRowMajor = false;
-  if (hlsl::HasHLSLMatOrientation(type, &attrRowMajor))
-    return attrRowMajor;
-
-  // Use the majorness info we recorded before.
-  if (typeMatMajorAttr.hasValue()) {
-    switch (typeMatMajorAttr.getValue()) {
-    case AttributedType::attr_hlsl_row_major:
-      return true;
-    case AttributedType::attr_hlsl_column_major:
-      return false;
-    default:
-      // Only oriented matrices are relevant.
-      break;
-    }
-  }
-  return spvOptions.defaultRowMajor;
-}
-
-bool LowerTypeVisitor::isRowMajorMatrix(QualType type) const {
-  return !isHLSLRowMajorMatrix(type);
-}
-
 llvm::SmallVector<StructType::FieldInfo, 4>
 LowerTypeVisitor::populateLayoutInformation(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, SpirvLayoutRule rule) {
@@ -746,8 +699,8 @@ LowerTypeVisitor::populateLayoutInformation(
 
     // Lower the field type fist. This call will populate proper matrix
     // majorness information.
-    StructType::FieldInfo loweredField(lowerType(fieldType, rule, {}),
-                                       field.name);
+    StructType::FieldInfo loweredField(
+        lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), field.name);
 
     // We only need layout information for strcutres with non-void layout rule.
     if (rule == SpirvLayoutRule::Void) {
@@ -756,8 +709,8 @@ LowerTypeVisitor::populateLayoutInformation(
     }
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
-    std::tie(memberAlignment, memberSize) =
-        getAlignmentAndSize(fieldType, rule, &stride);
+    std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+        fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
 
     // The next avaiable location after layouting the previos members
     const uint32_t nextLoc = offset;
@@ -765,8 +718,8 @@ LowerTypeVisitor::populateLayoutInformation(
     if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
         rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
         rule == SpirvLayoutRule::FxcCTBuffer) {
-      alignUsingHLSLRelaxedLayout(fieldType, memberSize, memberAlignment,
-                                  &offset);
+      alignmentCalc.alignUsingHLSLRelaxedLayout(fieldType, memberSize,
+                                                memberAlignment, &offset);
     } else {
       offset = roundToPow2(offset, memberAlignment);
     }
@@ -810,315 +763,17 @@ LowerTypeVisitor::populateLayoutInformation(
     QualType elemType = {};
     if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
       memberAlignment = memberSize = stride = 0;
-      std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(fieldType, rule, &stride);
+      std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
+          fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
 
       loweredField.matrixStride = stride;
-      loweredField.isRowMajor = isRowMajorMatrix(fieldType);
+      loweredField.isRowMajor = isRowMajorMatrix(spvOptions, fieldType);
     }
 
     loweredFields.push_back(loweredField);
   }
 
   return loweredFields;
-}
-
-void LowerTypeVisitor::alignUsingHLSLRelaxedLayout(QualType fieldType,
-                                                   uint32_t fieldSize,
-                                                   uint32_t fieldAlignment,
-                                                   uint32_t *currentOffset) {
-  QualType vecElemType = {};
-  const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
-
-  // Adjust according to HLSL relaxed layout rules.
-  // Aligning vectors as their element types so that we can pack a float
-  // and a float3 tightly together.
-  if (fieldIsVecType) {
-    uint32_t scalarAlignment = 0;
-    std::tie(scalarAlignment, std::ignore) =
-        getAlignmentAndSize(vecElemType, SpirvLayoutRule::Void, nullptr);
-    if (scalarAlignment <= 4)
-      fieldAlignment = scalarAlignment;
-  }
-
-  *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
-
-  // Adjust according to HLSL relaxed layout rules.
-  // Bump to 4-component vector alignment if there is a bad straddle
-  if (fieldIsVecType &&
-      improperStraddle(fieldType, fieldSize, *currentOffset)) {
-    fieldAlignment = kStd140Vec4Alignment;
-    *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
-  }
-}
-
-std::pair<uint32_t, uint32_t>
-LowerTypeVisitor::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
-                                      uint32_t *stride) {
-  // std140 layout rules:
-
-  // 1. If the member is a scalar consuming N basic machine units, the base
-  //    alignment is N.
-  //
-  // 2. If the member is a two- or four-component vector with components
-  //    consuming N basic machine units, the base alignment is 2N or 4N,
-  //    respectively.
-  //
-  // 3. If the member is a three-component vector with components consuming N
-  //    basic machine units, the base alignment is 4N.
-  //
-  // 4. If the member is an array of scalars or vectors, the base alignment and
-  //    array stride are set to match the base alignment of a single array
-  //    element, according to rules (1), (2), and (3), and rounded up to the
-  //    base alignment of a vec4. The array may have padding at the end; the
-  //    base offset of the member following the array is rounded up to the next
-  //    multiple of the base alignment.
-  //
-  // 5. If the member is a column-major matrix with C columns and R rows, the
-  //    matrix is stored identically to an array of C column vectors with R
-  //    components each, according to rule (4).
-  //
-  // 6. If the member is an array of S column-major matrices with C columns and
-  //    R rows, the matrix is stored identically to a row of S X C column
-  //    vectors with R components each, according to rule (4).
-  //
-  // 7. If the member is a row-major matrix with C columns and R rows, the
-  //    matrix is stored identically to an array of R row vectors with C
-  //    components each, according to rule (4).
-  //
-  // 8. If the member is an array of S row-major matrices with C columns and R
-  //    rows, the matrix is stored identically to a row of S X R row vectors
-  //    with C components each, according to rule (4).
-  //
-  // 9. If the member is a structure, the base alignment of the structure is N,
-  //    where N is the largest base alignment value of any of its members, and
-  //    rounded up to the base alignment of a vec4. The individual members of
-  //    this substructure are then assigned offsets by applying this set of
-  //    rules recursively, where the base offset of the first member of the
-  //    sub-structure is equal to the aligned offset of the structure. The
-  //    structure may have padding at the end; the base offset of the member
-  //    following the sub-structure is rounded up to the next multiple of the
-  //    base alignment of the structure.
-  //
-  // 10. If the member is an array of S structures, the S elements of the array
-  //     are laid out in order, according to rule (9).
-  //
-  // This method supports multiple layout rules, all of them modifying the
-  // std140 rules listed above:
-  //
-  // std430:
-  // - Array base alignment and stride does not need to be rounded up to a
-  //   multiple of 16.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
-  //
-  // Relaxed std140/std430:
-  // - Vector base alignment is set as its element type's base alignment.
-  //
-  // FxcCTBuffer:
-  // - Vector base alignment is set as its element type's base alignment.
-  // - Arrays/structs do not need to have padding at the end; arrays/structs do
-  //   not affect the base offset of the member following them.
-  //
-  // FxcSBuffer:
-  // - Vector/matrix/array base alignment is set as its element type's base
-  //   alignment.
-  // - Arrays/structs do not need to have padding at the end; arrays/structs do
-  //   not affect the base offset of the member following them.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
-
-  const auto desugaredType = desugarType(type);
-  if (desugaredType != type) {
-    auto result = getAlignmentAndSize(desugaredType, rule, stride);
-    // Clear potentially set matrix majorness info
-    typeMatMajorAttr = llvm::None;
-    return result;
-  }
-
-  { // Rule 1
-    QualType ty = {};
-    if (isScalarType(type, &ty))
-      if (const auto *builtinType = ty->getAs<BuiltinType>())
-        switch (builtinType->getKind()) {
-        case BuiltinType::Bool:
-        case BuiltinType::Int:
-        case BuiltinType::UInt:
-        case BuiltinType::Float:
-          return {4, 4};
-        case BuiltinType::Double:
-        case BuiltinType::LongLong:
-        case BuiltinType::ULongLong:
-          return {8, 8};
-        case BuiltinType::Min12Int:
-        case BuiltinType::Min16Int:
-        case BuiltinType::Min16UInt:
-        case BuiltinType::Min16Float:
-        case BuiltinType::Min10Float: {
-          if (spvOptions.enable16BitTypes)
-            return {2, 2};
-          else
-            return {4, 4};
-        }
-        // the 'Half' enum always represents 16-bit floats.
-        // int16_t and uint16_t map to Short and UShort.
-        case BuiltinType::Short:
-        case BuiltinType::UShort:
-        case BuiltinType::Half:
-          return {2, 2};
-        // 'HalfFloat' always represents 32-bit floats.
-        case BuiltinType::HalfFloat:
-          return {4, 4};
-        default:
-          emitError("alignment and size calculation for type %0 unimplemented")
-              << type;
-          return {0, 0};
-        }
-  }
-
-  { // Rule 2 and 3
-    QualType elemType = {};
-    uint32_t elemCount = {};
-    if (isVectorType(type, &elemType, &elemCount)) {
-      uint32_t alignment = 0, size = 0;
-      std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
-      // Use element alignment for fxc rules
-      if (rule != SpirvLayoutRule::FxcCTBuffer &&
-          rule != SpirvLayoutRule::FxcSBuffer)
-        alignment = (elemCount == 3 ? 4 : elemCount) * size;
-
-      return {alignment, elemCount * size};
-    }
-  }
-
-  { // Rule 5 and 7
-    QualType elemType = {};
-    uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
-      uint32_t alignment = 0, size = 0;
-      std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
-
-      // Matrices are treated as arrays of vectors:
-      // The base alignment and array stride are set to match the base alignment
-      // of a single array element, according to rules 1, 2, and 3, and rounded
-      // up to the base alignment of a vec4.
-      bool isRowMajor = isRowMajorMatrix(type);
-
-      const uint32_t vecStorageSize = isRowMajor ? rowCount : colCount;
-
-      if (rule == SpirvLayoutRule::FxcSBuffer) {
-        *stride = vecStorageSize * size;
-        // Use element alignment for fxc structured buffers
-        return {alignment, rowCount * colCount * size};
-      }
-
-      alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
-      if (rule == SpirvLayoutRule::GLSLStd140 ||
-          rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-          rule == SpirvLayoutRule::FxcCTBuffer) {
-        alignment = roundToPow2(alignment, kStd140Vec4Alignment);
-      }
-      *stride = alignment;
-      size = (isRowMajor ? colCount : rowCount) * alignment;
-
-      return {alignment, size};
-    }
-  }
-
-  // Rule 9
-  if (const auto *structType = type->getAs<RecordType>()) {
-    // Special case for handling empty structs, whose size is 0 and has no
-    // requirement over alignment (thus 1).
-    if (structType->getDecl()->field_empty())
-      return {1, 0};
-
-    uint32_t maxAlignment = 0;
-    uint32_t structSize = 0;
-
-    for (const auto *field : structType->getDecl()->fields()) {
-      uint32_t memberAlignment = 0, memberSize = 0;
-      std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(field->getType(), rule, stride);
-
-      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-          rule == SpirvLayoutRule::FxcCTBuffer) {
-        alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
-                                    memberAlignment, &structSize);
-      } else {
-        structSize = roundToPow2(structSize, memberAlignment);
-      }
-
-      // Reset the current offset to the one specified in the source code
-      // if exists. It's debatable whether we should do sanity check here.
-      // If the developers want manually control the layout, we leave
-      // everything to them.
-      if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
-        structSize = offsetAttr->getOffset();
-      }
-
-      // The base alignment of the structure is N, where N is the largest
-      // base alignment value of any of its members...
-      maxAlignment = std::max(maxAlignment, memberAlignment);
-      structSize += memberSize;
-    }
-
-    if (rule == SpirvLayoutRule::GLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      // ... and rounded up to the base alignment of a vec4.
-      maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
-    }
-
-    if (rule != SpirvLayoutRule::FxcCTBuffer &&
-        rule != SpirvLayoutRule::FxcSBuffer) {
-      // The base offset of the member following the sub-structure is rounded up
-      // to the next multiple of the base alignment of the structure.
-      structSize = roundToPow2(structSize, maxAlignment);
-    }
-    return {maxAlignment, structSize};
-  }
-
-  // Rule 4, 6, 8, and 10
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
-    const auto elemCount = arrayType->getSize().getZExtValue();
-    uint32_t alignment = 0, size = 0;
-    std::tie(alignment, size) =
-        getAlignmentAndSize(arrayType->getElementType(), rule, stride);
-
-    if (rule == SpirvLayoutRule::FxcSBuffer) {
-      *stride = size;
-      // Use element alignment for fxc structured buffers
-      return {alignment, size * elemCount};
-    }
-
-    if (rule == SpirvLayoutRule::GLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      // The base alignment and array stride are set to match the base alignment
-      // of a single array element, according to rules 1, 2, and 3, and rounded
-      // up to the base alignment of a vec4.
-      alignment = roundToPow2(alignment, kStd140Vec4Alignment);
-    }
-    if (rule == SpirvLayoutRule::FxcCTBuffer) {
-      // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data
-      // packing after it. But we still need to make sure paddings are inserted
-      // internally if necessary.
-      *stride = roundToPow2(size, alignment);
-      size += *stride * (elemCount - 1);
-    } else {
-      // Need to round size up considering stride for scalar types
-      size = roundToPow2(size, alignment);
-      *stride = size; // Use size instead of alignment here for Rule 10
-      size *= elemCount;
-      // The base offset of the member following the array is rounded up to the
-      // next multiple of the base alignment.
-      size = roundToPow2(size, alignment);
-    }
-
-    return {alignment, size};
-  }
-
-  emitError("alignment and size calculation for type %0 unimplemented") << type;
-  return {0, 0};
 }
 
 } // namespace spirv
