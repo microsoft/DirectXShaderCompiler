@@ -20,10 +20,8 @@
 
 #include "clang/AST/Expr.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/SPIRV/ModuleBuilder.h"
 
 #include "SPIRVEmitter.h"
-#include "TypeTranslator.h"
 
 namespace clang {
 namespace spirv {
@@ -137,7 +135,6 @@ private:
   const ASTContext &astContext;
   SPIRVEmitter &theEmitter;
   SpirvBuilder &spvBuilder;
-  TypeTranslator &typeTranslator;
   DiagnosticsEngine &diags;
 
   /// A queue keeping track of unused AST nodes for initializers. Since we will

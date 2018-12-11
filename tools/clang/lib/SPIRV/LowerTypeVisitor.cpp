@@ -485,7 +485,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return spvContext.getImageType(
-          lowerType(getElementType(sampledType), rule,
+          lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc),
           dim, ImageType::WithDepth::Unknown, isArray, isMS,
           ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
@@ -501,7 +501,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
       return spvContext.getImageType(
-          lowerType(getElementType(sampledType), rule,
+          lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc),
           dim, ImageType::WithDepth::Unknown, isArray,
           /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
@@ -602,8 +602,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
-        lowerType(getElementType(sampledType), rule, /*isRowMajor*/ llvm::None,
-                  srcLoc),
+        lowerType(getElementType(astContext, sampledType), rule,
+                  /*isRowMajor*/ llvm::None, srcLoc),
         spv::Dim::Buffer, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false, /*isMultiSampled=*/false,
         /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
@@ -637,8 +637,8 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   if (name == "SubpassInput" || name == "SubpassInputMS") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return spvContext.getImageType(
-        lowerType(getElementType(sampledType), rule, /*isRowMajor*/ llvm::None,
-                  srcLoc),
+        lowerType(getElementType(astContext, sampledType), rule,
+                  /*isRowMajor*/ llvm::None, srcLoc),
         spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false,
         /*isMultipleSampled=*/name == "SubpassInputMS",
@@ -655,7 +655,7 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
   QualType ty = {};
   if (isScalarType(sampledType, &ty) ||
       isVectorType(sampledType, &ty, &elemCount) ||
-      canFitIntoOneRegister(sampledType, &ty, &elemCount)) {
+      canFitIntoOneRegister(astContext, sampledType, &ty, &elemCount)) {
     if (const auto *builtinType = ty->getAs<BuiltinType>()) {
       switch (builtinType->getKind()) {
       case BuiltinType::Int:
