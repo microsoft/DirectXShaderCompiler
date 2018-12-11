@@ -509,8 +509,18 @@ public:
   };
 
   template <class Ty>
+  struct RawBufferLdStTestData {
+    Ty v1, v2[2], v3[3], v4[4];
+  };
+
+  template <class Ty>
+  struct RawBufferLdStUavData {
+    RawBufferLdStTestData<Ty> input, output, srvOut;
+  };
+
+  template <class Ty>
   void RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
-                            const char *shaderOpName, const Ty *inputData);
+                            const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData);
 
   void RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
                             const char *shaderOpName);
@@ -5899,10 +5909,10 @@ TEST_F(ExecutionTest, BarycentricsTest) {
 
 static const char RawBufferTestComputeShaderTemplate[] =
 "struct TestData { \r\n"
-"  DATATYPE  v1; \r\n"
-"  DATATYPE2 v2; \r\n"
-"  DATATYPE3 v3; \r\n"
-"  DATATYPE4 v4; \r\n"
+"  $DATATYPE  v1; \r\n"
+"  $DATATYPE2 v2; \r\n"
+"  $DATATYPE3 v3; \r\n"
+"  $DATATYPE4 v4; \r\n"
 "}; \r\n"
 "\r\n"
 "struct UavData {\r\n"
@@ -5925,51 +5935,51 @@ static const char RawBufferTestComputeShaderTemplate[] =
 "void main(uint GI : SV_GroupIndex) {\r\n"
 "\r\n"
 "  // offset of 'out' in 'UavData'\r\n"
-"  const int out_offset = DATATYPE_SIZE * 10; \r\n"
+"  const int out_offset = $DATATYPE_SIZE * 10; \r\n"
 "\r\n"
 "  // offset of 'srv_out' in 'UavData'\r\n"
-"  const int srv_out_offset = DATATYPE_SIZE * 10 * 2; \r\n"
+"  const int srv_out_offset = $DATATYPE_SIZE * 10 * 2; \r\n"
 "\r\n"
 "  // offsets within the 'Data' struct\r\n"
 "  const int v1_offset = 0; \r\n"
-"  const int v2_offset = DATATYPE_SIZE; \r\n"
-"  const int v3_offset = DATATYPE_SIZE * 3; \r\n"
-"  const int v4_offset = DATATYPE_SIZE * 6; \r\n"
+"  const int v2_offset = $DATATYPE_SIZE; \r\n"
+"  const int v3_offset = $DATATYPE_SIZE * 3; \r\n"
+"  const int v4_offset = $DATATYPE_SIZE * 6; \r\n"
 "\r\n"
-"  uav0.Store(srv_out_offset + v1_offset, srv0.Load<DATATYPE>(v1_offset)); \r\n"
-"  uav0.Store(srv_out_offset + v2_offset, srv0.Load<DATATYPE2>(v2_offset)); \r\n"
-"  uav0.Store(srv_out_offset + v3_offset, srv0.Load<DATATYPE3>(v3_offset)); \r\n"
-"  uav0.Store(srv_out_offset + v4_offset, srv0.Load<DATATYPE4>(v4_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v1_offset, srv0.Load<$DATATYPE>(v1_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v2_offset, srv0.Load<$DATATYPE2>(v2_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v3_offset, srv0.Load<$DATATYPE3>(v3_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v4_offset, srv0.Load<$DATATYPE4>(v4_offset)); \r\n"
 "\r\n"
 "  uav1[0].srvOut.v1 = srv1[0].v1; \r\n"
 "  uav1[0].srvOut.v2 = srv1[0].v2; \r\n"
 "  uav1[0].srvOut.v3 = srv1[0].v3; \r\n"
 "  uav1[0].srvOut.v4 = srv1[0].v4; \r\n"
 "\r\n"
-"  uav2.Store(srv_out_offset + v1_offset, srv2.Load<DATATYPE>(v1_offset)); \r\n"
-"  uav2.Store(srv_out_offset + v2_offset, srv2.Load<DATATYPE2>(v2_offset)); \r\n"
-"  uav2.Store(srv_out_offset + v3_offset, srv2.Load<DATATYPE3>(v3_offset)); \r\n"
-"  uav2.Store(srv_out_offset + v4_offset, srv2.Load<DATATYPE4>(v4_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v1_offset, srv2.Load<$DATATYPE>(v1_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v2_offset, srv2.Load<$DATATYPE2>(v2_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v3_offset, srv2.Load<$DATATYPE3>(v3_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v4_offset, srv2.Load<$DATATYPE4>(v4_offset)); \r\n"
 "\r\n"
 "  uav3[0].srvOut.v1 = srv3[0].v1; \r\n"
 "  uav3[0].srvOut.v2 = srv3[0].v2; \r\n"
 "  uav3[0].srvOut.v3 = srv3[0].v3; \r\n"
 "  uav3[0].srvOut.v4 = srv3[0].v4; \r\n"
 "\r\n"
-"  uav0.Store(out_offset + v1_offset, uav0.Load<DATATYPE>(v1_offset)); \r\n"
-"  uav0.Store(out_offset + v2_offset, uav0.Load<DATATYPE2>(v2_offset)); \r\n"
-"  uav0.Store(out_offset + v3_offset, uav0.Load<DATATYPE3>(v3_offset)); \r\n"
-"  uav0.Store(out_offset + v4_offset, uav0.Load<DATATYPE4>(v4_offset)); \r\n"
+"  uav0.Store(out_offset + v1_offset, uav0.Load<$DATATYPE>(v1_offset)); \r\n"
+"  uav0.Store(out_offset + v2_offset, uav0.Load<$DATATYPE2>(v2_offset)); \r\n"
+"  uav0.Store(out_offset + v3_offset, uav0.Load<$DATATYPE3>(v3_offset)); \r\n"
+"  uav0.Store(out_offset + v4_offset, uav0.Load<$DATATYPE4>(v4_offset)); \r\n"
 "\r\n"
 "  uav1[0].output.v1 = uav1[0].input.v1; \r\n"
 "  uav1[0].output.v2 = uav1[0].input.v2; \r\n"
 "  uav1[0].output.v3 = uav1[0].input.v3; \r\n"
 "  uav1[0].output.v4 = uav1[0].input.v4; \r\n"
 "\r\n"
-"  uav2.Store(out_offset + v1_offset, uav2.Load<DATATYPE>(v1_offset)); \r\n"
-"  uav2.Store(out_offset + v2_offset, uav2.Load<DATATYPE2>(v2_offset)); \r\n"
-"  uav2.Store(out_offset + v3_offset, uav2.Load<DATATYPE3>(v3_offset)); \r\n"
-"  uav2.Store(out_offset + v4_offset, uav2.Load<DATATYPE4>(v4_offset)); \r\n"
+"  uav2.Store(out_offset + v1_offset, uav2.Load<$DATATYPE>(v1_offset)); \r\n"
+"  uav2.Store(out_offset + v2_offset, uav2.Load<$DATATYPE2>(v2_offset)); \r\n"
+"  uav2.Store(out_offset + v3_offset, uav2.Load<$DATATYPE3>(v3_offset)); \r\n"
+"  uav2.Store(out_offset + v4_offset, uav2.Load<$DATATYPE4>(v4_offset)); \r\n"
 "\r\n"
 "  uav3[0].output.v1 = uav3[0].input.v1; \r\n"
 "  uav3[0].output.v2 = uav3[0].input.v2; \r\n"
@@ -5986,37 +5996,37 @@ static void ReplaceAll(std::string &str, const std::string &findStr, const std::
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
-  int32_t data[] = { 1, 2, -1, 256, 0, -10517, 465, 13, -89, MAXUINT32/2  };
-  RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "ComputeRawBufferLdStI32", data);
+  RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, 0, -10517 }, { 465, 13, -89, MAXUINT32 / 2 } };
+  RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "ComputeRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStFloat)  {
-  float data[] = { 3e-10f, 1.5f, -1.99988f, 256.0f, 0.0f, -105.17f, 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f };
-  RunComputeRawBufferLdStTest<float>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdStFloat", data);
+  RawBufferLdStTestData<float> data = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 0.0f, -105.17f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RunComputeRawBufferLdStTest<float>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStI64)  {
-  int64_t data[] = { 1, 2, -1, 256, 0, -105171532, 465, 13, -89, MAXUINT64/2 };
-  RunComputeRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdStI64", data);
+  RawBufferLdStTestData<int64_t> data = { { 1 }, { 2, -1 }, { 256, 0, -105171532 }, { 465, 13, -89, MAXUINT64 / 2 } };
+  RunComputeRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStDouble)  {
-  double data[] = { 3e-10, 1.5, -1.99988, 256.0, 0.0, -105.17, 465.1652, -1.5694e2, -0.8543e-2, 1333.5 };
-  RunComputeRawBufferLdStTest<double>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdStDouble", data);
+  RawBufferLdStTestData<double> data = { { 3e-10 }, { 1.5, -1.99988 }, { 256.0, 0.0, -105.17 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
+  RunComputeRawBufferLdStTest<double>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
-  int16_t data[] = { 1, 2, -1, 256, 0, -10517, 465, 13, -89, MAXUINT16 / 2 };
-  RunComputeRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "ComputeRawBufferLdStI16", data);
+  RawBufferLdStTestData<int16_t> data = { { 1 }, { 2, -1 }, { 256, 0, -10517 }, { 465, 13, -89, MAXUINT16 / 2 } };
+  RunComputeRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "ComputeRawBufferLdSt16Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
-  float floatData[] = { 3e-5f, 1.5f, -1.99988f, 256.0f, 0.0f, -105.17f, 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f };
-  uint16_t halfData[sizeof(floatData)/sizeof(float)];
+  RawBufferLdStTestData<float> floatData = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 0.0f, -105.17f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<uint16_t> halfData;
   for (int i = 0; i < sizeof(floatData)/sizeof(float); i++) {
-    halfData[i] = ConvertFloat32ToFloat16(floatData[i]);
+    ((uint16_t*)&halfData)[i] = ConvertFloat32ToFloat16(((float*)&floatData)[i]);
   }
-  RunComputeRawBufferLdStTest<uint16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "ComputeRawBufferLdStHalf", halfData);
+  RunComputeRawBufferLdStTest<uint16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "ComputeRawBufferLdSt16Bit", halfData);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI32)  {
@@ -6045,7 +6055,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
 
 template <class Ty>
 void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType, 
-                                                const char *shaderOpName, const Ty *testData) {
+                                                const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
    WEX::TestExecution::SetVerifyOutput verifySettings(
    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -6093,21 +6103,12 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
 
    // format shader text
    std::string shaderText(RawBufferTestComputeShaderTemplate);
-   ReplaceAll(shaderText, std::string("DATATYPE_SIZE"), std::to_string(sizeof(Ty)));
-   ReplaceAll(shaderText, std::string("DATATYPE"), sTy);
+   ReplaceAll(shaderText, std::string("$DATATYPE_SIZE"), std::to_string(sizeof(Ty)));
+   ReplaceAll(shaderText, std::string("$DATATYPE"), sTy);
  
    // read shader config
    CComPtr<IStream> pStream;
    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-
-   // define test data structures
-   struct TestData {
-     Ty v1, v2[2], v3[3], v4[4];
-   };
-
-   struct UavData {
-     TestData input, output, srvOut;
-   };
 
    // run the shader
    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
@@ -6115,8 +6116,10 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
      VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
                     (Name[9] >= '0' && Name[9] <= '3'));
      pShaderOp->Shaders.at(0).Text = shaderText.data();
-     TestData *pInData = (TestData*)Data.data();
-     memcpy(pInData, (void*)testData, sizeof(TestData));
+
+     VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
+     RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
+     memcpy(pInData, &testData, sizeof(RawBufferLdStTestData<Ty>));
    });
 
    // read buffers back & verify expected values
@@ -6125,44 +6128,46 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
 
    for (unsigned i = 0; i < UavBufferCount; i++) {
      MappedData dataUav;
-     UavData *pOutData;
+     RawBufferLdStUavData<Ty> *pOutData;
 
-     bufferName[9] = (char)(i + '0');
+     bufferName[sizeof(bufferName) - 2] = (char)(i + '0');
+     
      test->Test->GetReadBackData(bufferName, &dataUav);
-     pOutData = (UavData *)dataUav.data();
+     VERIFY_ARE_EQUAL(sizeof(RawBufferLdStUavData<Ty>), dataUav.size());
+     pOutData = (RawBufferLdStUavData<Ty> *)dataUav.data();
      
      LogCommentFmt(L"Verifying UAVBuffer%d Load -> UAVBuffer%d Store", i, i);
      // scalarRunComputeRawBufferLdStTest
-     VERIFY_ARE_EQUAL(pOutData->output.v1,    testData[0]);
+     VERIFY_ARE_EQUAL(pOutData->output.v1,    testData.v1);
      // vector 2
-     VERIFY_ARE_EQUAL(pOutData->output.v2[0], testData[1]);
-     VERIFY_ARE_EQUAL(pOutData->output.v2[1], testData[2]);
+     VERIFY_ARE_EQUAL(pOutData->output.v2[0], testData.v2[0]);
+     VERIFY_ARE_EQUAL(pOutData->output.v2[1], testData.v2[1]);
      // vector 3
-     VERIFY_ARE_EQUAL(pOutData->output.v3[0], testData[3]);
-     VERIFY_ARE_EQUAL(pOutData->output.v3[1], testData[4]);
-     VERIFY_ARE_EQUAL(pOutData->output.v3[2], testData[5]);
+     VERIFY_ARE_EQUAL(pOutData->output.v3[0], testData.v3[0]);
+     VERIFY_ARE_EQUAL(pOutData->output.v3[1], testData.v3[1]);
+     VERIFY_ARE_EQUAL(pOutData->output.v3[2], testData.v3[2]);
      // vector 4
-     VERIFY_ARE_EQUAL(pOutData->output.v4[0], testData[6]);
-     VERIFY_ARE_EQUAL(pOutData->output.v4[1], testData[7]);
-     VERIFY_ARE_EQUAL(pOutData->output.v4[2], testData[8]);
-     VERIFY_ARE_EQUAL(pOutData->output.v4[3], testData[9]);
+     VERIFY_ARE_EQUAL(pOutData->output.v4[0], testData.v4[0]);
+     VERIFY_ARE_EQUAL(pOutData->output.v4[1], testData.v4[1]);
+     VERIFY_ARE_EQUAL(pOutData->output.v4[2], testData.v4[2]);
+     VERIFY_ARE_EQUAL(pOutData->output.v4[3], testData.v4[3]);
 
      // verify SRV Store
      LogCommentFmt(L"Verifying SRVBuffer%d Load -> UAVBuffer%d Store", i, i);
      // scalar
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v1,    testData[0]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v1,    testData.v1);
      // vector 2
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v2[0], testData[1]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v2[1], testData[2]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v2[0], testData.v2[0]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v2[1], testData.v2[1]);
      // vector 3
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[0], testData[3]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[1], testData[4]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[2], testData[5]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[0], testData.v3[0]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[1], testData.v3[1]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[2], testData.v3[2]);
      // vector 4
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[0], testData[6]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[1], testData[7]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[2], testData[8]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[3], testData[9]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[0], testData.v4[0]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[1], testData.v4[1]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[2], testData.v4[2]);
+     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[3], testData.v4[3]);
    }
 }
 
