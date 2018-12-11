@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "InitListHandler.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 
 #include <algorithm>
 #include <iterator>
@@ -23,8 +24,7 @@ namespace spirv {
 
 InitListHandler::InitListHandler(const ASTContext &ctx, SPIRVEmitter &emitter)
     : astContext(ctx), theEmitter(emitter),
-      spvBuilder(emitter.getModuleBuilder()),
-      typeTranslator(emitter.getTypeTranslator()),
+      spvBuilder(emitter.getSpirvBuilder()),
       diags(emitter.getDiagnosticsEngine()) {}
 
 SpirvInstruction *InitListHandler::process(const InitListExpr *expr) {
@@ -119,7 +119,7 @@ bool InitListHandler::tryToSplitStruct() {
   const QualType initType = init->getType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
-      TypeTranslator::isSampler(initType))
+      isSampler(initType))
     return false;
 
   // We are certain the current intializer will be replaced by now.
@@ -202,11 +202,11 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
 
   // Samplers, (RW)Buffers, (RW)Textures
   // It is important that this happens before checking of structure types.
-  if (TypeTranslator::isOpaqueType(type))
+  if (isOpaqueType(type))
     return createInitForSamplerImageType(type, srcLoc);
 
   // This should happen before the check for normal struct types
-  if (TypeTranslator::isAKindOfStructuredOrByteBuffer(type)) {
+  if (isAKindOfStructuredOrByteBuffer(type)) {
     emitError("cannot handle structured/byte buffer as initializer", srcLoc);
     return nullptr;
   }
@@ -338,7 +338,7 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
 }
 
 SpirvInstruction *InitListHandler::createInitForStructType(QualType type) {
-  assert(type->isStructureType() && !TypeTranslator::isSampler(type));
+  assert(type->isStructureType() && !isSampler(type));
 
   // Same as the vector case, first try to see if we already have a struct at
   // the beginning of the initializer queue.
@@ -417,7 +417,7 @@ InitListHandler::createInitForConstantArrayType(QualType type,
 SpirvInstruction *
 InitListHandler::createInitForSamplerImageType(QualType type,
                                                SourceLocation srcLoc) {
-  assert(TypeTranslator::isOpaqueType(type));
+  assert(isOpaqueType(type));
 
   // Samplers, (RW)Buffers, and (RW)Textures are translated into OpTypeSampler
   // and OpTypeImage. They should be treated similar as builtin types.

@@ -60,68 +60,6 @@ bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
   return false;
 }
 
-// TODO: Maybe we should move these type probing functions to TypeTranslator.
-
-/// Returns true if the given type is a bool or vector of bool type.
-bool isBoolOrVecOfBoolType(QualType type) {
-  QualType elemType = {};
-  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
-         elemType->isBooleanType();
-}
-
-/// Returns true if the given type is a signed integer or vector of signed
-/// integer type.
-bool isSintOrVecOfSintType(QualType type) {
-  QualType elemType = {};
-  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
-         elemType->isSignedIntegerType();
-}
-
-/// Returns true if the given type is an unsigned integer or vector of unsigned
-/// integer type.
-bool isUintOrVecOfUintType(QualType type) {
-  QualType elemType = {};
-  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
-         elemType->isUnsignedIntegerType();
-}
-
-/// Returns true if the given type is a float or vector of float type.
-bool isFloatOrVecOfFloatType(QualType type) {
-  QualType elemType = {};
-  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
-         elemType->isFloatingType();
-}
-
-/// Returns true if the given type is a bool or vector/matrix of bool type.
-bool isBoolOrVecMatOfBoolType(QualType type) {
-  return isBoolOrVecOfBoolType(type) ||
-         (hlsl::IsHLSLMatType(type) &&
-          hlsl::GetHLSLMatElementType(type)->isBooleanType());
-}
-
-/// Returns true if the given type is a signed integer or vector/matrix of
-/// signed integer type.
-bool isSintOrVecMatOfSintType(QualType type) {
-  return isSintOrVecOfSintType(type) ||
-         (hlsl::IsHLSLMatType(type) &&
-          hlsl::GetHLSLMatElementType(type)->isSignedIntegerType());
-}
-
-/// Returns true if the given type is an unsigned integer or vector/matrix of
-/// unsigned integer type.
-bool isUintOrVecMatOfUintType(QualType type) {
-  return isUintOrVecOfUintType(type) ||
-         (hlsl::IsHLSLMatType(type) &&
-          hlsl::GetHLSLMatElementType(type)->isUnsignedIntegerType());
-}
-
-/// Returns true if the given type is a float or vector/matrix of float type.
-bool isFloatOrVecMatOfFloatType(QualType type) {
-  return isFloatOrVecOfFloatType(type) ||
-         (hlsl::IsHLSLMatType(type) &&
-          hlsl::GetHLSLMatElementType(type)->isFloatingType());
-}
-
 inline bool isSpirvMatrixOp(spv::Op opcode) {
   return opcode == spv::Op::OpMatrixTimesMatrix ||
          opcode == spv::Op::OpMatrixTimesVector ||
@@ -143,7 +81,7 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
     if (GetIntrinsicOp(callee, opcode, group)) {
       if (static_cast<IntrinsicOp>(opcode) == IntrinsicOp::MOP_Load) {
         const auto *object = indexing->getImplicitObjectArgument();
-        if (TypeTranslator::isStructuredBuffer(object->getType())) {
+        if (isStructuredBuffer(object->getType())) {
           *index = indexing->getArg(0);
           return indexing->getImplicitObjectArgument();
         }
@@ -172,7 +110,7 @@ inline bool isExternalVar(const VarDecl *var) {
 const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
     if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
-      if (TypeTranslator::isConstantTextureBuffer(varDecl))
+      if (isConstantTextureBuffer(varDecl))
         return varDecl->getType()->getAs<RecordType>()->getDecl();
 
   return nullptr;
@@ -191,10 +129,10 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   expr = expr->IgnoreParenCasts();
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
-      if (TypeTranslator::isAKindOfStructuredOrByteBuffer(varDecl->getType()))
+      if (isAKindOfStructuredOrByteBuffer(varDecl->getType()))
         return isExternalVar(varDecl);
   } else if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
-    if (TypeTranslator::isAKindOfStructuredOrByteBuffer(callExpr->getType()))
+    if (isAKindOfStructuredOrByteBuffer(callExpr->getType()))
       return true;
   } else if (const auto *arrSubExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     return isReferencingNonAliasStructuredOrByteBuffer(arrSubExpr->getBase());
@@ -543,10 +481,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), spvContext(), featureManager(diags, spirvOptions),
-      theBuilder(&theContext, &featureManager, spirvOptions),
+      spvContext(), featureManager(diags, spirvOptions),
       spvBuilder(astContext, spvContext, &featureManager, spirvOptions),
-      typeTranslator(astContext, theBuilder, diags, spirvOptions),
       declIdMapper(shaderModel, astContext, spvContext, spvBuilder, *this,
                    featureManager, spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
@@ -860,7 +796,7 @@ SpirvInstruction *SPIRVEmitter::loadIfGLValue(const Expr *expr,
   // If true, we are likely to copy it as a whole. To assist per-element
   // copying, avoid the load here and return the pointer directly.
   // TODO: consider moving this hack into SPIRV-Tools as a transformation.
-  if (TypeTranslator::isOpaqueArrayType(expr->getType()))
+  if (isOpaqueArrayType(expr->getType()))
     return info;
 
   // Check whether we are trying to load an externally visible structured/byte
@@ -1102,8 +1038,8 @@ bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
 
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     const auto varType = varDecl->getType();
-    if ((TypeTranslator::isSubpassInput(varType) ||
-         TypeTranslator::isSubpassInputMS(varType)) &&
+    if ((isSubpassInput(varType) ||
+         isSubpassInputMS(varType)) &&
         !varDecl->hasAttr<VKInputAttachmentIndexAttr>()) {
       emitError("missing vk::input_attachment_index attribute",
                 varDecl->getLocation());
@@ -1134,7 +1070,7 @@ bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
           "only scalar/vector types allowed as SubpassInput(MS) parameter type",
           decl->getLocation());
       // Return directly to avoid further type processing, which will hit
-      // asserts in TypeTranslator.
+      // asserts when lowering the type.
       return false;
     }
   }
@@ -1191,8 +1127,8 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
       }
 
       // We cannot handle external initialization of column-major matrices now.
-      if (typeTranslator.isOrContainsNonFpColMajorMatrix(varMember->getType(),
-                                                         varMember)) {
+      if (isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
+                                          varMember->getType(), varMember)) {
         emitError("externally initialized non-floating-point column-major "
                   "matrices not supported yet",
                   varMember->getLocation());
@@ -1228,7 +1164,8 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
 
   // We cannot handle external initialization of column-major matrices now.
   if (isExternalVar(decl) &&
-      typeTranslator.isOrContainsNonFpColMajorMatrix(decl->getType(), decl)) {
+      isOrContainsNonFpColMajorMatrix(astContext, spirvOptions, decl->getType(),
+                                      decl)) {
     emitError("externally initialized non-floating-point column-major "
               "matrices not supported yet",
               decl->getLocation());
@@ -1242,7 +1179,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       type = type->getAsArrayTypeUnsafe()->getElementType();
     } while (type->isArrayType());
 
-    if (TypeTranslator::isRWAppendConsumeSBuffer(type)) {
+    if (isRWAppendConsumeSBuffer(type)) {
       emitError("arrays of RW/append/consume structured buffers unsupported",
                 decl->getLocation());
       return;
@@ -1314,16 +1251,16 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
 
     // Variables that are not externally visible and of opaque types should
     // request legalization.
-    if (!needsLegalization && TypeTranslator::isOpaqueType(decl->getType()))
+    if (!needsLegalization && isOpaqueType(decl->getType()))
       needsLegalization = true;
   }
 
-  if (TypeTranslator::isRelaxedPrecisionType(decl->getType(), spirvOptions)) {
+  if (isRelaxedPrecisionType(decl->getType(), spirvOptions)) {
     spvBuilder.decorateRelaxedPrecision(var);
   }
 
   // All variables that are of opaque struct types should request legalization.
-  if (!needsLegalization && TypeTranslator::isOpaqueStructType(decl->getType()))
+  if (!needsLegalization && isOpaqueStructType(decl->getType()))
     needsLegalization = true;
 }
 
@@ -2619,13 +2556,11 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   const auto *object = expr->getImplicitObjectArgument();
   auto *objectInstr = loadIfAliasVarRef(object);
   const auto type = object->getType();
-  const bool isByteAddressBuffer = TypeTranslator::isByteAddressBuffer(type) ||
-                                   TypeTranslator::isRWByteAddressBuffer(type);
-  const bool isStructuredBuffer =
-      TypeTranslator::isStructuredBuffer(type) ||
-      TypeTranslator::isAppendStructuredBuffer(type) ||
-      TypeTranslator::isConsumeStructuredBuffer(type);
-  assert(isByteAddressBuffer || isStructuredBuffer);
+  const bool isBABuf = isByteAddressBuffer(type) || isRWByteAddressBuffer(type);
+  const bool isStructuredBuf = isStructuredBuffer(type) ||
+                               isAppendStructuredBuffer(type) ||
+                               isConsumeStructuredBuffer(type);
+  assert(isBABuf || isStructuredBuf);
 
   // (RW)ByteAddressBuffers/(RW)StructuredBuffers are represented as a structure
   // with only one member that is a runtime array. We need to perform
@@ -2635,7 +2570,7 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   // For (RW)ByteAddressBuffers, GetDimensions() must return the array length
   // in bytes, but OpArrayLength returns the number of uints in the runtime
   // array. Therefore we must multiply the results by 4.
-  if (isByteAddressBuffer) {
+  if (isBABuf) {
     length = spvBuilder.createBinaryOp(
         spv::Op::OpIMul, astContext.UnsignedIntTy, length,
         spvBuilder.getConstantInt(astContext.UnsignedIntTy,
@@ -2643,7 +2578,7 @@ SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   }
   spvBuilder.createStore(doExpr(expr->getArg(0)), length);
 
-  if (isStructuredBuffer) {
+  if (isStructuredBuf) {
     // For (RW)StructuredBuffer, the stride of the runtime array (which is the
     // size of the struct) must also be written to the second argument.
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
@@ -2747,8 +2682,8 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   const auto numArgs = expr->getNumArgs();
   const Expr *mipLevel = nullptr, *numLevels = nullptr, *numSamples = nullptr;
 
-  assert(TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type) ||
-         TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type));
+  assert(isTexture(type) || isRWTexture(type) || isBuffer(type) ||
+         isRWBuffer(type));
 
   // For Texture1D, arguments are either:
   // a) width
@@ -2804,7 +2739,7 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
     mipLevel = expr->getArg(0);
     numLevels = expr->getArg(numArgs - 1);
   }
-  if (TypeTranslator::isTextureMS(type)) {
+  if (isTextureMS(type)) {
     numSamples = expr->getArg(numArgs - 1);
   }
 
@@ -2825,7 +2760,7 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   // Only Texture types use ImageQuerySizeLod.
   // TextureMS, RWTexture, Buffers, RWBuffers use ImageQuerySize.
   SpirvInstruction *lod = nullptr;
-  if (TypeTranslator::isTexture(type) && !numSamples) {
+  if (isTexture(type) && !numSamples) {
     if (mipLevel) {
       // For Texture types when mipLevel argument is present.
       lod = doExpr(mipLevel);
@@ -3061,20 +2996,16 @@ SpirvInstruction *SPIRVEmitter::processBufferTextureLoad(
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
-  assert(TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type) ||
-         TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type) ||
-         TypeTranslator::isSubpassInput(type) ||
-         TypeTranslator::isSubpassInputMS(type));
+  assert(isBuffer(type) || isRWBuffer(type) || isTexture(type) ||
+         isRWTexture(type) || isSubpassInput(type) || isSubpassInputMS(type));
 
-  const bool doFetch =
-      TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
+  const bool doFetch = isBuffer(type) || isTexture(type);
 
   auto *objectInfo = loadIfGLValue(object);
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
   SpirvInstruction *sampleNumber = nullptr;
-  if (TypeTranslator::isTextureMS(type) ||
-      TypeTranslator::isSubpassInputMS(type)) {
+  if (isTextureMS(type) || isSubpassInputMS(type)) {
     sampleNumber = lod;
     lod = nullptr;
   }
@@ -3091,8 +3022,8 @@ SpirvInstruction *SPIRVEmitter::processBufferTextureLoad(
       // For struct type, we need to make sure it can fit into a 4-component
       // vector. Detailed failing reasons will be emitted by the function so
       // we don't need to emit errors here.
-      if (!typeTranslator.canFitIntoOneRegister(sampledType, &elemType,
-                                                &elemCount))
+      if (!canFitIntoOneRegister(astContext, sampledType, &elemType,
+                                 &elemCount))
         return nullptr;
     }
   }
@@ -3126,11 +3057,11 @@ SpirvInstruction *SPIRVEmitter::processByteAddressBufferLoadStore(
   auto *objectInfo = loadIfAliasVarRef(object);
   assert(numWords >= 1 && numWords <= 4);
   if (doStore) {
-    assert(typeTranslator.isRWByteAddressBuffer(object->getType()));
+    assert(isRWByteAddressBuffer(object->getType()));
     assert(expr->getNumArgs() == 2);
   } else {
-    assert(typeTranslator.isRWByteAddressBuffer(object->getType()) ||
-           typeTranslator.isByteAddressBuffer(object->getType()));
+    assert(isRWByteAddressBuffer(object->getType()) ||
+           isByteAddressBuffer(object->getType()));
     if (expr->getNumArgs() == 2) {
       emitError(
           "(RW)ByteAddressBuffer::Load(in address, out status) not supported",
@@ -4219,23 +4150,20 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument();
   const auto objectType = object->getType();
 
-  if (typeTranslator.isRWByteAddressBuffer(objectType) ||
-      typeTranslator.isByteAddressBuffer(objectType))
+  if (isRWByteAddressBuffer(objectType) || isByteAddressBuffer(objectType))
     return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
 
-  if (TypeTranslator::isStructuredBuffer(objectType))
+  if (isStructuredBuffer(objectType))
     return processStructuredBufferLoad(expr);
 
   const auto numArgs = expr->getNumArgs();
   const auto *locationArg = expr->getArg(0);
-  const bool isTextureMS = TypeTranslator::isTextureMS(objectType);
+  const bool textureMS = isTextureMS(objectType);
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
-  if (TypeTranslator::isBuffer(objectType) ||
-      TypeTranslator::isRWBuffer(objectType) ||
-      TypeTranslator::isRWTexture(objectType))
+  if (isBuffer(objectType) || isRWBuffer(objectType) || isRWTexture(objectType))
     return processBufferTextureLoad(object, doExpr(locationArg),
                                     /*constOffset*/ nullptr,
                                     /*varOffset*/ nullptr, /*lod*/ nullptr,
@@ -4243,15 +4171,15 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
 
   // Subtract 1 for status (if it exists), and 1 for sampleIndex (if it exists),
   // and 1 for location.
-  const bool hasOffsetArg = numArgs - hasStatusArg - isTextureMS - 1 > 0;
+  const bool hasOffsetArg = numArgs - hasStatusArg - textureMS - 1 > 0;
 
-  if (TypeTranslator::isTexture(objectType)) {
+  if (isTexture(objectType)) {
     // .Load() has a second optional paramter for offset.
     SpirvInstruction *location = doExpr(locationArg);
     SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
     SpirvInstruction *coordinate = location, *lod = nullptr;
 
-    if (isTextureMS) {
+    if (textureMS) {
       // SampleIndex is only available when the Object is of Texture2DMS or
       // Texture2DMSArray types. Under those cases, Offset will be the third
       // parameter (index 2).
@@ -4281,16 +4209,14 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SPIRVEmitter::processGetDimensions(const CXXMemberCallExpr *expr) {
   const auto objectType = expr->getImplicitObjectArgument()->getType();
-  if (TypeTranslator::isTexture(objectType) ||
-      TypeTranslator::isRWTexture(objectType) ||
-      TypeTranslator::isBuffer(objectType) ||
-      TypeTranslator::isRWBuffer(objectType)) {
+  if (isTexture(objectType) || isRWTexture(objectType) ||
+      isBuffer(objectType) || isRWBuffer(objectType)) {
     return processBufferTextureGetDimensions(expr);
-  } else if (TypeTranslator::isByteAddressBuffer(objectType) ||
-             TypeTranslator::isRWByteAddressBuffer(objectType) ||
-             TypeTranslator::isStructuredBuffer(objectType) ||
-             TypeTranslator::isAppendStructuredBuffer(objectType) ||
-             TypeTranslator::isConsumeStructuredBuffer(objectType)) {
+  } else if (isByteAddressBuffer(objectType) ||
+             isRWByteAddressBuffer(objectType) ||
+             isStructuredBuffer(objectType) ||
+             isAppendStructuredBuffer(objectType) ||
+             isConsumeStructuredBuffer(objectType)) {
     return processByteAddressBufferStructuredBufferGetDimensions(expr);
   } else {
     emitError("GetDimensions() of the given object type unimplemented",
@@ -4308,7 +4234,7 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
 
     // For Textures, regular indexing (operator[]) uses slice 0.
     if (isBufferTextureIndexing(expr, &baseExpr, &indexExpr)) {
-      auto *lod = TypeTranslator::isTexture(baseExpr->getType())
+      auto *lod = isTexture(baseExpr->getType())
                       ? spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                   llvm::APInt(32, 0))
                       : nullptr;
@@ -4807,7 +4733,7 @@ void SPIRVEmitter::storeValue(SpirvInstruction *lhsPtr,
     }
 
     spvBuilder.createStore(lhsPtr, rhsVal);
-  } else if (TypeTranslator::isOpaqueType(lhsValType)) {
+  } else if (isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
     //
@@ -4836,7 +4762,7 @@ void SPIRVEmitter::storeValue(SpirvInstruction *lhsPtr,
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
-  } else if (TypeTranslator::isOpaqueArrayType(lhsValType)) {
+  } else if (isOpaqueArrayType(lhsValType)) {
     // For opaque array types, we cannot perform OpLoad on the whole array and
     // then write out as a whole; instead, we need to OpLoad each element
     // using access chains. This is to influence later SPIR-V transformations
@@ -5239,7 +5165,7 @@ bool SPIRVEmitter::isTextureMipsSampleIndexing(const CXXOperatorCallExpr *expr,
 
   const Expr *object = memberExpr->getBase();
   const auto objectType = object->getType();
-  if (!TypeTranslator::isTexture(objectType))
+  if (!isTexture(objectType))
     return false;
 
   if (base)
@@ -5262,10 +5188,8 @@ bool SPIRVEmitter::isBufferTextureIndexing(const CXXOperatorCallExpr *indexExpr,
     return false;
   const Expr *object = indexExpr->getArg(0);
   const auto objectType = object->getType();
-  if (TypeTranslator::isBuffer(objectType) ||
-      TypeTranslator::isRWBuffer(objectType) ||
-      TypeTranslator::isTexture(objectType) ||
-      TypeTranslator::isRWTexture(objectType)) {
+  if (isBuffer(objectType) || isRWBuffer(objectType) || isTexture(objectType) ||
+      isRWTexture(objectType)) {
     if (base)
       *base = object;
     if (index)
@@ -5720,7 +5644,7 @@ SpirvInstruction *SPIRVEmitter::processEachVectorInMatrix(
         actOnEachVector) {
   const auto matType = matrix->getType();
   assert(isMxNMatrix(matType));
-  const QualType vecType = typeTranslator.getComponentVectorType(matType);
+  const QualType vecType = getComponentVectorType(astContext, matType);
 
   uint32_t rowCount = 0, colCount = 0;
   hlsl::GetHLSLMatRowColCount(matType, rowCount, colCount);
@@ -5930,7 +5854,7 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
           collectArrayStructIndices(thisBase, rawIndex, rawIndices, indices);
 
       if (thisBaseType != base->getType() &&
-          TypeTranslator::isAKindOfStructuredOrByteBuffer(thisBaseType)) {
+          isAKindOfStructuredOrByteBuffer(thisBaseType)) {
         // The immediate base is a kind of structured or byte buffer. It should
         // be an alias variable. Break the normal index collecting chain.
         // Return the immediate base as the base so that we can apply other
@@ -5944,7 +5868,7 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
       // If the base is a StructureType, we need to push an addtional index 0
       // here. This is because we created an additional OpTypeRuntimeArray
       // in the structure.
-      if (TypeTranslator::isStructuredBuffer(thisBaseType))
+      if (isStructuredBuffer(thisBaseType))
         indices->push_back(
             spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)));
 
@@ -6098,7 +6022,7 @@ SpirvInstruction *SPIRVEmitter::castToInt(SpirvInstruction *fromVal,
       // Casting to a matrix of integers: Cast each row and construct a
       // composite.
       llvm::SmallVector<SpirvInstruction *, 4> castedRows;
-      const QualType vecType = typeTranslator.getComponentVectorType(fromType);
+      const QualType vecType = getComponentVectorType(astContext, fromType);
       const auto fromVecQualType =
           astContext.getExtVectorType(elemType, numCols);
       const auto toIntVecQualType =
@@ -6129,8 +6053,10 @@ SpirvInstruction *SPIRVEmitter::convertBitwidth(SpirvInstruction *fromVal,
       fromType->isSpecificBuiltinType(BuiltinType::LitInt))
     return fromVal;
 
-  const auto fromBitwidth = typeTranslator.getElementSpirvBitwidth(fromType);
-  const auto toBitwidth = typeTranslator.getElementSpirvBitwidth(toType);
+  const auto fromBitwidth = getElementSpirvBitwidth(
+      astContext, fromType, spirvOptions.enable16BitTypes);
+  const auto toBitwidth = getElementSpirvBitwidth(
+      astContext, toType, spirvOptions.enable16BitTypes);
   if (fromBitwidth == toBitwidth) {
     if (resultType)
       *resultType = fromType;
@@ -6202,7 +6128,7 @@ SpirvInstruction *SPIRVEmitter::castToFloat(SpirvInstruction *fromVal,
       // Casting to a matrix of floats: Cast each row and construct a
       // composite.
       llvm::SmallVector<SpirvInstruction *, 4> castedRows;
-      const QualType vecType = typeTranslator.getComponentVectorType(fromType);
+      const QualType vecType = getComponentVectorType(astContext, fromType);
       const auto fromVecQualType =
           astContext.getExtVectorType(elemType, numCols);
       const auto toIntVecQualType =
@@ -8050,7 +7976,7 @@ SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
     uint32_t matRowCount = 0, matColCount = 0;
     if (isMxNMatrix(argType, &elemType, &matRowCount, &matColCount)) {
       auto *matrix = doExpr(arg);
-      const QualType vecType = typeTranslator.getComponentVectorType(argType);
+      const QualType vecType = getComponentVectorType(astContext, argType);
       llvm::SmallVector<SpirvInstruction *, 4> rowResults;
       for (uint32_t i = 0; i < matRowCount; ++i) {
         // Extract the row which is a float vector of size matColCount.
@@ -8658,7 +8584,8 @@ SpirvConstant *SPIRVEmitter::getMaskForBitwidthValue(QualType type) {
   uint32_t count = 1;
 
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType, &count)) {
-    const auto bitwidth = typeTranslator.getElementSpirvBitwidth(elemType);
+    const auto bitwidth = getElementSpirvBitwidth(
+        astContext, elemType, spirvOptions.enable16BitTypes);
     SpirvConstant *mask = nullptr;
     switch (bitwidth) {
     case 16:

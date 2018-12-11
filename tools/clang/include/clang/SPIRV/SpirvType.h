@@ -68,7 +68,6 @@ public:
   static bool isSubpassInputMS(const SpirvType *);
   static bool isResourceType(const SpirvType *);
   static bool isOrContains16BitType(const SpirvType *);
-  static bool isMatrixOrArrayOfMatrix(const SpirvType *);
 
 protected:
   SpirvType(Kind k, llvm::StringRef name = "") : kind(k), debugName(name) {}
