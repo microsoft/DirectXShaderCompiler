@@ -28,7 +28,6 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/FeatureManager.h"
-#include "clang/SPIRV/ModuleBuilder.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/STLExtras.h"
@@ -36,7 +35,6 @@
 
 #include "DeclResultIdMapper.h"
 #include "SpirvEvalInfo.h"
-#include "TypeTranslator.h"
 
 namespace clang {
 namespace spirv {
@@ -52,8 +50,7 @@ public:
   void HandleTranslationUnit(ASTContext &context) override;
 
   ASTContext &getASTContext() { return astContext; }
-  SpirvBuilder &getModuleBuilder() { return spvBuilder; }
-  TypeTranslator &getTypeTranslator() { return typeTranslator; }
+  SpirvBuilder &getSpirvBuilder() { return spvBuilder; }
   DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
 
   void doDecl(const Decl *decl);
@@ -966,12 +963,9 @@ private:
   const llvm::StringRef entryFunctionName;
   const hlsl::ShaderModel &shaderModel;
 
-  SPIRVContext theContext;
   SpirvContext spvContext;
   FeatureManager featureManager;
-  ModuleBuilder theBuilder;
   SpirvBuilder spvBuilder;
-  TypeTranslator typeTranslator;
   DeclResultIdMapper declIdMapper;
 
   /// A queue of decls reachable from the entry function. Decls inserted into
