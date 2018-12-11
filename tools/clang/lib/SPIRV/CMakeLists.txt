@@ -19,7 +19,6 @@ add_clang_library(clangSPIRV
   InstBuilderManual.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
-  ModuleBuilder.cpp
   SPIRVContext.cpp
   SPIRVEmitter.cpp
   SpirvBasicBlock.cpp
@@ -31,7 +30,6 @@ add_clang_library(clangSPIRV
   String.cpp
   Structure.cpp
   Type.cpp
-  TypeTranslator.cpp
 
   LINK_LIBS
   clangAST
