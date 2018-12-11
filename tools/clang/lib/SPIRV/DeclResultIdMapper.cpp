@@ -554,8 +554,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
 void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
   const QualType declType = getTypeOrFnRetType(decl);
 
-  if (!counterVars.count(decl) &&
-      TypeTranslator::isRWAppendConsumeSBuffer(declType)) {
+  if (!counterVars.count(decl) && isRWAppendConsumeSBuffer(declType)) {
     createCounterVar(decl, /*declId=*/0, /*isAlias=*/true);
   } else if (!fieldCounterVars.count(decl) && declType->isStructureType() &&
              // Exclude other resource types which are represented as structs
@@ -994,7 +993,7 @@ void DeclResultIdMapper::createFieldCounterVars(
     indices->push_back(getNumBaseClasses(type) + field->getFieldIndex());
 
     const QualType fieldType = field->getType();
-    if (TypeTranslator::isRWAppendConsumeSBuffer(fieldType))
+    if (isRWAppendConsumeSBuffer(fieldType))
       createCounterVar(rootDecl, /*declId=*/0, /*isAlias=*/true, indices);
     else if (fieldType->isStructureType() &&
              !hlsl::IsHLSLResourceType(fieldType))
@@ -2140,7 +2139,7 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position) {
 void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
                                                      QualType type,
                                                      SpirvVariable *varInstr) {
-  const QualType elemType = getElementType(type);
+  const QualType elemType = getElementType(astContext, type);
   const auto loc = decl->getLocation();
 
   if (elemType->isBooleanType() || elemType->isIntegerType()) {
