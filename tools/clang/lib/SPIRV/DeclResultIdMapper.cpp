@@ -930,10 +930,6 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
-  // TODO(ehsan): Remove the following line once we are sure the instruction
-  // that was created prior to calling this function was in fact a spec constant
-  // instruction.
-  // specConstant->setSpecConstant();
   specConstant->setRValue();
   astDecls[decl] = DeclSpirvInfo(specConstant);
 }

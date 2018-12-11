@@ -422,11 +422,9 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
       return is16BitTypeEnabled ? 16 : 32;
     }
     case BuiltinType::LitFloat: {
-      // TODO(ehsan): Literal types not handled properly.
       return 64;
     }
     case BuiltinType::LitInt: {
-      // TODO(ehsan): Literal types not handled properly.
       return 64;
     }
     default:

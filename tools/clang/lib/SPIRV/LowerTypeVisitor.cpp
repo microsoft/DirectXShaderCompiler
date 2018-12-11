@@ -315,14 +315,14 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         case BuiltinType::Min16UInt:
           return spvContext.getUIntType(use16Bit ? 16 : 32);
 
-        // Literal types.
+        // All literal types should have been lowered to concrete types before
+        // LowerTypeVisitor is invoked. We should error out if we encounter a
+        // literal type.
         case BuiltinType::LitInt:
-          // TODO: analyze adjacent instructions for type hints
-          // emitError("TODO: literal int", srcLoc);
+          emitError("found literal int type when lowering types", srcLoc);
           return spvContext.getUIntType(64);
         case BuiltinType::LitFloat: {
-          // TODO: analyze adjacent instructions for type hints
-          // emitError("TODO: literal float", srcLoc);
+          emitError("found literal float type when lowering types", srcLoc);
           return spvContext.getFloatType(64);
 
         default:
