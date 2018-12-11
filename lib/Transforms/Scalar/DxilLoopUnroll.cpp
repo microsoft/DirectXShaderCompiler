@@ -431,6 +431,7 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
     if (!PN)
       break;
     WorkList.push_back(PN);
+    InstructionsSeen.insert(PN);
   }
 
   while (WorkList.size()) {
