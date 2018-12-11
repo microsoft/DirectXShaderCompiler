@@ -9,8 +9,20 @@
 
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/HlslTypes.h"
+
+namespace {
+template <unsigned N>
+clang::DiagnosticBuilder emitError(const clang::ASTContext &astContext,
+                                   const char (&message)[N],
+                                   clang::SourceLocation srcLoc = {}) {
+  const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+      clang::DiagnosticsEngine::Error, message);
+  return astContext.getDiagnostics().Report(srcLoc, diagId);
+}
+} // namespace
 
 namespace clang {
 namespace spirv {
@@ -212,22 +224,6 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
-bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
-        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
-      return true;
-
-    for (const auto *field : recordType->getDecl()->fields()) {
-      if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
-        return true;
-    }
-  }
-  return false;
-}
-
 bool isSubpassInput(QualType type) {
   if (const auto *rt = type->getAs<RecordType>())
     return rt->getDecl()->getName() == "SubpassInput";
@@ -265,21 +261,6 @@ bool isResourceType(const ValueDecl *decl) {
     return true;
 
   return hlsl::IsHLSLResourceType(declType);
-}
-
-bool isAKindOfStructuredOrByteBuffer(QualType type) {
-  // Strip outer arrayness first
-  while (type->isArrayType())
-    type = type->getAsArrayTypeUnsafe()->getElementType();
-
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-           name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
-           name == "AppendStructuredBuffer" ||
-           name == "ConsumeStructuredBuffer";
-  }
-  return false;
 }
 
 bool isOrContains16BitType(QualType type, bool enable16BitTypesOption) {
@@ -478,8 +459,8 @@ bool canTreatAsSameScalarType(QualType type1, QualType type2) {
           !type1->isSpecificBuiltinType(BuiltinType::Bool));
 }
 
-bool canFitIntoOneRegister(QualType structType, QualType *elemType,
-                           uint32_t *elemCount) {
+bool canFitIntoOneRegister(const ASTContext &astContext, QualType structType,
+                           QualType *elemType, uint32_t *elemCount) {
   if (structType->getAsStructureType() == nullptr)
     return false;
 
@@ -497,23 +478,29 @@ bool canFitIntoOneRegister(QualType structType, QualType *elemType,
         firstElemType = type;
       } else {
         if (!canTreatAsSameScalarType(firstElemType, type)) {
-          assert(false && "all struct members should have the same element "
-                          "type for resource template instantiation");
+          emitError(astContext,
+                    "all struct members should have the same element type for "
+                    "resource template instantiation",
+                    structDecl->getLocation());
           return false;
         }
       }
       totalCount += count;
     } else {
-      assert(false && "unsupported struct element type for resource template "
-                      "instantiation");
+      emitError(
+          astContext,
+          "unsupported struct element type for resource template instantiation",
+          structDecl->getLocation());
       return false;
     }
   }
 
   if (totalCount > 4) {
-    assert(
-        false &&
-        "resource template element type cannot fit into four 32-bit scalars");
+    emitError(
+        astContext,
+        "resource template element type %0 cannot fit into four 32-bit scalars",
+        structDecl->getLocation())
+        << structType;
     return false;
   }
 
@@ -524,10 +511,11 @@ bool canFitIntoOneRegister(QualType structType, QualType *elemType,
   return true;
 }
 
-QualType getElementType(QualType type) {
+QualType getElementType(const ASTContext &astContext, QualType type) {
   QualType elemType = {};
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-      isMxNMatrix(type, &elemType) || canFitIntoOneRegister(type, &elemType)) {
+      isMxNMatrix(type, &elemType) ||
+      canFitIntoOneRegister(astContext, type, &elemType)) {
     return elemType;
   }
 
@@ -699,6 +687,331 @@ bool isRowMajorMatrix(const SpirvCodeGenOptions &spvOptions, QualType type) {
     return !attrRowMajor;
 
   return !spvOptions.defaultRowMajor;
+}
+
+bool isStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "StructuredBuffer" || name == "RWStructuredBuffer";
+}
+
+bool isByteAddressBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "ByteAddressBuffer";
+  }
+  return false;
+}
+
+bool isRWBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "RWBuffer";
+  }
+  return false;
+}
+
+bool isBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "Buffer";
+  }
+  return false;
+}
+
+bool isRWTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "RWTexture1D" || name == "RWTexture1DArray" ||
+        name == "RWTexture2D" || name == "RWTexture2DArray" ||
+        name == "RWTexture3D")
+      return true;
+  }
+  return false;
+}
+
+bool isTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "Texture1D" || name == "Texture1DArray" ||
+        name == "Texture2D" || name == "Texture2DArray" ||
+        name == "Texture2DMS" || name == "Texture2DMSArray" ||
+        name == "TextureCube" || name == "TextureCubeArray" ||
+        name == "Texture3D")
+      return true;
+  }
+  return false;
+}
+
+bool isTextureMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "Texture2DMS" || name == "Texture2DMSArray")
+      return true;
+  }
+  return false;
+}
+
+bool isSampler(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "SamplerState" || name == "SamplerComparisonState")
+      return true;
+  }
+  return false;
+}
+
+bool isRWByteAddressBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "RWByteAddressBuffer";
+  }
+  return false;
+}
+
+bool isAppendStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "AppendStructuredBuffer";
+}
+
+bool isConsumeStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "ConsumeStructuredBuffer";
+}
+
+bool isRWAppendConsumeSBuffer(QualType type) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    return name == "RWStructuredBuffer" || name == "AppendStructuredBuffer" ||
+           name == "ConsumeStructuredBuffer";
+  }
+  return false;
+}
+
+bool isAKindOfStructuredOrByteBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+           name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+           name == "AppendStructuredBuffer" ||
+           name == "ConsumeStructuredBuffer";
+  }
+  return false;
+}
+
+bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
+      return true;
+
+    for (const auto *field : recordType->getDecl()->fields()) {
+      if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
+        return true;
+    }
+  }
+  return false;
+}
+
+bool isOpaqueType(QualType type) {
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    const auto name = recordType->getDecl()->getName();
+
+    if (name == "Texture1D" || name == "RWTexture1D")
+      return true;
+    if (name == "Texture2D" || name == "RWTexture2D")
+      return true;
+    if (name == "Texture2DMS" || name == "RWTexture2DMS")
+      return true;
+    if (name == "Texture3D" || name == "RWTexture3D")
+      return true;
+    if (name == "TextureCube" || name == "RWTextureCube")
+      return true;
+
+    if (name == "Texture1DArray" || name == "RWTexture1DArray")
+      return true;
+    if (name == "Texture2DArray" || name == "RWTexture2DArray")
+      return true;
+    if (name == "Texture2DMSArray" || name == "RWTexture2DMSArray")
+      return true;
+    if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
+      return true;
+
+    if (name == "Buffer" || name == "RWBuffer")
+      return true;
+
+    if (name == "SamplerState" || name == "SamplerComparisonState")
+      return true;
+  }
+  return false;
+}
+
+bool isOpaqueStructType(QualType type) {
+  if (isOpaqueType(type))
+    return false;
+
+  if (const auto *recordType = type->getAs<RecordType>())
+    for (const auto *field : recordType->getDecl()->decls())
+      if (const auto *fieldDecl = dyn_cast<FieldDecl>(field))
+        if (isOpaqueType(fieldDecl->getType()) ||
+            isOpaqueStructType(fieldDecl->getType()))
+          return true;
+
+  return false;
+}
+
+bool isOpaqueArrayType(QualType type) {
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe())
+    return isOpaqueType(arrayType->getElementType());
+  return false;
+}
+
+bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
+  // Primitive types
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        case BuiltinType::Min16Float:
+        case BuiltinType::Min10Float: {
+          // If '-enable-16bit-types' options is enabled, these types are
+          // translated to real 16-bit type, and therefore are not
+          // RelaxedPrecision.
+          // If the options is not enabled, these types are translated to 32-bit
+          // types with the added RelaxedPrecision decoration.
+          return !opts.enable16BitTypes;
+        default:
+          // Filter switch only interested in relaxed precision eligible types.
+          break;
+        }
+        }
+  }
+
+  // Vector & Matrix types could use relaxed precision based on their element
+  // type.
+  {
+    QualType elemType = {};
+    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
+      return isRelaxedPrecisionType(elemType, opts);
+  }
+
+  return false;
+}
+
+/// Returns true if the given type is a bool or vector of bool type.
+bool isBoolOrVecOfBoolType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isBooleanType();
+}
+
+/// Returns true if the given type is a signed integer or vector of signed
+/// integer type.
+bool isSintOrVecOfSintType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isSignedIntegerType();
+}
+
+/// Returns true if the given type is an unsigned integer or vector of unsigned
+/// integer type.
+bool isUintOrVecOfUintType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isUnsignedIntegerType();
+}
+
+/// Returns true if the given type is a float or vector of float type.
+bool isFloatOrVecOfFloatType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isFloatingType();
+}
+
+/// Returns true if the given type is a bool or vector/matrix of bool type.
+bool isBoolOrVecMatOfBoolType(QualType type) {
+  return isBoolOrVecOfBoolType(type) ||
+         (hlsl::IsHLSLMatType(type) &&
+          hlsl::GetHLSLMatElementType(type)->isBooleanType());
+}
+
+/// Returns true if the given type is a signed integer or vector/matrix of
+/// signed integer type.
+bool isSintOrVecMatOfSintType(QualType type) {
+  return isSintOrVecOfSintType(type) ||
+         (hlsl::IsHLSLMatType(type) &&
+          hlsl::GetHLSLMatElementType(type)->isSignedIntegerType());
+}
+
+/// Returns true if the given type is an unsigned integer or vector/matrix of
+/// unsigned integer type.
+bool isUintOrVecMatOfUintType(QualType type) {
+  return isUintOrVecOfUintType(type) ||
+         (hlsl::IsHLSLMatType(type) &&
+          hlsl::GetHLSLMatElementType(type)->isUnsignedIntegerType());
+}
+
+/// Returns true if the given type is a float or vector/matrix of float type.
+bool isFloatOrVecMatOfFloatType(QualType type) {
+  return isFloatOrVecOfFloatType(type) ||
+         (hlsl::IsHLSLMatType(type) &&
+          hlsl::GetHLSLMatElementType(type)->isFloatingType());
+}
+
+bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
+                                     const SpirvCodeGenOptions &spirvOptions,
+                                     QualType type, const Decl *decl) {
+  const auto isColMajorDecl = [&spirvOptions](const Decl *decl) {
+    return decl->hasAttr<clang::HLSLColumnMajorAttr>() ||
+           (!decl->hasAttr<clang::HLSLRowMajorAttr>() &&
+            !spirvOptions.defaultRowMajor);
+  };
+
+  QualType elemType = {};
+  if (isMxNMatrix(type, &elemType) && !elemType->isFloatingType()) {
+    return isColMajorDecl(decl);
+  }
+
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
+        !elemType->isFloatingType())
+      return isColMajorDecl(decl);
+  }
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    const auto *decl = structType->getDecl();
+    for (const auto *field : decl->fields()) {
+      if (isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
+                                          field->getType(), field))
+        return true;
+    }
+  }
+
+  return false;
+}
+
+QualType getComponentVectorType(const ASTContext &astContext,
+                                QualType matrixType) {
+  assert(isMxNMatrix(matrixType));
+
+  const QualType elemType = hlsl::GetHLSLMatElementType(matrixType);
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
+  return astContext.getExtVectorType(elemType, colCount);
 }
 
 } // namespace spirv

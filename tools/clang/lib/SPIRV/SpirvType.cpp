@@ -126,15 +126,6 @@ bool SpirvType::isOrContains16BitType(const SpirvType *type) {
   return false;
 }
 
-bool SpirvType::isMatrixOrArrayOfMatrix(const SpirvType *type) {
-  if (isa<MatrixType>(type))
-    return true;
-  if (const auto *arrayType = dyn_cast<ArrayType>(type))
-    return isMatrixOrArrayOfMatrix(arrayType->getElementType());
-
-  return false;
-}
-
 MatrixType::MatrixType(const VectorType *vecType, uint32_t vecCount)
     : SpirvType(TK_Matrix), vectorType(vecType), vectorCount(vecCount) {}
 

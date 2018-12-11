@@ -12,7 +12,6 @@
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
-#include "TypeTranslator.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
