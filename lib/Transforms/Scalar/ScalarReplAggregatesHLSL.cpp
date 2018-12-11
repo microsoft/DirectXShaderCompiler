@@ -5590,6 +5590,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // Create a value as output value.
         Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
         Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
+
         // For each stream.Append(data)
         // transform into
         //   d = load data
@@ -5599,21 +5600,24 @@ void SROA_Parameter_HLSL::flattenArgument(
           if (CallInst *CI = dyn_cast<CallInst>(user)) {
             unsigned opcode = GetHLOpcode(CI);
             if (opcode == static_cast<unsigned>(IntrinsicOp::MOP_Append)) {
-              if (CI->getNumArgOperands() == (HLOperandIndex::kStreamAppendDataOpIndex + 1)) {
-                Value *data =
-                    CI->getArgOperand(HLOperandIndex::kStreamAppendDataOpIndex);
-                DXASSERT(data->getType()->isPointerTy(),
-                         "Append value must be pointer.");
+              // At this point, the stream append data argument might or not have been SROA'd
+              Value *firstDataPtr = CI->getArgOperand(HLOperandIndex::kStreamAppendDataOpIndex);
+              DXASSERT(firstDataPtr->getType()->isPointerTy(), "Append value must be a pointer.");
+              if (firstDataPtr->getType()->getPointerElementType() == outputType) {
+                // The data has not been SROA'd
+                DXASSERT(CI->getNumArgOperands() == (HLOperandIndex::kStreamAppendDataOpIndex + 1),
+                  "Unexpected number of arguments for non-SROA'd StreamOutput.Append");
                 IRBuilder<> Builder(CI);
 
                 llvm::SmallVector<llvm::Value *, 16> idxList;
-                SplitCpy(data->getType(), outputVal, data, idxList, Builder, DL,
+                SplitCpy(firstDataPtr->getType(), outputVal, firstDataPtr, idxList, Builder, DL,
                          dxilTypeSys, &flatParamAnnotation);
 
                 CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
               }
               else {
-                // Append has been flattened.
+                // Append has been SROA'd, we might be operating on multiple values
+                // with types differing from the stream output type.
                 // Flatten store outputVal.
                 // Must be struct to be flatten.
                 IRBuilder<> Builder(CI);
