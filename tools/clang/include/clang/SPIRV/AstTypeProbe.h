@@ -65,16 +65,6 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
-/// Returns true if the given type is or contains any kind of structured-buffer
-/// or byte-address-buffer.
-bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
-
-/// \brief Returns true if the given type is SubpassInput.
-bool isSubpassInput(QualType);
-
-/// \brief Returns true if the given type is SubpassInputMS.
-bool isSubpassInputMS(QualType);
-
 /// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
 bool isConstantTextureBuffer(const Decl *decl);
 
@@ -86,10 +76,6 @@ bool isConstantTextureBuffer(const Decl *decl);
 /// * (RW)ByteAddressBuffer
 /// * SubpassInput(MS)
 bool isResourceType(const ValueDecl *decl);
-
-/// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
-/// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
-bool isAKindOfStructuredOrByteBuffer(QualType type);
 
 /// Returns true if the given type is or contains a 16-bit type.
 /// The caller must also specify whether 16-bit types have been enabled via
@@ -134,6 +120,12 @@ bool canFitIntoOneRegister(const ASTContext &, QualType structType,
 /// struct member type.
 QualType getElementType(const ASTContext &, QualType type);
 
+/// \brief Evluates the given type at the given bitwidth and returns the
+/// result-id for it. Panics if the given type is not a scalar or vector of
+/// float or integer type. For example: if QualType of an int4 and bitwidth of
+/// 64 is passed in, the result-id of a SPIR-V vector of size 4 of signed
+/// 64-bit integers is returned.
+/// Acceptable bitwidths are 16, 32, and 64.
 QualType getTypeWithCustomBitwidth(const ASTContext &, QualType type,
                                    uint32_t bitwidth);
 
