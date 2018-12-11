@@ -1,19 +1,10 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// CHECK: groupId
-// CHECK: flattenedThreadIdInGroup
-// CHECK: threadIdInGroup
-// CHECK: bufferLoad
-// CHECK: textureLoad
-// CHECK: UMin
-// CHECK: Countbits
-// CHECK: FirstbitHi
-// CHECK: barrier
-// CHECK: bufferStore
-// CHECK: IMax
-// CHECK: IMin
-// CHECK: bufferStore
-// CHECK: AtomicAdd
+// CHECK: Could not unroll loop.
+
+// Copied from the original ParticleBinCullingCS.hlsl
+// The loop on line 141 cannot be unrolled because
+// the starting index is not known at compile time.
 
 //
 // Copyright (c) Microsoft. All rights reserved.
@@ -146,7 +137,7 @@ void main( uint3 Gid : SV_GroupID, uint GI : SV_GroupIndex, uint3 GTid : SV_Grou
 	for (uint Iter = 0; Iter < ParticleCountInBin; Iter += GROUP_THREAD_COUNT)
 	{
 		// Reset temporary particle intersection masks.  There are two words (64-bits) per thread.
-    // [unroll] // Change to allow new unroll behavior.
+		[unroll]
 		for (uint C = GI; C < TILES_PER_BIN * MASK_WORDS_PER_ITER; C += GROUP_THREAD_COUNT)
 			gs_IntersectionMasks[C] = 0;
 

@@ -122,6 +122,9 @@ void initializeSROA_DT_HLSLPass(PassRegistry&);
 //
 ModulePass *createSROA_Parameter_HLSL();
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
+
+Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
+void initializeDxilLoopUnrollPass(PassRegistry&);
 //===----------------------------------------------------------------------===//
 //
 // LowerStaticGlobalIntoAlloca. Replace static globals with alloca if only used
