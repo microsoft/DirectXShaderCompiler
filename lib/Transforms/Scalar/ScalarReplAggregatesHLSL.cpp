@@ -5609,7 +5609,8 @@ void SROA_Parameter_HLSL::flattenArgument(
                 CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
               }
               else {
-                // Append has been flattened, we might be operating.
+                // Append has been SROA'd, we might be operating on multiple values
+                // with types differing from the stream output type.
                 // Flatten store outputVal.
                 // Must be struct to be flatten.
                 IRBuilder<> Builder(CI);
