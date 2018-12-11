@@ -229,7 +229,7 @@ static bool EmitErrorOnInstructionFollowPhiSelect(
   return false;
 }
 
-std::string EmitMessageAtLocation(const DebugLoc &DL, Twine Msg) {
+std::string FormatMessageAtLocation(const DebugLoc &DL, Twine Msg) {
   std::string locString;
   raw_string_ostream os(locString);
   DL.print(os);
@@ -237,21 +237,21 @@ std::string EmitMessageAtLocation(const DebugLoc &DL, Twine Msg) {
   return os.str();
 }
 
-Twine EmitMessageWithoutLocation(Twine Msg) {
+Twine FormatMessageWithoutLocation(Twine Msg) {
   return Twine(Msg) + " Use /Zi for source location.";
 }
 
 void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
   const DebugLoc &DL = I->getDebugLoc();
   if (DL.get()) {
-    I->getContext().emitError(EmitMessageAtLocation(DL, Msg));
+    I->getContext().emitError(FormatMessageAtLocation(DL, Msg));
     return;
   } else if (isa<PHINode>(I) || isa<SelectInst>(I)) {
     if (EmitErrorOnInstructionFollowPhiSelect(I, Msg))
       return;
   }
 
-  I->getContext().emitError(EmitMessageWithoutLocation(Msg));
+  I->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
 const StringRef kResourceMapErrorMsg =

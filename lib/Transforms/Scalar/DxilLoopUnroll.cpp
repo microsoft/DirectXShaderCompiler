@@ -133,17 +133,18 @@ char DxilLoopUnroll::ID;
 static void FailLoopUnroll(bool WarnOnly, Loop *L, const char *Message) {
   DebugLoc DL = L->getStartLoc();
   LLVMContext &Ctx = L->getHeader()->getContext();
+
   if (WarnOnly) {
     if (DL.get())
-      Ctx.emitWarning(hlsl::dxilutil::EmitMessageAtLocation(DL, Message));
+      Ctx.emitWarning(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
     else
-      Ctx.emitWarning(hlsl::dxilutil::EmitMessageWithoutLocation(Message));
+      Ctx.emitWarning(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
   }
   else {
     if (DL.get())
-      Ctx.emitError(hlsl::dxilutil::EmitMessageAtLocation(DL, Message));
+      Ctx.emitError(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
     else
-      Ctx.emitError(hlsl::dxilutil::EmitMessageWithoutLocation(Message));
+      Ctx.emitError(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
   }
 }
 
@@ -429,19 +430,25 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
     PHINode *PN = dyn_cast<PHINode>(&I);
     if (!PN)
       break;
-    WorkList.push_back({ PN });
+    WorkList.push_back(PN);
   }
 
   while (WorkList.size()) {
     Instruction *I = WorkList.pop_back_val();
-    if (InstructionsSeen.count(I))
-      continue;
-    if (!BlocksInLoopSet.count(I->getParent()))
-      continue;
-    InstructionsSeen.insert(I);
 
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I)) {
       Type *EltType = GEP->getType()->getPointerElementType();
+
+      // NOTE: This is a very convservative in the following conditions:
+      // - constant global resource arrays with external linkage (these can be
+      //   dynamically accessed)
+      // - global resource arrays or alloca resource arrays, as long as all
+      //   writes come from the same original resource definition (which can
+      //   also be an array).
+      //
+      // We may want to make this more precise in the future if it becomes a
+      // problem.
+      //
       if (hlsl::dxilutil::IsHLSLObjectType(EltType)) {
         ProblemBlocks.insert(GEP->getParent());
         continue; // Stop Propagating
@@ -450,7 +457,12 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
 
     for (User *U : I->users()) {
       if (Instruction *UserI = dyn_cast<Instruction>(U)) {
-        WorkList.push_back(UserI);
+        if (!InstructionsSeen.count(UserI) &&
+          BlocksInLoopSet.count(UserI->getParent()))
+        {
+          InstructionsSeen.insert(UserI);
+          WorkList.push_back(UserI);
+        }
       }
     }
   }
@@ -510,7 +522,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     return false;
 
   Function *F = L->getHeader()->getParent();
-  HLModule *HM = &F->getParent()->GetHLModule();
+  bool OnlyWarnOnFail = false;
+  if (F->getParent()->HasHLModule()) {
+    HLModule &HM = F->getParent()->GetHLModule();
+    OnlyWarnOnFail = HM.GetHLOptions().bFXCCompatMode;
+  }
 
   // Analysis passes
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -799,7 +815,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
-    FailLoopUnroll(HM->GetHLOptions().bFXCCompatMode, L, "Could not unroll loop.");
+    FailLoopUnroll(OnlyWarnOnFail, L, "Could not unroll loop.");
 
     // Remove all the cloned blocks
     for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {

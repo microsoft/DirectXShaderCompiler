@@ -137,7 +137,7 @@ void main( uint3 Gid : SV_GroupID, uint GI : SV_GroupIndex, uint3 GTid : SV_Grou
 	for (uint Iter = 0; Iter < ParticleCountInBin; Iter += GROUP_THREAD_COUNT)
 	{
 		// Reset temporary particle intersection masks.  There are two words (64-bits) per thread.
-    [unroll]
+		[unroll]
 		for (uint C = GI; C < TILES_PER_BIN * MASK_WORDS_PER_ITER; C += GROUP_THREAD_COUNT)
 			gs_IntersectionMasks[C] = 0;
 
