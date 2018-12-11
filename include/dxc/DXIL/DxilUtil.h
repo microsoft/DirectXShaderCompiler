@@ -14,6 +14,7 @@
 #include <string>
 #include <memory>
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
 
 namespace llvm {
@@ -30,6 +31,7 @@ class BasicBlock;
 class raw_ostream;
 class ModulePass;
 class PassRegistry;
+class DebugLoc;
 
 ModulePass *createDxilLoadMetadataPass();
 void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
@@ -67,6 +69,8 @@ namespace dxilutil {
                              llvm::Function *PatchConstantFunc, bool IsLib);
   void EmitErrorOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
   void EmitResMappingError(llvm::Instruction *Res);
+  std::string FormatMessageAtLocation(const llvm::DebugLoc &DL, llvm::Twine Msg);
+  llvm::Twine FormatMessageWithoutLocation(llvm::Twine Msg);
   // Simple demangle just support case "\01?name@" pattern.
   llvm::StringRef DemangleFunctionName(llvm::StringRef name);
   // ReplaceFunctionName replaces the undecorated portion of originalName with undecorated newName
@@ -92,6 +96,7 @@ namespace dxilutil {
   llvm::Value *MergeSelectOnSameValue(llvm::Instruction *SelInst,
                                       unsigned startOpIdx,
                                       unsigned numOperands);
+  bool SimplifyTrivialPHIs(llvm::BasicBlock *BB);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
