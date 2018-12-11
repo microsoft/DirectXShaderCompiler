@@ -487,8 +487,6 @@ public:
                llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
-  // TODO(ehsan): This API should be removed once aliasing has been moved to a
-  // pass.
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                llvm::StringRef name = "",
