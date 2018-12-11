@@ -22,7 +22,9 @@ class LiteralTypeVisitor : public Visitor {
 public:
   LiteralTypeVisitor(const ASTContext &ctx, SpirvContext &spvCtx,
                      const SpirvCodeGenOptions &opts)
-      : Visitor(opts, spvCtx), astContext(ctx) {}
+      : Visitor(opts, spvCtx), astContext(ctx), curFnAstReturnType({}) {}
+
+  bool visit(SpirvFunction *, Phase);
 
   bool visit(SpirvVariable *);
   bool visit(SpirvAtomic *);
@@ -39,6 +41,18 @@ public:
   bool visit(SpirvComposite *);
   bool visit(SpirvCompositeExtract *);
   bool visit(SpirvAccessChain *);
+  bool visit(SpirvExtInst *);
+  bool visit(SpirvReturn *);
+  bool visit(SpirvCompositeInsert *);
+  bool visit(SpirvImageOp *);
+
+  // Note: We currently don't do anything to deduce literal types for the
+  // following instructions:
+  //
+  // SpirvImageQuery
+  // SpirvImageTexelPointer
+  // SpirvSpecConstantBinaryOp
+  // SpirvSpecConstantUnaryOp
 
   /// The "sink" visit function for all instructions.
   ///
@@ -67,6 +81,7 @@ private:
 
 private:
   const ASTContext &astContext;
+  QualType curFnAstReturnType;
 };
 
 } // end namespace spirv

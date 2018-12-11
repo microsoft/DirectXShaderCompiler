@@ -14,15 +14,16 @@
 namespace clang {
 namespace spirv {
 
-// -- SpirvReturn (OpReturnValue)
-// -- SpirvCompositeExtract
-// -- SpirvCompositeInsert
-// -- SpirvExtInst
-// -- SpirvImageOp
-// -- SpirvImageQuery
-// -- SpirvImageTexelPointer
-// -- SpirvSpecConstantBinaryOp
-// -- SpirvSpecConstantUnaryOp
+bool LiteralTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
+  assert(fn);
+
+  // Before going through the function instructions
+  if (phase == Visitor::Phase::Init) {
+    curFnAstReturnType = fn->getAstReturnType();
+  }
+
+  return true;
+}
 
 bool LiteralTypeVisitor::isLiteralLargerThan32Bits(
     SpirvConstantInteger *constant) {
@@ -148,6 +149,8 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
       op == spv::Op::OpShiftLeftLogical) {
     // Base (arg1) should have the same type as result type
     updateTypeForInstruction(inst->getOperand1(), resultType);
+    // The shitf amount (arg2) cannot be a 64-bit type for a 32-bit base!
+    updateTypeForInstruction(inst->getOperand2(), resultType);
     return true;
   }
 
@@ -267,6 +270,11 @@ bool LiteralTypeVisitor::visit(SpirvStore *inst) {
     if (const auto *ptrType = type->getAs<PointerType>())
       type = ptrType->getPointeeType();
     updateTypeForInstruction(object, type);
+  } else if (pointer->hasResultType()) {
+    if (auto *ptrType = dyn_cast<HybridPointerType>(pointer->getResultType())) {
+      QualType type = ptrType->getPointeeType();
+      updateTypeForInstruction(object, type);
+    }
   }
   return true;
 }
@@ -371,6 +379,41 @@ bool LiteralTypeVisitor::visit(SpirvAccessChain *inst) {
                           : astContext.UnsignedIntTy);
       }
     }
+  }
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvExtInst *inst) {
+  // Result type of the instruction can provide a hint about its operands. e.g.
+  // OpExtInst %float %glsl_set Pow %double_2 %double_12
+  // should be evaluated as:
+  // OpExtInst %float %glsl_set Pow %float_2 %float_12
+  const auto resultType = inst->getAstResultType();
+  for (auto *operand : inst->getOperands())
+    updateTypeForInstruction(operand, resultType);
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvReturn *inst) {
+  if (inst->hasReturnValue()) {
+    updateTypeForInstruction(inst->getReturnValue(), curFnAstReturnType);
+  }
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvCompositeInsert *inst) {
+  const auto resultType = inst->getAstResultType();
+  updateTypeForInstruction(inst->getComposite(), resultType);
+  updateTypeForInstruction(inst->getObject(),
+                           getElementType(astContext, resultType));
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvImageOp *inst) {
+  if (inst->isImageWrite() && inst->hasAstResultType()) {
+    const auto sampledType =
+        hlsl::GetHLSLResourceResultType(inst->getAstResultType());
+    updateTypeForInstruction(inst->getTexelToWrite(), sampledType);
   }
   return true;
 }

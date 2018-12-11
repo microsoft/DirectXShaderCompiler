@@ -8570,23 +8570,9 @@ SpirvConstant *SPIRVEmitter::getMaskForBitwidthValue(QualType type) {
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType, &count)) {
     const auto bitwidth = getElementSpirvBitwidth(
         astContext, elemType, spirvOptions.enable16BitTypes);
-    SpirvConstant *mask = nullptr;
-    switch (bitwidth) {
-    case 16:
-      elemType = astContext.UnsignedShortTy;
-      mask = spvBuilder.getConstantInt(elemType, llvm::APInt(16, bitwidth - 1));
-      break;
-    case 32:
-      elemType = astContext.UnsignedIntTy;
-      mask = spvBuilder.getConstantInt(elemType, llvm::APInt(32, bitwidth - 1));
-      break;
-    case 64:
-      elemType = astContext.UnsignedLongLongTy;
-      mask = spvBuilder.getConstantInt(elemType, llvm::APInt(64, bitwidth - 1));
-      break;
-    default:
-      assert(false && "this method only supports 16-, 32-, and 64-bit types");
-    }
+    SpirvConstant *mask = spvBuilder.getConstantInt(
+        elemType,
+        llvm::APInt(bitwidth, bitwidth - 1, elemType->isSignedIntegerType()));
 
     if (count == 1)
       return mask;
