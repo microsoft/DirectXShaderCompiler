@@ -13,7 +13,6 @@ add_clang_unittest(clang-spirv-tests
   FileTestFixture.cpp
   FileTestUtils.cpp
   InstBuilderTest.cpp
-  ModuleBuilderTest.cpp
   SPIRVContextTest.cpp
   SPIRVTestOptions.cpp
   StructureTest.cpp
