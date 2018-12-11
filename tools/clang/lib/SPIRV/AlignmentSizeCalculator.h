@@ -59,8 +59,8 @@ private:
   }
 
 private:
-  ASTContext &astContext;          /// AST context
-  const SpirvCodeGenOptions &spvOptions; /// SPIR-V options 
+  ASTContext &astContext;                /// AST context
+  const SpirvCodeGenOptions &spvOptions; /// SPIR-V options
 };
 
 } // end namespace spirv
