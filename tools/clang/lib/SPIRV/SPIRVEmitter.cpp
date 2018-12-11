@@ -2136,32 +2136,17 @@ SpirvInstruction *SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     // is casting from size-4 vector to size-2-by-2 matrix.
 
     auto *vec = loadIfGLValue(subExpr);
-    // TODO: remove this line:
-    (void)vec;
-
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
     const bool isMat = isMxNMatrix(toType, &elemType, &rowCount, &colCount);
-
     assert(isMat && rowCount == 2 && colCount == 2);
     (void)isMat;
-
-    assert(false && "unimplemented");
-    return nullptr;
-    // TODO(ehsan): We don't have a way to construct a matrix QualType?
-    /*
-    uint32_t vec2Type =
-        theBuilder.getVecType(typeTranslator.translateType(elemType), 2);
-    const auto subVec1 =
-        theBuilder.createVectorShuffle(vec2Type, vec, vec, {0, 1});
-    const auto subVec2 =
-        theBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3});
-
-    const auto mat = theBuilder.createCompositeConstruct(
-        theBuilder.getMatType(elemType, vec2Type, 2), {subVec1, subVec2});
-
-    return SpirvEvalInfo(mat).setRValue();
-    */
+    QualType vec2Type = astContext.getExtVectorType(elemType, 2);
+    auto *subVec1 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {0, 1});
+    auto *subVec2 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3});
+    auto *mat = spvBuilder.createCompositeConstruct(toType, {subVec1, subVec2});
+    mat->setRValue();
+    return mat;
   }
   case CastKind::CK_HLSLMatrixSplat: {
     // From scalar to matrix
