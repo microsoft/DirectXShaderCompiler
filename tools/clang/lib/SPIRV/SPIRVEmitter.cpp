@@ -7864,7 +7864,6 @@ uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
       spv::MemorySemanticsMask::ImageMemory |
       spv::MemorySemanticsMask::UniformMemory |
       spv::MemorySemanticsMask::WorkgroupMemory |
-      spv::MemorySemanticsMask::AtomicCounterMemory |
       spv::MemorySemanticsMask::AcquireRelease;
 
   // Get <result-id> for execution scope.

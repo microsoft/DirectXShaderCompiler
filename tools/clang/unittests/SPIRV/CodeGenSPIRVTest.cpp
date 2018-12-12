@@ -88,6 +88,7 @@ TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
 TEST_F(FileTest, StructuredByteBufferArray) {
+  setRelaxLogicalPointer();
   runFileTest("type.structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, StructuredByteBufferArrayError) {
