@@ -7,9 +7,7 @@ add_clang_library(clangSPIRV
   AstTypeProbe.cpp
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp
-  Constant.cpp
   DeclResultIdMapper.cpp
-  Decoration.cpp
   EmitSPIRVAction.cpp
   EmitVisitor.cpp
   FeatureManager.cpp
@@ -28,8 +26,6 @@ add_clang_library(clangSPIRV
   SpirvModule.cpp
   SpirvType.cpp
   String.cpp
-  Structure.cpp
-  Type.cpp
 
   LINK_LIBS
   clangAST
