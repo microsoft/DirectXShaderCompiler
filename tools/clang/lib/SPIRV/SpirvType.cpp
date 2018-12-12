@@ -174,8 +174,9 @@ std::string ImageType::getImageName(spv::Dim dim, bool arrayed) {
 
 bool ImageType::operator==(const ImageType &that) const {
   return sampledType == that.sampledType && dimension == that.dimension &&
-         isArrayed == that.isArrayed && isMultiSampled == that.isMultiSampled &&
-         isSampled == that.isSampled && imageFormat == that.imageFormat;
+         imageDepth == that.imageDepth && isArrayed == that.isArrayed &&
+         isMultiSampled == that.isMultiSampled && isSampled == that.isSampled &&
+         imageFormat == that.imageFormat;
 }
 
 bool ArrayType::operator==(const ArrayType &that) const {
@@ -201,6 +202,7 @@ operator==(const StructType::FieldInfo &that) const {
   return type == that.type && offset.hasValue() == that.offset.hasValue() &&
          matrixStride.hasValue() == that.matrixStride.hasValue() &&
          isRowMajor.hasValue() == that.isRowMajor.hasValue() &&
+         name == that.name &&
          // Either not have offset value, or have the same value
          (!offset.hasValue() || offset.getValue() == that.offset.getValue()) &&
          // Either not have matrix stride value, or have the same value
