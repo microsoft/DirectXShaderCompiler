@@ -227,8 +227,15 @@ HybridStructType::HybridStructType(
 
 bool HybridStructType::FieldInfo::
 operator==(const HybridStructType::FieldInfo &that) const {
-  return astType == that.astType && vkOffsetAttr == that.vkOffsetAttr &&
-         packOffsetAttr == that.packOffsetAttr;
+  return astType == that.astType &&
+         // vkOffsetAttr may be nullptr. If not, should have the same offset.
+         (vkOffsetAttr == that.vkOffsetAttr ||
+          vkOffsetAttr->getOffset() == that.vkOffsetAttr->getOffset()) &&
+         // packOffsetAttr may be nullptr. If not, should have the same offset.
+         (packOffsetAttr == that.packOffsetAttr ||
+          (packOffsetAttr->Subcomponent == that.packOffsetAttr->Subcomponent &&
+           packOffsetAttr->ComponentOffset ==
+               that.packOffsetAttr->ComponentOffset));
 }
 
 bool HybridStructType::operator==(const HybridStructType &that) const {
