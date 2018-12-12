@@ -26,7 +26,7 @@ public:
 
   SpirvContext &getSpirvContext() { return spvContext; }
 
-  const clang::ASTContext &getAstContext() {
+  clang::ASTContext &getAstContext() {
     if (!initialized)
       initialize();
     return compilerInstance.getASTContext();
@@ -445,8 +445,8 @@ TEST_F(SpirvContextTest, FunctionTypeUnique1) {
   const auto *int32 = spvContext.getSIntType(32);
   const auto *uint32 = spvContext.getUIntType(32);
   const auto *float32 = spvContext.getFloatType(32);
-  auto *fnType1 = spvContext.getFunctionType(int32,{uint32, float32});
-  auto *fnType2 = spvContext.getFunctionType(int32,{uint32, float32});
+  auto *fnType1 = spvContext.getFunctionType(int32, {uint32, float32});
+  auto *fnType2 = spvContext.getFunctionType(int32, {uint32, float32});
   EXPECT_EQ(fnType1, fnType2);
 }
 
@@ -729,6 +729,173 @@ TEST_F(SpirvContextTest, StructTypeUnique9) {
   EXPECT_NE(type1, type2);
 }
 
-// TODO: Add SpirvContext tests for hybrid struct
+TEST_F(SpirvContextTest, HybridStructTypeUnique1) {
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  EXPECT_EQ(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique2) {
+  // Struct names are different
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct2", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  EXPECT_NE(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique3) {
+  // Read-only-ness is different
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ true, StructInterfaceType::InternalStorage);
+
+  EXPECT_NE(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique4) {
+  // Interface type is different
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
+
+  EXPECT_NE(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique5) {
+  // Fields have different types
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field"),
+       HybridStructType::FieldInfo(uint32, "field")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(uint32, "field"),
+       HybridStructType::FieldInfo(int32, "field")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
+
+  EXPECT_NE(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique6) {
+  // Fields have different names
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "sine"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "cosine"),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
+
+  EXPECT_NE(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique7) {
+  // Fields have different vk::offset.
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+  auto *vkOffsetAttr1 = clang::VKOffsetAttr::CreateImplicit(astContext, 4, {});
+  auto *vkOffsetAttr2 = clang::VKOffsetAttr::CreateImplicit(astContext, 8, {});
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1", vkOffsetAttr1),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1", vkOffsetAttr2),
+       HybridStructType::FieldInfo(uint32, "field2")},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
+
+  EXPECT_NE(type1, type2);
+}
+
+TEST_F(SpirvContextTest, HybridStructTypeUnique8) {
+  // Fields have different :packoffset.
+  auto &astContext = getAstContext();
+  auto &spvContext = getSpirvContext();
+  const auto int32 = astContext.IntTy;
+  const auto uint32 = astContext.UnsignedIntTy;
+  auto *vkOffsetAttr = clang::VKOffsetAttr::CreateImplicit(astContext, 4, {});
+
+  hlsl::ConstantPacking packing1;
+  packing1.ComponentOffset = 0;
+  packing1.Subcomponent = 1;
+  hlsl::ConstantPacking packing2;
+  packing2.ComponentOffset = 1;
+  packing2.Subcomponent = 2;
+
+  const auto *type1 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1", vkOffsetAttr),
+       HybridStructType::FieldInfo(uint32, "field2", nullptr, &packing1)},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::InternalStorage);
+
+  const auto *type2 = spvContext.getHybridStructType(
+      {HybridStructType::FieldInfo(int32, "field1", vkOffsetAttr),
+       HybridStructType::FieldInfo(uint32, "field2", nullptr, &packing2)},
+      "struct1", /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
+
+  EXPECT_NE(type1, type2);
+}
 
 } // anonymous namespace
