@@ -20,9 +20,12 @@ add_clang_unittest(clang-spirv-tests
   )
 
 target_link_libraries(clang-spirv-tests
+  clangAST
+  clangBasic
   clangCodeGen
   clangFrontend
   clangSPIRV
+  clangTooling
   dxcompiler
   effcee
   SPIRV-Tools
