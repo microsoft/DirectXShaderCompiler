@@ -493,18 +493,14 @@ public:
   }
 
   bool operator==(const HybridFunctionType &that) const {
-    return astReturnType == that.astReturnType &&
-           returnType == that.returnType && paramTypes == that.paramTypes;
+    return astReturnType == that.astReturnType && paramTypes == that.paramTypes;
   }
 
   QualType getAstReturnType() const { return astReturnType; }
-  void setReturnType(const SpirvType *t) { returnType = t; }
-  const SpirvType *getReturnType() const { return returnType; }
   llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
 
 private:
   QualType astReturnType;
-  const SpirvType *returnType;
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
 };
 
