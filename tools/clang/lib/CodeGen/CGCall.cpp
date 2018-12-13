@@ -2368,6 +2368,44 @@ static llvm::StoreInst *findDominatingStoreToReturnValue(CodeGenFunction &CGF) {
   return store;
 }
 
+// If a function decl returns a matrix then performs a simple walthrough
+// in the function body and extracts the matrix packing info from the
+// unconditional return stmt.
+static bool GetMatrixPackingInfo(const Decl *FD, bool *isRowMajor) {
+  if (!isa<FunctionDecl>(FD) || !FD->hasBody())
+    return false;
+  Stmt *Body = FD->getBody();
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(Body)) {
+    for (Stmt *S : CS->body()) {
+      if (ReturnStmt *RS = dyn_cast<ReturnStmt>(S)) {
+        QualType RetTy = RS->getRetValue()->getType();
+        return hlsl::HasHLSLMatOrientation(RetTy, isRowMajor);
+      }
+    }
+  }
+
+  return false;
+}
+
+// Returns an attributed type for a matrix type by adding matrix orientation
+// type attribute.
+static bool GetAttributedTypeWithMatrixPackingInfo(const Decl *D,
+                                                   const QualType &MTy,
+                                                   QualType *AttrMTy) {
+  if (!hlsl::IsHLSLMatType(MTy) || isa<AttributedType>(MTy) ||
+      !isa<FunctionDecl>(D))
+    return false;
+  bool isRowMajor = false;
+  if (GetMatrixPackingInfo(D, &isRowMajor)) {
+    *AttrMTy = D->getASTContext().getAttributedType(
+        isRowMajor ? AttributedType::attr_hlsl_row_major
+                   : AttributedType::attr_hlsl_column_major,
+        MTy, MTy);
+    return true;
+  }
+  return false;
+}
+
 void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
                                          bool EmitRetDbgLoc,
                                          SourceLocation EndLoc) {
@@ -2436,9 +2474,18 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
       // If optimization is disabled, just load return value.
       if (CGM.getCodeGenOpts().DisableLLVMOpts) {
         // HLSL Change Begins
-        if (hlsl::IsHLSLMatType(RetTy))
-          RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-                                      FnRetTy);  // FnRetTy retains attributed type
+        if (hlsl::IsHLSLMatType(RetTy)) {
+          QualType AttrFnRetTy;
+          // If matrix orientation attribute is missing from the return type
+          // then try to get that infor from function decl
+          if (!isa<AttributedType>(FnRetTy) && GetAttributedTypeWithMatrixPackingInfo(CurCodeDecl, FnRetTy, &AttrFnRetTy)) {
+            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+              AttrFnRetTy);
+          } else {
+            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+              FnRetTy);  // FnRetTy retains attributed type
+          }
+        }
         else
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
@@ -2469,9 +2516,18 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
       // Otherwise, we have to do a simple load.
       } else {
         // HLSL Change Begins
-        if (hlsl::IsHLSLMatType(RetTy))
-          RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-                                      FnRetTy);  // FnRetTy retains attributed type
+        if (hlsl::IsHLSLMatType(RetTy)) {
+          QualType AttrFnRetTy;
+          // If matrix orientation attribute is missing from the return type
+          // then try to get that infor from function decl
+          if (!isa<AttributedType>(FnRetTy) && GetAttributedTypeWithMatrixPackingInfo(CurCodeDecl, FnRetTy, &AttrFnRetTy)) {
+            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+              AttrFnRetTy);
+          } else {
+            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+              FnRetTy);  // FnRetTy retains attributed type
+          }
+        }
         else
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
