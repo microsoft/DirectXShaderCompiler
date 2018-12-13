@@ -83,7 +83,8 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     }
     break;
   }
-  // Variables must have a pointer type.
+  // Variables and function parameters must have a pointer type.
+  case spv::Op::OpFunctionParameter:
   case spv::Op::OpVariable: {
     const SpirvType *pointerType =
         spvContext.getPointerType(resultType, instr->getStorageClass());
@@ -141,18 +142,17 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     return spvContext.getSampledImageType(cast<ImageType>(imageSpirvType));
   } else if (const auto *hybridFn = dyn_cast<HybridFunctionType>(type)) {
     // Lower the return type.
-    const QualType astReturnType = hybridFn->getAstReturnType();
+    const QualType astReturnType = hybridFn->getReturnType();
     const SpirvType *spirvReturnType =
         lowerType(astReturnType, rule, /*isRowMajor*/ llvm::None, loc);
 
-    // Go over all params. If any of them is hybrid, lower it.
+    // Go over all params and lower them.
     std::vector<const SpirvType *> paramTypes;
-    for (auto *paramType : hybridFn->getParamTypes()) {
-      if (const auto *hybridParam = dyn_cast<HybridType>(paramType)) {
-        paramTypes.push_back(lowerType(hybridParam, rule, loc));
-      } else {
-        paramTypes.push_back(paramType);
-      }
+    for (auto paramType : hybridFn->getParamTypes()) {
+      const auto *spirvParamType =
+          lowerType(paramType, rule, /*isRowMajor*/ llvm::None, loc);
+      paramTypes.push_back(spvContext.getPointerType(
+          spirvParamType, spv::StorageClass::Function));
     }
 
     return spvContext.getFunctionType(spirvReturnType, paramTypes);
@@ -169,9 +169,12 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
   // sampledType in image types can only be numberical type.
   // Sampler types cannot be further lowered.
   // SampledImage types cannot be further lowered.
+  // FunctionType is not allowed to contain hybrid parameters or return type.
+  // StructType is not allowed to contain any hybrid types.
   else if (isa<VoidType>(type) || isa<ScalarType>(type) ||
            isa<MatrixType>(type) || isa<ImageType>(type) ||
-           isa<SamplerType>(type) || isa<SampledImageType>(type)) {
+           isa<SamplerType>(type) || isa<SampledImageType>(type) ||
+           isa<FunctionType>(type) || isa<StructType>(type)) {
     return type;
   }
   // Vectors could contain a hybrid type
@@ -204,11 +207,6 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
       return raType;
     return spvContext.getRuntimeArrayType(loweredElemType, raType->getStride());
   }
-  // Struct types could contain a hybrid type
-  else if (const auto *structType = dyn_cast<StructType>(type)) {
-    // Struct types can not contain hybrid types.
-    return structType;
-  }
   // Pointer types could point to a hybrid type.
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
     const auto *loweredPointee =
@@ -219,26 +217,6 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
 
     return spvContext.getPointerType(loweredPointee,
                                      ptrType->getStorageClass());
-  }
-  // Function types may have a parameter or return type that is hybrid.
-  else if (const auto *fnType = dyn_cast<FunctionType>(type)) {
-    const auto *loweredRetType = lowerType(fnType->getReturnType(), rule, loc);
-    bool wasLowered = fnType->getReturnType() != loweredRetType;
-    llvm::SmallVector<const SpirvType *, 4> loweredParams;
-    const auto &paramTypes = fnType->getParamTypes();
-    for (auto *paramType : paramTypes) {
-      const auto *loweredParamType = lowerType(paramType, rule, loc);
-      loweredParams.push_back(loweredParamType);
-      if (loweredParamType != paramType) {
-        wasLowered = true;
-      }
-    }
-    // If the function type didn't include any hybrid types, return itself.
-    if (!wasLowered) {
-      return fnType;
-    }
-
-    return spvContext.getFunctionType(loweredRetType, loweredParams);
   }
 
   llvm_unreachable("lowering of hybrid type not implemented");
@@ -319,10 +297,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         // LowerTypeVisitor is invoked. We should error out if we encounter a
         // literal type.
         case BuiltinType::LitInt:
-          //emitError("found literal int type when lowering types", srcLoc);
+          // emitError("found literal int type when lowering types", srcLoc);
           return spvContext.getUIntType(64);
         case BuiltinType::LitFloat: {
-          //emitError("found literal float type when lowering types", srcLoc);
+          // emitError("found literal float type when lowering types", srcLoc);
           return spvContext.getFloatType(64);
 
         default:

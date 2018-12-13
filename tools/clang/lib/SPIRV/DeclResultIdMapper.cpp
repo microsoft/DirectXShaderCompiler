@@ -535,11 +535,9 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
 SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   const auto type = getTypeOrFnRetType(param);
-  const auto *ptrType =
-      spvContext.getPointerType(type, spv::StorageClass::Function);
   const auto loc = param->getLocation();
   SpirvFunctionParameter *fnParamInstr =
-      spvBuilder.addFnParam(ptrType, loc, param->getName());
+      spvBuilder.addFnParam(type, loc, param->getName());
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
