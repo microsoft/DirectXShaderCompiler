@@ -299,6 +299,7 @@ std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
   case HLOpcodeGroup::HLIntrinsic: {
     // intrinsic with same signature will share the funciton now
     // The opcode is in arg0.
+    opName.pop_back(); // Remove trailing '.'
     return opName;
   }
   case HLOpcodeGroup::HLMatLoadStore: {

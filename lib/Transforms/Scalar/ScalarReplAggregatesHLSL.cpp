@@ -2293,31 +2293,31 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
                   MatrixOrientation::RowMajor;
     }
     Module *M = Builder.GetInsertPoint()->getModule();
-    Value *DestGEP = Builder.CreateInBoundsGEP(Dest, idxList);
-    Value *SrcGEP = Builder.CreateInBoundsGEP(Src, idxList);
-    if (bRowMajor) {
-      Value *Load = HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatLoad), Ty, {SrcGEP},
-          *M);
 
-      // Generate Matrix Store.
-      HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatStore), Ty,
-          {DestGEP, Load}, *M);
-    } else {
-      Value *Load = HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad), Ty, {SrcGEP},
-          *M);
-
-      // Generate Matrix Store.
-      HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore), Ty,
-          {DestGEP, Load}, *M);
+    Value *DestMatPtr;
+    Value *SrcMatPtr;
+    if (idxList.size() == 1 && idxList[0] == ConstantInt::get(
+      IntegerType::get(Ty->getContext(), 32), APInt(32, 0))) {
+      // Avoid creating GEP(0)
+      DestMatPtr = Dest;
+      SrcMatPtr = Src;
     }
+    else {
+      DestMatPtr = Builder.CreateInBoundsGEP(Dest, idxList);
+      SrcMatPtr = Builder.CreateInBoundsGEP(Src, idxList);
+    }
+
+    HLMatLoadStoreOpcode loadOp = bRowMajor
+      ? HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
+    HLMatLoadStoreOpcode storeOp = bRowMajor
+      ? HLMatLoadStoreOpcode::RowMatStore : HLMatLoadStoreOpcode::ColMatStore;
+
+    Value *Load = HLModule::EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(loadOp),
+      Ty, { SrcMatPtr }, *M);
+    HLModule::EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(storeOp),
+      Ty, { DestMatPtr, Load }, *M);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
@@ -5940,22 +5940,18 @@ static void LegalizeDxilInputOutputs(Function *F,
     bool bStore = false;
     CheckArgUsage(&arg, bLoad, bStore);
 
-    bool bNeedTemp = false;
     bool bStoreInputToTemp = false;
     bool bLoadOutputFromTemp = false;
 
     if (qual == DxilParamInputQual::In && bStore) {
-      bNeedTemp = true;
       bStoreInputToTemp = true;
     } else if (qual == DxilParamInputQual::Out && bLoad) {
-      bNeedTemp = true;
       bLoadOutputFromTemp = true;
     } else if (bLoad && bStore) {
       switch (qual) {
       case DxilParamInputQual::InputPrimitive:
       case DxilParamInputQual::InputPatch:
       case DxilParamInputQual::OutputPatch: {
-        bNeedTemp = true;
         bStoreInputToTemp = true;
       } break;
       case DxilParamInputQual::Inout:
@@ -5965,13 +5961,11 @@ static void LegalizeDxilInputOutputs(Function *F,
       }
     } else if (qual == DxilParamInputQual::Inout) {
       // Only replace inout when (bLoad && bStore) == false.
-      bNeedTemp = true;
       bLoadOutputFromTemp = true;
       bStoreInputToTemp = true;
     }
 
     if (HLMatrixLower::IsMatrixType(Ty)) {
-      bNeedTemp = true;
       if (qual == DxilParamInputQual::In)
         bStoreInputToTemp = bLoad;
       else if (qual == DxilParamInputQual::Out)
@@ -5982,7 +5976,7 @@ static void LegalizeDxilInputOutputs(Function *F,
       }
     }
 
-    if (bNeedTemp) {
+    if (bStoreInputToTemp || bLoadOutputFromTemp) {
       IRBuilder<> AllocaBuilder(EntryBlk.getFirstInsertionPt());
       IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EntryBlk));
 
@@ -6353,6 +6347,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       }
 
       flatArg->replaceAllUsesWith(Arg);
+      DeadInsts.emplace_back(flatArg);
 
       HLModule::MergeGepUse(Arg);
       // Flatten store of array parameter.
