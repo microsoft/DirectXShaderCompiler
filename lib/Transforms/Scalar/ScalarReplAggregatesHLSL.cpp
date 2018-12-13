@@ -6347,7 +6347,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       }
 
       flatArg->replaceAllUsesWith(Arg);
-      DeadInsts.emplace_back(flatArg);
+      if (isa<Instruction>(flatArg))
+        DeadInsts.emplace_back(flatArg);
 
       HLModule::MergeGepUse(Arg);
       // Flatten store of array parameter.
