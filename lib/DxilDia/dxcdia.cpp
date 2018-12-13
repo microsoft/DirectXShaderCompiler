@@ -9,10 +9,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/RecursiveASTVisitor.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "clang/Sema/SemaHLSL.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/DebugInfo.h"
@@ -45,10 +42,8 @@
 #ifdef _WIN32
 #include <comdef.h>
 #endif
-#include "dxcutil.h"
 
 using namespace llvm;
-using namespace clang;
 using namespace hlsl;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,6 +132,13 @@ static HRESULT StringRefToBSTR(llvm::StringRef value, BSTR *pRetVal) {
   }
   CATCH_CPP_RETURN_HRESULT();
   return S_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Misc helpers.
+
+static HRESULT ENotImpl() {
+  return E_NOTIMPL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -264,10 +266,10 @@ public:
   }
 
   STDMETHODIMP put_loadAddress(
-    /* [in] */ ULONGLONG NewVal) override { return E_NOTIMPL; }
+    /* [in] */ ULONGLONG NewVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_globalScope(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP getEnumTables(
     _COM_Outptr_ IDiaEnumTables **ppEnumTables) override {
@@ -281,21 +283,21 @@ public:
   }
 
   STDMETHODIMP getSymbolsByAddr(
-    /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) override { return ENotImpl(); }
 
   STDMETHODIMP findChildren(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findChildrenEx(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findChildrenExByAddr(
     /* [in] */ IDiaSymbol *parent,
@@ -304,7 +306,7 @@ public:
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findChildrenExByVA(
     /* [in] */ IDiaSymbol *parent,
@@ -312,7 +314,7 @@ public:
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findChildrenExByRVA(
     /* [in] */ IDiaSymbol *parent,
@@ -320,54 +322,54 @@ public:
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByRVA(
     /* [in] */ DWORD rva,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByVA(
     /* [in] */ ULONGLONG va,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByToken(
     /* [in] */ ULONG token,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
 
   STDMETHODIMP symsAreEquiv(
     /* [in] */ IDiaSymbol *symbolA,
-    /* [in] */ IDiaSymbol *symbolB) override { return E_NOTIMPL; }
+    /* [in] */ IDiaSymbol *symbolB) override { return ENotImpl(); }
 
   STDMETHODIMP symbolById(
     /* [in] */ DWORD id,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByRVAEx(
     /* [in] */ DWORD rva,
   /* [in] */ enum SymTagEnum symtag,
     /* [out] */ IDiaSymbol **ppSymbol,
-    /* [out] */ long *displacement) override { return E_NOTIMPL; }
+    /* [out] */ long *displacement) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByVAEx(
     /* [in] */ ULONGLONG va,
   /* [in] */ enum SymTagEnum symtag,
     /* [out] */ IDiaSymbol **ppSymbol,
-    /* [out] */ long *displacement) override { return E_NOTIMPL; }
+    /* [out] */ long *displacement) override { return ENotImpl(); }
 
   STDMETHODIMP findFile(
     /* [in] */ IDiaSymbol *pCompiland,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSourceFiles **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSourceFiles **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findFileById(
     /* [in] */ DWORD uniqueId,
@@ -388,7 +390,7 @@ public:
   STDMETHODIMP findLines(
     /* [in] */ IDiaSymbol *compiland,
     /* [in] */ IDiaSourceFile *file,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findLinesByAddr(
     /* [in] */ DWORD seg,
@@ -410,182 +412,182 @@ public:
   STDMETHODIMP findLinesByVA(
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findLinesByLinenum(
     /* [in] */ IDiaSymbol *compiland,
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInjectedSource(
       /* [in] */ LPCOLESTR srcFile,
       /* [out] */ IDiaEnumInjectedSources **ppResult) override;
 
   STDMETHODIMP getEnumDebugStreams(
-    /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineFramesByAddr(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineFramesByRVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineFramesByVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineeLines(
     /* [in] */ IDiaSymbol *parent,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineeLinesByAddr(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineeLinesByRVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineeLinesByVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineeLinesByLinenum(
     /* [in] */ IDiaSymbol *compiland,
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInlineesByName(
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD option,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findAcceleratorInlineeLinesByLinenum(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolsForAcceleratorPointerTag(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD tagValue,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolsByRVAForAcceleratorPointerTag(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD tagValue,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findAcceleratorInlineesByName(
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD option,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP addressForVA(
     /* [in] */ ULONGLONG va,
     /* [out] */ DWORD *pISect,
-    /* [out] */ DWORD *pOffset) override { return E_NOTIMPL; }
+    /* [out] */ DWORD *pOffset) override { return ENotImpl(); }
 
   STDMETHODIMP addressForRVA(
     /* [in] */ DWORD rva,
     /* [out] */ DWORD *pISect,
-    /* [out] */ DWORD *pOffset) override { return E_NOTIMPL; }
+    /* [out] */ DWORD *pOffset) override { return ENotImpl(); }
 
   STDMETHODIMP findILOffsetsByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findILOffsetsByRVA(
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findILOffsetsByVA(
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInputAssemblyFiles(
-    /* [out] */ IDiaEnumInputAssemblyFiles **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumInputAssemblyFiles **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInputAssembly(
     /* [in] */ DWORD index,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInputAssemblyById(
     /* [in] */ DWORD uniqueId,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP getFuncMDTokenMapSize(
-    /* [out] */ DWORD *pcb) override { return E_NOTIMPL; }
+    /* [out] */ DWORD *pcb) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE getFuncMDTokenMap(
     /* [in] */ DWORD cb,
     /* [out] */ DWORD *pcb,
-    /* [size_is][out] */ BYTE *pb) { return E_NOTIMPL; }
+    /* [size_is][out] */ BYTE *pb) { return ENotImpl(); }
 
   STDMETHODIMP getTypeMDTokenMapSize(
-    /* [out] */ DWORD *pcb) override { return E_NOTIMPL; }
+    /* [out] */ DWORD *pcb) override { return ENotImpl(); }
 
   STDMETHODIMP getTypeMDTokenMap(
     /* [in] */ DWORD cb,
     /* [out] */ DWORD *pcb,
-    /* [size_is][out] */ BYTE *pb) override { return E_NOTIMPL; }
+    /* [size_is][out] */ BYTE *pb) override { return ENotImpl(); }
 
   STDMETHODIMP getNumberOfFunctionFragments_VA(
     /* [in] */ ULONGLONG vaFunc,
     /* [in] */ DWORD cbFunc,
-    /* [out] */ DWORD *pNumFragments) override { return E_NOTIMPL; }
+    /* [out] */ DWORD *pNumFragments) override { return ENotImpl(); }
 
   STDMETHODIMP getNumberOfFunctionFragments_RVA(
     /* [in] */ DWORD rvaFunc,
     /* [in] */ DWORD cbFunc,
-    /* [out] */ DWORD *pNumFragments) override { return E_NOTIMPL; }
+    /* [out] */ DWORD *pNumFragments) override { return ENotImpl(); }
 
   STDMETHODIMP getFunctionFragments_VA(
     /* [in] */ ULONGLONG vaFunc,
     /* [in] */ DWORD cbFunc,
     /* [in] */ DWORD cFragments,
     /* [size_is][out] */ ULONGLONG *pVaFragment,
-    /* [size_is][out] */ DWORD *pLenFragment) override { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pLenFragment) override { return ENotImpl(); }
 
   STDMETHODIMP getFunctionFragments_RVA(
     /* [in] */ DWORD rvaFunc,
     /* [in] */ DWORD cbFunc,
     /* [in] */ DWORD cFragments,
     /* [size_is][out] */ DWORD *pRvaFragment,
-    /* [size_is][out] */ DWORD *pLenFragment) override { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pLenFragment) override { return ENotImpl(); }
 
   STDMETHODIMP getExports(
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP getHeapAllocationSites(
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findInputAssemblyFile(
     /* [in] */ IDiaSymbol *pSymbol,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
 private:
   CComPtr<IDiaEnumTables> m_pEnumTables;
 };
@@ -609,7 +611,7 @@ public:
   }
 
   STDMETHODIMP get__NewEnum(
-    /* [retval][out] */ IUnknown **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IUnknown **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override { 
     *pRetVal = ((unsigned)LastTableKind - (unsigned)FirstTableKind) + 1;
@@ -669,12 +671,12 @@ public:
   }
 
   STDMETHODIMP Skip(
-    /* [in] */ ULONG celt) override { return E_NOTIMPL; }
+    /* [in] */ ULONG celt) override { return ENotImpl(); }
 
   STDMETHODIMP Reset(void) override { m_next = 0; return S_OK; }
 
   STDMETHODIMP Clone(
-    /* [out] */ IDiaEnumTables **ppenum) override { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumTables **ppenum) override { return ENotImpl(); }
 private:
   std::array<CComPtr<IDiaTable>, (int)LastTableKind+1> m_tables;
 };
@@ -743,12 +745,12 @@ public:
   }
 
   STDMETHODIMP Clone(IEnumUnknown **ppenum) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   // IDiaTable implementation.
   STDMETHODIMP get__NewEnum(IUnknown **pRetVal) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   STDMETHODIMP get_name(BSTR *pRetVal) override {
@@ -770,7 +772,7 @@ public:
   // T implementation (partial).
   STDMETHODIMP Clone(_COM_Outptr_ T **ppenum) override {
     *ppenum = nullptr;
-    return E_NOTIMPL;
+    return ENotImpl();
   }
   STDMETHODIMP Next(
     /* [in] */ ULONG celt,
@@ -801,7 +803,7 @@ public:
   virtual HRESULT GetItem(DWORD index, TItem **ppItem) {
     UNREFERENCED_PARAMETER(index);
     *ppItem = nullptr;
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 };
 
@@ -863,13 +865,13 @@ public:
   }
 
   STDMETHODIMP get_lexicalParent(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_classParent(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_type(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_dataKind(
     /* [retval][out] */ DWORD *pRetVal) override {
@@ -878,73 +880,73 @@ public:
   }
 
   STDMETHODIMP get_locationType(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_addressSection(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_addressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_relativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_registerId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_offset(
-    /* [retval][out] */ LONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ LONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_length(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_slot(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_volatileType(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_constType(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_unalignedType(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_access(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_libraryName(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_platform(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_language(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_editAndContinueEnabled(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_frontEndMajor(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_frontEndMinor(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_frontEndBuild(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_backEndMajor(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_backEndMinor(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_backEndBuild(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_sourceFileName(
     /* [retval][out] */ BSTR *pRetVal) override {
@@ -956,28 +958,28 @@ public:
   }
 
   STDMETHODIMP get_unused(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_thunkOrdinal(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_thisAdjust(
-    /* [retval][out] */ LONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ LONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualBaseOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtual(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_intro(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_pure(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_callingConvention(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_value(
     /* [retval][out] */ VARIANT *pRetVal) override { 
@@ -985,144 +987,144 @@ public:
   }
 
   STDMETHODIMP get_baseType(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_token(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_timeStamp(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_guid(
-    /* [retval][out] */ GUID *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ GUID *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_symbolsFileName(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_reference(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_count(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_bitPosition(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_arrayIndexType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_packed(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_constructor(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_overloadedOperator(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_nested(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasNestedTypes(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasAssignmentOperator(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasCastOperator(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_scoped(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualBaseClass(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_indirectVirtualBaseClass(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualBasePointerOffset(
-    /* [retval][out] */ LONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ LONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualTableShape(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_lexicalParentId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_classParentId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_typeId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_arrayIndexTypeId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualTableShapeId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_code(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_function(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_managed(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_msil(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualBaseDispIndex(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_undecoratedName(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_age(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_signature(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_compilerGenerated(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_addressTaken(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_rank(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_lowerBound(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_upperBound(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_lowerBoundId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_upperBoundId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_dataBytes(
     /* [in] */ DWORD cbData,
     /* [out] */ DWORD *pcbData,
-    /* [size_is][out] */ BYTE *pbData) { return E_NOTIMPL; }
+    /* [size_is][out] */ BYTE *pbData) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findChildren(
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findChildrenEx(
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findChildrenExByAddr(
   /* [in] */ enum SymTagEnum symtag,
@@ -1130,493 +1132,493 @@ public:
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findChildrenExByVA(
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findChildrenExByRVA(
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   STDMETHODIMP get_targetSection(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_targetOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_targetRelativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_targetVirtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_machineType(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_oemId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_oemSymbolId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_types(
     /* [in] */ DWORD cTypes,
     /* [out] */ DWORD *pcTypes,
-    /* [size_is][size_is][out] */ IDiaSymbol **pTypes) { return E_NOTIMPL; }
+    /* [size_is][size_is][out] */ IDiaSymbol **pTypes) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_typeIds(
     /* [in] */ DWORD cTypeIds,
     /* [out] */ DWORD *pcTypeIds,
-    /* [size_is][out] */ DWORD *pdwTypeIds) { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pdwTypeIds) { return ENotImpl(); }
 
   STDMETHODIMP get_objectPointerType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_udtKind(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_undecoratedNameEx(
     /* [in] */ DWORD undecorateOptions,
-    /* [out] */ BSTR *name) { return E_NOTIMPL; }
+    /* [out] */ BSTR *name) { return ENotImpl(); }
 
   STDMETHODIMP get_noReturn(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_customCallingConvention(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_noInline(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_optimizedCodeDebugInfo(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_notReached(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_interruptReturn(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_farReturn(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isStatic(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasDebugInfo(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isLTCG(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isDataAligned(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasSecurityChecks(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_compilerName(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasAlloca(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasSetJump(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasLongJump(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasInlAsm(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasEH(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasSEH(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasEHa(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isNaked(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isAggregated(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isSplitted(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_container(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_inlSpec(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_noStackOrdering(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_virtualBaseTableType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasManagedCode(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isHotpatchable(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isCVTCIL(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isMSILNetmodule(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isCTypes(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isStripped(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_frontEndQFE(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_backEndQFE(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_wasInlined(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_strictGSCheck(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isCxxReturnUdt(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isConstructorVirtualBase(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_RValueReference(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_unmodifiedType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_framePointerPresent(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isSafeBuffers(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_intrinsic(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_sealed(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hfaFloat(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hfaDouble(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_liveRangeStartAddressSection(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_liveRangeStartAddressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_liveRangeStartRelativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_countLiveRanges(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_liveRangeLength(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_offsetInUdt(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_paramBasePointerRegisterId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_localBasePointerRegisterId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isLocationControlFlowDependent(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_stride(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_numberOfRows(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_numberOfColumns(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isMatrixRowMajor(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_numericProperties(
     /* [in] */ DWORD cnt,
     /* [out] */ DWORD *pcnt,
-    /* [size_is][out] */ DWORD *pProperties) { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pProperties) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_modifierValues(
     /* [in] */ DWORD cnt,
     /* [out] */ DWORD *pcnt,
-    /* [size_is][out] */ WORD *pModifiers) { return E_NOTIMPL; }
+    /* [size_is][out] */ WORD *pModifiers) { return ENotImpl(); }
 
   STDMETHODIMP get_isReturnValue(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isOptimizedAway(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_builtInKind(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_registerType(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_baseDataSlot(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_baseDataOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_textureSlot(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_samplerSlot(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_uavSlot(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_sizeInUdt(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_memorySpaceKind(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_unmodifiedTypeId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_subTypeId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_subType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_numberOfModifiers(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_numberOfRegisterIndices(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isHLSLData(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isPointerToDataMember(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isPointerToMemberFunction(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isSingleInheritance(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isMultipleInheritance(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isVirtualInheritance(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_restrictedType(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isPointerBasedOnSymbolValue(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_baseSymbol(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_baseSymbolId(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_objectFileName(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isAcceleratorGroupSharedLocal(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isAcceleratorPointerTagLiveRange(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isAcceleratorStubFunction(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_numberOfAcceleratorPointerTags(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isSdl(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isWinRTPointer(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isRefUdt(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isValueUdt(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isInterfaceUdt(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineFramesByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineFramesByRVA(
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineFramesByVA(
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineeLines(
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineeLinesByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineeLinesByRVA(
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineeLinesByVA(
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findSymbolsForAcceleratorPointerTag(
     /* [in] */ DWORD tagValue,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findSymbolsByRVAForAcceleratorPointerTag(
     /* [in] */ DWORD tagValue,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE get_acceleratorPointerTags(
     /* [in] */ DWORD cnt,
     /* [out] */ DWORD *pcnt,
-    /* [size_is][out] */ DWORD *pPointerTags) { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pPointerTags) { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE getSrcLineOnTypeDefn(
-    /* [out] */ IDiaLineNumber **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaLineNumber **ppResult) { return ENotImpl(); }
 
   STDMETHODIMP get_isPGO(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasValidPGOCounts(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isOptimizedForSpeed(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_PGOEntryCount(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_PGOEdgeCount(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_PGODynamicInstructionCount(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_staticSize(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_finalLiveStaticSize(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_phaseName(
-    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BSTR *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_hasControlFlowCheck(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_constantExport(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_dataExport(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_privateExport(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_noNameExport(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_exportHasExplicitlyAssignedOrdinal(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_exportIsForwarder(
-    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_ordinal(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_frameSize(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_exceptionHandlerAddressSection(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_exceptionHandlerAddressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_exceptionHandlerRelativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_exceptionHandlerVirtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   virtual HRESULT STDMETHODCALLTYPE findInputAssemblyFile(
-    /* [out] */ IDiaInputAssemblyFile **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) { return ENotImpl(); }
 
   STDMETHODIMP get_characteristics(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_coffGroup(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   virtual STDMETHODIMP get_bindID(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) { return ENotImpl(); }
 
   virtual STDMETHODIMP get_bindSpace(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) { return ENotImpl(); }
 
   virtual STDMETHODIMP get_bindSlot(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) { return ENotImpl(); }
 
 #pragma endregion IDiaSymbol implementation.
 };
@@ -1687,7 +1689,6 @@ public:
       IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslDefines");
-      UINT32 charSize = 0;
       llvm::MDNode *definesNode = m_pSession->Defines()->getOperand(0);
       // Construct a double null terminated string for defines with L"\0" as a delimiter
       CComBSTR pBSTR;
@@ -1761,19 +1762,19 @@ public:
 
   STDMETHODIMP get_checksumType(
     /* [retval][out] */ DWORD *pRetVal) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   STDMETHODIMP get_compilands(
     /* [retval][out] */ IDiaEnumSymbols **pRetVal) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   STDMETHODIMP get_checksum(
     /* [in] */ DWORD cbData,
     /* [out] */ DWORD *pcbData,
     /* [size_is][out] */ BYTE *pbData) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 };
 
@@ -1819,7 +1820,7 @@ public:
   }
 
   STDMETHODIMP get_compiland(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_sourceFile(
     /* [retval][out] */ IDiaSourceFile **pRetVal) override {
@@ -1855,10 +1856,10 @@ public:
   }
 
   STDMETHODIMP get_addressSection(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_addressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_relativeVirtualAddress(
     /* [retval][out] */ DWORD *pRetVal) override { 
@@ -1867,10 +1868,10 @@ public:
   }
 
   STDMETHODIMP get_virtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_length(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_sourceFileId(
     /* [retval][out] */ DWORD *pRetVal) override {
@@ -1889,7 +1890,7 @@ public:
 
   STDMETHODIMP get_statement(
     /* [retval][out] */ BOOL *pRetVal) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   STDMETHODIMP get_compilandId(
@@ -2021,7 +2022,7 @@ public:
   }
 
   STDMETHODIMP get_crc(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_length(_Out_ ULONGLONG *pRetVal) override {
     *pRetVal = Content().size();
@@ -2043,7 +2044,7 @@ public:
   }
 
   STDMETHODIMP get_sourceCompression(
-    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
+    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_source(
     /* [in] */ DWORD cbData,
@@ -2108,13 +2109,13 @@ public:
   STDMETHODIMP frameByRVA(
     /* [in] */ DWORD relativeVirtualAddress,
     /* [retval][out] */ IDiaFrameData **frame) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   STDMETHODIMP frameByVA(
     /* [in] */ ULONGLONG virtualAddress,
     /* [retval][out] */ IDiaFrameData **frame) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 };
 
@@ -2189,7 +2190,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE loadDataFromPdb(_In_ LPCOLESTR pdbPath) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   HRESULT STDMETHODCALLTYPE loadAndValidateDataFromPdb(
@@ -2197,14 +2198,14 @@ public:
     _In_ GUID *pcsig70,
     _In_ DWORD sig,
     _In_ DWORD age) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   HRESULT STDMETHODCALLTYPE loadDataForExe(
     _In_ LPCOLESTR executable,
     _In_ LPCOLESTR searchPath,
     _In_ IUnknown *pCallback) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   STDMETHODIMP loadDataFromIStream(_In_ IStream *pIStream) override {
@@ -2282,7 +2283,7 @@ public:
     _In_ DWORD cbCvInfo,
     _In_ BYTE *pbCvInfo,
     _In_ IUnknown *pCallback) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 
   HRESULT STDMETHODCALLTYPE loadDataFromMiscInfo(
@@ -2294,7 +2295,7 @@ public:
     _In_ DWORD cbMiscInfo,
     _In_ BYTE *pbMiscInfo,
     _In_ IUnknown *pCallback) override {
-    return E_NOTIMPL;
+    return ENotImpl();
   }
 };
 
