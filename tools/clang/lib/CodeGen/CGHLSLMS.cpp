@@ -3838,6 +3838,15 @@ static Value *CastLdValue(Value *Ptr, llvm::Type *FromTy, llvm::Type *ToTy, IRBu
       // Change scalar into vec1.
       Value *Vec1 = UndefValue::get(ToTy);
       return Builder.CreateInsertElement(Vec1, V, (uint64_t)0);
+    } else if (vecSize == 1 && FromTy->isIntegerTy()
+      && ToTy->getVectorElementType()->isIntegerTy(1)) {
+      // load(bitcast i32* to <1 x i1>*)
+      // Rewrite to
+      // insertelement(icmp ne (load i32*), 0)
+      Value *IntV = Builder.CreateLoad(Ptr);
+      Value *BoolV = Builder.CreateICmpNE(IntV, ConstantInt::get(IntV->getType(), 0), "tobool");
+      Value *Vec1 = UndefValue::get(ToTy);
+      return Builder.CreateInsertElement(Vec1, BoolV, (uint64_t)0);
     } else if (FromTy->isVectorTy() && vecSize == 1) {
       Value *V = Builder.CreateLoad(Ptr);
       // VectorTrunc
@@ -5468,15 +5477,20 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
 
 static void StoreInitListToDestPtr(Value *DestPtr,
                                    SmallVector<Value *, 4> &elts, unsigned &idx,
-                                   QualType Type, CodeGenTypes &Types, bool bDefaultRowMajor,
-                                   CGBuilderTy &Builder, llvm::Module &M) {
+                                   QualType Type, bool bDefaultRowMajor,
+                                   CodeGenFunction &CGF, llvm::Module &M) {
+  CodeGenTypes &Types = CGF.getTypes();
+  CGBuilderTy &Builder = CGF.Builder;
+
   llvm::Type *Ty = DestPtr->getType()->getPointerElementType();
   llvm::Type *i32Ty = llvm::Type::getInt32Ty(Ty->getContext());
 
   if (Ty->isVectorTy()) {
-    Value *Result = UndefValue::get(Ty);
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++)
+    llvm::Type *RegTy = CGF.ConvertType(Type);
+    Value *Result = UndefValue::get(RegTy);
+    for (unsigned i = 0; i < RegTy->getVectorNumElements(); i++)
       Result = Builder.CreateInsertElement(Result, elts[idx + i], i);
+    Result = CGF.EmitToMemory(Result, Type);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
   } else if (HLMatrixLower::IsMatrixType(Ty)) {
@@ -5541,8 +5555,8 @@ static void StoreInitListToDestPtr(Value *DestPtr,
             unsigned i = RL.getNonVirtualBaseLLVMFieldNo(BaseDecl);
             Constant *gepIdx = ConstantInt::get(i32Ty, i);
             Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
-            StoreInitListToDestPtr(GEP, elts, idx, parentTy, Types,
-                                   bDefaultRowMajor, Builder, M);
+            StoreInitListToDestPtr(GEP, elts, idx, parentTy,
+                                   bDefaultRowMajor, CGF, M);
           }
         }
       }
@@ -5550,8 +5564,8 @@ static void StoreInitListToDestPtr(Value *DestPtr,
         unsigned i = RL.getLLVMFieldNo(field);
         Constant *gepIdx = ConstantInt::get(i32Ty, i);
         Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
-        StoreInitListToDestPtr(GEP, elts, idx, field->getType(), Types,
-                               bDefaultRowMajor, Builder, M);
+        StoreInitListToDestPtr(GEP, elts, idx, field->getType(),
+                               bDefaultRowMajor, CGF, M);
       }
     }
   } else if (Ty->isArrayTy()) {
@@ -5560,8 +5574,8 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     for (unsigned i = 0; i < Ty->getArrayNumElements(); i++) {
       Constant *gepIdx = ConstantInt::get(i32Ty, i);
       Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
-      StoreInitListToDestPtr(GEP, elts, idx, EltType, Types, bDefaultRowMajor,
-                             Builder, M);
+      StoreInitListToDestPtr(GEP, elts, idx, EltType, bDefaultRowMajor,
+                             CGF, M);
     }
   } else {
     DXASSERT(Ty->isSingleValueType(), "invalid type");
@@ -5741,8 +5755,8 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
     ParamList.append(EltValList.begin(), EltValList.end());
     idx = 0;
     bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
-    StoreInitListToDestPtr(DestPtr, EltValList, idx, ResultTy, CGF.getTypes(),
-                           bDefaultRowMajor, CGF.Builder, TheModule);
+    StoreInitListToDestPtr(DestPtr, EltValList, idx, ResultTy,
+                           bDefaultRowMajor, CGF, TheModule);
     return nullptr;
   }
 
@@ -7077,15 +7091,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
     Function *F = InsertBlock->getParent();
 
-    if (ParamTy->isBooleanType()) {
-      // Create i32 for bool.
-      ParamTy = CGM.getContext().IntTy;
-    }
     // Make sure the alloca is in entry block to stop inline create stacksave.
     IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
-    tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertType(ParamTy));
+    tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
 
-      
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
 
@@ -7163,6 +7172,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
           outVal = CGF.Builder.CreateLoad(tmpArgAddr);
         else
           outVal = EmitHLSLMatrixLoad(CGF, tmpArgAddr, ParamTy);
+
+        outVal = CGF.EmitFromMemory(outVal, ParamTy);
 
         llvm::Type *ToTy = CGF.ConvertType(ArgTy);
         llvm::Type *FromTy = outVal->getType();

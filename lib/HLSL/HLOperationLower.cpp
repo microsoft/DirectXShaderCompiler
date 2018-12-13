@@ -4970,25 +4970,21 @@ unsigned GetEltTypeByteSizeForConstBuf(Type *EltType, const DataLayout &DL) {
 Value *GenerateCBLoad(Value *handle, Value *offset, Type *EltTy, OP *hlslOP,
                       IRBuilder<> &Builder) {
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoad);
+
+  DXASSERT(!EltTy->isIntegerTy(1), "Bools should not be loaded as their register representation.");
+
   // Align to 8 bytes for now.
   Constant *align = hlslOP->GetU32Const(8);
-  Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
-  if (EltTy != i1Ty) {
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoad, EltTy);
-    return Builder.CreateCall(CBLoad, {OpArg, handle, offset, align});
-  } else {
-    Type *i32Ty = Type::getInt32Ty(EltTy->getContext());
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoad, i32Ty);
-    Value *Result = Builder.CreateCall(CBLoad, {OpArg, handle, offset, align});
-    return Builder.CreateICmpEQ(Result, hlslOP->GetU32Const(0));
-  }
+  Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoad, EltTy);
+  return Builder.CreateCall(CBLoad, {OpArg, handle, offset, align});
 }
 
 Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
                               bool colMajor, OP *OP, const DataLayout &DL,
                               IRBuilder<> &Builder) {
   unsigned col, row;
-  Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
+  HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/true)->getVectorElementType();
   unsigned matSize = col * row;
   std::vector<Value *> elts(matSize);
   Value *EltByteSize = ConstantInt::get(
@@ -5001,7 +4997,9 @@ Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
     baseOffset = Builder.CreateAdd(baseOffset, EltByteSize);
   }
 
-  return HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
+  Value* Vec = HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
+  Vec = HLMatrixLower::VecMatrixMemToReg(Vec, matType, Builder);
+  return Vec;
 }
 
 void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
@@ -5310,22 +5308,18 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
                             IRBuilder<> &Builder) {
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
 
-  Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
+  DXASSERT(!EltTy->isIntegerTy(1), "Bools should not be loaded as their register representation.");
+
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
   Type *halfTy = Type::getHalfTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
   Type *i16Ty = Type::getInt16Ty(EltTy->getContext());
-  bool isBool = EltTy == i1Ty;
+
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
   bool is16 = (EltTy == halfTy || EltTy == i16Ty) && !hlslOP->UseMinPrecision();
-  bool isNormal = !isBool && !is64;
   DXASSERT_LOCALVAR(is16, (is16 && channelOffset < 8) || channelOffset < 4,
            "legacy cbuffer don't across 16 bytes register.");
-  if (isNormal) {
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
-    Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
-    return Builder.CreateExtractValue(loadLegacy, channelOffset);
-  } else if (is64) {
+  if (is64) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
     DXASSERT((channelOffset&1)==0,"channel offset must be even for double");
@@ -5333,12 +5327,9 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
     Value *Result = Builder.CreateExtractValue(loadLegacy, eltIdx);
     return Result;
   } else {
-    DXASSERT(isBool, "bool should be i1");
-    Type *i32Ty = Type::getInt32Ty(EltTy->getContext());
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, i32Ty);
-    Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
-    Value *Result = Builder.CreateExtractValue(loadLegacy, channelOffset);
-    return Builder.CreateICmpEQ(Result, hlslOP->GetU32Const(0));
+    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
+    Value *loadLegacy = Builder.CreateCall(CBLoad, { OpArg, handle, legacyIdx });
+    return Builder.CreateExtractValue(loadLegacy, channelOffset);
   }
 }
 
@@ -5348,29 +5339,19 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
                             IRBuilder<> &Builder) {
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
 
-  Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
+  DXASSERT(!EltTy->isIntegerTy(1), "Bools should not be loaded as their register representation.");
+
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
   Type *halfTy = Type::getHalfTy(EltTy->getContext());
   Type *shortTy = Type::getInt16Ty(EltTy->getContext());
 
-  bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
   bool is16 = (EltTy == shortTy || EltTy == halfTy) && !hlslOP->UseMinPrecision();
-  bool isNormal = !isBool && !is64 && !is16;
   DXASSERT((is16 && channelOffset + vecSize <= 8) ||
                (channelOffset + vecSize) <= 4,
            "legacy cbuffer don't across 16 bytes register.");
-  if (isNormal) {
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
-    Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
-    Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
-    for (unsigned i = 0; i < vecSize; ++i) {
-      Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset+i);
-      Result = Builder.CreateInsertElement(Result, NewElt, i);
-    }
-    return Result;
-  } else if (is16) {
+  if (is16) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
     Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
@@ -5402,25 +5383,24 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
     }
     return Result;
   } else {
-    DXASSERT(isBool, "bool should be i1");
-    Type *i32Ty = Type::getInt32Ty(EltTy->getContext());
-    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, i32Ty);
-    Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
-    Value *Result = UndefValue::get(VectorType::get(i32Ty, vecSize));
+    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
+    Value *loadLegacy = Builder.CreateCall(CBLoad, { OpArg, handle, legacyIdx });
+    Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
     for (unsigned i = 0; i < vecSize; ++i) {
-      Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset+i);
+      Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset + i);
       Result = Builder.CreateInsertElement(Result, NewElt, i);
     }
-    return Builder.CreateICmpEQ(Result, ConstantAggregateZero::get(Result->getType()));
+    return Result;
   }
 }
 
 Value *TranslateConstBufMatLdLegacy(Type *matType, Value *handle,
                                     Value *legacyIdx, bool colMajor, OP *OP,
-                                    const DataLayout &DL,
+                                    bool memElemRepr, const DataLayout &DL,
                                     IRBuilder<> &Builder) {
   unsigned col, row;
-  Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
+  HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/true)->getVectorElementType();
 
   unsigned matSize = col * row;
   std::vector<Value *> elts(matSize);
@@ -5454,7 +5434,10 @@ Value *TranslateConstBufMatLdLegacy(Type *matType, Value *handle,
     }
   }
 
-  return HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
+  Value *Vec = HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
+  if (!memElemRepr)
+    Vec = HLMatrixLower::VecMatrixMemToReg(Vec, matType, Builder);
+  return Vec;
 }
 
 void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
@@ -5506,8 +5489,9 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       Type *matType = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
                           ->getType()
                           ->getPointerElementType();
+      // This will replace a call, so we should use the register representation of elements
       Value *newLd = TranslateConstBufMatLdLegacy(
-          matType, handle, legacyIdx, colMajor, hlslOP, DL, Builder);
+          matType, handle, legacyIdx, colMajor, hlslOP, /*memElemRepr*/false, DL, Builder);
       CI->replaceAllUsesWith(newLd);
       CI->eraseFromParent();
     } else if (group == HLOpcodeGroup::HLSubscript) {
@@ -5534,8 +5518,9 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
 
       Value *ldData = UndefValue::get(resultType);
       if (!dynamicIndexing) {
+        // This will replace a load or GEP, so we should use the memory representation of elements
         Value *matLd = TranslateConstBufMatLdLegacy(
-            matType, handle, legacyIdx, colMajor, hlslOP, DL, Builder);
+            matType, handle, legacyIdx, colMajor, hlslOP, /*memElemRepr*/true, DL, Builder);
         // The matLd is keep original layout, just use the idx calc in
         // EmitHLSLMatrixElement and EmitHLSLMatrixSubscript.
         switch (subOp) {
@@ -6022,7 +6007,8 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
                                Value *bufIdx, Value *baseOffset,
                                bool colMajor, const DataLayout &DL) {
   unsigned col, row;
-  Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
+  HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/true)->getVectorElementType();
   unsigned  EltSize = DL.getTypeAllocSize(EltTy);
   Constant* alignment = OP->GetI32Const(EltSize);
 
@@ -6054,14 +6040,20 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
   }
 
-  return HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
+  Value *Vec = HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
+  Vec = HLMatrixLower::VecMatrixMemToReg(Vec, matType, Builder);
+  return Vec;
 }
 
 void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
                              hlsl::OP *OP, Value *bufIdx, Value *baseOffset,
                              Value *val, bool colMajor, const DataLayout &DL) {
   unsigned col, row;
-  Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
+  HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/true)->getVectorElementType();
+
+  val = HLMatrixLower::VecMatrixRegToMem(val, matType, Builder);
+
   unsigned EltSize = DL.getTypeAllocSize(EltTy);
   Constant *Alignment = OP->GetI32Const(EltSize);
   Value *offset = baseOffset;

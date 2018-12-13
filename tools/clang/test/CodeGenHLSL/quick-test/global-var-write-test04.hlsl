@@ -7,7 +7,7 @@
 // CHECK: {{.*g_v.*}} = external constant <4 x float>, align 4
 // CHECK: {{.*g_m1.*}} = external constant %class.matrix.int.2.2, align 4
 // CHECK: {{.*g_m2.*}} = external constant %class.matrix.int.2.2, align 4
-// CHECK: {{.*g_b.*}} = external constant i32, align 1
+// CHECK: {{.*g_b.*}} = external constant i32, align 4
 // CHECK: {{.*g_a.*}} = external constant [5 x i32], align 4
 // CHECK: {{.*g_a2d.*}} = external constant [3 x [2 x i32]], align 4
 // CHECK-NOT: {{(.*g_s1.*)(.*static.copy.*)}} = internal global float 0.000000e+00

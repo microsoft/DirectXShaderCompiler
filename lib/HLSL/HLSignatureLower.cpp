@@ -912,80 +912,54 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
     DXASSERT_NOMSG(group == HLOpcodeGroup::HLMatLoadStore);
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
     switch (matOp) {
-    case HLMatLoadStoreOpcode::ColMatLoad: {
-      IRBuilder<> LocalBuilder(CI);
-      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
-                        ->getType()
-                        ->getPointerElementType();
-      unsigned col, row;
-      Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
-      std::vector<Value *> matElts(col * row);
-      for (unsigned c = 0; c < col; c++) {
-        Constant *constRowIdx = LocalBuilder.getInt32(c);
-        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-        for (unsigned r = 0; r < row; r++) {
-          SmallVector<Value *, 4> args = {OpArg, ID, rowIdx, columnConsts[r]};
-          if (vertexID)
-            args.emplace_back(vertexID);
-
-          Value *input = LocalBuilder.CreateCall(ldStFunc, args);
-          unsigned matIdx = c * row + r;
-          matElts[matIdx] = input;
-        }
-      }
-      Value *newVec =
-          HLMatrixLower::BuildVector(EltTy, col * row, matElts, LocalBuilder);
-      CI->replaceAllUsesWith(newVec);
-      CI->eraseFromParent();
-    } break;
+    case HLMatLoadStoreOpcode::ColMatLoad:
     case HLMatLoadStoreOpcode::RowMatLoad: {
       IRBuilder<> LocalBuilder(CI);
       Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
                         ->getType()
                         ->getPointerElementType();
       unsigned col, row;
-      Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
+      HLMatrixLower::GetMatrixInfo(matTy, col, row);
       std::vector<Value *> matElts(col * row);
-      for (unsigned r = 0; r < row; r++) {
-        Constant *constRowIdx = LocalBuilder.getInt32(r);
-        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-        for (unsigned c = 0; c < col; c++) {
-          SmallVector<Value *, 4> args = {OpArg, ID, rowIdx, columnConsts[c]};
-          if (vertexID)
-            args.emplace_back(vertexID);
 
-          Value *input = LocalBuilder.CreateCall(ldStFunc, args);
-          unsigned matIdx = r * col + c;
-          matElts[matIdx] = input;
+      if (matOp == HLMatLoadStoreOpcode::ColMatLoad) {
+        for (unsigned c = 0; c < col; c++) {
+          Constant *constRowIdx = LocalBuilder.getInt32(c);
+          Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+          for (unsigned r = 0; r < row; r++) {
+            SmallVector<Value *, 4> args = { OpArg, ID, rowIdx, columnConsts[r] };
+            if (vertexID)
+              args.emplace_back(vertexID);
+
+            Value *input = LocalBuilder.CreateCall(ldStFunc, args);
+            unsigned matIdx = c * row + r;
+            matElts[matIdx] = input;
+          }
+        }
+      } else {
+        for (unsigned r = 0; r < row; r++) {
+          Constant *constRowIdx = LocalBuilder.getInt32(r);
+          Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+          for (unsigned c = 0; c < col; c++) {
+            SmallVector<Value *, 4> args = { OpArg, ID, rowIdx, columnConsts[c] };
+            if (vertexID)
+              args.emplace_back(vertexID);
+
+            Value *input = LocalBuilder.CreateCall(ldStFunc, args);
+            unsigned matIdx = r * col + c;
+            matElts[matIdx] = input;
+          }
         }
       }
+
       Value *newVec =
-          HLMatrixLower::BuildVector(EltTy, col * row, matElts, LocalBuilder);
+          HLMatrixLower::BuildVector(matElts[0]->getType(), col * row, matElts, LocalBuilder);
+      newVec = HLMatrixLower::VecMatrixMemToReg(newVec, matTy, LocalBuilder);
+
       CI->replaceAllUsesWith(newVec);
       CI->eraseFromParent();
     } break;
-    case HLMatLoadStoreOpcode::ColMatStore: {
-      IRBuilder<> LocalBuilder(CI);
-      Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
-                        ->getType()
-                        ->getPointerElementType();
-      unsigned col, row;
-      HLMatrixLower::GetMatrixInfo(matTy, col, row);
-
-      for (unsigned c = 0; c < col; c++) {
-        Constant *constColIdx = LocalBuilder.getInt32(c);
-        Value *colIdx = LocalBuilder.CreateAdd(idxVal, constColIdx);
-
-        for (unsigned r = 0; r < row; r++) {
-          unsigned matIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
-          Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-          LocalBuilder.CreateCall(ldStFunc,
-                                  {OpArg, ID, colIdx, columnConsts[r], Elt});
-        }
-      }
-      CI->eraseFromParent();
-    } break;
+    case HLMatLoadStoreOpcode::ColMatStore:
     case HLMatLoadStoreOpcode::RowMatStore: {
       IRBuilder<> LocalBuilder(CI);
       Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
@@ -995,14 +969,30 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
       unsigned col, row;
       HLMatrixLower::GetMatrixInfo(matTy, col, row);
 
-      for (unsigned r = 0; r < row; r++) {
-        Constant *constRowIdx = LocalBuilder.getInt32(r);
-        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+      Val = HLMatrixLower::VecMatrixRegToMem(Val, matTy, LocalBuilder);
+
+      if (matOp == HLMatLoadStoreOpcode::ColMatStore) {
         for (unsigned c = 0; c < col; c++) {
-          unsigned matIdx = HLMatrixLower::GetRowMajorIdx(r, c, col);
-          Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-          LocalBuilder.CreateCall(ldStFunc,
-                                  {OpArg, ID, rowIdx, columnConsts[c], Elt});
+          Constant *constColIdx = LocalBuilder.getInt32(c);
+          Value *colIdx = LocalBuilder.CreateAdd(idxVal, constColIdx);
+
+          for (unsigned r = 0; r < row; r++) {
+            unsigned matIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
+            Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
+            LocalBuilder.CreateCall(ldStFunc,
+              { OpArg, ID, colIdx, columnConsts[r], Elt });
+          }
+        }
+      } else {
+        for (unsigned r = 0; r < row; r++) {
+          Constant *constRowIdx = LocalBuilder.getInt32(r);
+          Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+          for (unsigned c = 0; c < col; c++) {
+            unsigned matIdx = HLMatrixLower::GetRowMajorIdx(r, c, col);
+            Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
+            LocalBuilder.CreateCall(ldStFunc,
+              { OpArg, ID, rowIdx, columnConsts[c], Elt });
+          }
         }
       }
       CI->eraseFromParent();

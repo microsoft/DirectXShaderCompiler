@@ -5,7 +5,7 @@
 // CHECK: i32 5)
 // CHECK: extractvalue
 // CHECK: , 2
-// CHECK: icmp eq
+// CHECK: icmp ne
 // CHECK 0
 
 // For (x4 < 3)[1]
@@ -47,7 +47,7 @@
 // CHECK: fcmp fast oeq
 // CHECK: fcmp fast oeq
 // CHECK: fcmp fast oeq
-// CHECK: alloca [16 x i1]
+// CHECK: alloca [16 x i32]
 
 
 float4x4 xt;
