@@ -5907,12 +5907,18 @@ TEST_F(ExecutionTest, BarycentricsTest) {
     //SavePixelsToFile(pPixels, DXGI_FORMAT_R32G32B32A32_FLOAT, width, height, L"barycentric.bmp");
 }
 
-static const char RawBufferTestComputeShaderTemplate[] =
+static const char RawBufferTestComputeShader[] =
+"// Note: COMPONENT_TYPE and COMPONENT_SIZE will be defined via compiler option -D\r\n"
+"typedef COMPONENT_TYPE scalar; \r\n"
+"typedef vector<COMPONENT_TYPE, 2> vector2; \r\n"
+"typedef vector<COMPONENT_TYPE, 3> vector3; \r\n"
+"typedef vector<COMPONENT_TYPE, 4> vector4; \r\n"
+"\r\n"
 "struct TestData { \r\n"
-"  $DATATYPE  v1; \r\n"
-"  $DATATYPE2 v2; \r\n"
-"  $DATATYPE3 v3; \r\n"
-"  $DATATYPE4 v4; \r\n"
+"  scalar  v1; \r\n"
+"  vector2 v2; \r\n"
+"  vector3 v3; \r\n"
+"  vector4 v4; \r\n"
 "}; \r\n"
 "\r\n"
 "struct UavData {\r\n"
@@ -5935,51 +5941,51 @@ static const char RawBufferTestComputeShaderTemplate[] =
 "void main(uint GI : SV_GroupIndex) {\r\n"
 "\r\n"
 "  // offset of 'out' in 'UavData'\r\n"
-"  const int out_offset = $DATATYPE_SIZE * 10; \r\n"
+"  const int out_offset = COMPONENT_SIZE * 10; \r\n"
 "\r\n"
 "  // offset of 'srv_out' in 'UavData'\r\n"
-"  const int srv_out_offset = $DATATYPE_SIZE * 10 * 2; \r\n"
+"  const int srv_out_offset = COMPONENT_SIZE * 10 * 2; \r\n"
 "\r\n"
 "  // offsets within the 'Data' struct\r\n"
 "  const int v1_offset = 0; \r\n"
-"  const int v2_offset = $DATATYPE_SIZE; \r\n"
-"  const int v3_offset = $DATATYPE_SIZE * 3; \r\n"
-"  const int v4_offset = $DATATYPE_SIZE * 6; \r\n"
+"  const int v2_offset = COMPONENT_SIZE; \r\n"
+"  const int v3_offset = COMPONENT_SIZE * 3; \r\n"
+"  const int v4_offset = COMPONENT_SIZE * 6; \r\n"
 "\r\n"
-"  uav0.Store(srv_out_offset + v1_offset, srv0.Load<$DATATYPE>(v1_offset)); \r\n"
-"  uav0.Store(srv_out_offset + v2_offset, srv0.Load<$DATATYPE2>(v2_offset)); \r\n"
-"  uav0.Store(srv_out_offset + v3_offset, srv0.Load<$DATATYPE3>(v3_offset)); \r\n"
-"  uav0.Store(srv_out_offset + v4_offset, srv0.Load<$DATATYPE4>(v4_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v1_offset, srv0.Load<scalar>(v1_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v2_offset, srv0.Load<vector2>(v2_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v3_offset, srv0.Load<vector3>(v3_offset)); \r\n"
+"  uav0.Store(srv_out_offset + v4_offset, srv0.Load<vector4>(v4_offset)); \r\n"
 "\r\n"
 "  uav1[0].srvOut.v1 = srv1[0].v1; \r\n"
 "  uav1[0].srvOut.v2 = srv1[0].v2; \r\n"
 "  uav1[0].srvOut.v3 = srv1[0].v3; \r\n"
 "  uav1[0].srvOut.v4 = srv1[0].v4; \r\n"
 "\r\n"
-"  uav2.Store(srv_out_offset + v1_offset, srv2.Load<$DATATYPE>(v1_offset)); \r\n"
-"  uav2.Store(srv_out_offset + v2_offset, srv2.Load<$DATATYPE2>(v2_offset)); \r\n"
-"  uav2.Store(srv_out_offset + v3_offset, srv2.Load<$DATATYPE3>(v3_offset)); \r\n"
-"  uav2.Store(srv_out_offset + v4_offset, srv2.Load<$DATATYPE4>(v4_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v1_offset, srv2.Load<scalar>(v1_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v2_offset, srv2.Load<vector2>(v2_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v3_offset, srv2.Load<vector3>(v3_offset)); \r\n"
+"  uav2.Store(srv_out_offset + v4_offset, srv2.Load<vector4>(v4_offset)); \r\n"
 "\r\n"
 "  uav3[0].srvOut.v1 = srv3[0].v1; \r\n"
 "  uav3[0].srvOut.v2 = srv3[0].v2; \r\n"
 "  uav3[0].srvOut.v3 = srv3[0].v3; \r\n"
 "  uav3[0].srvOut.v4 = srv3[0].v4; \r\n"
 "\r\n"
-"  uav0.Store(out_offset + v1_offset, uav0.Load<$DATATYPE>(v1_offset)); \r\n"
-"  uav0.Store(out_offset + v2_offset, uav0.Load<$DATATYPE2>(v2_offset)); \r\n"
-"  uav0.Store(out_offset + v3_offset, uav0.Load<$DATATYPE3>(v3_offset)); \r\n"
-"  uav0.Store(out_offset + v4_offset, uav0.Load<$DATATYPE4>(v4_offset)); \r\n"
+"  uav0.Store(out_offset + v1_offset, uav0.Load<scalar>(v1_offset)); \r\n"
+"  uav0.Store(out_offset + v2_offset, uav0.Load<vector2>(v2_offset)); \r\n"
+"  uav0.Store(out_offset + v3_offset, uav0.Load<vector3>(v3_offset)); \r\n"
+"  uav0.Store(out_offset + v4_offset, uav0.Load<vector4>(v4_offset)); \r\n"
 "\r\n"
 "  uav1[0].output.v1 = uav1[0].input.v1; \r\n"
 "  uav1[0].output.v2 = uav1[0].input.v2; \r\n"
 "  uav1[0].output.v3 = uav1[0].input.v3; \r\n"
 "  uav1[0].output.v4 = uav1[0].input.v4; \r\n"
 "\r\n"
-"  uav2.Store(out_offset + v1_offset, uav2.Load<$DATATYPE>(v1_offset)); \r\n"
-"  uav2.Store(out_offset + v2_offset, uav2.Load<$DATATYPE2>(v2_offset)); \r\n"
-"  uav2.Store(out_offset + v3_offset, uav2.Load<$DATATYPE3>(v3_offset)); \r\n"
-"  uav2.Store(out_offset + v4_offset, uav2.Load<$DATATYPE4>(v4_offset)); \r\n"
+"  uav2.Store(out_offset + v1_offset, uav2.Load<scalar>(v1_offset)); \r\n"
+"  uav2.Store(out_offset + v2_offset, uav2.Load<vector2>(v2_offset)); \r\n"
+"  uav2.Store(out_offset + v3_offset, uav2.Load<vector3>(v3_offset)); \r\n"
+"  uav2.Store(out_offset + v4_offset, uav2.Load<vector4>(v4_offset)); \r\n"
 "\r\n"
 "  uav3[0].output.v1 = uav3[0].input.v1; \r\n"
 "  uav3[0].output.v2 = uav3[0].input.v2; \r\n"
@@ -6065,6 +6071,8 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
    }
 
    char *sTy = nullptr;
+   char *additionalOptions = "";
+
    switch (dataType) {
    case RawBufferLdStType::I64:
      if (!DoesDeviceSupportInt64(pDevice)) {
@@ -6089,6 +6097,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
        return;
      }
+     additionalOptions = "-enable-16bit-types";
      sTy = (dataType == RawBufferLdStType::I16 ? "int16_t" : "half");
      break;
    case RawBufferLdStType::I32:
@@ -6101,21 +6110,21 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
      DXASSERT_NOMSG("Invalid RawBufferLdStType");
    }
 
-   // format shader text
-   std::string shaderText(RawBufferTestComputeShaderTemplate);
-   ReplaceAll(shaderText, std::string("$DATATYPE_SIZE"), std::to_string(sizeof(Ty)));
-   ReplaceAll(shaderText, std::string("$DATATYPE"), sTy);
- 
    // read shader config
    CComPtr<IStream> pStream;
    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+   // format compiler args
+   char compilerOptions[256];
+   VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
 
    // run the shader
    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
      VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
                     (Name[9] >= '0' && Name[9] <= '3'));
-     pShaderOp->Shaders.at(0).Text = shaderText.data();
+     pShaderOp->Shaders.at(0).Arguments = compilerOptions;
+     pShaderOp->Shaders.at(0).Text = RawBufferTestComputeShader;
 
      VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
      RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
