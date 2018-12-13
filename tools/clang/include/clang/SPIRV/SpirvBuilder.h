@@ -63,8 +63,6 @@ public:
   /// type in the current function and returns its pointer.
   SpirvFunctionParameter *addFnParam(QualType ptrType, SourceLocation,
                                      llvm::StringRef name = "");
-  SpirvFunctionParameter *addFnParam(const SpirvType *ptrType, SourceLocation,
-                                     llvm::StringRef name = "");
 
   /// \brief Creates a local variable of the given type in the current
   /// function and returns it.
