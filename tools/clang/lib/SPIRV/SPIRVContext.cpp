@@ -240,8 +240,7 @@ SpirvContext::getFunctionType(const SpirvType *ret,
 }
 
 HybridFunctionType *
-SpirvContext::getFunctionType(QualType ret,
-                              llvm::ArrayRef<const SpirvType *> param) {
+SpirvContext::getFunctionType(QualType ret, llvm::ArrayRef<QualType> param) {
   return new (this) HybridFunctionType(ret, param);
 }
 
