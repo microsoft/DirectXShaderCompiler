@@ -56,18 +56,6 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
   return param;
 }
 
-SpirvFunctionParameter *SpirvBuilder::addFnParam(const SpirvType *ptrType,
-                                                 SourceLocation loc,
-                                                 llvm::StringRef name) {
-  assert(function && "found detached parameter");
-  auto *param =
-      new (context) SpirvFunctionParameter(/*QualType*/ {}, /*id*/ 0, loc);
-  param->setResultType(ptrType);
-  param->setDebugName(name);
-  function->addParameter(param);
-  return param;
-}
-
 SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
                                       llvm::StringRef name,
                                       SpirvInstruction *init) {

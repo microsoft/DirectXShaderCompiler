@@ -129,9 +129,6 @@ struct FunctionTypeMapInfo {
 /// context is deleted. Therefore, this context should outlive the usages of the
 /// the SPIR-V entities allocated in memory.
 class SpirvContext {
-  friend class SpirvBuilder;
-  friend class EmitTypeHandler;
-
 public:
   SpirvContext();
   ~SpirvContext() = default;
@@ -197,7 +194,7 @@ public:
   FunctionType *getFunctionType(const SpirvType *ret,
                                 llvm::ArrayRef<const SpirvType *> param);
   HybridFunctionType *getFunctionType(QualType ret,
-                                      llvm::ArrayRef<const SpirvType *> param);
+                                      llvm::ArrayRef<QualType> param);
 
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
