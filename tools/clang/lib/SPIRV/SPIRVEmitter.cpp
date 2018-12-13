@@ -964,7 +964,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
   // Construct the function signature.
-  llvm::SmallVector<const SpirvType *, 4> paramTypes;
+  llvm::SmallVector<QualType, 4> paramTypes;
 
   bool isNonStaticMemberFn = false;
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
@@ -975,18 +975,14 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
       // object on which we are invoking this method.
       const QualType valueType =
           memberFn->getThisType(astContext)->getPointeeType();
-      const SpirvType *ptrType =
-          spvContext.getPointerType(valueType, spv::StorageClass::Function);
-      paramTypes.push_back(ptrType);
+      paramTypes.push_back(valueType);
     }
   }
 
   for (const auto *param : decl->params()) {
     const QualType valueType =
         declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
-    const SpirvType *ptrType =
-        spvContext.getPointerType(valueType, spv::StorageClass::Function);
-    paramTypes.push_back(ptrType);
+    paramTypes.push_back(valueType);
   }
 
   auto *funcType = spvContext.getFunctionType(retType, paramTypes);
@@ -8970,8 +8966,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   uint32_t outputArraySize = 0;
 
   // Construct the wrapper function signature.
-  const SpirvType *voidType = spvContext.getVoidType();
-  FunctionType *funcType = spvContext.getFunctionType(voidType, {});
+  auto *funcType = spvContext.getFunctionType(astContext.VoidTy, {});
 
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
