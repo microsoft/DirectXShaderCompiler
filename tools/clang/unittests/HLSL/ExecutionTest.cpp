@@ -5993,14 +5993,6 @@ static const char RawBufferTestComputeShader[] =
 "  uav3[0].output.v4 = uav3[0].input.v4; \r\n"
 "};";
 
-static void ReplaceAll(std::string &str, const std::string &findStr, const std::string &replaceStr) {
-  std::string::size_type pos = 0;
-  while ((pos = str.find(findStr, pos)) != std::string::npos) {
-    str.replace(pos, findStr.length(), replaceStr);
-    pos += replaceStr.length();
-  }
-}
-
 TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
   RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, 0, -10517 }, { 465, 13, -89, MAXUINT32 / 2 } };
   RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "ComputeRawBufferLdSt32Bit", data);
