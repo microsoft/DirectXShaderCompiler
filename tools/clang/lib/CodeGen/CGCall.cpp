@@ -2477,7 +2477,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         if (hlsl::IsHLSLMatType(RetTy)) {
           QualType AttrFnRetTy;
           // If matrix orientation attribute is missing from the return type
-          // then try to get that infor from function decl
+          // then try to get that info from function decl
           if (!isa<AttributedType>(FnRetTy) && GetAttributedTypeWithMatrixPackingInfo(CurCodeDecl, FnRetTy, &AttrFnRetTy)) {
             RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
               AttrFnRetTy);
@@ -2519,7 +2519,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         if (hlsl::IsHLSLMatType(RetTy)) {
           QualType AttrFnRetTy;
           // If matrix orientation attribute is missing from the return type
-          // then try to get that infor from function decl
+          // then try to get that info from function decl
           if (!isa<AttributedType>(FnRetTy) && GetAttributedTypeWithMatrixPackingInfo(CurCodeDecl, FnRetTy, &AttrFnRetTy)) {
             RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
               AttrFnRetTy);
