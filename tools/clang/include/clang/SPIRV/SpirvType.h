@@ -337,6 +337,7 @@ private:
   StructInterfaceType interfaceType;
 };
 
+/// Represents a SPIR-V pointer type.
 class SpirvPointerType : public SpirvType {
 public:
   SpirvPointerType(const SpirvType *pointee, spv::StorageClass sc)
@@ -356,11 +357,11 @@ private:
   spv::StorageClass storageClass;
 };
 
+/// Represents a SPIR-V function type. None of the parameters nor the return
+/// type is allowed to be a hybrid type.
 class FunctionType : public SpirvType {
 public:
-  FunctionType(const SpirvType *ret, llvm::ArrayRef<const SpirvType *> param)
-      : SpirvType(TK_Function), returnType(ret),
-        paramTypes(param.begin(), param.end()) {}
+  FunctionType(const SpirvType *ret, llvm::ArrayRef<const SpirvType *> param);
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_Function;
@@ -484,8 +485,8 @@ private:
 // This class can be extended to also accept QualType vector as param types.
 class HybridFunctionType : public HybridType {
 public:
-  HybridFunctionType(QualType ret, llvm::ArrayRef<const SpirvType *> param)
-      : HybridType(TK_HybridFunction), astReturnType(ret),
+  HybridFunctionType(QualType ret, llvm::ArrayRef<QualType> param)
+      : HybridType(TK_HybridFunction), returnType(ret),
         paramTypes(param.begin(), param.end()) {}
 
   static bool classof(const SpirvType *t) {
@@ -493,15 +494,15 @@ public:
   }
 
   bool operator==(const HybridFunctionType &that) const {
-    return astReturnType == that.astReturnType && paramTypes == that.paramTypes;
+    return returnType == that.returnType && paramTypes == that.paramTypes;
   }
 
-  QualType getAstReturnType() const { return astReturnType; }
-  llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
+  QualType getReturnType() const { return returnType; }
+  llvm::ArrayRef<QualType> getParamTypes() const { return paramTypes; }
 
 private:
-  QualType astReturnType;
-  llvm::SmallVector<const SpirvType *, 8> paramTypes;
+  QualType returnType;
+  llvm::SmallVector<QualType, 8> paramTypes;
 };
 
 } // end namespace spirv

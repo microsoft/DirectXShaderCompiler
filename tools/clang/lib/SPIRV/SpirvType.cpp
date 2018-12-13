@@ -243,5 +243,15 @@ bool HybridStructType::operator==(const HybridStructType &that) const {
          readOnly == that.readOnly && interfaceType == that.interfaceType;
 }
 
+FunctionType::FunctionType(const SpirvType *ret,
+                           llvm::ArrayRef<const SpirvType *> param)
+    : SpirvType(TK_Function), returnType(ret),
+      paramTypes(param.begin(), param.end()) {
+  // Make sure
+  assert(!isa<HybridType>(ret));
+  for (auto *paramType : param)
+    assert(!isa<HybridType>(param));
+}
+
 } // namespace spirv
 } // namespace clang
