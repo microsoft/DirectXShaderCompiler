@@ -13,8 +13,6 @@ add_clang_library(clangSPIRV
   FeatureManager.cpp
   GlPerVertex.cpp
   InitListHandler.cpp
-  InstBuilderAuto.cpp
-  InstBuilderManual.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
   SPIRVContext.cpp

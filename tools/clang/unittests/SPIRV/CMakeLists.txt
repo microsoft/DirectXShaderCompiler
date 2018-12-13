@@ -10,7 +10,6 @@ add_clang_unittest(clang-spirv-tests
   CodeGenSPIRVTest.cpp
   FileTestFixture.cpp
   FileTestUtils.cpp
-  InstBuilderTest.cpp
   SPIRVContextTest.cpp
   SPIRVTestOptions.cpp
   TestMain.cpp
