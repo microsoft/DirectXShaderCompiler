@@ -582,19 +582,90 @@
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="ComputeRawBufferLdStI32" CS="CS">
-  </ShaderOp>>
-  <ShaderOp Name="ComputeRawBufferLdStFloat" CS="CS">
-  </ShaderOp>>
-  <ShaderOp Name="ComputeRawBufferLdStI64" CS="CS">
-  </ShaderOp>>
-  <ShaderOp Name="ComputeRawBufferLdStDouble" CS="CS">
-  </ShaderOp>>
-  <ShaderOp Name="ComputeRawBufferLdStI16" CS="CS">
-  </ShaderOp>>
-  <ShaderOp Name="ComputeRawBufferLdStHalf" CS="CS">
+  <ShaderOp Name="ComputeRawBufferLdSt32Bit" CS="CS">
+    <RootSignature>RootFlags(0), SRV(t0), SRV(t1), UAV(u0), UAV(u1), DescriptorTable(SRV(t2,numDescriptors=2), UAV(u2,numDescriptors=2))</RootSignature>
+    <Resource Name="SRVBuffer0" Dimension="BUFFER" Width="40"  InitialResourceState="COPY_DEST" Init="ByName" Format="R32_TYPELESS"/>
+    <Resource Name="SRVBuffer1" Dimension="BUFFER" Width="40"  InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="SRVBuffer2" Dimension="BUFFER" Width="40"  InitialResourceState="COPY_DEST" Init="ByName" Format="R32_TYPELESS"/>
+    <Resource Name="SRVBuffer3" Dimension="BUFFER" Width="40"  InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="120" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="UAVBuffer1" Dimension="BUFFER" Width="120" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" />
+    <Resource Name="UAVBuffer2" Dimension="BUFFER" Width="120" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="UAVBuffer3" Dimension="BUFFER" Width="120" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SRVBuffer0" />
+      <RootValue Index="1" ResName="SRVBuffer1" />
+      <RootValue Index="2" ResName="UAVBuffer0" />
+      <RootValue Index="3" ResName="UAVBuffer1" />
+      <RootValue Index="4" HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='SRVBuffer2' Kind='SRV' ResName='SRVBuffer2' Flags='RAW' NumElements="10" Format="R32_TYPELESS" />
+      <Descriptor Name='SRVBuffer3' Kind='SRV' ResName='SRVBuffer3' NumElements="1" StructureByteStride="40" />
+      <Descriptor Name='UAVBuffer2' Kind='UAV' ResName='UAVBuffer2' Flags='RAW' NumElements="30" Format="R32_TYPELESS" />
+      <Descriptor Name='UAVBuffer3' Kind='UAV' ResName='UAVBuffer3' NumElements="1" StructureByteStride="120" />
+    </DescriptorHeap>
+    <Shader Name="CS" Target="cs_6_2">
+      <![CDATA[// Shader source code will be set at runtime]]>
+    </Shader>
   </ShaderOp>>
   
+  <ShaderOp Name="ComputeRawBufferLdSt64Bit" CS="CS">
+    <RootSignature>RootFlags(0), SRV(t0), SRV(t1), UAV(u0), UAV(u1), DescriptorTable(SRV(t2,numDescriptors=2), UAV(u2,numDescriptors=2))</RootSignature>
+    <Resource Name="SRVBuffer0" Dimension="BUFFER" Width="80"  InitialResourceState="COPY_DEST" Init="ByName" Format="R32_TYPELESS"/>
+    <Resource Name="SRVBuffer1" Dimension="BUFFER" Width="80"  InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="SRVBuffer2" Dimension="BUFFER" Width="80"  InitialResourceState="COPY_DEST" Init="ByName" Format="R32_TYPELESS"/>
+    <Resource Name="SRVBuffer3" Dimension="BUFFER" Width="80"  InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="240" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="UAVBuffer1" Dimension="BUFFER" Width="240" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" />
+    <Resource Name="UAVBuffer2" Dimension="BUFFER" Width="240" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="UAVBuffer3" Dimension="BUFFER" Width="240" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SRVBuffer0" />
+      <RootValue Index="1" ResName="SRVBuffer1" />
+      <RootValue Index="2" ResName="UAVBuffer0" />
+      <RootValue Index="3" ResName="UAVBuffer1" />
+      <RootValue Index="4" HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='SRVBuffer2' Kind='SRV' ResName='SRVBuffer2' Flags='RAW' NumElements="20" Format="R32_TYPELESS" />
+      <Descriptor Name='SRVBuffer3' Kind='SRV' ResName='SRVBuffer3' NumElements="1" StructureByteStride="80" />
+      <Descriptor Name='UAVBuffer2' Kind='UAV' ResName='UAVBuffer2' Flags='RAW' NumElements="60" Format="R32_TYPELESS" />
+      <Descriptor Name='UAVBuffer3' Kind='UAV' ResName='UAVBuffer3' NumElements="1" StructureByteStride="240" />
+    </DescriptorHeap>
+    <Shader Name="CS" Target="cs_6_2">
+      <![CDATA[// Shader source code will be set at runtime]]>
+    </Shader>
+  </ShaderOp>>
+
+  <ShaderOp Name="ComputeRawBufferLdSt16Bit" CS="CS">
+    <RootSignature>RootFlags(0), SRV(t0), SRV(t1), UAV(u0), UAV(u1), DescriptorTable(SRV(t2,numDescriptors=2), UAV(u2,numDescriptors=2))</RootSignature>
+    <Resource Name="SRVBuffer0" Dimension="BUFFER" Width="20" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_TYPELESS"/>
+    <Resource Name="SRVBuffer1" Dimension="BUFFER" Width="20" InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="SRVBuffer2" Dimension="BUFFER" Width="20" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_TYPELESS"/>
+    <Resource Name="SRVBuffer3" Dimension="BUFFER" Width="20" InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="60" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="UAVBuffer1" Dimension="BUFFER" Width="60" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="UAVBuffer2" Dimension="BUFFER" Width="60" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="UAVBuffer3" Dimension="BUFFER" Width="60" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SRVBuffer0" />
+      <RootValue Index="1" ResName="SRVBuffer1" />
+      <RootValue Index="2" ResName="UAVBuffer0" />
+      <RootValue Index="3" ResName="UAVBuffer1" />
+      <RootValue Index="4" HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='SRVBuffer2' Kind='SRV' ResName='SRVBuffer2' Flags='RAW' NumElements="5" Format="R32_TYPELESS" />
+      <Descriptor Name='SRVBuffer3' Kind='SRV' ResName='SRVBuffer3' NumElements="1" StructureByteStride="20" />
+      <Descriptor Name='UAVBuffer2' Kind='UAV' ResName='UAVBuffer2' Flags='RAW' NumElements="15" Format="R32_TYPELESS" />
+      <Descriptor Name='UAVBuffer3' Kind='UAV' ResName='UAVBuffer3' NumElements="1" StructureByteStride="60" />
+    </DescriptorHeap>
+    <Shader Name="CS" Target="cs_6_2">
+      <![CDATA[// Shader source code will be set at runtime]]>
+    </Shader>
+  </ShaderOp>>
+
   <ShaderOp Name="GraphicsRawBufferLdStI32" PS="PS" VS="VS">
   </ShaderOp>
   <ShaderOp Name="GraphicsRawBufferLdStFloat" PS="PS" VS="VS">
