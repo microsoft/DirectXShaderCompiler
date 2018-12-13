@@ -56,6 +56,71 @@ struct QualTypeDenseMapInfo {
   }
 };
 
+// Provides DenseMapInfo for ArrayType so we can create a DenseSet of array
+// types.
+struct ArrayTypeMapInfo {
+  static inline ArrayType *getEmptyKey() { return nullptr; }
+  static inline ArrayType *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const ArrayType *Val) {
+    return llvm::hash_combine(Val->getElementType(), Val->getElementCount(),
+                              Val->getStride().hasValue());
+  }
+  static bool isEqual(const ArrayType *LHS, const ArrayType *RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
+// Provides DenseMapInfo for RuntimeArrayType so we can create a DenseSet of
+// runtime array types.
+struct RuntimeArrayTypeMapInfo {
+  static inline RuntimeArrayType *getEmptyKey() { return nullptr; }
+  static inline RuntimeArrayType *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const RuntimeArrayType *Val) {
+    return llvm::hash_combine(Val->getElementType(),
+                              Val->getStride().hasValue());
+  }
+  static bool isEqual(const RuntimeArrayType *LHS,
+                      const RuntimeArrayType *RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
+// Provides DenseMapInfo for ImageType so we can create a DenseSet of
+// image types.
+struct ImageTypeMapInfo {
+  static inline ImageType *getEmptyKey() { return nullptr; }
+  static inline ImageType *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const ImageType *Val) {
+    return llvm::hash_combine(Val->getSampledType(), Val->isArrayedImage(),
+                              Val->isMSImage(),
+                              static_cast<uint32_t>(Val->getDimension()),
+                              static_cast<uint32_t>(Val->withSampler()),
+                              static_cast<uint32_t>(Val->getImageFormat()));
+  }
+  static bool isEqual(const ImageType *LHS, const ImageType *RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
+// Provides DenseMapInfo for FunctionType so we can create a DenseSet of
+// function types.
+struct FunctionTypeMapInfo {
+  static inline FunctionType *getEmptyKey() { return nullptr; }
+  static inline FunctionType *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const FunctionType *Val) {
+    // Hashing based on return type and number of function parameters.
+    return llvm::hash_combine(Val->getReturnType(),
+                              Val->getParamTypes().size());
+  }
+  static bool isEqual(const FunctionType *LHS, const FunctionType *RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
 ///
 /// All entities should be allocated from an object of this class using
@@ -164,34 +229,21 @@ private:
   using SCToPtrTyMap =
       llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
                      StorageClassDenseMapInfo>;
-  using SCToHybridPtrTyMap =
-      llvm::DenseMap<spv::StorageClass, const HybridPointerType *,
-                     StorageClassDenseMapInfo>;
 
   // Vector/matrix types for each possible element count.
   // Type at index is for vector of index components. Index 0/1 is unused.
 
   llvm::DenseMap<const ScalarType *, VectorTypeArray> vecTypes;
   llvm::DenseMap<const VectorType *, MatrixTypeVector> matTypes;
-
-  llvm::SmallVector<const ImageType *, 8> imageTypes;
+  llvm::DenseSet<const ImageType *, ImageTypeMapInfo> imageTypes;
   const SamplerType *samplerType;
   llvm::DenseMap<const ImageType *, const SampledImageType *> sampledImageTypes;
-  llvm::DenseMap<QualType, const HybridSampledImageType *, QualTypeDenseMapInfo>
-      hybridSampledImageTypes;
-
-  llvm::SmallVector<const ArrayType *, 8> arrayTypes;
-  llvm::SmallVector<const RuntimeArrayType *, 8> runtimeArrayTypes;
-
+  llvm::DenseSet<const ArrayType *, ArrayTypeMapInfo> arrayTypes;
+  llvm::DenseSet<const RuntimeArrayType *, RuntimeArrayTypeMapInfo>
+      runtimeArrayTypes;
   llvm::SmallVector<const StructType *, 8> structTypes;
-  llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
-
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
-  llvm::DenseMap<QualType, SCToHybridPtrTyMap, QualTypeDenseMapInfo>
-      hybridPointerTypes;
-
-  llvm::SmallVector<FunctionType *, 8> functionTypes;
-  llvm::SmallVector<HybridFunctionType *, 8> hybridFunctionTypes;
+  llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
 };
 
 } // end namespace spirv
