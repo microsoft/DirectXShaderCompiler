@@ -250,7 +250,7 @@ FunctionType::FunctionType(const SpirvType *ret,
   // Make sure
   assert(!isa<HybridType>(ret));
   for (auto *paramType : param)
-    assert(!isa<HybridType>(param));
+    assert(!isa<HybridType>(paramType));
 }
 
 } // namespace spirv
