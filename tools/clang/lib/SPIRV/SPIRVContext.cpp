@@ -120,20 +120,16 @@ const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
   // assertion failure.
   const NumericalType *elemType = cast<NumericalType>(sampledType);
 
-  // Create a temporary object for finding in the vector.
+  // Create a temporary object for finding in the set.
   ImageType type(elemType, dim, depth, arrayed, ms, sampled, format);
-
-  auto found = std::find_if(
-      imageTypes.begin(), imageTypes.end(),
-      [&type](const ImageType *cachedType) { return type == *cachedType; });
-
+  auto found = imageTypes.find(&type);
   if (found != imageTypes.end())
     return *found;
 
-  imageTypes.push_back(
+  auto inserted = imageTypes.insert(
       new (this) ImageType(elemType, dim, depth, arrayed, ms, sampled, format));
 
-  return imageTypes.back();
+  return *(inserted.first);
 }
 
 const SampledImageType *
@@ -148,45 +144,36 @@ SpirvContext::getSampledImageType(const ImageType *image) {
 
 const HybridSampledImageType *
 SpirvContext::getSampledImageType(QualType image) {
-  auto found = hybridSampledImageTypes.find(image);
-
-  if (found != hybridSampledImageTypes.end())
-    return found->second;
-
-  return hybridSampledImageTypes[image] =
-             new (this) HybridSampledImageType(image);
+  return new (this) HybridSampledImageType(image);
 }
 
-const ArrayType *SpirvContext::getArrayType(const SpirvType *elemType,
-                                            uint32_t elemCount,
-                                            llvm::Optional<uint32_t> arrayStride) {
+const ArrayType *
+SpirvContext::getArrayType(const SpirvType *elemType, uint32_t elemCount,
+                           llvm::Optional<uint32_t> arrayStride) {
   ArrayType type(elemType, elemCount, arrayStride);
-  auto found = std::find_if(
-      arrayTypes.begin(), arrayTypes.end(),
-      [&type](const ArrayType *cachedType) { return type == *cachedType; });
 
+  auto found = arrayTypes.find(&type);
   if (found != arrayTypes.end())
     return *found;
 
-  arrayTypes.push_back(new (this) ArrayType(elemType, elemCount, arrayStride));
-  return arrayTypes.back();
+  auto inserted =
+      arrayTypes.insert(new (this) ArrayType(elemType, elemCount, arrayStride));
+  // The return value is an (iterator, bool) pair. The boolean indicates whether
+  // it was actually added as a new type.
+  return *(inserted.first);
 }
 
 const RuntimeArrayType *
 SpirvContext::getRuntimeArrayType(const SpirvType *elemType,
                                   llvm::Optional<uint32_t> arrayStride) {
   RuntimeArrayType type(elemType, arrayStride);
-  auto found = std::find_if(runtimeArrayTypes.begin(), runtimeArrayTypes.end(),
-                            [&type](const RuntimeArrayType *cachedType) {
-                              return type == *cachedType;
-                            });
-
+  auto found = runtimeArrayTypes.find(&type);
   if (found != runtimeArrayTypes.end())
     return *found;
 
-  runtimeArrayTypes.push_back(new (this)
-                                  RuntimeArrayType(elemType, arrayStride));
-  return runtimeArrayTypes.back();
+  auto inserted = runtimeArrayTypes.insert(
+      new (this) RuntimeArrayType(elemType, arrayStride));
+  return *(inserted.first);
 }
 
 const StructType *
@@ -216,25 +203,7 @@ SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
 const HybridStructType *SpirvContext::getHybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, llvm::StringRef name,
     bool isReadOnly, StructInterfaceType interfaceType) {
-  // We are creating a temporary struct type here for querying whether the
-  // same type was already created. It is a little bit costly, but we can
-  // avoid allocating directly from the bump pointer allocator, from which
-  // then we are unable to reclaim until the allocator itself is destroyed.
-
-  HybridStructType type(fields, name, isReadOnly, interfaceType);
-
-  auto found = std::find_if(hybridStructTypes.begin(), hybridStructTypes.end(),
-                            [&type](const HybridStructType *cachedType) {
-                              return type == *cachedType;
-                            });
-
-  if (found != hybridStructTypes.end())
-    return *found;
-
-  hybridStructTypes.push_back(
-      new (this) HybridStructType(fields, name, isReadOnly, interfaceType));
-
-  return hybridStructTypes.back();
+  return new (this) HybridStructType(fields, name, isReadOnly, interfaceType);
 }
 
 const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
@@ -254,56 +223,26 @@ const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
 
 const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
                                                       spv::StorageClass sc) {
-  auto foundPointee = hybridPointerTypes.find(pointee);
-
-  if (foundPointee != hybridPointerTypes.end()) {
-    auto &pointeeMap = foundPointee->second;
-    auto foundSC = pointeeMap.find(sc);
-
-    if (foundSC != pointeeMap.end())
-      return foundSC->second;
-  }
-
-  return hybridPointerTypes[pointee][sc] =
-             new (this) HybridPointerType(pointee, sc);
+  return new (this) HybridPointerType(pointee, sc);
 }
 
 FunctionType *
 SpirvContext::getFunctionType(const SpirvType *ret,
                               llvm::ArrayRef<const SpirvType *> param) {
-  // Create a temporary object for finding in the vector.
+  // Create a temporary object for finding in the set.
   FunctionType type(ret, param);
-
-  auto found = std::find_if(
-      functionTypes.begin(), functionTypes.end(),
-      [&type](const FunctionType *cachedType) { return type == *cachedType; });
-
+  auto found = functionTypes.find(&type);
   if (found != functionTypes.end())
     return *found;
 
-  functionTypes.push_back(new (this) FunctionType(ret, param));
-
-  return functionTypes.back();
+  auto inserted = functionTypes.insert(new (this) FunctionType(ret, param));
+  return *inserted.first;
 }
 
 HybridFunctionType *
 SpirvContext::getFunctionType(QualType ret,
                               llvm::ArrayRef<const SpirvType *> param) {
-  // Create a temporary object for finding in the vector.
-  HybridFunctionType type(ret, param);
-
-  auto found =
-      std::find_if(hybridFunctionTypes.begin(), hybridFunctionTypes.end(),
-                   [&type](const HybridFunctionType *cachedType) {
-                     return type == *cachedType;
-                   });
-
-  if (found != hybridFunctionTypes.end())
-    return *found;
-
-  hybridFunctionTypes.push_back(new (this) HybridFunctionType(ret, param));
-
-  return hybridFunctionTypes.back();
+  return new (this) HybridFunctionType(ret, param);
 }
 
 const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
