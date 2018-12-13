@@ -5909,8 +5909,8 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
           continue;
         }
       }
-      if (GEPIt->isPointerTy()) {
-        unsigned size = DL.getTypeAllocSize(GEPIt->getPointerElementType());
+      if (GEPIt->isPointerTy() || GEPIt->isArrayTy() || GEPIt->isVectorTy()) {
+        unsigned size = DL.getTypeAllocSize(GEPIt->getSequentialElementType());
         if (immIdx) {
           unsigned tempOffset = size * immIdx;
           offset = Builder.CreateAdd(offset, OP->GetU32Const(tempOffset));
@@ -5919,29 +5919,9 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
           offset = Builder.CreateAdd(offset, tempOffset);
         }
       } else if (GEPIt->isStructTy()) {
-        unsigned structOffset = 0;
-        for (unsigned i = 0; i < immIdx; i++) {
-          structOffset += DL.getTypeAllocSize(GEPIt->getStructElementType(i));
-        }
+        const StructLayout *Layout = DL.getStructLayout(cast<StructType>(*GEPIt));
+        unsigned structOffset = Layout->getElementOffset(immIdx);
         offset = Builder.CreateAdd(offset, OP->GetU32Const(structOffset));
-      } else if (GEPIt->isArrayTy()) {
-        unsigned size = DL.getTypeAllocSize(GEPIt->getArrayElementType());
-        if (immIdx) {
-          unsigned tempOffset = size * immIdx;
-          offset = Builder.CreateAdd(offset, OP->GetU32Const(tempOffset));
-        } else {
-          Value *tempOffset = Builder.CreateMul(idx, OP->GetU32Const(size));
-          offset = Builder.CreateAdd(offset, tempOffset);
-        }
-      } else if (GEPIt->isVectorTy()) {
-        unsigned size = DL.getTypeAllocSize(GEPIt->getVectorElementType());
-        if (immIdx) {
-          unsigned tempOffset = size * immIdx;
-          offset = Builder.CreateAdd(offset, OP->GetU32Const(tempOffset));
-        } else {
-          Value *tempOffset = Builder.CreateMul(idx, OP->GetU32Const(size));
-          offset = Builder.CreateAdd(offset, tempOffset);
-        }
       } else {
         gep_type_iterator temp = GEPIt;
         temp++;
