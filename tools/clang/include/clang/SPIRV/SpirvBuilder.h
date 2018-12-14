@@ -468,9 +468,6 @@ public:
   ///
   /// Note: The corresponding pointer type of the given type will not be
   /// constructed in this method.
-  SpirvVariable *addStageBuiltinVar(const SpirvType *type,
-                                    spv::StorageClass storageClass,
-                                    spv::BuiltIn, SourceLocation loc = {});
   SpirvVariable *addStageBuiltinVar(QualType type,
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, SourceLocation loc = {});
