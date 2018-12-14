@@ -72,25 +72,6 @@ STATISTIC(NumAdjusted, "Number of scalar allocas adjusted to allow promotion");
 
 namespace {
 
-  // When replacing aggregates by scalars,
-  // the first scalar will preserve the original semantic,
-  // and the subsequent ones will temporarily use this value.
-  // We then run a pass to fix the semantics and properly renumber them
-  // once the aggregate has been fully expanded.
-  // 
-  // For example:
-  // struct Foo { float a; float b; };
-  // void main(Foo foo : TEXCOORD0, float bar : TEXCOORD0)
-  //
-  // Will be expanded to
-  // void main(float a : TEXCOORD0, float b : *, float bar : TEXCOORD0)
-  //
-  // And then fixed up to
-  // void main(float a : TEXCOORD0, float b : TEXCOORD1, float bar : TEXCOORD0)
-  //
-  // (which will later on fail validation due to duplicate semantics).
-  constexpr const char *ContinuedPseudoSemantic = "*";
-
 class SROA_Helper {
 public:
   // Split V into AllocaInsts with Builder and save the new AllocaInsts into Elts.
@@ -4451,6 +4432,25 @@ private:
   std::unordered_set<Value *> castRowMajorParamMap;
   bool m_HasDbgInfo;
 };
+
+// When replacing aggregates by its scalar elements,
+// the first element will preserve the original semantic,
+// and the subsequent ones will temporarily use this value.
+// We then run a pass to fix the semantics and properly renumber them
+// once the aggregate has been fully expanded.
+// 
+// For example:
+// struct Foo { float a; float b; };
+// void main(Foo foo : TEXCOORD0, float bar : TEXCOORD0)
+//
+// Will be expanded to
+// void main(float a : TEXCOORD0, float b : *, float bar : TEXCOORD0)
+//
+// And then fixed up to
+// void main(float a : TEXCOORD0, float b : TEXCOORD1, float bar : TEXCOORD0)
+//
+// (which will later on fail validation due to duplicate semantics).
+constexpr const char *ContinuedPseudoSemantic = "*";
 }
 
 char SROA_Parameter_HLSL::ID = 0;
