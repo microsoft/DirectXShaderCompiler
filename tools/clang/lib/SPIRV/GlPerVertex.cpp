@@ -308,15 +308,16 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
 
 SpirvVariable *GlPerVertex::createClipCullDistanceVar(bool asInput, bool isClip,
                                                       uint32_t arraySize) {
-  const ArrayType *type = spvContext.getArrayType(
-      spvContext.getFloatType(32), arraySize, /*ArrayStride*/ llvm::None);
+  QualType type = astContext.getConstantArrayType(astContext.FloatTy,
+                                                  llvm::APInt(32, arraySize),
+                                                  clang::ArrayType::Normal, 0);
 
   if (asInput && inArraySize != 0) {
-    type =
-        spvContext.getArrayType(type, inArraySize, /*ArrayStride*/ llvm::None);
+    type = astContext.getConstantArrayType(type, llvm::APInt(32, inArraySize),
+                                           clang::ArrayType::Normal, 0);
   } else if (!asInput && outArraySize != 0) {
-    type = spvContext.getArrayType(type, outArraySize,
-                                   /*ArrayStride*/ llvm::None);
+    type = astContext.getConstantArrayType(type, llvm::APInt(32, outArraySize),
+                                           clang::ArrayType::Normal, 0);
   }
 
   spv::StorageClass sc =
