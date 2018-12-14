@@ -1361,6 +1361,7 @@ public:
   };
 
 private:
+  bool GetAttributedTypeWithMatrixPackingInfo(QualType& T, QualType *RetTy); // HLSL change
   bool RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
                            TypeDiagnoser &Diagnoser);
 

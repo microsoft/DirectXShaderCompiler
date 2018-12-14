@@ -347,6 +347,9 @@ private:
   /*TSCS*/unsigned ThreadStorageClassSpec : 2;
   unsigned SCS_extern_in_linkage_spec : 1;
 
+  // default matrix orientation specifier
+  unsigned DefaultMatrixOrientationColumnMajor : 1; // HLSL change
+
   // type-specifier
   /*TSW*/unsigned TypeSpecWidth : 2;
   /*TSC*/unsigned TypeSpecComplex : 2;
@@ -462,6 +465,12 @@ public:
   void setExternInLinkageSpec(bool Value) {
     SCS_extern_in_linkage_spec = Value;
   }
+
+  // HLSL changes begin
+  void SetDefaultMatrixOrientation(bool Value) {
+    DefaultMatrixOrientationColumnMajor = Value;
+  }
+  // HLSL changes end
 
   SourceLocation getStorageClassSpecLoc() const { return StorageClassSpecLoc; }
   SourceLocation getThreadStorageClassSpecLoc() const {
