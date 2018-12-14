@@ -4302,6 +4302,23 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   return S.GetTypeSourceInfoForDeclarator(D, T, TInfo);
 }
 
+// HLSL changes begin
+bool Sema::GetAttributedTypeWithMatrixPackingInfo(QualType& T, QualType *RetTy) {
+  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T)) {
+    if (PackMatrixColMajorPragmaOn || PackMatrixRowMajorPragmaOn) {
+      *RetTy = Context.getAttributedType(
+        PackMatrixRowMajorPragmaOn
+        ? AttributedType::attr_hlsl_row_major
+        : AttributedType::attr_hlsl_column_major,
+        T, T);
+      return true;
+    }
+  }
+
+  return false;
+}
+// HLSL changes end
+
 /// GetTypeForDeclarator - Convert the type for the specified
 /// declarator to Type instances.
 ///
@@ -4318,6 +4335,12 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
 
   if (D.isPrototypeContext() && getLangOpts().ObjCAutoRefCount)
     inferARCWriteback(state, T);
+
+  // HLSL changes begin
+  QualType NewT;
+  if (GetAttributedTypeWithMatrixPackingInfo(T, &NewT))
+    T = NewT;
+  // HLSL changes end
 
   return GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
 }
@@ -4511,9 +4534,18 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
 static void fillAttributedTypeLoc(AttributedTypeLoc TL,
                                   const AttributeList *attrs,
                                   const AttributeList *DeclAttrs = nullptr) {
+
+  // HLSL changes begin
+  // Don't fill the location info for matrix orientation attributes
+  if(!attrs && !DeclAttrs)
+    if (TL.getAttrKind() == AttributedType::attr_hlsl_row_major ||
+        TL.getAttrKind() == AttributedType::attr_hlsl_column_major)
+      return;
+  // HLSL changes end
+
   // DeclAttrs and attrs cannot be both empty.
-  assert((attrs || DeclAttrs) &&
-         "no type attributes in the expected location!");
+    assert((attrs || DeclAttrs) &&
+           "no type attributes in the expected location!");
 
   AttributeList::Kind parsedKind = getAttrListKind(TL.getAttrKind());
   // Try to search for an attribute of matching kind in attrs list.

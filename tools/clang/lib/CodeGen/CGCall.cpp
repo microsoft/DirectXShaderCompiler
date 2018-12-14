@@ -2368,48 +2368,6 @@ static llvm::StoreInst *findDominatingStoreToReturnValue(CodeGenFunction &CGF) {
   return store;
 }
 
-// If a function decl returns a matrix then performs a simple walthrough
-// in the function body and extracts the matrix packing info from the return stmt.
-static bool GetMatrixPackingInfo(Stmt *S, bool *isRowMajor) {
-  for (Stmt *CS : S->children()) {
-    if (CS) {
-      if (ReturnStmt *RS = dyn_cast<ReturnStmt>(CS)) {
-        QualType RetTy = RS->getRetValue()->getType();
-        return hlsl::HasHLSLMatOrientation(RetTy, isRowMajor);
-      }
-      else if (GetMatrixPackingInfo(CS, isRowMajor))
-          return true;
-    }
-  }
-
-  return false;
-}
-
-// Returns an attributed type for a matrix type by adding matrix orientation
-// type attribute.
-// TODO: In cases where a function returns a matrix type, the orientation
-// info should ideally be backed into the function decl's return type
-// much earlier when generating the AST. However, this would likely need a more
-// involved change.
-static bool GetAttributedTypeWithMatrixPackingInfo(const Decl *D,
-                                                   const QualType &MTy,
-                                                   QualType *AttrMTy) {
-  if (!hlsl::IsHLSLMatType(MTy) || isa<AttributedType>(MTy) ||
-      !isa<FunctionDecl>(D))
-    return false;
-  bool isRowMajor = false;
-  if (isa<FunctionDecl>(D) && D->hasBody()) {
-    if (GetMatrixPackingInfo(D->getBody(), &isRowMajor)) {
-      *AttrMTy = D->getASTContext().getAttributedType(
-        isRowMajor ? AttributedType::attr_hlsl_row_major
-        : AttributedType::attr_hlsl_column_major,
-        MTy, MTy);
-      return true;
-    }
-  }
-  return false;
-}
-
 void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
                                          bool EmitRetDbgLoc,
                                          SourceLocation EndLoc) {
@@ -2478,18 +2436,9 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
       // If optimization is disabled, just load return value.
       if (CGM.getCodeGenOpts().DisableLLVMOpts) {
         // HLSL Change Begins
-        if (hlsl::IsHLSLMatType(RetTy)) {
-          QualType AttrFnRetTy;
-          // If matrix orientation attribute is missing from the return type
-          // then try to get that info from function decl
-          if (!isa<AttributedType>(FnRetTy) && GetAttributedTypeWithMatrixPackingInfo(CurCodeDecl, FnRetTy, &AttrFnRetTy)) {
-            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-              AttrFnRetTy);
-          } else {
-            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-              FnRetTy);  // FnRetTy retains attributed type
-          }
-        }
+        if (hlsl::IsHLSLMatType(RetTy))
+          RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+                                      FnRetTy);  // FnRetTy retains attributed type
         else
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
@@ -2520,18 +2469,9 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
       // Otherwise, we have to do a simple load.
       } else {
         // HLSL Change Begins
-        if (hlsl::IsHLSLMatType(RetTy)) {
-          QualType AttrFnRetTy;
-          // If matrix orientation attribute is missing from the return type
-          // then try to get that info from function decl
-          if (!isa<AttributedType>(FnRetTy) && GetAttributedTypeWithMatrixPackingInfo(CurCodeDecl, FnRetTy, &AttrFnRetTy)) {
-            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-              AttrFnRetTy);
-          } else {
-            RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-              FnRetTy);  // FnRetTy retains attributed type
-          }
-        }
+        if (hlsl::IsHLSLMatType(RetTy))
+          RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+                                      FnRetTy);  // FnRetTy retains attributed type
         else
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);

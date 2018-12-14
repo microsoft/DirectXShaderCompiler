@@ -2202,6 +2202,17 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     return DeclGroupPtrTy();
   }
 
+  // HLSL changes begin
+  // Initialize the default matrix orientation.
+  if (!Parser::Actions.PackMatrixRowMajorPragmaOn && !Parser::Actions.PackMatrixColMajorPragmaOn) {
+    DS.SetDefaultMatrixOrientation(true);
+  } else if (Parser::Actions.PackMatrixRowMajorPragmaOn) {
+    DS.SetDefaultMatrixOrientation(false);
+  } else if (Parser::Actions.PackMatrixColMajorPragmaOn) {
+    DS.SetDefaultMatrixOrientation(true);
+  }
+  // HLSL changes end
+
   // HLSL Change Starts: change global variables that will be in constant buffer to be constant by default
   // Global variables that are groupshared, static, or typedef
   // will not be part of constant buffer and therefore should not be const by default.

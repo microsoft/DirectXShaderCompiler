@@ -21,7 +21,7 @@ float2x2 GetMatrix(int i)
  }
 }
 
-float4 vs_main( float2 pos : SV_POSITION ) : SV_POSITION
+float4 vs_main() : SV_POSITION
 {
  float2x2 mat = GetMatrix(1);
  return float4(mat[0][0], mat[0][1], mat[1][0], mat[1][1]);
