@@ -229,7 +229,7 @@ static bool EmitErrorOnInstructionFollowPhiSelect(
   return false;
 }
 
-std::string FormatMessageAtLocation(const DebugLoc &DL, Twine Msg) {
+std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
   std::string locString;
   raw_string_ostream os(locString);
   DL.print(os);
@@ -237,8 +237,8 @@ std::string FormatMessageAtLocation(const DebugLoc &DL, Twine Msg) {
   return os.str();
 }
 
-Twine FormatMessageWithoutLocation(Twine Msg) {
-  return Twine(Msg) + " Use /Zi for source location.";
+Twine FormatMessageWithoutLocation(const Twine& Msg) {
+  return Msg + " Use /Zi for source location.";
 }
 
 void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
