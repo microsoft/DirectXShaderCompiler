@@ -7161,7 +7161,6 @@ SpirvInstruction *SPIRVEmitter::processIntrinsicMad(const CallExpr *callExpr) {
   // because we need to specifically decorate the Fma instruction with
   // NoContraction decoration.
   if (isFloatOrVecMatOfFloatType(argType)) {
-    const auto opcode = GLSLstd450::GLSLstd450Fma;
     auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
     // For matrix cases, operate on each row of the matrix.
     if (isMxNMatrix(arg0->getType())) {
@@ -7172,15 +7171,15 @@ SpirvInstruction *SPIRVEmitter::processIntrinsicMad(const CallExpr *callExpr) {
             spvBuilder.createCompositeExtract(vecType, arg1Instr, {index});
         auto *arg2Row =
             spvBuilder.createCompositeExtract(vecType, arg2Instr, {index});
-        auto *fma = spvBuilder.createExtInst(vecType, glslInstSet, opcode,
-                                             {arg0Row, arg1Row, arg2Row});
+        auto *fma = spvBuilder.createExtInst(
+            vecType, glslInstSet, GLSLstd450Fma, {arg0Row, arg1Row, arg2Row});
         spvBuilder.decorateNoContraction(fma);
         return fma;
       };
       return processEachVectorInMatrix(arg0, arg0Instr, actOnEachVec);
     }
     // Non-matrix cases
-    auto *fma = spvBuilder.createExtInst(argType, glslInstSet, opcode,
+    auto *fma = spvBuilder.createExtInst(argType, glslInstSet, GLSLstd450Fma,
                                          {arg0Instr, arg1Instr, arg2Instr});
     spvBuilder.decorateNoContraction(fma);
     return fma;
