@@ -5482,162 +5482,158 @@ void SROA_Parameter_HLSL::flattenArgument(
       ++NumReplaced;
       if (Instruction *I = dyn_cast<Instruction>(V))
         deadAllocas.emplace_back(I);
-
-      continue;
-    }
-
-    // We get here if we didn't SROA
-    Type *Ty = V->getType();
-    if (Ty->isPointerTy())
-      Ty = Ty->getPointerElementType();
-
-    // Flatten array of SV_Target.
-    StringRef semanticStr = annotation.GetSemanticString();
-    if (semanticStr.upper().find("SV_TARGET") == 0 &&
-        Ty->isArrayTy()) {
-      Type *Ty = cast<ArrayType>(V->getType()->getPointerElementType());
-      StringRef targetStr;
-      unsigned  targetIndex;
-      Semantic::DecomposeNameAndIndex(semanticStr, &targetStr, &targetIndex);
-      // Replace target parameter with local target.
-      AllocaInst *localTarget = AllocaBuilder.CreateAlloca(Ty);
-      V->replaceAllUsesWith(localTarget);
-      unsigned arraySize = 1;
-      std::vector<unsigned> arraySizeList;
-      while (Ty->isArrayTy()) {
-        unsigned size = Ty->getArrayNumElements();
-        arraySizeList.emplace_back(size);
-        arraySize *= size;
-        Ty = Ty->getArrayElementType();
-      }
-
-      unsigned arrayLevel = arraySizeList.size();
-      std::vector<unsigned> arrayIdxList(arrayLevel, 0);
-
-      // Create flattened target.
-      DxilFieldAnnotation EltAnnotation = annotation;
-      for (unsigned i=0;i<arraySize;i++) {
-        Value *Elt = AllocaBuilder.CreateAlloca(Ty);
-        EltAnnotation.SetSemanticString(targetStr.str()+std::to_string(targetIndex+i));
-
-        // Add semantic type.
-        semanticTypeMap[EltAnnotation.GetSemanticString()] = Ty;
-
-        WorkList.push_front({ Elt, EltAnnotation });
-        // Copy local target to flattened target.
-        std::vector<Value*> idxList(arrayLevel+1);
-        idxList[0] = Builder.getInt32(0);
-        for (unsigned idx=0;idx<arrayLevel; idx++) {
-          idxList[idx+1] = Builder.getInt32(arrayIdxList[idx]);
-        }
-
-        if (bForParam) {
-          // If Argument, copy before each return.
-          for (auto &BB : F->getBasicBlockList()) {
-            TerminatorInst *TI = BB.getTerminator();
-            if (isa<ReturnInst>(TI)) {
-              IRBuilder<> RetBuilder(TI);
-              Value *Ptr = RetBuilder.CreateGEP(localTarget, idxList);
-              Value *V = RetBuilder.CreateLoad(Ptr);
-              RetBuilder.CreateStore(V, Elt);
-            }
-          }
-        } else {
-          // Else, copy with Builder.
-          Value *Ptr = Builder.CreateGEP(localTarget, idxList);
-          Value *V = Builder.CreateLoad(Ptr);
-          Builder.CreateStore(V, Elt);
-        }
-
-        // Update arrayIdxList.
-        for (unsigned idx=arrayLevel;idx>0;idx--) {
-          arrayIdxList[idx-1]++;
-          if (arrayIdxList[idx-1] < arraySizeList[idx-1])
-            break;
-          arrayIdxList[idx-1] = 0;
-        }
-      }
-      continue;
-    }
-
-    // Cast vector/matrix/resource parameter.
-    V = castArgumentIfRequired(V, Ty, bOut, inputQual,
-                                annotation, Builder);
-
-    // Cannot SROA, save it to final parameter list.
-    FlatParamList.emplace_back(V);
-    // Create ParamAnnotation for V.
-    FlatAnnotationList.emplace_back(DxilParameterAnnotation());
-    DxilParameterAnnotation &flatParamAnnotation = FlatAnnotationList.back();
-
-    flatParamAnnotation.SetParamInputQual(paramAnnotation.GetParamInputQual());
-            
-    flatParamAnnotation.SetInterpolationMode(annotation.GetInterpolationMode());
-    flatParamAnnotation.SetSemanticString(annotation.GetSemanticString());
-    flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
-    flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
-    flatParamAnnotation.SetPrecise(annotation.IsPrecise());
-    flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
-
-    // Add debug info.
-    if (DDI && V != Arg) {
-      Value *TmpV = V;
-      // If V is casted, add debug into to original V.
-      if (castParamMap.count(V)) {
-        TmpV = castParamMap[V].first;
-        // One more level for ptr of input vector.
-        // It cast from ptr to non-ptr then cast to scalars.
-        if (castParamMap.count(TmpV)) {
-          TmpV = castParamMap[TmpV].first;
-        }
-      }
-      Type *Ty = TmpV->getType();
+    } else {
+      Type *Ty = V->getType();
       if (Ty->isPointerTy())
         Ty = Ty->getPointerElementType();
-      unsigned size = DL.getTypeAllocSize(Ty);
-      DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
-      debugOffset += size;
-      DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
-                        Builder.GetInsertPoint());
-    }
 
-    // Flatten stream out.
-    if (HLModule::IsStreamOutputPtrType(V->getType())) {
-      // For stream output objects.
-      // Create a value as output value.
-      Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
-      Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
+      // Flatten array of SV_Target.
+      StringRef semanticStr = annotation.GetSemanticString();
+      if (semanticStr.upper().find("SV_TARGET") == 0 &&
+          Ty->isArrayTy()) {
+        Type *Ty = cast<ArrayType>(V->getType()->getPointerElementType());
+        StringRef targetStr;
+        unsigned  targetIndex;
+        Semantic::DecomposeNameAndIndex(semanticStr, &targetStr, &targetIndex);
+        // Replace target parameter with local target.
+        AllocaInst *localTarget = AllocaBuilder.CreateAlloca(Ty);
+        V->replaceAllUsesWith(localTarget);
+        unsigned arraySize = 1;
+        std::vector<unsigned> arraySizeList;
+        while (Ty->isArrayTy()) {
+          unsigned size = Ty->getArrayNumElements();
+          arraySizeList.emplace_back(size);
+          arraySize *= size;
+          Ty = Ty->getArrayElementType();
+        }
 
-      // For each stream.Append(data)
-      // transform into
-      //   d = load data
-      //   store outputVal, d
-      //   stream.Append(outputVal)
-      for (User *user : V->users()) {
-        if (CallInst *CI = dyn_cast<CallInst>(user)) {
-          unsigned opcode = GetHLOpcode(CI);
-          if (opcode == static_cast<unsigned>(IntrinsicOp::MOP_Append)) {
-            // At this point, the stream append data argument might or not have been SROA'd
-            Value *firstDataPtr = CI->getArgOperand(HLOperandIndex::kStreamAppendDataOpIndex);
-            DXASSERT(firstDataPtr->getType()->isPointerTy(), "Append value must be a pointer.");
-            if (firstDataPtr->getType()->getPointerElementType() == outputType) {
-              // The data has not been SROA'd
-              DXASSERT(CI->getNumArgOperands() == (HLOperandIndex::kStreamAppendDataOpIndex + 1),
-                "Unexpected number of arguments for non-SROA'd StreamOutput.Append");
-              IRBuilder<> Builder(CI);
+        unsigned arrayLevel = arraySizeList.size();
+        std::vector<unsigned> arrayIdxList(arrayLevel, 0);
 
-              llvm::SmallVector<llvm::Value *, 16> idxList;
-              SplitCpy(firstDataPtr->getType(), outputVal, firstDataPtr, idxList, Builder, DL,
-                        dxilTypeSys, &flatParamAnnotation);
+        // Create flattened target.
+        DxilFieldAnnotation EltAnnotation = annotation;
+        for (unsigned i=0;i<arraySize;i++) {
+          Value *Elt = AllocaBuilder.CreateAlloca(Ty);
+          EltAnnotation.SetSemanticString(targetStr.str()+std::to_string(targetIndex+i));
 
-              CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
+          // Add semantic type.
+          semanticTypeMap[EltAnnotation.GetSemanticString()] = Ty;
+
+          WorkList.push_front({ Elt, EltAnnotation });
+          // Copy local target to flattened target.
+          std::vector<Value*> idxList(arrayLevel+1);
+          idxList[0] = Builder.getInt32(0);
+          for (unsigned idx=0;idx<arrayLevel; idx++) {
+            idxList[idx+1] = Builder.getInt32(arrayIdxList[idx]);
+          }
+
+          if (bForParam) {
+            // If Argument, copy before each return.
+            for (auto &BB : F->getBasicBlockList()) {
+              TerminatorInst *TI = BB.getTerminator();
+              if (isa<ReturnInst>(TI)) {
+                IRBuilder<> RetBuilder(TI);
+                Value *Ptr = RetBuilder.CreateGEP(localTarget, idxList);
+                Value *V = RetBuilder.CreateLoad(Ptr);
+                RetBuilder.CreateStore(V, Elt);
+              }
             }
-            else {
-              // Append has been SROA'd, we might be operating on multiple values
-              // with types differing from the stream output type.
-              // Flatten store outputVal.
-              // Must be struct to be flatten.
-              IRBuilder<> Builder(CI);
+          } else {
+            // Else, copy with Builder.
+            Value *Ptr = Builder.CreateGEP(localTarget, idxList);
+            Value *V = Builder.CreateLoad(Ptr);
+            Builder.CreateStore(V, Elt);
+          }
+
+          // Update arrayIdxList.
+          for (unsigned idx=arrayLevel;idx>0;idx--) {
+            arrayIdxList[idx-1]++;
+            if (arrayIdxList[idx-1] < arraySizeList[idx-1])
+              break;
+            arrayIdxList[idx-1] = 0;
+          }
+        }
+        continue;
+      }
+
+      // Cast vector/matrix/resource parameter.
+      V = castArgumentIfRequired(V, Ty, bOut, inputQual,
+                                  annotation, Builder);
+
+      // Cannot SROA, save it to final parameter list.
+      FlatParamList.emplace_back(V);
+      // Create ParamAnnotation for V.
+      FlatAnnotationList.emplace_back(DxilParameterAnnotation());
+      DxilParameterAnnotation &flatParamAnnotation = FlatAnnotationList.back();
+
+      flatParamAnnotation.SetParamInputQual(paramAnnotation.GetParamInputQual());
+            
+      flatParamAnnotation.SetInterpolationMode(annotation.GetInterpolationMode());
+      flatParamAnnotation.SetSemanticString(annotation.GetSemanticString());
+      flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
+      flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
+      flatParamAnnotation.SetPrecise(annotation.IsPrecise());
+      flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
+
+      // Add debug info.
+      if (DDI && V != Arg) {
+        Value *TmpV = V;
+        // If V is casted, add debug into to original V.
+        if (castParamMap.count(V)) {
+          TmpV = castParamMap[V].first;
+          // One more level for ptr of input vector.
+          // It cast from ptr to non-ptr then cast to scalars.
+          if (castParamMap.count(TmpV)) {
+            TmpV = castParamMap[TmpV].first;
+          }
+        }
+        Type *Ty = TmpV->getType();
+        if (Ty->isPointerTy())
+          Ty = Ty->getPointerElementType();
+        unsigned size = DL.getTypeAllocSize(Ty);
+        DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+        debugOffset += size;
+        DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
+                          Builder.GetInsertPoint());
+      }
+
+      // Flatten stream out.
+      if (HLModule::IsStreamOutputPtrType(V->getType())) {
+        // For stream output objects.
+        // Create a value as output value.
+        Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
+        Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
+
+        // For each stream.Append(data)
+        // transform into
+        //   d = load data
+        //   store outputVal, d
+        //   stream.Append(outputVal)
+        for (User *user : V->users()) {
+          if (CallInst *CI = dyn_cast<CallInst>(user)) {
+            unsigned opcode = GetHLOpcode(CI);
+            if (opcode == static_cast<unsigned>(IntrinsicOp::MOP_Append)) {
+              // At this point, the stream append data argument might or not have been SROA'd
+              Value *firstDataPtr = CI->getArgOperand(HLOperandIndex::kStreamAppendDataOpIndex);
+              DXASSERT(firstDataPtr->getType()->isPointerTy(), "Append value must be a pointer.");
+              if (firstDataPtr->getType()->getPointerElementType() == outputType) {
+                // The data has not been SROA'd
+                DXASSERT(CI->getNumArgOperands() == (HLOperandIndex::kStreamAppendDataOpIndex + 1),
+                  "Unexpected number of arguments for non-SROA'd StreamOutput.Append");
+                IRBuilder<> Builder(CI);
+
+                llvm::SmallVector<llvm::Value *, 16> idxList;
+                SplitCpy(firstDataPtr->getType(), outputVal, firstDataPtr, idxList, Builder, DL,
+                          dxilTypeSys, &flatParamAnnotation);
+
+                CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
+              }
+              else {
+                // Append has been SROA'd, we might be operating on multiple values
+                // with types differing from the stream output type.
+                // Flatten store outputVal.
+                // Must be struct to be flatten.
+                IRBuilder<> Builder(CI);
 
                 llvm::SmallVector<llvm::Value *, 16> IdxList;
                 llvm::SmallVector<llvm::Value *, 16> EltPtrList;
@@ -5646,8 +5642,8 @@ void SROA_Parameter_HLSL::flattenArgument(
                 SplitPtr(outputVal, IdxList, outputVal->getType(), flatParamAnnotation,
                   EltPtrList, EltAnnotationList, dxilTypeSys, Builder);
 
-              unsigned eltCount = CI->getNumArgOperands()-2;
-              DXASSERT_LOCALVAR(eltCount, eltCount == EltPtrList.size(), "invalid element count");
+                unsigned eltCount = CI->getNumArgOperands()-2;
+                DXASSERT_LOCALVAR(eltCount, eltCount == EltPtrList.size(), "invalid element count");
 
                 for (unsigned i = HLOperandIndex::kStreamAppendDataOpIndex; i < CI->getNumArgOperands(); i++) {
                   Value *DataPtr = CI->getArgOperand(i);
@@ -5656,7 +5652,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 
                   llvm::SmallVector<llvm::Value *, 16> IdxList;
                   SplitCpy(DataPtr->getType(), EltPtr, DataPtr, IdxList,
-                           Builder, DL, dxilTypeSys, EltAnnotation);
+                            Builder, DL, dxilTypeSys, EltAnnotation);
                   CI->setArgOperand(i, EltPtr);
                 }
               }
@@ -5664,8 +5660,9 @@ void SROA_Parameter_HLSL::flattenArgument(
           }
         }
 
-      // Then split output value to generate ParamQual.
-      WorkList.push_front({ outputVal, annotation });
+        // Then split output value to generate ParamQual.
+        WorkList.push_front({ outputVal, annotation });
+      }
     }
   }
 
