@@ -2204,7 +2204,11 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
 
   // HLSL changes begin
   // Initialize the default matrix orientation.
-  if (!Parser::Actions.PackMatrixRowMajorPragmaOn && !Parser::Actions.PackMatrixColMajorPragmaOn) {
+  // TODO: Take into account global matrix orientation when initializing default
+  // matrix orientation. That would also mean adding an accessor method to read
+  // default matrix orientation and use it in all applicable places.
+  if (!Parser::Actions.PackMatrixRowMajorPragmaOn &&
+      !Parser::Actions.PackMatrixColMajorPragmaOn) {
     DS.SetDefaultMatrixOrientation(true);
   } else if (Parser::Actions.PackMatrixRowMajorPragmaOn) {
     DS.SetDefaultMatrixOrientation(false);

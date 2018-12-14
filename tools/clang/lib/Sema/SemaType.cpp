@@ -4537,15 +4537,16 @@ static void fillAttributedTypeLoc(AttributedTypeLoc TL,
 
   // HLSL changes begin
   // Don't fill the location info for matrix orientation attributes
-  if(!attrs && !DeclAttrs)
+  if (!attrs && !DeclAttrs) {
     if (TL.getAttrKind() == AttributedType::attr_hlsl_row_major ||
         TL.getAttrKind() == AttributedType::attr_hlsl_column_major)
       return;
+  }
   // HLSL changes end
 
   // DeclAttrs and attrs cannot be both empty.
-    assert((attrs || DeclAttrs) &&
-           "no type attributes in the expected location!");
+  assert((attrs || DeclAttrs) &&
+         "no type attributes in the expected location!");
 
   AttributeList::Kind parsedKind = getAttrListKind(TL.getAttrKind());
   // Try to search for an attribute of matching kind in attrs list.
