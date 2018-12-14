@@ -847,38 +847,6 @@ SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
   return var;
 }
 
-SpirvVariable *SpirvBuilder::addStageBuiltinVar(const SpirvType *type,
-                                                spv::StorageClass storageClass,
-                                                spv::BuiltIn builtin,
-                                                SourceLocation loc) {
-  // If the built-in variable has already been added (via a built-in alias),
-  // return the existing variable.
-  auto found = std::find_if(
-      builtinVars.begin(), builtinVars.end(),
-      [storageClass, builtin](const BuiltInVarInfo &varInfo) {
-        return varInfo.sc == storageClass && varInfo.builtIn == builtin;
-      });
-  if (found != builtinVars.end()) {
-    return found->variable;
-  }
-
-  // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var =
-      new (context) SpirvVariable(/*QualType*/ {}, /*id*/ 0, loc, storageClass);
-  var->setResultType(type);
-  module->addVariable(var);
-
-  // Decorate with the specified Builtin
-  auto *decor = new (context) SpirvDecoration(
-      loc, var, spv::Decoration::BuiltIn, {static_cast<uint32_t>(builtin)});
-  module->addDecoration(decor);
-
-  // Add variable to cache.
-  builtinVars.emplace_back(storageClass, builtin, var);
-
-  return var;
-}
-
 SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
                                                 spv::StorageClass storageClass,
                                                 spv::BuiltIn builtin,
