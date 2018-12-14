@@ -64,8 +64,8 @@ bool LiteralTypeVisitor::canDeduceTypeFromLitType(QualType litType,
   return false;
 }
 
-void LiteralTypeVisitor::updateTypeForInstruction(SpirvInstruction *inst,
-                                                  QualType newType) {
+void LiteralTypeVisitor::tryToUpdateInstLitType(SpirvInstruction *inst,
+                                                QualType newType) {
   if (!inst)
     return;
 
@@ -88,14 +88,14 @@ bool LiteralTypeVisitor::visitInstruction(SpirvInstruction *instr) {
 }
 
 bool LiteralTypeVisitor::visit(SpirvVariable *var) {
-  updateTypeForInstruction(var->getInitializer(), var->getAstResultType());
+  tryToUpdateInstLitType(var->getInitializer(), var->getAstResultType());
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvAtomic *inst) {
   const auto resultType = inst->getAstResultType();
-  updateTypeForInstruction(inst->getValue(), resultType);
-  updateTypeForInstruction(inst->getComparator(), resultType);
+  tryToUpdateInstLitType(inst->getValue(), resultType);
+  tryToUpdateInstLitType(inst->getComparator(), resultType);
   return true;
 }
 
@@ -127,13 +127,13 @@ bool LiteralTypeVisitor::visit(SpirvUnaryOp *inst) {
           astContext, resultType, spvOptions.enable16BitTypes);
       const QualType newType =
           getTypeWithCustomBitwidth(astContext, argType, resultTypeBitwidth);
-      updateTypeForInstruction(arg, newType);
+      tryToUpdateInstLitType(arg, newType);
       return true;
     }
   }
 
   // In all other cases, try to use the result type as a hint.
-  updateTypeForInstruction(arg, resultType);
+  tryToUpdateInstLitType(arg, resultType);
   return true;
 }
 
@@ -148,9 +148,9 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
       op == spv::Op::OpShiftRightArithmetic ||
       op == spv::Op::OpShiftLeftLogical) {
     // Base (arg1) should have the same type as result type
-    updateTypeForInstruction(inst->getOperand1(), resultType);
+    tryToUpdateInstLitType(inst->getOperand1(), resultType);
     // The shitf amount (arg2) cannot be a 64-bit type for a 32-bit base!
-    updateTypeForInstruction(inst->getOperand2(), resultType);
+    tryToUpdateInstLitType(inst->getOperand2(), resultType);
     return true;
   }
 
@@ -182,7 +182,7 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
             astContext, operand2Type, spvOptions.enable16BitTypes);
         const QualType newType = getTypeWithCustomBitwidth(
             astContext, operand1Type, operand2Bitwidth);
-        updateTypeForInstruction(operand1, newType);
+        tryToUpdateInstLitType(operand1, newType);
         return true;
       }
       if (isLitOp2 && !isLitOp1) {
@@ -190,34 +190,44 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
             astContext, operand1Type, spvOptions.enable16BitTypes);
         const QualType newType = getTypeWithCustomBitwidth(
             astContext, operand2Type, operand1Bitwidth);
-        updateTypeForInstruction(operand2, newType);
+        tryToUpdateInstLitType(operand2, newType);
         return true;
       }
     }
   }
 
-  updateTypeForInstruction(operand1, resultType);
-  updateTypeForInstruction(operand2, resultType);
+  // The result type of dot product is scalar but operands should be vector of
+  // the same type.
+  if (op == spv::Op::OpDot) {
+    tryToUpdateInstLitType(inst->getOperand1(),
+                           inst->getOperand2()->getAstResultType());
+    tryToUpdateInstLitType(inst->getOperand2(),
+                           inst->getOperand1()->getAstResultType());
+    return true;
+  }
+
+  tryToUpdateInstLitType(operand1, resultType);
+  tryToUpdateInstLitType(operand2, resultType);
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvBitFieldInsert *inst) {
   const auto resultType = inst->getAstResultType();
-  updateTypeForInstruction(inst->getBase(), resultType);
-  updateTypeForInstruction(inst->getInsert(), resultType);
+  tryToUpdateInstLitType(inst->getBase(), resultType);
+  tryToUpdateInstLitType(inst->getInsert(), resultType);
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvBitFieldExtract *inst) {
   const auto resultType = inst->getAstResultType();
-  updateTypeForInstruction(inst->getBase(), resultType);
+  tryToUpdateInstLitType(inst->getBase(), resultType);
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvSelect *inst) {
   const auto resultType = inst->getAstResultType();
-  updateTypeForInstruction(inst->getTrueObject(), resultType);
-  updateTypeForInstruction(inst->getFalseObject(), resultType);
+  tryToUpdateInstLitType(inst->getTrueObject(), resultType);
+  tryToUpdateInstLitType(inst->getFalseObject(), resultType);
   return true;
 }
 
@@ -237,11 +247,11 @@ bool LiteralTypeVisitor::visit(SpirvVectorShuffle *inst) {
     (void)isVectorType(vec1->getAstResultType(), &vec1ElemType, &vec1ElemCount);
     (void)isVectorType(vec2->getAstResultType(), &vec2ElemType, &vec2ElemCount);
     if (isLitTypeOrVecOfLitType(vec1ElemType)) {
-      updateTypeForInstruction(
+      tryToUpdateInstLitType(
           vec1, astContext.getExtVectorType(resultElemType, vec1ElemCount));
     }
     if (isLitTypeOrVecOfLitType(vec2ElemType)) {
-      updateTypeForInstruction(
+      tryToUpdateInstLitType(
           vec2, astContext.getExtVectorType(resultElemType, vec2ElemCount));
     }
   }
@@ -251,14 +261,14 @@ bool LiteralTypeVisitor::visit(SpirvVectorShuffle *inst) {
 bool LiteralTypeVisitor::visit(SpirvNonUniformUnaryOp *inst) {
   // Went through each non-uniform binary operation and made sure the following
   // does not result in a wrong type deduction.
-  updateTypeForInstruction(inst->getArg(), inst->getAstResultType());
+  tryToUpdateInstLitType(inst->getArg(), inst->getAstResultType());
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   // Went through each non-uniform unary operation and made sure the following
   // does not result in a wrong type deduction.
-  updateTypeForInstruction(inst->getArg1(), inst->getAstResultType());
+  tryToUpdateInstLitType(inst->getArg1(), inst->getAstResultType());
   return true;
 }
 
@@ -269,11 +279,11 @@ bool LiteralTypeVisitor::visit(SpirvStore *inst) {
     QualType type = pointer->getAstResultType();
     if (const auto *ptrType = type->getAs<PointerType>())
       type = ptrType->getPointeeType();
-    updateTypeForInstruction(object, type);
+    tryToUpdateInstLitType(object, type);
   } else if (pointer->hasResultType()) {
     if (auto *ptrType = dyn_cast<HybridPointerType>(pointer->getResultType())) {
       QualType type = ptrType->getPointeeType();
-      updateTypeForInstruction(object, type);
+      tryToUpdateInstLitType(object, type);
     }
   }
   return true;
@@ -303,7 +313,7 @@ bool LiteralTypeVisitor::visit(SpirvCompositeExtract *inst) {
         astContext, resultType, spvOptions.enable16BitTypes);
     const QualType newType =
         getTypeWithCustomBitwidth(astContext, baseType, resultTypeBitwidth);
-    updateTypeForInstruction(base, newType);
+    tryToUpdateInstLitType(base, newType);
   }
 
   return true;
@@ -326,7 +336,7 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
     QualType elemType = {};
     if (isVectorType(compositeType, &elemType)) {
       for (auto *constituent : constituents)
-        updateTypeForInstruction(constituent, elemType);
+        tryToUpdateInstLitType(constituent, elemType);
       return true;
     }
   }
@@ -334,7 +344,7 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
   { // Array case
     if (const auto *arrType = dyn_cast<ConstantArrayType>(compositeType)) {
       for (auto *constituent : constituents)
-        updateTypeForInstruction(constituent, arrType->getElementType());
+        tryToUpdateInstLitType(constituent, arrType->getElementType());
       return true;
     }
   }
@@ -347,7 +357,7 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
         uint32_t colSize = 0;
         if (isVectorType(constituent->getAstResultType(), nullptr, &colSize)) {
           QualType newType = astContext.getExtVectorType(elemType, colSize);
-          updateTypeForInstruction(constituent, newType);
+          tryToUpdateInstLitType(constituent, newType);
         }
       }
       return true;
@@ -359,7 +369,7 @@ bool LiteralTypeVisitor::updateTypeForCompositeMembers(
       const auto *decl = structType->getDecl();
       size_t i = 0;
       for (const auto *field : decl->fields()) {
-        updateTypeForInstruction(constituents[i], field->getType());
+        tryToUpdateInstLitType(constituents[i], field->getType());
         ++i;
       }
       return true;
@@ -373,7 +383,7 @@ bool LiteralTypeVisitor::visit(SpirvAccessChain *inst) {
   for (auto *index : inst->getIndexes()) {
     if (auto *constInt = dyn_cast<SpirvConstantInteger>(index)) {
       if (!isLiteralLargerThan32Bits(constInt)) {
-        updateTypeForInstruction(
+        tryToUpdateInstLitType(
             constInt, constInt->getAstResultType()->isSignedIntegerType()
                           ? astContext.IntTy
                           : astContext.UnsignedIntTy);
@@ -390,22 +400,22 @@ bool LiteralTypeVisitor::visit(SpirvExtInst *inst) {
   // OpExtInst %float %glsl_set Pow %float_2 %float_12
   const auto resultType = inst->getAstResultType();
   for (auto *operand : inst->getOperands())
-    updateTypeForInstruction(operand, resultType);
+    tryToUpdateInstLitType(operand, resultType);
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvReturn *inst) {
   if (inst->hasReturnValue()) {
-    updateTypeForInstruction(inst->getReturnValue(), curFnAstReturnType);
+    tryToUpdateInstLitType(inst->getReturnValue(), curFnAstReturnType);
   }
   return true;
 }
 
 bool LiteralTypeVisitor::visit(SpirvCompositeInsert *inst) {
   const auto resultType = inst->getAstResultType();
-  updateTypeForInstruction(inst->getComposite(), resultType);
-  updateTypeForInstruction(inst->getObject(),
-                           getElementType(astContext, resultType));
+  tryToUpdateInstLitType(inst->getComposite(), resultType);
+  tryToUpdateInstLitType(inst->getObject(),
+                         getElementType(astContext, resultType));
   return true;
 }
 
@@ -413,7 +423,7 @@ bool LiteralTypeVisitor::visit(SpirvImageOp *inst) {
   if (inst->isImageWrite() && inst->hasAstResultType()) {
     const auto sampledType =
         hlsl::GetHLSLResourceResultType(inst->getAstResultType());
-    updateTypeForInstruction(inst->getTexelToWrite(), sampledType);
+    tryToUpdateInstLitType(inst->getTexelToWrite(), sampledType);
   }
   return true;
 }
