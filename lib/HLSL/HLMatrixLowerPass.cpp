@@ -2183,20 +2183,46 @@ void HLMatrixLowerPass::replaceMatWithVec(Value *matVal,
           MatIntrinsicReplace(matCI, vecVal, useCall);
         } else {
           IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(useCall));
-          DXASSERT_LOCALVAR(opcode, opcode == IntrinsicOp::IOP_frexp,
-                   "otherwise, unexpected opcode with matrix out parameter");
-          // NOTE: because out param use copy out semantic, so the operand of
-          // out must be temp alloca.
-          DXASSERT(isa<AllocaInst>(matVal), "else invalid mat ptr for frexp");
-          auto it = matToVecMap.find(useCall);
-          DXASSERT(it != matToVecMap.end(),
-                   "else fail to create vec version of useCall");
-          CallInst *vecUseInst = cast<CallInst>(it->second);
-
-          for (unsigned i = 0; i < vecUseInst->getNumArgOperands(); i++) {
-            if (useCall->getArgOperand(i) == matVal) {
-              vecUseInst->setArgOperand(i, vecVal);
+          if (opcode == IntrinsicOp::MOP_Append) {
+            // Replace matrix with vector representation and update intrinsic signature
+            // We don't care about matrix orientation here, since that will need to be
+            // taken into account anyways when generating the store output calls.
+            SmallVector<Value *, 4> flatArgs;
+            SmallVector<Type *, 4> flatParamTys;
+            for (Value *arg : useCall->arg_operands()) {
+              Value *flagArg = arg == matVal ? vecVal : arg;
+              flatArgs.emplace_back(arg == matVal ? vecVal : arg);
+              flatParamTys.emplace_back(flagArg->getType());
             }
+
+            // Don't need flat return type for Append.
+            FunctionType *flatFuncTy =
+              FunctionType::get(useInst->getType(), flatParamTys, false);
+            Function *flatF = GetOrCreateHLFunction(*m_pModule, flatFuncTy, group, static_cast<unsigned int>(opcode));
+            
+            // Append returns void, so the old call should have no users
+            DXASSERT(useInst->getType()->isVoidTy(), "Unexpected MOP_Append intrinsic return type");
+            DXASSERT(useInst->use_empty(), "Unexpected users of MOP_Append intrinsic return value");
+            IRBuilder<> Builder(useCall);
+            Builder.CreateCall(flatF, flatArgs);
+            AddToDeadInsts(useCall);
+          }
+          else if (opcode == IntrinsicOp::IOP_frexp) {
+            // NOTE: because out param use copy out semantic, so the operand of
+            // out must be temp alloca.
+            DXASSERT(isa<AllocaInst>(matVal), "else invalid mat ptr for frexp");
+            auto it = matToVecMap.find(useCall);
+            DXASSERT(it != matToVecMap.end(),
+              "else fail to create vec version of useCall");
+            CallInst *vecUseInst = cast<CallInst>(it->second);
+
+            for (unsigned i = 0; i < vecUseInst->getNumArgOperands(); i++) {
+              if (useCall->getArgOperand(i) == matVal) {
+                vecUseInst->setArgOperand(i, vecVal);
+              }
+            }
+          } else {
+            DXASSERT(false, "Unexpected matrix user intrinsic.");
           }
         }
       } break;
