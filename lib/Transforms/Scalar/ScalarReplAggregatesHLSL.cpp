@@ -5378,7 +5378,6 @@ void SROA_Parameter_HLSL::flattenArgument(
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
 
   const std::string &semantic = paramAnnotation.GetSemanticString();
-  bool bSemOverride = !semantic.empty();
 
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool bOut = inputQual == DxilParamInputQual::Out ||
@@ -5457,8 +5456,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           if (!eltSem.empty()) {
             // It doesn't look like we can provide source location information from here
             F->getContext().emitWarning(
-              Twine("semantic '") + eltSem + "' on struct field will be ignored"
-              + " in favor of semantic on outer declaration");
+              Twine("semantic '") + eltSem + "' on field overridden by function or enclosing type");
           }
 
           // Inherit semantic from parent, but only preserve it for the first element.
@@ -5489,15 +5487,6 @@ void SROA_Parameter_HLSL::flattenArgument(
     }
 
     // We get here if we didn't SROA
-    if (bSemOverride) {
-      if (!annotation.GetSemanticString().empty()) {
-        // TODO: warning for override the semantic in EltAnnotation.
-      }
-      // Just save parent semantic here, allocate later.
-      if (semantic != annotation.GetSemanticString())
-        annotation.SetSemanticString(semantic);
-    }
-
     Type *Ty = V->getType();
     if (Ty->isPointerTy())
       Ty = Ty->getPointerElementType();
@@ -5567,10 +5556,6 @@ void SROA_Parameter_HLSL::flattenArgument(
             break;
           arrayIdxList[idx-1] = 0;
         }
-      }
-      // Don't override flattened SV_Target.
-      if (V == Arg) {
-        bSemOverride = false;
       }
       continue;
     }
