@@ -94,8 +94,13 @@ set(LIBRARIES
   clangTooling
   clangBasic
   libclang
-  LLVMDxilDia
   )
+
+if(WIN32)
+  set(LIBRARIES
+    ${LIBRARIES} 
+    LLVMDxilDia)
+endif(WIN32)
 
 set(GENERATED_HEADERS
   ClangAttrClasses
