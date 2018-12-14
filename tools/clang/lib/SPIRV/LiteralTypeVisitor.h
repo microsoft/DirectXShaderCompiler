@@ -62,8 +62,11 @@ public:
   bool visitInstruction(SpirvInstruction *instr);
 
 private:
-  /// Updates the result type of the given instruction to the new type.
-  void updateTypeForInstruction(SpirvInstruction *, QualType newType);
+  /// If the given instruction's return type is a literal type and the given
+  /// 'newType' is not a literal type, and they are of the same kind (both
+  /// integer or both float), updates the instruction's result type to newType.
+  /// Does nothing otherwise.
+  void tryToUpdateInstLitType(SpirvInstruction *, QualType newType);
 
   /// returns true if the given literal type can be deduced to the given
   /// newType. In order for that to be true,
