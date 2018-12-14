@@ -2189,7 +2189,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
 
   // Create a dummy StageVar for this builtin variable
   auto var = spvBuilder.addStageBuiltinVar(
-      spvContext.getUIntType(32), spv::StorageClass::Input, builtIn, loc);
+      astContext.UnsignedIntTy, spv::StorageClass::Input, builtIn, loc);
 
   const hlsl::SigPoint *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
