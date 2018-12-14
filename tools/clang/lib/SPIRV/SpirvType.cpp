@@ -249,8 +249,10 @@ FunctionType::FunctionType(const SpirvType *ret,
       paramTypes(param.begin(), param.end()) {
   // Make sure
   assert(!isa<HybridType>(ret));
-  for (auto *paramType : param)
+  for (auto *paramType : param) {
+    (void)paramType;
     assert(!isa<HybridType>(paramType));
+  }
 }
 
 } // namespace spirv
