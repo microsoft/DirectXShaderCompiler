@@ -10,7 +10,7 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_LITERALTYPEVISITOR_H
 #define LLVM_CLANG_LIB_SPIRV_LITERALTYPEVISITOR_H
 
-#include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {

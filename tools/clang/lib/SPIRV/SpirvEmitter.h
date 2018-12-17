@@ -1,4 +1,4 @@
-//===------- SPIRVEmitter.h - SPIR-V Binary Code Emitter --------*- C++ -*-===//
+//===------- SpirvEmitter.h - SPIR-V Binary Code Emitter --------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -28,7 +28,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/FeatureManager.h"
-#include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -43,9 +43,9 @@ namespace spirv {
 ///
 /// This class only overrides the HandleTranslationUnit() method; Traversing
 /// through the AST is done manually instead of using ASTConsumer's harness.
-class SPIRVEmitter : public ASTConsumer {
+class SpirvEmitter : public ASTConsumer {
 public:
-  SPIRVEmitter(CompilerInstance &ci);
+  SpirvEmitter(CompilerInstance &ci);
 
   void HandleTranslationUnit(ASTContext &context) override;
 
@@ -1054,7 +1054,7 @@ private:
   SpirvString *mainSourceFile;
 };
 
-void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
+void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {
   for (auto *decl : declStmt->decls())
     doDecl(decl);
 }
