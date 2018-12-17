@@ -1,4 +1,4 @@
-//===--- SPIRVContext.cpp - SPIR-V SPIRVContext implementation-------------===//
+//===--- SpirvContext.cpp - SPIR-V SpirvContext implementation-------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
