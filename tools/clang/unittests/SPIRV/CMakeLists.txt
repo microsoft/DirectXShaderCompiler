@@ -7,14 +7,14 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_unittest(clang-spirv-tests
-  CodeGenSPIRVTest.cpp
+  CodeGenSpirvTest.cpp
   FileTestFixture.cpp
   FileTestUtils.cpp
-  SPIRVContextTest.cpp
-  SPIRVTestOptions.cpp
-  TestMain.cpp
+  SpirvContextTest.cpp
+  SpirvTestOptions.cpp
   SpirvConstantTest.cpp
   StringTest.cpp
+  TestMain.cpp
   WholeFileTestFixture.cpp
   )
 
