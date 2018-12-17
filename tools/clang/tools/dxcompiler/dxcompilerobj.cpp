@@ -534,7 +534,7 @@ public:
             opts.SpirvOptions.clOptions += " " + std::string(opt);
 
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
-        clang::EmitSPIRVAction action;
+        clang::EmitSpirvAction action;
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();

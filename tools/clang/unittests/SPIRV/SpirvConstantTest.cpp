@@ -10,7 +10,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-#include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 
 namespace {

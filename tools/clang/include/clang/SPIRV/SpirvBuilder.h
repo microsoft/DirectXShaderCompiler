@@ -10,7 +10,7 @@
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 
 #include "clang/SPIRV/FeatureManager.h"
-#include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"

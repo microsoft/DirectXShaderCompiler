@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <tuple>
 
-#include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/SpirvContext.h"
 
 namespace clang {
 namespace spirv {
