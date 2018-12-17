@@ -89,7 +89,7 @@ TEST(SpirvBasicBlockTest, CheckTerminatedByUnreachable) {
 
 TEST(SpirvBasicBlockTest, CheckNotTerminated) {
   SpirvBasicBlock bb("bb");
-  SpirvLoad load({}, 0, {}, nullptr);
+  SpirvLoad load({}, {}, nullptr);
   bb.addInstruction(&load);
   EXPECT_FALSE(bb.hasTerminator());
 }

@@ -167,7 +167,7 @@ public:
 protected:
   // Forbid creating SpirvInstruction directly
   SpirvInstruction(Kind kind, spv::Op opcode, QualType astResultType,
-                   uint32_t resultId, SourceLocation loc);
+                   SourceLocation loc);
 
 protected:
   const Kind kind;
@@ -239,7 +239,7 @@ private:
 /// \brief ExtInstImport instruction
 class SpirvExtInstImport : public SpirvInstruction {
 public:
-  SpirvExtInstImport(uint32_t resultId, SourceLocation loc,
+  SpirvExtInstImport(SourceLocation loc,
                      llvm::StringRef extensionName = "GLSL.std.450");
 
   // For LLVM-style RTTI
@@ -442,8 +442,8 @@ public:
     None = 4
   };
 
-  SpirvVariable(QualType resultType, uint32_t resultId, SourceLocation loc,
-                spv::StorageClass sc, SpirvInstruction *initializerId = 0);
+  SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
+                SpirvInstruction *initializerId = 0);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -464,8 +464,7 @@ private:
 
 class SpirvFunctionParameter : public SpirvInstruction {
 public:
-  SpirvFunctionParameter(QualType resultType, uint32_t resultId,
-                         SourceLocation loc);
+  SpirvFunctionParameter(QualType resultType, SourceLocation loc);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -703,7 +702,7 @@ public:
 /// and InBounds access chains. These are currently not used by CodeGen.
 class SpirvAccessChain : public SpirvInstruction {
 public:
-  SpirvAccessChain(QualType resultType, uint32_t resultId, SourceLocation loc,
+  SpirvAccessChain(QualType resultType, SourceLocation loc,
                    SpirvInstruction *base,
                    llvm::ArrayRef<SpirvInstruction *> indexVec);
 
@@ -745,11 +744,11 @@ private:
 ///                         value, comparator)
 class SpirvAtomic : public SpirvInstruction {
 public:
-  SpirvAtomic(spv::Op opcode, QualType resultType, uint32_t resultId,
-              SourceLocation loc, SpirvInstruction *pointer, spv::Scope,
-              spv::MemorySemanticsMask, SpirvInstruction *value = nullptr);
-  SpirvAtomic(spv::Op opcode, QualType resultType, uint32_t resultId,
-              SourceLocation loc, SpirvInstruction *pointer, spv::Scope,
+  SpirvAtomic(spv::Op opcode, QualType resultType, SourceLocation loc,
+              SpirvInstruction *pointer, spv::Scope, spv::MemorySemanticsMask,
+              SpirvInstruction *value = nullptr);
+  SpirvAtomic(spv::Op opcode, QualType resultType, SourceLocation loc,
+              SpirvInstruction *pointer, spv::Scope,
               spv::MemorySemanticsMask semanticsEqual,
               spv::MemorySemanticsMask semanticsUnequal,
               SpirvInstruction *value, SpirvInstruction *comparator);
@@ -875,9 +874,8 @@ private:
 /// ----------------------------------------------------------------------------
 class SpirvBinaryOp : public SpirvInstruction {
 public:
-  SpirvBinaryOp(spv::Op opcode, QualType resultType, uint32_t resultId,
-                SourceLocation loc, SpirvInstruction *op1,
-                SpirvInstruction *op2);
+  SpirvBinaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
+                SpirvInstruction *op1, SpirvInstruction *op2);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -915,7 +913,7 @@ public:
 
 protected:
   SpirvBitField(Kind kind, spv::Op opcode, QualType resultType,
-                uint32_t resultId, SourceLocation loc, SpirvInstruction *base,
+                SourceLocation loc, SpirvInstruction *base,
                 SpirvInstruction *offset, SpirvInstruction *count);
 
 private:
@@ -926,10 +924,9 @@ private:
 
 class SpirvBitFieldExtract : public SpirvBitField {
 public:
-  SpirvBitFieldExtract(QualType resultType, uint32_t resultId,
-                       SourceLocation loc, SpirvInstruction *base,
-                       SpirvInstruction *offset, SpirvInstruction *count,
-                       bool isSigned);
+  SpirvBitFieldExtract(QualType resultType, SourceLocation loc,
+                       SpirvInstruction *base, SpirvInstruction *offset,
+                       SpirvInstruction *count, bool isSigned);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -945,10 +942,9 @@ public:
 
 class SpirvBitFieldInsert : public SpirvBitField {
 public:
-  SpirvBitFieldInsert(QualType resultType, uint32_t resultId,
-                      SourceLocation loc, SpirvInstruction *base,
-                      SpirvInstruction *insert, SpirvInstruction *offset,
-                      SpirvInstruction *count);
+  SpirvBitFieldInsert(QualType resultType, SourceLocation loc,
+                      SpirvInstruction *base, SpirvInstruction *insert,
+                      SpirvInstruction *offset, SpirvInstruction *count);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1084,7 +1080,7 @@ public:
 /// and OpCompositeConstruct.
 class SpirvComposite : public SpirvInstruction {
 public:
-  SpirvComposite(QualType resultType, uint32_t resultId, SourceLocation loc,
+  SpirvComposite(QualType resultType, SourceLocation loc,
                  llvm::ArrayRef<SpirvInstruction *> constituentsVec,
                  bool isConstant = false, bool isSpecConstant = false);
 
@@ -1112,8 +1108,8 @@ private:
 /// \brief Extraction instruction (OpCompositeExtract)
 class SpirvCompositeExtract : public SpirvInstruction {
 public:
-  SpirvCompositeExtract(QualType resultType, uint32_t resultId,
-                        SourceLocation loc, SpirvInstruction *composite,
+  SpirvCompositeExtract(QualType resultType, SourceLocation loc,
+                        SpirvInstruction *composite,
                         llvm::ArrayRef<uint32_t> indices);
 
   // For LLVM-style RTTI
@@ -1134,9 +1130,8 @@ private:
 /// \brief Composite insertion instruction (OpCompositeInsert)
 class SpirvCompositeInsert : public SpirvInstruction {
 public:
-  SpirvCompositeInsert(QualType resultType, uint32_t resultId,
-                       SourceLocation loc, SpirvInstruction *composite,
-                       SpirvInstruction *object,
+  SpirvCompositeInsert(QualType resultType, SourceLocation loc,
+                       SpirvInstruction *composite, SpirvInstruction *object,
                        llvm::ArrayRef<uint32_t> indices);
 
   // For LLVM-style RTTI
@@ -1185,9 +1180,8 @@ public:
 /// \brief ExtInst instruction
 class SpirvExtInst : public SpirvInstruction {
 public:
-  SpirvExtInst(QualType resultType, uint32_t resultId, SourceLocation loc,
-               SpirvExtInstImport *set, GLSLstd450 inst,
-               llvm::ArrayRef<SpirvInstruction *> operandsVec);
+  SpirvExtInst(QualType resultType, SourceLocation loc, SpirvExtInstImport *set,
+               GLSLstd450 inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1209,7 +1203,7 @@ private:
 /// \brief OpFunctionCall instruction
 class SpirvFunctionCall : public SpirvInstruction {
 public:
-  SpirvFunctionCall(QualType resultType, uint32_t resultId, SourceLocation loc,
+  SpirvFunctionCall(QualType resultType, SourceLocation loc,
                     SpirvFunction *function,
                     llvm::ArrayRef<SpirvInstruction *> argsVec);
 
@@ -1241,8 +1235,7 @@ public:
 
 protected:
   SpirvGroupNonUniformOp(Kind kind, spv::Op opcode, QualType resultType,
-                         uint32_t resultId, SourceLocation loc,
-                         spv::Scope scope);
+                         SourceLocation loc, spv::Scope scope);
 
 private:
   spv::Scope execScope;
@@ -1252,9 +1245,8 @@ private:
 class SpirvNonUniformBinaryOp : public SpirvGroupNonUniformOp {
 public:
   SpirvNonUniformBinaryOp(spv::Op opcode, QualType resultType,
-                          uint32_t resultId, SourceLocation loc,
-                          spv::Scope scope, SpirvInstruction *arg1,
-                          SpirvInstruction *arg2);
+                          SourceLocation loc, spv::Scope scope,
+                          SpirvInstruction *arg1, SpirvInstruction *arg2);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1275,8 +1267,8 @@ private:
 /// non-uniform instruction that takes no other arguments.
 class SpirvNonUniformElect : public SpirvGroupNonUniformOp {
 public:
-  SpirvNonUniformElect(QualType resultType, uint32_t resultId,
-                       SourceLocation loc, spv::Scope scope);
+  SpirvNonUniformElect(QualType resultType, SourceLocation loc,
+                       spv::Scope scope);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1289,7 +1281,7 @@ public:
 /// \brief OpGroupNonUniform* unary instructions.
 class SpirvNonUniformUnaryOp : public SpirvGroupNonUniformOp {
 public:
-  SpirvNonUniformUnaryOp(spv::Op opcode, QualType resultType, uint32_t resultId,
+  SpirvNonUniformUnaryOp(spv::Op opcode, QualType resultType,
                          SourceLocation loc, spv::Scope scope,
                          llvm::Optional<spv::GroupOperation> group,
                          SpirvInstruction *arg);
@@ -1338,18 +1330,20 @@ private:
 ///
 class SpirvImageOp : public SpirvInstruction {
 public:
-  SpirvImageOp(
-      spv::Op opcode, QualType resultType, uint32_t resultId,
-      SourceLocation loc, SpirvInstruction *image, SpirvInstruction *coordinate,
-      spv::ImageOperandsMask mask, SpirvInstruction *dref = nullptr,
-      SpirvInstruction *bias = nullptr, SpirvInstruction *lod = nullptr,
-      SpirvInstruction *gradDx = nullptr, SpirvInstruction *gradDy = nullptr,
-      SpirvInstruction *constOffset = nullptr,
-      SpirvInstruction *offset = nullptr,
-      SpirvInstruction *constOffsets = nullptr,
-      SpirvInstruction *sample = nullptr, SpirvInstruction *minLod = nullptr,
-      SpirvInstruction *component = nullptr,
-      SpirvInstruction *texelToWrite = nullptr);
+  SpirvImageOp(spv::Op opcode, QualType resultType, SourceLocation loc,
+               SpirvInstruction *image, SpirvInstruction *coordinate,
+               spv::ImageOperandsMask mask, SpirvInstruction *dref = nullptr,
+               SpirvInstruction *bias = nullptr,
+               SpirvInstruction *lod = nullptr,
+               SpirvInstruction *gradDx = nullptr,
+               SpirvInstruction *gradDy = nullptr,
+               SpirvInstruction *constOffset = nullptr,
+               SpirvInstruction *offset = nullptr,
+               SpirvInstruction *constOffsets = nullptr,
+               SpirvInstruction *sample = nullptr,
+               SpirvInstruction *minLod = nullptr,
+               SpirvInstruction *component = nullptr,
+               SpirvInstruction *texelToWrite = nullptr);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1421,9 +1415,8 @@ private:
 /// OpImageQuerySizeLod (image, lod)
 class SpirvImageQuery : public SpirvInstruction {
 public:
-  SpirvImageQuery(spv::Op opcode, QualType resultType, uint32_t resultId,
-                  SourceLocation loc, SpirvInstruction *img,
-                  SpirvInstruction *lod = nullptr,
+  SpirvImageQuery(spv::Op opcode, QualType resultType, SourceLocation loc,
+                  SpirvInstruction *img, SpirvInstruction *lod = nullptr,
                   SpirvInstruction *coord = nullptr);
 
   // For LLVM-style RTTI
@@ -1448,8 +1441,8 @@ private:
 /// \brief OpImageSparseTexelsResident instruction
 class SpirvImageSparseTexelsResident : public SpirvInstruction {
 public:
-  SpirvImageSparseTexelsResident(QualType resultType, uint32_t resultId,
-                                 SourceLocation loc, SpirvInstruction *resCode);
+  SpirvImageSparseTexelsResident(QualType resultType, SourceLocation loc,
+                                 SpirvInstruction *resCode);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1470,9 +1463,8 @@ private:
 /// OpTypePointer whose Storage Class operand is Image.
 class SpirvImageTexelPointer : public SpirvInstruction {
 public:
-  SpirvImageTexelPointer(QualType resultType, uint32_t resultId,
-                         SourceLocation loc, SpirvInstruction *image,
-                         SpirvInstruction *coordinate,
+  SpirvImageTexelPointer(QualType resultType, SourceLocation loc,
+                         SpirvInstruction *image, SpirvInstruction *coordinate,
                          SpirvInstruction *sample);
 
   // For LLVM-style RTTI
@@ -1495,8 +1487,7 @@ private:
 /// \brief Load instruction representation
 class SpirvLoad : public SpirvInstruction {
 public:
-  SpirvLoad(QualType resultType, uint32_t resultId, SourceLocation loc,
-            SpirvInstruction *pointer,
+  SpirvLoad(QualType resultType, SourceLocation loc, SpirvInstruction *pointer,
             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
 
   // For LLVM-style RTTI
@@ -1523,7 +1514,7 @@ private:
 /// type.
 class SpirvSampledImage : public SpirvInstruction {
 public:
-  SpirvSampledImage(QualType resultType, uint32_t resultId, SourceLocation loc,
+  SpirvSampledImage(QualType resultType, SourceLocation loc,
                     SpirvInstruction *image, SpirvInstruction *sampler);
 
   // For LLVM-style RTTI
@@ -1544,9 +1535,8 @@ private:
 /// \brief Select operation representation.
 class SpirvSelect : public SpirvInstruction {
 public:
-  SpirvSelect(QualType resultType, uint32_t resultId, SourceLocation loc,
-              SpirvInstruction *cond, SpirvInstruction *trueId,
-              SpirvInstruction *falseId);
+  SpirvSelect(QualType resultType, SourceLocation loc, SpirvInstruction *cond,
+              SpirvInstruction *trueId, SpirvInstruction *falseId);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1569,8 +1559,7 @@ private:
 class SpirvSpecConstantBinaryOp : public SpirvInstruction {
 public:
   SpirvSpecConstantBinaryOp(spv::Op specConstantOp, QualType resultType,
-                            uint32_t resultId, SourceLocation loc,
-                            SpirvInstruction *operand1,
+                            SourceLocation loc, SpirvInstruction *operand1,
                             SpirvInstruction *operand2);
 
   // For LLVM-style RTTI
@@ -1594,8 +1583,7 @@ private:
 class SpirvSpecConstantUnaryOp : public SpirvInstruction {
 public:
   SpirvSpecConstantUnaryOp(spv::Op specConstantOp, QualType resultType,
-                           uint32_t resultId, SourceLocation loc,
-                           SpirvInstruction *operand);
+                           SourceLocation loc, SpirvInstruction *operand);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1679,8 +1667,8 @@ private:
 /// ----------------------------------------------------------------------------
 class SpirvUnaryOp : public SpirvInstruction {
 public:
-  SpirvUnaryOp(spv::Op opcode, QualType resultType, uint32_t resultId,
-               SourceLocation loc, SpirvInstruction *op);
+  SpirvUnaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
+               SpirvInstruction *op);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1699,7 +1687,7 @@ private:
 /// \brief OpVectorShuffle instruction
 class SpirvVectorShuffle : public SpirvInstruction {
 public:
-  SpirvVectorShuffle(QualType resultType, uint32_t resultId, SourceLocation loc,
+  SpirvVectorShuffle(QualType resultType, SourceLocation loc,
                      SpirvInstruction *vec1, SpirvInstruction *vec2,
                      llvm::ArrayRef<uint32_t> componentsVec);
 
@@ -1722,7 +1710,7 @@ private:
 
 class SpirvArrayLength : public SpirvInstruction {
 public:
-  SpirvArrayLength(QualType resultType, uint32_t resultId, SourceLocation loc,
+  SpirvArrayLength(QualType resultType, SourceLocation loc,
                    SpirvInstruction *structure, uint32_t arrayMember);
 
   // For LLVM-style RTTI
