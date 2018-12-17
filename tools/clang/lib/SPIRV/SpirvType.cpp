@@ -12,6 +12,8 @@
 
 #include "clang/SPIRV/SpirvType.h"
 
+#include <sstream>
+
 namespace clang {
 namespace spirv {
 
@@ -167,9 +169,9 @@ std::string ImageType::getImageName(spv::Dim dim, bool arrayed) {
   default:
     break;
   }
-  std::string name =
-      std::string("type.") + dimStr + "image" + (arrayed ? ".array" : "");
-  return name;
+  std::ostringstream name;
+  name << "type." << dimStr << "image" << (arrayed ? ".array" : "");
+  return name.str();
 }
 
 bool ImageType::operator==(const ImageType &that) const {
