@@ -85,34 +85,32 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
 SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
-                                   uint32_t id, SourceLocation loc)
-    : kind(k), opcode(op), astResultType(astType), resultId(id), srcLoc(loc),
+                                   SourceLocation loc)
+    : kind(k), opcode(op), astResultType(astType), resultId(0), srcLoc(loc),
       debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
       storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false) {}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
-    : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(),
-                       /*resultId=*/0, loc),
+    : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(), loc),
       capability(cap) {}
 
 SpirvExtension::SpirvExtension(SourceLocation loc,
                                llvm::StringRef extensionName)
-    : SpirvInstruction(IK_Extension, spv::Op::OpExtension, QualType(),
-                       /*resultId=*/0, loc),
+    : SpirvInstruction(IK_Extension, spv::Op::OpExtension, QualType(), loc),
       extName(extensionName) {}
 
-SpirvExtInstImport::SpirvExtInstImport(uint32_t resultId, SourceLocation loc,
+SpirvExtInstImport::SpirvExtInstImport(SourceLocation loc,
                                        llvm::StringRef extensionName)
     : SpirvInstruction(IK_ExtInstImport, spv::Op::OpExtInstImport, QualType(),
-                       resultId, loc),
+                       loc),
       extName(extensionName) {}
 
 SpirvMemoryModel::SpirvMemoryModel(spv::AddressingModel addrModel,
                                    spv::MemoryModel memModel)
     : SpirvInstruction(IK_MemoryModel, spv::Op::OpMemoryModel, QualType(),
-                       /*resultId=*/0, /*SrcLoc*/ {}),
+                       /*SrcLoc*/ {}),
       addressModel(addrModel), memoryModel(memModel) {}
 
 SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
@@ -120,8 +118,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  SpirvFunction *entryPointFn,
                                  llvm::StringRef nameStr,
                                  llvm::ArrayRef<SpirvVariable *> iface)
-    : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(),
-                       /*resultId=*/0, loc),
+    : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(), loc),
       execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
       interfaceVec(iface.begin(), iface.end()) {}
 
@@ -133,32 +130,29 @@ SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc, SpirvFunction *entry,
     : SpirvInstruction(IK_ExecutionMode,
                        usesIdParams ? spv::Op::OpExecutionModeId
                                     : spv::Op::OpExecutionMode,
-                       QualType(), /*resultId=*/0, loc),
+                       QualType(), loc),
       entryPoint(entry), execMode(em),
       params(paramsVec.begin(), paramsVec.end()) {}
 
 SpirvString::SpirvString(SourceLocation loc, llvm::StringRef stringLiteral)
-    : SpirvInstruction(IK_String, spv::Op::OpString, QualType(),
-                       /*resultId=*/0, loc),
+    : SpirvInstruction(IK_String, spv::Op::OpString, QualType(), loc),
       str(stringLiteral) {}
 
 SpirvSource::SpirvSource(SourceLocation loc, spv::SourceLanguage language,
                          uint32_t ver, SpirvString *fileString,
                          llvm::StringRef src)
-    : SpirvInstruction(IK_Source, spv::Op::OpSource, QualType(),
-                       /*resultId=*/0, loc),
+    : SpirvInstruction(IK_Source, spv::Op::OpSource, QualType(), loc),
       lang(language), version(ver), file(fileString), source(src) {}
 
 SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
                                            llvm::StringRef processStr)
     : SpirvInstruction(IK_ModuleProcessed, spv::Op::OpModuleProcessed,
-                       QualType(),
-                       /*resultId=*/0, loc),
+                       QualType(), loc),
       process(processStr) {}
 
 SpirvLineInfo::SpirvLineInfo(SpirvString *srcFile, uint32_t srcLine,
                              uint32_t srcCol)
-    : SpirvInstruction(IK_LineInfo, spv::Op::OpLine, QualType(), 0, {}),
+    : SpirvInstruction(IK_LineInfo, spv::Op::OpLine, QualType(), {}),
       file(srcFile), line(srcLine), column(srcCol) {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
@@ -167,7 +161,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::ArrayRef<uint32_t> p,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
-                       /*type*/ {}, /*id*/ 0, loc),
+                       /*type*/ {}, loc),
       target(targetInst), decoration(decor), index(idx),
       params(p.begin(), p.end()), idParams() {}
 
@@ -177,7 +171,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::StringRef strParam,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
-                       /*type*/ {}, /*id*/ 0, loc),
+                       /*type*/ {}, loc),
       target(targetInst), decoration(decor), index(idx), params(), idParams() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
   params.insert(params.end(), stringWords.begin(), stringWords.end());
@@ -188,7 +182,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  spv::Decoration decor,
                                  llvm::ArrayRef<SpirvInstruction *> ids)
     : SpirvInstruction(IK_Decoration, spv::Op::OpDecorateId,
-                       /*type*/ {}, /*id*/ 0, loc),
+                       /*type*/ {}, loc),
       target(targetInst), decoration(decor), index(llvm::None), params(),
       idParams(ids.begin(), ids.end()) {}
 
@@ -202,25 +196,22 @@ spv::Op SpirvDecoration::getDecorateOpcode(
                                 : spv::Op::OpDecorate;
 }
 
-SpirvVariable::SpirvVariable(QualType resultType, uint32_t resultId,
-                             SourceLocation loc, spv::StorageClass sc,
+SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
+                             spv::StorageClass sc,
                              SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, resultId,
-                       loc),
+    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst) {
   setStorageClass(sc);
 }
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
-                                               uint32_t resultId,
                                                SourceLocation loc)
     : SpirvInstruction(IK_FunctionParameter, spv::Op::OpFunctionParameter,
-                       resultType, resultId, loc) {}
+                       resultType, loc) {}
 
 SpirvMerge::SpirvMerge(Kind kind, spv::Op op, SourceLocation loc,
                        SpirvBasicBlock *mergeLabel)
-    : SpirvInstruction(kind, op, QualType(), /*resultId=*/0, loc),
-      mergeBlock(mergeLabel) {}
+    : SpirvInstruction(kind, op, QualType(), loc), mergeBlock(mergeLabel) {}
 
 SpirvLoopMerge::SpirvLoopMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
                                SpirvBasicBlock *contTarget,
@@ -235,7 +226,7 @@ SpirvSelectionMerge::SpirvSelectionMerge(SourceLocation loc,
       selControlMask(mask) {}
 
 SpirvTerminator::SpirvTerminator(Kind kind, spv::Op op, SourceLocation loc)
-    : SpirvInstruction(kind, op, QualType(), /*resultId=*/0, loc) {}
+    : SpirvInstruction(kind, op, QualType(), loc) {}
 
 SpirvBranching::SpirvBranching(Kind kind, spv::Op op, SourceLocation loc)
     : SpirvTerminator(kind, op, loc) {}
@@ -284,20 +275,18 @@ llvm::ArrayRef<SpirvBasicBlock *> SpirvSwitch::getTargetBranches() const {
 SpirvUnreachable::SpirvUnreachable(SourceLocation loc)
     : SpirvTerminator(IK_Unreachable, spv::Op::OpUnreachable, loc) {}
 
-SpirvAccessChain::SpirvAccessChain(QualType resultType, uint32_t resultId,
-                                   SourceLocation loc,
+SpirvAccessChain::SpirvAccessChain(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *baseInst,
                                    llvm::ArrayRef<SpirvInstruction *> indexVec)
-    : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType,
-                       resultId, loc),
+    : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc),
       base(baseInst), indices(indexVec.begin(), indexVec.end()) {}
 
-SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, uint32_t resultId,
-                         SourceLocation loc, SpirvInstruction *pointerInst,
-                         spv::Scope s, spv::MemorySemanticsMask mask,
+SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
+                         SpirvInstruction *pointerInst, spv::Scope s,
+                         spv::MemorySemanticsMask mask,
                          SpirvInstruction *valueInst)
-    : SpirvInstruction(IK_Atomic, op, resultType, resultId, loc),
-      pointer(pointerInst), scope(s), memorySemantic(mask),
+    : SpirvInstruction(IK_Atomic, op, resultType, loc), pointer(pointerInst),
+      scope(s), memorySemantic(mask),
       memorySemanticUnequal(spv::MemorySemanticsMask::MaskNone),
       value(valueInst), comparator(nullptr) {
   assert(
@@ -311,14 +300,14 @@ SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, uint32_t resultId,
       op == spv::Op::OpAtomicUMax || op == spv::Op::OpAtomicExchange);
 }
 
-SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, uint32_t resultId,
-                         SourceLocation loc, SpirvInstruction *pointerInst,
-                         spv::Scope s, spv::MemorySemanticsMask semanticsEqual,
+SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
+                         SpirvInstruction *pointerInst, spv::Scope s,
+                         spv::MemorySemanticsMask semanticsEqual,
                          spv::MemorySemanticsMask semanticsUnequal,
                          SpirvInstruction *valueInst,
                          SpirvInstruction *comparatorInst)
-    : SpirvInstruction(IK_Atomic, op, resultType, resultId, loc),
-      pointer(pointerInst), scope(s), memorySemantic(semanticsEqual),
+    : SpirvInstruction(IK_Atomic, op, resultType, loc), pointer(pointerInst),
+      scope(s), memorySemantic(semanticsEqual),
       memorySemanticUnequal(semanticsUnequal), value(valueInst),
       comparator(comparatorInst) {
   assert(op == spv::Op::OpAtomicCompareExchange);
@@ -330,45 +319,43 @@ SpirvBarrier::SpirvBarrier(SourceLocation loc, spv::Scope memScope,
     : SpirvInstruction(IK_Barrier,
                        execScope.hasValue() ? spv::Op::OpControlBarrier
                                             : spv::Op::OpMemoryBarrier,
-                       QualType(), /*resultId=*/0, loc),
+                       QualType(), loc),
       memoryScope(memScope), memorySemantics(memSemantics),
       executionScope(execScope) {}
 
 SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
-                             uint32_t resultId, SourceLocation loc,
-                             SpirvInstruction *op1, SpirvInstruction *op2)
-    : SpirvInstruction(IK_BinaryOp, opcode, resultType, resultId, loc),
-      operand1(op1), operand2(op2) {}
+                             SourceLocation loc, SpirvInstruction *op1,
+                             SpirvInstruction *op2)
+    : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc), operand1(op1),
+      operand2(op2) {}
 
 SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
-                             uint32_t resultId, SourceLocation loc,
-                             SpirvInstruction *baseInst,
+                             SourceLocation loc, SpirvInstruction *baseInst,
                              SpirvInstruction *offsetInst,
                              SpirvInstruction *countInst)
-    : SpirvInstruction(kind, op, resultType, resultId, loc), base(baseInst),
+    : SpirvInstruction(kind, op, resultType, loc), base(baseInst),
       offset(offsetInst), count(countInst) {}
 
 SpirvBitFieldExtract::SpirvBitFieldExtract(
-    QualType resultType, uint32_t resultId, SourceLocation loc,
-    SpirvInstruction *baseInst, SpirvInstruction *offsetInst,
-    SpirvInstruction *countInst, bool isSigned)
-    : SpirvBitField(
-          IK_BitFieldExtract,
-          isSigned ? spv::Op::OpBitFieldSExtract : spv::Op::OpBitFieldUExtract,
-          resultType, resultId, loc, baseInst, offsetInst, countInst) {}
+    QualType resultType, SourceLocation loc, SpirvInstruction *baseInst,
+    SpirvInstruction *offsetInst, SpirvInstruction *countInst, bool isSigned)
+    : SpirvBitField(IK_BitFieldExtract,
+                    isSigned ? spv::Op::OpBitFieldSExtract
+                             : spv::Op::OpBitFieldUExtract,
+                    resultType, loc, baseInst, offsetInst, countInst) {}
 
-SpirvBitFieldInsert::SpirvBitFieldInsert(QualType resultType, uint32_t resultId,
+SpirvBitFieldInsert::SpirvBitFieldInsert(QualType resultType,
                                          SourceLocation loc,
                                          SpirvInstruction *baseInst,
                                          SpirvInstruction *insertInst,
                                          SpirvInstruction *offsetInst,
                                          SpirvInstruction *countInst)
     : SpirvBitField(IK_BitFieldInsert, spv::Op::OpBitFieldInsert, resultType,
-                    resultId, loc, baseInst, offsetInst, countInst),
+                    loc, baseInst, offsetInst, countInst),
       insert(insertInst) {}
 
 SpirvComposite::SpirvComposite(
-    QualType resultType, uint32_t resultId, SourceLocation loc,
+    QualType resultType, SourceLocation loc,
     llvm::ArrayRef<SpirvInstruction *> constituentsVec, bool isConstant,
     bool isSpecConstant)
     : SpirvInstruction(IK_Composite,
@@ -376,17 +363,17 @@ SpirvComposite::SpirvComposite(
                            ? spv::Op::OpSpecConstantComposite
                            : isConstant ? spv::Op::OpConstantComposite
                                         : spv::Op::OpCompositeConstruct,
-                       resultType, resultId, loc),
+                       resultType, loc),
       consituents(constituentsVec.begin(), constituentsVec.end()) {}
 
 SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType)
-    : SpirvInstruction(kind, op, QualType(), /*result-id*/ 0,
+    : SpirvInstruction(kind, op, QualType(),
                        /*SourceLocation*/ {}) {
   setResultType(spvType);
 }
 
 SpirvConstant::SpirvConstant(Kind kind, spv::Op op, QualType resultType)
-    : SpirvInstruction(kind, op, resultType, /*result-id*/ 0,
+    : SpirvInstruction(kind, op, resultType,
                        /*SourceLocation*/ {}) {}
 
 bool SpirvConstant::isSpecConstant() const {
@@ -469,61 +456,55 @@ bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
 }
 
 SpirvCompositeExtract::SpirvCompositeExtract(QualType resultType,
-                                             uint32_t resultId,
                                              SourceLocation loc,
                                              SpirvInstruction *compositeInst,
                                              llvm::ArrayRef<uint32_t> indexVec)
     : SpirvInstruction(IK_CompositeExtract, spv::Op::OpCompositeExtract,
-                       resultType, resultId, loc),
+                       resultType, loc),
       composite(compositeInst), indices(indexVec.begin(), indexVec.end()) {}
 
 SpirvCompositeInsert::SpirvCompositeInsert(QualType resultType,
-                                           uint32_t resultId,
                                            SourceLocation loc,
                                            SpirvInstruction *compositeInst,
                                            SpirvInstruction *objectInst,
                                            llvm::ArrayRef<uint32_t> indexVec)
     : SpirvInstruction(IK_CompositeInsert, spv::Op::OpCompositeInsert,
-                       resultType, resultId, loc),
+                       resultType, loc),
       composite(compositeInst), object(objectInst),
       indices(indexVec.begin(), indexVec.end()) {}
 
 SpirvEmitVertex::SpirvEmitVertex(SourceLocation loc)
-    : SpirvInstruction(IK_EmitVertex, spv::Op::OpEmitVertex, QualType(),
-                       /*resultId=*/0, loc) {}
+    : SpirvInstruction(IK_EmitVertex, spv::Op::OpEmitVertex, QualType(), loc) {}
 
 SpirvEndPrimitive::SpirvEndPrimitive(SourceLocation loc)
     : SpirvInstruction(IK_EndPrimitive, spv::Op::OpEndPrimitive, QualType(),
-                       /*resultId=*/0, loc) {}
+                       loc) {}
 
-SpirvExtInst::SpirvExtInst(QualType resultType, uint32_t resultId,
-                           SourceLocation loc, SpirvExtInstImport *set,
-                           GLSLstd450 inst,
+SpirvExtInst::SpirvExtInst(QualType resultType, SourceLocation loc,
+                           SpirvExtInstImport *set, GLSLstd450 inst,
                            llvm::ArrayRef<SpirvInstruction *> operandsVec)
-    : SpirvInstruction(IK_ExtInst, spv::Op::OpExtInst, resultType, resultId,
-                       loc),
+    : SpirvInstruction(IK_ExtInst, spv::Op::OpExtInst, resultType, loc),
       instructionSet(set), instruction(inst),
       operands(operandsVec.begin(), operandsVec.end()) {}
 
-SpirvFunctionCall::SpirvFunctionCall(QualType resultType, uint32_t resultId,
-                                     SourceLocation loc, SpirvFunction *fn,
+SpirvFunctionCall::SpirvFunctionCall(QualType resultType, SourceLocation loc,
+                                     SpirvFunction *fn,
                                      llvm::ArrayRef<SpirvInstruction *> argsVec)
     : SpirvInstruction(IK_FunctionCall, spv::Op::OpFunctionCall, resultType,
-                       resultId, loc),
+                       loc),
       function(fn), args(argsVec.begin(), argsVec.end()) {}
 
 SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(Kind kind, spv::Op op,
                                                QualType resultType,
-                                               uint32_t resultId,
                                                SourceLocation loc,
                                                spv::Scope scope)
-    : SpirvInstruction(kind, op, resultType, resultId, loc), execScope(scope) {}
+    : SpirvInstruction(kind, op, resultType, loc), execScope(scope) {}
 
 SpirvNonUniformBinaryOp::SpirvNonUniformBinaryOp(
-    spv::Op op, QualType resultType, uint32_t resultId, SourceLocation loc,
-    spv::Scope scope, SpirvInstruction *arg1Inst, SpirvInstruction *arg2Inst)
-    : SpirvGroupNonUniformOp(IK_GroupNonUniformBinaryOp, op, resultType,
-                             resultId, loc, scope),
+    spv::Op op, QualType resultType, SourceLocation loc, spv::Scope scope,
+    SpirvInstruction *arg1Inst, SpirvInstruction *arg2Inst)
+    : SpirvGroupNonUniformOp(IK_GroupNonUniformBinaryOp, op, resultType, loc,
+                             scope),
       arg1(arg1Inst), arg2(arg2Inst) {
   assert(op == spv::Op::OpGroupNonUniformBroadcast ||
          op == spv::Op::OpGroupNonUniformBallotBitExtract ||
@@ -536,18 +517,16 @@ SpirvNonUniformBinaryOp::SpirvNonUniformBinaryOp(
 }
 
 SpirvNonUniformElect::SpirvNonUniformElect(QualType resultType,
-                                           uint32_t resultId,
                                            SourceLocation loc, spv::Scope scope)
     : SpirvGroupNonUniformOp(IK_GroupNonUniformElect,
-                             spv::Op::OpGroupNonUniformElect, resultType,
-                             resultId, loc, scope) {}
+                             spv::Op::OpGroupNonUniformElect, resultType, loc,
+                             scope) {}
 
 SpirvNonUniformUnaryOp::SpirvNonUniformUnaryOp(
-    spv::Op op, QualType resultType, uint32_t resultId, SourceLocation loc,
-    spv::Scope scope, llvm::Optional<spv::GroupOperation> group,
-    SpirvInstruction *argInst)
-    : SpirvGroupNonUniformOp(IK_GroupNonUniformUnaryOp, op, resultType,
-                             resultId, loc, scope),
+    spv::Op op, QualType resultType, SourceLocation loc, spv::Scope scope,
+    llvm::Optional<spv::GroupOperation> group, SpirvInstruction *argInst)
+    : SpirvGroupNonUniformOp(IK_GroupNonUniformUnaryOp, op, resultType, loc,
+                             scope),
       arg(argInst), groupOp(group) {
   assert(op == spv::Op::OpGroupNonUniformAll ||
          op == spv::Op::OpGroupNonUniformAny ||
@@ -577,7 +556,7 @@ SpirvNonUniformUnaryOp::SpirvNonUniformUnaryOp(
 }
 
 SpirvImageOp::SpirvImageOp(
-    spv::Op op, QualType resultType, uint32_t resultId, SourceLocation loc,
+    spv::Op op, QualType resultType, SourceLocation loc,
     SpirvInstruction *imageInst, SpirvInstruction *coordinateInst,
     spv::ImageOperandsMask mask, SpirvInstruction *drefInst,
     SpirvInstruction *biasInst, SpirvInstruction *lodInst,
@@ -586,13 +565,12 @@ SpirvImageOp::SpirvImageOp(
     SpirvInstruction *constOffsetsInst, SpirvInstruction *sampleInst,
     SpirvInstruction *minLodInst, SpirvInstruction *componentInst,
     SpirvInstruction *texelToWriteInst)
-    : SpirvInstruction(IK_ImageOp, op, resultType, resultId, loc),
-      image(imageInst), coordinate(coordinateInst), dref(drefInst),
-      bias(biasInst), lod(lodInst), gradDx(gradDxInst), gradDy(gradDyInst),
-      constOffset(constOffsetInst), offset(offsetInst),
-      constOffsets(constOffsetsInst), sample(sampleInst), minLod(minLodInst),
-      component(componentInst), texelToWrite(texelToWriteInst),
-      operandsMask(mask) {
+    : SpirvInstruction(IK_ImageOp, op, resultType, loc), image(imageInst),
+      coordinate(coordinateInst), dref(drefInst), bias(biasInst), lod(lodInst),
+      gradDx(gradDxInst), gradDy(gradDyInst), constOffset(constOffsetInst),
+      offset(offsetInst), constOffsets(constOffsetsInst), sample(sampleInst),
+      minLod(minLodInst), component(componentInst),
+      texelToWrite(texelToWriteInst), operandsMask(mask) {
   assert(op == spv::Op::OpImageSampleImplicitLod ||
          op == spv::Op::OpImageSampleExplicitLod ||
          op == spv::Op::OpImageSampleDrefImplicitLod ||
@@ -641,12 +619,11 @@ bool SpirvImageOp::isSparse() const {
 }
 
 SpirvImageQuery::SpirvImageQuery(spv::Op op, QualType resultType,
-                                 uint32_t resultId, SourceLocation loc,
-                                 SpirvInstruction *img,
+                                 SourceLocation loc, SpirvInstruction *img,
                                  SpirvInstruction *lodInst,
                                  SpirvInstruction *coordInst)
-    : SpirvInstruction(IK_ImageQuery, op, resultType, resultId, loc),
-      image(img), lod(lodInst), coordinate(coordInst) {
+    : SpirvInstruction(IK_ImageQuery, op, resultType, loc), image(img),
+      lod(lodInst), coordinate(coordInst) {
   assert(op == spv::Op::OpImageQueryFormat ||
          op == spv::Op::OpImageQueryOrder || op == spv::Op::OpImageQuerySize ||
          op == spv::Op::OpImageQueryLevels ||
@@ -659,72 +636,65 @@ SpirvImageQuery::SpirvImageQuery(spv::Op op, QualType resultType,
 }
 
 SpirvImageSparseTexelsResident::SpirvImageSparseTexelsResident(
-    QualType resultType, uint32_t resultId, SourceLocation loc,
-    SpirvInstruction *resCode)
+    QualType resultType, SourceLocation loc, SpirvInstruction *resCode)
     : SpirvInstruction(IK_ImageSparseTexelsResident,
-                       spv::Op::OpImageSparseTexelsResident, resultType,
-                       resultId, loc),
+                       spv::Op::OpImageSparseTexelsResident, resultType, loc),
       residentCode(resCode) {}
 
 SpirvImageTexelPointer::SpirvImageTexelPointer(QualType resultType,
-                                               uint32_t resultId,
                                                SourceLocation loc,
                                                SpirvInstruction *imageInst,
                                                SpirvInstruction *coordinateInst,
                                                SpirvInstruction *sampleInst)
     : SpirvInstruction(IK_ImageTexelPointer, spv::Op::OpImageTexelPointer,
-                       resultType, resultId, loc),
+                       resultType, loc),
       image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
 
-SpirvLoad::SpirvLoad(QualType resultType, uint32_t resultId, SourceLocation loc,
+SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,
                      SpirvInstruction *pointerInst,
                      llvm::Optional<spv::MemoryAccessMask> mask)
-    : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, resultId, loc),
+    : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, loc),
       pointer(pointerInst), memoryAccess(mask) {}
 
-SpirvSampledImage::SpirvSampledImage(QualType resultType, uint32_t resultId,
-                                     SourceLocation loc,
+SpirvSampledImage::SpirvSampledImage(QualType resultType, SourceLocation loc,
                                      SpirvInstruction *imageInst,
                                      SpirvInstruction *samplerInst)
     : SpirvInstruction(IK_SampledImage, spv::Op::OpSampledImage, resultType,
-                       resultId, loc),
+                       loc),
       image(imageInst), sampler(samplerInst) {}
 
-SpirvSelect::SpirvSelect(QualType resultType, uint32_t resultId,
-                         SourceLocation loc, SpirvInstruction *cond,
-                         SpirvInstruction *trueInst,
+SpirvSelect::SpirvSelect(QualType resultType, SourceLocation loc,
+                         SpirvInstruction *cond, SpirvInstruction *trueInst,
                          SpirvInstruction *falseInst)
-    : SpirvInstruction(IK_Select, spv::Op::OpSelect, resultType, resultId, loc),
+    : SpirvInstruction(IK_Select, spv::Op::OpSelect, resultType, loc),
       condition(cond), trueObject(trueInst), falseObject(falseInst) {}
 
-SpirvSpecConstantBinaryOp::SpirvSpecConstantBinaryOp(
-    spv::Op specConstantOp, QualType resultType, uint32_t resultId,
-    SourceLocation loc, SpirvInstruction *op1, SpirvInstruction *op2)
+SpirvSpecConstantBinaryOp::SpirvSpecConstantBinaryOp(spv::Op specConstantOp,
+                                                     QualType resultType,
+                                                     SourceLocation loc,
+                                                     SpirvInstruction *op1,
+                                                     SpirvInstruction *op2)
     : SpirvInstruction(IK_SpecConstantBinaryOp, spv::Op::OpSpecConstantOp,
-                       resultType, resultId, loc),
+                       resultType, loc),
       specOp(specConstantOp), operand1(op1), operand2(op2) {}
 
 SpirvSpecConstantUnaryOp::SpirvSpecConstantUnaryOp(spv::Op specConstantOp,
                                                    QualType resultType,
-                                                   uint32_t resultId,
                                                    SourceLocation loc,
                                                    SpirvInstruction *op)
     : SpirvInstruction(IK_SpecConstantUnaryOp, spv::Op::OpSpecConstantOp,
-                       resultType, resultId, loc),
+                       resultType, loc),
       specOp(specConstantOp), operand(op) {}
 
 SpirvStore::SpirvStore(SourceLocation loc, SpirvInstruction *pointerInst,
                        SpirvInstruction *objectInst,
                        llvm::Optional<spv::MemoryAccessMask> mask)
-    : SpirvInstruction(IK_Store, spv::Op::OpStore, QualType(),
-                       /*resultId=*/0, loc),
+    : SpirvInstruction(IK_Store, spv::Op::OpStore, QualType(), loc),
       pointer(pointerInst), object(objectInst), memoryAccess(mask) {}
 
 SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
-                           uint32_t resultId, SourceLocation loc,
-                           SpirvInstruction *op)
-    : SpirvInstruction(IK_UnaryOp, opcode, resultType, resultId, loc),
-      operand(op) {}
+                           SourceLocation loc, SpirvInstruction *op)
+    : SpirvInstruction(IK_UnaryOp, opcode, resultType, loc), operand(op) {}
 
 bool SpirvUnaryOp::isConversionOp() const {
   return opcode == spv::Op::OpConvertFToU || opcode == spv::Op::OpConvertFToS ||
@@ -734,22 +704,19 @@ bool SpirvUnaryOp::isConversionOp() const {
          opcode == spv::Op::OpBitcast;
 }
 
-SpirvVectorShuffle::SpirvVectorShuffle(QualType resultType, uint32_t resultId,
-                                       SourceLocation loc,
+SpirvVectorShuffle::SpirvVectorShuffle(QualType resultType, SourceLocation loc,
                                        SpirvInstruction *vec1Inst,
                                        SpirvInstruction *vec2Inst,
                                        llvm::ArrayRef<uint32_t> componentsVec)
     : SpirvInstruction(IK_VectorShuffle, spv::Op::OpVectorShuffle, resultType,
-                       resultId, loc),
+                       loc),
       vec1(vec1Inst), vec2(vec2Inst),
       components(componentsVec.begin(), componentsVec.end()) {}
 
-SpirvArrayLength::SpirvArrayLength(QualType resultType, uint32_t resultId,
-                                   SourceLocation loc,
+SpirvArrayLength::SpirvArrayLength(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *structure_,
                                    uint32_t memberLiteral)
-    : SpirvInstruction(IK_ArrayLength, spv::Op::OpArrayLength, resultType,
-                       resultId, loc),
+    : SpirvInstruction(IK_ArrayLength, spv::Op::OpArrayLength, resultType, loc),
       structure(structure_), arrayMember(memberLiteral) {}
 
 } // namespace spirv
