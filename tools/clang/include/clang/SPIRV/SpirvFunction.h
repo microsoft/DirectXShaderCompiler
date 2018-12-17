@@ -72,18 +72,22 @@ public:
   void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
 
-  void setConstainsAliasComponent(bool isAlias) { containsAlias = isAlias; }
-  bool constainsAliasComponent() { return containsAlias; }
-
-  void setRValue() { rvalue = true; }
-  bool isRValue() { return rvalue; }
-
   void setFunctionName(llvm::StringRef name) { functionName = name; }
   llvm::StringRef getFunctionName() const { return functionName; }
 
   void addParameter(SpirvFunctionParameter *);
   void addVariable(SpirvVariable *);
   void addBasicBlock(SpirvBasicBlock *);
+
+  /// Legalization-specific code
+  ///
+  /// Note: the following methods are used for properly handling aliasing.
+  ///
+  /// TODO: Clean up aliasing and try to move it to a separate pass.
+  void setConstainsAliasComponent(bool isAlias) { containsAlias = isAlias; }
+  bool constainsAliasComponent() { return containsAlias; }
+  void setRValue() { rvalue = true; }
+  bool isRValue() { return rvalue; }
 
 private:
   uint32_t functionId; ///< This function's <result-id>
@@ -95,6 +99,12 @@ private:
   SpirvType *fnType; ///< The SPIR-V function type
   uint32_t fnTypeId; ///< result-id for the SPIR-V function type
 
+  /// Legalization-specific code
+  ///
+  /// Note: the following two member variables are currently needed in order to
+  /// support aliasing for functions.
+  ///
+  /// TODO: Clean up aliasing and try to move it to a separate pass.
   bool containsAlias; ///< Whether function return type is aliased
   bool rvalue;        ///< Whether the return value is an rvalue
 
