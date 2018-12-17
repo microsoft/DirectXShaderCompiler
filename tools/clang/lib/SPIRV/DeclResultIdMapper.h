@@ -31,7 +31,7 @@
 namespace clang {
 namespace spirv {
 
-class SPIRVEmitter;
+class SpirvEmitter;
 
 /// A struct containing information about a particular HLSL semantic.
 struct SemanticInfo {
@@ -261,7 +261,7 @@ class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
                             SpirvContext &spirvContext,
-                            SpirvBuilder &spirvBuilder, SPIRVEmitter &emitter,
+                            SpirvBuilder &spirvBuilder, SpirvEmitter &emitter,
                             FeatureManager &features,
                             const SpirvCodeGenOptions &spirvOptions);
 
@@ -632,7 +632,7 @@ private:
 private:
   const hlsl::ShaderModel &shaderModel;
   SpirvBuilder &spvBuilder;
-  SPIRVEmitter &theEmitter;
+  SpirvEmitter &theEmitter;
   const SpirvCodeGenOptions &spirvOptions;
   ASTContext &astContext;
   SpirvContext &spvContext;
@@ -749,7 +749,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        SpirvContext &spirvContext,
                                        SpirvBuilder &spirvBuilder,
-                                       SPIRVEmitter &emitter,
+                                       SpirvEmitter &emitter,
                                        FeatureManager &features,
                                        const SpirvCodeGenOptions &options)
     : shaderModel(model), spvBuilder(spirvBuilder), theEmitter(emitter),

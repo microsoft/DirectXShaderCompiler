@@ -12,7 +12,7 @@
 
 #include "AlignmentSizeCalculator.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/Optional.h"
 

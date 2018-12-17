@@ -1,4 +1,4 @@
-//===--- EmitSPIRVAction.cpp - EmitSPIRVAction implementation -------------===//
+//===--- EmitSpirvAction.cpp - EmitSPIRVAction implementation -------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,9 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/EmitSPIRVAction.h"
+#include "clang/SPIRV/EmitSpirvAction.h"
 
-#include "SPIRVEmitter.h"
+#include "SpirvEmitter.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/ADT/STLExtras.h"
@@ -17,7 +17,7 @@
 namespace clang {
 
 std::unique_ptr<ASTConsumer>
-EmitSPIRVAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
-  return llvm::make_unique<spirv::SPIRVEmitter>(CI);
+EmitSpirvAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
+  return llvm::make_unique<spirv::SpirvEmitter>(CI);
 }
 } // end namespace clang
