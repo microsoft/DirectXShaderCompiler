@@ -50,7 +50,7 @@
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
-#include "clang/SPIRV/EmitSPIRVAction.h"
+#include "clang/SPIRV/EmitSpirvAction.h"
 #endif
 // SPIRV change ends
 
