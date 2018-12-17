@@ -1,4 +1,4 @@
-//===------- SpirvEmitter.h - SPIR-V Binary Code Emitter --------*- C++ -*-===//
+//===------- SpirvEmitter.cpp - SPIR-V Binary Code Emitter ------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
