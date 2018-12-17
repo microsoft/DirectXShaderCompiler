@@ -24,7 +24,7 @@ class SpirvVisitor;
 /// The class representing a SPIR-V function in memory.
 class SpirvFunction {
 public:
-  SpirvFunction(QualType astReturnType, SpirvType *fnSpirvType, uint32_t id,
+  SpirvFunction(QualType astReturnType, SpirvType *fnSpirvType,
                 spv::FunctionControlMask, SourceLocation,
                 llvm::StringRef name = "");
   ~SpirvFunction() = default;
