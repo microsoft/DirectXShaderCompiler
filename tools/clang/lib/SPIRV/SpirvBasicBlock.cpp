@@ -13,8 +13,8 @@
 namespace clang {
 namespace spirv {
 
-SpirvBasicBlock::SpirvBasicBlock(uint32_t id, llvm::StringRef name)
-    : labelId(id), labelName(name), mergeTarget(nullptr),
+SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
+    : labelId(0), labelName(name), mergeTarget(nullptr),
       continueTarget(nullptr) {}
 
 bool SpirvBasicBlock::hasTerminator() const {
