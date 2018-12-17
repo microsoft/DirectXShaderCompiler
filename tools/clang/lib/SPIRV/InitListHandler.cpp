@@ -22,7 +22,7 @@
 namespace clang {
 namespace spirv {
 
-InitListHandler::InitListHandler(const ASTContext &ctx, SPIRVEmitter &emitter)
+InitListHandler::InitListHandler(const ASTContext &ctx, SpirvEmitter &emitter)
     : astContext(ctx), theEmitter(emitter),
       spvBuilder(emitter.getSpirvBuilder()),
       diags(emitter.getDiagnosticsEngine()) {}
@@ -283,7 +283,7 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
       /// HLSL vector types are parameterized templates and we cannot
       /// construct them. So we construct an ExtVectorType here instead.
       /// This is unfortunate since it means we need to handle ExtVectorType
-      /// in all type casting methods in SPIRVEmitter.
+      /// in all type casting methods in SpirvEmitter.
       const auto toVecType =
           theEmitter.getASTContext().getExtVectorType(elemType, count);
       return theEmitter.castToType(theEmitter.loadIfGLValue(init),

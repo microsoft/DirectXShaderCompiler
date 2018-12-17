@@ -1,4 +1,4 @@
-//===-- SPIRVContext.h - Context holding SPIR-V codegen data ----*- C++ -*-===//
+//===-- SpirvContext.h - Context holding SPIR-V codegen data ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

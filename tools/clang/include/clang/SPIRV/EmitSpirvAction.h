@@ -1,4 +1,4 @@
-//===-- EmitSPIRVAction.h - FrontendAction for Emitting SPIR-V --*- C++ -*-===//
+//===-- EmitSpirvAction.h - FrontendAction for Emitting SPIR-V --*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,9 +13,9 @@
 
 namespace clang {
 
-class EmitSPIRVAction : public ASTFrontendAction {
+class EmitSpirvAction : public ASTFrontendAction {
 public:
-  EmitSPIRVAction() {}
+  EmitSpirvAction() {}
 
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
