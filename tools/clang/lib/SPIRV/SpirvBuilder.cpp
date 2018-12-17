@@ -85,7 +85,7 @@ void SpirvBuilder::endFunction() {
 
 SpirvBasicBlock *SpirvBuilder::createBasicBlock(llvm::StringRef name) {
   assert(function && "found detached basic block");
-  auto *bb = new (context) SpirvBasicBlock(/*id*/ 0, name);
+  auto *bb = new (context) SpirvBasicBlock(name);
   basicBlocks.push_back(bb);
   return bb;
 }
