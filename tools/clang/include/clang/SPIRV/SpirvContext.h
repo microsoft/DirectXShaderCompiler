@@ -98,8 +98,11 @@ struct FunctionTypeMapInfo {
   static inline FunctionType *getTombstoneKey() { return nullptr; }
   static unsigned getHashValue(const FunctionType *Val) {
     // Hashing based on return type and number of function parameters.
-    return llvm::hash_combine(Val->getReturnType(),
-                              Val->getParamTypes().size());
+    auto hashCode =
+        llvm::hash_combine(Val->getReturnType(), Val->getParamTypes().size());
+    for (const SpirvType *paramType : Val->getParamTypes())
+      hashCode = llvm::hash_combine(hashCode, paramType);
+    return hashCode;
   }
   static bool isEqual(const FunctionType *LHS, const FunctionType *RHS) {
     // Either both are null, or both should have the same underlying type.
