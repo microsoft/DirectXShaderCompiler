@@ -143,34 +143,41 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
   auto *operand1 = inst->getOperand1();
   auto *operand2 = inst->getOperand2();
 
-  // We should not modify operand2 type in these operations:
-  if (op == spv::Op::OpShiftRightLogical ||
-      op == spv::Op::OpShiftRightArithmetic ||
-      op == spv::Op::OpShiftLeftLogical) {
+  switch (op) {
+  case spv::Op::OpShiftRightLogical:
+  case spv::Op::OpShiftRightArithmetic:
+  case spv::Op::OpShiftLeftLogical: {
     // Base (arg1) should have the same type as result type
     tryToUpdateInstLitType(inst->getOperand1(), resultType);
     // The shitf amount (arg2) cannot be a 64-bit type for a 32-bit base!
     tryToUpdateInstLitType(inst->getOperand2(), resultType);
     return true;
   }
-
   // The following operations have a boolean return type, so we cannot deduce
   // anything about the operand type from the result type. However, the two
   // operands in these operations must have the same bitwidth.
-  if (op == spv::Op::OpIEqual || op == spv::Op::OpINotEqual ||
-      op == spv::Op::OpUGreaterThan || op == spv::Op::OpSGreaterThan ||
-      op == spv::Op::OpUGreaterThanEqual ||
-      op == spv::Op::OpSGreaterThanEqual || op == spv::Op::OpULessThan ||
-      op == spv::Op::OpSLessThan || op == spv::Op::OpULessThanEqual ||
-      op == spv::Op::OpSLessThanEqual || op == spv::Op::OpFOrdEqual ||
-      op == spv::Op::OpFUnordEqual || op == spv::Op::OpFOrdNotEqual ||
-      op == spv::Op::OpFUnordNotEqual || op == spv::Op::OpFOrdLessThan ||
-      op == spv::Op::OpFUnordLessThan || op == spv::Op::OpFOrdGreaterThan ||
-      op == spv::Op::OpFUnordGreaterThan ||
-      op == spv::Op::OpFOrdLessThanEqual ||
-      op == spv::Op::OpFUnordLessThanEqual ||
-      op == spv::Op::OpFOrdGreaterThanEqual ||
-      op == spv::Op::OpFUnordGreaterThanEqual) {
+  case spv::Op::OpIEqual:
+  case spv::Op::OpINotEqual:
+  case spv::Op::OpUGreaterThan:
+  case spv::Op::OpSGreaterThan:
+  case spv::Op::OpUGreaterThanEqual:
+  case spv::Op::OpSGreaterThanEqual:
+  case spv::Op::OpULessThan:
+  case spv::Op::OpSLessThan:
+  case spv::Op::OpULessThanEqual:
+  case spv::Op::OpSLessThanEqual:
+  case spv::Op::OpFOrdEqual:
+  case spv::Op::OpFUnordEqual:
+  case spv::Op::OpFOrdNotEqual:
+  case spv::Op::OpFUnordNotEqual:
+  case spv::Op::OpFOrdLessThan:
+  case spv::Op::OpFUnordLessThan:
+  case spv::Op::OpFOrdGreaterThan:
+  case spv::Op::OpFUnordGreaterThan:
+  case spv::Op::OpFOrdLessThanEqual:
+  case spv::Op::OpFUnordLessThanEqual:
+  case spv::Op::OpFOrdGreaterThanEqual:
+  case spv::Op::OpFUnordGreaterThanEqual: {
     if (operand1->hasAstResultType() && operand2->hasAstResultType()) {
       const auto operand1Type = operand1->getAstResultType();
       const auto operand2Type = operand2->getAstResultType();
@@ -194,18 +201,22 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
         return true;
       }
     }
+    break;
   }
-
   // The result type of dot product is scalar but operands should be vector of
   // the same type.
-  if (op == spv::Op::OpDot) {
+  case spv::Op::OpDot: {
     tryToUpdateInstLitType(inst->getOperand1(),
                            inst->getOperand2()->getAstResultType());
     tryToUpdateInstLitType(inst->getOperand2(),
                            inst->getOperand1()->getAstResultType());
     return true;
   }
+  default:
+    break;
+  }
 
+  // General attempt to deduce operand types from the result type.
   tryToUpdateInstLitType(operand1, resultType);
   tryToUpdateInstLitType(operand2, resultType);
   return true;
@@ -429,4 +440,4 @@ bool LiteralTypeVisitor::visit(SpirvImageOp *inst) {
 }
 
 } // end namespace spirv
-} // namespace clang
+} // end namespace clang
