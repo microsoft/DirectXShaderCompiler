@@ -24,7 +24,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Casting.h"
 
-#include "SPIRVEmitter.h"
+#include "SpirvEmitter.h"
 
 namespace clang {
 namespace spirv {
