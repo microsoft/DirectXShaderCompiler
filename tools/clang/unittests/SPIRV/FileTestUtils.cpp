@@ -14,7 +14,7 @@
 
 #include "dxc/Support/HLSLOptions.h"
 
-#include "SPIRVTestOptions.h"
+#include "SpirvTestOptions.h"
 #include "gtest/gtest.h"
 
 namespace clang {
