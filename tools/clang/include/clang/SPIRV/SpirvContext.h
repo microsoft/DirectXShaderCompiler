@@ -171,22 +171,34 @@ public:
       bool isReadOnly = false,
       StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
 
+  const SpirvPointerType *getPointerType(const SpirvType *pointee,
+                                         spv::StorageClass);
+
+  FunctionType *getFunctionType(const SpirvType *ret,
+                                llvm::ArrayRef<const SpirvType *> param);
+
+  const StructType *getByteAddressBufferType(bool isWritable);
+  const StructType *getACSBufferCounterType();
+
+  /// --- Hybrid type getter functions ---
+  ///
+  /// Concrete SpirvType objects represent a SPIR-V type completely. Hybrid
+  /// SpirvTypes, however, represent a QualType that can later be lowered to a
+  /// concrete SpirvType.
+  ///
+  /// For example, the caller may want to get a SpirvType for a pointer in which
+  /// the pointee is a QualType. This would be a HybridPointerType, which can
+  /// later be lowered to a SpirvPointerType by lowereing the pointee from
+  /// QualType to SpirvType).
   const HybridStructType *getHybridStructType(
       llvm::ArrayRef<HybridStructType::FieldInfo> fields, llvm::StringRef name,
       bool isReadOnly = false,
       StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
 
-  const SpirvPointerType *getPointerType(const SpirvType *pointee,
-                                         spv::StorageClass);
   const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
 
-  FunctionType *getFunctionType(const SpirvType *ret,
-                                llvm::ArrayRef<const SpirvType *> param);
   HybridFunctionType *getFunctionType(QualType ret,
                                       llvm::ArrayRef<QualType> param);
-
-  const StructType *getByteAddressBufferType(bool isWritable);
-  const StructType *getACSBufferCounterType();
 
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
