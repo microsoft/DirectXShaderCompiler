@@ -42,20 +42,6 @@ struct StorageClassDenseMapInfo {
   }
 };
 
-// Provides DenseMapInfo for QualType so that we can use it key to DenseMap.
-//
-// Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
-struct QualTypeDenseMapInfo {
-  static inline QualType getEmptyKey() { return {}; }
-  static inline QualType getTombstoneKey() { return {}; }
-  static unsigned getHashValue(const QualType &Val) {
-    return llvm::hash_combine(Val.getTypePtr(), Val.getCVRQualifiers());
-  }
-  static bool isEqual(const QualType &LHS, const QualType &RHS) {
-    return LHS == RHS;
-  }
-};
-
 // Provides DenseMapInfo for ArrayType so we can create a DenseSet of array
 // types.
 struct ArrayTypeMapInfo {
