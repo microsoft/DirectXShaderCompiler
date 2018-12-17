@@ -24,7 +24,7 @@ class SpirvVisitor;
 /// The class representing a SPIR-V basic block in memory.
 class SpirvBasicBlock {
 public:
-  SpirvBasicBlock(uint32_t id, llvm::StringRef name);
+  SpirvBasicBlock(llvm::StringRef name);
   ~SpirvBasicBlock() = default;
 
   // Forbid copy construction and assignment
