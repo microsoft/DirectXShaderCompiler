@@ -879,7 +879,7 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias);
 
   SpirvFunction *spirvFunction = new (spvContext) SpirvFunction(
-      fn->getReturnType(), /*functionType*/ nullptr, /*id*/ 0,
+      fn->getReturnType(), /*functionType*/ nullptr,
       spv::FunctionControlMask::MaskNone, fn->getLocation(), fn->getName());
 
   // No need to dereference to get the pointer. Function returns that are

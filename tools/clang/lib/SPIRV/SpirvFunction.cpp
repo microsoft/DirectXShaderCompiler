@@ -15,9 +15,9 @@ namespace clang {
 namespace spirv {
 
 SpirvFunction::SpirvFunction(QualType returnType, SpirvType *functionType,
-                             uint32_t id, spv::FunctionControlMask control,
+                             spv::FunctionControlMask control,
                              SourceLocation loc, llvm::StringRef name)
-    : functionId(id), astReturnType(returnType), returnType(nullptr),
+    : functionId(0), astReturnType(returnType), returnType(nullptr),
       returnTypeId(0), fnType(functionType), fnTypeId(0),
       functionControl(control), functionLoc(loc), functionName(name) {}
 

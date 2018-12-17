@@ -38,7 +38,7 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
     function->setFunctionName(funcName);
   } else {
     function = new (context)
-        SpirvFunction(returnType, functionType, /*id*/ 0,
+        SpirvFunction(returnType, functionType,
                       spv::FunctionControlMask::MaskNone, loc, funcName);
   }
 
