@@ -149,9 +149,6 @@ public:
   SpirvLayoutRule getLayoutRule() const { return layoutRule; }
   void setLayoutRule(SpirvLayoutRule rule) { layoutRule = rule; }
 
-  void setContainsAliasComponent(bool contains) { containsAlias = contains; }
-  bool containsAliasComponent() const { return containsAlias; }
-
   void setStorageClass(spv::StorageClass sc) { storageClass = sc; }
   spv::StorageClass getStorageClass() const { return storageClass; }
 
@@ -163,6 +160,15 @@ public:
 
   void setNonUniform(bool nu = true) { isNonUniform_ = nu; }
   bool isNonUniform() const { return isNonUniform_; }
+
+  /// Legalization-specific code
+  ///
+  /// Note: the following two functions are currently needed in order to support
+  /// aliasing.
+  ///
+  /// TODO: Clean up aliasing and try to move it to a separate pass.
+  void setContainsAliasComponent(bool contains) { containsAlias = contains; }
+  bool containsAliasComponent() const { return containsAlias; }
 
 protected:
   // Forbid creating SpirvInstruction directly
@@ -1728,6 +1734,8 @@ private:
   uint32_t arrayMember;
 };
 
+// TODO: It'd be better to leave debug info attached to whatever entity they are
+// annotating and have a pass write out the binaries for them directly.
 class SpirvLineInfo : public SpirvInstruction {
 public:
   SpirvLineInfo(SpirvString *srcFile, uint32_t srcLine, uint32_t srcCol);
