@@ -1476,7 +1476,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // Therefore, if we find a hybrid type when going through the emitting pass,
   // that is clearly a bug.
   else if (const auto *hybridType = dyn_cast<HybridType>(type)) {
-    assert(false && "found hybrid type when emitting SPIR-V");
+    llvm_unreachable("found hybrid type when emitting SPIR-V");
   }
   // Unhandled types
   else {
