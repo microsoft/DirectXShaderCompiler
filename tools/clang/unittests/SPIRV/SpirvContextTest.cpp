@@ -1,4 +1,4 @@
-//===- unittests/SPIRV/SPIRVContextTest.cpp ----- SPIRVContext tests ------===//
+//===- unittests/SPIRV/SpirvContextTest.cpp ----- SpirvContext tests ------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

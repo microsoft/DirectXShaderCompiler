@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVTestOptions.h"
+#include "SpirvTestOptions.h"
 
 namespace clang {
 namespace spirv {
