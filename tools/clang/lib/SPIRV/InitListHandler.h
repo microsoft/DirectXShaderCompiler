@@ -21,7 +21,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/Basic/Diagnostic.h"
 
-#include "SPIRVEmitter.h"
+#include "SpirvEmitter.h"
 
 namespace clang {
 namespace spirv {
@@ -43,7 +43,7 @@ namespace spirv {
 ///
 /// Resulting from the above reasons, the logic for handling initalizer lists
 /// are complicated. So we have this dedicated class for it. It is built on
-/// top of the SPIRVEmitter class and calls into SPIRVEmitter for normal
+/// top of the SpirvEmitter class and calls into SPIRVEmitter for normal
 /// translation tasks. This gives better code structure.
 ///
 /// The logic for handling initalizer lists is largely the following:
@@ -79,7 +79,7 @@ public:
   /// Constructs an InitListHandler which uses the given emitter for normal
   /// translation tasks. It will reuse the ModuleBuilder embedded in the given
   /// emitter.
-  explicit InitListHandler(const ASTContext &, SPIRVEmitter &);
+  explicit InitListHandler(const ASTContext &, SpirvEmitter &);
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
@@ -137,7 +137,7 @@ private:
 
 private:
   const ASTContext &astContext;
-  SPIRVEmitter &theEmitter;
+  SpirvEmitter &theEmitter;
   SpirvBuilder &spvBuilder;
   DiagnosticsEngine &diags;
 

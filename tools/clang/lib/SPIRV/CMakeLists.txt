@@ -8,19 +8,19 @@ add_clang_library(clangSPIRV
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp
   DeclResultIdMapper.cpp
-  EmitSPIRVAction.cpp
+  EmitSpirvAction.cpp
   EmitVisitor.cpp
   FeatureManager.cpp
   GlPerVertex.cpp
   InitListHandler.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
-  SPIRVContext.cpp
-  SPIRVEmitter.cpp
   SpirvBasicBlock.cpp
   SpirvBuilder.cpp
-  SpirvInstruction.cpp
+  SpirvContext.cpp
+  SpirvEmitter.cpp
   SpirvFunction.cpp
+  SpirvInstruction.cpp
   SpirvModule.cpp
   SpirvType.cpp
   String.cpp
