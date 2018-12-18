@@ -679,7 +679,7 @@ Instruction *HLMatrixLowerPass::TrivialMatUnOpToVec(CallInst *CI) {
   switch (opcode) {
   case HLUnaryOpcode::Plus: {
     // This is actually a no-op, but the structure of the code here requires
-    // that we create an instruction. We'll fix this up in the second part of this pass.
+    // that we create an instruction.
     Constant *zero = Constant::getNullValue(ResultTy);
     if (isFloat)
       Result = BinaryOperator::CreateFAdd(tmp, zero);
