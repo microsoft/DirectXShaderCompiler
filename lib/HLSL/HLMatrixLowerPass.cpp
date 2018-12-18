@@ -670,47 +670,53 @@ Instruction *HLMatrixLowerPass::TrivialMatUnOpToVec(CallInst *CI) {
   HLUnaryOpcode opcode = static_cast<HLUnaryOpcode>(GetHLOpcode(CI));
   bool isFloat = ResultTy->getVectorElementType()->isFloatingPointTy();
 
-  auto GetVecConst = [&](Type *Ty, int v) -> Constant * {
-    Constant *val = isFloat ? ConstantFP::get(Ty->getScalarType(), v)
-                            : ConstantInt::get(Ty->getScalarType(), v);
-    std::vector<Constant *> vals(Ty->getVectorNumElements(), val);
-    return ConstantVector::get(vals);
-  };
-
-  Constant *one = GetVecConst(ResultTy, 1);
+  Constant *one = isFloat
+    ? ConstantFP::get(ResultTy->getVectorElementType(), 1)
+    : ConstantInt::get(ResultTy->getVectorElementType(), 1);
+  Constant *oneVec = ConstantVector::getSplat(ResultTy->getVectorNumElements(), one);
 
   Instruction *Result = nullptr;
   switch (opcode) {
+  case HLUnaryOpcode::Plus: {
+    // This is actually a no-op, but the structure of the code here requires
+    // that we create an instruction. We'll fix this up in the second part of this pass.
+    Constant *zero = Constant::getNullValue(ResultTy);
+    if (isFloat)
+      Result = BinaryOperator::CreateFAdd(tmp, zero);
+    else
+      Result = BinaryOperator::CreateAdd(tmp, zero);
+  } break;
   case HLUnaryOpcode::Minus: {
-    Constant *zero = GetVecConst(ResultTy, 0);
+    Constant *zero = Constant::getNullValue(ResultTy);
     if (isFloat)
       Result = BinaryOperator::CreateFSub(zero, tmp);
     else
       Result = BinaryOperator::CreateSub(zero, tmp);
   } break;
   case HLUnaryOpcode::LNot: {
-    Constant *zero = GetVecConst(ResultTy, 0);
+    Constant *zero = Constant::getNullValue(ResultTy);
     if (isFloat)
-      Result = CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_UNE, tmp, zero);
+      Result = CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_UEQ, tmp, zero);
     else
-      Result = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, tmp, zero);
+      Result = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, tmp, zero);
   } break;
-  case HLUnaryOpcode::Not:
-    Result = BinaryOperator::CreateXor(tmp, tmp);
-    break;
+  case HLUnaryOpcode::Not: {
+    Constant *allOneBits = Constant::getAllOnesValue(ResultTy);
+    Result = BinaryOperator::CreateXor(tmp, allOneBits);
+  } break;
   case HLUnaryOpcode::PostInc:
   case HLUnaryOpcode::PreInc:
     if (isFloat)
-      Result = BinaryOperator::CreateFAdd(tmp, one);
+      Result = BinaryOperator::CreateFAdd(tmp, oneVec);
     else
-      Result = BinaryOperator::CreateAdd(tmp, one);
+      Result = BinaryOperator::CreateAdd(tmp, oneVec);
     break;
   case HLUnaryOpcode::PostDec:
   case HLUnaryOpcode::PreDec:
     if (isFloat)
-      Result = BinaryOperator::CreateFSub(tmp, one);
+      Result = BinaryOperator::CreateFSub(tmp, oneVec);
     else
-      Result = BinaryOperator::CreateSub(tmp, one);
+      Result = BinaryOperator::CreateSub(tmp, oneVec);
     break;
   default:
     DXASSERT(0, "not implement");
@@ -842,33 +848,25 @@ Instruction *HLMatrixLowerPass::TrivialMatBinOpToVec(CallInst *CI) {
     break;
   case HLBinaryOpcode::LAnd:
   case HLBinaryOpcode::LOr: {
-    Constant *zero;
-    if (isFloat)
-      zero = llvm::ConstantFP::get(ResultTy->getVectorElementType(), 0);
-    else
-      zero = llvm::ConstantInt::get(ResultTy->getVectorElementType(), 0);
-
-    unsigned size = ResultTy->getVectorNumElements();
-    std::vector<Constant *> zeros(size, zero);
-    Value *vecZero = llvm::ConstantVector::get(zeros);
+    Value *vecZero = Constant::getNullValue(ResultTy);
     Instruction *cmpL;
     if (isFloat)
-      cmpL =
-          CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_OEQ, tmp, vecZero);
+      cmpL = CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_ONE, tmp, vecZero);
     else
-      cmpL = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, tmp, vecZero);
+      cmpL = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, tmp, vecZero);
     Builder.Insert(cmpL);
 
     Instruction *cmpR;
     if (isFloat)
       cmpR =
-          CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_OEQ, tmp, vecZero);
+          CmpInst::Create(Instruction::FCmp, CmpInst::FCMP_ONE, tmp, vecZero);
     else
-      cmpR = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, tmp, vecZero);
+      cmpR = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_NE, tmp, vecZero);
     Builder.Insert(cmpR);
+
     // How to map l, r back? Need check opcode
     if (opcode == HLBinaryOpcode::LOr)
-      Result = BinaryOperator::CreateAnd(cmpL, cmpR);
+      Result = BinaryOperator::CreateOr(cmpL, cmpR);
     else
       Result = BinaryOperator::CreateAnd(cmpL, cmpR);
     break;
@@ -996,23 +994,23 @@ void HLMatrixLowerPass::TrivialMatUnOpReplace(Value *matVal,
   HLUnaryOpcode opcode = static_cast<HLUnaryOpcode>(GetHLOpcode(matUseInst));
   Instruction *vecUseInst = cast<Instruction>(matToVecMap[matUseInst]);
   switch (opcode) {
-  case HLUnaryOpcode::Not:
-    // Not is xor now
-    vecUseInst->setOperand(0, vecVal);
-    vecUseInst->setOperand(1, vecVal);
-    break;
-  case HLUnaryOpcode::LNot:
+  case HLUnaryOpcode::Plus: // add(x, 0)
+    // Ideally we'd get completely rid of the instruction for +mat,
+    // but matToVecMap needs to point to some instruction.
+  case HLUnaryOpcode::Not: // xor(x, -1)
+  case HLUnaryOpcode::LNot: // cmpeq(x, 0)
   case HLUnaryOpcode::PostInc:
   case HLUnaryOpcode::PreInc:
   case HLUnaryOpcode::PostDec:
   case HLUnaryOpcode::PreDec:
     vecUseInst->setOperand(0, vecVal);
     break;
+  case HLUnaryOpcode::Minus: // sub(0, x)
+    vecUseInst->setOperand(1, vecVal);
+    break;
   case HLUnaryOpcode::Invalid:
-  case HLUnaryOpcode::Plus:
-  case HLUnaryOpcode::Minus:
   case HLUnaryOpcode::NumOfUO:
-    // No VecInst replacements for these.
+    DXASSERT(false, "Unexpected HL unary opcode.");
     break;
   }
 }
