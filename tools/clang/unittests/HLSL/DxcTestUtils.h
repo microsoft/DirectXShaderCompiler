@@ -63,6 +63,7 @@ private:
   void RunOpt(const FileRunCommandPart *Prior);
   void RunD3DReflect(const FileRunCommandPart *Prior);
   void RunTee(const FileRunCommandPart *Prior);
+  void RunXFail(const FileRunCommandPart *Prior);
 public:
   FileRunCommandPart(const FileRunCommandPart&) = default;
   FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName);
