@@ -94,6 +94,13 @@ import hctdb_instrhelp
   IOP_WaveGetLaneCount,
   IOP_WaveGetLaneIndex,
   IOP_WaveIsFirstLane,
+  IOP_WaveMatch,
+  IOP_WaveMultiPrefixBitAnd,
+  IOP_WaveMultiPrefixBitOr,
+  IOP_WaveMultiPrefixBitXor,
+  IOP_WaveMultiPrefixCountBits,
+  IOP_WaveMultiPrefixProduct,
+  IOP_WaveMultiPrefixSum,
   IOP_WavePrefixCountBits,
   IOP_WavePrefixProduct,
   IOP_WavePrefixSum,
@@ -263,6 +270,8 @@ import hctdb_instrhelp
   IOP_WaveActiveUMin,
   IOP_WaveActiveUProduct,
   IOP_WaveActiveUSum,
+  IOP_WaveMultiPrefixUProduct,
+  IOP_WaveMultiPrefixUSum,
   IOP_WavePrefixUProduct,
   IOP_WavePrefixUSum,
   IOP_uclamp,
@@ -291,6 +300,8 @@ import hctdb_instrhelp
   case IntrinsicOp::IOP_WaveActiveMin:
   case IntrinsicOp::IOP_WaveActiveProduct:
   case IntrinsicOp::IOP_WaveActiveSum:
+  case IntrinsicOp::IOP_WaveMultiPrefixProduct:
+  case IntrinsicOp::IOP_WaveMultiPrefixSum:
   case IntrinsicOp::IOP_WavePrefixProduct:
   case IntrinsicOp::IOP_WavePrefixSum:
   case IntrinsicOp::IOP_clamp:
@@ -328,6 +339,10 @@ import hctdb_instrhelp
     return static_cast<unsigned>(IntrinsicOp::IOP_WaveActiveUProduct);
   case IntrinsicOp::IOP_WaveActiveSum:
     return static_cast<unsigned>(IntrinsicOp::IOP_WaveActiveUSum);
+  case IntrinsicOp::IOP_WaveMultiPrefixProduct:
+    return static_cast<unsigned>(IntrinsicOp::IOP_WaveMultiPrefixUProduct);
+  case IntrinsicOp::IOP_WaveMultiPrefixSum:
+    return static_cast<unsigned>(IntrinsicOp::IOP_WaveMultiPrefixUSum);
   case IntrinsicOp::IOP_WavePrefixProduct:
     return static_cast<unsigned>(IntrinsicOp::IOP_WavePrefixUProduct);
   case IntrinsicOp::IOP_WavePrefixSum:

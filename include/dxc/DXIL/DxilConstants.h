@@ -548,6 +548,9 @@ namespace DXIL {
     WaveGetLaneCount = 112, // returns the number of lanes in the wave
     WaveGetLaneIndex = 111, // returns the index of the current lane in the wave
     WaveIsFirstLane = 110, // returns 1 for the first lane in the wave
+    WaveMatch = 165, // returns the bitmask of active lanes that have the same value
+    WaveMultiPrefixBitCount = 167, // returns the count of bits set to 1 on groups of lanes identified by a bitmask
+    WaveMultiPrefixOp = 166, // returns the result of the operation on groups of lanes identified by a bitmask
     WavePrefixBitCount = 136, // returns the count of bits set to 1 on prior lanes
     WavePrefixOp = 121, // returns the result of the operation on prior lanes
     WaveReadLaneAt = 117, // returns the value from the specified lane
@@ -558,8 +561,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
+    NumOpCodes_Dxil_1_5 = 168,
   
-    NumOpCodes = 165 // exclusive last value of enumeration
+    NumOpCodes = 168 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -761,6 +765,9 @@ namespace DXIL {
     WaveGetLaneCount,
     WaveGetLaneIndex,
     WaveIsFirstLane,
+    WaveMatch,
+    WaveMultiPrefixBitCount,
+    WaveMultiPrefixOp,
     WavePrefixOp,
     WaveReadLaneAt,
     WaveReadLaneFirst,
@@ -770,8 +777,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
+    NumOpClasses_Dxil_1_5 = 123,
   
-    NumOpClasses = 120 // exclusive last value of enumeration
+    NumOpClasses = 123 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1056,6 +1064,18 @@ namespace DXIL {
     Sum = 0, // sum of values
   };
   // WAVEOPKIND-ENUM:END
+
+  /* <py::lines('WAVEMULTIPREFIXOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMultiPrefixOpKind")</py>*/
+  // WAVEMULTIPREFIXOPKIND-ENUM:BEGIN
+  // Kind of cross-lane for multi-prefix operation
+  enum class WaveMultiPrefixOpKind : unsigned {
+    And = 1, // bitwise and of values
+    Or = 2, // bitwise or of values
+    Product = 4, // product of values
+    Sum = 0, // sum of values
+    Xor = 3, // bitwise xor of values
+  };
+  // WAVEMULTIPREFIXOPKIND-ENUM:END
 
   /* <py::lines('SIGNEDOPKIND-ENUM')>hctdb_instrhelp.get_enum_decl("SignedOpKind")</py>*/
   // SIGNEDOPKIND-ENUM:BEGIN
