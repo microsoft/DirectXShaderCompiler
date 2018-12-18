@@ -1412,8 +1412,17 @@ void DxilTranslateRawBuffer::ReplaceRawBufferLoad64Bit(Function *F, Type *EltTy,
       for (unsigned i = 0; i < size; i++) {
         if (i == 2) {
           // Update offset 4 by 4 bytes.
-          args[DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx] =
+          if (isa<UndefValue>(offset)) {
+            // [RW]ByteAddressBuffer has undef element offset -> update index
+            Value *index = CI->getArgOperand(DXIL::OperandIndex::kRawBufferLoadIndexOpIdx);
+            args[DXIL::OperandIndex::kRawBufferLoadIndexOpIdx] =
+              Builder.CreateAdd(index, Builder.getInt32(4 * 4));
+          }
+          else {
+            // [RW]StructuredBuffer -> update element offset
+            args[DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx] =
               Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+          }
           args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
               Builder.getInt8(maskHi);
           newLd = Builder.CreateCall(bufLd, args);
@@ -1531,10 +1540,20 @@ void DxilTranslateRawBuffer::ReplaceRawBufferStore64Bit(Function *F, Type *ETy,
       Builder.CreateCall(newFunction, args);
 
       if (maskHi) {
-        Value *offset = args[DXIL::OperandIndex::kBufferStoreCoord1OpIdx];
         // Update offset 4 by 4 bytes.
-        offset = Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
-        args[DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx] = offset;
+        Value *offset = args[DXIL::OperandIndex::kBufferStoreCoord1OpIdx];
+        if (isa<UndefValue>(offset)) {
+          // [RW]ByteAddressBuffer has element offset == undef -> update index instead
+          Value *index = args[DXIL::OperandIndex::kBufferStoreCoord0OpIdx];
+          index = Builder.CreateAdd(index, Builder.getInt32(4 * 4));
+          args[DXIL::OperandIndex::kRawBufferStoreIndexOpIdx] = index;
+        }
+        else {
+          // [RW]StructuredBuffer -> update element offset
+          offset = Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+          args[DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx] = offset;
+        }
+        
         args[DXIL::OperandIndex::kRawBufferStoreMaskOpIdx] =
             Builder.getInt8(maskHi);
         args[DXIL::OperandIndex::kRawBufferStoreVal0OpIdx] = vals32[4];

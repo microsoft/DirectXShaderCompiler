@@ -9026,16 +9026,13 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
           !IsBABLoad
               ? diag::err_hlsl_intrinsic_template_arg_unsupported
               : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_requires_2018;
+                        : diag::err_hlsl_intrinsic_template_arg_scalar_vector;
       if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
         QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
         ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
         if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
-          isLegalTemplate = GET_BASIC_BITS(GetTypeElementKind(explicitType)) != BPROP_BITS64 ||
-            GetNumElements(explicitType) <= 2;
-        }
-        if (isLegalTemplate) {
+          isLegalTemplate = true;
           argTypes[0] = explicitType;
         }
       }
@@ -9055,15 +9052,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
         }
         argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(
             32, /*signed*/ false);
-      } else {
-        // not supporting types > 16 bytes yet.
-        if (GET_BASIC_BITS(GetTypeElementKind(argTypes[2])) == BPROP_BITS64 &&
-            GetNumElements(argTypes[2]) > 2) {
-          getSema()->Diag(Args[1]->getLocStart(),
-                          diag::err_ovl_no_viable_member_function_in_call)
-              << intrinsicName;
-          return Sema::TemplateDeductionResult::TDK_Invalid;
-        }
       }
     }
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
