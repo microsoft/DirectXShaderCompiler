@@ -297,44 +297,44 @@ public:
   STDMETHODIMP get_upperBoundId(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE get_dataBytes(
+  STDMETHODIMP get_dataBytes(
     /* [in] */ DWORD cbData,
     /* [out] */ DWORD *pcbData,
-    /* [size_is][out] */ BYTE *pbData) { return ENotImpl(); }
+    /* [size_is][out] */ BYTE *pbData) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE findChildren(
+  STDMETHODIMP findChildren(
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE findChildrenEx(
+  STDMETHODIMP findChildrenEx(
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE findChildrenExByAddr(
+  STDMETHODIMP findChildrenExByAddr(
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE findChildrenExByVA(
+  STDMETHODIMP findChildrenExByVA(
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE findChildrenExByRVA(
+  STDMETHODIMP findChildrenExByRVA(
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP get_targetSection(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -373,9 +373,9 @@ public:
   STDMETHODIMP get_udtKind(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE get_undecoratedNameEx(
+  STDMETHODIMP get_undecoratedNameEx(
     /* [in] */ DWORD undecorateOptions,
-    /* [out] */ BSTR *name) { return ENotImpl(); }
+    /* [out] */ BSTR *name) override { return ENotImpl(); }
 
   STDMETHODIMP get_noReturn(
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
@@ -557,15 +557,15 @@ public:
   STDMETHODIMP get_isMatrixRowMajor(
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE get_numericProperties(
+  STDMETHODIMP get_numericProperties(
     /* [in] */ DWORD cnt,
     /* [out] */ DWORD *pcnt,
-    /* [size_is][out] */ DWORD *pProperties) { return ENotImpl(); }
+    /* [size_is][out] */ DWORD *pProperties) override { return ENotImpl(); }
 
-  virtual HRESULT STDMETHODCALLTYPE get_modifierValues(
+  STDMETHODIMP get_modifierValues(
     /* [in] */ DWORD cnt,
     /* [out] */ DWORD *pcnt,
-    /* [size_is][out] */ WORD *pModifiers) { return ENotImpl(); }
+    /* [size_is][out] */ WORD *pModifiers) override { return ENotImpl(); }
 
   STDMETHODIMP get_isReturnValue(
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }

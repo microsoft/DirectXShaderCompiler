@@ -167,11 +167,7 @@ public:
     return GetItem(index, ppItem);
   }
 
-  virtual HRESULT GetItem(DWORD index, TItem **ppItem) {
-    UNREFERENCED_PARAMETER(index);
-    *ppItem = nullptr;
-    return ENotImpl();
-  }
+  virtual HRESULT GetItem(DWORD index, TItem **ppItem) = 0;
 };
 }  // namespace impl
 }  // namespace dxil_dia
