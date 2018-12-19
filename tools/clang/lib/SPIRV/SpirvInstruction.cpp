@@ -589,7 +589,7 @@ SpirvImageOp::SpirvImageOp(
       op == spv::Op::OpImageSampleDrefExplicitLod ||
       op == spv::Op::OpImageSparseSampleExplicitLod ||
       op == spv::Op::OpImageSparseSampleDrefExplicitLod) {
-    assert(lod != 0);
+    assert(lod || (gradDx && gradDy));
   }
   if (op == spv::Op::OpImageSampleDrefImplicitLod ||
       op == spv::Op::OpImageSampleDrefExplicitLod ||
@@ -597,13 +597,13 @@ SpirvImageOp::SpirvImageOp(
       op == spv::Op::OpImageSparseSampleDrefExplicitLod ||
       op == spv::Op::OpImageDrefGather ||
       op == spv::Op::OpImageSparseDrefGather) {
-    assert(dref != 0);
+    assert(dref);
   }
   if (op == spv::Op::OpImageWrite) {
-    assert(texelToWrite != 0);
+    assert(texelToWrite);
   }
   if (op == spv::Op::OpImageGather || op == spv::Op::OpImageSparseGather) {
-    assert(component != 0);
+    assert(component);
   }
 }
 
