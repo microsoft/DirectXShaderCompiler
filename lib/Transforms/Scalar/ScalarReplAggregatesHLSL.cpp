@@ -4407,7 +4407,6 @@ private:
   Value *castArgumentIfRequired(Value *V, Type *Ty, bool bOut,
                                 DxilParamInputQual inputQual,
                                 DxilFieldAnnotation &annotation,
-                                std::deque<Value *> &WorkList,
                                 IRBuilder<> &Builder);
   // Replace use of parameter which changed type when flatten.
   // Also add information to Arg if required.
@@ -4433,6 +4432,25 @@ private:
   std::unordered_set<Value *> castRowMajorParamMap;
   bool m_HasDbgInfo;
 };
+
+// When replacing aggregates by its scalar elements,
+// the first element will preserve the original semantic,
+// and the subsequent ones will temporarily use this value.
+// We then run a pass to fix the semantics and properly renumber them
+// once the aggregate has been fully expanded.
+// 
+// For example:
+// struct Foo { float a; float b; };
+// void main(Foo foo : TEXCOORD0, float bar : TEXCOORD0)
+//
+// Will be expanded to
+// void main(float a : TEXCOORD0, float b : *, float bar : TEXCOORD0)
+//
+// And then fixed up to
+// void main(float a : TEXCOORD0, float b : TEXCOORD1, float bar : TEXCOORD0)
+//
+// (which will later on fail validation due to duplicate semantics).
+constexpr const char *ContinuedPseudoSemantic = "*";
 }
 
 char SROA_Parameter_HLSL::ID = 0;
@@ -4764,16 +4782,17 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
     if (semantic.empty())
       continue;
 
-    unsigned semGroupEnd = i + 1;
-    while (semGroupEnd < endArgIndex &&
-           FlatAnnotationList[semGroupEnd].GetSemanticString() == semantic) {
-      ++semGroupEnd;
-    }
-
     StringRef baseSemName; // The 'FOO' in 'FOO1'.
     uint32_t semIndex;     // The '1' in 'FOO1'
     // Split semName and index.
     Semantic::DecomposeNameAndIndex(semantic, &baseSemName, &semIndex);
+
+    unsigned semGroupEnd = i + 1;
+    while (semGroupEnd < endArgIndex &&
+           FlatAnnotationList[semGroupEnd].GetSemanticString() == ContinuedPseudoSemantic) {
+      FlatAnnotationList[semGroupEnd].SetSemanticString(baseSemName);
+      ++semGroupEnd;
+    }
 
     DXASSERT(semanticTypeMap.count(semantic) > 0, "Must has semantic type");
     Type *semanticTy = semanticTypeMap[semantic];
@@ -5254,7 +5273,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
 Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     Value *V, Type *Ty, bool bOut,
     DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
-    std::deque<Value *> &WorkList, IRBuilder<> &Builder) {
+    IRBuilder<> &Builder) {
   Module &M = *m_pHLModule->GetModule();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
@@ -5340,25 +5359,25 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
   return V;
 }
 
+struct AnnotatedValue {
+  Value *Value;
+  DxilFieldAnnotation Annotation;
+};
+
 void SROA_Parameter_HLSL::flattenArgument(
     Function *F, Value *Arg, bool bForParam,
     DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
     BasicBlock *EntryBlock, DbgDeclareInst *DDI) {
-  std::deque<Value *> WorkList;
-  WorkList.push_back(Arg);
+  std::deque<AnnotatedValue> WorkList;
+  WorkList.push_back({ Arg, paramAnnotation });
 
   unsigned startArgIndex = FlatAnnotationList.size();
-
-  // Map from value to annotation.
-  std::unordered_map<Value *, DxilFieldAnnotation> annotationMap;
-  annotationMap[Arg] = paramAnnotation;
 
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
 
   const std::string &semantic = paramAnnotation.GetSemanticString();
-  bool bSemOverride = !semantic.empty();
 
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool bOut = inputQual == DxilParamInputQual::Out ||
@@ -5394,12 +5413,12 @@ void SROA_Parameter_HLSL::flattenArgument(
 
   // Process the worklist
   while (!WorkList.empty()) {
-    Value *V = WorkList.front();
+    AnnotatedValue AV = WorkList.front();
     WorkList.pop_front();
 
     // Do not skip unused parameter.
-
-    DxilFieldAnnotation &annotation = annotationMap[V];
+    Value *V = AV.Value;
+    DxilFieldAnnotation &annotation = AV.Annotation;
     const bool bAllowReplace = !bOut;
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
 
@@ -5424,26 +5443,26 @@ void SROA_Parameter_HLSL::flattenArgument(
         continue;
       }
 
-      // Push Elts into workList.
-      // Use rbegin to make sure the order not change.
-      for (auto iter = Elts.rbegin(); iter != Elts.rend(); iter++)
-        WorkList.push_front(*iter);
-
       bool precise = annotation.IsPrecise();
       const std::string &semantic = annotation.GetSemanticString();
       hlsl::InterpolationMode interpMode = annotation.GetInterpolationMode();
-      
-      for (unsigned i=0;i<Elts.size();i++) {
-        Value *Elt = Elts[i];
+
+      // Push Elts into workList from right to left to preserve the order.
+      for (unsigned ri=0;ri<Elts.size();ri++) {
+        unsigned i = Elts.size() - ri - 1;
         DxilFieldAnnotation EltAnnotation = GetEltAnnotation(Ty, i, annotation, dxilTypeSys);
         const std::string &eltSem = EltAnnotation.GetSemanticString();
-
         if (!semantic.empty()) {
           if (!eltSem.empty()) {
-            // TODO: warning for override the semantic in EltAnnotation.
+            // It doesn't look like we can provide source location information from here
+            F->getContext().emitWarning(
+              Twine("semantic '") + eltSem + "' on field overridden by function or enclosing type");
           }
-          // Just save parent semantic here, allocate later.
-          EltAnnotation.SetSemanticString(semantic);
+
+          // Inherit semantic from parent, but only preserve it for the first element.
+          // Subsequent elements are noted with a special value that gets resolved
+          // once the argument is completely flattened.
+          EltAnnotation.SetSemanticString(i == 0 ? semantic : ContinuedPseudoSemantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
           Type *EltTy = dxilutil::GetArrayEltTy(Ty);
@@ -5457,22 +5476,13 @@ void SROA_Parameter_HLSL::flattenArgument(
         if (EltAnnotation.GetInterpolationMode().GetKind() == DXIL::InterpolationMode::Undefined)
           EltAnnotation.SetInterpolationMode(interpMode);
 
-        annotationMap[Elt] = EltAnnotation;
+        WorkList.push_front({ Elts[i], EltAnnotation });
       }
-
-      annotationMap.erase(V);
 
       ++NumReplaced;
       if (Instruction *I = dyn_cast<Instruction>(V))
         deadAllocas.emplace_back(I);
     } else {
-      if (bSemOverride) {
-        if (!annotation.GetSemanticString().empty()) {
-          // TODO: warning for override the semantic in EltAnnotation.
-        }
-        // Just save parent semantic here, allocate later.
-        annotation.SetSemanticString(semantic);
-      }
       Type *Ty = V->getType();
       if (Ty->isPointerTy())
         Ty = Ty->getPointerElementType();
@@ -5509,8 +5519,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           // Add semantic type.
           semanticTypeMap[EltAnnotation.GetSemanticString()] = Ty;
 
-          annotationMap[Elt] = EltAnnotation;
-          WorkList.push_front(Elt);
+          WorkList.push_front({ Elt, EltAnnotation });
           // Copy local target to flattened target.
           std::vector<Value*> idxList(arrayLevel+1);
           idxList[0] = Builder.getInt32(0);
@@ -5544,16 +5553,12 @@ void SROA_Parameter_HLSL::flattenArgument(
             arrayIdxList[idx-1] = 0;
           }
         }
-        // Don't override flattened SV_Target.
-        if (V == Arg) {
-          bSemOverride = false;
-        }
         continue;
       }
 
       // Cast vector/matrix/resource parameter.
       V = castArgumentIfRequired(V, Ty, bOut, inputQual,
-                                 annotation, WorkList, Builder);
+                                  annotation, Builder);
 
       // Cannot SROA, save it to final parameter list.
       FlatParamList.emplace_back(V);
@@ -5619,7 +5624,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 
                 llvm::SmallVector<llvm::Value *, 16> idxList;
                 SplitCpy(firstDataPtr->getType(), outputVal, firstDataPtr, idxList, Builder, DL,
-                         dxilTypeSys, &flatParamAnnotation);
+                          dxilTypeSys, &flatParamAnnotation);
 
                 CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
               }
@@ -5647,7 +5652,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 
                   llvm::SmallVector<llvm::Value *, 16> IdxList;
                   SplitCpy(DataPtr->getType(), EltPtr, DataPtr, IdxList,
-                           Builder, DL, dxilTypeSys, EltAnnotation);
+                            Builder, DL, dxilTypeSys, EltAnnotation);
                   CI->setArgOperand(i, EltPtr);
                 }
               }
@@ -5656,7 +5661,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         }
 
         // Then split output value to generate ParamQual.
-        WorkList.push_front(outputVal);
+        WorkList.push_front({ outputVal, annotation });
       }
     }
   }
