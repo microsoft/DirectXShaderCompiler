@@ -4304,7 +4304,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
 // HLSL changes begin
 bool Sema::GetAttributedTypeWithMatrixPackingInfo(QualType& T, QualType *RetTy) {
-  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T)) {
+  bool isRowMajorAttributed;
+  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T, &isRowMajorAttributed)) {
     if (PackMatrixColMajorPragmaOn || PackMatrixRowMajorPragmaOn) {
       *RetTy = Context.getAttributedType(
         PackMatrixRowMajorPragmaOn
