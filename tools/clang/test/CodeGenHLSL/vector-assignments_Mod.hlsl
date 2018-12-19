@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_2_0 vector-assignments.hlsl
+// fxc.exe /T vs_2_0 vector-assignments.hlsl
 
 float pick_one(float2 f2) {
   return f2.x;

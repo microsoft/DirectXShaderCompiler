@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_2_0 matrix-assignments.hlsl
+// fxc.exe /T vs_2_0 matrix-assignments.hlsl
 
 float pick_one(float2x2 f2) {
   // TODO: implement swizzling members return f2._m00;
