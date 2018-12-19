@@ -5,10 +5,13 @@
 // entry
 // CHECK: br
 // loop iteration
+// CHECK: call float @dx.op.dot3
 // CHECK: br
 // loop iteration
+// CHECK: call float @dx.op.dot3
 // CHECK: br
 // loop iteration, unconditional
+// CHECK: call float @dx.op.dot3
 // CHECK: br
 // return
 // CHECK-NOT: br
