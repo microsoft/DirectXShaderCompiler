@@ -1,4 +1,4 @@
-// RUN: %dxc /T vs_6_0 /E main > %s | FileCheck %s | XFail
+// RUN: %dxc /T vs_6_0 /E main > %s | FileCheck %s | XFail GitHub #1780
 
 // Check that pre/post increment/decrement operators on
 // matrices have the intended semantics for both the original
