@@ -637,8 +637,8 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     if (astDecls.count(var) == 0)
       createGlobalsCBuffer(var);
 
-    assert(isa<SpirvVariable>(astDecls[var].instr));
-    return cast<SpirvVariable>(astDecls[var].instr);
+    auto *varInstr = astDecls[var].instr;
+    return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
   }
 
   const auto type = var->getType();
