@@ -437,8 +437,12 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.3
   END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI16);
-  TEST_METHOD(GraphicsRawBufferLdStHalf);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI16)
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStHalf)
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
+  END_TEST_METHOD()
 
   // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
   // require the Windows 10 SDK.
@@ -526,9 +530,10 @@ public:
   void RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
                             const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData);
 
+  template <class Ty>
   void RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
-                            const char *shaderOpName);
-
+                            const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData);
+    
   template <class Ty>
   void RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice, const char *pShaderModelStr, const char *pShader, Ty *pInputDataPairs, unsigned inputDataCount);
   
@@ -5911,7 +5916,7 @@ TEST_F(ExecutionTest, BarycentricsTest) {
     //SavePixelsToFile(pPixels, DXGI_FORMAT_R32G32B32A32_FLOAT, width, height, L"barycentric.bmp");
 }
 
-static const char RawBufferTestComputeShader[] =
+static const char RawBufferTestShaderDeclarations[] =
 "// Note: COMPONENT_TYPE and COMPONENT_SIZE will be defined via compiler option -D\r\n"
 "typedef COMPONENT_TYPE scalar; \r\n"
 "typedef vector<COMPONENT_TYPE, 2> vector2; \r\n"
@@ -5939,11 +5944,9 @@ static const char RawBufferTestComputeShader[] =
 "RWByteAddressBuffer         uav0 : register(u0); \r\n"
 "RWStructuredBuffer<UavData> uav1 : register(u1); \r\n"
 "RWByteAddressBuffer         uav2 : register(u2); \r\n"
-"RWStructuredBuffer<UavData> uav3 : register(u3); \r\n"
-"\r\n"
-"[numthreads(1, 1, 1)]\r\n"
-"void main(uint GI : SV_GroupIndex) {\r\n"
-"\r\n"
+"RWStructuredBuffer<UavData> uav3 : register(u3); \r\n";
+
+static const char RawBufferTestShaderBody[] =
 "  // offset of 'out' in 'UavData'\r\n"
 "  const int out_offset = COMPONENT_SIZE * 10; \r\n"
 "\r\n"
@@ -5994,36 +5997,55 @@ static const char RawBufferTestComputeShader[] =
 "  uav3[0].output.v1 = uav3[0].input.v1; \r\n"
 "  uav3[0].output.v2 = uav3[0].input.v2; \r\n"
 "  uav3[0].output.v3 = uav3[0].input.v3; \r\n"
-"  uav3[0].output.v4 = uav3[0].input.v4; \r\n"
+"  uav3[0].output.v4 = uav3[0].input.v4; \r\n";
+
+
+static const char RawBufferTestComputeShaderTemplate[] =
+"%s\r\n" // <- RawBufferTestShaderDeclarations
+"[numthreads(1, 1, 1)]\r\n"
+"void main(uint GI : SV_GroupIndex) {\r\n"
+"%s\r\n" // <- RawBufferTestShaderBody
+"};";
+
+static const char RawBufferTestGraphicsPixelShaderTemplate[] =
+"%s\r\n" // <- RawBufferTestShaderDeclarations
+"struct PSInput { \r\n"
+"  float4 pos : SV_POSITION; \r\n"
+"}; \r\n"
+"uint4 main(PSInput input) : SV_TARGET{ \r\n"
+"  if (input.pos.x + input.pos.y == 1.0f) { // pixel { 0.5, 0.5, 0 } \r\n"
+"%s\r\n" // <- RawBufferTestShaderBody
+"  } \r\n"
+"  return uint4(1, 2, 3, 4); \r\n"
 "};";
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
-  RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, 0, -10517 }, { 465, 13, -89, MAXUINT32 / 2 } };
+  RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT32 / 2 } };
   RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "ComputeRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStFloat)  {
-  RawBufferLdStTestData<float> data = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 0.0f, -105.17f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<float> data = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, -105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
   RunComputeRawBufferLdStTest<float>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "ComputeRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStI64)  {
-  RawBufferLdStTestData<int64_t> data = { { 1 }, { 2, -1 }, { 256, 0, -105171532 }, { 465, 13, -89, MAXUINT64 / 2 } };
+  RawBufferLdStTestData<int64_t> data = { { 1 }, { 2, -1 }, { 256, -105171532, 980 }, { 465, 13, -89, MAXUINT64 / 2 } };
   RunComputeRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStDouble)  {
-  RawBufferLdStTestData<double> data = { { 3e-10 }, { 1.5, -1.99988 }, { 256.0, 0.0, -105.17 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
+  RawBufferLdStTestData<double> data = { { 3e-10 }, { 1.5, -1.99988 }, { 256.0, -105.17, 980.0 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
   RunComputeRawBufferLdStTest<double>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "ComputeRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
-  RawBufferLdStTestData<int16_t> data = { { 1 }, { 2, -1 }, { 256, 0, -10517 }, { 465, 13, -89, MAXUINT16 / 2 } };
+  RawBufferLdStTestData<int16_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT16 / 2 } };
   RunComputeRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "ComputeRawBufferLdSt16Bit", data);
 }
 
 TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
-  RawBufferLdStTestData<float> floatData = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 0.0f, -105.17f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<float> floatData = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
   RawBufferLdStTestData<uint16_t> halfData;
   for (int i = 0; i < sizeof(floatData)/sizeof(float); i++) {
     ((uint16_t*)&halfData)[i] = ConvertFloat32ToFloat16(((float*)&floatData)[i]);
@@ -6032,27 +6054,37 @@ TEST_F(ExecutionTest,  ComputeRawBufferLdStHalf)  {
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI32)  {
-  RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "GraphicsRawBufferLdStI32");
+  RawBufferLdStTestData<int32_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT32 / 2 } };
+  RunGraphicsRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I32, "GraphicsRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStFloat)  {
-  RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "GraphicsRawBufferLdStFloat");
+  RawBufferLdStTestData<float> data = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, -105.17f, 980.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RunGraphicsRawBufferLdStTest<float>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Float, "GraphicsRawBufferLdSt32Bit", data);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStI64)  {
-  RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "GraphicsRawBufferLdStI64");
+  RawBufferLdStTestData<int64_t> data = { { 1 }, { 2, -1 }, { 256, -105171532, 980 }, { 465, 13, -89, MAXUINT64 / 2 } };
+  RunGraphicsRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::I64, "GraphicsRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest,  GraphicsRawBufferLdStDouble)  {
-  RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL_6_3, RawBufferLdStType::Double, "GraphicsRawBufferLdStDouble");
+  RawBufferLdStTestData<double> data = { { 3e-10 }, { 1.5, -1.99988 }, { 256.0, -105.17, 980.0 }, { 465.1652, -1.5694e2, -0.8543e-2, 1333.5 } };
+  RunGraphicsRawBufferLdStTest<double>(D3D_SHADER_MODEL_6_3, RawBufferLdStType::Double, "GraphicsRawBufferLdSt64Bit", data);
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
-  RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "GraphicsRawBufferLdStI16");
+  RawBufferLdStTestData<int16_t> data = { { 1 }, { 2, -1 }, { 256, -10517, 980 }, { 465, 13, -89, MAXUINT16 / 2 } };
+  RunGraphicsRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::I16, "GraphicsRawBufferLdSt16Bit", data);
 }
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
-  RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "GraphicsRawBufferLdStHalf");
+  RawBufferLdStTestData<float> floatData = { { 3e-10f }, { 1.5f, -1.99988f }, { 256.0f, 105.17f, 0.0f }, { 465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f } };
+  RawBufferLdStTestData<uint16_t> halfData;
+  for (int i = 0; i < sizeof(floatData) / sizeof(float); i++) {
+    ((uint16_t*)&halfData)[i] = ConvertFloat32ToFloat16(((float*)&floatData)[i]);
+  }
+  RunGraphicsRawBufferLdStTest<uint16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "GraphicsRawBufferLdSt16Bit", halfData);
 }
 
 template <class Ty>
@@ -6110,6 +6142,10 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
    CComPtr<IStream> pStream;
    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
+   // format shader source
+   char rawBufferTestShaderText[sizeof(RawBufferTestComputeShaderTemplate) + sizeof(RawBufferTestShaderDeclarations) + sizeof(RawBufferTestShaderBody)];
+   VERIFY_IS_TRUE(sprintf(rawBufferTestShaderText, RawBufferTestComputeShaderTemplate, RawBufferTestShaderDeclarations, RawBufferTestShaderBody) != -1);
+
    // format compiler args
    char compilerOptions[256];
    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
@@ -6120,7 +6156,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
      VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
                     (Name[9] >= '0' && Name[9] <= '3'));
      pShaderOp->Shaders.at(0).Arguments = compilerOptions;
-     pShaderOp->Shaders.at(0).Text = RawBufferTestComputeShader;
+     pShaderOp->Shaders.at(1).Text = rawBufferTestShaderText;
 
      VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
      RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
@@ -6176,9 +6212,136 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
    }
 }
 
+template <class Ty>
 void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
-  const char *shaderOpName) {
-  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+                                                 const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
+
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, shaderModel)) {
+    return;
+  }
+
+  char *sTy = nullptr;
+  char *additionalOptions = "";
+
+  switch (dataType) {
+  case RawBufferLdStType::I64:
+    if (!DoesDeviceSupportInt64(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+    sTy = "int64_t";
+    break;
+  case RawBufferLdStType::Double:
+    if (!DoesDeviceSupportDouble(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support double operations.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+    sTy = "double";
+    break;
+  case RawBufferLdStType::I16:
+  case RawBufferLdStType::Half:
+    if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+    additionalOptions = "-enable-16bit-types";
+    sTy = (dataType == RawBufferLdStType::I16 ? "int16_t" : "half");
+    break;
+  case RawBufferLdStType::I32:
+    sTy = "int32_t";
+    break;
+  case RawBufferLdStType::Float:
+    sTy = "float";
+    break;
+  default:
+    DXASSERT_NOMSG("Invalid RawBufferLdStType");
+  }
+
+  // read shader config
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  // format shader source
+  char rawBufferTestPixelShaderText[sizeof(RawBufferTestGraphicsPixelShaderTemplate) + sizeof(RawBufferTestShaderDeclarations) + sizeof(RawBufferTestShaderBody)];
+  VERIFY_IS_TRUE(sprintf(rawBufferTestPixelShaderText, RawBufferTestGraphicsPixelShaderTemplate, RawBufferTestShaderDeclarations, RawBufferTestShaderBody) != -1);
+
+  // format compiler args
+  char compilerOptions[256];
+  VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
+
+  // run the shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
+    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+    VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
+      (Name[9] >= '0' && Name[9] <= '3'));
+    // pixel shader is at index 1, vertex shader at index 0
+    pShaderOp->Shaders.at(1).Arguments = compilerOptions;
+    pShaderOp->Shaders.at(1).Text = rawBufferTestPixelShaderText;
+
+    VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
+    RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
+    memcpy(pInData, &testData, sizeof(RawBufferLdStTestData<Ty>));
+  });
+
+  // read buffers back & verify expected values
+  MappedData rtv;
+  test->Test->GetReadBackData("RTarget", &rtv);
+  float *pRtvData = (float *)rtv.data();
+  UNREFERENCED_PARAMETER(pRtvData);
+
+  static const int UavBufferCount = 4;
+  char bufferName[11] = "UAVBufferX";
+
+  for (unsigned i = 0; i < UavBufferCount; i++) {
+    MappedData dataUav;
+    RawBufferLdStUavData<Ty> *pOutData;
+
+    bufferName[sizeof(bufferName) - 2] = (char)(i + '0');
+
+    test->Test->GetReadBackData(bufferName, &dataUav);
+    VERIFY_ARE_EQUAL(sizeof(RawBufferLdStUavData<Ty>), dataUav.size());
+    pOutData = (RawBufferLdStUavData<Ty> *)dataUav.data();
+
+    LogCommentFmt(L"Verifying UAVBuffer%d Load -> UAVBuffer%d Store", i, i);
+    // scalar
+    VERIFY_ARE_EQUAL(pOutData->output.v1, testData.v1);
+    // vector 2
+    VERIFY_ARE_EQUAL(pOutData->output.v2[0], testData.v2[0]);
+    VERIFY_ARE_EQUAL(pOutData->output.v2[1], testData.v2[1]);
+    // vector 3
+    VERIFY_ARE_EQUAL(pOutData->output.v3[0], testData.v3[0]);
+    VERIFY_ARE_EQUAL(pOutData->output.v3[1], testData.v3[1]);
+    VERIFY_ARE_EQUAL(pOutData->output.v3[2], testData.v3[2]);
+    // vector 4
+    VERIFY_ARE_EQUAL(pOutData->output.v4[0], testData.v4[0]);
+    VERIFY_ARE_EQUAL(pOutData->output.v4[1], testData.v4[1]);
+    VERIFY_ARE_EQUAL(pOutData->output.v4[2], testData.v4[2]);
+    VERIFY_ARE_EQUAL(pOutData->output.v4[3], testData.v4[3]);
+
+    // verify SRV Store
+    LogCommentFmt(L"Verifying SRVBuffer%d Load -> UAVBuffer%d Store", i, i);
+    // scalar
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v1, testData.v1);
+    // vector 2
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v2[0], testData.v2[0]);
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v2[1], testData.v2[1]);
+    // vector 3
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v3[0], testData.v3[0]);
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v3[1], testData.v3[1]);
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v3[2], testData.v3[2]);
+    // vector 4
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v4[0], testData.v4[0]);
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v4[1], testData.v4[1]);
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v4[2], testData.v4[2]);
+    VERIFY_ARE_EQUAL(pOutData->srvOut.v4[3], testData.v4[3]);
+  }
 }
 
 #ifndef _HLK_CONF
