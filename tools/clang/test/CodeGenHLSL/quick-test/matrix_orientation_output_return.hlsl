@@ -1,4 +1,4 @@
-// RUN: %dxc /T vs_6_0 /E main %s | FileCheck %s | XFail GitHub #1790
+// RUN: %dxc /T vs_6_0 /E main %s | FileCheck %s
 
 // Test that outputting a matrix value through a return statement
 // correctly takes the return parameter orientation into account.
