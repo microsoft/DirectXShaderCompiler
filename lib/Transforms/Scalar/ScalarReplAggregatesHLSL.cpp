@@ -5360,7 +5360,7 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
 }
 
 struct AnnotatedValue {
-  Value *Value;
+  llvm::Value *Value;
   DxilFieldAnnotation Annotation;
 };
 
