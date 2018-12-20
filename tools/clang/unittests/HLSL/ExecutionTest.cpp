@@ -6156,7 +6156,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
      VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
                     (Name[9] >= '0' && Name[9] <= '3'));
      pShaderOp->Shaders.at(0).Arguments = compilerOptions;
-     pShaderOp->Shaders.at(1).Text = rawBufferTestShaderText;
+     pShaderOp->Shaders.at(0).Text = rawBufferTestShaderText;
 
      VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
      RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
