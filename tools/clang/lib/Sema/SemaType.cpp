@@ -4302,24 +4302,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   return S.GetTypeSourceInfoForDeclarator(D, T, TInfo);
 }
 
-// HLSL changes begin
-bool Sema::GetAttributedTypeWithMatrixPackingInfo(QualType& T, QualType *RetTy) {
-  bool isRowMajorAttributed;
-  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T, &isRowMajorAttributed)) {
-    if (PackMatrixColMajorPragmaOn || PackMatrixRowMajorPragmaOn) {
-      *RetTy = Context.getAttributedType(
-        PackMatrixRowMajorPragmaOn
-        ? AttributedType::attr_hlsl_row_major
-        : AttributedType::attr_hlsl_column_major,
-        T, T);
-      return true;
-    }
-  }
-
-  return false;
-}
-// HLSL changes end
-
 /// GetTypeForDeclarator - Convert the type for the specified
 /// declarator to Type instances.
 ///
@@ -4338,9 +4320,16 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
     inferARCWriteback(state, T);
 
   // HLSL changes begin
-  QualType NewT;
-  if (GetAttributedTypeWithMatrixPackingInfo(T, &NewT))
-    T = NewT;
+  // Unless we're rewriting, all matrices should have a packing orientation attribute.
+  // If there is no explicit one, inherit it from the current file-level default,
+  // which takes #pragma pack_matrix into account.
+  bool defaultRowMajor;
+  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T)
+    && D.getDeclSpec().TryGetDefaultMatrixPackRowMajor(defaultRowMajor)) {
+    AttributedType::Kind AttributeKind = defaultRowMajor
+      ? AttributedType::attr_hlsl_row_major : AttributedType::attr_hlsl_column_major;
+    T = Context.getAttributedType(AttributeKind, T, T);
+  }
   // HLSL changes end
 
   return GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
@@ -4538,11 +4527,9 @@ static void fillAttributedTypeLoc(AttributedTypeLoc TL,
 
   // HLSL changes begin
   // Don't fill the location info for matrix orientation attributes
-  if (!attrs && !DeclAttrs) {
-    if (TL.getAttrKind() == AttributedType::attr_hlsl_row_major ||
-        TL.getAttrKind() == AttributedType::attr_hlsl_column_major)
-      return;
-  }
+  if (TL.getAttrKind() == AttributedType::attr_hlsl_row_major ||
+      TL.getAttrKind() == AttributedType::attr_hlsl_column_major)
+    return;
   // HLSL changes end
 
   // DeclAttrs and attrs cannot be both empty.

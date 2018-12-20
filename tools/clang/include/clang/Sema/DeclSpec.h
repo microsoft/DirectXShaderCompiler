@@ -347,8 +347,14 @@ private:
   /*TSCS*/unsigned ThreadStorageClassSpec : 2;
   unsigned SCS_extern_in_linkage_spec : 1;
 
-  // default matrix orientation specifier
-  unsigned DefaultMatrixOrientationColumnMajor : 1; // HLSL change
+  // HLSL Change Start
+  // Whether the default matrix pack is defined at the point
+  // of the declaration. This is false when rewriting
+  // and no #pragma pack_matrix have been encountered yet.
+  unsigned HasDefaultMatrixPack : 1;
+  // Default matrix pack at the point of the declaration
+  unsigned DefaultMatrixPackRowMajor : 1;
+  // HLSL Change End
 
   // type-specifier
   /*TSW*/unsigned TypeSpecWidth : 2;
@@ -434,6 +440,8 @@ public:
     : StorageClassSpec(SCS_unspecified),
       ThreadStorageClassSpec(TSCS_unspecified),
       SCS_extern_in_linkage_spec(false),
+      HasDefaultMatrixPack(false), // HLSL Change
+      DefaultMatrixPackRowMajor(false), // HLSL Change
       TypeSpecWidth(TSW_unspecified),
       TypeSpecComplex(TSC_unspecified),
       TypeSpecSign(TSS_unspecified),
@@ -467,8 +475,15 @@ public:
   }
 
   // HLSL changes begin
-  void SetDefaultMatrixOrientation(bool Value) {
-    DefaultMatrixOrientationColumnMajor = Value;
+  bool TryGetDefaultMatrixPackRowMajor(bool& rowMajor) const {
+    if (!HasDefaultMatrixPack) return false;
+    rowMajor = DefaultMatrixPackRowMajor;
+    return true;
+  }
+
+  void SetDefaultMatrixPackRowMajor(bool Value) {
+    HasDefaultMatrixPack = true;
+    DefaultMatrixPackRowMajor = Value;
   }
   // HLSL changes end
 

@@ -266,13 +266,10 @@ void Sema::ActOnPragmaPack(PragmaPackKind Kind, IdentifierInfo *Name,
 }
 
 void Sema::ActOnPragmaPackMatrix(bool bRowMajor, SourceLocation PragmaLoc) {
-  if (bRowMajor) {
-    PackMatrixRowMajorPragmaOn = true;
-    PackMatrixColMajorPragmaOn = false;
-  } else {
-    PackMatrixRowMajorPragmaOn = false;
-    PackMatrixColMajorPragmaOn = true;
-  }
+  // Once we've encountered one #pragma pack_matrix, we have a well-defined
+  // default orientation for the rest of the program, even if we're rewriting.
+  HasDefaultMatrixPack = true;
+  DefaultMatrixPackRowMajor = bRowMajor;
 }
 
 void Sema::ActOnPragmaMSStruct(PragmaMSStructKind Kind) { 

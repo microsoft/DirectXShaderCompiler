@@ -333,10 +333,13 @@ public:
   LangOptions::PragmaMSPointersToMembersKind
       MSPointerToMemberRepresentationMethod;
 
-  // HLSL Change Begin - pragma pack_matrix.
-  // Add both row/col to identify the default case which no pragma.
-  bool PackMatrixRowMajorPragmaOn = false; // True when \#pragma pack_matrix(row_major) on.
-  bool PackMatrixColMajorPragmaOn = false; // True when \#pragma pack_matrix(column_major) on.
+  // HLSL Change Begin
+  // The HLSL rewriter doesn't define a default matrix pack,
+  // so we must preserve the lack of annotations to avoid changing semantics.
+  bool HasDefaultMatrixPack = false;
+  // The /Zpr or /Zpc (default) provide an initial value for this,
+  // and subsequent #pragma pack_matrix can change it.
+  bool DefaultMatrixPackRowMajor = false;
   // HLSL Change End.
 
   enum PragmaVtorDispKind {
@@ -1361,7 +1364,6 @@ public:
   };
 
 private:
-  bool GetAttributedTypeWithMatrixPackingInfo(QualType& T, QualType *RetTy); // HLSL change
   bool RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
                            TypeDiagnoser &Diagnoser);
 
