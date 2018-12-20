@@ -3478,6 +3478,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       if (DS.hasTypeSpecifier() && DS.hasTagDefinition())
         goto DoneWithDeclSpec;
 
+      // HLSL Change Starts
+      // Remember the current state of the default matrix orientation,
+      // since it can change between any two tokens with #pragma pack_matrix
+      if (Parser::Actions.HasDefaultMatrixPack)
+        DS.SetDefaultMatrixPackRowMajor(Parser::Actions.DefaultMatrixPackRowMajor);
+      // HLSL Change Ends
+
       if (Tok.getAnnotationValue()) {
         ParsedType T = getTypeAnnotation(Tok);
         isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
@@ -3589,7 +3596,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           isConstructorDeclarator(/*Unqualified*/true))
         goto DoneWithDeclSpec;
 
-      // HLSL Change start
+      // HLSL Change Starts
       // Modify TypeRep for unsigned vectors/matrix
       QualType qt = TypeRep.get();
       QualType newType = ApplyTypeSpecSignToParsedType(&Actions, qt, DS.getTypeSpecSign(), Loc);
@@ -3600,7 +3607,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       // since it can change between any two tokens with #pragma pack_matrix
       if (Parser::Actions.HasDefaultMatrixPack)
         DS.SetDefaultMatrixPackRowMajor(Parser::Actions.DefaultMatrixPackRowMajor);
-      // HLSL Change end
+      // HLSL Change Ends
 
       if (isInvalid)
         break;
