@@ -6,7 +6,19 @@ if (WIN32)
 endif (WIN32)
 
 add_llvm_library(LLVMDxilDia
-  dxcdia.cpp
+  DxilDia.cpp
+  DxilDiaDataSource.cpp
+  DxilDiaEnumTables.cpp
+  DxilDiaSession.cpp
+  DxilDiaTable.cpp
+  DxilDiaTableFrameData.cpp
+  DxilDiaTableInjectedSources.cpp
+  DxilDiaTableInputAssemblyFile.cpp
+  DxilDiaTableLineNumbers.cpp
+  DxilDiaTableSections.cpp
+  DxilDiaTableSegmentMap.cpp
+  DxilDiaTableSourceFiles.cpp
+  DxilDiaTableSymbols.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
