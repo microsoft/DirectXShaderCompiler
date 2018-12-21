@@ -60,6 +60,7 @@ public:
   TEST_METHOD(RunIndexingOperator);
   TEST_METHOD(RunIntrinsicExamples);
   TEST_METHOD(RunMatrixAssignments);
+  TEST_METHOD(RunMatrixPackOrientation);
   TEST_METHOD(RunMatrixSyntax);
   TEST_METHOD(RunPackReg);
   TEST_METHOD(RunScalarAssignments);
@@ -330,6 +331,10 @@ TEST_F(RewriterTest, RunIntrinsicExamples) {
 
 TEST_F(RewriterTest, RunMatrixAssignments) {
     CheckVerifiesHLSL(L"rewriter\\matrix-assignments_noerr.hlsl", L"rewriter\\correct_rewrites\\matrix-assignments_gold.hlsl");
+}
+
+TEST_F(RewriterTest, RunMatrixPackOrientation) {
+  CheckVerifiesHLSL(L"rewriter\\matrix-pack-orientation.hlsl", L"rewriter\\correct_rewrites\\matrix-pack-orientation_gold.hlsl");
 }
 
 TEST_F(RewriterTest, RunMatrixSyntax) {
