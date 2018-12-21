@@ -533,7 +533,13 @@ public:
   template <class Ty>
   void RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
                             const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData);
-    
+
+  template <class Ty>
+  void VerifyRawBufferLdStTestResults(const std::shared_ptr<st::ShaderOpTest> test, const RawBufferLdStTestData<Ty> &testData);
+                                      
+  bool SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType, CComPtr<ID3D12Device> &pDevice, 
+                              CComPtr<IStream> &pStream, char *&sTy, char *&additionalOptions);
+
   template <class Ty>
   void RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice, const char *pShaderModelStr, const char *pShader, Ty *pInputDataPairs, unsigned inputDataCount);
   
@@ -6087,152 +6093,21 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
   RunGraphicsRawBufferLdStTest<uint16_t>(D3D_SHADER_MODEL_6_2, RawBufferLdStType::Half, "GraphicsRawBufferLdSt16Bit", halfData);
 }
 
-template <class Ty>
-void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType, 
-                                                const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
-   WEX::TestExecution::SetVerifyOutput verifySettings(
-   WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-   CComPtr<ID3D12Device> pDevice;
-   if (!CreateDevice(&pDevice, shaderModel)) {
-     return;
-   }
-
-   char *sTy = nullptr;
-   char *additionalOptions = "";
-
-   switch (dataType) {
-   case RawBufferLdStType::I64:
-     if (!DoesDeviceSupportInt64(pDevice)) {
-       WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
-       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-       return;
-     }
-     sTy = "int64_t";
-     break;
-   case RawBufferLdStType::Double:
-     if (!DoesDeviceSupportDouble(pDevice)) {
-       WEX::Logging::Log::Comment(L"Device does not support double operations.");
-       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-       return;
-     }
-     sTy = "double";
-     break;
-   case RawBufferLdStType::I16:
-   case RawBufferLdStType::Half:
-     if (!DoesDeviceSupportNative16bitOps(pDevice)) {
-       WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
-       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-       return;
-     }
-     additionalOptions = "-enable-16bit-types";
-     sTy = (dataType == RawBufferLdStType::I16 ? "int16_t" : "half");
-     break;
-   case RawBufferLdStType::I32:
-     sTy = "int32_t";
-     break;
-   case RawBufferLdStType::Float:
-     sTy = "float";
-     break;
-   default:
-     DXASSERT_NOMSG("Invalid RawBufferLdStType");
-   }
-
-   // read shader config
-   CComPtr<IStream> pStream;
-   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-
-   // format shader source
-   char rawBufferTestShaderText[sizeof(RawBufferTestComputeShaderTemplate) + sizeof(RawBufferTestShaderDeclarations) + sizeof(RawBufferTestShaderBody)];
-   VERIFY_IS_TRUE(sprintf(rawBufferTestShaderText, RawBufferTestComputeShaderTemplate, RawBufferTestShaderDeclarations, RawBufferTestShaderBody) != -1);
-
-   // format compiler args
-   char compilerOptions[256];
-   VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
-
-   // run the shader
-   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
-     [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-     VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
-                    (Name[9] >= '0' && Name[9] <= '3'));
-     pShaderOp->Shaders.at(0).Arguments = compilerOptions;
-     pShaderOp->Shaders.at(0).Text = rawBufferTestShaderText;
-
-     VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
-     RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
-     memcpy(pInData, &testData, sizeof(RawBufferLdStTestData<Ty>));
-   });
-
-   // read buffers back & verify expected values
-   static const int UavBufferCount = 4;
-   char bufferName[11] = "UAVBufferX";
-
-   for (unsigned i = 0; i < UavBufferCount; i++) {
-     MappedData dataUav;
-     RawBufferLdStUavData<Ty> *pOutData;
-
-     bufferName[sizeof(bufferName) - 2] = (char)(i + '0');
-     
-     test->Test->GetReadBackData(bufferName, &dataUav);
-     VERIFY_ARE_EQUAL(sizeof(RawBufferLdStUavData<Ty>), dataUav.size());
-     pOutData = (RawBufferLdStUavData<Ty> *)dataUav.data();
-     
-     LogCommentFmt(L"Verifying UAVBuffer%d Load -> UAVBuffer%d Store", i, i);
-     // scalarRunComputeRawBufferLdStTest
-     VERIFY_ARE_EQUAL(pOutData->output.v1,    testData.v1);
-     // vector 2
-     VERIFY_ARE_EQUAL(pOutData->output.v2[0], testData.v2[0]);
-     VERIFY_ARE_EQUAL(pOutData->output.v2[1], testData.v2[1]);
-     // vector 3
-     VERIFY_ARE_EQUAL(pOutData->output.v3[0], testData.v3[0]);
-     VERIFY_ARE_EQUAL(pOutData->output.v3[1], testData.v3[1]);
-     VERIFY_ARE_EQUAL(pOutData->output.v3[2], testData.v3[2]);
-     // vector 4
-     VERIFY_ARE_EQUAL(pOutData->output.v4[0], testData.v4[0]);
-     VERIFY_ARE_EQUAL(pOutData->output.v4[1], testData.v4[1]);
-     VERIFY_ARE_EQUAL(pOutData->output.v4[2], testData.v4[2]);
-     VERIFY_ARE_EQUAL(pOutData->output.v4[3], testData.v4[3]);
-
-     // verify SRV Store
-     LogCommentFmt(L"Verifying SRVBuffer%d Load -> UAVBuffer%d Store", i, i);
-     // scalar
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v1,    testData.v1);
-     // vector 2
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v2[0], testData.v2[0]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v2[1], testData.v2[1]);
-     // vector 3
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[0], testData.v3[0]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[1], testData.v3[1]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v3[2], testData.v3[2]);
-     // vector 4
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[0], testData.v4[0]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[1], testData.v4[1]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[2], testData.v4[2]);
-     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[3], testData.v4[3]);
-   }
-}
-
-template <class Ty>
-void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
-                                                 const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
-
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  CComPtr<ID3D12Device> pDevice;
+bool ExecutionTest::SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
+                                           CComPtr<ID3D12Device> &pDevice, CComPtr<IStream> &pStream, 
+                                           char *&sTy, char *&additionalOptions) {
   if (!CreateDevice(&pDevice, shaderModel)) {
-    return;
+    return false;
   }
 
-  char *sTy = nullptr;
-  char *additionalOptions = "";
+  additionalOptions = "";
 
   switch (dataType) {
   case RawBufferLdStType::I64:
     if (!DoesDeviceSupportInt64(pDevice)) {
       WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return;
+      return false;
     }
     sTy = "int64_t";
     break;
@@ -6240,7 +6115,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
     if (!DoesDeviceSupportDouble(pDevice)) {
       WEX::Logging::Log::Comment(L"Device does not support double operations.");
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return;
+      return false;
     }
     sTy = "double";
     break;
@@ -6249,7 +6124,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
     if (!DoesDeviceSupportNative16bitOps(pDevice)) {
       WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return;
+      return false;
     }
     additionalOptions = "-enable-16bit-types";
     sTy = (dataType == RawBufferLdStType::I16 ? "int16_t" : "half");
@@ -6265,37 +6140,14 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
   }
 
   // read shader config
-  CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  // format shader source
-  char rawBufferTestPixelShaderText[sizeof(RawBufferTestGraphicsPixelShaderTemplate) + sizeof(RawBufferTestShaderDeclarations) + sizeof(RawBufferTestShaderBody)];
-  VERIFY_IS_TRUE(sprintf(rawBufferTestPixelShaderText, RawBufferTestGraphicsPixelShaderTemplate, RawBufferTestShaderDeclarations, RawBufferTestShaderBody) != -1);
+  return true;
+}
 
-  // format compiler args
-  char compilerOptions[256];
-  VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
-
-  // run the shader
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
-    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-    VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
-      (Name[9] >= '0' && Name[9] <= '3'));
-    // pixel shader is at index 1, vertex shader at index 0
-    pShaderOp->Shaders.at(1).Arguments = compilerOptions;
-    pShaderOp->Shaders.at(1).Text = rawBufferTestPixelShaderText;
-
-    VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
-    RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
-    memcpy(pInData, &testData, sizeof(RawBufferLdStTestData<Ty>));
-  });
-
+template <class Ty>
+void ExecutionTest::VerifyRawBufferLdStTestResults(const std::shared_ptr<st::ShaderOpTest> test, const RawBufferLdStTestData<Ty> &testData) {
   // read buffers back & verify expected values
-  MappedData rtv;
-  test->Test->GetReadBackData("RTarget", &rtv);
-  float *pRtvData = (float *)rtv.data();
-  UNREFERENCED_PARAMETER(pRtvData);
-
   static const int UavBufferCount = 4;
   char bufferName[11] = "UAVBufferX";
 
@@ -6305,7 +6157,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
 
     bufferName[sizeof(bufferName) - 2] = (char)(i + '0');
 
-    test->Test->GetReadBackData(bufferName, &dataUav);
+    test->GetReadBackData(bufferName, &dataUav);
     VERIFY_ARE_EQUAL(sizeof(RawBufferLdStUavData<Ty>), dataUav.size());
     pOutData = (RawBufferLdStUavData<Ty> *)dataUav.data();
 
@@ -6342,6 +6194,86 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[2], testData.v4[2]);
     VERIFY_ARE_EQUAL(pOutData->srvOut.v4[3], testData.v4[3]);
   }
+}
+
+template <class Ty>
+void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType, 
+                                                const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
+   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+   CComPtr<ID3D12Device> pDevice;
+   CComPtr<IStream> pStream;
+   char *sTy, *additionalOptions;
+
+   if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
+     return;
+   }
+
+   // format shader source
+   char rawBufferTestShaderText[sizeof(RawBufferTestComputeShaderTemplate) + sizeof(RawBufferTestShaderDeclarations) + sizeof(RawBufferTestShaderBody)];
+   VERIFY_IS_TRUE(sprintf_s(rawBufferTestShaderText, sizeof(rawBufferTestShaderText), 
+                            RawBufferTestComputeShaderTemplate, RawBufferTestShaderDeclarations, RawBufferTestShaderBody) != -1);
+
+   // format compiler args
+   char compilerOptions[256];
+   VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
+
+   // run the shader
+   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
+     [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+     VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
+                    (Name[9] >= '0' && Name[9] <= '3'));
+     pShaderOp->Shaders.at(0).Arguments = compilerOptions;
+     pShaderOp->Shaders.at(0).Text = rawBufferTestShaderText;
+
+     VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
+     RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
+     memcpy(pInData, &testData, sizeof(RawBufferLdStTestData<Ty>));
+   });
+
+   // verify expected values
+   VerifyRawBufferLdStTestResults<Ty>(test->Test, testData);
+}
+
+template <class Ty>
+void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
+                                                 const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
+
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+  CComPtr<IStream> pStream;
+  char *sTy, *additionalOptions;
+
+  if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
+    return;
+  }
+
+  // format shader source
+  char rawBufferTestPixelShaderText[sizeof(RawBufferTestGraphicsPixelShaderTemplate) + sizeof(RawBufferTestShaderDeclarations) + sizeof(RawBufferTestShaderBody)];
+  VERIFY_IS_TRUE(sprintf_s(rawBufferTestPixelShaderText, sizeof(rawBufferTestPixelShaderText),
+                           RawBufferTestGraphicsPixelShaderTemplate, RawBufferTestShaderDeclarations, RawBufferTestShaderBody) != -1);
+
+  // format compiler args
+  char compilerOptions[256];
+  VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D COMPONENT_TYPE=%s -D COMPONENT_SIZE=%d %s", sTy, (int)sizeof(Ty), additionalOptions) != -1);
+
+  // run the shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, shaderOpName,
+    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+    VERIFY_IS_TRUE(((0 == strncmp(Name, "SRVBuffer", 9)) || (0 == strncmp(Name, "UAVBuffer", 9))) &&
+      (Name[9] >= '0' && Name[9] <= '3'));
+    // pixel shader is at index 1, vertex shader at index 0
+    pShaderOp->Shaders.at(1).Arguments = compilerOptions;
+    pShaderOp->Shaders.at(1).Text = rawBufferTestPixelShaderText;
+
+    VERIFY_IS_TRUE(sizeof(RawBufferLdStTestData<Ty>) <= Data.size());
+    RawBufferLdStTestData<Ty> *pInData = (RawBufferLdStTestData<Ty>*)Data.data();
+    memcpy(pInData, &testData, sizeof(RawBufferLdStTestData<Ty>));
+  });
+
+  // verify expected values
+  VerifyRawBufferLdStTestResults<Ty>(test->Test, testData);
 }
 
 #ifndef _HLK_CONF
