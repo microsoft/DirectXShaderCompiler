@@ -7,8 +7,15 @@
 typedef
 #pragma pack_matrix(row_major)
 int2x2
+// With FXC, we could place the #pragma pack_matrix(column_major) here
+// and still get the type be row_major. This not easy to replicate
+// in DXC because the parser looks ahead one token to see if the
+// type is followed by '::', which causes the execution of a #pragma
+// following the 'int2x2' one token early, but it is highly unlikely that this
+// would be a backwards compatibility issue.
+i22
 #pragma pack_matrix(column_major)
-i22;
+;
 
 void main(out i22 mat : OUT)
 {
