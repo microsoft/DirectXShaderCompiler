@@ -35,8 +35,6 @@ private:
   llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2> m_intrinsicTables;
   CComPtr<IDxcSemanticDefineValidator> m_semanticDefineValidator;
   std::string m_semanticDefineMetaDataName;
-  bool m_hasInitialDefaultMatrixPack = false;
-  bool m_initialDefaultMatrixPackRowMajor = false;
 
   HRESULT STDMETHODCALLTYPE RegisterIntoVector(LPCWSTR name, llvm::SmallVector<std::string, 2>& here)
   {
@@ -58,11 +56,6 @@ public:
   const llvm::SmallVector<std::string, 2>& GetDefines() const { return m_defines; }
   llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2>& GetIntrinsicTables(){ return m_intrinsicTables; }
   const std::string &GetSemanticDefineMetadataName() { return m_semanticDefineMetaDataName; }
-
-  void SetInitialDefaultMatrixPackRowMajor(bool value) {
-    m_hasInitialDefaultMatrixPack = true;
-    m_initialDefaultMatrixPackRowMajor = value;
-  }
 
   HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name)
   {
@@ -206,11 +199,6 @@ public:
       for (auto &&table : m_intrinsicTables) {
         hlsl::RegisterIntrinsicTable(externalSema, table);
       }
-    }
-
-    if (m_hasInitialDefaultMatrixPack) {
-      S.HasDefaultMatrixPack = true;
-      S.DefaultMatrixPackRowMajor = m_initialDefaultMatrixPackRowMajor;
     }
   }
 

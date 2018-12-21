@@ -4320,9 +4320,13 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
     inferARCWriteback(state, T);
 
   // HLSL changes begin
-  // Unless we're rewriting, all matrices should have a packing orientation attribute.
-  // If there is no explicit one, inherit it from the current file-level default,
-  // which takes #pragma pack_matrix into account.
+  // If there is no explicit pack orientation on matrix types, but there is file-level
+  // default orientation set by #pragma pack_matrix, apply it here.
+  // There is no default if rewriting (in the absence of #pragma pack_matrix), since
+  // it is agnostic to default orientation and we want to preserve the lack of annotation.
+  // For codegen, it'd be nice to annotate everything here, but it causes error
+  // messages to have pack orientation added to types, so we handle it through
+  // the codegen option's default packing orientation flag.
   bool defaultRowMajor;
   if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T)
     && D.getDeclSpec().TryGetDefaultMatrixPackRowMajor(defaultRowMajor)) {

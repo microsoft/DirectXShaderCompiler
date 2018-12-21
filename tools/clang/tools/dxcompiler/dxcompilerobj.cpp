@@ -932,9 +932,6 @@ public:
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
 
-    // Setup the DxcLangExtensionsHelper so it can properly initialize the Sema
-    helper->SetInitialDefaultMatrixPackRowMajor(Opts.DefaultRowMajor);
-
     // Translate signature packing options
     if (Opts.PackPrefixStable)
       compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::PrefixStable;

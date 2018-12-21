@@ -337,8 +337,7 @@ public:
   // The HLSL rewriter doesn't define a default matrix pack,
   // so we must preserve the lack of annotations to avoid changing semantics.
   bool HasDefaultMatrixPack = false;
-  // The /Zpr or /Zpc (default) provide an initial value for this,
-  // and subsequent #pragma pack_matrix can change it.
+  // Uses of #pragma pack_matrix change the default pack.
   bool DefaultMatrixPackRowMajor = false;
   // HLSL Change End.
 
