@@ -1,4 +1,4 @@
-// RUN: %dxc /T vs_6_0 /E main /Zpr %s | FileCheck %s | XFail GitHub #1788
+// RUN: %dxc /T vs_6_0 /E main /Zpr %s | FileCheck %s
 
 // Test effective matrix orientations with every combination
 // of default and explicit matrix orientations.
