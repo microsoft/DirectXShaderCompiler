@@ -5985,7 +5985,7 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
 Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
                                Value *handle, hlsl::OP *OP, Value *status,
                                Value *bufIdx, Value *baseOffset,
-                               bool colMajor, const DataLayout &DL) {
+                               const DataLayout &DL) {
   unsigned col, row;
   HLMatrixLower::GetMatrixInfo(matType, col, row);
   Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/true)->getVectorElementType();
@@ -6027,7 +6027,7 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
 
 void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
                              hlsl::OP *OP, Value *bufIdx, Value *baseOffset,
-                             Value *val, bool colMajor, const DataLayout &DL) {
+                             Value *val, const DataLayout &DL) {
   unsigned col, row;
   HLMatrixLower::GetMatrixInfo(matType, col, row);
   Type *EltTy = HLMatrixLower::LowerMatrixType(matType, /*forMem*/true)->getVectorElementType();
@@ -6048,18 +6048,8 @@ void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
     storeSize = matSize + 4 - (matSize & 3);
   }
   std::vector<Value *> elts(storeSize, undefElt);
-
-  if (colMajor) {
-    for (unsigned i = 0; i < matSize; i++)
-      elts[i] = Builder.CreateExtractElement(val, i);
-  } else {
-    for (unsigned r = 0; r < row; r++)
-      for (unsigned c = 0; c < col; c++) {
-        unsigned rowMajorIdx = r * col + c;
-        unsigned colMajorIdx = c * row + r;
-        elts[rowMajorIdx] = Builder.CreateExtractElement(val, colMajorIdx);
-      }
-  }
+  for (unsigned i = 0; i < matSize; i++)
+    elts[i] = Builder.CreateExtractElement(val, i);
 
   for (unsigned i = 0; i < matSize; i += 4) {
     uint8_t mask = 0;
@@ -6084,34 +6074,25 @@ void TranslateStructBufMatLdSt(CallInst *CI, Value *handle, hlsl::OP *OP,
   DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLMatLoadStore,
                     "only translate matrix loadStore here.");
   HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
+  // Due to the current way the initial codegen generates matrix
+  // orientation casts, the in-register vector matrix has already been
+  // reordered based on the destination's row or column-major packing orientation.
   switch (matOp) {
+  case HLMatLoadStoreOpcode::RowMatLoad:
   case HLMatLoadStoreOpcode::ColMatLoad: {
     Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
     Value *NewLd = TranslateStructBufMatLd(
         ptr->getType()->getPointerElementType(), Builder, handle, OP, status,
-        bufIdx, baseOffset, /*colMajor*/ true, DL);
+        bufIdx, baseOffset, DL);
     CI->replaceAllUsesWith(NewLd);
   } break;
-  case HLMatLoadStoreOpcode::RowMatLoad: {
-    Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
-    Value *NewLd = TranslateStructBufMatLd(
-        ptr->getType()->getPointerElementType(), Builder, handle, OP, status,
-        bufIdx, baseOffset, /*colMajor*/ false, DL);
-    CI->replaceAllUsesWith(NewLd);
-  } break;
+  case HLMatLoadStoreOpcode::RowMatStore:
   case HLMatLoadStoreOpcode::ColMatStore: {
     Value *ptr = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx);
     Value *val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
     TranslateStructBufMatSt(ptr->getType()->getPointerElementType(), Builder,
                             handle, OP, bufIdx, baseOffset, val,
-                            /*colMajor*/ true, DL);
-  } break;
-  case HLMatLoadStoreOpcode::RowMatStore: {
-    Value *ptr = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx);
-    Value *val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-    TranslateStructBufMatSt(ptr->getType()->getPointerElementType(), Builder,
-                            handle, OP, bufIdx, baseOffset, val,
-                            /*colMajor*/ false, DL);
+                            DL);
   } break;
   }
 
