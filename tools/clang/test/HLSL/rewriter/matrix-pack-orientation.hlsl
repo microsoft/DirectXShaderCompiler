@@ -1,6 +1,6 @@
 // Test that the semantics of matrix pack orientations are preserved through rewriting.
 
-void default_noPragma(int1x1 m);
+void default_noPragma(int1x1 m); // The lack of pack orientation annotation should be preserved
 void rowMajorAttribute_noPragma(row_major int1x1 m);
 void columnMajorAttribute_noPragma(column_major int1x1 m);
 
