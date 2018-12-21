@@ -1,4 +1,4 @@
-// RUN: %dxc /T vs_6_0 /E main > %s | FileCheck %s | XFail GitHub #1781
+// RUN: %dxc /T vs_6_0 /E main > %s | FileCheck %s
 
 // Regression test for a bug where the transpose isn't performed,
 // or is performed twice, when wrapped in its own function.
