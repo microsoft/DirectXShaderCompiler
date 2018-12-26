@@ -302,6 +302,7 @@ public:
   TEST_METHOD(CodeGenCalcLod2DArray)
   TEST_METHOD(CodeGenCall1)
   TEST_METHOD(CodeGenCall3)
+  TEST_METHOD(CodeGenCastBetweenTypeShapes)
   TEST_METHOD(CodeGenCast1)
   TEST_METHOD(CodeGenCast2)
   TEST_METHOD(CodeGenCast3)
@@ -3145,6 +3146,10 @@ TEST_F(CompilerTest, CodeGenCall1) {
 
 TEST_F(CompilerTest, CodeGenCall3) {
   CodeGenTest(L"..\\CodeGenHLSL\\call3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCastBetweenTypeShapes) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\cast_between_type_shapes");
 }
 
 TEST_F(CompilerTest, CodeGenCast1) {
