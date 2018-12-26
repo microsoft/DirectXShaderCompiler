@@ -825,6 +825,7 @@ public:
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
+    compiler.getDiagnostics().getDiagnosticOptions().setFormat(TextDiagnosticFormat::MSVC);
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
