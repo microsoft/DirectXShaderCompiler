@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
-// CHECK: :32:9: error: HS entry point must have the patchconstantfunc attribute
+// CHECK: error: HS entry point must have the patchconstantfunc attribute
 
 #define NumOutPoints 2
 

@@ -819,7 +819,7 @@ void TextDiagnostic::emitDiagnosticLoc(SourceLocation Loc, PresumedLoc PLoc,
   switch (DiagOpts->getFormat()) {
   case DiagnosticOptions::Clang:
   case DiagnosticOptions::Vi:    OS << ':';    break;
-  case DiagnosticOptions::MSVC:  OS << ") : "; break;
+  case DiagnosticOptions::MSVC:  OS << ") :"; break;
   }
 
   if (DiagOpts->ShowSourceRanges && !Ranges.empty()) {

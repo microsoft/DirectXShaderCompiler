@@ -510,7 +510,7 @@ TEST_F(ExtensionTest, DefineValidationError) {
   // Check that the error message is for the validation failure.
   VERIFY_IS_TRUE(
     errors.npos !=
-    errors.find("hlsl.hlsl:1:9: error: bad define: FOO"));
+    errors.find("hlsl.hlsl(1,9) : error: bad define: FOO"));
 }
 
 TEST_F(ExtensionTest, DefineValidationWarning) {
@@ -529,7 +529,7 @@ TEST_F(ExtensionTest, DefineValidationWarning) {
   // Check that the error message is for the validation failure.
   VERIFY_IS_TRUE(
     errors.npos !=
-    errors.find("hlsl.hlsl:1:9: warning: bad define: FOO"));
+    errors.find("hlsl.hlsl(1,9) : warning: bad define: FOO"));
 
   // Check the define is still emitted.
   std::string disassembly = c.Disassemble();

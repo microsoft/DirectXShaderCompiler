@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
-// CHECK: 18:11: error: stream-output object must be an inout parameter
+// CHECK: error: stream-output object must be an inout parameter
 
 struct GsOut {
     float4 pos : SV_Position;
