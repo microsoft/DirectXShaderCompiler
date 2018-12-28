@@ -1609,17 +1609,21 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matVal, Value *vecVal,
     // Subscript.
     // Return a row.
     // Use insertElement and extractElement.
-    ArrayType *AT = ArrayType::get(EltTy, col*row);
 
-    IRBuilder<> AllocaBuilder(
-        matSubInst->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-    Value *tempArray = AllocaBuilder.CreateAlloca(AT);
-    Value *zero = AllocaBuilder.getInt32(0);
     bool isDynamicIndexing = !isa<ConstantInt>(mask);
     SmallVector<Value *, 4> idxList;
     for (unsigned i = 0; i < col; i++) {
       idxList.emplace_back(
           matSubInst->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx + i));
+    }
+
+    // For dynamic indexing, use an intermediate array
+    Value *tempArray = nullptr;
+    if (isDynamicIndexing) {
+      ArrayType *AT = ArrayType::get(EltTy, col*row);
+      IRBuilder<> AllocaBuilder(
+        matSubInst->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
+      tempArray = AllocaBuilder.CreateAlloca(AT);
     }
 
     for (Value::use_iterator CallUI = matSubInst->use_begin(),
@@ -1628,15 +1632,15 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matVal, Value *vecVal,
       Use &CallUse = *CallUI++;
       Instruction *CallUser = cast<Instruction>(CallUse.getUser());
       IRBuilder<> Builder(CallUser);
+      Value* zero = Builder.getInt32(0);
       Value *vecLd = Builder.CreateLoad(vecVal);
       if (LoadInst *ld = dyn_cast<LoadInst>(CallUser)) {
         Value *sub = UndefValue::get(ld->getType());
         if (!isDynamicIndexing) {
-          for (unsigned i = 0; i < col; i++) {
-            Value *matIdx = idxList[i];
-            Value *valElt = Builder.CreateExtractElement(vecLd, matIdx);
-            sub = Builder.CreateInsertElement(sub, valElt, i);
-          }
+          SmallVector<Constant *, 4> constIdxList;
+          for (unsigned i = 0; i < col; i++)
+            constIdxList.emplace_back(cast<Constant>(idxList[i]));
+          sub = Builder.CreateShuffleVector(vecLd, vecLd, ConstantVector::get(constIdxList));
         } else {
           // Copy vec to array.
           for (unsigned int i = 0; i < row*col; i++) {

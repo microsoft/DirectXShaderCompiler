@@ -955,6 +955,7 @@ public:
   TEST_METHOD(Unroll)
   TEST_METHOD(QuickTest)
   TEST_METHOD(QuickLlTest)
+  TEST_METHOD(MatrixLowerTestSuite)
   BEGIN_TEST_METHOD(SingleFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
@@ -6037,6 +6038,10 @@ TEST_F(CompilerTest, QuickTest) {
 
 TEST_F(CompilerTest, QuickLlTest) {
 	CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\quick-ll-test");
+}
+
+TEST_F(CompilerTest, MatrixLowerTestSuite) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\hlmatrixlower");
 }
 
 #ifdef _WIN32
