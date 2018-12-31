@@ -98,6 +98,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilLegalizeResourcesPass(Registry);
     initializeDxilLegalizeSampleOffsetPassPass(Registry);
     initializeDxilLoadMetadataPass(Registry);
+    initializeDxilLoopUnrollPass(Registry);
     initializeDxilLowerCreateHandleForLibPass(Registry);
     initializeDxilPrecisePropagatePassPass(Registry);
     initializeDxilPreserveAllOutputsPass(Registry);
@@ -157,7 +158,6 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeSROA_Parameter_HLSLPass(Registry);
     initializeSROA_SSAUpPass(Registry);
     initializeSROA_SSAUp_HLSLPass(Registry);
-    initializeDxilLoopUnrollPass(Registry);
     initializeSampleProfileLoaderPass(Registry);
     initializeScalarizerPass(Registry);
     initializeScopedNoAliasAAPass(Registry);
