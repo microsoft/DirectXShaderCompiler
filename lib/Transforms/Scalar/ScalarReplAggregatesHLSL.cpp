@@ -3242,9 +3242,15 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         Function *flatF =
             GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
         IRBuilder<> Builder(CI);
-        // Append return void, don't need to replace CI with flatCI.
         Builder.CreateCall(flatF, flatArgs);
 
+        // Append returns void, so it's not used by other instructions
+        // and we don't need to replace it with flatCI.
+        // However, we don't want to visit the same append again
+        // when SROA'ing other arguments, as that would be O(n^2)
+        // and we would attempt double-deleting the original call.
+        for (auto& opit : CI->operands())
+          opit.set(UndefValue::get(opit->getType()));
         DeadInsts.push_back(CI);
       } break;
       case IntrinsicOp::IOP_TraceRay: {
