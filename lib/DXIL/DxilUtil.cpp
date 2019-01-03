@@ -192,9 +192,8 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
   llvm::LLVMContext &Ctx,
   std::string &DiagStr) {
   // Note: the DiagStr is not used.
-  ErrorOr<std::unique_ptr<llvm::Module>> pModule(
-    llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx));
-  if (std::error_code ec = pModule.getError()) {
+  auto pModule = llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx);
+  if (!pModule) {
     return nullptr;
   }
   return std::unique_ptr<llvm::Module>(pModule.get().release());
