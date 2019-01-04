@@ -76,6 +76,9 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     HitGroup.ClosestHit = other.HitGroup.ClosestHit;
     HitGroup.Intersection = other.HitGroup.Intersection;
     break;
+  default:
+    DXASSERT(0, "invalid kind");
+    break;
   }
 }
 
