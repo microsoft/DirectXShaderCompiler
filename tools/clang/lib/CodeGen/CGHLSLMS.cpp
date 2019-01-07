@@ -4239,7 +4239,7 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
     // Handled in DXIL constant folding
     if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
       return nullptr;
-	return EvalBinaryIntrinsic(CI, minF, minD);
+    return EvalBinaryIntrinsic(CI, minF, minD);
   } break;
   case IntrinsicOp::IOP_rcp: {
     auto rcpF = [](float v) -> float { return 1.0 / v; };
