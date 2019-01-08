@@ -4228,11 +4228,17 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   case IntrinsicOp::IOP_max: {
     auto maxF = [](float a, float b) -> float { return a > b ? a:b; };
     auto maxD = [](double a, double b) -> double { return a > b ? a:b; };
+    // Handled in DXIL constant folding
+    if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
+      return nullptr;
     return EvalBinaryIntrinsic(CI, maxF, maxD);
   } break;
   case IntrinsicOp::IOP_min: {
     auto minF = [](float a, float b) -> float { return a < b ? a:b; };
     auto minD = [](double a, double b) -> double { return a < b ? a:b; };
+    // Handled in DXIL constant folding
+    if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
+      return nullptr;
     return EvalBinaryIntrinsic(CI, minF, minD);
   } break;
   case IntrinsicOp::IOP_rcp: {
