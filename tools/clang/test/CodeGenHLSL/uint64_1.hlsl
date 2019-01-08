@@ -5,8 +5,6 @@
 // CHECK: sdiv i64
 // CHECK: shl i64
 // CHECK: mul i64
-// For iabs.
-// CHECK: IMax
 // CHECK: UMax
 // CHECK: UMin
 // CHECK: uitofp i64
@@ -32,7 +30,7 @@ float4 main(float idx1 : Idx1, float idx2 : Idx2, int2 c : C) : SV_Target
   buf2[idx1*3].b = r;
 
   r *= b << 5;
-  r = abs(r);
+  r = abs(r); // No-op on uints
   r = max(r, c.x);
   r = min(r, c.y);
   return r;

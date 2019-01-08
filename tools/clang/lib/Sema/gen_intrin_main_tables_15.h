@@ -1585,7 +1585,7 @@ static const HLSL_INTRINSIC g_Intrinsics[] =
     {(UINT)hlsl::IntrinsicOp::IOP_round, false, true, -1, 2, g_Intrinsics_Args170},
     {(UINT)hlsl::IntrinsicOp::IOP_rsqrt, false, true, -1, 2, g_Intrinsics_Args171},
     {(UINT)hlsl::IntrinsicOp::IOP_saturate, false, true, -1, 2, g_Intrinsics_Args172},
-    {(UINT)hlsl::IntrinsicOp::IOP_sign, false, true, -1, 2, g_Intrinsics_Args173},
+    {(UINT)hlsl::IntrinsicOp::IOP_sign, false, true, 0, 2, g_Intrinsics_Args173},
     {(UINT)hlsl::IntrinsicOp::IOP_sin, false, true, -1, 2, g_Intrinsics_Args174},
     {(UINT)hlsl::IntrinsicOp::IOP_sincos, false, false, -1, 4, g_Intrinsics_Args175},
     {(UINT)hlsl::IntrinsicOp::IOP_sinh, false, true, -1, 2, g_Intrinsics_Args176},
