@@ -1226,7 +1226,7 @@ Value *TranslateWaveReadLaneFirst(CallInst *CI, IntrinsicOp IOP,
                               CI->getOperand(1)->getType(), CI, hlslOP);
 }
 
-Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+Value *TranslateAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Type *pOverloadTy = CI->getType()->getScalarType();
@@ -1241,6 +1241,11 @@ Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
                                       Builder);
   }
+}
+
+Value *TranslateUAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+  HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  return CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx); // No-op
 }
 
 Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
@@ -2195,30 +2200,26 @@ Value *TranslateSign(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                      HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = val->getType();
-  Type *EltTy = Ty->getScalarType();
-  IRBuilder<> Builder(CI);
+  bool IsInt = Ty->getScalarType()->isIntegerTy();
 
-  if (EltTy->isIntegerTy()) {
-    Constant *zero = ConstantInt::get(Ty->getScalarType(), 0);
-    if (Ty != EltTy) {
-      zero = ConstantVector::getSplat(Ty->getVectorNumElements(), zero);
-    }
-    Value *zeroLtVal = Builder.CreateICmpSLT(zero, val);
-    zeroLtVal = Builder.CreateZExt(zeroLtVal, CI->getType());
-    Value *valLtZero = Builder.CreateICmpSLT(val, zero);
-    valLtZero = Builder.CreateZExt(valLtZero, CI->getType());
-    return Builder.CreateSub(zeroLtVal, valLtZero);
-  } else {
-    Constant *zero = ConstantFP::get(Ty->getScalarType(), 0.0);
-    if (Ty != EltTy) {
-      zero = ConstantVector::getSplat(Ty->getVectorNumElements(), zero);
-    }
-    Value *zeroLtVal = Builder.CreateFCmpOLT(zero, val);
-    zeroLtVal = Builder.CreateZExt(zeroLtVal, CI->getType());
-    Value *valLtZero = Builder.CreateFCmpOLT(val, zero);
-    valLtZero = Builder.CreateZExt(valLtZero, CI->getType());
-    return Builder.CreateSub(zeroLtVal, valLtZero);
-  }
+  IRBuilder<> Builder(CI);
+  Constant *zero = Constant::getNullValue(Ty);
+  Value *zeroLtVal = IsInt ? Builder.CreateICmpSLT(zero, val) : Builder.CreateFCmpOLT(zero, val);
+  Value *valLtZero = IsInt ? Builder.CreateICmpSLT(val, zero) : Builder.CreateFCmpOLT(val, zero);
+  zeroLtVal = Builder.CreateZExt(zeroLtVal, CI->getType());
+  valLtZero = Builder.CreateZExt(valLtZero, CI->getType());
+  return Builder.CreateSub(zeroLtVal, valLtZero);
+}
+
+Value *TranslateUSign(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+  HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Type *Ty = val->getType();
+
+  IRBuilder<> Builder(CI);
+  Constant *zero = Constant::getNullValue(Ty);
+  Value *nonZero = Builder.CreateICmpNE(val, zero);
+  return Builder.CreateZExt(nonZero, CI->getType());
 }
 
 Value *TranslateStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -4746,7 +4747,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_WorldToObject3x4, TranslateNoArgMatrix3x4Operation, DXIL::OpCode::WorldToObject},
     {IntrinsicOp::IOP_WorldToObject4x3, TranslateNoArgTransposedMatrix3x4Operation, DXIL::OpCode::WorldToObject},
     {IntrinsicOp::IOP_abort, EmptyLower, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_abs, TransalteAbs, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_abs, TranslateAbs, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_acos, TrivialUnaryOperation, DXIL::OpCode::Acos},
     {IntrinsicOp::IOP_all, TranslateAll, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_any, TranslateAny, DXIL::OpCode::NumOpCodes},
@@ -4911,12 +4912,14 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     { IntrinsicOp::IOP_WaveActiveUSum, TranslateWaveA2A, DXIL::OpCode::WaveActiveOp },
     { IntrinsicOp::IOP_WavePrefixUProduct, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp },
     { IntrinsicOp::IOP_WavePrefixUSum, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp },
+    { IntrinsicOp::IOP_uabs, TranslateUAbs, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::IOP_uclamp, TranslateClamp, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::IOP_ufirstbithigh, TranslateFirstbitHi, DXIL::OpCode::FirstbitHi },
     { IntrinsicOp::IOP_umad, TranslateFUITrinary, DXIL::OpCode::UMad},
     { IntrinsicOp::IOP_umax, TranslateFUIBinary, DXIL::OpCode::UMax},
-    { IntrinsicOp::IOP_umin,   TranslateFUIBinary, DXIL::OpCode::UMin },
-    { IntrinsicOp::IOP_umul,   TranslateFUIBinary, DXIL::OpCode::UMul },
+    { IntrinsicOp::IOP_umin, TranslateFUIBinary, DXIL::OpCode::UMin },
+    { IntrinsicOp::IOP_umul, TranslateFUIBinary, DXIL::OpCode::UMul },
+    { IntrinsicOp::IOP_usign, TranslateUSign, DXIL::OpCode::UMax },
     { IntrinsicOp::MOP_InterlockedUMax, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
 };
