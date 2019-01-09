@@ -8983,11 +8983,12 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   }
 
   // Find the table of intrinsics based on the object type.
-  const HLSL_INTRINSIC* intrinsics;
-  size_t intrinsicCount;
-  const char* objectName;
+  const HLSL_INTRINSIC* intrinsics = nullptr;
+  size_t intrinsicCount = 0;
+  const char* objectName = nullptr;
   FindIntrinsicTable(FunctionTemplate->getDeclContext(), &objectName, &intrinsics, &intrinsicCount);
-  DXASSERT(intrinsics != nullptr,
+  DXASSERT(objectName != nullptr &&
+    (intrinsics != nullptr || m_intrinsicTables.size() > 0),
     "otherwise FindIntrinsicTable failed to lookup a valid object, "
     "or the parser let a user-defined template object through");
 
