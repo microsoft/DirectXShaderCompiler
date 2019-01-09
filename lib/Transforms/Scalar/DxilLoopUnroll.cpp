@@ -207,6 +207,21 @@ static bool IsMarkedFullUnroll(Loop *L) {
   return false;
 }
 
+static bool IsMarkedUnrollCount(Loop *L, unsigned *OutCount) {
+  if (MDNode *LoopID = L->getLoopID()) {
+    if (MDNode *MD = GetUnrollMetadata(LoopID, "llvm.loop.unroll.count")) {
+      assert(MD->getNumOperands() == 2 &&
+             "Unroll count hint metadata should have two operands.");
+      unsigned Count =
+        mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+      assert(Count >= 1 && "Unroll count must be positive.");
+      *OutCount = Count;
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool HasSuccessorsInLoop(BasicBlock *BB, Loop *L) {
   for (BasicBlock *Succ : successors(BB)) {
     if (L->contains(Succ)) {
@@ -513,11 +528,19 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
 }
 
 
+
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
+  bool HasExplicitLoopCount = false;
+  unsigned UnrollCount = 0;
+
   // If the loop is not marked as [unroll], don't do anything.
-  if (!IsMarkedFullUnroll(L))
+  if (IsMarkedUnrollCount(L, &UnrollCount)) {
+    HasExplicitLoopCount = true;
+  }
+  else if (!IsMarkedFullUnroll(L)) {
     return false;
+  }
 
   if (!L->isSafeToClone())
     return false;
@@ -749,6 +772,27 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
           break;
         }
       }
+    }
+
+    // We've reached the N defined in [unroll(N)]
+    if (HasExplicitLoopCount && IterationI+1 >= UnrollCount) {
+      Succeeded = true;
+      BranchInst *BI = cast<BranchInst>(CurIteration.Latch->getTerminator());
+
+      BasicBlock *ExitBlock = nullptr;
+      for (unsigned i = 0; i < BI->getNumSuccessors(); i++) {
+        BasicBlock *Succ = BI->getSuccessor(i);
+        if (Succ != CurIteration.Header) {
+          ExitBlock = Succ;
+          break;
+        }
+      }
+
+      BranchInst *NewBI = BranchInst::Create(ExitBlock, BI);
+      BI->replaceAllUsesWith(NewBI);
+      BI->eraseFromParent();
+
+      break;
     }
   }
 
