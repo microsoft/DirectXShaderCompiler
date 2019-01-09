@@ -1538,6 +1538,7 @@ class db_dxil(object):
             {'n':'parameter0','t':'int','c':1},
             {'n':'parameter1','t':'int','c':1},
             {'n':'parameter2','t':'int','c':1}])
+        add_pass('dxil-annotate-with-virtual-regs', 'DxilAnnotateWithVirtualRegister', 'Annotates each instruction in the DXIL module with a virtual register number', [])
         add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
 
         category_lib="dxil_gen"
