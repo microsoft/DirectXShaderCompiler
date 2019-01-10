@@ -257,11 +257,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createLoopUnrollPass());
   }
 
-  if (!NoOpt) {
-    // Verify no undef resource path before simplify, since that can remove undef
-    // paths.  For NoOpt, resources are unpromoted here, so this will not work.
-    MPM.add(createFailUndefResourcePass());
-  }
   MPM.add(createSimplifyInstPass());
 
   MPM.add(createCFGSimplificationPass());
