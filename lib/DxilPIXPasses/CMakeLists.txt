@@ -2,6 +2,7 @@
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 add_llvm_library(LLVMDxilPIXPasses
   DxilAddPixelHitInstrumentation.cpp
+  DxilAnnotateWithVirtualRegister.cpp
   DxilDebugInstrumentation.cpp
   DxilForceEarlyZ.cpp
   DxilOutputColorBecomesConstant.cpp
@@ -9,6 +10,7 @@ add_llvm_library(LLVMDxilPIXPasses
   DxilReduceMSAAToSingleSample.cpp
   DxilShaderAccessTracking.cpp
   DxilPIXPasses.cpp
+  DxilPIXVirtualRegisters.cpp
 
 
   ADDITIONAL_HEADER_DIRS
