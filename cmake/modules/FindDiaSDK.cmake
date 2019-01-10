@@ -9,7 +9,7 @@ get_filename_component(VS15_C_PATH32 "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual
 get_filename_component(VS15_P_PATH32 "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/2017/Professional/Common7/IDE" ABSOLUTE CACHE)
 get_filename_component(VS15_E_PATH32 "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/2017/Enterprise/Common7/IDE" ABSOLUTE CACHE)
 
-# Find the TAEF path, it will typically look something like this.
+# Find the DIA SDK path, it will typically look something like this.
 # C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\DIA SDK\include
 # C:\Program Files (x86)\Microsoft Visual Studio 14.0\DIA SDK\include\dia2.h
 find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR
