@@ -69,12 +69,19 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     return false;
   }
 
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
+  }
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
     AnnotateValues(&I);
   }
 
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
     AnnotateStore(&I);
+  }
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nEnd - dxil values to virtual register mapping\n";
   }
 
   m_DM = nullptr;
@@ -173,7 +180,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(llvm::Instruction *p
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
     pI->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
-    *OSOverride << " dxil " << m_uVReg;
+    *OSOverride << " dxil " << m_uVReg << "\n";
   }
   m_uVReg++;
 }
@@ -183,7 +190,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
     pAlloca->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
-    *OSOverride << " alloca " << m_uVReg << " " << C;
+    *OSOverride << " alloca " << m_uVReg << " " << C << "\n";
   }
   m_uVReg += C;
 }
