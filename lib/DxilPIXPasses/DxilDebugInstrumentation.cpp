@@ -777,10 +777,9 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   // Instrument original instructions:
   for (auto & Inst : AllInstructions) {
-    // Instrumentation goes after the instruction if it has a return value.
-    // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
-    if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID) {
-      // Has a return type, so can't be a terminator, so start inserting before the next instruction
+    // Instrumentation goes after the instruction if it is not a terminator. Otherwise,
+    // Instrumentation goes prior to the instruction.
+    if (!Inst->isTerminator()) {
       IRBuilder<> Builder(Inst->getNextNode());
       BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
       addStepDebugEntry(BC2, Inst);
