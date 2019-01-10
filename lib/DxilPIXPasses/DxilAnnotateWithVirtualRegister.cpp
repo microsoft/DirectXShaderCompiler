@@ -192,10 +192,9 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *
 }
 }
 
-namespace llvm {
+using namespace llvm;
 INITIALIZE_PASS(DxilAnnotateWithVirtualRegister, DEBUG_TYPE, "Annotates each instruction in the DXIL module with a virtual register number", false, false)
 
-ModulePass *createDxilAnnotateWithVirtualRegisterPass() {
+ModulePass *llvm::createDxilAnnotateWithVirtualRegisterPass() {
   return new DxilAnnotateWithVirtualRegister();
-}
 }
