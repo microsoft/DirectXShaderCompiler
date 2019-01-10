@@ -185,7 +185,7 @@ enum ArBasicKind {
   AR_OBJECT_WAVE,
 
   AR_OBJECT_RAY_DESC,
-  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_ACCELERATION_STRUCT,
   AR_OBJECT_USER_DEFINED_TYPE,
   AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
 
@@ -462,7 +462,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT,   // AR_OBJECT_WAVE
 
   LICOMPTYPE_RAYDESC,               // AR_OBJECT_RAY_DESC
-  LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_ACCELARATION_STRUCT
+  LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_ACCELERATION_STRUCT
   LICOMPTYPE_USER_DEFINED_TYPE,      // AR_OBJECT_USER_DEFINED_TYPE
   0,      // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 
@@ -1098,9 +1098,9 @@ static const ArBasicKind g_RayDescCT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_AccelarationStructCT[] =
+static const ArBasicKind g_AccelerationStructCT[] =
 {
-  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_ACCELERATION_STRUCT,
   AR_BASIC_UNKNOWN
 };
 
@@ -1201,7 +1201,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_UInt16CT,           // LICOMPTYPE_UINT16
   g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
   g_RayDescCT,          // LICOMPTYPE_RAYDESC
-  g_AccelarationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
+  g_AccelerationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
   g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
@@ -1275,7 +1275,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 
   AR_OBJECT_WAVE,
   AR_OBJECT_RAY_DESC,
-  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_ACCELERATION_STRUCT,
   AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
 
   // subobjects
@@ -1355,7 +1355,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_LEGACY_EFFECT   // Used for all unsupported but ignored legacy effect types
   0, // AR_OBJECT_WAVE
   0, // AR_OBJECT_RAY_DESC
-  0, // AR_OBJECT_ACCELARATION_STRUCT
+  0, // AR_OBJECT_ACCELERATION_STRUCT
   0, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 
   0, // AR_OBJECT_STATE_OBJECT_CONFIG,
@@ -1444,7 +1444,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LEGACY_EFFECT (legacy effect objects)
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_DESC
-  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_ACCELARATION_STRUCT
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_ACCELERATION_STRUCT
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_STATE_OBJECT_CONFIG,
@@ -3903,7 +3903,7 @@ public:
     case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
     case AR_OBJECT_WAVE:
-    case AR_OBJECT_ACCELARATION_STRUCT:
+    case AR_OBJECT_ACCELERATION_STRUCT:
     case AR_OBJECT_RAY_DESC:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
     {
@@ -8983,11 +8983,12 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   }
 
   // Find the table of intrinsics based on the object type.
-  const HLSL_INTRINSIC* intrinsics;
-  size_t intrinsicCount;
-  const char* objectName;
+  const HLSL_INTRINSIC* intrinsics = nullptr;
+  size_t intrinsicCount = 0;
+  const char* objectName = nullptr;
   FindIntrinsicTable(FunctionTemplate->getDeclContext(), &objectName, &intrinsics, &intrinsicCount);
-  DXASSERT(intrinsics != nullptr,
+  DXASSERT(objectName != nullptr &&
+    (intrinsics != nullptr || m_intrinsicTables.size() > 0),
     "otherwise FindIntrinsicTable failed to lookup a valid object, "
     "or the parser let a user-defined template object through");
 
