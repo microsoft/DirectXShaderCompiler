@@ -1107,11 +1107,27 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Add hlsl intrinsic attr
   unsigned intrinsicOpcode;
   StringRef intrinsicGroup;
+  llvm::FunctionType *FT = F->getFunctionType();
+
+  auto AddResourceMetadata = [&](QualType qTy, llvm::Type *Ty) {
+    hlsl::DxilResourceBase::Class resClass = TypeToClass(qTy);
+    if (resClass != hlsl::DxilResourceBase::Class::Invalid) {
+      if (!resMetadataMap.count(Ty)) {
+        MDNode *Meta = GetOrAddResTypeMD(qTy);
+        DXASSERT(Meta, "else invalid resource type");
+        resMetadataMap[Ty] = Meta;
+      }
+    }
+  };
+
   if (hlsl::GetIntrinsicOp(FD, intrinsicOpcode, intrinsicGroup)) {
     AddHLSLIntrinsicOpcodeToFunction(F, intrinsicOpcode);
     F->addFnAttr(hlsl::HLPrefix, intrinsicGroup);
+    unsigned iParamOffset = 0; // skip this on llvm function
+
     // Save resource type annotation.
     if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD)) {
+      iParamOffset = 1;
       const CXXRecordDecl *RD = MD->getParent();
       // For nested case like sample_slice_type.
       if (const CXXRecordDecl *PRD =
@@ -1120,43 +1136,20 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       }
 
       QualType recordTy = MD->getASTContext().getRecordType(RD);
-      hlsl::DxilResourceBase::Class resClass = TypeToClass(recordTy);
       llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
-      llvm::FunctionType *FT = F->getFunctionType();
-      // Save resource type metadata.
-      switch (resClass) {
-      case DXIL::ResourceClass::UAV: {
-        MDNode *MD = GetOrAddResTypeMD(recordTy);
-        DXASSERT(MD, "else invalid resource type");
-        resMetadataMap[Ty] = MD;
-      } break;
-      case DXIL::ResourceClass::SRV: {
-        MDNode *Meta = GetOrAddResTypeMD(recordTy);
-        DXASSERT(Meta, "else invalid resource type");
-        resMetadataMap[Ty] = Meta;
-        if (FT->getNumParams() > 1) {
-          QualType paramTy = MD->getParamDecl(0)->getType();
-          // Add sampler type.
-          if (TypeToClass(paramTy) == DXIL::ResourceClass::Sampler) {
-            llvm::Type *Ty = FT->getParamType(1)->getPointerElementType();
-            MDNode *MD = GetOrAddResTypeMD(paramTy);
-            DXASSERT(MD, "else invalid resource type");
-            resMetadataMap[Ty] = MD;
-          }
-        }
-      } break;
-      default:
-        // Skip OutputStream for GS.
-        break;
-      }
+      AddResourceMetadata(recordTy, Ty);
     }
-    if (intrinsicOpcode == (unsigned)IntrinsicOp::IOP_TraceRay) {
-      QualType recordTy = FD->getParamDecl(0)->getType();
-      llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
-      MDNode *MD = GetOrAddResTypeMD(recordTy);
-      DXASSERT(MD, "else invalid resource type");
-      resMetadataMap[Ty] = MD;
+
+    // Add metadata for any resources found in parameters
+    for (unsigned iParam = 0; iParam < FD->getNumParams(); iParam++) {
+      llvm::Type *Ty = FT->getParamType(iParam + iParamOffset);
+      if (!Ty->isPointerTy())
+        continue; // not a resource
+      Ty = Ty->getPointerElementType();
+      QualType paramTy = FD->getParamDecl(iParam)->getType();
+      AddResourceMetadata(paramTy, Ty);
     }
+
     StringRef lower;
     if (hlsl::GetIntrinsicLowering(FD, lower))
       hlsl::SetHLLowerStrategy(F, lower);
