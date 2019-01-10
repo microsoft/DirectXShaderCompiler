@@ -77,9 +77,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     AnnotateStore(&I);
   }
 
-  if (OSOverride != nullptr) {
-  }
-
   m_DM = nullptr;
   return m_uVReg > 0;
 }
@@ -176,7 +173,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(llvm::Instruction *p
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
     pI->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
-    *OSOverride << " " << m_uVReg;
+    *OSOverride << " dxil " << m_uVReg;
   }
   m_uVReg++;
 }
@@ -186,13 +183,14 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
     pAlloca->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
-    *OSOverride << " " << m_uVReg << " " << C;
+    *OSOverride << " alloca " << m_uVReg << " " << C;
   }
   m_uVReg += C;
 }
 }
 
 using namespace llvm;
+
 INITIALIZE_PASS(DxilAnnotateWithVirtualRegister, DEBUG_TYPE, "Annotates each instruction in the DXIL module with a virtual register number", false, false)
 
 ModulePass *llvm::createDxilAnnotateWithVirtualRegisterPass() {
