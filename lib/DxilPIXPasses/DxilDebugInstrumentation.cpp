@@ -21,6 +21,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 
+#include "DxilPIXVirtualRegisters.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -194,8 +196,6 @@ private:
   Constant * m_OffsetMask = nullptr;
 
   std::map<uint32_t, Value *> m_IncrementInstructionBySize;
-
-  unsigned int m_InstructionIndex = 0;
 
   struct BuilderContext {
     Module &M;
@@ -633,6 +633,10 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
 
 template<typename ReturnType>
 void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Instruction *Inst) {
+  std::uint32_t RegNum;
+  if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum)) {
+    return;
+  }
 
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
   reserveDebugEntrySpace(BC, sizeof(step));
@@ -641,7 +645,7 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(step.Header.u32Header));
   addDebugEntryValue(BC, m_InvocationId);
-  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(m_InstructionIndex++));
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(RegNum));
 
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid) {
     addDebugEntryValue(BC, Inst);

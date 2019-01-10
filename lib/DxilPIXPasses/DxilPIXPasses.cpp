@@ -31,6 +31,7 @@ HRESULT SetupRegistryPassForPIX() {
     /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes(set(["pix"]))</py>*/
     // INIT-PASSES:BEGIN
     initializeDxilAddPixelHitInstrumentationPass(Registry);
+    initializeDxilAnnotateWithVirtualRegisterPass(Registry);
     initializeDxilDebugInstrumentationPass(Registry);
     initializeDxilForceEarlyZPass(Registry);
     initializeDxilOutputColorBecomesConstantPass(Registry);
