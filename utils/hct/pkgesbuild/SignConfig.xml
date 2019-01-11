@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<SignConfigXML>
+ <job platform="x86" certSubject="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" configuration="Release" dest="__OUTPATHROOT__" jobname="DirectX Shader Compiler" approvers="">
+    <file signType="Authenticode" src="__INPATHROOT__\dxcompiler.dll" />
+    <file signType="Authenticode" src="__INPATHROOT__\dxc.exe" />
+    <file signType="Authenticode" src="__INPATHROOT__\dxrfallbackcompiler.dll"/>
+  </job>
+ <job platform="x64" certSubject="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" configuration="Release" dest="__OUTPATHROOT__" jobname="DirectX Shader Compiler" approvers="">
+    <file signType="Authenticode" src="__INPATHROOT__\dxcompiler.dll" />
+    <file signType="Authenticode" src="__INPATHROOT__\dxc.exe" />
+    <file signType="Authenticode" src="__INPATHROOT__\dxrfallbackcompiler.dll"/>
+  </job>
+ <job platform="arm64" certSubject="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" configuration="Release" dest="__OUTPATHROOT__" jobname="DirectX Shader Compiler" approvers="">
+    <file signType="Authenticode" src="__INPATHROOT__\dxcompiler.dll" />
+    <file signType="Authenticode" src="__INPATHROOT__\dxc.exe" />
+    <file signType="Authenticode" src="__INPATHROOT__\dxrfallbackcompiler.dll"/>
+  </job>
+</SignConfigXML>
