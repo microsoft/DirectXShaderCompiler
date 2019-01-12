@@ -1667,8 +1667,14 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
           if (DDI) {
             Type *Ty = Elt->getAllocatedType();
             unsigned size = DL.getTypeAllocSize(Ty);
-            DIExpression *DDIExp =
-                DIB.createBitPieceExpression(debugOffset, size);
+            DIExpression *DDIExp = nullptr;
+            if (!(debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size)) {
+              DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+            }
+            else {
+              std::vector<uint64_t> args;
+              DDIExp = DIB.createExpression(args);
+            }
             debugOffset += size;
             DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DIB.insertDeclare(
                 Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI));

@@ -625,7 +625,7 @@ DIExpression *DIBuilder::createExpression(ArrayRef<int64_t> Signed) {
 
 DIExpression *DIBuilder::createBitPieceExpression(unsigned OffsetInBytes,
                                                   unsigned SizeInBytes) {
-  uint64_t Addr[] = {dwarf::DW_OP_bit_piece, OffsetInBytes, SizeInBytes};
+  uint64_t Addr[] = {dwarf::DW_OP_bit_piece, OffsetInBytes*8, SizeInBytes*8};
   return DIExpression::get(VMContext, Addr);
 }
 
