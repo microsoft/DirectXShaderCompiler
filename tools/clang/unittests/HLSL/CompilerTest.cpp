@@ -957,7 +957,7 @@ public:
   TEST_METHOD(Unroll)
   TEST_METHOD(QuickTest)
   TEST_METHOD(QuickLlTest)
-  BEGIN_TEST_METHOD(SingleFileCheckTest)
+  BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
 
@@ -6016,29 +6016,11 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
 }
 
 TEST_F(CompilerTest, Unroll) {
-  using namespace WEX::TestExecution;
-  std::wstring suitePath = L"..\\CodeGenHLSL\\unroll";
-
-  WEX::Common::String value;
-  if (!DXC_FAILED(RuntimeParameters::TryGetValue(L"SuitePath", value)))
-  {
-    suitePath = value;
-  }
-
-  CodeGenTestCheckBatchDir(suitePath);
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\unroll");
 }
 
 TEST_F(CompilerTest, ShaderCompatSuite) {
-  using namespace WEX::TestExecution;
-  std::wstring suitePath = L"..\\CodeGenHLSL\\shader-compat-suite";
-
-  WEX::Common::String value;
-  if (!DXC_FAILED(RuntimeParameters::TryGetValue(L"SuitePath", value)))
-  {
-    suitePath = value;
-  }
-
-  CodeGenTestCheckBatchDir(suitePath);
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\shader-compat-suite");
 }
 
 TEST_F(CompilerTest, QuickTest) {
@@ -6050,19 +6032,36 @@ TEST_F(CompilerTest, QuickLlTest) {
 }
 
 #ifdef _WIN32
-TEST_F(CompilerTest, SingleFileCheckTest) {
+TEST_F(CompilerTest, ManualFileCheckTest) {
 #else
-TEST_F(CompilerTest, DISABLED_SingleFileCheckTest) {
+TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 #endif
   using namespace llvm;
   using namespace WEX::TestExecution;
+
   WEX::Common::String value;
-  VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputFile", value));
-  std::wstring filename = value;
-  CW2A pUtf8Filename(filename.c_str());
-  if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
-    filename = hlsl_test::GetPathToHlslDataFile(filename.c_str());
+  VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputPath", value));
+
+  std::wstring path = value;
+  if (!llvm::sys::path::is_absolute(CW2A(path.c_str()).m_psz)) {
+    path = hlsl_test::GetPathToHlslDataFile(path.c_str());
   }
 
-  CodeGenTestCheckBatch(filename.c_str(), 0);
+  bool isDirectory;
+  {
+    // Temporarily setup the filesystem for testing whether the path is a directory.
+    // If it is, CodeGenTestCheckBatchDir will create its own instance.
+    llvm::sys::fs::MSFileSystem *msfPtr;
+    VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+    isDirectory = llvm::sys::fs::is_directory(CW2A(path.c_str()).m_psz);
+  }
+
+  if (isDirectory) {
+    CodeGenTestCheckBatchDir(path);
+  } else {
+    CodeGenTestCheckBatch(path.c_str(), 0);
+  }
 }
