@@ -50,7 +50,7 @@ addons:
     packages: ninja-build libstdc++-5-dev
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ninja; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update && brew install cmake ninja; fi
 
 before_script:
   - git submodule update --init
