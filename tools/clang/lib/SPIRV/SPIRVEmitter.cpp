@@ -3455,12 +3455,14 @@ bool SPIRVEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
   const auto *srcFields = getIntermediateACSBufferCounter(srcExpr, &srcIndices);
 
   if (dstFields && srcFields) {
-    if (!dstFields->assign(*srcFields, theBuilder, typeTranslator)) {
-      emitFatalError("cannot handle associated counter variable assignment",
-                     srcExpr->getExprLoc());
-      return false;
-    }
-    return true;
+    // The destination is a struct whose fields are directly alias resources.
+    // But that's not necessarily true for the source, which can be deep
+    // nested structs. That means they will have different index "prefixes"
+    // for all their fields; while the "prefix" for destination is effectively
+    // an empty list (since it is not nested in other structs). We need to
+    // strip the index prefix from the source.
+    return dstFields->assign(*srcFields, /*dstIndices=*/{}, srcIndices,
+                             theBuilder, typeTranslator);
   }
 
   // AssocCounter#2 and AssocCounter#4 for the lhs cannot happen since the lhs

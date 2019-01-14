@@ -1336,6 +1336,11 @@ TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInMethod) {
   setRelaxLogicalPointer();
   runFileTest("spirv.legal.sbuffer.counter.method.hlsl");
 }
+TEST_F(FileTest,
+       SpirvLegalizationCounterVarAssignAcrossDifferentNestedStructLevel) {
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.counter.nested-struct.hlsl");
+}
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   setRelaxLogicalPointer();
   runFileTest("spirv.legal.sbuffer.struct.hlsl");
