@@ -55,21 +55,12 @@ public:
 };
 
 class FileRunCommandPart {
-private:
-  void RunFileChecker(const FileRunCommandPart *Prior);
-  void RunStdErrChecker(const FileRunCommandPart *Prior);
-  void RunDxc(const FileRunCommandPart *Prior);
-  void RunDxv(const FileRunCommandPart *Prior);
-  void RunOpt(const FileRunCommandPart *Prior);
-  void RunD3DReflect(const FileRunCommandPart *Prior);
-  void RunTee(const FileRunCommandPart *Prior);
-  void RunXFail(const FileRunCommandPart *Prior);
 public:
-  FileRunCommandPart(const FileRunCommandPart&) = default;
   FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName);
-  FileRunCommandPart(FileRunCommandPart && other);
+  FileRunCommandPart(const FileRunCommandPart&) = default;
+  FileRunCommandPart(FileRunCommandPart&&) = default;
   
-  void Run(const FileRunCommandPart *Prior);
+  void Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
   
   void ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts);
 
@@ -77,13 +68,20 @@ public:
   std::string Arguments;    // Arguments to command
   LPCWSTR CommandFileName;  // File name replacement for %s
 
-  dxc::DxcDllSupport *DllSupport; // DLL support to use for Run().
-
   // These fields are set after an invocation to Run().
   CComPtr<IDxcOperationResult> OpResult;  // The operation result, if any.
   int RunResult;                          // The exit code for the operation.
   std::string StdOut;                     // Standard output text.
   std::string StdErr;                     // Standard error text.
+
+private:
+  void RunFileChecker(const FileRunCommandPart *Prior);
+  void RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
+  void RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
+  void RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
+  void RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
+  void RunTee(const FileRunCommandPart *Prior);
+  void RunXFail(const FileRunCommandPart *Prior);
 };
 
 void ParseCommandParts(LPCSTR commands, LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);

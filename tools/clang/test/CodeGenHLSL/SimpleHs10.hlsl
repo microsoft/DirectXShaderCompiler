@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_6_0  %s 2>&1 | StdErrCheck %s
+// RUN: %dxc -E main -T hs_6_0  %s 2>&1 | FileCheck -input=stderr %s
 
 // Same as SimpleHS11.hlsl, except that we only verify StdErr for the warning
 // message.
