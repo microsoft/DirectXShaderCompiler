@@ -43,17 +43,17 @@ void main()
 
     // ICK_HLSLVector_Conversion (vector/matrix, element-preserving)
     // NCHECK: i32 12,
-    // output.Append(last_of_v2(m1x2)); // GitHub #1844
+    // output.Append(last_of_v2(m1x2)); // Crashes, tracked by GitHub #1844
     // NCHECK: i32 21,
-    // output.Append(last_of_v2(m2x1)); // GitHub #1844
+    // output.Append(last_of_v2(m2x1)); // Crashes, tracked by GitHub #1844
     // NCHECK: i32 22,
-    // output.Append(last_of_v4(m2x2)); // GitHub #1844
+    // output.Append(last_of_v4(m2x2)); // Crashes, tracked by GitHub #1844
     // NCHECK: i32 -2,
-    // output.Append(last_of_m1x2(v2)); // GitHub #1844
+    // output.Append(last_of_m1x2(v2)); // Crashes, tracked by GitHub #1844
     // NCHECK: i32 -2,
-    // output.Append(last_of_m2x1(v2)); // GitHub #1844
+    // output.Append(last_of_m2x1(v2)); // Crashes, tracked by GitHub #1844
     // NCHECK: i32 -4,
-    // output.Append(last_of_m2x2(v4)); // GitHub #1844
+    // output.Append(last_of_m2x2(v4)); // Crashes, tracked by GitHub #1844
 
     // ICK_HLSLVector_Splat (single element duplicated)
     // CHECK: i32 42,
@@ -75,9 +75,9 @@ void main()
     // CHECK: i32 -2,
     output.Append(last_of_v2(v3));
     // NCHECK: i32 11,
-    // output.Append(last_of_v1(m2x2)); // GitHub #1845
+    // output.Append(last_of_v1(m2x2)); // Crashes, tracked by GitHub #1845
     // NCHECK: i32 11,
-    // output.Append(last_of_m1x1(m2x2)); // GitHub #1845
+    // output.Append(last_of_m1x1(m2x2)); // Crashes, tracked by GitHub #1845
     // CHECK: i32 12,
     output.Append(last_of_m1x2(m2x2));
     // CHECK: i32 21,
