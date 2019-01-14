@@ -8046,10 +8046,11 @@ bool HLSLExternalSource::CanConvert(
   // Cannot cast function type.
   if (source->isFunctionType())
     return false;
-  // Convert to an r-value to begin with.
-  bool needsLValueToRValue = sourceExpr->isLValue() &&
-    !target->isLValueReferenceType() && 
-    IsConversionToLessOrEqualElements(source, target, explicitConversion);
+
+  // Convert to an r-value to begin with, with an exception for strings
+  // since they are not first-class values and we want to preserve them as literals.
+  bool needsLValueToRValue = sourceExpr->isLValue() && !target->isLValueReferenceType()
+    && sourceExpr->getStmtClass() != Expr::StringLiteralClass;
 
   bool targetRef = target->isReferenceType();
 
