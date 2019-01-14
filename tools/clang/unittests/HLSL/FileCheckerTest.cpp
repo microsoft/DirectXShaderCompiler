@@ -41,12 +41,15 @@
 using namespace std;
 using namespace hlsl_test;
 
-static std::string strltrim(std::string value) {
-  return value.erase(0, value.find_first_not_of(" \t\r\n"));
+static constexpr char whitespaceChars[] = " \t\r\n";
+
+static std::string strltrim(const std::string &value) {
+  size_t first = value.find_first_not_of(whitespaceChars);
+  return first == string::npos ? value : value.substr(first);
 }
 
-static std::string strrtrim(std::string value) {
-  size_t last = value.find_last_not_of(" \t\r\n");
+static std::string strrtrim(const std::string &value) {
+  size_t last = value.find_last_not_of(whitespaceChars);
   return last == string::npos ? value : value.substr(0, last + 1);
 }
 
@@ -54,29 +57,31 @@ static std::string strtrim(const std::string &value) {
   return strltrim(strrtrim(value));
 }
 
-static string trim(string value) {
-  size_t leading = value.find_first_not_of(' ');
-  if (leading != std::string::npos) {
-    value.erase(0, leading);
+static bool strstartswith(const std::string& value, const char* pattern) {
+  for (size_t i = 0; ; ++i) {
+    if (pattern[i] == '\0') return true;
+    if (i == value.size() || value[i] != pattern[i]) return false;
   }
-  size_t trailing = value.find_last_not_of(' ');
-  if (leading != std::string::npos) {
-    value.erase(trailing + 1);
+}
+
+static std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars) {
+  size_t searchOffset = 0;
+  std::vector<std::string> tokens;
+  while (searchOffset != value.size()) {
+    size_t tokenStartIndex = value.find_first_not_of(delimiters, searchOffset);
+    if (tokenStartIndex == std::string::npos) break;
+    size_t tokenEndIndex = value.find_first_of(delimiters, tokenStartIndex);
+    if (tokenEndIndex == std::string::npos) tokenEndIndex = value.size();
+    tokens.emplace_back(value.substr(tokenStartIndex, tokenEndIndex - tokenStartIndex));
+    searchOffset = tokenEndIndex;
   }
-  return value;
+  return tokens;
 }
 
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
-FileRunCommandPart::FileRunCommandPart(FileRunCommandPart && other) :
-  Command(std::move(other.Command)),
-  Arguments(std::move(other.Arguments)),
-  CommandFileName(other.CommandFileName),
-  RunResult(other.RunResult),
-  StdOut(std::move(other.StdOut)),
-  StdErr(std::move(other.StdErr)) { }
 
-void FileRunCommandPart::Run(const FileRunCommandPart *Prior) {
+void FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
   bool isFileCheck =
     0 == _stricmp(Command.c_str(), "FileCheck") ||
     0 == _stricmp(Command.c_str(), "%FileCheck");
@@ -96,23 +101,20 @@ void FileRunCommandPart::Run(const FileRunCommandPart *Prior) {
   else if (isXFail) {
     RunXFail(Prior);
   }
-  else if (0 == _stricmp(Command.c_str(), "StdErrCheck")) {
-    RunStdErrChecker(Prior);
-  }
   else if (0 == _stricmp(Command.c_str(), "tee")) {
     RunTee(Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxc")) {
-    RunDxc(Prior);
+    RunDxc(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxv")) {
-    RunDxv(Prior);
+    RunDxv(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%opt")) {
-    RunOpt(Prior);
+    RunOpt(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
-    RunD3DReflect(Prior);
+    RunD3DReflect(DllSupport, Prior);
   }
   else {
     RunResult = 1;
@@ -122,60 +124,47 @@ void FileRunCommandPart::Run(const FileRunCommandPart *Prior) {
 }
 
 void FileRunCommandPart::RunFileChecker(const FileRunCommandPart *Prior) {
-  std::string args(strtrim(Arguments));
-  if (args != "%s") {
-    StdErr = "Only supported pattern is a plain input file";
-    RunResult = 1;
-    return;
-  }
   if (!Prior) {
     StdErr = "Prior command required to generate stdin";
     RunResult = 1;
     return;
   }
 
-  CW2A fileName(CommandFileName, CP_UTF8);
   FileCheckForTest t;
-  t.CheckFilename = fileName;
+  t.CheckFilename = CW2A(CommandFileName, CP_UTF8);
   if (Prior->RunResult)
     t.InputForStdin = Prior->StdErr;
   else
     t.InputForStdin = Prior->StdOut;
+
+  // Parse command arguments
+  static constexpr char checkPrefixStr[] = "-check-prefix=";
+  bool hasInputFilename = false;
+  for (const std::string& arg : strtok(Arguments)) {
+    if (arg == "%s") hasInputFilename = true;
+    else if (arg == "-input=stderr") t.InputForStdin = Prior->StdErr;
+    else if (strstartswith(arg, checkPrefixStr))
+      t.CheckPrefixes.emplace_back(arg.substr(sizeof(checkPrefixStr) - 1));
+    else {
+      StdErr = "Invalid argument";
+      RunResult = 1;
+      return;
+    }
+  }
+  if (!hasInputFilename) {
+    StdErr = "Missing input filename";
+    RunResult = 1;
+    return;
+  }
+
+  // Run
   RunResult = t.Run();
+
   StdOut = t.test_outs;
   StdErr = t.test_errs;
   // Capture the input as well.
   if (RunResult != 0 && Prior != nullptr) {
     StdErr += "\n<full input to FileCheck>\n";
-    StdErr += t.InputForStdin;
-  }
-}
-
-void FileRunCommandPart::RunStdErrChecker(const FileRunCommandPart *Prior) {
-  std::string args(strtrim(Arguments));
-  if (args != "%s") {
-    StdErr = "Only supported pattern is a plain input file";
-    RunResult = 1;
-    return;
-  }
-  if (!Prior) {
-    StdErr = "Prior command required to generate stdin";
-    RunResult = 1;
-    return;
-  }
-
-  CW2A fileName(CommandFileName, CP_UTF8);
-  FileCheckForTest t;
-  t.CheckFilename = fileName;
-      
-  t.InputForStdin = Prior->StdErr;
-      
-  RunResult = t.Run();
-  StdOut = t.test_outs;
-  StdErr = t.test_errs;
-  // Capture the input as well.
-  if (RunResult != 0 && Prior != nullptr) {
-    StdErr += "\n<full input to StdErrCheck>\n";
     StdErr += t.InputForStdin;
   }
 }
@@ -205,7 +194,7 @@ void FileRunCommandPart::ReadOptsForDxc(hlsl::options::MainArgs &argStrings,
   }
 }
 
-void FileRunCommandPart::RunDxc(const FileRunCommandPart *Prior) {
+void FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
   hlsl::options::MainArgs args;
@@ -239,10 +228,10 @@ void FileRunCommandPart::RunDxc(const FileRunCommandPart *Prior) {
   if (RunResult)  // opt parsing already failed
     return;
 
-  IFT(DllSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
-  IFT(DllSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
   IFT(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
                           flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
   IFT(pResult->GetStatus(&resultStatus));
@@ -268,7 +257,7 @@ void FileRunCommandPart::RunDxc(const FileRunCommandPart *Prior) {
   OpResult = pResult;
 }
 
-void FileRunCommandPart::RunDxv(const FileRunCommandPart *Prior) {
+void FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
   if (inputPos == nullptr) {
@@ -293,9 +282,9 @@ void FileRunCommandPart::RunDxv(const FileRunCommandPart *Prior) {
   CComPtr<IDxcBlob> pContainerBlob;
   HRESULT resultStatus;
 
-  IFT(DllSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
-  IFT(DllSupport->CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
   IFT(pAssembler->AssembleToContainer(pSource, &pResult));
   IFT(pResult->GetStatus(&resultStatus));
   if (FAILED(resultStatus)) {
@@ -307,7 +296,7 @@ void FileRunCommandPart::RunDxv(const FileRunCommandPart *Prior) {
   }
   IFT(pResult->GetResult(&pContainerBlob));
 
-  IFT(DllSupport->CreateInstance(CLSID_DxcValidator, &pValidator));
+  IFT(DllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
   CComPtr<IDxcOperationResult> pValidationResult;
   IFT(pValidator->Validate(pContainerBlob, DxcValidatorFlags_InPlaceEdit,
                             &pValidationResult));
@@ -320,7 +309,7 @@ void FileRunCommandPart::RunDxv(const FileRunCommandPart *Prior) {
   RunResult = 0;
 }
 
-void FileRunCommandPart::RunOpt(const FileRunCommandPart *Prior) {
+void FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
   if (inputPos == nullptr && Prior == nullptr) {
@@ -336,8 +325,8 @@ void FileRunCommandPart::RunOpt(const FileRunCommandPart *Prior) {
   CComPtr<IDxcBlobEncoding> pOutputText;
   CComPtr<IDxcBlob> pOutputModule;
 
-  IFT(DllSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  IFT(DllSupport->CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(DllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
 
   if (inputPos != nullptr) {
     args.erase(inputPos - args.c_str(), strlen("%s"));
@@ -346,13 +335,13 @@ void FileRunCommandPart::RunOpt(const FileRunCommandPart *Prior) {
   else {
     assert(Prior != nullptr && "else early check should have returned");
     CComPtr<IDxcAssembler> pAssembler;
-    IFT(DllSupport->CreateInstance(CLSID_DxcAssembler, &pAssembler));
+    IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     IFT(pLibrary->CreateBlobWithEncodingFromPinned(
         Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
         &pSource));
   }
 
-  args = trim(args);
+  args = strtrim(args);
   llvm::StringRef argsRef = args;
   llvm::SmallVector<llvm::StringRef, 8> splitArgs;
   argsRef.split(splitArgs, " ");
@@ -360,7 +349,7 @@ void FileRunCommandPart::RunOpt(const FileRunCommandPart *Prior) {
   std::vector<std::wstring> optionStrings;
   for (llvm::StringRef S : splitArgs) {
     optionStrings.push_back(
-        Unicode::UTF8ToUTF16StringOrThrow(trim(S.str()).c_str()));
+        Unicode::UTF8ToUTF16StringOrThrow(strtrim(S.str()).c_str()));
   }
 
   // Add the options outside the above loop in case the vector is resized.
@@ -373,7 +362,7 @@ void FileRunCommandPart::RunOpt(const FileRunCommandPart *Prior) {
   RunResult = 0;
 }
 
-void FileRunCommandPart::RunD3DReflect(const FileRunCommandPart *Prior) {
+void FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
   std::string args(strtrim(Arguments));
   if (args != "%s") {
     StdErr = "Only supported pattern is a plain input file";
@@ -400,8 +389,8 @@ void FileRunCommandPart::RunD3DReflect(const FileRunCommandPart *Prior) {
   std::ostringstream ss;
   D3DReflectionDumper dumper(ss);
 
-  IFT(DllSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  IFT(DllSupport->CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
 
   IFT(pLibrary->CreateBlobWithEncodingFromPinned(
       (LPBYTE)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
@@ -418,7 +407,7 @@ void FileRunCommandPart::RunD3DReflect(const FileRunCommandPart *Prior) {
   }
   IFT(pResult->GetResult(&pContainerBlob));
 
-  VERIFY_SUCCEEDED(DllSupport->CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  VERIFY_SUCCEEDED(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
   VERIFY_SUCCEEDED(containerReflection->Load(pContainerBlob));
   VERIFY_SUCCEEDED(containerReflection->GetPartCount(&partCount));
 
@@ -502,8 +491,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
     ParseCommandParts(commands, fileName, parts);
     FileRunCommandPart *prior = nullptr;
     for (FileRunCommandPart & part : parts) {
-      part.DllSupport = &m_support;
-      part.Run(prior);
+      part.Run(m_support, prior);
       prior = &part;
     }
     if (prior == nullptr) {
