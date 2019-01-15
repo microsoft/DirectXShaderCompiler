@@ -1016,11 +1016,11 @@ TEST_F(ValidationTest, LocalResCopy) {
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
-  TestCheck(L"val-failures.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\val-failures.hlsl");
 }
 
 TEST_F(ValidationTest, WhenIncorrectPSThenFail) {
-  TestCheck(L"val-failures-ps.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\val-failures-ps.hlsl");
 }
 
 TEST_F(ValidationTest, WhenSmUnknownThenFail) {
@@ -1569,7 +1569,7 @@ TEST_F(ValidationTest, AddUint64Odd) {
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
-  TestCheck(L"val-wave-failures-ps.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\val-wave-failures-ps.hlsl");
 }
 
 TEST_F(ValidationTest, WhenMetaFlagsUsageThenFail) {

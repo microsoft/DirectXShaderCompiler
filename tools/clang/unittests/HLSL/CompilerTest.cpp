@@ -244,37 +244,12 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenOK)
   TEST_METHOD(CompileHlsl2019ThenFail)
-  TEST_METHOD(CompileCBufferTBufferASTDump)
 
   TEST_METHOD(DiaLoadBadBitcodeThenFail)
   TEST_METHOD(DiaLoadDebugThenOK)
   TEST_METHOD(DiaTableIndexThenOK)
 
-  TEST_METHOD(PixMSAAToSample0)
-  TEST_METHOD(PixRemoveDiscards)
-  TEST_METHOD(PixPixelCounter)
-  TEST_METHOD(PixPixelCounterEarlyZ)
-  TEST_METHOD(PixPixelCounterNoSvPosition)
-  TEST_METHOD(PixPixelCounterAddPixelCost)
-  TEST_METHOD(PixConstantColor)
-  TEST_METHOD(PixConstantColorInt)
-  TEST_METHOD(PixConstantColorMRT)
-  TEST_METHOD(PixConstantColorUAVs)
-  TEST_METHOD(PixConstantColorOtherSIVs)
-  TEST_METHOD(PixConstantColorFromCB)
-  TEST_METHOD(PixConstantColorFromCBint)
-  TEST_METHOD(PixForceEarlyZ)
-  TEST_METHOD(PixDebugBasic)
-  TEST_METHOD(PixDebugUAVSize)
-  TEST_METHOD(PixDebugGSParameters)
-  TEST_METHOD(PixDebugPSParameters)
-  TEST_METHOD(PixDebugVSParameters)
-  TEST_METHOD(PixDebugCSParameters)
-  TEST_METHOD(PixDebugFlowControl)
-  TEST_METHOD(PixDebugPreexistingSVPosition)
-  TEST_METHOD(PixDebugPreexistingSVVertex)
-  TEST_METHOD(PixDebugPreexistingSVInstance)
-  TEST_METHOD(PixAccessTracking)
+  TEST_METHOD(CodeGenPix)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -352,11 +327,6 @@ public:
   TEST_METHOD(CodeGenDot1)
   TEST_METHOD(CodeGenDynamic_Resources)
   TEST_METHOD(CodeGenEffectSkip)
-  TEST_METHOD(CodeGenEliminateDynamicIndexing)
-  TEST_METHOD(CodeGenEliminateDynamicIndexing2)
-  TEST_METHOD(CodeGenEliminateDynamicIndexing3)
-  TEST_METHOD(CodeGenEliminateDynamicIndexing4)
-  TEST_METHOD(CodeGenEliminateDynamicIndexing6)
   TEST_METHOD(CodeGenEmpty)
   TEST_METHOD(CodeGenEmptyStruct)
   TEST_METHOD(CodeGenEnum1)
@@ -530,7 +500,6 @@ public:
   TEST_METHOD(CodeGenPrecise4)
   TEST_METHOD(CodeGenPreciseOnCall)
   TEST_METHOD(CodeGenPreciseOnCallNot)
-  TEST_METHOD(CodeGenPreserveAllOutputs)
   TEST_METHOD(CodeGenRaceCond2)
   TEST_METHOD(CodeGenRaw_Buf1)
   TEST_METHOD(CodeGenRaw_Buf2)
@@ -601,7 +570,6 @@ public:
   TEST_METHOD(CodeGenSimpleHS9)
   TEST_METHOD(CodeGenSimpleHS10)
   TEST_METHOD(CodeGenSimpleHS11)
-  TEST_METHOD(CodeGenSMFail)
   TEST_METHOD(CodeGenSrv_Ms_Load1)
   TEST_METHOD(CodeGenSrv_Ms_Load2)
   TEST_METHOD(CodeGenSrv_Typed_Load1)
@@ -2864,10 +2832,6 @@ TEST_F(CompilerTest, CompileHlsl2019ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
-TEST_F(CompilerTest, CompileCBufferTBufferASTDump) {
-  CodeGenTestCheck(L"ctbuf.hlsl");
-}
-
 #ifdef _WIN32 // - exclude dia stuff
 TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
   CComPtr<IDxcBlob> pBadBitcode;
@@ -2939,104 +2903,8 @@ TEST_F(CompilerTest, DiaTableIndexThenOK) {
 }
 #endif // _WIN32 - exclude dia stuff
 
-TEST_F(CompilerTest, PixMSAAToSample0) {
-  CodeGenTestCheck(L"pix\\msaaLoad.hlsl");
-}
-
-TEST_F(CompilerTest, PixRemoveDiscards) {
-  CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
-}
-
-TEST_F(CompilerTest, PixPixelCounter) {
-  CodeGenTestCheck(L"pix\\pixelCounter.hlsl");
-}
-
-TEST_F(CompilerTest, PixPixelCounterEarlyZ) {
-  CodeGenTestCheck(L"pix\\pixelCounterEarlyZ.hlsl");
-}
-
-TEST_F(CompilerTest, PixPixelCounterNoSvPosition) {
-  CodeGenTestCheck(L"pix\\pixelCounterNoSvPosition.hlsl");
-}
-
-TEST_F(CompilerTest, PixPixelCounterAddPixelCost) {
-  CodeGenTestCheck(L"pix\\pixelCounterAddPixelCost.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColor) {
-  CodeGenTestCheck(L"pix\\constantcolor.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColorInt) {
-  CodeGenTestCheck(L"pix\\constantcolorint.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColorMRT) {
-  CodeGenTestCheck(L"pix\\constantcolorMRT.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColorUAVs) {
-  CodeGenTestCheck(L"pix\\constantcolorUAVs.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColorOtherSIVs) {
-  CodeGenTestCheck(L"pix\\constantcolorOtherSIVs.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColorFromCB) {
-  CodeGenTestCheck(L"pix\\constantcolorFromCB.hlsl");
-}
-
-TEST_F(CompilerTest, PixConstantColorFromCBint) {
-  CodeGenTestCheck(L"pix\\constantcolorFromCBint.hlsl");
-}
-
-TEST_F(CompilerTest, PixForceEarlyZ) {
-  CodeGenTestCheck(L"pix\\forceEarlyZ.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugBasic) {
-  CodeGenTestCheck(L"pix\\DebugBasic.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugUAVSize) {
-  CodeGenTestCheck(L"pix\\DebugUAVSize.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugGSParameters) {
-  CodeGenTestCheck(L"pix\\DebugGSParameters.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugPSParameters) {
-  CodeGenTestCheck(L"pix\\DebugPSParameters.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugVSParameters) {
-  CodeGenTestCheck(L"pix\\DebugVSParameters.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugCSParameters) {
-  CodeGenTestCheck(L"pix\\DebugCSParameters.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugFlowControl) {
-  CodeGenTestCheck(L"pix\\DebugFlowControl.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugPreexistingSVPosition) {
-  CodeGenTestCheck(L"pix\\DebugPreexistingSVPosition.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugPreexistingSVVertex) {
-  CodeGenTestCheck(L"pix\\DebugPreexistingSVVertex.hlsl");
-}
-
-TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
-  CodeGenTestCheck(L"pix\\DebugPreexistingSVInstance.hlsl");
-}
-
-TEST_F(CompilerTest, PixAccessTracking) {
-  CodeGenTestCheck(L"pix\\AccessTracking.hlsl");
+TEST_F(CompilerTest, CodeGenPix) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\pix");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
@@ -3355,26 +3223,6 @@ TEST_F(CompilerTest, CodeGenEffectSkip) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\effect_skip.hlsl");
 }
 
-TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing) {
-  CodeGenTestCheck(L"eliminate_dynamic_output.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing2) {
-  CodeGenTestCheck(L"eliminate_dynamic_output2.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing3) {
-  CodeGenTestCheck(L"eliminate_dynamic_output3.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing4) {
-  CodeGenTestCheck(L"eliminate_dynamic_output4.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing6) {
-  CodeGenTestCheck(L"eliminate_dynamic_output6.hlsl");
-}
-
 TEST_F(CompilerTest, CodeGenEmpty) {
   CodeGenTest(L"..\\CodeGenHLSL\\empty.hlsl");
 }
@@ -3437,21 +3285,7 @@ TEST_F(CompilerTest, CodeGenExternRes) {
 }
 
 TEST_F(CompilerTest, CodeGenExpandTrig) {
-  CodeGenTestCheck(L"expand_trig\\acos.hlsl");
-  CodeGenTestCheck(L"expand_trig\\acos_h.hlsl");
-  CodeGenTestCheck(L"expand_trig\\asin.hlsl");
-  CodeGenTestCheck(L"expand_trig\\asin_h.hlsl");
-  CodeGenTestCheck(L"expand_trig\\atan.hlsl");
-  CodeGenTestCheck(L"expand_trig\\atan_h.hlsl");
-  CodeGenTestCheck(L"expand_trig\\hcos.hlsl");
-  CodeGenTestCheck(L"expand_trig\\hcos_h.hlsl");
-  CodeGenTestCheck(L"expand_trig\\hsin.hlsl");
-  CodeGenTestCheck(L"expand_trig\\hsin_h.hlsl");
-  CodeGenTestCheck(L"expand_trig\\htan.hlsl");
-  CodeGenTestCheck(L"expand_trig\\htan_h.hlsl");
-  CodeGenTestCheck(L"expand_trig\\tan.hlsl");
-  CodeGenTestCheck(L"expand_trig\\keep_precise.0.hlsl");
-  CodeGenTestCheck(L"expand_trig\\keep_precise.1.hlsl");
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\expand_trig");
 }
 
 TEST_F(CompilerTest, CodeGenFloatCast) {
@@ -4096,16 +3930,6 @@ TEST_F(CompilerTest, CodeGenPreciseOnCallNot) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call_not.hlsl");
 }
 
-TEST_F(CompilerTest, CodeGenPreserveAllOutputs) {
-  CodeGenTestCheck(L"preserve_all_outputs_1.hlsl");
-  CodeGenTestCheck(L"preserve_all_outputs_2.hlsl");
-  CodeGenTestCheck(L"preserve_all_outputs_3.hlsl");
-  CodeGenTestCheck(L"preserve_all_outputs_4.hlsl");
-  CodeGenTestCheck(L"preserve_all_outputs_5.hlsl");
-  CodeGenTestCheck(L"preserve_all_outputs_6.hlsl");
-  CodeGenTestCheck(L"preserve_all_outputs_7.hlsl");
-}
-
 TEST_F(CompilerTest, CodeGenRaceCond2) {
   CodeGenTest(L"..\\CodeGenHLSL\\RaceCond2.hlsl");
 }
@@ -4388,10 +4212,6 @@ TEST_F(CompilerTest, CodeGenSimpleHS10) {
 
 TEST_F(CompilerTest, CodeGenSimpleHS11) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs11.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenSMFail) {
-  CodeGenTestCheck(L"sm-fail.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSrv_Ms_Load1) {
@@ -5757,71 +5577,11 @@ TEST_F(CompilerTest, DxilGen_StoreOutput) {
 }
 
 TEST_F(CompilerTest, ConstantFolding) {
-  CodeGenTestCheck(L"constprop\\FAbs.hlsl");
-  CodeGenTestCheck(L"constprop\\Saturate_half.hlsl");
-  CodeGenTestCheck(L"constprop\\Saturate_float.hlsl");
-  CodeGenTestCheck(L"constprop\\Saturate_double.hlsl");
-  CodeGenTestCheck(L"constprop\\Cos.hlsl");
-  CodeGenTestCheck(L"constprop\\Sin.hlsl");
-  CodeGenTestCheck(L"constprop\\Tan.hlsl");
-  CodeGenTestCheck(L"constprop\\Acos.hlsl");
-  CodeGenTestCheck(L"constprop\\Asin.hlsl");
-  CodeGenTestCheck(L"constprop\\Atan.hlsl");
-  CodeGenTestCheck(L"constprop\\Hcos.hlsl");
-  CodeGenTestCheck(L"constprop\\Hsin.hlsl");
-  CodeGenTestCheck(L"constprop\\Htan.hlsl");
-  CodeGenTestCheck(L"constprop\\Exp.hlsl");
-  CodeGenTestCheck(L"constprop\\Frc.hlsl");
-  CodeGenTestCheck(L"constprop\\Log.hlsl");
-  CodeGenTestCheck(L"constprop\\Sqrt.hlsl");
-  CodeGenTestCheck(L"constprop\\Rsqrt.hlsl");
-  CodeGenTestCheck(L"constprop\\Round_ne.hlsl");
-  CodeGenTestCheck(L"constprop\\Round_ni.hlsl");
-  CodeGenTestCheck(L"constprop\\Round_pi.hlsl");
-  CodeGenTestCheck(L"constprop\\Round_z.hlsl");
-  
-  CodeGenTestCheck(L"constprop\\Bfrev.hlsl");
-  CodeGenTestCheck(L"constprop\\Countbits.hlsl");
-  CodeGenTestCheck(L"constprop\\Firstbitlo.hlsl");
-  CodeGenTestCheck(L"constprop\\Firstbithi.hlsl");
-
-  CodeGenTestCheck(L"constprop\\FMin.hlsl");
-  CodeGenTestCheck(L"constprop\\FMax.hlsl");
-  CodeGenTestCheck(L"constprop\\IMin.hlsl");
-  CodeGenTestCheck(L"constprop\\IMax.hlsl");
-  CodeGenTestCheck(L"constprop\\UMin.hlsl");
-  CodeGenTestCheck(L"constprop\\UMax.hlsl");
-  
-  CodeGenTestCheck(L"constprop\\FMad.hlsl");
-  CodeGenTestCheck(L"constprop\\Fma.hlsl");
-  CodeGenTestCheck(L"constprop\\IMad.hlsl");
-  CodeGenTestCheck(L"constprop\\UMad.hlsl");
-  
-  CodeGenTestCheck(L"constprop\\Dot2.hlsl");
-  CodeGenTestCheck(L"constprop\\Dot3.hlsl");
-  CodeGenTestCheck(L"constprop\\Dot4.hlsl");
-
-  CodeGenTestCheck(L"constprop\\ibfe.ll");
-  CodeGenTestCheck(L"constprop\\ubfe.ll");
-  CodeGenTestCheck(L"constprop\\bfi.ll");
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\constprop");
 }
 
 TEST_F(CompilerTest, HoistConstantArray) {
-  CodeGenTestCheck(L"hca\\01.hlsl");
-  CodeGenTestCheck(L"hca\\02.hlsl");
-  CodeGenTestCheck(L"hca\\03.hlsl");
-  CodeGenTestCheck(L"hca\\04.hlsl");
-  CodeGenTestCheck(L"hca\\05.hlsl");
-  CodeGenTestCheck(L"hca\\06.hlsl");
-  CodeGenTestCheck(L"hca\\07.hlsl");
-  CodeGenTestCheck(L"hca\\08.hlsl");
-  CodeGenTestCheck(L"hca\\09.hlsl");
-  CodeGenTestCheck(L"hca\\10.hlsl");
-  CodeGenTestCheck(L"hca\\11.hlsl");
-  CodeGenTestCheck(L"hca\\12.hlsl");
-  CodeGenTestCheck(L"hca\\13.hlsl");
-  CodeGenTestCheck(L"hca\\14.hlsl");
-  CodeGenTestCheck(L"hca\\15.ll");
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\hoist-constant-array");
 }
 
 TEST_F(CompilerTest, VecElemConstEval) {
@@ -5957,25 +5717,7 @@ TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
 
 TEST_F(CompilerTest, ViewID) {
   if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid01.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid02.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid03.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid04.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid05.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid06.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid07.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid08.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid09.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid10.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid11.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid12.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid13.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid14.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid15.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid16.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid19.hlsl");
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\viewid");
 }
 
 TEST_F(CompilerTest, SubobjectCodeGenErrors) {
