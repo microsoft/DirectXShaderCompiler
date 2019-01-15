@@ -38,8 +38,8 @@ void main()
     output.Append(last_of_s(v2));
     // CHECK: i32 11,
     output.Append(last_of_s(m1x1));
-    // NCHECK: i32 11,
-    // output.Append(last_of_s(m2x2)); // Crashes, tracked by GitHub #1845
+    // CHECK: i32 11,
+    output.Append(last_of_s(m2x2));
 
     // ICK_HLSLVector_Conversion (vector/matrix, element-preserving)
     // CHECK: i32 12,
@@ -74,10 +74,10 @@ void main()
     output.Append(last_of_v1(v2));
     // CHECK: i32 -2,
     output.Append(last_of_v2(v3));
-    // NCHECK: i32 11,
-    // output.Append(last_of_v1(m2x2)); // Crashes, tracked by GitHub #1845
-    // NCHECK: i32 11,
-    // output.Append(last_of_m1x1(m2x2)); // Crashes, tracked by GitHub #1845
+    // CHECK: i32 11,
+    output.Append(last_of_v1(m2x2));
+    // CHECK: i32 11,
+    output.Append(last_of_m1x1(m2x2));
     // CHECK: i32 12,
     output.Append(last_of_m1x2(m2x2));
     // CHECK: i32 21,
