@@ -961,6 +961,11 @@ public:
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
 
+  // Batch directories
+  TEST_METHOD(CodeGenDeclarations)
+  TEST_METHOD(CodeGenExpressions)
+  TEST_METHOD(CodeGenPreprocessor)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -6064,4 +6069,16 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   } else {
     CodeGenTestCheckBatch(path.c_str(), 0);
   }
+}
+
+TEST_F(CompilerTest, CodeGenDeclarations) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\declarations");
+}
+
+TEST_F(CompilerTest, CodeGenExpressions) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\expressions");
+}
+
+TEST_F(CompilerTest, CodeGenPreprocessor) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\preprocessor");
 }
