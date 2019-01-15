@@ -4799,6 +4799,154 @@
             </Parameter>
         </Row>
     </Table>
+    <Table Id="Dot2AddOpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="Dot2Add">
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.008</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SDot2AddOp {
+                   half2 input1;
+                   half2 input2;
+                   float acc;
+                   float result;
+                };
+                RWStructuredBuffer&lt;SDot2AddOp&gt; g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDot2AddOp l = g_buf[GI];
+                    l.result = dot2add(l.input1, l.input2, l.acc);
+                    g_buf[GI] = l;
+                };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_4</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1,2</Value>
+                <Value>1,2</Value>
+                <Value>1,2</Value>
+                <Value>1,2</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>3,4</Value>
+                <Value>3,4</Value>
+                <Value>3,4</Value>
+                <Value>3,4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-5</Value>
+                <Value>-30</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>11</Value>
+                <Value>21</Value>
+                <Value>6</Value>
+                <Value>-21</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
+    <Table Id="Dot4AddI8PackedOpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="Dot4AddI8Packed">
+            <Parameter Name="ShaderOp.Text"> struct SDot4AddI8PackedOp {
+                   dword input1;
+                   dword input2;
+                   int acc;
+                   int result;
+                };
+                RWStructuredBuffer&lt;SDot4AddI8PackedOp&gt; g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDot4AddI8PackedOp l = g_buf[GI];
+                    l.result = dot4add_i8packed(l.input1, l.input2, l.acc);
+                    g_buf[GI] = l;
+                };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_4</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x00000102</Value>
+                <Value>0x00000102</Value>
+                <Value>0x00000102</Value>
+                <Value>0x00000102</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x00000304</Value>
+                <Value>0x00000304</Value>
+                <Value>0x00000304</Value>
+                <Value>0x00000304</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-5</Value>
+                <Value>-30</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>11</Value>
+                <Value>21</Value>
+                <Value>6</Value>
+                <Value>-19</Value>
+            </Parameter>
+        </Row>
+    </Table>
+    <Table Id="Dot4AddU8PackedOpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="Dot4AddU8Packed">
+            <Parameter Name="ShaderOp.Text"> struct SDot4AddU8PackedOp {
+                   dword input1;
+                   dword input2;
+                   dword acc;
+                   dword result;
+                };
+                RWStructuredBuffer&lt;SDot4AddU8PackedOp&gt; g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDot4AddU8PackedOp l = g_buf[GI];
+                    l.result = dot4add_u8packed(l.input1, l.input2, l.acc);
+                    g_buf[GI] = l;
+                };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_4</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x00000102</Value>
+                <Value>0x00000102</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x00000304</Value>
+                <Value>0x00000304</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>11</Value>
+                <Value>21</Value>
+            </Parameter>
+        </Row>
+    </Table>
     <Table Id="Msad4Table">
         <ParameterTypes>
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
