@@ -5599,11 +5599,24 @@ void SROA_Parameter_HLSL::flattenArgument(
             TmpV = castParamMap[TmpV].first;
           }
         }
+
         Type *Ty = TmpV->getType();
         if (Ty->isPointerTy())
           Ty = Ty->getPointerElementType();
         unsigned size = DL.getTypeAllocSize(Ty);
-        DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+
+        Type *argTy = Arg->getType();
+        if (argTy->isPointerTy())
+          argTy = argTy->getPointerElementType();
+
+        DIExpression *DDIExp = nullptr;
+        if (debugOffset == 0 && DL.getTypeAllocSize(argTy) == size) {
+          std::vector<uint64_t> Addr;
+          DDIExp = DIB.createExpression(Addr);
+        }
+        else {
+          DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+        }
         debugOffset += size;
         DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
                           Builder.GetInsertPoint());
