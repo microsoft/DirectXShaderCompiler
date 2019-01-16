@@ -1756,4 +1756,9 @@ TEST_F(FileTest, LegalizationExample21) {
   runFileTest("legal-examples/21-combined-ok.hlsl");
 }
 
+TEST_F(FileTest, PreprocessorError) {
+  // Tests that preprocessor error is surfaced
+  runFileTest("preprocess.error.hlsl", Expect::Failure);
+}
+
 } // namespace
