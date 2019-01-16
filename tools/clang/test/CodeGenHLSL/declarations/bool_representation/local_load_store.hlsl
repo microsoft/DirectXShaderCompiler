@@ -4,7 +4,7 @@
 // in local variables.
 
 // Local variables should never be i1s
-// CHECK-not: alloca {{.*}}i1
+// CHECK-NOT: alloca {{.*}}i1
 
 int main(int i : I) : OUT
 {
