@@ -368,8 +368,8 @@ public:
         IFT(ppSrcCodeResult->GetStatus(&status));
         if (SUCCEEDED(status)) {
           IFT(ppSrcCodeResult->GetResult(&ppSrcCode));
+          pSource = ppSrcCode;
         }
-        pSource = ppSrcCode;
       }
 #endif // ENABLE_SPIRV_CODEGEN
 
