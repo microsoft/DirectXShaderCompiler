@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
 
 // Tests all implicit conversions and explicit casts between type shapes
 // (scalars, vectors, matrices, arrays and structs).
@@ -16,6 +16,7 @@ struct S2 { int a, b; };
 struct S4 { int a, b, c, d; };
 struct S5 { int a, b, c, d, e; };
 
+// Clang generates a bunch of "notes" about overload candidates here, but we're not testing for these
 void to_i(int i) {}
 void to_v1(int1 v) {}
 void to_v2(int2 v) {}
