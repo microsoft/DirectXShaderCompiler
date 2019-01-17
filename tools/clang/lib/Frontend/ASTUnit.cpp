@@ -2054,14 +2054,10 @@ ASTUnit *ASTUnit::LoadFromCommandLine(
   AST.reset(new ASTUnit(false));
   // HLSL Change Starts
   AST->HlslLangExtensions = HlslLangExtensions;
-  // Enable -verify on the libclang initialization path.
-  bool VerifyDiagnostics = false;
-  for (const char** Arg = ArgBegin; Arg != ArgEnd; ++Arg) {
-    if (strcmp(*Arg, "-verify") == 0) {
-      VerifyDiagnostics = true;
-      break;
-    }
-  }
+  // Enable -verify and -verify-ignore-unexpected on the libclang initialization path.
+  bool VerifyDiagnostics = CI->getDiagnosticOpts().VerifyDiagnostics;
+  Diags->getDiagnosticOptions().setVerifyIgnoreUnexpected(
+	  CI->getDiagnosticOpts().getVerifyIgnoreUnexpected());
   // HLSL Change Ends
   ConfigureDiags(Diags, *AST, CaptureDiagnostics, VerifyDiagnostics); // HLSL Change
   AST->Diagnostics = Diags;
