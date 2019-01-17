@@ -14,9 +14,11 @@
 typedef int A1[1];
 typedef int A2[2];
 typedef int A4[4];
+typedef int A5[5];
 struct S1 { int a; };
 struct S2 { int a, b; };
 struct S4 { int a, b, c, d; };
+struct S5 { int a, b, c, d, e; };
 
 AppendStructuredBuffer<int4> buffer;
 // Avoid overloading since it plays into conversions
@@ -55,13 +57,19 @@ void main()
     int1x2 m1x2 = int1x2(11, 12);
     int2x1 m2x1 = int2x1(11, 21);
     int2x2 m2x2 = int2x2(11, 12, 21, 22);
+    int1x3 m1x3 = int1x3(11, 12, 13);
+    int2x3 m2x3 = int2x3(11, 12, 13, 21, 22, 23);
+    int3x1 m3x1 = int3x1(11, 21, 31);
+    int3x2 m3x2 = int3x2(11, 12, 21, 22, 31, 32);
     int3x3 m3x3 = int3x3(11, 12, 13, 21, 22, 23, 31, 32, 33);
     A1 a1 = { 1 };
     A2 a2 = { 1, 2 };
     A4 a4 = { 1, 2, 3, 4 };
+    A5 a5 = { 1, 2, 3, 4, 5 };
     S1 s1 = { 1 };
     S2 s2 = { 1, 2 };
     S4 s4 = { 1, 2, 3, 4 };
+    S5 s5 = { 1, 2, 3, 4, 5 };
 
     // =========== Scalar/single-element ===========
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
@@ -321,4 +329,114 @@ void main()
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_s2((S2)a2);
+    
+    output_separator();
+
+    // =========== Truncating ===========
+    // Single element dests already tested
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
+    // FXC: l(1,2,0,0)
+    output_v2(v4); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
+    // FXC: l(11,12,0,0)
+    output_v2(m1x3); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
+    // FXC: l(11,21,0,0)
+    output_v2(m3x1); // warning: implicit truncation of vector type
+    // DXC incorrectly produces i32 1, i32 1, i32 0, i32 0, i8 15) - GitHub #1795
+    // FXC: l(1,2,0,0)
+    output_v2((int2)a4);
+    // DXC incorrectly produces i32 1, i32 1, i32 0, i32 0, i8 15) - GitHub #1795
+    // FXC: l(1,2,0,0)
+    output_v2((int2)s4);
+
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
+    // FXC: l(1,2,0,0)
+    output_m1x2(v4); // warning: implicit truncation of vector type
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
+    // FXC fails with internal error: invalid sequence/cast expression
+    output_m2x1(v4); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
+    // FXC: l(11,12,0,0)
+    output_m1x2(m1x3); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
+    // FXC: l(11,12,0,0)
+    output_m1x2(m2x2); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
+    // FXC: l(11,21,0,0)
+    output_m2x1(m3x1); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
+    // FXC: l(11,21,0,0)
+    output_m2x1(m2x2); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
+    // FXC: l(11,12,21,22)
+    output_m2x2(m2x3); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
+    // FXC: l(11,12,21,22)
+    output_m2x2(m3x2); // warning: implicit truncation of vector type
+    // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
+    // FXC: l(11,12,21,22)
+    output_m2x2(m3x3); // warning: implicit truncation of vector type
+    // DXC crashes (GitHub #1799)
+    // FXC: l(1,2,0,0)
+    // output_m1x2((int1x2)a4);
+    // DXC crashes (GitHub #1799)
+    // FXC fails with internal error: invalid sequence/cast expression
+    // output_m2x1((int2x1)a4);
+    // DXC crashes (GitHub #1799)
+    // FXC rejects with error X3017: cannot convert from 'typedef int[5]' to 'int2x2'
+    // output_m2x2((int2x2)a5);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(1,2,0,0)
+    // output_m1x2((int1x2)s4);
+    // DXC crashes (GitHub #1799)
+    // FXC fails with internal error: invalid sequence/cast expression
+    // output_m2x1((int2x1)s4);
+    // DXC crashes (GitHub #1799)
+    // FXC rejects with error X3017: cannot convert from 'struct S5' to 'int2x2'
+    // output_m2x2((int2x2)s5);
+
+    // DXC fails validation
+    // FXC: l(1,2,0,0)
+    // output_a2((A2)v4);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(11,12,0,0)
+    // output_a2((A2)m1x3);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(11,21,0,0)
+    // output_a2((A2)m3x1);
+    // DXC crashes (GitHub #1799)
+    // FXC rejects with error X3017: cannot convert from 'int2x2' to 'typedef int[2]'
+    // output_a2((A2)m2x2);
+    // DXC crashes (GitHub #1799)
+    // FXC rejects with error X3017: cannot convert from 'int3x3' to 'typedef int[2]'
+    // output_a2((A2)m3x3);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
+    // FXC: l(1,2,0,0)
+    output_a2((A2)a4);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(1,2,0,0)
+    // output_a2((A2)s4);
+
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
+    // FXC: l(1,2,0,0)
+    output_s2((S2)v4);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(11,12,0,0)
+    // output_s2((S2)m1x3);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(11,21,0,0)
+    // output_s2((S2)m3x1);
+    // DXC crashes (GitHub #1799)
+    // FXC rejects with error X3017: cannot convert from 'int2x2' to 'struct S2'
+    // output_s2((S2)m2x2);
+    // DXC crashes (GitHub #1799)
+    // FXC rejects with error X3017: cannot convert from 'int3x3' to 'struct S2'
+    // output_s2((S2)m3x3);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
+    // FXC: l(1,2,0,0)
+    output_s2((S2)a4);
+    // DXC crashes (GitHub #1799)
+    // FXC: l(1,2,0,0)
+    // output_s2((S2)s4);
 }
