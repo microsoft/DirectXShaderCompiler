@@ -586,7 +586,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       Value *OldIncomingV = PN->getIncomingValue(i);
       if (Instruction *IncomingI = dyn_cast<Instruction>(OldIncomingV)) {
         if (Value *NewIncomingV = llvm::SimplifyInstruction(IncomingI, DL)) {
-          OldIncomingV->replaceAllUsesWith(NewIncomingV);
+          PN->setIncomingValue(i, NewIncomingV);
         }
       }
     }
