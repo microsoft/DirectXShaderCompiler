@@ -1,8 +1,8 @@
 // Run: %dxc -T gs_6_0 -E main -fspv-reflect
 
+// CHECK: OpCapability Geometry
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
-// CHECK: OpCapability Geometry
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 

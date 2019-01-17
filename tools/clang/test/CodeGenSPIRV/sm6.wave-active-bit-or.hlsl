@@ -24,15 +24,15 @@ void main(uint3 id: SV_DispatchThreadID) {
      uint val4 = values[x].val4;
 
 // CHECK:      [[val1:%\d+]] = OpLoad %v4uint %val1
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %v4uint %int_3 Reduce [[val1]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %v4uint %uint_3 Reduce [[val1]]
     values[x].val1 = WaveActiveBitOr(val1);
 // CHECK:      [[val2:%\d+]] = OpLoad %v3uint %val2
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %v3uint %int_3 Reduce [[val2]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %v3uint %uint_3 Reduce [[val2]]
     values[x].val2 = WaveActiveBitOr(val2);
 // CHECK:      [[val3:%\d+]] = OpLoad %v2uint %val3
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %v2uint %int_3 Reduce [[val3]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %v2uint %uint_3 Reduce [[val3]]
     values[x].val3 = WaveActiveBitOr(val3);
 // CHECK:      [[val4:%\d+]] = OpLoad %uint %val4
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %uint %int_3 Reduce [[val4]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseOr %uint %uint_3 Reduce [[val4]]
     values[x].val4 = WaveActiveBitOr(val4);
 }

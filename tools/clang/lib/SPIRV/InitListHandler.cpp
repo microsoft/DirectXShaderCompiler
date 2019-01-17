@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "InitListHandler.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 
 #include <algorithm>
 #include <iterator>
@@ -21,12 +22,12 @@
 namespace clang {
 namespace spirv {
 
-InitListHandler::InitListHandler(SPIRVEmitter &emitter)
-    : theEmitter(emitter), theBuilder(emitter.getModuleBuilder()),
-      typeTranslator(emitter.getTypeTranslator()),
+InitListHandler::InitListHandler(const ASTContext &ctx, SpirvEmitter &emitter)
+    : astContext(ctx), theEmitter(emitter),
+      spvBuilder(emitter.getSpirvBuilder()),
       diags(emitter.getDiagnosticsEngine()) {}
 
-uint32_t InitListHandler::processInit(const InitListExpr *expr) {
+SpirvInstruction *InitListHandler::processInit(const InitListExpr *expr) {
   initializers.clear();
   scalars.clear();
 
@@ -38,7 +39,8 @@ uint32_t InitListHandler::processInit(const InitListExpr *expr) {
   return doProcess(expr->getType(), expr->getExprLoc());
 }
 
-uint32_t InitListHandler::processCast(QualType toType, const Expr *expr) {
+SpirvInstruction *InitListHandler::processCast(QualType toType,
+                                               const Expr *expr) {
   initializers.clear();
   scalars.clear();
 
@@ -47,8 +49,9 @@ uint32_t InitListHandler::processCast(QualType toType, const Expr *expr) {
   return doProcess(toType, expr->getExprLoc());
 }
 
-uint32_t InitListHandler::doProcess(QualType type, SourceLocation srcLoc) {
-  const uint32_t init = createInitForType(type, srcLoc);
+SpirvInstruction *InitListHandler::doProcess(QualType type,
+                                             SourceLocation srcLoc) {
+  auto *init = createInitForType(type, srcLoc);
 
   if (init) {
     // For successful translation, we should have consumed all initializers and
@@ -82,13 +85,13 @@ void InitListHandler::decompose(const Expr *expr) {
   const QualType type = expr->getType();
 
   if (hlsl::IsHLSLVecType(type)) {
-    const uint32_t vec = theEmitter.loadIfGLValue(expr);
+    auto *vec = theEmitter.loadIfGLValue(expr);
     const QualType elemType = hlsl::GetHLSLVecElementType(type);
     const auto size = hlsl::GetHLSLVecSize(type);
 
     decomposeVector(vec, elemType, size);
   } else if (hlsl::IsHLSLMatType(type)) {
-    const uint32_t mat = theEmitter.loadIfGLValue(expr);
+    auto *mat = theEmitter.loadIfGLValue(expr);
     const QualType elemType = hlsl::GetHLSLMatElementType(type);
 
     uint32_t rowCount = 0, colCount = 0;
@@ -98,11 +101,10 @@ void InitListHandler::decompose(const Expr *expr) {
       // This also handles the scalar case
       decomposeVector(mat, elemType, rowCount == 1 ? colCount : rowCount);
     } else {
-      const uint32_t elemTypeId = typeTranslator.translateType(elemType);
       for (uint32_t i = 0; i < rowCount; ++i)
         for (uint32_t j = 0; j < colCount; ++j) {
-          const uint32_t element =
-              theBuilder.createCompositeExtract(elemTypeId, mat, {i, j});
+          auto *element =
+              spvBuilder.createCompositeExtract(elemType, mat, {i, j});
           scalars.emplace_back(element, elemType);
         }
     }
@@ -111,16 +113,14 @@ void InitListHandler::decompose(const Expr *expr) {
   }
 }
 
-void InitListHandler::decomposeVector(uint32_t vec, QualType elemType,
+void InitListHandler::decomposeVector(SpirvInstruction *vec, QualType elemType,
                                       uint32_t size) {
   if (size == 1) {
     // Decomposing of size-1 vector just results in the vector itself.
     scalars.emplace_back(vec, elemType);
   } else {
-    const uint32_t elemTypeId = typeTranslator.translateType(elemType);
     for (uint32_t i = 0; i < size; ++i) {
-      const uint32_t element =
-          theBuilder.createCompositeExtract(elemTypeId, vec, {i});
+      auto *element = spvBuilder.createCompositeExtract(elemType, vec, {i});
       scalars.emplace_back(element, elemType);
     }
   }
@@ -134,7 +134,7 @@ bool InitListHandler::tryToSplitStruct() {
   const QualType initType = init->getType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
-      TypeTranslator::isSampler(initType))
+      isSampler(initType))
     return false;
 
   // We are certain the current intializer will be replaced by now.
@@ -200,8 +200,8 @@ bool InitListHandler::tryToSplitConstantArray() {
   return true;
 }
 
-uint32_t InitListHandler::createInitForType(QualType type,
-                                            SourceLocation srcLoc) {
+SpirvInstruction *InitListHandler::createInitForType(QualType type,
+                                                     SourceLocation srcLoc) {
   type = type.getCanonicalType();
 
   if (type->isBuiltinType())
@@ -217,13 +217,13 @@ uint32_t InitListHandler::createInitForType(QualType type,
 
   // Samplers, (RW)Buffers, (RW)Textures
   // It is important that this happens before checking of structure types.
-  if (TypeTranslator::isOpaqueType(type))
+  if (isOpaqueType(type))
     return createInitForSamplerImageType(type, srcLoc);
 
   // This should happen before the check for normal struct types
-  if (TypeTranslator::isAKindOfStructuredOrByteBuffer(type)) {
+  if (isAKindOfStructuredOrByteBuffer(type)) {
     emitError("cannot handle structured/byte buffer as initializer", srcLoc);
-    return 0;
+    return nullptr;
   }
 
   if (type->isStructureType())
@@ -233,11 +233,12 @@ uint32_t InitListHandler::createInitForType(QualType type,
     return createInitForConstantArrayType(type, srcLoc);
 
   emitError("initializer for type %0 unimplemented", srcLoc) << type;
-  return 0;
+  return nullptr;
 }
 
-uint32_t InitListHandler::createInitForBuiltinType(QualType type,
-                                                   SourceLocation srcLoc) {
+SpirvInstruction *
+InitListHandler::createInitForBuiltinType(QualType type,
+                                          SourceLocation srcLoc) {
   assert(type->isBuiltinType());
 
   if (!scalars.empty()) {
@@ -258,13 +259,13 @@ uint32_t InitListHandler::createInitForBuiltinType(QualType type,
     return createInitForBuiltinType(type, srcLoc);
   }
 
-  const uint32_t value = theEmitter.loadIfGLValue(init);
+  auto *value = theEmitter.loadIfGLValue(init);
   return theEmitter.castToType(value, init->getType(), type, srcLoc);
 }
 
-uint32_t InitListHandler::createInitForVectorType(QualType elemType,
-                                                  uint32_t count,
-                                                  SourceLocation srcLoc) {
+SpirvInstruction *
+InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
+                                         SourceLocation srcLoc) {
   // If we don't have leftover scalars, we can try to see if there is a vector
   // of the same size in the original initializer list so that we can use it
   // directly. For all other cases, we need to construct a new vector as the
@@ -282,7 +283,7 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
       /// HLSL vector types are parameterized templates and we cannot
       /// construct them. So we construct an ExtVectorType here instead.
       /// This is unfortunate since it means we need to handle ExtVectorType
-      /// in all type casting methods in SPIRVEmitter.
+      /// in all type casting methods in SpirvEmitter.
       const auto toVecType =
           theEmitter.getASTContext().getExtVectorType(elemType, count);
       return theEmitter.castToType(theEmitter.loadIfGLValue(init),
@@ -293,22 +294,22 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
   if (count == 1)
     return createInitForBuiltinType(elemType, srcLoc);
 
-  llvm::SmallVector<uint32_t, 4> elements;
+  llvm::SmallVector<SpirvInstruction *, 4> elements;
   for (uint32_t i = 0; i < count; ++i) {
     // All elements are scalars, which should already be casted to the correct
     // type if necessary.
     elements.push_back(createInitForBuiltinType(elemType, srcLoc));
   }
 
-  const uint32_t elemTypeId = typeTranslator.translateType(elemType);
-  const uint32_t vecType = theBuilder.getVecType(elemTypeId, count);
+  const QualType vecType = astContext.getExtVectorType(elemType, count);
 
   // TODO: use OpConstantComposite when all components are constants
-  return theBuilder.createCompositeConstruct(vecType, elements);
+  return spvBuilder.createCompositeConstruct(vecType, elements);
 }
 
-uint32_t InitListHandler::createInitForMatrixType(QualType matrixType,
-                                                  SourceLocation srcLoc) {
+SpirvInstruction *
+InitListHandler::createInitForMatrixType(QualType matrixType,
+                                         SourceLocation srcLoc) {
   uint32_t rowCount = 0, colCount = 0;
   hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
   const QualType elemType = hlsl::GetHLSLMatElementType(matrixType);
@@ -340,7 +341,7 @@ uint32_t InitListHandler::createInitForMatrixType(QualType matrixType,
   if (colCount == 1)
     return createInitForVectorType(elemType, rowCount, srcLoc);
 
-  llvm::SmallVector<uint32_t, 4> vectors;
+  llvm::SmallVector<SpirvInstruction *, 4> vectors;
   for (uint32_t i = 0; i < rowCount; ++i) {
     // All elements are vectors, which should already be casted to the correct
     // type if necessary.
@@ -348,12 +349,11 @@ uint32_t InitListHandler::createInitForMatrixType(QualType matrixType,
   }
 
   // TODO: use OpConstantComposite when all components are constants
-  return theBuilder.createCompositeConstruct(
-      typeTranslator.translateType(matrixType), vectors);
+  return spvBuilder.createCompositeConstruct(matrixType, vectors);
 }
 
-uint32_t InitListHandler::createInitForStructType(QualType type) {
-  assert(type->isStructureType() && !TypeTranslator::isSampler(type));
+SpirvInstruction *InitListHandler::createInitForStructType(QualType type) {
+  assert(type->isStructureType() && !isSampler(type));
 
   // Same as the vector case, first try to see if we already have a struct at
   // the beginning of the initializer queue.
@@ -377,20 +377,19 @@ uint32_t InitListHandler::createInitForStructType(QualType type) {
     tryToSplitStruct();
   }
 
-  llvm::SmallVector<uint32_t, 4> fields;
+  llvm::SmallVector<SpirvInstruction *, 4> fields;
   const RecordDecl *structDecl = type->getAsStructureType()->getDecl();
   for (const auto *field : structDecl->fields()) {
     fields.push_back(createInitForType(field->getType(), field->getLocation()));
     if (!fields.back())
-      return 0;
+      return nullptr;
   }
 
-  const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants
-  return theBuilder.createCompositeConstruct(typeId, fields);
+  return spvBuilder.createCompositeConstruct(type, fields);
 }
 
-uint32_t
+SpirvInstruction *
 InitListHandler::createInitForConstantArrayType(QualType type,
                                                 SourceLocation srcLoc) {
   assert(type->isConstantArrayType());
@@ -422,18 +421,18 @@ InitListHandler::createInitForConstantArrayType(QualType type,
   // TODO: handle (unlikely) extra large array size?
   const auto size = static_cast<uint32_t>(arrType->getSize().getZExtValue());
 
-  llvm::SmallVector<uint32_t, 4> elements;
+  llvm::SmallVector<SpirvInstruction *, 4> elements;
   for (uint32_t i = 0; i < size; ++i)
     elements.push_back(createInitForType(elemType, srcLoc));
 
-  const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants
-  return theBuilder.createCompositeConstruct(typeId, elements);
+  return spvBuilder.createCompositeConstruct(type, elements);
 }
 
-uint32_t InitListHandler::createInitForSamplerImageType(QualType type,
-                                                        SourceLocation srcLoc) {
-  assert(TypeTranslator::isOpaqueType(type));
+SpirvInstruction *
+InitListHandler::createInitForSamplerImageType(QualType type,
+                                               SourceLocation srcLoc) {
+  assert(isOpaqueType(type));
 
   // Samplers, (RW)Buffers, and (RW)Textures are translated into OpTypeSampler
   // and OpTypeImage. They should be treated similar as builtin types.
@@ -445,7 +444,7 @@ uint32_t InitListHandler::createInitForSamplerImageType(QualType type,
     if (init.second.getCanonicalType() != type.getCanonicalType()) {
       emitError("cannot cast initializer type %0 into variable type %1", srcLoc)
           << init.second << type;
-      return 0;
+      return nullptr;
     }
     return init.first;
   }
@@ -462,7 +461,7 @@ uint32_t InitListHandler::createInitForSamplerImageType(QualType type,
     emitError("cannot cast initializer type %0 into variable type %1",
               init->getLocStart())
         << init->getType() << type;
-    return 0;
+    return nullptr;
   }
   return theEmitter.loadIfGLValue(init);
 }

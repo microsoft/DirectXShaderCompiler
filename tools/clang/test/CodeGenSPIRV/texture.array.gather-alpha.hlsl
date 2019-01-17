@@ -14,10 +14,9 @@ TextureCubeArray<uint4> tCubeArray : register(t3);
 // CHECK:      [[c56:%\d+]] = OpConstantComposite %v2int %int_5 %int_6
 // CHECK:      [[c78:%\d+]] = OpConstantComposite %v2int %int_7 %int_8
 // CHECK:    [[c1to8:%\d+]] = OpConstantComposite %_arr_v2int_uint_4 [[c12]] [[c34]] [[c56]] [[c78]]
+// CHECK: [[cv4f_1_5:%\d+]] = OpConstantComposite %v4float %float_1_5 %float_1_5 %float_1_5 %float_1_5
 
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4uint
-
-// CHECK: [[cv4f_1_5:%\d+]] = OpConstantComposite %v4float %float_1_5 %float_1_5 %float_1_5 %float_1_5
 
 float4 main(float3 location: A) : SV_Target {
 // CHECK:            [[t2f4:%\d+]] = OpLoad %type_2d_image_array %t2f4

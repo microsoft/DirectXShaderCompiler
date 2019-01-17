@@ -50,7 +50,7 @@
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
-#include "clang/SPIRV/EmitSPIRVAction.h"
+#include "clang/SPIRV/EmitSpirvAction.h"
 #endif
 // SPIRV change ends
 
@@ -534,7 +534,7 @@ public:
             opts.SpirvOptions.clOptions += " " + std::string(opt);
 
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
-        clang::EmitSPIRVAction action;
+        clang::EmitSpirvAction action;
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();

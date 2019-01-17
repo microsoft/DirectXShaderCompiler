@@ -20,10 +20,8 @@
 
 #include "clang/AST/Expr.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/SPIRV/ModuleBuilder.h"
 
-#include "SPIRVEmitter.h"
-#include "TypeTranslator.h"
+#include "SpirvEmitter.h"
 
 namespace clang {
 namespace spirv {
@@ -45,7 +43,7 @@ namespace spirv {
 ///
 /// Resulting from the above reasons, the logic for handling initalizer lists
 /// are complicated. So we have this dedicated class for it. It is built on
-/// top of the SPIRVEmitter class and calls into SPIRVEmitter for normal
+/// top of the SpirvEmitter class and calls into SPIRVEmitter for normal
 /// translation tasks. This gives better code structure.
 ///
 /// The logic for handling initalizer lists is largely the following:
@@ -81,15 +79,15 @@ public:
   /// Constructs an InitListHandler which uses the given emitter for normal
   /// translation tasks. It will reuse the ModuleBuilder embedded in the given
   /// emitter.
-  explicit InitListHandler(SPIRVEmitter &emitter);
+  explicit InitListHandler(const ASTContext &, SpirvEmitter &);
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
-  uint32_t processInit(const InitListExpr *expr);
+  SpirvInstruction *processInit(const InitListExpr *expr);
 
   /// Casts the given Expr to the given toType and returns the <result-id> for
   /// the final SPIR-V value.
-  uint32_t processCast(QualType toType, const Expr *expr);
+  SpirvInstruction *processCast(QualType toType, const Expr *expr);
 
 private:
   /// \brief Wrapper method to create an error message and report it
@@ -103,7 +101,7 @@ private:
 
   /// Processes the expressions in initializers and returns the <result-id> for
   /// the final SPIR-V value of the given type.
-  uint32_t doProcess(QualType type, SourceLocation srcLoc);
+  SpirvInstruction *doProcess(QualType type, SourceLocation srcLoc);
 
   /// Flattens the given InitListExpr and puts all non-InitListExpr AST nodes
   /// into initializers.
@@ -112,7 +110,7 @@ private:
   /// Decomposes the given Expr and puts all elements into the end of the
   /// scalars queue.
   void decompose(const Expr *expr);
-  void decomposeVector(uint32_t vec, QualType elemType, uint32_t size);
+  void decomposeVector(SpirvInstruction *vec, QualType elemType, uint32_t size);
 
   /// If the next initializer is a struct, replaces it with MemberExprs to all
   /// its members and returns true. Otherwise, does nothing and return false.
@@ -125,19 +123,22 @@ private:
   /// Emits the necessary SPIR-V instructions to create a SPIR-V value of the
   /// given type. The scalars and initializers queue will be used to fetch the
   /// next value.
-  uint32_t createInitForType(QualType type, SourceLocation);
-  uint32_t createInitForBuiltinType(QualType type, SourceLocation);
-  uint32_t createInitForVectorType(QualType elemType, uint32_t count,
-                                   SourceLocation);
-  uint32_t createInitForMatrixType(QualType matrixType, SourceLocation);
-  uint32_t createInitForStructType(QualType type);
-  uint32_t createInitForConstantArrayType(QualType type, SourceLocation);
-  uint32_t createInitForSamplerImageType(QualType type, SourceLocation);
+  SpirvInstruction *createInitForType(QualType type, SourceLocation);
+  SpirvInstruction *createInitForBuiltinType(QualType type, SourceLocation);
+  SpirvInstruction *createInitForVectorType(QualType elemType, uint32_t count,
+                                            SourceLocation);
+  SpirvInstruction *createInitForMatrixType(QualType matrixType,
+                                            SourceLocation);
+  SpirvInstruction *createInitForStructType(QualType type);
+  SpirvInstruction *createInitForConstantArrayType(QualType type,
+                                                   SourceLocation);
+  SpirvInstruction *createInitForSamplerImageType(QualType type,
+                                                  SourceLocation);
 
 private:
-  SPIRVEmitter &theEmitter;
-  ModuleBuilder &theBuilder;
-  TypeTranslator &typeTranslator;
+  const ASTContext &astContext;
+  SpirvEmitter &theEmitter;
+  SpirvBuilder &spvBuilder;
   DiagnosticsEngine &diags;
 
   /// A queue keeping track of unused AST nodes for initializers. Since we will
@@ -149,7 +150,7 @@ private:
   /// A queue keeping track of previously extracted but unused scalars.
   /// Each element is a pair, with the first element as the SPIR-V <result-id>
   /// and the second element as the AST type of the scalar value.
-  std::deque<std::pair<uint32_t, QualType>> scalars;
+  std::deque<std::pair<SpirvInstruction *, QualType>> scalars;
 };
 
 } // end namespace spirv

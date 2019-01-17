@@ -3,24 +3,27 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_library(clangSPIRV
+  AlignmentSizeCalculator.cpp
   AstTypeProbe.cpp
   BlockReadableOrder.cpp
-  Constant.cpp
+  CapabilityVisitor.cpp
   DeclResultIdMapper.cpp
-  Decoration.cpp
-  EmitSPIRVAction.cpp
+  EmitSpirvAction.cpp
+  EmitVisitor.cpp
   FeatureManager.cpp
   GlPerVertex.cpp
   InitListHandler.cpp
-  InstBuilderAuto.cpp
-  InstBuilderManual.cpp
-  ModuleBuilder.cpp
-  SPIRVContext.cpp
-  SPIRVEmitter.cpp
+  LiteralTypeVisitor.cpp
+  LowerTypeVisitor.cpp
+  SpirvBasicBlock.cpp
+  SpirvBuilder.cpp
+  SpirvContext.cpp
+  SpirvEmitter.cpp
+  SpirvFunction.cpp
+  SpirvInstruction.cpp
+  SpirvModule.cpp
+  SpirvType.cpp
   String.cpp
-  Structure.cpp
-  Type.cpp
-  TypeTranslator.cpp
 
   LINK_LIBS
   clangAST
