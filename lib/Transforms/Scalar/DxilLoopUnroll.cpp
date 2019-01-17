@@ -562,6 +562,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
   BasicBlock *Predecessor = L->getLoopPredecessor();
+  const DataLayout &DL = F->getParent()->getDataLayout();
 
   // Quit if we don't have a single latch block or predecessor
   if (!Latch || !Predecessor) {
@@ -599,6 +600,18 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
     else {
       break;
+    }
+  }
+
+  // Quick simplification of PHINode incoming values
+  for (PHINode *PN : PHIs) {
+    for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
+      Value *OldIncomingV = PN->getIncomingValue(i);
+      if (Instruction *IncomingI = dyn_cast<Instruction>(OldIncomingV)) {
+        if (Value *NewIncomingV = llvm::SimplifyInstruction(IncomingI, DL)) {
+          PN->setIncomingValue(i, NewIncomingV);
+        }
+      }
     }
   }
 
