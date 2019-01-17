@@ -37,21 +37,27 @@ void to_s5(S5 s) {}
 
 void main()
 {
-    int i = 1;
-    int1 v1 = int1(1);
-    int2 v2 = int2(1, 2);
-    int4 v4 = int4(1, 2, 3, 4);
-    int1x1 m1x1 = int1x1(11);
-    int1x2 m1x2 = int1x2(11, 12);
-    int2x1 m2x1 = int2x1(11, 21);
-    int2x2 m2x2 = int2x2(11, 12, 21, 22);
-    int3x3 m3x3 = int3x3(11, 12, 13, 21, 22, 23, 31, 32, 33);
-    A1 a1 = { 1 };
-    A2 a2 = { 1, 2 };
-    A4 a4 = { 1, 2, 3, 4 };
-    S1 s1 = { 1 };
-    S2 s2 = { 1, 2 };
-    S4 s4 = { 1, 2, 3, 4 };
+    int i = 0;
+    int1 v1 = 0;
+    int2 v2 = 0;
+    int4 v4 = 0;
+    int1x1 m1x1 = 0;
+    int1x2 m1x2 = 0;
+    int2x1 m2x1 = 0;
+    int2x2 m2x2 = 0;
+    int1x3 m1x3 = 0;
+    int2x3 m2x3 = 0;
+    int3x1 m3x1 = 0;
+    int3x2 m3x2 = 0;
+    int3x3 m3x3 = 0;
+    A1 a1 = { 0 };
+    A2 a2 = { 0, 0 };
+    A4 a4 = { 0, 0, 0, 0 };
+    A5 a5 = { 0, 0, 0, 0, 0 };
+    S1 s1 = { 0 };
+    S2 s2 = { 0, 0 };
+    S4 s4 = { 0, 0, 0, 0 };
+    S5 s5 = { 0, 0, 0, 0, 0 };
 
     // =========== Scalar/single-element ===========
     to_i(v1);
@@ -211,6 +217,72 @@ void main()
     (S4)m2x2;
     to_s2(a2);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-pass {{}} */
     (S2)a2;
+
+    // =========== Truncating ===========
+    // Single element dests already tested
+    to_v2(v4);                                              /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_v2': implicit truncation of vector type}} */
+    to_v2(m1x3);                                            /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_v2': implicit truncation of vector type}} */
+    to_v2(m3x1);                                            /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_v2': implicit truncation of vector type}} */
+    (int2)m2x2;                                             /* expected-error {{cannot convert from 'int2x2' to 'int2'}} fxc-error {{X3017: cannot convert from 'int2x2' to 'int2'}} */
+    (int2)m3x3;                                             /* expected-error {{cannot convert from 'int3x3' to 'int2'}} fxc-error {{X3017: cannot convert from 'int3x3' to 'int2'}} */
+    to_v2(a4);                                              /* expected-error {{no matching function for call to 'to_v2'}} fxc-error {{X3017: 'to_v2': cannot convert from 'typedef int[4]' to 'int2'}} */
+    (int2)a4;
+    to_v2(s4);                                              /* expected-error {{no matching function for call to 'to_v2'}} fxc-error {{X3017: 'to_v2': cannot convert from 'struct S4' to 'int2'}} */
+    (int2)s4;
+
+    to_m1x2(v4);                                            /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m1x2': implicit truncation of vector type}} */
+    to_m2x1(v4);                                            /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m2x1': implicit truncation of vector type}} */
+    to_m1x2(m1x3);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m1x2': implicit truncation of vector type}} */
+    (int1x2)m3x1;                                           /* expected-error {{cannot convert from 'int3x1' to 'int1x2'}} fxc-error {{X3017: cannot convert from 'int3x1' to 'int2'}} */
+    to_m1x2(m2x2);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m1x2': implicit truncation of vector type}} */
+    to_m2x1(m3x1);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m2x1': implicit truncation of vector type}} */
+    (int2x1)m1x3;                                           /* expected-error {{cannot convert from 'int1x3' to 'int2x1'}} fxc-error {{X3017: cannot convert from 'int3' to 'int2x1'}} */
+    to_m2x1(m2x2);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m2x1': implicit truncation of vector type}} */
+    to_m2x2(m2x3);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m2x2': implicit truncation of vector type}} */
+    to_m2x2(m3x2);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m2x2': implicit truncation of vector type}} */
+    to_m2x2(m3x3);                                          /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: 'to_m2x2': implicit truncation of vector type}} */
+    to_m1x2(a4);                                            /* expected-error {{no matching function for call to 'to_m1x2'}} fxc-error {{X3017: 'to_m1x2': cannot convert from 'typedef int[4]' to 'int2'}} */
+    (int1x2)a4;
+    to_m2x1(a4);                                            /* expected-error {{no matching function for call to 'to_m2x1'}} fxc-error {{X3017: 'to_m2x1': cannot convert from 'typedef int[4]' to 'int2x1'}} */
+    (int2x1)a4;
+    to_m2x2(a5);                                            /* expected-error {{no matching function for call to 'to_m2x2'}} fxc-error {{X3017: 'to_m2x2': cannot implicitly convert from 'typedef int[5]' to 'int2x2'}} */
+    (int2x2)a5;                                             /* fxc-error {{X3017: cannot convert from 'typedef int[5]' to 'int2x2'}} */
+    to_m1x2(s4);                                            /* expected-error {{no matching function for call to 'to_m1x2'}} fxc-error {{X3017: 'to_m1x2': cannot convert from 'struct S4' to 'int2'}} */
+    (int1x2)s4;
+    to_m2x1(s4);                                            /* expected-error {{no matching function for call to 'to_m2x1'}} fxc-error {{X3017: 'to_m2x1': cannot convert from 'struct S4' to 'int2x1'}} */
+    (int2x1)s4;
+    to_m2x2(s5);                                            /* expected-error {{no matching function for call to 'to_m2x2'}} fxc-error {{X3017: 'to_m2x2': cannot implicitly convert from 'struct S5' to 'int2x2'}} */
+    (int2x2)s5;                                             /* fxc-error {{X3017: cannot convert from 'struct S5' to 'int2x2'}} */
+
+    to_a2(v4);                                              /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'int4' to 'typedef int[2]'}} */
+    (A2)v4;
+    to_a2(m1x3);                                            /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'int3' to 'typedef int[2]'}} */
+    (A2)m1x3;
+    to_a2(m3x1);                                            /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'int3x1' to 'typedef int[2]'}} */
+    (A2)m3x1;
+    to_a2(m2x2);                                            /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot implicitly convert from 'int2x2' to 'typedef int[2]'}} */
+    (A2)m2x2;                                               /* fxc-error {{X3017: cannot convert from 'int2x2' to 'typedef int[2]'}} */
+    to_a2(m3x3);                                            /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot implicitly convert from 'int3x3' to 'typedef int[2]'}} */
+    (A2)m3x3;                                               /* fxc-error {{X3017: cannot convert from 'int3x3' to 'typedef int[2]'}} */
+    to_a2(a4);                                              /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'typedef int[4]' to 'typedef int[2]'}} */
+    (A2)a4;
+    to_a2(s4);                                              /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'struct S4' to 'typedef int[2]'}} */
+    (A2)s4;
+
+    to_s2(v4);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int4' to 'struct S2'}} */
+    (S2)v4;
+    to_s2(m1x3);                                            /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int3' to 'struct S2'}} */
+    (S2)m1x3;
+    to_s2(m3x1);                                            /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int3x1' to 'struct S2'}} */
+    (S2)m3x1;
+    to_s2(m2x2);                                            /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot implicitly convert from 'int2x2' to 'struct S2'}} */
+    (S2)m2x2;                                               /* fxc-error {{X3017: cannot convert from 'int2x2' to 'struct S2'}} */
+    to_s2(m3x3);                                            /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot implicitly convert from 'int3x3' to 'struct S2'}} */
+    (S2)m3x3;                                               /* fxc-error {{X3017: cannot convert from 'int3x3' to 'struct S2'}} */
+    to_s2(a4);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'typedef int[4]' to 'struct S2'}} */
+    (S2)a4;
+    to_s2(s4);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'struct S4' to 'struct S2'}} */
+    (S2)s4;
 
     // =========== Extending ===========
     // Single element sources already tested (splatting)
