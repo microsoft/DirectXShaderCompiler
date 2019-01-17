@@ -1201,6 +1201,7 @@ static unsigned WaveIntrinsicToSignedOpKind(IntrinsicOp IOP) {
       IOP == IntrinsicOp::IOP_WaveActiveUMin ||
       IOP == IntrinsicOp::IOP_WaveActiveUSum ||
       IOP == IntrinsicOp::IOP_WaveActiveUProduct ||
+      IOP == IntrinsicOp::IOP_WaveMultiPrefixUProduct ||
       IOP == IntrinsicOp::IOP_WaveMultiPrefixUSum ||
       IOP == IntrinsicOp::IOP_WavePrefixUSum ||
       IOP == IntrinsicOp::IOP_WavePrefixUProduct)

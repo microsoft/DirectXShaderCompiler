@@ -41,7 +41,7 @@ uint4 main(uint4 input : ATTR0) : SV_Target {
     // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i8 3, i8 0)
     res += WaveMultiPrefixBitXor(input, mask);
 
-    // CHECK: call i32 @dx.op.waveMultiPrefixBitCount.i32(i32 167, i1 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}})
+    // CHECK: call i32 @dx.op.waveMultiPrefixBitCount(i32 167, i1 %{{[A-Za-z0-9]+}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}})
     res.x += WaveMultiPrefixCountBits((input.x == 1), mask);
 
     // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i32 %{{[0-9}+]}}, i8 4, i8 1)
