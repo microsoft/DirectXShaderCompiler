@@ -143,6 +143,7 @@ void main()
     // FXC: l(1,0,0,0)
     output_s1((S1)a1);
 
+    // DXC: 8888
     output_separator();
 
     // =========== Truncation to scalar/single-element ===========
@@ -200,6 +201,7 @@ void main()
     // FXC: l(1,0,0,0)
     // output_s1((S1)s2);
     
+    // DXC: 8888
     output_separator();
 
     // =========== Splatting ===========
@@ -244,6 +246,7 @@ void main()
     // FXC: l(11,11,0,0)
     // output_s2((S2)m1x1);
     
+    // DXC: 8888
     output_separator();
 
     // =========== Element-preserving ===========
@@ -330,6 +333,7 @@ void main()
     // FXC: l(1,2,0,0)
     output_s2((S2)a2);
     
+    // DXC: 8888
     output_separator();
 
     // =========== Truncating ===========
