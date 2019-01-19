@@ -611,12 +611,16 @@ public:
   }
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
-                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0) {
+                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true) {
     if (testModel > HIGHEST_SHADER_MODEL) {
       UINT minor = (UINT)testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
           L"shader model 6.%1u", minor);
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+
+      if (skipUnsupported) {
+        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      }
+
       return false;
     }
     const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
@@ -633,7 +637,11 @@ public:
                                            IID_PPV_ARGS(&pDevice));
       if (FAILED(createHR)) {
         LogCommentFmt(L"The available version of WARP does not support d3d12.");
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+
+        if (skipUnsupported) {
+          WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+        }
+
         return false;
       }
     } else {
@@ -675,7 +683,11 @@ public:
         UINT minor = (UINT)testModel & 0x0f;
         LogCommentFmt(L"The selected device does not support "
                       L"shader model 6.%1u", minor);
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+
+        if (skipUnsupported) {
+          WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+        }
+
         return false;
       }
     }
@@ -5133,7 +5145,7 @@ void ExecutionTest::RunDot2AddOp() {
     ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
     CComPtr<ID3D12Device> pDevice;
-    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4)) {
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4, false)) {
         return;
     }
 
@@ -5217,7 +5229,7 @@ void ExecutionTest::RunDot4AddI8PackedOp() {
     ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
     CComPtr<ID3D12Device> pDevice;
-    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4)) {
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4, false)) {
         return;
     }
 
@@ -5280,7 +5292,7 @@ void ExecutionTest::RunDot4AddU8PackedOp() {
     ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
     CComPtr<ID3D12Device> pDevice;
-    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4)) {
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4, false)) {
         return;
     }
 
