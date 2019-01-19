@@ -5145,7 +5145,8 @@ void ExecutionTest::RunDot2AddOp() {
 
     if (!DoesDeviceSupportNative16bitOps(pDevice)) {
         WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+        // Don't skip this test for now, otherwise the entire DotTest would be skipped
+        // TODO: Skip the test once the Dot tests have been split in 4 different tests
         return;
     }
 
