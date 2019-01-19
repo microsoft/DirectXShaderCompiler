@@ -360,45 +360,6 @@
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="Dot2AddOp" CS="CS" DispatchX="8" DispatchY="8">
-    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="SDot2AddOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <RootValues>
-      <RootValue Index="0" ResName="SDot2AddOp" />
-    </RootValues>
-    <Shader Name="CS" Target="cs_6_4">
-      <![CDATA[
-      void main(uint GI : SV_GroupIndex) {};
-      ]]>
-    </Shader>
-  </ShaderOp>
-
-  <ShaderOp Name="Dot4AddI8PackedOp" CS="CS" DispatchX="8" DispatchY="8">
-    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="SDot4AddI8PackedOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <RootValues>
-      <RootValue Index="0" ResName="SDot4AddI8PackedOp" />
-    </RootValues>
-    <Shader Name="CS" Target="cs_6_4">
-      <![CDATA[
-      void main(uint GI : SV_GroupIndex) {};
-      ]]>
-    </Shader>
-  </ShaderOp>
-
-  <ShaderOp Name="Dot4AddU8PackedOp" CS="CS" DispatchX="8" DispatchY="8">
-    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="SDot4AddU8PackedOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <RootValues>
-      <RootValue Index="0" ResName="SDot4AddU8PackedOp" />
-    </RootValues>
-    <Shader Name="CS" Target="cs_6_4">
-      <![CDATA[
-      void main(uint GI : SV_GroupIndex) {};
-      ]]>
-    </Shader>
-  </ShaderOp>
-
   <ShaderOp Name="Msad4" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
     <Resource Name="SMsad4" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
