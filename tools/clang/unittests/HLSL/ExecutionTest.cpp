@@ -391,13 +391,7 @@ public:
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(DotTest)
-    TEST_METHOD_PROPERTY(
-      L"DataSource",
-      L"Table:ShaderOpArithTable.xml#DotOpTable;"
-      L"Table:ShaderOpArithTable.xml#Dot2AddOpTable;"
-      L"Table:ShaderOpArithTable.xml#Dot4AddI8PackedOpTable;"
-      L"Table:ShaderOpArithTable.xml#Dot4AddU8PackedOpTable"
-    )
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DotOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(Msad4Test)
@@ -5174,11 +5168,11 @@ void ExecutionTest::RunDot2AddOp() {
     size_t count = validation_input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-        pDevice, m_support, pStream, "DotOp",
+        pDevice, m_support, pStream, "Dot2AddOp",
         // this callback is called when the test
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDotOp"));
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDot2AddOp"));
         size_t size = sizeof(SDot2AddOp) * count;
         Data.resize(size);
         SDot2AddOp *pPrimitives = (SDot2AddOp*)Data.data();
@@ -5200,7 +5194,7 @@ void ExecutionTest::RunDot2AddOp() {
     });
 
     MappedData data;
-    test->Test->GetReadBackData("SDotOp", &data);
+    test->Test->GetReadBackData("SDot2AddOp", &data);
 
     SDot2AddOp *pPrimitives = (SDot2AddOp*)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
@@ -5247,11 +5241,11 @@ void ExecutionTest::RunDot4AddI8PackedOp() {
     size_t count = validation_input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-        pDevice, m_support, pStream, "DotOp",
+        pDevice, m_support, pStream, "Dot4AddI8PackedOp",
         // this callback is called when the test
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDotOp"));
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDot4AddI8PackedOp"));
         size_t size = sizeof(SDot4AddI8PackedOp) * count;
         Data.resize(size);
         SDot4AddI8PackedOp *pPrimitives = (SDot4AddI8PackedOp*)Data.data();
@@ -5267,7 +5261,7 @@ void ExecutionTest::RunDot4AddI8PackedOp() {
     });
 
     MappedData data;
-    test->Test->GetReadBackData("SDotOp", &data);
+    test->Test->GetReadBackData("SDot4AddI8PackedOp", &data);
 
     SDot4AddI8PackedOp *pPrimitives = (SDot4AddI8PackedOp*)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
@@ -5310,11 +5304,11 @@ void ExecutionTest::RunDot4AddU8PackedOp() {
     size_t count = validation_input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-        pDevice, m_support, pStream, "DotOp",
+        pDevice, m_support, pStream, "Dot4AddU8PackedOp",
         // this callback is called when the test
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDotOp"));
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDot4AddU8PackedOp"));
         size_t size = sizeof(SDot4AddU8PackedOp) * count;
         Data.resize(size);
         SDot4AddU8PackedOp *pPrimitives = (SDot4AddU8PackedOp*)Data.data();
@@ -5330,7 +5324,7 @@ void ExecutionTest::RunDot4AddU8PackedOp() {
     });
 
     MappedData data;
-    test->Test->GetReadBackData("SDotOp", &data);
+    test->Test->GetReadBackData("SDot4AddU8PackedOp", &data);
 
     SDot4AddU8PackedOp *pPrimitives = (SDot4AddU8PackedOp*)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;

@@ -4704,8 +4704,10 @@
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
     </Table>
+    <!-- TODO: Split into 4 separate tables after 19H1 -->
     <Table Id="DotOpTable">
         <ParameterTypes>
+            <!-- DotAdd Parameters -->
             <ParameterType Name="Dot.ShaderOp.Target">String</ParameterType>
             <ParameterType Name="Dot.ShaderOp.Arguments">String</ParameterType>
             <ParameterType Name="Dot.ShaderOp.Text">String</ParameterType>
@@ -4716,8 +4718,36 @@
             <ParameterType Array="true" Name="Dot.Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Dot.Validation.Expected2">String</ParameterType>
             <ParameterType Array="true" Name="Dot.Validation.Expected3">String</ParameterType>
+
+            <!-- Dot2Add Parameters -->
+            <ParameterType Name="Dot2Add.ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="Dot2Add.ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="Dot2Add.ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Dot2Add.Validation.Type">String</ParameterType>
+            <ParameterType Name="Dot2Add.Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Dot2Add.Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Dot2Add.Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Dot2Add.Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Dot2Add.Validation.Expected1">String</ParameterType>
+
+            <!-- Dot4AddI8Packed Parameters -->
+            <ParameterType Name="Dot4AddI8Packed.ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="Dot4AddI8Packed.ShaderOp.Text">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Expected1">String</ParameterType>
+
+            <!-- Dot4AddU8Packed Parameters -->
+            <ParameterType Name="Dot4AddU8Packed.ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="Dot4AddU8Packed.ShaderOp.Text">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Expected1">String</ParameterType>
         </ParameterTypes>
         <Row Name="Dot">
+            <!-- Dot Parameters -->
             <Parameter Name="Dot.Validation.Type">epsilon</Parameter>
             <Parameter Name="Dot.Validation.Tolerance">0.008</Parameter>
             <Parameter Name="Dot.ShaderOp.Text"> struct SDotOp {
@@ -4797,21 +4827,8 @@
                 <Value>0</Value>
                 <Value>nan</Value>
             </Parameter>
-        </Row>
-    </Table>
-    <Table Id="Dot2AddOpTable">
-        <ParameterTypes>
-            <ParameterType Name="Dot2Add.ShaderOp.Target">String</ParameterType>
-            <ParameterType Name="Dot2Add.ShaderOp.Arguments">String</ParameterType>
-            <ParameterType Name="Dot2Add.ShaderOp.Text">String</ParameterType>
-            <ParameterType Name="Dot2Add.Validation.Type">String</ParameterType>
-            <ParameterType Name="Dot2Add.Validation.Tolerance">double</ParameterType>
-            <ParameterType Array="true" Name="Dot2Add.Validation.Input1">String</ParameterType>
-            <ParameterType Array="true" Name="Dot2Add.Validation.Input2">String</ParameterType>
-            <ParameterType Array="true" Name="Dot2Add.Validation.Input3">String</ParameterType>
-            <ParameterType Array="true" Name="Dot2Add.Validation.Expected1">String</ParameterType>
-        </ParameterTypes>
-        <Row Name="Dot2Add">
+
+            <!-- Dot2Add Parameters -->
             <Parameter Name="Dot2Add.Validation.Type">epsilon</Parameter>
             <Parameter Name="Dot2Add.Validation.Tolerance">0.008</Parameter>
             <Parameter Name="Dot2Add.ShaderOp.Text"> struct SDot2AddOp {
@@ -4905,18 +4922,8 @@
                 <Value>nan</Value>
             </Parameter>
             <Parameter Name="Dot2Add.ShaderOp.Arguments">-enable-16bit-types</Parameter>
-        </Row>
-    </Table>
-    <Table Id="Dot4AddI8PackedOpTable">
-        <ParameterTypes>
-            <ParameterType Name="Dot4AddI8Packed.ShaderOp.Target">String</ParameterType>
-            <ParameterType Name="Dot4AddI8Packed.ShaderOp.Text">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Input1">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Input2">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Input3">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddI8Packed.Validation.Expected1">String</ParameterType>
-        </ParameterTypes>
-        <Row Name="Dot4AddI8Packed">
+
+            <!-- Dot4AddI8Packed Parameters -->
             <Parameter Name="Dot4AddI8Packed.ShaderOp.Text"> struct SDot4AddI8PackedOp {
                    dword input1;
                    dword input2;
@@ -4979,18 +4986,8 @@
                 <Value>64516</Value>
                 <Value>65536</Value>
             </Parameter>
-        </Row>
-    </Table>
-    <Table Id="Dot4AddU8PackedOpTable">
-        <ParameterTypes>
-            <ParameterType Name="Dot4AddU8Packed.ShaderOp.Target">String</ParameterType>
-            <ParameterType Name="Dot4AddU8Packed.ShaderOp.Text">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Input1">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Input2">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Input3">String</ParameterType>
-            <ParameterType Array="true" Name="Dot4AddU8Packed.Validation.Expected1">String</ParameterType>
-        </ParameterTypes>
-        <Row Name="Dot4AddU8Packed">
+
+            <!-- Dot4AddI8Packed Parameters -->
             <Parameter Name="Dot4AddU8Packed.ShaderOp.Text"> struct SDot4AddU8PackedOp {
                    dword input1;
                    dword input2;
