@@ -9937,7 +9937,8 @@ FlattenedTypeIterator::FlattenedTypeIterator(SourceLocation loc, QualType type, 
   m_source(source), m_draining(false), m_springLoaded(false), m_incompleteCount(0), m_typeDepth(0), m_loc(loc)
 {
   if (pushTrackerForType(type, nullptr)) {
-    considerLeaf();
+    while (!m_typeTrackers.empty() && !considerLeaf())
+      consumeLeaf();
   }
 }
 
@@ -10055,17 +10056,11 @@ bool FlattenedTypeIterator::considerLeaf()
   case FlattenedIterKind::FK_Fields:
     if (pushTrackerForType(tracker.CurrentField->getType(), nullptr)) {
       result = considerLeaf();
-    } else {
-      // Pop empty struct.
-      m_typeTrackers.pop_back();
     }
     break;
   case FlattenedIterKind::FK_Bases:
     if (pushTrackerForType(tracker.CurrentBase->getType(), nullptr)) {
       result = considerLeaf();
-    } else {
-      // Pop empty base.
-      m_typeTrackers.pop_back();
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:

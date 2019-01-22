@@ -1507,7 +1507,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   QualType DestTy = CE->getType();
   CastKind Kind = CE->getCastKind();
   // HLSL Change Begins
-  if (hlsl::IsHLSLMatType(E->getType()) || hlsl::IsHLSLMatType(CE->getType())) {
+  if ((hlsl::IsHLSLMatType(E->getType()) || hlsl::IsHLSLMatType(CE->getType()))
+    && Kind != CastKind::CK_FlatConversion) {
     llvm::Value *V = CGF.EmitScalarExpr(E);
     llvm::Type *RetTy = CGF.ConvertType(DestTy);
 
@@ -1817,9 +1818,25 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return Builder.CreateExtractElement(Visit(E), (uint64_t)0);
   }
   case CK_FlatConversion: {
-      llvm::Value *val = Visit(E);
-      llvm::Value *elem = Builder.CreateExtractValue(val, (uint64_t)0);
-      return EmitScalarConversion(elem, E->getType(), DestTy);
+    // Source should be a struct or array, emitted by pointer
+    assert(hlsl::IsHLSLUserDefinedRecord(E->getType())
+      || dyn_cast<clang::ConstantArrayType>(E->getType()) != nullptr);
+    llvm::Value *SrcPtr = Visit(E);
+    assert(SrcPtr->getType()->isPointerTy());
+    
+    // Dest should be a scalar, vector or matrix
+    assert(dyn_cast<clang::BuiltinType>(DestTy) != nullptr
+      || hlsl::IsHLSLVecMatType(DestTy));
+    llvm::Value *DstPtr = CGF.CreateMemTemp(DestTy, "flatconv");
+
+    CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
+      CGF, SrcPtr, DstPtr, DestTy, E->getType());
+    
+    if (hlsl::IsHLSLMatType(DestTy))
+      return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, DstPtr, DestTy);
+    
+    llvm::Value *Result = Builder.CreateLoad(DstPtr);
+    return Result = CGF.EmitFromMemory(Result, DestTy);
   }
   case CK_HLSLCC_IntegralToBoolean:
     return EmitIntToBoolConversion(Visit(E));

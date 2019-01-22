@@ -125,6 +125,12 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLUserDefinedRecord(clang::QualType type) {
+  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  return dyn_cast<RecordType>(Ty) != nullptr
+    && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type);
+}
+
 clang::QualType GetElementTypeOrType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const ClassTemplateSpecializationDecl *templateDecl =

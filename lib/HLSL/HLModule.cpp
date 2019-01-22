@@ -1003,7 +1003,11 @@ unsigned HLModule::FindCastOp(bool fromUnsigned, bool toUnsigned,
   if (SrcTy->isIntOrIntVectorTy() && DstTy->isIntOrIntVectorTy()) {
     if (SrcBitSize > DstBitSize)
       return Instruction::Trunc;
-    if (toUnsigned)
+    // unsigned to unsigned: zext
+    // unsigned to signed: zext (fully representable)
+    // signed to signed: sext
+    // signed to unsigned: sext (like C++)
+    if (fromUnsigned)
       return Instruction::ZExt;
     else
       return Instruction::SExt;
