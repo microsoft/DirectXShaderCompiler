@@ -5801,22 +5801,17 @@ TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
 
 template <typename T>
 static T GetWaveMultiPrefixInitialAccumValue(LPCWSTR testName) {
-  if (_wcsicmp(testName, L"WaveMultiPrefixProduct") == 0) {
+  if (_wcsicmp(testName, L"WaveMultiPrefixProduct") == 0 ||
+      _wcsicmp(testName, L"WaveMultiPrefixUProduct") == 0) {
     return static_cast<T>(1);
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixUProduct") == 0) {
-    return static_cast<T>(1);
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixSum") == 0) {
-    return static_cast<T>(0);
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixUSum") == 0) {
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixSum") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixUSum") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixBitOr") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixBitXor") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixCountBits") == 0) {
     return static_cast<T>(0);
   } else if (_wcsicmp(testName, L"WaveMultiPrefixBitAnd") == 0) {
     return static_cast<T>(-1);
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixBitOr") == 0) {
-    return static_cast<T>(0);
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixBitXor") == 0) {
-    return static_cast<T>(0);
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixCountBits") == 0) {
-    return static_cast<T>(0);
   } else {
     return static_cast<T>(0);
   }
@@ -5824,13 +5819,11 @@ static T GetWaveMultiPrefixInitialAccumValue(LPCWSTR testName) {
 
 template <typename T>
 std::function<T(T, T)> GetWaveMultiPrefixReferenceFunction(LPCWSTR testName) {
-  if (_wcsicmp(testName, L"WaveMultiPrefixProduct") == 0) {
+  if (_wcsicmp(testName, L"WaveMultiPrefixProduct") == 0 ||
+      _wcsicmp(testName, L"WaveMultiPrefixUProduct") == 0) {
     return [] (T lhs, T rhs) -> T { return lhs * rhs; };
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixUProduct") == 0) {
-    return [] (T lhs, T rhs) -> T { return lhs * rhs; };
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixSum") == 0) {
-    return [] (T lhs, T rhs) -> T { return lhs + rhs; };
-  } else if (_wcsicmp(testName, L"WaveMultiPrefixUSum") == 0) {
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixSum") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixUSum") == 0) {
     return [] (T lhs, T rhs) -> T { return lhs + rhs; };
   } else if (_wcsicmp(testName, L"WaveMultiPrefixBitAnd") == 0) {
     return [] (T lhs, T rhs) -> T { return lhs & rhs; };
@@ -5839,6 +5832,9 @@ std::function<T(T, T)> GetWaveMultiPrefixReferenceFunction(LPCWSTR testName) {
   } else if (_wcsicmp(testName, L"WaveMultiPrefixBitXor") == 0) {
     return [] (T lhs, T rhs) -> T { return lhs ^ rhs; };
   } else if (_wcsicmp(testName, L"WaveMultiPrefixCountBits") == 0) {
+    // For CountBits, each lane contributes a boolean value. The test input is
+    // an integer, so convert to a boolean by computing (input > 10) If this
+    // condition is true, we contribute one to the bit count.
     return [] (T lhs, T rhs) -> T { return lhs + (rhs > 10 ? 1 : 0); };
   } else {
     return [] (T lhs, T rhs) -> T { return 0; };
