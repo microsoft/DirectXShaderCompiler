@@ -1818,23 +1818,34 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return Builder.CreateExtractElement(Visit(E), (uint64_t)0);
   }
   case CK_FlatConversion: {
-    // Source should be a struct or array, emitted by pointer
-    assert(hlsl::IsHLSLUserDefinedRecord(E->getType())
-      || dyn_cast<clang::ConstantArrayType>(E->getType()) != nullptr);
-    llvm::Value *SrcPtr = Visit(E);
-    assert(SrcPtr->getType()->isPointerTy());
-    
-    // Dest should be a scalar, vector or matrix
-    assert(dyn_cast<clang::BuiltinType>(DestTy) != nullptr
-      || hlsl::IsHLSLVecMatType(DestTy));
-    llvm::Value *DstPtr = CGF.CreateMemTemp(DestTy, "flatconv");
+    llvm::Value *Src = Visit(E);
 
+    // We should have a compound type (struct or array) on one side,
+    // and a numeric type (scalar, vector or matrix) on the other.
+    // If the compound type is the cast source, it should be a pointer.
+    auto areCompoundAndNumeric = [this](QualType lhs, QualType rhs) {
+      return hlsl::IsHLSLCompoundType(CGF.getContext(), lhs)
+        && (dyn_cast<clang::BuiltinType>(rhs) != nullptr || hlsl::IsHLSLVecMatType(rhs));
+    };
+    assert(Src->getType()->isPointerTy()
+      ? areCompoundAndNumeric(E->getType(), DestTy)
+      : areCompoundAndNumeric(DestTy, E->getType()));
+    (void)areCompoundAndNumeric;
+
+    llvm::Value *DstPtr = CGF.CreateMemTemp(DestTy, "flatconv");
     CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
-      CGF, SrcPtr, DstPtr, DestTy, E->getType());
+      CGF, Src, DstPtr, DestTy, E->getType());
     
+    // Return an rvalue
+    // Matrices must be loaded with the special function
     if (hlsl::IsHLSLMatType(DestTy))
       return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, DstPtr, DestTy);
     
+    // Structs/arrays are pointers to temporaries
+    if (hlsl::IsHLSLCompoundType(CGF.getContext(), DestTy))
+      return DstPtr;
+    
+    // Scalars/vectors are loaded regularly
     llvm::Value *Result = Builder.CreateLoad(DstPtr);
     return Result = CGF.EmitFromMemory(Result, DestTy);
   }

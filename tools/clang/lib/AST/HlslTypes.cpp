@@ -125,7 +125,10 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLUserDefinedRecord(clang::QualType type) {
+bool IsHLSLCompoundType(clang::ASTContext& context, clang::QualType type) {
+  // Compound types are arrays and user-defined structs
+  if (context.getAsArrayType(type) != nullptr) return true;
+
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   return dyn_cast<RecordType>(Ty) != nullptr
     && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type);
