@@ -957,6 +957,13 @@ void HLModule::MergeGepUse(Value *V) {
   }
 }
 
+template
+CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
+                                           HLOpcodeGroup group, unsigned opcode,
+                                           Type *RetType,
+                                           ArrayRef<Value *> paramList,
+                                           llvm::Module &M);
+
 template<typename BuilderTy>
 CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
                                            HLOpcodeGroup group, unsigned opcode,
@@ -984,19 +991,18 @@ CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
   return Builder.CreateCall(opFunc, opcodeParamList);
 }
 
-template
-CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
-                                           HLOpcodeGroup group, unsigned opcode,
-                                           Type *RetType,
-                                           ArrayRef<Value *> paramList,
-                                           llvm::Module &M);
+unsigned HLModule::GetNumericCastOp(
+  llvm::Type *SrcTy, bool SrcIsUnsigned, llvm::Type *DstTy, bool DstIsUnsigned) {
+  DXASSERT(SrcTy != DstTy, "No-op conversions are not casts and should have been handled by the callee.");
+  uint32_t SrcBitSize = SrcTy->getScalarSizeInBits();
+  uint32_t DstBitSize = DstTy->getScalarSizeInBits();
+  bool SrcIsInt = SrcTy->isIntOrIntVectorTy();
+  bool DstIsInt = DstTy->isIntOrIntVectorTy();
 
-unsigned HLModule::FindCastOp(bool fromUnsigned, bool toUnsigned,
-                              llvm::Type *SrcTy, llvm::Type *DstTy) {
-  Instruction::CastOps castOp = llvm::Instruction::CastOps::BitCast;
+  DXASSERT(DstBitSize != 1, "Conversions to bool are not a cast and should have been handled by the callee.");
 
-  if (SrcTy->isAggregateType() || DstTy->isAggregateType())
-    return llvm::Instruction::CastOps::BitCast;
+  // Conversions from bools are like unsigned integer widening
+  if (SrcBitSize == 1) SrcIsUnsigned = true;
 
   uint32_t SrcBitSize = SrcTy->getScalarSizeInBits();
   uint32_t DstBitSize = DstTy->getScalarSizeInBits();
@@ -1012,30 +1018,14 @@ unsigned HLModule::FindCastOp(bool fromUnsigned, bool toUnsigned,
     else
       return Instruction::SExt;
   }
-
-  if (SrcTy->isFPOrFPVectorTy() && DstTy->isFPOrFPVectorTy()) {
-    if (SrcBitSize > DstBitSize)
-      return Instruction::FPTrunc;
-    else
-      return Instruction::FPExt;
+  else {
+    if (DstIsInt) { // float to int
+      return DstIsUnsigned ? Instruction::FPToUI : Instruction::FPToSI;
+    }
+    else { // float to float
+      return SrcBitSize > DstBitSize ? Instruction::FPTrunc : Instruction::FPExt;
+    }
   }
-
-  if (SrcTy->isIntOrIntVectorTy() && DstTy->isFPOrFPVectorTy()) {
-    if (fromUnsigned)
-      return Instruction::UIToFP;
-    else
-      return Instruction::SIToFP;
-  }
-
-  if (SrcTy->isFPOrFPVectorTy() && DstTy->isIntOrIntVectorTy()) {
-    if (toUnsigned)
-      return Instruction::FPToUI;
-    else
-      return Instruction::FPToSI;
-  }
-
-  DXASSERT_NOMSG(0);
-  return castOp;
 }
 
 bool HLModule::HasPreciseAttributeWithMetadata(Instruction *I) {

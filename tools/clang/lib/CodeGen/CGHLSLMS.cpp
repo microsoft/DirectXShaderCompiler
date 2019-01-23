@@ -180,13 +180,12 @@ private:
                                     clang::QualType Type, llvm::Type *Ty,
                                     SmallVector<Value *, 4> &GepList,
                                     SmallVector<QualType, 4> &EltTyList);
-  void LoadFlattenedGepList(CodeGenFunction &CGF, ArrayRef<Value *> GepList,
-                            ArrayRef<QualType> EltTyList,
-                            SmallVector<Value *, 4> &EltList);
-  void StoreFlattenedGepList(CodeGenFunction &CGF, ArrayRef<Value *> GepList,
-                             ArrayRef<QualType> GepTyList,
-                             ArrayRef<Value *> EltValList,
-                             ArrayRef<QualType> SrcTyList);
+  void LoadElements(CodeGenFunction &CGF,
+    ArrayRef<Value *> Ptrs, ArrayRef<QualType> QualTys,
+    SmallVector<Value *, 4> &Vals);
+  void ConvertAndStoreElements(CodeGenFunction &CGF,
+    ArrayRef<Value *> SrcVals, ArrayRef<QualType> SrcQualTys,
+    ArrayRef<Value *> DstPtrs, ArrayRef<QualType> DstQualTys);
 
   void EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
                                    llvm::Value *DestPtr,
@@ -5385,22 +5384,37 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
   }  
 }
 
-static bool IsBooleanType(llvm::Type *ty) {
-  return (ty->isIntegerTy() && ty->getIntegerBitWidth() == 1);
+static Value* ConvertScalarOrVector(CGBuilderTy& Builder, CodeGenTypes &Types,
+  Value *Val, QualType SrcQualTy, QualType DstQualTy) {
+  llvm::Type *SrcTy = Val->getType();
+  llvm::Type *DstTy = Types.ConvertType(DstQualTy);
+
+  DXASSERT((SrcTy->isIntOrIntVectorTy() || SrcTy->isFPOrFPVectorTy())
+    && (DstTy->isIntOrIntVectorTy() || DstTy->isFPOrFPVectorTy()),
+    "EmitNumericConversion can only be used with int/float scalars/vectors.");
+
+  if (SrcTy == DstTy) return Val; // Valid no-op, including uint to int / int to uint
+  DXASSERT(SrcTy->isVectorTy()
+    ? (DstTy->isVectorTy() && SrcTy->getVectorNumElements() == DstTy->getVectorNumElements())
+    : !DstTy->isVectorTy(),
+    "EmitNumericConversion can only cast between scalars or vectors of matching sizes");
+
+  // Conversions to bools are comparisons
+  if (DstTy->getScalarSizeInBits() == 1) {
+    return SrcTy->isIntOrIntVectorTy()
+      ? Builder.CreateICmpNE(Val, llvm::Constant::getNullValue(SrcTy), "tobool")
+      : Builder.CreateFCmpONE(Val, llvm::Constant::getNullValue(SrcTy), "tobool");
+  }
+
+  // Cast necessary
+  auto CastOp = static_cast<Instruction::CastOps>(HLModule::GetNumericCastOp(
+    SrcTy, IsUnsigned(SrcQualTy), DstTy, IsUnsigned(DstQualTy)));
+  return Builder.CreateCast(CastOp, Val, DstTy);
 }
 
-static Value *CreateCastforBoolDestType(CGBuilderTy &Builder, Value *srcVal) {
-  llvm::Type *srcTy = srcVal->getType();
-  if (srcTy->isFloatingPointTy()) {
-    return Builder.CreateFCmp(FCmpInst::FCMP_UNE, srcVal,
-                              ConstantFP::get(srcTy, 0));
-  } else {
-    // must be an integer type here
-    DXASSERT(srcTy->isIntegerTy() && srcTy->getIntegerBitWidth() > 1,
-             "must be a non-boolean integer type.");
-    return Builder.CreateICmp(ICmpInst::ICMP_NE, srcVal,
-                              ConstantInt::get(srcTy, 0));
-  }
+static Value* ConvertScalarOrVector(CodeGenFunction &CGF,
+  Value *Val, QualType SrcQualTy, QualType DstQualTy) {
+  return ConvertScalarOrVector(CGF.Builder, CGF.getTypes(), Val, SrcQualTy, DstQualTy);
 }
 
 // Cast elements in initlist if not match the target type.
@@ -5457,19 +5471,7 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
   }
   else {
     // Basic type.
-    Value *val = elts[idx];
-    llvm::Type *srcTy = val->getType();
-    llvm::Type *dstTy = CGF.ConvertType(Ty);
-    if (srcTy != dstTy) {
-      if (IsBooleanType(dstTy)) {
-        elts[idx] = CreateCastforBoolDestType(CGF.Builder, val);
-      } else {
-        Instruction::CastOps castOp =
-          static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-            IsUnsigned(eltTys[idx]), IsUnsigned(Ty), srcTy, dstTy));
-        elts[idx] = CGF.Builder.CreateCast(castOp, val, dstTy);
-      }
-    }
+    elts[idx] = ConvertScalarOrVector(CGF, elts[idx], eltTys[idx], Ty);
     idx++;
   }
 }
@@ -5773,15 +5775,14 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
   }
 }
 
-static void FlatConstToList(Constant *C, SmallVector<Constant *, 4> &EltValList,
-                            QualType Type, CodeGenTypes &Types,
-                            bool bDefaultRowMajor) {
+static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor, Constant *C, QualType QualTy,
+    SmallVectorImpl<Constant *> &EltVals, SmallVectorImpl<QualType> EltQualTys) {
   llvm::Type *Ty = C->getType();
   if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
     // Type is only for matrix. Keep use Type to next level.
     for (unsigned i = 0; i < VT->getNumElements(); i++) {
-      FlatConstToList(C->getAggregateElement(i), EltValList, Type, Types,
-                      bDefaultRowMajor);
+      FlatConstToList(Types, bDefaultRowMajor, C->getAggregateElement(i), EltValList, Type, Types,
+                      );
     }
   } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     bool isRowMajor = IsRowMajorMatrix(Type, bDefaultRowMajor);
@@ -5846,15 +5847,15 @@ static void FlatConstToList(Constant *C, SmallVector<Constant *, 4> &EltValList,
 }
 
 static bool ScanConstInitList(CodeGenModule &CGM, InitListExpr *E,
-                              SmallVector<Constant *, 4> &EltValList,
-                              CodeGenTypes &Types, bool bDefaultRowMajor) {
+                              bool bDefaultRowMajor,
+                              SmallVectorImpl<Constant *> &EltVals,
+                              SmallVectorImpl<QualType> &EltQualTys) {
   unsigned NumInitElements = E->getNumInits();
   for (unsigned i = 0; i != NumInitElements; ++i) {
     Expr *init = E->getInit(i);
     QualType iType = init->getType();
     if (InitListExpr *initList = dyn_cast<InitListExpr>(init)) {
-      if (!ScanConstInitList(CGM, initList, EltValList, Types,
-                             bDefaultRowMajor))
+      if (!ScanConstInitList(CGM, initList, bDefaultRowMajor, EltVals, EltQualTys))
         return false;
     } else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(init)) {
       if (VarDecl *D = dyn_cast<VarDecl>(ref->getDecl())) {
@@ -6014,6 +6015,7 @@ static Constant *BuildConstInitializer(QualType Type, unsigned &offset,
   } else {
     // Scalar basic types.
     Constant *Val = EltValList[offset++];
+    // Something is funny here, we're missing the source QualTypes
     if (Val->getType() == Ty) {
       return Val;
     } else {
@@ -6021,10 +6023,8 @@ static Constant *BuildConstInitializer(QualType Type, unsigned &offset,
       // Don't cast int to bool. bool only for scalar.
       if (Ty == Builder.getInt1Ty() && Val->getType() == Builder.getInt32Ty())
         return Val;
-      Instruction::CastOps castOp =
-          static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-              IsUnsigned(Type), IsUnsigned(Type), Val->getType(), Ty));
-      return cast<Constant>(Builder.CreateCast(castOp, Val, Ty));
+      return cast<Constant>(HLModule::EmitScalarOrVectorConversion(
+        Builder, Val, IsUnsigned(Type), Ty, IsUnsigned(Type)));
     }
   }
 }
@@ -6033,6 +6033,7 @@ Constant *CGMSHLSLRuntime::EmitHLSLConstInitListExpr(CodeGenModule &CGM,
                                                      InitListExpr *E) {
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   SmallVector<Constant *, 4> EltValList;
+  SmallVector<QualType, 4> EltQualTys;
   if (!ScanConstInitList(CGM, E, EltValList, CGM.getTypes(), bDefaultRowMajor))
     return nullptr;
 
@@ -6619,37 +6620,33 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
   }
 }
 
-void CGMSHLSLRuntime::LoadFlattenedGepList(CodeGenFunction &CGF,
-                                           ArrayRef<Value *> GepList,
-                                           ArrayRef<QualType> EltTyList,
-                                           SmallVector<Value *, 4> &EltList) {
-  unsigned eltSize = GepList.size();
-  for (unsigned i = 0; i < eltSize; i++) {
-    Value *Ptr = GepList[i];
-    // Everying is element type.
-    EltList.push_back(CGF.Builder.CreateLoad(Ptr));
+void CGMSHLSLRuntime::LoadElements(CodeGenFunction &CGF,
+    ArrayRef<Value *> Ptrs, ArrayRef<QualType> QualTys,
+    SmallVector<Value *, 4> &Vals) {
+  for (size_t i = 0, e = Ptrs.size(); i < e; i++) {
+    Value *Ptr = Ptrs[i];
+    llvm::Type *Ty = Ptr->getType()->getPointerElementType();
+    DXASSERT_LOCALVAR(Ty, Ty->isIntegerTy() || Ty->isFloatingPointTy(), "Expected only element types.");
+    Value *Val = CGF.Builder.CreateLoad(Ptr);
+    Val = CGF.EmitFromMemory(Val, QualTys[i]);
+    Vals.push_back(Val);
   }
 }
 
-void CGMSHLSLRuntime::StoreFlattenedGepList(CodeGenFunction &CGF, ArrayRef<Value *> GepList,
-    ArrayRef<QualType> GepTyList, ArrayRef<Value *> EltValList, ArrayRef<QualType> SrcTyList) {
-  unsigned eltSize = GepList.size();
-  for (unsigned i = 0; i < eltSize; i++) {
-    Value *Ptr = GepList[i];
-    QualType DestType = GepTyList[i];
-    Value *Val = EltValList[i];
-    QualType SrcType = SrcTyList[i];
+void CGMSHLSLRuntime::ConvertAndStoreElements(CodeGenFunction &CGF,
+    ArrayRef<Value *> SrcVals, ArrayRef<QualType> SrcQualTys,
+    ArrayRef<Value *> DstPtrs, ArrayRef<QualType> DstQualTys) {
+  for (size_t i = 0, e = DstPtrs.size(); i < e; i++) {
+    Value *DstPtr = DstPtrs[i];
+    QualType DstQualTy = DstQualTys[i];
+    Value *SrcVal = SrcVals[i];
+    QualType SrcQualTy = SrcQualTys[i];
+    DXASSERT(SrcVal->getType()->isIntegerTy() || SrcVal->getType()->isFloatingPointTy(),
+      "Expected only element types.");
 
-    llvm::Type *Ty = Ptr->getType()->getPointerElementType();
-    // Everything is element type.
-    if (Ty != Val->getType()) {
-      Instruction::CastOps castOp =
-          static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-              IsUnsigned(SrcType), IsUnsigned(DestType), Val->getType(), Ty));
-
-      Val = CGF.Builder.CreateCast(castOp, Val, Ty);
-    }
-    CGF.Builder.CreateStore(Val, Ptr);
+    llvm::Value *Result = ConvertScalarOrVector(CGF, SrcVal, SrcQualTy, DstQualTy);
+    Result = CGF.EmitToMemory(Result, DstQualTy);
+    CGF.Builder.CreateStore(Result, DstPtr);
   }
 }
 
@@ -6803,23 +6800,22 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
   // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
   // the same way. But split value to scalar will generate many instruction when
   // src type is same as dest type.
-  SmallVector<Value *, 4> idxList;
-  SmallVector<Value *, 4> SrcGEPList;
-  SmallVector<QualType, 4> SrcEltTyList;
-  FlattenAggregatePtrToGepList(CGF, SrcPtr, idxList, SrcTy, SrcPtr->getType(),
-                               SrcGEPList, SrcEltTyList);
+  SmallVector<Value *, 4> GEPIdxStack;
+  SmallVector<Value *, 4> SrcPtrs;
+  SmallVector<QualType, 4> SrcQualTys;
+  FlattenAggregatePtrToGepList(CGF, SrcPtr, GEPIdxStack, SrcTy, SrcPtr->getType(),
+                               SrcPtrs, SrcQualTys);
 
-  SmallVector<Value *, 4> LdEltList;
-  LoadFlattenedGepList(CGF, SrcGEPList, SrcEltTyList, LdEltList);
+  SmallVector<Value *, 4> SrcVals;
+  LoadElements(CGF, SrcPtrs, SrcQualTys, SrcVals);
 
-  idxList.clear();
-  SmallVector<Value *, 4> DestGEPList;
-  SmallVector<QualType, 4> DestEltTyList;
-  FlattenAggregatePtrToGepList(CGF, DestPtr, idxList, DestTy,
-                               DestPtr->getType(), DestGEPList, DestEltTyList);
+  GEPIdxStack.clear();
+  SmallVector<Value *, 4> DstPtrs;
+  SmallVector<QualType, 4> DstQualTys;
+  FlattenAggregatePtrToGepList(CGF, DestPtr, GEPIdxStack, DestTy,
+                               DestPtr->getType(), DstPtrs, DstQualTys);
 
-  StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, LdEltList,
-                        SrcEltTyList);
+  ConvertAndStoreElements(CGF, SrcPtrs, SrcQualTys, DstPtrs, DstQualTys);
 }
 
 void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
@@ -6828,10 +6824,10 @@ void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *
     DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
-static void SimpleFlatValCopy(Value *DestPtr, Value *SrcVal, QualType Ty,
-                              QualType SrcTy, ArrayRef<Value *> idxList,
-                              CGBuilderTy &Builder) {
-  Value *DestGEP = Builder.CreateInBoundsGEP(DestPtr, idxList);
+static void SimpleFlatValCopy(CodeGenFunction &CGF, 
+    Value *DestPtr, Value *SrcVal, QualType Ty, QualType SrcTy,
+    ArrayRef<Value *> idxList) {
+  Value *DestGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
   llvm::Type *ToTy = DestGEP->getType()->getPointerElementType();
 
   llvm::Type *EltToTy = ToTy;
@@ -6839,23 +6835,17 @@ static void SimpleFlatValCopy(Value *DestPtr, Value *SrcVal, QualType Ty,
     EltToTy = VT->getElementType();
   }
 
-  if (EltToTy != SrcVal->getType()) {
-    Instruction::CastOps castOp =
-        static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-            IsUnsigned(SrcTy), IsUnsigned(Ty), SrcVal->getType(), ToTy));
-
-    SrcVal = Builder.CreateCast(castOp, SrcVal, EltToTy);
-  }
+  SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcTy, Ty);
 
   if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(ToTy)) {
     llvm::VectorType *VT1 = llvm::VectorType::get(EltToTy, 1);
     Value *V1 =
-        Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal, (uint64_t)0);
+        CGF.Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal, (uint64_t)0);
     std::vector<int> shufIdx(VT->getNumElements(), 0);
-    Value *Vec = Builder.CreateShuffleVector(V1, V1, shufIdx);
-    Builder.CreateStore(Vec, DestGEP);
+    Value *Vec = CGF.Builder.CreateShuffleVector(V1, V1, shufIdx);
+    CGF.Builder.CreateStore(Vec, DestGEP);
   } else
-    Builder.CreateStore(SrcVal, DestGEP);
+    CGF.Builder.CreateStore(SrcVal, DestGEP);
 }
 
 void CGMSHLSLRuntime::EmitHLSLFlatConversion(
@@ -6863,9 +6853,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
     SmallVector<Value *, 4> &idxList, QualType Type, QualType SrcType,
     llvm::Type *Ty) {
   if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
-    Constant *idx = Constant::getIntegerValue(
-        IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
-    idxList.emplace_back(idx);
+    idxList.emplace_back(CGF.Builder.getInt32(0));
 
     EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, Type,
                                       SrcType, PT->getElementType());
@@ -6878,18 +6866,12 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
     llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
 
     llvm::VectorType *VT1 = llvm::VectorType::get(EltTy, 1);
-    if (EltTy != SrcVal->getType()) {
-      Instruction::CastOps castOp =
-          static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-              IsUnsigned(SrcType), IsUnsigned(Type), SrcVal->getType(), EltTy));
+    SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcType, hlsl::GetHLSLMatElementType(Type));
 
-      SrcVal = CGF.Builder.CreateCast(castOp, SrcVal, EltTy);
-    }
-
+    // Splat the value
     Value *V1 = CGF.Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal,
                                                 (uint64_t)0);
     std::vector<int> shufIdx(col * row, 0);
-
     Value *VecMat = CGF.Builder.CreateShuffleVector(V1, V1, shufIdx);
     Value *MatInit = EmitHLSLMatrixOperationCallImp(
         CGF.Builder, HLOpcodeGroup::HLInit, 0, Ty, {VecMat}, TheModule);
@@ -6953,7 +6935,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
       idxList.pop_back();
     }
   } else {
-    SimpleFlatValCopy(DestPtr, SrcVal, Type, SrcType, idxList, CGF.Builder);
+    SimpleFlatValCopy(CGF, DestPtr, SrcVal, Type, SrcType, idxList);
   }
 }
 
@@ -6974,16 +6956,16 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
         DestPtr->getType()->getPointerElementType());
   }
   else {
-    SmallVector<Value *, 4> idxList;
-    SmallVector<Value *, 4> DestGEPList;
-    SmallVector<QualType, 4> DestEltTyList;
-    FlattenAggregatePtrToGepList(CGF, DestPtr, idxList, Ty, DestPtr->getType(), DestGEPList, DestEltTyList);
+    SmallVector<Value *, 4> GEPIdxStack;
+    SmallVector<Value *, 4> DstPtrs;
+    SmallVector<QualType, 4> DstQualTys;
+    FlattenAggregatePtrToGepList(CGF, DestPtr, GEPIdxStack, Ty, DestPtr->getType(), DstPtrs, DstQualTys);
 
-    SmallVector<Value *, 4> EltList;
-    SmallVector<QualType, 4> EltTyList;
-    FlattenValToInitList(CGF, EltList, EltTyList, SrcTy, Val);
+    SmallVector<Value *, 4> SrcVals;
+    SmallVector<QualType, 4> SrcQualTys;
+    FlattenValToInitList(CGF, SrcVals, SrcQualTys, SrcTy, Val);
 
-    StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, EltList, EltTyList);
+    ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
   }
 }
 
@@ -7115,9 +7097,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         !isObject) {
       QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
-      bool isAggrageteTy = ParamTy->isAggregateType();
-      isAggrageteTy &= !IsHLSLVecMatType(ParamTy);
-      if (!isAggrageteTy) {
+      bool isAggregateTy = ParamTy->isAggregateType() && !IsHLSLVecMatType(ParamTy);
+      if (!isAggregateTy) {
         if (!IsHLSLMatType(ParamTy)) {
           RValue outRVal = CGF.EmitLoadOfLValue(argLV, SourceLocation());
           outVal = outRVal.getScalarVal();
@@ -7127,16 +7108,13 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
-        Instruction::CastOps castOp =
-            static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-                IsUnsigned(argLV.getType()), IsUnsigned(tmpLV.getType()),
-                outVal->getType(), ToTy));
-
-        Value *castVal = CGF.Builder.CreateCast(castOp, outVal, ToTy);
-        if (!dxilutil::IsHLSLMatrixType(ToTy))
-          CGF.Builder.CreateStore(castVal, tmpArgAddr);
-        else
+        Value *castVal = ConvertScalarOrVector(CGF, outVal, argLV.getType(), tmpLV.getType());
+        if (HLMatrixLower::IsMatrixType(ToTy))
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
+        else {
+          castVal = CGF.EmitToMemory(castVal, tmpLV.getType());
+          CGF.Builder.CreateStore(castVal, tmpArgAddr);
+        }
       } else {
         SmallVector<Value *, 4> idxList;
         EmitHLSLAggregateCopy(CGF, argLV.getAddress(), tmpLV.getAddress(),
@@ -7194,12 +7172,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
                 CGF.Builder.CreateInsertElement(castVal, outVal, (uint64_t)0);
           }
         } else {
-          Instruction::CastOps castOp =
-              static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-                  IsUnsigned(tmpLV.getType()), IsUnsigned(argLV.getType()),
-                  outVal->getType(), ToTy));
-
-          castVal = CGF.Builder.CreateCast(castOp, outVal, ToTy);
+          castVal = ConvertScalarOrVector(CGF,
+            outVal, tmpLV.getType(), argLV.getType());
         }
         if (!dxilutil::IsHLSLMatrixType(ToTy))
           CGF.EmitStoreThroughLValue(RValue::get(castVal), argLV);
