@@ -586,7 +586,7 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
   unsigned scalarSizeInBytes = 4;
   const clang::BuiltinType *BT = Ty->getAs<clang::BuiltinType>();
   if (hlsl::IsHLSLVecMatType(Ty)) {
-    BT = CGHLSLRuntime::GetHLSLVecMatElementType(Ty)->getAs<clang::BuiltinType>();
+    BT = hlsl::GetElementTypeOrType(Ty)->getAs<clang::BuiltinType>();
   }
   if (BT) {
     if (BT->getKind() == clang::BuiltinType::Kind::Double ||
@@ -5153,24 +5153,6 @@ static const HLUnaryOpcode UnaryOperatorKindMap[] = {
     HLUnaryOpcode::Invalid, // Extension
 };
 
-static bool IsRowMajorMatrix(QualType Ty, bool bDefaultRowMajor) {
-  bool bRowMajor = bDefaultRowMajor;
-  HasHLSLMatOrientation(Ty, &bRowMajor);
-  return bRowMajor;
-}
-
-static bool IsUnsigned(QualType Ty) {
-  Ty = Ty.getCanonicalType().getNonReferenceType();
-
-  if (hlsl::IsHLSLVecMatType(Ty))
-    Ty = CGHLSLRuntime::GetHLSLVecMatElementType(Ty);
-
-  if (Ty->isExtVectorType())
-    Ty = Ty->getAs<clang::ExtVectorType>()->getElementType();
-
-  return Ty->isUnsignedIntegerType();
-}
-
 static unsigned GetHLOpcode(const Expr *E) {
   switch (E->getStmtClass()) {
   case Stmt::CompoundAssignOperatorClass:
@@ -5178,7 +5160,7 @@ static unsigned GetHLOpcode(const Expr *E) {
     const clang::BinaryOperator *binOp = cast<clang::BinaryOperator>(E);
     HLBinaryOpcode binOpcode = BinaryOperatorKindMap[binOp->getOpcode()];
     if (HasUnsignedOpcode(binOpcode)) {
-      if (IsUnsigned(binOp->getLHS()->getType())) {
+      if (hlsl::IsHLSLUnsigned(binOp->getLHS()->getType())) {
         binOpcode = GetUnsignedOpcode(binOpcode);
       }
     }
@@ -5192,8 +5174,8 @@ static unsigned GetHLOpcode(const Expr *E) {
   case Stmt::ImplicitCastExprClass:
   case Stmt::CStyleCastExprClass: {
     const CastExpr *CE = cast<CastExpr>(E);
-    bool toUnsigned = IsUnsigned(E->getType());
-    bool fromUnsigned = IsUnsigned(CE->getSubExpr()->getType());
+    bool toUnsigned = hlsl::IsHLSLUnsigned(E->getType());
+    bool fromUnsigned = hlsl::IsHLSLUnsigned(CE->getSubExpr()->getType());
     if (toUnsigned && fromUnsigned)
       return static_cast<unsigned>(HLCastOpcode::UnsignedUnsignedCast);
     else if (toUnsigned)
@@ -5356,7 +5338,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       // Init list is row major in scalar.
       // So the order is match here, just cast to vector.
       unsigned matSize = col * row;
-      bool isRowMajor = IsRowMajorMatrix(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor);
+      bool isRowMajor = hlsl::IsHLSLMatRowMajor(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor);
 
       HLCastOpcode opcode = isRowMajor ? HLCastOpcode::RowMatrixToVecCast
                                        : HLCastOpcode::ColMatrixToVecCast;
@@ -5369,7 +5351,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
     }
 
     if (valTy->isVectorTy()) {
-      QualType EltTy = GetHLSLVecMatElementType(Ty);
+      QualType EltTy = hlsl::GetElementTypeOrType(Ty);
       unsigned vecSize = valTy->getVectorNumElements();
       for (unsigned i = 0; i < vecSize; i++) {
         Value *Elt = Builder.CreateExtractElement(val, i);
@@ -5408,7 +5390,7 @@ static Value* ConvertScalarOrVector(CGBuilderTy& Builder, CodeGenTypes &Types,
 
   // Cast necessary
   auto CastOp = static_cast<Instruction::CastOps>(HLModule::GetNumericCastOp(
-    SrcTy, IsUnsigned(SrcQualTy), DstTy, IsUnsigned(DstQualTy)));
+    SrcTy, hlsl::IsHLSLUnsigned(SrcQualTy), DstTy, hlsl::IsHLSLUnsigned(DstQualTy)));
   return Builder.CreateCast(CastOp, Val, DstTy);
 }
 
@@ -5778,20 +5760,22 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
 static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor, Constant *C, QualType QualTy,
     SmallVectorImpl<Constant *> &EltVals, SmallVectorImpl<QualType> EltQualTys) {
   llvm::Type *Ty = C->getType();
-  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
-    // Type is only for matrix. Keep use Type to next level.
-    for (unsigned i = 0; i < VT->getNumElements(); i++) {
-      FlatConstToList(Types, bDefaultRowMajor, C->getAggregateElement(i), EltValList, Type, Types,
-                      );
+  if (hlsl::IsHLSLVecType(QualTy)) {
+    llvm::VectorType *VecTy = cast<llvm::VectorType>(Ty);
+    for (unsigned i = 0; i < VecTy->getNumElements(); i++) {
+      FlatConstToList(Types, bDefaultRowMajor,
+        C->getAggregateElement(i), hlsl::GetHLSLVecElementType(QualTy),
+        EltVals, EltQualTys);
     }
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
-    bool isRowMajor = IsRowMajorMatrix(Type, bDefaultRowMajor);
+  } else if (hlsl::IsHLSLMatType(QualTy)) {
+    DXASSERT_NOMSG(HLMatrixLower::IsMatrixType(Ty));
+    bool isRowMajor = IsRowMajorMatrix(QualTy, bDefaultRowMajor);
     // matrix type is struct { vector<Ty, row> [col] };
     // Strip the struct level here.
     Constant *matVal = C->getAggregateElement((unsigned)0);
-    const RecordType *RT = Type->getAs<RecordType>();
-    RecordDecl *RD = RT->getDecl();
-    QualType EltTy = RD->field_begin()->getType();
+    const RecordType *RecordTy = QualTy->getAs<RecordType>();
+    RecordDecl *RecordDecl = RecordTy->getDecl();
+    QualType EltTy = RecordDecl->field_begin()->getType();
     // When scan, init list scalars is row major.
     if (isRowMajor) {
       // Don't change the major for row major value.

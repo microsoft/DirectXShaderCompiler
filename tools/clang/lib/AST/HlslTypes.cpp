@@ -169,6 +169,26 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
   return false;
 }
 
+bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue) {
+  bool result = defaultValue;
+  HasHLSLMatOrientation(type, &result);
+  return result;
+}
+
+bool IsHLSLUnsigned(clang::QualType type) {
+  if (type->getAs<clang::BuiltinType>() == nullptr) {
+    type = type.getCanonicalType().getNonReferenceType();
+
+    if (IsHLSLVecMatType(type))
+      type = GetElementTypeOrType(type);
+
+    if (type->isExtVectorType())
+      type = type->getAs<clang::ExtVectorType>()->getElementType();
+  }
+
+  return type->isUnsignedIntegerType();
+}
+
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
   // snorm/unorm can be on outer vector/matrix as well as element type
   // in the template form.  Outer-most type attribute wins.
