@@ -1004,19 +1004,18 @@ unsigned HLModule::GetNumericCastOp(
   // Conversions from bools are like unsigned integer widening
   if (SrcBitSize == 1) SrcIsUnsigned = true;
 
-  uint32_t SrcBitSize = SrcTy->getScalarSizeInBits();
-  uint32_t DstBitSize = DstTy->getScalarSizeInBits();
-  if (SrcTy->isIntOrIntVectorTy() && DstTy->isIntOrIntVectorTy()) {
-    if (SrcBitSize > DstBitSize)
-      return Instruction::Trunc;
-    // unsigned to unsigned: zext
-    // unsigned to signed: zext (fully representable)
-    // signed to signed: sext
-    // signed to unsigned: sext (like C++)
-    if (fromUnsigned)
-      return Instruction::ZExt;
-    else
-      return Instruction::SExt;
+  if (SrcIsInt) {
+    if (DstIsInt) { // int to int
+      if (SrcBitSize > DstBitSize) return Instruction::Trunc;
+      // unsigned to unsigned: zext
+      // unsigned to signed: zext (fully representable)
+      // signed to signed: sext
+      // signed to unsigned: sext (like C++)
+      return SrcIsUnsigned ? Instruction::ZExt : Instruction::SExt;
+    }
+    else { // int to float
+      return SrcIsUnsigned ? Instruction::UIToFP : Instruction::SIToFP;
+    }
   }
   else {
     if (DstIsInt) { // float to int

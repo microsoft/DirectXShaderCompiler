@@ -153,6 +153,7 @@ clang::QualType GetElementTypeOrType(clang::QualType type) {
 }
 
 bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
+  DXASSERT_NOMSG(IsHLSLMatType(type));
   const AttributedType *AT = type->getAs<AttributedType>();
   while (AT) {
     AttributedType::Kind kind = AT->getAttrKind();
