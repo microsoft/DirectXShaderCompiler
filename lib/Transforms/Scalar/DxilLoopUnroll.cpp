@@ -582,7 +582,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, SmallVectorImpl<AllocaInst *
       } 
       AllocaInst *ScalarAlloca = ScalarAllocas[idx];
       if (!ScalarAlloca) {
-        ScalarAlloca = B.CreateAlloca(ElementType, B.getInt32(1));
+        ScalarAlloca = B.CreateAlloca(ElementType);
         ScalarAllocas[idx] = ScalarAlloca;
         if (ElementType->isArrayTy()) {
           WorkList.push_back(ScalarAlloca);
