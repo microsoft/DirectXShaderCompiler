@@ -5384,9 +5384,10 @@ static Value* ConvertScalarOrVector(CGBuilderTy& Builder, CodeGenTypes &Types,
 
   // Conversions to bools are comparisons
   if (DstTy->getScalarSizeInBits() == 1) {
+    // fcmp une is what regular clang uses in C++ for (bool)f;
     return SrcTy->isIntOrIntVectorTy()
       ? Builder.CreateICmpNE(Val, llvm::Constant::getNullValue(SrcTy), "tobool")
-      : Builder.CreateFCmpONE(Val, llvm::Constant::getNullValue(SrcTy), "tobool");
+      : Builder.CreateFCmpUNE(Val, llvm::Constant::getNullValue(SrcTy), "tobool");
   }
 
   // Cast necessary
@@ -6828,28 +6829,32 @@ void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *
     DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
+// Either copies a scalar to a scalar, a scalar to a vector, or splats a scalar to a vector
 static void SimpleFlatValCopy(CodeGenFunction &CGF, 
-    Value *DestPtr, Value *SrcVal, QualType Ty, QualType SrcTy,
-    ArrayRef<Value *> idxList) {
-  Value *DestGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-  llvm::Type *ToTy = DestGEP->getType()->getPointerElementType();
+    Value *SrcVal, QualType SrcQualTy, Value *DstPtr, QualType DstQualTy) {
+  DXASSERT(SrcVal->getType() == CGF.ConvertType(SrcQualTy), "QualType/Type mismatch!");
+  
+  llvm::Type *DstTy = DstPtr->getType()->getPointerElementType();
+  DXASSERT(DstTy == CGF.ConvertTypeForMem(DstQualTy), "QualType/Type mismatch!");
 
-  llvm::Type *EltToTy = ToTy;
-  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(ToTy)) {
-    EltToTy = VT->getElementType();
+  llvm::VectorType *DstVecTy = dyn_cast<llvm::VectorType>(DstTy);
+  QualType DstScalarQualTy = DstQualTy;
+  if (DstVecTy) {
+    DstScalarQualTy = hlsl::GetHLSLVecElementType(DstQualTy);
   }
 
-  SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcTy, Ty);
+  Value *ResultScalar = ConvertScalarOrVector(CGF, SrcVal, SrcQualTy, DstScalarQualTy);
+  ResultScalar = CGF.EmitToMemory(ResultScalar, DstScalarQualTy);
 
-  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(ToTy)) {
-    llvm::VectorType *VT1 = llvm::VectorType::get(EltToTy, 1);
-    Value *V1 =
-        CGF.Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal, (uint64_t)0);
-    std::vector<int> shufIdx(VT->getNumElements(), 0);
-    Value *Vec = CGF.Builder.CreateShuffleVector(V1, V1, shufIdx);
-    CGF.Builder.CreateStore(Vec, DestGEP);
+  if (DstVecTy) {
+    llvm::VectorType *DstScalarVecTy = llvm::VectorType::get(ResultScalar->getType(), 1);
+    Value *ResultScalarVec = CGF.Builder.CreateInsertElement(
+      UndefValue::get(DstScalarVecTy), ResultScalar, (uint64_t)0);
+    std::vector<int> ShufIdx(DstVecTy->getNumElements(), 0);
+    Value *ResultVec = CGF.Builder.CreateShuffleVector(ResultScalarVec, ResultScalarVec, ShufIdx);
+    CGF.Builder.CreateStore(ResultVec, DstPtr);
   } else
-    CGF.Builder.CreateStore(SrcVal, DestGEP);
+    CGF.Builder.CreateStore(ResultScalar, DstPtr);
 }
 
 void CGMSHLSLRuntime::EmitHLSLFlatConversion(
@@ -6939,7 +6944,8 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
       idxList.pop_back();
     }
   } else {
-    SimpleFlatValCopy(CGF, DestPtr, SrcVal, Type, SrcType, idxList);
+    DestPtr = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+    SimpleFlatValCopy(CGF, SrcVal, SrcType, DestPtr, Type);
   }
 }
 
@@ -6951,9 +6957,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
   if (SrcTy->isBuiltinType()) {
     SmallVector<Value *, 4> idxList;
     // Add first 0 for DestPtr.
-    Constant *idx = Constant::getIntegerValue(
-        IntegerType::get(Val->getContext(), 32), APInt(32, 0));
-    idxList.emplace_back(idx);
+    idxList.emplace_back(CGF.Builder.getInt32(0));
 
     EmitHLSLFlatConversion(
         CGF, Val, DestPtr, idxList, Ty, SrcTy,
@@ -7112,10 +7116,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
-        Value *castVal = ConvertScalarOrVector(CGF, outVal, argLV.getType(), tmpLV.getType());
-        if (HLMatrixLower::IsMatrixType(ToTy))
+        if (HLMatrixLower::IsMatrixType(ToTy)) {
+          Value *castVal = CGF.Builder.CreateBitCast(outVal, ToTy);
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
+        }
         else {
+          Value *castVal = ConvertScalarOrVector(CGF, outVal, argLV.getType(), tmpLV.getType());
           castVal = CGF.EmitToMemory(castVal, tmpLV.getType());
           CGF.Builder.CreateStore(castVal, tmpArgAddr);
         }

@@ -15,15 +15,15 @@ void main() {
     // CHECK: i32 1, i32 1, i32 0, i32 0, i8
     static const bool b[] = {
         true, // No-op
-        (int)(-1), // ICmpNE 0
-        (uint)0xFFFFFFFF, // ICmpNE 0
-        (int16_t)(-1), // ICmpNE 0
-        (uint16_t)0xFFFF, // ICmpNE 0
-        (int64_t)(-1), // ICmpNE 0
-        (uint64_t)0xFFFFFFFFFFFFFFFF, // ICmpNE 0
-        (half)(-1.5f), // FCmpONE 0
-        -1.5f, // FCmpONE 0
-        (double)(-1.5f) }; // FCmpONE 0
+        (int)(-1), // icmp ne 0
+        (uint)0xFFFFFFFF, // icmp ne 0
+        (int16_t)(-1), // icmp ne 0
+        (uint16_t)0xFFFF, // icmp ne 0
+        (int64_t)(-1), // icmp ne 0
+        (uint64_t)0xFFFFFFFFFFFFFFFF, // icmp ne 0
+        (half)(-1.5f), // fcmp ne 0
+        -1.5f, // fcmp ne 0
+        (double)(-1.5f) }; // fcmp ne 0
     buf_b[0] = bool4(b[0], b[1], b[2], b[3]);
     buf_b[1] = bool4(b[4], b[5], b[6], b[7]);
     buf_b[2] = bool4(b[8], b[9], false, false);

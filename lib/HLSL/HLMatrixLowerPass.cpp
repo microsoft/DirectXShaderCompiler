@@ -398,6 +398,11 @@ INITIALIZE_PASS(HLMatrixLowerPass, "hlmatrixlower", "HLSL High-Level Matrix Lowe
 static Instruction *CreateTypeCast(HLCastOpcode castOp, Type *toTy, Value *src,
                                    IRBuilder<> Builder) {
   Type *srcTy = src->getType();
+
+  // Conversions between equivalent types are no-ops,
+  // even between signed/unsigned variants.
+  if (srcTy == toTy) return cast<Instruction>(src);
+
   bool fromUnsigned = castOp == HLCastOpcode::FromUnsignedCast ||
                       castOp == HLCastOpcode::UnsignedUnsignedCast;
   bool toUnsigned = castOp == HLCastOpcode::ToUnsignedCast ||
@@ -405,9 +410,10 @@ static Instruction *CreateTypeCast(HLCastOpcode castOp, Type *toTy, Value *src,
 
   // Conversions to bools are comparisons
   if (toTy->getScalarSizeInBits() == 1) {
+    // fcmp une is what regular clang uses in C++ for (bool)f;
     return cast<Instruction>(srcTy->isIntOrIntVectorTy()
       ? Builder.CreateICmpNE(src, llvm::Constant::getNullValue(srcTy), "tobool")
-      : Builder.CreateFCmpONE(src, llvm::Constant::getNullValue(srcTy), "tobool"));
+      : Builder.CreateFCmpUNE(src, llvm::Constant::getNullValue(srcTy), "tobool"));
   }
 
   // Cast necessary

@@ -89,7 +89,7 @@ void main() {
     // Casts to/from bool
     // CHECK: icmp ne
     // CHECK: icmp ne
-    // CHECK: fcmp fast one
+    // CHECK: fcmp fast une
     b[i++] = (B)i32[j++];
     b[i++] = (B)u32[j++];
     b[i++] = (B)f32[j++];
