@@ -382,6 +382,7 @@ bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
 bool IsHLSLNumeric(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
+bool IsHLSLAggregateType(clang::ASTContext& context, clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext& context, clang::QualType type);
 clang::QualType GetHLSLInputPatchElementType(clang::QualType type);

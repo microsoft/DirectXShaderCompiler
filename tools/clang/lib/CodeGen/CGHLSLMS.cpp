@@ -195,11 +195,11 @@ private:
                                    clang::QualType DestType,
                                    llvm::Type *Ty);
 
-  void EmitHLSLFlatConversionToAggregate(CodeGenFunction &CGF, Value *SrcVal,
-                                         llvm::Value *DestPtr,
-                                         SmallVector<Value *, 4> &idxList,
-                                         QualType Type, QualType SrcType,
-                                         llvm::Type *Ty);
+  void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *SrcVal,
+                              llvm::Value *DestPtr,
+                              SmallVector<Value *, 4> &idxList,
+                              QualType Type, QualType SrcType,
+                              llvm::Type *Ty);
 
   void EmitHLSLRootSignature(CodeGenFunction &CGF, HLSLRootSignatureAttr *RSA,
                              llvm::Function *Fn) override;
@@ -294,10 +294,10 @@ public:
                                    llvm::Value *DestPtr,
                                    clang::QualType Ty) override;
 
-  void EmitHLSLFlatConversionToAggregate(CodeGenFunction &CGF, Value *Val,
-                                         Value *DestPtr,
-                                         QualType Ty,
-                                         QualType SrcTy) override;
+  void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *Val,
+                              Value *DestPtr,
+                              QualType Ty,
+                              QualType SrcTy) override;
   Value *EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src, QualType SrcType,
                              QualType DstType) override;
 
@@ -6858,7 +6858,7 @@ static void SimpleFlatValCopy(Value *DestPtr, Value *SrcVal, QualType Ty,
     Builder.CreateStore(SrcVal, DestGEP);
 }
 
-void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
+void CGMSHLSLRuntime::EmitHLSLFlatConversion(
     CodeGenFunction &CGF, Value *SrcVal, llvm::Value *DestPtr,
     SmallVector<Value *, 4> &idxList, QualType Type, QualType SrcType,
     llvm::Type *Ty) {
@@ -6867,7 +6867,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
 
-    EmitHLSLFlatConversionToAggregate(CGF, SrcVal, DestPtr, idxList, Type,
+    EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, Type,
                                       SrcType, PT->getElementType());
 
     idxList.pop_back();
@@ -6916,7 +6916,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
           Constant *idx = llvm::Constant::getIntegerValue(
               IntegerType::get(Ty->getContext(), 32), APInt(32, i));
           idxList.emplace_back(idx);
-          EmitHLSLFlatConversionToAggregate(CGF, SrcVal, DestPtr, idxList,
+          EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList,
                                             parentTy, SrcType, ET);
           idxList.pop_back();
         }
@@ -6931,7 +6931,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLFlatConversionToAggregate(CGF, SrcVal, DestPtr, idxList,
+      EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList,
                                         fieldIter->getType(), SrcType, ET);
 
       idxList.pop_back();
@@ -6947,7 +6947,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLFlatConversionToAggregate(CGF, SrcVal, DestPtr, idxList, EltType,
+      EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, EltType,
                                         SrcType, ET);
 
       idxList.pop_back();
@@ -6957,11 +6957,11 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
   }
 }
 
-void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(CodeGenFunction &CGF,
-                                                        Value *Val,
-                                                        Value *DestPtr,
-                                                        QualType Ty,
-                                                        QualType SrcTy) {
+void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
+                                             Value *Val,
+                                             Value *DestPtr,
+                                             QualType Ty,
+                                             QualType SrcTy) {
   if (SrcTy->isBuiltinType()) {
     SmallVector<Value *, 4> idxList;
     // Add first 0 for DestPtr.
@@ -6969,7 +6969,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(CodeGenFunction &CGF,
         IntegerType::get(Val->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
 
-    EmitHLSLFlatConversionToAggregate(
+    EmitHLSLFlatConversion(
         CGF, Val, DestPtr, idxList, Ty, SrcTy,
         DestPtr->getType()->getPointerElementType());
   }

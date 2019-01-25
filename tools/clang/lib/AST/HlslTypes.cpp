@@ -125,6 +125,15 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLAggregateType(clang::ASTContext& context, clang::QualType type) {
+  // Aggregate types are arrays and user-defined structs
+  if (context.getAsArrayType(type) != nullptr) return true;
+  const RecordType *Record = dyn_cast<RecordType>(type);
+  return Record != nullptr
+    && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)
+    && !dyn_cast<ClassTemplateSpecializationDecl>(Record->getAsCXXRecordDecl());
+}
+
 clang::QualType GetElementTypeOrType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
