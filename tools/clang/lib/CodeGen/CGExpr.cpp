@@ -1402,7 +1402,7 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
       }
     }
 
-    if (hlsl::IsHLSLCompoundType(getContext(), LV.getType())) {
+    if (hlsl::IsHLSLAggregateType(getContext(), LV.getType())) {
       // We cannot load the value because we don't expect to ever have
       // user-defined struct or array-typed llvm registers, only pointers to them.
       // To preserve the snapshot semantics of LValue loads, we copy the

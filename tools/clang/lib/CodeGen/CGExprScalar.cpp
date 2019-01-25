@@ -1820,12 +1820,13 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_FlatConversion: {
     llvm::Value *Src = Visit(E);
 
-    // We should have a compound type (struct or array) on one side,
+    // We should have an aggregate type (struct or array) on one side,
     // and a numeric type (scalar, vector or matrix) on the other.
-    // If the compound type is the cast source, it should be a pointer.
+    // If the aggregate type is the cast source, it should be a pointer.
+    // Aggregate to aggregate casts are handled in CGExprAgg.cpp
     auto areCompoundAndNumeric = [this](QualType lhs, QualType rhs) {
-      return hlsl::IsHLSLCompoundType(CGF.getContext(), lhs)
-        && (dyn_cast<clang::BuiltinType>(rhs) != nullptr || hlsl::IsHLSLVecMatType(rhs));
+      return hlsl::IsHLSLAggregateType(CGF.getContext(), lhs)
+        && (rhs->isBuiltinType() || hlsl::IsHLSLVecMatType(rhs));
     };
     assert(Src->getType()->isPointerTy()
       ? areCompoundAndNumeric(E->getType(), DestTy)
@@ -1842,7 +1843,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, DstPtr, DestTy);
     
     // Structs/arrays are pointers to temporaries
-    if (hlsl::IsHLSLCompoundType(CGF.getContext(), DestTy))
+    if (hlsl::IsHLSLAggregateType(CGF.getContext(), DestTy))
       return DstPtr;
     
     // Scalars/vectors are loaded regularly
