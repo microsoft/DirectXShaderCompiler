@@ -120,7 +120,6 @@ public:
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequiredID(LoopSimplifyID);
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
@@ -130,18 +129,15 @@ public:
 
 char DxilLoopUnroll::ID;
 
-static void FailLoopUnroll(bool WarnOnly, Loop *L, const char *Message) {
-  DebugLoc DL = L->getStartLoc();
-  LLVMContext &Ctx = L->getHeader()->getContext();
-
+static void FailLoopUnroll(bool WarnOnly, LLVMContext &Ctx, DebugLoc DL, const char *Message) {
   if (WarnOnly) {
-    if (DL.get())
+    if (DL)
       Ctx.emitWarning(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
     else
       Ctx.emitWarning(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
   }
   else {
-    if (DL.get())
+    if (DL)
       Ctx.emitError(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
     else
       Ctx.emitError(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
@@ -435,7 +431,20 @@ static bool CreateLCSSA(SetVector<BasicBlock *> &Body, const SmallVectorImpl<Bas
   return Changed;
 }
 
-static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlock *> &BlocksInLoop, std::unordered_set<BasicBlock *> &ProblemBlocks) {
+static AllocaInst *GetAllocaFromGEP(GEPOperator *GEP) {
+  Value *Ptr = GEP->getPointerOperand();
+  while (Ptr) {
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(Ptr)) {
+      return AI;
+    }
+    else if (GEPOperator *NewGEP = dyn_cast<GEPOperator>(Ptr)) {
+      Ptr = NewGEP->getPointerOperand();
+    }
+  }
+  return nullptr;
+}
+
+static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlock *> &BlocksInLoop, std::unordered_set<BasicBlock *> &ProblemBlocks, SetVector<AllocaInst *> &ProblemAllocas) {
   SmallVector<Instruction *, 16> WorkList;
 
   std::unordered_set<BasicBlock *> BlocksInLoopSet(BlocksInLoop.begin(), BlocksInLoop.end());
@@ -467,6 +476,9 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
       //
       if (hlsl::dxilutil::IsHLSLObjectType(EltType)) {
         ProblemBlocks.insert(GEP->getParent());
+        if (AllocaInst *AI = GetAllocaFromGEP(cast<GEPOperator>(GEP))) {
+          ProblemAllocas.insert(AI);
+        }
         continue; // Stop Propagating
       }
     }
@@ -482,6 +494,111 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
       }
     }
   }
+}
+
+// Helper function for getting GEP's const index value
+inline static int64_t GetGEPIndex(GEPOperator *GEP, unsigned idx) {
+  return cast<ConstantInt>(GEP->getOperand(idx + 1))->getSExtValue();
+} 
+
+// Replace allocas that have all constant indices
+// with individual scalar allocas.
+static bool BreakUpArrayAllocas(bool AllowOOBIndex, SmallVectorImpl<AllocaInst *> &WorkList, DominatorTree *DT, AssumptionCache *AC) { 
+  bool Success = true;
+
+  SmallVector<GEPOperator *, 16> GEPs;
+  while (WorkList.size()) {
+    AllocaInst *AI = WorkList.pop_back_val();
+
+    Type *AllocaType = AI->getAllocatedType();
+
+    // Only deal with array allocas.
+    if (!AllocaType->isArrayTy())
+      continue;
+
+    unsigned ArraySize = AI->getAllocatedType()->getArrayNumElements();
+    Type *ElementType = AllocaType->getArrayElementType();
+    if (!ArraySize)
+      continue;
+
+    GEPs.clear(); // Re-use array
+    for (User *U : AI->users()) {
+      if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        if (!GEP->hasAllConstantIndices() || GEP->getNumIndices() < 2 ||
+          GetGEPIndex(GEP, 0) != 0)
+        {
+          GEPs.clear();
+          break;
+        }
+        else {
+          GEPs.push_back(GEP);
+        }
+      }
+      else {
+        GEPs.clear();
+        break;
+      }
+    }
+
+    if (!GEPs.size())
+      continue;
+
+    SmallVector<AllocaInst *, 8> ScalarAllocas;
+    ScalarAllocas.resize(ArraySize);
+
+    IRBuilder<> B(AI);
+    for (GEPOperator *GEP : GEPs) {
+      int64_t idx = GetGEPIndex(GEP, 1);
+      GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP);
+
+      if (idx < 0 || idx >= ArraySize) {
+        if (AllowOOBIndex)
+          idx = 0;
+        else {
+          Success = false;
+          if (GEPInst)
+            hlsl::dxilutil::EmitErrorOnInstruction(GEPInst, "Array access out of bound.");
+          continue;
+        }
+      } 
+      AllocaInst *ScalarAlloca = ScalarAllocas[idx];
+      if (!ScalarAlloca) {
+        ScalarAlloca = B.CreateAlloca(ElementType, B.getInt32(1));
+        ScalarAllocas[idx] = ScalarAlloca;
+        if (ElementType->isArrayTy()) {
+          WorkList.push_back(ScalarAlloca);
+        }
+      }
+      Value *NewPointer = nullptr;
+      if (ElementType->isArrayTy()) {
+        SmallVector<Value *, 2> Indices;
+        Indices.push_back(B.getInt32(0));
+        for (unsigned i = 2; i < GEP->getNumIndices(); i++) {
+          Indices.push_back(GEP->getOperand(i + 1));
+        }
+        NewPointer = B.CreateGEP(ScalarAlloca, Indices);
+      } else {
+        NewPointer = ScalarAlloca;
+      }
+
+      GEP->replaceAllUsesWith(NewPointer);
+      if (GEPInst) GEPInst->eraseFromParent();
+    } 
+
+    if (!ElementType->isArrayTy()) {
+      for (unsigned i = 0; i < ScalarAllocas.size();) {
+        if (!ScalarAllocas[i]) {
+          ScalarAllocas.erase(ScalarAllocas.begin() + i);
+        }
+        else {
+          i++;
+        }
+      }
+      PromoteMemToReg(ScalarAllocas, *DT, nullptr, AC);
+    }
+  }
+
+  return Success;
 }
 
 static bool ContainsFloatingPointType(Type *Ty) {
@@ -545,11 +662,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!L->isSafeToClone())
     return false;
 
+  DebugLoc LoopLoc = L->getStartLoc(); // Debug location for the start of the loop.
   Function *F = L->getHeader()->getParent();
-  bool OnlyWarnOnFail = false;
+  bool FxcCompatMode = false;
   if (F->getParent()->HasHLModule()) {
     HLModule &HM = F->getParent()->GetHLModule();
-    OnlyWarnOnFail = HM.GetHLOptions().bFXCCompatMode;
+    FxcCompatMode = HM.GetHLOptions().bFXCCompatMode;
   }
 
   // Analysis passes
@@ -589,8 +707,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
 
   // Heuristically find blocks that likely need to be unrolled
+  SetVector<AllocaInst *> ProblemAllocas;
   std::unordered_set<BasicBlock *> ProblemBlocks;
-  FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks);
+  FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks, ProblemAllocas);
 
   // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;
@@ -810,6 +929,15 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
+    // We are going to try to clean up these allocas.
+    // But only the allocas that are not among the 
+    // blocks we are about to delete.
+    SmallVector<AllocaInst *, 8> CleanUpAllocas;
+    for (AllocaInst *AI : ProblemAllocas) {
+      if (!ToBeCloned.count(AI->getParent()))
+        CleanUpAllocas.push_back(AI);
+    }
+
     LoopIteration &FirstIteration = *Iterations.front().get();
     // Make the predecessor branch to the first new header.
     {
@@ -822,6 +950,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     }
 
     if (OuterL) {
+
       // Core body blocks need to be added to outer loop
       for (size_t i = 0; i < Iterations.size(); i++) {
         LoopIteration &Iteration = *Iterations[i].get();
@@ -862,10 +991,16 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (BasicBlock *BB : ToBeCloned)
       BB->eraseFromParent();
 
+    DT->recalculate(*F);
+
     if (OuterL) {
       // This process may have created multiple back edges for the
       // parent loop. Simplify to keep it well-formed.
       simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
+    }
+
+    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, CleanUpAllocas, DT, AC)) {
+      FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
     return true;
@@ -873,7 +1008,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
-    FailLoopUnroll(OnlyWarnOnFail, L, "Could not unroll loop.");
+    FailLoopUnroll(FxcCompatMode /*warn only*/, F->getContext(), LoopLoc, "Could not unroll loop.");
 
     // Remove all the cloned blocks
     for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
