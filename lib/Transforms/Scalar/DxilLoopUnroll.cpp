@@ -440,10 +440,21 @@ static AllocaInst *GetAllocaFromGEP(GEPOperator *GEP) {
     else if (GEPOperator *NewGEP = dyn_cast<GEPOperator>(Ptr)) {
       Ptr = NewGEP->getPointerOperand();
     }
+    else {
+      break;
+    }
   }
   return nullptr;
 }
 
+// Find all blocks in the loop with instructions that
+// would require an unroll to be correct.
+//
+// For example:
+// for (int i = 0; i < 10; i++) {
+//   gep i
+// }
+//
 static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlock *> &BlocksInLoop, std::unordered_set<BasicBlock *> &ProblemBlocks, SetVector<AllocaInst *> &ProblemAllocas) {
   SmallVector<Instruction *, 16> WorkList;
 
@@ -501,8 +512,16 @@ inline static int64_t GetGEPIndex(GEPOperator *GEP, unsigned idx) {
   return cast<ConstantInt>(GEP->getOperand(idx + 1))->getSExtValue();
 } 
 
-// Replace allocas that have all constant indices
-// with individual scalar allocas.
+// Replace allocas with all constant indices with scalar allocas, then promote
+// them to values where possible (mem2reg).
+//
+// Before loop unroll, we did not have constant indices for arrays and SROA was
+// unable to break them into scalars. Now that unroll has potentially given
+// them constant values, we need to turn them into scalars.
+//
+// if "AllowOOBIndex" is true, it turns any out of bound index into 0.
+// Otherwise it emits an error and fails compilation.
+//
 static bool BreakUpArrayAllocas(bool AllowOOBIndex, SmallVectorImpl<AllocaInst *> &WorkList, DominatorTree *DT, AssumptionCache *AC) { 
   bool Success = true;
 
@@ -582,18 +601,10 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, SmallVectorImpl<AllocaInst *
       }
 
       GEP->replaceAllUsesWith(NewPointer);
-      if (GEPInst) GEPInst->eraseFromParent();
     } 
 
     if (!ElementType->isArrayTy()) {
-      for (unsigned i = 0; i < ScalarAllocas.size();) {
-        if (!ScalarAllocas[i]) {
-          ScalarAllocas.erase(ScalarAllocas.begin() + i);
-        }
-        else {
-          i++;
-        }
-      }
+      std::remove(ScalarAllocas.begin(), ScalarAllocas.end(), nullptr);
       PromoteMemToReg(ScalarAllocas, *DT, nullptr, AC);
     }
   }
@@ -991,6 +1002,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (BasicBlock *BB : ToBeCloned)
       BB->eraseFromParent();
 
+    // Blocks need to be removed from DomTree. There's no easy way
+    // to remove them in the right order, so just make DomTree
+    // recalculate.
     DT->recalculate(*F);
 
     if (OuterL) {
@@ -999,6 +1013,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       simplifyLoop(OuterL, DT, LI, this, nullptr, nullptr, AC);
     }
 
+    // Now that we potentially turned some GEP indices into constants,
+    // try to clean up their allocas.
     if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, CleanUpAllocas, DT, AC)) {
       FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
