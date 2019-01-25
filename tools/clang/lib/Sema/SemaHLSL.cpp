@@ -4069,6 +4069,12 @@ public:
   {
     DXASSERT_NOMSG(ULE != nullptr);
 
+    // Intrinsics live in the global namespace, so references to their names
+    // should be either unqualified or '::'-prefixed.
+    if (ULE->getQualifier() && ULE->getQualifier()->getKind() != NestedNameSpecifier::Global) {
+      return false;
+    }
+
     const DeclarationNameInfo declName = ULE->getNameInfo();
     IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
     if (idInfo == nullptr)
