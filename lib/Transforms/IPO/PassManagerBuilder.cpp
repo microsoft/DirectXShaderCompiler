@@ -252,7 +252,11 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
 
   MPM.add(createCFGSimplificationPass());
 
- // Passes to handle [unroll]
+  // Passes to handle [unroll]
+  // Needs to happen after SROA since loop count may depend on
+  // struct members.
+  // Needs to happen before resources are lowered and before HL
+  // module is gone.
   MPM.add(createLoopRotatePass());
   MPM.add(createDxilLoopUnrollPass(/*MaxIterationAttempt*/ 128));
 
