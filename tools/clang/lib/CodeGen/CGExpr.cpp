@@ -1401,6 +1401,20 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
         return RValue::get(V);
       }
     }
+
+    if (hlsl::IsHLSLAggregateType(getContext(), LV.getType())) {
+      // We cannot load the value because we don't expect to ever have
+      // user-defined struct or array-typed llvm registers, only pointers to them.
+      // To preserve the snapshot semantics of LValue loads, we copy the
+      // value to a temporary and return a pointer to it.
+      llvm::Value *Alloca = CreateMemTemp(LV.getType(), "rval");
+      auto CharSizeAlignPair = getContext().getTypeInfoInChars(LV.getType());
+      Builder.CreateMemCpy(Alloca, LV.getAddress(),
+        static_cast<uint64_t>(CharSizeAlignPair.first.getQuantity()),
+        static_cast<unsigned>(CharSizeAlignPair.second.getQuantity()));
+
+      return RValue::get(Alloca);
+    }
     // HLSL Change End.
 
     // Everything needs a load.

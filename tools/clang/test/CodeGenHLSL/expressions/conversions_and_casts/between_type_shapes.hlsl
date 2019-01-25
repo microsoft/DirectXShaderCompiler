@@ -260,10 +260,10 @@ void main()
     // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
     // FXC: l(11,12,21,22)
     output_v4(m2x2);
-    // DXC incorrectly produces i32 1, i32 1, i32 0, i32 0, i8 15) - GitHub #1795
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_v2((int2)a2);
-    // DXC incorrectly produces i32 1, i32 1, i32 0, i32 0, i8 15) - GitHub #1795
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_v2((int2)s2);
 
@@ -347,10 +347,10 @@ void main()
     // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
     // FXC: l(11,21,0,0)
     output_v2(m3x1); // warning: implicit truncation of vector type
-    // DXC incorrectly produces i32 1, i32 1, i32 0, i32 0, i8 15) - GitHub #1795
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_v2((int2)a4);
-    // DXC incorrectly produces i32 1, i32 1, i32 0, i32 0, i8 15) - GitHub #1795
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_v2((int2)s4);
 
