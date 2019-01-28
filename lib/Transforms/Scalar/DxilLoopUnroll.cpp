@@ -431,7 +431,7 @@ static bool CreateLCSSA(SetVector<BasicBlock *> &Body, const SmallVectorImpl<Bas
   return Changed;
 }
 
-static AllocaInst *GetAllocaFromGEP(GEPOperator *GEP) {
+static Value *GetGEPPtrOrigin(GEPOperator *GEP) {
   Value *Ptr = GEP->getPointerOperand();
   while (Ptr) {
     if (AllocaInst *AI = dyn_cast<AllocaInst>(Ptr)) {
@@ -439,6 +439,9 @@ static AllocaInst *GetAllocaFromGEP(GEPOperator *GEP) {
     }
     else if (GEPOperator *NewGEP = dyn_cast<GEPOperator>(Ptr)) {
       Ptr = NewGEP->getPointerOperand();
+    }
+    else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+      return GV;
     }
     else {
       break;
@@ -486,9 +489,15 @@ static void FindProblemBlocks(BasicBlock *Header, const SmallVectorImpl<BasicBlo
       // problem.
       //
       if (hlsl::dxilutil::IsHLSLObjectType(EltType)) {
-        ProblemBlocks.insert(GEP->getParent());
-        if (AllocaInst *AI = GetAllocaFromGEP(cast<GEPOperator>(GEP))) {
-          ProblemAllocas.insert(AI);
+        if (Value *Ptr = GetGEPPtrOrigin(cast<GEPOperator>(GEP))) {
+          if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+            if (!GV->isExternalLinkage(llvm::GlobalValue::ExternalLinkage))
+              ProblemBlocks.insert(GEP->getParent());
+          }
+          else if (AllocaInst *AI = dyn_cast<AllocaInst>(Ptr)) {
+            ProblemAllocas.insert(AI);
+            ProblemBlocks.insert(GEP->getParent());
+          }
         }
         continue; // Stop Propagating
       }
