@@ -5760,16 +5760,18 @@ static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor,
     Constant *C, QualType QualTy,
     SmallVectorImpl<Constant *> &EltVals, SmallVectorImpl<QualType> &EltQualTys) {
   llvm::Type *Ty = C->getType();
+  DXASSERT(Types.ConvertTypeForMem(QualTy) == Ty, "QualType/Type mismatch!");
+
   if (llvm::VectorType *VecTy = dyn_cast<llvm::VectorType>(Ty)) {
     DXASSERT(hlsl::IsHLSLVecType(QualTy), "QualType/Type mismatch!");
+    QualType VecElemQualTy = hlsl::GetHLSLVecElementType(QualTy);
     for (unsigned i = 0; i < VecTy->getNumElements(); i++) {
-      FlatConstToList(Types, bDefaultRowMajor,
-        C->getAggregateElement(i), hlsl::GetHLSLVecElementType(QualTy),
-        EltVals, EltQualTys);
+      EltVals.emplace_back(C->getAggregateElement(i));
+      EltQualTys.emplace_back(VecElemQualTy);
     }
   } else if (HLMatrixLower::IsMatrixType(Ty)) {
     DXASSERT(hlsl::IsHLSLMatType(QualTy), "QualType/Type mismatch!");
-    // matrix type is struct { vector<Ty, row> [col] };
+    // matrix type is struct { [rowcount x <colcount x T>] };
     // Strip the struct level here.
     Constant *RowArrayVal = C->getAggregateElement((unsigned)0);
     QualType MatEltQualTy = hlsl::GetHLSLMatElementType(QualTy);
@@ -5794,6 +5796,8 @@ static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor,
     }
 
     // Return the elements in the order respecting the orientation.
+    // Constant initializers are used as the initial value for static variables,
+    // which live in memory. This is why they have to respect memory packing order.
     bool IsRowMajor = hlsl::IsHLSLMatRowMajor(QualTy, bDefaultRowMajor);
     for (unsigned r = 0; r < RowCount; ++r) {
       for (unsigned c = 0; c < ColCount; ++c) {
@@ -5843,7 +5847,6 @@ static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor,
   else {
     // At this point, we should have scalars in their memory representation
     DXASSERT_NOMSG(QualTy->isBuiltinType());
-    DXASSERT(Types.ConvertTypeForMem(QualTy) == C->getType(), "QualType/Type mismatch!");
     EltVals.emplace_back(C);
     EltQualTys.emplace_back(QualTy);
   }
