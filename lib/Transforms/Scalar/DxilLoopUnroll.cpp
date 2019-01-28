@@ -531,8 +531,11 @@ inline static int64_t GetGEPIndex(GEPOperator *GEP, unsigned idx) {
 // if "AllowOOBIndex" is true, it turns any out of bound index into 0.
 // Otherwise it emits an error and fails compilation.
 //
-static bool BreakUpArrayAllocas(bool AllowOOBIndex, SmallVectorImpl<AllocaInst *> &WorkList, DominatorTree *DT, AssumptionCache *AC) { 
+template<typename IteratorT>
+static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT ItEnd, DominatorTree *DT, AssumptionCache *AC) { 
   bool Success = true;
+
+  SmallVector<AllocaInst *, 8> WorkList(ItBegin, ItEnd);
 
   SmallVector<GEPOperator *, 16> GEPs;
   while (WorkList.size()) {
@@ -949,14 +952,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
-    // We are going to try to clean up these allocas.
-    // But only the allocas that are not among the 
-    // blocks we are about to delete.
-    SmallVector<AllocaInst *, 8> CleanUpAllocas;
-    for (AllocaInst *AI : ProblemAllocas) {
-      if (!ToBeCloned.count(AI->getParent()))
-        CleanUpAllocas.push_back(AI);
-    }
+    // We are going to be cleaning them up later. Maker sure
+    // they're in entry block so deleting loop blocks don't 
+    // kill them too.
+    for (AllocaInst *AI : ProblemAllocas)
+      DXASSERT(AI->getParent() == &F->getEntryBlock(), "Alloca is not in entry block.");
 
     LoopIteration &FirstIteration = *Iterations.front().get();
     // Make the predecessor branch to the first new header.
@@ -1024,7 +1024,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
-    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, CleanUpAllocas, DT, AC)) {
+    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC)) {
       FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
