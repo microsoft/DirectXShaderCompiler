@@ -4289,7 +4289,7 @@ static void SimpleTransformForHLDXIR(Instruction *I,
   } break;
   case Instruction::Load: {
     LoadInst *ldInst = cast<LoadInst>(I);
-    DXASSERT(!HLMatrixLower::IsMatrixType(ldInst->getType()),
+    DXASSERT(!dxilutil::IsHLSLMatrixType(ldInst->getType()),
                       "matrix load should use HL LdStMatrix");
     Value *Ptr = ldInst->getPointerOperand();
     if (ConstantExpr *CE = dyn_cast_or_null<ConstantExpr>(Ptr)) {
@@ -4301,7 +4301,7 @@ static void SimpleTransformForHLDXIR(Instruction *I,
   case Instruction::Store: {
     StoreInst *stInst = cast<StoreInst>(I);
     Value *V = stInst->getValueOperand();
-    DXASSERT_LOCALVAR(V, !HLMatrixLower::IsMatrixType(V->getType()),
+    DXASSERT_LOCALVAR(V, !dxilutil::IsHLSLMatrixType(V->getType()),
                       "matrix store should use HL LdStMatrix");
     Value *Ptr = stInst->getPointerOperand();
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Ptr)) {
@@ -5298,7 +5298,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
         valEltTy->isSingleValueType()) {
       Value *ldVal = Builder.CreateLoad(val);
       FlattenValToInitList(CGF, elts, eltTys, Ty, ldVal);
-    } else if (HLMatrixLower::IsMatrixType(valEltTy)) {
+    } else if (dxilutil::IsHLSLMatrixType(valEltTy)) {
       Value *ldVal = EmitHLSLMatrixLoad(Builder, val, Ty);
       FlattenValToInitList(CGF, elts, eltTys, Ty, ldVal);
     } else {
@@ -5350,7 +5350,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       }
     }
   } else {
-    if (HLMatrixLower::IsMatrixType(valTy)) {
+    if (dxilutil::IsHLSLMatrixType(valTy)) {
       unsigned col, row;
       llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(valTy, col, row);
       // All matrix Value should be row major.
@@ -5492,7 +5492,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     Result = CGF.EmitToMemory(Result, Type);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     bool isRowMajor =
         IsRowMajorMatrix(Type, bDefaultRowMajor);
 
@@ -5783,7 +5783,7 @@ static void FlatConstToList(Constant *C, SmallVector<Constant *, 4> &EltValList,
       FlatConstToList(C->getAggregateElement(i), EltValList, Type, Types,
                       bDefaultRowMajor);
     }
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     bool isRowMajor = IsRowMajorMatrix(Type, bDefaultRowMajor);
     // matrix type is struct { vector<Ty, row> [col] };
     // Strip the struct level here.
@@ -6005,7 +6005,7 @@ static Constant *BuildConstInitializer(QualType Type, unsigned &offset,
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
     return BuildConstArray(AT, offset, EltValList, Type, Types,
                            bDefaultRowMajor);
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     return BuildConstMatrix(Ty, offset, EltValList, Type, Types,
                             bDefaultRowMajor);
   } else if (StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
@@ -6509,7 +6509,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
                                  GepList, EltTyList);
 
     idxList.pop_back();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     // Use matLd/St for matrix.
     unsigned col, row;
     llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
@@ -6671,7 +6671,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
                           PT->getElementType());
 
     idxList.pop_back();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     // Use matLd/St for matrix.
     Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
@@ -6871,7 +6871,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
                                       SrcType, PT->getElementType());
 
     idxList.pop_back();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     // Use matLd/St for matrix.
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
     unsigned row, col;
@@ -7133,7 +7133,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                 outVal->getType(), ToTy));
 
         Value *castVal = CGF.Builder.CreateCast(castOp, outVal, ToTy);
-        if (!HLMatrixLower::IsMatrixType(ToTy))
+        if (!dxilutil::IsHLSLMatrixType(ToTy))
           CGF.Builder.CreateStore(castVal, tmpArgAddr);
         else
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
@@ -7201,7 +7201,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
 
           castVal = CGF.Builder.CreateCast(castOp, outVal, ToTy);
         }
-        if (!HLMatrixLower::IsMatrixType(ToTy))
+        if (!dxilutil::IsHLSLMatrixType(ToTy))
           CGF.EmitStoreThroughLValue(RValue::get(castVal), argLV);
         else {
           Value *destPtr = argLV.getAddress();

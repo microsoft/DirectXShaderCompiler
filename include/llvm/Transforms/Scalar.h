@@ -94,7 +94,8 @@ FunctionPass *createBitTrackingDCEPass();
 //
 // SROA - Replace aggregates or pieces of aggregates with scalar SSA values.
 //
-FunctionPass *createSROAPass(bool RequiresDomTree = true);
+FunctionPass *createSROAPass(bool RequiresDomTree = true,
+                             bool SkipHLSLMat = true);
 
 //===----------------------------------------------------------------------===//
 //

@@ -1027,7 +1027,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilDeadFunctionEliminationPass());
 
   // SROA
-  PM.add(createSROAPass(/*RequiresDomTree*/false));
+  PM.add(createSROAPass(/*RequiresDomTree*/false, /*SkipHLSLMat*/false));
 
   // Remove MultiDimArray from function call arg.
   PM.add(createMultiDimArrayToOneDimArrayPass());

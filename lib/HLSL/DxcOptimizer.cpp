@@ -204,7 +204,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR LowerExpectIntrinsicArgs[] = { "likely-branch-weight", "unlikely-branch-weight" };
   static const LPCSTR MergeFunctionsArgs[] = { "mergefunc-sanity" };
   static const LPCSTR RewriteSymbolsArgs[] = { "DL", "rewrite-map-file" };
-  static const LPCSTR SROAArgs[] = { "RequiresDomTree", "force-ssa-updater", "sroa-random-shuffle-slices", "sroa-strict-inbounds" };
+  static const LPCSTR SROAArgs[] = { "RequiresDomTree", "SkipHLSLMat", "force-ssa-updater", "sroa-random-shuffle-slices", "sroa-strict-inbounds" };
   static const LPCSTR SROA_DTArgs[] = { "Threshold", "StructMemberThreshold", "ArrayElementThreshold", "ScalarLoadThreshold" };
   static const LPCSTR SROA_SSAUpArgs[] = { "Threshold", "StructMemberThreshold", "ArrayElementThreshold", "ScalarLoadThreshold" };
   static const LPCSTR SampleProfileLoaderArgs[] = { "sample-profile-file", "sample-profile-max-propagate-iterations" };
@@ -277,7 +277,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR LowerExpectIntrinsicArgs[] = { "Weight of the branch likely to be taken (default = 64)", "Weight of the branch unlikely to be taken (default = 4)" };
   static const LPCSTR MergeFunctionsArgs[] = { "How many functions in module could be used for MergeFunctions pass sanity check. '0' disables this check. Works only with '-debug' key." };
   static const LPCSTR RewriteSymbolsArgs[] = { "None", "None" };
-  static const LPCSTR SROAArgs[] = { "None", "Force the pass to not use DomTree and mem2reg, insteadforming SSA values through the SSAUpdater infrastructure.", "Enable randomly shuffling the slices to help uncover instability in their order.", "Experiment with completely strict handling of inbounds GEPs." };
+  static const LPCSTR SROAArgs[] = { "None", "None", "Force the pass to not use DomTree and mem2reg, insteadforming SSA values through the SSAUpdater infrastructure.", "Enable randomly shuffling the slices to help uncover instability in their order.", "Experiment with completely strict handling of inbounds GEPs." };
   static const LPCSTR SROA_DTArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR SROA_SSAUpArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR SampleProfileLoaderArgs[] = { "None", "None" };
@@ -342,6 +342,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("RequiresDomTree")
     ||  S.equals("Runtime")
     ||  S.equals("ScalarLoadThreshold")
+    ||  S.equals("SkipHLSLMat")
     ||  S.equals("StructMemberThreshold")
     ||  S.equals("TIRA")
     ||  S.equals("TLIImpl")
