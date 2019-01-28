@@ -3,14 +3,15 @@
 // Test that intrinsics can be overloaded without
 // shadowing the original definition.
 
-// CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 43)
+// CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 42)
+// CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 1, i32 1)
 
 struct Struct { int x; };
 int abs(Struct s) { return 42; }
 
-int main() : OUT
+int2 main() : OUT
 {
     Struct s = { -1 };
-    return abs(s) // Should call struct overload
-        + abs(-1); // Should call intrinsic
+    return int2(abs(s), // Should call struct overload
+        abs(-1)); // Should call intrinsic
 }
