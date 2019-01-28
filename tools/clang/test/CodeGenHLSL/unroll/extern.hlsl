@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // Global array with external linkage does not need constant indexing.
-// Check that the block is not included in the unroll and unly happens
+// Check that the block is not included in the unroll and only happens
 // once
 
 // CHECK: call i32 @dx.op.bufferUpdateCounter
