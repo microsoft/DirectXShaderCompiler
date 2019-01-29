@@ -373,14 +373,11 @@ void PassManagerBuilder::populateModulePassManager(
 
   // Start of function pass.
   // Break up aggregate allocas, using SSAUpdater.
-  // HLSL Change - don't run SROA. 
-  // HLSL uses special SROA added in addHLSLPasses.
-  if (HLSLHighLevel) { // HLSL Change
   if (UseNewSROA)
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
-  }
+
   // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals

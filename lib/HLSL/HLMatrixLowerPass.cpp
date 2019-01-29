@@ -36,20 +36,6 @@ using namespace hlsl::HLMatrixLower;
 namespace hlsl {
 namespace HLMatrixLower {
 
-bool IsMatrixType(Type *Ty) {
-  if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    Type *EltTy = ST->getElementType(0);
-    if (!ST->getName().startswith("class.matrix"))
-      return false;
-
-    bool isVecArray = EltTy->isArrayTy() &&
-           EltTy->getArrayElementType()->isVectorTy();
-
-    return isVecArray && EltTy->getArrayNumElements() <= 4;
-  }
-  return false;
-}
-
 // If user is function call, return param annotation to get matrix major.
 DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
                                                DxilTypeSystem &typeSys) {
@@ -81,7 +67,7 @@ Type *LowerMatrixType(Type *Ty, bool forMem) {
       params.emplace_back(LowerMatrixType(param));
     }
     return FunctionType::get(RetTy, params, false);
-  } else if (IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     unsigned row, col;
     Type *EltTy = GetMatrixInfo(Ty, col, row);
     if (forMem && EltTy->isIntegerTy(1))
@@ -94,7 +80,7 @@ Type *LowerMatrixType(Type *Ty, bool forMem) {
 
 // Translate matrix type to array type.
 Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
-  if (IsMatrixType(Ty)) {
+  if (dxilutil::IsHLSLMatrixType(Ty)) {
     unsigned row, col;
     Type *EltTy = GetMatrixInfo(Ty, col, row);
     return ArrayType::get(EltTy, row * col);
@@ -105,7 +91,7 @@ Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
 
 
 Type *GetMatrixInfo(Type *Ty, unsigned &col, unsigned &row) {
-  DXASSERT(IsMatrixType(Ty), "not matrix type");
+  DXASSERT(dxilutil::IsHLSLMatrixType(Ty), "not matrix type");
   StructType *ST = cast<StructType>(Ty);
   Type *EltTy = ST->getElementType(0);
   Type *RowTy = EltTy->getArrayElementType();
@@ -122,7 +108,7 @@ bool IsMatrixArrayPointer(llvm::Type *Ty) {
     return false;
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
-  return IsMatrixType(Ty);
+  return dxilutil::IsHLSLMatrixType(Ty);
 }
 Type *LowerMatrixArrayPointer(Type *Ty, bool forMem) {
   unsigned addrSpace = Ty->getPointerAddressSpace();
@@ -441,8 +427,8 @@ Instruction *HLMatrixLowerPass::MatCastToVec(CallInst *CI) {
   Value *op = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   HLCastOpcode opcode = static_cast<HLCastOpcode>(GetHLOpcode(CI));
 
-  bool ToMat = IsMatrixType(CI->getType());
-  bool FromMat = IsMatrixType(op->getType());
+  bool ToMat = dxilutil::IsHLSLMatrixType(CI->getType());
+  bool FromMat = dxilutil::IsHLSLMatrixType(op->getType());
   if (ToMat && !FromMat) {
     // Translate OtherToMat here.
     // Rest will translated when replace.
@@ -514,11 +500,11 @@ Instruction *HLMatrixLowerPass::MatCastToVec(CallInst *CI) {
 // UDT alloca must be there for library function args
 static GetElementPtrInst *GetIfMatrixGEPOfUDTAlloca(Value *V) {
   if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(V)) {
-    if (IsMatrixType(GEP->getResultElementType())) {
+    if (dxilutil::IsHLSLMatrixType(GEP->getResultElementType())) {
       Value *ptr = GEP->getPointerOperand();
       if (AllocaInst *AI = dyn_cast<AllocaInst>(ptr)) {
         Type *ATy = AI->getAllocatedType();
-        if (ATy->isStructTy() && !IsMatrixType(ATy)) {
+        if (ATy->isStructTy() && !dxilutil::IsHLSLMatrixType(ATy)) {
           return GEP;
         }
       }
@@ -531,7 +517,7 @@ static GetElementPtrInst *GetIfMatrixGEPOfUDTAlloca(Value *V) {
 // none-graphics functions.
 static GetElementPtrInst *GetIfMatrixGEPOfUDTArg(Value *V, HLModule &HM) {
   if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(V)) {
-    if (IsMatrixType(GEP->getResultElementType())) {
+    if (dxilutil::IsHLSLMatrixType(GEP->getResultElementType())) {
       Value *ptr = GEP->getPointerOperand();
       if (Argument *Arg = dyn_cast<Argument>(ptr)) {
         if (!HM.IsGraphicsShader(Arg->getParent()))
@@ -654,7 +640,7 @@ Instruction *HLMatrixLowerPass::MatIntrinsicToVec(CallInst *CI) {
   SmallVector<Value *, 4> argList;
   for (Value *arg : CI->arg_operands()) {
     Type *Ty = arg->getType();
-    if (IsMatrixType(Ty)) {
+    if (dxilutil::IsHLSLMatrixType(Ty)) {
       argList.emplace_back(UndefValue::get(LowerMatrixType(Ty)));
     } else
       argList.emplace_back(arg);
@@ -779,12 +765,14 @@ Instruction *HLMatrixLowerPass::TrivialMatBinOpToVec(CallInst *CI) {
     break;
   case HLBinaryOpcode::Shl: {
     Value *op1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
-    DXASSERT_LOCALVAR(op1, IsMatrixType(op1->getType()), "must be matrix type here");
+    DXASSERT_LOCALVAR(op1, dxilutil::IsHLSLMatrixType(op1->getType()),
+                      "must be matrix type here");
     Result = BinaryOperator::CreateShl(tmp, tmp);
   } break;
   case HLBinaryOpcode::Shr: {
     Value *op1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
-    DXASSERT_LOCALVAR(op1, IsMatrixType(op1->getType()), "must be matrix type here");
+    DXASSERT_LOCALVAR(op1, dxilutil::IsHLSLMatrixType(op1->getType()),
+                      "must be matrix type here");
     Result = BinaryOperator::CreateAShr(tmp, tmp);
   } break;
   case HLBinaryOpcode::LT:
@@ -831,7 +819,8 @@ Instruction *HLMatrixLowerPass::TrivialMatBinOpToVec(CallInst *CI) {
     break;
   case HLBinaryOpcode::UShr: {
     Value *op1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
-    DXASSERT_LOCALVAR(op1, IsMatrixType(op1->getType()), "must be matrix type here");
+    DXASSERT_LOCALVAR(op1, dxilutil::IsHLSLMatrixType(op1->getType()),
+                      "must be matrix type here");
     Result = BinaryOperator::CreateLShr(tmp, tmp);
   } break;
   case HLBinaryOpcode::ULT:
@@ -1229,8 +1218,8 @@ void HLMatrixLowerPass::TranslateMul(Value *matVal, Value *vecVal,
   Value *LVal = mulInst->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *RVal = mulInst->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
 
-  bool LMat = IsMatrixType(LVal->getType());
-  bool RMat = IsMatrixType(RVal->getType());
+  bool LMat = dxilutil::IsHLSLMatrixType(LVal->getType());
+  bool RMat = dxilutil::IsHLSLMatrixType(RVal->getType());
   if (LMat && RMat) {
     TranslateMatMatMul(matVal, vecVal, mulInst, isSigned);
   } else if (LMat) {
@@ -1501,8 +1490,8 @@ void HLMatrixLowerPass::TranslateMatCast(Value *matVal,
                           opcode == HLCastOpcode::RowMatrixToColMatrix,
                           /*bTranspose*/false);
   } else {
-    bool ToMat = IsMatrixType(castInst->getType());
-    bool FromMat = IsMatrixType(matVal->getType());
+    bool ToMat = dxilutil::IsHLSLMatrixType(castInst->getType());
+    bool FromMat = dxilutil::IsHLSLMatrixType(matVal->getType());
     if (ToMat && FromMat) {
       TranslateMatMatCast(matVal, vecVal, castInst);
     } else if (FromMat)
@@ -1946,7 +1935,7 @@ static void IterateInitList(MutableArrayRef<Value *> elts, unsigned &idx,
       }
     }
     Type *valEltTy = val->getType()->getPointerElementType();
-    if (valEltTy->isVectorTy() || HLMatrixLower::IsMatrixType(valEltTy) ||
+    if (valEltTy->isVectorTy() || dxilutil::IsHLSLMatrixType(valEltTy) ||
         valEltTy->isSingleValueType()) {
       Value *ldVal = Builder.CreateLoad(val);
       IterateInitList(elts, idx, ldVal, matToVecMap, Builder);
@@ -1969,7 +1958,7 @@ static void IterateInitList(MutableArrayRef<Value *> elts, unsigned &idx,
         }
       }
     }
-  } else if (HLMatrixLower::IsMatrixType(valTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(valTy)) {
     unsigned col, row;
     HLMatrixLower::GetMatrixInfo(valTy, col, row);
     unsigned matSize = col * row;
@@ -2489,7 +2478,7 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   }
 
   Type *Ty = GV->getType()->getPointerElementType();
-  if (!HLMatrixLower::IsMatrixType(Ty))
+  if (!dxilutil::IsHLSLMatrixType(Ty))
     return;
 
   bool onlyLdSt = OnlyUsedByMatrixLdSt(GV);
@@ -2585,11 +2574,11 @@ void HLMatrixLowerPass::runOnFunction(Function &F) {
     BasicBlock *BB = BBI;
     for (auto II = BB->begin(); II != BB->end(); ) {
       Instruction &I = *(II++);
-      if (IsMatrixType(I.getType())) {
+      if (dxilutil::IsHLSLMatrixType(I.getType())) {
         lowerToVec(&I);
       } else if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
         Type *Ty = AI->getAllocatedType();
-        if (HLMatrixLower::IsMatrixType(Ty)) {
+        if (dxilutil::IsHLSLMatrixType(Ty)) {
           lowerToVec(&I);
         } else if (HLMatrixLower::IsMatrixArrayPointer(AI->getType())) {
           lowerToVec(&I);
@@ -2665,7 +2654,7 @@ Type *TryLowerMatTy(Type *Ty) {
   if (HLMatrixLower::IsMatrixArrayPointer(Ty)) {
     VecTy = HLMatrixLower::LowerMatrixArrayPointerToOneDimArray(Ty);
   } else if (isa<PointerType>(Ty) &&
-             HLMatrixLower::IsMatrixType(Ty->getPointerElementType())) {
+             dxilutil::IsHLSLMatrixType(Ty->getPointerElementType())) {
     VecTy = HLMatrixLower::LowerMatrixTypeToOneDimArray(
         Ty->getPointerElementType());
     VecTy = PointerType::get(VecTy, Ty->getPointerAddressSpace());
@@ -2727,7 +2716,7 @@ bool MatrixBitcastLowerPass::hasCallUser(Instruction *M) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (HLMatrixLower::IsMatrixType(EltTy)) {
+      if (dxilutil::IsHLSLMatrixType(EltTy)) {
         if (hasCallUser(GEP))
           return true;
       } else {
@@ -2782,7 +2771,7 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (HLMatrixLower::IsMatrixType(EltTy)) {
+      if (dxilutil::IsHLSLMatrixType(EltTy)) {
         // Change gep matrixArray, 0, index
         // into
         //   gep oneDimArray, 0, index * matSize

@@ -1483,6 +1483,7 @@ class db_dxil(object):
         # UseNewSROA is used by PassManagerBuilder::populateFunctionPassManager, not a pass per se.
         add_pass("sroa", "SROA", "Scalar Replacement Of Aggregates", [
             {'n':'RequiresDomTree', 't':'bool', 'c':1},
+            {'n':'SkipHLSLMat', 't':'bool', 'c':1},
             {'n':'force-ssa-updater', 'i':'ForceSSAUpdater', 't':'bool', 'd':'Force the pass to not use DomTree and mem2reg, insteadforming SSA values through the SSAUpdater infrastructure.'},
             {'n':'sroa-random-shuffle-slices', 'i':'SROARandomShuffleSlices', 't':'bool', 'd':'Enable randomly shuffling the slices to help uncover instability in their order.'},
             {'n':'sroa-strict-inbounds', 'i':'SROAStrictInbounds', 't':'bool', 'd':'Experiment with completely strict handling of inbounds GEPs.'}])

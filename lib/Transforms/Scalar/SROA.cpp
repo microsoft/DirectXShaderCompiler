@@ -222,7 +222,8 @@ namespace {
 class AllocaSlices {
 public:
   /// \brief Construct the slices of a particular alloca.
-  AllocaSlices(const DataLayout &DL, AllocaInst &AI);
+  AllocaSlices(const DataLayout &DL, AllocaInst &AI,
+               const bool SkipHLSLMat); // HLSL Change - not sroa matrix type.
 
   /// \brief Test whether a pointer to the allocation escapes our analysis.
   ///
@@ -633,6 +634,7 @@ class AllocaSlices::SliceBuilder : public PtrUseVisitor<SliceBuilder> {
   friend class InstVisitor<SliceBuilder>;
   typedef PtrUseVisitor<SliceBuilder> Base;
 
+  const bool SkipHLSLMat; // HLSL Change - not sroa matrix type.
   const uint64_t AllocSize;
   AllocaSlices &AS;
 
@@ -643,8 +645,10 @@ class AllocaSlices::SliceBuilder : public PtrUseVisitor<SliceBuilder> {
   SmallPtrSet<Instruction *, 4> VisitedDeadInsts;
 
 public:
-  SliceBuilder(const DataLayout &DL, AllocaInst &AI, AllocaSlices &AS)
+  SliceBuilder(const DataLayout &DL, AllocaInst &AI, AllocaSlices &AS,
+               const bool SkipHLSLMat)
       : PtrUseVisitor<SliceBuilder>(DL),
+        SkipHLSLMat(SkipHLSLMat), // HLSL Change - not sroa matrix type.
         AllocSize(DL.getTypeAllocSize(AI.getAllocatedType())), AS(AS) {}
 
 private:
@@ -690,7 +694,24 @@ private:
   void visitBitCastInst(BitCastInst &BC) {
     if (BC.use_empty())
       return markAsDead(BC);
-
+    // HLSL Change Begin - not sroa matrix type.
+    if (PointerType *PT = dyn_cast<PointerType>(BC.getType())) {
+      Type *EltTy = PT->getElementType();
+      if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(EltTy)) ||
+          hlsl::dxilutil::IsHLSLObjectType(EltTy)) {
+        AS.PointerEscapingInstr = &BC;
+        return;
+      }
+      if (PointerType *SrcPT = dyn_cast<PointerType>(BC.getSrcTy())) {
+        Type *SrcEltTy = SrcPT->getElementType();
+        if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(SrcEltTy)) ||
+            hlsl::dxilutil::IsHLSLObjectType(SrcEltTy)) {
+          AS.PointerEscapingInstr = &BC;
+          return;
+        }
+      }
+    }
+    // HLSL Change End.
     return Base::visitBitCastInst(BC);
   }
 
@@ -751,8 +772,14 @@ private:
   }
 
   void visitLoadInst(LoadInst &LI) {
+    // HLSL Change Begin - not sroa matrix type.
+    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(LI.getType())) ||
+        hlsl::dxilutil::IsHLSLObjectType(LI.getType()))
+      return PI.setEscapedAndAborted(&LI);
+    // HLSL Change End.
     assert((!LI.isSimple() || LI.getType()->isSingleValueType()) &&
            "All simple FCA loads should have been pre-split");
+
 
     if (!IsOffsetKnown)
       return PI.setAborted(&LI);
@@ -766,6 +793,12 @@ private:
     Value *ValOp = SI.getValueOperand();
     if (ValOp == *U)
       return PI.setEscapedAndAborted(&SI);
+    // HLSL Change Begin - not sroa matrix type.
+    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(ValOp->getType())) ||
+        hlsl::dxilutil::IsHLSLObjectType(ValOp->getType()))
+      return PI.setEscapedAndAborted(&SI);
+    // HLSL Change End.
+
     if (!IsOffsetKnown)
       return PI.setAborted(&SI);
 
@@ -1002,13 +1035,15 @@ private:
   void visitInstruction(Instruction &I) { PI.setAborted(&I); }
 };
 
-AllocaSlices::AllocaSlices(const DataLayout &DL, AllocaInst &AI)
+AllocaSlices::AllocaSlices(
+    const DataLayout &DL, AllocaInst &AI,
+    const bool SkipHLSLMat) // HLSL Change - not sroa matrix type.
     :
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       AI(AI),
 #endif
       PointerEscapingInstr(nullptr) {
-  SliceBuilder PB(DL, AI, *this);
+  SliceBuilder PB(DL, AI, *this, SkipHLSLMat);
   SliceBuilder::PtrInfo PtrI = PB.visitPtr(AI);
   if (PtrI.isEscaped() || PtrI.isAborted()) {
     // FIXME: We should sink the escape vs. abort info into the caller nicely,
@@ -1204,6 +1239,7 @@ namespace {
 ///    SSA vector values.
 class SROA : public FunctionPass {
   const bool RequiresDomTree;
+  const bool SkipHLSLMat; // HLSL Change - not sroa matrix type.
 
   LLVMContext *C;
   DominatorTree *DT;
@@ -1252,9 +1288,10 @@ class SROA : public FunctionPass {
   SetVector<SelectInst *, SmallVector<SelectInst *, 2>> SpeculatableSelects;
 
 public:
-  SROA(bool RequiresDomTree = true)
-      : FunctionPass(ID), RequiresDomTree(RequiresDomTree), C(nullptr),
-        DT(nullptr) {
+  SROA(bool RequiresDomTree = true, bool SkipHLSLMat = true)
+      : FunctionPass(ID), RequiresDomTree(RequiresDomTree),
+        SkipHLSLMat(SkipHLSLMat), // HLSL Change - not sroa matrix type.
+        C(nullptr), DT(nullptr) {
     initializeSROAPass(*PassRegistry::getPassRegistry());
   }
   bool runOnFunction(Function &F) override;
@@ -1280,8 +1317,8 @@ private:
 
 char SROA::ID = 0;
 
-FunctionPass *llvm::createSROAPass(bool RequiresDomTree) {
-  return new SROA(RequiresDomTree);
+FunctionPass *llvm::createSROAPass(bool RequiresDomTree, bool SkipHLSLMat) {
+  return new SROA(RequiresDomTree, SkipHLSLMat);
 }
 
 INITIALIZE_PASS_BEGIN(SROA, "sroa", "Scalar Replacement Of Aggregates", false,
@@ -3191,6 +3228,7 @@ class AggLoadStoreRewriter : public InstVisitor<AggLoadStoreRewriter, bool> {
   friend class llvm::InstVisitor<AggLoadStoreRewriter, bool>;
 
   const DataLayout &DL;
+  const bool SkipHLSLMat; // HLSL Change - not sroa matrix type.
 
   /// Queue of pointer uses to analyze and potentially rewrite.
   SmallVector<Use *, 8> Queue;
@@ -3203,7 +3241,9 @@ class AggLoadStoreRewriter : public InstVisitor<AggLoadStoreRewriter, bool> {
   Use *U;
 
 public:
-  AggLoadStoreRewriter(const DataLayout &DL) : DL(DL) {}
+  AggLoadStoreRewriter(const DataLayout &DL, const bool SkipHLSLMat)
+      // HLSL Change - not sroa matrix type.
+      : DL(DL), SkipHLSLMat(SkipHLSLMat) {}
 
   /// Rewrite loads and stores through a pointer and all pointers derived from
   /// it.
@@ -3323,6 +3363,11 @@ private:
     assert(LI.getPointerOperand() == *U);
     if (!LI.isSimple() || LI.getType()->isSingleValueType())
       return false;
+    // HLSL Change Begin - not sroa matrix type.
+    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(LI.getType())) ||
+        hlsl::dxilutil::IsHLSLObjectType(LI.getType()))
+      return false;
+    // HLSL Change End.
 
     // We have an aggregate being loaded, split it apart.
     DEBUG(dbgs() << "    original: " << LI << "\n");
@@ -3357,7 +3402,11 @@ private:
     Value *V = SI.getValueOperand();
     if (V->getType()->isSingleValueType())
       return false;
-
+    // HLSL Change Begin - not sroa matrix type.
+    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(V->getType())) ||
+        hlsl::dxilutil::IsHLSLObjectType(V->getType()))
+      return false;
+    // HLSL Change End.
     // We have an aggregate being stored, split it apart.
     DEBUG(dbgs() << "    original: " << SI << "\n");
     StoreOpSplitter Splitter(&SI, *U);
@@ -3367,6 +3416,20 @@ private:
   }
 
   bool visitBitCastInst(BitCastInst &BC) {
+    // HLSL Change Begin - not sroa matrix type.
+    if (PointerType *PT = dyn_cast<PointerType>(BC.getType())) {
+      Type *EltTy = PT->getElementType();
+      if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(EltTy)) ||
+          hlsl::dxilutil::IsHLSLObjectType(EltTy))
+        return false;
+      if (PointerType *SrcPT = dyn_cast<PointerType>(BC.getSrcTy())) {
+        Type *SrcEltTy = SrcPT->getElementType();
+        if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(SrcEltTy)) ||
+            hlsl::dxilutil::IsHLSLObjectType(SrcEltTy))
+          return false;
+      }
+    }
+    // HLSL Change End.
     enqueueUsers(BC);
     return false;
   }
@@ -4310,7 +4373,12 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
 
   // Skip alloca forms that this analysis can't handle.
   if (AI.isArrayAllocation() || !AI.getAllocatedType()->isSized() ||
-      hlsl::dxilutil::IsHLSLObjectType(AI.getAllocatedType()) || // HLSL Change - not sroa resource type.
+      hlsl::dxilutil::IsHLSLObjectType(
+          AI.getAllocatedType()) || // HLSL Change - not sroa resource type.
+      // HLSL Change Begin - not sroa matrix type.
+      (SkipHLSLMat &&
+       hlsl::dxilutil::IsHLSLMatrixType(AI.getAllocatedType())) ||
+      // HLSL Change End.
       DL.getTypeAllocSize(AI.getAllocatedType()) == 0)
     return false;
 
@@ -4318,11 +4386,11 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
 
   // First, split any FCA loads and stores touching this alloca to promote
   // better splitting and promotion opportunities.
-  AggLoadStoreRewriter AggRewriter(DL);
+  AggLoadStoreRewriter AggRewriter(DL, SkipHLSLMat);
   Changed |= AggRewriter.rewrite(AI);
 
   // Build the slices using a recursive instruction-visiting builder.
-  AllocaSlices AS(DL, AI);
+  AllocaSlices AS(DL, AI, SkipHLSLMat);
   DEBUG(AS.print(dbgs()));
   if (AS.isEscaped())
     return Changed;
