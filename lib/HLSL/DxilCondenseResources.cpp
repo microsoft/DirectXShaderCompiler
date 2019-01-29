@@ -17,7 +17,7 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
 
@@ -1536,8 +1536,10 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
       return ArrayType::get(UpdatedTy, Ty->getArrayNumElements());
   } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     DXASSERT(annotation.HasMatrixAnnotation(), "must a matrix");
-    unsigned rows, cols;
-    Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, cols, rows);
+    HLMatrixType MatTy = HLMatrixType::cast(Ty);
+    unsigned rows = MatTy.getNumRows();
+    unsigned cols = MatTy.getNumColumns();
+    Type *EltTy = MatTy.getElementTypeForReg();
 
     // Get cols and rows from annotation.
     const DxilMatrixAnnotation &matrix = annotation.GetMatrixAnnotation();
