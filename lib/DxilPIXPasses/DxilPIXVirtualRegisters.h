@@ -22,6 +22,14 @@ class Value;
 }  // namespace llvm
 
 namespace pix_dxil {
+namespace PixDxilInstNum {
+static constexpr char MDName[] = "pix-dxil-inst-num";
+static constexpr uint32_t ID = 3;
+
+void AddMD(llvm::LLVMContext &Ctx, llvm::Instruction *pI, std::uint32_t InstNum);
+bool FromInst(llvm::Instruction *pI, std::uint32_t *pInstNum);
+}  // namespace PixDxilInstNum
+
 namespace PixDxilReg {
 static constexpr char MDName[] = "pix-dxil-reg";
 static constexpr uint32_t ID = 0;

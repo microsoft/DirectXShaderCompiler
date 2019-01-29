@@ -29,6 +29,41 @@ static llvm::Metadata *MetadataForValue(llvm::Value *V) {
   return llvm::ValueAsMetadata::get(V);
 }
 
+void pix_dxil::PixDxilInstNum::AddMD(llvm::LLVMContext &Ctx, llvm::Instruction *pI, std::uint32_t InstNum) {
+  llvm::IRBuilder<> B(Ctx);
+  pI->setMetadata(
+    llvm::StringRef(MDName),
+    llvm::MDNode::get(Ctx, { llvm::ConstantAsMetadata::get(B.getInt32(ID)),
+                             llvm::ConstantAsMetadata::get(B.getInt32(InstNum)) }));
+}
+
+bool pix_dxil::PixDxilInstNum::FromInst(llvm::Instruction *pI, std::uint32_t *pInstNum) {
+  *pInstNum = 0;
+
+  auto *mdNodes = pI->getMetadata(MDName);
+
+  if (mdNodes == nullptr) {
+    return false;
+  }
+
+  if (mdNodes->getNumOperands() != 2) {
+    return false;
+  }
+
+  auto *mdID = llvm::mdconst::dyn_extract<llvm::ConstantInt>(mdNodes->getOperand(0));
+  if (mdID == nullptr || mdID->getLimitedValue() != ID) {
+    return false;
+  }
+
+  auto *mdInstNum = llvm::mdconst::dyn_extract<llvm::ConstantInt>(mdNodes->getOperand(1));
+  if (mdInstNum == nullptr) {
+    return false;
+  }
+
+  *pInstNum = mdInstNum->getLimitedValue();
+  return true;
+}
+
 void pix_dxil::PixDxilReg::AddMD(llvm::LLVMContext &Ctx, llvm::Instruction *pI, std::uint32_t RegNum) {
   llvm::IRBuilder<> B(Ctx);
   pI->setMetadata(

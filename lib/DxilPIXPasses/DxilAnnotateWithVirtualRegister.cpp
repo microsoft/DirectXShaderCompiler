@@ -72,6 +72,12 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   if (OSOverride != nullptr) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
+
+  std::uint32_t InstNum = 0;
+  for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
+    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, ++InstNum);
+  }
+
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
     AnnotateValues(&I);
   }
