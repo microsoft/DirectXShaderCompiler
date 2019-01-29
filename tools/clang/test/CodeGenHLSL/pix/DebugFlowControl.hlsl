@@ -8,7 +8,7 @@
 // CHECK:  %MaskedForUAVLimit3 = and i32 %UAVIncResult2, 983039
 // CHECK:  %MultipliedForInterest4 = mul i32 %MaskedForUAVLimit3, %OffsetMultiplicand
 // CHECK:  %AddedForInterest5 = add i32 %MultipliedForInterest4, %OffsetAddend
-// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5, i32 undef, i32 64770, i32 undef, i32 undef, i32 undef, i8 1)
+// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5, i32 undef, i32 64771, i32 undef, i32 undef, i32 undef, i8 1)
 // CHECK:  switch i32
 // CHECK:    i32 0, label 
 // CHECK:    i32 32, label

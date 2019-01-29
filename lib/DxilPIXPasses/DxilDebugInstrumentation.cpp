@@ -127,6 +127,13 @@ struct DebugShaderModifierRecordDXILStepBase {
 template< typename ReturnType >
 struct DebugShaderModifierRecordDXILStep : public DebugShaderModifierRecordDXILStepBase {
   ReturnType ReturnValue;
+  union {
+    struct {
+      uint32_t ValueOrdinalBase : 16;
+      uint32_t ValueOrdinalIndex : 16;
+    } Details;
+    uint32_t u32ValueOrdinal;
+  } ValueOrdinal;
 };
 
 template< >
@@ -228,10 +235,10 @@ private:
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   void addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst);
   void addStepDebugEntry(BuilderContext &BC, Instruction *Inst);
-  void addStepDebugEntryValue(BuilderContext &BC, Value *V, std::uint32_t RegNum);
+  void addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
   uint32_t UAVDumpingGroundOffset();
   template<typename ReturnType>
-  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Value *V, std::uint32_t RegNum);
+  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
 
 };
 
@@ -634,7 +641,7 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
 }
 
 template<typename ReturnType>
-void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Value *V, std::uint32_t RegNum) {
+void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex) {
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
   reserveDebugEntrySpace(BC, sizeof(step));
 
@@ -642,32 +649,34 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(step.Header.u32Header));
   addDebugEntryValue(BC, m_InvocationId);
-  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(RegNum));
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstNum));
 
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid) {
     addDebugEntryValue(BC, V);
+
+    IRBuilder<> &B = BC.Builder;
+
+    Value *VO = BC.HlslOP->GetU32Const(ValueOrdinal << 16);
+    Value *VOI = B.CreateAnd(ValueOrdinalIndex, BC.HlslOP->GetU32Const(0xFFFF), "ValueOrdinalIndex");
+    Value *EncodedValueOrdinalAndIndex = BC.Builder.CreateOr(VO, VOI, "ValueOrdinal");
+    addDebugEntryValue(BC, EncodedValueOrdinalAndIndex);
   }
 }
 
 void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst) {
-  std::uint32_t RegBase;
-  std::uint32_t RegSize;
-  llvm::Value *RegIndex;
-  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &RegBase, &RegSize, &RegIndex)) {
+  std::uint32_t ValueOrdinalBase;
+  std::uint32_t UnusedValueOrdinalSize;
+  llvm::Value *ValueOrdinalIndex;
+  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase, &UnusedValueOrdinalSize, &ValueOrdinalIndex)) {
     return;
   }
 
-  auto *RegIndexConst = llvm::dyn_cast<llvm::ConstantInt>(RegIndex);
-  if (RegIndexConst == nullptr) {
+  std::uint32_t InstNum;
+  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
     return;
   }
 
-  if (RegIndexConst->getLimitedValue() >= RegSize) {
-    return;
-  }
-
-  const std::uint32_t ActualReg = RegBase + RegIndexConst->getLimitedValue();
-  addStepDebugEntryValue(BC, Inst->getValueOperand(), ActualReg);
+  addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase, ValueOrdinalIndex);
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction *Inst) {
@@ -685,33 +694,38 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction
     return;
   }
 
-  addStepDebugEntryValue(BC, Inst, RegNum);
+  std::uint32_t InstNum;
+  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
+    return;
+  }
+
+  addStepDebugEntryValue(BC, InstNum, Inst, RegNum, BC.Builder.getInt32(0));
 }
 
-void DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext &BC, Value *V, std::uint32_t RegNum) {
+void DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex) {
   const Type::TypeID ID = V->getType()->getTypeID();
 
   switch (ID) {
   case Type::TypeID::StructTyID:
   case Type::TypeID::VoidTyID:
-    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, V, RegNum);
+    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::FloatTyID:
-    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, V, RegNum);
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::IntegerTyID:
     if (V->getType()->getIntegerBitWidth() == 64) {
-      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, V, RegNum);
+      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     }
     else {
-      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, V, RegNum);
+      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     }
     break;
   case Type::TypeID::DoubleTyID:
-    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, V, RegNum);
+    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::HalfTyID:
-    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, V, RegNum);
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::PointerTyID:
     // Skip pointer calculation instructions. They aren't particularly meaningful to the user (being a mere
