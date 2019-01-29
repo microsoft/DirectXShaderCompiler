@@ -23,6 +23,7 @@ add_llvm_library(LLVMHLSL
   DxilValidation.cpp
   DxcOptimizer.cpp
   HLMatrixLowerPass.cpp
+  HLMatrixType.cpp
   HLModule.cpp
   HLOperations.cpp
   HLOperationLower.cpp

@@ -26,6 +26,7 @@ class DxilFieldAnnotation;
 class DxilTypeSystem;
 
 namespace HLMatrixLower {
+
 // TODO: use type annotation.
 DxilFieldAnnotation *FindAnnotationFromMatUser(llvm::Value *Mat,
                                                DxilTypeSystem &typeSys);

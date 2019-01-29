@@ -9,8 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLMatrixLowerPass.h"
+#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -248,65 +249,65 @@ unsigned GetRowMajorIdx(unsigned r, unsigned c, unsigned col) {
 
 namespace {
 
-class HLMatrixLowerPass : public ModulePass {
+class TempOverloadPool {
+public:
+  TempOverloadPool(llvm::Module &Module, const char* BaseName)
+    : Module(Module), BaseName(BaseName) {}
+  ~TempOverloadPool() { clear(); }
 
+  Function *get(FunctionType *Ty);
+  bool contains(FunctionType *Ty) { return Funcs.count(Ty) != 0; }
+  bool contains(Function *Func);
+  void clear();
+
+private:
+  llvm::Module &Module;
+  const char* BaseName;
+  llvm::SmallDenseMap<FunctionType*, Function*, 4> Funcs;
+};
+
+Function *TempOverloadPool::get(FunctionType *Ty) {
+  auto It = Funcs.find(Ty);
+  if (It != Funcs.end()) return It->second;
+
+  std::string MangledName;
+  raw_string_ostream MangledNameStream(MangledName);
+  MangledNameStream << BaseName;
+  MangledNameStream << '.';
+  Ty->print(MangledNameStream);
+  MangledNameStream.flush();
+
+  Function* Func = cast<Function>(Module.getOrInsertFunction(MangledName, Ty));
+  Funcs.insert(std::make_pair(Ty, Func));
+  return Func;
+}
+
+bool TempOverloadPool::contains(Function *Func) {
+  auto It = Funcs.find(Func->getFunctionType());
+  return It != Funcs.end() && It->second == Func;
+}
+
+void TempOverloadPool::clear() {
+  for (auto Entry : Funcs) {
+    DXASSERT(Entry.second->use_empty(), "Temporary functions still used during pool destruction.");
+    Entry.second->removeFromParent();
+  }
+  Funcs.clear();
+}
+
+class HLMatrixLowerPass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLMatrixLowerPass() : ModulePass(ID) {}
 
   const char *getPassName() const override { return "HL matrix lower"; }
-
-  bool runOnModule(Module &M) override {
-    m_pModule = &M;
-    m_pHLModule = &m_pModule->GetOrCreateHLModule();
-    // Load up debug information, to cross-reference values and the instructions
-    // used to load them.
-    m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-
-    for (Function &F : M.functions()) {
-
-      if (F.isDeclaration())
-        continue;
-      runOnFunction(F);
-    }
-    std::vector<GlobalVariable*> staticGVs;
-    for (GlobalVariable &GV : M.globals()) {
-      if (dxilutil::IsStaticGlobal(&GV) ||
-          dxilutil::IsSharedMemoryGlobal(&GV)) {
-        staticGVs.emplace_back(&GV);
-      }
-    }
-
-    for (GlobalVariable *GV : staticGVs)
-      runOnGlobal(GV);
-
-    return true;
-  }
+  bool runOnModule(Module &M) override;
 
 private:
-  Module *m_pModule;
-  HLModule *m_pHLModule;
-  bool m_HasDbgInfo;
-  std::vector<Instruction *> m_deadInsts;
-  // For instruction like matrix array init.
-  // May use more than 1 matrix alloca inst.
-  // This set is here to avoid put it into deadInsts more than once.
-  std::unordered_set<Instruction *> m_inDeadInstsSet;
-  // For most matrix insturction users, it will only have one matrix use.
-  // Use vector so save deadInsts because vector is cheap.
-  void AddToDeadInsts(Instruction *I) { m_deadInsts.emplace_back(I); }
-  // In case instruction has more than one matrix use.
-  // Use AddToDeadInstsWithDups to make sure it's not add to deadInsts more than once.
-  void AddToDeadInstsWithDups(Instruction *I) {
-    if (m_inDeadInstsSet.count(I) == 0) {
-      // Only add to deadInsts when it's not inside m_inDeadInstsSet.
-      m_inDeadInstsSet.insert(I);
-      AddToDeadInsts(I);
-    }
-  }
   void runOnFunction(Function &F);
   void runOnGlobal(GlobalVariable *GV);
   void runOnGlobalMatrixArray(GlobalVariable *GV);
+
   Instruction *MatCastToVec(CallInst *CI);
   Instruction *MatLdStToVec(CallInst *CI);
   Instruction *MatSubscriptToVec(CallInst *CI);
@@ -380,8 +381,39 @@ private:
   void castMatrixArgs(Value *matVal, Value *vecVal, CallInst *CI);
   // Translate mat inst which need all operands ready.
   void finalMatTranslation(Value *matVal);
+
+  Value* getLoweredValue(Value *Val, IRBuilder<> &Builder);
+  void replaceAllUsesByLoweredValue(Value* MatVal, Value* VecVal);
+
+  // For most matrix insturction users, it will only have one matrix use.
+  // Use vector so save deadInsts because vector is cheap.
+  void AddToDeadInsts(Instruction *I) { m_deadInsts.emplace_back(I); }
+  // In case instruction has more than one matrix use.
+  // Use AddToDeadInstsWithDups to make sure it's not add to deadInsts more than once.
+  void AddToDeadInstsWithDups(Instruction *I) {
+    if (m_inDeadInstsSet.count(I) == 0) {
+      // Only add to deadInsts when it's not inside m_inDeadInstsSet.
+      m_inDeadInstsSet.insert(I);
+      AddToDeadInsts(I);
+    }
+  }
   // Delete dead insts in m_deadInsts.
   void DeleteDeadInsts();
+
+private:
+  Module *m_pModule;
+  HLModule *m_pHLModule;
+  bool m_HasDbgInfo;
+
+  // Pools for the translation stubs
+  TempOverloadPool *m_matToVecStubs = nullptr;
+  TempOverloadPool *m_vecToMatStubs = nullptr;
+
+  std::vector<Instruction *> m_deadInsts;
+  // For instruction like matrix array init.
+  // May use more than 1 matrix alloca inst.
+  // This set is here to avoid put it into deadInsts more than once.
+  std::unordered_set<Instruction *> m_inDeadInstsSet;
   // Map from matrix value to its vector version.
   DenseMap<Value *, Value *> matToVecMap;
   // Map from new vector version to matrix version needed by user call or return.
@@ -394,6 +426,16 @@ char HLMatrixLowerPass::ID = 0;
 ModulePass *llvm::createHLMatrixLowerPass() { return new HLMatrixLowerPass(); }
 
 INITIALIZE_PASS(HLMatrixLowerPass, "hlmatrixlower", "HLSL High-Level Matrix Lower", false, false)
+
+static bool IsDirectOrIndirectMatrixType(Type *Ty) {
+  if (PointerType *PtrTy = dyn_cast<PointerType>(Ty))
+    Ty = PtrTy->getPointerElementType();
+
+  while (ArrayType *ArrayTy = dyn_cast<ArrayType>(Ty))
+    Ty = ArrayTy->getArrayElementType();
+  
+  return IsMatrixType(Ty);
+}
 
 static Instruction *CreateTypeCast(HLCastOpcode castOp, Type *toTy, Value *src,
                                    IRBuilder<> Builder) {
@@ -2471,6 +2513,42 @@ static void FlattenMatConst(Constant *M, std::vector<Constant *> &Elts) {
   }
 }
 
+bool HLMatrixLowerPass::runOnModule(Module &M) {
+  TempOverloadPool matToVecStubs(M, "hlmatrixlower.mat2vec");
+  TempOverloadPool vecToMatStubs(M, "hlmatrixlower.vec2mat");
+
+  m_pModule = &M;
+  m_pHLModule = &m_pModule->GetOrCreateHLModule();
+  // Load up debug information, to cross-reference values and the instructions
+  // used to load them.
+  m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+  m_matToVecStubs = &matToVecStubs;
+  m_vecToMatStubs = &vecToMatStubs;
+
+  for (Function &F : M.functions()) {
+    if (F.isDeclaration()) continue;
+    runOnFunction(F);
+  }
+
+  //std::vector<GlobalVariable*> staticGVs;
+  //for (GlobalVariable &GV : M.globals()) {
+  //  if (dxilutil::IsStaticGlobal(&GV) ||
+  //    dxilutil::IsSharedMemoryGlobal(&GV)) {
+  //    staticGVs.emplace_back(&GV);
+  //  }
+  //}
+
+  //for (GlobalVariable *GV : staticGVs)
+  //  runOnGlobal(GV);
+
+  m_pModule = nullptr;
+  m_pHLModule = nullptr;
+  m_matToVecStubs = nullptr;
+  m_vecToMatStubs = nullptr;
+
+  return true;
+}
+
 void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   if (HLMatrixLower::IsMatrixArrayPointer(GV->getType())) {
     runOnGlobalMatrixArray(GV);
@@ -2568,76 +2646,93 @@ void HLMatrixLowerPass::runOnFunction(Function &F) {
   if (hlsl::GetHLOpcodeGroupByName(&F) != HLOpcodeGroup::NotHL)
     return;
 
-  // Create vector version of matrix instructions first.
-  // The matrix operands will be undefval for these instructions.
-  for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
-    BasicBlock *BB = BBI;
-    for (auto II = BB->begin(); II != BB->end(); ) {
-      Instruction &I = *(II++);
-      if (dxilutil::IsHLSLMatrixType(I.getType())) {
-        lowerToVec(&I);
-      } else if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
-        Type *Ty = AI->getAllocatedType();
-        if (dxilutil::IsHLSLMatrixType(Ty)) {
-          lowerToVec(&I);
-        } else if (HLMatrixLower::IsMatrixArrayPointer(AI->getType())) {
-          lowerToVec(&I);
-        }
-      } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-        HLOpcodeGroup group =
-            hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
-        if (group == HLOpcodeGroup::HLMatLoadStore) {
-          HLMatLoadStoreOpcode opcode =
-              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
-          DXASSERT_LOCALVAR(opcode,
-                            opcode == HLMatLoadStoreOpcode::ColMatStore ||
-                            opcode == HLMatLoadStoreOpcode::RowMatStore,
-                            "Must MatStore here, load will go IsMatrixType path");
-          // Lower it here to make sure it is ready before replace.
-          lowerToVec(&I);
-        }
-      } else if (GetIfMatrixGEPOfUDTAlloca(&I) ||
-                 GetIfMatrixGEPOfUDTArg(&I, *m_pHLModule)) {
-        lowerToVec(&I);
+  // Find out all of the instructions we'll need to replace
+  // based on whether they are consuming/producing matrix-based types.
+  // We do this ahead of time since the translation process
+  // will introduce more instructions which we don't want to match here.
+  std::vector<Instruction*> MatInsts;
+  for (BasicBlock &BasicBlock : F) {
+    for (Instruction &Inst : BasicBlock) {
+      bool IsMatrixOperation = false;
+      if (IsDirectOrIndirectMatrixType(Inst.getType())) {
+        IsMatrixOperation = true;
       }
+      else {
+        for (Value *Operand : Inst.operand_values()) {
+          if (IsDirectOrIndirectMatrixType(Operand->getType())) {
+            IsMatrixOperation = true;
+            break;
+          }
+        }
+      }
+
+      if (IsMatrixOperation) MatInsts.emplace_back(&Inst);
     }
   }
 
-  // Update the use of matrix inst with the vector version.
-  for (auto matToVecIter = matToVecMap.begin();
-       matToVecIter != matToVecMap.end();) {
-    auto matToVec = matToVecIter++;
-    replaceMatWithVec(matToVec->first, cast<Instruction>(matToVec->second));
-  }
-
-  // Translate mat inst which require all operands ready.
-  for (auto matToVecIter = matToVecMap.begin();
-       matToVecIter != matToVecMap.end();) {
-    auto matToVec = matToVecIter++;
-    if (isa<Instruction>(matToVec->first))
-      finalMatTranslation(matToVec->first);
-  }
-
-  // Remove matrix targets of vecToMatMap from matToVecMap before adding the rest to dead insts.
-  for (auto &it : vecToMatMap) {
-    matToVecMap.erase(it.second);
-  }
-
-  // Delete the matrix version insts.
-  for (auto matToVecIter = matToVecMap.begin();
-       matToVecIter != matToVecMap.end();) {
-    auto matToVec = matToVecIter++;
-    // Add to m_deadInsts.
-    if (Instruction *matInst = dyn_cast<Instruction>(matToVec->first))
-      AddToDeadInsts(matInst);
-  }
+  //for (Instruction *MatInst : MatInsts) {
+  //
+  //}
 
   DeleteDeadInsts();
-  
-  matToVecMap.clear();
-  vecToMatMap.clear();
 
   return;
+}
+
+// Converts a type which may or not contain a matrix type to its
+// lowered form, where all matrix types have been lowered to vector types.
+// Direct matrix types are lowered to their register representation,
+// whereas pointer or array-indirect types are lowered to their memory representation.
+static Type *getMatrixLoweredType(Type *Ty, bool MemRepr = false) {
+  if (PointerType *PtrTy = dyn_cast<PointerType>(Ty)) {
+    // Pointees are always in memory representation
+    Type *LoweredElemTy = getMatrixLoweredType(PtrTy->getElementType(), true);
+    return LoweredElemTy == PtrTy->getElementType()
+      ? Ty : PointerType::get(LoweredElemTy, PtrTy->getAddressSpace());
+  }
+  else if (ArrayType *ArrayTy = dyn_cast<ArrayType>(Ty)) {
+    // Arrays are always in memory and so their elements are in memory representation
+    Type *LoweredElemTy = getMatrixLoweredType(ArrayTy->getElementType(), true);
+    return LoweredElemTy == ArrayTy->getElementType()
+      ? Ty : ArrayType::get(LoweredElemTy, ArrayTy->getNumElements());
+  }
+  else if (HLMatrixType MatrixTy = HLMatrixType::tryGet(Ty)) {
+    return MatrixTy.getLoweredVectorType(MemRepr);
+  }
+  else return Ty;
+}
+
+// Gets the matrix-lowered representation of a value.
+// If it does not contain matrices, it is returned directly.
+// If it does contain matrices, a translation stub is created to the lowered type.
+Value* HLMatrixLowerPass::getLoweredValue(Value *Val, IRBuilder<> &Builder) {
+  Type *Ty = Val->getType();
+  Type *LoweredTy = getMatrixLoweredType(Ty);
+  if (Ty == LoweredTy) return Val;
+  
+  // Check if the value is already a vec-to-mat translation stub
+  if (CallInst *Call = dyn_cast<CallInst>(Val)) {
+    Function *Callee = Call->getCalledFunction();
+    if (m_vecToMatStubs->contains(Callee)) {
+      Value *LoweredVal = Call->getOperand(1);
+      DXASSERT(LoweredVal->getType() == LoweredTy, "Unexpected already-lowered value type.");
+      return LoweredVal;
+    }
+  }
+
+  // Return a mat-to-vec translation stub
+  FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { Ty }, /* isVarArg */ false);
+  Function *TranslationStub = m_matToVecStubs->get(TranslationStubTy);
+  return Builder.CreateCall(TranslationStub, { Val });
+}
+
+// Replaces all uses of a matrix value by its lowered vector form,
+// inserting translation stubs for users which still expect a matrix value.
+void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Value* MatVal, Value* VecVal) {
+  DXASSERT(getMatrixLoweredType(MatVal->getType()) == VecVal->getType(),
+    "Unexpected lowered value type.");
+
+  llvm_unreachable("Not implemented.");
 }
 
 // Matrix Bitcast lower.
