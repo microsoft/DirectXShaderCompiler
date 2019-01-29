@@ -5477,7 +5477,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     Result = CGF.EmitToMemory(Result, Type);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     bool isRowMajor = hlsl::IsHLSLMatRowMajor(Type, bDefaultRowMajor);
     unsigned row, col;
     HLMatrixLower::GetMatrixInfo(Ty, col, row);
@@ -5769,7 +5769,7 @@ static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor,
       EltVals.emplace_back(C->getAggregateElement(i));
       EltQualTys.emplace_back(VecElemQualTy);
     }
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     DXASSERT(hlsl::IsHLSLMatType(QualTy), "QualType/Type mismatch!");
     // matrix type is struct { [rowcount x <colcount x T>] };
     // Strip the struct level here.
@@ -7119,7 +7119,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
-        if (HLMatrixLower::IsMatrixType(ToTy)) {
+        if (dxilutil::IsHLSLMatrixType(ToTy)) {
           Value *castVal = CGF.Builder.CreateBitCast(outVal, ToTy);
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
         }
