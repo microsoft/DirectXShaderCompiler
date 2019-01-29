@@ -624,14 +624,14 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
       newVec = Builder.CreateInsertElement(newVec, input, col);
     }
     param->replaceAllUsesWith(newVec);
-  } else if (!Ty->isArrayTy() && !HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (!Ty->isArrayTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
     DXASSERT(cols == 1, "only support scalar here");
     Value *colIdx = hlslOP->GetU8Const(0);
     args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
     Value *input =
         GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
     param->replaceAllUsesWith(input);
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     Value *colIdx = hlslOP->GetU8Const(0);
     (void)colIdx;
     DXASSERT(param->hasOneUse(),
@@ -784,7 +784,7 @@ void collectInputOutputAccessInfo(
               vectorIdx = GEPIt.getOperand();
             }
           }
-          if (HLMatrixLower::IsMatrixType(*GEPIt)) {
+          if (dxilutil::IsHLSLMatrixType(*GEPIt)) {
             unsigned row, col;
             HLMatrixLower::GetMatrixInfo(*GEPIt, col, row);
             Constant *arraySize = ConstantInt::get(idxTy, col);

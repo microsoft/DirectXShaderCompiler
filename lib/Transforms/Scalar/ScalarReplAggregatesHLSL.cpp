@@ -1639,7 +1639,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         Type *Ty = AI->getAllocatedType();
         // Skip empty struct parameters.
         if (StructType *ST = dyn_cast<StructType>(Ty)) {
-          if (!HLMatrixLower::IsMatrixType(Ty)) {
+          if (!dxilutil::IsHLSLMatrixType(Ty)) {
             DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
             if (SA && SA->IsEmptyStruct()) {
               for (User *U : AI->users()) {
@@ -1884,7 +1884,7 @@ void SROA_HLSL::isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset,
 
   for (;GEPIt != E; ++GEPIt) {
     Type *Ty = *GEPIt;
-    if (Ty->isStructTy() && !HLMatrixLower::IsMatrixType(Ty)) {
+    if (Ty->isStructTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
       // Don't go inside struct when mark hasArrayIndexing and hasVectorIndexing.
       // The following level won't affect scalar repl on the struct.
       break;
@@ -2250,7 +2250,7 @@ static void EltMemCpy(Type *Ty, Value *Dest, Value *Src,
 static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
   if (!Ty->isAggregateType())
     return false;
-  if (HLMatrixLower::IsMatrixType(Ty))
+  if (dxilutil::IsHLSLMatrixType(Ty))
     return false;
   if (dxilutil::IsHLSLObjectType(Ty))
     return false;
@@ -2282,7 +2282,7 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
              fieldAnnotation, bEltMemCpy);
 
     idxList.pop_back();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     // If no fieldAnnotation, use row major as default.
     // Only load then store immediately should be fine.
     bool bRowMajor = true;
@@ -2389,7 +2389,7 @@ static void SplitPtr(Value *Ptr, // The root value pointer
   }
   
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (!HLMatrixLower::IsMatrixType(Ty) && !dxilutil::IsHLSLObjectType(ST)) {
+    if (!dxilutil::IsHLSLMatrixType(Ty) && !dxilutil::IsHLSLObjectType(ST)) {
       const DxilStructAnnotation* SA = TypeSys.GetStructAnnotation(ST);
 
       for (uint32_t i = 0; i < ST->getNumElements(); i++) {
@@ -2425,7 +2425,7 @@ static void SplitPtr(Value *Ptr, // The root value pointer
       ElTy = ElAT->getElementType();
     }
 
-    if (ElTy->isStructTy() && !HLMatrixLower::IsMatrixType(ElTy)) {
+    if (ElTy->isStructTy() && !dxilutil::IsHLSLMatrixType(ElTy)) {
       DXASSERT(0, "Not support array of struct when split pointers.");
       return;
     }
@@ -2443,7 +2443,7 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   // Size match, return current level.
   if (ptrSize == size) {
     // Not go deeper for matrix.
-    if (HLMatrixLower::IsMatrixType(Ty))
+    if (dxilutil::IsHLSLMatrixType(Ty))
       return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
@@ -2596,7 +2596,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   // Try to find fieldAnnotation from user of Dest/Src.
   if (!fieldAnnotation) {
     Type *EltTy = dxilutil::GetArrayEltTy(DestTy);
-    if (HLMatrixLower::IsMatrixType(EltTy)) {
+    if (dxilutil::IsHLSLMatrixType(EltTy)) {
       fieldAnnotation = HLMatrixLower::FindAnnotationFromMatUser(Dest, typeSys);
     }
   }
@@ -2845,7 +2845,7 @@ void SROA_Helper::RewriteForLoad(LoadInst *LI) {
         Value *Ptr = NewElts[i];
         Type *Ty = Ptr->getType()->getPointerElementType();
         Value *Load = nullptr;
-        if (!HLMatrixLower::IsMatrixType(Ty))
+        if (!dxilutil::IsHLSLMatrixType(Ty))
           Load = Builder.CreateLoad(Ptr, "load");
         else {
           // Generate Matrix Load.
@@ -2930,7 +2930,7 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
       Module *M = SI->getModule();
       for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
         Value *Extract = Builder.CreateExtractValue(Val, i, Val->getName());
-        if (!HLMatrixLower::IsMatrixType(Extract->getType())) {
+        if (!dxilutil::IsHLSLMatrixType(Extract->getType())) {
           Builder.CreateStore(Extract, NewElts[i]);
         } else {
           // Generate Matrix Store.
@@ -3393,7 +3393,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   if (!Ty->isAggregateType())
     return false;
   // Skip matrix types.
-  if (HLMatrixLower::IsMatrixType(Ty))
+  if (dxilutil::IsHLSLMatrixType(Ty))
     return false;
 
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
@@ -3440,7 +3440,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
-        !HLMatrixLower::IsMatrixType(ElTy)) {
+        !dxilutil::IsHLSLMatrixType(ElTy)) {
       if (!dxilutil::IsHLSLObjectType(ElTy)) {
         // for array of struct
         // split into arrays of struct elements
@@ -3569,7 +3569,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
   if (Ty->isSingleValueType() && !Ty->isVectorTy())
     return false;
   // Skip matrix types.
-  if (HLMatrixLower::IsMatrixType(Ty))
+  if (dxilutil::IsHLSLMatrixType(Ty))
     return false;
 
   Module *M = GV->getParent();
@@ -3638,7 +3638,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
-        !HLMatrixLower::IsMatrixType(ElTy)) {
+        !dxilutil::IsHLSLMatrixType(ElTy)) {
       // for array of struct
       // split into arrays of struct elements
       StructType *ElST = cast<StructType>(ElTy);
@@ -4202,7 +4202,7 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
     Ty = Ty->getArrayElementType();
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (!HLMatrixLower::IsMatrixType(Ty)) {
+    if (!dxilutil::IsHLSLMatrixType(Ty)) {
       DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
       if (SA && SA->IsEmptyStruct())
         return true;
@@ -4360,7 +4360,7 @@ public:
           continue;
 
         // Check matrix store.
-        if (HLMatrixLower::IsMatrixType(
+        if (dxilutil::IsHLSLMatrixType(
                 GV->getType()->getPointerElementType())) {
           if (CallInst *CI = dyn_cast<CallInst>(user)) {
             if (GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
@@ -4667,7 +4667,7 @@ static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAn
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (HLMatrixLower::IsMatrixType(Ty))
+    if (dxilutil::IsHLSLMatrixType(Ty))
       return annotation;
     DxilStructAnnotation *SA = dxilTypeSys.GetStructAnnotation(ST);
     if (SA) {
@@ -4735,13 +4735,13 @@ static unsigned AllocateSemanticIndex(
                                             FlatAnnotationList);
     }
     return updatedArgIdx;
-  } else if (Ty->isStructTy() && !HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (Ty->isStructTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
     unsigned fieldsCount = Ty->getStructNumElements();
     for (unsigned i = 0; i < fieldsCount; i++) {
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      if (!(EltTy->isStructTy() && !HLMatrixLower::IsMatrixType(EltTy))) {
+      if (!(EltTy->isStructTy() && !dxilutil::IsHLSLMatrixType(EltTy))) {
         // Update argIdx only when it is a leaf node.
         argIdx++;
       }
@@ -4981,7 +4981,7 @@ CastCopyArrayMultiDimTo1Dim(Value *FromArray, Value *ToArray, Type *CurFromTy,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, ToPtr);
     }
-  } else if (HLMatrixLower::IsMatrixType(CurFromTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(CurFromTy)) {
     // Copy matrix to array.
     unsigned col, row;
     HLMatrixLower::GetMatrixInfo(CurFromTy, col, row);
@@ -5028,7 +5028,7 @@ CastCopyArray1DimToMultiDim(Value *FromArray, Value *ToArray, Type *CurToTy,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, ToPtr);
-  } else if (HLMatrixLower::IsMatrixType(CurToTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(CurToTy)) {
     // Copy array to matrix.
     unsigned col, row;
     HLMatrixLower::GetMatrixInfo(CurToTy, col, row);
@@ -5072,7 +5072,7 @@ static void CastCopyOldPtrToNewPtr(Value *OldPtr, Value *NewPtr, HLModule &HLM,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, EltPtr);
     }
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
     CopyMatPtrToArrayPtr(OldPtr, NewPtr, /*arrayBaseIdx*/ 0, HLM, Builder,
                          bRowMajor);
   } else if (OldTy->isArrayTy()) {
@@ -5102,7 +5102,7 @@ static void CastCopyNewPtrToOldPtr(Value *NewPtr, Value *OldPtr, HLModule &HLM,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, OldPtr);
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
     CopyArrayPtrToMatPtr(NewPtr, /*arrayBaseIdx*/ 0, OldPtr, HLM, Builder,
                          bRowMajor);
   } else if (OldTy->isArrayTy()) {
@@ -5200,7 +5200,7 @@ void SROA_Parameter_HLSL::replaceCastParameter(
     // Must be in param.
     // Store NewParam to OldParam at entry.
     Builder.CreateStore(NewParam, OldParam);
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
     bool bRowMajor = castRowMajorParamMap.count(NewParam);
     Value *Mat = LoadArrayPtrToMat(NewParam, /*arrayBaseIdx*/ 0, OldTy,
                                    *m_pHLModule, Builder, bRowMajor);
@@ -5923,7 +5923,7 @@ static void LegalizeDxilInputOutputs(Function *F,
 
     // Skip arg which is not a pointer.
     if (!Ty->isPointerTy()) {
-      if (HLMatrixLower::IsMatrixType(Ty)) {
+      if (dxilutil::IsHLSLMatrixType(Ty)) {
         // Replace matrix arg with cast to vec. It will be lowered in
         // DxilGenerationPass.
         isColMajor = paramAnnotation.GetMatrixAnnotation().Orientation ==
@@ -5976,7 +5976,7 @@ static void LegalizeDxilInputOutputs(Function *F,
       bStoreInputToTemp = true;
     }
 
-    if (HLMatrixLower::IsMatrixType(Ty)) {
+    if (dxilutil::IsHLSLMatrixType(Ty)) {
       if (qual == DxilParamInputQual::In)
         bStoreInputToTemp = bLoad;
       else if (qual == DxilParamInputQual::Out)

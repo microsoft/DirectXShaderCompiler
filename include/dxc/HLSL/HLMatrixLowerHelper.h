@@ -27,7 +27,6 @@ class DxilTypeSystem;
 
 namespace HLMatrixLower {
 // TODO: use type annotation.
-bool IsMatrixType(llvm::Type *Ty);
 DxilFieldAnnotation *FindAnnotationFromMatUser(llvm::Value *Mat,
                                                DxilTypeSystem &typeSys);
 // Translate matrix type to vector type.
