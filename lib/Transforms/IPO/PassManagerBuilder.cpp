@@ -219,10 +219,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createHLDeadFunctionEliminationPass());
   }
 
-  // Passes to handle [unroll]
-  MPM.add(createLoopRotatePass());
-  MPM.add(createDxilLoopUnrollPass(/*MaxIterationAttempt*/ 128));
-
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
 
@@ -252,14 +248,23 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createDxilConvergentMarkPass());
   }
 
-  if (OptLevel > 2) {
-    MPM.add(createLoopRotatePass());
-    MPM.add(createLoopUnrollPass());
-  }
-
   MPM.add(createSimplifyInstPass());
 
   MPM.add(createCFGSimplificationPass());
+
+  // Passes to handle [unroll]
+  // Needs to happen after SROA since loop count may depend on
+  // struct members.
+  // Needs to happen before resources are lowered and before HL
+  // module is gone.
+  MPM.add(createLoopRotatePass());
+  MPM.add(createDxilLoopUnrollPass(/*MaxIterationAttempt*/ 128));
+
+  // Default unroll pass. This is purely for optimizing loops without
+  // attributes.
+  if (OptLevel > 2) {
+    MPM.add(createLoopUnrollPass());
+  }
 
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
