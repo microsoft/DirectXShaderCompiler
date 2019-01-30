@@ -372,6 +372,8 @@ bool IsHLSLVecType(clang::QualType type);
 bool IsHLSLMatType(clang::QualType type);
 clang::QualType GetElementTypeOrType(clang::QualType type);
 bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor = nullptr);
+bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue);
+bool IsHLSLUnsigned(clang::QualType type);
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm = nullptr);
 bool IsHLSLInputPatchType(clang::QualType type);
 bool IsHLSLOutputPatchType(clang::QualType type);

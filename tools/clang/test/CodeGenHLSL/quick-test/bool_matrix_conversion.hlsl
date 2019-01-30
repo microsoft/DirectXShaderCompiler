@@ -4,10 +4,10 @@
 // CHECK: icmp ne i32 {{.*}}, 0
 // CHECK: icmp ne i32 {{.*}}, 0
 // CHECK: icmp ne i32 {{.*}}, 0
-// CHECK: fcmp fast one float {{.*}}, 0.000000e+00
-// CHECK: fcmp fast one float {{.*}}, 0.000000e+00
-// CHECK: fcmp fast one float {{.*}}, 0.000000e+00
-// CHECK: fcmp fast one float {{.*}}, 0.000000e+00
+// CHECK: fcmp fast une float {{.*}}, 0.000000e+00
+// CHECK: fcmp fast une float {{.*}}, 0.000000e+00
+// CHECK: fcmp fast une float {{.*}}, 0.000000e+00
+// CHECK: fcmp fast une float {{.*}}, 0.000000e+00
 
 struct Input
 {

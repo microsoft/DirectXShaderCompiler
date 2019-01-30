@@ -397,29 +397,29 @@ INITIALIZE_PASS(HLMatrixLowerPass, "hlmatrixlower", "HLSL High-Level Matrix Lowe
 
 static Instruction *CreateTypeCast(HLCastOpcode castOp, Type *toTy, Value *src,
                                    IRBuilder<> Builder) {
-  // Cast to bool.
-  if (toTy->getScalarType()->isIntegerTy(1)) {
-    Type *fromTy = src->getType();
-    Constant *zero = llvm::Constant::getNullValue(src->getType());
-    bool isFloat = fromTy->getScalarType()->isFloatingPointTy();
-    if (isFloat)
-      return cast<Instruction>(Builder.CreateFCmpONE(src, zero));
-    else
-      return cast<Instruction>(Builder.CreateICmpNE(src, zero));
-  }
+  Type *srcTy = src->getType();
 
-  Type *eltToTy = toTy->getScalarType();
-  Type *eltFromTy = src->getType()->getScalarType();
+  // Conversions between equivalent types are no-ops,
+  // even between signed/unsigned variants.
+  if (srcTy == toTy) return cast<Instruction>(src);
 
   bool fromUnsigned = castOp == HLCastOpcode::FromUnsignedCast ||
                       castOp == HLCastOpcode::UnsignedUnsignedCast;
   bool toUnsigned = castOp == HLCastOpcode::ToUnsignedCast ||
                     castOp == HLCastOpcode::UnsignedUnsignedCast;
 
-  Instruction::CastOps castOps = static_cast<Instruction::CastOps>(
-      HLModule::FindCastOp(fromUnsigned, toUnsigned, eltFromTy, eltToTy));
+  // Conversions to bools are comparisons
+  if (toTy->getScalarSizeInBits() == 1) {
+    // fcmp une is what regular clang uses in C++ for (bool)f;
+    return cast<Instruction>(srcTy->isIntOrIntVectorTy()
+      ? Builder.CreateICmpNE(src, llvm::Constant::getNullValue(srcTy), "tobool")
+      : Builder.CreateFCmpUNE(src, llvm::Constant::getNullValue(srcTy), "tobool"));
+  }
 
-  return cast<Instruction>(Builder.CreateCast(castOps, src, toTy));
+  // Cast necessary
+  auto CastOp = static_cast<Instruction::CastOps>(HLModule::GetNumericCastOp(
+    srcTy, fromUnsigned, toTy, toUnsigned));
+  return cast<Instruction>(Builder.CreateCast(CastOp, src, toTy));
 }
 
 Instruction *HLMatrixLowerPass::MatCastToVec(CallInst *CI) {

@@ -122,11 +122,6 @@ public:
   virtual void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S, llvm::TerminatorInst *TI, llvm::ArrayRef<const Attr *> Attrs) = 0;
 
   virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) = 0;
-  static const clang::ExtVectorType *
-  ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &context,
-                                       clang::QualType &type);
-  static bool IsHLSLVecMatType(clang::QualType &type);
-  static clang::QualType GetHLSLVecMatElementType(clang::QualType type);
 };
 
 /// Create an instance of a HLSL runtime class.

@@ -1244,11 +1244,7 @@ llvm::Value *CodeGenFunction::EmitToMemory(llvm::Value *Value, QualType Ty) {
   // HLSL Change Begin.
   // Bool scalar and vectors have a different representation in memory than in registers.
   if (hasBooleanScalarOrVectorRepresentation(Ty)) {
-    // This should really always be an i1, but sometimes it's already
-    // an i8, and it's awkward to track those cases down.
-    llvm::Type *ValTy = Value->getType();
-    llvm::Type *VecElemTy = ValTy->isVectorTy() ? ValTy->getVectorElementType() : ValTy;
-    if (VecElemTy->isIntegerTy(1))
+    if (Value->getType()->getScalarType()->isIntegerTy(1))
       return Builder.CreateZExt(Value, ConvertTypeForMem(Ty), "frombool");
   }
   // HLSL Change End.
@@ -1260,10 +1256,9 @@ llvm::Value *CodeGenFunction::EmitFromMemory(llvm::Value *Value, QualType Ty) {
   // HLSL Change Begin.
   // Bool scalar and vectors have a different representation in memory than in registers.
   if (hasBooleanScalarOrVectorRepresentation(Ty)) {
-    llvm::Type *ValTy = Value->getType();
     // Use ne v, 0 to convert to i1 instead of trunc.
     return Builder.CreateICmpNE(
-        Value, llvm::ConstantVector::getNullValue(ValTy), "tobool");
+        Value, llvm::ConstantVector::getNullValue(Value->getType()), "tobool");
   }
   // HLSL Change End.
 
