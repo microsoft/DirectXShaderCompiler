@@ -21,23 +21,3 @@ using namespace clang;
 using namespace CodeGen;
 
 CGHLSLRuntime::~CGHLSLRuntime() {}
-
-bool CGHLSLRuntime::IsHLSLVecMatType(clang::QualType &type) {
-  return hlsl::IsHLSLVecMatType(type);
-}
-
-const clang::ExtVectorType *CGHLSLRuntime::ConvertHLSLVecMatTypeToExtVectorType(
-    const clang::ASTContext &context, clang::QualType &type) {
-  return hlsl::ConvertHLSLVecMatTypeToExtVectorType(context, type);
-}
-
-QualType CGHLSLRuntime::GetHLSLVecMatElementType(QualType type) {
-  const Type *Ty = type.getCanonicalType().getTypePtr();
-  // TODO: check isVecMatrix
-  const RecordType *RT = cast<RecordType>(Ty);
-  const ClassTemplateSpecializationDecl *templateDecl =
-            cast<ClassTemplateSpecializationDecl>(RT->getDecl());
-  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  const TemplateArgument &arg0 = argList[0];
-  return arg0.getAsType();
-}
