@@ -249,6 +249,8 @@ unsigned GetRowMajorIdx(unsigned r, unsigned c, unsigned col) {
 
 namespace {
 
+// Creates and manages a set of overloaded functions keyed on the function type,
+// and which should be destroyed when the pool gets out of scope.
 class TempOverloadPool {
 public:
   TempOverloadPool(llvm::Module &Module, const char* BaseName)
@@ -263,7 +265,7 @@ public:
 private:
   llvm::Module &Module;
   const char* BaseName;
-  llvm::SmallDenseMap<FunctionType*, Function*, 4> Funcs;
+  llvm::DenseMap<FunctionType*, Function*> Funcs;
 };
 
 Function *TempOverloadPool::get(FunctionType *Ty) {
@@ -289,7 +291,7 @@ bool TempOverloadPool::contains(Function *Func) {
 
 void TempOverloadPool::clear() {
   for (auto Entry : Funcs) {
-    DXASSERT(Entry.second->use_empty(), "Temporary functions still used during pool destruction.");
+    DXASSERT(Entry.second->use_empty(), "Temporary function still used during pool destruction.");
     Entry.second->removeFromParent();
   }
   Funcs.clear();
@@ -304,9 +306,24 @@ public:
   bool runOnModule(Module &M) override;
 
 private:
-  void runOnFunction(Function &F);
+  void runOnFunction(Function &Func);
   void runOnGlobal(GlobalVariable *GV);
   void runOnGlobalMatrixArray(GlobalVariable *GV);
+  void runOnInstruction(Instruction *MatInst);
+
+  std::vector<Instruction *> getMatrixInstructions(Function &Func);
+  static Type *getLoweredType(Type *Ty, bool MemRepr = false);
+  Value *getLoweredOperand(Value *Val, Instruction *Consumer);
+  void replaceAllUsesByLoweredValue(Instruction *MatInst, Value *VecVal);
+
+  Value *lowerInstruction(Instruction *MatInst, ArrayRef<Value *> LoweredOperands);
+  AllocaInst *lowerAlloca(AllocaInst *MatAlloca);
+  Value *lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup, ArrayRef<Value *> LoweredArgs);
+  Value *lowerHLIntrinsic(HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+    Type *LoweredRetTy, ArrayRef<Value *> LoweredArgs, IRBuilder<> &Builder);
+  Value *lowerHLUnaryOperation(HLUnaryOpcode Opcode, Value *LoweredOperand, IRBuilder<> &Builder);
+  Value *lowerHLBinaryOperation(HLBinaryOpcode Opcode,
+    Value *LoweredLhs, Value *LoweredRhs, IRBuilder<> &Builder);
 
   Instruction *MatCastToVec(CallInst *CI);
   Instruction *MatLdStToVec(CallInst *CI);
@@ -382,9 +399,6 @@ private:
   // Translate mat inst which need all operands ready.
   void finalMatTranslation(Value *matVal);
 
-  Value* getLoweredValue(Value *Val, IRBuilder<> &Builder);
-  void replaceAllUsesByLoweredValue(Value* MatVal, Value* VecVal);
-
   // For most matrix insturction users, it will only have one matrix use.
   // Use vector so save deadInsts because vector is cheap.
   void AddToDeadInsts(Instruction *I) { m_deadInsts.emplace_back(I); }
@@ -426,16 +440,6 @@ char HLMatrixLowerPass::ID = 0;
 ModulePass *llvm::createHLMatrixLowerPass() { return new HLMatrixLowerPass(); }
 
 INITIALIZE_PASS(HLMatrixLowerPass, "hlmatrixlower", "HLSL High-Level Matrix Lower", false, false)
-
-static bool IsDirectOrIndirectMatrixType(Type *Ty) {
-  if (PointerType *PtrTy = dyn_cast<PointerType>(Ty))
-    Ty = PtrTy->getPointerElementType();
-
-  while (ArrayType *ArrayTy = dyn_cast<ArrayType>(Ty))
-    Ty = ArrayTy->getArrayElementType();
-  
-  return IsMatrixType(Ty);
-}
 
 static Instruction *CreateTypeCast(HLCastOpcode castOp, Type *toTy, Value *src,
                                    IRBuilder<> Builder) {
@@ -931,7 +935,7 @@ static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, b
 
 void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
   Value *vecVal = nullptr;
-
+  
   if (CallInst *CI = dyn_cast<CallInst>(matInst)) {
     hlsl::HLOpcodeGroup group =
         hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -2641,25 +2645,48 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   }
 }
 
-void HLMatrixLowerPass::runOnFunction(Function &F) {
+void HLMatrixLowerPass::runOnFunction(Function &Func) {
   // Skip hl function definition (like createhandle)
-  if (hlsl::GetHLOpcodeGroupByName(&F) != HLOpcodeGroup::NotHL)
+  if (hlsl::GetHLOpcodeGroupByName(&Func) != HLOpcodeGroup::NotHL)
     return;
 
-  // Find out all of the instructions we'll need to replace
-  // based on whether they are consuming/producing matrix-based types.
-  // We do this ahead of time since the translation process
-  // will introduce more instructions which we don't want to match here.
+  // Save the matrix instructions first since the translation process
+  // will temporarily create other instructions consuming/producing matrix types.
+  std::vector<Instruction *> MatInsts = getMatrixInstructions(Func);
+
+  for (Instruction *MatInst : MatInsts)
+    runOnInstruction(MatInst);
+
+  DeleteDeadInsts();
+}
+
+void HLMatrixLowerPass::runOnInstruction(Instruction *MatInst) {
+  // Get all of the operands in their lowered or stubbed form
+  SmallVector<Value *, 8> LoweredOperands;
+  LoweredOperands.reserve(MatInst->getNumOperands());
+  for (Value *Operand : MatInst->operand_values()) {
+    LoweredOperands.emplace_back(getLoweredOperand(Operand, MatInst));
+  }
+
+  // Lower the instruction and replace its uses
+  Value *LoweredValue = lowerInstruction(MatInst, LoweredOperands);
+  replaceAllUsesByLoweredValue(MatInst, LoweredValue);
+}
+
+// Find all instructions consuming or producing matrices,
+// directly or through pointers/arrays.
+std::vector<Instruction *>
+HLMatrixLowerPass::getMatrixInstructions(Function &Func) {
   std::vector<Instruction*> MatInsts;
-  for (BasicBlock &BasicBlock : F) {
+  for (BasicBlock &BasicBlock : Func) {
     for (Instruction &Inst : BasicBlock) {
       bool IsMatrixOperation = false;
-      if (IsDirectOrIndirectMatrixType(Inst.getType())) {
+      if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Inst.getType())) {
         IsMatrixOperation = true;
       }
       else {
         for (Value *Operand : Inst.operand_values()) {
-          if (IsDirectOrIndirectMatrixType(Operand->getType())) {
+          if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Operand->getType())) {
             IsMatrixOperation = true;
             break;
           }
@@ -2669,34 +2696,27 @@ void HLMatrixLowerPass::runOnFunction(Function &F) {
       if (IsMatrixOperation) MatInsts.emplace_back(&Inst);
     }
   }
-
-  //for (Instruction *MatInst : MatInsts) {
-  //
-  //}
-
-  DeleteDeadInsts();
-
-  return;
+  return MatInsts;
 }
 
 // Converts a type which may or not contain a matrix type to its
 // lowered form, where all matrix types have been lowered to vector types.
 // Direct matrix types are lowered to their register representation,
 // whereas pointer or array-indirect types are lowered to their memory representation.
-static Type *getMatrixLoweredType(Type *Ty, bool MemRepr = false) {
+Type *HLMatrixLowerPass::getLoweredType(Type *Ty, bool MemRepr) {
   if (PointerType *PtrTy = dyn_cast<PointerType>(Ty)) {
     // Pointees are always in memory representation
-    Type *LoweredElemTy = getMatrixLoweredType(PtrTy->getElementType(), true);
+    Type *LoweredElemTy = getLoweredType(PtrTy->getElementType(), true);
     return LoweredElemTy == PtrTy->getElementType()
       ? Ty : PointerType::get(LoweredElemTy, PtrTy->getAddressSpace());
   }
   else if (ArrayType *ArrayTy = dyn_cast<ArrayType>(Ty)) {
     // Arrays are always in memory and so their elements are in memory representation
-    Type *LoweredElemTy = getMatrixLoweredType(ArrayTy->getElementType(), true);
+    Type *LoweredElemTy = getLoweredType(ArrayTy->getElementType(), true);
     return LoweredElemTy == ArrayTy->getElementType()
       ? Ty : ArrayType::get(LoweredElemTy, ArrayTy->getNumElements());
   }
-  else if (HLMatrixType MatrixTy = HLMatrixType::tryGet(Ty)) {
+  else if (HLMatrixType MatrixTy = HLMatrixType::dyn_cast(Ty)) {
     return MatrixTy.getLoweredVectorType(MemRepr);
   }
   else return Ty;
@@ -2705,9 +2725,9 @@ static Type *getMatrixLoweredType(Type *Ty, bool MemRepr = false) {
 // Gets the matrix-lowered representation of a value.
 // If it does not contain matrices, it is returned directly.
 // If it does contain matrices, a translation stub is created to the lowered type.
-Value* HLMatrixLowerPass::getLoweredValue(Value *Val, IRBuilder<> &Builder) {
+Value* HLMatrixLowerPass::getLoweredOperand(Value *Val, Instruction *Consumer) {
   Type *Ty = Val->getType();
-  Type *LoweredTy = getMatrixLoweredType(Ty);
+  Type *LoweredTy = getLoweredType(Ty);
   if (Ty == LoweredTy) return Val;
   
   // Check if the value is already a vec-to-mat translation stub
@@ -2721,6 +2741,7 @@ Value* HLMatrixLowerPass::getLoweredValue(Value *Val, IRBuilder<> &Builder) {
   }
 
   // Return a mat-to-vec translation stub
+  IRBuilder<> Builder(Consumer);
   FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { Ty }, /* isVarArg */ false);
   Function *TranslationStub = m_matToVecStubs->get(TranslationStubTy);
   return Builder.CreateCall(TranslationStub, { Val });
@@ -2728,11 +2749,255 @@ Value* HLMatrixLowerPass::getLoweredValue(Value *Val, IRBuilder<> &Builder) {
 
 // Replaces all uses of a matrix value by its lowered vector form,
 // inserting translation stubs for users which still expect a matrix value.
-void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Value* MatVal, Value* VecVal) {
-  DXASSERT(getMatrixLoweredType(MatVal->getType()) == VecVal->getType(),
+void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value* VecVal) {
+  DXASSERT(getLoweredType(MatInst->getType()) == VecVal->getType(),
     "Unexpected lowered value type.");
 
-  llvm_unreachable("Not implemented.");
+  Instruction *VecToMatStub = nullptr;
+
+  while (!MatInst->use_empty()) {
+    Use &ValUse = *MatInst->use_begin();
+
+    // If the user is already a matrix-to-vector translation stub,
+    // we can now replace it by the proper vector value.
+    if (CallInst *Call = dyn_cast<CallInst>(ValUse.getUser())) {
+      if (m_matToVecStubs->contains(Call->getCalledFunction())) {
+        Call->replaceAllUsesWith(VecVal);
+        ValUse.set(UndefValue::get(MatInst->getType()));
+        AddToDeadInsts(Call);
+        continue;
+      }
+
+      // Othewise, the user should point to a vector-to-matrix translation
+      // stub of the new vector value.
+      if (VecToMatStub == nullptr) {
+        FunctionType *TranslationStubTy = FunctionType::get(
+          MatInst->getType(), {VecVal->getType()}, /* isVarArg */ false);
+        Function *TranslationStub = m_vecToMatStubs->get(TranslationStubTy);
+
+        IRBuilder<> Builder(dxilutil::SkipAllocas(MatInst->getNextNode()));
+        VecToMatStub = Builder.CreateCall(TranslationStub, {VecVal});
+      }
+
+      ValUse.set(VecToMatStub);
+    }
+  }
+
+  AddToDeadInsts(MatInst);
+}
+
+Value *HLMatrixLowerPass::lowerInstruction(Instruction *MatInst, ArrayRef<Value *> LoweredOperands) {
+  if (AllocaInst *Alloca = dyn_cast<AllocaInst>(MatInst)) {
+    return lowerAlloca(Alloca);
+  }
+  
+  if (CallInst *Call = dyn_cast<CallInst>(MatInst)) {
+    // The last operand is the function itself
+    DXASSERT_NOMSG(LoweredOperands.back() == Call->getCalledFunction());
+    ArrayRef<Value*> LoweredArgs(LoweredOperands.drop_back());
+    HLOpcodeGroup OpcodeGroup = GetHLOpcodeGroupByName(Call->getCalledFunction());
+    if (OpcodeGroup == HLOpcodeGroup::NotHL)
+      llvm_unreachable("Not implemented");
+    else
+      return lowerHLOperation(Call, OpcodeGroup, LoweredArgs);
+  }
+
+  llvm_unreachable("Not implemented");
+}
+
+AllocaInst *HLMatrixLowerPass::lowerAlloca(AllocaInst *MatAlloca) {
+  PointerType *LoweredAllocaTy = cast<PointerType>(getLoweredType(MatAlloca->getType()));
+
+  IRBuilder<> Builder(MatAlloca);
+  AllocaInst *VecAlloca = Builder.CreateAlloca(LoweredAllocaTy->getElementType(), nullptr, MatAlloca->getName());
+
+  // Update debug info.
+  if (DbgDeclareInst *DbgDeclare = llvm::FindAllocaDbgDeclare(MatAlloca)) {
+    LLVMContext &Context = MatAlloca->getContext();
+    Value *DbgDeclareVar = MetadataAsValue::get(Context, DbgDeclare->getRawVariable());
+    Value *DbgDeclareExpr = MetadataAsValue::get(Context, DbgDeclare->getRawExpression());
+    Value *ValueMetadata = MetadataAsValue::get(Context, ValueAsMetadata::get(VecAlloca));
+    IRBuilder<> DebugBuilder(DbgDeclare);
+    DebugBuilder.CreateCall(DbgDeclare->getCalledFunction(), { ValueMetadata, DbgDeclareVar, DbgDeclareExpr });
+  }
+
+  if (HLModule::HasPreciseAttributeWithMetadata(MatAlloca))
+    HLModule::MarkPreciseAttributeWithMetadata(VecAlloca);
+
+  return VecAlloca;
+}
+
+Value *HLMatrixLowerPass::lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup, ArrayRef<Value *> LoweredArgs) {
+  IRBuilder<> Builder(Call);
+  switch (OpcodeGroup) {
+  case HLOpcodeGroup::HLIntrinsic:
+    return lowerHLIntrinsic(OpcodeGroup, GetHLOpcode(Call),
+      getLoweredType(Call->getType()), LoweredArgs, Builder);
+  case HLOpcodeGroup::HLBinOp:
+    return lowerHLBinaryOperation(static_cast<HLBinaryOpcode>(GetHLOpcode(Call)),
+      LoweredArgs[1], LoweredArgs[2], Builder);
+  case HLOpcodeGroup::HLUnOp:
+    return lowerHLUnaryOperation(static_cast<HLUnaryOpcode>(GetHLOpcode(Call)),
+      LoweredArgs[1], Builder);
+  case HLOpcodeGroup::HLCast:
+  case HLOpcodeGroup::HLInit:
+  case HLOpcodeGroup::HLMatLoadStore:
+  default:
+    llvm_unreachable("Not implemented");
+  }
+}
+
+Value *HLMatrixLowerPass::lowerHLIntrinsic(HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+  Type *LoweredRetTy, ArrayRef<Value *> LoweredArgs, IRBuilder<> &Builder) {
+  // Build the lowered function type
+  SmallVector<Type *, 8> LoweredParamTypes;
+  LoweredParamTypes.reserve(LoweredArgs.size());
+  for (Value *LoweredArg : LoweredArgs)
+    LoweredParamTypes.emplace_back(LoweredArg->getType());
+  FunctionType *LoweredFuncTy = FunctionType::get(LoweredRetTy, LoweredParamTypes, /* isVarArg */ false);
+
+  // Create a call to the lowered intrinsic
+  Function *LoweredFunc = GetOrCreateHLFunction(*m_pModule, LoweredFuncTy, OpcodeGroup, Opcode);
+  return Builder.CreateCall(LoweredFunc, LoweredArgs);
+}
+
+
+Value *HLMatrixLowerPass::lowerHLUnaryOperation(HLUnaryOpcode Opcode,
+  Value *LoweredOperand, IRBuilder<> &Builder) {
+  VectorType *VecTy = cast<VectorType>(LoweredOperand->getType());
+  bool IsFloat = VecTy->getElementType()->isFloatingPointTy();
+  
+  switch (Opcode) {
+  case HLUnaryOpcode::Plus: return LoweredOperand; // No-op
+  case HLUnaryOpcode::Minus:
+    return IsFloat
+      ? Builder.CreateFSub(Constant::getNullValue(VecTy), LoweredOperand)
+      : Builder.CreateSub(Constant::getNullValue(VecTy), LoweredOperand);
+  case HLUnaryOpcode::LNot:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_UEQ, LoweredOperand, Constant::getNullValue(VecTy))
+      : Builder.CreateICmp(CmpInst::ICMP_EQ, LoweredOperand, Constant::getNullValue(VecTy));
+  case HLUnaryOpcode::Not:
+    return Builder.CreateXor(LoweredOperand, Constant::getAllOnesValue(VecTy));
+  case HLUnaryOpcode::PostInc:
+  case HLUnaryOpcode::PreInc:
+  case HLUnaryOpcode::PostDec:
+  case HLUnaryOpcode::PreDec: {
+    Constant *ScalarOne = IsFloat
+      ? ConstantFP::get(VecTy->getElementType(), 1)
+      : ConstantInt::get(VecTy->getElementType(), 1);
+    Constant *VecOne = ConstantVector::getSplat(VecTy->getNumElements(), ScalarOne);
+    // BUGBUG: This implementation has incorrect semantics (GitHub #1780)
+    if (Opcode == HLUnaryOpcode::PostInc || Opcode == HLUnaryOpcode::PreInc) {
+      return IsFloat
+        ? Builder.CreateFAdd(LoweredOperand, VecOne)
+        : Builder.CreateAdd(LoweredOperand, VecOne);
+    }
+    else {
+      return IsFloat
+        ? Builder.CreateFSub(LoweredOperand, VecOne)
+        : Builder.CreateSub(LoweredOperand, VecOne);
+    }
+  }
+  default:
+    llvm_unreachable("Unsupported unary matrix operator");
+  }
+}
+
+Value *HLMatrixLowerPass::lowerHLBinaryOperation(HLBinaryOpcode Opcode,
+  Value *LoweredLhs, Value *LoweredRhs, IRBuilder<> &Builder) {
+  DXASSERT(LoweredLhs->getType()->isVectorTy() && LoweredRhs->getType()->isVectorTy(),
+    "Expected lowered binary operation operands to be vectors");
+  DXASSERT(LoweredLhs->getType() == LoweredRhs->getType(),
+    "Expected lowered binary operation operands to have matching types.");
+
+  bool IsFloat = LoweredLhs->getType()->getVectorElementType()->isFloatingPointTy();
+
+  switch (Opcode) {
+  case HLBinaryOpcode::Add:
+    return IsFloat
+      ? Builder.CreateFAdd(LoweredLhs, LoweredRhs)
+      : Builder.CreateAdd(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Sub:
+    return IsFloat
+      ? Builder.CreateFSub(LoweredLhs, LoweredRhs)
+      : Builder.CreateSub(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Mul:
+    return IsFloat
+      ? Builder.CreateFMul(LoweredLhs, LoweredRhs)
+      : Builder.CreateMul(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Div:
+    return IsFloat
+      ? Builder.CreateFDiv(LoweredLhs, LoweredRhs)
+      : Builder.CreateSDiv(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Rem:
+    return IsFloat
+      ? Builder.CreateFRem(LoweredLhs, LoweredRhs)
+      : Builder.CreateSRem(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::And:
+    return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Or:
+    return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Xor:
+    return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Shl:
+    return Builder.CreateShl(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::Shr:
+    return Builder.CreateAShr(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::LT:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_OLT, LoweredLhs, LoweredRhs)
+      : Builder.CreateICmp(CmpInst::ICMP_SLT, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::GT:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_OGT, LoweredLhs, LoweredRhs)
+      : Builder.CreateICmp(CmpInst::ICMP_SGT, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::LE:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_OLE, LoweredLhs, LoweredRhs)
+      : Builder.CreateICmp(CmpInst::ICMP_SLE, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::GE:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_OGE, LoweredLhs, LoweredRhs)
+      : Builder.CreateICmp(CmpInst::ICMP_SGE, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::EQ:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_OEQ, LoweredLhs, LoweredRhs)
+      : Builder.CreateICmp(CmpInst::ICMP_EQ, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::NE:
+    return IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_ONE, LoweredLhs, LoweredRhs)
+      : Builder.CreateICmp(CmpInst::ICMP_NE, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::UDiv:
+    return Builder.CreateUDiv(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::URem:
+    return Builder.CreateURem(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::UShr:
+    return Builder.CreateLShr(LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::ULT:
+    return Builder.CreateICmp(CmpInst::ICMP_ULT, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::UGT:
+    return Builder.CreateICmp(CmpInst::ICMP_UGT, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::ULE:
+    return Builder.CreateICmp(CmpInst::ICMP_ULE, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::UGE:
+    return Builder.CreateICmp(CmpInst::ICMP_UGE, LoweredLhs, LoweredRhs);
+  case HLBinaryOpcode::LAnd:
+  case HLBinaryOpcode::LOr: {
+    Value *Zero = Constant::getNullValue(LoweredLhs->getType());
+    Value *LhsCmp = IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_ONE, LoweredLhs, Zero)
+      : Builder.CreateICmp(CmpInst::ICMP_NE, LoweredLhs, Zero);
+    Value *RhsCmp = IsFloat
+      ? Builder.CreateFCmp(CmpInst::FCMP_ONE, LoweredRhs, Zero)
+      : Builder.CreateICmp(CmpInst::ICMP_NE, LoweredRhs, Zero);
+    return Opcode == HLBinaryOpcode::LOr
+      ? Builder.CreateOr(LhsCmp, RhsCmp)
+      : Builder.CreateAnd(LhsCmp, RhsCmp);
+  }
+  default:
+    llvm_unreachable("Unsupported binary matrix operator");
+  }
 }
 
 // Matrix Bitcast lower.

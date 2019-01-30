@@ -60,39 +60,43 @@ void HLMatrixType::emitLoweredVectorStore(Value *VecVal, Value *VecPtr, IRBuilde
   Builder.CreateStore(emitLoweredVectorRegToMem(VecVal, Builder), VecPtr);
 }
 
-bool HLMatrixType::isa(llvm::Type *Ty) {
-  return (bool)tryGet(Ty);
+bool HLMatrixType::isa(Type *Ty) {
+  StructType *StructTy = llvm::dyn_cast<StructType>(Ty);
+  return StructTy != nullptr && StructTy->getName().startswith(StructNamePrefix);
 }
 
-bool HLMatrixType::isaPtr(llvm::Type *Ty) {
-  PointerType *PtrTy = dyn_cast<PointerType>(Ty);
+bool HLMatrixType::isMatrixPtr(Type *Ty) {
+  PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty);
   return PtrTy && isa(PtrTy->getElementType());
 }
 
-bool HLMatrixType::isaArrayPtr(llvm::Type *Ty) {
-  PointerType *PtrTy = dyn_cast<PointerType>(Ty);
+bool HLMatrixType::isMatrixArrayPtr(Type *Ty) {
+  PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty);
   if (PtrTy == nullptr) return false;
-  ArrayType *ArrayTy = dyn_cast<ArrayType>(PtrTy->getElementType());
+  ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(PtrTy->getElementType());
   if (ArrayTy == nullptr) return false;
-  while (ArrayType *NestedArrayTy = dyn_cast<ArrayType>(ArrayTy->getElementType()))
+  while (ArrayType *NestedArrayTy = llvm::dyn_cast<ArrayType>(ArrayTy->getElementType()))
     ArrayTy = NestedArrayTy;
   return isa(ArrayTy->getElementType());
 }
 
-bool HLMatrixType::isaDirectOrPtrOrArrayPtr(llvm::Type *Ty) {
-  if (PointerType *PtrTy = dyn_cast<PointerType>(Ty)) Ty = PtrTy;
-  while (ArrayType *ArrayTy = dyn_cast<ArrayType>(Ty)) Ty = ArrayTy;
+bool HLMatrixType::isMatrixOrPtrOrArrayPtr(Type *Ty) {
+  if (PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty)) Ty = PtrTy;
+  while (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty)) Ty = ArrayTy;
   return isa(Ty);
 }
 
-HLMatrixType HLMatrixType::tryGet(llvm::Type *Ty) {
-  StructType *StructTy = dyn_cast<StructType>(Ty);
-  if (StructTy == nullptr || !StructTy->getName().startswith(StructNamePrefix))
-    return HLMatrixType();
+HLMatrixType HLMatrixType::cast(Type *Ty) {
+  DXASSERT_NOMSG(isa(Ty));
+  StructType *StructTy = llvm::cast<StructType>(Ty);
   DXASSERT_NOMSG(Ty->getNumContainedTypes() == 1);
-  ArrayType *RowArrayTy = cast<ArrayType>(StructTy->getElementType(0));
+  ArrayType *RowArrayTy = llvm::cast<ArrayType>(StructTy->getElementType(0));
   DXASSERT_NOMSG(RowArrayTy->getNumElements() >= 1 && RowArrayTy->getNumElements() <= 4);
-  VectorType *RowTy = cast<VectorType>(RowArrayTy->getElementType());
+  VectorType *RowTy = llvm::cast<VectorType>(RowArrayTy->getElementType());
   DXASSERT_NOMSG(RowTy->getNumElements() >= 1 && RowTy->getNumElements() <= 4);
   return HLMatrixType(RowTy->getElementType(), RowArrayTy->getNumElements(), RowTy->getNumElements());
+}
+
+HLMatrixType HLMatrixType::dyn_cast(Type *Ty) {
+  return isa(Ty) ? cast(Ty) : HLMatrixType();
 }

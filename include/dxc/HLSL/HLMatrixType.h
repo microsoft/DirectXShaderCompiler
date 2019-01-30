@@ -38,6 +38,8 @@ class DxilTypeSystem;
 // At this point, register vs memory representation starts to matter and we have to
 // imitate the codegen for scalar and vector bools: i1s when in llvm registers,
 // and i32s when in memory (allocas, pointers, or in structs/lists, which are always in memory).
+//
+// This class is designed to resemble a llvm::Type-derived class.
 class HLMatrixType
 {
 public:
@@ -46,8 +48,8 @@ public:
   HLMatrixType() : RegReprElemTy(nullptr), RowCount(0), ColCount(0) {}
   HLMatrixType(llvm::Type *RegReprElemTy, unsigned RowCount, unsigned ColCount);
 
-  // Ideally, we wouldn't allow default construction and would use std::optional
-  // as the return type for tryGet. This mimicks it.
+  // We allow default construction to an invalid state to support the dynCast pattern.
+  // This tests whether we have a legit object.
   operator bool() const { return RegReprElemTy != nullptr; }
 
   llvm::Type *getElemType(bool MemRepr) const;
@@ -62,11 +64,12 @@ public:
   void emitLoweredVectorStore(llvm::Value *VecVal, llvm::Value *VecPtr, llvm::IRBuilder<> &Builder) const;
 
   static bool isa(llvm::Type *Ty);
-  static bool isaPtr(llvm::Type *Ty);
-  static bool isaArrayPtr(llvm::Type *Ty);
-  static bool isaDirectOrPtrOrArrayPtr(llvm::Type *Ty);
+  static bool isMatrixPtr(llvm::Type *Ty);
+  static bool isMatrixArrayPtr(llvm::Type *Ty);
+  static bool isMatrixOrPtrOrArrayPtr(llvm::Type *Ty);
 
-  static HLMatrixType tryGet(llvm::Type *Ty);
+  static HLMatrixType cast(llvm::Type *Ty);
+  static HLMatrixType dyn_cast(llvm::Type *Ty);
 
 private:
   llvm::Type *RegReprElemTy;
