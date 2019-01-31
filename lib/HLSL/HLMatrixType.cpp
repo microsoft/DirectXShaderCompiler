@@ -45,9 +45,9 @@ Value *HLMatrixType::emitLoweredVectorMemToReg(Value *VecVal, IRBuilder<> &Build
 }
 
 Value *HLMatrixType::emitLoweredVectorRegToMem(Value *VecVal, IRBuilder<> &Builder) const {
-  DXASSERT(VecVal->getType() == getLoweredVectorType(false), "Lowered matrix type mismatch.");
+  DXASSERT(VecVal->getType() == getLoweredVectorTypeForReg(), "Lowered matrix type mismatch.");
   if (RegReprElemTy->isIntegerTy(1)) {
-    VecVal = Builder.CreateZExt(VecVal, IntegerType::get(VecVal->getContext(), 32), "frombool");
+    VecVal = Builder.CreateZExt(VecVal, getLoweredVectorTypeForMem(), "frombool");
   }
   return VecVal;
 }
@@ -61,7 +61,7 @@ StoreInst *HLMatrixType::emitLoweredVectorStore(Value *VecVal, Value *VecPtr, IR
 }
 
 Value *HLMatrixType::emitLoweredVectorRowToCol(Value *VecVal, IRBuilder<> &Builder) const {
-  DXASSERT(VecVal->getType() == getLoweredVectorType(false), "Lowered matrix type mismatch.");
+  DXASSERT(VecVal->getType() == getLoweredVectorTypeForReg(), "Lowered matrix type mismatch.");
   if (NumRows == 1 || NumColumns == 1) return VecVal;
 
   SmallVector<int, 16> ShuffleIndices;
@@ -72,7 +72,7 @@ Value *HLMatrixType::emitLoweredVectorRowToCol(Value *VecVal, IRBuilder<> &Build
 }
 
 Value *HLMatrixType::emitLoweredVectorColToRow(Value *VecVal, IRBuilder<> &Builder) const {
-  DXASSERT(VecVal->getType() == getLoweredVectorType(false), "Lowered matrix type mismatch.");
+  DXASSERT(VecVal->getType() == getLoweredVectorTypeForReg(), "Lowered matrix type mismatch.");
   if (NumRows == 1 || NumColumns == 1) return VecVal;
 
   SmallVector<int, 16> ShuffleIndices;
@@ -103,8 +103,8 @@ bool HLMatrixType::isMatrixArrayPtr(Type *Ty) {
 }
 
 bool HLMatrixType::isMatrixOrPtrOrArrayPtr(Type *Ty) {
-  if (PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty)) Ty = PtrTy;
-  while (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty)) Ty = ArrayTy;
+  if (PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty)) Ty = PtrTy->getElementType();
+  while (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty)) Ty = ArrayTy->getElementType();
   return isa(Ty);
 }
 

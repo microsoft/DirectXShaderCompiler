@@ -312,20 +312,27 @@ private:
 
   std::vector<Instruction*> getMatrixInstructions(Function &Func);
   static Type *getLoweredType(Type *Ty, bool MemRepr = false);
-  Value *getLoweredOperand(Value *Val, Instruction *Consumer);
+  Value *getLoweredByValOperand(Value *Val, IRBuilder<> &Builder);
+  Value *tryGetLoweredMatrixOrArrayPtrOperandNoGep(Value *MatOrArrayPtr, IRBuilder<> &Builder);
+  Value *tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder<> &Builder);
   void replaceAllUsesByLoweredValue(Instruction *MatInst, Value *VecVal);
 
   Value *lowerInstruction(Instruction *MatInst);
   AllocaInst *lowerAlloca(AllocaInst *MatAlloca);
   Value *lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup);
-  Value *lowerHLIntrinsic(CallInst *Call, HLOpcodeGroup OpcodeGroup, unsigned Opcode);
-  Value *lowerHLUnaryOperation(HLUnaryOpcode Opcode, Value *LoweredOperand, IRBuilder<> &Builder);
-  Value *lowerHLBinaryOperation(HLBinaryOpcode Opcode,
-    Value *LoweredLhs, Value *LoweredRhs, IRBuilder<> &Builder);
-  Value *lowerHLLoadStore(CallInst *Call);
-  Value *lowerHLLoad(CallInst *Call, HLMatLoadStoreOpcode Opcode);
-  Value *lowerHLStore(CallInst *Call, HLMatLoadStoreOpcode Opcode);
-  Value *lowerHLCast(CallInst *Call, HLCastOpcode Opcode);
+  Value *lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode);
+  Value *lowerHLMulIntrinsic(Value* Lhs, Value *Rhs, bool Unsigned, IRBuilder<> &Builder);
+  Value *lowerHLTransposeIntrinsic(Value *MatVal, IRBuilder<> &Builder);
+  Value *lowerHLDeterminantIntrinsic(Value *MatVal, IRBuilder<> &Builder);
+  Value *lowerHLUnaryOperation(Value *MatVal, HLUnaryOpcode Opcode, IRBuilder<> &Builder);
+  Value *lowerHLBinaryOperation(Value *Lhs, Value *Rhs, HLBinaryOpcode Opcode, IRBuilder<> &Builder);
+  Value *lowerHLLoadStore(CallInst *Call, HLMatLoadStoreOpcode Opcode);
+  Value *lowerHLLoad(Value *MatPtr, bool RowMajor, IRBuilder<> &Builder);
+  Value *lowerHLStore(Value *MatVal, Value *MatPtr, bool RowMajor, bool Return, IRBuilder<> &Builder);
+  Value *lowerHLCast(Value *Src, Type *DstTy, HLCastOpcode Opcode, IRBuilder<> &Builder);
+  Value *lowerHLSubscript(CallInst *Call, HLSubscriptOpcode Opcode);
+  Value *lowerHLMatElementSubscript(CallInst *Call, bool RowMajor);
+  Value *lowerHLInit(CallInst *Call);
 
   Instruction *MatCastToVec(CallInst *CI);
   Instruction *MatLdStToVec(CallInst *CI);
@@ -542,17 +549,6 @@ Instruction *HLMatrixLowerPass::MatCastToVec(CallInst *CI) {
   }
 
   return MatIntrinsicToVec(CI);
-}
-
-// Checks that the provided pointer is to a memory type that can
-// be lowered during this pass.
-static bool IsPtrToLowerable(Value *Ptr, hlsl::HLModule &HLModule) {
-  while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr))
-    Ptr = GEP->getPointerOperand();
-  if (isa<AllocaInst>(Ptr)) return true;
-  if (Argument *Arg = dyn_cast<Argument>(Ptr))
-    return !HLModule.IsGraphicsShader(Arg->getParent());
-  return false;
 }
 
 // Return GEP if value is Matrix resulting GEP from UDT alloca
@@ -2379,14 +2375,31 @@ void HLMatrixLowerPass::finalMatTranslation(Value *matVal) {
 }
 
 void HLMatrixLowerPass::DeleteDeadInsts() {
-  // Delete the matrix version insts.
-  for (Instruction *deadInst : m_deadInsts) {
-    // Replace with undef and remove it.
-    deadInst->replaceAllUsesWith(UndefValue::get(deadInst->getType()));
-    deadInst->eraseFromParent();
+  while (!m_deadInsts.empty()) {
+    Instruction *Inst = m_deadInsts.back();
+    m_deadInsts.pop_back();
+
+    DXASSERT_NOMSG(Inst->use_empty());
+    for (Value *Operand : Inst->operand_values()) {
+      Instruction *OperandInst = dyn_cast<Instruction>(Operand);
+      if (OperandInst && ++OperandInst->user_begin() == OperandInst->user_end()) {
+        // We were its only user, erase recursively
+        DXASSERT_NOMSG(*OperandInst->user_begin() == Inst);
+        m_deadInsts.emplace_back(OperandInst);
+      }
+    }
+
+    Inst->eraseFromParent();
   }
-  m_deadInsts.clear();
-  m_inDeadInstsSet.clear();
+
+  //// Delete the matrix version insts.
+  //for (Instruction *deadInst : m_deadInsts) {
+  //  // Replace with undef and remove it.
+  //  deadInst->replaceAllUsesWith(UndefValue::get(deadInst->getType()));
+  //  deadInst->eraseFromParent();
+  //}
+  //m_deadInsts.clear();
+  //m_inDeadInstsSet.clear();
 }
 
 static bool OnlyUsedByMatrixLdSt(Value *V) {
@@ -2670,9 +2683,7 @@ void HLMatrixLowerPass::runOnFunction(Function &Func) {
   for (Instruction *MatInst : MatInsts) {
     Value *LoweredValue = lowerInstruction(MatInst);
 
-    if (LoweredValue == nullptr)
-      DXASSERT(MatInst->user_empty(), "Failed to lower used matrix instruction.");
-    else
+    if (LoweredValue != nullptr)
       replaceAllUsesByLoweredValue(MatInst, LoweredValue);
   }
 
@@ -2731,18 +2742,22 @@ Type *HLMatrixLowerPass::getLoweredType(Type *Ty, bool MemRepr) {
   else return Ty;
 }
 
-// Gets the matrix-lowered representation of a value.
-// If it does not contain matrices, it is returned directly.
-// If it does contain matrices, a translation stub is created to the lowered type.
-Value* HLMatrixLowerPass::getLoweredOperand(Value *Val, Instruction *Consumer) {
+// Gets the matrix-lowered representation of a value, potentially adding a translation stub.
+Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builder) {
   Type *Ty = Val->getType();
-  Type *LoweredTy = getLoweredType(Ty);
-  if (Ty == LoweredTy) return Val;
+
+  // We're only lowering byval matrices.
+  // Since structs and arrays are always accessed by pointer,
+  // we do not need to worry about a matrix being hidden inside a more complex type.
+  DXASSERT(!Ty->isPointerTy(), "Value cannot be a pointer.");
+  HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty);
+  if (!MatTy) return Val;
+
+  Type *LoweredTy = MatTy.getLoweredVectorTypeForReg();
   
   // Check if the value is already a vec-to-mat translation stub
   if (CallInst *Call = dyn_cast<CallInst>(Val)) {
-    Function *Callee = Call->getCalledFunction();
-    if (m_vecToMatStubs->contains(Callee)) {
+    if (m_vecToMatStubs->contains(Call->getCalledFunction())) {
       Value *LoweredVal = Call->getArgOperand(0);
       DXASSERT(LoweredVal->getType() == LoweredTy, "Unexpected already-lowered value type.");
       return LoweredVal;
@@ -2750,10 +2765,85 @@ Value* HLMatrixLowerPass::getLoweredOperand(Value *Val, Instruction *Consumer) {
   }
 
   // Return a mat-to-vec translation stub
-  IRBuilder<> Builder(Consumer);
   FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { Ty }, /* isVarArg */ false);
   Function *TranslationStub = m_matToVecStubs->get(TranslationStubTy);
   return Builder.CreateCall(TranslationStub, { Val });
+}
+
+// Attempts to retrieve the lowered pointer equivalent to a matrix or matrix array pointer.
+// Assumes all GEPs have been stripped.
+// Returns nullptr if the pointer is to memory that cannot be lowered at this time,
+// for example a buffer or shader inputs/outputs, which are lowered during signature lowering.
+Value *HLMatrixLowerPass::tryGetLoweredMatrixOrArrayPtrOperandNoGep(Value *MatOrArrayPtr, IRBuilder<> &Builder) {
+  DXASSERT_NOMSG(MatOrArrayPtr->getType()->isPointerTy());
+  DXASSERT_NOMSG(!isa<GetElementPtrInst>(MatOrArrayPtr));
+
+  // Is this a constant buffer subscript?
+  if (CallInst *Call = dyn_cast<CallInst>(MatOrArrayPtr)) {
+    HLOpcodeGroup OpcodeGroup = GetHLOpcodeGroupByName(Call->getCalledFunction());
+    if (OpcodeGroup == HLOpcodeGroup::HLSubscript) {
+      HLSubscriptOpcode SubscriptOpcode = static_cast<HLSubscriptOpcode>(GetHLOpcode(Call));
+      if (SubscriptOpcode == HLSubscriptOpcode::CBufferSubscript) {
+        // Leave it to HLSignatureLower
+        return nullptr;
+      }
+    }
+  }
+
+  Type *MatOrArrayPtrTy = MatOrArrayPtr->getType();
+  DXASSERT_NOMSG(HLMatrixType::isMatrixPtr(MatOrArrayPtrTy) || HLMatrixType::isMatrixArrayPtr(MatOrArrayPtrTy));
+
+  Type *LoweredTy = getLoweredType(MatOrArrayPtrTy);
+  DXASSERT(LoweredTy != MatOrArrayPtrTy, "Unexpected lowered matrix type.");
+
+  // Is this an alloca we've already lowered?
+  if (CallInst *Call = dyn_cast<CallInst>(MatOrArrayPtr)) {
+    if (m_vecToMatStubs->contains(Call->getCalledFunction())) {
+      Value *LoweredPtr = Call->getArgOperand(0);
+      DXASSERT(LoweredPtr->getType() == LoweredTy, "Unexpected lowered matrix value type.");
+      return LoweredPtr;
+    }
+  }
+
+  if (AllocaInst *Alloca = dyn_cast<AllocaInst>(MatOrArrayPtr)) {
+    // Return a mat-to-vec translation stub
+    FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { MatOrArrayPtr->getType() }, /* isVarArg */ false);
+    Function *TranslationStub = m_matToVecStubs->get(TranslationStubTy);
+    return Builder.CreateCall(TranslationStub, { MatOrArrayPtr });
+  }
+
+  // TODO what about non-graphics shader input arguments?
+  return nullptr;
+}
+
+// Attempts to retrieve the lowered vector pointer equivalent to a matrix pointer.
+// Returns nullptr if the pointed-to matrix lives in memory that cannot be lowered at this time,
+// for example a buffer or shader inputs/outputs, which are lowered during signature lowering.
+Value *HLMatrixLowerPass::tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder<> &Builder) {
+  DXASSERT(MatPtr->getType()->isPointerTy() && HLMatrixType::isa(MatPtr->getType()->getPointerElementType()),
+    "Value must be a matrix pointer.");
+
+  // Skip all GEPs on the way to the "root" ptr (alloca or otherwise)
+  Value* RootPtr = MatPtr;
+  SmallVector<Value*, 4> GEPIndices;
+  while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(RootPtr)) {
+    DXASSERT(GEP->getNumIndices() >= 1, "Unexpected GEP without indices.");
+    DXASSERT(cast<ConstantInt>(GEP->idx_begin()->get())->getValue().getLimitedValue() == 0,
+      "Unexpected GEP not starting with index zero.");
+    for (auto IdxIt = GEP->idx_begin() + 1, IdxEnd = GEP->idx_end(); IdxIt != IdxEnd; ++IdxIt)
+      GEPIndices.emplace_back(IdxIt->get());
+    RootPtr = GEP->getPointerOperand();
+  }
+
+  llvm::Value *LoweredRootPtr = tryGetLoweredMatrixOrArrayPtrOperandNoGep(RootPtr, Builder);
+  if (LoweredRootPtr == nullptr) return nullptr;
+
+  // Reconstruct GEP chain around the lowered ptr, if any
+  if (!GEPIndices.empty()) {
+    LoweredRootPtr = Builder.CreateGEP(LoweredRootPtr, GEPIndices);
+  }
+
+  return LoweredRootPtr;
 }
 
 // Replaces all uses of a matrix value by its lowered vector form,
@@ -2776,20 +2866,20 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
         AddToDeadInsts(Call);
         continue;
       }
-
-      // Otherwise, the user should point to a vector-to-matrix translation
-      // stub of the new vector value.
-      if (VecToMatStub == nullptr) {
-        FunctionType *TranslationStubTy = FunctionType::get(
-          MatInst->getType(), {VecVal->getType()}, /* isVarArg */ false);
-        Function *TranslationStub = m_vecToMatStubs->get(TranslationStubTy);
-
-        IRBuilder<> Builder(dxilutil::SkipAllocas(MatInst->getNextNode()));
-        VecToMatStub = Builder.CreateCall(TranslationStub, {VecVal});
-      }
-
-      ValUse.set(VecToMatStub);
     }
+
+    // Otherwise, the user should point to a vector-to-matrix translation
+    // stub of the new vector value.
+    if (VecToMatStub == nullptr) {
+      FunctionType *TranslationStubTy = FunctionType::get(
+        MatInst->getType(), { VecVal->getType() }, /* isVarArg */ false);
+      Function *TranslationStub = m_vecToMatStubs->get(TranslationStubTy);
+
+      IRBuilder<> Builder(dxilutil::SkipAllocas(MatInst->getNextNode()));
+      VecToMatStub = Builder.CreateCall(TranslationStub, { VecVal });
+    }
+
+    ValUse.set(VecToMatStub);
   }
 
   AddToDeadInsts(MatInst);
@@ -2837,66 +2927,153 @@ Value *HLMatrixLowerPass::lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeG
   IRBuilder<> Builder(Call);
   switch (OpcodeGroup) {
   case HLOpcodeGroup::HLIntrinsic:
-    return lowerHLIntrinsic(Call, OpcodeGroup, GetHLOpcode(Call));
+    return lowerHLIntrinsic(Call, static_cast<IntrinsicOp>(GetHLOpcode(Call)));
+
   case HLOpcodeGroup::HLBinOp:
     return lowerHLBinaryOperation(
-      static_cast<HLBinaryOpcode>(GetHLOpcode(Call)),
-      getLoweredOperand(Call->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx), Call),
-      getLoweredOperand(Call->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx), Call), Builder);
+      Call->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx),
+      Call->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx),
+      static_cast<HLBinaryOpcode>(GetHLOpcode(Call)), Builder);
+
   case HLOpcodeGroup::HLUnOp:
     return lowerHLUnaryOperation(
-      static_cast<HLUnaryOpcode>(GetHLOpcode(Call)),
-      getLoweredOperand(Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx), Call), Builder);
+      Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx),
+      static_cast<HLUnaryOpcode>(GetHLOpcode(Call)), Builder);
+
   case HLOpcodeGroup::HLMatLoadStore:
-    return lowerHLLoadStore(Call);
+    return lowerHLLoadStore(Call, static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(Call)));
+
   case HLOpcodeGroup::HLCast:
-    return lowerHLCast(Call, static_cast<HLCastOpcode>(GetHLOpcode(Call)));
+    return lowerHLCast(
+      Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx), Call->getType(),
+      static_cast<HLCastOpcode>(GetHLOpcode(Call)), Builder);
+
+  case HLOpcodeGroup::HLSubscript:
+    return lowerHLSubscript(Call, static_cast<HLSubscriptOpcode>(GetHLOpcode(Call)));
+
   case HLOpcodeGroup::HLInit:
+    return lowerHLInit(Call);
+
   default:
     llvm_unreachable("Not implemented");
   }
 }
 
-Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, HLOpcodeGroup OpcodeGroup, unsigned Opcode) {
-  // Build the lowered function type and args
-  SmallVector<Value*, 4> LoweredArgs;
-  SmallVector<Type*, 4> LoweredArgTys;
-  LoweredArgs.reserve(Call->getNumArgOperands());
-  LoweredArgTys.reserve(Call->getNumArgOperands());
-  for (Value *Arg : Call->arg_operands()) {
-    Value *LoweredArg = getLoweredOperand(Arg, Call);
-    LoweredArgs.emplace_back(LoweredArg);
-    LoweredArgTys.emplace_back(LoweredArg->getType());
-  }
+static Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+  Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
+  SmallVector<Type*, 4> ArgTys;
+  ArgTys.reserve(Args.size());
+  for (Value *Arg : Args)
+    ArgTys.emplace_back(Arg->getType());
 
-  Type *LoweredRetTy = getLoweredType(Call->getType());
+  FunctionType *FuncTy = FunctionType::get(RetTy, ArgTys, /* isVarArg */ false);
+  Function *Func = GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode);
 
-  // Get the lowered version of the intrinsic
-  FunctionType *LoweredFuncTy = FunctionType::get(LoweredRetTy, LoweredArgTys, /* isVarArg */ false);
-  Function *LoweredFunc = GetOrCreateHLFunction(*m_pModule, LoweredFuncTy, OpcodeGroup, Opcode);
-
-  // Call it
-  IRBuilder<> Builder(Call);
-  return Builder.CreateCall(LoweredFunc, LoweredArgs);
+  return Builder.CreateCall(Func, Args);
 }
 
-Value *HLMatrixLowerPass::lowerHLUnaryOperation(HLUnaryOpcode Opcode,
-  Value *LoweredOperand, IRBuilder<> &Builder) {
-  VectorType *VecTy = cast<VectorType>(LoweredOperand->getType());
+Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
+  IRBuilder<> Builder(Call);
+
+  // See if this is a matrix-specific intrinsic which we should expand here
+  switch (Opcode) {
+  case IntrinsicOp::IOP_umul:
+  case IntrinsicOp::IOP_mul:
+    return lowerHLMulIntrinsic(
+      Call->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx),
+      Call->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx),
+      /* Unsigned */ Opcode == IntrinsicOp::IOP_umul, Builder);
+  case IntrinsicOp::IOP_transpose:
+    return lowerHLTransposeIntrinsic(Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx), Builder);
+  case IntrinsicOp::IOP_determinant:
+    return lowerHLDeterminantIntrinsic(Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx), Builder);
+  }
+
+  // Delegate to a lowered intrinsic call
+  SmallVector<Value*, 4> LoweredArgs;
+  LoweredArgs.reserve(Call->getNumArgOperands());
+  for (Value *Arg : Call->arg_operands())
+    LoweredArgs.emplace_back(getLoweredByValOperand(Arg, Builder));
+
+  Type *LoweredRetTy = getLoweredType(Call->getType());
+  return callHLFunction(*m_pModule, HLOpcodeGroup::HLIntrinsic, static_cast<unsigned>(Opcode), 
+    LoweredRetTy, LoweredArgs, Builder);
+}
+
+Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
+    bool Unsigned, IRBuilder<> &Builder) {
+  llvm_unreachable("Not implemented");
+}
+
+Value *HLMatrixLowerPass::lowerHLTransposeIntrinsic(Value* MatVal, IRBuilder<> &Builder) {
+  HLMatrixType MatTy = HLMatrixType::cast(MatVal->getType());
+  Value *LoweredVal = getLoweredByValOperand(MatVal, Builder);
+  return MatTy.emitLoweredVectorRowToCol(LoweredVal, Builder);
+}
+
+Value *HLMatrixLowerPass::lowerHLDeterminantIntrinsic(Value* MatVal, IRBuilder<> &Builder) {
+  HLMatrixType MatTy = HLMatrixType::cast(MatVal->getType());
+  DXASSERT_NOMSG(MatTy.getNumColumns() == MatTy.getNumRows());
+
+  Value *LoweredVal = getLoweredByValOperand(MatVal, Builder);
+
+  // Extract all matrix elements
+  SmallVector<Value*, 16> Elems;
+  for (unsigned ElemIdx = 0; ElemIdx < MatTy.getNumElements(); ++ElemIdx)
+    Elems.emplace_back(Builder.CreateExtractElement(LoweredVal, static_cast<uint64_t>(ElemIdx)));
+
+  // Delegate to appropriate determinant function
+  switch (MatTy.getNumColumns()) {
+  case 1:
+    return Elems[0];
+
+  case 2:
+    return Determinant2x2(
+      Elems[0], Elems[1],
+      Elems[2], Elems[3],
+      Builder);
+
+  case 3:
+    return Determinant3x3(
+      Elems[0], Elems[1], Elems[2],
+      Elems[3], Elems[4], Elems[5],
+      Elems[6], Elems[7], Elems[8],
+      Builder);
+
+  case 4:
+    return Determinant4x4(
+      Elems[0], Elems[1], Elems[2], Elems[3],
+      Elems[4], Elems[5], Elems[6], Elems[7],
+      Elems[8], Elems[9], Elems[10], Elems[11],
+      Elems[12], Elems[13], Elems[14], Elems[15],
+      Builder);
+
+  default:
+    llvm_unreachable("Unexpected matrix dimensions.");
+  }
+}
+
+Value *HLMatrixLowerPass::lowerHLUnaryOperation(Value *MatVal, HLUnaryOpcode Opcode, IRBuilder<> &Builder) {
+  Value *LoweredVal = getLoweredByValOperand(MatVal, Builder);
+  VectorType *VecTy = cast<VectorType>(LoweredVal->getType());
   bool IsFloat = VecTy->getElementType()->isFloatingPointTy();
   
   switch (Opcode) {
-  case HLUnaryOpcode::Plus: return LoweredOperand; // No-op
+  case HLUnaryOpcode::Plus: return LoweredVal; // No-op
+
   case HLUnaryOpcode::Minus:
     return IsFloat
-      ? Builder.CreateFSub(Constant::getNullValue(VecTy), LoweredOperand)
-      : Builder.CreateSub(Constant::getNullValue(VecTy), LoweredOperand);
+      ? Builder.CreateFSub(Constant::getNullValue(VecTy), LoweredVal)
+      : Builder.CreateSub(Constant::getNullValue(VecTy), LoweredVal);
+
   case HLUnaryOpcode::LNot:
     return IsFloat
-      ? Builder.CreateFCmp(CmpInst::FCMP_UEQ, LoweredOperand, Constant::getNullValue(VecTy))
-      : Builder.CreateICmp(CmpInst::ICMP_EQ, LoweredOperand, Constant::getNullValue(VecTy));
+      ? Builder.CreateFCmp(CmpInst::FCMP_UEQ, LoweredVal, Constant::getNullValue(VecTy))
+      : Builder.CreateICmp(CmpInst::ICMP_EQ, LoweredVal, Constant::getNullValue(VecTy));
+
   case HLUnaryOpcode::Not:
-    return Builder.CreateXor(LoweredOperand, Constant::getAllOnesValue(VecTy));
+    return Builder.CreateXor(LoweredVal, Constant::getAllOnesValue(VecTy));
+
   case HLUnaryOpcode::PostInc:
   case HLUnaryOpcode::PreInc:
   case HLUnaryOpcode::PostDec:
@@ -2908,13 +3085,13 @@ Value *HLMatrixLowerPass::lowerHLUnaryOperation(HLUnaryOpcode Opcode,
     // BUGBUG: This implementation has incorrect semantics (GitHub #1780)
     if (Opcode == HLUnaryOpcode::PostInc || Opcode == HLUnaryOpcode::PreInc) {
       return IsFloat
-        ? Builder.CreateFAdd(LoweredOperand, VecOne)
-        : Builder.CreateAdd(LoweredOperand, VecOne);
+        ? Builder.CreateFAdd(LoweredVal, VecOne)
+        : Builder.CreateAdd(LoweredVal, VecOne);
     }
     else {
       return IsFloat
-        ? Builder.CreateFSub(LoweredOperand, VecOne)
-        : Builder.CreateSub(LoweredOperand, VecOne);
+        ? Builder.CreateFSub(LoweredVal, VecOne)
+        : Builder.CreateSub(LoweredVal, VecOne);
     }
   }
   default:
@@ -2922,8 +3099,10 @@ Value *HLMatrixLowerPass::lowerHLUnaryOperation(HLUnaryOpcode Opcode,
   }
 }
 
-Value *HLMatrixLowerPass::lowerHLBinaryOperation(HLBinaryOpcode Opcode,
-  Value *LoweredLhs, Value *LoweredRhs, IRBuilder<> &Builder) {
+Value *HLMatrixLowerPass::lowerHLBinaryOperation(Value *Lhs, Value *Rhs, HLBinaryOpcode Opcode, IRBuilder<> &Builder) {
+  Value *LoweredLhs = getLoweredByValOperand(Lhs, Builder);
+  Value *LoweredRhs = getLoweredByValOperand(Rhs, Builder);
+
   DXASSERT(LoweredLhs->getType()->isVectorTy() && LoweredRhs->getType()->isVectorTy(),
     "Expected lowered binary operation operands to be vectors");
   DXASSERT(LoweredLhs->getType() == LoweredRhs->getType(),
@@ -2936,70 +3115,93 @@ Value *HLMatrixLowerPass::lowerHLBinaryOperation(HLBinaryOpcode Opcode,
     return IsFloat
       ? Builder.CreateFAdd(LoweredLhs, LoweredRhs)
       : Builder.CreateAdd(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Sub:
     return IsFloat
       ? Builder.CreateFSub(LoweredLhs, LoweredRhs)
       : Builder.CreateSub(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Mul:
     return IsFloat
       ? Builder.CreateFMul(LoweredLhs, LoweredRhs)
       : Builder.CreateMul(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Div:
     return IsFloat
       ? Builder.CreateFDiv(LoweredLhs, LoweredRhs)
       : Builder.CreateSDiv(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Rem:
     return IsFloat
       ? Builder.CreateFRem(LoweredLhs, LoweredRhs)
       : Builder.CreateSRem(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::And:
     return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Or:
     return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Xor:
     return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Shl:
     return Builder.CreateShl(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::Shr:
     return Builder.CreateAShr(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::LT:
     return IsFloat
       ? Builder.CreateFCmp(CmpInst::FCMP_OLT, LoweredLhs, LoweredRhs)
       : Builder.CreateICmp(CmpInst::ICMP_SLT, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::GT:
     return IsFloat
       ? Builder.CreateFCmp(CmpInst::FCMP_OGT, LoweredLhs, LoweredRhs)
       : Builder.CreateICmp(CmpInst::ICMP_SGT, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::LE:
     return IsFloat
       ? Builder.CreateFCmp(CmpInst::FCMP_OLE, LoweredLhs, LoweredRhs)
       : Builder.CreateICmp(CmpInst::ICMP_SLE, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::GE:
     return IsFloat
       ? Builder.CreateFCmp(CmpInst::FCMP_OGE, LoweredLhs, LoweredRhs)
       : Builder.CreateICmp(CmpInst::ICMP_SGE, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::EQ:
     return IsFloat
       ? Builder.CreateFCmp(CmpInst::FCMP_OEQ, LoweredLhs, LoweredRhs)
       : Builder.CreateICmp(CmpInst::ICMP_EQ, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::NE:
     return IsFloat
       ? Builder.CreateFCmp(CmpInst::FCMP_ONE, LoweredLhs, LoweredRhs)
       : Builder.CreateICmp(CmpInst::ICMP_NE, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::UDiv:
     return Builder.CreateUDiv(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::URem:
     return Builder.CreateURem(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::UShr:
     return Builder.CreateLShr(LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::ULT:
     return Builder.CreateICmp(CmpInst::ICMP_ULT, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::UGT:
     return Builder.CreateICmp(CmpInst::ICMP_UGT, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::ULE:
     return Builder.CreateICmp(CmpInst::ICMP_ULE, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::UGE:
     return Builder.CreateICmp(CmpInst::ICMP_UGE, LoweredLhs, LoweredRhs);
+
   case HLBinaryOpcode::LAnd:
   case HLBinaryOpcode::LOr: {
     Value *Zero = Constant::getNullValue(LoweredLhs->getType());
@@ -3018,64 +3220,62 @@ Value *HLMatrixLowerPass::lowerHLBinaryOperation(HLBinaryOpcode Opcode,
   }
 }
 
-Value *HLMatrixLowerPass::lowerHLLoadStore(CallInst *Call) {
-  auto Opcode = static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(Call));
+Value *HLMatrixLowerPass::lowerHLLoadStore(CallInst *Call, HLMatLoadStoreOpcode Opcode) {
+  IRBuilder<> Builder(Call);
   switch (Opcode) {
-  case HLMatLoadStoreOpcode::ColMatLoad:
   case HLMatLoadStoreOpcode::RowMatLoad:
-    return lowerHLLoad(Call, Opcode);
+  case HLMatLoadStoreOpcode::ColMatLoad:
+    return lowerHLLoad(Call->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx),
+      /* RowMajor */ Opcode == HLMatLoadStoreOpcode::RowMatLoad, Builder);
 
-  case HLMatLoadStoreOpcode::ColMatStore:
   case HLMatLoadStoreOpcode::RowMatStore:
-    return lowerHLStore(Call, Opcode);
+  case HLMatLoadStoreOpcode::ColMatStore:
+    return lowerHLStore(
+      Call->getArgOperand(HLOperandIndex::kMatStoreValOpIdx),
+      Call->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx),
+      /* RowMajor */ Opcode == HLMatLoadStoreOpcode::RowMatStore,
+      /* Return */ !Call->getType()->isVoidTy(), Builder);
 
   default:
     llvm_unreachable("Unsupported matrix load/store operation");
   }
 }
 
-static Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
-  Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
-  SmallVector<Type*, 4> ArgTys;
-  ArgTys.reserve(Args.size());
-  for (Value *Arg : Args)
-    ArgTys.emplace_back(Arg->getType());
+Value *HLMatrixLowerPass::lowerHLLoad(Value *MatPtr, bool RowMajor, IRBuilder<> &Builder) {
+  HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
 
-  FunctionType *FuncTy = FunctionType::get(RetTy, ArgTys, /* isVarArg */ false);
-  Function *Func = GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode);
-
-  return Builder.CreateCall(Func, Args);
-}
-
-Value *HLMatrixLowerPass::lowerHLLoad(CallInst *Call, HLMatLoadStoreOpcode Opcode) {
-  IRBuilder<> Builder(Call);
-  Value *MatPtr = Call->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
-  if (!IsPtrToLowerable(MatPtr, *m_pHLModule)) {
+  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, Builder);
+  if (LoweredPtr == nullptr) {
     // Can't lower this here, defer to HL signature lower
+    HLMatLoadStoreOpcode Opcode = RowMajor ? HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
     return callHLFunction(
       *m_pModule, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(Opcode),
-      getLoweredType(Call->getType()), { MatPtr }, Builder);
+      MatTy.getLoweredVectorTypeForReg(), { Builder.getInt32((uint32_t)Opcode), MatPtr }, Builder);
   }
 
-  HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
-  return MatTy.emitLoweredVectorLoad(getLoweredOperand(MatPtr, Call), Builder);
+  return MatTy.emitLoweredVectorLoad(LoweredPtr, Builder);
 }
 
-Value *HLMatrixLowerPass::lowerHLStore(CallInst *Call, HLMatLoadStoreOpcode Opcode) {
-  IRBuilder<> Builder(Call);
-  Value *MatPtr = Call->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx);
-  Value *MatVal = Call->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-  Value *LoweredVal = getLoweredOperand(MatVal, Call);
-  if (!IsPtrToLowerable(MatPtr, *m_pHLModule)) {
+Value *HLMatrixLowerPass::lowerHLStore(Value *MatVal, Value *MatPtr, bool RowMajor, bool Return, IRBuilder<> &Builder) {
+  DXASSERT(MatVal->getType() == MatPtr->getType()->getPointerElementType(),
+    "Matrix store value/pointer type mismatch.");
+
+  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, Builder);
+  Value *LoweredVal = getLoweredByValOperand(MatVal, Builder);
+  if (LoweredPtr == nullptr) {
     // Can't lower the pointer here, defer to HL signature lower
+    HLMatLoadStoreOpcode Opcode = RowMajor ? HLMatLoadStoreOpcode::RowMatStore : HLMatLoadStoreOpcode::ColMatStore;
     return callHLFunction(
       *m_pModule, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(Opcode),
-      getLoweredType(Call->getType()), { MatPtr, LoweredVal }, Builder);
+      Return ? LoweredVal->getType() : Builder.getVoidTy(),
+      { Builder.getInt32((uint32_t)Opcode), MatPtr, LoweredVal }, Builder);
   }
 
   HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
-  Value *LoweredPtr = getLoweredOperand(MatPtr, Call);
-  return MatTy.emitLoweredVectorStore(LoweredVal, LoweredPtr, Builder);
+  StoreInst *LoweredStore = MatTy.emitLoweredVectorStore(LoweredVal, LoweredPtr, Builder);
+
+  // If the intrinsic returned a value, return the stored lowered value
+  return Return ? LoweredVal : LoweredStore;
 }
 
 static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode HLCastOpcode, IRBuilder<> Builder) {
@@ -3105,13 +3305,12 @@ static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode HLC
   return cast<Instruction>(Builder.CreateCast(CastOp, SrcVal, DstTy));
 }
 
-Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, HLCastOpcode Opcode) {
-  IRBuilder<> Builder(Call);
-  Value *Src = Call->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+Value *HLMatrixLowerPass::lowerHLCast(Value *Src, Type *DstTy, HLCastOpcode Opcode, IRBuilder<> &Builder) {
+  DXASSERT(Opcode != HLCastOpcode::HandleToResCast, "Unexpected matrix cast opcode.");
 
   if (dxilutil::IsIntegerOrFloatingPointType(Src->getType())) {
     // Scalar to matrix splat
-    HLMatrixType MatDstTy = HLMatrixType::cast(Call->getType());
+    HLMatrixType MatDstTy = HLMatrixType::cast(DstTy);
 
     // Apply element conversion
     Value *Result = convertScalarOrVector(Src,
@@ -3133,23 +3332,38 @@ Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, HLCastOpcode Opcode) {
 
   // Source must now be a matrix
   HLMatrixType MatSrcTy = HLMatrixType::cast(Src->getType());
-  Value *Result = getLoweredOperand(Src, Call);
-  DXASSERT_NOMSG(Result->getType()->isVectorTy());
+  VectorType* LoweredSrcTy = MatSrcTy.getLoweredVectorTypeForReg();
 
-  if (dxilutil::IsIntegerOrFloatingPointType(Call->getType())) {
-    // Matrix to scalar
-    Result = Builder.CreateExtractElement(Result, static_cast<uint64_t>(0));
-    return convertScalarOrVector(Result, Call->getType(), Opcode, Builder);
+  Value *LoweredSrc;
+  if (isa<Argument>(Src)) {
+    // Function arguments are lowered in HLSignatureLower.
+    // Initial codegen first generates those cast intrinsics to tell us how to lower them into vectors.
+    // Preserve them, but change the return type to vector.
+    DXASSERT(Opcode == HLCastOpcode::ColMatrixToVecCast || Opcode == HLCastOpcode::RowMatrixToVecCast,
+      "Unexpected cast of matrix argument.");
+    LoweredSrc = callHLFunction(*m_pModule, HLOpcodeGroup::HLCast, static_cast<unsigned>(Opcode),
+      LoweredSrcTy, { Builder.getInt32((uint32_t)Opcode), Src }, Builder);
   }
-  else if (Call->getType()->isVectorTy()) {
+  else {
+    LoweredSrc = getLoweredByValOperand(Src, Builder);
+  }
+  DXASSERT_NOMSG(LoweredSrc->getType() == LoweredSrcTy);
+
+  if (dxilutil::IsIntegerOrFloatingPointType(DstTy)) {
+    // Matrix to scalar
+    Value *Result = Builder.CreateExtractElement(LoweredSrc, static_cast<uint64_t>(0));
+    return convertScalarOrVector(Result, DstTy, Opcode, Builder);
+  }
+  else if (DstTy->isVectorTy()) {
     // Matrix to vector
     llvm_unreachable("Matrix to vector conversions not implemented");
   }
 
   // Destination must now be a matrix too
-  HLMatrixType MatDstTy = HLMatrixType::cast(Call->getType());
+  HLMatrixType MatDstTy = HLMatrixType::cast(DstTy);
 
   // Apply orientation changes
+  Value *Result = LoweredSrc;
   if (Opcode == HLCastOpcode::ColMatrixToRowMatrix)
     Result = MatSrcTy.emitLoweredVectorColToRow(Result, Builder);
   else if (Opcode == HLCastOpcode::RowMatrixToColMatrix)
@@ -3161,10 +3375,125 @@ Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, HLCastOpcode Opcode) {
     llvm_unreachable("Matrix truncation not implemented");
   }
 
-  DXASSERT_NOMSG(Result->getType()->getVectorNumElements() == MatDstTy.getNumElements());
+  VectorType *LoweredDstTy = MatDstTy.getLoweredVectorTypeForReg();
+  DXASSERT(Result->getType()->getVectorNumElements() == LoweredDstTy->getNumElements(),
+    "Unexpected matrix src/dst lowered element count mismatch after truncation.");
 
   // Apply element conversion
-  return convertScalarOrVector(Result, MatDstTy.getElementType(/* MemRepr */ false), Opcode, Builder);
+  return convertScalarOrVector(Result, LoweredDstTy, Opcode, Builder);
+}
+
+Value *HLMatrixLowerPass::lowerHLSubscript(CallInst *Call, HLSubscriptOpcode Opcode) {
+  switch (Opcode) {
+  case HLSubscriptOpcode::RowMatElement:
+  case HLSubscriptOpcode::ColMatElement:
+    return lowerHLMatElementSubscript(Call,
+      /* RowMajor */ Opcode == HLSubscriptOpcode::RowMatElement);
+
+  case HLSubscriptOpcode::RowMatSubscript:
+  case HLSubscriptOpcode::ColMatSubscript:
+  default:
+    llvm_unreachable("Unexpected matrix subscript opcode.");
+  }
+}
+
+Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMajor) {
+  Value *MatPtr = Call->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
+  DXASSERT_NOMSG(MatPtr->getType()->isPointerTy());
+
+  Value *IdxVec = Call->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
+  Constant *ConstIdxVec = cast<Constant>(IdxVec);
+  DXASSERT_NOMSG(ConstIdxVec->getType()->isVectorTy());
+
+  // We can't do this here if the source matrix is from a buffer or such
+  IRBuilder<> CallBuilder(Call);
+  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, CallBuilder);
+  if (LoweredPtr == nullptr) return nullptr;
+
+  HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
+
+  // Get the loaded lowered vector element indices
+  SmallVector<int, 4> ElemIndices;
+  ElemIndices.reserve(ConstIdxVec->getNumOperands());
+  for (Value *Idx : ConstIdxVec->operand_values())
+    ElemIndices.emplace_back(static_cast<int>(cast<ConstantInt>(Idx)->getLimitedValue()));
+
+  bool IsVector = Call->getType()->getPointerElementType()->isVectorTy();
+  DXASSERT(IsVector || ElemIndices.size() == 1, "Subscript should only return a scalar pointer if it has a single index.");
+
+  // Users of the pointer resulting from the subscript should be either loads or stores.
+  // Replace them by their equivalent vector element subset accesses.
+  while (!Call->use_empty()) {
+    llvm::Use &Use = *Call->use_begin();
+    Instruction *UserInst = cast<Instruction>(Use.getUser());
+
+    // First load the entire vector, whether we want to load a subset of it,
+    // or modify a subset of it and store it back.
+    // Load it every time since the value could have changed.
+    IRBuilder<> UserBuilder(UserInst);
+    Value* MatVec = MatTy.emitLoweredVectorLoad(LoweredPtr, UserBuilder);
+
+    if (LoadInst *Load = dyn_cast<LoadInst>(Use.getUser())) {
+      // Return the interesting subset
+      Value* SubscriptVal = IsVector
+        ? UserBuilder.CreateShuffleVector(MatVec, MatVec, ElemIndices)
+        : UserBuilder.CreateExtractElement(MatVec, ElemIndices[0]);
+      Load->replaceAllUsesWith(SubscriptVal);
+    }
+    else if (StoreInst *Store = dyn_cast<StoreInst>(Use.getUser())) {
+      DXASSERT_NOMSG(Store->getPointerOperand() == Call);
+      // Update the interesting subset
+      if (IsVector) {
+        // Shuffle the original and incoming vectors together,
+        // start with indices 0 to N-1, preserving the original vector elements,
+        // then update the indices being written to to point to the new vector elements.
+        SmallVector<int, 16> ShuffleIndices;
+        for (unsigned Idx = 0; Idx < MatTy.getNumElements(); ++Idx)
+          ShuffleIndices.emplace_back((int)Idx);
+        for (unsigned Idx = 0; Idx < ElemIndices.size(); ++Idx)
+          ShuffleIndices[ElemIndices[Idx]] = MatTy.getNumElements() + (int)Idx;
+        MatVec = UserBuilder.CreateShuffleVector(MatVec, Store->getValueOperand(), ShuffleIndices);
+      }
+      else {
+        MatVec = UserBuilder.CreateInsertElement(MatVec, Store->getValueOperand(), ElemIndices[0]);
+      }
+
+      MatTy.emitLoweredVectorStore(MatVec, LoweredPtr, UserBuilder);
+    }
+    else
+      llvm_unreachable("Unexpected matrix element subscript user.");
+
+    // We've replaced the user, mark it dead and remove the use
+    Use.set(UndefValue::get(Use->getType()));
+    AddToDeadInsts(UserInst);
+  }
+
+  // We've already taken care of users of the matrix instruction
+  // and the subscript doesn't exist anymore, so return null (nothing to replace).
+  return nullptr;
+}
+
+Value *HLMatrixLowerPass::lowerHLInit(CallInst *Call) {
+  DXASSERT(GetHLOpcode(Call) == 0, "Unexpected matrix init opcode.");
+
+  // Figure out the result type
+  HLMatrixType MatTy = HLMatrixType::cast(Call->getType());
+  VectorType *LoweredTy = MatTy.getLoweredVectorTypeForReg();
+  DXASSERT(LoweredTy->getNumElements() == Call->getNumArgOperands() - HLOperandIndex::kInitFirstArgOpIdx,
+    "Invalid matrix init argument count.");
+
+  // Build the result vector from the init args.
+  // Both the args and the result vector are in row-major order, so no shuffling is necessary.
+  IRBuilder<> Builder(Call);
+  Value *LoweredVec = UndefValue::get(LoweredTy);
+  for (unsigned VecElemIdx = 0; VecElemIdx < LoweredTy->getNumElements(); ++VecElemIdx) {
+    Value *ArgVal = Call->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx + VecElemIdx);
+    DXASSERT(dxilutil::IsIntegerOrFloatingPointType(ArgVal->getType()),
+      "Expected only scalars in matrix initialization.");
+    LoweredVec = Builder.CreateInsertElement(LoweredVec, ArgVal, static_cast<uint64_t>(VecElemIdx));
+  }
+
+  return LoweredVec;
 }
 
 // Matrix Bitcast lower.

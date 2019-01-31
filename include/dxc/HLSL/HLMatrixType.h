@@ -54,11 +54,15 @@ public:
   operator bool() const { return RegReprElemTy != nullptr; }
 
   llvm::Type *getElementType(bool MemRepr) const;
+  llvm::Type *getElementTypeForReg() const { return getElementType(false); }
+  llvm::Type *getElementTypeForMem() const { return getElementType(true); }
   unsigned getNumRows() const { return NumRows; }
   unsigned getNumColumns() const { return NumColumns; }
   unsigned getNumElements() const { return NumRows * NumColumns; }
 
   llvm::VectorType *getLoweredVectorType(bool MemRepr) const;
+  llvm::VectorType *getLoweredVectorTypeForReg() const { return getLoweredVectorType(false); }
+  llvm::VectorType *getLoweredVectorTypeForMem() const { return getLoweredVectorType(true); }
 
   llvm::Value *emitLoweredVectorMemToReg(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
   llvm::Value *emitLoweredVectorRegToMem(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
