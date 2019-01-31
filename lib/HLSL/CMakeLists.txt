@@ -16,6 +16,7 @@ add_llvm_library(LLVMHLSL
   DxilPackSignatureElement.cpp
   DxilPatchShaderRecordBindings.cpp
   DxilPreserveAllOutputs.cpp
+  DxilSimpleGVNHoist.cpp
   DxilSignatureValidation.cpp
   DxilTargetLowering.cpp
   DxilTargetTransformInfo.cpp

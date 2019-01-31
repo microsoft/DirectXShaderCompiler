@@ -419,6 +419,8 @@ void PassManagerBuilder::populateModulePassManager(
     if (EnableMLSM)
       MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
     MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
+    if (!HLSLResMayAlias)
+      MPM.add(createDxilSimpleGVNHoistPass()); // HLSL Change - GVN hoist for code size.
   }
   // HLSL Change Begins.
   // HLSL don't allow memcpy and memset.
