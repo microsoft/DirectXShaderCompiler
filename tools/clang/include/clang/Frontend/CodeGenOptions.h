@@ -212,6 +212,8 @@ public:
   /// DefaultLinkage Internal, External, or Default.  If Default, default
   /// function linkage is determined by library target.
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
+  /// Assume UAVs/SRVs may alias.
+  bool HLSLResMayAlias = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts
