@@ -256,7 +256,7 @@ uint32_t ValueTable::lookupOrAddCall(CallInst *C) {
       switch (Opcode) {
       default:
         break;
-        // TODO: make buffer/texture load on sra safe.
+        // TODO: make buffer/texture load on srv safe.
       case DXIL::OpCode::CreateHandleForLib:
       case DXIL::OpCode::CBufferLoad:
       case DXIL::OpCode::CBufferLoadLegacy:
