@@ -13,6 +13,7 @@
 
 namespace llvm {
   class Type;
+  class StoreInst;
   class Value;
   template<typename T>
   class ArrayRef;
@@ -45,23 +46,27 @@ class HLMatrixType
 public:
   static constexpr char* StructNamePrefix = "class.matrix";
 
-  HLMatrixType() : RegReprElemTy(nullptr), RowCount(0), ColCount(0) {}
-  HLMatrixType(llvm::Type *RegReprElemTy, unsigned RowCount, unsigned ColCount);
+  HLMatrixType() : RegReprElemTy(nullptr), NumRows(0), NumColumns(0) {}
+  HLMatrixType(llvm::Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns);
 
   // We allow default construction to an invalid state to support the dynCast pattern.
   // This tests whether we have a legit object.
   operator bool() const { return RegReprElemTy != nullptr; }
 
-  llvm::Type *getElemType(bool MemRepr) const;
-  unsigned getRowCount() const { return RowCount; }
-  unsigned getColumnCount() const { return ColCount; }
+  llvm::Type *getElementType(bool MemRepr) const;
+  unsigned getNumRows() const { return NumRows; }
+  unsigned getNumColumns() const { return NumColumns; }
+  unsigned getNumElements() const { return NumRows * NumColumns; }
 
   llvm::VectorType *getLoweredVectorType(bool MemRepr) const;
 
   llvm::Value *emitLoweredVectorMemToReg(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
   llvm::Value *emitLoweredVectorRegToMem(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
   llvm::Value *emitLoweredVectorLoad(llvm::Value *VecPtr, llvm::IRBuilder<> &Builder) const;
-  void emitLoweredVectorStore(llvm::Value *VecVal, llvm::Value *VecPtr, llvm::IRBuilder<> &Builder) const;
+  llvm::StoreInst *emitLoweredVectorStore(llvm::Value *VecVal, llvm::Value *VecPtr, llvm::IRBuilder<> &Builder) const;
+
+  llvm::Value *emitLoweredVectorRowToCol(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
+  llvm::Value *emitLoweredVectorColToRow(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
 
   static bool isa(llvm::Type *Ty);
   static bool isMatrixPtr(llvm::Type *Ty);
@@ -73,7 +78,7 @@ public:
 
 private:
   llvm::Type *RegReprElemTy;
-  unsigned RowCount, ColCount;
+  unsigned NumRows, NumColumns;
 };
 
 } // namespace hlsl

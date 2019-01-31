@@ -17,15 +17,15 @@
 using namespace llvm;
 using namespace hlsl;
 
-HLMatrixType::HLMatrixType(Type *RegReprElemTy, unsigned RowCount, unsigned ColCount)
-  : RegReprElemTy(RegReprElemTy), RowCount(RowCount), ColCount(ColCount) {
+HLMatrixType::HLMatrixType(Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns)
+  : RegReprElemTy(RegReprElemTy), NumRows(NumRows), NumColumns(NumColumns) {
   DXASSERT(RegReprElemTy != nullptr && (RegReprElemTy->isIntegerTy() || RegReprElemTy->isFloatingPointTy()),
     "Invalid matrix element type.");
-  DXASSERT(RowCount >= 1 && RowCount <= 4 && ColCount >= 1 && ColCount <= 4,
+  DXASSERT(NumRows >= 1 && NumRows <= 4 && NumColumns >= 1 && NumColumns <= 4,
     "Invalid matrix dimensions.");
 }
 
-Type *HLMatrixType::getElemType(bool MemRepr) const {
+Type *HLMatrixType::getElementType(bool MemRepr) const {
   // Bool i1s become i32s
   return MemRepr && RegReprElemTy->isIntegerTy(1)
     ? IntegerType::get(RegReprElemTy->getContext(), 32)
@@ -33,7 +33,7 @@ Type *HLMatrixType::getElemType(bool MemRepr) const {
 }
 
 VectorType *HLMatrixType::getLoweredVectorType(bool MemRepr) const {
-  return VectorType::get(getElemType(MemRepr), RowCount * ColCount);
+  return VectorType::get(getElementType(MemRepr), getNumElements());
 }
 
 Value *HLMatrixType::emitLoweredVectorMemToReg(Value *VecVal, IRBuilder<> &Builder) const {
@@ -56,8 +56,30 @@ Value *HLMatrixType::emitLoweredVectorLoad(Value *VecPtr, IRBuilder<> &Builder) 
   return emitLoweredVectorMemToReg(Builder.CreateLoad(VecPtr), Builder);
 }
 
-void HLMatrixType::emitLoweredVectorStore(Value *VecVal, Value *VecPtr, IRBuilder<> &Builder) const {
-  Builder.CreateStore(emitLoweredVectorRegToMem(VecVal, Builder), VecPtr);
+StoreInst *HLMatrixType::emitLoweredVectorStore(Value *VecVal, Value *VecPtr, IRBuilder<> &Builder) const {
+  return Builder.CreateStore(emitLoweredVectorRegToMem(VecVal, Builder), VecPtr);
+}
+
+Value *HLMatrixType::emitLoweredVectorRowToCol(Value *VecVal, IRBuilder<> &Builder) const {
+  DXASSERT(VecVal->getType() == getLoweredVectorType(false), "Lowered matrix type mismatch.");
+  if (NumRows == 1 || NumColumns == 1) return VecVal;
+
+  SmallVector<int, 16> ShuffleIndices;
+  for (unsigned ColIdx = 0; ColIdx < NumColumns; ++ColIdx)
+    for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx)
+      ShuffleIndices.emplace_back(RowIdx * NumColumns + ColIdx);
+  return Builder.CreateShuffleVector(VecVal, VecVal, ShuffleIndices, "row2col");
+}
+
+Value *HLMatrixType::emitLoweredVectorColToRow(Value *VecVal, IRBuilder<> &Builder) const {
+  DXASSERT(VecVal->getType() == getLoweredVectorType(false), "Lowered matrix type mismatch.");
+  if (NumRows == 1 || NumColumns == 1) return VecVal;
+
+  SmallVector<int, 16> ShuffleIndices;
+  for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx)
+    for (unsigned ColIdx = 0; ColIdx < NumColumns; ++ColIdx)
+      ShuffleIndices.emplace_back(RowIdx * NumColumns + ColIdx);
+  return Builder.CreateShuffleVector(VecVal, VecVal, ShuffleIndices, "col2row");
 }
 
 bool HLMatrixType::isa(Type *Ty) {
