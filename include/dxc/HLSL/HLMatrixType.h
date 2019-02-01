@@ -75,6 +75,7 @@ public:
   static bool isa(llvm::Type *Ty);
   static bool isMatrixPtr(llvm::Type *Ty);
   static bool isMatrixArrayPtr(llvm::Type *Ty);
+  static bool isMatrixPtrOrArrayPtr(llvm::Type *Ty);
   static bool isMatrixOrPtrOrArrayPtr(llvm::Type *Ty);
 
   static HLMatrixType cast(llvm::Type *Ty);

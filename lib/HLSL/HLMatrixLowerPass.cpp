@@ -290,6 +290,8 @@ private:
   Value *tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder<> &Builder);
   void replaceAllUsesByLoweredValue(Instruction *MatInst, Value *VecVal);
 
+  void lowerGlobal(GlobalVariable *Global);
+  Constant *lowerConstInitVal(Constant *InitVal);
   Value *lowerInstruction(Instruction *MatInst);
   AllocaInst *lowerAlloca(AllocaInst *MatAlloca);
   Value *lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup);
@@ -2531,21 +2533,23 @@ bool HLMatrixLowerPass::runOnModule(Module &M) {
   m_matToVecStubs = &matToVecStubs;
   m_vecToMatStubs = &vecToMatStubs;
 
+  // First, lower static global variables.
+  // We need to accumulate them locally because we'll be creating new ones as we lower them.
+  std::vector<GlobalVariable*> Globals;
+  for (GlobalVariable &Global : M.globals()) {
+    if ((dxilutil::IsStaticGlobal(&Global) || dxilutil::IsSharedMemoryGlobal(&Global))
+      && HLMatrixType::isMatrixPtrOrArrayPtr(Global.getType())) {
+      Globals.emplace_back(&Global);
+    }
+  }
+
+  for (GlobalVariable *Global : Globals)
+    lowerGlobal(Global);
+
   for (Function &F : M.functions()) {
     if (F.isDeclaration()) continue;
     runOnFunction(F);
   }
-
-  //std::vector<GlobalVariable*> staticGVs;
-  //for (GlobalVariable &GV : M.globals()) {
-  //  if (dxilutil::IsStaticGlobal(&GV) ||
-  //    dxilutil::IsSharedMemoryGlobal(&GV)) {
-  //    staticGVs.emplace_back(&GV);
-  //  }
-  //}
-
-  //for (GlobalVariable *GV : staticGVs)
-  //  runOnGlobal(GV);
 
   m_pModule = nullptr;
   m_pHLModule = nullptr;
@@ -2789,7 +2793,7 @@ Value *HLMatrixLowerPass::tryGetLoweredMatrixOrArrayPtrOperandNoGep(Value *MatOr
     return Builder.CreateCall(TranslationStub, { MatOrArrayPtr });
   }
 
-  // TODO what about non-graphics shader input arguments?
+  // TODO original code seemed to care about non-graphics shader input arguments?
   return nullptr;
 }
 
@@ -2870,6 +2874,39 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
   }
 
   AddToDeadInsts(MatInst);
+}
+
+void HLMatrixLowerPass::lowerGlobal(GlobalVariable *Global) {
+  if (Global->user_empty()) return;
+
+  PointerType *LoweredPtrTy = cast<PointerType>(getLoweredType(Global->getType()));
+  DXASSERT_NOMSG(LoweredPtrTy != Global->getType());
+
+  Constant *LoweredInitVal = Global->hasInitializer()
+    ? lowerConstInitVal(Global->getInitializer()) : nullptr;
+  GlobalVariable *LoweredGlobal = new GlobalVariable(*m_pModule, LoweredPtrTy->getElementType(),
+    Global->isConstant(), Global->getLinkage(), LoweredInitVal,
+    Global->getName() + ".v", /*InsertBefore*/ nullptr, Global->getThreadLocalMode(),
+    Global->getType()->getAddressSpace());
+
+  // Add debug info.
+  if (m_HasDbgInfo) {
+    DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();
+    HLModule::UpdateGlobalVariableDebugInfo(Global, Finder, LoweredGlobal);
+  }
+
+  //FunctionType *TranslationStubTy = FunctionType::get(
+  //  Global->getType(), { LoweredGlobal->getType() }, /* isVarArg */ false);
+  //Function *TranslationStub = m_vecToMatStubs->get(TranslationStubTy);
+
+  llvm_unreachable("Replacing global uses not implemented");
+
+  //Global->removeDeadConstantUsers();
+  //Global->eraseFromParent();
+}
+
+Constant *HLMatrixLowerPass::lowerConstInitVal(Constant *InitVal) {
+  llvm_unreachable("Lowering constant matrix initializer value not implemented");
 }
 
 Value *HLMatrixLowerPass::lowerInstruction(Instruction *MatInst) {

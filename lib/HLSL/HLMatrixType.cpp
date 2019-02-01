@@ -102,6 +102,15 @@ bool HLMatrixType::isMatrixArrayPtr(Type *Ty) {
   return isa(ArrayTy->getElementType());
 }
 
+bool HLMatrixType::isMatrixPtrOrArrayPtr(Type *Ty) {
+  PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty);
+  if (PtrTy == nullptr) return false;
+  Ty = PtrTy->getElementType();
+  while (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty))
+    Ty = Ty->getArrayElementType();
+  return isa(Ty);
+}
+
 bool HLMatrixType::isMatrixOrPtrOrArrayPtr(Type *Ty) {
   if (PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty)) Ty = PtrTy->getElementType();
   while (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty)) Ty = ArrayTy->getElementType();
