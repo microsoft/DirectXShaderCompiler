@@ -2989,7 +2989,73 @@ Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
 
 Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
     bool Unsigned, IRBuilder<> &Builder) {
-  llvm_unreachable("Not implemented");
+  HLMatrixType LhsMatTy = HLMatrixType::dyn_cast(Lhs->getType());
+  HLMatrixType RhsMatTy = HLMatrixType::dyn_cast(Rhs->getType());
+  Value* LoweredLhs = getLoweredByValOperand(Lhs, Builder);
+  Value* LoweredRhs = getLoweredByValOperand(Rhs, Builder);
+
+  DXASSERT(LoweredLhs->getType()->getScalarType() == LoweredRhs->getType()->getScalarType(),
+    "Unexpected element type mismatch in mul intrinsic.");
+  DXASSERT(cast<VectorType>(LoweredLhs->getType()) && cast<VectorType>(LoweredLhs->getType()),
+    "Unexpected scalar in lowered matrix mul intrinsic operands.");
+
+  Type* ElemTy = LoweredLhs->getType()->getScalarType();
+
+  // Figure out the dimensions of each side
+  unsigned LhsNumRows, LhsNumCols, RhsNumRows, RhsNumCols;
+  if (LhsMatTy && RhsMatTy) {
+    LhsNumRows = LhsMatTy.getNumRows();
+    LhsNumCols = LhsMatTy.getNumColumns();
+    RhsNumRows = RhsMatTy.getNumRows();
+    RhsNumCols = RhsMatTy.getNumColumns();
+  }
+  else if (LhsMatTy) {
+    LhsNumRows = LhsMatTy.getNumRows();
+    LhsNumCols = LhsMatTy.getNumColumns();
+    RhsNumRows = LoweredRhs->getType()->getVectorNumElements();
+    RhsNumCols = 1;
+  }
+  else if (RhsMatTy) {
+    LhsNumRows = 1;
+    LhsNumCols = LoweredLhs->getType()->getVectorNumElements();
+    RhsNumRows = RhsMatTy.getNumRows();
+    RhsNumCols = RhsMatTy.getNumColumns();
+  }
+  else {
+    llvm_unreachable("mul intrinsic was identified as a matrix operation but neither operand is a matrix.");
+  }
+
+  DXASSERT(LhsNumCols == RhsNumRows, "Matrix mul intrinsic operands dimensions mismatch.");
+  unsigned ResultNumRows = LhsNumRows;
+  unsigned ResultNumCols = RhsNumCols;
+  unsigned AccCount = LhsNumCols;
+
+  // Get the multiply-and-add intrinsic function, we'll need it
+  IntrinsicOp MadOpcode = Unsigned ? IntrinsicOp::IOP_umad : IntrinsicOp::IOP_mad;
+  FunctionType *MadFuncTy = FunctionType::get(ElemTy, { Builder.getInt32Ty(), ElemTy, ElemTy, ElemTy }, false);
+  Function *MadFunc = GetOrCreateHLFunction(*m_pModule, MadFuncTy, HLOpcodeGroup::HLIntrinsic, (unsigned)MadOpcode);
+  Constant *MadOpcodeVal = Builder.getInt32((unsigned)MadOpcode);
+
+  // Perform the multiplication!
+  Value *Result = UndefValue::get(VectorType::get(ElemTy, LhsNumRows * RhsNumCols));
+  for (unsigned ResultRowIdx = 0; ResultRowIdx < ResultNumRows; ++ResultRowIdx) {
+    for (unsigned ResultColIdx = 0; ResultColIdx < ResultNumCols; ++ResultColIdx) {
+      unsigned ResultElemIdx = ResultRowIdx * ResultNumCols + ResultColIdx;
+      Value *ResultElem = Constant::getNullValue(ElemTy);
+
+      for (unsigned AccIdx = 0; AccIdx < AccCount; ++AccIdx) {
+        unsigned LhsElemIdx = ResultRowIdx * LhsNumCols + AccIdx;
+        unsigned RhsElemIdx = AccIdx * RhsNumCols + ResultColIdx;
+        Value* LhsElem = Builder.CreateExtractElement(LoweredLhs, static_cast<uint64_t>(LhsElemIdx));
+        Value* RhsElem = Builder.CreateExtractElement(LoweredRhs, static_cast<uint64_t>(RhsElemIdx));
+        ResultElem = Builder.CreateCall(MadFunc, { MadOpcodeVal, LhsElem, RhsElem, ResultElem });
+      }
+
+      Result = Builder.CreateInsertElement(Result, ResultElem, static_cast<uint64_t>(ResultElemIdx));
+    }
+  }
+
+  return Result;
 }
 
 Value *HLMatrixLowerPass::lowerHLTransposeIntrinsic(Value* MatVal, IRBuilder<> &Builder) {
