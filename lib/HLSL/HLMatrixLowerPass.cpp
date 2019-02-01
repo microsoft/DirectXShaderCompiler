@@ -79,17 +79,6 @@ Type *LowerMatrixType(Type *Ty, bool forMem) {
   }
 }
 
-// Translate matrix type to array type.
-Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
-  if (dxilutil::IsHLSLMatrixType(Ty)) {
-    unsigned row, col;
-    Type *EltTy = GetMatrixInfo(Ty, col, row);
-    return ArrayType::get(EltTy, row * col);
-  } else {
-    return Ty;
-  }
-}
-
 
 Type *GetMatrixInfo(Type *Ty, unsigned &col, unsigned &row) {
   DXASSERT(dxilutil::IsHLSLMatrixType(Ty), "not matrix type");
@@ -127,22 +116,6 @@ Type *LowerMatrixArrayPointer(Type *Ty, bool forMem) {
   return PointerType::get(Ty, addrSpace);
 }
 
-Type *LowerMatrixArrayPointerToOneDimArray(Type *Ty) {
-  unsigned addrSpace = Ty->getPointerAddressSpace();
-  Ty = Ty->getPointerElementType();
-
-  unsigned arraySize = 1;
-  while (Ty->isArrayTy()) {
-    arraySize *= Ty->getArrayNumElements();
-    Ty = Ty->getArrayElementType();
-  }
-  unsigned row, col;
-  Type *EltTy = GetMatrixInfo(Ty, col, row);
-  arraySize *= row*col;
-
-  Ty = ArrayType::get(EltTy, arraySize);
-  return PointerType::get(Ty, addrSpace);
-}
 Value *BuildVector(Type *EltTy, unsigned size, ArrayRef<llvm::Value *> elts,
   IRBuilder<> &Builder) {
   Value *Vec = UndefValue::get(VectorType::get(EltTy, size));
@@ -332,6 +305,9 @@ private:
   Value *lowerHLCast(Value *Src, Type *DstTy, HLCastOpcode Opcode, IRBuilder<> &Builder);
   Value *lowerHLSubscript(CallInst *Call, HLSubscriptOpcode Opcode);
   Value *lowerHLMatElementSubscript(CallInst *Call, bool RowMajor);
+  Value *lowerHLMatSubscript(CallInst *Call, bool RowMajor);
+  Value *lowerHLMatConstantSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<int> &ElemIndices);
+  Value *lowerHLMatDynamicSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<Value*> &ElemIndices);
   Value *lowerHLInit(CallInst *Call);
 
   Instruction *MatCastToVec(CallInst *CI);
@@ -2778,13 +2754,14 @@ Value *HLMatrixLowerPass::tryGetLoweredMatrixOrArrayPtrOperandNoGep(Value *MatOr
   DXASSERT_NOMSG(MatOrArrayPtr->getType()->isPointerTy());
   DXASSERT_NOMSG(!isa<GetElementPtrInst>(MatOrArrayPtr));
 
-  // Is this a constant buffer subscript?
+  // Is this a constant buffer/resource subscript?
   if (CallInst *Call = dyn_cast<CallInst>(MatOrArrayPtr)) {
     HLOpcodeGroup OpcodeGroup = GetHLOpcodeGroupByName(Call->getCalledFunction());
     if (OpcodeGroup == HLOpcodeGroup::HLSubscript) {
       HLSubscriptOpcode SubscriptOpcode = static_cast<HLSubscriptOpcode>(GetHLOpcode(Call));
-      if (SubscriptOpcode == HLSubscriptOpcode::CBufferSubscript) {
-        // Leave it to HLSignatureLower
+      if (SubscriptOpcode == HLSubscriptOpcode::DefaultSubscript
+        || SubscriptOpcode == HLSubscriptOpcode::CBufferSubscript) {
+        // Leave it to HLOperationLower
         return nullptr;
       }
     }
@@ -2824,8 +2801,10 @@ Value *HLMatrixLowerPass::tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder
     "Value must be a matrix pointer.");
 
   // Skip all GEPs on the way to the "root" ptr (alloca or otherwise)
-  Value* RootPtr = MatPtr;
   SmallVector<Value*, 4> GEPIndices;
+  GEPIndices.emplace_back(Builder.getInt32(0));
+
+  Value* RootPtr = MatPtr;
   while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(RootPtr)) {
     DXASSERT(GEP->getNumIndices() >= 1, "Unexpected GEP without indices.");
     DXASSERT(cast<ConstantInt>(GEP->idx_begin()->get())->getValue().getLimitedValue() == 0,
@@ -2839,7 +2818,7 @@ Value *HLMatrixLowerPass::tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder
   if (LoweredRootPtr == nullptr) return nullptr;
 
   // Reconstruct GEP chain around the lowered ptr, if any
-  if (!GEPIndices.empty()) {
+  if (GEPIndices.size() > 1) {
     LoweredRootPtr = Builder.CreateGEP(LoweredRootPtr, GEPIndices);
   }
 
@@ -2849,6 +2828,8 @@ Value *HLMatrixLowerPass::tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder
 // Replaces all uses of a matrix value by its lowered vector form,
 // inserting translation stubs for users which still expect a matrix value.
 void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value* VecVal) {
+  if (VecVal == nullptr || VecVal == MatInst) return;
+
   DXASSERT(getLoweredType(MatInst->getType()) == VecVal->getType(),
     "Unexpected lowered value type.");
 
@@ -2856,6 +2837,12 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
 
   while (!MatInst->use_empty()) {
     Use &ValUse = *MatInst->use_begin();
+
+    // Handle non-matrix cases, just point to the new value.
+    if (MatInst->getType() == VecVal->getType()) {
+      ValUse.set(VecVal);
+      continue;
+    }
 
     // If the user is already a matrix-to-vector translation stub,
     // we can now replace it by the proper vector value.
@@ -3325,9 +3312,7 @@ Value *HLMatrixLowerPass::lowerHLCast(Value *Src, Type *DstTy, HLCastOpcode Opco
   }
   else if (Src->getType()->isVectorTy()) {
     // Vector to matrix
-    DXASSERT_NOMSG(Opcode == HLCastOpcode::ColMatrixToVecCast
-      || Opcode == HLCastOpcode::RowMatrixToVecCast);
-    llvm_unreachable("Not implemented");
+    llvm_unreachable("Vector to matrix casts not implemented");
   }
 
   // Source must now be a matrix
@@ -3349,35 +3334,48 @@ Value *HLMatrixLowerPass::lowerHLCast(Value *Src, Type *DstTy, HLCastOpcode Opco
   }
   DXASSERT_NOMSG(LoweredSrc->getType() == LoweredSrcTy);
 
+  Value* Result = LoweredSrc;
+  Type* LoweredDstTy = DstTy;
   if (dxilutil::IsIntegerOrFloatingPointType(DstTy)) {
     // Matrix to scalar
-    Value *Result = Builder.CreateExtractElement(LoweredSrc, static_cast<uint64_t>(0));
-    return convertScalarOrVector(Result, DstTy, Opcode, Builder);
+    Result = Builder.CreateExtractElement(LoweredSrc, static_cast<uint64_t>(0));
   }
   else if (DstTy->isVectorTy()) {
     // Matrix to vector
-    llvm_unreachable("Matrix to vector conversions not implemented");
+    DXASSERT(Opcode == HLCastOpcode::ColMatrixToVecCast || Opcode == HLCastOpcode::RowMatrixToVecCast,
+      "Unexpected matrix cast opcode resulting in a vector type.");
+    VectorType *DstVecTy = cast<VectorType>(DstTy);
+    DXASSERT(DstVecTy->getNumElements() <= LoweredSrcTy->getNumElements(),
+      "Cannot cast matrix to a larger vector.");
+
+    // We might have to truncate
+    if (DstTy->getVectorNumElements() < LoweredSrcTy->getNumElements()) {
+      SmallVector<int, 3> ShuffleIndices;
+      for (unsigned Idx = 0; Idx < DstVecTy->getNumElements(); ++Idx)
+        ShuffleIndices.emplace_back(static_cast<int>(Idx));
+      Result = Builder.CreateShuffleVector(Result, Result, ShuffleIndices);
+    }
   }
+  else {
+    // Destination must now be a matrix too
+    HLMatrixType MatDstTy = HLMatrixType::cast(DstTy);
 
-  // Destination must now be a matrix too
-  HLMatrixType MatDstTy = HLMatrixType::cast(DstTy);
+    // Apply any changes at the matrix level: orientation changes and truncation
+    Value *Result = LoweredSrc;
+    if (Opcode == HLCastOpcode::ColMatrixToRowMatrix)
+      Result = MatSrcTy.emitLoweredVectorColToRow(Result, Builder);
+    else if (Opcode == HLCastOpcode::RowMatrixToColMatrix)
+      Result = MatSrcTy.emitLoweredVectorRowToCol(Result, Builder);
+    else if (MatDstTy.getNumRows() != MatSrcTy.getNumRows()
+      || MatDstTy.getNumColumns() != MatSrcTy.getNumColumns()) {
+      // Apply truncation
+      llvm_unreachable("Matrix truncation not implemented");
+    }
 
-  // Apply orientation changes
-  Value *Result = LoweredSrc;
-  if (Opcode == HLCastOpcode::ColMatrixToRowMatrix)
-    Result = MatSrcTy.emitLoweredVectorColToRow(Result, Builder);
-  else if (Opcode == HLCastOpcode::RowMatrixToColMatrix)
-    Result = MatSrcTy.emitLoweredVectorRowToCol(Result, Builder);
-
-  // Apply truncation
-  if (MatDstTy.getNumRows() != MatSrcTy.getNumRows()
-    || MatDstTy.getNumColumns() != MatSrcTy.getNumColumns()) {
-    llvm_unreachable("Matrix truncation not implemented");
+    LoweredDstTy = MatDstTy.getLoweredVectorTypeForReg();
+    DXASSERT(Result->getType()->getVectorNumElements() == LoweredDstTy->getVectorNumElements(),
+      "Unexpected matrix src/dst lowered element count mismatch after truncation.");
   }
-
-  VectorType *LoweredDstTy = MatDstTy.getLoweredVectorTypeForReg();
-  DXASSERT(Result->getType()->getVectorNumElements() == LoweredDstTy->getNumElements(),
-    "Unexpected matrix src/dst lowered element count mismatch after truncation.");
 
   // Apply element conversion
   return convertScalarOrVector(Result, LoweredDstTy, Opcode, Builder);
@@ -3392,12 +3390,17 @@ Value *HLMatrixLowerPass::lowerHLSubscript(CallInst *Call, HLSubscriptOpcode Opc
 
   case HLSubscriptOpcode::RowMatSubscript:
   case HLSubscriptOpcode::ColMatSubscript:
+    return lowerHLMatSubscript(Call,
+      /* RowMajor */ Opcode == HLSubscriptOpcode::RowMatSubscript);
+
   default:
     llvm_unreachable("Unexpected matrix subscript opcode.");
   }
 }
 
 Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMajor) {
+  (void)RowMajor; // It doesn't look like we actually need this?
+
   Value *MatPtr = Call->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
   DXASSERT_NOMSG(MatPtr->getType()->isPointerTy());
 
@@ -3405,21 +3408,53 @@ Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMaj
   Constant *ConstIdxVec = cast<Constant>(IdxVec);
   DXASSERT_NOMSG(ConstIdxVec->getType()->isVectorTy());
 
-  // We can't do this here if the source matrix is from a buffer or such
-  IRBuilder<> CallBuilder(Call);
-  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, CallBuilder);
-  if (LoweredPtr == nullptr) return nullptr;
-
-  HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
-
   // Get the loaded lowered vector element indices
   SmallVector<int, 4> ElemIndices;
   ElemIndices.reserve(ConstIdxVec->getNumOperands());
   for (Value *Idx : ConstIdxVec->operand_values())
     ElemIndices.emplace_back(static_cast<int>(cast<ConstantInt>(Idx)->getLimitedValue()));
 
-  bool IsVector = Call->getType()->getPointerElementType()->isVectorTy();
-  DXASSERT(IsVector || ElemIndices.size() == 1, "Subscript should only return a scalar pointer if it has a single index.");
+  return lowerHLMatConstantSubscript(Call, MatPtr, ElemIndices);
+}
+
+Value *HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, bool RowMajor) {
+  (void)RowMajor; // It doesn't look like we actually need this?
+
+  Value *MatPtr = Call->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
+  DXASSERT_NOMSG(MatPtr->getType()->isPointerTy());
+
+  // Gather the indices, checking if they are all constant
+  SmallVector<Value*, 4> ElemIndices;
+  SmallVector<int, 4> ConstElemIndices;
+  bool HasDynamicIndexing = false;
+  for (unsigned Idx = HLOperandIndex::kMatSubscriptSubOpIdx; Idx < Call->getNumArgOperands(); ++Idx) {
+    Value *ElemIdxVal = Call->getArgOperand(Idx);
+    ElemIndices.emplace_back(ElemIdxVal);
+
+    if (!HasDynamicIndexing) {
+      if (ConstantInt *ElemIdxConst = dyn_cast<ConstantInt>(ElemIdxVal))
+        ConstElemIndices.emplace_back((int)ElemIdxConst->getLimitedValue());
+      else
+        HasDynamicIndexing = false;
+    }
+  }
+
+  // Lower as constant if possible, otherwise as dynamic, which involves creating an array
+  return HasDynamicIndexing
+    ? lowerHLMatDynamicSubscript(Call, MatPtr, ElemIndices)
+    : lowerHLMatConstantSubscript(Call, MatPtr, ConstElemIndices);
+}
+
+Value *HLMatrixLowerPass::lowerHLMatConstantSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<int> &ElemIndices) {
+  // If the source matrix is from a buffer or such, it's not this job's pass to lower it
+  IRBuilder<> CallBuilder(Call);
+  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, CallBuilder);
+  if (LoweredPtr == nullptr) return nullptr;
+
+  HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
+
+  bool AsVector = Call->getType()->getPointerElementType()->isVectorTy();
+  DXASSERT(AsVector || ElemIndices.size() == 1, "Subscript should only return a scalar pointer if it has a single index.");
 
   // Users of the pointer resulting from the subscript should be either loads or stores.
   // Replace them by their equivalent vector element subset accesses.
@@ -3435,7 +3470,7 @@ Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMaj
 
     if (LoadInst *Load = dyn_cast<LoadInst>(Use.getUser())) {
       // Return the interesting subset
-      Value* SubscriptVal = IsVector
+      Value* SubscriptVal = AsVector
         ? UserBuilder.CreateShuffleVector(MatVec, MatVec, ElemIndices)
         : UserBuilder.CreateExtractElement(MatVec, ElemIndices[0]);
       Load->replaceAllUsesWith(SubscriptVal);
@@ -3443,7 +3478,7 @@ Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMaj
     else if (StoreInst *Store = dyn_cast<StoreInst>(Use.getUser())) {
       DXASSERT_NOMSG(Store->getPointerOperand() == Call);
       // Update the interesting subset
-      if (IsVector) {
+      if (AsVector) {
         // Shuffle the original and incoming vectors together,
         // start with indices 0 to N-1, preserving the original vector elements,
         // then update the indices being written to to point to the new vector elements.
@@ -3473,6 +3508,10 @@ Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMaj
   return nullptr;
 }
 
+Value *HLMatrixLowerPass::lowerHLMatDynamicSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<Value*> &ElemIndices) {
+  llvm_unreachable("Matrix subscripts with dynamic indices.");
+}
+
 Value *HLMatrixLowerPass::lowerHLInit(CallInst *Call) {
   DXASSERT(GetHLOpcode(Call) == 0, "Unexpected matrix init opcode.");
 
@@ -3495,201 +3534,3 @@ Value *HLMatrixLowerPass::lowerHLInit(CallInst *Call) {
 
   return LoweredVec;
 }
-
-// Matrix Bitcast lower.
-// After linking Lower matrix bitcast patterns like:
-//  %169 = bitcast [72 x float]* %0 to [6 x %class.matrix.float.4.3]*
-//  %conv.i = fptoui float %164 to i32
-//  %arrayidx.i = getelementptr inbounds [6 x %class.matrix.float.4.3], [6 x %class.matrix.float.4.3]* %169, i32 0, i32 %conv.i
-//  %170 = bitcast %class.matrix.float.4.3* %arrayidx.i to <12 x float>*
-
-namespace {
-
-Type *TryLowerMatTy(Type *Ty) {
-  Type *VecTy = nullptr;
-  if (HLMatrixLower::IsMatrixArrayPointer(Ty)) {
-    VecTy = HLMatrixLower::LowerMatrixArrayPointerToOneDimArray(Ty);
-  } else if (isa<PointerType>(Ty) &&
-             dxilutil::IsHLSLMatrixType(Ty->getPointerElementType())) {
-    VecTy = HLMatrixLower::LowerMatrixTypeToOneDimArray(
-        Ty->getPointerElementType());
-    VecTy = PointerType::get(VecTy, Ty->getPointerAddressSpace());
-  }
-  return VecTy;
-}
-
-class MatrixBitcastLowerPass : public FunctionPass {
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-  explicit MatrixBitcastLowerPass() : FunctionPass(ID) {}
-
-  const char *getPassName() const override { return "Matrix Bitcast lower"; }
-  bool runOnFunction(Function &F) override {
-    bool bUpdated = false;
-    std::unordered_set<BitCastInst*> matCastSet;
-    for (auto blkIt = F.begin(); blkIt != F.end(); ++blkIt) {
-      BasicBlock *BB = blkIt;
-      for (auto iIt = BB->begin(); iIt != BB->end(); ) {
-        Instruction *I = (iIt++);
-        if (BitCastInst *BCI = dyn_cast<BitCastInst>(I)) {
-          // Mutate mat to vec.
-          Type *ToTy = BCI->getType();
-          if (Type *ToVecTy = TryLowerMatTy(ToTy)) {
-            matCastSet.insert(BCI);
-            bUpdated = true;
-          }
-        }
-      }
-    }
-
-    DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
-    // Remove bitcast which has CallInst user.
-    if (DM.GetShaderModel()->IsLib()) {
-      for (auto it = matCastSet.begin(); it != matCastSet.end();) {
-        BitCastInst *BCI = *(it++);
-        if (hasCallUser(BCI)) {
-          matCastSet.erase(BCI);
-        }
-      }
-    }
-
-    // Lower matrix first.
-    for (BitCastInst *BCI : matCastSet) {
-      lowerMatrix(BCI, BCI->getOperand(0));
-    }
-    return bUpdated;
-  }
-private:
-  void lowerMatrix(Instruction *M, Value *A);
-  bool hasCallUser(Instruction *M);
-};
-
-}
-
-bool MatrixBitcastLowerPass::hasCallUser(Instruction *M) {
-  for (auto it = M->user_begin(); it != M->user_end();) {
-    User *U = *(it++);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-      Type *EltTy = GEP->getType()->getPointerElementType();
-      if (dxilutil::IsHLSLMatrixType(EltTy)) {
-        if (hasCallUser(GEP))
-          return true;
-      } else {
-        DXASSERT(0, "invalid GEP for matrix");
-      }
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      if (hasCallUser(BCI))
-        return true;
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
-    } else if (StoreInst *ST = dyn_cast<StoreInst>(U)) {
-      Value *V = ST->getValueOperand();
-      if (VectorType *Ty = dyn_cast<VectorType>(V->getType())) {
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
-    } else if (isa<CallInst>(U)) {
-      return true;
-    } else {
-      DXASSERT(0, "invalid use of matrix");
-    }
-  }
-  return false;
-}
-
-namespace {
-Value *CreateEltGEP(Value *A, unsigned i, Value *zeroIdx,
-                    IRBuilder<> &Builder) {
-  Value *GEP = nullptr;
-  if (GetElementPtrInst *GEPA = dyn_cast<GetElementPtrInst>(A)) {
-    // A should be gep oneDimArray, 0, index * matSize
-    // Here add eltIdx to index * matSize foreach elt.
-    Instruction *EltGEP = GEPA->clone();
-    unsigned eltIdx = EltGEP->getNumOperands() - 1;
-    Value *NewIdx =
-        Builder.CreateAdd(EltGEP->getOperand(eltIdx), Builder.getInt32(i));
-    EltGEP->setOperand(eltIdx, NewIdx);
-    Builder.Insert(EltGEP);
-    GEP = EltGEP;
-  } else {
-    GEP = Builder.CreateInBoundsGEP(A, {zeroIdx, Builder.getInt32(i)});
-  }
-  return GEP;
-}
-} // namespace
-
-void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
-  for (auto it = M->user_begin(); it != M->user_end();) {
-    User *U = *(it++);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-      Type *EltTy = GEP->getType()->getPointerElementType();
-      if (dxilutil::IsHLSLMatrixType(EltTy)) {
-        // Change gep matrixArray, 0, index
-        // into
-        //   gep oneDimArray, 0, index * matSize
-        IRBuilder<> Builder(GEP);
-        SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
-        DXASSERT(idxList.size() == 2,
-                 "else not one dim matrix array index to matrix");
-        unsigned col = 0;
-        unsigned row = 0;
-        HLMatrixLower::GetMatrixInfo(EltTy, col, row);
-        Value *matSize = Builder.getInt32(col * row);
-        idxList.back() = Builder.CreateMul(idxList.back(), matSize);
-        Value *NewGEP = Builder.CreateGEP(A, idxList);
-        lowerMatrix(GEP, NewGEP);
-        DXASSERT(GEP->user_empty(), "else lower matrix fail");
-        GEP->eraseFromParent();
-      } else {
-        DXASSERT(0, "invalid GEP for matrix");
-      }
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      lowerMatrix(BCI, A);
-      DXASSERT(BCI->user_empty(), "else lower matrix fail");
-      BCI->eraseFromParent();
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
-        IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        Value *NewVec = UndefValue::get(LI->getType());
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateLoad(GEP);
-          NewVec = Builder.CreateInsertElement(NewVec, Elt, i);
-        }
-        LI->replaceAllUsesWith(NewVec);
-        LI->eraseFromParent();
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
-    } else if (StoreInst *ST = dyn_cast<StoreInst>(U)) {
-      Value *V = ST->getValueOperand();
-      if (VectorType *Ty = dyn_cast<VectorType>(V->getType())) {
-        IRBuilder<> Builder(LI);
-        Value *zeroIdx = Builder.getInt32(0);
-        unsigned vecSize = Ty->getNumElements();
-        for (unsigned i = 0; i < vecSize; i++) {
-          Value *GEP = CreateEltGEP(A, i, zeroIdx, Builder);
-          Value *Elt = Builder.CreateExtractElement(V, i);
-          Builder.CreateStore(Elt, GEP);
-        }
-        ST->eraseFromParent();
-      } else {
-        DXASSERT(0, "invalid load for matrix");
-      }
-    } else {
-      DXASSERT(0, "invalid use of matrix");
-    }
-  }
-}
-
-#include "dxc/HLSL/DxilGenerationPass.h"
-char MatrixBitcastLowerPass::ID = 0;
-FunctionPass *llvm::createMatrixBitcastLowerPass() { return new MatrixBitcastLowerPass(); }
-
-INITIALIZE_PASS(MatrixBitcastLowerPass, "matrixbitcastlower", "Matrix Bitcast lower", false, false)
