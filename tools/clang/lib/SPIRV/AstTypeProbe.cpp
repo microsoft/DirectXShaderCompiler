@@ -879,6 +879,9 @@ bool isOpaqueArrayType(QualType type) {
 }
 
 bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
+  if (type.isNull())
+    return false;
+
   // Primitive types
   {
     QualType ty = {};
@@ -909,6 +912,22 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
     QualType elemType = {};
     if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
       return isRelaxedPrecisionType(elemType, opts);
+  }
+
+  // Images with RelaxedPrecision sampled type.
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    const llvm::StringRef name = recordType->getDecl()->getName();
+    if (name == "Texture1D" || name == "Texture2D" || name == "Texture3D" ||
+        name == "TextureCube" || name == "Texture1DArray" ||
+        name == "Texture2DArray" || name == "Texture2DMS" ||
+        name == "Texture2DMSArray" || name == "TextureCubeArray" ||
+        name == "RWTexture1D" || name == "RWTexture2D" ||
+        name == "RWTexture3D" || name == "RWTexture1DArray" ||
+        name == "RWTexture2DArray" || name == "Buffer" || name == "RWBuffer" ||
+        name == "SubpassInput" || name == "SubpassInputMS") {
+      const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+      return isRelaxedPrecisionType(sampledType, opts);
+    }
   }
 
   return false;

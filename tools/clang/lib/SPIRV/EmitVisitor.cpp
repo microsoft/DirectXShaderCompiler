@@ -94,6 +94,11 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
     typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
                                spv::Decoration::NonUniformEXT, {});
   }
+  // Emit RelaxedPrecision decoration (if any).
+  if (inst->isRelaxedPrecision()) {
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::RelaxedPrecision, {});
+  }
 
   // Initialize the current instruction for emitting.
   curInst.clear();
@@ -199,6 +204,11 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     finalizeInstruction();
     emitDebugNameForInstruction(getOrAssignResultId<SpirvFunction>(fn),
                                 fn->getFunctionName());
+
+    // RelaxedPrecision decoration may be applied to an OpFunction instruction.
+    if (fn->isRelaxedPrecision())
+      typeHandler.emitDecoration(getOrAssignResultId<SpirvFunction>(fn),
+                                 spv::Decoration::RelaxedPrecision, {});
   }
   // After emitting the function
   else if (phase == Visitor::Phase::Done) {
@@ -1439,6 +1449,10 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
                        field.isRowMajor.getValue() ? spv::Decoration::RowMajor
                                                    : spv::Decoration::ColMajor,
                        {}, i);
+
+      // RelaxedPrecision decorations
+      if (field.isRelaxedPrecision)
+        emitDecoration(id, spv::Decoration::RelaxedPrecision, {}, i);
 
       // NonWritable decorations
       if (structType->isReadOnly())
