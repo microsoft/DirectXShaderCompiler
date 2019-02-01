@@ -2442,8 +2442,8 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
   if (ptrSize == size) {
-    // Not go deeper for matrix.
-    if (dxilutil::IsHLSLMatrixType(Ty))
+    // Do not go deeper for matrix or object.
+    if (dxilutil::IsHLSLMatrixType(Ty) || dxilutil::IsHLSLObjectType(Ty))
       return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
@@ -4186,9 +4186,24 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
 /// MarkEmptyStructUsers - Add instruction related to Empty struct to DeadInsts.
 void SROA_Helper::MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadInsts) {
+  UndefValue *undef = UndefValue::get(V->getType());
   for (User *U : V->users()) {
-    MarkEmptyStructUsers(U, DeadInsts);
+    // Kill memcpy, set operands to undef for call and ret, and recurse
+    if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+      DeadInsts.emplace_back(MC);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      for (auto &operand : CI->operands()) {
+        if (operand == V)
+          operand.set(undef);
+      }
+    } else if (ReturnInst *Ret = dyn_cast<ReturnInst>(U)) {
+      Ret->setOperand(0, undef);
+    } else {
+      // Recurse users
+      MarkEmptyStructUsers(U, DeadInsts);
+    }
   }
+
   if (Instruction *I = dyn_cast<Instruction>(V)) {
     // Only need to add no use inst here.
     // DeleteDeadInst will delete everything.

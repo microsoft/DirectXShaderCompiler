@@ -2330,9 +2330,66 @@ void HLMatrixLowerPass::DeleteDeadInsts() {
   m_inDeadInstsSet.clear();
 }
 
+// Iterate GV users, and transparently iterate address space cast users as well
+class GVUserIter {
+private:
+  Value::user_iterator GVUser;
+  Value::user_iterator AddrSpaceCastUser;
+
+public:
+  User *U = nullptr;
+public:
+  GVUserIter() {}
+  GVUserIter(Value *V)
+  {
+    if (!V->user_empty())
+      GVUser = V->user_begin();
+    Next();
+  }
+  GVUserIter(const GVUserIter &other) {
+    GVUser = other.GVUser;
+    AddrSpaceCastUser = other.AddrSpaceCastUser;
+    U = other.U;
+  }
+
+  User *Next() {
+    U = nullptr;
+    if (!AddrSpaceCastUser.atEnd()) {
+      U = *(AddrSpaceCastUser++);
+      return U;
+    }
+    while (!GVUser.atEnd()) {
+      U = *(GVUser++);
+      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+        if (CE->user_empty())
+          continue;
+        if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+          AddrSpaceCastUser = CE->user_begin();
+          U = *(AddrSpaceCastUser++);
+          return U;
+        }
+      }
+      return U;
+    }
+    U = nullptr;
+    return U;
+  }
+
+  GVUserIter begin() { return *this; }
+  GVUserIter end() { return GVUserIter(); }
+  bool operator==(const GVUserIter &other) {
+    return (U == other.U && GVUser == other.GVUser && AddrSpaceCastUser == other.AddrSpaceCastUser);
+  }
+  bool operator!=(const GVUserIter &other) { return !(*this == (other)); }
+  GVUserIter &operator++() { Next(); return *this; }
+  GVUserIter operator++(int) { auto tmp = *this; ++*this; return tmp; }
+  User *operator*() { return U; }
+  User *operator->() { return U; }
+};
+
 static bool OnlyUsedByMatrixLdSt(Value *V) {
   bool onlyLdSt = true;
-  for (User *user : V->users()) {
+  for (User *user : GVUserIter(V)) {
     if (isa<Constant>(user) && user->use_empty())
       continue;
 
@@ -2417,7 +2474,7 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
     HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, VecGV);
   }
 
-  for (User *U : GV->users()) {
+  for (User *U : GVUserIter(GV)) {
     Value *VecGEP = nullptr;
     // Must be GEP or GEPOperator.
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
@@ -2522,7 +2579,7 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
       }
       vecGlobals[i] = EltGV;
     }
-    for (User *user : GV->users()) {
+    for (User *user : GVUserIter(GV)) {
       if (isa<Constant>(user) && user->use_empty())
         continue;
       CallInst *CI = cast<CallInst>(user);
@@ -2536,9 +2593,14 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
     // lower to array of scalar here.
     ArrayType *AT = ArrayType::get(vecTy->getVectorElementType(), vecTy->getVectorNumElements());
     Constant *InitVal = ConstantArray::get(AT, Elts);
+    unsigned AddressSpace = GV->getType()->getAddressSpace();
+    GlobalValue::LinkageTypes linkage = GV->getLinkage();
+    GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
     GlobalVariable *arrayMat = new llvm::GlobalVariable(
-      *M, AT, /*IsConstant*/ false, llvm::GlobalValue::InternalLinkage,
-      /*InitVal*/ InitVal, GV->getName());
+      *M, AT, /*IsConstant*/ false, linkage,
+      /*InitVal*/ InitVal, GV->getName(),
+      /*InsertBefore*/nullptr,
+      TLMode, AddressSpace);
     // Add debug info.
     if (m_HasDbgInfo) {
       DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();
@@ -2546,8 +2608,8 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
                                                      arrayMat);
     }
 
-    for (auto U = GV->user_begin(); U != GV->user_end();) {
-      Value *user = *(U++);
+    for (User *U :GVUserIter(GV)) {
+      Value *user = U;
       CallInst *CI = cast<CallInst>(user);
       HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
       if (group == HLOpcodeGroup::HLMatLoadStore) {

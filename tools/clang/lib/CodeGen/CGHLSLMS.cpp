@@ -7038,16 +7038,18 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       }
     }
 
-    // get original arg
-    LValue argLV = CGF.EmitLValue(Arg);
+    // Skip unbounded array, since we cannot preserve copy-in copy-out
+    // semantics for these.
+    if (ParamTy->isIncompleteArrayType()) {
+      continue;
+    }
 
     if (!Param->isModifierOut() && !RValOnRef) {
-      bool isDefaultAddrSpace = true;
-      if (argLV.isSimple()) {
-        isDefaultAddrSpace =
-            argLV.getAddress()->getType()->getPointerAddressSpace() ==
-            DXIL::kDefaultAddrSpace;
-      }
+      // FIXME: Determine whether we need to translate address space before
+      //        EmitLValue so we can skip the copy if we don't need it.
+      //        We can't get address space in reliable way for the expression
+      //        Arg, since this could require drilling into the expression.
+      bool isDefaultAddrSpace = false; //Arg->getType().getAddressSpace() == 0;
       bool isHLSLIntrinsic = false;
       if (const FunctionDecl *Callee = E->getDirectCallee()) {
         isHLSLIntrinsic = Callee->hasAttr<HLSLIntrinsicAttr>();
@@ -7056,6 +7058,14 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       if (isDefaultAddrSpace || isHLSLIntrinsic)
         continue;
     }
+
+    // get original arg
+    // FIXME: This will not emit in correct argument order with the other
+    //        arguments. This should be integrated into
+    //        CodeGenFunction::EmitCallArg if possible.
+    LValue argLV = CGF.EmitLValue(Arg);
+    // Since we called EmitLValue(Arg), we must update the argList[i],
+    // otherwise we get double emit of the expression.
 
     // create temp Var
     VarDecl *tmpArg =
@@ -7070,12 +7080,23 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isAggregateType = (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
       !hlsl::IsHLSLVecMatType(ParamTy);
 
+    bool isEmptyAggregate = false;
+    if (isAggregateType) {
+      llvm::Type *ElTy = argLV.getAddress()->getType()->getPointerElementType();
+      while (ElTy->isArrayTy())
+        ElTy = ElTy->getArrayElementType();
+      if (llvm::StructType *ST = dyn_cast<StructType>(ElTy)) {
+        DxilStructAnnotation *SA = m_pHLModule->GetTypeSystem().GetStructAnnotation(ST);
+        isEmptyAggregate = SA && SA->IsEmptyStruct();
+      }
+    }
+
     const DeclRefExpr *tmpRef = DeclRefExpr::Create(
         CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
         /*enclosing*/ false, tmpArg->getLocation(), ParamTy,
         isAggregateType ? VK_RValue : VK_LValue);
 
-    // update the arg
+    // must update the arg, since CGF.EmitLValue(Arg) was called
     argList[i] = tmpRef;
 
     // create alloc for the tmp arg
@@ -7089,6 +7110,11 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
+
+    // If param is empty, copy in/out will just create problems.
+    // No copy will result in undef, which is fine.
+    if (isEmptyAggregate)
+      continue;
 
     LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argLV.getAlignment(),
                                     CGF.getContext());
