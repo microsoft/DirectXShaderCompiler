@@ -312,8 +312,11 @@ private:
   Value *lowerHLSubscript(CallInst *Call, HLSubscriptOpcode Opcode);
   Value *lowerHLMatElementSubscript(CallInst *Call, bool RowMajor);
   Value *lowerHLMatSubscript(CallInst *Call, bool RowMajor);
-  Value *lowerHLMatConstantSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<int> &ElemIndices);
-  Value *lowerHLMatDynamicSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<Value*> &ElemIndices);
+  void lowerHLMatConstantSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<int> &ElemIndices);
+  void lowerHLMatDynamicSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<Value*> &ElemIndices);
+  bool lowerGEPOfHLMatDynamicSubscript(GetElementPtrInst *VecGEP, HLMatrixType MatTy,
+    Value *TempElemArrayPtr, SmallVectorImpl<Value*> &ArrayElemIndices, IRBuilder<> &Builder);
+  Value *lowerHLMatResourceSubscript(CallInst *Call, HLSubscriptOpcode Opcode);
   Value *lowerHLInit(CallInst *Call);
 
   Instruction *MatCastToVec(CallInst *CI);
@@ -3070,7 +3073,7 @@ Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
       Value *MatArg = PreCallBuilder.CreateLoad(BitCastedAlloca);
 
       // If the original argument value is a vec-to-mat stub and we're its last user, get rid of it.
-      if (++ArgUse->use_begin() == ArgUse->use_end()) {
+      if (ArgUse->getNumUses() == 1) {
         if (CallInst* ArgCall = dyn_cast<CallInst>(ArgUse.get())) {
           if (m_vecToMatStubs->contains(ArgCall->getCalledFunction())) {
             AddToDeadInsts(ArgCall);
@@ -3678,6 +3681,10 @@ Value *HLMatrixLowerPass::lowerHLSubscript(CallInst *Call, HLSubscriptOpcode Opc
     return lowerHLMatSubscript(Call,
       /* RowMajor */ Opcode == HLSubscriptOpcode::RowMatSubscript);
 
+  case HLSubscriptOpcode::DefaultSubscript:
+  case HLSubscriptOpcode::CBufferSubscript:
+    return lowerHLMatResourceSubscript(Call, Opcode);
+
   default:
     llvm_unreachable("Unexpected matrix subscript opcode.");
   }
@@ -3700,7 +3707,10 @@ Value *HLMatrixLowerPass::lowerHLMatElementSubscript(CallInst *Call, bool RowMaj
     ElemIndices.emplace_back(static_cast<int>(ElemIdx->getLimitedValue()));
   }
 
-  return lowerHLMatConstantSubscript(Call, MatPtr, ElemIndices);
+  lowerHLMatConstantSubscript(Call, MatPtr, ElemIndices);
+
+  // We did our own replacement of uses, opt-out of having the caller does it for us.
+  return nullptr;
 }
 
 Value *HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, bool RowMajor) {
@@ -3726,16 +3736,20 @@ Value *HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, bool RowMajor) {
   }
 
   // Lower as constant if possible, otherwise as dynamic, which involves creating an array
-  return HasDynamicIndexing
-    ? lowerHLMatDynamicSubscript(Call, MatPtr, ElemIndices)
-    : lowerHLMatConstantSubscript(Call, MatPtr, ConstElemIndices);
+  if (HasDynamicIndexing)
+    lowerHLMatDynamicSubscript(Call, MatPtr, ElemIndices);
+  else
+    lowerHLMatConstantSubscript(Call, MatPtr, ConstElemIndices);
+
+  // We did our own replacement of uses, opt-out of having the caller does it for us.
+  return nullptr;
 }
 
-Value *HLMatrixLowerPass::lowerHLMatConstantSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<int> &ElemIndices) {
+void HLMatrixLowerPass::lowerHLMatConstantSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<int> &ElemIndices) {
   // If the source matrix is from a buffer or such, it's not this pass' job pass to lower it
   IRBuilder<> CallBuilder(Call);
   Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, CallBuilder);
-  if (LoweredPtr == nullptr) return nullptr;
+  if (LoweredPtr == nullptr) return;
 
   HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
 
@@ -3751,14 +3765,14 @@ Value *HLMatrixLowerPass::lowerHLMatConstantSubscript(CallInst *Call, Value *Mat
     // First load the entire vector, whether we want to load a subset of it,
     // or modify a subset of it and store it back.
     // Load it every time since the value could have changed.
-    IRBuilder<> UserBuilder(UserInst);
-    Value* MatVec = MatTy.emitLoweredLoad(LoweredPtr, UserBuilder);
+    IRBuilder<> PreUserBuilder(UserInst);
+    Value* MatVec = MatTy.emitLoweredLoad(LoweredPtr, PreUserBuilder);
 
     if (LoadInst *Load = dyn_cast<LoadInst>(Use.getUser())) {
       // Return the interesting subset
       Value* Result = AsVector
-        ? UserBuilder.CreateShuffleVector(MatVec, MatVec, ElemIndices)
-        : UserBuilder.CreateExtractElement(MatVec, ElemIndices[0]);
+        ? PreUserBuilder.CreateShuffleVector(MatVec, MatVec, ElemIndices)
+        : PreUserBuilder.CreateExtractElement(MatVec, ElemIndices[0]);
       Load->replaceAllUsesWith(Result);
     }
     else if (StoreInst *Store = dyn_cast<StoreInst>(Use.getUser())) {
@@ -3773,13 +3787,13 @@ Value *HLMatrixLowerPass::lowerHLMatConstantSubscript(CallInst *Call, Value *Mat
           ShuffleIndices.emplace_back((int)Idx);
         for (unsigned Idx = 0; Idx < ElemIndices.size(); ++Idx)
           ShuffleIndices[ElemIndices[Idx]] = MatTy.getNumElements() + (int)Idx;
-        MatVec = UserBuilder.CreateShuffleVector(MatVec, Store->getValueOperand(), ShuffleIndices);
+        MatVec = PreUserBuilder.CreateShuffleVector(MatVec, Store->getValueOperand(), ShuffleIndices);
       }
       else {
-        MatVec = UserBuilder.CreateInsertElement(MatVec, Store->getValueOperand(), ElemIndices[0]);
+        MatVec = PreUserBuilder.CreateInsertElement(MatVec, Store->getValueOperand(), ElemIndices[0]);
       }
 
-      MatTy.emitLoweredStore(MatVec, LoweredPtr, UserBuilder);
+      MatTy.emitLoweredStore(MatVec, LoweredPtr, PreUserBuilder);
     }
     else
       llvm_unreachable("Unexpected matrix element subscript user.");
@@ -3789,31 +3803,32 @@ Value *HLMatrixLowerPass::lowerHLMatConstantSubscript(CallInst *Call, Value *Mat
     AddToDeadInsts(UserInst);
   }
 
-  // There's no lowered value with which we can replace the matrix subscript,
-  // and we've already taken care of all uses, so we can mark the instruction dead.
+  // We've taken care of all uses
   AddToDeadInsts(Call);
-  return nullptr;
 }
 
-Value *HLMatrixLowerPass::lowerHLMatDynamicSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<Value*> &ElemIndices) {
+void HLMatrixLowerPass::lowerHLMatDynamicSubscript(CallInst *Call, Value *MatPtr, SmallVectorImpl<Value*> &ElemIndices) {
   DXASSERT(Call->getType()->getPointerElementType()->isVectorTy(),
     "Matrix subscripts should return vector types.");
 
   // If the source matrix is from a buffer or such, it's not this pass' job pass to lower it
   IRBuilder<> CallBuilder(Call);
   Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, CallBuilder);
-  if (LoweredPtr == nullptr) return nullptr;
+  if (LoweredPtr == nullptr) return;
 
   HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
-  VectorType *ResultTy = VectorType::get(MatTy.getElementTypeForReg(), ElemIndices.size());
 
   // Create a temporary, dynamically indexable array,
   // and other working variables we'll reuse in the loop below
-  ArrayType *ArrayTy = ArrayType::get(MatTy.getElementTypeForMem(), MatTy.getNumElements());
+  ArrayType *TempArrayTy = ArrayType::get(MatTy.getElementTypeForMem(), MatTy.getNumElements());
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Call));
-  Value *Array = AllocaBuilder.CreateAlloca(ArrayTy);
+  Value *TempArrayAlloca = AllocaBuilder.CreateAlloca(TempArrayTy);
 
   Value *GEPIndices[2] = { CallBuilder.getInt32(0), nullptr };
+
+  // We are a little more general than we probably need to be below
+  // as we only expect a single user of the subscript
+  DXASSERT(Call->getNumUses() == 1, "Unexpected multiple uses of GEP of dynamic matrix subscript.");
 
   // Replace all uses
   while (!Call->use_empty()) {
@@ -3823,46 +3838,137 @@ Value *HLMatrixLowerPass::lowerHLMatDynamicSubscript(CallInst *Call, Value *MatP
     // Load the entire vector every time since the value could have changed.
     // Note that we do not convert from memory to register representation here
     // because we're going to copy the elements in an array (memory representation).
-    IRBuilder<> UserBuilder(UserInst);
-    Value* MatVec = UserBuilder.CreateLoad(LoweredPtr);
+    IRBuilder<> PreUserBuilder(UserInst);
+    Value* OriginalMatVec = PreUserBuilder.CreateLoad(LoweredPtr);
 
     // Copy the matrix elements to the temporary array
     for (unsigned ElemIdx = 0; ElemIdx < MatTy.getNumElements(); ++ElemIdx) {
-      Value *VecElem = CallBuilder.CreateExtractElement(MatVec, static_cast<uint64_t>(ElemIdx));
+      Value *VecElem = CallBuilder.CreateExtractElement(OriginalMatVec, static_cast<uint64_t>(ElemIdx));
       GEPIndices[1] = CallBuilder.getInt32(ElemIdx);
-      Value *ArrayElemPtr = CallBuilder.CreateGEP(LoweredPtr, GEPIndices);
-      UserBuilder.CreateStore(VecElem, ArrayElemPtr);
+      Value *TempArrayElemPtr = CallBuilder.CreateGEP(TempArrayAlloca, GEPIndices);
+      PreUserBuilder.CreateStore(VecElem, TempArrayElemPtr);
     }
 
+    bool NeedsStore = false;
     if (LoadInst *Load = dyn_cast<LoadInst>(UserInst)) {
-      // Return the interesting subset
+      // Return the interesting subset in memory representation,
+      // since whoever uses the load is expecting that.
+      VectorType *ResultTy = VectorType::get(MatTy.getElementTypeForMem(), ElemIndices.size());
       Value* Result = UndefValue::get(ResultTy);
       for (unsigned ResultIdx = 0; ResultIdx < ElemIndices.size(); ++ResultIdx) {
         GEPIndices[1] = ElemIndices[ResultIdx];
-        Value *ArrayElemPtr = UserBuilder.CreateGEP(Array, GEPIndices);
-        Value *VecElem = MatTy.emitLoweredLoad(ArrayElemPtr, UserBuilder);
-        Result = UserBuilder.CreateInsertElement(Result, VecElem, static_cast<uint64_t>(ResultIdx));
+        Value *ArrayElemPtr = PreUserBuilder.CreateGEP(TempArrayAlloca, GEPIndices);
+        Value *VecElem = PreUserBuilder.CreateLoad(ArrayElemPtr);
+        Result = PreUserBuilder.CreateInsertElement(Result, VecElem, static_cast<uint64_t>(ResultIdx));
       }
       Load->replaceAllUsesWith(Result);
     }
     else if (StoreInst *Store = dyn_cast<StoreInst>(UserInst)) {
+      NeedsStore = true;
       llvm_unreachable("Lowering dynamic matrix subscript stores not implemented");
     }
     else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(UserInst)) {
-      llvm_unreachable("Lowering GEP of dyncamic matrix subscript not implemented");
+      NeedsStore = lowerGEPOfHLMatDynamicSubscript(GEP, MatTy, TempArrayAlloca, ElemIndices, PreUserBuilder);
     }
     else
       llvm_unreachable("Unexpected matrix element subscript user.");
+
+    // If we modified the temp array, recreate the updated vector
+    if (NeedsStore) {
+      // Create a vector from the temp array.
+      // Don't convert to register representation because we're going
+      // from array elements to an in-memory vector.
+      Value *NewMatVec = UndefValue::get(OriginalMatVec->getType());
+      for (unsigned ElemIdx = 0; ElemIdx < MatTy.getNumElements(); ++ElemIdx) {
+        GEPIndices[1] = CallBuilder.getInt32(ElemIdx);
+        Value *TempArrayElemPtr = CallBuilder.CreateGEP(TempArrayAlloca, GEPIndices);
+        Value *NewElem = PreUserBuilder.CreateLoad(TempArrayElemPtr);
+        NewMatVec = CallBuilder.CreateInsertElement(NewMatVec, NewElem, static_cast<uint64_t>(ElemIdx));
+      }
+
+      CallBuilder.CreateStore(NewMatVec, LoweredPtr);
+    }
 
     // We've replaced the user, mark it dead and remove the use
     Use.set(UndefValue::get(Use->getType()));
     AddToDeadInsts(UserInst);
   }
 
-  // There's no lowered value with which we can replace the matrix subscript,
-  // and we've already taken care of all uses, so we can mark the instruction dead.
+  // We've taken care of all uses
   AddToDeadInsts(Call);
-  return nullptr;
+}
+
+// Lowers expressions of the form mat[i][j] where i is dynamic and j might or not be
+// Returns true if a store was performed
+bool HLMatrixLowerPass::lowerGEPOfHLMatDynamicSubscript(GetElementPtrInst *VecGEP, HLMatrixType MatTy,
+  Value *TempElemArrayPtr, SmallVectorImpl<Value*> &ArrayElemIndices, IRBuilder<> &Builder) {
+  DXASSERT(VecGEP->getNumIndices() == 2, "Unexpected degenerate GEP of matrix subscript.");
+  DXASSERT_NOMSG(cast<ConstantInt>(VecGEP->idx_begin())->isZero());
+  Value *VecElemIdxVal = (VecGEP->idx_begin() + 1)->get();
+
+  Value *ElemIdx;
+  if (ConstantInt *ConstVecElemIdx = dyn_cast<ConstantInt>(VecElemIdxVal)) {
+    // The level 2 index is constant, select the corresponding level 1 dynamic index
+    uint64_t VecElemIdx = ConstVecElemIdx->getLimitedValue();
+    DXASSERT(VecElemIdx < ArrayElemIndices.size(), "Constant index of level 2 matrix subscript out of bounds.");
+    ElemIdx = ArrayElemIndices[VecElemIdx];
+  }
+  else {
+    // The level 2 index is dynamic, use it to index a temporary array of the level 1 indices.
+    ArrayType *TempIdxArrayTy = ArrayType::get(ArrayElemIndices[0]->getType(), ArrayElemIndices.size());
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(VecGEP));
+    Value *TempIdxArrayAlloca = AllocaBuilder.CreateAlloca(TempIdxArrayTy);
+
+    // Store level 1 indices in the temporary array
+    Value *GEPIndices[2] = { Builder.getInt32(0), nullptr };
+    for (unsigned IdxIdx = 0; IdxIdx < ArrayElemIndices.size(); ++IdxIdx) {
+      GEPIndices[1] = Builder.getInt32(IdxIdx);
+      Value *TempArrayElemPtr = Builder.CreateGEP(TempIdxArrayAlloca, GEPIndices);
+      Builder.CreateStore(ArrayElemIndices[IdxIdx], TempArrayElemPtr);
+    }
+
+    // Dynamically index the level 1 indices using the level 2 index
+    GEPIndices[1] = VecElemIdxVal;
+    Value *IdxPtr = Builder.CreateGEP(TempIdxArrayAlloca, GEPIndices);
+    ElemIdx = Builder.CreateLoad(IdxPtr);
+  }
+
+  // Get a pointer to the temporary array element
+  Value *GEPIndices[2] = { ConstantInt::getNullValue(ElemIdx->getType()), ElemIdx };
+  Value *ElemPtr = Builder.CreateGEP(TempElemArrayPtr, GEPIndices);
+
+  // We are a little more general than we probably need to be below
+  // as we only expect a single user of the GEP
+  DXASSERT(VecGEP->getNumUses() == 1, "Unexpected multiple uses of GEP of dynamic matrix subscript.");
+
+  // Find if any of the uses is a store
+  bool HasStore = false;
+  for (User *UserInst : VecGEP->users()) {
+    if (isa<StoreInst>(UserInst)) {
+      HasStore = true;
+      break;
+    }
+  }
+
+  // Replace the GEP, the caller will add it to the dead list
+  VecGEP->replaceAllUsesWith(ElemPtr);
+
+  return HasStore;
+}
+
+// Lowers StructuredBuffer<matrix>[index] or similar with constant buffers
+Value *HLMatrixLowerPass::lowerHLMatResourceSubscript(CallInst *Call, HLSubscriptOpcode Opcode) {
+  // Just replace the intrinsic by its equivalent with a lowered return type
+  IRBuilder<> Builder(Call);
+
+  SmallVector<Value*, 4> Args;
+  Args.reserve(Call->getNumArgOperands());
+  for (Value *Arg : Call->arg_operands())
+    Args.emplace_back(Arg);
+
+  Type *LoweredRetTy = getLoweredType(Call->getType());
+  return callHLFunction(*m_pModule, HLOpcodeGroup::HLSubscript, static_cast<unsigned>(Opcode),
+    LoweredRetTy, Args, Builder);
 }
 
 Value *HLMatrixLowerPass::lowerHLInit(CallInst *Call) {
