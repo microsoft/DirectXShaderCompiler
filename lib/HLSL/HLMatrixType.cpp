@@ -36,28 +36,29 @@ VectorType *HLMatrixType::getLoweredVectorType(bool MemRepr) const {
   return VectorType::get(getElementType(MemRepr), getNumElements());
 }
 
-Value *HLMatrixType::emitLoweredVectorMemToReg(Value *VecVal, IRBuilder<> &Builder) const {
-  DXASSERT(VecVal->getType() == getLoweredVectorType(true), "Lowered matrix type mismatch.");
+Value *HLMatrixType::emitLoweredMemToReg(Value *Val, IRBuilder<> &Builder) const {
+  DXASSERT(Val->getType()->getScalarType() == getElementTypeForMem(), "Lowered matrix type mismatch.");
   if (RegReprElemTy->isIntegerTy(1)) {
-    VecVal = Builder.CreateICmpNE(VecVal, Constant::getNullValue(VecVal->getType()), "tobool");
+    Val = Builder.CreateICmpNE(Val, Constant::getNullValue(Val->getType()), "tobool");
   }
-  return VecVal;
+  return Val;
 }
 
-Value *HLMatrixType::emitLoweredVectorRegToMem(Value *VecVal, IRBuilder<> &Builder) const {
-  DXASSERT(VecVal->getType() == getLoweredVectorTypeForReg(), "Lowered matrix type mismatch.");
+Value *HLMatrixType::emitLoweredRegToMem(Value *Val, IRBuilder<> &Builder) const {
+  DXASSERT(Val->getType()->getScalarType() == RegReprElemTy, "Lowered matrix type mismatch.");
   if (RegReprElemTy->isIntegerTy(1)) {
-    VecVal = Builder.CreateZExt(VecVal, getLoweredVectorTypeForMem(), "frombool");
+    Type *MemReprTy = Val->getType()->isVectorTy() ? getLoweredVectorTypeForMem() : getElementTypeForMem();
+    Val = Builder.CreateZExt(Val, MemReprTy, "frombool");
   }
-  return VecVal;
+  return Val;
 }
 
-Value *HLMatrixType::emitLoweredVectorLoad(Value *VecPtr, IRBuilder<> &Builder) const {
-  return emitLoweredVectorMemToReg(Builder.CreateLoad(VecPtr), Builder);
+Value *HLMatrixType::emitLoweredLoad(Value *Ptr, IRBuilder<> &Builder) const {
+  return emitLoweredMemToReg(Builder.CreateLoad(Ptr), Builder);
 }
 
-StoreInst *HLMatrixType::emitLoweredVectorStore(Value *VecVal, Value *VecPtr, IRBuilder<> &Builder) const {
-  return Builder.CreateStore(emitLoweredVectorRegToMem(VecVal, Builder), VecPtr);
+StoreInst *HLMatrixType::emitLoweredStore(Value *Val, Value *Ptr, IRBuilder<> &Builder) const {
+  return Builder.CreateStore(emitLoweredRegToMem(Val, Builder), Ptr);
 }
 
 Value *HLMatrixType::emitLoweredVectorRowToCol(Value *VecVal, IRBuilder<> &Builder) const {

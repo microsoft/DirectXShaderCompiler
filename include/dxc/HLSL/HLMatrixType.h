@@ -12,13 +12,14 @@
 #include "llvm/IR/IRBuilder.h"
 
 namespace llvm {
-  class Type;
-  class StoreInst;
-  class Value;
   template<typename T>
   class ArrayRef;
+  class Type;
+  class Value;
+  class Constant;
   class StructType;
   class VectorType;
+  class StoreInst;
 }
 
 namespace hlsl {
@@ -64,10 +65,10 @@ public:
   llvm::VectorType *getLoweredVectorTypeForReg() const { return getLoweredVectorType(false); }
   llvm::VectorType *getLoweredVectorTypeForMem() const { return getLoweredVectorType(true); }
 
-  llvm::Value *emitLoweredVectorMemToReg(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
-  llvm::Value *emitLoweredVectorRegToMem(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
-  llvm::Value *emitLoweredVectorLoad(llvm::Value *VecPtr, llvm::IRBuilder<> &Builder) const;
-  llvm::StoreInst *emitLoweredVectorStore(llvm::Value *VecVal, llvm::Value *VecPtr, llvm::IRBuilder<> &Builder) const;
+  llvm::Value *emitLoweredMemToReg(llvm::Value *Val, llvm::IRBuilder<> &Builder) const;
+  llvm::Value *emitLoweredRegToMem(llvm::Value *Val, llvm::IRBuilder<> &Builder) const;
+  llvm::Value *emitLoweredLoad(llvm::Value *Ptr, llvm::IRBuilder<> &Builder) const;
+  llvm::StoreInst *emitLoweredStore(llvm::Value *Val, llvm::Value *Ptr, llvm::IRBuilder<> &Builder) const;
 
   llvm::Value *emitLoweredVectorRowToCol(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
   llvm::Value *emitLoweredVectorColToRow(llvm::Value *VecVal, llvm::IRBuilder<> &Builder) const;
