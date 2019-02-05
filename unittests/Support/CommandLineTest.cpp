@@ -45,9 +45,8 @@ class TempEnvVar {
   const char *const name;
 };
 
-template <typename T>
-class StackOption : public cl::opt<T> {
-  typedef cl::opt<T> Base;
+template <typename T, typename Base = cl::opt<T>>
+class StackOption : public Base {
 public:
   // One option...
   template<class M0t>
@@ -478,6 +477,75 @@ TEST(CommandLineTest, RemoveFromAllSubCommands) {
   EXPECT_FALSE(cl::ParseCommandLineOptions(3, args1, nullptr, true));
   cl::ResetAllOptionOccurrences();
   EXPECT_FALSE(cl::ParseCommandLineOptions(3, args2, nullptr, true));
+}
+
+TEST(CommandLineTest, PrefixOptions) {
+  cl::ResetCommandLineParser();
+
+  StackOption<std::string, cl::list<std::string>> IncludeDirs(
+      "I", cl::Prefix, cl::desc("Declare an include directory"));
+
+  // Test non-prefixed variant works with cl::Prefix options.
+  EXPECT_TRUE(IncludeDirs.empty());
+  const char *args[] = {"prog", "-I=/usr/include"};
+  EXPECT_TRUE(cl::ParseCommandLineOptions(2, args, "", /*IgnoreErrors*/ true));
+  EXPECT_TRUE(IncludeDirs.size() == 1);
+  EXPECT_TRUE(IncludeDirs.front().compare("/usr/include") == 0);
+
+  IncludeDirs.erase(IncludeDirs.begin());
+  cl::ResetAllOptionOccurrences();
+
+  // Test non-prefixed variant works with cl::Prefix options when value is
+  // passed in following argument.
+  EXPECT_TRUE(IncludeDirs.empty());
+  const char *args2[] = {"prog", "-I", "/usr/include"};
+  EXPECT_TRUE(cl::ParseCommandLineOptions(3, args2, "", /*IgnoreErrors*/ true));
+  EXPECT_TRUE(IncludeDirs.size() == 1);
+  EXPECT_TRUE(IncludeDirs.front().compare("/usr/include") == 0);
+
+  IncludeDirs.erase(IncludeDirs.begin());
+  cl::ResetAllOptionOccurrences();
+
+  // Test prefixed variant works with cl::Prefix options.
+  EXPECT_TRUE(IncludeDirs.empty());
+  const char *args3[] = {"prog", "-I/usr/include"};
+  EXPECT_TRUE(cl::ParseCommandLineOptions(2, args3, "", /*IgnoreErrors*/ true));
+  EXPECT_TRUE(IncludeDirs.size() == 1);
+  EXPECT_TRUE(IncludeDirs.front().compare("/usr/include") == 0);
+
+  StackOption<std::string, cl::list<std::string>> MacroDefs(
+      "D", cl::AlwaysPrefix, cl::desc("Define a macro"),
+      cl::value_desc("MACRO[=VALUE]"));
+
+  cl::ResetAllOptionOccurrences();
+
+  // Test non-prefixed variant does not work with cl::AlwaysPrefix options:
+  // equal sign is part of the value.
+  EXPECT_TRUE(MacroDefs.empty());
+  const char *args4[] = {"prog", "-D=HAVE_FOO"};
+  EXPECT_TRUE(cl::ParseCommandLineOptions(2, args4, "", /*IgnoreErrors*/ true));
+  EXPECT_TRUE(MacroDefs.size() == 1);
+  EXPECT_TRUE(MacroDefs.front().compare("=HAVE_FOO") == 0);
+
+  MacroDefs.erase(MacroDefs.begin());
+  cl::ResetAllOptionOccurrences();
+
+  // Test non-prefixed variant does not allow value to be passed in following
+  // argument with cl::AlwaysPrefix options.
+  EXPECT_TRUE(MacroDefs.empty());
+  const char *args5[] = {"prog", "-D", "HAVE_FOO"};
+  EXPECT_FALSE(
+      cl::ParseCommandLineOptions(3, args5, "", /*IgnoreErrors*/ true));
+  EXPECT_TRUE(MacroDefs.empty());
+
+  cl::ResetAllOptionOccurrences();
+
+  // Test prefixed variant works with cl::AlwaysPrefix options.
+  EXPECT_TRUE(MacroDefs.empty());
+  const char *args6[] = {"prog", "-DHAVE_FOO"};
+  EXPECT_TRUE(cl::ParseCommandLineOptions(2, args6, "", /*IgnoreErrors*/ true));
+  EXPECT_TRUE(MacroDefs.size() == 1);
+  EXPECT_TRUE(MacroDefs.front().compare("HAVE_FOO") == 0);
 }
 
 }  // anonymous namespace
