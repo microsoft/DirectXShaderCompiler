@@ -24,6 +24,7 @@ add_llvm_library(LLVMHLSL
   DxcOptimizer.cpp
   HLMatrixBitcastLowerPass.cpp
   HLMatrixLowerPass.cpp
+  HLMatrixSubscriptUseReplacer.cpp
   HLMatrixType.cpp
   HLModule.cpp
   HLOperations.cpp
