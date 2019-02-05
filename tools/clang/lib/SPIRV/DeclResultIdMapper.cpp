@@ -253,6 +253,15 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
   return nullptr;
 }
 
+/// \brief Returns the stage variable's 'register(c#) assignment for the given
+/// Decl. Return nullptr if the given variable does not have such assignment.
+const hlsl::RegisterAssignment *getRegisterCAssignment(const NamedDecl *decl) {
+  const auto *regAssignment = getResourceBinding(decl);
+  if (regAssignment)
+    return regAssignment->RegisterType == 'c' ? regAssignment : nullptr;
+  return nullptr;
+}
+
 /// \brief Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
 inline bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
@@ -699,13 +708,17 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
 
+    // In case 'register(c#)' annotation is placed on a global variable.
+    const hlsl::RegisterAssignment *registerC =
+        forGlobals ? getRegisterCAssignment(declDecl) : nullptr;
+
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
     auto varType = declDecl->getType();
     varType.removeLocalConst();
     HybridStructType::FieldInfo info(varType, declDecl->getName(),
                                      declDecl->getAttr<VKOffsetAttr>(),
-                                     getPackOffset(declDecl));
+                                     getPackOffset(declDecl), registerC);
     fields.push_back(info);
   }
 

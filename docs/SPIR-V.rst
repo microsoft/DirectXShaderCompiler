@@ -879,6 +879,22 @@ to a struct memeber affects all variables of the struct type in question. So
 sharing the same struct definition having ``[[vk::offset]]`` annotations means
 also sharing the layout.
 
+For global variables (which are collected into the ``$Globals`` cbuffer), you
+can use the native HLSL ``:register(c#)`` attribute. Note that ``[[vk::offset]]``
+and ``:packoffset`` cannot be applied to these variables.
+
+If ``register(cX)`` is used on any global variable, the offset for that variable
+is set to ``X * 16``, and the offset for all other global variables without the
+``register(c#)`` annotation will be set to the next available address after
+the highest explicit address. For example:
+
+.. code:: hlsl
+
+  float x : register(c10);   // Offset = 160 (10 * 16)
+  float y;                   // Offset = 164 (160 + 4)
+  float z: register(c1);     // Offset = 16  (1  * 16)
+
+
 These attributes give great flexibility but also responsibility to the
 developer; the compiler will just take in what is specified in the source code
 and emit it to SPIR-V with no error checking.
