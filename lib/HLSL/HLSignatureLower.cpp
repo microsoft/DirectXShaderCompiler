@@ -648,6 +648,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
       IRBuilder<> LocalBuilder(CI);
       HLMatrixType MatTy = HLMatrixType::cast(
           CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx)->getType());
+      Type *EltTy = MatTy.getElementTypeForReg();
       std::vector<Value *> matElts(MatTy.getNumElements());
       for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
         Value *rowIdx = hlslOP->GetI32Const(c);
@@ -669,6 +670,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
       IRBuilder<> LocalBuilder(CI);
       HLMatrixType MatTy = HLMatrixType::cast(
           CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx)->getType());
+      Type *EltTy = MatTy.getElementTypeForReg();
       std::vector<Value *> matElts(MatTy.getNumElements());
       for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
         Value *rowIdx = hlslOP->GetI32Const(r);

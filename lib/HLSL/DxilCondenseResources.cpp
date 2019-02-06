@@ -1539,7 +1539,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
     HLMatrixType MatTy = HLMatrixType::cast(Ty);
     unsigned rows = MatTy.getNumRows();
     unsigned cols = MatTy.getNumColumns();
-    Type *EltTy = MatTy.getElementTypeForMem();
+    Type *EltTy = MatTy.getElementTypeForReg();
 
     // Get cols and rows from annotation.
     const DxilMatrixAnnotation &matrix = annotation.GetMatrixAnnotation();

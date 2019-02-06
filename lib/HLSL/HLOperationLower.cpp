@@ -5070,7 +5070,7 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
       Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
       HLMatrixType MatTy = HLMatrixType::cast(basePtr->getType()->getPointerElementType());
-      Type *EltTy = MatTy.getElementTypeForMem();
+      Type *EltTy = MatTy.getElementTypeForReg();
 
       Value *EltByteSize = ConstantInt::get(
           baseOffset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
@@ -5498,7 +5498,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
       Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
       HLMatrixType MatTy = HLMatrixType::cast(basePtr->getType()->getPointerElementType());
-      Type *EltTy = MatTy.getElementTypeForMem();
+      Type *EltTy = MatTy.getElementTypeForReg();
 
       Value *idx = CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
 
@@ -6148,7 +6148,7 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
   Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
   HLMatrixType MatTy = HLMatrixType::cast(basePtr->getType()->getPointerElementType());
-  Type *EltTy = MatTy.getElementTypeForMem();
+  Type *EltTy = MatTy.getElementTypeForReg();
   Constant *alignment = hlslOP->GetI32Const(DL.getTypeAllocSize(EltTy));
 
   Value *EltByteSize = ConstantInt::get(

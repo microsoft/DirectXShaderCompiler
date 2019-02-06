@@ -981,7 +981,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   unsigned size = dataLayout.getTypeAllocSize(Type);
 
   if (IsHLSLMatType(Ty)) {
-    llvm::Type *EltTy = HLMatrixType::cast(Type).getElementTypeForMem();
+    llvm::Type *EltTy = HLMatrixType::cast(Type).getElementTypeForReg();
     bool b64Bit = dataLayout.getTypeAllocSize(EltTy) == 8;
     size = GetMatrixSizeInCB(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor,
                              b64Bit);
@@ -5330,9 +5330,8 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       }
     }
   } else {
-    if (dxilutil::IsHLSLMatrixType(valTy)) {
-      HLMatrixType MatTy = HLMatrixType::cast(valTy);
-      llvm::Type *EltTy = MatTy.getElementTypeForMem();
+    if (HLMatrixType MatTy = HLMatrixType::dyn_cast(valTy)) {
+      llvm::Type *EltTy = MatTy.getElementTypeForReg();
       // All matrix Value should be row major.
       // Init list is row major in scalar.
       // So the order is match here, just cast to vector.
@@ -5481,7 +5480,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     std::vector<Value *> matInitList(MatTy.getNumElements());
     for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
       for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
-        unsigned matIdx = MatTy.getColumnMajorIndex(r, c);
+        unsigned matIdx = c * MatTy.getNumRows() + r;
         matInitList[matIdx] = elts[idx + matIdx];
       }
     }
@@ -6517,7 +6516,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     idxList.pop_back();
   } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
-    llvm::Type *EltTy = MatTy.getElementTypeForMem();
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
     llvm::PointerType *EltPtrTy =
         llvm::PointerType::get(EltTy, Ptr->getType()->getPointerAddressSpace());
     QualType EltQualTy = hlsl::GetHLSLMatElementType(Type);
@@ -6870,7 +6869,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
   } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-    llvm::Type *EltTy = MatTy.getElementTypeForMem();
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
 
     llvm::VectorType *VT1 = llvm::VectorType::get(EltTy, 1);
     SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcType, hlsl::GetHLSLMatElementType(Type));

@@ -38,7 +38,7 @@ namespace {
 // Translate matrix type to array type.
 Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
   if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
-    Type *EltTy = MatTy.getElementTypeForMem();
+    Type *EltTy = MatTy.getElementTypeForReg();
     return ArrayType::get(EltTy, MatTy.getNumElements());
   }
   else {
@@ -65,7 +65,7 @@ Type *LowerMatrixArrayPointerToOneDimArray(Type *Ty) {
   HLMatrixType MatTy = HLMatrixType::cast(Ty);
   arraySize *= MatTy.getNumElements();
 
-  Ty = ArrayType::get(MatTy.getElementTypeForMem(), arraySize);
+  Ty = ArrayType::get(MatTy.getElementTypeForReg(), arraySize);
   return PointerType::get(Ty, addrSpace);
 }
 
