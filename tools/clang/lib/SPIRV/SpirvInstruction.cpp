@@ -58,7 +58,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvComposite)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitVertex)
@@ -355,15 +355,10 @@ SpirvBitFieldInsert::SpirvBitFieldInsert(QualType resultType,
                     loc, baseInst, offsetInst, countInst),
       insert(insertInst) {}
 
-SpirvComposite::SpirvComposite(
+SpirvCompositeConstruct::SpirvCompositeConstruct(
     QualType resultType, SourceLocation loc,
-    llvm::ArrayRef<SpirvInstruction *> constituentsVec, bool isConstant,
-    bool isSpecConstant)
-    : SpirvInstruction(IK_Composite,
-                       isSpecConstant
-                           ? spv::Op::OpSpecConstantComposite
-                           : isConstant ? spv::Op::OpConstantComposite
-                                        : spv::Op::OpCompositeConstruct,
+    llvm::ArrayRef<SpirvInstruction *> constituentsVec)
+    : SpirvInstruction(IK_CompositeConstruct, spv::Op::OpCompositeConstruct,
                        resultType, loc),
       consituents(constituentsVec.begin(), constituentsVec.end()) {}
 

@@ -109,11 +109,11 @@ public:
   /// \brief Creates a composite construct instruction with the given
   /// <result-type> and constituents and returns the pointer of the
   /// composite instruction.
-  SpirvComposite *
+  SpirvCompositeConstruct *
   createCompositeConstruct(QualType resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
                            SourceLocation loc = {});
-  SpirvComposite *
+  SpirvCompositeConstruct *
   createCompositeConstruct(const SpirvType *resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
                            SourceLocation loc = {});
