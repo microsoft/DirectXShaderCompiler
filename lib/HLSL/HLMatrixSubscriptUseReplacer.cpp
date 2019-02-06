@@ -240,7 +240,7 @@ Value *HLMatrixSubscriptUseReplacer::loadVector(IRBuilder<> &Builder) {
   VectorType *VecTy = VectorType::get(ElemTy, static_cast<unsigned>(ElemIndices.size()));
   Value *Result = UndefValue::get(VecTy);
   for (unsigned SubIdx = 0; SubIdx < ElemIndices.size(); ++SubIdx) {
-    Value *Elem = loadElem(Builder.getInt32(SubIdx), Builder);
+    Value *Elem = loadElem(ElemIndices[SubIdx], Builder);
     Result = Builder.CreateInsertElement(Result, Elem, static_cast<uint64_t>(SubIdx));
   }
 
@@ -254,7 +254,7 @@ void HLMatrixSubscriptUseReplacer::storeVector(Value *Vec, IRBuilder<> &Builder)
 
   for (unsigned SubIdx = 0; SubIdx < ElemIndices.size(); ++SubIdx) {
     Value *Elem = Builder.CreateExtractElement(Vec, static_cast<uint64_t>(SubIdx));
-    storeElem(Builder.getInt32(SubIdx), Elem, Builder);
+    storeElem(ElemIndices[SubIdx], Elem, Builder);
   }
 }
 

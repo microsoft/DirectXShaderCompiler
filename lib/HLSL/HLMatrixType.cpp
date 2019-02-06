@@ -32,6 +32,24 @@ Type *HLMatrixType::getElementType(bool MemRepr) const {
     : RegReprElemTy;
 }
 
+unsigned HLMatrixType::getRowMajorIndex(unsigned RowIdx, unsigned ColIdx) const {
+  return getRowMajorIndex(RowIdx, ColIdx, NumRows, NumColumns);
+}
+
+unsigned HLMatrixType::getColumnMajorIndex(unsigned RowIdx, unsigned ColIdx) const {
+  return getColumnMajorIndex(RowIdx, ColIdx, NumRows, NumColumns);
+}
+
+unsigned HLMatrixType::getRowMajorIndex(unsigned RowIdx, unsigned ColIdx, unsigned NumRows, unsigned NumColumns) {
+  DXASSERT_NOMSG(RowIdx < NumRows && ColIdx < NumColumns);
+  return RowIdx * NumColumns + ColIdx;
+}
+
+unsigned HLMatrixType::getColumnMajorIndex(unsigned RowIdx, unsigned ColIdx, unsigned NumRows, unsigned NumColumns) {
+  DXASSERT_NOMSG(RowIdx < NumRows && ColIdx < NumColumns);
+  return ColIdx * NumRows + RowIdx;
+}
+
 VectorType *HLMatrixType::getLoweredVectorType(bool MemRepr) const {
   return VectorType::get(getElementType(MemRepr), getNumElements());
 }
@@ -68,7 +86,7 @@ Value *HLMatrixType::emitLoweredVectorRowToCol(Value *VecVal, IRBuilder<> &Build
   SmallVector<int, 16> ShuffleIndices;
   for (unsigned ColIdx = 0; ColIdx < NumColumns; ++ColIdx)
     for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx)
-      ShuffleIndices.emplace_back(RowIdx * NumColumns + ColIdx);
+      ShuffleIndices.emplace_back((int)getRowMajorIndex(RowIdx, ColIdx));
   return Builder.CreateShuffleVector(VecVal, VecVal, ShuffleIndices, "row2col");
 }
 
@@ -79,7 +97,7 @@ Value *HLMatrixType::emitLoweredVectorColToRow(Value *VecVal, IRBuilder<> &Build
   SmallVector<int, 16> ShuffleIndices;
   for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx)
     for (unsigned ColIdx = 0; ColIdx < NumColumns; ++ColIdx)
-      ShuffleIndices.emplace_back(RowIdx * NumColumns + ColIdx);
+      ShuffleIndices.emplace_back((int)getColumnMajorIndex(RowIdx, ColIdx));
   return Builder.CreateShuffleVector(VecVal, VecVal, ShuffleIndices, "col2row");
 }
 

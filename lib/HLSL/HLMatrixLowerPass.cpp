@@ -223,7 +223,7 @@ unsigned GetRowMajorIdx(unsigned r, unsigned c, unsigned col) {
 
 namespace {
 
-// Creates and manages a set of overloaded functions keyed on the function type,
+// Creates and manages a set of temporary overloaded functions keyed on the function type,
 // and which should be destroyed when the pool gets out of scope.
 class TempOverloadPool {
 public:
@@ -2369,7 +2369,12 @@ void HLMatrixLowerPass::DeleteDeadInsts() {
     for (Value *Operand : Inst->operand_values()) {
       Instruction *OperandInst = dyn_cast<Instruction>(Operand);
       if (OperandInst && ++OperandInst->user_begin() == OperandInst->user_end()) {
-        // We were its only user, erase recursively
+        // We were its only user, erase recursively.
+        // This will get rid of translation stubs:
+        // Original: MatConsumer(MatProducer)
+        // Producer lowered: MatConsumer(VecToMat(VecProducer)), MatProducer dead
+        // Consumer lowered: VecConsumer(VecProducer)), MatConsumer(VecToMat) dead
+        // Only by recursing on MatConsumer's operand do we delete the VecToMat stub.
         DXASSERT_NOMSG(*OperandInst->user_begin() == Inst);
         m_deadInsts.emplace_back(OperandInst);
       }
@@ -2377,15 +2382,6 @@ void HLMatrixLowerPass::DeleteDeadInsts() {
 
     Inst->eraseFromParent();
   }
-
-  //// Delete the matrix version insts.
-  //for (Instruction *deadInst : m_deadInsts) {
-  //  // Replace with undef and remove it.
-  //  deadInst->replaceAllUsesWith(UndefValue::get(deadInst->getType()));
-  //  deadInst->eraseFromParent();
-  //}
-  //m_deadInsts.clear();
-  //m_inDeadInstsSet.clear();
 }
 
 static bool OnlyUsedByMatrixLdSt(Value *V) {
@@ -2563,6 +2559,12 @@ bool HLMatrixLowerPass::runOnModule(Module &M) {
   m_pHLModule = nullptr;
   m_matToVecStubs = nullptr;
   m_vecToMatStubs = nullptr;
+
+  // If you hit an assert during TempOverloadPool destruction,
+  // it means that either a matrix producer was lowered,
+  // causing a translation stub to be created,
+  // but the consumer of that matrix was never (properly) lowered.
+  // Or the opposite: a matrix consumer was lowered and not its producer.
 
   return true;
 }
@@ -2904,8 +2906,8 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
 // Replaces all uses of a matrix or matrix array alloca or global variable by its lowered equivalent.
 // This doesn't lower the users, but will insert a translation stub from the lowered value pointer
 // back to the matrix value pointer, and recreate any GEPs around the new pointer.
-// Before: MatrixArrayAlloca <- GEP <- User
-// After: VectorArrayAlloca <- GEP' <- VecToMatPtrStub <- User
+// Before: User(GEP(MatrixArrayAlloca))
+// After: User(VecToMatPtrStub(GEP'(VectorArrayAlloca)))
 void HLMatrixLowerPass::replaceAllVariableUses(Value* MatPtr, Value* LoweredPtr) {
   DXASSERT_NOMSG(HLMatrixType::isMatrixPtrOrArrayPtr(MatPtr->getType()));
   DXASSERT_NOMSG(LoweredPtr->getType() == getLoweredType(MatPtr->getType()));
@@ -2998,6 +3000,8 @@ Constant *HLMatrixLowerPass::lowerConstInitVal(Constant *Val) {
   DXASSERT_NOMSG(isa<StructType>(Ty));
   Constant *RowArrayVal = Val->getAggregateElement((unsigned)0);
 
+  // Original initializer should have been produced in row/column-major order
+  // depending on the qualifiers of the target variable, so preserve the order.
   SmallVector<Constant*, 16> MatElems;
   for (unsigned RowIdx = 0; RowIdx < MatTy.getNumRows(); ++RowIdx) {
     Constant *RowVal = RowArrayVal->getAggregateElement(RowIdx);
@@ -3274,8 +3278,7 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
   }
 
   DXASSERT(LhsNumCols == RhsNumRows, "Matrix mul intrinsic operands dimensions mismatch.");
-  unsigned ResultNumRows = LhsNumRows;
-  unsigned ResultNumCols = RhsNumCols;
+  HLMatrixType ResultMatTy(ElemTy, LhsNumRows, RhsNumCols);
   unsigned AccCount = LhsNumCols;
 
   // Get the multiply-and-add intrinsic function, we'll need it
@@ -3286,17 +3289,24 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
 
   // Perform the multiplication!
   Value *Result = UndefValue::get(VectorType::get(ElemTy, LhsNumRows * RhsNumCols));
-  for (unsigned ResultRowIdx = 0; ResultRowIdx < ResultNumRows; ++ResultRowIdx) {
-    for (unsigned ResultColIdx = 0; ResultColIdx < ResultNumCols; ++ResultColIdx) {
-      unsigned ResultElemIdx = ResultRowIdx * ResultNumCols + ResultColIdx;
-      Value *ResultElem = Constant::getNullValue(ElemTy);
+  for (unsigned ResultRowIdx = 0; ResultRowIdx < ResultMatTy.getNumRows(); ++ResultRowIdx) {
+    for (unsigned ResultColIdx = 0; ResultColIdx < ResultMatTy.getNumColumns(); ++ResultColIdx) {
+      unsigned ResultElemIdx = ResultMatTy.getRowMajorIndex(ResultRowIdx, ResultColIdx);
+      Value *ResultElem = nullptr;
 
       for (unsigned AccIdx = 0; AccIdx < AccCount; ++AccIdx) {
-        unsigned LhsElemIdx = ResultRowIdx * LhsNumCols + AccIdx;
-        unsigned RhsElemIdx = AccIdx * RhsNumCols + ResultColIdx;
+        unsigned LhsElemIdx = HLMatrixType::getRowMajorIndex(ResultRowIdx, AccIdx, LhsNumRows, LhsNumCols);
+        unsigned RhsElemIdx = HLMatrixType::getRowMajorIndex(AccIdx, ResultColIdx, RhsNumRows, RhsNumCols);
         Value* LhsElem = Builder.CreateExtractElement(LoweredLhs, static_cast<uint64_t>(LhsElemIdx));
         Value* RhsElem = Builder.CreateExtractElement(LoweredRhs, static_cast<uint64_t>(RhsElemIdx));
-        ResultElem = Builder.CreateCall(MadFunc, { MadOpcodeVal, LhsElem, RhsElem, ResultElem });
+        if (ResultElem == nullptr) {
+          ResultElem = ElemTy->isFloatingPointTy()
+            ? Builder.CreateFMul(LhsElem, RhsElem)
+            : Builder.CreateMul(LhsElem, RhsElem);
+        }
+        else {
+          ResultElem = Builder.CreateCall(MadFunc, { MadOpcodeVal, LhsElem, RhsElem, ResultElem });
+        }
       }
 
       Result = Builder.CreateInsertElement(Result, ResultElem, static_cast<uint64_t>(ResultElemIdx));
@@ -3441,10 +3451,10 @@ Value *HLMatrixLowerPass::lowerHLBinaryOperation(Value *Lhs, Value *Rhs, HLBinar
     return Builder.CreateAnd(LoweredLhs, LoweredRhs);
 
   case HLBinaryOpcode::Or:
-    return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+    return Builder.CreateOr(LoweredLhs, LoweredRhs);
 
   case HLBinaryOpcode::Xor:
-    return Builder.CreateAnd(LoweredLhs, LoweredRhs);
+    return Builder.CreateXor(LoweredLhs, LoweredRhs);
 
   case HLBinaryOpcode::Shl:
     return Builder.CreateShl(LoweredLhs, LoweredRhs);
@@ -3700,7 +3710,7 @@ Value *HLMatrixLowerPass::lowerHLCast(Value *Src, Type *DstTy, HLCastOpcode Opco
       SmallVector<int, 16> ShuffleIndices;
       for (unsigned RowIdx = 0; RowIdx < MatDstTy.getNumRows(); ++RowIdx)
         for (unsigned ColIdx = 0; ColIdx < MatDstTy.getNumColumns(); ++ColIdx)
-          ShuffleIndices.emplace_back(static_cast<int>(RowIdx * MatSrcTy.getNumColumns() + ColIdx));
+          ShuffleIndices.emplace_back(static_cast<int>(MatSrcTy.getRowMajorIndex(RowIdx, ColIdx)));
       Result = Builder.CreateShuffleVector(Result, Result, ShuffleIndices);
     }
 

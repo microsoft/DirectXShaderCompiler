@@ -60,6 +60,10 @@ public:
   unsigned getNumRows() const { return NumRows; }
   unsigned getNumColumns() const { return NumColumns; }
   unsigned getNumElements() const { return NumRows * NumColumns; }
+  unsigned getRowMajorIndex(unsigned RowIdx, unsigned ColIdx) const;
+  unsigned getColumnMajorIndex(unsigned RowIdx, unsigned ColIdx) const;
+  static unsigned getRowMajorIndex(unsigned RowIdx, unsigned ColIdx, unsigned NumRows, unsigned NumColumns);
+  static unsigned getColumnMajorIndex(unsigned RowIdx, unsigned ColIdx, unsigned NumRows, unsigned NumColumns);
 
   llvm::VectorType *getLoweredVectorType(bool MemRepr) const;
   llvm::VectorType *getLoweredVectorTypeForReg() const { return getLoweredVectorType(false); }
