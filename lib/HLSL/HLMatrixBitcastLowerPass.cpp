@@ -1,11 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// HLMatrixLowerPass.cpp                                                     //
+// HLMatrixBitcastLowerPass.cpp                                              //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
-//                                                                           //
-// HLMatrixLowerPass implementation.                                         //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,14 +37,19 @@ namespace {
 
 // Translate matrix type to array type.
 Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
-  if (dxilutil::IsHLSLMatrixType(Ty)) {
-    unsigned row, col;
-    Type *EltTy = GetMatrixInfo(Ty, col, row);
-    return ArrayType::get(EltTy, row * col);
+  if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
+    Type *EltTy = MatTy.getElementTypeForMem();
+    return ArrayType::get(EltTy, MatTy.getNumElements());
   }
   else {
     return Ty;
   }
+}
+
+// Translate matrix array pointer type to vector array pointer type.
+Type *LowerMatrixArrayPointer(Type *Ty, bool forMem) {
+  DXASSERT_NOMSG(HLMatrixType::isMatrixArrayPtr(Ty));
+  return HLMatrixType::getLoweredType(Ty, forMem);
 }
 
 Type *LowerMatrixArrayPointerToOneDimArray(Type *Ty) {
@@ -58,17 +61,17 @@ Type *LowerMatrixArrayPointerToOneDimArray(Type *Ty) {
     arraySize *= Ty->getArrayNumElements();
     Ty = Ty->getArrayElementType();
   }
-  unsigned row, col;
-  Type *EltTy = GetMatrixInfo(Ty, col, row);
-  arraySize *= row * col;
 
-  Ty = ArrayType::get(EltTy, arraySize);
+  HLMatrixType MatTy = HLMatrixType::cast(Ty);
+  arraySize *= MatTy.getNumElements();
+
+  Ty = ArrayType::get(MatTy.getElementTypeForMem(), arraySize);
   return PointerType::get(Ty, addrSpace);
 }
 
 Type *TryLowerMatTy(Type *Ty) {
   Type *VecTy = nullptr;
-  if (HLMatrixLower::IsMatrixArrayPointer(Ty)) {
+  if (HLMatrixType::isMatrixArrayPtr(Ty)) {
     VecTy = LowerMatrixArrayPointerToOneDimArray(Ty);
   } else if (isa<PointerType>(Ty) &&
              dxilutil::IsHLSLMatrixType(Ty->getPointerElementType())) {
@@ -196,10 +199,9 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
         SmallVector<Value *, 2> idxList(GEP->idx_begin(), GEP->idx_end());
         DXASSERT(idxList.size() == 2,
                  "else not one dim matrix array index to matrix");
-        unsigned col = 0;
-        unsigned row = 0;
-        HLMatrixLower::GetMatrixInfo(EltTy, col, row);
-        Value *matSize = Builder.getInt32(col * row);
+
+        HLMatrixType MatTy = HLMatrixType::cast(EltTy);
+        Value *matSize = Builder.getInt32(MatTy.getNumElements());
         idxList.back() = Builder.CreateMul(idxList.back(), matSize);
         Value *NewGEP = Builder.CreateGEP(A, idxList);
         lowerMatrix(GEP, NewGEP);

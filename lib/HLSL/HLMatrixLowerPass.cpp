@@ -38,184 +38,11 @@ using namespace hlsl::HLMatrixLower;
 namespace hlsl {
 namespace HLMatrixLower {
 
-// If user is function call, return param annotation to get matrix major.
-DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
-                                               DxilTypeSystem &typeSys) {
-  for (User *U : Mat->users()) {
-    if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      Function *F = CI->getCalledFunction();
-      if (DxilFunctionAnnotation *Anno = typeSys.GetFunctionAnnotation(F)) {
-        for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
-          if (CI->getArgOperand(i) == Mat) {
-            return &Anno->GetParameterAnnotation(i);
-          }
-        }
-      }
-    }
-  }
-  return nullptr;
-}
-
-// Translate matrix type to vector type.
-Type *LowerMatrixType(Type *Ty, bool forMem) {
-  // Only translate matrix type and function type which use matrix type.
-  // Not translate struct has matrix or matrix pointer.
-  // Struct should be flattened before.
-  // Pointer could cover by matldst which use vector as value type.
-  if (FunctionType *FT = dyn_cast<FunctionType>(Ty)) {
-    Type *RetTy = LowerMatrixType(FT->getReturnType());
-    SmallVector<Type *, 4> params;
-    for (Type *param : FT->params()) {
-      params.emplace_back(LowerMatrixType(param));
-    }
-    return FunctionType::get(RetTy, params, false);
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
-    unsigned row, col;
-    Type *EltTy = GetMatrixInfo(Ty, col, row);
-    if (forMem && EltTy->isIntegerTy(1))
-      EltTy = Type::getInt32Ty(Ty->getContext());
-    return VectorType::get(EltTy, row * col);
-  } else {
-    return Ty;
-  }
-}
-
-
-Type *GetMatrixInfo(Type *Ty, unsigned &col, unsigned &row) {
-  DXASSERT(dxilutil::IsHLSLMatrixType(Ty), "not matrix type");
-  StructType *ST = cast<StructType>(Ty);
-  Type *EltTy = ST->getElementType(0);
-  Type *RowTy = EltTy->getArrayElementType();
-  row = EltTy->getArrayNumElements();
-  col = RowTy->getVectorNumElements();
-  return RowTy->getVectorElementType();
-}
-
-bool IsMatrixArrayPointer(llvm::Type *Ty) {
-  if (!Ty->isPointerTy())
-    return false;
-  Ty = Ty->getPointerElementType();
-  if (!Ty->isArrayTy())
-    return false;
-  while (Ty->isArrayTy())
-    Ty = Ty->getArrayElementType();
-  return dxilutil::IsHLSLMatrixType(Ty);
-}
-Type *LowerMatrixArrayPointer(Type *Ty, bool forMem) {
-  unsigned addrSpace = Ty->getPointerAddressSpace();
-  Ty = Ty->getPointerElementType();
-  std::vector<unsigned> arraySizeList;
-  while (Ty->isArrayTy()) {
-    arraySizeList.push_back(Ty->getArrayNumElements());
-    Ty = Ty->getArrayElementType();
-  }
-  Ty = LowerMatrixType(Ty, forMem);
-
-  for (auto arraySize = arraySizeList.rbegin();
-       arraySize != arraySizeList.rend(); arraySize++)
-    Ty = ArrayType::get(Ty, *arraySize);
-  return PointerType::get(Ty, addrSpace);
-}
-
-Value *BuildVector(Type *EltTy, unsigned size, ArrayRef<llvm::Value *> elts,
-  IRBuilder<> &Builder) {
-  Value *Vec = UndefValue::get(VectorType::get(EltTy, size));
-  for (unsigned i = 0; i < size; i++)
+Value *BuildVector(Type *EltTy, ArrayRef<llvm::Value *> elts, IRBuilder<> &Builder) {
+  Value *Vec = UndefValue::get(VectorType::get(EltTy, static_cast<unsigned>(elts.size())));
+  for (unsigned i = 0; i < elts.size(); i++)
     Vec = Builder.CreateInsertElement(Vec, elts[i], i);
   return Vec;
-}
-
-llvm::Value *VecMatrixMemToReg(llvm::Value *VecVal, llvm::Type *MatType,
-  llvm::IRBuilder<> &Builder)
-{
-  llvm::Type *VecMatRegTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/false);
-  if (VecVal->getType() == VecMatRegTy) {
-    return VecVal;
-  }
-
-  DXASSERT(VecMatRegTy->getVectorElementType()->isIntegerTy(1),
-    "Vector matrix mem to reg type mismatch should only happen for bools.");
-  llvm::Type *VecMatMemTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/true);
-  return Builder.CreateICmpNE(VecVal, Constant::getNullValue(VecMatMemTy));
-}
-
-llvm::Value *VecMatrixRegToMem(llvm::Value* VecVal, llvm::Type *MatType,
-  llvm::IRBuilder<> &Builder)
-{
-  llvm::Type *VecMatMemTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/true);
-  if (VecVal->getType() == VecMatMemTy) {
-    return VecVal;
-  }
-
-  DXASSERT(VecVal->getType()->getVectorElementType()->isIntegerTy(1),
-    "Vector matrix reg to mem type mismatch should only happen for bools.");
-  return Builder.CreateZExt(VecVal, VecMatMemTy);
-}
-
-llvm::Instruction *CreateVecMatrixLoad(
-  llvm::Value *VecPtr, llvm::Type *MatType, llvm::IRBuilder<> &Builder)
-{
-  llvm::Instruction *VecVal = Builder.CreateLoad(VecPtr);
-  return cast<llvm::Instruction>(VecMatrixMemToReg(VecVal, MatType, Builder));
-}
-
-llvm::Instruction *CreateVecMatrixStore(llvm::Value* VecVal, llvm::Value *VecPtr,
-  llvm::Type *MatType, llvm::IRBuilder<> &Builder)
-{
-  llvm::Type *VecMatMemTy = HLMatrixLower::LowerMatrixType(MatType, /*forMem*/true);
-  if (VecVal->getType() == VecMatMemTy) {
-    return Builder.CreateStore(VecVal, VecPtr);
-  }
-
-  // We need to convert to the memory representation, and we want to return
-  // the conversion instruction rather than the store since that's what
-  // accepts the register-typed i1 values.
-
-  // Do not use VecMatrixRegToMem as it may constant fold the conversion
-  // instruction, which is what we want to return.
-  DXASSERT(VecVal->getType()->getVectorElementType()->isIntegerTy(1),
-    "Vector matrix reg to mem type mismatch should only happen for bools.");
-
-  llvm::Instruction *ConvInst = Builder.Insert(new ZExtInst(VecVal, VecMatMemTy));
-  Builder.CreateStore(ConvInst, VecPtr);
-  return ConvInst;
-}
-
-Value *LowerGEPOnMatIndexListToIndex(
-    llvm::GetElementPtrInst *GEP, ArrayRef<Value *> IdxList) {
-  IRBuilder<> Builder(GEP);
-  Value *zero = Builder.getInt32(0);
-  DXASSERT(GEP->getNumIndices() == 2, "must have 2 level");
-  Value *baseIdx = (GEP->idx_begin())->get();
-  DXASSERT_LOCALVAR(baseIdx, baseIdx == zero, "base index must be 0");
-  Value *Idx = (GEP->idx_begin() + 1)->get();
-
-  if (ConstantInt *immIdx = dyn_cast<ConstantInt>(Idx)) {
-    return IdxList[immIdx->getSExtValue()];
-  } else {
-    IRBuilder<> AllocaBuilder(
-        GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-    unsigned size = IdxList.size();
-    // Store idxList to temp array.
-    ArrayType *AT = ArrayType::get(IdxList[0]->getType(), size);
-    Value *tempArray = AllocaBuilder.CreateAlloca(AT);
-
-    for (unsigned i = 0; i < size; i++) {
-      Value *EltPtr = Builder.CreateGEP(tempArray, {zero, Builder.getInt32(i)});
-      Builder.CreateStore(IdxList[i], EltPtr);
-    }
-    // Load the idx.
-    Value *GEPOffset = Builder.CreateGEP(tempArray, {zero, Idx});
-    return Builder.CreateLoad(GEPOffset);
-  }
-}
-
-
-unsigned GetColMajorIdx(unsigned r, unsigned c, unsigned row) {
-  return c * row + r;
-}
-unsigned GetRowMajorIdx(unsigned r, unsigned c, unsigned col) {
-  return r * col + c;
 }
 
 } // namespace HLMatrixLower
@@ -308,7 +135,6 @@ private:
 
   void getMatrixAllocasAndOtherInsts(Function &Func,
     std::vector<AllocaInst*> &MatAllocas, std::vector<Instruction*> &MatInsts);
-  static Type *getLoweredType(Type *Ty, bool MemRepr = false);
   Value *getLoweredByValOperand(Value *Val, IRBuilder<> &Builder, bool DiscardStub = false);
   Value *tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Builder, bool DiscardStub = false);
   Value *bitCastValue(Value *SrcVal, Type* DstTy, bool DstTyAlloca, IRBuilder<> &Builder);
@@ -507,29 +333,6 @@ void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
   }
 }
 
-// Converts a type which may or not contain a matrix type to its
-// lowered form, where all matrix types have been lowered to vector types.
-// Direct matrix types are lowered to their register representation,
-// whereas pointer or array-indirect types are lowered to their memory representation.
-Type *HLMatrixLowerPass::getLoweredType(Type *Ty, bool MemRepr) {
-  if (PointerType *PtrTy = dyn_cast<PointerType>(Ty)) {
-    // Pointees are always in memory representation
-    Type *LoweredElemTy = getLoweredType(PtrTy->getElementType(), true);
-    return LoweredElemTy == PtrTy->getElementType()
-      ? Ty : PointerType::get(LoweredElemTy, PtrTy->getAddressSpace());
-  }
-  else if (ArrayType *ArrayTy = dyn_cast<ArrayType>(Ty)) {
-    // Arrays are always in memory and so their elements are in memory representation
-    Type *LoweredElemTy = getLoweredType(ArrayTy->getElementType(), true);
-    return LoweredElemTy == ArrayTy->getElementType()
-      ? Ty : ArrayType::get(LoweredElemTy, ArrayTy->getNumElements());
-  }
-  else if (HLMatrixType MatrixTy = HLMatrixType::dyn_cast(Ty)) {
-    return MatrixTy.getLoweredVectorType(MemRepr);
-  }
-  else return Ty;
-}
-
 // Gets the matrix-lowered representation of a value, potentially adding a translation stub.
 // DiscardStub causes any vec-to-mat translation stubs to be deleted,
 // it should be true only if the original instruction will be modified and kept alive.
@@ -600,7 +403,7 @@ Value *HLMatrixLowerPass::tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Build
   if (IsNonShaderArg || isa<AllocaInst>(RootPtr)) {
     // Bitcast the matrix pointer to its lowered equivalent.
     // The HLMatrixBitcast pass will take care of this later.
-    return Builder.CreateBitCast(Ptr, getLoweredType(Ptr->getType()));
+    return Builder.CreateBitCast(Ptr, HLMatrixType::getLoweredType(Ptr->getType()));
   }
 
   // The pointer must be derived from a resource, we don't handle it in this pass.
@@ -628,7 +431,7 @@ Value *HLMatrixLowerPass::bitCastValue(Value *SrcVal, Type* DstTy, bool DstTyAll
 void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value* VecVal) {
   if (VecVal == nullptr || VecVal == MatInst) return;
 
-  DXASSERT(getLoweredType(MatInst->getType()) == VecVal->getType(),
+  DXASSERT(HLMatrixType::getLoweredType(MatInst->getType()) == VecVal->getType(),
     "Unexpected lowered value type.");
 
   Instruction *VecToMatStub = nullptr;
@@ -678,7 +481,7 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
 // After: User(VecToMatPtrStub(GEP'(VectorArrayAlloca)))
 void HLMatrixLowerPass::replaceAllVariableUses(Value* MatPtr, Value* LoweredPtr) {
   DXASSERT_NOMSG(HLMatrixType::isMatrixPtrOrArrayPtr(MatPtr->getType()));
-  DXASSERT_NOMSG(LoweredPtr->getType() == getLoweredType(MatPtr->getType()));
+  DXASSERT_NOMSG(LoweredPtr->getType() == HLMatrixType::getLoweredType(MatPtr->getType()));
 
   SmallVector<Value*, 4> GEPIdxStack;
   GEPIdxStack.emplace_back(ConstantInt::get(Type::getInt32Ty(MatPtr->getContext()), 0));
@@ -724,7 +527,7 @@ void HLMatrixLowerPass::replaceAllVariableUses(
 void HLMatrixLowerPass::lowerGlobal(GlobalVariable *Global) {
   if (Global->user_empty()) return;
 
-  PointerType *LoweredPtrTy = cast<PointerType>(getLoweredType(Global->getType()));
+  PointerType *LoweredPtrTy = cast<PointerType>(HLMatrixType::getLoweredType(Global->getType()));
   DXASSERT_NOMSG(LoweredPtrTy != Global->getType());
 
   Constant *LoweredInitVal = Global->hasInitializer()
@@ -758,7 +561,7 @@ Constant *HLMatrixLowerPass::lowerConstInitVal(Constant *Val) {
       LoweredElems.emplace_back(lowerConstInitVal(ArrayElem));
     }
 
-    Type *LoweredElemTy = getLoweredType(ArrayTy->getElementType());
+    Type *LoweredElemTy = HLMatrixType::getLoweredType(ArrayTy->getElementType());
     ArrayType *LoweredArrayTy = ArrayType::get(LoweredElemTy, NumElems);
     return ConstantArray::get(LoweredArrayTy, LoweredElems);
   }
@@ -790,7 +593,7 @@ Constant *HLMatrixLowerPass::lowerConstInitVal(Constant *Val) {
 }
 
 AllocaInst *HLMatrixLowerPass::lowerAlloca(AllocaInst *MatAlloca) {
-  PointerType *LoweredAllocaTy = cast<PointerType>(getLoweredType(MatAlloca->getType()));
+  PointerType *LoweredAllocaTy = cast<PointerType>(HLMatrixType::getLoweredType(MatAlloca->getType()));
 
   IRBuilder<> Builder(MatAlloca);
   AllocaInst *LoweredAlloca = Builder.CreateAlloca(
@@ -1002,7 +805,7 @@ Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
     }
   }
 
-  Type *LoweredRetTy = getLoweredType(Call->getType());
+  Type *LoweredRetTy = HLMatrixType::getLoweredType(Call->getType());
   return callHLFunction(*m_pModule, HLOpcodeGroup::HLIntrinsic, static_cast<unsigned>(Opcode), 
     LoweredRetTy, LoweredArgs, Builder);
 }
@@ -1623,7 +1426,7 @@ Value *HLMatrixLowerPass::lowerHLMatResourceSubscript(CallInst *Call, HLSubscrip
   for (Value *Arg : Call->arg_operands())
     Args.emplace_back(Arg);
 
-  Type *LoweredRetTy = getLoweredType(Call->getType());
+  Type *LoweredRetTy = HLMatrixType::getLoweredType(Call->getType());
   return callHLFunction(*m_pModule, HLOpcodeGroup::HLSubscript, static_cast<unsigned>(Opcode),
     LoweredRetTy, Args, Builder);
 }

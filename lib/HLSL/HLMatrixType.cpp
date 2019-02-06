@@ -12,6 +12,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Value.h"
 
 using namespace llvm;
@@ -108,17 +109,21 @@ bool HLMatrixType::isa(Type *Ty) {
 
 bool HLMatrixType::isMatrixPtr(Type *Ty) {
   PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty);
-  return PtrTy && isa(PtrTy->getElementType());
+  return PtrTy != nullptr && isa(PtrTy->getElementType());
+}
+
+bool HLMatrixType::isMatrixArray(Type *Ty) {
+  ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty);
+  if (ArrayTy == nullptr) return false;
+  while (ArrayType *NestedArrayTy = llvm::dyn_cast<ArrayType>(ArrayTy->getElementType()))
+    ArrayTy = NestedArrayTy;
+  return isa(ArrayTy->getElementType());
 }
 
 bool HLMatrixType::isMatrixArrayPtr(Type *Ty) {
   PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty);
   if (PtrTy == nullptr) return false;
-  ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(PtrTy->getElementType());
-  if (ArrayTy == nullptr) return false;
-  while (ArrayType *NestedArrayTy = llvm::dyn_cast<ArrayType>(ArrayTy->getElementType()))
-    ArrayTy = NestedArrayTy;
-  return isa(ArrayTy->getElementType());
+  return isMatrixArray(PtrTy->getElementType());
 }
 
 bool HLMatrixType::isMatrixPtrOrArrayPtr(Type *Ty) {
@@ -134,6 +139,28 @@ bool HLMatrixType::isMatrixOrPtrOrArrayPtr(Type *Ty) {
   if (PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty)) Ty = PtrTy->getElementType();
   while (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty)) Ty = ArrayTy->getElementType();
   return isa(Ty);
+}
+
+// Converts a matrix, matrix pointer, or matrix array pointer type to its lowered equivalent.
+// If the type is not matrix-derived, the original type is returned.
+// Does not lower struct types containing matrices.
+Type *HLMatrixType::getLoweredType(Type *Ty, bool MemRepr) {
+  if (PointerType *PtrTy = llvm::dyn_cast<PointerType>(Ty)) {
+    // Pointees are always in memory representation
+    Type *LoweredElemTy = getLoweredType(PtrTy->getElementType(), /* MemRepr */ true);
+    return LoweredElemTy == PtrTy->getElementType()
+      ? Ty : PointerType::get(LoweredElemTy, PtrTy->getAddressSpace());
+  }
+  else if (ArrayType *ArrayTy = llvm::dyn_cast<ArrayType>(Ty)) {
+    // Arrays are always in memory and so their elements are in memory representation
+    Type *LoweredElemTy = getLoweredType(ArrayTy->getElementType(), /* MemRepr */ true);
+    return LoweredElemTy == ArrayTy->getElementType()
+      ? Ty : ArrayType::get(LoweredElemTy, ArrayTy->getNumElements());
+  }
+  else if (HLMatrixType MatrixTy = HLMatrixType::dyn_cast(Ty)) {
+    return MatrixTy.getLoweredVectorType(MemRepr);
+  }
+  else return Ty;
 }
 
 HLMatrixType HLMatrixType::cast(Type *Ty) {
