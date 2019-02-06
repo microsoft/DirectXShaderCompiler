@@ -236,12 +236,18 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     // Do this before change vector to array.
     MPM.add(createDxilLegalizeEvalOperationsPass());
   }
+  else {
+    // This should go between matrix lower and dynamic indexing vector to array,
+    // because matrix lower may create dynamically indexed global vectors,
+    // which should become locals. If they are turned into arrays first,
+    // this pass will ignore them as it only works on scalars and vectors.
+    MPM.add(createLowerStaticGlobalIntoAlloca());
+  }
 
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
   if (!NoOpt) {
-    MPM.add(createLowerStaticGlobalIntoAlloca());
     // mem2reg
     MPM.add(createPromoteMemoryToRegisterPass());
 
