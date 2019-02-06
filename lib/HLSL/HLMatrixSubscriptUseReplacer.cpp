@@ -60,9 +60,6 @@ void HLMatrixSubscriptUseReplacer::replaceUses(Instruction* PtrInst, Value* SubI
       replaceUses(GEP, NewSubIdxVal);
     }
     else {
-      // First load the entire vector, whether we want to load a subset of it,
-      // or modify a subset of it and store it back.
-      // Load it every time since the value could have changed.
       IRBuilder<> UserBuilder(UserInst);
 
       if (Value *ScalarElemIdx = tryGetScalarIndex(SubIdxVal, UserBuilder)) {
@@ -155,6 +152,10 @@ Value *HLMatrixSubscriptUseReplacer::tryGetScalarIndex(Value *SubIdxVal, IRBuild
   return Builder.CreateLoad(ElemIdxPtr);
 }
 
+// Unless we are allowed to GEP directly into the lowered matrix,
+// we must load the vector in memory in order to read or write any elements.
+// If we're going to dynamically index, we need to copy the vector into a temporary array.
+// Further loadElem/storeElem calls depend on how we cached the matrix here.
 void HLMatrixSubscriptUseReplacer::cacheLoweredMatrix(bool ForDynamicIndexing, IRBuilder<> &Builder) {
   // If we can GEP right into the lowered pointer, no need for caching
   if (AllowLoweredPtrGEPs) return;

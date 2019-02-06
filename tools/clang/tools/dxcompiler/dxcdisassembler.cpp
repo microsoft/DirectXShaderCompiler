@@ -809,7 +809,7 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
       if (EltTy->isVectorTy()) {
         EltTy = EltTy->getVectorElementType();
       } else if (EltTy->isStructTy())
-        EltTy = HLMatrixType::cast(EltTy).getElementTypeForMem();
+        EltTy = HLMatrixType::cast(EltTy).getElementTypeForReg();
 
       if (arrayLevel == 1)
         arraySize = 0;
