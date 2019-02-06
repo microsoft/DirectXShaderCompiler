@@ -31,13 +31,13 @@ class HLMatrixSubscriptUseReplacer {
 public:
   // The constructor does everything
   HLMatrixSubscriptUseReplacer(llvm::CallInst* Call, llvm::Value *LoweredPtr,
-    llvm::SmallVectorImpl<llvm::Value*> &ElemIndices,
+    llvm::SmallVectorImpl<llvm::Value*> &ElemIndices, bool AllowLoweredPtrGEPs,
     std::vector<llvm::Instruction*> &DeadInsts);
 
 private:
   void replaceUses(llvm::Instruction* PtrInst, llvm::Value* SubIdxVal);
   llvm::Value *tryGetScalarIndex(llvm::Value *SubIdxVal, llvm::IRBuilder<> &Builder);
-  void loadLoweredMatrix(bool ForDynamicIndexing, llvm::IRBuilder<> &Builder);
+  void cacheLoweredMatrix(bool ForDynamicIndexing, llvm::IRBuilder<> &Builder);
   llvm::Value *loadElem(llvm::Value *Idx, llvm::IRBuilder<> &Builder);
   void storeElem(llvm::Value *Idx, llvm::Value *Elem, llvm::IRBuilder<> &Builder);
   llvm::Value *loadVector(llvm::IRBuilder<> &Builder);
@@ -48,6 +48,7 @@ private:
   llvm::Value *LoweredPtr;
   llvm::SmallVectorImpl<llvm::Value*> &ElemIndices;
   std::vector<llvm::Instruction*> &DeadInsts;
+  bool AllowLoweredPtrGEPs = false;
   bool HasScalarResult = false;
   bool HasDynamicElemIndex = false;
 

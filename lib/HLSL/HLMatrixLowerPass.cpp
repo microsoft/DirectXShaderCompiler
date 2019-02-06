@@ -284,12 +284,12 @@ private:
   void runOnGlobal(GlobalVariable *GV);
   void runOnGlobalMatrixArray(GlobalVariable *GV);
 
-  void getMatrixAllocasAndCalls(Function &Func,
-    std::vector<AllocaInst*> &MatAllocas, std::vector<CallInst*> &MatCalls);
+  void getMatrixAllocasAndOtherInsts(Function &Func,
+    std::vector<AllocaInst*> &MatAllocas, std::vector<Instruction*> &MatInsts);
   static Type *getLoweredType(Type *Ty, bool MemRepr = false);
-  Value *getLoweredByValOperand(Value *Val, IRBuilder<> &Builder);
-  Value *tryGetLoweredMatrixOrArrayPtrOperandNoGep(Value *MatOrArrayPtr, IRBuilder<> &Builder);
-  Value *tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder<> &Builder);
+  Value *getLoweredByValOperand(Value *Val, IRBuilder<> &Builder, bool DiscardStub = false);
+  Value *tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Builder, bool DiscardStub = false);
+  Value *bitCastValue(Value *SrcVal, Type* DstTy, bool DstTyAlloca, IRBuilder<> &Builder);
   void replaceAllUsesByLoweredValue(Instruction *MatInst, Value *VecVal);
   void replaceAllVariableUses(Value* MatPtr, Value* LoweredPtr);
   void replaceAllVariableUses(SmallVectorImpl<Value*> &GEPIdxStack, Value *StackTopPtr, Value* LoweredPtr);
@@ -297,6 +297,8 @@ private:
   void lowerGlobal(GlobalVariable *Global);
   Constant *lowerConstInitVal(Constant *Val);
   AllocaInst *lowerAlloca(AllocaInst *MatAlloca);
+  void lowerInstruction(Instruction* Inst);
+  void lowerReturn(ReturnInst* Return);
   Value *lowerCall(CallInst *Call);
   Value *lowerNonHLCall(CallInst *Call);
   Value *lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup);
@@ -2665,8 +2667,8 @@ void HLMatrixLowerPass::runOnFunction(Function &Func) {
   // Save the matrix instructions first since the translation process
   // will temporarily create other instructions consuming/producing matrix types.
   std::vector<AllocaInst*> MatAllocas;
-  std::vector<CallInst*> MatCalls;
-  getMatrixAllocasAndCalls(Func, MatAllocas, MatCalls);
+  std::vector<Instruction*> MatInsts;
+  getMatrixAllocasAndOtherInsts(Func, MatAllocas, MatInsts);
 
   // First lower all allocas and take care of their GEP chains
   for (AllocaInst* MatAlloca : MatAllocas) {
@@ -2675,26 +2677,17 @@ void HLMatrixLowerPass::runOnFunction(Function &Func) {
     AddToDeadInsts(MatAlloca);
   }
 
-  // Now lower all other matrix instructions, which must be calls
-  for (CallInst *MatCall : MatCalls) {
-    Value *LoweredValue = lowerCall(MatCall);
-
-    // lowerCall returns the lowered value iff we should discard
-    // the original matrix instruction and replace all of its uses
-    // by the lowered value. It returns nullptr to opt-out of this.
-    if (LoweredValue != nullptr) {
-      replaceAllUsesByLoweredValue(MatCall, LoweredValue);
-      AddToDeadInsts(MatCall);
-    }
-  }
+  // Now lower all other matrix instructions
+  for (Instruction *MatInst : MatInsts)
+    lowerInstruction(MatInst);
 
   DeleteDeadInsts();
 }
 
 // Find all instructions consuming or producing matrices,
 // directly or through pointers/arrays.
-void HLMatrixLowerPass::getMatrixAllocasAndCalls(Function &Func,
-    std::vector<AllocaInst*> &MatAllocas, std::vector<CallInst*> &MatCalls){
+void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
+    std::vector<AllocaInst*> &MatAllocas, std::vector<Instruction*> &MatInsts){
   for (BasicBlock &BasicBlock : Func) {
     for (Instruction &Inst : BasicBlock) {
       // Don't lower GEPs directly, we'll handle them as we lower the root pointer,
@@ -2717,18 +2710,25 @@ void HLMatrixLowerPass::getMatrixAllocasAndCalls(Function &Func,
 
         // Match matrix producers
         if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Inst.getType())) {
-          MatCalls.emplace_back(Call);
+          MatInsts.emplace_back(Call);
           continue;
         }
 
         // Match matrix consumers
         for (Value *Operand : Inst.operand_values()) {
           if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Operand->getType())) {
-            MatCalls.emplace_back(Call);
+            MatInsts.emplace_back(Call);
             break;
           }
         }
 
+        continue;
+      }
+
+      if (ReturnInst *Return = dyn_cast<ReturnInst>(&Inst)) {
+        Value *ReturnValue = Return->getReturnValue();
+        if (ReturnValue != nullptr && HLMatrixType::isMatrixOrPtrOrArrayPtr(ReturnValue->getType()))
+          MatInsts.emplace_back(Return);
         continue;
       }
 
@@ -2761,7 +2761,11 @@ Type *HLMatrixLowerPass::getLoweredType(Type *Ty, bool MemRepr) {
 }
 
 // Gets the matrix-lowered representation of a value, potentially adding a translation stub.
-Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builder) {
+// DiscardStub causes any vec-to-mat translation stubs to be deleted,
+// it should be true only if the original instruction will be modified and kept alive.
+// If a new instruction is created and the original marked as dead,
+// then the remove dead instructions pass will take care of removing the stub.
+Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builder, bool DiscardStub) {
   Type *Ty = Val->getType();
 
   // We're only lowering byval matrices.
@@ -2776,6 +2780,11 @@ Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builde
   // Check if the value is already a vec-to-mat translation stub
   if (CallInst *Call = dyn_cast<CallInst>(Val)) {
     if (m_vecToMatStubs->contains(Call->getCalledFunction())) {
+      if (DiscardStub && Call->getNumUses() == 1) {
+        Call->use_begin()->set(UndefValue::get(Call->getType()));
+        AddToDeadInsts(Call);
+      }
+
       Value *LoweredVal = Call->getArgOperand(0);
       DXASSERT(LoweredVal->getType() == LoweredTy, "Unexpected already-lowered value type.");
       return LoweredVal;
@@ -2788,86 +2797,60 @@ Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builde
   return Builder.CreateCall(TranslationStub, { Val });
 }
 
-// Attempts to retrieve the lowered pointer equivalent to a matrix or matrix array pointer.
-// Assumes all GEPs have been stripped.
-// Returns nullptr if the pointer is to memory that cannot be lowered at this time,
-// for example a buffer or shader inputs/outputs, which are lowered during signature lowering.
-Value *HLMatrixLowerPass::tryGetLoweredMatrixOrArrayPtrOperandNoGep(Value *Ptr, IRBuilder<> &Builder) {
-  DXASSERT_NOMSG(Ptr->getType()->isPointerTy());
-  DXASSERT_NOMSG(!isa<GetElementPtrInst>(Ptr));
-
-  // Is this a constant buffer/resource subscript?
-  if (CallInst *Call = dyn_cast<CallInst>(Ptr)) {
-    HLOpcodeGroup OpcodeGroup = GetHLOpcodeGroupByName(Call->getCalledFunction());
-    if (OpcodeGroup == HLOpcodeGroup::HLSubscript) {
-      HLSubscriptOpcode SubscriptOpcode = static_cast<HLSubscriptOpcode>(GetHLOpcode(Call));
-      if (SubscriptOpcode == HLSubscriptOpcode::DefaultSubscript
-        || SubscriptOpcode == HLSubscriptOpcode::CBufferSubscript) {
-        // Leave it to HLOperationLower
-        return nullptr;
-      }
-    }
-  }
-
-  Type *PtrTy = Ptr->getType();
-
-  // If this hits, we probably failed to detect that the pointer comes from a resource.
-  DXASSERT(HLMatrixType::isMatrixPtr(PtrTy) || HLMatrixType::isMatrixArrayPtr(PtrTy),
-    "Unexpected matrix pointer derived from non-matrix root pointer.");
-
-  Type *LoweredTy = getLoweredType(PtrTy);
-  DXASSERT(LoweredTy != PtrTy, "Unexpected lowered matrix type.");
-
-  // Is this an alloca we've already lowered?
-  if (CallInst *Call = dyn_cast<CallInst>(Ptr)) {
-    if (m_vecToMatStubs->contains(Call->getCalledFunction())) {
-      Value *LoweredPtr = Call->getArgOperand(0);
-      DXASSERT(LoweredPtr->getType() == LoweredTy, "Unexpected lowered matrix value type.");
-      return LoweredPtr;
-    }
-  }
-
-  if (AllocaInst *Alloca = dyn_cast<AllocaInst>(Ptr)) {
-    // Return a mat-to-vec translation stub
-    FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { PtrTy }, /* isVarArg */ false);
-    Function *TranslationStub = m_matToVecStubs->get(TranslationStubTy);
-    return Builder.CreateCall(TranslationStub, { Ptr });
-  }
-
-  // TODO original code seemed to care about non-graphics shader input arguments?
-  return nullptr;
-}
-
 // Attempts to retrieve the lowered vector pointer equivalent to a matrix pointer.
 // Returns nullptr if the pointed-to matrix lives in memory that cannot be lowered at this time,
 // for example a buffer or shader inputs/outputs, which are lowered during signature lowering.
-Value *HLMatrixLowerPass::tryGetLoweredMatrixPtrOperand(Value *MatPtr, IRBuilder<> &Builder) {
-  DXASSERT(MatPtr->getType()->isPointerTy() && HLMatrixType::isa(MatPtr->getType()->getPointerElementType()),
-    "Value must be a matrix pointer.");
+Value *HLMatrixLowerPass::tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Builder, bool DiscardStub) {
+  if (!HLMatrixType::isMatrixPtrOrArrayPtr(Ptr->getType()))
+    return nullptr;
 
-  // Skip all GEPs on the way to the "root" ptr (alloca or otherwise)
-  SmallVector<Value*, 4> GEPIndices;
-  GEPIndices.emplace_back(Builder.getInt32(0));
+  // Matrix pointers can only be derived from Allocas, GlobalVariables or resource accesses.
+  // The first two cases are what this pass must be able to lower, and we should already
+  // have replaced their uses by vector to matrix pointer translation stubs.
+  if (CallInst *Call = dyn_cast<CallInst>(Ptr)) {
+    if (m_vecToMatStubs->contains(Call->getCalledFunction())) {
+      if (DiscardStub && Call->getNumUses() == 1) {
+        Call->use_begin()->set(UndefValue::get(Call->getType()));
+        AddToDeadInsts(Call);
+      }
+      return Call->getArgOperand(0);
+    }
+  }
 
-  Value* RootPtr = MatPtr;
-  while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(RootPtr)) {
-    DXASSERT(GEP->getNumIndices() >= 1, "Unexpected GEP without indices.");
-    DXASSERT(cast<ConstantInt>(GEP->idx_begin()->get())->getValue().getLimitedValue() == 0,
-      "Unexpected GEP not starting with index zero.");
-    for (auto IdxIt = GEP->idx_begin() + 1, IdxEnd = GEP->idx_end(); IdxIt != IdxEnd; ++IdxIt)
-      GEPIndices.emplace_back(IdxIt->get());
+  // There's one more case to handle.
+  // When compiling shader libraries, signatures won't have been lowered yet.
+  // So we can have a matrix in a struct as an argument,
+  // or an alloca'd struct holding the return value of a call and containing a matrix.
+  Value *RootPtr = Ptr;
+  while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
     RootPtr = GEP->getPointerOperand();
+
+  Argument *Arg = dyn_cast<Argument>(RootPtr);
+  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsGraphicsShader(Arg->getParent());
+  if (IsNonShaderArg || isa<AllocaInst>(RootPtr)) {
+    // Bitcast the matrix pointer to its lowered equivalent.
+    // The HLMatrixBitcast pass will take care of this later.
+    return Builder.CreateBitCast(Ptr, getLoweredType(Ptr->getType()));
   }
 
-  llvm::Value *LoweredRootPtr = tryGetLoweredMatrixOrArrayPtrOperandNoGep(RootPtr, Builder);
-  if (LoweredRootPtr == nullptr) return nullptr;
+  // The pointer must be derived from a resource, we don't handle it in this pass.
+  return nullptr;
+}
 
-  // Reconstruct GEP chain around the lowered ptr, if any
-  if (GEPIndices.size() > 1) {
-    LoweredRootPtr = Builder.CreateGEP(LoweredRootPtr, GEPIndices);
-  }
+// Bitcasts a value from matrix to vector or vice-versa.
+// This is used to convert to/from arguments/return values since we don't
+// lower signatures in this pass. The later HLMatrixBitcastLower pass fixes this.
+Value *HLMatrixLowerPass::bitCastValue(Value *SrcVal, Type* DstTy, bool DstTyAlloca, IRBuilder<> &Builder) {
+  Type *SrcTy = SrcVal->getType();
+  DXASSERT_NOMSG(!SrcTy->isPointerTy());
 
-  return LoweredRootPtr;
+  // We store and load from a temporary alloca, bitcasting either on the store pointer
+  // or on the load pointer.
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+  Value *Alloca = AllocaBuilder.CreateAlloca(DstTyAlloca ? DstTy : SrcTy);
+  Value *BitCastedAlloca = Builder.CreateBitCast(Alloca, (DstTyAlloca ? SrcTy : DstTy)->getPointerTo());
+  Builder.CreateStore(SrcVal, DstTyAlloca ? BitCastedAlloca : Alloca);
+  return Builder.CreateLoad(DstTyAlloca ? Alloca : BitCastedAlloca);
 }
 
 // Replaces all uses of a matrix value by its lowered vector form,
@@ -2918,6 +2901,11 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
   }
 }
 
+// Replaces all uses of a matrix or matrix array alloca or global variable by its lowered equivalent.
+// This doesn't lower the users, but will insert a translation stub from the lowered value pointer
+// back to the matrix value pointer, and recreate any GEPs around the new pointer.
+// Before: MatrixArrayAlloca <- GEP <- User
+// After: VectorArrayAlloca <- GEP' <- VecToMatPtrStub <- User
 void HLMatrixLowerPass::replaceAllVariableUses(Value* MatPtr, Value* LoweredPtr) {
   DXASSERT_NOMSG(HLMatrixType::isMatrixPtrOrArrayPtr(MatPtr->getType()));
   DXASSERT_NOMSG(LoweredPtr->getType() == getLoweredType(MatPtr->getType()));
@@ -2931,7 +2919,7 @@ void HLMatrixLowerPass::replaceAllVariableUses(
     SmallVectorImpl<Value*> &GEPIdxStack, Value *StackTopPtr, Value* LoweredPtr) {
   while (!StackTopPtr->use_empty()) {
     llvm::Use &Use = *StackTopPtr->use_begin();
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Use.getUser())) {
+    if (GEPOperator *GEP = dyn_cast<GEPOperator>(Use.getUser())) {
       DXASSERT(GEP->getNumIndices() >= 1, "Unexpected degenerate GEP.");
       DXASSERT(cast<ConstantInt>(*GEP->idx_begin())->isZero(), "Unexpected non-zero first GEP index.");
 
@@ -2942,14 +2930,12 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       GEPIdxStack.erase(GEPIdxStack.end() - (GEP->getNumIndices() - 1), GEPIdxStack.end());
       
       // Discard the GEP
+      DXASSERT_NOMSG(GEP->use_empty());
       Use.set(UndefValue::get(Use->getType()));
-      AddToDeadInsts(GEP);
+      if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP))
+        AddToDeadInsts(GEPInst);
       continue;
     }
-
-    // User is an instruction consuming direct a matrix pointer
-    DXASSERT_NOMSG(HLMatrixType::isMatrixPtr(StackTopPtr->getType()));
-    HLMatrixType MatTy = HLMatrixType::cast(StackTopPtr->getType()->getPointerElementType());
 
     // Recreate the same GEP sequence, if any, on the lowered pointer
     IRBuilder<> Builder(cast<Instruction>(Use.getUser()));
@@ -3020,7 +3006,15 @@ Constant *HLMatrixLowerPass::lowerConstInitVal(Constant *Val) {
     }
   }
 
-  return ConstantVector::get(MatElems);
+  Constant *Vec = ConstantVector::get(MatElems);
+  
+  // Matrix elements are always in register representation,
+  // but the lowered global variable is of vector type in
+  // its memory representation, so we must convert here.
+
+  // This will produce a constant so we can use an IRBuilder without a valid insertion point.
+  IRBuilder<> DummyBuilder(Val->getContext());
+  return cast<Constant>(MatTy.emitLoweredRegToMem(Vec, DummyBuilder));
 }
 
 AllocaInst *HLMatrixLowerPass::lowerAlloca(AllocaInst *MatAlloca) {
@@ -3048,6 +3042,39 @@ AllocaInst *HLMatrixLowerPass::lowerAlloca(AllocaInst *MatAlloca) {
   return LoweredAlloca;
 }
 
+void HLMatrixLowerPass::lowerInstruction(Instruction* Inst) {
+  if (CallInst *Call = dyn_cast<CallInst>(Inst)) {
+    Value *LoweredValue = lowerCall(Call);
+
+    // lowerCall returns the lowered value iff we should discard
+    // the original matrix instruction and replace all of its uses
+    // by the lowered value. It returns nullptr to opt-out of this.
+    if (LoweredValue != nullptr) {
+      replaceAllUsesByLoweredValue(Call, LoweredValue);
+      AddToDeadInsts(Inst);
+    }
+  }
+  else if (ReturnInst *Return = dyn_cast<ReturnInst>(Inst)) {
+    lowerReturn(Return);
+  }
+  else
+    llvm_unreachable("Unexpected matrix instruction type.");
+}
+
+void HLMatrixLowerPass::lowerReturn(ReturnInst* Return) {
+  Value *RetVal = Return->getReturnValue();
+  Type *RetTy = RetVal->getType();
+  DXASSERT(!RetTy->isPointerTy(), "Unexpected matrix returned by pointer.");
+
+  IRBuilder<> Builder(Return);
+  Value *LoweredRetVal = getLoweredByValOperand(RetVal, Builder, /* DiscardStub */ true);
+
+  // Since we're not lowering the signature, we can't return the lowered value directly,
+  // so insert a bitcast, which HLMatrixBitcastLower knows how to eliminate.
+  Value *BitCastedRetVal = bitCastValue(LoweredRetVal, RetVal->getType(), /* DstTyAlloca */ false, Builder);
+  Return->setOperand(0, BitCastedRetVal);
+}
+
 Value *HLMatrixLowerPass::lowerCall(CallInst *Call) {
   HLOpcodeGroup OpcodeGroup = GetHLOpcodeGroupByName(Call->getCalledFunction());
   return OpcodeGroup == HLOpcodeGroup::NotHL
@@ -3056,35 +3083,30 @@ Value *HLMatrixLowerPass::lowerCall(CallInst *Call) {
 
 Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   // First, handle any operand of matrix-derived type
+  // We don't lower the callee's signature in this pass,
+  // so, for any matrix-typed parameter, we create a bitcast from the
+  // lowered vector back to the matrix type, which the later HLMatrixBitcastLower
+  // pass knows how to eliminate.
   IRBuilder<> PreCallBuilder(Call);
   unsigned NumArgs = Call->getNumArgOperands();
   for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
     Use &ArgUse = Call->getArgOperandUse(ArgIdx);
-    if (ArgUse->getType()->isPointerTy())
-      llvm_unreachable("Lowering byref matrix or matrix array args not implemented");
+    if (ArgUse->getType()->isPointerTy()) {
+      // Byref arg
+      Value *LoweredArg = tryGetLoweredPtrOperand(ArgUse.get(), PreCallBuilder, /* DiscardStub */ true);
+      if (LoweredArg != nullptr) {
+        // Pointer to a matrix we've lowered, insert a bitcast back to matrix pointer type.
+        Value *BitCastedArg = PreCallBuilder.CreateBitCast(LoweredArg, ArgUse->getType());
+        ArgUse.set(BitCastedArg);
+      }
+    }
     else {
-      Value *LoweredArg = getLoweredByValOperand(ArgUse.get(), PreCallBuilder);
+      // Byvalue arg
+      Value *LoweredArg = getLoweredByValOperand(ArgUse.get(), PreCallBuilder, /* DiscardStub */ true);
       if (LoweredArg == ArgUse.get()) continue;
 
-      // We don't lower the callee's signature in this pass,
-      // so create a bitcast from the lowered vector back to the matrix type,
-      // that the later HLMatrixBitcastLower pass knows how to eliminate.
-      IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Call));
-      Value *ArgBitcastAlloca = AllocaBuilder.CreateAlloca(LoweredArg->getType());
-      PreCallBuilder.CreateStore(LoweredArg, ArgBitcastAlloca);
-      Value *BitCastedAlloca = PreCallBuilder.CreatePointerCast(ArgBitcastAlloca, ArgUse->getType()->getPointerTo());
-      Value *MatArg = PreCallBuilder.CreateLoad(BitCastedAlloca);
-
-      // If the original argument value is a vec-to-mat stub and we're its last user, get rid of it.
-      if (ArgUse->getNumUses() == 1) {
-        if (CallInst* ArgCall = dyn_cast<CallInst>(ArgUse.get())) {
-          if (m_vecToMatStubs->contains(ArgCall->getCalledFunction())) {
-            AddToDeadInsts(ArgCall);
-          }
-        }
-      }
-
-      ArgUse.set(MatArg);
+      Value *BitCastedArg = bitCastValue(LoweredArg, ArgUse->getType(), /* DstTyAlloca */ false, PreCallBuilder);
+      ArgUse.set(BitCastedArg);
     }
   }
 
@@ -3104,7 +3126,7 @@ Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   Value *LoweredAlloca = AllocaBuilder.CreateAlloca(RetMatTy.getLoweredVectorTypeForReg());
   
   IRBuilder<> PostCallBuilder(Call->getNextNode());
-  Value *BitCastedAlloca = PostCallBuilder.CreatePointerCast(LoweredAlloca, Call->getType()->getPointerTo());
+  Value *BitCastedAlloca = PostCallBuilder.CreateBitCast(LoweredAlloca, Call->getType()->getPointerTo());
   
   // This is slightly tricky
   // We want to replace all uses of the matrix-returning call by the bitcasted value,
@@ -3194,8 +3216,19 @@ Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
   // Delegate to a lowered intrinsic call
   SmallVector<Value*, 4> LoweredArgs;
   LoweredArgs.reserve(Call->getNumArgOperands());
-  for (Value *Arg : Call->arg_operands())
-    LoweredArgs.emplace_back(getLoweredByValOperand(Arg, Builder));
+  for (Value *Arg : Call->arg_operands()) {
+    if (Arg->getType()->isPointerTy()) {
+      // ByRef parameter (for example, frexp's second parameter)
+      // If the argument points to a lowered matrix variable, replace it here,
+      // otherwise preserve the matrix type and let further passes handle the lowering.
+      Value *LoweredArg = tryGetLoweredPtrOperand(Arg, Builder);
+      if (LoweredArg == nullptr) LoweredArg = Arg;
+      LoweredArgs.emplace_back(LoweredArg);
+    }
+    else {
+      LoweredArgs.emplace_back(getLoweredByValOperand(Arg, Builder));
+    }
+  }
 
   Type *LoweredRetTy = getLoweredType(Call->getType());
   return callHLFunction(*m_pModule, HLOpcodeGroup::HLIntrinsic, static_cast<unsigned>(Opcode), 
@@ -3512,7 +3545,7 @@ Value *HLMatrixLowerPass::lowerHLLoadStore(CallInst *Call, HLMatLoadStoreOpcode 
 Value *HLMatrixLowerPass::lowerHLLoad(Value *MatPtr, bool RowMajor, IRBuilder<> &Builder) {
   HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
 
-  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, Builder);
+  Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, Builder);
   if (LoweredPtr == nullptr) {
     // Can't lower this here, defer to HL signature lower
     HLMatLoadStoreOpcode Opcode = RowMajor ? HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
@@ -3528,7 +3561,7 @@ Value *HLMatrixLowerPass::lowerHLStore(Value *MatVal, Value *MatPtr, bool RowMaj
   DXASSERT(MatVal->getType() == MatPtr->getType()->getPointerElementType(),
     "Matrix store value/pointer type mismatch.");
 
-  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, Builder);
+  Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, Builder);
   Value *LoweredVal = getLoweredByValOperand(MatVal, Builder);
   if (LoweredPtr == nullptr) {
     // Can't lower the pointer here, defer to HL signature lower
@@ -3745,11 +3778,18 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
   DXASSERT_NOMSG(HLMatrixType::isMatrixPtr(MatPtr->getType()));
 
   IRBuilder<> CallBuilder(Call);
-  Value *LoweredPtr = tryGetLoweredMatrixPtrOperand(MatPtr, CallBuilder);
+  Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, CallBuilder);
   if (LoweredPtr == nullptr) return;
+
+  // For global variables, we can GEP directly into the lowered vector pointer.
+  // This is necessary to support group shared memory atomics and the likes.
+  Value *RootPtr = LoweredPtr;
+  while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
+    RootPtr = GEP->getPointerOperand();
+  bool AllowLoweredPtrGEPs = isa<GlobalVariable>(RootPtr);
   
   // Just constructing this does all the work
-  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, ElemIndices, m_deadInsts);
+  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, ElemIndices, AllowLoweredPtrGEPs, m_deadInsts);
 
   DXASSERT(Call->use_empty(), "Expected all matrix subscript uses to have been replaced.");
   AddToDeadInsts(Call);

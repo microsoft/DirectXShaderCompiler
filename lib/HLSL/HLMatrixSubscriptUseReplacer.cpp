@@ -20,8 +20,8 @@ using namespace llvm;
 using namespace hlsl;
 
 HLMatrixSubscriptUseReplacer::HLMatrixSubscriptUseReplacer(CallInst* Call, Value *LoweredPtr,
-  SmallVectorImpl<Value*> &ElemIndices, std::vector<Instruction*> &DeadInsts)
-  : LoweredPtr(LoweredPtr), ElemIndices(ElemIndices), DeadInsts(DeadInsts)
+  SmallVectorImpl<Value*> &ElemIndices, bool AllowLoweredPtrGEPs, std::vector<Instruction*> &DeadInsts)
+  : LoweredPtr(LoweredPtr), AllowLoweredPtrGEPs(AllowLoweredPtrGEPs), ElemIndices(ElemIndices), DeadInsts(DeadInsts)
 {
   HasScalarResult = !Call->getType()->getPointerElementType()->isVectorTy();
 
@@ -42,6 +42,7 @@ void HLMatrixSubscriptUseReplacer::replaceUses(Instruction* PtrInst, Value* SubI
     llvm::Use &Use = *PtrInst->use_begin();
     Instruction *UserInst = cast<Instruction>(Use.getUser());
 
+    bool DeleteUserInst = true;
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(UserInst)) {
       // Recurse on GEPs
       DXASSERT(GEP->getNumIndices() >= 1 && GEP->getNumIndices() <= 2,
@@ -66,23 +67,31 @@ void HLMatrixSubscriptUseReplacer::replaceUses(Instruction* PtrInst, Value* SubI
 
       if (Value *ScalarElemIdx = tryGetScalarIndex(SubIdxVal, UserBuilder)) {
         // We are accessing a scalar element
-        bool IsDynamicIndex = !isa<Constant>(ScalarElemIdx);
-        loadLoweredMatrix(IsDynamicIndex, UserBuilder);
-        if (LoadInst *Load = dyn_cast<LoadInst>(UserInst)) {
-          Value *Elem = loadElem(ScalarElemIdx, UserBuilder);
-          Load->replaceAllUsesWith(Elem);
-        }
-        else if (StoreInst *Store = dyn_cast<StoreInst>(UserInst)) {
-          storeElem(ScalarElemIdx, Store->getValueOperand(), UserBuilder);
-          flushLoweredMatrix(UserBuilder);
+        if (AllowLoweredPtrGEPs) {
+          // Simply make the instruction point to the element in the lowered pointer
+          DeleteUserInst = false;
+          Value *ElemPtr = UserBuilder.CreateGEP(LoweredPtr, { UserBuilder.getInt32(0), ScalarElemIdx });
+          Use.set(ElemPtr);
         }
         else {
-          llvm_unreachable("Unexpected matrix subscript use.");
+          bool IsDynamicIndex = !isa<Constant>(ScalarElemIdx);
+          cacheLoweredMatrix(IsDynamicIndex, UserBuilder);
+          if (LoadInst *Load = dyn_cast<LoadInst>(UserInst)) {
+            Value *Elem = loadElem(ScalarElemIdx, UserBuilder);
+            Load->replaceAllUsesWith(Elem);
+          }
+          else if (StoreInst *Store = dyn_cast<StoreInst>(UserInst)) {
+            storeElem(ScalarElemIdx, Store->getValueOperand(), UserBuilder);
+            flushLoweredMatrix(UserBuilder);
+          }
+          else {
+            llvm_unreachable("Unexpected matrix subscript use.");
+          }
         }
       }
       else {
         // We are accessing a vector given by ElemIndices
-        loadLoweredMatrix(HasDynamicElemIndex, UserBuilder);
+        cacheLoweredMatrix(HasDynamicElemIndex, UserBuilder);
         if (LoadInst *Load = dyn_cast<LoadInst>(UserInst)) {
           Value *Vector = loadVector(UserBuilder);
           Load->replaceAllUsesWith(Vector);
@@ -98,9 +107,11 @@ void HLMatrixSubscriptUseReplacer::replaceUses(Instruction* PtrInst, Value* SubI
     }
 
     // We replaced this use, mark it dead
-    DXASSERT(UserInst->use_empty(), "Matrix subscript user should be dead at this point.");
-    Use.set(UndefValue::get(Use->getType()));
-    DeadInsts.emplace_back(UserInst);
+    if (DeleteUserInst) {
+      DXASSERT(UserInst->use_empty(), "Matrix subscript user should be dead at this point.");
+      Use.set(UndefValue::get(Use->getType()));
+      DeadInsts.emplace_back(UserInst);
+    }
   }
 }
 
@@ -144,7 +155,10 @@ Value *HLMatrixSubscriptUseReplacer::tryGetScalarIndex(Value *SubIdxVal, IRBuild
   return Builder.CreateLoad(ElemIdxPtr);
 }
 
-void HLMatrixSubscriptUseReplacer::loadLoweredMatrix(bool ForDynamicIndexing, IRBuilder<> &Builder) {
+void HLMatrixSubscriptUseReplacer::cacheLoweredMatrix(bool ForDynamicIndexing, IRBuilder<> &Builder) {
+  // If we can GEP right into the lowered pointer, no need for caching
+  if (AllowLoweredPtrGEPs) return;
+
   // Load without memory to register representation conversion,
   // since the point is to mimic pointer semantics
   TempLoweredMatrix = Builder.CreateLoad(LoweredPtr);
@@ -176,11 +190,14 @@ void HLMatrixSubscriptUseReplacer::loadLoweredMatrix(bool ForDynamicIndexing, IR
 }
 
 Value *HLMatrixSubscriptUseReplacer::loadElem(Value *Idx, IRBuilder<> &Builder) {
-  if (TempLoweredMatrix == nullptr) {
+  if (AllowLoweredPtrGEPs) {
+    Value *ElemPtr = Builder.CreateGEP(LoweredPtr, { Builder.getInt32(0), Idx });
+    return Builder.CreateLoad(ElemPtr);
+  }
+  else if (TempLoweredMatrix == nullptr) {
     DXASSERT_NOMSG(LazyTempElemArrayAlloca != nullptr);
 
-    Value *GEPIndices[2] = { Builder.getInt32(0), Idx };
-    Value *TempArrayElemPtr = Builder.CreateGEP(LazyTempElemArrayAlloca, GEPIndices);
+    Value *TempArrayElemPtr = Builder.CreateGEP(LazyTempElemArrayAlloca, { Builder.getInt32(0), Idx });
     return Builder.CreateLoad(TempArrayElemPtr);
   }
   else {
@@ -190,7 +207,11 @@ Value *HLMatrixSubscriptUseReplacer::loadElem(Value *Idx, IRBuilder<> &Builder) 
 }
 
 void HLMatrixSubscriptUseReplacer::storeElem(Value *Idx, Value *Elem, IRBuilder<> &Builder) {
-  if (TempLoweredMatrix == nullptr) {
+  if (AllowLoweredPtrGEPs) {
+    Value *ElemPtr = Builder.CreateGEP(LoweredPtr, { Builder.getInt32(0), Idx });
+    Builder.CreateStore(Elem, ElemPtr);
+  }
+  else if (TempLoweredMatrix == nullptr) {
     DXASSERT_NOMSG(LazyTempElemArrayAlloca != nullptr);
 
     Value *GEPIndices[2] = { Builder.getInt32(0), Idx };
@@ -238,6 +259,9 @@ void HLMatrixSubscriptUseReplacer::storeVector(Value *Vec, IRBuilder<> &Builder)
 }
 
 void HLMatrixSubscriptUseReplacer::flushLoweredMatrix(IRBuilder<> &Builder) {
+  // If GEPs are allowed, no flushing is necessary, we modified the source elements directly.
+  if (AllowLoweredPtrGEPs) return;
+
   if (TempLoweredMatrix == nullptr) {
     // First re-create the vector from the temporary array
     DXASSERT_NOMSG(LazyTempElemArrayAlloca != nullptr);
