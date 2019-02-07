@@ -84,12 +84,6 @@ private:
   uint32_t labelId;      ///< The label's <result-id>
   std::string labelName; ///< The label's debug name
 
-  /// Variables defined in this basic block.
-  ///
-  /// Local variables inside a function should be defined at the beginning
-  /// of the entry basic block. So this field will only be used by entry
-  /// basic blocks.
-  std::vector<SpirvVariable *> variables;
   /// Instructions belonging to this basic block.
   std::vector<SpirvInstruction *> instructions;
 
