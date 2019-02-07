@@ -37,13 +37,10 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     }).visit(basicBlocks.front());
   }
 
+  SpirvBasicBlock *firstBB = orderedBlocks.empty() ? nullptr : orderedBlocks[0];
+
   if (reverseOrder)
     std::reverse(orderedBlocks.begin(), orderedBlocks.end());
-
-  SpirvBasicBlock *firstBB =
-      orderedBlocks.empty()
-          ? nullptr
-          : reverseOrder ? orderedBlocks.back() : orderedBlocks[0];
 
   for (auto *bb : orderedBlocks) {
     // The first basic block of the function should first visit the function
