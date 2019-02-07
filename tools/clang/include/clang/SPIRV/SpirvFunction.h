@@ -43,14 +43,6 @@ public:
   uint32_t getResultId() const { return functionId; }
   void setResultId(uint32_t id) { functionId = id; }
 
-  // TODO: There should be a pass for lowering QualType to SPIR-V type,
-  // and this method should be able to return the result-id of the SPIR-V type.
-  // Both the return type of the function as well as the SPIR-V "function type"
-  // are needed. SPIR-V function type (obtained by OpFunctionType) includes both
-  // the return type as well as argument types.
-  uint32_t getReturnTypeId() const { return returnTypeId; }
-  void setReturnTypeId(uint32_t id) { returnTypeId = id; }
-
   // Sets the lowered (SPIR-V) return type.
   void setReturnType(SpirvType *type) { returnType = type; }
   // Returns the lowered (SPIR-V) return type.
@@ -63,11 +55,6 @@ public:
   void setFunctionType(SpirvType *type) { fnType = type; }
   // Returns the SPIR-V type of the function
   SpirvType *getFunctionType() const { return fnType; }
-
-  // Sets the result-id of the OpTypeFunction
-  void setFunctionTypeId(uint32_t id) { fnTypeId = id; }
-  // Returns the result-id of the OpTypeFunction
-  uint32_t getFunctionTypeId() const { return fnTypeId; }
 
   void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
@@ -94,10 +81,7 @@ private:
 
   QualType astReturnType; ///< The return type
   SpirvType *returnType;  ///< The lowered return type
-  uint32_t returnTypeId;  ///< result-id for the return type
-
-  SpirvType *fnType; ///< The SPIR-V function type
-  uint32_t fnTypeId; ///< result-id for the SPIR-V function type
+  SpirvType *fnType;      ///< The SPIR-V function type
 
   /// Legalization-specific code
   ///
