@@ -394,8 +394,8 @@ SpirvConstantBoolean::SpirvConstantBoolean(const BoolType *type, bool val,
       value(val) {}
 
 bool SpirvConstantBoolean::operator==(const SpirvConstantBoolean &that) const {
-  return resultType == that.resultType && value == that.value &&
-         opcode == that.opcode;
+  return resultType == that.resultType && astResultType == that.astResultType &&
+         value == that.value && opcode == that.opcode;
 }
 
 SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
@@ -408,8 +408,8 @@ SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
 }
 
 bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {
-  return resultType == that.resultType && value == that.value &&
-         opcode == that.opcode;
+  return resultType == that.resultType && astResultType == that.astResultType &&
+         value == that.value && opcode == that.opcode;
 }
 
 SpirvConstantFloat::SpirvConstantFloat(QualType type, llvm::APFloat val,
@@ -422,8 +422,8 @@ SpirvConstantFloat::SpirvConstantFloat(QualType type, llvm::APFloat val,
 }
 
 bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {
-  return resultType == that.resultType && value.bitwiseIsEqual(that.value) &&
-         opcode == that.opcode;
+  return resultType == that.resultType && astResultType == that.astResultType &&
+         value.bitwiseIsEqual(that.value) && opcode == that.opcode;
 }
 
 SpirvConstantComposite::SpirvConstantComposite(

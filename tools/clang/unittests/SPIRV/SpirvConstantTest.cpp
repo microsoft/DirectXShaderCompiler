@@ -7,98 +7,79 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-
-#include "clang/SPIRV/SpirvContext.h"
+#include "SpirvTestBase.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 
-namespace {
 using namespace clang::spirv;
 
-TEST(SpirvConstant, BoolFalse) {
+namespace {
+
+class SpirvConstantTest : public SpirvTestBase {};
+
+TEST_F(SpirvConstantTest, BoolFalse) {
   SpirvContext ctx;
   const bool val = false;
   SpirvConstantBoolean constant(ctx.getBoolType(), val);
   EXPECT_EQ(val, constant.getValue());
 }
 
-TEST(SpirvConstant, BoolTrue) {
+TEST_F(SpirvConstantTest, BoolTrue) {
   SpirvContext ctx;
   const bool val = true;
   SpirvConstantBoolean constant(ctx.getBoolType(), val);
   EXPECT_EQ(val, constant.getValue());
 }
 
-/*
-TEST(SpirvConstant, Uint16) {
-  SpirvContext ctx;
-  const uint16_t u16 = 12;
-  SpirvConstantInteger constant(ctx.getUIntType(16), u16);
-  EXPECT_EQ(u16, constant.getUnsignedInt16Value());
+TEST_F(SpirvConstantTest, Uint16) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto u16 = llvm::APInt(16, 12u);
+  SpirvConstantInteger constant(astContext.UnsignedShortTy, u16);
+  EXPECT_EQ(u16, constant.getValue());
 }
 
-TEST(SpirvConstant, Int16) {
-  SpirvContext ctx;
-  const int16_t i16 = -12;
-  SpirvConstantInteger constant(ctx.getSIntType(16), i16);
-  EXPECT_EQ(i16, constant.getSignedInt16Value());
+TEST_F(SpirvConstantTest, Int16) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto i16 = llvm::APInt(16, -12, /*isSigned*/ true);
+  SpirvConstantInteger constant(astContext.ShortTy, i16);
+  EXPECT_EQ(i16, constant.getValue());
 }
 
-TEST(SpirvConstant, Uint32) {
-  SpirvContext ctx;
-  const uint32_t u32 = 65536;
-  SpirvConstantInteger constant(ctx.getUIntType(32), u32);
-  EXPECT_EQ(u32, constant.getUnsignedInt32Value());
+TEST_F(SpirvConstantTest, Uint32) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto u32 = llvm::APInt(32, 65536);
+  SpirvConstantInteger constant(astContext.UnsignedIntTy, u32);
+  EXPECT_EQ(u32, constant.getValue());
 }
 
-TEST(SpirvConstant, Int32) {
-  SpirvContext ctx;
-  const int32_t i32 = -65536;
-  SpirvConstantInteger constant(ctx.getSIntType(32), i32);
-  EXPECT_EQ(i32, constant.getSignedInt32Value());
+TEST_F(SpirvConstantTest, Int32) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto i32 = llvm::APInt(32, -65536, /*isSigned*/ true);
+  SpirvConstantInteger constant(astContext.IntTy, i32);
+  EXPECT_EQ(i32, constant.getValue());
 }
 
-TEST(SpirvConstant, Uint64) {
-  SpirvContext ctx;
-  const uint64_t u64 = 4294967296;
-  SpirvConstantInteger constant(ctx.getUIntType(64), u64);
-  EXPECT_EQ(u64, constant.getUnsignedInt64Value());
+TEST_F(SpirvConstantTest, Uint64) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto u64 = llvm::APInt(64, 4294967296);
+  SpirvConstantInteger constant(astContext.UnsignedLongLongTy, u64);
+  EXPECT_EQ(u64, constant.getValue());
 }
 
-TEST(SpirvConstant, Int64) {
-  SpirvContext ctx;
-  const int64_t i64 = -4294967296;
-  SpirvConstantInteger constant(ctx.getSIntType(64), i64);
-  EXPECT_EQ(i64, constant.getSignedInt64Value());
-}
-*/
-
-/*
-TEST(SpirvConstant, Float16) {
-  SpirvContext ctx;
-  const uint16_t f16 = 12;
-  SpirvConstantFloat constant(ctx.getFloatType(16), f16);
-  EXPECT_EQ(f16, constant.getValue16());
+TEST_F(SpirvConstantTest, Int64) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto i64 = llvm::APInt(64, -4294967296, /*isSigned*/ true);
+  SpirvConstantInteger constant(astContext.LongLongTy, i64);
+  EXPECT_EQ(i64, constant.getValue());
 }
 
-TEST(SpirvConstant, Float32) {
-  SpirvContext ctx;
-  const float f32 = 1.5;
-  SpirvConstantFloat constant(ctx.getFloatType(32), f32);
-  EXPECT_EQ(f32, constant.getValue32());
+TEST_F(SpirvConstantTest, Float32) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto f32 = llvm::APFloat(1.5f);
+  SpirvConstantFloat constant(astContext.FloatTy, f32);
+  EXPECT_EQ(1.5f, constant.getValue().convertToFloat());
 }
 
-TEST(SpirvConstant, Float64) {
-  SpirvContext ctx;
-  const double f64 = 3.14;
-  SpirvConstantFloat constant(ctx.getFloatType(64), f64);
-  EXPECT_EQ(f64, constant.getValue64());
-}
-
-*/
-
-TEST(SpirvConstant, CheckOperatorEqualOnBool) {
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnBool) {
   SpirvContext ctx;
   const bool val = true;
   SpirvConstantBoolean constant1(ctx.getBoolType(), val);
@@ -106,80 +87,109 @@ TEST(SpirvConstant, CheckOperatorEqualOnBool) {
   EXPECT_TRUE(constant1 == constant2);
 }
 
-/*
-TEST(SpirvConstant, CheckOperatorEqualOnInt) {
-  SpirvContext ctx;
-  const int32_t i32 = -65536;
-  SpirvConstantInteger constant1(ctx.getSIntType(32), i32);
-  SpirvConstantInteger constant2(ctx.getSIntType(32), i32);
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnInt) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto i32 = llvm::APInt(32, -65536, /*isSigned*/ true);
+  SpirvConstantInteger constant1(astContext.IntTy, i32);
+  SpirvConstantInteger constant2(astContext.IntTy, i32);
   EXPECT_TRUE(constant1 == constant2);
 }
 
-TEST(SpirvConstant, CheckOperatorEqualOnFloat) {
-  SpirvContext ctx;
-  const double f64 = 3.14;
-  SpirvConstantFloat constant1(ctx.getFloatType(64), f64);
-  SpirvConstantFloat constant2(ctx.getFloatType(64), f64);
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnFloat) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto f32 = llvm::APFloat(1.5f);
+  SpirvConstantFloat constant1(astContext.FloatTy, f32);
+  SpirvConstantFloat constant2(astContext.FloatTy, f32);
   EXPECT_TRUE(constant1 == constant2);
 }
-*/
 
-TEST(SpirvConstant, CheckOperatorEqualOnNull) {
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnNull) {
   SpirvContext ctx;
   SpirvConstantNull constant1(ctx.getSIntType(32));
   SpirvConstantNull constant2(ctx.getSIntType(32));
   EXPECT_TRUE(constant1 == constant2);
 }
 
-TEST(SpirvConstant, CheckOperatorEqualOnBool2) {
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnBool2) {
   SpirvContext ctx;
   SpirvConstantBoolean constant1(ctx.getBoolType(), true);
   SpirvConstantBoolean constant2(ctx.getBoolType(), false);
   EXPECT_FALSE(constant1 == constant2);
 }
 
-/*
-TEST(SpirvConstant, CheckOperatorEqualOnInt2) {
-  SpirvContext ctx;
-  SpirvConstantInteger constant1(ctx.getSIntType(32), 5);
-  SpirvConstantInteger constant2(ctx.getSIntType(32), 7);
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnInt2) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto i1 = llvm::APInt(32, 5, /*isSigned*/ true);
+  const auto i2 = llvm::APInt(32, 7, /*isSigned*/ true);
+  SpirvConstantInteger constant1(astContext.IntTy, i1);
+  SpirvConstantInteger constant2(astContext.IntTy, i2);
   EXPECT_FALSE(constant1 == constant2);
 }
 
-TEST(SpirvConstant, CheckOperatorEqualOnFloat2) {
-  SpirvContext ctx;
-  SpirvConstantFloat constant1(ctx.getFloatType(64), 3.14);
-  SpirvConstantFloat constant2(ctx.getFloatType(64), 3.15);
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnFloat2) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto f1 = llvm::APFloat(1.5f);
+  const auto f2 = llvm::APFloat(1.6f);
+  SpirvConstantFloat constant1(astContext.FloatTy, f1);
+  SpirvConstantFloat constant2(astContext.FloatTy, f2);
   EXPECT_FALSE(constant1 == constant2);
 }
-*/
 
-TEST(SpirvConstant, CheckOperatorEqualOnNull2) {
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnInt3) {
+  // Different signedness should mean different constants.
+  clang::ASTContext &astContext = getAstContext();
+  const auto i32 = llvm::APInt(32, 7, /*isSigned*/ true);
+  SpirvConstantInteger constant1(astContext.UnsignedIntTy, i32);
+  SpirvConstantInteger constant2(astContext.IntTy, i32);
+  EXPECT_FALSE(constant1 == constant2);
+}
+
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnFloat3) {
+  // Different bitwidth should mean different constants.
+  clang::ASTContext &astContext = getAstContext();
+  const auto f32 = llvm::APFloat(1.5f);
+  SpirvConstantFloat constant1(astContext.DoubleTy, f32);
+  SpirvConstantFloat constant2(astContext.FloatTy, f32);
+  EXPECT_FALSE(constant1 == constant2);
+}
+
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnInt4) {
+  // Different bitwidth should mean different constants.
+  clang::ASTContext &astContext = getAstContext();
+  const auto i32 = llvm::APInt(32, 7, /*isSigned*/ true);
+  SpirvConstantInteger constant1(astContext.ShortTy, i32);
+  SpirvConstantInteger constant2(astContext.IntTy, i32);
+  EXPECT_FALSE(constant1 == constant2);
+}
+
+TEST_F(SpirvConstantTest, CheckOperatorEqualOnNull2) {
   SpirvContext ctx;
   SpirvConstantNull constant1(ctx.getSIntType(32));
   SpirvConstantNull constant2(ctx.getUIntType(32));
   EXPECT_FALSE(constant1 == constant2);
 }
 
-TEST(SpirvConstant, BoolConstNotEqualSpecConst) {
+TEST_F(SpirvConstantTest, BoolConstNotEqualSpecConst) {
   SpirvContext ctx;
   SpirvConstantBoolean constant1(ctx.getBoolType(), true, /*SpecConst*/ true);
   SpirvConstantBoolean constant2(ctx.getBoolType(), false, /*SpecConst*/ false);
   EXPECT_FALSE(constant1 == constant2);
 }
 
-// TEST(SpirvConstant, IntConstNotEqualSpecConst) {
-//  SpirvContext ctx;
-//  SpirvConstantInteger constant1(ctx.getSIntType(32), 5, /*SpecConst*/ true);
-//  SpirvConstantInteger constant2(ctx.getSIntType(32), 7, /*SpecConst*/ false);
-//  EXPECT_FALSE(constant1 == constant2);
-//}
+TEST_F(SpirvConstantTest, IntConstNotEqualSpecConst) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto i32 = llvm::APInt(32, 7, /*isSigned*/ true);
+  SpirvConstantInteger constant1(astContext.IntTy, i32, /*SpecConst*/ false);
+  SpirvConstantInteger constant2(astContext.IntTy, i32, /*SpecConst*/ true);
+  EXPECT_FALSE(constant1 == constant2);
+}
 
-// TEST(SpirvConstant, FloatConstNotEqualSpecConst) {
-//   SpirvContext ctx;
-//   SpirvConstantFloat constant1(ctx.getFloatType(64), 3.14, /*SpecConst*/
-//   true); SpirvConstantFloat constant2(ctx.getFloatType(64), 3.15,
-//   /*SpecConst*/ false); EXPECT_FALSE(constant1 == constant2);
-// }
+TEST_F(SpirvConstantTest, FloatConstNotEqualSpecConst) {
+  clang::ASTContext &astContext = getAstContext();
+  const auto f32 = llvm::APFloat(1.5f);
+  SpirvConstantFloat constant1(astContext.FloatTy, f32, /*SpecConst*/ false);
+  SpirvConstantFloat constant2(astContext.FloatTy, f32, /*SpecConst*/ true);
+  EXPECT_FALSE(constant1 == constant2);
+}
 
 } // anonymous namespace
