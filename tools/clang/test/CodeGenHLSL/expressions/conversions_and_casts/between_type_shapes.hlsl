@@ -104,12 +104,12 @@ void main()
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_m1x1(v1);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_m1x1((int1x1)a1);
-    // DXC crashes (GitHub #1799)
+    output_m1x1((int1x1)a1);
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_m1x1((int1x1)s1);
+    output_m1x1((int1x1)s1);
 
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
@@ -180,12 +180,12 @@ void main()
     // DXC: i32 11, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(11,0,0,0)
     output_m1x1(m2x2); // warning: implicit truncation of vector type
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_m1x1((int1x1)a2);
-    // DXC crashes (GitHub #1799)
+    output_m1x1((int1x1)a2);
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_m1x1((int1x1)s2);
+    output_m1x1((int1x1)s2);
 
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
@@ -276,24 +276,24 @@ void main()
     // DXC: i32 1, i32 2, i32 3, i32 4, i8 15)
     // FXC: l(1,2,3,4)
     output_m2x2(v4);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_m1x2((int1x2)a2);
-    // DXC crashes (GitHub #1799)
+    output_m1x2((int1x2)a2);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_m2x1((int2x1)a2);
-    // DXC crashes (GitHub #1799)
+    output_m2x1((int2x1)a2);
+    // DXC: i32 1, i32 2, i32 3, i32 4, i8 15)
     // FXC: l(1,2,3,4)
-    // output_m2x2((int2x2)a4);
-    // DXC crashes (GitHub #1799)
+    output_m2x2((int2x2)a4);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_m1x2((int1x2)s2);
-    // DXC crashes (GitHub #1799)
+    output_m1x2((int1x2)s2);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_m2x1((int2x1)s2);
-    // DXC crashes (GitHub #1799)
+    output_m2x1((int2x1)s2);
+    // DXC: i32 1, i32 2, i32 3, i32 4, i8 15)
     // FXC: l(1,2,3,4)
-    // output_m2x2((int2x2)s4);
+    output_m2x2((int2x2)s4);
 
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
@@ -381,24 +381,24 @@ void main()
     // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
     // FXC: l(11,12,21,22)
     output_m2x2(m3x3); // warning: implicit truncation of vector type
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_m1x2((int1x2)a4);
-    // DXC crashes (GitHub #1799)
+    output_m1x2((int1x2)a4);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC fails with internal error: invalid sequence/cast expression
-    // output_m2x1((int2x1)a4);
-    // DXC crashes (GitHub #1799)
+    output_m2x1((int2x1)a4);
+    // DXC: i32 1, i32 2, i32 3, i32 4, i8 15)
     // FXC rejects with error X3017: cannot convert from 'typedef int[5]' to 'int2x2'
-    // output_m2x2((int2x2)a5);
-    // DXC crashes (GitHub #1799)
+    output_m2x2((int2x2)a5);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_m1x2((int1x2)s4);
-    // DXC crashes (GitHub #1799)
+    output_m1x2((int1x2)s4);
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC fails with internal error: invalid sequence/cast expression
-    // output_m2x1((int2x1)s4);
-    // DXC crashes (GitHub #1799)
+    output_m2x1((int2x1)s4);
+    // DXC: i32 1, i32 2, i32 3, i32 4, i8 15)
     // FXC rejects with error X3017: cannot convert from 'struct S5' to 'int2x2'
-    // output_m2x2((int2x2)s5);
+    output_m2x2((int2x2)s5);
 
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
