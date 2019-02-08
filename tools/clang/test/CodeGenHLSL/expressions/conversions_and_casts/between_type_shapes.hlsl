@@ -295,9 +295,9 @@ void main()
     // FXC: l(1,2,3,4)
     // output_m2x2((int2x2)s4);
 
-    // DXC fails with validation errors (GitHub #1861)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_a2((A2)v2);
+    output_a2((A2)v2);
     // DXC crashes (GitHub #1799)
     // FXC: l(11,12,0,0)
     // output_a2((A2)m1x2);
@@ -400,9 +400,9 @@ void main()
     // FXC rejects with error X3017: cannot convert from 'struct S5' to 'int2x2'
     // output_m2x2((int2x2)s5);
 
-    // DXC fails validation
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_a2((A2)v4);
+    output_a2((A2)v4);
     // DXC crashes (GitHub #1799)
     // FXC: l(11,12,0,0)
     // output_a2((A2)m1x3);
