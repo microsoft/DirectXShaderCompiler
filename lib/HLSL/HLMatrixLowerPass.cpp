@@ -1200,7 +1200,7 @@ Value *HLMatrixLowerPass::lowerHLStore(Value *MatVal, Value *MatPtr, bool RowMaj
   return Return ? LoweredVal : LoweredStore;
 }
 
-static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode HLCastOpcode, IRBuilder<> Builder) {
+static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode Opcode, IRBuilder<> Builder) {
   DXASSERT(SrcVal->getType()->isVectorTy() == DstTy->isVectorTy(),
     "Scalar/vector type mismatch in numerical conversion.");
   Type *SrcTy = SrcVal->getType();
@@ -1218,10 +1218,10 @@ static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode HLC
   }
 
   // Cast necessary
-  bool SrcIsUnsigned = HLCastOpcode == HLCastOpcode::FromUnsignedCast ||
-    HLCastOpcode == HLCastOpcode::UnsignedUnsignedCast;
-  bool DstIsUnsigned = HLCastOpcode == HLCastOpcode::ToUnsignedCast ||
-    HLCastOpcode == HLCastOpcode::UnsignedUnsignedCast;
+  bool SrcIsUnsigned = Opcode == HLCastOpcode::FromUnsignedCast ||
+    Opcode == HLCastOpcode::UnsignedUnsignedCast;
+  bool DstIsUnsigned = Opcode == HLCastOpcode::ToUnsignedCast ||
+    Opcode == HLCastOpcode::UnsignedUnsignedCast;
   auto CastOp = static_cast<Instruction::CastOps>(HLModule::GetNumericCastOp(
     SrcTy, SrcIsUnsigned, DstTy, DstIsUnsigned));
   return cast<Instruction>(Builder.CreateCast(CastOp, SrcVal, DstTy));

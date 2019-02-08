@@ -21,7 +21,7 @@ using namespace hlsl;
 
 HLMatrixSubscriptUseReplacer::HLMatrixSubscriptUseReplacer(CallInst* Call, Value *LoweredPtr,
   SmallVectorImpl<Value*> &ElemIndices, bool AllowLoweredPtrGEPs, std::vector<Instruction*> &DeadInsts)
-  : LoweredPtr(LoweredPtr), AllowLoweredPtrGEPs(AllowLoweredPtrGEPs), ElemIndices(ElemIndices), DeadInsts(DeadInsts)
+  : LoweredPtr(LoweredPtr), ElemIndices(ElemIndices), DeadInsts(DeadInsts), AllowLoweredPtrGEPs(AllowLoweredPtrGEPs)
 {
   HasScalarResult = !Call->getType()->getPointerElementType()->isVectorTy();
 

@@ -45,7 +45,7 @@ class DxilTypeSystem;
 class HLMatrixType
 {
 public:
-  static constexpr char* StructNamePrefix = "class.matrix";
+  static constexpr const char* StructNamePrefix = "class.matrix";
 
   HLMatrixType() : RegReprElemTy(nullptr), NumRows(0), NumColumns(0) {}
   HLMatrixType(llvm::Type *RegReprElemTy, unsigned NumRows, unsigned NumColumns);

@@ -46,12 +46,6 @@ Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
   }
 }
 
-// Translate matrix array pointer type to vector array pointer type.
-Type *LowerMatrixArrayPointer(Type *Ty, bool forMem) {
-  DXASSERT_NOMSG(HLMatrixType::isMatrixArrayPtr(Ty));
-  return HLMatrixType::getLoweredType(Ty, forMem);
-}
-
 Type *LowerMatrixArrayPointerToOneDimArray(Type *Ty) {
   unsigned addrSpace = Ty->getPointerAddressSpace();
   Ty = Ty->getPointerElementType();
@@ -99,7 +93,7 @@ public:
         if (BitCastInst *BCI = dyn_cast<BitCastInst>(I)) {
           // Mutate mat to vec.
           Type *ToTy = BCI->getType();
-          if (Type *ToVecTy = TryLowerMatTy(ToTy)) {
+          if (TryLowerMatTy(ToTy)) {
             matCastSet.insert(BCI);
             bUpdated = true;
           }
@@ -146,13 +140,13 @@ bool MatrixBitcastLowerPass::hasCallUser(Instruction *M) {
       if (hasCallUser(BCI))
         return true;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (VectorType *Ty = dyn_cast<VectorType>(LI->getType())) {
+      if (isa<VectorType>(LI->getType())) {
       } else {
         DXASSERT(0, "invalid load for matrix");
       }
     } else if (StoreInst *ST = dyn_cast<StoreInst>(U)) {
       Value *V = ST->getValueOperand();
-      if (VectorType *Ty = dyn_cast<VectorType>(V->getType())) {
+      if (isa<VectorType>(V->getType())) {
       } else {
         DXASSERT(0, "invalid load for matrix");
       }
