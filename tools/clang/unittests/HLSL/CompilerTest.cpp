@@ -877,6 +877,8 @@ public:
 
     CW2A utf8SuitePath(suitePath.c_str());
 
+    unsigned numTestsRun = 0;
+
     std::error_code EC;
     llvm::SmallString<128> DirNative;
     llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
@@ -885,9 +887,7 @@ public:
       // Check whether this entry has an extension typically associated with
       // headers.
       if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
-               .Cases(".hlsl", ".hlsl", true)
-		       .Cases(".ll", ".ll", true)
-               .Default(false))
+          .Cases(".hlsl", ".ll", true).Default(false))
         continue;
       StringRef filename = Dir->path();
       CA2W wRelPath(filename.data());
@@ -895,7 +895,11 @@ public:
       WEX::Logging::Log::StartGroup(wRelPath);
       CodeGenTestCheck(wRelPath, /*implicitDir*/ false);
       WEX::Logging::Log::EndGroup(wRelPath);
+
+      numTestsRun++;
     }
+
+    VERIFY_IS_GREATER_THAN(numTestsRun, (unsigned)0, L"No test files found in batch directory.");
   }
 
   std::string VerifyCompileFailed(LPCSTR pText, LPCWSTR pTargetProfile, LPCSTR pErrorMsg) {
@@ -3190,11 +3194,11 @@ TEST_F(CompilerTest, CodeGenSamplesD12) {
 }
 
 TEST_F(CompilerTest, CodeGenDx12MiniEngine) {
-  CodeGenTestCheckBatchDir(L"Samples\\MiniEngine.hlsl");
+  CodeGenTestCheckBatchDir(L"Samples\\MiniEngine");
 }
 
 TEST_F(CompilerTest, HoistConstantArray) {
-  CodeGenTestCheckBatchDir(L"hoist-constant-array");
+  CodeGenTestCheckBatchDir(L"hoist_constant_array");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
