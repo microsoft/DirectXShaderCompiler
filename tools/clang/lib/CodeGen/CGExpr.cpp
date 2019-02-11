@@ -1082,6 +1082,14 @@ static bool hasBooleanRepresentation(QualType Ty) {
   return false;
 }
 
+// HLSL Change Begin.
+static bool hasBooleanScalarOrVectorRepresentation(QualType Ty) {
+  if (hlsl::IsHLSLVecType(Ty))
+    return hasBooleanRepresentation(hlsl::GetElementTypeOrType(Ty));
+  return hasBooleanRepresentation(Ty);
+}
+// HLSL Change End.
+
 static bool getRangeForType(CodeGenFunction &CGF, QualType Ty,
                             llvm::APInt &Min, llvm::APInt &End,
                             bool StrictEnums) {
@@ -1233,30 +1241,26 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
 }
 
 llvm::Value *CodeGenFunction::EmitToMemory(llvm::Value *Value, QualType Ty) {
-  // Bool has a different representation in memory than in registers.
-  if (hasBooleanRepresentation(Ty)) {
-    // This should really always be an i1, but sometimes it's already
-    // an i8, and it's awkward to track those cases down.
-    if (Value->getType()->isIntegerTy(1))
+  // HLSL Change Begin.
+  // Bool scalar and vectors have a different representation in memory than in registers.
+  if (hasBooleanScalarOrVectorRepresentation(Ty)) {
+    if (Value->getType()->getScalarType()->isIntegerTy(1))
       return Builder.CreateZExt(Value, ConvertTypeForMem(Ty), "frombool");
-    assert(Value->getType()->isIntegerTy(getContext().getTypeSize(Ty)) &&
-           "wrong value rep of bool");
   }
+  // HLSL Change End.
 
   return Value;
 }
 
 llvm::Value *CodeGenFunction::EmitFromMemory(llvm::Value *Value, QualType Ty) {
-  // Bool has a different representation in memory than in registers.
-  if (hasBooleanRepresentation(Ty)) {
-    assert(Value->getType()->isIntegerTy(getContext().getTypeSize(Ty)) &&
-           "wrong value rep of bool");
-    // HLSL Change Begin.
+  // HLSL Change Begin.
+  // Bool scalar and vectors have a different representation in memory than in registers.
+  if (hasBooleanScalarOrVectorRepresentation(Ty)) {
     // Use ne v, 0 to convert to i1 instead of trunc.
     return Builder.CreateICmpNE(
-        Value, llvm::ConstantInt::get(Value->getType(), 0), "tobool");
-    // HLSL Change End.
+        Value, llvm::ConstantVector::getNullValue(Value->getType()), "tobool");
   }
+  // HLSL Change End.
 
   return Value;
 }
@@ -1392,6 +1396,20 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
         return RValue::get(V);
       }
     }
+
+    if (hlsl::IsHLSLAggregateType(getContext(), LV.getType())) {
+      // We cannot load the value because we don't expect to ever have
+      // user-defined struct or array-typed llvm registers, only pointers to them.
+      // To preserve the snapshot semantics of LValue loads, we copy the
+      // value to a temporary and return a pointer to it.
+      llvm::Value *Alloca = CreateMemTemp(LV.getType(), "rval");
+      auto CharSizeAlignPair = getContext().getTypeInfoInChars(LV.getType());
+      Builder.CreateMemCpy(Alloca, LV.getAddress(),
+        static_cast<uint64_t>(CharSizeAlignPair.first.getQuantity()),
+        static_cast<unsigned>(CharSizeAlignPair.second.getQuantity()));
+
+      return RValue::get(Alloca);
+    }
     // HLSL Change End.
 
     // Everything needs a load.
@@ -1474,6 +1492,8 @@ RValue CodeGenFunction::EmitLoadOfExtVectorElementLValue(LValue LV) {
                                             LV.isVolatileQualified());
   Load->setAlignment(LV.getAlignment().getQuantity());
   llvm::Value *Vec = Load;
+
+  Vec = EmitFromMemory(Vec, LV.getType()); // HLSL Change
 
   const llvm::Constant *Elts = LV.getExtVectorElts();
 
@@ -1748,7 +1768,10 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
   const llvm::Constant *Elts = Dst.getExtVectorElts();
 
   llvm::Value *SrcVal = Src.getScalarVal();
+
   // HLSL Change Starts
+  SrcVal = EmitToMemory(SrcVal, Dst.getType());
+
   const VectorType *VTy = Dst.getType()->getAs<VectorType>();
   if (VTy == nullptr && getContext().getLangOpts().HLSL)
     VTy =
@@ -2918,11 +2941,12 @@ CodeGenFunction::EmitHLSLVectorElementExpr(const HLSLVectorElementExpr *E) {
     assert(hlsl::IsHLSLVecType(E->getBase()->getType()) &&
            "Result must be a vector");
     llvm::Value *Vec = EmitScalarExpr(E->getBase());
+    Vec = EmitToMemory(Vec, E->getBase()->getType());
 
     // Store the vector to memory (because LValue wants an address).
-    llvm::Value *VecMem = CreateMemTemp(E->getBase()->getType());
-    Builder.CreateStore(Vec, VecMem);
-    Base = MakeAddrLValue(VecMem, E->getBase()->getType());
+    llvm::Value *VecMemPtr = CreateMemTemp(E->getBase()->getType());
+    Builder.CreateStore(Vec, VecMemPtr);
+    Base = MakeAddrLValue(VecMemPtr, E->getBase()->getType());
   }
 
   QualType type =

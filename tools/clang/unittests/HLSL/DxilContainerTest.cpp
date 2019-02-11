@@ -345,53 +345,14 @@ public:
   }
 #endif // _WIN32 - Reflection unsupported
 
-  void split(const wstring &s, wchar_t delim, vector<wstring> &elems) {
-    wstringstream ss(s);
-    wstring item;
-    while (getline(ss, item, delim)) {
-      elems.push_back(item);
-    }
-  }
-
-  vector<wstring> split(const wstring &s, char delim) {
-    vector<wstring> elems;
-    split(s, delim, elems);
-    return elems;
-  }
-
-  wstring SplitFilename(const wstring &str) {
-    size_t found;
-    found = str.find_last_of(L"/\\");
-    return str.substr(0, found);
-  }
-
-  void NameParseCommandPartsFromFile(LPCWSTR path, std::vector<FileRunCommandPart> &parts) {
-    vector<wstring> Parts = split(wstring(path), '+');
-    std::wstring Name = Parts[0];
-    std::wstring EntryPoint = Parts[1];
-    std::wstring ShaderModel = Parts[2];
-    std::wstring Arguments = L"-T ";
-    Arguments += ShaderModel;
-    Arguments += L" -E ";
-    Arguments += EntryPoint;
-    Arguments += L" %s";
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > w;
-    string ArgumentsNarrow = w.to_bytes(Arguments);
-
-    FileRunCommandPart P(string("%dxc"), ArgumentsNarrow, path);
-    parts.push_back(P);
-  }
-
 #ifdef _WIN32  // - Reflection unsupported
   HRESULT CompileFromFile(LPCWSTR path, bool useDXBC, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
-    //NameParseCommandPartsFromFile(path, parts);
     ParseCommandPartsFromFile(path, parts);
     VERIFY_IS_TRUE(parts.size() > 0);
     VERIFY_ARE_EQUAL_STR(parts[0].Command.c_str(), "%dxc");
     FileRunCommandPart &dxc = parts[0];
     m_dllSupport.Initialize();
-    dxc.DllSupport = &m_dllSupport;
 
     hlsl::options::MainArgs args;
     hlsl::options::DxcOpts opts;
@@ -411,7 +372,7 @@ public:
       IFR(pDxbcBlob.QueryInterface(ppBlob));
     }
     else {
-      dxc.Run(nullptr);
+      dxc.Run(m_dllSupport, nullptr);
       IFRBOOL(dxc.RunResult == 0, E_FAIL);
       IFR(dxc.OpResult->GetResult(ppBlob));
     }

@@ -41,10 +41,11 @@ subdirectories =
  HLSL
  DXIL
  DxilContainer
+ DxilDia
  DxrFallback
  DxilRootSignature
 
-; HLSL Change: remove LibDriver, LineEditor, add HLSL, DxrtFallback, DXIL, DxilContainer, DxilPIXPasses, DxilRootSignature
+; HLSL Change: remove LibDriver, LineEditor, add HLSL, DxrtFallback, DXIL, DxilContainer, DxilDia, DxilPIXPasses, DxilRootSignature
 
 [component_0]
 type = Group

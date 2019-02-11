@@ -714,12 +714,12 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
 
     if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(E->getSubExpr())) {
       llvm::Value *SrcVal = llvm::ConstantInt::get(CGF.getLLVMContext(), IL->getValue());
-      CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionToAggregate(
+      CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
           CGF, SrcVal, DestPtr, E->getType(), Ty);
     } else if (FloatingLiteral *FL =
                    dyn_cast<FloatingLiteral>(E->getSubExpr())) {
       llvm::Value *SrcVal = llvm::ConstantFP::get(CGF.getLLVMContext(), FL->getValue());
-      CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionToAggregate(
+      CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
           CGF, SrcVal, DestPtr, E->getType(), Ty);
     } else {
       Expr *Src = E->getSubExpr();
@@ -744,7 +744,7 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
       } break;
       case TEK_Scalar: {
         llvm::Value *SrcVal = CGF.EmitScalarExpr(Src);
-        CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionToAggregate(
+        CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
           CGF, SrcVal, DestPtr, E->getType(), Ty);
       } break;
       default:

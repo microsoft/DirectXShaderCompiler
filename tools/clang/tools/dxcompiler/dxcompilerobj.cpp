@@ -368,8 +368,8 @@ public:
         IFT(ppSrcCodeResult->GetStatus(&status));
         if (SUCCEEDED(status)) {
           IFT(ppSrcCodeResult->GetResult(&ppSrcCode));
+          pSource = ppSrcCode;
         }
-        pSource = ppSrcCode;
       }
 #endif // ENABLE_SPIRV_CODEGEN
 
@@ -923,6 +923,7 @@ public:
       compiler.getCodeGenOpts().UnrollLoops = true;
 
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
+    compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;

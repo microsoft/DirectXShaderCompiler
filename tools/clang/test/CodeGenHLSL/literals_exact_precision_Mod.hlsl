@@ -1,7 +1,7 @@
 // RUN: %dxc -enable-16bit-types -E test -T vs_6_2 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_5_1 literals.hlsl
+// fxc.exe /T ps_5_1 literals.hlsl
 
 // without also putting them in a static assertion
 

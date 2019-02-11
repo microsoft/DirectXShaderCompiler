@@ -1507,7 +1507,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   QualType DestTy = CE->getType();
   CastKind Kind = CE->getCastKind();
   // HLSL Change Begins
-  if (hlsl::IsHLSLMatType(E->getType()) || hlsl::IsHLSLMatType(CE->getType())) {
+  if ((hlsl::IsHLSLMatType(E->getType()) || hlsl::IsHLSLMatType(CE->getType()))
+    && Kind != CastKind::CK_FlatConversion) {
     llvm::Value *V = CGF.EmitScalarExpr(E);
     llvm::Type *RetTy = CGF.ConvertType(DestTy);
 
@@ -1817,9 +1818,37 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return Builder.CreateExtractElement(Visit(E), (uint64_t)0);
   }
   case CK_FlatConversion: {
-      llvm::Value *val = Visit(E);
-      llvm::Value *elem = Builder.CreateExtractValue(val, (uint64_t)0);
-      return EmitScalarConversion(elem, E->getType(), DestTy);
+    llvm::Value *Src = Visit(E);
+
+    // We should have an aggregate type (struct or array) on one side,
+    // and a numeric type (scalar, vector or matrix) on the other.
+    // If the aggregate type is the cast source, it should be a pointer.
+    // Aggregate to aggregate casts are handled in CGExprAgg.cpp
+    auto areCompoundAndNumeric = [this](QualType lhs, QualType rhs) {
+      return hlsl::IsHLSLAggregateType(CGF.getContext(), lhs)
+        && (rhs->isBuiltinType() || hlsl::IsHLSLVecMatType(rhs));
+    };
+    assert(Src->getType()->isPointerTy()
+      ? areCompoundAndNumeric(E->getType(), DestTy)
+      : areCompoundAndNumeric(DestTy, E->getType()));
+    (void)areCompoundAndNumeric;
+
+    llvm::Value *DstPtr = CGF.CreateMemTemp(DestTy, "flatconv");
+    CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
+      CGF, Src, DstPtr, DestTy, E->getType());
+    
+    // Return an rvalue
+    // Matrices must be loaded with the special function
+    if (hlsl::IsHLSLMatType(DestTy))
+      return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, DstPtr, DestTy);
+    
+    // Structs/arrays are pointers to temporaries
+    if (hlsl::IsHLSLAggregateType(CGF.getContext(), DestTy))
+      return DstPtr;
+    
+    // Scalars/vectors are loaded regularly
+    llvm::Value *Result = Builder.CreateLoad(DstPtr);
+    return Result = CGF.EmitFromMemory(Result, DestTy);
   }
   case CK_HLSLCC_IntegralToBoolean:
     return EmitIntToBoolConversion(Visit(E));
