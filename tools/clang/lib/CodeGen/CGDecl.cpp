@@ -1865,11 +1865,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
   if (CGDebugInfo *DI = getDebugInfo()) {
     if (CGM.getCodeGenOpts().getDebugInfo()
           >= CodeGenOptions::LimitedDebugInfo) {
-      // HLSL Change Begins.
-      // Use the Arg directly instead of DeclPtr for HLSL.
-      // The DeclPtr will be promoted in later pass.
-      DI->EmitDeclareOfArgVariable(&D, Arg, ArgNo, Builder);
-      // HLSL Change Ends.
+      DI->EmitDeclareOfArgVariable(&D, DeclPtr, ArgNo, Builder);
     }
   }
 

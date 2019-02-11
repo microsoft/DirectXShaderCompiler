@@ -192,9 +192,8 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
   llvm::LLVMContext &Ctx,
   std::string &DiagStr) {
   // Note: the DiagStr is not used.
-  ErrorOr<std::unique_ptr<llvm::Module>> pModule(
-    llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx));
-  if (std::error_code ec = pModule.getError()) {
+  auto pModule = llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx);
+  if (!pModule) {
     return nullptr;
   }
   return std::unique_ptr<llvm::Module>(pModule.get().release());
@@ -229,20 +228,29 @@ static bool EmitErrorOnInstructionFollowPhiSelect(
   return false;
 }
 
+std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
+  std::string locString;
+  raw_string_ostream os(locString);
+  DL.print(os);
+  os << ": " << Msg;
+  return os.str();
+}
+
+Twine FormatMessageWithoutLocation(const Twine& Msg) {
+  return Msg + " Use /Zi for source location.";
+}
+
 void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
   const DebugLoc &DL = I->getDebugLoc();
   if (DL.get()) {
-    std::string locString;
-    raw_string_ostream os(locString);
-    DL.print(os);
-    I->getContext().emitError(os.str() + ": " + Twine(Msg));
+    I->getContext().emitError(FormatMessageAtLocation(DL, Msg));
     return;
   } else if (isa<PHINode>(I) || isa<SelectInst>(I)) {
     if (EmitErrorOnInstructionFollowPhiSelect(I, Msg))
       return;
   }
 
-  I->getContext().emitError(Twine(Msg) + " Use /Zi for source location.");
+  I->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
 const StringRef kResourceMapErrorMsg =
@@ -296,6 +304,28 @@ Value *MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
   return op0;
 }
 
+bool SimplifyTrivialPHIs(BasicBlock *BB) {
+  bool Changed = false;
+  SmallVector<Instruction *, 16> Removed;
+  for (Instruction &I : *BB) {
+    PHINode *PN = dyn_cast<PHINode>(&I);
+    if (!PN)
+      continue;
+
+    if (PN->getNumIncomingValues() == 1) {
+      Value *V = PN->getIncomingValue(0);
+      PN->replaceAllUsesWith(V);
+      Removed.push_back(PN);
+      Changed = true;
+    }
+  }
+
+  for (Instruction *I : Removed)
+    I->eraseFromParent();
+
+  return Changed;
+}
+
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
   Instruction *prototype = Inst;
   for (unsigned i = 0; i < prototype->getNumOperands(); i++) {
@@ -343,26 +373,27 @@ llvm::Instruction *SkipAllocas(llvm::Instruction *I) {
     I = I->getNextNode();
   return I;
 }
+llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB) {
+  return &*BB->getFirstInsertionPt();
+}
+llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
+  return FindAllocaInsertionPt(&F->getEntryBlock());
+}
 llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I) {
   Function *F = I->getParent()->getParent();
   if (F)
-    return &*F->getEntryBlock().getFirstInsertionPt();
+    return FindAllocaInsertionPt(F);
   else // BB with no parent function
-    return &*I->getParent()->getFirstInsertionPt();
-}
-llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
-  return &*F->getEntryBlock().getFirstInsertionPt();
+    return FindAllocaInsertionPt(I->getParent());
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I) {
   return SkipAllocas(FindAllocaInsertionPt(I));
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB) {
-  return SkipAllocas(
-    &*BB->getFirstInsertionPt());
+  return SkipAllocas(FindAllocaInsertionPt(BB));
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
-  return SkipAllocas(
-    &*F->getEntryBlock().getFirstInsertionPt());
+  return SkipAllocas(FindAllocaInsertionPt(F));
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
@@ -428,6 +459,20 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
     if (name.startswith("Texture2DMSArray<"))
       return true;
+  }
+  return false;
+}
+
+bool IsHLSLMatrixType(Type *Ty) {
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    Type *EltTy = ST->getElementType(0);
+    if (!ST->getName().startswith("class.matrix"))
+      return false;
+
+    bool isVecArray =
+        EltTy->isArrayTy() && EltTy->getArrayElementType()->isVectorTy();
+
+    return isVecArray && EltTy->getArrayNumElements() <= 4;
   }
   return false;
 }

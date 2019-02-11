@@ -33,9 +33,6 @@ matrix:
           sources: ubuntu-toolchain-r-test
           packages: ninja-build g++-5
       env: DXC_BUILD_TYPE=Release
-  allow_failures:
-    - os: linux
-    - os: osx
 
 cache:
   apt: true
@@ -53,7 +50,12 @@ addons:
     packages: ninja-build libstdc++-5-dev
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ninja; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      wget -q https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-mac.zip;
+      unzip -q ninja-mac.zip;
+      chmod +x ninja;
+      export PATH="$PWD:$PATH";
+      fi
 
 before_script:
   - git submodule update --init

@@ -88,6 +88,7 @@ TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
 TEST_F(FileTest, StructuredByteBufferArray) {
+  setRelaxLogicalPointer();
   runFileTest("type.structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, StructuredByteBufferArrayError) {
@@ -1335,6 +1336,11 @@ TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInMethod) {
   setRelaxLogicalPointer();
   runFileTest("spirv.legal.sbuffer.counter.method.hlsl");
 }
+TEST_F(FileTest,
+       SpirvLegalizationCounterVarAssignAcrossDifferentNestedStructLevel) {
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.counter.nested-struct.hlsl");
+}
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   setRelaxLogicalPointer();
   runFileTest("spirv.legal.sbuffer.struct.hlsl");
@@ -1748,6 +1754,11 @@ TEST_F(FileTest, LegalizationExample20) {
 }
 TEST_F(FileTest, LegalizationExample21) {
   runFileTest("legal-examples/21-combined-ok.hlsl");
+}
+
+TEST_F(FileTest, PreprocessorError) {
+  // Tests that preprocessor error is surfaced
+  runFileTest("preprocess.error.hlsl", Expect::Failure);
 }
 
 } // namespace

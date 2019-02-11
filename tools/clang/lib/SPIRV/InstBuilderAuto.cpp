@@ -16,7 +16,7 @@
 namespace clang {
 namespace spirv {
 
-static_assert(spv::Version == 0x00010300 && spv::Revision == 1,
+static_assert(spv::Version == 0x00010300 && spv::Revision == 6,
               "Needs to regenerate outdated InstBuilder");
 
 namespace {

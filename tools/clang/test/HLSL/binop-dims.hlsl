@@ -7,12 +7,6 @@
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion
 
-// TODO: Fix LValue casting to match fxc.
-// Currently certain LValue casts will crash CodeGen,
-// so an error has been placed here instead for now.
-// Need to look for the following expected error and fix in the future:
-//    cannot truncate lvalue vector/matrix
-
 /*<py>
 import re
 rxComments = re.compile(r'(//.*|/\*.*?\*\/)')
@@ -135,36 +129,36 @@ float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   f1 += (float1)m1x1;
   f1 = f1 + m2x1;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m2x1;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m2x1;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m2x1;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m2x1;
+  f1 += (float1)m2x1;
   f1 = f1 + m4x1;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m4x1;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m4x1;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m4x1;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m4x1;
+  f1 += (float1)m4x1;
   f1 = f1 + m1x2;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m1x2;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m1x2;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m1x2;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m1x2;
+  f1 += (float1)m1x2;
   f1 = f1 + m2x2;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m2x2;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m2x2;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m2x2;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m2x2;
+  f1 += (float1)m2x2;
   f1 = f1 + m4x2;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m4x2;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m4x2;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m4x2;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m4x2;
+  f1 += (float1)m4x2;
   f1 = f1 + m1x4;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m1x4;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m1x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m1x4;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m1x4;
+  f1 += (float1)m1x4;
   f1 = f1 + m2x4;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m2x4;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m2x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m2x4;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m2x4;
+  f1 += (float1)m2x4;
   f1 = f1 + m4x4;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f1 += m4x4;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f1 = f1 + (float1)m4x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f1 += (float1)m4x4;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f1 = f1 + (float1)m4x4;
+  f1 += (float1)m4x4;
   f2 = f2 + f;
   f2 += f;
   f2 = f2 + (float2)f;
@@ -191,8 +185,8 @@ float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   f2 += (float2)m2x1;
   f2 = f2 + m4x1;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f2 += m4x1;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f2 = f2 + (float2)m4x1;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f2 += (float2)m4x1;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f2 = f2 + (float2)m4x1;
+  f2 += (float2)m4x1;
   f2 = f2 + m1x2;
   f2 += m1x2;
   f2 = f2 + (float2)m1x2;
@@ -207,8 +201,8 @@ float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   f2 += (float2)m4x2;                                       /* expected-error {{cannot convert from 'float4x2' to 'float2'}} fxc-error {{X3017: cannot convert from 'float4x2' to 'float2'}} */
   f2 = f2 + m1x4;                                           /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   f2 += m1x4;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  f2 = f2 + (float2)m1x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  f2 += (float2)m1x4;                                       /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  f2 = f2 + (float2)m1x4;
+  f2 += (float2)m1x4;
   f2 = f2 + m2x4;                                           /* expected-error {{cannot convert from 'float2x4' to 'float2'}} fxc-error {{X3020: type mismatch}} */
   f2 += m2x4;                                               /* expected-error {{cannot convert from 'float2x4' to 'float2'}} fxc-error {{X3020: type mismatch}} */
   f2 = f2 + (float2)m2x4;                                   /* expected-error {{cannot convert from 'float2x4' to 'float2'}} fxc-error {{X3017: cannot convert from 'float2x4' to 'float2'}} */
@@ -291,36 +285,36 @@ float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   m1x1 += (float1x1)m1x1;
   m1x1 = m1x1 + m2x1;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m2x1;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m2x1;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m2x1;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m2x1;
+  m1x1 += (float1x1)m2x1;
   m1x1 = m1x1 + m4x1;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m4x1;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m4x1;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m4x1;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m4x1;
+  m1x1 += (float1x1)m4x1;
   m1x1 = m1x1 + m1x2;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m1x2;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m1x2;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m1x2;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m1x2;
+  m1x1 += (float1x1)m1x2;
   m1x1 = m1x1 + m2x2;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m2x2;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m2x2;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m2x2;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m2x2;
+  m1x1 += (float1x1)m2x2;
   m1x1 = m1x1 + m4x2;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m4x2;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m4x2;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m4x2;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m4x2;
+  m1x1 += (float1x1)m4x2;
   m1x1 = m1x1 + m1x4;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m1x4;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m1x4;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m1x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m1x4;
+  m1x1 += (float1x1)m1x4;
   m1x1 = m1x1 + m2x4;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m2x4;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m2x4;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m2x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m2x4;
+  m1x1 += (float1x1)m2x4;
   m1x1 = m1x1 + m4x4;                                       /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x1 += m4x4;                                             /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x1 = m1x1 + (float1x1)m4x4;                             /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x1 += (float1x1)m4x4;                                   /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x1 = m1x1 + (float1x1)m4x4;
+  m1x1 += (float1x1)m4x4;
   m2x1 = m2x1 + f;
   m2x1 += f;
   m2x1 = m2x1 + (float2x1)f;
@@ -335,8 +329,8 @@ float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   m2x1 += (float2x1)f2;
   m2x1 = m2x1 + f4;                                         /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m2x1 += f4;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m2x1 = m2x1 + (float2x1)f4;                               /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m2x1 += (float2x1)f4;                                     /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m2x1 = m2x1 + (float2x1)f4;
+  m2x1 += (float2x1)f4;
   m2x1 = m2x1 + m1x1;
   m2x1 += m1x1;
   m2x1 = m2x1 + (float2x1)m1x1;
@@ -439,8 +433,8 @@ float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   m1x2 += (float1x2)f2;
   m1x2 = m1x2 + f4;                                         /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   m1x2 += f4;                                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  m1x2 = m1x2 + (float1x2)f4;                               /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
-  m1x2 += (float1x2)f4;                                     /* expected-error {{cannot truncate lvalue vector/matrix}} fxc-pass {{}} */
+  m1x2 = m1x2 + (float1x2)f4;
+  m1x2 += (float1x2)f4;
   m1x2 = m1x2 + m1x1;
   m1x2 += m1x1;
   m1x2 = m1x2 + (float1x2)m1x1;

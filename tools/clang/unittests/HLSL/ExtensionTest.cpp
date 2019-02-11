@@ -111,6 +111,12 @@ static const HLSL_INTRINSIC_ARGUMENT TestIBFE[] = {
   { "val",    AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
 };
 
+// float2 = MySamplerOp(uint2 addr)
+static const HLSL_INTRINSIC_ARGUMENT TestMySamplerOp[] = {
+  { "MySamplerOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+};
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -144,6 +150,11 @@ Intrinsic Intrinsics[] = {
 
 Intrinsic BufferIntrinsics[] = {
   {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+};
+
+// Test adding a method to an object that normally has no methods (SamplerState will do).
+Intrinsic SamplerIntrinsics[] = {
+  {L"MySamplerOp",   "MySamplerOp",    "m", { 15, false, true, -1, countof(TestMySamplerOp), TestMySamplerOp}},
 };
 
 class IntrinsicTable {
@@ -214,6 +225,7 @@ public:
   TestIntrinsicTable() : m_dwRef(0) { 
     m_tables.push_back(IntrinsicTable(L"",       std::begin(Intrinsics), std::end(Intrinsics)));
     m_tables.push_back(IntrinsicTable(L"Buffer", std::begin(BufferIntrinsics), std::end(BufferIntrinsics)));
+    m_tables.push_back(IntrinsicTable(L"SamplerState", std::begin(SamplerIntrinsics), std::end(SamplerIntrinsics)));
   }
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
@@ -441,6 +453,7 @@ public:
   TEST_METHOD(DxilLoweringVector1)
   TEST_METHOD(DxilLoweringVector2)
   TEST_METHOD(DxilLoweringScalar)
+  TEST_METHOD(SamplerExtensionIntrinsic)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -840,3 +853,30 @@ TEST_F(ExtensionTest, DxilLoweringScalar) {
     disassembly.npos !=
     disassembly.find("call i32 @dx.op.tertiary.i32(i32 51"));
 }
+
+TEST_F(ExtensionTest, SamplerExtensionIntrinsic) {
+  // Test adding methods to objects that don't have any methods normally,
+  // and therefore have null default intrinsic table.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "SamplerState samp;"
+    "float2 main(uint2 v1 : V1) : SV_Target {\n"
+    "  return samp.MySamplerOp(uint2(1, 2));\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // - works when SamplerState normally has no methods
+  // - return type is translated to dx.types.ResRet
+  // - buffer is translated to dx.types.Handle
+  // - vector is exploded
+  LPCSTR expected[] = {
+    "call %dx.types.ResRet.f32 @MySamplerOp\\(i32 15, %dx.types.Handle %.*, i32 1, i32 2\\)"
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+

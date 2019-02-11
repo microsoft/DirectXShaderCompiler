@@ -7670,6 +7670,7 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_HLSLVectorToScalarCast:   // HLSL Change
   case CK_HLSLMatrixToScalarCast:   // HLSL Change
+  case CK_FlatConversion: // HLSL Change
     return Error(E);
 
   case CK_UserDefinedConversion:

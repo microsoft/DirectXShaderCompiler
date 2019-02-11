@@ -185,7 +185,7 @@ enum ArBasicKind {
   AR_OBJECT_WAVE,
 
   AR_OBJECT_RAY_DESC,
-  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_ACCELERATION_STRUCT,
   AR_OBJECT_USER_DEFINED_TYPE,
   AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
 
@@ -462,7 +462,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT,   // AR_OBJECT_WAVE
 
   LICOMPTYPE_RAYDESC,               // AR_OBJECT_RAY_DESC
-  LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_ACCELARATION_STRUCT
+  LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_ACCELERATION_STRUCT
   LICOMPTYPE_USER_DEFINED_TYPE,      // AR_OBJECT_USER_DEFINED_TYPE
   0,      // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 
@@ -1098,9 +1098,9 @@ static const ArBasicKind g_RayDescCT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_AccelarationStructCT[] =
+static const ArBasicKind g_AccelerationStructCT[] =
 {
-  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_ACCELERATION_STRUCT,
   AR_BASIC_UNKNOWN
 };
 
@@ -1201,7 +1201,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_UInt16CT,           // LICOMPTYPE_UINT16
   g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
   g_RayDescCT,          // LICOMPTYPE_RAYDESC
-  g_AccelarationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
+  g_AccelerationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
   g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
@@ -1275,7 +1275,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 
   AR_OBJECT_WAVE,
   AR_OBJECT_RAY_DESC,
-  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_ACCELERATION_STRUCT,
   AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
 
   // subobjects
@@ -1355,7 +1355,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_LEGACY_EFFECT   // Used for all unsupported but ignored legacy effect types
   0, // AR_OBJECT_WAVE
   0, // AR_OBJECT_RAY_DESC
-  0, // AR_OBJECT_ACCELARATION_STRUCT
+  0, // AR_OBJECT_ACCELERATION_STRUCT
   0, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 
   0, // AR_OBJECT_STATE_OBJECT_CONFIG,
@@ -1444,7 +1444,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LEGACY_EFFECT (legacy effect objects)
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_DESC
-  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_ACCELARATION_STRUCT
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_ACCELERATION_STRUCT
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_STATE_OBJECT_CONFIG,
@@ -1573,24 +1573,26 @@ const char* g_ArBasicTypeNames[] =
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
 
+static bool IsValidBasicKind(ArBasicKind kind) {
+  return kind != AR_BASIC_COUNT &&
+    kind != AR_BASIC_NONE &&
+    kind != AR_BASIC_UNKNOWN &&
+    kind != AR_BASIC_NOCAST &&
+    kind != AR_BASIC_POINTER &&
+    kind != AR_OBJECT_RENDERTARGETVIEW &&
+    kind != AR_OBJECT_DEPTHSTENCILVIEW &&
+    kind != AR_OBJECT_COMPUTESHADER &&
+    kind != AR_OBJECT_DOMAINSHADER &&
+    kind != AR_OBJECT_GEOMETRYSHADER &&
+    kind != AR_OBJECT_HULLSHADER &&
+    kind != AR_OBJECT_PIXELSHADER &&
+    kind != AR_OBJECT_VERTEXSHADER &&
+    kind != AR_OBJECT_PIXELFRAGMENT &&
+    kind != AR_OBJECT_VERTEXFRAGMENT;
+}
 // kind should never be a flag value or effects framework type - we simply do not expect to deal with these
 #define DXASSERT_VALIDBASICKIND(kind) \
-  DXASSERT(\
-  kind != AR_BASIC_COUNT && \
-  kind != AR_BASIC_NONE && \
-  kind != AR_BASIC_UNKNOWN && \
-  kind != AR_BASIC_NOCAST && \
-  kind != AR_BASIC_POINTER && \
-  kind != AR_OBJECT_RENDERTARGETVIEW && \
-  kind != AR_OBJECT_DEPTHSTENCILVIEW && \
-  kind != AR_OBJECT_COMPUTESHADER && \
-  kind != AR_OBJECT_DOMAINSHADER && \
-  kind != AR_OBJECT_GEOMETRYSHADER && \
-  kind != AR_OBJECT_HULLSHADER && \
-  kind != AR_OBJECT_PIXELSHADER && \
-  kind != AR_OBJECT_VERTEXSHADER && \
-  kind != AR_OBJECT_PIXELFRAGMENT && \
-  kind != AR_OBJECT_VERTEXFRAGMENT, "otherwise caller is using a special flag or an unsupported kind value");
+  DXASSERT(IsValidBasicKind(kind), "otherwise caller is using a special flag or an unsupported kind value");
 
 static
 const char* g_DeprecatedEffectObjectNames[] =
@@ -3901,7 +3903,7 @@ public:
     case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
     case AR_OBJECT_WAVE:
-    case AR_OBJECT_ACCELARATION_STRUCT:
+    case AR_OBJECT_ACCELERATION_STRUCT:
     case AR_OBJECT_RAY_DESC:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
     {
@@ -4066,6 +4068,12 @@ public:
     bool PartialOverloading) override
   {
     DXASSERT_NOMSG(ULE != nullptr);
+
+    // Intrinsics live in the global namespace, so references to their names
+    // should be either unqualified or '::'-prefixed.
+    if (ULE->getQualifier() && ULE->getQualifier()->getKind() != NestedNameSpecifier::Global) {
+      return false;
+    }
 
     const DeclarationNameInfo declName = ULE->getNameInfo();
     IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
@@ -5582,7 +5590,10 @@ bool HLSLExternalSource::MatchArguments(
           return false;
         }
         pEltType = GetTypeElementKind(objectElement);
-        DXASSERT_VALIDBASICKIND(pEltType);
+        if (!IsValidBasicKind(pEltType)) {
+          // This can happen with Texture2D<Struct> or other invalid declarations
+          return false;
+        }
       }
       else {
         pEltType = ComponentType[pArgument->uComponentTypeId];
@@ -8041,10 +8052,11 @@ bool HLSLExternalSource::CanConvert(
   // Cannot cast function type.
   if (source->isFunctionType())
     return false;
-  // Convert to an r-value to begin with.
-  bool needsLValueToRValue = sourceExpr->isLValue() &&
-    !target->isLValueReferenceType() && 
-    IsConversionToLessOrEqualElements(source, target, explicitConversion);
+
+  // Convert to an r-value to begin with, with an exception for strings
+  // since they are not first-class values and we want to preserve them as literals.
+  bool needsLValueToRValue = sourceExpr->isLValue() && !target->isLValueReferenceType()
+    && sourceExpr->getStmtClass() != Expr::StringLiteralClass;
 
   bool targetRef = target->isReferenceType();
 
@@ -8978,11 +8990,12 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   }
 
   // Find the table of intrinsics based on the object type.
-  const HLSL_INTRINSIC* intrinsics;
-  size_t intrinsicCount;
-  const char* objectName;
+  const HLSL_INTRINSIC* intrinsics = nullptr;
+  size_t intrinsicCount = 0;
+  const char* objectName = nullptr;
   FindIntrinsicTable(FunctionTemplate->getDeclContext(), &objectName, &intrinsics, &intrinsicCount);
-  DXASSERT(intrinsics != nullptr,
+  DXASSERT(objectName != nullptr &&
+    (intrinsics != nullptr || m_intrinsicTables.size() > 0),
     "otherwise FindIntrinsicTable failed to lookup a valid object, "
     "or the parser let a user-defined template object through");
 
@@ -9021,16 +9034,13 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
           !IsBABLoad
               ? diag::err_hlsl_intrinsic_template_arg_unsupported
               : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_requires_2018;
+                        : diag::err_hlsl_intrinsic_template_arg_scalar_vector;
       if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
         QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
         ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
         if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
-          isLegalTemplate = GET_BASIC_BITS(GetTypeElementKind(explicitType)) != BPROP_BITS64 ||
-            GetNumElements(explicitType) <= 2;
-        }
-        if (isLegalTemplate) {
+          isLegalTemplate = true;
           argTypes[0] = explicitType;
         }
       }
@@ -9050,15 +9060,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
         }
         argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(
             32, /*signed*/ false);
-      } else {
-        // not supporting types > 16 bytes yet.
-        if (GET_BASIC_BITS(GetTypeElementKind(argTypes[2])) == BPROP_BITS64 &&
-            GetNumElements(argTypes[2]) > 2) {
-          getSema()->Diag(Args[1]->getLocStart(),
-                          diag::err_ovl_no_viable_member_function_in_call)
-              << intrinsicName;
-          return Sema::TemplateDeductionResult::TDK_Invalid;
-        }
       }
     }
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
@@ -9942,7 +9943,8 @@ FlattenedTypeIterator::FlattenedTypeIterator(SourceLocation loc, QualType type, 
   m_source(source), m_draining(false), m_springLoaded(false), m_incompleteCount(0), m_typeDepth(0), m_loc(loc)
 {
   if (pushTrackerForType(type, nullptr)) {
-    considerLeaf();
+    while (!m_typeTrackers.empty() && !considerLeaf())
+      consumeLeaf();
   }
 }
 
@@ -10060,17 +10062,11 @@ bool FlattenedTypeIterator::considerLeaf()
   case FlattenedIterKind::FK_Fields:
     if (pushTrackerForType(tracker.CurrentField->getType(), nullptr)) {
       result = considerLeaf();
-    } else {
-      // Pop empty struct.
-      m_typeTrackers.pop_back();
     }
     break;
   case FlattenedIterKind::FK_Bases:
     if (pushTrackerForType(tracker.CurrentBase->getType(), nullptr)) {
       result = considerLeaf();
-    } else {
-      // Pop empty base.
-      m_typeTrackers.pop_back();
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
@@ -11285,56 +11281,6 @@ void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
         getASTContext(), D.UnusualAnnotations.data(),
         D.UnusualAnnotations.size()));
     D.UnusualAnnotations.clear();
-  }
-  // pragma pack_matrix.
-  // Do this for struct member also.
-  if (ValueDecl *VD = dyn_cast<ValueDecl>(NewDecl)) {
-    QualType Ty = VD->getType();
-    QualType EltTy = Ty;
-    while (EltTy->isArrayType()) {
-      EltTy = EltTy->getAsArrayTypeUnsafe()->getElementType();
-    }
-    if (hlsl::IsHLSLMatType(EltTy)) {
-      bool bRowMajor = false;
-      if (!hlsl::HasHLSLMatOrientation(EltTy, &bRowMajor)) {
-        if (PackMatrixColMajorPragmaOn || PackMatrixRowMajorPragmaOn) {
-          // Add major.
-          QualType NewEltTy = Context.getAttributedType(
-              PackMatrixRowMajorPragmaOn
-                  ? AttributedType::attr_hlsl_row_major
-                  : AttributedType::attr_hlsl_column_major,
-              EltTy, EltTy);
-
-          QualType NewTy = NewEltTy;
-          if (Ty->isArrayType()) {
-            // Build new array type.
-            SmallVector<const ArrayType *, 2> arrayTys;
-            while (EltTy->isArrayType()) {
-              const ArrayType *AT = EltTy->getAsArrayTypeUnsafe();
-              arrayTys.emplace_back(AT);
-            }
-            for (auto rit = arrayTys.rbegin(); rit != arrayTys.rend(); rit++) {
-              // Create array type with NewTy.
-              const ArrayType *AT = *rit;
-              if (const ConstantArrayType *CAT =
-                      dyn_cast<ConstantArrayType>(AT)) {
-                NewTy = Context.getConstantArrayType(
-                    NewTy, CAT->getSize(), CAT->getSizeModifier(),
-                    CAT->getIndexTypeCVRQualifiers());
-              } else if (const IncompleteArrayType *IAT =
-                             dyn_cast<IncompleteArrayType>(AT)) {
-                NewTy = Context.getIncompleteArrayType(NewTy, IAT->getSizeModifier(),
-                    IAT->getIndexTypeCVRQualifiers());
-              } else {
-                DXASSERT(false, "");
-              }
-            }
-          }
-          // Update Type.
-          VD->setType(NewTy);
-        }
-      }
-    }
   }
 }
 

@@ -40,18 +40,18 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += uav1.Load<float32_t1>(20, status);
 
   // errors
-  r += uav1.Load<float, float3>(16);                        /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
-  r += uav1.Load<double3>(16);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
+  r += uav1.Load<float, float3>(16);                        /* expected-error {{Explicit template arguments on intrinsic Load are limited one to scalar or vector type.}} */
+  r += uav1.Load<double3>(16);                              /* expected-error {{cannot convert from 'double3' to 'float4'}} */
   r += uav1.Load2<float>(16);                               /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
   r += uav1.Load3<int>(20);                                 /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
   r += uav1.Load4<int16_t>(24);                             /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
-  r += uav1.Load<half3x4>(24);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<half, 3, 4>' to 'float4'}} */
-  r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
-  r += uav1.Load<double3>(16, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
+  r += uav1.Load<half3x4>(24);                              /* expected-error {{Explicit template arguments on intrinsic Load are limited one to scalar or vector type.}} expected-error {{cannot convert from 'matrix<half, 3, 4>' to 'float4'}} */
+  r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load are limited one to scalar or vector type.}} */
+  r += uav1.Load<double3>(16, status);                      /* expected-error {{cannot convert from 'double3' to 'float4'}} */
   r += uav1.Load2<float>(16, status);                       /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
   r += uav1.Load3<int>(20, status);                         /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
   r += uav1.Load4<int16_t>(24, status);                     /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
-  r += uav1.Load<half3x4>(24, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<half, 3, 4>' to 'float4'}} */
+  r += uav1.Load<half3x4>(24, status);                      /* expected-error {{Explicit template arguments on intrinsic Load are limited one to scalar or vector type.}} expected-error {{cannot convert from 'matrix<half, 3, 4>' to 'float4'}} */
   // valid template argument
   uav1.Store(0, r);
   uav1.Store(0, r.x);
@@ -69,8 +69,8 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   uav1.Store4<float>(0, r);                                 /* expected-error {{Explicit template arguments on intrinsic Store4 are not supported.}} */
   uav1.Store(0, float2x4(1,2,3,4,5,6,7,8));                 /* expected-error {{no matching member function for call to 'Store'}} */
   uav1.Store<float3x2>(0, float3x2(1,2,3,4,5,6));           /* expected-error {{no matching member function for call to 'Store'}} */
-  uav1.Store(0, (double3)r.xyz);                            /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
-  uav1.Store(0, (uint64_t4)r);                              /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
+  uav1.Store(0, (double3)r.xyz);                            
+  uav1.Store(0, (uint64_t4)r);                              
   MyStruct myStruct;
   uav1.Store(0, myStruct);                                  /* expected-error {{no matching member function for call to 'Store'}} */
   return r;

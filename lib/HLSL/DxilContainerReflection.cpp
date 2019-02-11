@@ -765,7 +765,7 @@ HRESULT CShaderReflectionType::Initialize(
     llvm::Type* elementType = type->getArrayElementType();
 
     // Note: At this point an HLSL matrix type may appear as an ordinary
-    // array (not wrapped in a `struct`), so `HLMatrixLower::IsMatrixType()`
+    // array (not wrapped in a `struct`), so `dxilutil::IsHLSLMatrixType()`
     // is not sufficient. Instead we need to check the field annotation.
     //
     // We might have an array of matrices, though, so we only exit if

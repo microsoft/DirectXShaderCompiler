@@ -6991,9 +6991,7 @@ public:
     LongWidth = LongAlign = 32;
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble;
-    BoolWidth = 32;
-    // To avoid member for alignment.
-    BoolAlign = 8;
+    BoolWidth = BoolAlign = 32;
 
     // using the Microsoft ABI.
     TheCXXABI.set(TargetCXXABI::Microsoft);

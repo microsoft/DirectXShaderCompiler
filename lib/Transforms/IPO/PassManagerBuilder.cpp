@@ -248,19 +248,23 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createDxilConvergentMarkPass());
   }
 
-  if (OptLevel > 2) {
-    MPM.add(createLoopRotatePass());
-    MPM.add(createLoopUnrollPass());
-  }
-
-  if (!NoOpt) {
-    // Verify no undef resource path before simplify, since that can remove undef
-    // paths.  For NoOpt, resources are unpromoted here, so this will not work.
-    MPM.add(createFailUndefResourcePass());
-  }
   MPM.add(createSimplifyInstPass());
 
   MPM.add(createCFGSimplificationPass());
+
+  // Passes to handle [unroll]
+  // Needs to happen after SROA since loop count may depend on
+  // struct members.
+  // Needs to happen before resources are lowered and before HL
+  // module is gone.
+  MPM.add(createLoopRotatePass());
+  MPM.add(createDxilLoopUnrollPass(/*MaxIterationAttempt*/ 128));
+
+  // Default unroll pass. This is purely for optimizing loops without
+  // attributes.
+  if (OptLevel > 2) {
+    MPM.add(createLoopUnrollPass());
+  }
 
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
@@ -374,14 +378,11 @@ void PassManagerBuilder::populateModulePassManager(
 
   // Start of function pass.
   // Break up aggregate allocas, using SSAUpdater.
-  // HLSL Change - don't run SROA. 
-  // HLSL uses special SROA added in addHLSLPasses.
-  if (HLSLHighLevel) { // HLSL Change
   if (UseNewSROA)
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
-  }
+
   // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
@@ -418,6 +419,8 @@ void PassManagerBuilder::populateModulePassManager(
     if (EnableMLSM)
       MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
     MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
+    if (!HLSLResMayAlias)
+      MPM.add(createDxilSimpleGVNHoistPass()); // HLSL Change - GVN hoist for code size.
   }
   // HLSL Change Begins.
   // HLSL don't allow memcpy and memset.

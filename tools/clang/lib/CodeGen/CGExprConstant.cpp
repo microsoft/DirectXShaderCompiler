@@ -1232,7 +1232,7 @@ llvm::Constant *CodeGenModule::EmitConstantInit(const VarDecl &D,
   assert(E && "No initializer to emit");
 
   llvm::Constant* C = ConstExprEmitter(*this, CGF).Visit(const_cast<Expr*>(E));
-  if (C && C->getType()->isIntegerTy(1)) {
+  if (C && C->getType()->getScalarType()->isIntegerTy(1)) { // HLSL Change
     llvm::Type *BoolTy = getTypes().ConvertTypeForMem(E->getType());
     C = llvm::ConstantExpr::getZExt(C, BoolTy);
   }
@@ -1257,7 +1257,7 @@ llvm::Constant *CodeGenModule::EmitConstantExpr(const Expr *E,
   else
     C = ConstExprEmitter(*this, CGF).Visit(const_cast<Expr*>(E));
 
-  if (C && C->getType()->isIntegerTy(1)) {
+  if (C && C->getType()->getScalarType()->isIntegerTy(1)) { // HLSL Change
     llvm::Type *BoolTy = getTypes().ConvertTypeForMem(E->getType());
     C = llvm::ConstantExpr::getZExt(C, BoolTy);
   }
@@ -1472,7 +1472,7 @@ CodeGenModule::EmitConstantValueForMemory(const APValue &Value,
                                           QualType DestType,
                                           CodeGenFunction *CGF) {
   llvm::Constant *C = EmitConstantValue(Value, DestType, CGF);
-  if (C->getType()->isIntegerTy(1)) {
+  if (C->getType()->getScalarType()->isIntegerTy(1)) { // HLSL Change
     llvm::Type *BoolTy = getTypes().ConvertTypeForMem(DestType);
     C = llvm::ConstantExpr::getZExt(C, BoolTy);
   }

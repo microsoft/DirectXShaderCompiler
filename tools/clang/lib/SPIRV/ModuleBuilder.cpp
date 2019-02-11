@@ -893,6 +893,11 @@ void ModuleBuilder::decorateNonUniformEXT(uint32_t targetId) {
   theModule.addDecoration(d, targetId);
 }
 
+void ModuleBuilder::decorateNoContraction(uint32_t targetId) {
+  const Decoration *d = Decoration::getNoContraction(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
 #define IMPL_GET_PRIMITIVE_TYPE(ty)                                            \
                                                                                \
   uint32_t ModuleBuilder::get##ty##Type() {                                    \
