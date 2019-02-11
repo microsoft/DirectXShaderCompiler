@@ -3,6 +3,8 @@
 // Make sure llvm.dbg.value exist.
 // CHECK: call void @llvm.dbg.value
 
+// Make sure vector is a vector in debug info.
+// CHECK: DIFlagVector
 
 typedef float4 MyCoolFloat4;
 
