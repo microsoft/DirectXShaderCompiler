@@ -36,6 +36,7 @@ public:
 
   TEST_METHOD(RunArrayLength)
   TEST_METHOD(RunAttributes)
+  TEST_METHOD(RunBuiltinTypesNoInheritance)
   TEST_METHOD(RunConstExpr)
   TEST_METHOD(RunConstAssign)
   TEST_METHOD(RunConstDefault)
@@ -141,6 +142,10 @@ TEST_F(VerifierTest, RunArrayLength) {
 
 TEST_F(VerifierTest, RunAttributes) {
   CheckVerifiesHLSL(L"attributes.hlsl");
+}
+
+TEST_F(VerifierTest, RunBuiltinTypesNoInheritance) {
+  CheckVerifiesHLSL(L"builtin-types-no-inheritance.hlsl");
 }
 
 TEST_F(VerifierTest, RunConstExpr) {
