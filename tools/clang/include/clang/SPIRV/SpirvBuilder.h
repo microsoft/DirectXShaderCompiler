@@ -420,6 +420,12 @@ public:
 
   void createLineInfo(SpirvString *file, uint32_t line, uint32_t column);
 
+  /// \brief Create spirv instructions for NV raytracing ops
+  SpirvInstruction
+    *createRayTracingOpsNV(spv::Op opcode, QualType resultType,
+                           llvm::ArrayRef<SpirvInstruction *> operands,
+                           SourceLocation loc);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability, SourceLocation loc = {});

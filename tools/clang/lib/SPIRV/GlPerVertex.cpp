@@ -60,9 +60,10 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 }
 } // anonymous namespace
 
-GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
+GlPerVertex::GlPerVertex(const ExecutionModel *em, ASTContext &context,
                          SpirvContext &spirvContext, SpirvBuilder &spirvBuilder)
-    : shaderModel(sm), astContext(context), spvContext(spirvContext),
+    : spvExecModel(em), astContext(context), spvContext(spirvContext),
+
       spvBuilder(spirvBuilder), inClipVar(nullptr), inCullVar(nullptr),
       outClipVar(nullptr), outCullVar(nullptr), inArraySize(0), outArraySize(0),
       inClipArraySize(1), outClipArraySize(1), inCullArraySize(1),
@@ -220,7 +221,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   }
 
   if (baseType->isConstantArrayType()) {
-    if (shaderModel.IsHS() || shaderModel.IsDS() || shaderModel.IsGS()) {
+    if (spvExecModel->IsHS() || spvExecModel->IsDS() || spvExecModel->IsGS()) {
       // Ignore the outermost arrayness and check the inner type to be
       // (vector of) floats
 
@@ -555,7 +556,7 @@ void GlPerVertex::writeClipCullArrayFromType(
   }
 
   // Writing to an array only happens in HSCPOut.
-  assert(shaderModel.IsHS());
+  assert(spvExecModel->IsHS());
   // And we are only writing to the array element with InvocationId as index.
   assert(invocationId.hasValue());
 

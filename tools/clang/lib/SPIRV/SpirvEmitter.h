@@ -32,9 +32,11 @@
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
+#include "clang/AST/TypeOrdering.h"
 
 #include "DeclResultIdMapper.h"
 #include "SpirvEvalInfo.h"
+#include "ExecutionModel.h"
 
 namespace clang {
 namespace spirv {
@@ -77,6 +79,7 @@ private:
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
   void doHLSLBufferDecl(const HLSLBufferDecl *decl);
+  void doImplicitDecl(const Decl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
   void doDiscardStmt(const DiscardStmt *stmt);
@@ -503,6 +506,15 @@ private:
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
+
+  /// Process builtins specific to raytracing
+  SpirvInstruction *processRayBuiltins(const CallExpr *, hlsl::IntrinsicOp op);
+
+  /// Process raytracing intrinsics
+  SpirvInstruction *processReportHit(const CallExpr *);
+  void processCallShader(const CallExpr *callExpr);
+  void processTraceRay(const CallExpr *callExpr);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);
@@ -582,9 +594,6 @@ private:
   /// Emits an error if the given attribute is not a loop attribute.
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
-  static spv::ExecutionModel
-  getSpirvShaderStage(const hlsl::ShaderModel &model);
-
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control
@@ -621,6 +630,15 @@ private:
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
                                 SpirvFunction *entryFuncId);
 
+  /// \brief Emits a wrapper function for the entry functions for raytracing stages
+  /// and returns true on success.
+  ///
+  /// Wrapper is specific to raytracing stages since for specific stages we 
+  /// create specific module scoped stage variables and perform copies to them
+  /// The wrapper function is also responsible for initializing global static
+  /// variables for some cases.
+  bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
+                                SpirvFunction *entryFuncId);
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.
@@ -961,18 +979,43 @@ private:
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.
   const llvm::StringRef entryFunctionName;
-  const hlsl::ShaderModel &shaderModel;
+  const hlsl::ShaderModel shaderModel;
+
+  // Structure to maintain record of all entry functions and any reachable
+  // functions
+  struct FunctionInfo {
+  public:
+    const ExecutionModel *spvExecModel;
+    const DeclaratorDecl *funcDecl;
+    SpirvFunction *entryFunction;
+    bool isEntryFunction;
+
+    FunctionInfo()
+        : spvExecModel(nullptr), funcDecl(nullptr), entryFunction(nullptr),
+          isEntryFunction(false) {}
+    FunctionInfo(const ExecutionModel *em, const DeclaratorDecl *fDecl,
+                 SpirvFunction *entryFunc, bool isEntryFunc)
+        : spvExecModel(em), funcDecl(fDecl), entryFunction(entryFunc),
+          isEntryFunction(isEntryFunc) {}
+  };
 
   SpirvContext spvContext;
   FeatureManager featureManager;
   SpirvBuilder spvBuilder;
   DeclResultIdMapper declIdMapper;
 
-  /// A queue of decls reachable from the entry function. Decls inserted into
-  /// this queue will persist to avoid duplicated translations. And we'd like
-  /// a deterministic order of iterating the queue for finding the next decl
-  /// to translate. So we need SetVector here.
-  llvm::SetVector<const DeclaratorDecl *> workQueue;
+  // A map of funcDecl to its FunctionInfo. Consists of all entry functions
+  // followed by all reachable functions from the entry functions.
+  llvm::DenseMap<const DeclaratorDecl *, FunctionInfo *> functionInfoMap;
+
+  /// A queue of FunctionInfo reachable from all the entry functions.
+  /// FunctionInfo inserted into this queue will persist to avoid duplicated
+  /// translations. And we'd like a deterministic order of iterating the queue
+  /// for finding the next function to translate. So we need SetVector here.
+  llvm::SetVector<const FunctionInfo *> workQueue;
+
+  // Current Spirv Execution Model associated with below entryFunction
+  const ExecutionModel *spvExecModel;
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
@@ -1046,6 +1089,15 @@ private:
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, SpirvBasicBlock *> stmtBasicBlock;
 
+  /// Maintains mapping from a type to spirv variable along with spirv instruction
+  /// for id of location decoration
+  /// Used for raytracing stage variables of storage class RayPayloadNV, CallableDataNV
+  /// and HitAttributeNV
+  llvm::SmallDenseMap<QualType, std::pair<SpirvInstruction *,SpirvInstruction *>, 4>
+    payloadMap;
+  llvm::SmallDenseMap<QualType, SpirvInstruction*, 4> hitAttributeMap;
+  llvm::SmallDenseMap<QualType, std::pair<SpirvInstruction*, SpirvInstruction *>, 4>
+    callDataMap;
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;

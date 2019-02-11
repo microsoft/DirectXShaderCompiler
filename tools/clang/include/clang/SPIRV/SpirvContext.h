@@ -180,6 +180,10 @@ public:
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
 
+  const AccelerationStructureTypeNV *getAccelerationStructureTypeNV() const {
+    return accelerationStructureTypeNV;
+  }
+
   /// --- Hybrid type getter functions ---
   ///
   /// Concrete SpirvType objects represent a SPIR-V type completely. Hybrid
@@ -242,6 +246,7 @@ private:
   llvm::SmallVector<const StructType *, 8> structTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
+  const AccelerationStructureTypeNV *accelerationStructureTypeNV;
 };
 
 } // end namespace spirv

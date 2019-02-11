@@ -1763,4 +1763,27 @@ TEST_F(FileTest, PreprocessorError) {
   runFileTest("preprocess.error.hlsl", Expect::Failure);
 }
 
+// === Raytracing NV examples ===
+TEST_F(FileTest, RayTracingNVRaygen) {
+  runFileTest("raytracing.nv.raygen.hlsl");
+}
+TEST_F(FileTest, RayTracingNVIntersection) {
+  runFileTest("raytracing.nv.intersection.hlsl");
+}
+TEST_F(FileTest, RayTracingNVAnyHit) {
+  runFileTest("raytracing.nv.anyhit.hlsl");
+}
+TEST_F(FileTest, RayTracingNVClosestHit) {
+  runFileTest("raytracing.nv.closesthit.hlsl");
+}
+TEST_F(FileTest, RayTracingNVMiss) {
+  runFileTest("raytracing.nv.miss.hlsl");
+}
+TEST_F(FileTest, RayTracingNVCallable) {
+  runFileTest("raytracing.nv.callable.hlsl");
+}
+TEST_F(FileTest, RayTracingNVLibrary) {
+  runFileTest("raytracing.nv.library.hlsl");
+}
+
 } // namespace

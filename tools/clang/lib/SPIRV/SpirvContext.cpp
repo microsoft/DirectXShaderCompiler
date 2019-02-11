@@ -21,6 +21,7 @@ SpirvContext::SpirvContext()
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
+  accelerationStructureTypeNV = new (this) AccelerationStructureTypeNV;
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
