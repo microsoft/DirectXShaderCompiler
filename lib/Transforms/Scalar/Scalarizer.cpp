@@ -21,6 +21,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/IR/DebugInfo.h" // HLSL Change -debug info in scalarizer.
+#include "llvm/IR/DIBuilder.h" // HLSL Change -debug info in scalarizer.
 
 using namespace llvm;
 
@@ -673,6 +675,10 @@ bool Scalarizer::finish() {
   if (Gathered.empty())
     return false;
   // HLSL Change Begins.
+  Module &M = *Gathered.front().first->getModule();
+  LLVMContext &Ctx = M.getContext();
+  const DataLayout &DL = M.getDataLayout();
+  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
   // Map from an extract element inst to a Value which replaced it.
   DenseMap<Instruction *, Value*> EltMap;
   // HLSL Change Ends.
@@ -680,6 +686,36 @@ bool Scalarizer::finish() {
        GMI != GME; ++GMI) {
     Instruction *Op = GMI->first;
     ValueVector &CV = *GMI->second;
+    // HLSL Change Begin - debug info in scalarizer.
+    if (HasDbgInfo) {
+      if (auto *L = LocalAsMetadata::getIfExists(Op)) {
+        if (auto *DINode = MetadataAsValue::getIfExists(Ctx, L)) {
+          Type *Ty = Op->getType();
+          unsigned Count = Ty->getVectorNumElements();
+          Type *EltTy = Ty->getVectorElementType();
+          unsigned EltSize = DL.getTypeSizeInBits(EltTy);
+          for (User *U : DINode->users())
+            if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
+              DIBuilder DIB(M, /*AllowUnresolved*/ false);
+              auto *VarInfo = DVI->getVariable();
+              DebugLoc DbgLoc = DVI->getDebugLoc();
+              unsigned Offset = 0;
+              for (unsigned I = 0; I < Count; ++I) {
+                // TODO: need to use DIExpression::createFragmentExpression for
+                // case DVI->getExpression is already bit piece.
+                DIExpression *EltExpr =
+                    DIB.createBitPieceExpression(Offset, EltSize);
+                Offset += EltSize;
+
+                DIB.insertDbgValueIntrinsic(CV[I], Offset, VarInfo, EltExpr,
+                                            DbgLoc, DVI);
+              }
+            }
+        }
+      }
+    }
+    // HLSL Change End.
+
     if (!Op->use_empty()) {
       // HLSL Change Begins.
       // Remove the extract element users if possible.
@@ -700,6 +736,23 @@ bool Scalarizer::finish() {
               Elt = EltMap[EltI];
             } else
               break;
+          }
+          if (HasDbgInfo) {
+            if (auto *L = LocalAsMetadata::getIfExists(CV[immIdx])) {
+              if (auto *DINode = MetadataAsValue::getIfExists(Ctx, L)) {
+                for (User *U : DINode->users())
+                  if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
+                    auto *Expr = DVI->getExpression();
+                    DIBuilder DIB(M, /*AllowUnresolved*/ false);
+                    auto *VarInfo = DVI->getVariable();
+                    DebugLoc DbgLoc = DVI->getDebugLoc();
+                    unsigned Offset = 0;
+
+                    DIB.insertDbgValueIntrinsic(EEI, Offset, VarInfo, Expr,
+                                                DbgLoc, DVI);
+                  }
+              }
+            }
           }
           EEI->replaceAllUsesWith(Elt);
 
