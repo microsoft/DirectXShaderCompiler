@@ -1955,6 +1955,21 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     return nullptr;
   }
 
+  const auto paramTypeMatchesArgType = [](QualType paramType,
+                                          QualType argType) {
+    if (argType == paramType)
+      return true;
+
+    if (const auto *refType = paramType->getAs<ReferenceType>())
+      paramType = refType->getPointeeType();
+    auto argUnqualifiedType = argType->getUnqualifiedDesugaredType();
+    auto paramUnqualifiedType = paramType->getUnqualifiedDesugaredType();
+    if (argUnqualifiedType == paramUnqualifiedType)
+      return true;
+
+    return false;
+  };
+
   const auto numParams = callee->getNumParams();
 
   bool isNonStaticMemberCall = false;
@@ -2023,7 +2038,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     }
 
     if (argInfo && argInfo->getStorageClass() == spv::StorageClass::Function &&
-        canActAsOutParmVar(param)) {
+        canActAsOutParmVar(param) &&
+        paramTypeMatchesArgType(param->getType(), arg->getType())) {
       vars.push_back(argInfo);
       isTempVar.push_back(false);
       args.push_back(doExpr(arg));
@@ -2044,7 +2060,26 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       tryToAssignCounterVar(param, arg);
 
       // Manually load the argument here
-      const auto rhsVal = loadIfGLValue(arg, args.back());
+      auto *rhsVal = loadIfGLValue(arg, args.back());
+
+      // The AST does not include cast nodes to and from the function parameter
+      // type for 'out' and 'inout' cases. Example:
+      //
+      // void foo(out half3 param) {...}
+      // void main() { float3 arg; foo(arg); }
+      //
+      // In such cases, we first do a manual cast before passing the argument to
+      // the function. And we will cast back the results once the function call
+      // has returned.
+      if (canActAsOutParmVar(param) &&
+          !paramTypeMatchesArgType(param->getType(), arg->getType())) {
+        auto paramType = param->getType();
+        if (const auto *refType = paramType->getAs<ReferenceType>())
+          paramType = refType->getPointeeType();
+        rhsVal =
+            castToType(rhsVal, arg->getType(), paramType, arg->getExprLoc());
+      }
+
       // Initialize the temporary variables using the contents of the arguments
       storeValue(tempVar, rhsVal, param->getType());
     }
@@ -2078,7 +2113,19 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     if (isTempVar[i] && canActAsOutParmVar(param)) {
       const auto *arg = callExpr->getArg(i);
       const uint32_t index = i + isNonStaticMemberCall;
-      auto *value = spvBuilder.createLoad(param->getType(), vars[index]);
+      SpirvInstruction *value =
+          spvBuilder.createLoad(param->getType(), vars[index]);
+
+      // Now we want to assign 'value' to arg. But first, in rare cases when
+      // using 'out' or 'inout' where the parameter and argument have a type
+      // mismatch, we need to first cast 'value' to the type of 'arg' because
+      // the AST will not include a cast node.
+      if (!paramTypeMatchesArgType(param->getType(), arg->getType())) {
+        auto paramType = param->getType();
+        if (const auto *refType = paramType->getAs<ReferenceType>())
+          paramType = refType->getPointeeType();
+        value = castToType(value, paramType, arg->getType(), arg->getExprLoc());
+      }
 
       processAssignment(arg, value, false, args[index]);
     }
