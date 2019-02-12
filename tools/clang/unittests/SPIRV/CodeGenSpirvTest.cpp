@@ -1637,6 +1637,24 @@ TEST_F(FileTest, VulkanLayoutCBufferScalar) {
   runFileTest("vk.layout.cbuffer.scalar.hlsl");
 }
 
+TEST_F(FileTest, VulkanLayoutRegisterCAll) {
+  // :register(c#) used on all global variables.
+  setDxLayout();
+  runFileTest("vk.layout.register-c.all.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutRegisterCMixed) {
+  // :register(c#) used only on some global variables.
+  setDxLayout();
+  runFileTest("vk.layout.register-c.mixed.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutRegisterCError) {
+  // :register(c#) causing offset overlap for global variables.
+  setDxLayout();
+  runFileTest("vk.layout.register-c.error.hlsl", Expect::Failure);
+}
+
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");
