@@ -401,11 +401,10 @@ public:
   public:
     FieldInfo(QualType astType_, llvm::StringRef name_ = "",
               clang::VKOffsetAttr *offset = nullptr,
-              hlsl::ConstantPacking *packOffset = nullptr)
+              hlsl::ConstantPacking *packOffset = nullptr,
+              const hlsl::RegisterAssignment *regC = nullptr)
         : astType(astType_), name(name_), vkOffsetAttr(offset),
-          packOffsetAttr(packOffset) {}
-
-    bool operator==(const FieldInfo &that) const;
+          packOffsetAttr(packOffset), registerC(regC) {}
 
     // The field's type.
     QualType astType;
@@ -415,6 +414,8 @@ public:
     clang::VKOffsetAttr *vkOffsetAttr;
     // :packoffset() annotations associated with this field.
     hlsl::ConstantPacking *packOffsetAttr;
+    // :register(c#) annotations associated with this field.
+    const hlsl::RegisterAssignment *registerC;
   };
 
   HybridStructType(
@@ -429,8 +430,6 @@ public:
   bool isReadOnly() const { return readOnly; }
   llvm::StringRef getStructName() const { return getName(); }
   StructInterfaceType getInterfaceType() const { return interfaceType; }
-
-  bool operator==(const HybridStructType &that) const;
 
 private:
   // Reflection is heavily used in graphics pipelines. Reflection relies on

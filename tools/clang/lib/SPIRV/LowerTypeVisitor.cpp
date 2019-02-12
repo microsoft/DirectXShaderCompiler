@@ -374,7 +374,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       fields.push_back(HybridStructType::FieldInfo(
           field->getType(), field->getName(),
           /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
-          /*packoffset*/ getPackOffset(field)));
+          /*packoffset*/ getPackOffset(field),
+          /*RegisterAssignment*/ nullptr));
     }
 
     auto loweredFields = populateLayoutInformation(fields, rule);
@@ -667,12 +668,44 @@ LowerTypeVisitor::populateLayoutInformation(
 
   // The resulting vector of fields with proper layout information.
   llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
+  llvm::SmallVector<StructType::FieldInfo, 4> result;
+
+  using RegisterFieldPair =
+      std::pair<uint32_t, const HybridStructType::FieldInfo *>;
+  struct RegisterFieldPairLess {
+    bool operator()(const RegisterFieldPair &obj1,
+                    const RegisterFieldPair &obj2) const {
+      return obj1.first < obj2.first;
+    }
+  };
+  std::set<RegisterFieldPair, RegisterFieldPairLess> registerCSet;
+  std::vector<const HybridStructType::FieldInfo *> sortedFields;
+  llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
+
+  // First, check to see if any of the structure members had 'register(c#)'
+  // location semantics. If so, members that do not have the 'register(c#)'
+  // assignment should be allocated after the *highest explicit address*.
+  // Example:
+  // float x : register(c10);   // Offset = 160 (10 * 16)
+  // float y;                   // Offset = 164 (160 + 4)
+  // float z: register(c1);     // Offset = 16  (1  * 16)
+  for (const auto &field : fields)
+    if (field.registerC)
+      registerCSet.insert(
+          RegisterFieldPair(field.registerC->RegisterNumber, &field));
+  for (const auto &pair : registerCSet)
+    sortedFields.push_back(pair.second);
+  for (const auto &field : fields)
+    if (!field.registerC)
+      sortedFields.push_back(&field);
 
   uint32_t offset = 0;
-  for (const auto field : fields) {
+  for (const auto *fieldPtr : sortedFields) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
+    const auto field = *fieldPtr;
     auto fieldType = field.astType;
+    fieldToIndexMap[fieldPtr] = loweredFields.size();
 
     // Lower the field type fist. This call will populate proper matrix
     // majorness information.
@@ -689,7 +722,7 @@ LowerTypeVisitor::populateLayoutInformation(
     std::tie(memberAlignment, memberSize) = alignmentCalc.getAlignmentAndSize(
         fieldType, rule, /*isRowMajor*/ llvm::None, &stride);
 
-    // The next avaiable location after layouting the previos members
+    // The next avaiable location after laying out the previous members
     const uint32_t nextLoc = offset;
 
     if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
@@ -717,6 +750,19 @@ LowerTypeVisitor::populateLayoutInformation(
                   field.packOffsetAttr->Loc);
       } else {
         offset = packOffset;
+      }
+    }
+    // The :register(c#) annotation takes precedence over normal layout
+    // calculation.
+    else if (field.registerC) {
+      offset = 16 * field.registerC->RegisterNumber;
+      // Do minimal check to make sure the offset specified by :register(c#)
+      // does not cause overlap.
+      if (offset < nextLoc) {
+        emitError(
+            "found offset overlap when processing register(c%0) assignment",
+            field.registerC->Loc)
+            << field.registerC->RegisterNumber;
       }
     }
 
@@ -750,7 +796,11 @@ LowerTypeVisitor::populateLayoutInformation(
     loweredFields.push_back(loweredField);
   }
 
-  return loweredFields;
+  // Re-order the sorted fields back to their original order.
+  for (const auto &field : fields)
+    result.push_back(loweredFields[fieldToIndexMap[&field]]);
+
+  return result;
 }
 
 } // namespace spirv
