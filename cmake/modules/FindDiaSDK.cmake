@@ -4,14 +4,12 @@ get_filename_component(VS_PATH64 "[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Mi
 # VS_PATH32 will be something like C:/Program Files (x86)/Microsoft Visual Studio 14.0/Common7/IDE
 
 # Also look for in vs15 install.
-# TODO: update this to be a non-hardcoded path. Registry keys were removed
-# in vs15 in favor of COM server dlls.
-# https://blogs.msdn.microsoft.com/heaths/2016/09/15/changes-to-visual-studio-15-setup/
-get_filename_component(VS15_C_PATH32 "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/Common7/IDE" ABSOLUTE CACHE)
-get_filename_component(VS15_P_PATH32 "C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/Common7/IDE" ABSOLUTE CACHE)
-get_filename_component(VS15_E_PATH32 "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/Common7/IDE" ABSOLUTE CACHE)
+set(PROGRAMFILES_X86 "ProgramFiles(x86)")
+get_filename_component(VS15_C_PATH32 "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/2017/Community/Common7/IDE" ABSOLUTE CACHE)
+get_filename_component(VS15_P_PATH32 "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/2017/Professional/Common7/IDE" ABSOLUTE CACHE)
+get_filename_component(VS15_E_PATH32 "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/2017/Enterprise/Common7/IDE" ABSOLUTE CACHE)
 
-# Find the TAEF path, it will typically look something like this.
+# Find the DIA SDK path, it will typically look something like this.
 # C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\DIA SDK\include
 # C:\Program Files (x86)\Microsoft Visual Studio 14.0\DIA SDK\include\dia2.h
 find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR

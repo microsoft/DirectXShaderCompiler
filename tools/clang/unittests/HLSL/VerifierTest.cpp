@@ -39,6 +39,7 @@ public:
   TEST_METHOD(RunConstExpr)
   TEST_METHOD(RunConstAssign)
   TEST_METHOD(RunConstDefault)
+  TEST_METHOD(RunConversionsBetweenTypeShapes)
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
   TEST_METHOD(RunCXX11Attributes)
@@ -152,6 +153,10 @@ TEST_F(VerifierTest, RunConstAssign) {
 
 TEST_F(VerifierTest, RunConstDefault) {
   CheckVerifiesHLSL(L"const-default.hlsl");
+}
+
+TEST_F(VerifierTest, RunConversionsBetweenTypeShapes) {
+  CheckVerifiesHLSL(L"conversions-between-type-shapes.hlsl");
 }
 
 TEST_F(VerifierTest, RunCppErrors) {

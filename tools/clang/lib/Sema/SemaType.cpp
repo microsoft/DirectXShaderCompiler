@@ -4319,6 +4319,23 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   if (D.isPrototypeContext() && getLangOpts().ObjCAutoRefCount)
     inferARCWriteback(state, T);
 
+  // HLSL changes begin
+  // If there is no explicit pack orientation on matrix types, but there is file-level
+  // default orientation set by #pragma pack_matrix, apply it here.
+  // There is no default if rewriting (in the absence of #pragma pack_matrix), since
+  // it is agnostic to default orientation and we want to preserve the lack of annotation.
+  // For codegen, it'd be nice to annotate everything here, but it causes error
+  // messages to have pack orientation added to types, so we handle it through
+  // the codegen option's default packing orientation flag.
+  bool defaultRowMajor;
+  if (getLangOpts().HLSL && hlsl::IsHLSLMatType(T) && !hlsl::HasHLSLMatOrientation(T)
+    && D.getDeclSpec().TryGetDefaultMatrixPackRowMajor(defaultRowMajor)) {
+    AttributedType::Kind AttributeKind = defaultRowMajor
+      ? AttributedType::attr_hlsl_row_major : AttributedType::attr_hlsl_column_major;
+    T = Context.getAttributedType(AttributeKind, T, T);
+  }
+  // HLSL changes end
+
   return GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
 }
 
@@ -4511,6 +4528,14 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
 static void fillAttributedTypeLoc(AttributedTypeLoc TL,
                                   const AttributeList *attrs,
                                   const AttributeList *DeclAttrs = nullptr) {
+
+  // HLSL changes begin
+  // Don't fill the location info for matrix orientation attributes
+  if (TL.getAttrKind() == AttributedType::attr_hlsl_row_major ||
+      TL.getAttrKind() == AttributedType::attr_hlsl_column_major)
+    return;
+  // HLSL changes end
+
   // DeclAttrs and attrs cannot be both empty.
   assert((attrs || DeclAttrs) &&
          "no type attributes in the expected location!");

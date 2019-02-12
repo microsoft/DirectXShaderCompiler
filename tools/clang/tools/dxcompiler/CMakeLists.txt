@@ -1,10 +1,6 @@
 ﻿# Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 
-if (WIN32)
-  find_package(DiaSDK REQUIRED) # Used for constants and declarations.
-endif (WIN32)
-
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   analysis
@@ -48,7 +44,6 @@ if (WIN32)
 set(SOURCES
   dxcapi.cpp
   dxcassembler.cpp
-  dxcdia.cpp
   dxclibrary.cpp
   dxcompilerobj.cpp
   dxcvalidator.cpp
@@ -101,6 +96,12 @@ set(LIBRARIES
   libclang
   )
 
+if(WIN32)
+  set(LIBRARIES
+    ${LIBRARIES} 
+    LLVMDxilDia)
+endif(WIN32)
+
 set(GENERATED_HEADERS
   ClangAttrClasses
   ClangAttrList
@@ -114,20 +115,14 @@ set(GENERATED_HEADERS
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 if (WIN32)
-  target_link_libraries(dxcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
-  if (ENABLE_SPIRV_CODEGEN)
-    target_link_libraries(dxcompiler PRIVATE clangSPIRV)
-  endif (ENABLE_SPIRV_CODEGEN)
+  # No DxcEtw on non-Windows platforms.
   add_dependencies(dxcompiler DxcEtw)
-  include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
-else ()
-  # No DIASDK or DxcEtw on non-Windows platforms.
-  target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
-  if (ENABLE_SPIRV_CODEGEN)
-    target_link_libraries(dxcompiler PRIVATE clangSPIRV)
-  endif (ENABLE_SPIRV_CODEGEN)
-  include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing)
-endif (WIN32)
+endif()
+target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
+if (ENABLE_SPIRV_CODEGEN)
+  target_link_libraries(dxcompiler PRIVATE clangSPIRV)
+endif (ENABLE_SPIRV_CODEGEN)
+include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing)
 
 set_target_properties(dxcompiler
   PROPERTIES

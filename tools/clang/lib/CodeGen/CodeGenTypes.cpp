@@ -109,15 +109,26 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
 /// a type.  For example, the scalar representation for _Bool is i1, but the
 /// memory representation is usually i8 or i32, depending on the target.
 llvm::Type *CodeGenTypes::ConvertTypeForMem(QualType T) {
+  // HLSL Change Starts
+  if (hlsl::IsHLSLVecType(T)) {
+    // Vectors of bools in memory should become vectors of
+    // the memory representation of the elements.
+    // Clang doesn't do this for plain VectorTypes,
+    // which is fine otherwise a bool1x1 matrix would become
+    // [n x <m x i32>] since array elements always have memory representation.
+    QualType ElemT = hlsl::GetElementTypeOrType(T);
+    return llvm::VectorType::get(ConvertTypeForMem(ElemT), hlsl::GetHLSLVecSize(T));
+  }
+
   llvm::Type *R = ConvertType(T);
 
-  // If this is a non-bool type, don't map it.
-  if (!R->isIntegerTy(1))
-    return R;
+  if (R->isIntegerTy(1)) {
+    // Bools have a different representation in memory
+    return llvm::IntegerType::get(getLLVMContext(), (unsigned)Context.getTypeSize(T));
+  }
 
-  // Otherwise, return an integer of the target-specified size.
-  return llvm::IntegerType::get(getLLVMContext(),
-                                (unsigned)Context.getTypeSize(T));
+  return R;
+  // HLSL Change Ends
 }
 
 

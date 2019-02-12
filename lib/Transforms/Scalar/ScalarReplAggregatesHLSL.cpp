@@ -1639,7 +1639,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         Type *Ty = AI->getAllocatedType();
         // Skip empty struct parameters.
         if (StructType *ST = dyn_cast<StructType>(Ty)) {
-          if (!HLMatrixLower::IsMatrixType(Ty)) {
+          if (!dxilutil::IsHLSLMatrixType(Ty)) {
             DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
             if (SA && SA->IsEmptyStruct()) {
               for (User *U : AI->users()) {
@@ -1884,7 +1884,7 @@ void SROA_HLSL::isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset,
 
   for (;GEPIt != E; ++GEPIt) {
     Type *Ty = *GEPIt;
-    if (Ty->isStructTy() && !HLMatrixLower::IsMatrixType(Ty)) {
+    if (Ty->isStructTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
       // Don't go inside struct when mark hasArrayIndexing and hasVectorIndexing.
       // The following level won't affect scalar repl on the struct.
       break;
@@ -2250,7 +2250,7 @@ static void EltMemCpy(Type *Ty, Value *Dest, Value *Src,
 static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
   if (!Ty->isAggregateType())
     return false;
-  if (HLMatrixLower::IsMatrixType(Ty))
+  if (dxilutil::IsHLSLMatrixType(Ty))
     return false;
   if (dxilutil::IsHLSLObjectType(Ty))
     return false;
@@ -2272,7 +2272,7 @@ static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
 static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
                      SmallVector<Value *, 16> &idxList, IRBuilder<> &Builder,
                      const DataLayout &DL, DxilTypeSystem &typeSys,
-                     DxilFieldAnnotation *fieldAnnotation, const bool bEltMemCpy = true) {
+                     const DxilFieldAnnotation *fieldAnnotation, const bool bEltMemCpy = true) {
   if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
@@ -2282,7 +2282,7 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
              fieldAnnotation, bEltMemCpy);
 
     idxList.pop_back();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
     // If no fieldAnnotation, use row major as default.
     // Only load then store immediately should be fine.
     bool bRowMajor = true;
@@ -2293,31 +2293,31 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
                   MatrixOrientation::RowMajor;
     }
     Module *M = Builder.GetInsertPoint()->getModule();
-    Value *DestGEP = Builder.CreateInBoundsGEP(Dest, idxList);
-    Value *SrcGEP = Builder.CreateInBoundsGEP(Src, idxList);
-    if (bRowMajor) {
-      Value *Load = HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatLoad), Ty, {SrcGEP},
-          *M);
 
-      // Generate Matrix Store.
-      HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::RowMatStore), Ty,
-          {DestGEP, Load}, *M);
-    } else {
-      Value *Load = HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad), Ty, {SrcGEP},
-          *M);
-
-      // Generate Matrix Store.
-      HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLMatLoadStore,
-          static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore), Ty,
-          {DestGEP, Load}, *M);
+    Value *DestMatPtr;
+    Value *SrcMatPtr;
+    if (idxList.size() == 1 && idxList[0] == ConstantInt::get(
+      IntegerType::get(Ty->getContext(), 32), APInt(32, 0))) {
+      // Avoid creating GEP(0)
+      DestMatPtr = Dest;
+      SrcMatPtr = Src;
     }
+    else {
+      DestMatPtr = Builder.CreateInBoundsGEP(Dest, idxList);
+      SrcMatPtr = Builder.CreateInBoundsGEP(Src, idxList);
+    }
+
+    HLMatLoadStoreOpcode loadOp = bRowMajor
+      ? HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
+    HLMatLoadStoreOpcode storeOp = bRowMajor
+      ? HLMatLoadStoreOpcode::RowMatStore : HLMatLoadStoreOpcode::ColMatStore;
+
+    Value *Load = HLModule::EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(loadOp),
+      Ty, { SrcMatPtr }, *M);
+    HLModule::EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(storeOp),
+      Ty, { DestMatPtr, Load }, *M);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
@@ -2365,44 +2365,55 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
   }
 }
 
-static void SplitPtr(Type *Ty, Value *Ptr, SmallVector<Value *, 16> &idxList,
-                     SmallVector<Value *, 16> &EltPtrList,
-                     IRBuilder<> &Builder) {
+// Given a pointer to a value, produces a list of pointers to
+// all scalar elements of that value and their field annotations, at any nesting level.
+static void SplitPtr(Value *Ptr, // The root value pointer
+  SmallVectorImpl<Value *> &IdxList, // GEP indices stack during recursion
+  Type *Ty, // Type at the current GEP indirection level
+  const DxilFieldAnnotation &Annotation, // Annotation at the current GEP indirection level
+  SmallVectorImpl<Value *> &EltPtrList, // Accumulates pointers to each element found
+  SmallVectorImpl<const DxilFieldAnnotation*> &EltAnnotationList, // Accumulates field annotations for each element found
+  DxilTypeSystem &TypeSys,
+  IRBuilder<> &Builder) {
+
   if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
-    idxList.emplace_back(idx);
+    IdxList.emplace_back(idx);
 
-    SplitPtr(PT->getElementType(), Ptr, idxList, EltPtrList, Builder);
+    SplitPtr(Ptr, IdxList, PT->getElementType(), Annotation,
+      EltPtrList, EltAnnotationList, TypeSys, Builder);
 
-    idxList.pop_back();
-  } else if (HLMatrixLower::IsMatrixType(Ty)) {
-    Value *GEP = Builder.CreateInBoundsGEP(Ptr, idxList);
-    EltPtrList.emplace_back(GEP);
-  } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (dxilutil::IsHLSLObjectType(ST)) {
-      // Avoid split HLSL object.
-      Value *GEP = Builder.CreateInBoundsGEP(Ptr, idxList);
-      EltPtrList.emplace_back(GEP);
-      return;
-    }
-    for (uint32_t i = 0; i < ST->getNumElements(); i++) {
-      llvm::Type *ET = ST->getElementType(i);
+    IdxList.pop_back();
+    return;
+  }
+  
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    if (!dxilutil::IsHLSLMatrixType(Ty) && !dxilutil::IsHLSLObjectType(ST)) {
+      const DxilStructAnnotation* SA = TypeSys.GetStructAnnotation(ST);
 
-      Constant *idx = llvm::Constant::getIntegerValue(
+      for (uint32_t i = 0; i < ST->getNumElements(); i++) {
+        llvm::Type *EltTy = ST->getElementType(i);
+
+        Constant *idx = llvm::Constant::getIntegerValue(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-      idxList.emplace_back(idx);
+        IdxList.emplace_back(idx);
 
-      SplitPtr(ET, Ptr, idxList, EltPtrList, Builder);
+        SplitPtr(Ptr, IdxList, EltTy, SA->GetFieldAnnotation(i),
+          EltPtrList, EltAnnotationList, TypeSys, Builder);
 
-      idxList.pop_back();
-    }
-
-  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    if (AT->getNumContainedTypes() == 0) {
-      // Skip case like [0 x %struct].
+        IdxList.pop_back();
+      }
       return;
     }
+  }
+  
+  if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    if (AT->getArrayNumElements() == 0) {
+      // Skip cases like [0 x %struct], nothing to copy
+      return;
+    }
+
     Type *ElTy = AT->getElementType();
     SmallVector<ArrayType *, 4> nestArrayTys;
 
@@ -2414,19 +2425,16 @@ static void SplitPtr(Type *Ty, Value *Ptr, SmallVector<Value *, 16> &idxList,
       ElTy = ElAT->getElementType();
     }
 
-    if (!ElTy->isStructTy() ||
-        HLMatrixLower::IsMatrixType(ElTy)) {
-      // Not split array of basic type.
-      Value *GEP = Builder.CreateInBoundsGEP(Ptr, idxList);
-      EltPtrList.emplace_back(GEP);
-    }
-    else {
+    if (ElTy->isStructTy() && !dxilutil::IsHLSLMatrixType(ElTy)) {
       DXASSERT(0, "Not support array of struct when split pointers.");
+      return;
     }
-  } else {
-    Value *GEP = Builder.CreateInBoundsGEP(Ptr, idxList);
-    EltPtrList.emplace_back(GEP);
   }
+
+  // Return a pointer to the current element and its annotation
+  Value *GEP = Builder.CreateInBoundsGEP(Ptr, IdxList);
+  EltPtrList.emplace_back(GEP);
+  EltAnnotationList.emplace_back(&Annotation);
 }
 
 // Support case when bitcast (gep ptr, 0,0) is transformed into bitcast ptr.
@@ -2435,7 +2443,7 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   // Size match, return current level.
   if (ptrSize == size) {
     // Not go deeper for matrix.
-    if (HLMatrixLower::IsMatrixType(Ty))
+    if (dxilutil::IsHLSLMatrixType(Ty))
       return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
@@ -2588,7 +2596,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   // Try to find fieldAnnotation from user of Dest/Src.
   if (!fieldAnnotation) {
     Type *EltTy = dxilutil::GetArrayEltTy(DestTy);
-    if (HLMatrixLower::IsMatrixType(EltTy)) {
+    if (dxilutil::IsHLSLMatrixType(EltTy)) {
       fieldAnnotation = HLMatrixLower::FindAnnotationFromMatUser(Dest, typeSys);
     }
   }
@@ -2837,7 +2845,7 @@ void SROA_Helper::RewriteForLoad(LoadInst *LI) {
         Value *Ptr = NewElts[i];
         Type *Ty = Ptr->getType()->getPointerElementType();
         Value *Load = nullptr;
-        if (!HLMatrixLower::IsMatrixType(Ty))
+        if (!dxilutil::IsHLSLMatrixType(Ty))
           Load = Builder.CreateLoad(Ptr, "load");
         else {
           // Generate Matrix Load.
@@ -2922,7 +2930,7 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
       Module *M = SI->getModule();
       for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
         Value *Extract = Builder.CreateExtractValue(Val, i, Val->getName());
-        if (!HLMatrixLower::IsMatrixType(Extract->getType())) {
+        if (!dxilutil::IsHLSLMatrixType(Extract->getType())) {
           Builder.CreateStore(Extract, NewElts[i]);
         } else {
           // Generate Matrix Store.
@@ -3234,9 +3242,15 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         Function *flatF =
             GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
         IRBuilder<> Builder(CI);
-        // Append return void, don't need to replace CI with flatCI.
         Builder.CreateCall(flatF, flatArgs);
 
+        // Append returns void, so it's not used by other instructions
+        // and we don't need to replace it with flatCI.
+        // However, we don't want to visit the same append again
+        // when SROA'ing other arguments, as that would be O(n^2)
+        // and we would attempt double-deleting the original call.
+        for (auto& opit : CI->operands())
+          opit.set(UndefValue::get(opit->getType()));
         DeadInsts.push_back(CI);
       } break;
       case IntrinsicOp::IOP_TraceRay: {
@@ -3379,7 +3393,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   if (!Ty->isAggregateType())
     return false;
   // Skip matrix types.
-  if (HLMatrixLower::IsMatrixType(Ty))
+  if (dxilutil::IsHLSLMatrixType(Ty))
     return false;
 
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
@@ -3426,7 +3440,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
-        !HLMatrixLower::IsMatrixType(ElTy)) {
+        !dxilutil::IsHLSLMatrixType(ElTy)) {
       if (!dxilutil::IsHLSLObjectType(ElTy)) {
         // for array of struct
         // split into arrays of struct elements
@@ -3555,7 +3569,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
   if (Ty->isSingleValueType() && !Ty->isVectorTy())
     return false;
   // Skip matrix types.
-  if (HLMatrixLower::IsMatrixType(Ty))
+  if (dxilutil::IsHLSLMatrixType(Ty))
     return false;
 
   Module *M = GV->getParent();
@@ -3624,7 +3638,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
-        !HLMatrixLower::IsMatrixType(ElTy)) {
+        !dxilutil::IsHLSLMatrixType(ElTy)) {
       // for array of struct
       // split into arrays of struct elements
       StructType *ElST = cast<StructType>(ElTy);
@@ -4108,6 +4122,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // For GEP, the ptr could have other GEP read/write.
           // Only scan one GEP is not enough.
           Value *Ptr = GEP->getPointerOperand();
+          while (GEPOperator *NestedGEP = dyn_cast<GEPOperator>(Ptr))
+            Ptr = NestedGEP->getPointerOperand();
+
           if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
             hlsl::HLOpcodeGroup group =
                 hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
@@ -4185,7 +4202,7 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
     Ty = Ty->getArrayElementType();
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (!HLMatrixLower::IsMatrixType(Ty)) {
+    if (!dxilutil::IsHLSLMatrixType(Ty)) {
       DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
       if (SA && SA->IsEmptyStruct())
         return true;
@@ -4343,7 +4360,7 @@ public:
           continue;
 
         // Check matrix store.
-        if (HLMatrixLower::IsMatrixType(
+        if (dxilutil::IsHLSLMatrixType(
                 GV->getType()->getPointerElementType())) {
           if (CallInst *CI = dyn_cast<CallInst>(user)) {
             if (GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
@@ -4389,14 +4406,13 @@ private:
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
-                  IRBuilder<> &Builder, DbgDeclareInst *DDI);
+                  BasicBlock *EntryBlock, DbgDeclareInst *DDI);
   Value *castResourceArgIfRequired(Value *V, Type *Ty, bool bOut,
                                    DxilParamInputQual inputQual,
                                    IRBuilder<> &Builder);
   Value *castArgumentIfRequired(Value *V, Type *Ty, bool bOut,
                                 DxilParamInputQual inputQual,
                                 DxilFieldAnnotation &annotation,
-                                std::deque<Value *> &WorkList,
                                 IRBuilder<> &Builder);
   // Replace use of parameter which changed type when flatten.
   // Also add information to Arg if required.
@@ -4422,6 +4438,25 @@ private:
   std::unordered_set<Value *> castRowMajorParamMap;
   bool m_HasDbgInfo;
 };
+
+// When replacing aggregates by its scalar elements,
+// the first element will preserve the original semantic,
+// and the subsequent ones will temporarily use this value.
+// We then run a pass to fix the semantics and properly renumber them
+// once the aggregate has been fully expanded.
+// 
+// For example:
+// struct Foo { float a; float b; };
+// void main(Foo foo : TEXCOORD0, float bar : TEXCOORD0)
+//
+// Will be expanded to
+// void main(float a : TEXCOORD0, float b : *, float bar : TEXCOORD0)
+//
+// And then fixed up to
+// void main(float a : TEXCOORD0, float b : TEXCOORD1, float bar : TEXCOORD0)
+//
+// (which will later on fail validation due to duplicate semantics).
+constexpr const char *ContinuedPseudoSemantic = "*";
 }
 
 char SROA_Parameter_HLSL::ID = 0;
@@ -4632,7 +4667,7 @@ static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAn
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (HLMatrixLower::IsMatrixType(Ty))
+    if (dxilutil::IsHLSLMatrixType(Ty))
       return annotation;
     DxilStructAnnotation *SA = dxilTypeSys.GetStructAnnotation(ST);
     if (SA) {
@@ -4700,13 +4735,13 @@ static unsigned AllocateSemanticIndex(
                                             FlatAnnotationList);
     }
     return updatedArgIdx;
-  } else if (Ty->isStructTy() && !HLMatrixLower::IsMatrixType(Ty)) {
+  } else if (Ty->isStructTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
     unsigned fieldsCount = Ty->getStructNumElements();
     for (unsigned i = 0; i < fieldsCount; i++) {
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      if (!(EltTy->isStructTy() && !HLMatrixLower::IsMatrixType(EltTy))) {
+      if (!(EltTy->isStructTy() && !dxilutil::IsHLSLMatrixType(EltTy))) {
         // Update argIdx only when it is a leaf node.
         argIdx++;
       }
@@ -4753,16 +4788,17 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
     if (semantic.empty())
       continue;
 
-    unsigned semGroupEnd = i + 1;
-    while (semGroupEnd < endArgIndex &&
-           FlatAnnotationList[semGroupEnd].GetSemanticString() == semantic) {
-      ++semGroupEnd;
-    }
-
     StringRef baseSemName; // The 'FOO' in 'FOO1'.
     uint32_t semIndex;     // The '1' in 'FOO1'
     // Split semName and index.
     Semantic::DecomposeNameAndIndex(semantic, &baseSemName, &semIndex);
+
+    unsigned semGroupEnd = i + 1;
+    while (semGroupEnd < endArgIndex &&
+           FlatAnnotationList[semGroupEnd].GetSemanticString() == ContinuedPseudoSemantic) {
+      FlatAnnotationList[semGroupEnd].SetSemanticString(baseSemName);
+      ++semGroupEnd;
+    }
 
     DXASSERT(semanticTypeMap.count(semantic) > 0, "Must has semantic type");
     Type *semanticTy = semanticTypeMap[semantic];
@@ -4945,7 +4981,7 @@ CastCopyArrayMultiDimTo1Dim(Value *FromArray, Value *ToArray, Type *CurFromTy,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, ToPtr);
     }
-  } else if (HLMatrixLower::IsMatrixType(CurFromTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(CurFromTy)) {
     // Copy matrix to array.
     unsigned col, row;
     HLMatrixLower::GetMatrixInfo(CurFromTy, col, row);
@@ -4992,7 +5028,7 @@ CastCopyArray1DimToMultiDim(Value *FromArray, Value *ToArray, Type *CurToTy,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, ToPtr);
-  } else if (HLMatrixLower::IsMatrixType(CurToTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(CurToTy)) {
     // Copy array to matrix.
     unsigned col, row;
     HLMatrixLower::GetMatrixInfo(CurToTy, col, row);
@@ -5036,7 +5072,7 @@ static void CastCopyOldPtrToNewPtr(Value *OldPtr, Value *NewPtr, HLModule &HLM,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, EltPtr);
     }
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
     CopyMatPtrToArrayPtr(OldPtr, NewPtr, /*arrayBaseIdx*/ 0, HLM, Builder,
                          bRowMajor);
   } else if (OldTy->isArrayTy()) {
@@ -5066,7 +5102,7 @@ static void CastCopyNewPtrToOldPtr(Value *NewPtr, Value *OldPtr, HLModule &HLM,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, OldPtr);
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
     CopyArrayPtrToMatPtr(NewPtr, /*arrayBaseIdx*/ 0, OldPtr, HLM, Builder,
                          bRowMajor);
   } else if (OldTy->isArrayTy()) {
@@ -5164,7 +5200,7 @@ void SROA_Parameter_HLSL::replaceCastParameter(
     // Must be in param.
     // Store NewParam to OldParam at entry.
     Builder.CreateStore(NewParam, OldParam);
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
+  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
     bool bRowMajor = castRowMajorParamMap.count(NewParam);
     Value *Mat = LoadArrayPtrToMat(NewParam, /*arrayBaseIdx*/ 0, OldTy,
                                    *m_pHLModule, Builder, bRowMajor);
@@ -5243,7 +5279,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
 Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     Value *V, Type *Ty, bool bOut,
     DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
-    std::deque<Value *> &WorkList, IRBuilder<> &Builder) {
+    IRBuilder<> &Builder) {
   Module &M = *m_pHLModule->GetModule();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
@@ -5329,26 +5365,25 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
   return V;
 }
 
+struct AnnotatedValue {
+  llvm::Value *Value;
+  DxilFieldAnnotation Annotation;
+};
+
 void SROA_Parameter_HLSL::flattenArgument(
     Function *F, Value *Arg, bool bForParam,
     DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
-    IRBuilder<> &Builder, DbgDeclareInst *DDI) {
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
-  std::deque<Value *> WorkList;
-  WorkList.push_back(Arg);
+    BasicBlock *EntryBlock, DbgDeclareInst *DDI) {
+  std::deque<AnnotatedValue> WorkList;
+  WorkList.push_back({ Arg, paramAnnotation });
 
   unsigned startArgIndex = FlatAnnotationList.size();
-
-  // Map from value to annotation.
-  std::unordered_map<Value *, DxilFieldAnnotation> annotationMap;
-  annotationMap[Arg] = paramAnnotation;
 
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
 
   const std::string &semantic = paramAnnotation.GetSemanticString();
-  bool bSemOverride = !semantic.empty();
 
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool bOut = inputQual == DxilParamInputQual::Out ||
@@ -5384,14 +5419,19 @@ void SROA_Parameter_HLSL::flattenArgument(
 
   // Process the worklist
   while (!WorkList.empty()) {
-    Value *V = WorkList.front();
+    AnnotatedValue AV = WorkList.front();
     WorkList.pop_front();
 
     // Do not skip unused parameter.
-
-    DxilFieldAnnotation &annotation = annotationMap[V];
+    Value *V = AV.Value;
+    DxilFieldAnnotation &annotation = AV.Annotation;
     const bool bAllowReplace = !bOut;
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
+
+    // Now is safe to create the IRBuilders.
+    // If we create it before LowerMemcpy, the insertion pointer instruction may get deleted
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
 
     std::vector<Value *> Elts;
 
@@ -5409,26 +5449,26 @@ void SROA_Parameter_HLSL::flattenArgument(
         continue;
       }
 
-      // Push Elts into workList.
-      // Use rbegin to make sure the order not change.
-      for (auto iter = Elts.rbegin(); iter != Elts.rend(); iter++)
-        WorkList.push_front(*iter);
-
       bool precise = annotation.IsPrecise();
       const std::string &semantic = annotation.GetSemanticString();
       hlsl::InterpolationMode interpMode = annotation.GetInterpolationMode();
-      
-      for (unsigned i=0;i<Elts.size();i++) {
-        Value *Elt = Elts[i];
+
+      // Push Elts into workList from right to left to preserve the order.
+      for (unsigned ri=0;ri<Elts.size();ri++) {
+        unsigned i = Elts.size() - ri - 1;
         DxilFieldAnnotation EltAnnotation = GetEltAnnotation(Ty, i, annotation, dxilTypeSys);
         const std::string &eltSem = EltAnnotation.GetSemanticString();
-
         if (!semantic.empty()) {
           if (!eltSem.empty()) {
-            // TODO: warning for override the semantic in EltAnnotation.
+            // It doesn't look like we can provide source location information from here
+            F->getContext().emitWarning(
+              Twine("semantic '") + eltSem + "' on field overridden by function or enclosing type");
           }
-          // Just save parent semantic here, allocate later.
-          EltAnnotation.SetSemanticString(semantic);
+
+          // Inherit semantic from parent, but only preserve it for the first element.
+          // Subsequent elements are noted with a special value that gets resolved
+          // once the argument is completely flattened.
+          EltAnnotation.SetSemanticString(i == 0 ? semantic : ContinuedPseudoSemantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
           Type *EltTy = dxilutil::GetArrayEltTy(Ty);
@@ -5442,22 +5482,13 @@ void SROA_Parameter_HLSL::flattenArgument(
         if (EltAnnotation.GetInterpolationMode().GetKind() == DXIL::InterpolationMode::Undefined)
           EltAnnotation.SetInterpolationMode(interpMode);
 
-        annotationMap[Elt] = EltAnnotation;
+        WorkList.push_front({ Elts[i], EltAnnotation });
       }
-
-      annotationMap.erase(V);
 
       ++NumReplaced;
       if (Instruction *I = dyn_cast<Instruction>(V))
         deadAllocas.emplace_back(I);
     } else {
-      if (bSemOverride) {
-        if (!annotation.GetSemanticString().empty()) {
-          // TODO: warning for override the semantic in EltAnnotation.
-        }
-        // Just save parent semantic here, allocate later.
-        annotation.SetSemanticString(semantic);
-      }
       Type *Ty = V->getType();
       if (Ty->isPointerTy())
         Ty = Ty->getPointerElementType();
@@ -5494,8 +5525,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           // Add semantic type.
           semanticTypeMap[EltAnnotation.GetSemanticString()] = Ty;
 
-          annotationMap[Elt] = EltAnnotation;
-          WorkList.push_front(Elt);
+          WorkList.push_front({ Elt, EltAnnotation });
           // Copy local target to flattened target.
           std::vector<Value*> idxList(arrayLevel+1);
           idxList[0] = Builder.getInt32(0);
@@ -5529,16 +5559,12 @@ void SROA_Parameter_HLSL::flattenArgument(
             arrayIdxList[idx-1] = 0;
           }
         }
-        // Don't override flattened SV_Target.
-        if (V == Arg) {
-          bSemOverride = false;
-        }
         continue;
       }
 
       // Cast vector/matrix/resource parameter.
       V = castArgumentIfRequired(V, Ty, bOut, inputQual,
-                                 annotation, WorkList, Builder);
+                                  annotation, Builder);
 
       // Cannot SROA, save it to final parameter list.
       FlatParamList.emplace_back(V);
@@ -5583,6 +5609,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // Create a value as output value.
         Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
         Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
+
         // For each stream.Append(data)
         // transform into
         //   d = load data
@@ -5592,42 +5619,46 @@ void SROA_Parameter_HLSL::flattenArgument(
           if (CallInst *CI = dyn_cast<CallInst>(user)) {
             unsigned opcode = GetHLOpcode(CI);
             if (opcode == static_cast<unsigned>(IntrinsicOp::MOP_Append)) {
-              if (CI->getNumArgOperands() == (HLOperandIndex::kStreamAppendDataOpIndex + 1)) {
-                Value *data =
-                    CI->getArgOperand(HLOperandIndex::kStreamAppendDataOpIndex);
-                DXASSERT(data->getType()->isPointerTy(),
-                         "Append value must be pointer.");
+              // At this point, the stream append data argument might or not have been SROA'd
+              Value *firstDataPtr = CI->getArgOperand(HLOperandIndex::kStreamAppendDataOpIndex);
+              DXASSERT(firstDataPtr->getType()->isPointerTy(), "Append value must be a pointer.");
+              if (firstDataPtr->getType()->getPointerElementType() == outputType) {
+                // The data has not been SROA'd
+                DXASSERT(CI->getNumArgOperands() == (HLOperandIndex::kStreamAppendDataOpIndex + 1),
+                  "Unexpected number of arguments for non-SROA'd StreamOutput.Append");
                 IRBuilder<> Builder(CI);
 
                 llvm::SmallVector<llvm::Value *, 16> idxList;
-                SplitCpy(data->getType(), outputVal, data, idxList, Builder, DL,
-                         dxilTypeSys, &flatParamAnnotation);
+                SplitCpy(firstDataPtr->getType(), outputVal, firstDataPtr, idxList, Builder, DL,
+                          dxilTypeSys, &flatParamAnnotation);
 
                 CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
               }
               else {
-                // Append has been flattened.
+                // Append has been SROA'd, we might be operating on multiple values
+                // with types differing from the stream output type.
                 // Flatten store outputVal.
                 // Must be struct to be flatten.
                 IRBuilder<> Builder(CI);
 
-                llvm::SmallVector<llvm::Value *, 16> idxList;
+                llvm::SmallVector<llvm::Value *, 16> IdxList;
                 llvm::SmallVector<llvm::Value *, 16> EltPtrList;
+                llvm::SmallVector<const DxilFieldAnnotation*, 16> EltAnnotationList;
                 // split
-                SplitPtr(outputVal->getType(), outputVal, idxList, EltPtrList,
-                         Builder);
+                SplitPtr(outputVal, IdxList, outputVal->getType(), flatParamAnnotation,
+                  EltPtrList, EltAnnotationList, dxilTypeSys, Builder);
 
                 unsigned eltCount = CI->getNumArgOperands()-2;
                 DXASSERT_LOCALVAR(eltCount, eltCount == EltPtrList.size(), "invalid element count");
 
                 for (unsigned i = HLOperandIndex::kStreamAppendDataOpIndex; i < CI->getNumArgOperands(); i++) {
                   Value *DataPtr = CI->getArgOperand(i);
-                  Value *EltPtr =
-                      EltPtrList[i - HLOperandIndex::kStreamAppendDataOpIndex];
+                  Value *EltPtr = EltPtrList[i - HLOperandIndex::kStreamAppendDataOpIndex];
+                  const DxilFieldAnnotation *EltAnnotation = EltAnnotationList[i - HLOperandIndex::kStreamAppendDataOpIndex];
 
-                  llvm::SmallVector<llvm::Value *, 16> idxList;
-                  SplitCpy(DataPtr->getType(), EltPtr, DataPtr, idxList,
-                           Builder, DL, dxilTypeSys, &flatParamAnnotation);
+                  llvm::SmallVector<llvm::Value *, 16> IdxList;
+                  SplitCpy(DataPtr->getType(), EltPtr, DataPtr, IdxList,
+                            Builder, DL, dxilTypeSys, EltAnnotation);
                   CI->setArgOperand(i, EltPtr);
                 }
               }
@@ -5636,7 +5667,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         }
 
         // Then split output value to generate ParamQual.
-        WorkList.push_front(outputVal);
+        WorkList.push_front({ outputVal, annotation });
       }
     }
   }
@@ -5892,7 +5923,7 @@ static void LegalizeDxilInputOutputs(Function *F,
 
     // Skip arg which is not a pointer.
     if (!Ty->isPointerTy()) {
-      if (HLMatrixLower::IsMatrixType(Ty)) {
+      if (dxilutil::IsHLSLMatrixType(Ty)) {
         // Replace matrix arg with cast to vec. It will be lowered in
         // DxilGenerationPass.
         isColMajor = paramAnnotation.GetMatrixAnnotation().Orientation ==
@@ -5920,22 +5951,18 @@ static void LegalizeDxilInputOutputs(Function *F,
     bool bStore = false;
     CheckArgUsage(&arg, bLoad, bStore);
 
-    bool bNeedTemp = false;
     bool bStoreInputToTemp = false;
     bool bLoadOutputFromTemp = false;
 
     if (qual == DxilParamInputQual::In && bStore) {
-      bNeedTemp = true;
       bStoreInputToTemp = true;
     } else if (qual == DxilParamInputQual::Out && bLoad) {
-      bNeedTemp = true;
       bLoadOutputFromTemp = true;
     } else if (bLoad && bStore) {
       switch (qual) {
       case DxilParamInputQual::InputPrimitive:
       case DxilParamInputQual::InputPatch:
       case DxilParamInputQual::OutputPatch: {
-        bNeedTemp = true;
         bStoreInputToTemp = true;
       } break;
       case DxilParamInputQual::Inout:
@@ -5945,13 +5972,11 @@ static void LegalizeDxilInputOutputs(Function *F,
       }
     } else if (qual == DxilParamInputQual::Inout) {
       // Only replace inout when (bLoad && bStore) == false.
-      bNeedTemp = true;
       bLoadOutputFromTemp = true;
       bStoreInputToTemp = true;
     }
 
-    if (HLMatrixLower::IsMatrixType(Ty)) {
-      bNeedTemp = true;
+    if (dxilutil::IsHLSLMatrixType(Ty)) {
       if (qual == DxilParamInputQual::In)
         bStoreInputToTemp = bLoad;
       else if (qual == DxilParamInputQual::Out)
@@ -5962,7 +5987,7 @@ static void LegalizeDxilInputOutputs(Function *F,
       }
     }
 
-    if (bNeedTemp) {
+    if (bStoreInputToTemp || bLoadOutputFromTemp) {
       IRBuilder<> AllocaBuilder(EntryBlk.getFirstInsertionPt());
       IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EntryBlk));
 
@@ -6036,11 +6061,17 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
   LLVMContext &Ctx = m_pHLModule->GetCtx();
   std::unique_ptr<BasicBlock> TmpBlockForFuncDecl;
+  BasicBlock *EntryBlock;
   if (F->isDeclaration()) {
+    // We still want to SROA the parameters, so creaty a dummy
+    // function body block to avoid special cases.
     TmpBlockForFuncDecl.reset(BasicBlock::Create(Ctx));
     // Create return as terminator.
     IRBuilder<> RetBuilder(TmpBlockForFuncDecl.get());
     RetBuilder.CreateRetVoid();
+    EntryBlock = TmpBlockForFuncDecl.get();
+  } else {
+    EntryBlock = &F->getEntryBlock();
   }
 
   std::vector<Value *> FlatParamList;
@@ -6053,13 +6084,6 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
     HLModule::MergeGepUse(&Arg);
-    // Insert point may be removed. So recreate builder every time.
-    IRBuilder<> Builder(Ctx);
-    if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
-    } else {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(TmpBlockForFuncDecl.get()));
-    }
 
     unsigned prevFlatParamCount = FlatParamList.size();
 
@@ -6067,7 +6091,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
     flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
-                    FlatParamAnnotationList, Builder, DDI);
+                    FlatParamAnnotationList, EntryBlock, DDI);
 
     unsigned newFlatParamCount = FlatParamList.size() - prevFlatParamCount;
     for (unsigned i = 0; i < newFlatParamCount; i++) {
@@ -6081,15 +6105,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
-    IRBuilder<> Builder(Ctx);
-    IRBuilder<> AllocaBuilder(Ctx);
-    if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
-      AllocaBuilder.SetInsertPoint(dxilutil::FindAllocaInsertionPt(F));
-    } else {
-      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(TmpBlockForFuncDecl.get()));
-      AllocaBuilder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
-    }
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
     Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
         funcAnnotation->GetRetTypeAnnotation();
@@ -6143,7 +6160,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
     flattenArgument(F, retValAddr, bForParamTrue,
                     funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
-                    FlatRetAnnotationList, Builder, DDI);
+                    FlatRetAnnotationList, EntryBlock, DDI);
 
     const int kRetArgNo = -1;
     for (unsigned i = 0; i < FlatRetList.size(); i++) {
@@ -6341,6 +6358,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       }
 
       flatArg->replaceAllUsesWith(Arg);
+      if (isa<Instruction>(flatArg))
+        DeadInsts.emplace_back(flatArg);
 
       HLModule::MergeGepUse(Arg);
       // Flatten store of array parameter.

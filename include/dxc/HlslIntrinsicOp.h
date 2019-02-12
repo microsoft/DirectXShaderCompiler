@@ -274,12 +274,14 @@ import hctdb_instrhelp
   IOP_WaveMultiPrefixUSum,
   IOP_WavePrefixUProduct,
   IOP_WavePrefixUSum,
+  IOP_uabs,
   IOP_uclamp,
   IOP_ufirstbithigh,
   IOP_umad,
   IOP_umax,
   IOP_umin,
   IOP_umul,
+  IOP_usign,
   MOP_InterlockedUMax,
   MOP_InterlockedUMin,
   Num_Intrinsics,
@@ -304,12 +306,14 @@ import hctdb_instrhelp
   case IntrinsicOp::IOP_WaveMultiPrefixSum:
   case IntrinsicOp::IOP_WavePrefixProduct:
   case IntrinsicOp::IOP_WavePrefixSum:
+  case IntrinsicOp::IOP_abs:
   case IntrinsicOp::IOP_clamp:
   case IntrinsicOp::IOP_firstbithigh:
   case IntrinsicOp::IOP_mad:
   case IntrinsicOp::IOP_max:
   case IntrinsicOp::IOP_min:
   case IntrinsicOp::IOP_mul:
+  case IntrinsicOp::IOP_sign:
   case IntrinsicOp::MOP_InterlockedMax:
   case IntrinsicOp::MOP_InterlockedMin:
 // HLSL-HAS-UNSIGNED-INTRINSICS:END
@@ -347,6 +351,8 @@ import hctdb_instrhelp
     return static_cast<unsigned>(IntrinsicOp::IOP_WavePrefixUProduct);
   case IntrinsicOp::IOP_WavePrefixSum:
     return static_cast<unsigned>(IntrinsicOp::IOP_WavePrefixUSum);
+  case IntrinsicOp::IOP_abs:
+    return static_cast<unsigned>(IntrinsicOp::IOP_uabs);
   case IntrinsicOp::IOP_clamp:
     return static_cast<unsigned>(IntrinsicOp::IOP_uclamp);
   case IntrinsicOp::IOP_firstbithigh:
@@ -359,6 +365,8 @@ import hctdb_instrhelp
     return static_cast<unsigned>(IntrinsicOp::IOP_umin);
   case IntrinsicOp::IOP_mul:
     return static_cast<unsigned>(IntrinsicOp::IOP_umul);
+  case IntrinsicOp::IOP_sign:
+    return static_cast<unsigned>(IntrinsicOp::IOP_usign);
   case IntrinsicOp::MOP_InterlockedMax:
     return static_cast<unsigned>(IntrinsicOp::MOP_InterlockedUMax);
   case IntrinsicOp::MOP_InterlockedMin:

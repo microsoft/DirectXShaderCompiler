@@ -365,11 +365,11 @@ def mergeUAVs : JoinedOrSeparate<["-", "/"], "mergeUAVs">, MetaVarName<"<file>">
   HelpText<"Merge UAV slots of template shader and current shader">;
 def matchUAVs : JoinedOrSeparate<["-", "/"], "matchUAVs">, MetaVarName<"<file>">, Group<hlslcomp_Group>,
   HelpText<"Match template shader UAV slots in current shader">;
-def res_may_alias : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Assume that UAVs/SRVs may alias">;
 def enable_unbounded_descriptor_tables : Flag<["-", "/"], "enable_unbounded_descriptor_tables">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables unbounded descriptor tables">;
 */
+def res_may_alias : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+  HelpText<"Assume that UAVs/SRVs may alias">;
 def all_resources_bound : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
 

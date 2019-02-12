@@ -548,7 +548,10 @@ void llvm::MergeBasicBlockIntoOnlyPred(BasicBlock *DestBB, DominatorTree *DT) {
 /// in place of the other. Note that we will always choose the non-undef
 /// value to keep.
 static bool CanMergeValues(Value *First, Value *Second) {
-  return First == Second || isa<UndefValue>(First) || isa<UndefValue>(Second);
+  return First == Second;
+   // HLSL Change Begin -Not merge undef.
+   //  || isa<UndefValue>(First) || isa<UndefValue>(Second);
+   // HLSL Change End.
 }
 
 /// CanPropagatePredecessorsForPHIs - Return true if we can fold BB, an

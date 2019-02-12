@@ -612,11 +612,14 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
 
   const auto *ND = cast<NamedDecl>(GD.getDecl());
   // HLSL Change Starts
+  // Entry point doesn't get mangled
   if (ND->getKind() == Decl::Function &&
-      ND->getNameAsString() == CodeGenOpts.HLSLEntryFunction) {
+    ND->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
+    ND->getNameAsString() == CodeGenOpts.HLSLEntryFunction) {
     return CodeGenOpts.HLSLEntryFunction;
   }
   // HLSL Change Ends
+
   SmallString<256> Buffer;
   StringRef Str;
   if (getCXXABI().getMangleContext().shouldMangleDeclName(ND)) {

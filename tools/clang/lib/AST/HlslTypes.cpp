@@ -125,6 +125,15 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLAggregateType(clang::ASTContext& context, clang::QualType type) {
+  // Aggregate types are arrays and user-defined structs
+  if (context.getAsArrayType(type) != nullptr) return true;
+  const RecordType *Record = dyn_cast<RecordType>(type);
+  return Record != nullptr
+    && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)
+    && !dyn_cast<ClassTemplateSpecializationDecl>(Record->getAsCXXRecordDecl());
+}
+
 clang::QualType GetElementTypeOrType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     if (const ClassTemplateSpecializationDecl *templateDecl =
@@ -158,6 +167,26 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
     AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
   }
   return false;
+}
+
+bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue) {
+  bool result = defaultValue;
+  HasHLSLMatOrientation(type, &result);
+  return result;
+}
+
+bool IsHLSLUnsigned(clang::QualType type) {
+  if (type->getAs<clang::BuiltinType>() == nullptr) {
+    type = type.getCanonicalType().getNonReferenceType();
+
+    if (IsHLSLVecMatType(type))
+      type = GetElementTypeOrType(type);
+
+    if (type->isExtVectorType())
+      type = type->getAs<clang::ExtVectorType>()->getElementType();
+  }
+
+  return type->isUnsignedIntegerType();
 }
 
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {

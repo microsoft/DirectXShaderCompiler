@@ -359,6 +359,9 @@ private:
   uint32_t processIntrinsicMemoryBarrier(const CallExpr *, bool isDevice,
                                          bool groupSync, bool isAllBarrier);
 
+  /// Processes the 'mad' intrinsic function.
+  uint32_t processIntrinsicMad(const CallExpr *);
+
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
 

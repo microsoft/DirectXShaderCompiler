@@ -21,6 +21,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 
+#include "DxilPIXVirtualRegisters.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -125,6 +127,13 @@ struct DebugShaderModifierRecordDXILStepBase {
 template< typename ReturnType >
 struct DebugShaderModifierRecordDXILStep : public DebugShaderModifierRecordDXILStepBase {
   ReturnType ReturnValue;
+  union {
+    struct {
+      uint32_t ValueOrdinalBase : 16;
+      uint32_t ValueOrdinalIndex : 16;
+    } Details;
+    uint32_t u32ValueOrdinal;
+  } ValueOrdinal;
 };
 
 template< >
@@ -195,8 +204,6 @@ private:
 
   std::map<uint32_t, Value *> m_IncrementInstructionBySize;
 
-  unsigned int m_InstructionIndex = 0;
-
   struct BuilderContext {
     Module &M;
     DxilModule &DM;
@@ -226,10 +233,12 @@ private:
   void addDebugEntryValue(BuilderContext &BC, Value * TheValue);
   void addInvocationStartMarker(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
+  void addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst);
   void addStepDebugEntry(BuilderContext &BC, Instruction *Inst);
+  void addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
   uint32_t UAVDumpingGroundOffset();
   template<typename ReturnType>
-  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Instruction *Inst);
+  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
 
 };
 
@@ -632,8 +641,7 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
 }
 
 template<typename ReturnType>
-void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Instruction *Inst) {
-
+void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex) {
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
   reserveDebugEntrySpace(BC, sizeof(step));
 
@@ -641,11 +649,34 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(step.Header.u32Header));
   addDebugEntryValue(BC, m_InvocationId);
-  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(m_InstructionIndex++));
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstNum));
 
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid) {
-    addDebugEntryValue(BC, Inst);
+    addDebugEntryValue(BC, V);
+
+    IRBuilder<> &B = BC.Builder;
+
+    Value *VO = BC.HlslOP->GetU32Const(ValueOrdinal << 16);
+    Value *VOI = B.CreateAnd(ValueOrdinalIndex, BC.HlslOP->GetU32Const(0xFFFF), "ValueOrdinalIndex");
+    Value *EncodedValueOrdinalAndIndex = BC.Builder.CreateOr(VO, VOI, "ValueOrdinal");
+    addDebugEntryValue(BC, EncodedValueOrdinalAndIndex);
   }
+}
+
+void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst) {
+  std::uint32_t ValueOrdinalBase;
+  std::uint32_t UnusedValueOrdinalSize;
+  llvm::Value *ValueOrdinalIndex;
+  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase, &UnusedValueOrdinalSize, &ValueOrdinalIndex)) {
+    return;
+  }
+
+  std::uint32_t InstNum;
+  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
+    return;
+  }
+
+  addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase, ValueOrdinalIndex);
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction *Inst) {
@@ -653,29 +684,48 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction
     return;
   }
 
-  Type::TypeID ID = Inst->getType()->getTypeID();
+  if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
+    addStoreStepDebugEntry(BC, St);
+    return;
+  }
+
+  std::uint32_t RegNum;
+  if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum)) {
+    return;
+  }
+
+  std::uint32_t InstNum;
+  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
+    return;
+  }
+
+  addStepDebugEntryValue(BC, InstNum, Inst, RegNum, BC.Builder.getInt32(0));
+}
+
+void DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum, Value *V, std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex) {
+  const Type::TypeID ID = V->getType()->getTypeID();
 
   switch (ID) {
   case Type::TypeID::StructTyID:
   case Type::TypeID::VoidTyID:
-    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, Inst);
+    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::FloatTyID:
-    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, Inst);
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::IntegerTyID:
-    if (Inst->getType()->getIntegerBitWidth() == 64) {
-      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, Inst);
+    if (V->getType()->getIntegerBitWidth() == 64) {
+      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     }
     else {
-      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, Inst);
+      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     }
     break;
   case Type::TypeID::DoubleTyID:
-    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, Inst);
+    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::HalfTyID:
-    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, Inst);
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
   case Type::TypeID::PointerTyID:
     // Skip pointer calculation instructions. They aren't particularly meaningful to the user (being a mere
@@ -741,10 +791,9 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   // Instrument original instructions:
   for (auto & Inst : AllInstructions) {
-    // Instrumentation goes after the instruction if it has a return value.
-    // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
-    if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID) {
-      // Has a return type, so can't be a terminator, so start inserting before the next instruction
+    // Instrumentation goes after the instruction if it is not a terminator. Otherwise,
+    // Instrumentation goes prior to the instruction.
+    if (!Inst->isTerminator()) {
       IRBuilder<> Builder(Inst->getNextNode());
       BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
       addStepDebugEntry(BC2, Inst);
