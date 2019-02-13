@@ -59,8 +59,8 @@ public:
   ~TempOverloadPool() { clear(); }
 
   Function *get(FunctionType *Ty);
-  bool contains(FunctionType *Ty) { return Funcs.count(Ty) != 0; }
-  bool contains(Function *Func);
+  bool contains(FunctionType *Ty) const { return Funcs.count(Ty) != 0; }
+  bool contains(Function *Func) const;
   void clear();
 
 private:
@@ -85,7 +85,7 @@ Function *TempOverloadPool::get(FunctionType *Ty) {
   return Func;
 }
 
-bool TempOverloadPool::contains(Function *Func) {
+bool TempOverloadPool::contains(Function *Func) const {
   auto It = Funcs.find(Func->getFunctionType());
   return It != Funcs.end() && It->second == Func;
 }
@@ -303,6 +303,12 @@ void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
         // as we lower the instructions consuming them.
         if (m_vecToMatStubs->contains(Call->getCalledFunction()))
           continue;
+
+        // Mat-to-vec stubs should only be introduced during instruction lowering.
+        // Globals lowering won't introduce any because their only operand is
+        // their initializer, which we can fully lower without stubbing since it is constant.
+        DXASSERT(!m_matToVecStubs->contains(Call->getCalledFunction()),
+          "Unexpected mat-to-vec stubbing before function instruction lowering.");
 
         // Match matrix producers
         if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Inst.getType())) {
