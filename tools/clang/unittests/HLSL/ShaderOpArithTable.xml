@@ -1375,7 +1375,7 @@
         </Row>
         <Row Name="TanHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Tolerance">0.016</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float16_t input;
                 float16_t output;
@@ -1396,8 +1396,15 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>-314</Value>
-                <Value>314</Value>
+                <Value>0.6279297</Value>
+                <Value>1.255859</Value>
+                <Value>1.884766</Value>
+                <Value>2.511719</Value>
+                <Value>3.140625</Value>
+                <Value>3.769531</Value>
+                <Value>4.398438</Value>
+                <Value>5.652344</Value>
+                <Value>6.281250</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -1407,8 +1414,15 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>0.1606257</Value>
-                <Value>-0.1606257</Value>
+                <Value>0.72594857</Value>
+                <Value>3.06955433</Value>
+                <Value>-3.07967043</Value>
+                <Value>-0.72892153</Value>
+                <Value>-0.00096773</Value>
+                <Value>0.72596157</Value>
+                <Value>3.07986474</Value>
+                <Value>-0.7304042</Value>
+                <Value>-0.00193546</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -1684,7 +1698,7 @@
         </Row>
         <Row Name="SinHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Tolerance">0.003</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float16_t input;
                 float16_t output;
@@ -1705,8 +1719,16 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>-314</Value>
-                <Value>314</Value>
+                <Value>0.6279297</Value>
+                <Value>1.255859</Value>
+                <Value>1.884766</Value>
+                <Value>2.511719</Value>
+                <Value>3.140625</Value>
+                <Value>3.769531</Value>
+                <Value>4.398438</Value>
+                <Value>5.023438</Value>
+                <Value>5.652344</Value>
+                <Value>6.281250</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -1716,8 +1738,16 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>0.1585929</Value>
-                <Value>-0.1585929</Value>
+                <Value>0.58747065</Value>
+                <Value>0.95081574</Value>
+                <Value>0.95111507</Value>
+                <Value>0.58904284</Value>
+                <Value>0.00096773</Value>
+                <Value>-0.58747751</Value>
+                <Value>-0.95112079</Value>
+                <Value>-0.95201313</Value>
+                <Value>-0.58982444</Value>
+                <Value>-0.00193545</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -1975,7 +2005,7 @@
         </Row>
         <Row Name="CosHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Tolerance">0.003</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float16_t input;
                 float16_t output;
@@ -1996,8 +2026,16 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>-314</Value>
-                <Value>314</Value>
+                <Value>0.6279297</Value>
+                <Value>1.255859</Value>
+                <Value>1.884766</Value>
+                <Value>2.511719</Value>
+                <Value>3.140625</Value>
+                <Value>3.769531</Value>
+                <Value>4.398438</Value>
+                <Value>5.023438</Value>
+                <Value>5.652344</Value>
+                <Value>6.281250</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -2007,8 +2045,16 @@
                 <Value>1.0</Value>
                 <Value>1.0</Value>
                 <Value>NaN</Value>
-                <Value>0.987344</Value>
-                <Value>0.987344</Value>
+                <Value>0.80924553</Value>
+                <Value>0.30975693</Value>
+                <Value>-0.30883664</Value>
+                <Value>-0.80810183</Value>
+                <Value>-0.99999952</Value>
+                <Value>-0.80924052</Value>
+                <Value>-0.30881903</Value>
+                <Value>0.30605716</Value>
+                <Value>0.80753154</Value>
+                <Value>0.99999809</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
