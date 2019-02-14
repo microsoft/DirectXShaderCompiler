@@ -269,7 +269,7 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
 /// matrix type.
 QualType getComponentVectorType(const ASTContext &, QualType matrixType);
 
-/// \brief Return a QualType corresponding to HLSL matrix of given element type
+/// \brief Returns a QualType corresponding to HLSL matrix of given element type
 /// and rows/columns.
 QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
                            QualType elemType, int rows, int columns);

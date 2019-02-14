@@ -25,9 +25,9 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include "ExecutionModel.h"
 #include "GlPerVertex.h"
 #include "SpirvEvalInfo.h"
-#include "ExecutionModel.h"
 
 namespace clang {
 namespace spirv {
@@ -268,7 +268,8 @@ public:
                             const ExecutionModel *em);
 
   /// \brief Returns the SPIR-V builtin variable.
-  SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type, SourceLocation);
+  SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type,
+                               SourceLocation);
 
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
@@ -294,8 +295,9 @@ public:
   bool createStageInputVar(const ParmVarDecl *paramDecl,
                            SpirvInstruction **loadedValue, bool forPCF);
 
-  /// \brief Creates stage variables for raytracing
-  SpirvVariable *createRayTracingStageVar(spv::StorageClass sc, const VarDecl *decl);
+  /// \brief Creates stage variables for raytracing.
+  SpirvVariable *createRayTracingNVStageVar(spv::StorageClass sc,
+                                          const VarDecl *decl);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its instruction.
@@ -364,15 +366,16 @@ public:
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
 
-  /// \brief Sets the spirv execution model
+  /// \brief Sets the SPIR-V execution model
   void setSpvExecutionModel(const ExecutionModel *em) {
     glPerVertex.setSpvExecutionModel(em);
     spvExecModel = em;
   }
 
   /// Raytracing specific functions
-  /// \brief Handle specific implicit declarations present only in raytracing stages
-  void createRayTracingImplicitVar(const VarDecl *varDecl);
+  /// \brief Handle specific implicit declarations present only in raytracing
+  /// stages.
+  void createRayTracingNVImplicitVar(const VarDecl *varDecl);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -682,7 +685,7 @@ private:
   llvm::DenseMap<const DeclContext *, const SpirvType *> ctBufferPCTypes;
 
   /// The SPIR-V builtin variables accessed by WaveGetLaneCount(),
-  /// WaveGetLaneIndex() and ray tracing builtins
+  /// WaveGetLaneIndex() and ray tracing builtins.
   ///
   /// These are the only few cases where SPIR-V builtin variables are accessed
   /// using HLSL intrinsic function calls. All other builtin variables are
@@ -760,14 +763,11 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
   builder.createStore(counterVar, srcPair.get(builder, context));
 }
 
-DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
-                                       ASTContext &context,
-                                       SpirvContext &spirvContext,
-                                       SpirvBuilder &spirvBuilder,
-                                       SpirvEmitter &emitter,
-                                       FeatureManager &features,
-                                       const SpirvCodeGenOptions &options,
-                                       const ExecutionModel *execModel)
+DeclResultIdMapper::DeclResultIdMapper(
+    const hlsl::ShaderModel &model, ASTContext &context,
+    SpirvContext &spirvContext, SpirvBuilder &spirvBuilder,
+    SpirvEmitter &emitter, FeatureManager &features,
+    const SpirvCodeGenOptions &options, const ExecutionModel *execModel)
     : shaderModel(model), spvBuilder(spirvBuilder), theEmitter(emitter),
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),

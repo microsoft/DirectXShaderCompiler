@@ -47,7 +47,6 @@ public:
   GlPerVertex(const ExecutionModel *em, ASTContext &context,
               SpirvContext &spvContext, SpirvBuilder &spvBuilder);
 
-
   /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
   /// Also records the semantic strings provided for them.
@@ -90,9 +89,7 @@ public:
                    SpirvInstruction **value, bool noWriteBack);
 
   /// \brief Sets the spirv execution model
-  void setSpvExecutionModel(const ExecutionModel *em) {
-    spvExecModel = em;
-  }
+  void setSpvExecutionModel(const ExecutionModel *em) { spvExecModel = em; }
 
 private:
   template <unsigned N>

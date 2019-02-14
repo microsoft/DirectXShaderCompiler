@@ -720,9 +720,9 @@ SpirvArrayLength::SpirvArrayLength(QualType resultType, SourceLocation loc,
     : SpirvInstruction(IK_ArrayLength, spv::Op::OpArrayLength, resultType, loc),
       structure(structure_), arrayMember(memberLiteral) {}
 
-SpirvRayTracingOpNV::SpirvRayTracingOpNV(QualType resultType, spv::Op opcode,
-                                        llvm::ArrayRef<SpirvInstruction *> vecOperands,
-                                        SourceLocation loc)
+SpirvRayTracingOpNV::SpirvRayTracingOpNV(
+    QualType resultType, spv::Op opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, SourceLocation loc)
     : SpirvInstruction(IK_RayTracingOpNV, opcode, resultType, loc),
       operands(vecOperands.begin(), vecOperands.end()) {}
 } // namespace spirv

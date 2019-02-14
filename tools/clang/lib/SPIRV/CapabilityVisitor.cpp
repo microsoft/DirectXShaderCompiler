@@ -466,7 +466,8 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::MissNV:
   case spv::ExecutionModel::CallableNV:
     spvBuilder.requireCapability(spv::Capability::RayTracingNV);
-    spvBuilder.addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    spvBuilder.addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing",
+                            {});
     break;
   default:
     llvm_unreachable("found unknown shader model");

@@ -17,8 +17,8 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
-#include "llvm/ADT/StringExtras.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/StringExtras.h"
 
 #include "InitListHandler.h"
 
@@ -1175,16 +1175,15 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   (void)declIdMapper.createCTBuffer(bufferDecl);
 }
 
-void SpirvEmitter::doImplicitDecl(const Decl *decl)
-{
-  //We only handle specific implicit declaration for raytracing
-  //which are RayFlag/HitKind constant unsigned integers
-  //Ignore others
+void SpirvEmitter::doImplicitDecl(const Decl *decl) {
+  // We only handle specific implicit declaration for raytracing
+  // which are RayFlag/HitKind constant unsigned integers
+  // Ignore others
   if (shaderModel.IsLib() || spvExecModel->IsRay()) {
     const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
     if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
-      implDecl->getName().startswith(StringRef("HIT_KIND")))) {
-      (void)declIdMapper.createRayTracingImplicitVar(implDecl);
+                     implDecl->getName().startswith(StringRef("HIT_KIND")))) {
+      (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
     }
   }
 }
@@ -6426,8 +6425,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
                                     callExpr->getExprLoc());
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(
-        spv::BuiltIn::SubgroupLocalInvocationId, retType, callExpr->getExprLoc());
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId,
+                                   retType, callExpr->getExprLoc());
     retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
@@ -6526,10 +6526,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processRayBuiltins(callExpr, hlslOpcode);
     break;
   }
-  case hlsl::IntrinsicOp::IOP_AcceptHitAndEndSearch:
-  {
-    spvBuilder.createRayTracingOpsNV(spv::Op::OpTerminateRayNV,
-                                     QualType(), {}, callExpr->getExprLoc());
+  case hlsl::IntrinsicOp::IOP_AcceptHitAndEndSearch: {
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpTerminateRayNV, QualType(), {},
+                                     callExpr->getExprLoc());
     break;
   }
   case hlsl::IntrinsicOp::IOP_IgnoreHit: {
@@ -8666,9 +8665,8 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
   return spvBuilder.createBinaryOp(scaleOp, returnType, log2, scale);
 }
 
-SpirvInstruction *
-SpirvEmitter::processRayBuiltins(const CallExpr *callExpr, hlsl::IntrinsicOp op)
-{
+SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
+                                                   hlsl::IntrinsicOp op) {
   spv::BuiltIn builtin = spv::BuiltIn::Max;
   bool transposeMatrix = false;
   switch (op) {
@@ -8735,41 +8733,40 @@ SpirvEmitter::processRayBuiltins(const CallExpr *callExpr, hlsl::IntrinsicOp op)
     const clang::Type *type = builtinType.getCanonicalType().getTypePtr();
     const RecordType *RT = cast<RecordType>(type);
     const ClassTemplateSpecializationDecl *templateSpecDecl =
-      cast<ClassTemplateSpecializationDecl>(RT->getDecl());
-    ClassTemplateDecl *templateDecl = templateSpecDecl->getSpecializedTemplate();
+        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
+    ClassTemplateDecl *templateDecl =
+        templateSpecDecl->getSpecializedTemplate();
     builtinType = getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
-      templateDecl, astContext.FloatTy, 4, 3);
+                                    templateDecl, astContext.FloatTy, 4, 3);
   }
   SpirvInstruction *retVal =
-    declIdMapper.getBuiltinVar(builtin, builtinType, callExpr->getExprLoc());
+      declIdMapper.getBuiltinVar(builtin, builtinType, callExpr->getExprLoc());
   retVal = spvBuilder.createLoad(builtinType, retVal);
   if (transposeMatrix)
-    retVal = spvBuilder.createUnaryOp(spv::Op::OpTranspose,
-      callExpr->getType(), retVal);
+    retVal = spvBuilder.createUnaryOp(spv::Op::OpTranspose, callExpr->getType(),
+                                      retVal);
   return retVal;
 }
 
-SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr)
-{
+SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
   SpirvInstruction *hitAttributeStageVar = nullptr;
   const VarDecl *hitAttributeArg = nullptr;
   QualType hitAttributeType;
   const auto args = callExpr->getArgs();
 
-  //HLSL Function :
-  //template<typename hitAttr>
-  //ReportHit(in float, in uint, in hitAttr)
+  // HLSL Function :
+  // template<typename hitAttr>
+  // ReportHit(in float, in uint, in hitAttr)
   if (const auto *implCastExpr = dyn_cast<CastExpr>(callExpr->getArg(2))) {
     if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
       if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
         hitAttributeType = varDecl->getType();
         hitAttributeArg = varDecl;
-        //Check if same type of hit attribute stage variable was already
-        //created, if so re-use
+        // Check if same type of hit attribute stage variable was already
+        // created, if so re-use
         const auto iter = hitAttributeMap.find(hitAttributeType);
         if (iter == hitAttributeMap.end()) {
-          hitAttributeStageVar =
-            declIdMapper.createRayTracingStageVar(
+          hitAttributeStageVar = declIdMapper.createRayTracingNVStageVar(
               spv::StorageClass::HitAttributeNV, varDecl);
           hitAttributeMap[hitAttributeType] = hitAttributeStageVar;
         } else {
@@ -8781,52 +8778,50 @@ SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr)
 
   assert(hitAttributeStageVar && hitAttributeArg);
 
-  //Copy argument to stage variable
+  // Copy argument to stage variable
   const auto hitAttributeArgInst =
-    declIdMapper.getDeclEvalInfo(hitAttributeArg);
+      declIdMapper.getDeclEvalInfo(hitAttributeArg);
   auto tempLoad =
-    spvBuilder.createLoad(hitAttributeArg->getType(), hitAttributeArgInst);
+      spvBuilder.createLoad(hitAttributeArg->getType(), hitAttributeArgInst);
   spvBuilder.createStore(hitAttributeStageVar, tempLoad);
 
-  //SPV Instruction :
-  //bool OpReportIntersection(<id> float Hit, <id> uint HitKind)
+  // SPV Instruction :
+  // bool OpReportIntersection(<id> float Hit, <id> uint HitKind)
   llvm::SmallVector<SpirvInstruction *, 4> reportHitArgs;
   reportHitArgs.push_back(doExpr(args[0])); // Hit
   reportHitArgs.push_back(doExpr(args[1])); // HitKind
   return spvBuilder.createRayTracingOpsNV(spv::Op::OpReportIntersectionNV,
-    astContext.BoolTy, reportHitArgs, callExpr->getExprLoc());
-
-
+                                          astContext.BoolTy, reportHitArgs,
+                                          callExpr->getExprLoc());
 }
-void SpirvEmitter::processCallShader(const CallExpr *callExpr)
-{
+void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
   SpirvInstruction *callDataLocInst = nullptr;
   SpirvInstruction *callDataStageVar = nullptr;
   const VarDecl *callDataArg = nullptr;
   QualType callDataType;
   const auto args = callExpr->getArgs();
 
-  //HLSL Func :
-  //template<typename CallData>
-  //void CallShader(in int sbtIndex, inout CallData arg)
+  // HLSL Func :
+  // template<typename CallData>
+  // void CallShader(in int sbtIndex, inout CallData arg)
   if (const auto *implCastExpr = dyn_cast<CastExpr>(args[1])) {
     if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
       if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
         callDataType = varDecl->getType();
         callDataArg = varDecl;
-        //Check if same type of callable data stage variable was already
-        //created, if so re-use
+        // Check if same type of callable data stage variable was already
+        // created, if so re-use
         const auto callDataPair = callDataMap.find(callDataType);
         if (callDataPair == callDataMap.end()) {
           int numCallDataVars = callDataMap.size();
-          callDataStageVar = declIdMapper.createRayTracingStageVar
-            (spv::StorageClass::CallableDataNV,varDecl);
-          //Decorate unique location id for each created stage var
+          callDataStageVar = declIdMapper.createRayTracingNVStageVar(
+              spv::StorageClass::CallableDataNV, varDecl);
+          // Decorate unique location id for each created stage var
           spvBuilder.decorateLocation(callDataStageVar, numCallDataVars);
-          callDataLocInst = spvBuilder.getConstantInt
-            (astContext.UnsignedIntTy, llvm::APInt(32, numCallDataVars));
+          callDataLocInst = spvBuilder.getConstantInt(
+              astContext.UnsignedIntTy, llvm::APInt(32, numCallDataVars));
           callDataMap[callDataType] =
-            std::make_pair(callDataStageVar, callDataLocInst);
+              std::make_pair(callDataStageVar, callDataLocInst);
         } else {
           callDataStageVar = callDataPair->second.first;
           callDataLocInst = callDataPair->second.second;
@@ -8837,28 +8832,28 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr)
 
   assert(callDataStageVar && callDataArg);
 
-  //Copy argument to stage variable
+  // Copy argument to stage variable
   const auto callDataArgInst = declIdMapper.getDeclEvalInfo(callDataArg);
-  auto tempLoad = spvBuilder.createLoad(callDataArg->getType(), callDataArgInst);
+  auto tempLoad =
+      spvBuilder.createLoad(callDataArg->getType(), callDataArgInst);
   spvBuilder.createStore(callDataStageVar, tempLoad);
 
-  //SPV Instruction
-  //void OpExecuteCallable(<id> int SBT Index, <id> uint Callable Data Location Id)
+  // SPV Instruction
+  // void OpExecuteCallable(<id> int SBT Index, <id> uint Callable Data Location
+  // Id)
   llvm::SmallVector<SpirvInstruction *, 2> callShaderArgs;
   callShaderArgs.push_back(doExpr(args[0]));
   callShaderArgs.push_back(callDataLocInst);
 
   spvBuilder.createRayTracingOpsNV(spv::Op::OpExecuteCallableNV, QualType(),
-    callShaderArgs, callExpr->getExprLoc());
+                                   callShaderArgs, callExpr->getExprLoc());
 
-  //Copy data back to argument
+  // Copy data back to argument
   tempLoad = spvBuilder.createLoad(callDataArg->getType(), callDataStageVar);
   spvBuilder.createStore(callDataArgInst, tempLoad);
   return;
-
 }
-void SpirvEmitter::processTraceRay(const CallExpr *callExpr)
-{
+void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
   SpirvInstruction *payloadLocInst = nullptr;
   SpirvInstruction *payloadStageVar = nullptr;
   const VarDecl *payloadArg = nullptr;
@@ -8866,9 +8861,9 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr)
 
   const auto args = callExpr->getArgs();
 
-  //HLSL Func
-  //template<typename Payload>
-  //void TraceRay(RaytracingAccelerationStructure rs,
+  // HLSL Func
+  // template<typename Payload>
+  // void TraceRay(RaytracingAccelerationStructure rs,
   //              uint rayflags,
   //              uint InstanceInclusionMask
   //              uint RayContributionToHitGroupIndex,
@@ -8876,31 +8871,29 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr)
   //              uint MissShaderIndex,
   //              RayDesc ray,
   //              inout Payload p)
-  //where RayDesc = {float3 origin, float tMin, float3 direction, float tMax}
+  // where RayDesc = {float3 origin, float tMin, float3 direction, float tMax}
 
   if (const auto *implCastExpr = dyn_cast<CastExpr>(args[7])) {
     if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
       if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
         payloadType = varDecl->getType();
-        payloadArg  = varDecl;
+        payloadArg = varDecl;
         const auto payloadPair = payloadMap.find(payloadType);
-        //Check if same type of payload stage variable was already
-        //created, if so re-use
+        // Check if same type of payload stage variable was already
+        // created, if so re-use
         if (payloadPair == payloadMap.end()) {
           int numPayloadVars = payloadMap.size();
-          payloadStageVar = declIdMapper.createRayTracingStageVar
-          (spv::StorageClass::RayPayloadNV, varDecl);
-          //Decorate unique location id for each created stage var
+          payloadStageVar = declIdMapper.createRayTracingNVStageVar(
+              spv::StorageClass::RayPayloadNV, varDecl);
+          // Decorate unique location id for each created stage var
           spvBuilder.decorateLocation(payloadStageVar, numPayloadVars);
-          payloadLocInst = spvBuilder.getConstantInt
-          (astContext.UnsignedIntTy,
-            llvm::APInt(32, numPayloadVars));
+          payloadLocInst = spvBuilder.getConstantInt(
+              astContext.UnsignedIntTy, llvm::APInt(32, numPayloadVars));
           payloadMap[payloadType] =
-            std::make_pair(payloadStageVar, payloadLocInst);
-        }
-        else {
+              std::make_pair(payloadStageVar, payloadLocInst);
+        } else {
           payloadStageVar = payloadPair->second.first;
-          payloadLocInst  = payloadPair->second.second;
+          payloadLocInst = payloadPair->second.second;
         }
       }
     }
@@ -8914,21 +8907,21 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr)
   // Extract the ray description to match SPIR-V
   SpirvInstruction *rayDescArg = doExpr(args[6]);
   const auto origin =
-    spvBuilder.createCompositeExtract(vecType, rayDescArg, { 0 });
+      spvBuilder.createCompositeExtract(vecType, rayDescArg, {0});
   const auto tMin =
-    spvBuilder.createCompositeExtract(floatType, rayDescArg, { 1 });
+      spvBuilder.createCompositeExtract(floatType, rayDescArg, {1});
   const auto direction =
-    spvBuilder.createCompositeExtract(vecType, rayDescArg, { 2 });
+      spvBuilder.createCompositeExtract(vecType, rayDescArg, {2});
   const auto tMax =
-    spvBuilder.createCompositeExtract(floatType, rayDescArg, { 3 });
+      spvBuilder.createCompositeExtract(floatType, rayDescArg, {3});
 
-  //Copy argument to stage variable
+  // Copy argument to stage variable
   const auto payloadArgInst = declIdMapper.getDeclEvalInfo(payloadArg);
   auto tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadArgInst);
   spvBuilder.createStore(payloadStageVar, tempLoad);
 
-  //SPV Instruction
-  //void OpTraceNV ( <id> AccelerationStructureNV acStruct,
+  // SPV Instruction
+  // void OpTraceNV ( <id> AccelerationStructureNV acStruct,
   //                 <id> uint Ray Flags,
   //                 <id> uint Cull Mask,
   //                 <id> uint SBT Offset,
@@ -8941,8 +8934,7 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr)
   //                 <id> uint Payload number)
 
   llvm::SmallVector<SpirvInstruction *, 8> traceArgs;
-  for (int ii = 0; ii < 6; ii++)
-  {
+  for (int ii = 0; ii < 6; ii++) {
     traceArgs.push_back(doExpr(args[ii]));
   }
 
@@ -8952,10 +8944,10 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr)
   traceArgs.push_back(tMax);
   traceArgs.push_back(payloadLocInst);
 
-  spvBuilder.createRayTracingOpsNV(spv::Op::OpTraceNV, QualType(),
-                                   traceArgs, callExpr->getExprLoc());
+  spvBuilder.createRayTracingOpsNV(spv::Op::OpTraceNV, QualType(), traceArgs,
+                                   callExpr->getExprLoc());
 
-  //Copy arguments back to stage variable
+  // Copy arguments back to stage variable
   tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadStageVar);
   spvBuilder.createStore(payloadArgInst, tempLoad);
   return;
@@ -9429,10 +9421,8 @@ bool SpirvEmitter::processTessellationShaderAttributes(
   return true;
 }
 
-
-bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(const FunctionDecl *decl,
-                                                        SpirvFunction *entryFuncInstr)
-{
+bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
+    const FunctionDecl *decl, SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
@@ -9463,7 +9453,8 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(const FunctionDecl *dec
     const auto param = decl->getParamDecl(i);
     const auto paramType = param->getType();
     std::string tempVarName = "param.var." + param->getNameAsString();
-    auto *tempVar = spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName);
+    auto *tempVar =
+        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName);
 
     SpirvVariable *curStageVar = nullptr;
 
@@ -9484,17 +9475,21 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(const FunctionDecl *dec
       // Generate rayPayloadInNV and hitAttributeNV stage variables
       if (i == 0) {
         // First argument is always payload
-        curStageVar = declIdMapper.createRayTracingStageVar(spv::StorageClass::IncomingRayPayloadNV, param);
+        curStageVar = declIdMapper.createRayTracingNVStageVar(
+            spv::StorageClass::IncomingRayPayloadNV, param);
       } else {
         // Second argument is always attribute
-        curStageVar = declIdMapper.createRayTracingStageVar(spv::StorageClass::HitAttributeNV, param);
+        curStageVar = declIdMapper.createRayTracingNVStageVar(
+            spv::StorageClass::HitAttributeNV, param);
       }
     } else if (sKind == hlsl::ShaderModel::Kind::Miss) {
       // Generate rayPayloadInNV stage variable
       // First and only argument is payload
-      curStageVar = declIdMapper.createRayTracingStageVar(spv::StorageClass::IncomingRayPayloadNV, param);
+      curStageVar = declIdMapper.createRayTracingNVStageVar(
+          spv::StorageClass::IncomingRayPayloadNV, param);
     } else if (sKind == hlsl::ShaderModel::Kind::Callable) {
-      curStageVar = declIdMapper.createRayTracingStageVar(spv::StorageClass::IncomingCallableDataNV, param);
+      curStageVar = declIdMapper.createRayTracingNVStageVar(
+          spv::StorageClass::IncomingCallableDataNV, param);
     }
 
     if (curStageVar != nullptr) {
@@ -9514,16 +9509,15 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(const FunctionDecl *dec
       sKind == hlsl::ShaderModel::Kind::AnyHit ||
       sKind == hlsl::ShaderModel::Kind::Miss ||
       sKind == hlsl::ShaderModel::Kind::Callable) {
-      // Write back results to IncomingRayPayloadNV/IncomingCallableDataNV
-      auto *tempLoad = spvBuilder.createLoad(paramTypes[0], params[0]);
-      spvBuilder.createStore(stageVars[0], tempLoad);
+    // Write back results to IncomingRayPayloadNV/IncomingCallableDataNV
+    auto *tempLoad = spvBuilder.createLoad(paramTypes[0], params[0]);
+    spvBuilder.createStore(stageVars[0], tempLoad);
   }
 
   spvBuilder.createReturn();
   spvBuilder.endFunction();
 
   return true;
-
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,

@@ -1016,80 +1016,80 @@ QualType getComponentVectorType(const ASTContext &astContext,
   return astContext.getExtVectorType(elemType, colCount);
 }
 
-QualType getHLSLMatrixType(ASTContext& astContext, Sema &S,
-  ClassTemplateDecl *templateDecl,
-  QualType elemType, int rows, int columns)
-{
-  const SourceLocation NoLoc;
+QualType getHLSLMatrixType(ASTContext &astContext, Sema &S,
+                           ClassTemplateDecl *templateDecl, QualType elemType,
+                           int rows, int columns) {
+  const SourceLocation noLoc;
   TemplateArgument templateArgs[3] = {
-    TemplateArgument(elemType),
-    TemplateArgument(
-      astContext,
-      llvm::APSInt(
-        llvm::APInt(astContext.getIntWidth(astContext.IntTy), rows), false),
-      astContext.IntTy),
-    TemplateArgument(
-      astContext,
-      llvm::APSInt(
-        llvm::APInt(astContext.getIntWidth(astContext.IntTy), columns), false),
-      astContext.IntTy) };
+      TemplateArgument(elemType),
+      TemplateArgument(
+          astContext,
+          llvm::APSInt(
+              llvm::APInt(astContext.getIntWidth(astContext.IntTy), rows),
+              false),
+          astContext.IntTy),
+      TemplateArgument(
+          astContext,
+          llvm::APSInt(
+              llvm::APInt(astContext.getIntWidth(astContext.IntTy), columns),
+              false),
+          astContext.IntTy)};
 
-  SmallVector <TemplateArgument, 4> args;
+  SmallVector<TemplateArgument, 4> args;
   args.push_back(templateArgs[0]);
   args.push_back(templateArgs[1]);
   args.push_back(templateArgs[2]);
 
-  DeclContext* currentDeclContext = astContext.getTranslationUnitDecl();
+  DeclContext *currentDeclContext = astContext.getTranslationUnitDecl();
   SmallVector<TemplateArgument, 3> templateArgsForDecl;
 
-  for (const TemplateArgument& Arg : templateArgs) {
+  for (const TemplateArgument &Arg : templateArgs) {
     if (Arg.getKind() == TemplateArgument::Type) {
       // the class template need to use CanonicalType
       templateArgsForDecl.emplace_back(
-        TemplateArgument(Arg.getAsType().getCanonicalType()));
-    }
-    else
+          TemplateArgument(Arg.getAsType().getCanonicalType()));
+    } else
       templateArgsForDecl.emplace_back(Arg);
   }
 
   // First, try looking up existing specialization
-  void* InsertPos = nullptr;
-  ClassTemplateSpecializationDecl* specializationDecl =
-    templateDecl->findSpecialization(templateArgsForDecl, InsertPos);
+  void *insertPos = nullptr;
+  ClassTemplateSpecializationDecl *specializationDecl =
+      templateDecl->findSpecialization(templateArgsForDecl, insertPos);
 
   if (specializationDecl) {
-    // Instantiate the class template if not yet.
+    // Instantiate the class template if not done yet.
     if (specializationDecl->getInstantiatedFrom().isNull()) {
       S.InstantiateClassTemplateSpecialization(
-        NoLoc, specializationDecl,
-        TemplateSpecializationKind::TSK_ImplicitInstantiation,
-        true);
+          noLoc, specializationDecl,
+          TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
     }
     return astContext.getTemplateSpecializationType(
-      TemplateName(templateDecl), args.data(), args.size(),
-      astContext.getTypeDeclType(specializationDecl));
+        TemplateName(templateDecl), args.data(), args.size(),
+        astContext.getTypeDeclType(specializationDecl));
   }
 
   specializationDecl = ClassTemplateSpecializationDecl::Create(
-    astContext, TagDecl::TagKind::TTK_Class, currentDeclContext, NoLoc, NoLoc,
-    templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(), nullptr);
+      astContext, TagDecl::TagKind::TTK_Class, currentDeclContext, noLoc, noLoc,
+      templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(),
+      nullptr);
   S.InstantiateClassTemplateSpecialization(
-    NoLoc, specializationDecl,
-    TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
-  templateDecl->AddSpecialization(specializationDecl, InsertPos);
+      noLoc, specializationDecl,
+      TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+  templateDecl->AddSpecialization(specializationDecl, insertPos);
   specializationDecl->setImplicit(true);
 
   QualType canonType = astContext.getTypeDeclType(specializationDecl);
-  TemplateArgumentListInfo templateArgumentList(NoLoc, NoLoc);
-  TemplateArgumentLocInfo NoTemplateArgumentLocInfo;
+  TemplateArgumentListInfo templateArgumentList(noLoc, noLoc);
+  TemplateArgumentLocInfo noTemplateArgumentLocInfo;
 
   for (unsigned i = 0; i < args.size(); i++) {
     templateArgumentList.addArgument(
-      TemplateArgumentLoc(args[i], NoTemplateArgumentLocInfo));
+        TemplateArgumentLoc(args[i], noTemplateArgumentLocInfo));
   }
 
   return astContext.getTemplateSpecializationType(
-    TemplateName(templateDecl), templateArgumentList, canonType);
+      TemplateName(templateDecl), templateArgumentList, canonType);
 }
 
 } // namespace spirv

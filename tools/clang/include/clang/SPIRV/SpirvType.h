@@ -381,7 +381,7 @@ private:
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
 };
 
-/// Represents accleration structure type as defined in SPV_NV_ray_tracing
+/// Represents accleration structure type as defined in SPV_NV_ray_tracing.
 class AccelerationStructureTypeNV : public SpirvType {
 public:
   AccelerationStructureTypeNV() :

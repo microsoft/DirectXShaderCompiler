@@ -88,8 +88,8 @@ bool SpirvType::isSubpassInputMS(const SpirvType *type) {
 }
 
 bool SpirvType::isResourceType(const SpirvType *type) {
-  if (isa<ImageType>(type) || isa<SamplerType>(type)
-    || isa<AccelerationStructureTypeNV>(type))
+  if (isa<ImageType>(type) || isa<SamplerType>(type) ||
+      isa<AccelerationStructureTypeNV>(type))
     return true;
 
   if (const auto *structType = dyn_cast<StructType>(type))

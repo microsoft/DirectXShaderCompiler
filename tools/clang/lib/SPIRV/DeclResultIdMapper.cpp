@@ -422,8 +422,8 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   if (hlsl::IsHLSLStreamOutputType(type))
     type = hlsl::GetHLSLResourceResultType(type);
 
-  const auto *sigPoint =
-      deduceSigPoint(decl, /*asInput=*/false, spvExecModel->GetShaderKind(), forPCF);
+  const auto *sigPoint = deduceSigPoint(decl, /*asInput=*/false,
+                                        spvExecModel->GetShaderKind(), forPCF);
 
   // HS output variables are created using the other overload. For the rest,
   // none of them should be created as arrays.
@@ -1247,7 +1247,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // likely. In order to avoid location mismatches between HS and DS, use
   // alphabetical ordering.
   if (spirvOptions.stageIoOrder == "alpha" ||
-      (!forInput && spvExecModel->IsHS()) || (forInput && spvExecModel->IsDS())) {
+      (!forInput && spvExecModel->IsHS()) ||
+      (forInput && spvExecModel->IsDS())) {
     // Sort stage input/output variables alphabetically
     std::sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
@@ -2184,13 +2185,14 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
   }
 }
 
-SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn, QualType type,
+SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
+                                                 QualType type,
                                                  SourceLocation loc) {
   // Guarantee uniqueness
-  uint32_t spvId = (uint32_t)builtIn;
-  const auto builtInVar = builtinToVarMap.find(spvId);
+  uint32_t spvBuiltinId = static_cast<uint32_t>(builtIn);
+  const auto builtInVar = builtinToVarMap.find(spvBuiltinId);
   if (builtInVar != builtinToVarMap.end()) {
-      return builtInVar->second;
+    return builtInVar->second;
   }
   switch (builtIn) {
   case spv::BuiltIn::SubgroupSize:
@@ -2213,21 +2215,20 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn, QualType 
     // Valid builtins supported
     break;
   default:
-    assert(false && "unsupported spir-v builtin");
+    assert(false && "unsupported SPIR-V builtin");
     return nullptr;
   }
 
   // Create a dummy StageVar for this builtin variable
-  auto var = spvBuilder.addStageBuiltinVar(
-      type, spv::StorageClass::Input, builtIn, loc);
+  auto var = spvBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                           builtIn, loc);
 
   const hlsl::SigPoint *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
           hlsl::DxilParamInputQual::In, spvExecModel->GetShaderKind(),
           /*isPatchConstant=*/false));
 
-  StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr,
-                    type,
+  StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
                     /*locCount=*/0);
 
   stageVar.setIsSpirvBuiltin();
@@ -2235,7 +2236,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn, QualType 
   stageVars.push_back(stageVar);
 
   // Store in map for re-use
-  builtinToVarMap[spvId] = var;
+  builtinToVarMap[spvBuiltinId] = var;
   return var;
 }
 
@@ -2806,9 +2807,9 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   return type;
 }
 
-SpirvVariable *DeclResultIdMapper::createRayTracingStageVar
-  (const spv::StorageClass sc, const VarDecl *decl)
-{
+SpirvVariable *
+DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
+                                             const VarDecl *decl) {
   QualType type = decl->getType();
   SpirvVariable *retVal = nullptr;
   // No predefined semantics defined for variables in raytracing stages
@@ -2816,9 +2817,8 @@ SpirvVariable *DeclResultIdMapper::createRayTracingStageVar
 
   // No sigpoints for raytracing
   // Set location ts 0 as default
-  StageVar stageVar(
-    nullptr /*SigPoint */, dummySemantic, nullptr /*builtinAttr*/, type,
-    0 /* locCount */);
+  StageVar stageVar(nullptr /*SigPoint */, dummySemantic,
+                    nullptr /*builtinAttr*/, type, 0 /* locCount */);
 
   stageVar.setStorageClass(sc);
 
@@ -2830,12 +2830,11 @@ SpirvVariable *DeclResultIdMapper::createRayTracingStageVar
   case spv::StorageClass::HitAttributeNV:
   case spv::StorageClass::RayPayloadNV:
   case spv::StorageClass::CallableDataNV:
-    retVal = spvBuilder.addModuleVar(
-      type, sc, name.str());
+    retVal = spvBuilder.addModuleVar(type, sc, name.str());
     break;
 
   default:
-    assert("Unsupported spir-v storage class for raytracing" && 0);
+    assert(false && "Unsupported SPIR-V storage class for raytracing");
   }
 
   stageVar.setIsSpirvBuiltin();
@@ -2843,15 +2842,13 @@ SpirvVariable *DeclResultIdMapper::createRayTracingStageVar
   stageVars.push_back(stageVar);
 
   return retVal;
-
 }
 
-void DeclResultIdMapper::createRayTracingImplicitVar(const VarDecl *varDecl)
-{
+void DeclResultIdMapper::createRayTracingNVImplicitVar(const VarDecl *varDecl) {
   APValue *val = varDecl->evaluateValue();
   assert(val);
   SpirvInstruction *constVal =
-    spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
   constVal->setRValue(true);
   astDecls[varDecl].instr = constVal;
 }
