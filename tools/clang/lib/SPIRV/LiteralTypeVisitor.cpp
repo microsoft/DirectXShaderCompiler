@@ -39,6 +39,15 @@ bool LiteralTypeVisitor::canDeduceTypeFromLitType(QualType litType,
                                                   QualType newType) {
   if (litType == QualType() || newType == QualType() || litType == newType)
     return false;
+
+  // The 'inout' and 'out' function arguments are of a reference type.
+  // For example: 'uint &'.
+  // We should first remove such reference from QualType (if any).
+  if (const auto *refType = litType->getAs<ReferenceType>())
+    litType = refType->getPointeeType();
+  if (const auto *refType = newType->getAs<ReferenceType>())
+    newType = refType->getPointeeType();
+
   if (!isLitTypeOrVecOfLitType(litType))
     return false;
   if (isLitTypeOrVecOfLitType(newType))
@@ -399,6 +408,11 @@ bool LiteralTypeVisitor::visit(SpirvAccessChain *inst) {
                           ? astContext.IntTy
                           : astContext.UnsignedIntTy);
       }
+    } else {
+      tryToUpdateInstLitType(index,
+                             index->getAstResultType()->isSignedIntegerType()
+                                 ? astContext.IntTy
+                                 : astContext.UnsignedIntTy);
     }
   }
   return true;
