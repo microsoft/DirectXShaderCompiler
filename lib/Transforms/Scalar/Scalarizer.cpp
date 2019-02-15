@@ -704,7 +704,7 @@ bool Scalarizer::finish() {
                 // TODO: need to use DIExpression::createFragmentExpression for
                 // case DVI->getExpression is already bit piece.
                 DIExpression *EltExpr =
-                    DIB.createBitPieceExpression(Offset, EltSize);
+                    DIB.createBitPieceExpression(Offset / 8, EltSize / 8);
                 Offset += EltSize;
 
                 DIB.insertDbgValueIntrinsic(CV[I], Offset, VarInfo, EltExpr,
