@@ -482,6 +482,12 @@ TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
   // annotation does not create temporary variables
   runFileTest("fn.param.inout.no-copy.hlsl");
 }
+TEST_F(FileTest, FunctionParamUnsizedArray) {
+  // Unsized ararys as function params are not supported.
+  runFileTest("fn.param.unsized-array.hlsl", Expect::Failure);
+}
+
+
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
 }

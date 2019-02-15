@@ -2293,7 +2293,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     else if (subExprType->isArrayType()) {
       auto *valInstr = InitListHandler(astContext, *this)
                            .processCast(expr->getType(), subExpr);
-      valInstr->setRValue();
+      if (valInstr)
+        valInstr->setRValue();
       return valInstr;
     }
 
@@ -4701,6 +4702,11 @@ SpirvEmitter::processAssignment(const Expr *lhs, SpirvInstruction *rhs,
 
 void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
                               SpirvInstruction *rhsVal, QualType lhsValType) {
+  // Defend against nullptr source or destination so errors can bubble up to the
+  // user.
+  if(!lhsPtr || !rhsVal)
+    return;
+
   if (const auto *refType = lhsValType->getAs<ReferenceType>())
     lhsValType = refType->getPointeeType();
 
