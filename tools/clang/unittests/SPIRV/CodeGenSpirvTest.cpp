@@ -397,6 +397,14 @@ TEST_F(FileTest, CastExplicitVecToMat) {
 }
 TEST_F(FileTest, CastBitwidth) { runFileTest("cast.bitwidth.hlsl"); }
 
+TEST_F(FileTest, CastLiteralTypeForArraySubscript) {
+  runFileTest("cast.literal-type.array-subscript.hlsl");
+}
+
+TEST_F(FileTest, CastLiteralTypeForTernary) {
+  runFileTest("cast.literal-type.ternary.hlsl");
+}
+
 // For vector/matrix splatting and trunction
 TEST_F(FileTest, CastTruncateVector) { runFileTest("cast.vector.trunc.hlsl"); }
 TEST_F(FileTest, CastTruncateMatrix) { runFileTest("cast.matrix.trunc.hlsl"); }
