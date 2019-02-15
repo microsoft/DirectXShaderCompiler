@@ -306,9 +306,9 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
 
 TEST_F(LinkerTest, RunLinkMatArrayParam) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast.hlsl", &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -326,9 +326,9 @@ TEST_F(LinkerTest, RunLinkMatArrayParam) {
 
 TEST_F(LinkerTest, RunLinkMatParam) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast2.hlsl", &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast2.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -346,7 +346,7 @@ TEST_F(LinkerTest, RunLinkMatParam) {
 
 TEST_F(LinkerTest, RunLinkMatParamToLib) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl", &pEntryLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -382,11 +382,11 @@ TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR option[] = {L"-Zi"};
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl",
              &pEntryLib, option, 1);
   CComPtr<IDxcBlob> pLib;
   CompileLib(
-      L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast2.hlsl",
+      L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast2.hlsl",
       &pLib, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -403,10 +403,10 @@ TEST_F(LinkerTest, RunLinkToLib) {
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl",
              &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast2.hlsl",
              &pLib);
 
   CComPtr<IDxcLinker> pLinker;

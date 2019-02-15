@@ -916,7 +916,6 @@ public:
   TEST_METHOD(CodeGenDx12MiniEngineTonemapcs)
   TEST_METHOD(CodeGenDx12MiniEngineUpsampleandblurcs)
   TEST_METHOD(DxilGen_StoreOutput)
-  TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
   TEST_METHOD(VecElemConstEval)
   TEST_METHOD(ViewID)
@@ -933,6 +932,7 @@ public:
   TEST_METHOD(CodeGenDeclarations)
   TEST_METHOD(CodeGenExpressions)
   TEST_METHOD(CodeGenPreprocessor)
+  TEST_METHOD(CodeGenShaderStages)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -5581,10 +5581,6 @@ TEST_F(CompilerTest, DxilGen_StoreOutput) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\dxilgen_storeoutput.hlsl");
 }
 
-TEST_F(CompilerTest, ConstantFolding) {
-  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\constprop");
-}
-
 TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\hoist-constant-array");
 }
@@ -5823,4 +5819,8 @@ TEST_F(CompilerTest, CodeGenExpressions) {
 
 TEST_F(CompilerTest, CodeGenPreprocessor) {
   CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\preprocessor");
+}
+
+TEST_F(CompilerTest, CodeGenShaderStages) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\shader_stages");
 }
