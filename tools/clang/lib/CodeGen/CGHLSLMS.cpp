@@ -7010,9 +7010,15 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
+    RValue argRV; // emit this if aggregate arg on in-only param
+    LValue argLV; // otherwise, we may emit this
+    bool isAggregateType = (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
+      !hlsl::IsHLSLVecMatType(ParamTy);
+
+    bool EmitRValueAgg = false;
     bool RValOnRef = false;
     if (!Param->isModifierOut()) {
-      if (!ParamTy->isAggregateType() || hlsl::IsHLSLMatType(ParamTy)) {
+      if (!isAggregateType) {
         if (Arg->isRValue() && Param->getType()->isReferenceType()) {
           // RValue on a reference type.
           if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
@@ -7035,6 +7041,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         } else {
           continue;
         }
+      } else {
+        // aggregate in-only - emit RValue
+        EmitRValueAgg = true;
       }
     }
 
@@ -7045,26 +7054,34 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     }
 
     if (!Param->isModifierOut() && !RValOnRef) {
-      // FIXME: Determine whether we need to translate address space before
-      //        EmitLValue so we can skip the copy if we don't need it.
-      //        We can't get address space in reliable way for the expression
-      //        Arg, since this could require drilling into the expression.
-      bool isDefaultAddrSpace = false; //Arg->getType().getAddressSpace() == 0;
-      bool isHLSLIntrinsic = false;
+      // No need to copy arg to in-only param for hlsl intrinsic.
       if (const FunctionDecl *Callee = E->getDirectCallee()) {
-        isHLSLIntrinsic = Callee->hasAttr<HLSLIntrinsicAttr>();
+        if (Callee->hasAttr<HLSLIntrinsicAttr>())
+          continue;
       }
-      // Copy in arg which is not default address space and not on hlsl intrinsic.
-      if (isDefaultAddrSpace || isHLSLIntrinsic)
-        continue;
     }
+
 
     // get original arg
     // FIXME: This will not emit in correct argument order with the other
     //        arguments. This should be integrated into
     //        CodeGenFunction::EmitCallArg if possible.
-    LValue argLV = CGF.EmitLValue(Arg);
-    // Since we called EmitLValue(Arg), we must update the argList[i],
+    llvm::Value *argAddr = nullptr;
+    QualType argType = Arg->getType();
+    CharUnits argAlignment;
+    if (EmitRValueAgg) {
+      argRV = CGF.EmitAnyExprToTemp(Arg);
+      argAddr = argRV.getAggregateAddr(); // must be alloca
+      argAlignment = CharUnits::fromQuantity(cast<AllocaInst>(argAddr)->getAlignment());
+      argLV = LValue::MakeAddr(argAddr, ParamTy, argAlignment, CGF.getContext());
+    } else {
+      argLV = CGF.EmitLValue(Arg);
+      if (argLV.isSimple())
+        argAddr = argLV.getAddress();
+      argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
+      argAlignment = argLV.getAlignment();
+    }
+    // After emit Arg, we must update the argList[i],
     // otherwise we get double emit of the expression.
 
     // create temp Var
@@ -7075,14 +7092,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                         CGF.getContext().getTrivialTypeSourceInfo(ParamTy),
                         StorageClass::SC_Auto);
 
-    // Aggregate type will be indirect param convert to pointer type.
-    // So don't update to ReferenceType, use RValue for it.
-    bool isAggregateType = (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
-      !hlsl::IsHLSLVecMatType(ParamTy);
-
     bool isEmptyAggregate = false;
     if (isAggregateType) {
-      llvm::Type *ElTy = argLV.getAddress()->getType()->getPointerElementType();
+      DXASSERT(argAddr, "should be RV or simple LV");
+      llvm::Type *ElTy = argAddr->getType()->getPointerElementType();
       while (ElTy->isArrayTy())
         ElTy = ElTy->getArrayElementType();
       if (llvm::StructType *ST = dyn_cast<StructType>(ElTy)) {
@@ -7091,12 +7104,14 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       }
     }
 
+    // Aggregate type will be indirect param convert to pointer type.
+    // So don't update to ReferenceType, use RValue for it.
     const DeclRefExpr *tmpRef = DeclRefExpr::Create(
         CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
         /*enclosing*/ false, tmpArg->getLocation(), ParamTy,
         isAggregateType ? VK_RValue : VK_LValue);
 
-    // must update the arg, since CGF.EmitLValue(Arg) was called
+    // must update the arg, since we did emit Arg, else we get double emit.
     argList[i] = tmpRef;
 
     // create alloc for the tmp arg
@@ -7116,7 +7131,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     if (isEmptyAggregate)
       continue;
 
-    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argLV.getAlignment(),
+    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argAlignment,
                                     CGF.getContext());
 
     // save for cast after call
@@ -7134,13 +7149,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         !isObject) {
       QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
-      bool isAggregateTy = ParamTy->isAggregateType() && !IsHLSLVecMatType(ParamTy);
-      if (!isAggregateTy) {
+      if (!isAggregateType) {
         if (!IsHLSLMatType(ParamTy)) {
           RValue outRVal = CGF.EmitLoadOfLValue(argLV, SourceLocation());
           outVal = outRVal.getScalarVal();
         } else {
-          Value *argAddr = argLV.getAddress();
+          DXASSERT(argAddr, "should be RV or simple LV");
           outVal = EmitHLSLMatrixLoad(CGF, argAddr, ArgTy);
         }
 
@@ -7150,15 +7164,16 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
         }
         else {
-          Value *castVal = ConvertScalarOrVector(CGF, outVal, argLV.getType(), tmpLV.getType());
-          castVal = CGF.EmitToMemory(castVal, tmpLV.getType());
+          Value *castVal = ConvertScalarOrVector(CGF, outVal, argType, ParamTy);
+          castVal = CGF.EmitToMemory(castVal, ParamTy);
           CGF.Builder.CreateStore(castVal, tmpArgAddr);
         }
       } else {
+        DXASSERT(argAddr, "should be RV or simple LV");
         SmallVector<Value *, 4> idxList;
-        EmitHLSLAggregateCopy(CGF, argLV.getAddress(), tmpLV.getAddress(),
+        EmitHLSLAggregateCopy(CGF, argAddr, tmpArgAddr,
                               idxList, ArgTy, ParamTy,
-                              argLV.getAddress()->getType());
+                              argAddr->getType());
       }
     }
   }
