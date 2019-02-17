@@ -4639,7 +4639,7 @@ public:
 
     // Change return type to rvalue reference type for aggregate types
     QualType retTy = parameterTypes[0];
-    if (retTy->isAggregateType() && !IsHLSLVecMatType(retTy))
+    if (hlsl::IsHLSLAggregateType(retTy))
       parameterTypes[0] = m_context->getRValueReferenceType(retTy);
 
     // Create a new specialization.

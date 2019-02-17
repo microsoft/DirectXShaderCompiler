@@ -91,7 +91,7 @@ bool IsHLSLVecType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLNumeric(clang::QualType type) {
+static bool IsHLSLNumeric(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
@@ -125,9 +125,11 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLAggregateType(clang::ASTContext& context, clang::QualType type) {
-  // Aggregate types are arrays and user-defined structs
-  if (context.getAsArrayType(type) != nullptr) return true;
+// Aggregate types are arrays and user-defined structs
+bool IsHLSLAggregateType(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (isa<clang::ArrayType>(type)) return true;
+
   const RecordType *Record = dyn_cast<RecordType>(type);
   return Record != nullptr
     && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)

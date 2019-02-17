@@ -1825,7 +1825,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     // If the aggregate type is the cast source, it should be a pointer.
     // Aggregate to aggregate casts are handled in CGExprAgg.cpp
     auto areCompoundAndNumeric = [this](QualType lhs, QualType rhs) {
-      return hlsl::IsHLSLAggregateType(CGF.getContext(), lhs)
+      return hlsl::IsHLSLAggregateType(lhs)
         && (rhs->isBuiltinType() || hlsl::IsHLSLVecMatType(rhs));
     };
     assert(Src->getType()->isPointerTy()
@@ -1843,7 +1843,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, DstPtr, DestTy);
     
     // Structs/arrays are pointers to temporaries
-    if (hlsl::IsHLSLAggregateType(CGF.getContext(), DestTy))
+    if (hlsl::IsHLSLAggregateType(DestTy))
       return DstPtr;
     
     // Scalars/vectors are loaded regularly
