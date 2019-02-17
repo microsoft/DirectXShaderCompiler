@@ -1,5 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
+// CHECK: alloca [16 x i32]
+
 // For b4[2]
 // CHECK: cbufferLoadLegacy
 // CHECK: i32 5)
@@ -47,7 +49,6 @@
 // CHECK: fcmp fast oeq
 // CHECK: fcmp fast oeq
 // CHECK: fcmp fast oeq
-// CHECK: alloca [16 x i32]
 
 
 float4x4 xt;
