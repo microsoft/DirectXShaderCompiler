@@ -7012,13 +7012,15 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     QualType ParamTy = Param->getType().getNonReferenceType();
     RValue argRV; // emit this if aggregate arg on in-only param
     LValue argLV; // otherwise, we may emit this
-    bool isAggregateType = (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
+    bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isAggregateType = !isObject &&
+      (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
       !hlsl::IsHLSLVecMatType(ParamTy);
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
     if (!Param->isModifierOut()) {
-      if (!isAggregateType) {
+      if (!isAggregateType && !isObject) {
         if (Arg->isRValue() && Param->getType()->isReferenceType()) {
           // RValue on a reference type.
           if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
@@ -7041,9 +7043,20 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         } else {
           continue;
         }
-      } else {
-        // aggregate in-only - emit RValue
+      } else if (isAggregateType) {
+        // aggregate in-only - emit RValue, unless LValueToRValue cast
         EmitRValueAgg = true;
+        if (const ImplicitCastExpr *cast =
+                dyn_cast<ImplicitCastExpr>(Arg)) {
+          if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
+            EmitRValueAgg = false;
+          }
+        }
+      } else {
+        // Must be object
+        DXASSERT(isObject, "otherwise, flow condition changed, breaking assumption");
+        // in-only objects should be skipped to preserve previous behavior.
+        continue;
       }
     }
 
@@ -7109,7 +7122,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const DeclRefExpr *tmpRef = DeclRefExpr::Create(
         CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
         /*enclosing*/ false, tmpArg->getLocation(), ParamTy,
-        isAggregateType ? VK_RValue : VK_LValue);
+        (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
     // must update the arg, since we did emit Arg, else we get double emit.
     argList[i] = tmpRef;
@@ -7139,9 +7152,6 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       castArgList.emplace_back(tmpLV);
       castArgList.emplace_back(argLV);
     }
-
-    bool isObject = dxilutil::IsHLSLObjectType(
-        tmpArgAddr->getType()->getPointerElementType());
 
     // cast before the call
     if (Param->isModifierIn() &&
