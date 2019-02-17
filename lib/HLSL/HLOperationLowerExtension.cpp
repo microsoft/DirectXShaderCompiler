@@ -11,7 +11,6 @@
 
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperationLower.h"
 #include "dxc/HLSL/HLOperations.h"

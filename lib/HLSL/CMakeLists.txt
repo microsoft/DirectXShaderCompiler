@@ -23,7 +23,10 @@ add_llvm_library(LLVMHLSL
   DxilExportMap.cpp
   DxilValidation.cpp
   DxcOptimizer.cpp
+  HLMatrixBitcastLowerPass.cpp
   HLMatrixLowerPass.cpp
+  HLMatrixSubscriptUseReplacer.cpp
+  HLMatrixType.cpp
   HLModule.cpp
   HLOperations.cpp
   HLOperationLower.cpp

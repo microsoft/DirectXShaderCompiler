@@ -1,6 +1,9 @@
 // RUN: %dxc -E not_main -T ps_6_0 %s | FileCheck %s
 
-// Make sure internal global is removed.
+// Tests that the static-global-to-alloca pass
+// will turn a static matrix lowered into a static vector
+// into a local variable, even in the absence of the GVN pass.
+
 // CHECK-NOT:  = internal
 
 static float2x2 a;

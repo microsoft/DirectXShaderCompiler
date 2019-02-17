@@ -477,6 +477,10 @@ bool IsHLSLMatrixType(Type *Ty) {
   return false;
 }
 
+bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
+  return Ty->isIntegerTy() || Ty->isFloatingPointTy();
+}
+
 bool ContainsHLSLObjectType(llvm::Type *Ty) {
   // Unwrap pointer/array
   while (llvm::isa<llvm::PointerType>(Ty))
