@@ -2330,42 +2330,40 @@ void HLMatrixLowerPass::DeleteDeadInsts() {
   m_inDeadInstsSet.clear();
 }
 
-// Iterate GV users, and transparently iterate address space cast users as well
-class GVUserIter {
+// Iterate users, tunnel through address space cast, and skip unused constant
+// users.
+class UserIter_TunnelAddrSpace_SkipUnusedConstantUser {
 private:
-  Value::user_iterator GVUser;
-  Value::user_iterator AddrSpaceCastUser;
+  Value::user_iterator UserIt;
+  Value::user_iterator AddrSpaceCastUserIt;
 
 public:
   User *U = nullptr;
 public:
-  GVUserIter() {}
-  GVUserIter(Value *V)
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser() {}
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser(Value *V)
   {
     if (!V->user_empty())
-      GVUser = V->user_begin();
+      UserIt = V->user_begin();
     Next();
   }
-  GVUserIter(const GVUserIter &other) {
-    GVUser = other.GVUser;
-    AddrSpaceCastUser = other.AddrSpaceCastUser;
-    U = other.U;
-  }
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser(
+      const UserIter_TunnelAddrSpace_SkipUnusedConstantUser &other) = default;
 
   User *Next() {
     U = nullptr;
-    if (!AddrSpaceCastUser.atEnd()) {
-      U = *(AddrSpaceCastUser++);
+    if (!AddrSpaceCastUserIt.atEnd()) {
+      U = *(AddrSpaceCastUserIt++);
       return U;
     }
-    while (!GVUser.atEnd()) {
-      U = *(GVUser++);
+    while (!UserIt.atEnd()) {
+      U = *(UserIt++);
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
         if (CE->user_empty())
           continue;
         if (CE->getOpcode() == Instruction::AddrSpaceCast) {
-          AddrSpaceCastUser = CE->user_begin();
-          U = *(AddrSpaceCastUser++);
+          AddrSpaceCastUserIt = CE->user_begin();
+          U = *(AddrSpaceCastUserIt++);
           return U;
         }
       }
@@ -2375,21 +2373,35 @@ public:
     return U;
   }
 
-  GVUserIter begin() { return *this; }
-  GVUserIter end() { return GVUserIter(); }
-  bool operator==(const GVUserIter &other) {
-    return (U == other.U && GVUser == other.GVUser && AddrSpaceCastUser == other.AddrSpaceCastUser);
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser begin() { return *this; }
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser end() {
+    return UserIter_TunnelAddrSpace_SkipUnusedConstantUser();
   }
-  bool operator!=(const GVUserIter &other) { return !(*this == (other)); }
-  GVUserIter &operator++() { Next(); return *this; }
-  GVUserIter operator++(int) { auto tmp = *this; ++*this; return tmp; }
+  bool
+  operator==(const UserIter_TunnelAddrSpace_SkipUnusedConstantUser &other) {
+    return (U == other.U && UserIt == other.UserIt &&
+            AddrSpaceCastUserIt == other.AddrSpaceCastUserIt);
+  }
+  bool
+  operator!=(const UserIter_TunnelAddrSpace_SkipUnusedConstantUser &other) {
+    return !(*this == (other));
+  }
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser &operator++() {
+    Next();
+    return *this;
+  }
+  UserIter_TunnelAddrSpace_SkipUnusedConstantUser operator++(int) {
+    auto tmp = *this;
+    ++*this;
+    return tmp;
+  }
   User *operator*() { return U; }
   User *operator->() { return U; }
 };
 
 static bool OnlyUsedByMatrixLdSt(Value *V) {
   bool onlyLdSt = true;
-  for (User *user : GVUserIter(V)) {
+  for (User *user : UserIter_TunnelAddrSpace_SkipUnusedConstantUser(V)) {
     if (isa<Constant>(user) && user->use_empty())
       continue;
 
@@ -2474,7 +2486,7 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
     HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, VecGV);
   }
 
-  for (User *U : GVUserIter(GV)) {
+  for (User *U : UserIter_TunnelAddrSpace_SkipUnusedConstantUser(GV)) {
     Value *VecGEP = nullptr;
     // Must be GEP or GEPOperator.
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
@@ -2579,7 +2591,7 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
       }
       vecGlobals[i] = EltGV;
     }
-    for (User *user : GVUserIter(GV)) {
+    for (User *user : UserIter_TunnelAddrSpace_SkipUnusedConstantUser(GV)) {
       if (isa<Constant>(user) && user->use_empty())
         continue;
       CallInst *CI = cast<CallInst>(user);
@@ -2608,7 +2620,7 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
                                                      arrayMat);
     }
 
-    for (User *U :GVUserIter(GV)) {
+    for (User *U :UserIter_TunnelAddrSpace_SkipUnusedConstantUser(GV)) {
       Value *user = U;
       CallInst *CI = cast<CallInst>(user);
       HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());

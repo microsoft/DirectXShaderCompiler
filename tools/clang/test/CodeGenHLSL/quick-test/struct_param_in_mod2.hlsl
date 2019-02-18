@@ -1,29 +1,25 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// Verify fixes for:
-// Bug 1: extra calls to MulPayload due to LValue emit for function call and skipping arg replacement when deemed unnecessary
-// Bug 2: local modification to the payload structure in MullPayload leaks to calling function
+// Verify that passing struct result of call as arg to another call does not
+// generate extra call.
 
-// CHECK-DAG: [[p1x:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0,
-// CHECK-DAG: [[p1y:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 1,
-// CHECK-DAG: [[p1z:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 2,
-// CHECK-DAG: [[inputx:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0,
-// CHECK-DAG: [[inputy:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1,
-// CHECK-DAG: [[add_inputxy:%[^ ]*]] = fadd fast float [[inputy]], [[inputx]]
-// CHECK-DAG: [[retx:%[^ ]*]] = fmul fast float [[add_inputxy]], [[p1x]]
-// CHECK-DAG: [[rety:%[^ ]*]] = fmul fast float [[add_inputxy]], [[p1y]]
-// CHECK-DAG: [[retz:%[^ ]*]] = fmul fast float [[add_inputxy]], [[p1z]]
-// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float [[retx]])
-// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float [[rety]])
-// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float [[retz]])
+// CHECK-DAG: [[f:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0,
+// CHECK-DAG: [[p:%[^ ]*]] = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0,
+// CHECK-DAG: [[factor:%[^ ]*]] = fmul fast float [[f]], 2.000000e+00
+// CHECK-DAG: [[factor2:%[^ ]*]] = fadd fast float [[factor]], 1.000000e+00
+// CHECK-DAG: [[ret:%[^ ]*]] = fmul fast float [[factor2]], [[p]]
+// CHECK-DAG: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float [[ret]])
 
 struct PayloadStruct {
-  float3 Color;
+  float Color;
 };
 
-PayloadStruct MulPayload(in PayloadStruct Payload, in float x)
+static float factor = 1.0;
+
+PayloadStruct MulPayload(in PayloadStruct Payload)
 {
-  Payload.Color *= x;
+  Payload.Color *= factor;
+  factor += 1.0;
   return Payload;
 }
 
@@ -33,10 +29,10 @@ PayloadStruct AddPayload(in PayloadStruct Payload0, in PayloadStruct Payload1)
   return Payload0;
 }
 
-void main(float2 input : INPUT,
-          PayloadStruct FirstPayload : FirstPayload,
+void main(PayloadStruct p : Payload,
+	  	  float f : INPUT,
           out PayloadStruct OutputPayload : SV_Target) {
-
-  OutputPayload = AddPayload(MulPayload(FirstPayload, input.x),
-                             MulPayload(FirstPayload, input.y));
+  factor = f;
+  OutputPayload = AddPayload(MulPayload(p),
+                             MulPayload(p));
 }

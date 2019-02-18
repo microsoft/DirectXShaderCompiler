@@ -4187,7 +4187,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 /// MarkEmptyStructUsers - Add instruction related to Empty struct to DeadInsts.
 void SROA_Helper::MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadInsts) {
   UndefValue *undef = UndefValue::get(V->getType());
-  for (User *U : V->users()) {
+  for (auto itU = V->user_begin(), E = V->user_end(); itU != E;) {
+    Value *U = *(itU++);
     // Kill memcpy, set operands to undef for call and ret, and recurse
     if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
       DeadInsts.emplace_back(MC);
@@ -4198,9 +4199,12 @@ void SROA_Helper::MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadI
       }
     } else if (ReturnInst *Ret = dyn_cast<ReturnInst>(U)) {
       Ret->setOperand(0, undef);
-    } else {
+    } else if (isa<Constant>(U) || isa<GetElementPtrInst>(U) ||
+               isa<BitCastInst>(U) || isa<LoadInst>(U) || isa<StoreInst>(U)) {
       // Recurse users
       MarkEmptyStructUsers(U, DeadInsts);
+    } else {
+      DXASSERT(false, "otherwise, recursing unexpected empty struct user");
     }
   }
 
