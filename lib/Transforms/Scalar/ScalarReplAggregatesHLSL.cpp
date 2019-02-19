@@ -3356,31 +3356,32 @@ void SROA_Helper::RewriteForConstExpr(ConstantExpr *CE, IRBuilder<> &Builder) {
 /// RewriteForScalarRepl - OldVal is being split into NewElts, so rewrite
 /// users of V, which references it, to use the separate elements.
 void SROA_Helper::RewriteForScalarRepl(Value *V, IRBuilder<> &Builder) {
-
-  for (Value::use_iterator UI = V->use_begin(), E = V->use_end(); UI != E;) {
-    Use &TheUse = *UI++;
+  // Don't iterate upon the uses explicitly because we'll be removing them,
+  // and potentially adding new ones (if expanding memcpys) during the iteration.
+  while (!V->use_empty()) {
+    Use &TheUse = *V->use_begin();
 
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(TheUse.getUser())) {
       RewriteForConstExpr(CE, Builder);
-      continue;
     }
-    Instruction *User = cast<Instruction>(TheUse.getUser());
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      IRBuilder<> Builder(GEP);
-      RewriteForGEP(cast<GEPOperator>(GEP), Builder);
-    } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User))
-      RewriteForLoad(ldInst);
-    else if (StoreInst *stInst = dyn_cast<StoreInst>(User))
-      RewriteForStore(stInst);
-    else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(User))
-      RewriteMemIntrin(MI, cast<Instruction>(V));
-    else if (CallInst *CI = dyn_cast<CallInst>(User)) 
-      RewriteCall(CI);
-    else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User))
-      RewriteBitCast(BCI);
     else {
-      assert(0 && "not support.");
+      Instruction *User = cast<Instruction>(TheUse.getUser());
+      if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+        IRBuilder<> Builder(GEP);
+        RewriteForGEP(cast<GEPOperator>(GEP), Builder);
+      } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User))
+        RewriteForLoad(ldInst);
+      else if (StoreInst *stInst = dyn_cast<StoreInst>(User))
+        RewriteForStore(stInst);
+      else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(User))
+        RewriteMemIntrin(MI, cast<Instruction>(V));
+      else if (CallInst *CI = dyn_cast<CallInst>(User)) 
+        RewriteCall(CI);
+      else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User))
+        RewriteBitCast(BCI);
+      else {
+        assert(0 && "not support.");
+      }
     }
   }
 }
