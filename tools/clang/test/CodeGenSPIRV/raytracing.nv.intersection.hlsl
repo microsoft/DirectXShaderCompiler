@@ -45,11 +45,13 @@ void main() {
   float3 _10 = ObjectRayOrigin();
 // CHECK:  OpLoad %v3float [[i]]
   float3 _11 = ObjectRayDirection();
-// CHECK:  OpLoad %mat4v3float [[j]]
+// CHECK: [[matotw:%\d+]] = OpLoad %mat4v3float [[j]]
+// CHECK-NEXT: OpTranspose %mat3v4float [[matotw]]
   float3x4 _12 = ObjectToWorld3x4();
 // CHECK:  OpLoad %mat4v3float [[j]]
   float4x3 _13 = ObjectToWorld4x3();
-// CHECK:  OpLoad %mat4v3float [[k]]
+// CHECK: [[matwto:%\d+]] = OpLoad %mat4v3float [[k]]
+// CHECK-NEXT: OpTranspose %mat3v4float [[matwto]]
   float3x4 _14 = WorldToObject3x4();
 // CHECK:  OpLoad %mat4v3float [[k]]
   float4x3 _15 = WorldToObject4x3();

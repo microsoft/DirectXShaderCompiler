@@ -2,11 +2,17 @@
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
 // CHECK:  OpEntryPoint RayGenerationNV %MyRayGenMain "MyRayGenMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK:  OpEntryPoint RayGenerationNV %MyRayGenMain2 "MyRayGenMain2" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
 // CHECK:  OpEntryPoint MissNV %MyMissMain "MyMissMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK:  OpEntryPoint MissNV %MyMissMain2 "MyMissMain2" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
 // CHECK:  OpEntryPoint IntersectionNV %MyISecMain "MyISecMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK:  OpEntryPoint IntersectionNV %MyISecMain2 "MyISecMain2" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
 // CHECK:  OpEntryPoint AnyHitNV %MyAHitMain "MyAHitMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK:  OpEntryPoint AnyHitNV %MyAHitMain2 "MyAHitMain2" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
 // CHECK:  OpEntryPoint ClosestHitNV %MyCHitMain "MyCHitMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK:  OpEntryPoint ClosestHitNV %MyCHitMain2 "MyCHitMain2" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
 // CHECK:  OpEntryPoint CallableNV %MyCallMain "MyCallMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK:  OpEntryPoint CallableNV %MyCallMain2 "MyCallMain2" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
 // CHECK:  OpDecorate [[b:%\d+]] BuiltIn LaunchSizeNV
 // CHECK:  OpDecorate [[c:%\d+]] BuiltIn WorldRayOriginNV
@@ -63,6 +69,12 @@ void MyRayGenMain() {
   CallShader(0, myCallData);
 }
 
+[shader("raygeneration")]
+void MyRayGenMain2() {
+    CallData myCallData = { float4(0.0f,0.0f,0.0f,0.0f) };
+    CallShader(0, myCallData);
+}
+
 [shader("miss")]
 void MyMissMain(inout Payload MyPayload) {
 
@@ -78,6 +90,11 @@ void MyMissMain(inout Payload MyPayload) {
   float _5 = RayTMin();
 // CHECK:  OpLoad %uint [[f]]
   uint _6 = RayFlags();
+}
+
+[shader("miss")]
+void MyMissMain2(inout Payload MyPayload) {
+    MyPayload.color = float4(0.0f,1.0f,0.0f,1.0f);
 }
 
 [shader("intersection")]
@@ -115,6 +132,13 @@ void MyISecMain() {
   float4x3 _15 = WorldToObject4x3();
 
   Attribute myHitAttribute = { float2(0.0f,0.0f) };
+// CHECK: OpReportIntersectionNV %bool %float_0 %uint_0
+  ReportHit(0.0f, 0U, myHitAttribute);
+}
+
+[shader("intersection")]
+void MyISecMain2() {
+  Attribute myHitAttribute = { float2(0.0f,1.0f) };
 // CHECK: OpReportIntersectionNV %bool %float_0 %uint_0
   ReportHit(0.0f, 0U, myHitAttribute);
 }
@@ -164,6 +188,12 @@ void MyAHitMain(inout Payload MyPayload, in Attribute MyAttr) {
   }
 }
 
+[shader("anyhit")]
+void MyAHitMain2(inout Payload MyPayload, in Attribute MyAttr) {
+// CHECK:  OpTerminateRayNV
+    AcceptHitAndEndSearch();
+}
+
 [shader("closesthit")]
 void MyCHitMain(inout Payload MyPayload, in Attribute MyAttr) {
 
@@ -210,6 +240,11 @@ void MyCHitMain(inout Payload MyPayload, in Attribute MyAttr) {
   TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
 }
 
+[shader("closesthit")]
+void MyCHitMain2(inout Payload MyPayload, in Attribute MyAttr) {
+    MyPayload.color = float4(0.0f,1.0f,0.0f,1.0f);
+}
+
 [shader("callable")]
 void MyCallMain(inout CallData myCallData) {
 
@@ -217,4 +252,9 @@ void MyCallMain(inout CallData myCallData) {
   uint3 a = DispatchRaysIndex();
 // CHECK:  OpLoad %v3uint [[b]]
   uint3 b = DispatchRaysDimensions();
+}
+
+[shader("callable")]
+void MyCallMain2(inout CallData myCallData) {
+    myCallData.data = float4(0.0f,1.0f,0.0f,1.0f);
 }
