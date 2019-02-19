@@ -10,10 +10,8 @@
 #include "EmitVisitor.h"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
-#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
-#include "clang/SPIRV/SpirvModule.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/String.h"
 
@@ -178,7 +176,7 @@ void EmitVisitor::encodeString(llvm::StringRef value) {
   curInst.insert(curInst.end(), words.begin(), words.end());
 }
 
-bool EmitVisitor::visit(SpirvModule *m, Phase phase) {
+bool EmitVisitor::visit(SpirvModule *, Phase) {
   // No pre-visit operations needed for SpirvModule.
   return true;
 }

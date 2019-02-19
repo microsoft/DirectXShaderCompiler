@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/SpirvFunction.h"
 #include "BlockReadableOrder.h"
+#include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {

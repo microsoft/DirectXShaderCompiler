@@ -16,8 +16,6 @@
 namespace clang {
 namespace spirv {
 
-class SpirvBuilder;
-
 class LiteralTypeVisitor : public Visitor {
 public:
   LiteralTypeVisitor(const ASTContext &ctx, SpirvContext &spvCtx,

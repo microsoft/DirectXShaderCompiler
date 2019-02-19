@@ -9,7 +9,7 @@
 
 #include "LiteralTypeVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
-#include "clang/SPIRV/SpirvBuilder.h"
+#include "clang/SPIRV/SpirvFunction.h"
 
 namespace clang {
 namespace spirv {

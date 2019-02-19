@@ -10,7 +10,6 @@
 #define LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 
 #include <array>
-#include <unordered_map>
 
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"

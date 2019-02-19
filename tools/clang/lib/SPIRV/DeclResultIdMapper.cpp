@@ -9,10 +9,7 @@
 
 #include "DeclResultIdMapper.h"
 
-#include <algorithm>
-#include <cstring>
 #include <sstream>
-#include <unordered_map>
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilTypeSystem.h"

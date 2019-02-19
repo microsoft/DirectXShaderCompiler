@@ -15,7 +15,6 @@
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
-#include "llvm/ADT/MapVector.h"
 
 namespace clang {
 namespace spirv {
