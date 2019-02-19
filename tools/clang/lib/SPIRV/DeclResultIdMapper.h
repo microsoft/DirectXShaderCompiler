@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSigPoint.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/spirv.hpp11"
@@ -25,7 +24,6 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 
-#include "ExecutionModel.h"
 #include "GlPerVertex.h"
 #include "SpirvEvalInfo.h"
 
@@ -260,12 +258,10 @@ private:
 /// stage variables per Vulkan's requirements.
 class DeclResultIdMapper {
 public:
-  inline DeclResultIdMapper(const hlsl::ShaderModel &model, ASTContext &context,
-                            SpirvContext &spirvContext,
+  inline DeclResultIdMapper(ASTContext &context, SpirvContext &spirvContext,
                             SpirvBuilder &spirvBuilder, SpirvEmitter &emitter,
                             FeatureManager &features,
-                            const SpirvCodeGenOptions &spirvOptions,
-                            const ExecutionModel *em);
+                            const SpirvCodeGenOptions &spirvOptions);
 
   /// \brief Returns the SPIR-V builtin variable.
   SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type,
@@ -297,7 +293,7 @@ public:
 
   /// \brief Creates stage variables for raytracing.
   SpirvVariable *createRayTracingNVStageVar(spv::StorageClass sc,
-                                          const VarDecl *decl);
+                                            const VarDecl *decl);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its instruction.
@@ -365,12 +361,6 @@ public:
 
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
-
-  /// \brief Sets the SPIR-V execution model
-  void setSpvExecutionModel(const ExecutionModel *em) {
-    glPerVertex.setSpvExecutionModel(em);
-    spvExecModel = em;
-  }
 
   /// Raytracing specific functions
   /// \brief Handle specific implicit declarations present only in raytracing
@@ -648,7 +638,6 @@ private:
   inline bool isInputStorageClass(const StageVar &v);
 
 private:
-  const hlsl::ShaderModel &shaderModel;
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
   const SpirvCodeGenOptions &spirvOptions;
@@ -656,7 +645,6 @@ private:
   SpirvContext &spvContext;
   DiagnosticsEngine &diags;
   SpirvFunction *entryFunction;
-  const ExecutionModel *spvExecModel;
 
   /// Mapping of all Clang AST decls to their instruction pointers.
   llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
@@ -763,19 +751,20 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
   builder.createStore(counterVar, srcPair.get(builder, context));
 }
 
-DeclResultIdMapper::DeclResultIdMapper(
-    const hlsl::ShaderModel &model, ASTContext &context,
-    SpirvContext &spirvContext, SpirvBuilder &spirvBuilder,
-    SpirvEmitter &emitter, FeatureManager &features,
-    const SpirvCodeGenOptions &options, const ExecutionModel *execModel)
-    : shaderModel(model), spvBuilder(spirvBuilder), theEmitter(emitter),
-      spirvOptions(options), astContext(context), spvContext(spirvContext),
+DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
+                                       SpirvContext &spirvContext,
+                                       SpirvBuilder &spirvBuilder,
+                                       SpirvEmitter &emitter,
+                                       FeatureManager &features,
+                                       const SpirvCodeGenOptions &options)
+    : spvBuilder(spirvBuilder), theEmitter(emitter), spirvOptions(options),
+      astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
-      spvExecModel(execModel), needsLegalization(false),
-      glPerVertex(execModel, context, spirvContext, spirvBuilder) {}
+      needsLegalization(false),
+      glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
-  if (spvExecModel->IsRay()) {
+  if (spvContext.isRay()) {
     // No location assignment for any raytracing stage variables
     return true;
   }

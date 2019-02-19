@@ -11,14 +11,11 @@
 #define LLVM_CLANG_LIB_SPIRV_GLPERVERTEX_H
 
 #include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSigPoint.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
-
-#include "ExecutionModel.h"
 
 namespace clang {
 namespace spirv {
@@ -44,8 +41,8 @@ namespace spirv {
 /// array for ClipDistance builtin.
 class GlPerVertex {
 public:
-  GlPerVertex(const ExecutionModel *em, ASTContext &context,
-              SpirvContext &spvContext, SpirvBuilder &spvBuilder);
+  GlPerVertex(ASTContext &context, SpirvContext &spvContext,
+              SpirvBuilder &spvBuilder);
 
   /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
@@ -87,9 +84,6 @@ public:
                    uint32_t semanticIndex,
                    llvm::Optional<SpirvInstruction *> invocation,
                    SpirvInstruction **value, bool noWriteBack);
-
-  /// \brief Sets the spirv execution model
-  void setSpvExecutionModel(const ExecutionModel *em) { spvExecModel = em; }
 
 private:
   template <unsigned N>
@@ -133,7 +127,6 @@ private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
   using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
 
-  const ExecutionModel *spvExecModel;
   ASTContext &astContext;
   SpirvContext &spvContext;
   SpirvBuilder &spvBuilder;

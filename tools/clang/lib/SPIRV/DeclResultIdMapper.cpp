@@ -422,8 +422,8 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   if (hlsl::IsHLSLStreamOutputType(type))
     type = hlsl::GetHLSLResourceResultType(type);
 
-  const auto *sigPoint = deduceSigPoint(decl, /*asInput=*/false,
-                                        spvExecModel->GetShaderKind(), forPCF);
+  const auto *sigPoint = deduceSigPoint(
+      decl, /*asInput=*/false, spvContext.getCurrentShaderModelKind(), forPCF);
 
   // HS output variables are created using the other overload. For the rest,
   // none of them should be created as arrays.
@@ -437,7 +437,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   // Write back of stage output variables in GS is manually controlled by
   // .Append() intrinsic method, implemented in writeBackOutputStream(). So
   // ignoreValue should be set to true for GS.
-  const bool noWriteBack = storedValue == nullptr || spvExecModel->IsGS();
+  const bool noWriteBack = storedValue == nullptr || spvContext.isGS();
 
   return createStageVars(sigPoint, decl, /*asInput=*/false, type,
                          /*arraySize=*/0, "out.var", llvm::None, &storedValue,
@@ -448,7 +448,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
                                               uint32_t arraySize,
                                               SpirvInstruction *invocationId,
                                               SpirvInstruction *storedValue) {
-  assert(spvExecModel->IsHS());
+  assert(spvContext.isHS());
 
   QualType type = getTypeOrFnRetType(decl);
 
@@ -483,8 +483,9 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
     type = typeDecl->getElementType();
   }
 
-  const auto *sigPoint = deduceSigPoint(paramDecl, /*asInput=*/true,
-                                        spvExecModel->GetShaderKind(), forPCF);
+  const auto *sigPoint =
+      deduceSigPoint(paramDecl, /*asInput=*/true,
+                     spvContext.getCurrentShaderModelKind(), forPCF);
 
   SemanticInfo inheritSemantic = {};
 
@@ -1247,8 +1248,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // likely. In order to avoid location mismatches between HS and DS, use
   // alphabetical ordering.
   if (spirvOptions.stageIoOrder == "alpha" ||
-      (!forInput && spvExecModel->IsHS()) ||
-      (forInput && spvExecModel->IsDS())) {
+      (!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
     // Sort stage input/output variables alphabetically
     std::sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
@@ -1511,7 +1511,7 @@ bool DeclResultIdMapper::createStageVars(
   assert(value);
   // invocationId should only be used for handling HS per-vertex output.
   if (invocationId.hasValue()) {
-    assert(spvExecModel->IsHS() && arraySize != 0 && !asInput);
+    assert(spvContext.isHS() && arraySize != 0 && !asInput);
   }
 
   assert(inheritSemantic);
@@ -1565,12 +1565,14 @@ bool DeclResultIdMapper::createStageVars(
 
     // Error out when the given semantic is invalid in this shader model
     if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPoint->GetKind(),
-                                          shaderModel.GetMajor(),
-                                          shaderModel.GetMinor()) ==
+                                          spvContext.getMajorVersion(),
+                                          spvContext.getMinorVersion()) ==
         hlsl::DXIL::SemanticInterpretationKind::NA) {
       emitError("invalid usage of semantic '%0' in shader profile %1",
                 decl->getLocation())
-          << semanticToUse->str << shaderModel.GetName();
+          << semanticToUse->str
+          << hlsl::ShaderModel::GetKindName(
+                 spvContext.getCurrentShaderModelKind());
       return false;
     }
 
@@ -1685,7 +1687,7 @@ bool DeclResultIdMapper::createStageVars(
       spvBuilder.decoratePatch(varInstr);
 
     // Decorate with interpolation modes for pixel shader input variables
-    if (spvExecModel->IsPS() && sigPoint->IsInput() &&
+    if (spvContext.isPS() && sigPoint->IsInput() &&
         // BaryCoord*AMD buitins already encode the interpolation mode.
         semanticKind != hlsl::Semantic::Kind::Barycentrics)
       decoratePSInterpolationMode(decl, type, varInstr);
@@ -2040,7 +2042,7 @@ bool DeclResultIdMapper::createStageVars(
 bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
                                                QualType type,
                                                SpirvInstruction *value) {
-  assert(spvExecModel->IsGS()); // Only for GS use
+  assert(spvContext.isGS()); // Only for GS use
 
   if (hlsl::IsHLSLStreamOutputType(type))
     type = hlsl::GetHLSLResourceResultType(type);
@@ -2138,7 +2140,7 @@ DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position) {
 SpirvInstruction *
 DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position) {
   // Reciprocate SV_Position.w if requested
-  if (spirvOptions.invertW && spvExecModel->IsPS()) {
+  if (spirvOptions.invertW && spvContext.isPS()) {
     const auto oldW =
         spvBuilder.createCompositeExtract(astContext.FloatTy, position, {3});
     const auto newW = spvBuilder.createBinaryOp(
@@ -2225,7 +2227,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
 
   const hlsl::SigPoint *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
-          hlsl::DxilParamInputQual::In, spvExecModel->GetShaderKind(),
+          hlsl::DxilParamInputQual::In, spvContext.getCurrentShaderModelKind(),
           /*isPatchConstant=*/false));
 
   StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
@@ -2609,7 +2611,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
 bool DeclResultIdMapper::validateVKAttributes(const NamedDecl *decl) {
   bool success = true;
   if (const auto *idxAttr = decl->getAttr<VKIndexAttr>()) {
-    if (!spvExecModel->IsPS()) {
+    if (!spvContext.isPS()) {
       emitError("vk::index only allowed in pixel shader",
                 idxAttr->getLocation());
       success = false;
@@ -2809,7 +2811,7 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
 
 SpirvVariable *
 DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
-                                             const VarDecl *decl) {
+                                               const VarDecl *decl) {
   QualType type = decl->getType();
   SpirvVariable *retVal = nullptr;
   // No predefined semantics defined for variables in raytracing stages

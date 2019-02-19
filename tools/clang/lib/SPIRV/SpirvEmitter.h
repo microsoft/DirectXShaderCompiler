@@ -35,7 +35,6 @@
 #include "llvm/ADT/SetVector.h"
 
 #include "DeclResultIdMapper.h"
-#include "ExecutionModel.h"
 #include "SpirvEvalInfo.h"
 
 namespace clang {
@@ -593,6 +592,11 @@ private:
   /// Emits an error if the given attribute is not a loop attribute.
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
+  static hlsl::ShaderModel::Kind
+  SpirvEmitter::getShaderModelKind(StringRef stageName);
+  static spv::ExecutionModel
+  SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
+
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control
@@ -975,26 +979,22 @@ private:
 
   SpirvCodeGenOptions &spirvOptions;
 
-  /// Entry function name and shader stage. Both of them are derived from the
-  /// command line and should be const.
+  /// \brief Entry function name, derived from the command line
+  /// and should be const.
   const llvm::StringRef entryFunctionName;
-  const hlsl::ShaderModel shaderModel;
 
-  // Structure to maintain record of all entry functions and any reachable
-  // functions
+  /// \brief Structure to maintain record of all entry functions and any
+  /// reachable functions.
   struct FunctionInfo {
   public:
-    const ExecutionModel *spvExecModel;
+    hlsl::ShaderModel::Kind shaderModelKind;
     const DeclaratorDecl *funcDecl;
     SpirvFunction *entryFunction;
     bool isEntryFunction;
 
-    FunctionInfo()
-        : spvExecModel(nullptr), funcDecl(nullptr), entryFunction(nullptr),
-          isEntryFunction(false) {}
-    FunctionInfo(const ExecutionModel *em, const DeclaratorDecl *fDecl,
+    FunctionInfo(hlsl::ShaderModel::Kind smk, const DeclaratorDecl *fDecl,
                  SpirvFunction *entryFunc, bool isEntryFunc)
-        : spvExecModel(em), funcDecl(fDecl), entryFunction(entryFunc),
+        : shaderModelKind(smk), funcDecl(fDecl), entryFunction(entryFunc),
           isEntryFunction(isEntryFunc) {}
   };
 
@@ -1003,8 +1003,8 @@ private:
   SpirvBuilder spvBuilder;
   DeclResultIdMapper declIdMapper;
 
-  // A map of funcDecl to its FunctionInfo. Consists of all entry functions
-  // followed by all reachable functions from the entry functions.
+  /// \brief A map of funcDecl to its FunctionInfo. Consists of all entry
+  /// functions followed by all reachable functions from the entry functions.
   llvm::DenseMap<const DeclaratorDecl *, FunctionInfo *> functionInfoMap;
 
   /// A queue of FunctionInfo reachable from all the entry functions.
@@ -1012,9 +1012,6 @@ private:
   /// translations. And we'd like a deterministic order of iterating the queue
   /// for finding the next function to translate. So we need SetVector here.
   llvm::SetVector<const FunctionInfo *> workQueue;
-
-  // Current Spirv Execution Model associated with below entryFunction
-  const ExecutionModel *spvExecModel;
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.

@@ -60,14 +60,13 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 }
 } // anonymous namespace
 
-GlPerVertex::GlPerVertex(const ExecutionModel *em, ASTContext &context,
-                         SpirvContext &spirvContext, SpirvBuilder &spirvBuilder)
-    : spvExecModel(em), astContext(context), spvContext(spirvContext),
-
-      spvBuilder(spirvBuilder), inClipVar(nullptr), inCullVar(nullptr),
-      outClipVar(nullptr), outCullVar(nullptr), inArraySize(0), outArraySize(0),
-      inClipArraySize(1), outClipArraySize(1), inCullArraySize(1),
-      outCullArraySize(1), inSemanticStrs(2, ""), outSemanticStrs(2, "") {}
+GlPerVertex::GlPerVertex(ASTContext &context, SpirvContext &spirvContext,
+                         SpirvBuilder &spirvBuilder)
+    : astContext(context), spvContext(spirvContext), spvBuilder(spirvBuilder),
+      inClipVar(nullptr), inCullVar(nullptr), outClipVar(nullptr),
+      outCullVar(nullptr), inArraySize(0), outArraySize(0), inClipArraySize(1),
+      outClipArraySize(1), inCullArraySize(1), outCullArraySize(1),
+      inSemanticStrs(2, ""), outSemanticStrs(2, "") {}
 
 void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
   inArraySize = inArrayLen;
@@ -221,7 +220,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   }
 
   if (baseType->isConstantArrayType()) {
-    if (spvExecModel->IsHS() || spvExecModel->IsDS() || spvExecModel->IsGS()) {
+    if (spvContext.isHS() || spvContext.isDS() || spvContext.isGS()) {
       // Ignore the outermost arrayness and check the inner type to be
       // (vector of) floats
 
@@ -556,7 +555,7 @@ void GlPerVertex::writeClipCullArrayFromType(
   }
 
   // Writing to an array only happens in HSCPOut.
-  assert(spvExecModel->IsHS());
+  assert(spvContext.isHS());
   // And we are only writing to the array element with InvocationId as index.
   assert(invocationId.hasValue());
 
