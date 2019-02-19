@@ -633,8 +633,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
         GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
     param->replaceAllUsesWith(input);
   } else if (dxilutil::IsHLSLMatrixType(Ty)) {
-    Value *colIdx = hlslOP->GetU8Const(0);
-    (void)colIdx;
+    if (param->use_empty()) return;
     DXASSERT(param->hasOneUse(),
              "matrix arg should only has one use as matrix to vec");
     CallInst *CI = cast<CallInst>(param->user_back());
