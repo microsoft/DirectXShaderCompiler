@@ -18,9 +18,9 @@ namespace clang {
 namespace spirv {
 
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
-                           FeatureManager *fm, const SpirvCodeGenOptions &opt)
+                           const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), module(nullptr), function(nullptr),
-      featureManager(fm), spirvOptions(opt) {
+      spirvOptions(opt) {
   module = new (context) SpirvModule;
 }
 
@@ -803,22 +803,6 @@ void SpirvBuilder::createLineInfo(SpirvString *file, uint32_t line,
   insertPoint->addInstruction(inst);
 }
 
-void SpirvBuilder::addExtension(Extension ext, llvm::StringRef target,
-                                SourceLocation loc) {
-  // TODO: The extension management should be removed from here and added as a
-  // separate pass.
-
-  if (existingExtensions.insert(ext)) {
-    assert(featureManager);
-    featureManager->requestExtension(ext, target, loc);
-    // Do not emit OpExtension if the given extension is natively supported in
-    // the target environment.
-    if (featureManager->isExtensionRequiredForTargetEnv(ext))
-      module->addExtension(new (context) SpirvExtension(
-          loc, featureManager->getExtensionName(ext)));
-  }
-}
-
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   module->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
@@ -945,8 +929,6 @@ void SpirvBuilder::decorateCounterBuffer(SpirvInstruction *mainBuffer,
                                          SpirvInstruction *counterBuffer,
                                          SourceLocation srcLoc) {
   if (spirvOptions.enableReflect) {
-    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
-                 srcLoc);
     auto *decor = new (context) SpirvDecoration(
         srcLoc, mainBuffer, spv::Decoration::HlslCounterBufferGOOGLE,
         {counterBuffer});
@@ -959,8 +941,6 @@ void SpirvBuilder::decorateHlslSemantic(SpirvInstruction *target,
                                         llvm::Optional<uint32_t> memberIdx,
                                         SourceLocation srcLoc) {
   if (spirvOptions.enableReflect) {
-    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
-                 srcLoc);
     auto *decor = new (context)
         SpirvDecoration(srcLoc, target, spv::Decoration::HlslSemanticGOOGLE,
                         semantic, memberIdx);
@@ -1071,7 +1051,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
-  CapabilityVisitor capabilityVisitor(context, spirvOptions, *this);
+  CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   module->invokeVisitor(&literalTypeVisitor, true);

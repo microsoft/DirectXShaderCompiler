@@ -482,7 +482,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       spvContext(), featureManager(diags, spirvOptions),
-      spvBuilder(astContext, spvContext, &featureManager, spirvOptions),
+      spvBuilder(astContext, spvContext, spirvOptions),
       declIdMapper(shaderModel, astContext, spvContext, spvBuilder, *this,
                    featureManager, spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
@@ -8951,8 +8951,6 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
                                 decl->getLocation());
   }
   if (decl->getAttr<VKPostDepthCoverageAttr>()) {
-    spvBuilder.addExtension(Extension::KHR_post_depth_coverage,
-                            "[[vk::post_depth_coverage]]", decl->getLocation());
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::PostDepthCoverage, {},
                                 decl->getLocation());
