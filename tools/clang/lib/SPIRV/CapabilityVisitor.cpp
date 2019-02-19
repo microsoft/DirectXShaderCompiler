@@ -13,6 +13,21 @@
 namespace clang {
 namespace spirv {
 
+void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
+                                     SourceLocation loc) {
+  featureManager.requestExtension(ext, target, loc);
+  // Do not emit OpExtension if the given extension is natively supported in
+  // the target environment.
+  if (featureManager.isExtensionRequiredForTargetEnv(ext))
+    spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
+}
+
+void CapabilityVisitor::addCapability(spv::Capability cap, SourceLocation loc) {
+  if (cap != spv::Capability::Max) {
+    spvBuilder.requireCapability(cap, loc);
+  }
+}
+
 void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
                                              SourceLocation loc,
                                              spv::StorageClass sc) {
@@ -25,18 +40,18 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     switch (intType->getBitwidth()) {
     case 16: {
       // Usage of a 16-bit integer type.
-      spvBuilder.requireCapability(spv::Capability::Int16);
+      addCapability(spv::Capability::Int16);
 
       // Usage of a 16-bit integer type as stage I/O.
       if (sc == spv::StorageClass::Input || sc == spv::StorageClass::Output) {
-        spvBuilder.addExtension(Extension::KHR_16bit_storage,
-                                "16-bit stage IO variables", loc);
-        spvBuilder.requireCapability(spv::Capability::StorageInputOutput16);
+        addExtension(Extension::KHR_16bit_storage, "16-bit stage IO variables",
+                     loc);
+        addCapability(spv::Capability::StorageInputOutput16);
       }
       break;
     }
     case 64: {
-      spvBuilder.requireCapability(spv::Capability::Int64);
+      addCapability(spv::Capability::Int64);
       break;
     }
     default:
@@ -51,20 +66,19 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       // It looks like the validator does not approve of Float16
       // capability even though we do use the necessary extension.
       // TODO: Re-enable adding Float16 capability below.
-      // spvBuilder.requireCapability(spv::Capability::Float16);
-      spvBuilder.addExtension(Extension::AMD_gpu_shader_half_float,
-                              "16-bit float", loc);
+      // addCapability(spv::Capability::Float16);
+      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float", loc);
 
       // Usage of a 16-bit float type as stage I/O.
       if (sc == spv::StorageClass::Input || sc == spv::StorageClass::Output) {
-        spvBuilder.addExtension(Extension::KHR_16bit_storage,
-                                "16-bit stage IO variables", loc);
-        spvBuilder.requireCapability(spv::Capability::StorageInputOutput16);
+        addExtension(Extension::KHR_16bit_storage, "16-bit stage IO variables",
+                     loc);
+        addCapability(spv::Capability::StorageInputOutput16);
       }
       break;
     }
     case 64: {
-      spvBuilder.requireCapability(spv::Capability::Float64);
+      addCapability(spv::Capability::Float64);
       break;
     }
     default:
@@ -87,9 +101,9 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   else if (const auto *raType = dyn_cast<RuntimeArrayType>(type)) {
     if (SpirvType::isResourceType(raType->getElementType())) {
       // the elements inside the runtime array are resources
-      spvBuilder.addExtension(Extension::EXT_descriptor_indexing,
-                              "runtime array of resources", loc);
-      spvBuilder.requireCapability(spv::Capability::RuntimeDescriptorArrayEXT);
+      addExtension(Extension::EXT_descriptor_indexing,
+                   "runtime array of resources", loc);
+      addCapability(spv::Capability::RuntimeDescriptorArrayEXT);
     }
     addCapabilityForType(raType->getElementType(), loc, sc);
   }
@@ -97,22 +111,22 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   else if (const auto *imageType = dyn_cast<ImageType>(type)) {
     switch (imageType->getDimension()) {
     case spv::Dim::Buffer: {
-      spvBuilder.requireCapability(spv::Capability::SampledBuffer);
+      addCapability(spv::Capability::SampledBuffer);
       if (imageType->withSampler() == ImageType::WithSampler::No) {
-        spvBuilder.requireCapability(spv::Capability::ImageBuffer);
+        addCapability(spv::Capability::ImageBuffer);
       }
       break;
     }
     case spv::Dim::Dim1D: {
       if (imageType->withSampler() == ImageType::WithSampler::No) {
-        spvBuilder.requireCapability(spv::Capability::Image1D);
+        addCapability(spv::Capability::Image1D);
       } else {
-        spvBuilder.requireCapability(spv::Capability::Sampled1D);
+        addCapability(spv::Capability::Sampled1D);
       }
       break;
     }
     case spv::Dim::SubpassData: {
-      spvBuilder.requireCapability(spv::Capability::InputAttachment);
+      addCapability(spv::Capability::InputAttachment);
       break;
     }
     default:
@@ -146,8 +160,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     case spv::ImageFormat::Rg8ui:
     case spv::ImageFormat::R16ui:
     case spv::ImageFormat::R8ui:
-      spvBuilder.requireCapability(
-          spv::Capability::StorageImageExtendedFormats);
+      addCapability(spv::Capability::StorageImageExtendedFormats);
       break;
     default:
       // Only image formats requiring extended formats are relevant. The rest
@@ -156,7 +169,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     }
 
     if (imageType->isArrayedImage() && imageType->isMSImage())
-      spvBuilder.requireCapability(spv::Capability::ImageMSArray);
+      addCapability(spv::Capability::ImageMSArray);
 
     addCapabilityForType(imageType->getSampledType(), loc, sc);
   }
@@ -171,17 +184,16 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // Struct type
   else if (const auto *structType = dyn_cast<StructType>(type)) {
     if (SpirvType::isOrContains16BitType(structType)) {
-      spvBuilder.addExtension(Extension::KHR_16bit_storage,
-                              "16-bit types in resource", loc);
+      addExtension(Extension::KHR_16bit_storage, "16-bit types in resource",
+                   loc);
       if (sc == spv::StorageClass::PushConstant) {
-        spvBuilder.requireCapability(spv::Capability::StoragePushConstant16);
+        addCapability(spv::Capability::StoragePushConstant16);
       } else if (structType->getInterfaceType() ==
                  StructInterfaceType::UniformBuffer) {
-        spvBuilder.requireCapability(spv::Capability::StorageUniform16);
+        addCapability(spv::Capability::StorageUniform16);
       } else if (structType->getInterfaceType() ==
                  StructInterfaceType::StorageBuffer) {
-        spvBuilder.requireCapability(
-            spv::Capability::StorageUniformBufferBlock16);
+        addCapability(spv::Capability::StorageUniformBufferBlock16);
       }
     }
     for (auto field : structType->getFields())
@@ -193,14 +205,19 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
   const auto loc = decor->getSourceLocation();
   switch (decor->getDecoration()) {
   case spv::Decoration::Sample: {
-    spvBuilder.requireCapability(spv::Capability::SampleRateShading, loc);
+    addCapability(spv::Capability::SampleRateShading, loc);
     break;
   }
   case spv::Decoration::NonUniformEXT: {
-    spvBuilder.addExtension(Extension::EXT_descriptor_indexing, "NonUniformEXT",
-                            loc);
-    spvBuilder.requireCapability(spv::Capability::ShaderNonUniformEXT);
+    addExtension(Extension::EXT_descriptor_indexing, "NonUniformEXT", loc);
+    addCapability(spv::Capability::ShaderNonUniformEXT);
 
+    break;
+  }
+  case spv::Decoration::HlslSemanticGOOGLE:
+  case spv::Decoration::HlslCounterBufferGOOGLE: {
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 loc);
     break;
   }
   // Capabilities needed for built-ins
@@ -210,74 +227,71 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     switch (builtin) {
     case spv::BuiltIn::SampleId:
     case spv::BuiltIn::SamplePosition: {
-      spvBuilder.requireCapability(spv::Capability::SampleRateShading, loc);
+      addCapability(spv::Capability::SampleRateShading, loc);
       break;
     }
     case spv::BuiltIn::SubgroupSize:
     case spv::BuiltIn::NumSubgroups:
     case spv::BuiltIn::SubgroupId:
     case spv::BuiltIn::SubgroupLocalInvocationId: {
-      spvBuilder.requireCapability(spv::Capability::GroupNonUniform, loc);
+      addCapability(spv::Capability::GroupNonUniform, loc);
       break;
     }
     case spv::BuiltIn::BaseVertex: {
-      spvBuilder.addExtension(Extension::KHR_shader_draw_parameters,
-                              "BaseVertex Builtin", loc);
-      spvBuilder.requireCapability(spv::Capability::DrawParameters);
+      addExtension(Extension::KHR_shader_draw_parameters, "BaseVertex Builtin",
+                   loc);
+      addCapability(spv::Capability::DrawParameters);
       break;
     }
     case spv::BuiltIn::BaseInstance: {
-      spvBuilder.addExtension(Extension::KHR_shader_draw_parameters,
-                              "BaseInstance Builtin", loc);
-      spvBuilder.requireCapability(spv::Capability::DrawParameters);
+      addExtension(Extension::KHR_shader_draw_parameters,
+                   "BaseInstance Builtin", loc);
+      addCapability(spv::Capability::DrawParameters);
       break;
     }
     case spv::BuiltIn::DrawIndex: {
-      spvBuilder.addExtension(Extension::KHR_shader_draw_parameters,
-                              "DrawIndex Builtin", loc);
-      spvBuilder.requireCapability(spv::Capability::DrawParameters);
+      addExtension(Extension::KHR_shader_draw_parameters, "DrawIndex Builtin",
+                   loc);
+      addCapability(spv::Capability::DrawParameters);
       break;
     }
     case spv::BuiltIn::DeviceIndex: {
-      spvBuilder.addExtension(Extension::KHR_device_group,
-                              "DeviceIndex Builtin", loc);
-      spvBuilder.requireCapability(spv::Capability::DeviceGroup);
+      addExtension(Extension::KHR_device_group, "DeviceIndex Builtin", loc);
+      addCapability(spv::Capability::DeviceGroup);
       break;
     }
     case spv::BuiltIn::FragStencilRefEXT: {
-      spvBuilder.addExtension(Extension::EXT_shader_stencil_export,
-                              "SV_StencilRef", loc);
-      spvBuilder.requireCapability(spv::Capability::StencilExportEXT);
+      addExtension(Extension::EXT_shader_stencil_export, "SV_StencilRef", loc);
+      addCapability(spv::Capability::StencilExportEXT);
       break;
     }
     case spv::BuiltIn::ViewIndex: {
-      spvBuilder.addExtension(Extension::KHR_multiview, "SV_ViewID", loc);
-      spvBuilder.requireCapability(spv::Capability::MultiView);
+      addExtension(Extension::KHR_multiview, "SV_ViewID", loc);
+      addCapability(spv::Capability::MultiView);
       break;
     }
     case spv::BuiltIn::FullyCoveredEXT: {
-      spvBuilder.addExtension(Extension::EXT_fragment_fully_covered,
-                              "SV_InnerCoverage", loc);
-      spvBuilder.requireCapability(spv::Capability::FragmentFullyCoveredEXT);
+      addExtension(Extension::EXT_fragment_fully_covered, "SV_InnerCoverage",
+                   loc);
+      addCapability(spv::Capability::FragmentFullyCoveredEXT);
       break;
     }
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn
       if (shaderModel == spv::ExecutionModel::Fragment)
-        spvBuilder.requireCapability(spv::Capability::Geometry);
+        addCapability(spv::Capability::Geometry);
       break;
     }
     case spv::BuiltIn::Layer: {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        spvBuilder.addExtension(Extension::EXT_shader_viewport_index_layer,
-                                "SV_RenderTargetArrayIndex", loc);
-        spvBuilder.requireCapability(
-            spv::Capability::ShaderViewportIndexLayerEXT);
+        addExtension(Extension::EXT_shader_viewport_index_layer,
+                     "SV_RenderTargetArrayIndex", loc);
+        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
       } else if (shaderModel == spv::ExecutionModel::Fragment) {
         // SV_RenderTargetArrayIndex can be used as PSIn.
-        spvBuilder.requireCapability(spv::Capability::Geometry);
+        addCapability(spv::Capability::Geometry);
       }
       break;
     }
@@ -285,24 +299,33 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       if (shaderModel == spv::ExecutionModel::Vertex ||
           shaderModel == spv::ExecutionModel::TessellationControl ||
           shaderModel == spv::ExecutionModel::TessellationEvaluation) {
-        spvBuilder.addExtension(Extension::EXT_shader_viewport_index_layer,
-                                "SV_ViewPortArrayIndex", loc);
-        spvBuilder.requireCapability(
-            spv::Capability::ShaderViewportIndexLayerEXT);
+        addExtension(Extension::EXT_shader_viewport_index_layer,
+                     "SV_ViewPortArrayIndex", loc);
+        addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry) {
         // SV_ViewportArrayIndex can be used as PSIn.
-        spvBuilder.requireCapability(spv::Capability::MultiViewport);
+        addCapability(spv::Capability::MultiViewport);
       }
       break;
     }
     case spv::BuiltIn::ClipDistance: {
-      spvBuilder.requireCapability(spv::Capability::ClipDistance);
+      addCapability(spv::Capability::ClipDistance);
       break;
     }
     case spv::BuiltIn::CullDistance: {
-      spvBuilder.requireCapability(spv::Capability::CullDistance);
+      addCapability(spv::Capability::CullDistance);
       break;
+    }
+    case spv::BuiltIn::BaryCoordNoPerspAMD:
+    case spv::BuiltIn::BaryCoordNoPerspCentroidAMD:
+    case spv::BuiltIn::BaryCoordNoPerspSampleAMD:
+    case spv::BuiltIn::BaryCoordSmoothAMD:
+    case spv::BuiltIn::BaryCoordSmoothCentroidAMD:
+    case spv::BuiltIn::BaryCoordSmoothSampleAMD:
+    case spv::BuiltIn::BaryCoordPullModelAMD: {
+      addExtension(Extension::AMD_shader_explicit_vertex_parameter,
+                   "SV_Barycentrics", loc);
     }
     default:
       break;
@@ -347,14 +370,14 @@ CapabilityVisitor::getNonUniformCapability(const SpirvType *type) {
 bool CapabilityVisitor::visit(SpirvImageQuery *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
-  spvBuilder.requireCapability(spv::Capability::ImageQuery);
+  addCapability(spv::Capability::ImageQuery);
   return true;
 }
 
 bool CapabilityVisitor::visit(SpirvImageSparseTexelsResident *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
-  spvBuilder.requireCapability(spv::Capability::ImageGatherExtended);
+  addCapability(spv::Capability::ImageGatherExtended);
   return true;
 }
 
@@ -362,11 +385,11 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
   if (instr->hasOffset() || instr->hasConstOffsets())
-    spvBuilder.requireCapability(spv::Capability::ImageGatherExtended);
+    addCapability(spv::Capability::ImageGatherExtended);
   if (instr->hasMinLod())
-    spvBuilder.requireCapability(spv::Capability::MinLod);
+    addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
-    spvBuilder.requireCapability(spv::Capability::SparseResidency);
+    addCapability(spv::Capability::SparseResidency);
 
   return true;
 }
@@ -374,17 +397,16 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
 bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   const SpirvType *resultType = instr->getResultType();
   const auto opcode = instr->getopcode();
+  const auto loc = instr->getSourceLocation();
 
   // Add result-type-specific capabilities
-  addCapabilityForType(resultType, instr->getSourceLocation(),
-                       instr->getStorageClass());
+  addCapabilityForType(resultType, loc, instr->getStorageClass());
 
   // Add NonUniform capabilities if necessary
   if (instr->isNonUniform()) {
-    spvBuilder.addExtension(Extension::EXT_descriptor_indexing, "NonUniformEXT",
-                            instr->getSourceLocation());
-    spvBuilder.requireCapability(spv::Capability::ShaderNonUniformEXT);
-    spvBuilder.requireCapability(getNonUniformCapability(resultType));
+    addExtension(Extension::EXT_descriptor_indexing, "NonUniformEXT", loc);
+    addCapability(spv::Capability::ShaderNonUniformEXT);
+    addCapability(getNonUniformCapability(resultType));
   }
 
   // Add opcode-specific capabilities
@@ -395,15 +417,15 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpDPdxFine:
   case spv::Op::OpDPdyFine:
   case spv::Op::OpFwidthFine:
-    spvBuilder.requireCapability(spv::Capability::DerivativeControl);
+    addCapability(spv::Capability::DerivativeControl);
     break;
   case spv::Op::OpGroupNonUniformElect:
-    spvBuilder.requireCapability(spv::Capability::GroupNonUniform);
+    addCapability(spv::Capability::GroupNonUniform);
     break;
   case spv::Op::OpGroupNonUniformAny:
   case spv::Op::OpGroupNonUniformAll:
   case spv::Op::OpGroupNonUniformAllEqual:
-    spvBuilder.requireCapability(spv::Capability::GroupNonUniformVote);
+    addCapability(spv::Capability::GroupNonUniformVote);
     break;
   case spv::Op::OpGroupNonUniformBallot:
   case spv::Op::OpGroupNonUniformInverseBallot:
@@ -413,7 +435,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformBallotFindMSB:
   case spv::Op::OpGroupNonUniformBroadcast:
   case spv::Op::OpGroupNonUniformBroadcastFirst:
-    spvBuilder.requireCapability(spv::Capability::GroupNonUniformBallot);
+    addCapability(spv::Capability::GroupNonUniformBallot);
     break;
   case spv::Op::OpGroupNonUniformIAdd:
   case spv::Op::OpGroupNonUniformFAdd:
@@ -431,11 +453,11 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformLogicalAnd:
   case spv::Op::OpGroupNonUniformLogicalOr:
   case spv::Op::OpGroupNonUniformLogicalXor:
-    spvBuilder.requireCapability(spv::Capability::GroupNonUniformArithmetic);
+    addCapability(spv::Capability::GroupNonUniformArithmetic);
     break;
   case spv::Op::OpGroupNonUniformQuadBroadcast:
   case spv::Op::OpGroupNonUniformQuadSwap:
-    spvBuilder.requireCapability(spv::Capability::GroupNonUniformQuad);
+    addCapability(spv::Capability::GroupNonUniformQuad);
     break;
   default:
     break;
@@ -450,14 +472,14 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::Fragment:
   case spv::ExecutionModel::Vertex:
   case spv::ExecutionModel::GLCompute:
-    spvBuilder.requireCapability(spv::Capability::Shader);
+    addCapability(spv::Capability::Shader);
     break;
   case spv::ExecutionModel::Geometry:
-    spvBuilder.requireCapability(spv::Capability::Geometry);
+    addCapability(spv::Capability::Geometry);
     break;
   case spv::ExecutionModel::TessellationControl:
   case spv::ExecutionModel::TessellationEvaluation:
-    spvBuilder.requireCapability(spv::Capability::Tessellation);
+    addCapability(spv::Capability::Tessellation);
     break;
   case spv::ExecutionModel::RayGenerationNV:
   case spv::ExecutionModel::IntersectionNV:
@@ -465,9 +487,8 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::AnyHitNV:
   case spv::ExecutionModel::MissNV:
   case spv::ExecutionModel::CallableNV:
-    spvBuilder.requireCapability(spv::Capability::RayTracingNV);
-    spvBuilder.addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing",
-                            {});
+    addCapability(spv::Capability::RayTracingNV);
+    addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     break;
   default:
     llvm_unreachable("found unknown shader model");
@@ -478,9 +499,10 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
 
 bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
   if (execMode->getExecutionMode() == spv::ExecutionMode::PostDepthCoverage) {
-    spvBuilder.requireCapability(
-        spv::Capability::SampleMaskPostDepthCoverage,
-        execMode->getEntryPoint()->getSourceLocation());
+    addCapability(spv::Capability::SampleMaskPostDepthCoverage,
+                  execMode->getEntryPoint()->getSourceLocation());
+    addExtension(Extension::KHR_post_depth_coverage,
+                 "[[vk::post_depth_coverage]]", execMode->getSourceLocation());
   }
   return true;
 }

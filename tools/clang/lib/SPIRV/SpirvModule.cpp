@@ -88,7 +88,17 @@ void SpirvModule::addFunction(SpirvFunction *fn) {
 
 void SpirvModule::addCapability(SpirvCapability *cap) {
   assert(cap && "cannot add null capability to the module");
-  capabilities.push_back(cap);
+  // Only add the capability to the module if it is not already added.
+  // Due to the small number of capabilities, this should not be too expensive.
+  const spv::Capability capability = cap->getCapability();
+  auto found =
+      std::find_if(capabilities.begin(), capabilities.end(),
+                   [capability](SpirvCapability *existingCapability) {
+                     return capability == existingCapability->getCapability();
+                   });
+  if (found == capabilities.end()) {
+    capabilities.push_back(cap);
+  }
 }
 
 void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
@@ -108,7 +118,17 @@ void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
 
 void SpirvModule::addExtension(SpirvExtension *ext) {
   assert(ext && "cannot add null extension");
-  extensions.push_back(ext);
+  // Only add the extension to the module if it is not already added.
+  // Due to the small number of extensions, this should not be too expensive.
+  const auto extName = ext->getExtensionName();
+  auto found =
+      std::find_if(extensions.begin(), extensions.end(),
+                   [&extName](SpirvExtension *existingExtension) {
+                     return extName == existingExtension->getExtensionName();
+                   });
+  if (found == extensions.end()) {
+    extensions.push_back(ext);
+  }
 }
 
 void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
