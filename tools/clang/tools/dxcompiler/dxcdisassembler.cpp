@@ -17,7 +17,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResource.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "llvm/IR/DiagnosticInfo.h"
@@ -808,10 +808,9 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
       }
       if (EltTy->isVectorTy()) {
         EltTy = EltTy->getVectorElementType();
-      } else if (EltTy->isStructTy()) {
-        unsigned col, row;
-        EltTy = HLMatrixLower::GetMatrixInfo(EltTy, col, row);
-      }
+      } else if (EltTy->isStructTy())
+        EltTy = HLMatrixType::cast(EltTy).getElementTypeForReg();
+
       if (arrayLevel == 1)
         arraySize = 0;
     }
