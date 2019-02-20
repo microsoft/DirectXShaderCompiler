@@ -113,7 +113,7 @@ private:
 
   void RewriteForConstExpr(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
-  void RewriteForAddrSpaceCast(ConstantExpr *user, IRBuilder<> &Builder);
+  void RewriteForAddrSpaceCast(Value *user, IRBuilder<> &Builder);
   void RewriteForLoad(LoadInst *loadInst);
   void RewriteForStore(StoreInst *storeInst);
   void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
@@ -3303,17 +3303,17 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
   }
 }
 
-/// RewriteForConstExpr - Rewrite the GEP which is ConstantExpr.
-void SROA_Helper::RewriteForAddrSpaceCast(ConstantExpr *CE,
+/// RewriteForAddrSpaceCast - Rewrite the AddrSpaceCast, either ConstExpr or Inst.
+void SROA_Helper::RewriteForAddrSpaceCast(Value *CE,
                                           IRBuilder<> &Builder) {
   SmallVector<Value *, 8> NewCasts;
   // create new AddrSpaceCast.
   for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
-    Value *NewGEP = Builder.CreateAddrSpaceCast(
+    Value *NewCast = Builder.CreateAddrSpaceCast(
         NewElts[i],
         PointerType::get(NewElts[i]->getType()->getPointerElementType(),
                          CE->getType()->getPointerAddressSpace()));
-    NewCasts.emplace_back(NewGEP);
+    NewCasts.emplace_back(NewCast);
   }
   SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL);
   helper.RewriteForScalarRepl(CE, Builder);
@@ -3379,7 +3379,9 @@ void SROA_Helper::RewriteForScalarRepl(Value *V, IRBuilder<> &Builder) {
       RewriteCall(CI);
     else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User))
       RewriteBitCast(BCI);
-    else {
+    else if (AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(User)) {
+      RewriteForAddrSpaceCast(CI, Builder);
+    } else {
       assert(0 && "not support.");
     }
   }

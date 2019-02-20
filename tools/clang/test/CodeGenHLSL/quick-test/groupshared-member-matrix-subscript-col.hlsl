@@ -35,15 +35,18 @@ class Obj {
 };
 
 RWByteAddressBuffer RWBuf;
-groupshared Obj obj;
+groupshared Obj obj[2];
+int objIndex;
 
 [numthreads(4, 1, 1)]
 void main(uint3 groupThreadID: SV_GroupThreadID) {
   if (groupThreadID.x == 0) {
-    obj.set();
+    obj[0].set();
+    obj[objIndex].set();
   }
   GroupMemoryBarrierWithGroupSync();
-  float4 row = obj.mat[groupThreadID.x];
+  float4 row = obj[0].mat[groupThreadID.x];
+  row *= obj[objIndex].mat[groupThreadID.x];
   uint addr = groupThreadID.x * 4;
   RWBuf.Store4(addr, uint4(asuint(row.x), asuint(row.y), asuint(row.z), asuint(row.w)));
 }
