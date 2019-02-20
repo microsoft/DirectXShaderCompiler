@@ -3376,14 +3376,13 @@ void SROA_Helper::RewriteForScalarRepl(Value *V, IRBuilder<> &Builder) {
   Use* PrevUse = nullptr;
   while (!V->use_empty()) {
     Use &TheUse = *V->use_begin();
+
     DXASSERT_LOCALVAR(PrevUse, &TheUse != PrevUse,
-      "Infinite loop while SROA'ing value, value use isn't getting eliminated.");
+      "Infinite loop while SROA'ing value, use isn't getting eliminated.");
     PrevUse = &TheUse;
 
     // Each of these must either call ->eraseFromParent()
     // or null out the use of V so that we make progress.
-    // Unfortunately we can hardly assert that this has happened
-    // because in the ->eraseFromParent() case, we can't access the user anymore.
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(TheUse.getUser())) {
       RewriteForConstExpr(CE, Builder);
     }
