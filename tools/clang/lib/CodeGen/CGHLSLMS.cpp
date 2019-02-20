@@ -15,7 +15,7 @@
 #include "CodeGenModule.h"
 #include "CGRecordLayout.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
@@ -981,8 +981,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   unsigned size = dataLayout.getTypeAllocSize(Type);
 
   if (IsHLSLMatType(Ty)) {
-    unsigned col, row;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Type, col, row);
+    llvm::Type *EltTy = HLMatrixType::cast(Type).getElementTypeForReg();
     bool b64Bit = dataLayout.getTypeAllocSize(EltTy) == 8;
     size = GetMatrixSizeInCB(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor,
                              b64Bit);
@@ -5331,13 +5330,12 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       }
     }
   } else {
-    if (dxilutil::IsHLSLMatrixType(valTy)) {
-      unsigned col, row;
-      llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(valTy, col, row);
+    if (HLMatrixType MatTy = HLMatrixType::dyn_cast(valTy)) {
+      llvm::Type *EltTy = MatTy.getElementTypeForReg();
       // All matrix Value should be row major.
       // Init list is row major in scalar.
       // So the order is match here, just cast to vector.
-      unsigned matSize = col * row;
+      unsigned matSize = MatTy.getNumElements();
       bool isRowMajor = hlsl::IsHLSLMatRowMajor(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor);
 
       HLCastOpcode opcode = isRowMajor ? HLCastOpcode::RowMatrixToVecCast
@@ -5477,18 +5475,16 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     Result = CGF.EmitToMemory(Result, Type);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     bool isRowMajor = hlsl::IsHLSLMatRowMajor(Type, bDefaultRowMajor);
-    unsigned row, col;
-    HLMatrixLower::GetMatrixInfo(Ty, col, row);
-    std::vector<Value *> matInitList(col * row);
-    for (unsigned i = 0; i < col; i++) {
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = i * row + r;
+    std::vector<Value *> matInitList(MatTy.getNumElements());
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+        unsigned matIdx = c * MatTy.getNumRows() + r;
         matInitList[matIdx] = elts[idx + matIdx];
       }
     }
-    idx += row * col;
+    idx += MatTy.getNumElements();
     Value *matVal =
         EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLInit,
                                        /*opcode*/ 0, Ty, matInitList, M);
@@ -6518,10 +6514,9 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
                                  GepList, EltTyList);
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
-    unsigned col, row;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
     llvm::PointerType *EltPtrTy =
         llvm::PointerType::get(EltTy, Ptr->getType()->getPointerAddressSpace());
     QualType EltQualTy = hlsl::GetHLSLMatElementType(Type);
@@ -6529,8 +6524,8 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     Value *matPtr = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
 
     // Flatten matrix to elements.
-    for (unsigned r = 0; r < row; r++) {
-      for (unsigned c = 0; c < col; c++) {
+    for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+      for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
         ConstantInt *cRow = CGF.Builder.getInt32(r);
         ConstantInt *cCol = CGF.Builder.getInt32(c);
         Constant *CV = llvm::ConstantVector::get({cRow, cCol});
@@ -6694,7 +6689,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     // Memcpy struct.
     CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    if (!HLMatrixLower::IsMatrixArrayPointer(llvm::PointerType::get(Ty,0))) {
+    if (!HLMatrixType::isMatrixArray(Ty)) {
       Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
       Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
       unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(AT);
@@ -6775,7 +6770,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (SrcPtrTy == DestPtrTy) {
     bool bMatArrayRotate = false;
-    if (HLMatrixLower::IsMatrixArrayPointer(SrcPtr->getType())) {
+    if (HLMatrixType::isMatrixArrayPtr(SrcPtr->getType())) {
       QualType SrcEltTy = GetArrayEltType(SrcTy);
       QualType DestEltTy = GetArrayEltType(DestTy);
       if (GetMatrixMajor(SrcEltTy, bDefaultRowMajor) !=
@@ -6871,11 +6866,10 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
                                       SrcType, PT->getElementType());
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-    unsigned row, col;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
 
     llvm::VectorType *VT1 = llvm::VectorType::get(EltTy, 1);
     SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcType, hlsl::GetHLSLMatElementType(Type));
@@ -6883,7 +6877,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
     // Splat the value
     Value *V1 = CGF.Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal,
                                                 (uint64_t)0);
-    std::vector<int> shufIdx(col * row, 0);
+    std::vector<int> shufIdx(MatTy.getNumElements(), 0);
     Value *VecMat = CGF.Builder.CreateShuffleVector(V1, V1, shufIdx);
     Value *MatInit = EmitHLSLMatrixOperationCallImp(
         CGF.Builder, HLOpcodeGroup::HLInit, 0, Ty, {VecMat}, TheModule);

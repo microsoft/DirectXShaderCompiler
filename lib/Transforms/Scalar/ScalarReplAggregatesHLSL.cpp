@@ -56,6 +56,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include <deque>
 #include <unordered_map>
@@ -2568,6 +2569,24 @@ static void DeleteMemcpy(MemCpyInst *MI) {
   }
 }
 
+// If user is function call, return param annotation to get matrix major.
+static DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
+  DxilTypeSystem &typeSys) {
+  for (User *U : Mat->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *F = CI->getCalledFunction();
+      if (DxilFunctionAnnotation *Anno = typeSys.GetFunctionAnnotation(F)) {
+        for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
+          if (CI->getArgOperand(i) == Mat) {
+            return &Anno->GetParameterAnnotation(i);
+          }
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
                                  DxilTypeSystem &typeSys, const bool bEltMemCpy) {
@@ -2597,7 +2616,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   if (!fieldAnnotation) {
     Type *EltTy = dxilutil::GetArrayEltTy(DestTy);
     if (dxilutil::IsHLSLMatrixType(EltTy)) {
-      fieldAnnotation = HLMatrixLower::FindAnnotationFromMatUser(Dest, typeSys);
+      fieldAnnotation = FindAnnotationFromMatUser(Dest, typeSys);
     }
   }
 
@@ -4872,23 +4891,19 @@ static void CopyEltsPtrToVectorPtr(ArrayRef<Value *> elts, Value *VecPtr,
 static void CopyMatToArrayPtr(Value *Mat, Value *ArrayPtr,
                               unsigned arrayBaseIdx, HLModule &HLM,
                               IRBuilder<> &Builder, bool bRowMajor) {
-  Type *Ty = Mat->getType();
   // Mat val is row major.
-  unsigned col, row;
-  HLMatrixLower::GetMatrixInfo(Mat->getType(), col, row);
-  Type *VecTy = HLMatrixLower::LowerMatrixType(Ty);
+  HLMatrixType MatTy = HLMatrixType::cast(Mat->getType());
+  Type *VecTy = MatTy.getLoweredVectorTypeForReg();
   Value *Vec =
       HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
                               (unsigned)HLCastOpcode::RowMatrixToVecCast, VecTy,
                               {Mat}, *HLM.GetModule());
   Value *zero = Builder.getInt32(0);
 
-  for (unsigned r = 0; r < row; r++) {
-    for (unsigned c = 0; c < col; c++) {
-      unsigned rowMatIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
-      Value *Elt = Builder.CreateExtractElement(Vec, rowMatIdx);
-      unsigned matIdx =
-          bRowMajor ? rowMatIdx :  HLMatrixLower::GetColMajorIdx(r, c, row);
+  for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      unsigned matIdx = MatTy.getColumnMajorIndex(r, c);
+      Value *Elt = Builder.CreateExtractElement(Vec, matIdx);
       Value *Ptr = Builder.CreateInBoundsGEP(
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Builder.CreateStore(Elt, Ptr);
@@ -4919,15 +4934,15 @@ static void CopyMatPtrToArrayPtr(Value *MatPtr, Value *ArrayPtr,
 static Value *LoadArrayPtrToMat(Value *ArrayPtr, unsigned arrayBaseIdx,
                                 Type *Ty, HLModule &HLM, IRBuilder<> &Builder,
                                 bool bRowMajor) {
-  unsigned col, row;
-  HLMatrixLower::GetMatrixInfo(Ty, col, row);
+  HLMatrixType MatTy = HLMatrixType::cast(Ty);
   // HLInit operands are in row major.
   SmallVector<Value *, 16> Elts;
   Value *zero = Builder.getInt32(0);
-  for (unsigned r = 0; r < row; r++) {
-    for (unsigned c = 0; c < col; c++) {
-      unsigned matIdx = bRowMajor ? HLMatrixLower::GetRowMajorIdx(r, c, col)
-                                  : HLMatrixLower::GetColMajorIdx(r, c, row);
+  for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      unsigned matIdx = bRowMajor
+        ? MatTy.getRowMajorIndex(r, c)
+        : MatTy.getColumnMajorIndex(r, c);
       Value *Ptr = Builder.CreateInBoundsGEP(
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Value *Elt = Builder.CreateLoad(Ptr);
@@ -4981,12 +4996,10 @@ CastCopyArrayMultiDimTo1Dim(Value *FromArray, Value *ToArray, Type *CurFromTy,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, ToPtr);
     }
-  } else if (dxilutil::IsHLSLMatrixType(CurFromTy)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(CurFromTy)) {
     // Copy matrix to array.
-    unsigned col, row;
-    HLMatrixLower::GetMatrixInfo(CurFromTy, col, row);
     // Calculate the offset.
-    unsigned offset = calcIdx * col * row;
+    unsigned offset = calcIdx * MatTy.getNumElements();
     Value *FromPtr = Builder.CreateInBoundsGEP(FromArray, idxList);
     CopyMatPtrToArrayPtr(FromPtr, ToArray, offset, HLM, Builder, bRowMajor);
   } else if (!CurFromTy->isArrayTy()) {
@@ -5028,12 +5041,10 @@ CastCopyArray1DimToMultiDim(Value *FromArray, Value *ToArray, Type *CurToTy,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, ToPtr);
-  } else if (dxilutil::IsHLSLMatrixType(CurToTy)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::cast(CurToTy)) {
     // Copy array to matrix.
-    unsigned col, row;
-    HLMatrixLower::GetMatrixInfo(CurToTy, col, row);
     // Calculate the offset.
-    unsigned offset = calcIdx * col * row;
+    unsigned offset = calcIdx * MatTy.getNumElements();
     Value *ToPtr = Builder.CreateInBoundsGEP(ToArray, idxList);
     CopyArrayPtrToMatPtr(FromArray, offset, ToPtr, HLM, Builder, bRowMajor);
   } else if (!CurToTy->isArrayTy()) {
