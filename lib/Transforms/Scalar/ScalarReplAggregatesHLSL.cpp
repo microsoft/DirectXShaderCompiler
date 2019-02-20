@@ -5608,13 +5608,12 @@ void SROA_Parameter_HLSL::flattenArgument(
         if (Ty->isPointerTy())
           Ty = Ty->getPointerElementType();
         unsigned size = DL.getTypeAllocSize(Ty);
-
-        Type *argTy = Arg->getType();
-        if (argTy->isPointerTy())
-          argTy = argTy->getPointerElementType();
 #if 0 // HLSL Change
         DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
 #else // HLSL Change
+        Type *argTy = Arg->getType();
+        if (argTy->isPointerTy())
+          argTy = argTy->getPointerElementType();
         DIExpression *DDIExp = nullptr;
         if (debugOffset == 0 && DL.getTypeAllocSize(argTy) == size) {
           std::vector<uint64_t> Addr;
