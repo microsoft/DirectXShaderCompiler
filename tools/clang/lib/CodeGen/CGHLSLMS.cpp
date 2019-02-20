@@ -7010,8 +7010,6 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
-    RValue argRV; // emit this if aggregate arg on in-only param
-    LValue argLV; // otherwise, we may emit this
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool isAggregateType = !isObject &&
       (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
@@ -7079,6 +7077,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     // FIXME: This will not emit in correct argument order with the other
     //        arguments. This should be integrated into
     //        CodeGenFunction::EmitCallArg if possible.
+    RValue argRV; // emit this if aggregate arg on in-only param
+    LValue argLV; // otherwise, we may emit this
     llvm::Value *argAddr = nullptr;
     QualType argType = Arg->getType();
     CharUnits argAlignment;

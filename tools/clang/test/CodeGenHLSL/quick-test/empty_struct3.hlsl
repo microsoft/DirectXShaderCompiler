@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
-// Make sure nest empty struct works.
+// Make sure nested empty struct works.  Also test related paths such as
+// derived, multi-dim array in constant buffer, and argument passing.
 // CHECK: main
 
 struct KillerStruct {};
@@ -23,6 +24,6 @@ cbuffer Params_cbuffer : register(b0) {
 
 float4 foo(Derived s) { return (float4)0; }
 
-float4 main(float4 pos : POSITION) : SV_POSITION {
+float4 main() : SV_POSITION {
   return foo(constants[1][2]);
 }
