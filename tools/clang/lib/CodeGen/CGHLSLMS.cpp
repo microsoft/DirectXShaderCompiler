@@ -2643,7 +2643,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       EltTy = hlsl::GetHLSLVecElementType(Ty);
     } else if (hlsl::IsHLSLMatType(Ty)) {
       EltTy = hlsl::GetHLSLMatElementType(Ty);
-    } else if (resultTy->isAggregateType()) {
+    } else if (hlsl::IsHLSLAggregateType(resultTy)) {
       // Struct or array in a none-struct resource.
       std::vector<QualType> ScalarTys;
       CollectScalarTypes(ScalarTys, resultTy);
@@ -7196,13 +7196,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
     
     Value *outVal = nullptr;
 
-    bool isAggrageteTy = ArgTy->isAggregateType();
-    isAggrageteTy &= !IsHLSLVecMatType(ArgTy);
+    bool isAggregateTy = hlsl::IsHLSLAggregateType(ArgTy);
 
     bool isObject = dxilutil::IsHLSLObjectType(
        tmpArgAddr->getType()->getPointerElementType());
     if (!isObject) {
-      if (!isAggrageteTy) {
+      if (!isAggregateTy) {
         if (!IsHLSLMatType(ParamTy))
           outVal = CGF.Builder.CreateLoad(tmpArgAddr);
         else
