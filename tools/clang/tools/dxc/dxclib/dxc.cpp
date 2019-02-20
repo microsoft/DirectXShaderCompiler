@@ -41,6 +41,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc.h"
 #include <vector>
 #include <string>
 
@@ -1058,9 +1059,9 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 }
 
 #ifdef _WIN32
-int __cdecl wmain(int argc, const wchar_t **argv_) {
+int dxc::main(int argc, const wchar_t **argv_) {
 #else
-int main(int argc, const char **argv_) {
+int dxc::main(int argc, const char **argv_) {
 #endif // _WIN32
   const char *pStage = "Operation";
   int retVal = 0;
