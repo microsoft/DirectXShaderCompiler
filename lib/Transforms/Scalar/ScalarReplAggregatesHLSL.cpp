@@ -1672,12 +1672,12 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
                 DIB.createBitPieceExpression(debugOffset, size);
 #else // HLSL Change
             DIExpression *DDIExp = nullptr;
-            if (!(debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size)) {
-              DDIExp = DIB.createBitPieceExpression(debugOffset, size);
-            }
-            else {
+            if (debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
               std::vector<uint64_t> args;
               DDIExp = DIB.createExpression(args);
+            }
+            else {
+              DDIExp = DIB.createBitPieceExpression(debugOffset, size);
             }
 #endif // HLSL Change
             debugOffset += size;
