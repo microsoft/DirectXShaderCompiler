@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// Make sure empty struct arg works.
-// CHECK: call float @"\01?test@@YAMUT@@@Z"(%struct.T* %t)
+// Make sure empty struct arg is replaced with undef.
+// CHECK: call float @"\01?test@@YAMUT@@@Z"(%struct.T* undef)
 
 struct T {
 };

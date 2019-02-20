@@ -10806,6 +10806,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLGroupShared:
     declAttr = ::new (S.Context) HLSLGroupSharedAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
+    if (VarDecl *VD = dyn_cast<VarDecl>(D)) {
+      VD->setType(S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
+    }
     break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(A.getRange(), S.Context,
