@@ -24,14 +24,14 @@ matrix:
       addons:
         apt:
           sources: ubuntu-toolchain-r-test
-          packages: ninja-build g++-5
+          packages: ninja-build g++-7
       env: DXC_BUILD_TYPE=Debug
     - os: linux
       compiler: gcc
       addons:
         apt:
           sources: ubuntu-toolchain-r-test
-          packages: ninja-build g++-5
+          packages: ninja-build g++-7
       env: DXC_BUILD_TYPE=Release
 
 cache:
@@ -59,7 +59,7 @@ before_install:
 
 before_script:
   - git submodule update --init
-  - if [ ${CC} = gcc ]; then CC=gcc-5; CXX=g++-5; fi
+  - if [ ${CC} = gcc ]; then CC=gcc-7; CXX=g++-7; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ulimit -Sn 1024; fi
 
 script:
