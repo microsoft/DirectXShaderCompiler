@@ -1667,6 +1667,10 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
           if (DDI) {
             Type *Ty = Elt->getAllocatedType();
             unsigned size = DL.getTypeAllocSize(Ty);
+#if 0 // HLSL Change
+            DIExpression *DDIExp =
+                DIB.createBitPieceExpression(debugOffset, size);
+#else // HLSL Change
             DIExpression *DDIExp = nullptr;
             if (!(debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size)) {
               DDIExp = DIB.createBitPieceExpression(debugOffset, size);
@@ -1675,6 +1679,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
               std::vector<uint64_t> args;
               DDIExp = DIB.createExpression(args);
             }
+#endif // HLSL Change
             debugOffset += size;
             DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DIB.insertDeclare(
                 Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI));
@@ -5599,7 +5604,6 @@ void SROA_Parameter_HLSL::flattenArgument(
             TmpV = castParamMap[TmpV].first;
           }
         }
-
         Type *Ty = TmpV->getType();
         if (Ty->isPointerTy())
           Ty = Ty->getPointerElementType();
@@ -5608,7 +5612,9 @@ void SROA_Parameter_HLSL::flattenArgument(
         Type *argTy = Arg->getType();
         if (argTy->isPointerTy())
           argTy = argTy->getPointerElementType();
-
+#if 0 // HLSL Change
+        DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+#else // HLSL Change
         DIExpression *DDIExp = nullptr;
         if (debugOffset == 0 && DL.getTypeAllocSize(argTy) == size) {
           std::vector<uint64_t> Addr;
@@ -5617,6 +5623,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         else {
           DDIExp = DIB.createBitPieceExpression(debugOffset, size);
         }
+#endif // HLSL Change
         debugOffset += size;
         DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
                           Builder.GetInsertPoint());
