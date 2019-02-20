@@ -142,13 +142,6 @@ struct SROA_HLSL : public FunctionPass {
   bool performPromotion(Function &F);
   bool markPrecise(Function &F);
 
-  struct BitPiece {
-    unsigned OffsetInBits;
-    unsigned SizeInBits;
-  };
-  BitPiece FindBitPiece(Value *V) {
-  }
-
 private:
   bool HasDomTree;
   bool RunPromotion;
