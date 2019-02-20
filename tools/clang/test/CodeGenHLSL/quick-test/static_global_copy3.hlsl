@@ -17,7 +17,7 @@ A a;
 
 static A a2;
 
-void set(A aa) {
+void set(out A aa) {
    aa = a;
 }
 

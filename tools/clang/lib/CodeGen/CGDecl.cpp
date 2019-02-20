@@ -1795,7 +1795,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
   }
 
   LValue lv = MakeAddrLValue(DeclPtr, Ty, Align);
-  if (IsScalar) {
+  if (!getLangOpts().HLSL && IsScalar) {  // HLSL Change: not ObjC
     Qualifiers qs = Ty.getQualifiers();
     if (Qualifiers::ObjCLifetime lt = qs.getObjCLifetime()) {
       // We honor __attribute__((ns_consumed)) for types with lifetime.
