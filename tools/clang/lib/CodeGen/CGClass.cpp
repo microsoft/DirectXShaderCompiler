@@ -171,7 +171,8 @@ llvm::Value *CodeGenFunction::GetAddressOfBaseClass(
 
   // Get the base pointer type.
   llvm::Type *BasePtrTy =
-    ConvertType((PathEnd[-1])->getType())->getPointerTo();
+    ConvertType((PathEnd[-1])->getType())->getPointerTo(
+      Value->getType()->getPointerAddressSpace()); // HLSL Change: match address space
 
   QualType DerivedTy = getContext().getRecordType(Derived);
   CharUnits DerivedAlign = getContext().getTypeAlignInChars(DerivedTy);
