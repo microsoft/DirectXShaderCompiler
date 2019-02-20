@@ -922,6 +922,7 @@ public:
   TEST_METHOD(SubobjectCodeGenErrors)
   TEST_METHOD(ShaderCompatSuite)
   TEST_METHOD(Unroll)
+  TEST_METHOD(DebugInfo)
   TEST_METHOD(QuickTest)
   TEST_METHOD(QuickLlTest)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
@@ -5760,6 +5761,10 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
 
 TEST_F(CompilerTest, Unroll) {
   CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\unroll");
+}
+
+TEST_F(CompilerTest, DebugInfo) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\debug");
 }
 
 TEST_F(CompilerTest, ShaderCompatSuite) {

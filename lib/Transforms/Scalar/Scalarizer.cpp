@@ -704,7 +704,7 @@ bool Scalarizer::finish() {
                 // TODO: need to use DIExpression::createFragmentExpression for
                 // case DVI->getExpression is already bit piece.
                 DIExpression *EltExpr =
-                    DIB.createBitPieceExpression(Offset, EltSize);
+                    DIB.createBitPieceExpression(Offset / 8, EltSize / 8);
                 Offset += EltSize;
 
                 DIB.insertDbgValueIntrinsic(CV[I], Offset, VarInfo, EltExpr,
@@ -740,14 +740,16 @@ bool Scalarizer::finish() {
           if (HasDbgInfo) {
             if (auto *L = LocalAsMetadata::getIfExists(CV[immIdx])) {
               if (auto *DINode = MetadataAsValue::getIfExists(Ctx, L)) {
-                for (User *U : DINode->users())
+                // Putting old users in an array, so we don't keep looping over new
+                // users as we add more.
+                SmallVector<User *, 4> OldUsers(DINode->user_begin(), DINode->user_end());
+                for (User *U : OldUsers)
                   if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
                     auto *Expr = DVI->getExpression();
                     DIBuilder DIB(M, /*AllowUnresolved*/ false);
                     auto *VarInfo = DVI->getVariable();
                     DebugLoc DbgLoc = DVI->getDebugLoc();
                     unsigned Offset = 0;
-
                     DIB.insertDbgValueIntrinsic(EEI, Offset, VarInfo, Expr,
                                                 DbgLoc, DVI);
                   }
