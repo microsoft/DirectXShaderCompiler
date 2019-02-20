@@ -19,7 +19,7 @@
 // CHECK: %[[l0:[^ ]+]] = load i32, i32 addrspace(3)* @[[gs0]], align 4
 // CHECK: %[[l1:[^ ]+]] = load i32, i32 addrspace(3)* @[[gs1]], align 4
 // CHECK: %[[l2:[^ ]+]] = load i32, i32 addrspace(3)* @[[gs2]], align 4
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{.+}}, i32 %mul, i32 undef, i32 %[[l0]], i32 %[[l1]], i32 %[[l2]], i32 undef, i8 7)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{.+}}, i32 %{{.+}}, i32 undef, i32 %[[l0]], i32 %[[l1]], i32 %[[l2]], i32 undef, i8 7)
 
 
 class Base {
