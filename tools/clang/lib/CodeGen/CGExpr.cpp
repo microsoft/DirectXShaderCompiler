@@ -3285,10 +3285,23 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     LValue LV = EmitLValue(E->getSubExpr());
     QualType ToType = getContext().getLValueReferenceType(E->getType());
 
+    llvm::Value *FromValue = LV.getAddress();
+    llvm::Type *FromTy = FromValue->getType();
     llvm::Type *RetTy = ConvertType(ToType);
     // type not changed, LValueToRValue, CStyleCast may go this path
-    if (LV.getAddress()->getType() == RetTy)
+    if (FromTy == RetTy) {
       return LV;
+    // If only address space changed, add address space cast
+    }
+    if (FromTy->getPointerAddressSpace() != RetTy->getPointerAddressSpace()) {
+      llvm::Type *ConvertedFromTy = llvm::PointerType::get(
+        FromTy->getPointerElementType(), RetTy->getPointerAddressSpace());
+      assert(ConvertedFromTy == RetTy &&
+             "otherwise, more than just address space changing in one step");
+      llvm::Value *cast =
+          Builder.CreateAddrSpaceCast(FromValue, ConvertedFromTy);
+      return MakeAddrLValue(cast, ToType);
+    }
     llvm::Value *cast = CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(*this, E, RetTy, { LV.getAddress() });
     return MakeAddrLValue(cast, ToType);
   }

@@ -516,6 +516,15 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       continue;
     }
 
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Use.getUser())) {
+      DXASSERT(CE->getOpcode() == Instruction::AddrSpaceCast,
+               "Unexpected constant user");
+      if (!CE->user_empty())
+        replaceAllVariableUses(GEPIdxStack, CE, LoweredPtr);
+      Use.set(UndefValue::get(Use->getType()));
+      continue;
+    }
+
     // Recreate the same GEP sequence, if any, on the lowered pointer
     IRBuilder<> Builder(cast<Instruction>(Use.getUser()));
     Value *LoweredStackTopPtr = GEPIdxStack.size() == 1
