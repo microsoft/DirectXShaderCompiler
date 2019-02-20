@@ -10,6 +10,10 @@ add_clang_library(dxclib
   dxc.cpp
   )
 
+if(ENABLE_SPIRV_CODEGEN)
+  target_link_libraries(dxclib SPIRV-Tools)
+endif()
+
 if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)

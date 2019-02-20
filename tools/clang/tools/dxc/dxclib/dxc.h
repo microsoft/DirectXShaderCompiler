@@ -15,8 +15,11 @@
 
 namespace dxc
 {
+#ifdef _WIN32
 int main(int argc, const wchar_t **argv_);
+#else
 int main(int argc, const char **argv_);
+#endif // _WIN32
 }
 
 #endif // __DXC_DXCLIB__
