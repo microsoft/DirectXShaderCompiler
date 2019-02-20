@@ -142,6 +142,13 @@ struct SROA_HLSL : public FunctionPass {
   bool performPromotion(Function &F);
   bool markPrecise(Function &F);
 
+  struct BitPiece {
+    unsigned OffsetInBits;
+    unsigned SizeInBits;
+  };
+  BitPiece FindBitPiece(Value *V) {
+  }
+
 private:
   bool HasDomTree;
   bool RunPromotion;
@@ -1564,6 +1571,10 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
                       std::function<bool(AllocaInst *, AllocaInst *)>>
       WorkList(size_cmp);
   std::unordered_map<AllocaInst*, DbgDeclareInst*> DDIMap;
+  // HLSL Change - Begin
+  std::unordered_map<AllocaInst*, unsigned> OffsetMap; // Map to keep track the offset of an alloca
+                                                       // in the variable that it's a part of.
+  // HLSL Change - End
   // Scan the entry basic block, adding allocas to the worklist.
   BasicBlock &BB = F.getEntryBlock();
   for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
@@ -1653,6 +1664,12 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
             }
           }
         }
+// HLSL Change - Begin
+        unsigned parentOffset = 0;
+        auto offsetIt = OffsetMap.find(AI);
+        if (offsetIt != OffsetMap.end())
+          parentOffset = offsetIt->second;
+// HLSL Change - End
 
         DbgDeclareInst *DDI = nullptr;
         unsigned debugOffset = 0;
@@ -1671,14 +1688,16 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
             DIExpression *DDIExp =
                 DIB.createBitPieceExpression(debugOffset, size);
 #else // HLSL Change
+
             DIExpression *DDIExp = nullptr;
-            if (debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
+            if (parentOffset+debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
               std::vector<uint64_t> args;
               DDIExp = DIB.createExpression(args);
             }
             else {
-              DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+              DDIExp = DIB.createBitPieceExpression(parentOffset+debugOffset, size);
             }
+            OffsetMap[Elt] = parentOffset+debugOffset;
 #endif // HLSL Change
             debugOffset += size;
             DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DIB.insertDeclare(
