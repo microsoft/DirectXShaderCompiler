@@ -69,7 +69,9 @@ script:
       -DSPIRV_BUILD_TESTS=ON
       -DCMAKE_BUILD_TYPE=${DXC_BUILD_TYPE}
       -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX}
-  - ninja
+  - ninja -v
+  - nm ./lib/libdxcompiler.so
+  - nm ./tools/clang/tools/dxcompiler/CMakeFiles/dxcompiler.dir/dxcapi.cpp.o
   - ./bin/dxc --help
   - ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
   - ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
