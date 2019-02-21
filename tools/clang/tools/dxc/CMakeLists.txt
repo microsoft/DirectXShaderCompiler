@@ -22,8 +22,8 @@ add_clang_executable(dxc
   )
 
 target_link_libraries(dxc
-  dxcompiler
   dxclib
+  dxcompiler
   )
 
 if(ENABLE_SPIRV_CODEGEN)
@@ -37,7 +37,7 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
-add_dependencies(dxc dxcompiler dxclib)
+add_dependencies(dxc dxclib dxcompiler)
 
 if(UNIX)
   set(CLANGXX_LINK_OR_COPY create_symlink)
