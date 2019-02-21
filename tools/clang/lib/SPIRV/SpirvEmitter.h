@@ -592,10 +592,8 @@ private:
   /// Emits an error if the given attribute is not a loop attribute.
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
-  static hlsl::ShaderModel::Kind
-  SpirvEmitter::getShaderModelKind(StringRef stageName);
-  static spv::ExecutionModel
-  SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
+  static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
+  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
@@ -992,6 +990,7 @@ private:
     SpirvFunction *entryFunction;
     bool isEntryFunction;
 
+    FunctionInfo() = default;
     FunctionInfo(hlsl::ShaderModel::Kind smk, const DeclaratorDecl *fDecl,
                  SpirvFunction *entryFunc, bool isEntryFunc)
         : shaderModelKind(smk), funcDecl(fDecl), entryFunction(entryFunc),
@@ -1005,7 +1004,7 @@ private:
 
   /// \brief A map of funcDecl to its FunctionInfo. Consists of all entry
   /// functions followed by all reachable functions from the entry functions.
-  llvm::DenseMap<const DeclaratorDecl *, FunctionInfo *> functionInfoMap;
+  llvm::DenseMap<const DeclaratorDecl *, FunctionInfo> functionInfoMap;
 
   /// A queue of FunctionInfo reachable from all the entry functions.
   /// FunctionInfo inserted into this queue will persist to avoid duplicated

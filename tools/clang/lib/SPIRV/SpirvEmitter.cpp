@@ -576,22 +576,18 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
         if (const auto *shaderAttr = funcDecl->getAttr<HLSLShaderAttr>()) {
           // If we are compiling as a library then add everything that has a
           // ShaderAttr.
-          FunctionInfo *entryInfo = new FunctionInfo(
-              getShaderModelKind(shaderAttr->getStage()), funcDecl,
-              /*entryFunction*/ nullptr, /*isEntryFunc*/ true);
-
-          functionInfoMap[funcDecl] = entryInfo;
-          workQueue.insert(entryInfo);
+          functionInfoMap[funcDecl] =
+              FunctionInfo(getShaderModelKind(shaderAttr->getStage()), funcDecl,
+                           /*entryFunction*/ nullptr, /*isEntryFunc*/ true);
+          workQueue.insert(&functionInfoMap[funcDecl]);
           numEntryPoints++;
         }
       } else {
         if (funcDecl->getName() == entryFunctionName) {
-          FunctionInfo *entryInfo =
-              new FunctionInfo(spvContext.getCurrentShaderModelKind(), funcDecl,
-                               /*entryFunction*/ nullptr, /*isEntryFunc*/ true);
-
-          functionInfoMap[funcDecl] = entryInfo;
-          workQueue.insert(entryInfo);
+          functionInfoMap[funcDecl] =
+              FunctionInfo(spvContext.getCurrentShaderModelKind(), funcDecl,
+                           /*entryFunction*/ nullptr, /*isEntryFunc*/ true);
+          workQueue.insert(&functionInfoMap[funcDecl]);
           numEntryPoints++;
         }
       }
@@ -1002,12 +998,15 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   SpirvFunction *func = declIdMapper.getOrRegisterFn(decl);
 
-  auto entryInfo = functionInfoMap.lookup(decl);
-  if (entryInfo && entryInfo->isEntryFunction) {
-    funcName = "src." + funcName;
-    // Create wrapper for the entry function
-    if (!emitEntryFunctionWrapper(decl, func))
-      return;
+  const auto iter = functionInfoMap.find(decl);
+  if (iter != functionInfoMap.end()) {
+    const auto &entryInfo = iter->second;
+    if (entryInfo.isEntryFunction) {
+      funcName = "src." + funcName;
+      // Create wrapper for the entry function
+      if (!emitEntryFunctionWrapper(decl, func))
+        return;
+    }
   }
 
   const QualType retType =
@@ -2064,11 +2063,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
   // Push the callee into the work queue if it is not there.
   if (functionInfoMap.find(callee) == functionInfoMap.end()) {
-    FunctionInfo *calleeInfo =
-        new FunctionInfo(spvContext.getCurrentShaderModelKind(), callee,
-                         /*entryFunction*/ nullptr, /*isEntryFunc*/ false);
-    functionInfoMap[callee] = calleeInfo;
-    workQueue.insert(calleeInfo);
+    functionInfoMap[callee] =
+        FunctionInfo(spvContext.getCurrentShaderModelKind(), callee,
+                     /*entryFunction*/ nullptr, /*isEntryFunc*/ false);
+    workQueue.insert(&functionInfoMap[callee]);
   }
 
   const QualType retType =
@@ -9648,10 +9646,12 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
-  // Set entryFunction for current entry point
-  auto entryInfo = functionInfoMap.lookup(decl);
-  assert(entryInfo && entryInfo->isEntryFunction);
-  entryInfo->entryFunction = entryFunction;
+  // Set entryFunction for current entry point.
+  auto iter = functionInfoMap.find(decl);
+  assert(iter != functionInfoMap.end());
+  auto &entryInfo = iter->second;
+  assert(entryInfo.isEntryFunction);
+  entryInfo.entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
     return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
