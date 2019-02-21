@@ -956,7 +956,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // they're in entry block so deleting loop blocks don't 
     // kill them too.
     for (AllocaInst *AI : ProblemAllocas)
-      DXASSERT(AI->getParent() == &F->getEntryBlock(), "Alloca is not in entry block.");
+      DXASSERT_LOCALVAR(AI, AI->getParent() == &F->getEntryBlock(), "Alloca is not in entry block.");
 
     LoopIteration &FirstIteration = *Iterations.front().get();
     // Make the predecessor branch to the first new header.

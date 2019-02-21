@@ -510,9 +510,29 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       
       // Discard the GEP
       DXASSERT_NOMSG(GEP->use_empty());
-      Use.set(UndefValue::get(Use->getType()));
-      if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP))
+      if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
+        Use.set(UndefValue::get(Use->getType()));
         addToDeadInsts(GEPInst);
+      } else {
+        // constant GEP
+        cast<Constant>(GEP)->destroyConstant();
+      }
+      continue;
+    }
+
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Use.getUser())) {
+      DXASSERT(CE->getOpcode() == Instruction::AddrSpaceCast,
+               "Unexpected constant user");
+      replaceAllVariableUses(GEPIdxStack, CE, LoweredPtr);
+      DXASSERT_NOMSG(CE->use_empty());
+      CE->destroyConstant();
+      continue;
+    }
+
+    if (AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(Use.getUser())) {
+      replaceAllVariableUses(GEPIdxStack, CI, LoweredPtr);
+      Use.set(UndefValue::get(Use->getType()));
+      addToDeadInsts(CI);
       continue;
     }
 
@@ -645,7 +665,7 @@ void HLMatrixLowerPass::lowerInstruction(Instruction* Inst) {
 void HLMatrixLowerPass::lowerReturn(ReturnInst* Return) {
   Value *RetVal = Return->getReturnValue();
   Type *RetTy = RetVal->getType();
-  DXASSERT(!RetTy->isPointerTy(), "Unexpected matrix returned by pointer.");
+  DXASSERT_LOCALVAR(RetTy, !RetTy->isPointerTy(), "Unexpected matrix returned by pointer.");
 
   IRBuilder<> Builder(Return);
   Value *LoweredRetVal = getLoweredByValOperand(RetVal, Builder, /* DiscardStub */ true);
