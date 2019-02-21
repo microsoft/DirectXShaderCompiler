@@ -665,7 +665,7 @@ void HLMatrixLowerPass::lowerInstruction(Instruction* Inst) {
 void HLMatrixLowerPass::lowerReturn(ReturnInst* Return) {
   Value *RetVal = Return->getReturnValue();
   Type *RetTy = RetVal->getType();
-  DXASSERT(!RetTy->isPointerTy(), "Unexpected matrix returned by pointer.");
+  DXASSERT_LOCALVAR(RetTy, !RetTy->isPointerTy(), "Unexpected matrix returned by pointer.");
 
   IRBuilder<> Builder(Return);
   Value *LoweredRetVal = getLoweredByValOperand(RetVal, Builder, /* DiscardStub */ true);
