@@ -6549,7 +6549,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   auto *zero =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto *dest = expr->getArg(0);
-  const auto baseType = dest->getType();
+  const auto baseType = dest->getType()->getCanonicalTypeUnqualified();
 
   if (!baseType->isIntegerType()) {
     emitError("can only perform atomic operations on scalar integer values",
