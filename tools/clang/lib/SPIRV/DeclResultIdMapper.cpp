@@ -1017,22 +1017,7 @@ std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
   llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
     auto *instr = var.getSpirvInstr();
-    spv::StorageClass sc = var.getStorageClass();
-    bool validStorageClassForVar = true;
-    switch (sc) {
-    // Non input raytracing stage variables should be ignored since
-    // they don't participate in any interface matching
-    case spv::StorageClass::IncomingCallableDataNV:
-    case spv::StorageClass::IncomingRayPayloadNV:
-    case spv::StorageClass::HitAttributeNV:
-    case spv::StorageClass::RayPayloadNV:
-    case spv::StorageClass::CallableDataNV:
-      validStorageClassForVar = false;
-      break;
-    default:
-      break;
-    }
-    if (seenVars.count(instr) == 0 && validStorageClassForVar) {
+    if (seenVars.count(instr) == 0) {
       vars.push_back(instr);
       seenVars.insert(instr);
     }
@@ -2814,15 +2799,10 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
                                                const VarDecl *decl) {
   QualType type = decl->getType();
   SpirvVariable *retVal = nullptr;
-  // No predefined semantics defined for variables in raytracing stages
-  SemanticInfo dummySemantic;
 
-  // No sigpoints for raytracing
-  // Set location ts 0 as default
-  StageVar stageVar(nullptr /*SigPoint */, dummySemantic,
-                    nullptr /*builtinAttr*/, type, 0 /* locCount */);
-
-  stageVar.setStorageClass(sc);
+  // Raytracing interface variables are special since they do not participate
+  // in any interface matching and hence do not create StageVar and
+  // track them under StageVars vector
 
   const auto name = decl->getName();
 
@@ -2838,10 +2818,6 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   default:
     assert(false && "Unsupported SPIR-V storage class for raytracing");
   }
-
-  stageVar.setIsSpirvBuiltin();
-  stageVar.setSpirvInstr(retVal);
-  stageVars.push_back(stageVar);
 
   return retVal;
 }
