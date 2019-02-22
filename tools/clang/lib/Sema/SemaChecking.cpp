@@ -8468,6 +8468,14 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
       }
     }
 
+    // HLSL Change Starts
+    if (getLangOpts().HLSL) {
+      DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
+        PDiag(diag::err_hlsl_array_element_index_out_of_bounds) << index.toString(10, true));
+    }
+    else {
+    // HLSL Change Ends
+
     unsigned DiagID = diag::warn_ptr_arith_exceeds_bounds;
     if (ASE)
       DiagID = diag::warn_array_index_exceeds_bounds;
@@ -8477,7 +8485,16 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
                           << size.toString(10, true)
                           << (unsigned)size.getLimitedValue(~0U)
                           << IndexExpr->getSourceRange());
+    } // HLSL Change
   } else {
+    // HLSL Change Starts
+    if (getLangOpts().HLSL) {
+      DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
+        PDiag(diag::err_hlsl_array_element_index_out_of_bounds) << index.toString(10, true));
+    }
+    else {
+    // HLSL Change Ends
+
     unsigned DiagID = diag::warn_array_index_precedes_bounds;
     if (!ASE) {
       DiagID = diag::warn_ptr_arith_precedes_bounds;
@@ -8487,6 +8504,7 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
                         PDiag(DiagID) << index.toString(10, true)
                           << IndexExpr->getSourceRange());
+    } // HLSL Change
   }
 
   if (!ND) {
