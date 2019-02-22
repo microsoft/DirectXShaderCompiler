@@ -34,6 +34,7 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_METHOD(RunArrayIndexOutOfBounds)
   TEST_METHOD(RunArrayLength)
   TEST_METHOD(RunAttributes)
   TEST_METHOD(RunBuiltinTypesNoInheritance)
@@ -135,6 +136,10 @@ public:
     CheckVerifies(hlsl_test::GetPathToHlslDataFile(name).c_str());
   }
 };
+
+TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
+  CheckVerifiesHLSL(L"array-index-out-of-bounds.hlsl");
+}
 
 TEST_F(VerifierTest, RunArrayLength) {
   CheckVerifiesHLSL(L"array-length.hlsl");
