@@ -56,6 +56,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include <deque>
 #include <unordered_map>
@@ -112,7 +113,7 @@ private:
 
   void RewriteForConstExpr(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
-  void RewriteForAddrSpaceCast(ConstantExpr *user, IRBuilder<> &Builder);
+  void RewriteForAddrSpaceCast(Value *user, IRBuilder<> &Builder);
   void RewriteForLoad(LoadInst *loadInst);
   void RewriteForStore(StoreInst *storeInst);
   void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
@@ -2442,8 +2443,8 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
   if (ptrSize == size) {
-    // Not go deeper for matrix.
-    if (dxilutil::IsHLSLMatrixType(Ty))
+    // Do not go deeper for matrix or object.
+    if (dxilutil::IsHLSLMatrixType(Ty) || dxilutil::IsHLSLObjectType(Ty))
       return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
@@ -2568,6 +2569,24 @@ static void DeleteMemcpy(MemCpyInst *MI) {
   }
 }
 
+// If user is function call, return param annotation to get matrix major.
+static DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
+  DxilTypeSystem &typeSys) {
+  for (User *U : Mat->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *F = CI->getCalledFunction();
+      if (DxilFunctionAnnotation *Anno = typeSys.GetFunctionAnnotation(F)) {
+        for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
+          if (CI->getArgOperand(i) == Mat) {
+            return &Anno->GetParameterAnnotation(i);
+          }
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
                                  DxilTypeSystem &typeSys, const bool bEltMemCpy) {
@@ -2597,7 +2616,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   if (!fieldAnnotation) {
     Type *EltTy = dxilutil::GetArrayEltTy(DestTy);
     if (dxilutil::IsHLSLMatrixType(EltTy)) {
-      fieldAnnotation = HLMatrixLower::FindAnnotationFromMatUser(Dest, typeSys);
+      fieldAnnotation = FindAnnotationFromMatUser(Dest, typeSys);
     }
   }
 
@@ -3284,17 +3303,17 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
   }
 }
 
-/// RewriteForConstExpr - Rewrite the GEP which is ConstantExpr.
-void SROA_Helper::RewriteForAddrSpaceCast(ConstantExpr *CE,
+/// RewriteForAddrSpaceCast - Rewrite the AddrSpaceCast, either ConstExpr or Inst.
+void SROA_Helper::RewriteForAddrSpaceCast(Value *CE,
                                           IRBuilder<> &Builder) {
   SmallVector<Value *, 8> NewCasts;
   // create new AddrSpaceCast.
   for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
-    Value *NewGEP = Builder.CreateAddrSpaceCast(
+    Value *NewCast = Builder.CreateAddrSpaceCast(
         NewElts[i],
         PointerType::get(NewElts[i]->getType()->getPointerElementType(),
                          CE->getType()->getPointerAddressSpace()));
-    NewCasts.emplace_back(NewGEP);
+    NewCasts.emplace_back(NewCast);
   }
   SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL);
   helper.RewriteForScalarRepl(CE, Builder);
@@ -3360,7 +3379,9 @@ void SROA_Helper::RewriteForScalarRepl(Value *V, IRBuilder<> &Builder) {
       RewriteCall(CI);
     else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User))
       RewriteBitCast(BCI);
-    else {
+    else if (AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(User)) {
+      RewriteForAddrSpaceCast(CI, Builder);
+    } else {
       assert(0 && "not support.");
     }
   }
@@ -4186,9 +4207,28 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
 /// MarkEmptyStructUsers - Add instruction related to Empty struct to DeadInsts.
 void SROA_Helper::MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadInsts) {
-  for (User *U : V->users()) {
-    MarkEmptyStructUsers(U, DeadInsts);
+  UndefValue *undef = UndefValue::get(V->getType());
+  for (auto itU = V->user_begin(), E = V->user_end(); itU != E;) {
+    Value *U = *(itU++);
+    // Kill memcpy, set operands to undef for call and ret, and recurse
+    if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+      DeadInsts.emplace_back(MC);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      for (auto &operand : CI->operands()) {
+        if (operand == V)
+          operand.set(undef);
+      }
+    } else if (ReturnInst *Ret = dyn_cast<ReturnInst>(U)) {
+      Ret->setOperand(0, undef);
+    } else if (isa<Constant>(U) || isa<GetElementPtrInst>(U) ||
+               isa<BitCastInst>(U) || isa<LoadInst>(U) || isa<StoreInst>(U)) {
+      // Recurse users
+      MarkEmptyStructUsers(U, DeadInsts);
+    } else {
+      DXASSERT(false, "otherwise, recursing unexpected empty struct user");
+    }
   }
+
   if (Instruction *I = dyn_cast<Instruction>(V)) {
     // Only need to add no use inst here.
     // DeleteDeadInst will delete everything.
@@ -4619,6 +4659,12 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
 
     // Flat Global vector if no dynamic vector indexing.
     bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
+
+    // Disable scalarization of groupshared vector arrays
+    if (GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace &&
+        Ty->isArrayTy())
+      bFlatVector = false;
+
     std::vector<Value *> Elts;
     bool SROAed = SROA_Helper::DoScalarReplacement(
         EltGV, Elts, Builder, bFlatVector,
@@ -4872,23 +4918,19 @@ static void CopyEltsPtrToVectorPtr(ArrayRef<Value *> elts, Value *VecPtr,
 static void CopyMatToArrayPtr(Value *Mat, Value *ArrayPtr,
                               unsigned arrayBaseIdx, HLModule &HLM,
                               IRBuilder<> &Builder, bool bRowMajor) {
-  Type *Ty = Mat->getType();
   // Mat val is row major.
-  unsigned col, row;
-  HLMatrixLower::GetMatrixInfo(Mat->getType(), col, row);
-  Type *VecTy = HLMatrixLower::LowerMatrixType(Ty);
+  HLMatrixType MatTy = HLMatrixType::cast(Mat->getType());
+  Type *VecTy = MatTy.getLoweredVectorTypeForReg();
   Value *Vec =
       HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
                               (unsigned)HLCastOpcode::RowMatrixToVecCast, VecTy,
                               {Mat}, *HLM.GetModule());
   Value *zero = Builder.getInt32(0);
 
-  for (unsigned r = 0; r < row; r++) {
-    for (unsigned c = 0; c < col; c++) {
-      unsigned rowMatIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
-      Value *Elt = Builder.CreateExtractElement(Vec, rowMatIdx);
-      unsigned matIdx =
-          bRowMajor ? rowMatIdx :  HLMatrixLower::GetColMajorIdx(r, c, row);
+  for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      unsigned matIdx = MatTy.getColumnMajorIndex(r, c);
+      Value *Elt = Builder.CreateExtractElement(Vec, matIdx);
       Value *Ptr = Builder.CreateInBoundsGEP(
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Builder.CreateStore(Elt, Ptr);
@@ -4919,15 +4961,15 @@ static void CopyMatPtrToArrayPtr(Value *MatPtr, Value *ArrayPtr,
 static Value *LoadArrayPtrToMat(Value *ArrayPtr, unsigned arrayBaseIdx,
                                 Type *Ty, HLModule &HLM, IRBuilder<> &Builder,
                                 bool bRowMajor) {
-  unsigned col, row;
-  HLMatrixLower::GetMatrixInfo(Ty, col, row);
+  HLMatrixType MatTy = HLMatrixType::cast(Ty);
   // HLInit operands are in row major.
   SmallVector<Value *, 16> Elts;
   Value *zero = Builder.getInt32(0);
-  for (unsigned r = 0; r < row; r++) {
-    for (unsigned c = 0; c < col; c++) {
-      unsigned matIdx = bRowMajor ? HLMatrixLower::GetRowMajorIdx(r, c, col)
-                                  : HLMatrixLower::GetColMajorIdx(r, c, row);
+  for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      unsigned matIdx = bRowMajor
+        ? MatTy.getRowMajorIndex(r, c)
+        : MatTy.getColumnMajorIndex(r, c);
       Value *Ptr = Builder.CreateInBoundsGEP(
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Value *Elt = Builder.CreateLoad(Ptr);
@@ -4981,12 +5023,10 @@ CastCopyArrayMultiDimTo1Dim(Value *FromArray, Value *ToArray, Type *CurFromTy,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, ToPtr);
     }
-  } else if (dxilutil::IsHLSLMatrixType(CurFromTy)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(CurFromTy)) {
     // Copy matrix to array.
-    unsigned col, row;
-    HLMatrixLower::GetMatrixInfo(CurFromTy, col, row);
     // Calculate the offset.
-    unsigned offset = calcIdx * col * row;
+    unsigned offset = calcIdx * MatTy.getNumElements();
     Value *FromPtr = Builder.CreateInBoundsGEP(FromArray, idxList);
     CopyMatPtrToArrayPtr(FromPtr, ToArray, offset, HLM, Builder, bRowMajor);
   } else if (!CurFromTy->isArrayTy()) {
@@ -5028,12 +5068,10 @@ CastCopyArray1DimToMultiDim(Value *FromArray, Value *ToArray, Type *CurToTy,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, ToPtr);
-  } else if (dxilutil::IsHLSLMatrixType(CurToTy)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::cast(CurToTy)) {
     // Copy array to matrix.
-    unsigned col, row;
-    HLMatrixLower::GetMatrixInfo(CurToTy, col, row);
     // Calculate the offset.
-    unsigned offset = calcIdx * col * row;
+    unsigned offset = calcIdx * MatTy.getNumElements();
     Value *ToPtr = Builder.CreateInBoundsGEP(ToArray, idxList);
     CopyArrayPtrToMatPtr(FromArray, offset, ToPtr, HLM, Builder, bRowMajor);
   } else if (!CurToTy->isArrayTy()) {
@@ -6636,6 +6674,8 @@ private:
   void ReplaceVectorWithArray(Value *Vec, Value *Array);
   void ReplaceVectorArrayWithArray(Value *VecArray, Value *Array);
   void ReplaceStaticIndexingOnVector(Value *V);
+  void ReplaceAddrSpaceCast(ConstantExpr *CE,
+                            Value *A, IRBuilder<> &Builder);
 };
 
 void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
@@ -6738,13 +6778,23 @@ void DynamicIndexingVectorToArray::ReplaceVecGEP(Value *GEP, ArrayRef<Value *> i
   }
 }
 
+void DynamicIndexingVectorToArray::ReplaceAddrSpaceCast(ConstantExpr *CE,
+                                              Value *A, IRBuilder<> &Builder) {
+  // create new AddrSpaceCast.
+  Value *NewAddrSpaceCast = Builder.CreateAddrSpaceCast(
+    A,
+    PointerType::get(A->getType()->getPointerElementType(),
+                      CE->getType()->getPointerAddressSpace()));
+  ReplaceVectorWithArray(CE, NewAddrSpaceCast);
+}
+
 void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) {
   unsigned size = Vec->getType()->getPointerElementType()->getVectorNumElements();
   for (auto U = Vec->user_begin(); U != Vec->user_end();) {
     User *User = (*U++);
 
     // GlobalVariable user.
-    if (isa<ConstantExpr>(User)) {
+    if (ConstantExpr * CE = dyn_cast<ConstantExpr>(User)) {
       if (User->user_empty())
         continue;
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(User)) {
@@ -6752,7 +6802,12 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
         SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
         ReplaceVecGEP(GEP, idxList, A, Builder);
         continue;
+      } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+        IRBuilder<> Builder(Vec->getContext());
+        ReplaceAddrSpaceCast(CE, A, Builder);
+        continue;
       }
+      DXASSERT(0, "not implemented yet");
     }
     // Instrution user.
     Instruction *UserInst = cast<Instruction>(User);
@@ -6961,7 +7016,7 @@ void ReplaceMultiDimGEP(User *GEP, Value *OneDim, IRBuilder<> &Builder) {
 void MultiDimArrayToOneDimArray::lowerUseWithNewValue(Value *MultiDim, Value *OneDim) {
   LLVMContext &Context = MultiDim->getContext();
   // All users should be element type.
-  // Replace users of AI.
+  // Replace users of AI or GV.
   for (auto it = MultiDim->user_begin(); it != MultiDim->user_end();) {
     User *U = *(it++);
     if (U->user_empty())
@@ -6970,21 +7025,29 @@ void MultiDimArrayToOneDimArray::lowerUseWithNewValue(Value *MultiDim, Value *On
       BCI->setOperand(0, OneDim);
       continue;
     }
-    // Must be GEP.
-    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U);
 
-    if (!GEP) {
-      DXASSERT_NOMSG(isa<GEPOperator>(U));
-      // NewGEP must be GEPOperator too.
-      // No instruction will be build.
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
       IRBuilder<> Builder(Context);
-      ReplaceMultiDimGEP(U, OneDim, Builder);
-    } else {
+      if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        // NewGEP must be GEPOperator too.
+        // No instruction will be build.
+        ReplaceMultiDimGEP(U, OneDim, Builder);
+      } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+        Value *NewAddrSpaceCast = Builder.CreateAddrSpaceCast(
+          OneDim,
+          PointerType::get(OneDim->getType()->getPointerElementType(),
+                           CE->getType()->getPointerAddressSpace()));
+        lowerUseWithNewValue(CE, NewAddrSpaceCast);
+      } else {
+        DXASSERT(0, "not implemented");
+      }
+    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       IRBuilder<> Builder(GEP);
       ReplaceMultiDimGEP(U, OneDim, Builder);
-    }
-    if (GEP)
       GEP->eraseFromParent();
+    } else {
+      DXASSERT(0, "not implemented");
+    }
   }
 }
 

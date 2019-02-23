@@ -15,7 +15,7 @@
 #include "CodeGenModule.h"
 #include "CGRecordLayout.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
@@ -981,8 +981,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   unsigned size = dataLayout.getTypeAllocSize(Type);
 
   if (IsHLSLMatType(Ty)) {
-    unsigned col, row;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Type, col, row);
+    llvm::Type *EltTy = HLMatrixType::cast(Type).getElementTypeForReg();
     bool b64Bit = dataLayout.getTypeAllocSize(EltTy) == 8;
     size = GetMatrixSizeInCB(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor,
                              b64Bit);
@@ -2644,7 +2643,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       EltTy = hlsl::GetHLSLVecElementType(Ty);
     } else if (hlsl::IsHLSLMatType(Ty)) {
       EltTy = hlsl::GetHLSLMatElementType(Ty);
-    } else if (resultTy->isAggregateType()) {
+    } else if (hlsl::IsHLSLAggregateType(resultTy)) {
       // Struct or array in a none-struct resource.
       std::vector<QualType> ScalarTys;
       CollectScalarTypes(ScalarTys, resultTy);
@@ -5331,13 +5330,12 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       }
     }
   } else {
-    if (dxilutil::IsHLSLMatrixType(valTy)) {
-      unsigned col, row;
-      llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(valTy, col, row);
+    if (HLMatrixType MatTy = HLMatrixType::dyn_cast(valTy)) {
+      llvm::Type *EltTy = MatTy.getElementTypeForReg();
       // All matrix Value should be row major.
       // Init list is row major in scalar.
       // So the order is match here, just cast to vector.
-      unsigned matSize = col * row;
+      unsigned matSize = MatTy.getNumElements();
       bool isRowMajor = hlsl::IsHLSLMatRowMajor(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor);
 
       HLCastOpcode opcode = isRowMajor ? HLCastOpcode::RowMatrixToVecCast
@@ -5477,18 +5475,16 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     Result = CGF.EmitToMemory(Result, Type);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     bool isRowMajor = hlsl::IsHLSLMatRowMajor(Type, bDefaultRowMajor);
-    unsigned row, col;
-    HLMatrixLower::GetMatrixInfo(Ty, col, row);
-    std::vector<Value *> matInitList(col * row);
-    for (unsigned i = 0; i < col; i++) {
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = i * row + r;
+    std::vector<Value *> matInitList(MatTy.getNumElements());
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+        unsigned matIdx = c * MatTy.getNumRows() + r;
         matInitList[matIdx] = elts[idx + matIdx];
       }
     }
-    idx += row * col;
+    idx += MatTy.getNumElements();
     Value *matVal =
         EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLInit,
                                        /*opcode*/ 0, Ty, matInitList, M);
@@ -6518,10 +6514,9 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
                                  GepList, EltTyList);
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
-    unsigned col, row;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
     llvm::PointerType *EltPtrTy =
         llvm::PointerType::get(EltTy, Ptr->getType()->getPointerAddressSpace());
     QualType EltQualTy = hlsl::GetHLSLMatElementType(Type);
@@ -6529,8 +6524,8 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     Value *matPtr = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
 
     // Flatten matrix to elements.
-    for (unsigned r = 0; r < row; r++) {
-      for (unsigned c = 0; c < col; c++) {
+    for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+      for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
         ConstantInt *cRow = CGF.Builder.getInt32(r);
         ConstantInt *cCol = CGF.Builder.getInt32(c);
         Constant *CV = llvm::ConstantVector::get({cRow, cCol});
@@ -6694,7 +6689,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     // Memcpy struct.
     CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    if (!HLMatrixLower::IsMatrixArrayPointer(llvm::PointerType::get(Ty,0))) {
+    if (!HLMatrixType::isMatrixArray(Ty)) {
       Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
       Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
       unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(AT);
@@ -6775,7 +6770,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (SrcPtrTy == DestPtrTy) {
     bool bMatArrayRotate = false;
-    if (HLMatrixLower::IsMatrixArrayPointer(SrcPtr->getType())) {
+    if (HLMatrixType::isMatrixArrayPtr(SrcPtr->getType())) {
       QualType SrcEltTy = GetArrayEltType(SrcTy);
       QualType DestEltTy = GetArrayEltType(DestTy);
       if (GetMatrixMajor(SrcEltTy, bDefaultRowMajor) !=
@@ -6871,11 +6866,10 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
                                       SrcType, PT->getElementType());
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-    unsigned row, col;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
 
     llvm::VectorType *VT1 = llvm::VectorType::get(EltTy, 1);
     SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcType, hlsl::GetHLSLMatElementType(Type));
@@ -6883,7 +6877,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
     // Splat the value
     Value *V1 = CGF.Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal,
                                                 (uint64_t)0);
-    std::vector<int> shufIdx(col * row, 0);
+    std::vector<int> shufIdx(MatTy.getNumElements(), 0);
     Value *VecMat = CGF.Builder.CreateShuffleVector(V1, V1, shufIdx);
     Value *MatInit = EmitHLSLMatrixOperationCallImp(
         CGF.Builder, HLOpcodeGroup::HLInit, 0, Ty, {VecMat}, TheModule);
@@ -7010,9 +7004,15 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
+    bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isAggregateType = !isObject &&
+      (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
+      !hlsl::IsHLSLVecMatType(ParamTy);
+
+    bool EmitRValueAgg = false;
     bool RValOnRef = false;
     if (!Param->isModifierOut()) {
-      if (!ParamTy->isAggregateType() || hlsl::IsHLSLMatType(ParamTy)) {
+      if (!isAggregateType && !isObject) {
         if (Arg->isRValue() && Param->getType()->isReferenceType()) {
           // RValue on a reference type.
           if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
@@ -7035,27 +7035,61 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         } else {
           continue;
         }
+      } else if (isAggregateType) {
+        // aggregate in-only - emit RValue, unless LValueToRValue cast
+        EmitRValueAgg = true;
+        if (const ImplicitCastExpr *cast =
+                dyn_cast<ImplicitCastExpr>(Arg)) {
+          if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
+            EmitRValueAgg = false;
+          }
+        }
+      } else {
+        // Must be object
+        DXASSERT(isObject, "otherwise, flow condition changed, breaking assumption");
+        // in-only objects should be skipped to preserve previous behavior.
+        continue;
       }
     }
 
-    // get original arg
-    LValue argLV = CGF.EmitLValue(Arg);
+    // Skip unbounded array, since we cannot preserve copy-in copy-out
+    // semantics for these.
+    if (ParamTy->isIncompleteArrayType()) {
+      continue;
+    }
 
     if (!Param->isModifierOut() && !RValOnRef) {
-      bool isDefaultAddrSpace = true;
-      if (argLV.isSimple()) {
-        isDefaultAddrSpace =
-            argLV.getAddress()->getType()->getPointerAddressSpace() ==
-            DXIL::kDefaultAddrSpace;
-      }
-      bool isHLSLIntrinsic = false;
+      // No need to copy arg to in-only param for hlsl intrinsic.
       if (const FunctionDecl *Callee = E->getDirectCallee()) {
-        isHLSLIntrinsic = Callee->hasAttr<HLSLIntrinsicAttr>();
+        if (Callee->hasAttr<HLSLIntrinsicAttr>())
+          continue;
       }
-      // Copy in arg which is not default address space and not on hlsl intrinsic.
-      if (isDefaultAddrSpace || isHLSLIntrinsic)
-        continue;
     }
+
+
+    // get original arg
+    // FIXME: This will not emit in correct argument order with the other
+    //        arguments. This should be integrated into
+    //        CodeGenFunction::EmitCallArg if possible.
+    RValue argRV; // emit this if aggregate arg on in-only param
+    LValue argLV; // otherwise, we may emit this
+    llvm::Value *argAddr = nullptr;
+    QualType argType = Arg->getType();
+    CharUnits argAlignment;
+    if (EmitRValueAgg) {
+      argRV = CGF.EmitAnyExprToTemp(Arg);
+      argAddr = argRV.getAggregateAddr(); // must be alloca
+      argAlignment = CharUnits::fromQuantity(cast<AllocaInst>(argAddr)->getAlignment());
+      argLV = LValue::MakeAddr(argAddr, ParamTy, argAlignment, CGF.getContext());
+    } else {
+      argLV = CGF.EmitLValue(Arg);
+      if (argLV.isSimple())
+        argAddr = argLV.getAddress();
+      argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
+      argAlignment = argLV.getAlignment();
+    }
+    // After emit Arg, we must update the argList[i],
+    // otherwise we get double emit of the expression.
 
     // create temp Var
     VarDecl *tmpArg =
@@ -7065,17 +7099,26 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                         CGF.getContext().getTrivialTypeSourceInfo(ParamTy),
                         StorageClass::SC_Auto);
 
+    bool isEmptyAggregate = false;
+    if (isAggregateType) {
+      DXASSERT(argAddr, "should be RV or simple LV");
+      llvm::Type *ElTy = argAddr->getType()->getPointerElementType();
+      while (ElTy->isArrayTy())
+        ElTy = ElTy->getArrayElementType();
+      if (llvm::StructType *ST = dyn_cast<StructType>(ElTy)) {
+        DxilStructAnnotation *SA = m_pHLModule->GetTypeSystem().GetStructAnnotation(ST);
+        isEmptyAggregate = SA && SA->IsEmptyStruct();
+      }
+    }
+
     // Aggregate type will be indirect param convert to pointer type.
     // So don't update to ReferenceType, use RValue for it.
-    bool isAggregateType = (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
-      !hlsl::IsHLSLVecMatType(ParamTy);
-
     const DeclRefExpr *tmpRef = DeclRefExpr::Create(
         CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
         /*enclosing*/ false, tmpArg->getLocation(), ParamTy,
-        isAggregateType ? VK_RValue : VK_LValue);
+        (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
-    // update the arg
+    // must update the arg, since we did emit Arg, else we get double emit.
     argList[i] = tmpRef;
 
     // create alloc for the tmp arg
@@ -7090,7 +7133,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
 
-    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argLV.getAlignment(),
+    // If param is empty, copy in/out will just create problems.
+    // No copy will result in undef, which is fine.
+    if (isEmptyAggregate)
+      continue;
+
+    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argAlignment,
                                     CGF.getContext());
 
     // save for cast after call
@@ -7099,22 +7147,18 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       castArgList.emplace_back(argLV);
     }
 
-    bool isObject = dxilutil::IsHLSLObjectType(
-        tmpArgAddr->getType()->getPointerElementType());
-
     // cast before the call
     if (Param->isModifierIn() &&
         // Don't copy object
         !isObject) {
       QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
-      bool isAggregateTy = ParamTy->isAggregateType() && !IsHLSLVecMatType(ParamTy);
-      if (!isAggregateTy) {
+      if (!isAggregateType) {
         if (!IsHLSLMatType(ParamTy)) {
           RValue outRVal = CGF.EmitLoadOfLValue(argLV, SourceLocation());
           outVal = outRVal.getScalarVal();
         } else {
-          Value *argAddr = argLV.getAddress();
+          DXASSERT(argAddr, "should be RV or simple LV");
           outVal = EmitHLSLMatrixLoad(CGF, argAddr, ArgTy);
         }
 
@@ -7124,15 +7168,16 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
         }
         else {
-          Value *castVal = ConvertScalarOrVector(CGF, outVal, argLV.getType(), tmpLV.getType());
-          castVal = CGF.EmitToMemory(castVal, tmpLV.getType());
+          Value *castVal = ConvertScalarOrVector(CGF, outVal, argType, ParamTy);
+          castVal = CGF.EmitToMemory(castVal, ParamTy);
           CGF.Builder.CreateStore(castVal, tmpArgAddr);
         }
       } else {
+        DXASSERT(argAddr, "should be RV or simple LV");
         SmallVector<Value *, 4> idxList;
-        EmitHLSLAggregateCopy(CGF, argLV.getAddress(), tmpLV.getAddress(),
+        EmitHLSLAggregateCopy(CGF, argAddr, tmpArgAddr,
                               idxList, ArgTy, ParamTy,
-                              argLV.getAddress()->getType());
+                              argAddr->getType());
       }
     }
   }
@@ -7151,13 +7196,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
     
     Value *outVal = nullptr;
 
-    bool isAggrageteTy = ArgTy->isAggregateType();
-    isAggrageteTy &= !IsHLSLVecMatType(ArgTy);
+    bool isAggregateTy = hlsl::IsHLSLAggregateType(ArgTy);
 
     bool isObject = dxilutil::IsHLSLObjectType(
        tmpArgAddr->getType()->getPointerElementType());
     if (!isObject) {
-      if (!isAggrageteTy) {
+      if (!isAggregateTy) {
         if (!IsHLSLMatType(ParamTy))
           outVal = CGF.Builder.CreateLoad(tmpArgAddr);
         else

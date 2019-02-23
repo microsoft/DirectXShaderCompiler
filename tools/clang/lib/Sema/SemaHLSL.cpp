@@ -4639,7 +4639,7 @@ public:
 
     // Change return type to rvalue reference type for aggregate types
     QualType retTy = parameterTypes[0];
-    if (retTy->isAggregateType() && !IsHLSLVecMatType(retTy))
+    if (hlsl::IsHLSLAggregateType(retTy))
       parameterTypes[0] = m_context->getRValueReferenceType(retTy);
 
     // Create a new specialization.
@@ -10806,6 +10806,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLGroupShared:
     declAttr = ::new (S.Context) HLSLGroupSharedAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
+    if (VarDecl *VD = dyn_cast<VarDecl>(D)) {
+      VD->setType(S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
+    }
     break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(A.getRange(), S.Context,
