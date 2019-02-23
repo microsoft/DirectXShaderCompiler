@@ -146,6 +146,8 @@ INITIALIZE_PASS(DxilDeadFunctionElimination, "dxil-dfe", "Remove all unused func
 
 ///////////////////////////////////////////////////////////////////////////////
 
+bool CleanupSharedMemoryAddrSpaceCast(Module &M);
+
 namespace {
 
 static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
@@ -295,8 +297,11 @@ public:
 
       RemoveUnusedStaticGlobal(M);
 
+      // Remove unnecessary address space casts.
+      CleanupSharedMemoryAddrSpaceCast(M);
+
       // Clear inbound for GEP which has none-const index.
-      LegalizeShareMemoryGEPInbound(M);
+      LegalizeSharedMemoryGEPInbound(M);
 
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
@@ -375,7 +380,7 @@ private:
     }
   }
 
-  void LegalizeShareMemoryGEPInbound(Module &M) {
+  void LegalizeSharedMemoryGEPInbound(Module &M) {
     const DataLayout &DL = M.getDataLayout();
     // Clear inbound for GEP which has none-const index.
     for (GlobalVariable &GV : M.globals()) {
@@ -448,6 +453,226 @@ ModulePass *llvm::createDxilFinalizeModulePass() {
 
 INITIALIZE_PASS(DxilFinalizeModule, "hlsl-dxilfinalize", "HLSL DXIL Finalize Module", false, false)
 
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+typedef MapVector< PHINode*, SmallVector<Value*,8> > PHIReplacementMap;
+bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
+                          PHIReplacementMap &phiReplacements,
+                          DenseMap<Value*, Value*> &valueMap) {
+  bool bChanged = false;
+  for (auto itU = Val->use_begin(), itEnd = Val->use_end(); itU != itEnd; ) {
+    Use &use = *(itU++);
+    User *user = use.getUser();
+    Value *userReplacement = user;
+    bool bConstructReplacement = false;
+    bool bCleanupInst = false;
+    auto valueMapIter = valueMap.find(user);
+    if (valueMapIter != valueMap.end())
+      userReplacement = valueMapIter->second;
+    else if (Val != NewVal)
+      bConstructReplacement = true;
+    if (ConstantExpr* CE = dyn_cast<ConstantExpr>(user)) {
+      if (CE->getOpcode() == Instruction::BitCast) {
+        if (bConstructReplacement) {
+          // Replicate bitcast in target address space
+          Type* NewTy = PointerType::get(
+            CE->getType()->getPointerElementType(),
+            NewVal->getType()->getPointerAddressSpace());
+          userReplacement = ConstantExpr::getBitCast(cast<Constant>(NewVal), NewTy);
+        }
+      } else if (CE->getOpcode() == Instruction::GetElementPtr) {
+        if (bConstructReplacement) {
+          // Replicate GEP in target address space
+          GEPOperator *GEP = cast<GEPOperator>(CE);
+          SmallVector<Value*, 8> idxList(GEP->idx_begin(), GEP->idx_end());
+          userReplacement = ConstantExpr::getGetElementPtr(
+            nullptr, cast<Constant>(NewVal), idxList, GEP->isInBounds());
+        }
+      } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+        userReplacement = NewVal;
+        bConstructReplacement = false;
+      } else {
+        DXASSERT(false, "RemoveAddrSpaceCasts: unhandled pointer ConstantExpr");
+      }
+    } else if (Instruction *I = dyn_cast<Instruction>(user)) {
+      if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
+        if (bConstructReplacement) {
+          IRBuilder<> Builder(GEP);
+          SmallVector<Value*, 8> idxList(GEP->idx_begin(), GEP->idx_end());
+          if (GEP->isInBounds())
+            userReplacement = Builder.CreateInBoundsGEP(NewVal, idxList, GEP->getName());
+          else
+            userReplacement = Builder.CreateGEP(NewVal, idxList, GEP->getName());
+        }
+      } else if (BitCastInst *BC = dyn_cast<BitCastInst>(user)) {
+        if (bConstructReplacement) {
+          IRBuilder<> Builder(BC);
+          Type* NewTy = PointerType::get(
+            BC->getType()->getPointerElementType(),
+            NewVal->getType()->getPointerAddressSpace());
+          userReplacement = Builder.CreateBitCast(NewVal, NewTy);
+        }
+      } else if (PHINode *PHI = dyn_cast<PHINode>(user)) {
+        // set replacement phi values for PHI pass
+        unsigned numValues = PHI->getNumIncomingValues();
+        auto &phiValues = phiReplacements[PHI];
+        if (phiValues.empty())
+          phiValues.resize(numValues, nullptr);
+        for (unsigned idx = 0; idx < numValues; ++idx) {
+          if (phiValues[idx] == nullptr &&
+              PHI->getIncomingValue(idx) == Val) {
+            phiValues[idx] = NewVal;
+            bChanged = true;
+          }
+        }
+        continue;
+      } else if (isa<AddrSpaceCastInst>(user)) {
+        userReplacement = NewVal;
+        bConstructReplacement = false;
+        bCleanupInst = true;
+      } else if (isa<CallInst>(user)) {
+        continue;
+      } else {
+        if (Val != NewVal) {
+          use.set(NewVal);
+          bChanged = true;
+        }
+        continue;
+      }
+    }
+    if (bConstructReplacement && user != userReplacement)
+      valueMap[user] = userReplacement;
+    bChanged |= RemoveAddrSpaceCasts(user, userReplacement, phiReplacements,
+                                      valueMap);
+    if (bCleanupInst && user->use_empty()) {
+      // Clean up old instruction if it's now unused.
+      // Safe during this use iteration when only one use of V in instruction.
+      if (Instruction *I = dyn_cast<Instruction>(user))
+        I->eraseFromParent();
+      bChanged = true;
+    }
+  }
+  return bChanged;
+}
+}
+
+bool CleanupSharedMemoryAddrSpaceCast(Module &M) {
+  bool bChanged = false;
+  // Eliminate address space casts if possible
+  // Collect phi nodes so we can replace iteratively after pass over GVs
+  PHIReplacementMap phiReplacements;
+  DenseMap<Value*, Value*> valueMap;
+  for (GlobalVariable &GV : M.globals()) {
+    if (dxilutil::IsSharedMemoryGlobal(&GV)) {
+      bChanged |= RemoveAddrSpaceCasts(&GV, &GV, phiReplacements,
+                                       valueMap);
+    }
+  }
+  bool bConverged = false;
+  while (!phiReplacements.empty() && !bConverged) {
+    bConverged = true;
+    for (auto &phiReplacement : phiReplacements) {
+      PHINode *PHI = phiReplacement.first;
+      unsigned origAddrSpace = PHI->getType()->getPointerAddressSpace();
+      unsigned incomingAddrSpace = UINT_MAX;
+      bool bReplacePHI = true;
+      bool bRemovePHI = false;
+      for (auto V : phiReplacement.second) {
+        if (nullptr == V) {
+          // cannot replace phi (yet)
+          bReplacePHI = false;
+          break;
+        }
+        unsigned addrSpace = V->getType()->getPointerAddressSpace();
+        if (incomingAddrSpace == UINT_MAX) {
+          incomingAddrSpace = addrSpace;
+        } else if (addrSpace != incomingAddrSpace) {
+          bRemovePHI = true;
+          break;
+        }
+      }
+      if (origAddrSpace == incomingAddrSpace)
+        bRemovePHI = true;
+      if (bRemovePHI) {
+        // Cannot replace phi.  Remove it and restart.
+        phiReplacements.erase(PHI);
+        bConverged = false;
+        break;
+      }
+      if (!bReplacePHI)
+        continue;
+      auto &NewVal = valueMap[PHI];
+      PHINode *NewPHI = nullptr;
+      if (NewVal) {
+        NewPHI = cast<PHINode>(NewVal);
+      } else {
+        IRBuilder<> Builder(PHI);
+        NewPHI = Builder.CreatePHI(
+          PointerType::get(PHI->getType()->getPointerElementType(),
+                           incomingAddrSpace),
+          PHI->getNumIncomingValues(),
+          PHI->getName());
+        NewVal = NewPHI;
+        for (unsigned idx = 0; idx < PHI->getNumIncomingValues(); idx++) {
+          NewPHI->addIncoming(phiReplacement.second[idx],
+                              PHI->getIncomingBlock(idx));
+        }
+      }
+      if (RemoveAddrSpaceCasts(PHI, NewPHI, phiReplacements,
+                               valueMap)) {
+        bConverged = false;
+        bChanged = true;
+      }
+      if (PHI->use_empty()) {
+        phiReplacements.erase(PHI);
+        bConverged = false;
+        bChanged = true;
+        break;
+      }
+    }
+  }
+
+  // Cleanup unused replacement instructions
+  SmallVector<WeakVH, 8> cleanupInsts;
+  for (auto it : valueMap) {
+    if (isa<Instruction>(it.first))
+      cleanupInsts.push_back(it.first);
+    if (isa<Instruction>(it.second))
+      cleanupInsts.push_back(it.second);
+  }
+  for (auto V : cleanupInsts) {
+    if (!V)
+      continue;
+    if (PHINode *PHI = dyn_cast<PHINode>(V))
+      RecursivelyDeleteDeadPHINode(PHI);
+    else if (Instruction *I = dyn_cast<Instruction>(V))
+      RecursivelyDeleteTriviallyDeadInstructions(I);
+  }
+
+  return bChanged;
+}
+
+class DxilCleanupAddrSpaceCast : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilCleanupAddrSpaceCast() : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "HLSL DXIL Cleanup Address Space Cast"; }
+
+  bool runOnModule(Module &M) override {
+    return CleanupSharedMemoryAddrSpaceCast(M);
+  }
+};
+
+char DxilCleanupAddrSpaceCast::ID = 0;
+
+ModulePass *llvm::createDxilCleanupAddrSpaceCastPass() {
+  return new DxilCleanupAddrSpaceCast();
+}
+
+INITIALIZE_PASS(DxilCleanupAddrSpaceCast, "hlsl-dxil-cleanup-addrspacecast", "HLSL DXIL Cleanup Address Space Cast", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
