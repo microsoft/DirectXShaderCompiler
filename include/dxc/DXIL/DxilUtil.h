@@ -102,8 +102,10 @@ namespace dxilutil {
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context);
+  bool IsIntegerOrFloatingPointType(llvm::Type *Ty);
   // Returns true if type contains HLSL Object type (resource)
   bool ContainsHLSLObjectType(llvm::Type *Ty);
+  bool IsHLSLResourceType(llvm::Type *Ty);
   bool IsHLSLObjectType(llvm::Type *Ty);
   bool IsHLSLMatrixType(llvm::Type *Ty);
   bool IsSplat(llvm::ConstantDataVector *cdv);

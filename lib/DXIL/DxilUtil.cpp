@@ -396,29 +396,15 @@ llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
   return SkipAllocas(FindAllocaInsertionPt(F));
 }
 
-bool IsHLSLObjectType(llvm::Type *Ty) {
+bool IsHLSLResourceType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     StringRef name = ST->getName();
-    // TODO: don't check names.
-    if (name.startswith("dx.types.wave_t"))
-      return true;
-
-    if (name.endswith("_slice_type"))
-      return false;
-
     name = name.ltrim("class.");
     name = name.ltrim("struct.");
 
     if (name == "SamplerState")
       return true;
     if (name == "SamplerComparisonState")
-      return true;
-
-    if (name.startswith("TriangleStream<"))
-      return true;
-    if (name.startswith("PointStream<"))
-      return true;
-    if (name.startswith("LineStream<"))
       return true;
 
     if (name.startswith("AppendStructuredBuffer<"))
@@ -441,23 +427,53 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
     if (name.startswith("StructuredBuffer<"))
       return true;
-    if (name.startswith("Texture1D<"))
+
+    if (name.startswith("Texture")) {
+      name = name.ltrim("Texture");
+      if (name.startswith("1D<"))
+        return true;
+      if (name.startswith("1DArray<"))
+        return true;
+      if (name.startswith("2D<"))
+        return true;
+      if (name.startswith("2DArray<"))
+        return true;
+      if (name.startswith("3D<"))
+        return true;
+      if (name.startswith("Cube<"))
+        return true;
+      if (name.startswith("CubeArray<"))
+        return true;
+      if (name.startswith("2DMS<"))
+        return true;
+      if (name.startswith("2DMSArray<"))
+        return true;
+    }
+  }
+  return false;
+}
+
+bool IsHLSLObjectType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    StringRef name = ST->getName();
+    // TODO: don't check names.
+    if (name.startswith("dx.types.wave_t"))
       return true;
-    if (name.startswith("Texture1DArray<"))
+
+    if (name.endswith("_slice_type"))
+      return false;
+
+    if (IsHLSLResourceType(Ty))
       return true;
-    if (name.startswith("Texture2D<"))
+
+    name = name.ltrim("class.");
+    name = name.ltrim("struct.");
+
+    if (name.startswith("TriangleStream<"))
       return true;
-    if (name.startswith("Texture2DArray<"))
+    if (name.startswith("PointStream<"))
       return true;
-    if (name.startswith("Texture3D<"))
-      return true;
-    if (name.startswith("TextureCube<"))
-      return true;
-    if (name.startswith("TextureCubeArray<"))
-      return true;
-    if (name.startswith("Texture2DMS<"))
-      return true;
-    if (name.startswith("Texture2DMSArray<"))
+    if (name.startswith("LineStream<"))
       return true;
   }
   return false;
@@ -475,6 +491,10 @@ bool IsHLSLMatrixType(Type *Ty) {
     return isVecArray && EltTy->getArrayNumElements() <= 4;
   }
   return false;
+}
+
+bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
+  return Ty->isIntegerTy() || Ty->isFloatingPointTy();
 }
 
 bool ContainsHLSLObjectType(llvm::Type *Ty) {
