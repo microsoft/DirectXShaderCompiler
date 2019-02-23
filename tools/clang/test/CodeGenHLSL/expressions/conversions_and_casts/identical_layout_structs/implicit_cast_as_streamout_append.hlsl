@@ -56,24 +56,7 @@ void main(inout TriangleStream<GSOutPSIn> stream)
     tri[2].clr = float4(17, 18, 19, 20);
     tri[2].pos = float4(21, 22, 23, 24);
     
-//#define WORKAROUND
-#if !defined(WORKAROUND)
     stream.Append(tri[0]);
     stream.Append(tri[1]);
     stream.Append(tri[2]);
-#else
-    GSOutPSIn t0;
-        t0.clr = tri[0].clr;
-        t0.pos = tri[0].pos;
-    GSOutPSIn t1;
-        t1.clr = tri[1].clr;
-        t1.pos = tri[1].pos;
-    GSOutPSIn t2;
-        t2.clr = tri[2].clr;
-        t2.pos = tri[2].pos;
-
-    stream.Append(t0);
-    stream.Append(t1);
-    stream.Append(t2);
-#endif
 }
