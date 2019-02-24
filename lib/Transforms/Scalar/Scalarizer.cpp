@@ -719,8 +719,8 @@ bool Scalarizer::finish() {
     if (!Op->use_empty()) {
       // HLSL Change Begins.
       // Remove the extract element users if possible.
-      for (auto UI = Op->user_begin(); UI != Op->user_end(); ) {
-        if (ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(*(UI++))) {
+      for (User *UI : Op->users()) {
+        if (ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(UI)) {
           Value *Idx = EEI->getIndexOperand();
           if (!isa<ConstantInt>(Idx))
             continue;
@@ -737,25 +737,7 @@ bool Scalarizer::finish() {
             } else
               break;
           }
-          if (HasDbgInfo) {
-            if (auto *L = LocalAsMetadata::getIfExists(CV[immIdx])) {
-              if (auto *DINode = MetadataAsValue::getIfExists(Ctx, L)) {
-                // Putting old users in an array, so we don't keep looping over new
-                // users as we add more.
-                SmallVector<User *, 4> OldUsers(DINode->user_begin(), DINode->user_end());
-                for (User *U : OldUsers)
-                  if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
-                    auto *Expr = DVI->getExpression();
-                    DIBuilder DIB(M, /*AllowUnresolved*/ false);
-                    auto *VarInfo = DVI->getVariable();
-                    DebugLoc DbgLoc = DVI->getDebugLoc();
-                    unsigned Offset = 0;
-                    DIB.insertDbgValueIntrinsic(EEI, Offset, VarInfo, Expr,
-                                                DbgLoc, DVI);
-                  }
-              }
-            }
-          }
+
           EEI->replaceAllUsesWith(Elt);
 
           EltMap[EEI] = Elt;
