@@ -5440,5 +5440,114 @@ struct DxilInst_Dot4AddU8Packed {
   llvm::Value *get_b() const { return Instr->getOperand(3); }
   void set_b(llvm::Value *val) { Instr->setOperand(3, val); }
 };
+
+/// This instruction returns the bitmask of active lanes that have the same value
+struct DxilInst_WaveMatch {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WaveMatch(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WaveMatch);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_value = 1,
+  };
+  // Accessors
+  llvm::Value *get_value() const { return Instr->getOperand(1); }
+  void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction returns the result of the operation on groups of lanes identified by a bitmask
+struct DxilInst_WaveMultiPrefixOp {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WaveMultiPrefixOp(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WaveMultiPrefixOp);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (8 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_value = 1,
+    arg_mask0 = 2,
+    arg_mask1 = 3,
+    arg_mask2 = 4,
+    arg_mask3 = 5,
+    arg_op = 6,
+    arg_sop = 7,
+  };
+  // Accessors
+  llvm::Value *get_value() const { return Instr->getOperand(1); }
+  void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_mask0() const { return Instr->getOperand(2); }
+  void set_mask0(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_mask1() const { return Instr->getOperand(3); }
+  void set_mask1(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_mask2() const { return Instr->getOperand(4); }
+  void set_mask2(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_mask3() const { return Instr->getOperand(5); }
+  void set_mask3(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_op() const { return Instr->getOperand(6); }
+  void set_op(llvm::Value *val) { Instr->setOperand(6, val); }
+  int8_t get_op_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))->getZExtValue()); }
+  void set_op_val(int8_t val) { Instr->setOperand(6, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+  llvm::Value *get_sop() const { return Instr->getOperand(7); }
+  void set_sop(llvm::Value *val) { Instr->setOperand(7, val); }
+  int8_t get_sop_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(7))->getZExtValue()); }
+  void set_sop_val(int8_t val) { Instr->setOperand(7, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+};
+
+/// This instruction returns the count of bits set to 1 on groups of lanes identified by a bitmask
+struct DxilInst_WaveMultiPrefixBitCount {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WaveMultiPrefixBitCount(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WaveMultiPrefixBitCount);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_value = 1,
+    arg_mask0 = 2,
+    arg_mask1 = 3,
+    arg_mask2 = 4,
+    arg_mask3 = 5,
+  };
+  // Accessors
+  llvm::Value *get_value() const { return Instr->getOperand(1); }
+  void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_mask0() const { return Instr->getOperand(2); }
+  void set_mask0(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_mask1() const { return Instr->getOperand(3); }
+  void set_mask1(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_mask2() const { return Instr->getOperand(4); }
+  void set_mask2(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_mask3() const { return Instr->getOperand(5); }
+  void set_mask3(llvm::Value *val) { Instr->setOperand(5, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

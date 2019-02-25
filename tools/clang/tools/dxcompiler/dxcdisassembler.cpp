@@ -1180,7 +1180,10 @@ static const char *OpCodeSignatures[] = {
   "()",  // PrimitiveIndex
   "(acc,ax,ay,bx,by)",  // Dot2AddHalf
   "(acc,a,b)",  // Dot4AddI8Packed
-  "(acc,a,b)"  // Dot4AddU8Packed
+  "(acc,a,b)",  // Dot4AddU8Packed
+  "(value)",  // WaveMatch
+  "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
+  "(value,mask0,mask1,mask2,mask3)"  // WaveMultiPrefixBitCount
 };
 // OPCODE-SIGS:END
 
