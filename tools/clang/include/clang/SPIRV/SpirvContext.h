@@ -212,10 +212,10 @@ public:
     curShaderModelKind = smk;
   }
   /// Functions to get/set hlsl profile version.
-  unsigned getMajorVersion() const { return majorVersion; }
-  void setMajorVersion(unsigned major) { majorVersion = major; }
-  unsigned getMinorVersion() const { return minorVersion; }
-  void setMinorVersion(unsigned minor) { minorVersion = minor; }
+  uint32_t getMajorVersion() const { return majorVersion; }
+  void setMajorVersion(uint32_t major) { majorVersion = major; }
+  uint32_t getMinorVersion() const { return minorVersion; }
+  void setMinorVersion(uint32_t minor) { minorVersion = minor; }
 
   /// Functions to query current entry point ShaderModelKind.
   bool isPS() const { return curShaderModelKind == ShaderModelKind::Pixel; }
@@ -277,8 +277,8 @@ private:
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;
   // Major/Minor hlsl profile version.
-  unsigned majorVersion;
-  unsigned minorVersion;
+  uint32_t majorVersion;
+  uint32_t minorVersion;
 };
 
 } // end namespace spirv
