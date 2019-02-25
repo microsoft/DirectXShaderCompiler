@@ -2808,16 +2808,51 @@ generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 Raytracing Shader Stages
 ------------------------
 
-DirectX Raytracing adds six new shader stages for raytracing which are discussed below
+DirectX Raytracing adds six new shader stages for raytracing namely ray generation, intersection, closest-hit,
+any-hit, miss and callable.
 
 | Refer to following pages for details:
 | https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing
 | https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing-hlsl-reference
 
+Flow chart for various stages in a raytracing pipeline is as follows
+::
+
+          +---------------------+
+          |   Ray generation    |
+          +---------------------+
+                     |
+                     |                      +--------------+
+                     |      _ _ _ _ _ _ _ _ |   Any Hit    |
+                     |     |                +--------------+
+                     V     V                       ^
+          +---------------------+                  |
+          |    Acceleration     |           +--------------+
+          |     Structure       |           | Intersection |
+          |     Traversal       |           +--------------+
+          +---------------------+                  ^
+                    |        |                     |
+                    |        |_ _ _ _ _ _ _ _ _ _ _|
+                    |
+                    |
+                    V
+          +--------------------+            +-------------+
+          |      Is Hit ?      |            |  Callable   |
+          +--------------------+            +-------------+
+              |            |
+              |            |
+              V            V
+         +---------+    +------+
+         | Closest |    | Miss |
+         |   Hit   |    |      |
+         +---------+    +------+
+
+
+
 Ray Generation Stage
 ~~~~~~~~~~~~~~~~~~~~
 
-| Ray generation shaders start ray tracing work and work on a compute-like 3D grid of threads
+| Ray generation shaders start ray tracing work and work on a compute-like 3D grid of threads.
 | Entry functions of this stage type are annotated with **[shader("raygeneration"]]** in HLSL source.
 | Such entry functions return void and do not accept any arguments.
 | For example
@@ -2843,9 +2878,9 @@ Ray Generation Stage
 Intersection Stage
 ~~~~~~~~~~~~~~~~~~
 
-| Intersection shader stage is used to implement arbitrary primitive intersections such spheres or axis-aligned bounding boxes (AABB). Triangle primitives and do not require a custom intersection shader.
+| Intersection shader stage is used to implement arbitrary ray-primitive intersections such spheres or axis-aligned bounding boxes (AABB). Triangle primitives do not require a custom intersection shader.
 | Entry functions of this stage are annotated with **[shader("intersection")]]** in HLSL source.
-| Such entry functions return void and do not accept any arguments
+| Such entry functions return void and do not accept any arguments.
 | For example
 
 .. code:: hlsl
@@ -2869,8 +2904,8 @@ Closest-Hit Stage
 | is invoked for the closest intersection point along a ray and can be used to compute interactions
 | at intersection point or spawn secondary rays.
 | Entry functions of this stage are annotated with **[shader("closesthit")]** in HLSL source.
-| Such entry functions return void and accept exactly two arguments. First argument is an inout
-| variable of user defined structure type, second argument is an in variable of user defined structure type.
+| Such entry functions return void and accept exactly two arguments. First argument must be an inout
+| variable of user defined structure type and second argument must be a in variable of user defined structure type.
 | For example
 
 .. code:: hlsl
@@ -2893,8 +2928,8 @@ Any-Hit Stage
 | Hit shaders are invoked when a ray primitive intersection is found. An any-hit shader
 | is invoked for all intersections along a ray with a primitive.
 | Entry functions of this stage are annotated with **[shader("anyhit")]** in HLSL source.
-| Such entry functions return void and accept exactly two arguments. First argument is an inout
-| variable of user defined structure type, second argument is an in variable of user defined structure type.
+| Such entry functions return void and accept exactly two arguments. First argument must be an inout
+| variable of user defined structure type and second argument must be an in variable of user defined structure type.
 | For example
 
 .. code:: hlsl
@@ -2916,7 +2951,7 @@ Miss Stage
 
 | Miss shaders are invoked when no intersection is found.
 | Entry functions of this stage are annotated with **[shader("miss")]** in HLSL source.
-| Such entry functions return void and accept exactly one argument. First argument is an inout variable of user defined structure type.
+| Such entry functions return void and accept exactly one argument. First argument must be an inout variable of user defined structure type.
 | For example
 
 .. code:: hlsl
@@ -2935,7 +2970,7 @@ Callable Stage
 | Callables are generic function calls which can be invoked from any of the above
 | shader stages.
 | Entry functions of this stage are annotated with **[shader("callable")]** in HLSL source.
-| Such entry functions return void and accept exactly one argument. First argument is an inout
+| Such entry functions return void and accept exactly one argument. First argument must be an inout
 | variable of user defined structure type.
 | For example
 
