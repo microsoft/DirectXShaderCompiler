@@ -2815,7 +2815,8 @@ any-hit, miss and callable.
 | https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing
 | https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing-hlsl-reference
 
-Flow chart for various stages in a raytracing pipeline is as follows
+
+Flow chart for various stages in a raytracing pipeline is as follows:
 ::
 
           +---------------------+
@@ -2848,15 +2849,15 @@ Flow chart for various stages in a raytracing pipeline is as follows
          +---------+    +------+
 
 
-| Note : DXC does not add special shader profiles for raytracing under -T option.
-| All raytracing shader sources must be compiled as library using lib_6_3/lib_6_4 profile option.
+| *Note : DXC does not add special shader profiles for raytracing under -T option.*
+| *All raytracing shaders must be compiled as library using lib_6_3/lib_6_4 profile option.*
 
 Ray Generation Stage
 ~~~~~~~~~~~~~~~~~~~~
 
 | Ray generation shaders start ray tracing work and work on a compute-like 3D grid of threads.
 | Entry functions of this stage type are annotated with **[shader("raygeneration")]** in HLSL source.
-| Such entry functions return void and do not accept any arguments.
+| Such entry functions must return void and do not accept any arguments.
 | For example:
 
 .. code:: hlsl
@@ -2882,7 +2883,7 @@ Intersection Stage
 
 | Intersection shader stage is used to implement arbitrary ray-primitive intersections such spheres or axis-aligned bounding boxes (AABB). Triangle primitives do not require a custom intersection shader.
 | Entry functions of this stage are annotated with **[shader("intersection")]** in HLSL source.
-| Such entry functions return void and do not accept any arguments.
+| Such entry functions must return void and do not accept any arguments.
 | For example:
 
 .. code:: hlsl
@@ -2906,7 +2907,7 @@ Closest-Hit Stage
 | is invoked for the closest intersection point along a ray and can be used to compute interactions
 | at intersection point or spawn secondary rays.
 | Entry functions of this stage are annotated with **[shader("closesthit")]** in HLSL source.
-| Such entry functions return void and accept exactly two arguments. First argument must be an inout
+| Such entry functions must return void and accept exactly two arguments. First argument must be an inout
 | variable of user defined structure type and second argument must be a in variable of user defined structure type.
 | For example:
 
@@ -2930,7 +2931,7 @@ Any-Hit Stage
 | Hit shaders are invoked when a ray primitive intersection is found. An any-hit shader
 | is invoked for all intersections along a ray with a primitive.
 | Entry functions of this stage are annotated with **[shader("anyhit")]** in HLSL source.
-| Such entry functions return void and accept exactly two arguments. First argument must be an inout
+| Such entry functions must return void and accept exactly two arguments. First argument must be an inout
 | variable of user defined structure type and second argument must be an in variable of user defined structure type.
 | For example:
 
@@ -2969,10 +2970,10 @@ Miss Stage
 Callable Stage
 ~~~~~~~~~~~~~~
 
-| Callables are generic function calls which can be invoked from any of the above
-| shader stages.
+| Callables are generic function calls which can be invoked from either raygeneration, closest-hit, 
+| miss or callable shader stages.
 | Entry functions of this stage are annotated with **[shader("callable")]** in HLSL source.
-| Such entry functions return void and accept exactly one argument. First argument must be an inout
+| Such entry functions must return void and accept exactly one argument. First argument must be an inout
 | variable of user defined structure type.
 | For example:
 
@@ -2990,7 +2991,7 @@ Callable Stage
 Raytracing in Vulkan and SPIRV
 ==============================
 
-| SPIR-V codegen is currently supported for NVIDIA platforms based on SPV_NV_ray_tracing extension
+| SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension
 | SPIR-V specification for reference:
 | https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_ray_tracing.asciidoc
 
@@ -3005,12 +3006,12 @@ Intrinsics
 ~~~~~~~~~~
 
 
-| Following is mapping of system value intrinsics along with supported shader stages.
+| Following table provides mapping for system value intrinsics along with supported shader stages.
 
 ===========================     ============================ ====== ============ =========== ======= ==== ========
         HLSL                               SPIR-V                             HLSL Shader Stage
 ---------------------------     ---------------------------- ---------------------------------------------------
-  System Value Intrinsic               Builtin/Opcode        Raygen Intersection Closest Hit Any Hit Miss Callable
+  System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit Miss Callable
 ===========================     ============================ ====== ============ =========== ======= ==== ========
 ``DispatchRaysIndex``           ``LaunchIdNV``                 ✓         ✓            ✓         ✓     ✓      ✓
 ``DispatchRaysDimensions``      ``LaunchSizeNV``               ✓         ✓            ✓         ✓     ✓      ✓
@@ -3033,7 +3034,7 @@ Intrinsics
 
 | *There is no separate builtin for transposed matrices ObjectToWorld3x4 and WorldToObject3x4 in SPIR-V hence we internally transpose during translation*
 
-| Following is mapping of other intrinsics along with the supported shader stages.
+| Following table provides mapping for other intrinsics along with supported shader stages.
 
 ===========================     ============================ ====== ============ =========== ======= ==== ========
         HLSL                               SPIR-V                             HLSL Shader Stage
@@ -3051,7 +3052,7 @@ Intrinsics
 Resource Types
 ~~~~~~~~~~~~~~
 
-| Following is mapping for new resource types supported in all raytracing shaders.
+| Following table provides mapping for new resource types supported in all raytracing shaders.
 
 ===================================     =================================
         HLSL Type                               SPIR-V Opcode
