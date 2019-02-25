@@ -855,6 +855,10 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
+  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
+  // WaveMultiPrefixBitCount=167
+  if ((165 <= op && op <= 167))
+    return (major > 6 || (major == 6 && minor >= 5));
   return true;
   // VALOPCODESM-TEXT:END
 }

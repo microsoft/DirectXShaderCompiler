@@ -316,6 +316,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::Dot2AddHalf,             "Dot2AddHalf",              OCC::Dot2AddHalf,              "dot2AddHalf",               { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::Dot4AddI8Packed,         "Dot4AddI8Packed",          OCC::Dot4AddPacked,            "dot4AddPacked",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::Dot4AddU8Packed,         "Dot4AddU8Packed",          OCC::Dot4AddPacked,            "dot4AddPacked",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Wave                                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WaveMatch,               "WaveMatch",                OCC::WaveMatch,                "waveMatch",                 { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveMultiPrefixOp,       "WaveMultiPrefixOp",        OCC::WaveMultiPrefixOp,        "waveMultiPrefixOp",         { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveMultiPrefixBitCount, "WaveMultiPrefixBitCount",  OCC::WaveMultiPrefixBitCount,  "waveMultiPrefixBitCount",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 
@@ -498,8 +503,9 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveActiveAllEqual=115, WaveActiveBallot=116, WaveReadLaneAt=117,
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
-  // WavePrefixBitCount=136
-  return (110 <= op && op <= 123) || (135 <= op && op <= 136);
+  // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
+  // WaveMultiPrefixBitCount=167
+  return (110 <= op && op <= 123) || (135 <= op && op <= 136) || (165 <= op && op <= 167);
   // OPCODE-WAVE:END
 }
 
@@ -648,6 +654,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
   if ((162 <= op && op <= 164)) {
     major = 6;  minor = 4;
+    return;
+  }
+  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
+  // WaveMultiPrefixBitCount=167
+  if ((165 <= op && op <= 167)) {
+    major = 6;  minor = 5;
     return;
   }
   // OPCODE-SMMASK:END
@@ -1045,6 +1057,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::Dot2AddHalf:            A(pETy);     A(pI32); A(pETy); A(pF16); A(pF16); A(pF16); A(pF16); break;
   case OpCode::Dot4AddI8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
   case OpCode::Dot4AddU8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
+
+    // Wave
+  case OpCode::WaveMatch:              A(pI4S);     A(pI32); A(pETy); break;
+  case OpCode::WaveMultiPrefixOp:      A(pETy);     A(pI32); A(pETy); A(pI32); A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
+  case OpCode::WaveMultiPrefixBitCount:A(pI32);     A(pI32); A(pI1);  A(pI32); A(pI32); A(pI32); A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1152,6 +1169,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::USubb:
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
+  case OpCode::WaveMatch:
     DXASSERT_NOMSG(FT->getNumParams() > 1);
     return FT->getParamType(1);
   case OpCode::TextureStore:
@@ -1196,6 +1214,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WavePrefixBitCount:
   case OpCode::IgnoreHit:
   case OpCode::AcceptHitAndEndSearch:
+  case OpCode::WaveMultiPrefixBitCount:
     return Type::getVoidTy(m_Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:
