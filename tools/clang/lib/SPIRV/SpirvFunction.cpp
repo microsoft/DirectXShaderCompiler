@@ -34,8 +34,7 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!basicBlocks.empty()) {
     BlockReadableOrderVisitor([&orderedBlocks](SpirvBasicBlock *block) {
       orderedBlocks.push_back(block);
-    })
-        .visit(basicBlocks.front());
+    }).visit(basicBlocks.front());
   }
 
   if (reverseOrder)

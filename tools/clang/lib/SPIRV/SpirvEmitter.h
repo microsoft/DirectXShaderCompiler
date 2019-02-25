@@ -505,10 +505,10 @@ private:
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
-  /// Process builtins specific to raytracing
+  /// Process builtins specific to raytracing.
   SpirvInstruction *processRayBuiltins(const CallExpr *, hlsl::IntrinsicOp op);
 
-  /// Process raytracing intrinsics
+  /// Process raytracing intrinsics.
   SpirvInstruction *processReportHit(const CallExpr *);
   void processCallShader(const CallExpr *callExpr);
   void processTraceRay(const CallExpr *callExpr);
@@ -635,7 +635,7 @@ private:
   /// stages and returns true on success.
   ///
   /// Wrapper is specific to raytracing stages since for specific stages we
-  /// create specific module scoped stage variables and perform copies to them
+  /// create specific module scoped stage variables and perform copies to them.
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
@@ -1084,9 +1084,9 @@ private:
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, SpirvBasicBlock *> stmtBasicBlock;
 
-  /// Maintains mapping from a type to spirv variable along with spirv
+  /// Maintains mapping from a type to SPIR-V variable along with SPIR-V
   /// instruction for id of location decoration Used for raytracing stage
-  /// variables of storage class RayPayloadNV, CallableDataNV and HitAttributeNV
+  /// variables of storage class RayPayloadNV, CallableDataNV and HitAttributeNV.
   llvm::SmallDenseMap<QualType,
                       std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
       payloadMap;

@@ -6555,7 +6555,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   }
   case hlsl::IntrinsicOp::IOP_CallShader: {
     processCallShader(callExpr);
-    return 0;
+    break;
   }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
@@ -8730,14 +8730,14 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     break;
   default:
     emitError("ray intrinsic function unimplemented", callExpr->getExprLoc());
-    break;
+    return nullptr;
   }
 
   QualType builtinType = callExpr->getType();
   if (transposeMatrix) {
-    // DXR defines ObjectToWorld3x4, WorldToObject3x4 as transposed matrices
-    // SPIRV has only non tranposed variant defined as a builtin
-    // So perform read of original non transposed builtin and perform transpose
+    // DXR defines ObjectToWorld3x4, WorldToObject3x4 as transposed matrices.
+    // SPIR-V has only non tranposed variant defined as a builtin
+    // So perform read of original non transposed builtin and perform transpose.
     assert(hlsl::IsHLSLMatType(builtinType) && "Builtin should be matrix");
     const clang::Type *type = builtinType.getCanonicalType().getTypePtr();
     const RecordType *RT = cast<RecordType>(type);
@@ -8762,6 +8762,11 @@ SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
   const VarDecl *hitAttributeArg = nullptr;
   QualType hitAttributeType;
   const auto args = callExpr->getArgs();
+
+  if (callExpr->getNumArgs() != 3) {
+    emitError("invalid number of arguments to ReportHit",
+              callExpr->getExprLoc());
+  }
 
   // HLSL Function :
   // template<typename hitAttr>
@@ -8794,7 +8799,7 @@ SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
       spvBuilder.createLoad(hitAttributeArg->getType(), hitAttributeArgInst);
   spvBuilder.createStore(hitAttributeStageVar, tempLoad);
 
-  // SPV Instruction :
+  // SPIR-V Instruction :
   // bool OpReportIntersection(<id> float Hit, <id> uint HitKind)
   llvm::SmallVector<SpirvInstruction *, 4> reportHitArgs;
   reportHitArgs.push_back(doExpr(args[0])); // Hit
@@ -8809,6 +8814,11 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
   const VarDecl *callDataArg = nullptr;
   QualType callDataType;
   const auto args = callExpr->getArgs();
+
+  if (callExpr->getNumArgs() != 2) {
+    emitError("invalid number of arguments to CallShader",
+              callExpr->getExprLoc());
+  }
 
   // HLSL Func :
   // template<typename CallData>
@@ -8847,7 +8857,7 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
       spvBuilder.createLoad(callDataArg->getType(), callDataArgInst);
   spvBuilder.createStore(callDataStageVar, tempLoad);
 
-  // SPV Instruction
+  // SPIR-V Instruction
   // void OpExecuteCallable(<id> int SBT Index, <id> uint Callable Data Location
   // Id)
   llvm::SmallVector<SpirvInstruction *, 2> callShaderArgs;
@@ -8869,6 +8879,11 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
   QualType payloadType;
 
   const auto args = callExpr->getArgs();
+
+  if (callExpr->getNumArgs() != 8) {
+    emitError("invalid number of arguments to TraceRay",
+              callExpr->getExprLoc());
+  }
 
   // HLSL Func
   // template<typename Payload>
@@ -8929,7 +8944,7 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
   auto tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadArgInst);
   spvBuilder.createStore(payloadStageVar, tempLoad);
 
-  // SPV Instruction
+  // SPIR-V Instruction
   // void OpTraceNV ( <id> AccelerationStructureNV acStruct,
   //                 <id> uint Ray Flags,
   //                 <id> uint Cull Mask,
