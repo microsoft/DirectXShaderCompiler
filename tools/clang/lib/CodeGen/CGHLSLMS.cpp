@@ -4021,6 +4021,8 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
       // Skip function call.
     } else if (dyn_cast<BitCastInst>(U)) {
       // Skip bitcast.
+    } else if (dyn_cast<AddrSpaceCastInst>(U)) {
+      // Skip addrspacecast.
     } else {
       DXASSERT(0, "not support yet");
     }

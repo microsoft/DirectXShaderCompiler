@@ -1,7 +1,9 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// Make sure generate addrspacecast.
-// CHECK: addrspacecast (float addrspace(3)*
+// Make sure addrspacecast is cleaned up.
+// CHECK: @main()
+// CHECK-NOT: addrspacecast
+// CHECK: ret void
 
 struct ST
 {
