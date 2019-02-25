@@ -6434,6 +6434,14 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
       }
     }
     user->eraseFromParent();
+  } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
+    // Recurse users
+    for (auto U = BCI->user_begin(); U != BCI->user_end();) {
+      Value *BCIUser = *(U++);
+      TranslateStructBufSubscriptUser(cast<Instruction>(BCIUser), handle,
+        bufIdx, baseOffset, status, OP, DL);
+    }
+    BCI->eraseFromParent();
   } else {
     // should only used by GEP
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
