@@ -2805,6 +2805,151 @@ behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
 generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 ``OpEndPrimitive`` instruction.
 
+Raytracing Shader Stages
+------------------------
+
+DirectX Raytracing adds six new shader stages for raytracing which are discussed below
+
+| Refer to following pages for details:
+| https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing
+| https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing-hlsl-reference
+
+Ray Generation Stage
+~~~~~~~~~~~~~~~~~~~~
+
+| Ray generation shaders start ray tracing work and work on a compute-like 3D grid of threads
+| Entry functions of this stage type are annotated with **[shader("raygeneration"]]** in HLSL source.
+| Such entry functions return void and do not accept any arguments.
+| For example
+
+.. code:: hlsl
+
+  RaytracingAccelerationStructure rs;
+  struct Payload
+  {
+  float4 color;
+  };
+  [shader("raygeneration")]
+  void main() {
+    Payload myPayload = { float4(0.0f,0.0f,0.0f,0.0f) };
+    RayDesc rayDesc;
+    rayDesc.Origin = float3(0.0f, 0.0f, 0.0f);
+    rayDesc.Direction = float3(0.0f, 0.0f, -1.0f);
+    rayDesc.TMin = 0.0f;
+    rayDesc.TMax = 1000.0f;
+    TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
+  }
+
+Intersection Stage
+~~~~~~~~~~~~~~~~~~
+
+| Intersection shader stage is used to implement arbitrary primitive intersections such spheres or axis-aligned bounding boxes (AABB). Triangle primitives and do not require a custom intersection shader.
+| Entry functions of this stage are annotated with **[shader("intersection")]]** in HLSL source.
+| Such entry functions return void and do not accept any arguments
+| For example
+
+.. code:: hlsl
+
+  struct Attribute
+  {
+    float2 bary;
+  };
+
+  [shader("intersection")]
+  void main() {
+  Attribute myHitAttribute = { float2(0.0f,0.0f) };
+  ReportHit(0.0f, 0U, myHitAttribute);
+  }
+
+
+Closest-Hit Stage
+~~~~~~~~~~~~~~~~~
+
+| Hit shaders are invoked when a ray primitive intersection is found. A closest-hit shader
+| is invoked for the closest intersection point along a ray and can be used to compute interactions
+| at intersection point or spawn secondary rays.
+| Entry functions of this stage are annotated with **[shader("closesthit")]** in HLSL source.
+| Such entry functions return void and accept exactly two arguments. First argument is an inout
+| variable of user defined structure type, second argument is an in variable of user defined structure type.
+| For example
+
+.. code:: hlsl
+
+  struct Attribute
+  {
+    float2 bary;
+  };
+  struct Payload {
+    float4 color;
+  };
+  [shader("closesthit")]
+  void main(inout Payload a, in Attribute b) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+Any-Hit Stage
+~~~~~~~~~~~~~~~~~
+
+| Hit shaders are invoked when a ray primitive intersection is found. An any-hit shader
+| is invoked for all intersections along a ray with a primitive.
+| Entry functions of this stage are annotated with **[shader("anyhit")]** in HLSL source.
+| Such entry functions return void and accept exactly two arguments. First argument is an inout
+| variable of user defined structure type, second argument is an in variable of user defined structure type.
+| For example
+
+.. code:: hlsl
+
+  struct Attribute
+  {
+    float2 bary;
+  };
+  struct Payload {
+    float4 color;
+  };
+  [shader("anyhit")]
+  void main(inout Payload a, in Attribute b) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+Miss Stage
+~~~~~~~~~~
+
+| Miss shaders are invoked when no intersection is found.
+| Entry functions of this stage are annotated with **[shader("miss")]** in HLSL source.
+| Such entry functions return void and accept exactly one argument. First argument is an inout variable of user defined structure type.
+| For example
+
+.. code:: hlsl
+
+  struct Payload {
+    float4 color;
+  };
+  [shader("miss")]
+  void main(inout Payload a) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+Callable Stage
+~~~~~~~~~~~~~~
+
+| Callables are generic function calls which can be invoked from any of the above
+| shader stages.
+| Entry functions of this stage are annotated with **[shader("callable")]** in HLSL source.
+| Such entry functions return void and accept exactly one argument. First argument is an inout
+| variable of user defined structure type.
+| For example
+
+.. code:: hlsl
+
+  struct CallData {
+    float4 data;
+  };
+  [shader("callable")]
+  void main(inout CallData a) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+
 Shader Model 6.0 Wave Intrinsics
 ================================
 
