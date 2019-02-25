@@ -933,6 +933,14 @@ private:
   void emitDebugLine(SourceLocation);
 
 private:
+  /// \brief If the given FunctionDecl is not already in the workQueue, creates
+  /// a FunctionInfo object for it, and inserts it into the workQueue. It also
+  /// updates the functionInfoMap with the proper mapping.
+  void addFunctionToWorkQueue(hlsl::DXIL::ShaderKind,
+                              const clang::FunctionDecl *,
+                              bool isEntryFunction);
+
+private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
@@ -1004,13 +1012,13 @@ private:
 
   /// \brief A map of funcDecl to its FunctionInfo. Consists of all entry
   /// functions followed by all reachable functions from the entry functions.
-  llvm::DenseMap<const DeclaratorDecl *, FunctionInfo> functionInfoMap;
+  llvm::DenseMap<const DeclaratorDecl *, FunctionInfo *> functionInfoMap;
 
   /// A queue of FunctionInfo reachable from all the entry functions.
   /// FunctionInfo inserted into this queue will persist to avoid duplicated
   /// translations. And we'd like a deterministic order of iterating the queue
   /// for finding the next function to translate. So we need SetVector here.
-  llvm::SetVector<const FunctionInfo *> workQueue;
+  std::vector<const FunctionInfo *> workQueue;
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
@@ -1086,7 +1094,8 @@ private:
 
   /// Maintains mapping from a type to SPIR-V variable along with SPIR-V
   /// instruction for id of location decoration Used for raytracing stage
-  /// variables of storage class RayPayloadNV, CallableDataNV and HitAttributeNV.
+  /// variables of storage class RayPayloadNV, CallableDataNV and
+  /// HitAttributeNV.
   llvm::SmallDenseMap<QualType,
                       std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
       payloadMap;

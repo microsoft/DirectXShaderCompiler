@@ -576,18 +576,14 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
         if (const auto *shaderAttr = funcDecl->getAttr<HLSLShaderAttr>()) {
           // If we are compiling as a library then add everything that has a
           // ShaderAttr.
-          functionInfoMap[funcDecl] =
-              FunctionInfo(getShaderModelKind(shaderAttr->getStage()), funcDecl,
-                           /*entryFunction*/ nullptr, /*isEntryFunc*/ true);
-          workQueue.insert(&functionInfoMap[funcDecl]);
+          addFunctionToWorkQueue(getShaderModelKind(shaderAttr->getStage()),
+                                 funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
         }
       } else {
         if (funcDecl->getName() == entryFunctionName) {
-          functionInfoMap[funcDecl] =
-              FunctionInfo(spvContext.getCurrentShaderModelKind(), funcDecl,
-                           /*entryFunction*/ nullptr, /*isEntryFunc*/ true);
-          workQueue.insert(&functionInfoMap[funcDecl]);
+          addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
+                                 funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
         }
       }
@@ -1001,7 +997,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   const auto iter = functionInfoMap.find(decl);
   if (iter != functionInfoMap.end()) {
     const auto &entryInfo = iter->second;
-    if (entryInfo.isEntryFunction) {
+    if (entryInfo->isEntryFunction) {
       funcName = "src." + funcName;
       // Create wrapper for the entry function
       if (!emitEntryFunctionWrapper(decl, func))
@@ -2062,12 +2058,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   assert(vars.size() == args.size());
 
   // Push the callee into the work queue if it is not there.
-  if (functionInfoMap.find(callee) == functionInfoMap.end()) {
-    functionInfoMap[callee] =
-        FunctionInfo(spvContext.getCurrentShaderModelKind(), callee,
-                     /*entryFunction*/ nullptr, /*isEntryFunc*/ false);
-    workQueue.insert(&functionInfoMap[callee]);
-  }
+  addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(), callee,
+                         /*isEntryFunction*/ false);
 
   const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(callee);
@@ -9665,8 +9657,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   auto iter = functionInfoMap.find(decl);
   assert(iter != functionInfoMap.end());
   auto &entryInfo = iter->second;
-  assert(entryInfo.isEntryFunction);
-  entryInfo.entryFunction = entryFunction;
+  assert(entryInfo->isEntryFunction);
+  entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
     return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
@@ -10266,6 +10258,22 @@ void SpirvEmitter::emitDebugLine(SourceLocation loc) {
     uint32_t line = floc.getSpellingLineNumber();
     uint32_t column = floc.getSpellingColumnNumber();
     spvBuilder.createLineInfo(mainSourceFile, line, column);
+  }
+}
+
+void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
+                                          const clang::FunctionDecl *fnDecl,
+                                          bool isEntryFunction) {
+  // Only update the workQueue and the function info map if the given
+  // FunctionDecl hasn't been added already.
+  if (functionInfoMap.find(fnDecl) == functionInfoMap.end()) {
+    // Note: The function is just discovered and is being added to the
+    // workQueue, therefore it does not have the entryFunction SPIR-V
+    // instruction yet (use nullptr).
+    auto *fnInfo = new (spvContext) FunctionInfo(
+        shaderKind, fnDecl, /*entryFunction*/ nullptr, isEntryFunction);
+    functionInfoMap[fnDecl] = fnInfo;
+    workQueue.push_back(fnInfo);
   }
 }
 
