@@ -3681,7 +3681,8 @@ public:
       type = RefType ? RefType->getPointeeType() : AttrType->getEquivalentType();
     }
 
-    return type->getCanonicalTypeUnqualified();
+    // Despite its name, getCanonicalTypeUnqualified will preserve const for array elements or something
+    return QualType(type->getCanonicalTypeUnqualified()->getTypePtr(), 0);
   }
 
   /// <summary>Given a Clang type, return the ArBasicKind classification for its contents.</summary>
