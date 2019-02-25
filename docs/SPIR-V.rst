@@ -3008,45 +3008,45 @@ Intrinsics
 
 | Following table provides mapping for system value intrinsics along with supported shader stages.
 
-===========================     ============================ ====== ============ =========== ======= ==== ========
+===========================     ============================ ====== ============ =========== ======= ======== ========
         HLSL                               SPIR-V                             HLSL Shader Stage
----------------------------     ---------------------------- -----------------------------------------------------
-  System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit Miss Callable
-===========================     ============================ ====== ============ =========== ======= ==== ========
-``DispatchRaysIndex``           ``LaunchIdNV``                 X         X            X         X     X      X
-``DispatchRaysDimensions``      ``LaunchSizeNV``               X         X            X         X     X      X
-``WorldRayOrigin``              ``WorldRayOriginNV``                     X            X         X     X
-``WorldRayDirection``           ``WorldRayDirectionNV``                  X            X         X     X
-``RayTMin``                     ``RayTminNV``                            X            X         X     X
-``RayTCurrent``                 ``HitTNV``                               X            X         X     X
-``RayFlags``                    ``IncomingRayFlagsNV``                   X            X         X     X
-``InstanceIndex``               ``InstanceId``                           X            X         X
-``InstanceID``                  ``InstanceCustomIndexNV``                X            X         X
-``PrimitiveIndex``              ``PrimitiveId``                          X            X         X
-``ObjectRayOrigin``             ``ObjectRayOriginNV``                    X            X         X
-``ObjectRayDirection``          ``ObjectRayDirectionNV``                 X            X         X
-``ObjectToWorld3x4``            ``ObjectToWorldNV``                      X            X         X
-``ObjectToWorld4x3``            ``ObjectToWorldNV``                      X            X         X
-``WorldToObject3x4``            ``WorldToObjectNV``                      X            X         X
-``WorldToObject4x3``            ``WorldToObjectNV``                      X            X         X
-``HitKind``                     ``HitKindNV``                                         X         X
-===========================     ============================ ====== ============ =========== ======= ==== ========
+---------------------------     ---------------------------- ---------------------------------------------------------
+  System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit   Miss   Callable
+===========================     ============================ ====== ============ =========== ======= ======== ========
+``DispatchRaysIndex``           ``LaunchIdNV``                 ✓         ✓            ✓        ✓      ✓        ✓
+``DispatchRaysDimensions``      ``LaunchSizeNV``               ✓         ✓            ✓        ✓      ✓        ✓
+``WorldRayOrigin``              ``WorldRayOriginNV``                     ✓            ✓        ✓      ✓
+``WorldRayDirection``           ``WorldRayDirectionNV``                  ✓            ✓        ✓      ✓
+``RayTMin``                     ``RayTminNV``                            ✓            ✓        ✓      ✓
+``RayTCurrent``                 ``HitTNV``                               ✓            ✓        ✓      ✓
+``RayFlags``                    ``IncomingRayFlagsNV``                   ✓            ✓        ✓      ✓       
+``InstanceIndex``               ``InstanceId``                           ✓            ✓        ✓
+``InstanceID``                  ``InstanceCustomIndexNV``                ✓            ✓        ✓
+``PrimitiveIndex``              ``PrimitiveId``                          ✓            ✓        ✓
+``ObjectRayOrigin``             ``ObjectRayOriginNV``                    ✓            ✓        ✓
+``ObjectRayDirection``          ``ObjectRayDirectionNV``                 ✓            ✓        ✓
+``ObjectToWorld3x4``            ``ObjectToWorldNV``                      ✓            ✓        ✓
+``ObjectToWorld4x3``            ``ObjectToWorldNV``                      ✓            ✓        ✓
+``WorldToObject3x4``            ``WorldToObjectNV``                      ✓            ✓        ✓
+``WorldToObject4x3``            ``WorldToObjectNV``                      ✓            ✓        ✓
+``HitKind``                     ``HitKindNV``                            ✓            ✓        ✓
+===========================     ============================ ====== ============ =========== ======= ======== ========
 
 | *There is no separate builtin for transposed matrices ObjectToWorld3x4 and WorldToObject3x4 in SPIR-V hence we internally transpose during translation*
 
 | Following table provides mapping for other intrinsics along with supported shader stages.
 
-===========================     ============================ ====== ============ =========== ======= ==== ========
+===========================     ============================ ====== ============ =========== ======= ===== ========
         HLSL                               SPIR-V                             HLSL Shader Stage
----------------------------     ---------------------------- -----------------------------------------------------
-   Intrinsic                              Opcode             Raygen Intersection Closest Hit Any Hit Miss Callable
-===========================     ============================ ====== ============ =========== ======= ==== ========
-``TraceRay``                    ``OpTraceNV``                  X                      X               X
-``ReportHit``                   ``OpReportIntersectionNV``     X         X
-``IgnoreHit``                   ``OpIgnoreIntersectionNV``     X                                X
-``AcceptHitAndEndSearch``       ``OpTerminateRayNV``           X                                X
-``CallShader``                  ``OpExecuteCallable``          X                      X               X      X
-===========================     ============================ ====== ============ =========== ======= ==== ========
+---------------------------     ---------------------------- ------------------------------------------------------
+   Intrinsic                              Opcode             Raygen Intersection Closest Hit Any Hit  Miss Callable
+===========================     ============================ ====== ============ =========== ======= ===== ========
+``TraceRay``                    ``OpTraceNV``                  ✓                     ✓                ✓
+``ReportHit``                   ``OpReportIntersectionNV``     ✓         ✓
+``IgnoreHit``                   ``OpIgnoreIntersectionNV``     ✓                                ✓
+``AcceptHitAndEndSearch``       ``OpTerminateRayNV``           ✓                                ✓
+``CallShader``                  ``OpExecuteCallable``          ✓                     ✓                ✓      ✓
+===========================     ============================ ====== ============ =========== ======= ===== ========
 
 
 Resource Types
