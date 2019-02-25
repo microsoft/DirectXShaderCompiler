@@ -1015,9 +1015,6 @@ private:
   llvm::DenseMap<const DeclaratorDecl *, FunctionInfo *> functionInfoMap;
 
   /// A queue of FunctionInfo reachable from all the entry functions.
-  /// FunctionInfo inserted into this queue will persist to avoid duplicated
-  /// translations. And we'd like a deterministic order of iterating the queue
-  /// for finding the next function to translate. So we need SetVector here.
   std::vector<const FunctionInfo *> workQueue;
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
