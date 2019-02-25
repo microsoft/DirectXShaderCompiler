@@ -4021,6 +4021,8 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
       // Skip function call.
     } else if (dyn_cast<BitCastInst>(U)) {
       // Skip bitcast.
+    } else if (dyn_cast<AddrSpaceCastInst>(U)) {
+      // Skip addrspacecast.
     } else {
       DXASSERT(0, "not support yet");
     }
@@ -6653,6 +6655,20 @@ void CGMSHLSLRuntime::ConvertAndStoreElements(CodeGenFunction &CGF,
   }
 }
 
+static bool AreMatrixArrayOrientationMatching(ASTContext& Context,
+  HLModule &Module, QualType LhsTy, QualType RhsTy) {
+  while (const clang::ArrayType *LhsArrayTy = Context.getAsArrayType(LhsTy)) {
+    LhsTy = LhsArrayTy->getElementType();
+    RhsTy = Context.getAsArrayType(RhsTy)->getElementType();
+  }
+
+  bool LhsRowMajor, RhsRowMajor;
+  LhsRowMajor = RhsRowMajor = Module.GetHLOptions().bDefaultRowMajor;
+  HasHLSLMatOrientation(LhsTy, &LhsRowMajor);
+  HasHLSLMatOrientation(RhsTy, &RhsRowMajor);
+  return LhsRowMajor == RhsRowMajor;
+}
+
 // Copy data from SrcPtr to DestPtr.
 // For matrix, use MatLoad/MatStore.
 // For matrix array, EmitHLSLAggregateCopy on each element.
@@ -6689,13 +6705,15 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     // Memcpy struct.
     CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    if (!HLMatrixType::isMatrixArray(Ty)) {
+    if (!HLMatrixType::isMatrixArray(Ty)
+      || AreMatrixArrayOrientationMatching(CGF.getContext(), *m_pHLModule, SrcType, DestType)) {
       Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
       Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
       unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(AT);
       // Memcpy non-matrix array.
       CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
     } else {
+      // Copy matrix arrays elementwise if orientation changes are needed.
       llvm::Type *ET = AT->getElementType();
       QualType EltDestType = CGF.getContext().getBaseElementType(DestType);
       QualType EltSrcType = CGF.getContext().getBaseElementType(SrcType);
