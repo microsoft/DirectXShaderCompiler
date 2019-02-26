@@ -2823,7 +2823,7 @@ Flow chart for various stages in a raytracing pipeline is as follows:
           |   Ray generation    |
           +---------------------+
                      |
-                     |                      +--------------+
+          TraceRay() |                      +--------------+
                      |      _ _ _ _ _ _ _ _ |   Any Hit    |
                      |     |                +--------------+
                      V     V                       ^
@@ -2841,7 +2841,7 @@ Flow chart for various stages in a raytracing pipeline is as follows:
           |      Is Hit ?      |            |  Callable   |
           +--------------------+            +-------------+
               |            |
-              |            |
+          Yes |            | No
               V            V
          +---------+    +------+
          | Closest |    | Miss |
@@ -2858,6 +2858,7 @@ Ray Generation Stage
 | Ray generation shaders start ray tracing work and work on a compute-like 3D grid of threads.
 | Entry functions of this stage type are annotated with **[shader("raygeneration")]** in HLSL source.
 | Such entry functions must return void and do not accept any arguments.
+
 | For example:
 
 .. code:: hlsl
@@ -2884,6 +2885,7 @@ Intersection Stage
 | Intersection shader stage is used to implement arbitrary ray-primitive intersections such spheres or axis-aligned bounding boxes (AABB). Triangle primitives do not require a custom intersection shader.
 | Entry functions of this stage are annotated with **[shader("intersection")]** in HLSL source.
 | Such entry functions must return void and do not accept any arguments.
+
 | For example:
 
 .. code:: hlsl
@@ -2909,6 +2911,7 @@ Closest-Hit Stage
 | Entry functions of this stage are annotated with **[shader("closesthit")]** in HLSL source.
 | Such entry functions must return void and accept exactly two arguments. First argument must be an inout
 | variable of user defined structure type and second argument must be a in variable of user defined structure type.
+
 | For example:
 
 .. code:: hlsl
@@ -2933,6 +2936,7 @@ Any-Hit Stage
 | Entry functions of this stage are annotated with **[shader("anyhit")]** in HLSL source.
 | Such entry functions must return void and accept exactly two arguments. First argument must be an inout
 | variable of user defined structure type and second argument must be an in variable of user defined structure type.
+
 | For example:
 
 .. code:: hlsl
@@ -2955,6 +2959,7 @@ Miss Stage
 | Miss shaders are invoked when no intersection is found.
 | Entry functions of this stage are annotated with **[shader("miss")]** in HLSL source.
 | Such entry functions return void and accept exactly one argument. First argument must be an inout variable of user defined structure type.
+
 | For example:
 
 .. code:: hlsl
@@ -2975,6 +2980,7 @@ Callable Stage
 | Entry functions of this stage are annotated with **[shader("callable")]** in HLSL source.
 | Such entry functions must return void and accept exactly one argument. First argument must be an inout
 | variable of user defined structure type.
+
 | For example:
 
 .. code:: hlsl
@@ -3008,33 +3014,35 @@ Intrinsics
 
 | Following table provides mapping for system value intrinsics along with supported shader stages.
 
-===========================     ============================ ====== ============ =========== ======= ======== ========
+============================    ============================ ====== ============ =========== ======= ======== ========
         HLSL                               SPIR-V                             HLSL Shader Stage
----------------------------     ---------------------------- ---------------------------------------------------------
+----------------------------    ---------------------------- ---------------------------------------------------------
   System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit   Miss   Callable
-===========================     ============================ ====== ============ =========== ======= ======== ========
-``DispatchRaysIndex``           ``LaunchIdNV``                 ✓         ✓            ✓        ✓      ✓        ✓
-``DispatchRaysDimensions``      ``LaunchSizeNV``               ✓         ✓            ✓        ✓      ✓        ✓
-``WorldRayOrigin``              ``WorldRayOriginNV``                     ✓            ✓        ✓      ✓
-``WorldRayDirection``           ``WorldRayDirectionNV``                  ✓            ✓        ✓      ✓
-``RayTMin``                     ``RayTminNV``                            ✓            ✓        ✓      ✓
-``RayTCurrent``                 ``HitTNV``                               ✓            ✓        ✓      ✓
-``RayFlags``                    ``IncomingRayFlagsNV``                   ✓            ✓        ✓      ✓       
-``InstanceIndex``               ``InstanceId``                           ✓            ✓        ✓
-``InstanceID``                  ``InstanceCustomIndexNV``                ✓            ✓        ✓
-``PrimitiveIndex``              ``PrimitiveId``                          ✓            ✓        ✓
-``ObjectRayOrigin``             ``ObjectRayOriginNV``                    ✓            ✓        ✓
-``ObjectRayDirection``          ``ObjectRayDirectionNV``                 ✓            ✓        ✓
-``ObjectToWorld3x4``            ``ObjectToWorldNV``                      ✓            ✓        ✓
-``ObjectToWorld4x3``            ``ObjectToWorldNV``                      ✓            ✓        ✓
-``WorldToObject3x4``            ``WorldToObjectNV``                      ✓            ✓        ✓
-``WorldToObject4x3``            ``WorldToObjectNV``                      ✓            ✓        ✓
-``HitKind``                     ``HitKindNV``                            ✓            ✓        ✓
-===========================     ============================ ====== ============ =========== ======= ======== ========
+============================    ============================ ====== ============ =========== ======= ======== ========
+``DispatchRaysIndex()``         ``LaunchIdNV``                 ✓         ✓            ✓        ✓      ✓        ✓
+``DispatchRaysDimensions()``    ``LaunchSizeNV``               ✓         ✓            ✓        ✓      ✓        ✓
+``WorldRayOrigin()``            ``WorldRayOriginNV``                     ✓            ✓        ✓      ✓
+``WorldRayDirection()``         ``WorldRayDirectionNV``                  ✓            ✓        ✓      ✓
+``RayTMin()``                   ``RayTminNV``                            ✓            ✓        ✓      ✓
+``RayTCurrent()``               ``HitTNV``                               ✓            ✓        ✓      ✓
+``RayFlags()``                  ``IncomingRayFlagsNV``                   ✓            ✓        ✓      ✓
+``InstanceIndex()``             ``InstanceId``                           ✓            ✓        ✓
+``InstanceID()``                ``InstanceCustomIndexNV``                ✓            ✓        ✓
+``PrimitiveIndex()``            ``PrimitiveId``                          ✓            ✓        ✓
+``ObjectRayOrigin()``           ``ObjectRayOriginNV``                    ✓            ✓        ✓
+``ObjectRayDirection()``        ``ObjectRayDirectionNV``                 ✓            ✓        ✓
+``ObjectToWorld3x4()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
+``ObjectToWorld4x3()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
+``WorldToObject3x4()``          ``WorldToObjectNV``                      ✓            ✓        ✓
+``WorldToObject4x3()``          ``WorldToObjectNV``                      ✓            ✓        ✓
+``HitKind()``                   ``HitKindNV``                            ✓            ✓        ✓
+============================    ============================ ====== ============ =========== ======= ======== ========
 
 | *There is no separate builtin for transposed matrices ObjectToWorld3x4 and WorldToObject3x4 in SPIR-V hence we internally transpose during translation*
 
+
 | Following table provides mapping for other intrinsics along with supported shader stages.
+
 
 ===========================     ============================ ====== ============ =========== ======= ===== ========
         HLSL                               SPIR-V                             HLSL Shader Stage
@@ -3054,6 +3062,7 @@ Resource Types
 
 | Following table provides mapping for new resource types supported in all raytracing shaders.
 
+
 ===================================     =================================
         HLSL Type                               SPIR-V Opcode
 -----------------------------------     ---------------------------------
@@ -3065,6 +3074,7 @@ Interface Variables
 
 | Interface variables are created for various ray tracing storage classes based on intrinsic/shader stage
 | Following table gives high level overview of the mapping.
+
 
 ===========================     ===========================================================
    SPIR-V Storage Class                Created For
