@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // Regression test for bools in constant initialization lists crashing
-// due to a mismatch between register and memory representations (GitHub #1880)
+// due to a mismatch between register and memory representations (GitHub #1880, #1881)
 
 // CHECK: ret void
 
@@ -32,9 +32,8 @@ bool main() : OUT
     static const bool ab_s[] = { sb, sv, sm };
 
     // Reference everything to ensure they get codegen'd
-    // Bool matrix accesses crash due to GitHub #1881
-    return b && v.x /* && m._11 */
-        && ab[0] && av[0].x /* && am[0]._11 */
-        && sb.x && sv.x /* && sm.x._11 */
+    return b && v.x && m._11
+        && ab[0] && av[0].x && am[0]._11
+        && sb.x && sv.x && sm.x._11
         && ab_b[0] && ab_v[0] && ab_m[0] && ab_a[0] && ab_s[0];
 }
