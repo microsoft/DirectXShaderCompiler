@@ -1758,11 +1758,10 @@ private:
   uint32_t column;
 };
 
-
-/// \brief Base class for all NV raytracing instructions
-/// These include following SPIR-V opcodes
-/// OpTraceNV, OpReportIntersectionNV, OpIgnoreIntersectionNV
-/// OpTerminateRayNV, OpExecuteCallableNV
+/// \brief Base class for all NV raytracing instructions.
+/// These include following SPIR-V opcodes:
+/// OpTraceNV, OpReportIntersectionNV, OpIgnoreIntersectionNV, OpTerminateRayNV,
+/// OpExecuteCallableNV
 class SpirvRayTracingOpNV : public SpirvInstruction {
 public:
   SpirvRayTracingOpNV(QualType resultType, spv::Op opcode,
@@ -1781,6 +1780,7 @@ public:
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
+
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
 
 } // namespace spirv

@@ -384,8 +384,8 @@ private:
 /// Represents accleration structure type as defined in SPV_NV_ray_tracing.
 class AccelerationStructureTypeNV : public SpirvType {
 public:
-  AccelerationStructureTypeNV() :
-    SpirvType(TK_AccelerationStructureNV, "accelerationStructureNV") {}
+  AccelerationStructureTypeNV()
+      : SpirvType(TK_AccelerationStructureNV, "accelerationStructureNV") {}
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_AccelerationStructureNV;
