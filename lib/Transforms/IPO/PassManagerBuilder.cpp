@@ -213,6 +213,8 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     return;
   }
 
+  MPM.add(createDxilCleanupAddrSpaceCastPass());
+
   MPM.add(createHLPreprocessPass());
   bool NoOpt = OptLevel == 0;
   if (!NoOpt) {
