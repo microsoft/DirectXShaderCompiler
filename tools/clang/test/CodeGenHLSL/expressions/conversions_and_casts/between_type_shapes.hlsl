@@ -117,15 +117,15 @@ void main()
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_a1((A1)v1);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 11, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(11,0,0,0)
-    // output_a1((A1)m1x1);
+    output_a1((A1)m1x1);
     // DXC rejects (GitHub #1862)
     // FXC: l(1,0,0,0)
     // output_a1(s1); 
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_a1((A1)s1);
+    output_a1((A1)s1);
 
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
@@ -133,9 +133,9 @@ void main()
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_s1((S1)v1);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 11, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(11,0,0,0)
-    // output_s1((S1)m1x1);
+    output_s1((S1)m1x1);
     // DXC rejects (GitHub #1862)
     // FXC: l(1,0,0,0)
     // output_s1(a1);
@@ -190,14 +190,14 @@ void main()
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_a1((A1)a2);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_a1((A1)s2);
+    output_a1((A1)s2);
 
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_s1((S1)a2);
-    // DXC crashes (GitHub #1799)
+    // DXC crashes (GitHub #1970)
     // FXC: l(1,0,0,0)
     // output_s1((S1)s2);
     
@@ -298,34 +298,34 @@ void main()
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_a2((A2)v2);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
     // FXC: l(11,12,0,0)
-    // output_a2((A2)m1x2);
-    // DXC crashes (GitHub #1799)
+    output_a2((A2)m1x2);
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
     // FXC: l(11,21,0,0)
-    // output_a2((A2)m2x1);
-    // DXC crashes (GitHub #1799)
+    output_a2((A2)m2x1);
+    // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
     // FXC: l(11,12,21,22)
-    // output_a4((A4)m2x2);
+    output_a4((A4)m2x2);
     // DXC rejects (GitHub #1862)
     // FXC: l(1,2,0,0)
     // output_a2(s2);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_a2((A2)s2);
+    output_a2((A2)s2);
 
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_s2((S2)v2);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
     // FXC: l(11,12,0,0)
-    // output_s2((S2)m1x2);
-    // DXC crashes (GitHub #1799)
+    output_s2((S2)m1x2);
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
     // FXC: l(11,21,0,0)
-    // output_s2((S2)m2x1);
-    // DXC crashes (GitHub #1799)
+    output_s2((S2)m2x1);
+    // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
     // FXC: l(11,12,21,22)
-    // output_s4((S4)m2x2);
+    output_s4((S4)m2x2);
     // DXC rejects (GitHub #1862)
     // FXC: l(1,2,0,0)
     // output_s2(a2);
@@ -403,44 +403,44 @@ void main()
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_a2((A2)v4);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
     // FXC: l(11,12,0,0)
-    // output_a2((A2)m1x3);
-    // DXC crashes (GitHub #1799)
+    output_a2((A2)m1x3);
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
     // FXC: l(11,21,0,0)
-    // output_a2((A2)m3x1);
-    // DXC crashes (GitHub #1799)
+    output_a2((A2)m3x1);
+    // DXC accepts (GitHub #1865)
     // FXC rejects with error X3017: cannot convert from 'int2x2' to 'typedef int[2]'
     // output_a2((A2)m2x2);
-    // DXC crashes (GitHub #1799)
+    // DXC accepts (GitHub #1865)
     // FXC rejects with error X3017: cannot convert from 'int3x3' to 'typedef int[2]'
     // output_a2((A2)m3x3);
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_a2((A2)a4);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_a2((A2)s4);
+    output_a2((A2)s4);
 
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_s2((S2)v4);
-    // DXC crashes (GitHub #1799)
+    // DXC: i32 11, i32 12, i32 0, i32 0, i8 15)
     // FXC: l(11,12,0,0)
-    // output_s2((S2)m1x3);
-    // DXC crashes (GitHub #1799)
+    output_s2((S2)m1x3);
+    // DXC: i32 11, i32 21, i32 0, i32 0, i8 15)
     // FXC: l(11,21,0,0)
-    // output_s2((S2)m3x1);
-    // DXC crashes (GitHub #1799)
+    output_s2((S2)m3x1);
+    // DXC accepts (GitHub #1865)
     // FXC rejects with error X3017: cannot convert from 'int2x2' to 'struct S2'
     // output_s2((S2)m2x2);
-    // DXC crashes (GitHub #1799)
+    // DXC accepts (GitHub #1865)
     // FXC rejects with error X3017: cannot convert from 'int3x3' to 'struct S2'
     // output_s2((S2)m3x3);
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_s2((S2)a4);
-    // DXC crashes (GitHub #1799)
+    // DXC crashes (GitHub #1970)
     // FXC: l(1,2,0,0)
     // output_s2((S2)s4);
 }
