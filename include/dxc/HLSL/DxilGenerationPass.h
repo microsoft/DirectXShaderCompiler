@@ -74,6 +74,7 @@ ModulePass *createNoPausePassesPass();
 ModulePass *createPausePassesPass();
 ModulePass *createResumePassesPass();
 FunctionPass *createMatrixBitcastLowerPass();
+ModulePass *createDxilCleanupAddrSpaceCastPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
 void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry&);
@@ -105,6 +106,7 @@ void initializeNoPausePassesPass(llvm::PassRegistry&);
 void initializePausePassesPass(llvm::PassRegistry&);
 void initializeResumePassesPass(llvm::PassRegistry&);
 void initializeMatrixBitcastLowerPassPass(llvm::PassRegistry&);
+void initializeDxilCleanupAddrSpaceCastPass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
