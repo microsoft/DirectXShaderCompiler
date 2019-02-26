@@ -197,7 +197,7 @@ void main()
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_s1((S1)a2);
-    // DXC crashes (GitHub #1799)
+    // DXC crashes (GitHub #1970)
     // FXC: l(1,0,0,0)
     // output_s1((S1)s2);
     
@@ -440,7 +440,7 @@ void main()
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_s2((S2)a4);
-    // DXC crashes (GitHub #1799)
+    // DXC crashes (GitHub #1970)
     // FXC: l(1,2,0,0)
     // output_s2((S2)s4);
 }
