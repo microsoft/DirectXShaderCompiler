@@ -1,4 +1,6 @@
 // RUN: %dxc /Tvs_6_0 /Emain %s | FileCheck %s
+// Test explicit cast between structs of identical layout where
+// the destination struct is marked as out param.
 
 // o1.f1 = input.f1
 // CHECK: call void  @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 1.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
