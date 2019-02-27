@@ -12,6 +12,7 @@
 #include <array>
 #include <unordered_map>
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
@@ -119,6 +120,7 @@ struct FunctionTypeMapInfo {
 /// the SPIR-V entities allocated in memory.
 class SpirvContext {
 public:
+  using ShaderModelKind = hlsl::ShaderModel::Kind;
   SpirvContext();
   ~SpirvContext() = default;
 
@@ -180,6 +182,10 @@ public:
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
 
+  const AccelerationStructureTypeNV *getAccelerationStructureTypeNV() const {
+    return accelerationStructureTypeNV;
+  }
+
   /// --- Hybrid type getter functions ---
   ///
   /// Concrete SpirvType objects represent a SPIR-V type completely. Hybrid
@@ -199,6 +205,30 @@ public:
 
   HybridFunctionType *getFunctionType(QualType ret,
                                       llvm::ArrayRef<QualType> param);
+
+  /// Functions to get/set current entry point ShaderModelKind.
+  ShaderModelKind getCurrentShaderModelKind() { return curShaderModelKind; }
+  void setCurrentShaderModelKind(ShaderModelKind smk) {
+    curShaderModelKind = smk;
+  }
+  /// Functions to get/set hlsl profile version.
+  uint32_t getMajorVersion() const { return majorVersion; }
+  void setMajorVersion(uint32_t major) { majorVersion = major; }
+  uint32_t getMinorVersion() const { return minorVersion; }
+  void setMinorVersion(uint32_t minor) { minorVersion = minor; }
+
+  /// Functions to query current entry point ShaderModelKind.
+  bool isPS() const { return curShaderModelKind == ShaderModelKind::Pixel; }
+  bool isVS() const { return curShaderModelKind == ShaderModelKind::Vertex; }
+  bool isGS() const { return curShaderModelKind == ShaderModelKind::Geometry; }
+  bool isHS() const { return curShaderModelKind == ShaderModelKind::Hull; }
+  bool isDS() const { return curShaderModelKind == ShaderModelKind::Domain; }
+  bool isCS() const { return curShaderModelKind == ShaderModelKind::Compute; }
+  bool isLib() const { return curShaderModelKind == ShaderModelKind::Library; }
+  bool isRay() const {
+    return curShaderModelKind >= ShaderModelKind::RayGeneration &&
+           curShaderModelKind <= ShaderModelKind::Callable;
+  }
 
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
@@ -242,6 +272,13 @@ private:
   llvm::SmallVector<const StructType *, 8> structTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
+  const AccelerationStructureTypeNV *accelerationStructureTypeNV;
+
+  // Current ShaderModelKind for entry point.
+  ShaderModelKind curShaderModelKind;
+  // Major/Minor hlsl profile version.
+  uint32_t majorVersion;
+  uint32_t minorVersion;
 };
 
 } // end namespace spirv

@@ -25,11 +25,12 @@
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/TypeOrdering.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/FeatureManager.h"
-#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvBuilder.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 
@@ -77,6 +78,7 @@ private:
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
   void doHLSLBufferDecl(const HLSLBufferDecl *decl);
+  void doImplicitDecl(const Decl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
   void doDiscardStmt(const DiscardStmt *stmt);
@@ -503,6 +505,14 @@ private:
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
+  /// Process builtins specific to raytracing.
+  SpirvInstruction *processRayBuiltins(const CallExpr *, hlsl::IntrinsicOp op);
+
+  /// Process raytracing intrinsics.
+  SpirvInstruction *processReportHit(const CallExpr *);
+  void processCallShader(const CallExpr *callExpr);
+  void processTraceRay(const CallExpr *callExpr);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);
@@ -582,8 +592,8 @@ private:
   /// Emits an error if the given attribute is not a loop attribute.
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
-  static spv::ExecutionModel
-  getSpirvShaderStage(const hlsl::ShaderModel &model);
+  static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
+  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
@@ -621,6 +631,15 @@ private:
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
                                 SpirvFunction *entryFuncId);
 
+  /// \brief Emits a wrapper function for the entry functions for raytracing
+  /// stages and returns true on success.
+  ///
+  /// Wrapper is specific to raytracing stages since for specific stages we
+  /// create specific module scoped stage variables and perform copies to them.
+  /// The wrapper function is also responsible for initializing global static
+  /// variables for some cases.
+  bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
+                                             SpirvFunction *entryFuncId);
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.
@@ -914,6 +933,14 @@ private:
   void emitDebugLine(SourceLocation);
 
 private:
+  /// \brief If the given FunctionDecl is not already in the workQueue, creates
+  /// a FunctionInfo object for it, and inserts it into the workQueue. It also
+  /// updates the functionInfoMap with the proper mapping.
+  void addFunctionToWorkQueue(hlsl::DXIL::ShaderKind,
+                              const clang::FunctionDecl *,
+                              bool isEntryFunction);
+
+private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
@@ -958,21 +985,37 @@ private:
 
   SpirvCodeGenOptions &spirvOptions;
 
-  /// Entry function name and shader stage. Both of them are derived from the
-  /// command line and should be const.
+  /// \brief Entry function name, derived from the command line
+  /// and should be const.
   const llvm::StringRef entryFunctionName;
-  const hlsl::ShaderModel &shaderModel;
+
+  /// \brief Structure to maintain record of all entry functions and any
+  /// reachable functions.
+  struct FunctionInfo {
+  public:
+    hlsl::ShaderModel::Kind shaderModelKind;
+    const DeclaratorDecl *funcDecl;
+    SpirvFunction *entryFunction;
+    bool isEntryFunction;
+
+    FunctionInfo() = default;
+    FunctionInfo(hlsl::ShaderModel::Kind smk, const DeclaratorDecl *fDecl,
+                 SpirvFunction *entryFunc, bool isEntryFunc)
+        : shaderModelKind(smk), funcDecl(fDecl), entryFunction(entryFunc),
+          isEntryFunction(isEntryFunc) {}
+  };
 
   SpirvContext spvContext;
   FeatureManager featureManager;
   SpirvBuilder spvBuilder;
   DeclResultIdMapper declIdMapper;
 
-  /// A queue of decls reachable from the entry function. Decls inserted into
-  /// this queue will persist to avoid duplicated translations. And we'd like
-  /// a deterministic order of iterating the queue for finding the next decl
-  /// to translate. So we need SetVector here.
-  llvm::SetVector<const DeclaratorDecl *> workQueue;
+  /// \brief A map of funcDecl to its FunctionInfo. Consists of all entry
+  /// functions followed by all reachable functions from the entry functions.
+  llvm::DenseMap<const DeclaratorDecl *, FunctionInfo *> functionInfoMap;
+
+  /// A queue of FunctionInfo reachable from all the entry functions.
+  std::vector<const FunctionInfo *> workQueue;
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
@@ -1046,6 +1089,17 @@ private:
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, SpirvBasicBlock *> stmtBasicBlock;
 
+  /// Maintains mapping from a type to SPIR-V variable along with SPIR-V
+  /// instruction for id of location decoration Used for raytracing stage
+  /// variables of storage class RayPayloadNV, CallableDataNV and
+  /// HitAttributeNV.
+  llvm::SmallDenseMap<QualType,
+                      std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
+      payloadMap;
+  llvm::SmallDenseMap<QualType, SpirvInstruction *, 4> hitAttributeMap;
+  llvm::SmallDenseMap<QualType,
+                      std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
+      callDataMap;
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;

@@ -11,6 +11,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
 
 namespace {
@@ -850,6 +851,9 @@ bool isOpaqueType(QualType type) {
 
     if (name == "SamplerState" || name == "SamplerComparisonState")
       return true;
+
+    if (name == "RaytracingAccelerationStructure")
+      return true;
   }
   return false;
 }
@@ -1010,6 +1014,82 @@ QualType getComponentVectorType(const ASTContext &astContext,
   uint32_t rowCount = 0, colCount = 0;
   hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
   return astContext.getExtVectorType(elemType, colCount);
+}
+
+QualType getHLSLMatrixType(ASTContext &astContext, Sema &S,
+                           ClassTemplateDecl *templateDecl, QualType elemType,
+                           int rows, int columns) {
+  const SourceLocation noLoc;
+  TemplateArgument templateArgs[3] = {
+      TemplateArgument(elemType),
+      TemplateArgument(
+          astContext,
+          llvm::APSInt(
+              llvm::APInt(astContext.getIntWidth(astContext.IntTy), rows),
+              false),
+          astContext.IntTy),
+      TemplateArgument(
+          astContext,
+          llvm::APSInt(
+              llvm::APInt(astContext.getIntWidth(astContext.IntTy), columns),
+              false),
+          astContext.IntTy)};
+
+  SmallVector<TemplateArgument, 4> args;
+  args.push_back(templateArgs[0]);
+  args.push_back(templateArgs[1]);
+  args.push_back(templateArgs[2]);
+
+  DeclContext *currentDeclContext = astContext.getTranslationUnitDecl();
+  SmallVector<TemplateArgument, 3> templateArgsForDecl;
+
+  for (const TemplateArgument &Arg : templateArgs) {
+    if (Arg.getKind() == TemplateArgument::Type) {
+      // the class template need to use CanonicalType
+      templateArgsForDecl.emplace_back(
+          TemplateArgument(Arg.getAsType().getCanonicalType()));
+    } else
+      templateArgsForDecl.emplace_back(Arg);
+  }
+
+  // First, try looking up existing specialization
+  void *insertPos = nullptr;
+  ClassTemplateSpecializationDecl *specializationDecl =
+      templateDecl->findSpecialization(templateArgsForDecl, insertPos);
+
+  if (specializationDecl) {
+    // Instantiate the class template if not done yet.
+    if (specializationDecl->getInstantiatedFrom().isNull()) {
+      S.InstantiateClassTemplateSpecialization(
+          noLoc, specializationDecl,
+          TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+    }
+    return astContext.getTemplateSpecializationType(
+        TemplateName(templateDecl), args.data(), args.size(),
+        astContext.getTypeDeclType(specializationDecl));
+  }
+
+  specializationDecl = ClassTemplateSpecializationDecl::Create(
+      astContext, TagDecl::TagKind::TTK_Class, currentDeclContext, noLoc, noLoc,
+      templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(),
+      nullptr);
+  S.InstantiateClassTemplateSpecialization(
+      noLoc, specializationDecl,
+      TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+  templateDecl->AddSpecialization(specializationDecl, insertPos);
+  specializationDecl->setImplicit(true);
+
+  QualType canonType = astContext.getTypeDeclType(specializationDecl);
+  TemplateArgumentListInfo templateArgumentList(noLoc, noLoc);
+  TemplateArgumentLocInfo noTemplateArgumentLocInfo;
+
+  for (unsigned i = 0; i < args.size(); i++) {
+    templateArgumentList.addArgument(
+        TemplateArgumentLoc(args[i], noTemplateArgumentLocInfo));
+  }
+
+  return astContext.getTemplateSpecializationType(
+      TemplateName(templateDecl), templateArgumentList, canonType);
 }
 
 } // namespace spirv

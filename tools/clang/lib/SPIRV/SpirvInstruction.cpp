@@ -81,6 +81,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -719,5 +720,10 @@ SpirvArrayLength::SpirvArrayLength(QualType resultType, SourceLocation loc,
     : SpirvInstruction(IK_ArrayLength, spv::Op::OpArrayLength, resultType, loc),
       structure(structure_), arrayMember(memberLiteral) {}
 
+SpirvRayTracingOpNV::SpirvRayTracingOpNV(
+    QualType resultType, spv::Op opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, SourceLocation loc)
+    : SpirvInstruction(IK_RayTracingOpNV, opcode, resultType, loc),
+      operands(vecOperands.begin(), vecOperands.end()) {}
 } // namespace spirv
 } // namespace clang
