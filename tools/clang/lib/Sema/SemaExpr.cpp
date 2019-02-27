@@ -3398,8 +3398,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     QualType Ty;
     unsigned Width = 64;
     llvm::APInt ResultVal(Width, 0);
-    if (!Literal.isLong && !Literal.isLongLong &&
-        !Literal.isUnsigned && Literal.getRadix() == 10) {
+    if (!Literal.isLong && !Literal.isLongLong && !Literal.isUnsigned) {
       // in HLSL, unspecific literal ints are LitIntTy, using 64-bit
       Ty = Context.LitIntTy;
       if (Literal.GetIntegerValue(ResultVal)) {
