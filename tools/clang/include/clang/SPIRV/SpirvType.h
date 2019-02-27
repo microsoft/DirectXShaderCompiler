@@ -47,6 +47,7 @@ public:
     TK_Struct,
     TK_Pointer,
     TK_Function,
+    TK_AccelerationStructureNV,
     // Order matters: all the following are hybrid types
     TK_HybridStruct,
     TK_HybridPointer,
@@ -378,6 +379,17 @@ public:
 private:
   const SpirvType *returnType;
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
+};
+
+/// Represents accleration structure type as defined in SPV_NV_ray_tracing.
+class AccelerationStructureTypeNV : public SpirvType {
+public:
+  AccelerationStructureTypeNV()
+      : SpirvType(TK_AccelerationStructureNV, "accelerationStructureNV") {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_AccelerationStructureNV;
+  }
 };
 
 class HybridType : public SpirvType {

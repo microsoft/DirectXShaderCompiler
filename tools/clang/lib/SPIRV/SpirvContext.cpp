@@ -17,10 +17,13 @@ namespace spirv {
 
 SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
-      uintTypes({}), floatTypes({}), samplerType(nullptr) {
+      uintTypes({}), floatTypes({}), samplerType(nullptr),
+      curShaderModelKind(ShaderModelKind::Invalid), majorVersion(0),
+      minorVersion(0) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
+  accelerationStructureTypeNV = new (this) AccelerationStructureTypeNV;
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {

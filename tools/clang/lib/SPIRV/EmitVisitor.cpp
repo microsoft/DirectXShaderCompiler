@@ -968,6 +968,20 @@ bool EmitVisitor::visit(SpirvArrayLength *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
+  initInstruction(inst);
+  if (inst->hasResultType()) {
+    curInst.push_back(inst->getResultTypeId());
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  }
+  for (const auto operand : inst->getOperands())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+  finalizeInstruction();
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
@@ -1469,6 +1483,12 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(retTypeId);
     for (auto paramTypeId : paramTypeIds)
       curTypeInst.push_back(paramTypeId);
+    finalizeTypeInstruction();
+  }
+  // Acceleration Structure NV type
+  else if (const auto *accType = dyn_cast<AccelerationStructureTypeNV>(type)) {
+    initTypeInstruction(spv::Op::OpTypeAccelerationStructureNV);
+    curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }
   // Hybrid Types

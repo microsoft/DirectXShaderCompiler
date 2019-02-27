@@ -11,7 +11,6 @@
 #define LLVM_CLANG_LIB_SPIRV_GLPERVERTEX_H
 
 #include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSigPoint.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/DenseMap.h"
@@ -42,8 +41,8 @@ namespace spirv {
 /// array for ClipDistance builtin.
 class GlPerVertex {
 public:
-  GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
-              SpirvContext &spvContext, SpirvBuilder &spvBuilder);
+  GlPerVertex(ASTContext &context, SpirvContext &spvContext,
+              SpirvBuilder &spvBuilder);
 
   /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
@@ -128,7 +127,6 @@ private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
   using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
 
-  const hlsl::ShaderModel &shaderModel;
   ASTContext &astContext;
   SpirvContext &spvContext;
   SpirvBuilder &spvBuilder;

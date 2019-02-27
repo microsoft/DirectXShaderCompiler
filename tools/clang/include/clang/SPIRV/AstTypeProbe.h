@@ -13,6 +13,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Type.h"
+#include "clang/Sema/Sema.h"
 
 namespace clang {
 namespace spirv {
@@ -267,6 +268,11 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
 /// This method will panic if the given matrix type is not a SPIR-V acceptable
 /// matrix type.
 QualType getComponentVectorType(const ASTContext &, QualType matrixType);
+
+/// \brief Returns a QualType corresponding to HLSL matrix of given element type
+/// and rows/columns.
+QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
+                           QualType elemType, int rows, int columns);
 
 } // namespace spirv
 } // namespace clang

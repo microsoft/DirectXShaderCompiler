@@ -17,6 +17,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/Sema/Sema.h"
 #include "llvm/ADT/StringExtras.h"
 
 #include "InitListHandler.h"
@@ -478,26 +479,33 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
       diags(ci.getDiagnostics()),
       spirvOptions(ci.getCodeGenOpts().SpirvOptions),
-      entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
-      shaderModel(*hlsl::ShaderModel::GetByName(
-          ci.getCodeGenOpts().HLSLProfile.c_str())),
-      spvContext(), featureManager(diags, spirvOptions),
+      entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction), spvContext(),
+      featureManager(diags, spirvOptions),
       spvBuilder(astContext, spvContext, &featureManager, spirvOptions),
-      declIdMapper(shaderModel, astContext, spvContext, spvBuilder, *this,
-                   featureManager, spirvOptions),
+      declIdMapper(astContext, spvContext, spvBuilder, *this, featureManager,
+                   spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
       mainSourceFile(nullptr) {
-  if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
-    emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
-  if (spirvOptions.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
-      !shaderModel.IsGS())
+  // Get ShaderModel from command line hlsl profile option.
+  const hlsl::ShaderModel *shaderModel =
+      hlsl::ShaderModel::GetByName(ci.getCodeGenOpts().HLSLProfile.c_str());
+  if (shaderModel->GetKind() == hlsl::ShaderModel::Kind::Invalid)
+    emitError("unknown shader module: %0", {}) << shaderModel->GetName();
+
+  if (spirvOptions.invertY && !shaderModel->IsVS() && !shaderModel->IsDS() &&
+      !shaderModel->IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
 
   if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
               {});
+
+  // Set shader model kind and hlsl major/minor version.
+  spvContext.setCurrentShaderModelKind(shaderModel->GetKind());
+  spvContext.setMajorVersion(shaderModel->GetMajor());
+  spvContext.setMinorVersion(shaderModel->GetMinor());
 
   if (spirvOptions.useDxLayout) {
     spirvOptions.cBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;
@@ -533,8 +541,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
         sm.getBuffer(sm.getMainFileID(), SourceLocation());
     source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
   }
-  mainSourceFile = spvBuilder.setDebugSource(
-      shaderModel.GetMajor(), shaderModel.GetMinor(), fileName, source);
+  mainSourceFile =
+      spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                                spvContext.getMinorVersion(), fileName, source);
 
   if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
     // Emit OpModuleProcessed to indicate the commit information.
@@ -558,12 +567,25 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
+  uint32_t numEntryPoints = 0;
 
   // The entry function is the seed of the queue.
   for (auto *decl : tu->decls()) {
     if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
-      if (funcDecl->getName() == entryFunctionName) {
-        workQueue.insert(funcDecl);
+      if (spvContext.isLib()) {
+        if (const auto *shaderAttr = funcDecl->getAttr<HLSLShaderAttr>()) {
+          // If we are compiling as a library then add everything that has a
+          // ShaderAttr.
+          addFunctionToWorkQueue(getShaderModelKind(shaderAttr->getStage()),
+                                 funcDecl, /*isEntryFunction*/ true);
+          numEntryPoints++;
+        }
+      } else {
+        if (funcDecl->getName() == entryFunctionName) {
+          addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
+                                 funcDecl, /*isEntryFunction*/ true);
+          numEntryPoints++;
+        }
       }
     } else {
       doDecl(decl);
@@ -574,7 +596,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // The queue can grow in the meanwhile; so need to keep evaluating
   // workQueue.size().
   for (uint32_t i = 0; i < workQueue.size(); ++i) {
-    doDecl(workQueue[i]);
+    const FunctionInfo *curEntryOrCallee = workQueue[i];
+    spvContext.setCurrentShaderModelKind(curEntryOrCallee->shaderModelKind);
+    doDecl(curEntryOrCallee->funcDecl);
   }
 
   if (context.getDiagnostics().hasErrorOccurred())
@@ -586,8 +610,20 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
                             spv::MemoryModel::GLSL450);
 
-  spvBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunction,
-                           entryFunctionName, declIdMapper.collectStageVars());
+  // Even though the 'workQueue' grows due to the above loop, the first
+  // 'numEntryPoints' entries in the 'workQueue' are the ones with the HLSL
+  // 'shader' attribute, and must therefore be entry functions.
+  assert(numEntryPoints <= workQueue.size());
+
+  for (uint32_t i = 0; i < numEntryPoints; ++i) {
+    // TODO: assign specific StageVars w.r.t. to entry point
+    const FunctionInfo *entryInfo = workQueue[i];
+    assert(entryInfo->isEntryFunction);
+    spvBuilder.addEntryPoint(getSpirvShaderStage(entryInfo->shaderModelKind),
+                             entryInfo->entryFunction,
+                             entryInfo->funcDecl->getName(),
+                             declIdMapper.collectStageVars());
+  }
 
   // Add Location decorations to stage input/output variables.
   if (!declIdMapper.decorateStageIOLocations())
@@ -651,8 +687,13 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 }
 
 void SpirvEmitter::doDecl(const Decl *decl) {
-  if (decl->isImplicit() || isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl))
+  if (isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl))
     return;
+
+  if (decl->isImplicit()) {
+    doImplicitDecl(decl);
+    return;
+  }
 
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     // We can have VarDecls inside cbuffer/tbuffer. For those VarDecls, we need
@@ -953,11 +994,15 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   SpirvFunction *func = declIdMapper.getOrRegisterFn(decl);
 
-  if (funcName == entryFunctionName) {
-    funcName = "src." + funcName;
-    // Create wrapper for the entry function
-    if (!emitEntryFunctionWrapper(decl, func))
-      return;
+  const auto iter = functionInfoMap.find(decl);
+  if (iter != functionInfoMap.end()) {
+    const auto &entryInfo = iter->second;
+    if (entryInfo->isEntryFunction) {
+      funcName = "src." + funcName;
+      // Create wrapper for the entry function
+      if (!emitEntryFunctionWrapper(decl, func))
+        return;
+    }
   }
 
   const QualType retType =
@@ -1043,7 +1088,7 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
   }
 
   if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
-    if (!shaderModel.IsPS()) {
+    if (!spvContext.isPS()) {
       emitError("SubpassInput(MS) only allowed in pixel shader",
                 decl->getLocation());
       success = false;
@@ -1133,6 +1178,19 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   if (!validateVKAttributes(bufferDecl))
     return;
   (void)declIdMapper.createCTBuffer(bufferDecl);
+}
+
+void SpirvEmitter::doImplicitDecl(const Decl *decl) {
+  // We only handle specific implicit declaration for raytracing
+  // which are RayFlag/HitKind constant unsigned integers
+  // Ignore others
+  if (spvContext.isLib() || spvContext.isRay()) {
+    const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
+    if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
+                     implDecl->getName().startswith(StringRef("HIT_KIND")))) {
+      (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
+    }
+  }
 }
 
 void SpirvEmitter::doRecordDecl(const RecordDecl *recordDecl) {
@@ -2000,9 +2058,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   assert(vars.size() == args.size());
 
   // Push the callee into the work queue if it is not there.
-  if (!workQueue.count(callee)) {
-    workQueue.insert(callee);
-  }
+  addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(), callee,
+                         /*isEntryFunction*/ false);
 
   const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(callee);
@@ -3781,7 +3838,7 @@ SpirvInstruction *SpirvEmitter::createImageSample(
   const bool isExplicit = lod || (grad.first && grad.second);
 
   // Implicit-lod instructions are only allowed in pixel shader.
-  if (!shaderModel.IsPS() && !isExplicit)
+  if (!spvContext.isPS() && !isExplicit)
     needsLegalization = true;
 
   auto *retVal = spvBuilder.createImageSample(
@@ -6360,16 +6417,18 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneCount",
                                     callExpr->getExprLoc());
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize,
+    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize, retType,
                                            callExpr->getExprLoc());
+
     retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
                                     callExpr->getExprLoc());
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(
-        spv::BuiltIn::SubgroupLocalInvocationId, callExpr->getExprLoc());
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId,
+                                   retType, callExpr->getExprLoc());
     retVal = spvBuilder.createLoad(retType, var);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
@@ -6445,6 +6504,49 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     else
       retVal = processNonFpMatrixTranspose(matType, doExpr(mat));
 
+    break;
+  }
+  // DXR raytracing intrinsics
+  case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
+  case hlsl::IntrinsicOp::IOP_DispatchRaysIndex:
+  case hlsl::IntrinsicOp::IOP_HitKind:
+  case hlsl::IntrinsicOp::IOP_InstanceIndex:
+  case hlsl::IntrinsicOp::IOP_InstanceID:
+  case hlsl::IntrinsicOp::IOP_ObjectRayDirection:
+  case hlsl::IntrinsicOp::IOP_ObjectRayOrigin:
+  case hlsl::IntrinsicOp::IOP_ObjectToWorld3x4:
+  case hlsl::IntrinsicOp::IOP_ObjectToWorld4x3:
+  case hlsl::IntrinsicOp::IOP_PrimitiveIndex:
+  case hlsl::IntrinsicOp::IOP_RayFlags:
+  case hlsl::IntrinsicOp::IOP_RayTCurrent:
+  case hlsl::IntrinsicOp::IOP_RayTMin:
+  case hlsl::IntrinsicOp::IOP_WorldRayDirection:
+  case hlsl::IntrinsicOp::IOP_WorldRayOrigin:
+  case hlsl::IntrinsicOp::IOP_WorldToObject3x4:
+  case hlsl::IntrinsicOp::IOP_WorldToObject4x3: {
+    retVal = processRayBuiltins(callExpr, hlslOpcode);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_AcceptHitAndEndSearch: {
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpTerminateRayNV, QualType(), {},
+                                     callExpr->getExprLoc());
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_IgnoreHit: {
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpIgnoreIntersectionNV,
+                                     QualType(), {}, callExpr->getExprLoc());
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_ReportHit: {
+    retVal = processReportHit(callExpr);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_TraceRay: {
+    processTraceRay(callExpr);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_CallShader: {
+    processCallShader(callExpr);
     break;
   }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
@@ -8416,7 +8518,7 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
 SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     const CallExpr *callExpr, spv::Op opcode, bool actPerRowForMatrices) {
   // Certain opcodes are only allowed in pixel shader
-  if (!shaderModel.IsPS())
+  if (!spvContext.isPS())
     switch (opcode) {
     case spv::Op::OpDPdx:
     case spv::Op::OpDPdy:
@@ -8562,6 +8664,309 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
                               ? spv::Op::OpVectorTimesScalar
                               : spv::Op::OpMatrixTimesScalar;
   return spvBuilder.createBinaryOp(scaleOp, returnType, log2, scale);
+}
+
+SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
+                                                   hlsl::IntrinsicOp op) {
+  spv::BuiltIn builtin = spv::BuiltIn::Max;
+  bool transposeMatrix = false;
+  switch (op) {
+  case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
+    builtin = spv::BuiltIn::LaunchSizeNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_DispatchRaysIndex:
+    builtin = spv::BuiltIn::LaunchIdNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_RayTCurrent:
+    builtin = spv::BuiltIn::HitTNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_RayTMin:
+    builtin = spv::BuiltIn::RayTminNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_HitKind:
+    builtin = spv::BuiltIn::HitKindNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_WorldRayDirection:
+    builtin = spv::BuiltIn::WorldRayDirectionNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_WorldRayOrigin:
+    builtin = spv::BuiltIn::WorldRayOriginNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_ObjectRayDirection:
+    builtin = spv::BuiltIn::ObjectRayDirectionNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_ObjectRayOrigin:
+    builtin = spv::BuiltIn::ObjectRayOriginNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_InstanceIndex:
+    builtin = spv::BuiltIn::InstanceId;
+    break;
+  case hlsl::IntrinsicOp::IOP_PrimitiveIndex:
+    builtin = spv::BuiltIn::PrimitiveId;
+    break;
+  case hlsl::IntrinsicOp::IOP_InstanceID:
+    builtin = spv::BuiltIn::InstanceCustomIndexNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_RayFlags:
+    builtin = spv::BuiltIn::IncomingRayFlagsNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_ObjectToWorld3x4:
+    transposeMatrix = true;
+  case hlsl::IntrinsicOp::IOP_ObjectToWorld4x3:
+    builtin = spv::BuiltIn::ObjectToWorldNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_WorldToObject3x4:
+    transposeMatrix = true;
+  case hlsl::IntrinsicOp::IOP_WorldToObject4x3:
+    builtin = spv::BuiltIn::WorldToObjectNV;
+    break;
+  default:
+    emitError("ray intrinsic function unimplemented", callExpr->getExprLoc());
+    return nullptr;
+  }
+
+  QualType builtinType = callExpr->getType();
+  if (transposeMatrix) {
+    // DXR defines ObjectToWorld3x4, WorldToObject3x4 as transposed matrices.
+    // SPIR-V has only non tranposed variant defined as a builtin
+    // So perform read of original non transposed builtin and perform transpose.
+    assert(hlsl::IsHLSLMatType(builtinType) && "Builtin should be matrix");
+    const clang::Type *type = builtinType.getCanonicalType().getTypePtr();
+    const RecordType *RT = cast<RecordType>(type);
+    const ClassTemplateSpecializationDecl *templateSpecDecl =
+        cast<ClassTemplateSpecializationDecl>(RT->getDecl());
+    ClassTemplateDecl *templateDecl =
+        templateSpecDecl->getSpecializedTemplate();
+    builtinType = getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
+                                    templateDecl, astContext.FloatTy, 4, 3);
+  }
+  SpirvInstruction *retVal =
+      declIdMapper.getBuiltinVar(builtin, builtinType, callExpr->getExprLoc());
+  retVal = spvBuilder.createLoad(builtinType, retVal);
+  if (transposeMatrix)
+    retVal = spvBuilder.createUnaryOp(spv::Op::OpTranspose, callExpr->getType(),
+                                      retVal);
+  return retVal;
+}
+
+SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
+  SpirvInstruction *hitAttributeStageVar = nullptr;
+  const VarDecl *hitAttributeArg = nullptr;
+  QualType hitAttributeType;
+  const auto args = callExpr->getArgs();
+
+  if (callExpr->getNumArgs() != 3) {
+    emitError("invalid number of arguments to ReportHit",
+              callExpr->getExprLoc());
+  }
+
+  // HLSL Function :
+  // template<typename hitAttr>
+  // ReportHit(in float, in uint, in hitAttr)
+  if (const auto *implCastExpr = dyn_cast<CastExpr>(callExpr->getArg(2))) {
+    if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
+      if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
+        hitAttributeType = varDecl->getType();
+        hitAttributeArg = varDecl;
+        // Check if same type of hit attribute stage variable was already
+        // created, if so re-use
+        const auto iter = hitAttributeMap.find(hitAttributeType);
+        if (iter == hitAttributeMap.end()) {
+          hitAttributeStageVar = declIdMapper.createRayTracingNVStageVar(
+              spv::StorageClass::HitAttributeNV, varDecl);
+          hitAttributeMap[hitAttributeType] = hitAttributeStageVar;
+        } else {
+          hitAttributeStageVar = iter->second;
+        }
+      }
+    }
+  }
+
+  assert(hitAttributeStageVar && hitAttributeArg);
+
+  // Copy argument to stage variable
+  const auto hitAttributeArgInst =
+      declIdMapper.getDeclEvalInfo(hitAttributeArg);
+  auto tempLoad =
+      spvBuilder.createLoad(hitAttributeArg->getType(), hitAttributeArgInst);
+  spvBuilder.createStore(hitAttributeStageVar, tempLoad);
+
+  // SPIR-V Instruction :
+  // bool OpReportIntersection(<id> float Hit, <id> uint HitKind)
+  llvm::SmallVector<SpirvInstruction *, 4> reportHitArgs;
+  reportHitArgs.push_back(doExpr(args[0])); // Hit
+  reportHitArgs.push_back(doExpr(args[1])); // HitKind
+  return spvBuilder.createRayTracingOpsNV(spv::Op::OpReportIntersectionNV,
+                                          astContext.BoolTy, reportHitArgs,
+                                          callExpr->getExprLoc());
+}
+void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
+  SpirvInstruction *callDataLocInst = nullptr;
+  SpirvInstruction *callDataStageVar = nullptr;
+  const VarDecl *callDataArg = nullptr;
+  QualType callDataType;
+  const auto args = callExpr->getArgs();
+
+  if (callExpr->getNumArgs() != 2) {
+    emitError("invalid number of arguments to CallShader",
+              callExpr->getExprLoc());
+  }
+
+  // HLSL Func :
+  // template<typename CallData>
+  // void CallShader(in int sbtIndex, inout CallData arg)
+  if (const auto *implCastExpr = dyn_cast<CastExpr>(args[1])) {
+    if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
+      if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
+        callDataType = varDecl->getType();
+        callDataArg = varDecl;
+        // Check if same type of callable data stage variable was already
+        // created, if so re-use
+        const auto callDataPair = callDataMap.find(callDataType);
+        if (callDataPair == callDataMap.end()) {
+          int numCallDataVars = callDataMap.size();
+          callDataStageVar = declIdMapper.createRayTracingNVStageVar(
+              spv::StorageClass::CallableDataNV, varDecl);
+          // Decorate unique location id for each created stage var
+          spvBuilder.decorateLocation(callDataStageVar, numCallDataVars);
+          callDataLocInst = spvBuilder.getConstantInt(
+              astContext.UnsignedIntTy, llvm::APInt(32, numCallDataVars));
+          callDataMap[callDataType] =
+              std::make_pair(callDataStageVar, callDataLocInst);
+        } else {
+          callDataStageVar = callDataPair->second.first;
+          callDataLocInst = callDataPair->second.second;
+        }
+      }
+    }
+  }
+
+  assert(callDataStageVar && callDataArg);
+
+  // Copy argument to stage variable
+  const auto callDataArgInst = declIdMapper.getDeclEvalInfo(callDataArg);
+  auto tempLoad =
+      spvBuilder.createLoad(callDataArg->getType(), callDataArgInst);
+  spvBuilder.createStore(callDataStageVar, tempLoad);
+
+  // SPIR-V Instruction
+  // void OpExecuteCallable(<id> int SBT Index, <id> uint Callable Data Location
+  // Id)
+  llvm::SmallVector<SpirvInstruction *, 2> callShaderArgs;
+  callShaderArgs.push_back(doExpr(args[0]));
+  callShaderArgs.push_back(callDataLocInst);
+
+  spvBuilder.createRayTracingOpsNV(spv::Op::OpExecuteCallableNV, QualType(),
+                                   callShaderArgs, callExpr->getExprLoc());
+
+  // Copy data back to argument
+  tempLoad = spvBuilder.createLoad(callDataArg->getType(), callDataStageVar);
+  spvBuilder.createStore(callDataArgInst, tempLoad);
+  return;
+}
+void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
+  SpirvInstruction *payloadLocInst = nullptr;
+  SpirvInstruction *payloadStageVar = nullptr;
+  const VarDecl *payloadArg = nullptr;
+  QualType payloadType;
+
+  const auto args = callExpr->getArgs();
+
+  if (callExpr->getNumArgs() != 8) {
+    emitError("invalid number of arguments to TraceRay",
+              callExpr->getExprLoc());
+  }
+
+  // HLSL Func
+  // template<typename Payload>
+  // void TraceRay(RaytracingAccelerationStructure rs,
+  //              uint rayflags,
+  //              uint InstanceInclusionMask
+  //              uint RayContributionToHitGroupIndex,
+  //              uint MultiplierForGeometryContributionToHitGroupIndex,
+  //              uint MissShaderIndex,
+  //              RayDesc ray,
+  //              inout Payload p)
+  // where RayDesc = {float3 origin, float tMin, float3 direction, float tMax}
+
+  if (const auto *implCastExpr = dyn_cast<CastExpr>(args[7])) {
+    if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
+      if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
+        payloadType = varDecl->getType();
+        payloadArg = varDecl;
+        const auto payloadPair = payloadMap.find(payloadType);
+        // Check if same type of payload stage variable was already
+        // created, if so re-use
+        if (payloadPair == payloadMap.end()) {
+          int numPayloadVars = payloadMap.size();
+          payloadStageVar = declIdMapper.createRayTracingNVStageVar(
+              spv::StorageClass::RayPayloadNV, varDecl);
+          // Decorate unique location id for each created stage var
+          spvBuilder.decorateLocation(payloadStageVar, numPayloadVars);
+          payloadLocInst = spvBuilder.getConstantInt(
+              astContext.UnsignedIntTy, llvm::APInt(32, numPayloadVars));
+          payloadMap[payloadType] =
+              std::make_pair(payloadStageVar, payloadLocInst);
+        } else {
+          payloadStageVar = payloadPair->second.first;
+          payloadLocInst = payloadPair->second.second;
+        }
+      }
+    }
+  }
+
+  assert(payloadStageVar && payloadArg);
+
+  const auto floatType = astContext.FloatTy;
+  const auto vecType = astContext.getExtVectorType(astContext.FloatTy, 3);
+
+  // Extract the ray description to match SPIR-V
+  SpirvInstruction *rayDescArg = doExpr(args[6]);
+  const auto origin =
+      spvBuilder.createCompositeExtract(vecType, rayDescArg, {0});
+  const auto tMin =
+      spvBuilder.createCompositeExtract(floatType, rayDescArg, {1});
+  const auto direction =
+      spvBuilder.createCompositeExtract(vecType, rayDescArg, {2});
+  const auto tMax =
+      spvBuilder.createCompositeExtract(floatType, rayDescArg, {3});
+
+  // Copy argument to stage variable
+  const auto payloadArgInst = declIdMapper.getDeclEvalInfo(payloadArg);
+  auto tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadArgInst);
+  spvBuilder.createStore(payloadStageVar, tempLoad);
+
+  // SPIR-V Instruction
+  // void OpTraceNV ( <id> AccelerationStructureNV acStruct,
+  //                 <id> uint Ray Flags,
+  //                 <id> uint Cull Mask,
+  //                 <id> uint SBT Offset,
+  //                 <id> uint SBT Stride,
+  //                 <id> uint Miss Index,
+  //                 <id> vec4 Ray Origin,
+  //                 <id> float Ray Tmin,
+  //                 <id> vec3 Ray Direction,
+  //                 <id> float Ray Tmax,
+  //                 <id> uint Payload number)
+
+  llvm::SmallVector<SpirvInstruction *, 8> traceArgs;
+  for (int ii = 0; ii < 6; ii++) {
+    traceArgs.push_back(doExpr(args[ii]));
+  }
+
+  traceArgs.push_back(origin);
+  traceArgs.push_back(tMin);
+  traceArgs.push_back(direction);
+  traceArgs.push_back(tMax);
+  traceArgs.push_back(payloadLocInst);
+
+  spvBuilder.createRayTracingOpsNV(spv::Op::OpTraceNV, QualType(), traceArgs,
+                                   callExpr->getExprLoc());
+
+  // Copy arguments back to stage variable
+  tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadStageVar);
+  spvBuilder.createStore(payloadArgInst, tempLoad);
+  return;
 }
 
 SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
@@ -8817,17 +9222,65 @@ SpirvConstant *SpirvEmitter::tryToEvaluateAsConst(const Expr *expr) {
   return nullptr;
 }
 
+hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
+  hlsl::ShaderModel::Kind smk;
+  switch (stageName[0]) {
+  case 'c':
+    switch (stageName[1]) {
+    case 'o':
+      smk = hlsl::ShaderModel::Kind::Compute;
+      break;
+    case 'l':
+      smk = hlsl::ShaderModel::Kind::ClosestHit;
+      break;
+    case 'a':
+      smk = hlsl::ShaderModel::Kind::Callable;
+      break;
+    default:
+      smk = hlsl::ShaderModel::Kind::Invalid;
+      break;
+    }
+    break;
+  case 'v':
+    smk = hlsl::ShaderModel::Kind::Vertex;
+    break;
+  case 'h':
+    smk = hlsl::ShaderModel::Kind::Hull;
+    break;
+  case 'd':
+    smk = hlsl::ShaderModel::Kind::Domain;
+    break;
+  case 'g':
+    smk = hlsl::ShaderModel::Kind::Geometry;
+    break;
+  case 'p':
+    smk = hlsl::ShaderModel::Kind::Pixel;
+    break;
+  case 'r':
+    smk = hlsl::ShaderModel::Kind::RayGeneration;
+    break;
+  case 'i':
+    smk = hlsl::ShaderModel::Kind::Intersection;
+    break;
+  case 'a':
+    smk = hlsl::ShaderModel::Kind::AnyHit;
+    break;
+  case 'm':
+    smk = hlsl::ShaderModel::Kind::Miss;
+    break;
+  default:
+    smk = hlsl::ShaderModel::Kind::Invalid;
+    break;
+  }
+  if (smk == hlsl::ShaderModel::Kind::Invalid) {
+    llvm_unreachable("unknown stage name");
+  }
+  return smk;
+}
+
 spv::ExecutionModel
-SpirvEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
-  // DXIL Models are:
-  // Profile (DXIL Model) : HLSL Shader Kind : SPIR-V Shader Stage
-  // vs_<version>         : Vertex Shader    : Vertex Shader
-  // hs_<version>         : Hull Shader      : Tassellation Control Shader
-  // ds_<version>         : Domain Shader    : Tessellation Evaluation Shader
-  // gs_<version>         : Geometry Shader  : Geometry Shader
-  // ps_<version>         : Pixel Shader     : Fragment Shader
-  // cs_<version>         : Compute Shader   : Compute Shader
-  switch (model.GetKind()) {
+SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
+  switch (smk) {
   case hlsl::ShaderModel::Kind::Vertex:
     return spv::ExecutionModel::Vertex;
   case hlsl::ShaderModel::Kind::Hull:
@@ -8840,16 +9293,28 @@ SpirvEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
     return spv::ExecutionModel::Fragment;
   case hlsl::ShaderModel::Kind::Compute:
     return spv::ExecutionModel::GLCompute;
+  case hlsl::ShaderModel::Kind::RayGeneration:
+    return spv::ExecutionModel::RayGenerationNV;
+  case hlsl::ShaderModel::Kind::Intersection:
+    return spv::ExecutionModel::IntersectionNV;
+  case hlsl::ShaderModel::Kind::AnyHit:
+    return spv::ExecutionModel::AnyHitNV;
+  case hlsl::ShaderModel::Kind::ClosestHit:
+    return spv::ExecutionModel::ClosestHitNV;
+  case hlsl::ShaderModel::Kind::Miss:
+    return spv::ExecutionModel::MissNV;
+  case hlsl::ShaderModel::Kind::Callable:
+    return spv::ExecutionModel::CallableNV;
   default:
+    llvm_unreachable("invalid shader model kind");
     break;
   }
-  llvm_unreachable("unknown shader model");
 }
 
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
-  assert(shaderModel.IsGS());
+  assert(spvContext.isGS());
   if (auto *vcAttr = decl->getAttr<HLSLMaxVertexCountAttr>()) {
     spvBuilder.addExecutionMode(
         entryFunction, spv::ExecutionMode::OutputVertices,
@@ -8975,7 +9440,7 @@ void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
 
 bool SpirvEmitter::processTessellationShaderAttributes(
     const FunctionDecl *decl, uint32_t *numOutputControlPoints) {
-  assert(shaderModel.IsHS() || shaderModel.IsDS());
+  assert(spvContext.isHS() || spvContext.isDS());
   using namespace spv;
 
   if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
@@ -8997,7 +9462,7 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 
   // Early return for domain shaders as domain shaders only takes the 'domain'
   // attribute.
-  if (shaderModel.IsDS())
+  if (spvContext.isDS())
     return true;
 
   if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
@@ -9061,6 +9526,105 @@ bool SpirvEmitter::processTessellationShaderAttributes(
   return true;
 }
 
+bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
+    const FunctionDecl *decl, SpirvFunction *entryFuncInstr) {
+  // The entry basic block.
+  auto *entryLabel = spvBuilder.createBasicBlock();
+  spvBuilder.setInsertPoint(entryLabel);
+
+  // Initialize all global variables at the beginning of the wrapper
+  for (const VarDecl *varDecl : toInitGloalVars) {
+    const auto varInfo = declIdMapper.getDeclEvalInfo(varDecl);
+    if (const auto *init = varDecl->getInit()) {
+      storeValue(varInfo, doExpr(init), varDecl->getType());
+
+      // Update counter variable associated with global variables
+      tryToAssignCounterVar(varDecl, init);
+    }
+    // If not explicitly initialized, initialize with their zero values if not
+    // resource objects
+    else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
+      auto *nullValue = spvBuilder.getConstantNull(varDecl->getType());
+      spvBuilder.createStore(varInfo, nullValue);
+    }
+  }
+
+  // Create temporary variables for holding function call arguments
+  llvm::SmallVector<SpirvInstruction *, 4> params;
+  llvm::SmallVector<QualType, 4> paramTypes;
+  llvm::SmallVector<SpirvInstruction *, 4> stageVars;
+  hlsl::ShaderModel::Kind sKind = spvContext.getCurrentShaderModelKind();
+  for (uint32_t i = 0; i < decl->getNumParams(); i++) {
+    const auto param = decl->getParamDecl(i);
+    const auto paramType = param->getType();
+    std::string tempVarName = "param.var." + param->getNameAsString();
+    auto *tempVar =
+        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName);
+
+    SpirvVariable *curStageVar = nullptr;
+
+    params.push_back(tempVar);
+    paramTypes.push_back(paramType);
+
+    // Order of arguments is fixed
+    // Any-Hit/Closest-Hit : Arg 0 = payload(inout), Arg1 = attribute(in)
+    // Miss : Arg 0 = payload(inout)
+    // Callable : Arg 0 = callable data(inout)
+    // Raygeneration/Intersection : No Args allowed
+    if (sKind == hlsl::ShaderModel::Kind::RayGeneration) {
+      assert("Raygeneration shaders have no arguments of entry function");
+    } else if (sKind == hlsl::ShaderModel::Kind::Intersection) {
+      assert("Intersection shaders have no arguments of entry function");
+    } else if (sKind == hlsl::ShaderModel::Kind::ClosestHit ||
+               sKind == hlsl::ShaderModel::Kind::AnyHit) {
+      // Generate rayPayloadInNV and hitAttributeNV stage variables
+      if (i == 0) {
+        // First argument is always payload
+        curStageVar = declIdMapper.createRayTracingNVStageVar(
+            spv::StorageClass::IncomingRayPayloadNV, param);
+      } else {
+        // Second argument is always attribute
+        curStageVar = declIdMapper.createRayTracingNVStageVar(
+            spv::StorageClass::HitAttributeNV, param);
+      }
+    } else if (sKind == hlsl::ShaderModel::Kind::Miss) {
+      // Generate rayPayloadInNV stage variable
+      // First and only argument is payload
+      curStageVar = declIdMapper.createRayTracingNVStageVar(
+          spv::StorageClass::IncomingRayPayloadNV, param);
+    } else if (sKind == hlsl::ShaderModel::Kind::Callable) {
+      curStageVar = declIdMapper.createRayTracingNVStageVar(
+          spv::StorageClass::IncomingCallableDataNV, param);
+    }
+
+    if (curStageVar != nullptr) {
+      stageVars.push_back(curStageVar);
+      // Copy data to temporary
+      auto *tempLoadInst = spvBuilder.createLoad(paramType, curStageVar);
+      spvBuilder.createStore(tempVar, tempLoadInst);
+    }
+  }
+
+  // Call the original entry function
+  const QualType retType = decl->getReturnType();
+  spvBuilder.createFunctionCall(retType, entryFuncInstr, params);
+
+  // Write certain output variables back
+  if (sKind == hlsl::ShaderModel::Kind::ClosestHit ||
+      sKind == hlsl::ShaderModel::Kind::AnyHit ||
+      sKind == hlsl::ShaderModel::Kind::Miss ||
+      sKind == hlsl::ShaderModel::Kind::Callable) {
+    // Write back results to IncomingRayPayloadNV/IncomingCallableDataNV
+    auto *tempLoad = spvBuilder.createLoad(paramTypes[0], params[0]);
+    spvBuilder.createStore(stageVars[0], tempLoad);
+  }
+
+  spvBuilder.createReturn();
+  spvBuilder.endFunction();
+
+  return true;
+}
+
 bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                                             SpirvFunction *entryFuncInstr) {
   // HS specific attributes
@@ -9089,12 +9653,22 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
+  // Set entryFunction for current entry point.
+  auto iter = functionInfoMap.find(decl);
+  assert(iter != functionInfoMap.end());
+  auto &entryInfo = iter->second;
+  assert(entryInfo->isEntryFunction);
+  entryInfo->entryFunction = entryFunction;
+
+  if (spvContext.isRay()) {
+    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
+  }
   // Handle attributes specific to each shader stage
-  if (shaderModel.IsPS()) {
+  if (spvContext.isPS()) {
     processPixelShaderAttributes(decl);
-  } else if (shaderModel.IsCS()) {
+  } else if (spvContext.isCS()) {
     processComputeShaderAttributes(decl);
-  } else if (shaderModel.IsHS()) {
+  } else if (spvContext.isHS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
       return false;
 
@@ -9106,7 +9680,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       }
 
     outputArraySize = numOutputControlPoints;
-  } else if (shaderModel.IsDS()) {
+  } else if (spvContext.isDS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
       return false;
 
@@ -9117,7 +9691,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
         break;
       }
     // The per-vertex output of DS is not an array.
-  } else if (shaderModel.IsGS()) {
+  } else if (spvContext.isGS()) {
     if (!processGeometryShaderAttributes(decl, &inputArraySize))
       return false;
     // The per-vertex output of GS is not an array.
@@ -9149,7 +9723,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // offset of SV_ClipDistance/SV_CullDistance variables within the array.
   declIdMapper.glPerVertex.calculateClipCullDistanceArraySize();
 
-  if (!shaderModel.IsCS()) {
+  if (!spvContext.isCS()) {
     // Generate stand-alone builtins of Position, ClipDistance, and
     // CullDistance, which belongs to gl_PerVertex.
     declIdMapper.glPerVertex.generateVars(inputArraySize, outputArraySize);
@@ -9191,7 +9765,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // Also do not create input variables for output stream objects of geometry
     // shaders (e.g. TriangleStream) which are required to be marked as 'inout'.
     if (canActAsInParmVar(param)) {
-      if (shaderModel.IsHS() && hlsl::IsHLSLInputPatchType(paramType)) {
+      if (spvContext.isHS() && hlsl::IsHLSLInputPatchType(paramType)) {
         // Record the temporary variable holding InputPatch. It may be used
         // later in the patch constant function.
         hullMainInputPatchParam = tempVar;
@@ -9229,7 +9803,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   //    to the proper offset in the array.
   // 2- The patch constant function must be called *once* after all invocations
   //    of the main entry point function is done.
-  if (shaderModel.IsHS()) {
+  if (spvContext.isHS()) {
     // Create stage output variables out of the return type.
     if (!declIdMapper.createStageOutputVar(decl, numOutputControlPoints,
                                            outputControlPointIdVal, retVal))
@@ -9258,7 +9832,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       // Write back of stage output variables in GS is manually controlled by
       // .Append() intrinsic method. No need to load the parameter since we
       // won't need to write back here.
-      if (param->isUsed() && !shaderModel.IsGS())
+      if (param->isUsed() && !spvContext.isGS())
         loadedParam = spvBuilder.createLoad(param->getType(), params[i]);
 
       if (!declIdMapper.createStageOutputVar(param, loadedParam, false))
@@ -9271,7 +9845,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
   // We should invoke a translation of the PCF manually.
-  if (shaderModel.IsHS())
+  if (spvContext.isHS())
     doDecl(patchConstFunc);
 
   return true;
@@ -9283,7 +9857,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     SpirvInstruction *outputControlPointId, SpirvInstruction *primitiveId,
     SpirvInstruction *viewId, SpirvInstruction *hullMainInputPatch) {
   // This method may only be called for Hull shaders.
-  assert(shaderModel.IsHS());
+  assert(spvContext.isHS());
 
   // For Hull shaders, the real output is an array of size
   // numOutputControlPoints. The results of the main should be written to the
@@ -9684,6 +10258,22 @@ void SpirvEmitter::emitDebugLine(SourceLocation loc) {
     uint32_t line = floc.getSpellingLineNumber();
     uint32_t column = floc.getSpellingColumnNumber();
     spvBuilder.createLineInfo(mainSourceFile, line, column);
+  }
+}
+
+void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
+                                          const clang::FunctionDecl *fnDecl,
+                                          bool isEntryFunction) {
+  // Only update the workQueue and the function info map if the given
+  // FunctionDecl hasn't been added already.
+  if (functionInfoMap.find(fnDecl) == functionInfoMap.end()) {
+    // Note: The function is just discovered and is being added to the
+    // workQueue, therefore it does not have the entryFunction SPIR-V
+    // instruction yet (use nullptr).
+    auto *fnInfo = new (spvContext) FunctionInfo(
+        shaderKind, fnDecl, /*entryFunction*/ nullptr, isEntryFunction);
+    functionInfoMap[fnDecl] = fnInfo;
+    workQueue.push_back(fnInfo);
   }
 }
 
