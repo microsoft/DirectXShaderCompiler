@@ -1030,7 +1030,9 @@ Value *HLMatrixLowerPass::lowerHLUnaryOperation(Value *MatVal, HLUnaryOpcode Opc
       ? ConstantFP::get(VecTy->getElementType(), 1)
       : ConstantInt::get(VecTy->getElementType(), 1);
     Constant *VecOne = ConstantVector::getSplat(VecTy->getNumElements(), ScalarOne);
-    // BUGBUG: This implementation has incorrect semantics (GitHub #1780)
+
+    // CodeGen already emitted the load and following store, our job is only to produce
+    // the updated value.
     if (Opcode == HLUnaryOpcode::PostInc || Opcode == HLUnaryOpcode::PreInc) {
       return IsFloat
         ? Builder.CreateFAdd(LoweredVal, VecOne)
