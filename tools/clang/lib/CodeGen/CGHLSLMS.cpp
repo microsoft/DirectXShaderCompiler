@@ -4177,14 +4177,14 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
     if (Ty->isDoubleTy()) {
       double dV0 = fpV0->getValueAPF().convertToDouble();
       double dV1 = fpV1->getValueAPF().convertToDouble();
-      Value *atanV = ConstantFP::get(CI->getType(), atan(dV0 / dV1));
+      Value *atanV = ConstantFP::get(CI->getType(), atan2(dV0, dV1));
       CI->replaceAllUsesWith(atanV);
       Result = atanV;
     } else {
       DXASSERT_NOMSG(Ty->isFloatTy());
       float fV0 = fpV0->getValueAPF().convertToFloat();
       float fV1 = fpV1->getValueAPF().convertToFloat();
-      Value *atanV = ConstantFP::get(CI->getType(), atanf(fV0 / fV1));
+      Value *atanV = ConstantFP::get(CI->getType(), atan2f(fV0, fV1));
       CI->replaceAllUsesWith(atanV);
       Result = atanV;
     }
