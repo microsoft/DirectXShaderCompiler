@@ -68,7 +68,7 @@ void main() {
     
     // To float
     // CHECK: float 1.000000e+00, float -1.000000e+00, float 0x41F0000000000000, float -1.000000e+00, i8
-    // CHECK: float 6.553500e+04, float -1.000000e+00, float 0x41F0000000000000, float -1.500000e+00, i8
+    // CHECK: float 6.553500e+04, float -1.000000e+00, float 0x43F0000000000000, float -1.500000e+00, i8
     // CHECK: float -1.500000e+00, float -1.500000e+00, float 0.000000e+00, float 0.000000e+00, i8
     static const float f[] = {
         true, // UIToFP
