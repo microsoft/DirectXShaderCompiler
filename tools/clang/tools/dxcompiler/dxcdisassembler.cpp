@@ -784,9 +784,9 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
     llvm::Type *EltTy = Ty;
     unsigned arraySize = 0;
     unsigned arrayLevel = 0;
-    if (!dxilutil::IsHLSLMatrixType(EltTy) && EltTy->isArrayTy()) {
+    if (!HLMatrixType::isa(EltTy) && EltTy->isArrayTy()) {
       arraySize = 1;
-      while (!dxilutil::IsHLSLMatrixType(EltTy) && EltTy->isArrayTy()) {
+      while (!HLMatrixType::isa(EltTy) && EltTy->isArrayTy()) {
         arraySize *= EltTy->getArrayNumElements();
         EltTy = EltTy->getArrayElementType();
         arrayLevel++;
@@ -816,7 +816,7 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
     }
 
     std::string StreamStr;
-    if (!dxilutil::IsHLSLMatrixType(EltTy) && EltTy->isStructTy()) {
+    if (!HLMatrixType::isa(EltTy) && EltTy->isStructTy()) {
       std::string NameTypeStr = annotation.GetFieldName();
       raw_string_ostream Stream(NameTypeStr);
       if (arraySize)
@@ -900,7 +900,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   OS << comment << "\n";
   llvm::Type *RetTy = buf->GetRetType();
   // Skip none struct type.
-  if (!RetTy->isStructTy() || dxilutil::IsHLSLMatrixType(RetTy)) {
+  if (!RetTy->isStructTy() || HLMatrixType::isa(RetTy)) {
     llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
     // For resource array, use element type.
     if (Ty->isArrayTy())

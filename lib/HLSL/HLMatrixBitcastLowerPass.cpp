@@ -67,8 +67,7 @@ Type *TryLowerMatTy(Type *Ty) {
   Type *VecTy = nullptr;
   if (HLMatrixType::isMatrixArrayPtr(Ty)) {
     VecTy = LowerMatrixArrayPointerToOneDimArray(Ty);
-  } else if (isa<PointerType>(Ty) &&
-             dxilutil::IsHLSLMatrixType(Ty->getPointerElementType())) {
+  } else if (isa<PointerType>(Ty) && HLMatrixType::isa(Ty->getPointerElementType())) {
     VecTy = LowerMatrixTypeToOneDimArray(
         Ty->getPointerElementType());
     VecTy = PointerType::get(VecTy, Ty->getPointerAddressSpace());
@@ -130,7 +129,7 @@ bool MatrixBitcastLowerPass::hasCallUser(Instruction *M) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (dxilutil::IsHLSLMatrixType(EltTy)) {
+      if (HLMatrixType::isa(EltTy)) {
         if (hasCallUser(GEP))
           return true;
       } else {
@@ -185,7 +184,7 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       Type *EltTy = GEP->getType()->getPointerElementType();
-      if (dxilutil::IsHLSLMatrixType(EltTy)) {
+      if (HLMatrixType::isa(EltTy)) {
         // Change gep matrixArray, 0, index
         // into
         //   gep oneDimArray, 0, index * matSize

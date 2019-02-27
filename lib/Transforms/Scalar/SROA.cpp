@@ -56,7 +56,8 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
-#include "dxc/DXIL/DxilUtil.h"  // HLSL Change - not sroa resource type.
+#include "dxc/DXIL/DxilUtil.h"  // HLSL Change - don't sroa resource type.
+#include "dxc/HLSL/HLMatrixType.h"  // HLSL Change - don't sroa matrix types.
 
 #if __cplusplus >= 201103L && !defined(NDEBUG)
 // We only use this for a debug check in C++11
@@ -697,14 +698,14 @@ private:
     // HLSL Change Begin - not sroa matrix type.
     if (PointerType *PT = dyn_cast<PointerType>(BC.getType())) {
       Type *EltTy = PT->getElementType();
-      if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(EltTy)) ||
+      if ((SkipHLSLMat && hlsl::HLMatrixType::isa(EltTy)) ||
           hlsl::dxilutil::IsHLSLObjectType(EltTy)) {
         AS.PointerEscapingInstr = &BC;
         return;
       }
       if (PointerType *SrcPT = dyn_cast<PointerType>(BC.getSrcTy())) {
         Type *SrcEltTy = SrcPT->getElementType();
-        if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(SrcEltTy)) ||
+        if ((SkipHLSLMat && hlsl::HLMatrixType::isa(SrcEltTy)) ||
             hlsl::dxilutil::IsHLSLObjectType(SrcEltTy)) {
           AS.PointerEscapingInstr = &BC;
           return;
@@ -773,7 +774,7 @@ private:
 
   void visitLoadInst(LoadInst &LI) {
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(LI.getType())) ||
+    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(LI.getType())) ||
         hlsl::dxilutil::IsHLSLObjectType(LI.getType()))
       return PI.setEscapedAndAborted(&LI);
     // HLSL Change End.
@@ -794,7 +795,7 @@ private:
     if (ValOp == *U)
       return PI.setEscapedAndAborted(&SI);
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(ValOp->getType())) ||
+    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(ValOp->getType())) ||
         hlsl::dxilutil::IsHLSLObjectType(ValOp->getType()))
       return PI.setEscapedAndAborted(&SI);
     // HLSL Change End.
@@ -3364,7 +3365,7 @@ private:
     if (!LI.isSimple() || LI.getType()->isSingleValueType())
       return false;
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(LI.getType())) ||
+    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(LI.getType())) ||
         hlsl::dxilutil::IsHLSLObjectType(LI.getType()))
       return false;
     // HLSL Change End.
@@ -3403,7 +3404,7 @@ private:
     if (V->getType()->isSingleValueType())
       return false;
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(V->getType())) ||
+    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(V->getType())) ||
         hlsl::dxilutil::IsHLSLObjectType(V->getType()))
       return false;
     // HLSL Change End.
@@ -3419,12 +3420,12 @@ private:
     // HLSL Change Begin - not sroa matrix type.
     if (PointerType *PT = dyn_cast<PointerType>(BC.getType())) {
       Type *EltTy = PT->getElementType();
-      if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(EltTy)) ||
+      if ((SkipHLSLMat && hlsl::HLMatrixType::isa(EltTy)) ||
           hlsl::dxilutil::IsHLSLObjectType(EltTy))
         return false;
       if (PointerType *SrcPT = dyn_cast<PointerType>(BC.getSrcTy())) {
         Type *SrcEltTy = SrcPT->getElementType();
-        if ((SkipHLSLMat && hlsl::dxilutil::IsHLSLMatrixType(SrcEltTy)) ||
+        if ((SkipHLSLMat && hlsl::HLMatrixType::isa(SrcEltTy)) ||
             hlsl::dxilutil::IsHLSLObjectType(SrcEltTy))
           return false;
       }
@@ -4381,7 +4382,7 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
           AI.getAllocatedType()) || // HLSL Change - not sroa resource type.
       // HLSL Change Begin - not sroa matrix type.
       (SkipHLSLMat &&
-       hlsl::dxilutil::IsHLSLMatrixType(AI.getAllocatedType())) ||
+       hlsl::HLMatrixType::isa(AI.getAllocatedType())) ||
       // HLSL Change End.
       DL.getTypeAllocSize(AI.getAllocatedType()) == 0)
     return false;
