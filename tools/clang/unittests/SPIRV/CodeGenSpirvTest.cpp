@@ -488,8 +488,14 @@ TEST_F(FileTest, FunctionFowardDeclaration) {
 TEST_F(FileTest, FunctionInCTBuffer) { runFileTest("fn.ctbuffer.hlsl"); }
 
 // For OO features
-TEST_F(FileTest, StructMethodCall) { runFileTest("oo.struct.method.hlsl"); }
-TEST_F(FileTest, ClassMethodCall) { runFileTest("oo.class.method.hlsl"); }
+TEST_F(FileTest, StructMethodCall) {
+  setRelaxLogicalPointer();
+  runFileTest("oo.struct.method.hlsl");
+}
+TEST_F(FileTest, ClassMethodCall) {
+  setRelaxLogicalPointer();
+  runFileTest("oo.class.method.hlsl");
+}
 TEST_F(FileTest, StructStaticMember) {
   runFileTest("oo.struct.static.member.hlsl");
 }
