@@ -3483,10 +3483,19 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
       llvm::Type *idxTy = counterTy;
       llvm::Type *valTy = bAppend ?
           funcTy->getParamType(HLOperandIndex::kAppendValOpIndex):funcTy->getReturnType();
+
+      // Return type for subscript should be pointer type, hence in memory representation
       llvm::Type *subscriptTy = valTy;
-      if (!valTy->isPointerTy()) {
-        // Return type for subscript should be pointer type.
-        subscriptTy = llvm::PointerType::get(valTy, 0);
+      bool isBoolScalarOrVector = false;
+      if (!subscriptTy->isPointerTy()) {
+        if (subscriptTy->getScalarType()->isIntegerTy(1)) {
+          isBoolScalarOrVector = true;
+          llvm::Type *memReprType = llvm::IntegerType::get(subscriptTy->getContext(), 32);
+          subscriptTy = subscriptTy->isVectorTy()
+            ? llvm::VectorType::get(memReprType, subscriptTy->getVectorNumElements())
+            : memReprType;
+        }
+        subscriptTy = llvm::PointerType::get(subscriptTy, 0);
       }
 
       llvm::FunctionType *SubscriptFuncTy =
@@ -3519,8 +3528,14 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
         if (valTy->isPointerTy()) {
           unsigned size = M.getDataLayout().getTypeAllocSize(subscript->getType()->getPointerElementType());
           Builder.CreateMemCpy(subscript, valArg, size, 1);
-        } else
-          Builder.CreateStore(valArg, subscript);
+        }
+        else {
+          Value *storedVal = valArg;
+          // Convert to memory representation
+          if (isBoolScalarOrVector)
+            storedVal = Builder.CreateZExt(storedVal, subscriptTy->getPointerElementType(), "frombool");
+          Builder.CreateStore(storedVal, subscript);
+        }
         Builder.CreateRetVoid();
       } else {
         // return Buf[counter];
@@ -3528,6 +3543,9 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
           Builder.CreateRet(subscript);
         else {
           Value *retVal = Builder.CreateLoad(subscript);
+          // Convert to register representation
+          if (isBoolScalarOrVector)
+            retVal = Builder.CreateICmpNE(retVal, Constant::getNullValue(retVal->getType()), "tobool");
           Builder.CreateRet(retVal);
         }
       }
