@@ -153,18 +153,18 @@ void main()
     to_a2(i);                                               /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'int' to 'typedef int[2]'}} */
     (A2)i;
     to_a2(v1);                                              /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'int1' to 'typedef int[2]'}} */
-    (A2)v1;                                                 /* expected-error {{cannot convert from 'int1' to 'A2' (aka 'int [2]')}} fxc-pass {{}} */
+    (A2)v1;
     to_a2(m1x1);                                            /* expected-error {{no matching function for call to 'to_a2'}} fxc-error {{X3017: 'to_a2': cannot convert from 'int1' to 'typedef int[2]'}} */
-    (A2)m1x1;                                               /* expected-error {{cannot convert from 'int1x1' to 'A2' (aka 'int [2]')}} fxc-pass {{}} */
+    (A2)m1x1;
     (A2)a1;                                                 /* expected-error {{cannot convert from 'A1' (aka 'int [1]') to 'A2' (aka 'int [2]')}} fxc-error {{X3017: cannot convert from 'typedef int[1]' to 'typedef int[2]'}} */
     (A2)s1;                                                 /* expected-error {{cannot convert from 'S1' to 'A2' (aka 'int [2]')}} fxc-error {{X3017: cannot convert from 'struct S1' to 'typedef int[2]'}} */
 
     to_s2(i);                                               /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int' to 'struct S2'}} */
     (S2)i;
     to_s2(v1);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int1' to 'struct S2'}} */
-    (S2)v1;                                                 /* expected-error {{cannot convert from 'int1' to 'S2'}} fxc-pass {{}} */
+    (S2)v1;
     to_s2(m1x1);                                            /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int1' to 'struct S2'}} */
-    (S2)m1x1;                                               /* expected-error {{cannot convert from 'int1x1' to 'S2'}} fxc-pass {{}} */
+    (S2)m1x1;
     (S2)a1;                                                 /* expected-error {{cannot convert from 'A1' (aka 'int [1]') to 'S2'}} fxc-error {{X3017: cannot convert from 'typedef int[1]' to 'struct S2'}} */
     (S2)s1;                                                 /* expected-error {{cannot convert from 'S1' to 'S2'}} fxc-error {{X3017: cannot convert from 'struct S1' to 'struct S2'}} */
 

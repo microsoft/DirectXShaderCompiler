@@ -194,7 +194,7 @@ private:
                                    clang::QualType DestType,
                                    llvm::Type *Ty);
 
-  void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *SrcVal,
+  void EmitHLSLSplat(CodeGenFunction &CGF, Value *SrcVal,
                               llvm::Value *DestPtr,
                               SmallVector<Value *, 4> &idxList,
                               QualType Type, QualType SrcType,
@@ -6873,14 +6873,14 @@ static void SimpleFlatValCopy(CodeGenFunction &CGF,
     CGF.Builder.CreateStore(ResultScalar, DstPtr);
 }
 
-void CGMSHLSLRuntime::EmitHLSLFlatConversion(
+void CGMSHLSLRuntime::EmitHLSLSplat(
     CodeGenFunction &CGF, Value *SrcVal, llvm::Value *DestPtr,
     SmallVector<Value *, 4> &idxList, QualType Type, QualType SrcType,
     llvm::Type *Ty) {
   if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     idxList.emplace_back(CGF.Builder.getInt32(0));
 
-    EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, Type,
+    EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, Type,
                                       SrcType, PT->getElementType());
 
     idxList.pop_back();
@@ -6922,8 +6922,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
           Constant *idx = llvm::Constant::getIntegerValue(
               IntegerType::get(Ty->getContext(), 32), APInt(32, i));
           idxList.emplace_back(idx);
-          EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList,
-                                            parentTy, SrcType, ET);
+          EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, parentTy, SrcType, ET);
           idxList.pop_back();
         }
       }
@@ -6937,8 +6936,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList,
-                                        fieldIter->getType(), SrcType, ET);
+      EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, fieldIter->getType(), SrcType, ET);
 
       idxList.pop_back();
     }
@@ -6953,8 +6951,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, EltType,
-                                        SrcType, ET);
+      EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, EltType, SrcType, ET);
 
       idxList.pop_back();
     }
@@ -6969,13 +6966,16 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
                                              Value *DestPtr,
                                              QualType Ty,
                                              QualType SrcTy) {
-  if (SrcTy->isBuiltinType()) {
-    SmallVector<Value *, 4> idxList;
-    // Add first 0 for DestPtr.
-    idxList.emplace_back(CGF.Builder.getInt32(0));
+  SmallVector<Value *, 4> SrcVals;
+  SmallVector<QualType, 4> SrcQualTys;
+  FlattenValToInitList(CGF, SrcVals, SrcQualTys, SrcTy, Val);
 
-    EmitHLSLFlatConversion(
-        CGF, Val, DestPtr, idxList, Ty, SrcTy,
+  if (SrcVals.size() == 1) {
+    // Perform a splat
+    SmallVector<Value *, 4> GEPIdxStack;
+    GEPIdxStack.emplace_back(CGF.Builder.getInt32(0)); // Add first 0 for DestPtr.
+    EmitHLSLSplat(
+        CGF, SrcVals[0], DestPtr, GEPIdxStack, Ty, SrcQualTys[0],
         DestPtr->getType()->getPointerElementType());
   }
   else {
@@ -6983,10 +6983,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
     SmallVector<Value *, 4> DstPtrs;
     SmallVector<QualType, 4> DstQualTys;
     FlattenAggregatePtrToGepList(CGF, DestPtr, GEPIdxStack, Ty, DestPtr->getType(), DstPtrs, DstQualTys);
-
-    SmallVector<Value *, 4> SrcVals;
-    SmallVector<QualType, 4> SrcQualTys;
-    FlattenValToInitList(CGF, SrcVals, SrcQualTys, SrcTy, Val);
 
     ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
   }
