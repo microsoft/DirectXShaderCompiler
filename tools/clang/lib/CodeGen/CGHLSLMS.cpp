@@ -780,14 +780,9 @@ MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
                           : MatrixOrientation::ColumnMajor;
 }
 
-QualType GetArrayEltType(QualType Ty) {
-  // Get element type.
-  if (Ty->isArrayType()) {
-    while (isa<clang::ArrayType>(Ty)) {
-      const clang::ArrayType *ATy = dyn_cast<clang::ArrayType>(Ty);
-      Ty = ATy->getElementType();
-    }
-  }
+QualType GetArrayEltType(ASTContext& Context, QualType Ty) {
+  while (const clang::ArrayType *ArrayTy = Context.getAsArrayType(Ty))
+    Ty = ArrayTy->getElementType();
   return Ty;
 }
 
@@ -801,7 +796,7 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     Ty = Ty.getNonReferenceType();
 
   // Get element type.
-  Ty = GetArrayEltType(Ty);
+  Ty = GetArrayEltType(CGM.getContext(), Ty);
 
   QualType EltTy = Ty;
   if (hlsl::IsHLSLMatType(Ty)) {
@@ -6789,8 +6784,8 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
   if (SrcPtrTy == DestPtrTy) {
     bool bMatArrayRotate = false;
     if (HLMatrixType::isMatrixArrayPtr(SrcPtr->getType())) {
-      QualType SrcEltTy = GetArrayEltType(SrcTy);
-      QualType DestEltTy = GetArrayEltType(DestTy);
+      QualType SrcEltTy = GetArrayEltType(CGM.getContext(), SrcTy);
+      QualType DestEltTy = GetArrayEltType(CGM.getContext(), DestTy);
       if (GetMatrixMajor(SrcEltTy, bDefaultRowMajor) !=
           GetMatrixMajor(DestEltTy, bDefaultRowMajor)) {
         bMatArrayRotate = true;
