@@ -3762,7 +3762,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
       // C99 6.7.5.3p1: The return type may not be a function or array type.
       // For conversion functions, we'll diagnose this particular error later.
-      if ((T->isArrayType() || T->isFunctionType()) &&
+      if (((T->isArrayType() && !S.getLangOpts().HLSL) || T->isFunctionType()) && // HLSL Change - Allow array return types
           (D.getName().getKind() != UnqualifiedId::IK_ConversionFunctionId)) {
         unsigned diagID = diag::err_func_returning_array_function;
         // Last processing chunk in block context means this function chunk
