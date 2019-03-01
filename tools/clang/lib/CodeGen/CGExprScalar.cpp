@@ -218,10 +218,11 @@ public:
           }
       }
     } else if (UnaryOperator *UnOp = dyn_cast<UnaryOperator>(E)) {
-      if (hlsl::IsHLSLMatType(E->getType())) {
-        llvm::Value *Oper = CGF.EmitScalarExpr(UnOp->getSubExpr());
+      // ++/-- operators are handled in EmitScalarPrePostIncDec
+      if (hlsl::IsHLSLMatType(E->getType()) && !UnOp->isIncrementDecrementOp()) {
+        llvm::Value *Operand = CGF.EmitScalarExpr(UnOp->getSubExpr());
         return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
-            CGF, E, Oper->getType(), {Oper});
+            CGF, E, Operand->getType(), { Operand });
       }
     }
     // HLSL Change Ends
