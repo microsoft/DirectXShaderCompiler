@@ -2096,8 +2096,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
                                              arg->getLocStart());
     }
 
-    if (argInfo && argInfo->getStorageClass() == spv::StorageClass::Function &&
-        canActAsOutParmVar(param) &&
+    if (argInfo &&
+        ((argInfo->getStorageClass() == spv::StorageClass::Function &&
+          canActAsOutParmVar(param)) ||
+         argInfo->getStorageClass() == spv::StorageClass::Workgroup) &&
         paramTypeMatchesArgType(param->getType(), arg->getType())) {
       vars.push_back(argInfo);
       isTempVar.push_back(false);

@@ -1782,6 +1782,9 @@ TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 TEST_F(FileTest, ComputeShaderGroupShared) {
   runFileTest("cs.groupshared.hlsl");
 }
+TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
+  runFileTest("cs.groupshared.function-param.hlsl", Expect::Success, false);
+}
 
 // === Legalization examples ===
 
