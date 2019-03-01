@@ -479,20 +479,6 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
   return false;
 }
 
-bool IsHLSLMatrixType(Type *Ty) {
-  if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    Type *EltTy = ST->getElementType(0);
-    if (!ST->getName().startswith("class.matrix"))
-      return false;
-
-    bool isVecArray =
-        EltTy->isArrayTy() && EltTy->getArrayElementType()->isVectorTy();
-
-    return isVecArray && EltTy->getArrayNumElements() <= 4;
-  }
-  return false;
-}
-
 bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
   return Ty->isIntegerTy() || Ty->isFloatingPointTy();
 }

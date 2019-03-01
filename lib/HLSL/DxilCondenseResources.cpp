@@ -19,6 +19,7 @@
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 
 #include "llvm/IR/Instructions.h"
@@ -1534,7 +1535,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
       return Ty;
     else
       return ArrayType::get(UpdatedTy, Ty->getArrayNumElements());
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (hlsl::HLMatrixType::isa(Ty)) {
     DXASSERT(annotation.HasMatrixAnnotation(), "must a matrix");
     HLMatrixType MatTy = HLMatrixType::cast(Ty);
     unsigned rows = MatTy.getNumRows();

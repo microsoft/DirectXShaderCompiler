@@ -625,14 +625,14 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
       newVec = Builder.CreateInsertElement(newVec, input, col);
     }
     param->replaceAllUsesWith(newVec);
-  } else if (!Ty->isArrayTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (!Ty->isArrayTy() && !HLMatrixType::isa(Ty)) {
     DXASSERT(cols == 1, "only support scalar here");
     Value *colIdx = hlslOP->GetU8Const(0);
     args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
     Value *input =
         GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
     param->replaceAllUsesWith(input);
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType::isa(Ty)) {
     if (param->use_empty()) return;
     DXASSERT(param->hasOneUse(),
              "matrix arg should only has one use as matrix to vec");
