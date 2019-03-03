@@ -101,6 +101,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
 static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value) {
   switch (value.GetKind()) {
   case CompType::Kind::I32: return DxilProgramSigCompType::SInt32;
+  case CompType::Kind::I1: __fallthrough;
   case CompType::Kind::U32: return DxilProgramSigCompType::UInt32;
   case CompType::Kind::F32: return DxilProgramSigCompType::Float32;
   case CompType::Kind::I16: return DxilProgramSigCompType::SInt16;
@@ -110,7 +111,6 @@ static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value) {
   case CompType::Kind::F16: return DxilProgramSigCompType::Float16;
   case CompType::Kind::F64: return DxilProgramSigCompType::Float64;
   case CompType::Kind::Invalid: __fallthrough;
-  case CompType::Kind::I1: __fallthrough;
   default:
     return DxilProgramSigCompType::Unknown;
   }
