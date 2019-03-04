@@ -21,8 +21,7 @@ void main() {
 // CHECK-NEXT:         OpDecorate %j RelaxedPrecision
 // CHECK-NEXT:         OpDecorate %param_var_param RelaxedPrecision
 // CHECK-NEXT:         OpDecorate [[sb:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sb_int:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sa_plus_sb:%\d+]] RelaxedPrecision
+// Note: Decoration is missing for sa_plus_sb.
 // CHECK-NEXT:         OpDecorate [[sb2:%\d+]] RelaxedPrecision
 // CHECK-NEXT:         OpDecorate [[sb2_int:%\d+]] RelaxedPrecision
 // CHECK-NEXT:         OpDecorate [[sc:%\d+]] RelaxedPrecision
@@ -45,10 +44,11 @@ void main() {
 // CHECK:              %j = OpVariable %_ptr_Function_uint Function
 // CHECK: param_var_param = OpVariable %_ptr_Function_int Function
 
-// CHECK:  [[s1ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_1
-// CHECK:          [[sb]] = OpLoad %int [[s1ptr]]
-// CHECK:      [[sb_int]] = OpBitcast %int [[sb]]
-// CHECK:  [[sa_plus_sb]] = OpIAdd %int {{%\d+}} [[sb_int]]
+// CHECK:      [[s1ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_1
+// CHECK:              [[sb]] = OpLoad %int [[s1ptr]]
+// CHECK: [[sa_plus_sb:%\d+]] = OpIAdd %int
+// While s.b is RelaxedPrecision (min12int), s.a is not (int).
+// We can only annotate the OpIAdd as RelaxedPrecision if both were.
   int g = s.a + s.b;
 
 // CHECK:  [[s1ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_1
@@ -76,7 +76,7 @@ void main() {
 // CHECK:          %param = OpFunctionParameter %_ptr_Function_int
 min16uint foo(min12int param) {
 // CHECK: [[param_value]] = OpLoad %int %param
-// CHECK:[[param_plus_1]] = OpIAdd %int [[param_value]] %int_1
+// CHECK:[[param_plus_1]] = OpIAdd %int
   return param + 1;
 }
 

@@ -43,13 +43,33 @@ bool RelaxedPrecisionVisitor::visit(SpirvVectorShuffle *inst) {
     else
       vec2ElemUsed = true;
   }
-  if ((vec1ElemUsed && isVec1Relaxed) || (vec2ElemUsed && isVec2Relaxed))
+  const bool onlyVec1Used = vec1ElemUsed && !vec2ElemUsed;
+  const bool onlyVec2Used = vec2ElemUsed && !vec1ElemUsed;
+  if ((onlyVec1Used && isVec1Relaxed) || (onlyVec2Used && isVec2Relaxed) ||
+      (vec1ElemUsed && vec2ElemUsed && isVec1Relaxed && isVec2Relaxed))
     inst->setRelaxedPrecision();
 
   return true;
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvUnaryOp *inst) {
+  // For conversion operations, check the result QualType. For example: if we
+  // are converting from min12int to int, the result should no longet get
+  // RelaxedPrecision.
+  switch (inst->getopcode()) {
+  case spv::Op::OpBitcast:
+  case spv::Op::OpFConvert:
+  case spv::Op::OpSConvert:
+  case spv::Op::OpUConvert: {
+    if (isRelaxedPrecisionType(inst->getAstResultType(), spvOptions)) {
+      inst->setRelaxedPrecision();
+    }
+    return true;
+  }
+  default:
+    break;
+  }
+
   // If the argument of the unary operation is RelaxedPrecision, the result is
   // also RelaxedPrecision.
   if (inst->getOperand()->isRelaxedPrecision())
@@ -60,7 +80,7 @@ bool RelaxedPrecisionVisitor::visit(SpirvUnaryOp *inst) {
 bool RelaxedPrecisionVisitor::visit(SpirvBinaryOp *inst) {
   // If either argument of the binary operation is RelaxedPrecision, the result
   // is also RelaxedPrecision.
-  if (inst->getOperand1()->isRelaxedPrecision() ||
+  if (inst->getOperand1()->isRelaxedPrecision() &&
       inst->getOperand2()->isRelaxedPrecision())
     inst->setRelaxedPrecision();
   return true;
@@ -77,7 +97,7 @@ bool RelaxedPrecisionVisitor::visit(SpirvSpecConstantUnaryOp *inst) {
 bool RelaxedPrecisionVisitor::visit(SpirvSpecConstantBinaryOp *inst) {
   // If either argument of the binary operation is RelaxedPrecision, the result
   // is also RelaxedPrecision.
-  if (inst->getOperand1()->isRelaxedPrecision() ||
+  if (inst->getOperand1()->isRelaxedPrecision() &&
       inst->getOperand2()->isRelaxedPrecision())
     inst->setRelaxedPrecision();
   return true;
@@ -91,9 +111,7 @@ bool RelaxedPrecisionVisitor::visit(SpirvLoad *inst) {
   return true;
 }
 
-bool RelaxedPrecisionVisitor::visit(SpirvStore *inst) {
-  return true;
-}
+bool RelaxedPrecisionVisitor::visit(SpirvStore *inst) { return true; }
 
 bool RelaxedPrecisionVisitor::visit(SpirvSelect *inst) {
   if (inst->getTrueObject()->isRelaxedPrecision() &&
@@ -111,14 +129,14 @@ bool RelaxedPrecisionVisitor::visit(SpirvFunctionCall *inst) {
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvExtInst *inst) {
-  // If any operand to numeric instructions in GLSL extended instruction set is
+  // If all operands to numeric instructions in GLSL extended instruction set is
   // RelaxedPrecision, the result of the opration is also RelaxedPrecision.
   if (inst->getInstructionSet()->getExtendedInstSetName() == "GLSL.std.450") {
-    for (auto *operand : inst->getOperands()) {
-      if (operand->isRelaxedPrecision()) {
-        inst->setRelaxedPrecision();
-        break;
-      }
+    const auto &operands = inst->getOperands();
+    if (std::all_of(operands.begin(), operands.end(), [](SpirvInstruction *op) {
+          return op->isRelaxedPrecision();
+        })) {
+      inst->setRelaxedPrecision();
     }
   }
   return true;
@@ -194,10 +212,11 @@ bool RelaxedPrecisionVisitor::visit(SpirvBitFieldInsert *inst) {
 bool RelaxedPrecisionVisitor::visit(SpirvAtomic *inst) {
   // If the original pointer is RelaxedPrecision or operating on a value that is
   // RelaxedPrecision, result is RelaxedPrecision.
-  if (inst->getPointer()->isRelaxedPrecision())
-    inst->setRelaxedPrecision();
-  if (inst->hasValue() && inst->getValue()->isRelaxedPrecision())
-    inst->setRelaxedPrecision();
+  if (inst->getPointer()->isRelaxedPrecision()) {
+    if (!inst->hasValue() ||
+        (inst->hasValue() && inst->getValue()->isRelaxedPrecision()))
+      inst->setRelaxedPrecision();
+  }
   return true;
 }
 
@@ -219,7 +238,10 @@ bool RelaxedPrecisionVisitor::visit(SpirvVariable *inst) {
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvImageOp *inst) {
-  if (isRelaxedPrecisionType(inst->getAstResultType(), spvOptions))
+  // If the operation result type or the underlying image type is relaxed
+  // precision, the instruction can be considered relaxed precision.
+  if (isRelaxedPrecisionType(inst->getAstResultType(), spvOptions) ||
+      isRelaxedPrecisionType(inst->getImage()->getAstResultType(), spvOptions))
     inst->setRelaxedPrecision();
   return true;
 }
