@@ -10,6 +10,7 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_CAPABILITYVISITOR_H
 #define LLVM_CLANG_LIB_SPIRV_CAPABILITYVISITOR_H
 
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
@@ -20,9 +21,10 @@ class SpirvBuilder;
 
 class CapabilityVisitor : public Visitor {
 public:
-  CapabilityVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts,
-                    SpirvBuilder &builder)
-      : Visitor(opts, spvCtx), spvBuilder(builder) {}
+  CapabilityVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
+                    const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
+      : Visitor(opts, spvCtx), spvBuilder(builder),
+        featureManager(astCtx.getDiagnostics(), opts) {}
 
   bool visit(SpirvDecoration *decor);
   bool visit(SpirvEntryPoint *);
@@ -46,13 +48,24 @@ private:
   void addCapabilityForType(const SpirvType *, SourceLocation loc,
                             spv::StorageClass sc);
 
+  /// Checks that the given extension is a valid extension for the target
+  /// environment (e.g. Vulkan 1.0). And if so, utilizes the SpirvBuilder to add
+  /// the given extension to the SPIR-V module in memory.
+  void addExtension(Extension ext, llvm::StringRef target, SourceLocation loc);
+
+  /// Checks that the given capability is a valid capability. And if so,
+  /// utilizes the SpirvBuilder to add the given capability to the SPIR-V module
+  /// in memory.
+  void addCapability(spv::Capability, SourceLocation loc = {});
+
   /// Returns the capability required to non-uniformly index into the given
   /// type.
   spv::Capability getNonUniformCapability(const SpirvType *);
 
 private:
-  SpirvBuilder &spvBuilder;        /// SPIR-V builder
-  spv::ExecutionModel shaderModel; /// Execution model
+  SpirvBuilder &spvBuilder;        ///< SPIR-V builder
+  spv::ExecutionModel shaderModel; ///< Execution model
+  FeatureManager featureManager;   ///< SPIR-V version/extension manager.
 };
 
 } // end namespace spirv
