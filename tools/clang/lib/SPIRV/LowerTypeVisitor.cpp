@@ -529,15 +529,19 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     const auto *raType = spvContext.getRuntimeArrayType(structType, size);
     const bool isReadOnly = (name == "StructuredBuffer");
 
-    // Attach majorness decoration if this is a *StructuredBuffer<matrix>.
-    llvm::Optional<bool> isRowMajor =
-        isMxNMatrix(s) ? llvm::Optional<bool>(isRowMajorMatrix(spvOptions, s))
-                       : llvm::None;
+    // Attach majorness and stride decorations if this is a
+    // *StructuredBuffer<matrix>.
+    llvm::Optional<bool> isRowMajor = llvm::None;
+    llvm::Optional<uint32_t> matrixStride = llvm::None;
+    if (isMxNMatrix(s)) {
+      isRowMajor = isRowMajorMatrix(spvOptions, s);
+      matrixStride = stride;
+    }
 
     const std::string typeName = "type." + name.str() + "." + structName;
     const auto *valType = spvContext.getStructType(
-        {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0,
-                               /*matrixStride*/ llvm::None, isRowMajor)},
+        {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0, matrixStride,
+                               isRowMajor)},
         typeName, isReadOnly, StructInterfaceType::StorageBuffer);
 
     if (asAlias) {
