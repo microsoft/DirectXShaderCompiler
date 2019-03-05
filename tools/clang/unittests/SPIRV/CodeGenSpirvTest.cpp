@@ -1785,6 +1785,9 @@ TEST_F(FileTest, ComputeShaderGroupShared) {
 TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
   runFileTest("cs.groupshared.function-param.hlsl", Expect::Success, false);
 }
+TEST_F(FileTest, ComputeShaderGroupSharedStructFunction) {
+  runFileTest("cs.groupshared.struct-function.hlsl", Expect::Success, false);
+}
 
 // === Legalization examples ===
 

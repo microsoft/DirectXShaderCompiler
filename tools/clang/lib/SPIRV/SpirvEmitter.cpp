@@ -2060,8 +2060,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // getObject().objectMethod();
       // Also, any parameter passed to the member function must be of Function
       // storage class.
-      needsTempVar = objInstr->isRValue() ||
-                     objInstr->getStorageClass() != spv::StorageClass::Function;
+      needsTempVar =
+          objInstr->isRValue() ||
+          (objInstr->getStorageClass() != spv::StorageClass::Function &&
+           objInstr->getStorageClass() != spv::StorageClass::Workgroup);
 
       if (needsTempVar) {
         args.push_back(createTemporaryVar(
