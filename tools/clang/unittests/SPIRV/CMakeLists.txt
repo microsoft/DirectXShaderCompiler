@@ -13,6 +13,7 @@ add_clang_unittest(clang-spirv-tests
   SpirvBasicBlockTest.cpp
   SpirvContextTest.cpp
   SpirvTestOptions.cpp
+  SpirvTypeTest.cpp
   SpirvConstantTest.cpp
   StringTest.cpp
   TestMain.cpp
