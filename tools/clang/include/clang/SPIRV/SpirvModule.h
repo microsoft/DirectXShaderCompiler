@@ -11,7 +11,6 @@
 
 #include <vector>
 
-#include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
@@ -19,6 +18,7 @@
 namespace clang {
 namespace spirv {
 
+class SpirvFunction;
 class SpirvVisitor;
 
 /// The class representing a SPIR-V module in memory.

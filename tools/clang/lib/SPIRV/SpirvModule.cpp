@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvModule.h"
+#include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {
