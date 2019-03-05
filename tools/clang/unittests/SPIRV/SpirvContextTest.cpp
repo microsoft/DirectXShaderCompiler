@@ -7,64 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/SpirvContext.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/TargetInfo.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include "SpirvTestBase.h"
 
 using namespace clang::spirv;
 
 namespace {
 
-class SpirvContextTest : public ::testing::Test {
-public:
-  SpirvContextTest() : spvContext(), compilerInstance(), initialized(false) {}
-
-  SpirvContext &getSpirvContext() { return spvContext; }
-
-  clang::ASTContext &getAstContext() {
-    if (!initialized)
-      initialize();
-    return compilerInstance.getASTContext();
-  }
-
-private:
-  // We don't initialize the compiler instance unless it is asked for in order
-  // to make the tests run faster.
-  void initialize() {
-    std::string warnings;
-    llvm::raw_string_ostream w(warnings);
-    std::unique_ptr<clang::TextDiagnosticPrinter> diagPrinter =
-        llvm::make_unique<clang::TextDiagnosticPrinter>(
-            w, &compilerInstance.getDiagnosticOpts());
-
-    std::shared_ptr<clang::TargetOptions> targetOptions(
-        new clang::TargetOptions);
-    targetOptions->Triple = "dxil-ms-dx";
-    compilerInstance.createDiagnostics(diagPrinter.get(), false);
-    compilerInstance.createFileManager();
-    compilerInstance.createSourceManager(compilerInstance.getFileManager());
-    compilerInstance.setTarget(clang::TargetInfo::CreateTargetInfo(
-        compilerInstance.getDiagnostics(), targetOptions));
-
-    clang::HeaderSearchOptions &HSOpts = compilerInstance.getHeaderSearchOpts();
-    HSOpts.UseBuiltinIncludes = 0;
-
-    compilerInstance.createPreprocessor(
-        clang::TranslationUnitKind::TU_Complete);
-    compilerInstance.createASTContext();
-    initialized = true;
-  }
-
-private:
-  SpirvContext spvContext;
-  clang::CompilerInstance compilerInstance;
-  bool initialized;
-};
+class SpirvContextTest : public SpirvTestBase {};
 
 TEST_F(SpirvContextTest, VoidTypeUnique) {
   SpirvContext &spvContext = getSpirvContext();
