@@ -9,7 +9,6 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 
-#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
@@ -31,9 +30,10 @@ namespace spirv {
 /// Call `getModule()` to get the SPIR-V words after finishing building the
 /// module.
 class SpirvBuilder {
+  friend class CapabilityVisitor;
+
 public:
-  SpirvBuilder(ASTContext &ac, SpirvContext &c, FeatureManager *,
-               const SpirvCodeGenOptions &);
+  SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -426,9 +426,6 @@ public:
                         SourceLocation loc);
 
   // === SPIR-V Module Structure ===
-
-  inline void requireCapability(spv::Capability, SourceLocation loc = {});
-
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 
   /// \brief Adds an entry point for the module under construction. We only
@@ -448,10 +445,6 @@ public:
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
                                SourceLocation loc = {});
-
-  /// \brief Adds an extension to the module under construction for translating
-  /// the given target at the given source location.
-  void addExtension(Extension, llvm::StringRef target, SourceLocation);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -569,6 +562,19 @@ public:
 public:
   std::vector<uint32_t> takeModule();
 
+
+protected:
+  /// Only friend classes are allowed to add capability/extension to the module
+  /// under construction.
+
+  /// \brief Adds the given capability to the module under construction due to
+  /// the feature used at the given source location.
+  inline void requireCapability(spv::Capability, SourceLocation loc = {});
+
+  /// \brief Adds an extension to the module under construction for translating
+  /// the given target at the given source location.
+  inline void requireExtension(llvm::StringRef extension, SourceLocation);
+
 private:
   /// \brief Returns the composed ImageOperandsMask from non-zero parameters
   /// and pushes non-zero parameters to *orderedParams in the expected order.
@@ -594,11 +600,7 @@ private:
   /// the entry block.
   std::vector<SpirvBasicBlock *> basicBlocks;
 
-  FeatureManager *featureManager; ///< SPIR-V version/extension manager.
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
-
-  llvm::SetVector<spv::Capability> existingCapabilities;
-  llvm::SetVector<Extension> existingExtensions;
 
   /// A struct containing information regarding a builtin variable.
   struct BuiltInVarInfo {
@@ -613,14 +615,11 @@ private:
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
-  if (cap != spv::Capability::Max) {
-    // No need to create a new capability nor add it to the module if it has
-    // already been added.
-    if (existingCapabilities.insert(cap)) {
-      auto *capability = new (context) SpirvCapability(loc, cap);
-      module->addCapability(capability);
-    }
-  }
+  module->addCapability(new (context) SpirvCapability(loc, cap));
+}
+
+void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {
+  module->addExtension(new (context) SpirvExtension(loc, ext));
 }
 
 void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,

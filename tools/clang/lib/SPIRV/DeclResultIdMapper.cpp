@@ -2489,10 +2489,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT,
                                          srcLoc);
   }
-  // According to DXIL spec, the ViewID SV can only be used by PSIn.
+  // According to DXIL spec, the Barycentrics SV can only be used by PSIn.
   case hlsl::Semantic::Kind::Barycentrics: {
-    spvBuilder.addExtension(Extension::AMD_shader_explicit_vertex_parameter,
-                            stageVar->getSemanticStr(), srcLoc);
     stageVar->setIsSpirvBuiltin();
 
     // Selecting the correct builtin according to interpolation mode
