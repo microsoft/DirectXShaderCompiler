@@ -7183,7 +7183,6 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   const auto ipType = ipArg->getType();
   const auto returnType = callExpr->getType();
   auto *argInstr = doExpr(arg);
-  auto *ipInstr = doExpr(ipArg);
 
   // For scalar and vector argument types.
   {
@@ -7201,7 +7200,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
       // This will do nothing if the input number (x) and the ip are both of the
       // same type. Otherwise, it will convert the ip into int as necessary.
       ip = castToInt(ip, argType, ipType, arg->getExprLoc());
-      spvBuilder.createStore(ipInstr, ip);
+      processAssignment(ipArg, ip, false, nullptr);
       return spvBuilder.createCompositeExtract(argType, modf, {0});
     }
   }
@@ -7234,7 +7233,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
       // case we need to cast manually.
       if (!hlsl::GetHLSLMatElementType(ipType)->isFloatingType())
         ip = castToInt(ip, argType, ipType, ipArg->getExprLoc());
-      spvBuilder.createStore(ipInstr, ip);
+      processAssignment(ipArg, ip, false, nullptr);
       return spvBuilder.createCompositeConstruct(returnType, fracs);
     }
   }
