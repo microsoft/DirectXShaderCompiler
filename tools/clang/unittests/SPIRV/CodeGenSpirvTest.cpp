@@ -127,6 +127,15 @@ TEST_F(FileTest, MatrixConstants) { runFileTest("constant.matrix.hlsl"); }
 TEST_F(FileTest, StructConstants) { runFileTest("constant.struct.hlsl"); }
 TEST_F(FileTest, ArrayConstants) { runFileTest("constant.array.hlsl"); }
 
+// For literals
+TEST_F(FileTest, UnusedLiterals) { runFileTest("literal.unused.hlsl"); }
+TEST_F(FileTest, LiteralConstantComposite) {
+  runFileTest("literal.constant-composite.hlsl");
+}
+TEST_F(FileTest, LiteralVecTimesScalar) {
+  runFileTest("literal.vec-times-scalar.hlsl");
+}
+
 // For variables
 TEST_F(FileTest, VarInitScalarVector) { runFileTest("var.init.hlsl"); }
 TEST_F(FileTest, VarInitMatrixMxN) { runFileTest("var.init.matrix.mxn.hlsl"); }
@@ -486,7 +495,6 @@ TEST_F(FileTest, FunctionParamUnsizedArray) {
   // Unsized ararys as function params are not supported.
   runFileTest("fn.param.unsized-array.hlsl", Expect::Failure);
 }
-
 
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
@@ -1814,9 +1822,7 @@ TEST_F(FileTest, RayTracingNVAnyHit) {
 TEST_F(FileTest, RayTracingNVClosestHit) {
   runFileTest("raytracing.nv.closesthit.hlsl");
 }
-TEST_F(FileTest, RayTracingNVMiss) {
-  runFileTest("raytracing.nv.miss.hlsl");
-}
+TEST_F(FileTest, RayTracingNVMiss) { runFileTest("raytracing.nv.miss.hlsl"); }
 TEST_F(FileTest, RayTracingNVCallable) {
   runFileTest("raytracing.nv.callable.hlsl");
 }
