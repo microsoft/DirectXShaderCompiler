@@ -667,7 +667,13 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
-
+static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
+  // Must remove all child loops first.
+  for (Loop *ChildLoop : *L) {
+    RecursivelyRemoveLoopFromQueue(LPM, ChildLoop);
+  }
+  LPM.deleteLoopFromQueue(L);
+}
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
@@ -1001,7 +1007,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (BasicBlock *BB : ToBeCloned)
       LI->removeBlock(BB);
 
-    LPM.deleteLoopFromQueue(L);
+    // Remove loop and all child loops from queue.
+    RecursivelyRemoveLoopFromQueue(LPM, L);
 
     // Remove dead blocks.
     for (BasicBlock *BB : ToBeCloned)
