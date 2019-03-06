@@ -104,9 +104,7 @@ private:
   std::vector<SpirvDecoration *> decorations;
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
-
-  // Shader logic instructions
-  llvm::SetVector<SpirvFunction *> functions;
+  std::vector<SpirvFunction *> functions;
 };
 
 } // end namespace spirv
