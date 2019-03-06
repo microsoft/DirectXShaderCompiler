@@ -428,15 +428,6 @@ bool SpirvConstantFloat::operator==(const SpirvConstantFloat &that) const {
 }
 
 SpirvConstantComposite::SpirvConstantComposite(
-    const SpirvType *type, llvm::ArrayRef<SpirvConstant *> constituentsVec,
-    bool isSpecConst)
-    : SpirvConstant(IK_ConstantComposite,
-                    isSpecConst ? spv::Op::OpSpecConstantComposite
-                                : spv::Op::OpConstantComposite,
-                    type),
-      constituents(constituentsVec.begin(), constituentsVec.end()) {}
-
-SpirvConstantComposite::SpirvConstantComposite(
     QualType type, llvm::ArrayRef<SpirvConstant *> constituentsVec,
     bool isSpecConst)
     : SpirvConstant(IK_ConstantComposite,

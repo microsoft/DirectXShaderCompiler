@@ -1044,9 +1044,6 @@ private:
 
 class SpirvConstantComposite : public SpirvConstant {
 public:
-  SpirvConstantComposite(const SpirvType *type,
-                         llvm::ArrayRef<SpirvConstant *> constituents,
-                         bool isSpecConst = false);
   SpirvConstantComposite(QualType type,
                          llvm::ArrayRef<SpirvConstant *> constituents,
                          bool isSpecConst = false);

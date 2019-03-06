@@ -294,12 +294,15 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           return spvContext.getUIntType(use16Bit ? 16 : 32);
 
         // All literal types should have been lowered to concrete types before
-        // LowerTypeVisitor is invoked. We should error out if we encounter a
-        // literal type.
+        // LowerTypeVisitor is invoked. However, if there are unused literals,
+        // they will still have 'literal' type when we get to this point. Use
+        // 32-bit width by default for these cases.
+        // Example:
+        // void main() { 1.0; 1; }
         case BuiltinType::LitInt:
-          return spvContext.getUIntType(64);
+          return spvContext.getUIntType(32);
         case BuiltinType::LitFloat: {
-          return spvContext.getFloatType(64);
+          return spvContext.getFloatType(32);
 
         default:
           emitError("primitive type %0 unimplemented", srcLoc)
