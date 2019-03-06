@@ -35,7 +35,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     // Our transformations do not cross function bounaries, therefore the order
     // of visiting functions is not important.
-    for (auto fn : functions) {
+    for (auto iter = functions.rbegin(); iter != functions.rend(); ++iter) {
+      auto *fn = *iter;
       if (!fn->invokeVisitor(visitor, reverseOrder))
         return false;
     }
@@ -162,7 +163,7 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
 void SpirvModule::addFunction(SpirvFunction *fn) {
   assert(fn && "cannot add null function to the module");
-  functions.insert(fn);
+  functions.push_back(fn);
 }
 
 void SpirvModule::addCapability(SpirvCapability *cap) {
