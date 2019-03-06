@@ -46,7 +46,7 @@ float main(float3 a : A, float3 b : B) : SV_Target {
 
   float ret = 0;
   [unroll]
-  for (uint l = 0; l < 4; l++) {
+  for (uint l = 0; l < 1; l++) {
     [unroll]
     for (uint i = 0; i < 4; i++) {
 

@@ -2,6 +2,7 @@
 // CHECK: @main
 
 // Test case for when an unrolled loop has a child loop that's not unrolled.
+// regression test for GitHub #2006
 
 void main()
 {
