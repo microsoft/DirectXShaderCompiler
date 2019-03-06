@@ -3,5 +3,5 @@
 // CHECK: @main
 float4 main(float4 a : A) : SV_TARGET
 {
-  return -a.yxxx;
+  return a.xxxy;
 }

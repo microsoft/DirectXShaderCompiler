@@ -615,7 +615,7 @@ TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
 
 TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
       {
           "target triple = \"dxil-ms-dx\"",
           "ret void",
@@ -677,7 +677,7 @@ TEST_F(ValidationTest, BarrierFail) {
 }
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\cbuffer1.50.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\cbuffer1.50.hlsl", "ps_6_0",
       "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_cbuffer, i32 0)",
       "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_cbuffer, i32 6)",
       "Cbuffer access out of bound");
@@ -783,7 +783,7 @@ TEST_F(ValidationTest, InterpOnIntFail) {
 }
 TEST_F(ValidationTest, InvalidSigCompTyFail) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
       "!\"A\", i8 4",
       "!\"A\", i8 0",
       "A specifies unrecognized or invalid component type");
@@ -1185,7 +1185,7 @@ TEST_F(ValidationTest, ControlFlowHint2) {
 
 TEST_F(ValidationTest, SemanticLength1) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\binary1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\binary1.hlsl", "ps_6_0",
       "!\"C\"",
       "!\"\"",
       "Semantic length must be at least 1 and at most 64");
@@ -1193,7 +1193,7 @@ TEST_F(ValidationTest, SemanticLength1) {
 
 TEST_F(ValidationTest, SemanticLength64) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\binary1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\binary1.hlsl", "ps_6_0",
       "!\"C\"",
       "!\"CSESESESESESESESESESESESESESESESESESESESESESESESESESESESESESESESE\"",
       "Semantic length must be at least 1 and at most 64");
@@ -1249,7 +1249,7 @@ TEST_F(ValidationTest, StructBufStoreCoordinates) {
 
 TEST_F(ValidationTest, TypedBufRetType) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\sample5.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\sample5.hlsl", "ps_6_0",
       " = type { <4 x float>",
       " = type { <4 x double>",
       "elements of typed buffers and textures must fit in four 32-bit quantities");
@@ -1329,7 +1329,7 @@ TEST_F(ValidationTest, GsOutputSemantic) {
 
 TEST_F(ValidationTest, PsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
       "!\"A\", i8 4, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ps Input");
@@ -1337,7 +1337,7 @@ TEST_F(ValidationTest, PsInputSemantic) {
 
 TEST_F(ValidationTest, PsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
       "!\"SV_Target\", i8 9, i8 16",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ps Output");
@@ -1518,7 +1518,7 @@ TEST_F(ValidationTest, IllegalSampleOffset4) {
 }
 
 TEST_F(ValidationTest, NoFunctionParam) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
     {"define void @main\\(\\)",               "void \\(\\)\\* @main, !([0-9]+)\\}(.*)!\\1 = !\\{!([0-9]+)\\}",  "void \\(\\)\\* @main"},
     {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main, !\\1}\\2!\\1 = !{!\\3, !\\3}",          "void (<4 x i32>)* @main"},
     "with parameter is not permitted",
