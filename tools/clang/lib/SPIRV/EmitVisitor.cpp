@@ -188,8 +188,6 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
   if (phase == Visitor::Phase::Init) {
     const uint32_t returnTypeId = typeHandler.emitType(fn->getReturnType());
     const uint32_t functionTypeId = typeHandler.emitType(fn->getFunctionType());
-    fn->setReturnTypeId(returnTypeId);
-    fn->setFunctionTypeId(functionTypeId);
 
     // Emit OpFunction
     initInstruction(spv::Op::OpFunction);
