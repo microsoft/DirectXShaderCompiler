@@ -4518,7 +4518,7 @@ private:
   /// we can remove them after we are done working.
   SmallVector<Value *, 32> DeadInsts;
   // Map from orginal function to the flatten version.
-  std::unordered_map<Function *, Function *> funcMap;
+  MapVector<Function *, Function *> funcMap; // Need deterministic order of iteration
   // Map from original arg/param to flatten cast version.
   std::unordered_map<Value *, std::pair<Value*, DxilParamInputQual>> castParamMap;
   // Map form first element of a vector the list of all elements of the vector.
@@ -6013,7 +6013,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   BasicBlock &EntryBlk = F->getEntryBlock();
   Module *M = F->getParent();
   // Map from output to the temp created for it.
-  std::unordered_map<Argument *, Value*> outputTempMap;
+  MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
     Type *Ty = arg.getType();
 
