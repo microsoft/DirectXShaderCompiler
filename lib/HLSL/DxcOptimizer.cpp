@@ -110,7 +110,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);
-    initializeFailUndefResourcePass(Registry);
+    initializePoisonUndefResourcesPass(Registry);
     initializeFloat2IntPass(Registry);
     initializeFunctionAttrsPass(Registry);
     initializeGVNPass(Registry);

@@ -447,6 +447,8 @@ public:
     m_bIsLib = DM.GetShaderModel()->IsLib();
     m_bLegalizationFailed = false;
 
+    FailOnPoisonResources();
+
     bool bChanged = false;
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -506,6 +508,7 @@ public:
   }
 
 private:
+  void FailOnPoisonResources();
   bool RemovePhiOnResource();
   void UpdateResourceSymbols();
   void TranslateDxilResourceUses(DxilResourceBase &res);
@@ -1689,6 +1692,23 @@ void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
 }
 
 } // namespace
+
+void DxilLowerCreateHandleForLib::FailOnPoisonResources() {
+  // A previous pass replaced all undef resources with constant zero resources.
+  // If those made it here, the program is malformed.
+  for (Function &Func : this->m_DM->GetModule()->functions()) {
+    hlsl::OP::OpCodeClass OpcodeClass;
+    if (m_DM->GetOP()->GetOpCodeClass(&Func, OpcodeClass)
+      && OpcodeClass == OP::OpCodeClass::CreateHandleForLib) {
+      Type *ResTy = Func.getFunctionType()->getParamType(
+        DXIL::OperandIndex::kCreateHandleForLibResOpIdx);
+      Constant *PoisonRes = ConstantAggregateZero::get(ResTy);
+      for (User *PoisonUser : PoisonRes->users())
+        if (Instruction *PoisonUserInst = dyn_cast<Instruction>(PoisonUser))
+          dxilutil::EmitResMappingError(PoisonUserInst);
+    }
+  }
+}
 
 void DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
   UpdateStructTypeForLegacyLayoutOnDM(*m_DM);
