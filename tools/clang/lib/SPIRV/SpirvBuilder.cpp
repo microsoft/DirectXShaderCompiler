@@ -105,12 +105,12 @@ void SpirvBuilder::setContinueTarget(SpirvBasicBlock *continueLabel) {
   insertPoint->setContinueTarget(continueLabel);
 }
 
-SpirvComposite *SpirvBuilder::createCompositeConstruct(
+SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
     QualType resultType, llvm::ArrayRef<SpirvInstruction *> constituents,
     SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction =
-      new (context) SpirvComposite(resultType, loc, constituents);
+      new (context) SpirvCompositeConstruct(resultType, loc, constituents);
   insertPoint->addInstruction(instruction);
   if (!constituents.empty()) {
     instruction->setLayoutRule(constituents[0]->getLayoutRule());
@@ -118,12 +118,12 @@ SpirvComposite *SpirvBuilder::createCompositeConstruct(
   return instruction;
 }
 
-SpirvComposite *SpirvBuilder::createCompositeConstruct(
+SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
     const SpirvType *resultType,
     llvm::ArrayRef<SpirvInstruction *> constituents, SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction =
-      new (context) SpirvComposite(/*QualType*/ {}, loc, constituents);
+      new (context) SpirvCompositeConstruct(/*QualType*/ {}, loc, constituents);
   instruction->setResultType(resultType);
   if (!constituents.empty()) {
     instruction->setLayoutRule(constituents[0]->getLayoutRule());

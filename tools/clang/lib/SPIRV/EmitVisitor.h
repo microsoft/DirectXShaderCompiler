@@ -231,7 +231,7 @@ public:
   bool visit(SpirvConstantFloat *);
   bool visit(SpirvConstantComposite *);
   bool visit(SpirvConstantNull *);
-  bool visit(SpirvComposite *);
+  bool visit(SpirvCompositeConstruct *);
   bool visit(SpirvCompositeExtract *);
   bool visit(SpirvCompositeInsert *);
   bool visit(SpirvExtInst *);

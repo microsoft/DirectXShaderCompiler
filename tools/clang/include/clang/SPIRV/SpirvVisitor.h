@@ -90,7 +90,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvConstantFloat)
   DEFINE_VISIT_METHOD(SpirvConstantComposite)
   DEFINE_VISIT_METHOD(SpirvConstantNull)
-  DEFINE_VISIT_METHOD(SpirvComposite)
+  DEFINE_VISIT_METHOD(SpirvCompositeConstruct)
   DEFINE_VISIT_METHOD(SpirvCompositeExtract)
   DEFINE_VISIT_METHOD(SpirvCompositeInsert)
   DEFINE_VISIT_METHOD(SpirvEmitVertex)

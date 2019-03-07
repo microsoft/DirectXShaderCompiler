@@ -628,7 +628,7 @@ bool EmitVisitor::visit(SpirvConstantNull *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvComposite *inst) {
+bool EmitVisitor::visit(SpirvCompositeConstruct *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
