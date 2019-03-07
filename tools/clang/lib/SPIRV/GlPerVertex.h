@@ -95,7 +95,7 @@ private:
 
   /// Creates a stand-alone ClipDistance/CullDistance builtin variable.
   SpirvVariable *createClipCullDistanceVar(bool asInput, bool isClip,
-                                           uint32_t arraySize);
+                                           uint32_t arraySize, bool isPrecise);
 
   /// Creates SPIR-V instructions for reading the data starting from offset in
   /// the ClipDistance/CullDistance builtin. The data read will be transformed
@@ -134,6 +134,11 @@ private:
   /// Input/output ClipDistance/CullDistance variable.
   SpirvVariable *inClipVar, *inCullVar;
   SpirvVariable *outClipVar, *outCullVar;
+
+  // We need to record whether the variables with 'SV_ClipDistance' or
+  // 'SV_CullDistance' have the HLSL 'precise' keyword.
+  bool inClipPrecise, outClipPrecise;
+  bool inCullPrecise, outCullPrecise;
 
   /// The array size for the input/output gl_PerVertex block member variables.
   /// HS input and output, DS input, GS input has an additional level of

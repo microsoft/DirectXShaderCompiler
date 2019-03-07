@@ -99,6 +99,11 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
     typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
                                spv::Decoration::RelaxedPrecision, {});
   }
+  // Emit NoContraction decoration (if any).
+  if (inst->isPrecise() && inst->isArithmeticInstruction()) {
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::NoContraction, {});
+  }
 
   // Initialize the current instruction for emitting.
   curInst.clear();

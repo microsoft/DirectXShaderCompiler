@@ -24,9 +24,8 @@ class SpirvVisitor;
 /// The class representing a SPIR-V function in memory.
 class SpirvFunction {
 public:
-  SpirvFunction(QualType astReturnType, SpirvType *fnSpirvType,
-                spv::FunctionControlMask, SourceLocation,
-                llvm::StringRef name = "");
+  SpirvFunction(QualType astReturnType, SpirvType *fnSpirvType, SourceLocation,
+                llvm::StringRef name = "", bool precise = false);
   ~SpirvFunction() = default;
 
   // Forbid copy construction and assignment
@@ -59,7 +58,12 @@ public:
   // Store that the return type is at relaxed precision.
   void setRelaxedPrecision() { relaxedPrecision = true; }
   // Returns whether the return type has relaxed precision.
-  uint32_t isRelaxedPrecision() const { return relaxedPrecision; }
+  bool isRelaxedPrecision() const { return relaxedPrecision; }
+
+  // Store that the return value is precise.
+  void setPrecise(bool p = true) { precise = p; }
+  // Returns whether the return value is precise.
+  bool isPrecise() const { return precise; }
 
   void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
@@ -89,6 +93,7 @@ private:
   SpirvType *fnType;      ///< The SPIR-V function type
 
   bool relaxedPrecision; ///< Whether the return type is at relaxed precision
+  bool precise;          ///< Whether the return value is 'precise'
 
   /// Legalization-specific code
   ///
@@ -99,9 +104,8 @@ private:
   bool containsAlias; ///< Whether function return type is aliased
   bool rvalue;        ///< Whether the return value is an rvalue
 
-  spv::FunctionControlMask functionControl; ///< SPIR-V function control
-  SourceLocation functionLoc;               ///< Location in source code
-  std::string functionName;                 ///< This function's name
+  SourceLocation functionLoc; ///< Location in source code
+  std::string functionName;   ///< This function's name
 
   /// Parameters to this function.
   llvm::SmallVector<SpirvFunctionParameter *, 8> parameters;

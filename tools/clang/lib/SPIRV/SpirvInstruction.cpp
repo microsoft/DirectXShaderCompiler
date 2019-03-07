@@ -91,7 +91,42 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
       storageClass(spv::StorageClass::Function), isRValue_(false),
-      isRelaxedPrecision_(false), isNonUniform_(false) {}
+      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
+
+bool SpirvInstruction::isArithmeticInstruction() const {
+  switch (opcode) {
+  case spv::Op::OpSNegate:
+  case spv::Op::OpFNegate:
+  case spv::Op::OpIAdd:
+  case spv::Op::OpFAdd:
+  case spv::Op::OpISub:
+  case spv::Op::OpFSub:
+  case spv::Op::OpIMul:
+  case spv::Op::OpFMul:
+  case spv::Op::OpUDiv:
+  case spv::Op::OpSDiv:
+  case spv::Op::OpFDiv:
+  case spv::Op::OpUMod:
+  case spv::Op::OpSRem:
+  case spv::Op::OpSMod:
+  case spv::Op::OpFRem:
+  case spv::Op::OpFMod:
+  case spv::Op::OpVectorTimesScalar:
+  case spv::Op::OpMatrixTimesScalar:
+  case spv::Op::OpVectorTimesMatrix:
+  case spv::Op::OpMatrixTimesVector:
+  case spv::Op::OpMatrixTimesMatrix:
+  case spv::Op::OpOuterProduct:
+  case spv::Op::OpDot:
+  case spv::Op::OpIAddCarry:
+  case spv::Op::OpISubBorrow:
+  case spv::Op::OpUMulExtended:
+  case spv::Op::OpSMulExtended:
+    return true;
+  default:
+    return false;
+  }
+}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
     : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(), loc),
@@ -198,17 +233,21 @@ spv::Op SpirvDecoration::getDecorateOpcode(
 }
 
 SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
-                             spv::StorageClass sc,
+                             spv::StorageClass sc, bool precise,
                              SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst) {
   setStorageClass(sc);
+  setPrecise(precise);
 }
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
+                                               bool isPrecise,
                                                SourceLocation loc)
     : SpirvInstruction(IK_FunctionParameter, spv::Op::OpFunctionParameter,
-                       resultType, loc) {}
+                       resultType, loc) {
+  setPrecise(isPrecise);
+}
 
 SpirvMerge::SpirvMerge(Kind kind, spv::Op op, SourceLocation loc,
                        SpirvBasicBlock *mergeLabel)

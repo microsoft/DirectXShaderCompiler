@@ -1831,6 +1831,7 @@ TEST_F(FileTest, RayTracingNVLibrary) {
   runFileTest("raytracing.nv.library.hlsl");
 }
 
+// For RelaxedPrecision decorations
 TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {
   runFileTest("decoration.relaxed-precision.basic.hlsl");
 }
@@ -1839,6 +1840,14 @@ TEST_F(FileTest, DecorationRelaxedPrecisionStruct) {
 }
 TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
   runFileTest("decoration.relaxed-precision.image.hlsl");
+}
+
+// For NoContraction decorations
+TEST_F(FileTest, DecorationNoContraction) {
+  runFileTest("decoration.no-contraction.hlsl");
+}
+TEST_F(FileTest, DecorationNoContractionVariableReuse) {
+  runFileTest("decoration.no-contraction.variable-reuse.hlsl");
 }
 
 } // namespace
