@@ -15,6 +15,7 @@ add_clang_library(clangSPIRV
   InitListHandler.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
+  RelaxedPrecisionVisitor.cpp
   SpirvBasicBlock.cpp
   SpirvBuilder.cpp
   SpirvContext.cpp

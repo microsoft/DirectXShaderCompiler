@@ -723,6 +723,11 @@ LowerTypeVisitor::populateLayoutInformation(
     StructType::FieldInfo loweredField(
         lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), field.name);
 
+    // Set RelaxedPrecision information for the lowered field.
+    if (isRelaxedPrecisionType(fieldType, spvOptions)) {
+      loweredField.isRelaxedPrecision = true;
+    }
+
     // We only need layout information for strcutres with non-void layout rule.
     if (rule == SpirvLayoutRule::Void) {
       loweredFields.push_back(loweredField);

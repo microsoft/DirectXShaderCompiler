@@ -56,6 +56,11 @@ public:
   // Returns the SPIR-V type of the function
   SpirvType *getFunctionType() const { return fnType; }
 
+  // Store that the return type is at relaxed precision.
+  void setRelaxedPrecision() { relaxedPrecision = true; }
+  // Returns whether the return type has relaxed precision.
+  uint32_t isRelaxedPrecision() const { return relaxedPrecision; }
+
   void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
 
@@ -82,6 +87,8 @@ private:
   QualType astReturnType; ///< The return type
   SpirvType *returnType;  ///< The lowered return type
   SpirvType *fnType;      ///< The SPIR-V function type
+
+  bool relaxedPrecision; ///< Whether the return type is at relaxed precision
 
   /// Legalization-specific code
   ///

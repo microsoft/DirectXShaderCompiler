@@ -12,6 +12,7 @@
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
+#include "RelaxedPrecisionVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
@@ -994,13 +995,6 @@ void SpirvBuilder::decorateBlock(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
-void SpirvBuilder::decorateRelaxedPrecision(SpirvInstruction *target,
-                                            SourceLocation srcLoc) {
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, target, spv::Decoration::RelaxedPrecision);
-  module->addDecoration(decor);
-}
-
 void SpirvBuilder::decoratePatch(SpirvInstruction *target,
                                  SourceLocation srcLoc) {
   auto *decor =
@@ -1063,6 +1057,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
+  RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   module->invokeVisitor(&literalTypeVisitor, true);
@@ -1072,6 +1067,9 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Add necessary capabilities and extensions
   module->invokeVisitor(&capabilityVisitor);
+
+  // Propagate RelaxedPrecision decorations
+  module->invokeVisitor(&relaxedPrecisionVisitor);
 
   // Emit SPIR-V
   module->invokeVisitor(&emitVisitor);
