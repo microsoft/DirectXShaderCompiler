@@ -290,9 +290,11 @@ public:
     FieldInfo(const SpirvType *type_, llvm::StringRef name_ = "",
               llvm::Optional<uint32_t> offset_ = llvm::None,
               llvm::Optional<uint32_t> matrixStride_ = llvm::None,
-              llvm::Optional<bool> isRowMajor_ = llvm::None)
+              llvm::Optional<bool> isRowMajor_ = llvm::None,
+              bool relaxedPrecision = false)
         : type(type_), name(name_), offset(offset_),
-          matrixStride(matrixStride_), isRowMajor(isRowMajor_) {
+          matrixStride(matrixStride_), isRowMajor(isRowMajor_),
+          isRelaxedPrecision(relaxedPrecision) {
       // A StructType may not contain any hybrid types.
       assert(!isa<HybridType>(type_));
     }
@@ -309,6 +311,8 @@ public:
     llvm::Optional<uint32_t> matrixStride;
     // The majorness of this field (if applicable).
     llvm::Optional<bool> isRowMajor;
+    // Whether this field is a RelaxedPrecision field.
+    bool isRelaxedPrecision;
   };
 
   StructType(

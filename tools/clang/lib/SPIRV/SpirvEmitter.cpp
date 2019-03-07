@@ -1308,10 +1308,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       needsLegalization = true;
   }
 
-  if (isRelaxedPrecisionType(decl->getType(), spirvOptions)) {
-    spvBuilder.decorateRelaxedPrecision(var);
-  }
-
   // All variables that are of opaque struct types should request legalization.
   if (!needsLegalization && isOpaqueStructType(decl->getType()))
     needsLegalization = true;
