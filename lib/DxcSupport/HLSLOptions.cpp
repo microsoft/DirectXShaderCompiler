@@ -45,6 +45,10 @@ namespace {
       : OptTable(HlslInfoTable, llvm::array_lengthof(HlslInfoTable)) {}
   };
 
+  HlslOptTable *CreateHlslOptTable() {
+    return new (std::nothrow) HlslOptTable();
+  }
+
 }
 
 static HlslOptTable *g_HlslOptTable;
@@ -55,7 +59,7 @@ static HlslOptTable *g_HlslOptTable;
 
 std::error_code hlsl::options::initHlslOptTable() {
   DXASSERT(g_HlslOptTable == nullptr, "else double-init");
-  g_HlslOptTable = new (std::nothrow) HlslOptTable();
+  g_HlslOptTable = CreateHlslOptTable();
   if (g_HlslOptTable == nullptr)
     return std::error_code(E_OUTOFMEMORY, std::system_category());
   return std::error_code();
@@ -273,6 +277,11 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
 
 namespace hlsl {
 namespace options {
+
+/// Create a copy of the HLSL opt table
+OptTable *CreateNewOptTable() {
+  return CreateHlslOptTable();
+}
 
 /// Reads all options from the given argument strings, populates opts, and
 /// validates reporting errors and warnings.

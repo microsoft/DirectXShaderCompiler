@@ -203,6 +203,9 @@ public:
   operator LPCWSTR() const { return m_value.size() ? m_value.data() : nullptr; }
 };
 
+/// Create a copy of the HLSL opt table
+llvm::opt::OptTable *CreateNewOptTable();
+
 /// Reads all options from the given argument strings, populates opts, and
 /// validates reporting errors and warnings.
 int ReadDxcOpts(const llvm::opt::OptTable *optionTable, unsigned flagsToInclude,
