@@ -18,7 +18,8 @@ SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
       continueTarget(nullptr) {}
 
 bool SpirvBasicBlock::hasTerminator() const {
-  return !instructions.empty() && isa<SpirvTerminator>(instructions.back());
+  return !instructions.empty() &&
+         isa<SpirvTerminator>(instructions.back().instruction);
 }
 
 bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
@@ -28,9 +29,9 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
     return false;
 
   if (reverseOrder) {
-    for (auto inst = instructions.rbegin(); inst != instructions.rend();
-         ++inst) {
-      if (!(*inst)->invokeVisitor(visitor))
+    for (auto iter = instructions.rbegin(); iter != instructions.rend();
+         ++iter) {
+      if (!iter->instruction->invokeVisitor(visitor))
         return false;
     }
     // If a basic block is the first basic block of a function, it should
@@ -47,9 +48,10 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
         if (!var->invokeVisitor(visitor))
           return false;
 
-    for (auto *inst : instructions)
-      if (!inst->invokeVisitor(visitor))
+    for (auto iter = instructions.begin(); iter != instructions.end(); ++iter) {
+      if (!iter->instruction->invokeVisitor(visitor))
         return false;
+    }
   }
 
   if (!visitor->visit(this, Visitor::Phase::Done))
