@@ -317,7 +317,7 @@ bool LiteralTypeVisitor::visit(SpirvConstantComposite *inst) {
   return true;
 }
 
-bool LiteralTypeVisitor::visit(SpirvComposite *inst) {
+bool LiteralTypeVisitor::visit(SpirvCompositeConstruct *inst) {
   const auto resultType = inst->getAstResultType();
   updateTypeForCompositeMembers(resultType, inst->getConstituents());
   return true;

@@ -36,7 +36,7 @@ public:
   bool visit(SpirvNonUniformBinaryOp *);
   bool visit(SpirvStore *);
   bool visit(SpirvConstantComposite *);
-  bool visit(SpirvComposite *);
+  bool visit(SpirvCompositeConstruct *);
   bool visit(SpirvCompositeExtract *);
   bool visit(SpirvAccessChain *);
   bool visit(SpirvExtInst *);
