@@ -1439,7 +1439,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  std::wstring codeGenPath = hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\batch\\Samples");
+  std::wstring codeGenPath = hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples");
   // This test was running at about three minutes; that can be enabled with TestAll=True,
   // otherwise the much shorter list is used.
   const bool TestAll = false;
