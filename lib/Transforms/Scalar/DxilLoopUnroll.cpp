@@ -901,7 +901,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       // Replace the phi nodes with the value defined INSIDE the previous iteration.
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(CurIteration.VarMap[PN]);
-        Value *ReplacementVal = PrevIteration->VarMap[PN->getIncomingValueForBlock(Latch)];
+        Value *ReplacementVal = PN->getIncomingValueForBlock(Latch);
+        auto itRep = PrevIteration->VarMap.find(ReplacementVal);
+        if (itRep != PrevIteration->VarMap.end())
+          ReplacementVal = itRep->second;
         ClonedPN->replaceAllUsesWith(ReplacementVal);
         ClonedPN->eraseFromParent();
         CurIteration.VarMap[PN] = ReplacementVal;
