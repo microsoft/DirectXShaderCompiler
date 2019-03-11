@@ -5124,9 +5124,9 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
   varName = "init.done." + varName;
 
   // Create a file/module visible variable to hold the initialization state.
-  SpirvVariable *initDoneVar =
-      spvBuilder.addModuleVar(astContext.BoolTy, spv::StorageClass::Private,
-                              varName, spvBuilder.getConstantBool(false));
+  SpirvVariable *initDoneVar = spvBuilder.addModuleVar(
+      astContext.BoolTy, spv::StorageClass::Private, /*isPrecise*/ false,
+      varName, spvBuilder.getConstantBool(false));
 
   auto *condition = spvBuilder.createLoad(astContext.BoolTy, initDoneVar);
 

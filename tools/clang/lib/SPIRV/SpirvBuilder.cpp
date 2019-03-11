@@ -871,13 +871,15 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
   return var;
 }
 
-SpirvVariable *SpirvBuilder::addModuleVar(
-    QualType type, spv::StorageClass storageClass, llvm::StringRef name,
-    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+SpirvVariable *
+SpirvBuilder::addModuleVar(QualType type, spv::StorageClass storageClass,
+                           bool isPrecise, llvm::StringRef name,
+                           llvm::Optional<SpirvInstruction *> init,
+                           SourceLocation loc) {
   assert(storageClass != spv::StorageClass::Function);
   // Note: We store the underlying type in the variable, *not* the pointer type.
   auto *var =
-      new (context) SpirvVariable(type, loc, storageClass, /*isPrecise*/ false,
+      new (context) SpirvVariable(type, loc, storageClass, isPrecise,
                                   init.hasValue() ? init.getValue() : nullptr);
   var->setDebugName(name);
   module->addVariable(var);
@@ -885,13 +887,14 @@ SpirvVariable *SpirvBuilder::addModuleVar(
 }
 
 SpirvVariable *SpirvBuilder::addModuleVar(
-    const SpirvType *type, spv::StorageClass storageClass, llvm::StringRef name,
-    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+    const SpirvType *type, spv::StorageClass storageClass, bool isPrecise,
+    llvm::StringRef name, llvm::Optional<SpirvInstruction *> init,
+    SourceLocation loc) {
   assert(storageClass != spv::StorageClass::Function);
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var = new (context)
-      SpirvVariable(/*QualType*/ {}, loc, storageClass, /*isPrecise*/ false,
-                    init.hasValue() ? init.getValue() : nullptr);
+  auto *var =
+      new (context) SpirvVariable(/*QualType*/ {}, loc, storageClass, isPrecise,
+                                  init.hasValue() ? init.getValue() : nullptr);
   var->setResultType(type);
   var->setDebugName(name);
   module->addVariable(var);

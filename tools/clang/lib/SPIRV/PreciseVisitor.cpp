@@ -10,6 +10,88 @@
 #include "PreciseVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvFunction.h"
+#include "clang/SPIRV/SpirvType.h"
+
+#include <stack>
+
+namespace {
+
+/// \brief Returns true if the given OpAccessChain instruction is accessing a
+/// precise variable, or accessing a precise member of a structure. Returns
+/// false otherwise.
+bool isAccessingPrecise(clang::spirv::SpirvAccessChain *inst) {
+  using namespace clang::spirv;
+
+  // If the access chain base is another access chain and so on, first flatten
+  // them (from the bottom to the top). For example:
+  // %x = OpAccessChain <type> %obj %int_1 %int_2
+  // %y = OpAccessChain <type> %x   %int_3 %int_4
+  // %z = OpAccessChain <type> %y   %int_5 %int_6
+  // Should be flattened to:
+  // %z = OpAccessChain <type> %obj %int_1 %int_2 %int_3 %int_4 %int_5 %int_6
+  std::stack<SpirvInstruction *> indexes;
+  SpirvInstruction *base = inst;
+  while (auto *accessChain = llvm::dyn_cast<SpirvAccessChain>(base)) {
+    for (auto iter = accessChain->getIndexes().rbegin();
+         iter != accessChain->getIndexes().rend(); ++iter) {
+      indexes.push(*iter);
+    }
+    base = accessChain->getBase();
+
+    // If we reach a 'precise' base at any level, return true.
+    if (base->isPrecise())
+      return true;
+  }
+
+  // Start from the lowest level base (%obj in the above example), and step
+  // forward using the 'indexes'. If a 'precise' structure field is discovered
+  // at any point, return true.
+  const SpirvType *baseType = base->getResultType();
+  while (baseType && !indexes.empty()) {
+    if (auto *vecType = llvm::dyn_cast<VectorType>(baseType)) {
+      indexes.pop();
+      baseType = vecType->getElementType();
+    } else if (auto *matType = llvm::dyn_cast<MatrixType>(baseType)) {
+      indexes.pop();
+      baseType = matType->getVecType();
+    } else if (auto *arrType = llvm::dyn_cast<ArrayType>(baseType)) {
+      indexes.pop();
+      baseType = arrType->getElementType();
+    } else if (auto *raType = llvm::dyn_cast<RuntimeArrayType>(baseType)) {
+      indexes.pop();
+      baseType = raType->getElementType();
+    } else if (auto *structType = llvm::dyn_cast<StructType>(baseType)) {
+      SpirvInstruction *index = indexes.top();
+      if (auto *constInt = llvm::dyn_cast<SpirvConstantInteger>(index)) {
+        uint32_t indexValue =
+            static_cast<uint32_t>(constInt->getValue().getZExtValue());
+        auto fields = structType->getFields();
+        assert(indexValue < fields.size());
+        auto &fieldInfo = fields[indexValue];
+        if (fieldInfo.isPrecise) {
+          return true;
+        } else {
+          baseType = fieldInfo.type;
+          indexes.pop();
+        }
+      } else {
+        // Trying to index into a structure using a variable? This shouldn't be
+        // happening.
+        assert(false && "indexing into a struct with variable value");
+        return false;
+      }
+    } else if (auto *ptrType = llvm::dyn_cast<SpirvPointerType>(baseType)) {
+      // Note: no need to pop the stack here.
+      baseType = ptrType->getPointeeType();
+    } else {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+} // anonymous namespace
 
 namespace clang {
 namespace spirv {
@@ -129,12 +211,11 @@ bool PreciseVisitor::visit(SpirvStore *inst) {
     return true;
   }
 
-  while (auto *accessChain = llvm::dyn_cast<SpirvAccessChain>(ptr)) {
-    if (accessChain->getBase()->isPrecise()) {
+  if (auto *accessChain = llvm::dyn_cast<SpirvAccessChain>(ptr)) {
+    if (isAccessingPrecise(accessChain)) {
       obj->setPrecise();
       return true;
     }
-    ptr = accessChain->getBase();
   }
 
   return true;

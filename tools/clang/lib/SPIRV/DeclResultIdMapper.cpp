@@ -594,7 +594,8 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
-      type, spv::StorageClass::Private, var->getName(), init, loc);
+      type, spv::StorageClass::Private, var->hasAttr<HLSLPreciseAttr>(),
+      var->getName(), init, loc);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
@@ -652,7 +653,8 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto type = var->getType();
   const auto loc = var->getLocation();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
-      type, storageClass, var->getName(), llvm::None, loc);
+      type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
+      llvm::None, loc);
   varInstr->setLayoutRule(rule);
   DeclSpirvInfo info(varInstr);
   astDecls[var] = info;
@@ -717,7 +719,8 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     varType.removeLocalConst();
     HybridStructType::FieldInfo info(varType, declDecl->getName(),
                                      declDecl->getAttr<VKOffsetAttr>(),
-                                     getPackOffset(declDecl), registerC);
+                                     getPackOffset(declDecl), registerC,
+                                     declDecl->hasAttr<HLSLPreciseAttr>());
     fields.push_back(info);
   }
 
@@ -744,7 +747,10 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       forPC ? spv::StorageClass::PushConstant : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
-  SpirvVariable *var = spvBuilder.addModuleVar(resultType, sc, varName);
+  // The fields may be 'precise', but the structure itself is not.
+  SpirvVariable *var =
+      spvBuilder.addModuleVar(resultType, sc, /*isPrecise*/ false, varName);
+
   const SpirvLayoutRule layoutRule =
       (forCBuffer || forGlobals)
           ? spirvOptions.cBufferLayoutRule
@@ -967,8 +973,8 @@ void DeclResultIdMapper::createCounterVar(
         spvContext.getPointerType(counterType, spv::StorageClass::Uniform);
   }
 
-  SpirvVariable *counterInstr =
-      spvBuilder.addModuleVar(counterType, sc, counterName);
+  SpirvVariable *counterInstr = spvBuilder.addModuleVar(
+      counterType, sc, /*isPrecise*/ false, counterName);
 
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
@@ -2832,7 +2838,8 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   case spv::StorageClass::HitAttributeNV:
   case spv::StorageClass::RayPayloadNV:
   case spv::StorageClass::CallableDataNV:
-    retVal = spvBuilder.addModuleVar(type, sc, name.str());
+    retVal = spvBuilder.addModuleVar(type, sc, decl->hasAttr<HLSLPreciseAttr>(),
+                                     name.str());
     break;
 
   default:

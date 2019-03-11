@@ -1849,5 +1849,11 @@ TEST_F(FileTest, DecorationNoContraction) {
 TEST_F(FileTest, DecorationNoContractionVariableReuse) {
   runFileTest("decoration.no-contraction.variable-reuse.hlsl");
 }
+TEST_F(FileTest, DecorationNoContractionStruct) {
+  runFileTest("decoration.no-contraction.struct.hlsl");
+}
+TEST_F(FileTest, DecorationNoContractionStageVars) {
+  runFileTest("decoration.no-contraction.stage-vars.hlsl");
+}
 
 } // namespace
