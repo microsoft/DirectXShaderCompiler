@@ -1618,7 +1618,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
           ULONG cbWritten;
           IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
-          const char Pad[] = "\0\0\0";
+          const char Pad[] = { '\0','\0','\0','\0' };
           IFT(pStream->Write(Pad, _countof(Pad), &cbWritten));
         }
         else {
@@ -1635,7 +1635,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
           ULONG cbWritten;
           IFT(pStream->Write(Hash.data(), Hash.size(), &cbWritten));
-          const char SuffixAndPad[] = ".lld\0\0\0";
+          const char SuffixAndPad[] = { '.','l','l','d','\0','\0','\0','\0' };
           IFT(pStream->Write(SuffixAndPad, _countof(SuffixAndPad), &cbWritten));
         }
       });
