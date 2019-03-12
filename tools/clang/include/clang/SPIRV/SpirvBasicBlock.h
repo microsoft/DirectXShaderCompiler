@@ -15,11 +15,21 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/ilist.h"
+#include "llvm/ADT/ilist_node.h"
 
 namespace clang {
 namespace spirv {
 
 class SpirvVisitor;
+
+class SpirvInstructionNode : public llvm::ilist_node<SpirvInstructionNode> {
+public:
+  SpirvInstructionNode() : instruction(nullptr) {}
+  SpirvInstructionNode(SpirvInstruction *instr) : instruction(instr) {}
+
+  SpirvInstruction *instruction;
+};
 
 /// The class representing a SPIR-V basic block in memory.
 class SpirvBasicBlock {
@@ -85,7 +95,7 @@ private:
   std::string labelName; ///< The label's debug name
 
   /// Instructions belonging to this basic block.
-  std::vector<SpirvInstruction *> instructions;
+  llvm::ilist<SpirvInstructionNode> instructions;
 
   /// Successors to this basic block.
   llvm::SmallVector<SpirvBasicBlock *, 2> successors;
