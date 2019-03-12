@@ -1596,12 +1596,15 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                         ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
                         : CComPtr<AbstractMemoryStream>(pProgramStream);
 
+      // Use user specified debug name if a) it's given and b) it's not a path
       bool UseDebugName = DebugName.size() && !DebugName.endswith(llvm::StringRef("\\"));
 
+      // Calculate the length of the name
       const uint32_t NameLen = UseDebugName ? 
         DebugName.size() :
         DebugInfoNameHashLen +  DebugInfoNameSuffix;
 
+      // Calculate the size of the blob part.
       const uint32_t DebugInfoContentLen =
           sizeof(DxilShaderDebugName) + NameLen + DebugInfoNameNullAndPad;
 
@@ -1609,7 +1612,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         DxilShaderDebugName NameContent;
         NameContent.Flags = 0;
 
-        ArrayRef<uint8_t> Data;
         if (UseDebugName) {
           NameContent.NameLength = DebugName.size();
           IFT(WriteStreamValue(pStream, NameContent));
