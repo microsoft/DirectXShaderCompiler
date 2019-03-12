@@ -1433,8 +1433,8 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
 #ifdef _WIN32 // Reflection unsupported
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples\\DX11\\SimpleBezier11DS.hlsl").c_str(), false);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples\\DX11\\SubD11_SmoothPS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
@@ -1486,7 +1486,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 #endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
-  CodeGenTestCheck(L"abs2_m.ll");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {

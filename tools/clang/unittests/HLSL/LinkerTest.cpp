@@ -306,9 +306,9 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
 
 TEST_F(LinkerTest, RunLinkMatArrayParam) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast.hlsl", &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -326,9 +326,9 @@ TEST_F(LinkerTest, RunLinkMatArrayParam) {
 
 TEST_F(LinkerTest, RunLinkMatParam) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast2.hlsl", &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -346,7 +346,7 @@ TEST_F(LinkerTest, RunLinkMatParam) {
 
 TEST_F(LinkerTest, RunLinkMatParamToLib) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl", &pEntryLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -362,9 +362,9 @@ TEST_F(LinkerTest, RunLinkMatParamToLib) {
 
 TEST_F(LinkerTest, RunLinkResRet) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_out_param_res.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res_imp.hlsl", &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_out_param_res_imp.hlsl", &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -382,11 +382,11 @@ TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR option[] = {L"-Zi"};
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
              &pEntryLib, option, 1);
   CComPtr<IDxcBlob> pLib;
   CompileLib(
-      L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast2.hlsl",
+      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
       &pLib, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -403,10 +403,10 @@ TEST_F(LinkerTest, RunLinkToLib) {
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_entry2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
              &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader_stages\\library\\lib_mat_cast2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
              &pLib);
 
   CComPtr<IDxcLinker> pLinker;
@@ -447,10 +447,10 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
              &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
              &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -477,10 +477,10 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
     &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
     &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -512,10 +512,10 @@ TEST_F(LinkerTest, RunLinkToLibWithExportNamesSwapped) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
     &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
     &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -544,10 +544,10 @@ TEST_F(LinkerTest, RunLinkToLibWithExportCollision) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
     &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
     &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -569,10 +569,10 @@ TEST_F(LinkerTest, RunLinkToLibWithUnusedExport) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
     &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
     &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -594,10 +594,10 @@ TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
     &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
     &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -619,10 +619,10 @@ TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
   LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\createHandle_multi.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi.hlsl",
     &pLib1, option, 1);
   CComPtr<IDxcBlob> pLib2;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\createHandle_multi2.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi2.hlsl",
     &pLib2, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
