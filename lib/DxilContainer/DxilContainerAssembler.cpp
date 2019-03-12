@@ -1596,7 +1596,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                         ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
                         : CComPtr<AbstractMemoryStream>(pProgramStream);
 
-      const uint32_t NameLen = DebugName.size() ? 
+      bool UseDebugName = DebugName.size() && !DebugName.endswith(llvm::StringRef("\\"));
+
+      const uint32_t NameLen = UseDebugName ? 
         DebugName.size() :
         DebugInfoNameHashLen +  DebugInfoNameSuffix;
 
@@ -1608,7 +1610,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         NameContent.Flags = 0;
 
         ArrayRef<uint8_t> Data;
-        if (DebugName.size()) {
+        if (UseDebugName) {
           NameContent.NameLength = DebugName.size();
           IFT(WriteStreamValue(pStream, NameContent));
 
