@@ -91,7 +91,7 @@ public:
   llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
 
 private:
-  llvm::StringRef m_debugName;
+  std::string m_debugName;
   std::unique_ptr<llvm::Module> m_llvmModule;
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
@@ -180,7 +180,7 @@ HRESULT ValidateAndAssembleToContainer(
     // module.
     if (bDebugInfo) {
       llvmModule.CloneForDebugInfo();
-      if (DebugName.begin()) {
+      if (DebugName.size()) {
         llvmModule.SetDebugName(DebugName);
       }
     }
