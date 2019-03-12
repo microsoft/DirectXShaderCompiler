@@ -3405,19 +3405,23 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     if (!arg0->isRValue()) {
       arg0 = spvBuilder.createLoad(bufferElemTy, arg0);
     }
+    if (isBoolOrVecOfBoolType(bufferElemTy)) {
+      uint32_t vecSize = 1;
+      const bool isVec = isVectorType(bufferElemTy, nullptr, &vecSize);
+      const auto toType =
+          isVec ? astContext.getExtVectorType(astContext.BoolTy, vecSize)
+                : astContext.BoolTy;
+      const auto fromType =
+          isVec ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
+                : astContext.UnsignedIntTy;
+      arg0 = castToBool(arg0, fromType, toType);
+    }
     storeValue(bufferInfo, arg0, bufferElemTy);
     return 0;
   } else {
     // Note that we are returning a pointer (lvalue) here inorder to further
     // acess the fields in this element, e.g., buffer.Consume().a.b. So we
     // cannot forcefully set all normal function calls as returning rvalue.
-    if (isBoolOrVecOfBoolType(bufferElemTy)) {
-      if (!bufferInfo->isRValue()) {
-        bufferInfo = spvBuilder.createLoad(bufferElemTy, bufferInfo);
-      }
-      bufferInfo =
-          castToBool(bufferInfo, astContext.UnsignedIntTy, bufferElemTy);
-    }
     return bufferInfo;
   }
 }
