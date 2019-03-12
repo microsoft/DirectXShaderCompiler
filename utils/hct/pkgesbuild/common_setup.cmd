@@ -6,7 +6,7 @@ REM %3 - $(Build.BinariesDirectory)
 
 set BUILD_PLATFORM=%1
 set HLSL_SRC_DIR=%~f2
-set HLSL_BLD_DIR=%~f3\%BUILD_PLATFORM%
+set HLSL_BLD_DIR=%~f3
 
 rem Add Windows 10 SDK on PATH
 set WIN10_SDK_PATH=%HLSL_SRC_DIR%\Packages\MS.Uwp.RS5RLS.Native.10.0.17763.1\l
