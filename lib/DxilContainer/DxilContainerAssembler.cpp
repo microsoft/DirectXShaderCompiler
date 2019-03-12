@@ -1595,18 +1595,27 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
                         ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
                         : CComPtr<AbstractMemoryStream>(pProgramStream);
+
+      const uint32_t NameLen = DebugName.size() ? 
+        DebugName.size() :
+        DebugInfoNameHashLen +  DebugInfoNameSuffix;
+
       const uint32_t DebugInfoContentLen =
-          sizeof(DxilShaderDebugName) + DebugInfoNameHashLen +
-          DebugInfoNameSuffix + DebugInfoNameNullAndPad;
+          sizeof(DxilShaderDebugName) + NameLen + DebugInfoNameNullAndPad;
+
       writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen, [&](AbstractMemoryStream *pStream) {
         DxilShaderDebugName NameContent;
         NameContent.Flags = 0;
 
         ArrayRef<uint8_t> Data;
         if (DebugName.size()) {
-          NameContent.NameLength = DebugName.size()+1;
+          NameContent.NameLength = DebugName.size();
+          IFT(WriteStreamValue(pStream, NameContent));
+
           ULONG cbWritten;
-          IFT(pStream->Write(DebugName.begin(), DebugName.size()+1, &cbWritten));
+          IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
+          const char Pad[] = "\0\0\0";
+          IFT(pStream->Write(Pad, _countof(Pad), &cbWritten));
         }
         else {
           NameContent.NameLength = DebugInfoNameHashLen + DebugInfoNameSuffix;
