@@ -100,6 +100,15 @@ TEST_F(FileTest, AppendStructuredBufferType) {
 TEST_F(FileTest, AppendConsumeStructuredBufferTypeBool) {
   runFileTest("type.append-consume-structured-buffer.bool.hlsl");
 }
+TEST_F(FileTest, AppendConsumeStructuredBufferTypeStructWithBool) {
+  runFileTest("type.append-consume-structured-buffer.struct-with-bool.hlsl");
+}
+TEST_F(FileTest, AppendConsumeStructuredBufferTypeV2Bool) {
+  runFileTest("type.append-consume-structured-buffer.v2bool.hlsl");
+}
+TEST_F(FileTest, ConsumeStructuredBufferTypeV2BoolAppendBool) {
+  runFileTest("type.consume-structured-buffer.v2bool.append.bool.hlsl");
+}
 TEST_F(FileTest, ConsumeStructuredBufferType) {
   runFileTest("type.consume-structured-buffer.hlsl");
 }

@@ -328,9 +328,7 @@ SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
                              SourceLocation loc, SpirvInstruction *op1,
                              SpirvInstruction *op2)
     : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc), operand1(op1),
-      operand2(op2) {
-  setRValue();
-}
+      operand2(op2) {}
 
 SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
                              SourceLocation loc, SpirvInstruction *baseInst,
