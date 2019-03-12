@@ -3411,6 +3411,13 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     // Note that we are returning a pointer (lvalue) here inorder to further
     // acess the fields in this element, e.g., buffer.Consume().a.b. So we
     // cannot forcefully set all normal function calls as returning rvalue.
+    if (isBoolOrVecOfBoolType(bufferElemTy)) {
+      if (!bufferInfo->isRValue()) {
+        bufferInfo = spvBuilder.createLoad(bufferElemTy, bufferInfo);
+      }
+      bufferInfo =
+          castToBool(bufferInfo, astContext.UnsignedIntTy, bufferElemTy);
+    }
     return bufferInfo;
   }
 }
@@ -4757,7 +4764,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
                               SpirvInstruction *rhsVal, QualType lhsValType) {
   // Defend against nullptr source or destination so errors can bubble up to the
   // user.
-  if(!lhsPtr || !rhsVal)
+  if (!lhsPtr || !rhsVal)
     return;
 
   if (const auto *refType = lhsValType->getAs<ReferenceType>())
