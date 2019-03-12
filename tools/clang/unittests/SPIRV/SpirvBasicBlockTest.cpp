@@ -24,7 +24,7 @@ TEST(SpirvBasicBlockTest, CheckName) {
 TEST(SpirvBasicBlockTest, CheckResultId) {
   SpirvBasicBlock bb("myBasicBlock");
   bb.setResultId(5);
-  EXPECT_EQ(bb.getResultId(), 5);
+  EXPECT_EQ(bb.getResultId(), 5u);
 }
 
 TEST(SpirvBasicBlockTest, CheckMergeTarget) {
