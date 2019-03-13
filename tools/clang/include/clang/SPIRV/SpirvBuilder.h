@@ -443,8 +443,7 @@ public:
 
   /// \brief Adds an execution mode to the module under construction.
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
-                               llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc = {});
+                               llvm::ArrayRef<uint32_t> params, SourceLocation);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
