@@ -402,10 +402,11 @@ public:
 
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
   /// instruction for the given arguments.
-  SpirvBitFieldExtract *
-  createBitFieldExtract(QualType resultType, SpirvInstruction *base,
-                        SpirvInstruction *offset, SpirvInstruction *count,
-                        bool isSigned, SourceLocation loc = {});
+  SpirvBitFieldExtract *createBitFieldExtract(QualType resultType,
+                                              SpirvInstruction *base,
+                                              SpirvInstruction *offset,
+                                              SpirvInstruction *count,
+                                              bool isSigned, SourceLocation);
 
   /// \brief Creates an OpEmitVertex instruction.
   void createEmitVertex(SourceLocation);
