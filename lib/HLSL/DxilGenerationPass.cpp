@@ -313,7 +313,10 @@ public:
     // High-level metadata should now be turned into low-level metadata.
     const bool SkipInit = true;
     hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
-    auto pProps = &EntryPropsMap.begin()->second->props;
+    DxilFunctionProps *pProps = nullptr;
+    if (!SM->IsLib()) {
+      pProps = &EntryPropsMap.begin()->second->props;
+    }
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
     DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
     if (!SM->IsLib()) {
