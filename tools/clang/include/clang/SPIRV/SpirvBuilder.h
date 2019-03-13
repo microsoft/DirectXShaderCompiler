@@ -390,8 +390,7 @@ public:
   /// is created; otherwise an OpMemoryBarrier is created.
   void createBarrier(spv::Scope memoryScope,
                      spv::MemorySemanticsMask memorySemantics,
-                     llvm::Optional<spv::Scope> exec = llvm::None,
-                     SourceLocation loc = {});
+                     llvm::Optional<spv::Scope> exec, SourceLocation);
 
   /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
