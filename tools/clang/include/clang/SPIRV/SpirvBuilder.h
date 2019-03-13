@@ -535,9 +535,6 @@ public:
   /// \brief Decorates the given target with sample
   void decorateSample(SpirvInstruction *target, SourceLocation srcLoc = {});
 
-  /// \brief Decorates the given target with block
-  void decorateBlock(SpirvInstruction *target, SourceLocation srcLoc = {});
-
   /// \brief Decorates the given target with patch
   void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc);
 
