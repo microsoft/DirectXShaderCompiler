@@ -515,7 +515,7 @@ public:
   /// \brief Decorates the given main buffer with the given counter buffer.
   void decorateCounterBuffer(SpirvInstruction *mainBuffer,
                              SpirvInstruction *counterBuffer,
-                             SourceLocation srcLoc = {});
+                             SourceLocation srcLoc);
 
   /// \brief Decorates the given target with the given HLSL semantic string.
   void decorateHlslSemantic(SpirvInstruction *target, llvm::StringRef semantic,
