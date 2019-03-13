@@ -5860,7 +5860,8 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
   // translate the varDecl directly into the spec constant here.
 
   spvBuilder.decorateSpecId(
-      specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId());
+      specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId(),
+      varDecl->getLocation());
 
   declIdMapper.registerSpecConstant(varDecl, specConstant);
 }
