@@ -1687,7 +1687,7 @@ bool DeclResultIdMapper::createStageVars(
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
         hlsl::DXIL::SignatureKind::PatchConstant)
-      spvBuilder.decoratePatch(varInstr);
+      spvBuilder.decoratePatch(varInstr, varInstr->getSourceLocation());
 
     // Decorate with interpolation modes for pixel shader input variables
     if (spvContext.isPS() && sigPoint->IsInput() &&
