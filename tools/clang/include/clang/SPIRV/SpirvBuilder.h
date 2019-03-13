@@ -523,7 +523,7 @@ public:
                             SourceLocation srcLoc = {});
 
   /// \brief Decorates the given target with centroid
-  void decorateCentroid(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decorateCentroid(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with flat
   void decorateFlat(SpirvInstruction *target, SourceLocation);
