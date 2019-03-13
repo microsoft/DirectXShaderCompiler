@@ -984,7 +984,8 @@ void DeclResultIdMapper::createCounterVar(
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
     assert(declInstr);
-    spvBuilder.decorateCounterBuffer(declInstr, counterInstr);
+    spvBuilder.decorateCounterBuffer(declInstr, counterInstr,
+                                     decl->getLocation());
   }
 
   if (indices)
