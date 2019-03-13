@@ -454,7 +454,7 @@ public:
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the  the imported
   /// GLSL instruction set.
-  SpirvExtInstImport *getGLSLExtInstSet(SourceLocation loc = {});
+  SpirvExtInstImport *getGLSLExtInstSet();
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
