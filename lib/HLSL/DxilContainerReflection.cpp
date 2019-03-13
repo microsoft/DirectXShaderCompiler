@@ -2342,14 +2342,11 @@ static void CollectCBufUsageForLib(Value *V, std::vector<unsigned> &cbufUsage) {
 
 void DxilLibraryReflection::SetCBufferUsage() {
   unsigned cbSize = std::min(m_CBs.size(), m_pDxilModule->GetCBuffers().size());
-  std::vector< std::vector<unsigned> > cbufUsage(cbSize);
 
   for (unsigned i=0;i<cbSize;i++) {
-    CollectCBufUsageForLib(m_pDxilModule->GetCBuffer(i).GetGlobalSymbol(), cbufUsage[i]);
-  }
-
-  for (unsigned i=0;i<cbSize;i++) {
-    SetCBufVarUsage(*m_CBs[i], cbufUsage[i]);
+    std::vector<unsigned> cbufUsage;
+    CollectCBufUsageForLib(m_pDxilModule->GetCBuffer(i).GetGlobalSymbol(), cbufUsage);
+    SetCBufVarUsage(*m_CBs[i], cbufUsage);
   }
 }
 
