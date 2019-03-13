@@ -500,7 +500,7 @@ public:
   /// \brief Decorates the given target with the given descriptor set and
   /// binding number.
   void decorateDSetBinding(SpirvInstruction *target, uint32_t setNumber,
-                           uint32_t bindingNumber, SourceLocation srcLoc = {});
+                           uint32_t bindingNumber);
 
   /// \brief Decorates the given target with the given SpecId.
   void decorateSpecId(SpirvInstruction *target, uint32_t specId,
