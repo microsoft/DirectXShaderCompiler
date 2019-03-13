@@ -3508,7 +3508,7 @@ SpirvEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
   auto *value = doExpr(expr->getArg(0));
 
   declIdMapper.writeBackOutputStream(stream, stream->getType(), value);
-  spvBuilder.createEmitVertex();
+  spvBuilder.createEmitVertex(expr->getExprLoc());
 
   return nullptr;
 }
