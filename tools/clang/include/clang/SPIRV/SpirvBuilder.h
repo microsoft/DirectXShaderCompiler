@@ -490,8 +490,7 @@ public:
                SourceLocation loc = {});
 
   /// \brief Decorates the given target with the given location.
-  void decorateLocation(SpirvInstruction *target, uint32_t location,
-                        SourceLocation srcLoc = {});
+  void decorateLocation(SpirvInstruction *target, uint32_t location);
 
   /// \brief Decorates the given target with the given index.
   void decorateIndex(SpirvInstruction *target, uint32_t index, SourceLocation);

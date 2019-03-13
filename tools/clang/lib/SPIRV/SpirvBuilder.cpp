@@ -901,10 +901,11 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   return var;
 }
 
-void SpirvBuilder::decorateLocation(SpirvInstruction *target, uint32_t location,
-                                    SourceLocation srcLoc) {
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, target, spv::Decoration::Location, {location});
+void SpirvBuilder::decorateLocation(SpirvInstruction *target,
+                                    uint32_t location) {
+  auto *decor =
+      new (context) SpirvDecoration(target->getSourceLocation(), target,
+                                    spv::Decoration::Location, {location});
   module->addDecoration(decor);
 }
 
