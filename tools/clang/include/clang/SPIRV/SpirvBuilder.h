@@ -529,17 +529,16 @@ public:
   void decorateFlat(SpirvInstruction *target, SourceLocation srcLoc = {});
 
   /// \brief Decorates the given target with noperspective
-  void decorateNoPerspective(SpirvInstruction *target,
-                             SourceLocation srcLoc = {});
+  void decorateNoPerspective(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with sample
-  void decorateSample(SpirvInstruction *target, SourceLocation srcLoc);
+  void decorateSample(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with patch
-  void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc);
+  void decoratePatch(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with NoContraction
-  void decorateNoContraction(SpirvInstruction *target, SourceLocation loc);
+  void decorateNoContraction(SpirvInstruction *target, SourceLocation);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
