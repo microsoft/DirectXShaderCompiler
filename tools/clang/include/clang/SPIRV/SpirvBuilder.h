@@ -494,8 +494,7 @@ public:
                         SourceLocation srcLoc = {});
 
   /// \brief Decorates the given target with the given index.
-  void decorateIndex(SpirvInstruction *target, uint32_t index,
-                     SourceLocation srcLoc = {});
+  void decorateIndex(SpirvInstruction *target, uint32_t index, SourceLocation);
 
   /// \brief Decorates the given target with the given descriptor set and
   /// binding number.
