@@ -539,10 +539,10 @@ public:
   void decorateBlock(SpirvInstruction *target, SourceLocation srcLoc = {});
 
   /// \brief Decorates the given target with patch
-  void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc);
 
   /// \brief Decorates the given target with NoContraction
-  void decorateNoContraction(SpirvInstruction *target, SourceLocation loc = {});
+  void decorateNoContraction(SpirvInstruction *target, SourceLocation loc);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
