@@ -2352,13 +2352,13 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     stageVar->setIsSpirvBuiltin();
     // Vulkan requires the DepthReplacing execution mode to write to FragDepth.
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::DepthReplacing, {});
+                                spv::ExecutionMode::DepthReplacing, {}, srcLoc);
     if (semanticKind == hlsl::Semantic::Kind::DepthGreaterEqual)
       spvBuilder.addExecutionMode(entryFunction,
-                                  spv::ExecutionMode::DepthGreater, {});
+                                  spv::ExecutionMode::DepthGreater, {}, srcLoc);
     else if (semanticKind == hlsl::Semantic::Kind::DepthLessEqual)
       spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::DepthLess,
-                                  {});
+                                  {}, srcLoc);
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth,
                                          isPrecise, srcLoc);
   }
