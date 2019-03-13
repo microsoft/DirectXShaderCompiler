@@ -12,6 +12,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Operator.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
@@ -203,6 +204,7 @@ private:
 
   void AddResourceUseToFunctions(DxilResourceBase &resource, unsigned resIndex);
   void AddResourceDependencies();
+  void SetCBufferUsage();
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -1036,8 +1038,16 @@ void CShaderReflectionConstantBuffer::Initialize(
   Type *Ty = CB.GetGlobalSymbol()->getType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
-  if (Ty->isArrayTy())
+  if (Ty->isArrayTy()) {
     Ty = Ty->getArrayElementType();
+    // with ConstantBuffer<MyStruct> buf[2],
+    // MyStruct will be embedded within another struct,
+    // so drill in one more level.
+    // TBD: This will not work with ConstantBuffer<MyStruct> MyCB; (no array)
+    //      because we can't disinguish it from the cbuffer { ... } case.
+    //      This needs to be solved somehow.
+    Ty = cast<StructType>(Ty)->getContainedType(0);
+  }
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -2324,6 +2334,34 @@ void DxilLibraryReflection::AddResourceDependencies() {
   }
 }
 
+static void CollectCBufUsageForLib(Value *V, std::vector<unsigned> &cbufUsage) {
+  for (auto user : V->users()) {
+    Value *V = user;
+    if (auto *CI = dyn_cast<CallInst>(V)) {
+      if (hlsl::OP::IsDxilOpFuncCallInst(CI, hlsl::OP::OpCode::CreateHandleForLib)) {
+        CollectCBufUsage(CI, cbufUsage);
+      }
+    } else if (isa<GEPOperator>(V) ||
+               isa<LoadInst>(V)) {
+      CollectCBufUsageForLib(user, cbufUsage);
+    }
+  }
+}
+
+void DxilLibraryReflection::SetCBufferUsage() {
+  unsigned cbSize = std::min(m_CBs.size(), m_pDxilModule->GetCBuffers().size());
+  std::vector< std::vector<unsigned> > cbufUsage(cbSize);
+
+  for (unsigned i=0;i<cbSize;i++) {
+    CollectCBufUsageForLib(m_pDxilModule->GetCBuffer(i).GetGlobalSymbol(), cbufUsage[i]);
+  }
+
+  for (unsigned i=0;i<cbSize;i++) {
+    SetCBufVarUsage(*m_CBs[i], cbufUsage[i]);
+  }
+}
+
+
 // ID3D12LibraryReflection
 
 HRESULT DxilLibraryReflection::Load(IDxcBlob *pBlob,
@@ -2332,6 +2370,7 @@ HRESULT DxilLibraryReflection::Load(IDxcBlob *pBlob,
 
   try {
     AddResourceDependencies();
+    SetCBufferUsage();
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
