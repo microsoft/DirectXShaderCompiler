@@ -509,13 +509,11 @@ public:
   /// \brief Decorates the given target with the given input attchment index
   /// number.
   void decorateInputAttachmentIndex(SpirvInstruction *target,
-                                    uint32_t indexNumber,
-                                    SourceLocation srcLoc = {});
+                                    uint32_t indexNumber, SourceLocation);
 
   /// \brief Decorates the given main buffer with the given counter buffer.
   void decorateCounterBuffer(SpirvInstruction *mainBuffer,
-                             SpirvInstruction *counterBuffer,
-                             SourceLocation srcLoc);
+                             SpirvInstruction *counterBuffer, SourceLocation);
 
   /// \brief Decorates the given target with the given HLSL semantic string.
   void decorateHlslSemantic(SpirvInstruction *target, llvm::StringRef semantic,
