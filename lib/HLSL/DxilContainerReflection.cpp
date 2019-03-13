@@ -1038,16 +1038,8 @@ void CShaderReflectionConstantBuffer::Initialize(
   Type *Ty = CB.GetGlobalSymbol()->getType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
-  if (Ty->isArrayTy()) {
+  if (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
-    // with ConstantBuffer<MyStruct> buf[2],
-    // MyStruct will be embedded within another struct,
-    // so drill in one more level.
-    // TBD: This will not work with ConstantBuffer<MyStruct> MyCB; (no array)
-    //      because we can't disinguish it from the cbuffer { ... } case.
-    //      This needs to be solved somehow.
-    Ty = cast<StructType>(Ty)->getContainedType(0);
-  }
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -1056,6 +1048,20 @@ void CShaderReflectionConstantBuffer::Initialize(
   // Dxil from dxbc doesn't have annotation.
   if (!annotation)
     return;
+
+  if (ST->getNumElements() == 1 &&
+      isa<StructType>(Ty->getContainedType(0)) &&
+      annotation->GetFieldAnnotation(0).GetFieldName() == CB.GetGlobalName()) {
+    // Assume we need to drill one level deeper into struct.
+    // This is the case when you use ConstantBuffer<MyStruct> ...
+    // It could also misfire in a narrow case where you use:
+    // struct MyStruct { ... }; cbuffer MyCBuffer { MyStruct MyCBuffer; }
+    // But the effect would be to drill one level into MyCBuffer for cbuffer VarDesc,
+    // which wouldn't be bad.
+    ST = cast<StructType>(Ty->getContainedType(0));
+    annotation = 
+      typeSys.GetStructAnnotation(cast<StructType>(ST));
+  }
 
   m_Desc.Variables = ST->getNumContainedTypes();
   unsigned lastIndex = ST->getNumContainedTypes() - 1;

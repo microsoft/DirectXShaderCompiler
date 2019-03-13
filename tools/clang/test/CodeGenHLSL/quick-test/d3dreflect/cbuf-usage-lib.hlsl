@@ -4,11 +4,12 @@
 
 // CHECK-NOT: CBufUnused
 
-// Unfortunately, there's no way to know that we have to drill into CBuf1 structure here.
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf1
-// CHECK: Num Variables: 1
-// CHECK: D3D12_SHADER_VARIABLE_DESC: Name: CBuf1
+// CHECK: Num Variables: 2
+// CHECK: D3D12_SHADER_VARIABLE_DESC: Name: i2
 // CHECK: uFlags: 0x2
+// CHECK: D3D12_SHADER_VARIABLE_DESC: Name: f2
+// CHECK: uFlags: 0
 // CHECK: CBuffer: CBuf1
 
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf0
@@ -19,7 +20,6 @@
 // CHECK: uFlags: 0x2
 // CHECK: CBuffer: CBuf0
 
-// But we do know to drill in one extra level here because the top level type is an array.
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf2
 // CHECK: Num Variables: 2
 // CHECK: D3D12_SHADER_VARIABLE_DESC: Name: i2
