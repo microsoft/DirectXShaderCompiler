@@ -408,7 +408,7 @@ public:
                         bool isSigned, SourceLocation loc = {});
 
   /// \brief Creates an OpEmitVertex instruction.
-  void createEmitVertex(SourceLocation loc = {});
+  void createEmitVertex(SourceLocation);
 
   /// \brief Creates an OpEndPrimitive instruction.
   void createEndPrimitive(SourceLocation);
