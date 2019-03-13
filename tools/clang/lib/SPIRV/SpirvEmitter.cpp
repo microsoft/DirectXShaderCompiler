@@ -3402,26 +3402,43 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   if (isAppend) {
     // Write out the value
     auto *arg0 = doExpr(expr->getArg(0));
+    if (!arg0)
+      return nullptr;
+
     if (!arg0->isRValue()) {
-      arg0 = spvBuilder.createLoad(bufferElemTy, arg0);
-    }
-    if (isBoolOrVecOfBoolType(bufferElemTy)) {
-      uint32_t vecSize = 1;
-      const bool isVec = isVectorType(bufferElemTy, nullptr, &vecSize);
-      const auto toType =
-          isVec ? astContext.getExtVectorType(astContext.BoolTy, vecSize)
-                : astContext.BoolTy;
-      const auto fromType =
-          isVec ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
-                : astContext.UnsignedIntTy;
-      arg0 = castToBool(arg0, fromType, toType);
+      arg0 = spvBuilder.createLoad(arg0->getAstResultType() == QualType()
+                                       ? bufferElemTy
+                                       : arg0->getAstResultType(),
+                                   arg0);
     }
     storeValue(bufferInfo, arg0, bufferElemTy);
     return 0;
   } else {
-    // Note that we are returning a pointer (lvalue) here inorder to further
-    // acess the fields in this element, e.g., buffer.Consume().a.b. So we
-    // cannot forcefully set all normal function calls as returning rvalue.
+    // Note that we are returning a rvalue here. If it is a pointer, when
+    // there is a type-casting, it causes an error e.g.,
+    //
+    // AppendStructuredBuffer<int> foo;
+    // ConsumeStructuredBuffer<bool> bar;
+    // foo.Append(bar.Consume());
+    //
+    // In addition, we type-cast the rvalue to bool type rvalue if it must
+    // be a bool type because its caller expects its return type is a bool
+    // type. For example, the above code has an error without type-casting
+    // because of an implicit type-cast from bool to int.
+    if (!bufferInfo->isRValue()) {
+      bufferInfo = spvBuilder.createLoad(bufferElemTy, bufferInfo);
+
+      if (bufferInfo->getLayoutRule() != SpirvLayoutRule::Void &&
+          isBoolOrVecMatOfBoolType(bufferElemTy)) {
+        uint32_t vecSize = 1;
+        const bool isVec = isVectorType(bufferElemTy, nullptr, &vecSize);
+        const auto fromType =
+            isVec
+                ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
+                : astContext.UnsignedIntTy;
+        bufferInfo = castToBool(bufferInfo, fromType, bufferElemTy);
+      }
+    }
     return bufferInfo;
   }
 }

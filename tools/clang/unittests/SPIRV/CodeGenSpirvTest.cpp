@@ -94,26 +94,14 @@ TEST_F(FileTest, StructuredByteBufferArray) {
 TEST_F(FileTest, StructuredByteBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, AppendConsumeStructuredBufferTypeCast) {
+  runFileTest("type.append.consume-structured-buffer.cast.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferType) {
   runFileTest("type.append-structured-buffer.hlsl");
 }
-TEST_F(FileTest, AppendConsumeStructuredBufferTypeBool) {
-  runFileTest("type.append-consume-structured-buffer.bool.hlsl");
-}
-TEST_F(FileTest, AppendConsumeStructuredBufferTypeStructWithBool) {
-  runFileTest("type.append-consume-structured-buffer.struct-with-bool.hlsl");
-}
-TEST_F(FileTest, AppendConsumeStructuredBufferTypeV2Bool) {
-  runFileTest("type.append-consume-structured-buffer.v2bool.hlsl");
-}
-TEST_F(FileTest, ConsumeStructuredBufferTypeV2BoolAppendBool) {
-  runFileTest("type.consume-structured-buffer.v2bool.append.bool.hlsl");
-}
 TEST_F(FileTest, ConsumeStructuredBufferType) {
   runFileTest("type.consume-structured-buffer.hlsl");
-}
-TEST_F(FileTest, ConsumeStructuredBufferTypeBool) {
-  runFileTest("type.consume-structured-buffer.bool.hlsl");
 }
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
