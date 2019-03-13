@@ -6898,6 +6898,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   auto *reference = doExpr(callExpr->getArg(0));
   auto *source = doExpr(callExpr->getArg(1));
   auto *accum = doExpr(callExpr->getArg(2));
+  const auto loc = callExpr->getExprLoc();
   const auto uint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto uint8 =
@@ -6994,7 +6995,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
         uintType, reference, /*offset*/
         spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                   llvm::APInt(32, i * 8)),
-        /*count*/ uint8, /*isSigned*/ false));
+        /*count*/ uint8, /*isSigned*/ false, loc));
     signedRefBytes.push_back(
         spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refBytes.back()));
     isRefByteZero.push_back(spvBuilder.createBinaryOp(
@@ -7009,7 +7010,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
           /*offset*/
           spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                     llvm::APInt(32, 8 * byteCount)),
-          /*count*/ uint8, /*isSigned*/ false);
+          /*count*/ uint8, /*isSigned*/ false, loc);
       auto *signedSrcByte =
           spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
       auto *sub = spvBuilder.createBinaryOp(
