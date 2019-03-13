@@ -956,12 +956,11 @@ void SpirvBuilder::decorateCounterBuffer(SpirvInstruction *mainBuffer,
 
 void SpirvBuilder::decorateHlslSemantic(SpirvInstruction *target,
                                         llvm::StringRef semantic,
-                                        llvm::Optional<uint32_t> memberIdx,
-                                        SourceLocation srcLoc) {
+                                        llvm::Optional<uint32_t> memberIdx) {
   if (spirvOptions.enableReflect) {
-    auto *decor = new (context)
-        SpirvDecoration(srcLoc, target, spv::Decoration::HlslSemanticGOOGLE,
-                        semantic, memberIdx);
+    auto *decor = new (context) SpirvDecoration(
+        target->getSourceLocation(), target,
+        spv::Decoration::HlslSemanticGOOGLE, semantic, memberIdx);
     module->addDecoration(decor);
   }
 }
