@@ -1049,20 +1049,6 @@ void CShaderReflectionConstantBuffer::Initialize(
   if (!annotation)
     return;
 
-  if (ST->getNumElements() == 1 &&
-      isa<StructType>(Ty->getContainedType(0)) &&
-      annotation->GetFieldAnnotation(0).GetFieldName() == CB.GetGlobalName()) {
-    // Assume we need to drill one level deeper into struct.
-    // This is the case when you use ConstantBuffer<MyStruct> ...
-    // It could also misfire in a narrow case where you use:
-    // struct MyStruct { ... }; cbuffer MyCBuffer { MyStruct MyCBuffer; }
-    // But the effect would be to drill one level into MyCBuffer for cbuffer VarDesc,
-    // which wouldn't be bad.
-    ST = cast<StructType>(Ty->getContainedType(0));
-    annotation = 
-      typeSys.GetStructAnnotation(cast<StructType>(ST));
-  }
-
   m_Desc.Variables = ST->getNumContainedTypes();
   unsigned lastIndex = ST->getNumContainedTypes() - 1;
 
