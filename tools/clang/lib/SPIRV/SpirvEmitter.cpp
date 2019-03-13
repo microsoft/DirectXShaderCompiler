@@ -3516,7 +3516,7 @@ SpirvEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processStreamOutputRestart(const CXXMemberCallExpr *expr) {
   // TODO: handle multiple stream-output objects
-  spvBuilder.createEndPrimitive();
+  spvBuilder.createEndPrimitive(expr->getExprLoc());
   return 0;
 }
 
