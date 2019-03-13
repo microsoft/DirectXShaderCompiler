@@ -519,8 +519,7 @@ public:
 
   /// \brief Decorates the given target with the given HLSL semantic string.
   void decorateHlslSemantic(SpirvInstruction *target, llvm::StringRef semantic,
-                            llvm::Optional<uint32_t> memberIdx = llvm::None,
-                            SourceLocation srcLoc = {});
+                            llvm::Optional<uint32_t> memberIdx = llvm::None);
 
   /// \brief Decorates the given target with centroid
   void decorateCentroid(SpirvInstruction *target, SourceLocation);
