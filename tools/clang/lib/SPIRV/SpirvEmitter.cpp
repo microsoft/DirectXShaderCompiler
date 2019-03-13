@@ -7772,7 +7772,7 @@ SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
 
   // Get <result-id> for execution scope.
   // If present, execution scope is always Workgroup!
-  llvm::Optional<spv::Scope> execScope;
+  llvm::Optional<spv::Scope> execScope = llvm::None;
   if (groupSync) {
     execScope = spv::Scope::Workgroup;
   }
@@ -7785,7 +7785,8 @@ SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
   const auto memSemaMask = isAllBarrier ? allMemoryBarrierSema
                                         : isDevice ? deviceMemoryBarrierSema
                                                    : groupMemoryBarrierSema;
-  spvBuilder.createBarrier(memScope, memSemaMask, execScope);
+  spvBuilder.createBarrier(memScope, memSemaMask, execScope,
+                           callExpr->getExprLoc());
   return nullptr;
 }
 
@@ -9992,7 +9993,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   // Memory Semantics Barrier scope = None (0)
   spvBuilder.createBarrier(spv::Scope::Invocation,
                            spv::MemorySemanticsMask::MaskNone,
-                           spv::Scope::Workgroup);
+                           spv::Scope::Workgroup, {});
 
   // The PCF should be called only once. Therefore, we check the invocationID,
   // and we only allow ID 0 to call the PCF.
