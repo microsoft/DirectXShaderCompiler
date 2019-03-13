@@ -411,7 +411,7 @@ public:
   void createEmitVertex(SourceLocation loc = {});
 
   /// \brief Creates an OpEndPrimitive instruction.
-  void createEndPrimitive(SourceLocation loc = {});
+  void createEndPrimitive(SourceLocation);
 
   /// \brief Creates an OpArrayLength instruction.
   SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,
