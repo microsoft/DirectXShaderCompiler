@@ -526,7 +526,7 @@ public:
   void decorateCentroid(SpirvInstruction *target, SourceLocation srcLoc = {});
 
   /// \brief Decorates the given target with flat
-  void decorateFlat(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decorateFlat(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with noperspective
   void decorateNoPerspective(SpirvInstruction *target, SourceLocation);

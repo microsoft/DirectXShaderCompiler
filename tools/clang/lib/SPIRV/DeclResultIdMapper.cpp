@@ -2173,7 +2173,7 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
                 "parameters in pixel shader",
                 decl->getLocation());
     } else {
-      spvBuilder.decorateFlat(varInstr);
+      spvBuilder.decorateFlat(varInstr, loc);
     }
   } else {
     // Do nothing for HLSLLinearAttr since its the default
