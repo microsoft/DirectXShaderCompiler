@@ -504,7 +504,7 @@ public:
 
   /// \brief Decorates the given target with the given SpecId.
   void decorateSpecId(SpirvInstruction *target, uint32_t specId,
-                      SourceLocation srcLoc = {});
+                      SourceLocation);
 
   /// \brief Decorates the given target with the given input attchment index
   /// number.
