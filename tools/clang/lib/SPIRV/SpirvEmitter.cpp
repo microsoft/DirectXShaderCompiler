@@ -7337,6 +7337,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
 
   // TODO: We currently don't propagate the NoContraction decoration.
 
+  const auto loc = callExpr->getExprLoc();
   const Expr *arg0 = callExpr->getArg(0);
   const Expr *arg1 = callExpr->getArg(1);
   const Expr *arg2 = callExpr->getArg(2);
@@ -7354,7 +7355,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
     auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
     // For matrix cases, operate on each row of the matrix.
     if (isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSet, arg1Instr,
+      const auto actOnEachVec = [this, loc, glslInstSet, arg1Instr,
                                  arg2Instr](uint32_t index, QualType vecType,
                                             SpirvInstruction *arg0Row) {
         auto *arg1Row =
@@ -7363,7 +7364,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
             spvBuilder.createCompositeExtract(vecType, arg2Instr, {index});
         auto *fma = spvBuilder.createExtInst(
             vecType, glslInstSet, GLSLstd450Fma, {arg0Row, arg1Row, arg2Row});
-        spvBuilder.decorateNoContraction(fma);
+        spvBuilder.decorateNoContraction(fma, loc);
         return fma;
       };
       return processEachVectorInMatrix(arg0, arg0Instr, actOnEachVec);
@@ -7371,7 +7372,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
     // Non-matrix cases
     auto *fma = spvBuilder.createExtInst(argType, glslInstSet, GLSLstd450Fma,
                                          {arg0Instr, arg1Instr, arg2Instr});
-    spvBuilder.decorateNoContraction(fma);
+    spvBuilder.decorateNoContraction(fma, loc);
     return fma;
   }
 
@@ -7382,8 +7383,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
                                             arg1Instr);
       auto *add =
           spvBuilder.createBinaryOp(spv::Op::OpIAdd, argType, mul, arg2Instr);
-      spvBuilder.decorateNoContraction(mul);
-      spvBuilder.decorateNoContraction(add);
+      spvBuilder.decorateNoContraction(mul, loc);
+      spvBuilder.decorateNoContraction(add, loc);
       return add;
     }
   }
@@ -7406,8 +7407,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
                                               rowArg1);
         auto *add =
             spvBuilder.createBinaryOp(spv::Op::OpIAdd, colType, mul, rowArg2);
-        spvBuilder.decorateNoContraction(mul);
-        spvBuilder.decorateNoContraction(add);
+        spvBuilder.decorateNoContraction(mul, loc);
+        spvBuilder.decorateNoContraction(add, loc);
         resultRows.push_back(add);
       }
       return spvBuilder.createCompositeConstruct(argType, resultRows);
