@@ -398,7 +398,7 @@ public:
   SpirvBitFieldInsert *
   createBitFieldInsert(QualType resultType, SpirvInstruction *base,
                        SpirvInstruction *insert, SpirvInstruction *offset,
-                       SpirvInstruction *count, SourceLocation loc = {});
+                       SpirvInstruction *count, SourceLocation);
 
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
   /// instruction for the given arguments.
