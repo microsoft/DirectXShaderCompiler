@@ -6927,15 +6927,15 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   auto *t0y =
       spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS8, /*insert*/ v1y,
                                       /*offset*/ uint24,
-                                      /*width*/ uint8);
+                                      /*width*/ uint8, loc);
   auto *t0z =
       spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS16, /*insert*/ v1y,
                                       /*offset*/ uint16,
-                                      /*width*/ uint16);
+                                      /*width*/ uint16, loc);
   auto *t0w =
       spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS24, /*insert*/ v1y,
                                       /*offset*/ uint8,
-                                      /*width*/ uint24);
+                                      /*width*/ uint24, loc);
 
   // Step 3. MSAD (Masked Sum of Absolute Differences)
 
