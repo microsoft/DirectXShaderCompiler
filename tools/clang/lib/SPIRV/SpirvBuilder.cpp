@@ -994,13 +994,6 @@ void SpirvBuilder::decorateSample(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
-void SpirvBuilder::decorateBlock(SpirvInstruction *target,
-                                 SourceLocation srcLoc) {
-  auto *decor =
-      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Block);
-  module->addDecoration(decor);
-}
-
 void SpirvBuilder::decoratePatch(SpirvInstruction *target,
                                  SourceLocation srcLoc) {
   auto *decor =
