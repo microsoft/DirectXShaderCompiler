@@ -433,8 +433,7 @@ public:
   /// support a single entry point per module for now.
   inline void addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                             std::string targetName,
-                            llvm::ArrayRef<SpirvVariable *> interfaces,
-                            SourceLocation loc = {});
+                            llvm::ArrayRef<SpirvVariable *> interfaces);
 
   /// \brief Sets the shader model version, source file name, and source file
   /// content. Returns the SpirvString instruction of the file name.
@@ -618,10 +617,9 @@ void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
 
 void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                                  std::string targetName,
-                                 llvm::ArrayRef<SpirvVariable *> interfaces,
-                                 SourceLocation loc) {
-  module->addEntryPoint(
-      new (context) SpirvEntryPoint(loc, em, target, targetName, interfaces));
+                                 llvm::ArrayRef<SpirvVariable *> interfaces) {
+  module->addEntryPoint(new (context) SpirvEntryPoint(
+      target->getSourceLocation(), em, target, targetName, interfaces));
 }
 
 SpirvString *SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
