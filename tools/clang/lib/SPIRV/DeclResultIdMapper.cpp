@@ -1211,7 +1211,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
       spvBuilder.decorateLocation(var.getSpirvInstr(), loc);
       if (var.getIndexAttr())
-        spvBuilder.decorateIndex(var.getSpirvInstr(), idx);
+        spvBuilder.decorateIndex(var.getSpirvInstr(), idx,
+                                 var.getSemanticInfo().loc);
     }
 
     return noError;
