@@ -231,7 +231,7 @@ public:
   /// decorations for the given parameters.
   SpirvSampledImage *createSampledImage(QualType, SpirvInstruction *image,
                                         SpirvInstruction *sampler,
-                                        SourceLocation loc = {});
+                                        SourceLocation);
 
   /// \brief Creates an OpImageTexelPointer SPIR-V instruction with the given
   /// parameters.
