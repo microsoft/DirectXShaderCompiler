@@ -1062,7 +1062,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       const auto returnLoc = decl->getBody()->getLocEnd();
 
       if (retType->isVoidType()) {
-        spvBuilder.createReturn();
+        spvBuilder.createReturn(returnLoc);
       } else {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
@@ -9729,7 +9729,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     spvBuilder.createStore(stageVars[0], tempLoad);
   }
 
-  spvBuilder.createReturn();
+  spvBuilder.createReturn(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
 
   return true;
@@ -9951,7 +9951,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     }
   }
 
-  spvBuilder.createReturn();
+  spvBuilder.createReturn(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
