@@ -203,10 +203,9 @@ public:
                                                    spv::Scope execScope,
                                                    SourceLocation loc = {});
   SpirvNonUniformUnaryOp *createGroupNonUniformUnaryOp(
-      spv::Op op, QualType resultType, spv::Scope execScope,
+      SourceLocation, spv::Op op, QualType resultType, spv::Scope execScope,
       SpirvInstruction *operand,
-      llvm::Optional<spv::GroupOperation> groupOp = llvm::None,
-      SourceLocation loc = {});
+      llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
   SpirvNonUniformBinaryOp *createGroupNonUniformBinaryOp(
       spv::Op op, QualType resultType, spv::Scope execScope,
       SpirvInstruction *operand1, SpirvInstruction *operand2, SourceLocation);
