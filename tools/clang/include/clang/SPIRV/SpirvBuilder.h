@@ -239,7 +239,7 @@ public:
                                                   SpirvInstruction *image,
                                                   SpirvInstruction *coordinate,
                                                   SpirvInstruction *sample,
-                                                  SourceLocation loc = {});
+                                                  SourceLocation);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
