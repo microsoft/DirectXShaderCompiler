@@ -330,7 +330,7 @@ public:
   SpirvSelect *createSelect(QualType resultType, SpirvInstruction *condition,
                             SpirvInstruction *trueValue,
                             SpirvInstruction *falseValue,
-                            SourceLocation loc = {});
+                            SourceLocation);
 
   /// \brief Creates a switch statement for the given selector, default, and
   /// branches. Results in OpSelectionMerge followed by OpSwitch.
