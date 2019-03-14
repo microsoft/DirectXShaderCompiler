@@ -201,7 +201,7 @@ public:
   SpirvNonUniformElect *createGroupNonUniformElect(spv::Op op,
                                                    QualType resultType,
                                                    spv::Scope execScope,
-                                                   SourceLocation loc = {});
+                                                   SourceLocation);
   SpirvNonUniformUnaryOp *createGroupNonUniformUnaryOp(
       SourceLocation, spv::Op op, QualType resultType, spv::Scope execScope,
       SpirvInstruction *operand,
