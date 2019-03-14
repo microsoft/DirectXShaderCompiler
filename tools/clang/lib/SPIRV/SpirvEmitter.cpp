@@ -3406,10 +3406,7 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
       return nullptr;
 
     if (!arg0->isRValue()) {
-      arg0 = spvBuilder.createLoad(arg0->getAstResultType() == QualType()
-                                       ? bufferElemTy
-                                       : arg0->getAstResultType(),
-                                   arg0);
+      arg0 = spvBuilder.createLoad(bufferElemTy, arg0);
     }
     storeValue(bufferInfo, arg0, bufferElemTy);
     return 0;
