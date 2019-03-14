@@ -7071,7 +7071,7 @@ SpirvInstruction *SpirvEmitter::processWaveVote(const CallExpr *callExpr,
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformUnaryOp(
-      opcode, retType, spv::Scope::Subgroup, predicate);
+      callExpr->getExprLoc(), opcode, retType, spv::Scope::Subgroup, predicate);
 }
 
 spv::Op SpirvEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
@@ -7154,16 +7154,18 @@ SpirvEmitter::processWaveCountBits(const CallExpr *callExpr,
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
   auto *predicate = doExpr(callExpr->getArg(0));
+  const auto srcLoc = callExpr->getExprLoc();
   const QualType u32Type = astContext.UnsignedIntTy;
   const QualType v4u32Type = astContext.getExtVectorType(u32Type, 4);
   const QualType retType = callExpr->getCallReturnType(astContext);
   auto *ballot = spvBuilder.createGroupNonUniformUnaryOp(
-      spv::Op::OpGroupNonUniformBallot, v4u32Type, spv::Scope::Subgroup,
+      srcLoc, spv::Op::OpGroupNonUniformBallot, v4u32Type, spv::Scope::Subgroup,
       predicate);
 
   return spvBuilder.createGroupNonUniformUnaryOp(
-      spv::Op::OpGroupNonUniformBallotBitCount, retType, spv::Scope::Subgroup,
-      ballot, llvm::Optional<spv::GroupOperation>(groupOp));
+      srcLoc, spv::Op::OpGroupNonUniformBallotBitCount, retType,
+      spv::Scope::Subgroup, ballot,
+      llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
 SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
@@ -7186,7 +7188,7 @@ SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformUnaryOp(
-      opcode, retType, spv::Scope::Subgroup, predicate,
+      callExpr->getExprLoc(), opcode, retType, spv::Scope::Subgroup, predicate,
       llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
@@ -7207,8 +7209,8 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
         value, doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(
-        spv::Op::OpGroupNonUniformBroadcastFirst, retType, spv::Scope::Subgroup,
-        value);
+        srcLoc, spv::Op::OpGroupNonUniformBroadcastFirst, retType,
+        spv::Scope::Subgroup, value);
 }
 
 SpirvInstruction *

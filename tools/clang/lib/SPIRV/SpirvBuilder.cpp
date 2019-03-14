@@ -342,9 +342,8 @@ SpirvNonUniformElect *SpirvBuilder::createGroupNonUniformElect(
 }
 
 SpirvNonUniformUnaryOp *SpirvBuilder::createGroupNonUniformUnaryOp(
-    spv::Op op, QualType resultType, spv::Scope execScope,
-    SpirvInstruction *operand, llvm::Optional<spv::GroupOperation> groupOp,
-    SourceLocation loc) {
+    SourceLocation loc, spv::Op op, QualType resultType, spv::Scope execScope,
+    SpirvInstruction *operand, llvm::Optional<spv::GroupOperation> groupOp) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvNonUniformUnaryOp(op, resultType, loc, execScope, groupOp, operand);
