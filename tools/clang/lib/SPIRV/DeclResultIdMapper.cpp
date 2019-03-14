@@ -1767,8 +1767,9 @@ bool DeclResultIdMapper::createStageVars(
             astContext.UnsignedIntTy, llvm::APInt(32, 1));
         const auto constZero = spvBuilder.getConstantInt(
             astContext.UnsignedIntTy, llvm::APInt(32, 0));
-        *value = spvBuilder.createSelect(astContext.UnsignedIntTy, *value,
-                                         constOne, constZero);
+        *value =
+            spvBuilder.createSelect(astContext.UnsignedIntTy, *value, constOne,
+                                    constZero, /*SourceLocation*/ {});
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
       // underlying stage input variable is a float2 (only provides the first

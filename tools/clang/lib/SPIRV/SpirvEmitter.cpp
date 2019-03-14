@@ -2590,6 +2590,7 @@ SpirvEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
 SpirvInstruction *
 SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const auto type = expr->getType();
+  const SourceLocation loc = expr->getExprLoc();
 
   // According to HLSL doc, all sides of the ?: expression are always evaluated.
 
@@ -2616,7 +2617,7 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
     }
 
     auto *value =
-        spvBuilder.createSelect(type, condition, trueBranch, falseBranch);
+        spvBuilder.createSelect(type, condition, trueBranch, falseBranch, loc);
     value->setRValue();
     return value;
   }
@@ -6119,7 +6120,7 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
   if (isBoolOrVecOfBoolType(fromType)) {
     auto *one = getValueOne(toIntType);
     auto *zero = getValueZero(toIntType);
-    return spvBuilder.createSelect(toIntType, fromVal, one, zero);
+    return spvBuilder.createSelect(toIntType, fromVal, one, zero, srcLoc);
   }
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
@@ -6229,7 +6230,7 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
   if (isBoolOrVecOfBoolType(fromType)) {
     auto *one = getValueOne(toFloatType);
     auto *zero = getValueZero(toFloatType);
-    return spvBuilder.createSelect(toFloatType, fromVal, one, zero);
+    return spvBuilder.createSelect(toFloatType, fromVal, one, zero, srcLoc);
   }
 
   if (isSintOrVecOfSintType(fromType)) {
@@ -7026,7 +7027,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
           intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub}, loc);
       auto *diff = spvBuilder.createSelect(
           uintType, isRefByteZero[byteCount], uint0,
-          spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub));
+          spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub), loc);
 
       // As pointed out by the DXIL reference above, it is *not* required to
       // saturate the output to UINT_MAX in case of overflow. Wrapping around is
@@ -7460,7 +7461,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicLit(const CallExpr *callExpr) {
   auto *isNeg = spvBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, boolType,
                                           min, floatZero);
   auto *mul = spvBuilder.createBinaryOp(spv::Op::OpFMul, floatType, nDotH, m);
-  auto *specular = spvBuilder.createSelect(floatType, isNeg, floatZero, mul);
+  auto *specular =
+      spvBuilder.createSelect(floatType, isNeg, floatZero, mul, loc);
   return spvBuilder.createCompositeConstruct(
       retType, {floatOne, diffuse, specular, floatOne});
 }
