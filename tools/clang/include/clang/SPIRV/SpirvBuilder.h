@@ -315,7 +315,7 @@ public:
   /// given Resident Code and returns the instruction pointer.
   SpirvImageSparseTexelsResident *
   createImageSparseTexelsResident(SpirvInstruction *resident_code,
-                                  SourceLocation loc = {});
+                                  SourceLocation);
 
   /// \brief Creates an image query instruction.
   /// The given 'lod' is used as the Lod argument in the case of
