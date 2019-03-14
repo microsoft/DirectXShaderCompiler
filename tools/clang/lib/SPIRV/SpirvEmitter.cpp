@@ -7055,8 +7055,8 @@ SpirvInstruction *SpirvEmitter::processWaveQuery(const CallExpr *callExpr,
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
   const QualType retType = callExpr->getCallReturnType(astContext);
-  return spvBuilder.createGroupNonUniformElect(opcode, retType,
-                                               spv::Scope::Subgroup);
+  return spvBuilder.createGroupNonUniformElect(
+      opcode, retType, spv::Scope::Subgroup, callExpr->getExprLoc());
 }
 
 SpirvInstruction *SpirvEmitter::processWaveVote(const CallExpr *callExpr,
