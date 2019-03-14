@@ -12,6 +12,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Operator.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilShaderModel.h"
@@ -202,6 +203,7 @@ private:
 
   void AddResourceUseToFunctions(DxilResourceBase &resource, unsigned resIndex);
   void AddResourceDependencies();
+  void SetCBufferUsage();
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -2310,6 +2312,31 @@ void DxilLibraryReflection::AddResourceDependencies() {
   }
 }
 
+static void CollectCBufUsageForLib(Value *V, std::vector<unsigned> &cbufUsage) {
+  for (auto user : V->users()) {
+    Value *V = user;
+    if (auto *CI = dyn_cast<CallInst>(V)) {
+      if (hlsl::OP::IsDxilOpFuncCallInst(CI, hlsl::OP::OpCode::CreateHandleForLib)) {
+        CollectCBufUsage(CI, cbufUsage);
+      }
+    } else if (isa<GEPOperator>(V) ||
+               isa<LoadInst>(V)) {
+      CollectCBufUsageForLib(user, cbufUsage);
+    }
+  }
+}
+
+void DxilLibraryReflection::SetCBufferUsage() {
+  unsigned cbSize = std::min(m_CBs.size(), m_pDxilModule->GetCBuffers().size());
+
+  for (unsigned i=0;i<cbSize;i++) {
+    std::vector<unsigned> cbufUsage;
+    CollectCBufUsageForLib(m_pDxilModule->GetCBuffer(i).GetGlobalSymbol(), cbufUsage);
+    SetCBufVarUsage(*m_CBs[i], cbufUsage);
+  }
+}
+
+
 // ID3D12LibraryReflection
 
 HRESULT DxilLibraryReflection::Load(IDxcBlob *pBlob,
@@ -2318,6 +2345,7 @@ HRESULT DxilLibraryReflection::Load(IDxcBlob *pBlob,
 
   try {
     AddResourceDependencies();
+    SetCBufferUsage();
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
