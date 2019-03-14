@@ -2966,6 +2966,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
+  const auto loc = expr->getExprLoc();
   const QualType imageType = imageExpr->getType();
   const QualType retType = callee->getReturnType();
 
@@ -3025,7 +3026,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
                                     llvm::APInt(32, component, true)),
           compareVal,
           /*constOffset*/ nullptr, varOffset, /*constOffsets*/ nullptr,
-          /*sampleNumber*/ nullptr, status);
+          /*sampleNumber*/ nullptr, status, loc);
       texels[i] = spvBuilder.createCompositeExtract(elemType, gatherRet, {i});
     }
     return spvBuilder.createCompositeConstruct(
@@ -3037,7 +3038,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
       spvBuilder.getConstantInt(astContext.IntTy,
                                 llvm::APInt(32, component, true)),
       compareVal, constOffset, varOffset, constOffsets,
-      /*sampleNumber*/ nullptr, status);
+      /*sampleNumber*/ nullptr, status, loc);
 }
 
 SpirvInstruction *
@@ -3065,6 +3066,7 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
 
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
+  const auto loc = expr->getExprLoc();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   const bool hasOffsetArg = (numArgs == 5) || (numArgs == 4 && !hasStatusArg);
@@ -3087,7 +3089,7 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
       retType, imageType, image, sampler, coordinate,
       /*component*/ nullptr, comparator, constOffset, varOffset,
       /*constOffsets*/ nullptr,
-      /*sampleNumber*/ nullptr, status);
+      /*sampleNumber*/ nullptr, status, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
@@ -3969,6 +3971,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   // Other Texture types do not have a Gather method.
 
   const auto numArgs = expr->getNumArgs();
+  const auto loc = expr->getExprLoc();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
 
@@ -4009,7 +4012,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
         // .Gather() doc says we return four components of red data.
         spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)),
         /*compareVal*/ nullptr, constOffset, varOffset,
-        /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status);
+        /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status, loc);
   }
 }
 
