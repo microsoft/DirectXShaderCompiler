@@ -224,7 +224,7 @@ public:
       spv::MemorySemanticsMask equalMemorySemantics,
       spv::MemorySemanticsMask unequalMemorySemantics,
       SpirvInstruction *valueToOp, SpirvInstruction *comparator,
-      SourceLocation loc = {});
+      SourceLocation);
 
   /// \brief Creates an OpSampledImage SPIR-V instruction with proper
   /// decorations for the given parameters.
