@@ -218,8 +218,7 @@ public:
                               SpirvInstruction *orignalValuePtr,
                               spv::Scope scope,
                               spv::MemorySemanticsMask memorySemantics,
-                              SpirvInstruction *valueToOp,
-                              SourceLocation loc = {});
+                              SpirvInstruction *valueToOp, SourceLocation);
   SpirvAtomic *createAtomicCompareExchange(
       QualType resultType, SpirvInstruction *orignalValuePtr, spv::Scope scope,
       spv::MemorySemanticsMask equalMemorySemantics,

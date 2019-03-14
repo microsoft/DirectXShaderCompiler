@@ -2702,6 +2702,7 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
   // void Interlocked*(in UINT dest, in UINT value, out UINT original_value);
 
   const auto *object = expr->getImplicitObjectArgument();
+  const auto srcLoc = expr->getExprLoc();
   auto *objectInfo = loadIfAliasVarRef(object);
 
   auto *zero =
@@ -2735,7 +2736,7 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
     auto *originalVal = spvBuilder.createAtomicOp(
         translateAtomicHlslOpcodeToSpirvOpcode(opcode),
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, value);
+        spv::MemorySemanticsMask::MaskNone, value, srcLoc);
     if (expr->getNumArgs() > 2)
       spvBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
   }
@@ -3273,6 +3274,7 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
   auto *sOne =
       spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 1, true));
 
+  const auto srcLoc = expr->getExprLoc();
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
 
@@ -3298,15 +3300,15 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
   SpirvInstruction *index = nullptr;
   if (isInc) {
-    index = spvBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, astContext.IntTy,
-                                      counterPtr, spv::Scope::Device,
-                                      spv::MemorySemanticsMask::MaskNone, sOne);
+    index = spvBuilder.createAtomicOp(
+        spv::Op::OpAtomicIAdd, astContext.IntTy, counterPtr, spv::Scope::Device,
+        spv::MemorySemanticsMask::MaskNone, sOne, srcLoc);
   } else {
     // Note that OpAtomicISub returns the value before the subtraction;
     // so we need to do substraction again with OpAtomicISub's return value.
     auto *prev = spvBuilder.createAtomicOp(
         spv::Op::OpAtomicISub, astContext.IntTy, counterPtr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, sOne);
+        spv::MemorySemanticsMask::MaskNone, sOne, srcLoc);
     index = spvBuilder.createBinaryOp(spv::Op::OpISub, astContext.IntTy, prev,
                                       sOne);
   }
@@ -6846,9 +6848,9 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       atomicOp = spv::Op::OpAtomicSMin;
     if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
       atomicOp = spv::Op::OpAtomicUMin;
-    auto *originalVal =
-        spvBuilder.createAtomicOp(atomicOp, baseType, ptr, spv::Scope::Device,
-                                  spv::MemorySemanticsMask::MaskNone, value);
+    auto *originalVal = spvBuilder.createAtomicOp(
+        atomicOp, baseType, ptr, spv::Scope::Device,
+        spv::MemorySemanticsMask::MaskNone, value, srcLoc);
     if (expr->getNumArgs() > 2)
       writeToOutputArg(originalVal, expr, 2);
   }
