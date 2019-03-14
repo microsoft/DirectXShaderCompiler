@@ -6428,8 +6428,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            /*isAllBarrier*/ true);
     break;
   case hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped:
-    retVal =
-        spvBuilder.createImageSparseTexelsResident(doExpr(callExpr->getArg(0)));
+    retVal = spvBuilder.createImageSparseTexelsResident(
+        doExpr(callExpr->getArg(0)), srcLoc);
     break;
 
   case hlsl::IntrinsicOp::IOP_mul:
