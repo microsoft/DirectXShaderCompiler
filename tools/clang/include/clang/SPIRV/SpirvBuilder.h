@@ -371,7 +371,7 @@ public:
   /// \brief Creates a return instruction.
   void createReturn(SourceLocation loc = {});
   /// \brief Creates a return value instruction.
-  void createReturnValue(SpirvInstruction *value, SourceLocation loc = {});
+  void createReturnValue(SpirvInstruction *value, SourceLocation);
 
   /// \brief Creates an OpExtInst instruction with the given instruction set,
   /// instruction number, and operands. Returns the resulting instruction
