@@ -2728,7 +2728,7 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
     auto *originalVal = spvBuilder.createAtomicCompareExchange(
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
         spv::MemorySemanticsMask::MaskNone, spv::MemorySemanticsMask::MaskNone,
-        doExpr(expr->getArg(2)), comparator);
+        doExpr(expr->getArg(2)), comparator, srcLoc);
     if (isCompareExchange)
       spvBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
   } else {
@@ -6828,7 +6828,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     auto *valueInstr = doArg(expr, 2);
     auto *originalVal = spvBuilder.createAtomicCompareExchange(
         baseType, ptr, spv::Scope::Device, spv::MemorySemanticsMask::MaskNone,
-        spv::MemorySemanticsMask::MaskNone, valueInstr, comparator);
+        spv::MemorySemanticsMask::MaskNone, valueInstr, comparator, srcLoc);
     if (isCompareExchange)
       writeToOutputArg(originalVal, expr, 3);
   } else {
