@@ -7195,6 +7195,7 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   // <type> WaveReadLaneFirst(<type> expr)
   // <type> WaveReadLaneAt(<type> expr, uint laneIndex)
   const auto numArgs = callExpr->getNumArgs();
+  const auto srcLoc = callExpr->getExprLoc();
   assert(numArgs == 1 || numArgs == 2);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
@@ -7203,7 +7204,7 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   if (numArgs == 2)
     return spvBuilder.createGroupNonUniformBinaryOp(
         spv::Op::OpGroupNonUniformBroadcast, retType, spv::Scope::Subgroup,
-        value, doExpr(callExpr->getArg(1)));
+        value, doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(
         spv::Op::OpGroupNonUniformBroadcastFirst, retType, spv::Scope::Subgroup,
@@ -7223,6 +7224,7 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
                                   callExpr->getExprLoc());
 
   auto *value = doExpr(callExpr->getArg(0));
+  const auto srcLoc = callExpr->getExprLoc();
   const QualType retType = callExpr->getCallReturnType(astContext);
 
   SpirvInstruction *target = nullptr;
@@ -7249,7 +7251,7 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
   }
 
   return spvBuilder.createGroupNonUniformBinaryOp(
-      opcode, retType, spv::Scope::Subgroup, value, target);
+      opcode, retType, spv::Scope::Subgroup, value, target, srcLoc);
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
