@@ -209,8 +209,7 @@ public:
       SourceLocation loc = {});
   SpirvNonUniformBinaryOp *createGroupNonUniformBinaryOp(
       spv::Op op, QualType resultType, spv::Scope execScope,
-      SpirvInstruction *operand1, SpirvInstruction *operand2,
-      SourceLocation loc = {});
+      SpirvInstruction *operand1, SpirvInstruction *operand2, SourceLocation);
 
   /// \brief Creates an atomic instruction with the given parameters and returns
   /// its pointer.
