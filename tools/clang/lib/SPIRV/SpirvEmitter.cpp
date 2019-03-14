@@ -10220,6 +10220,8 @@ void SpirvEmitter::processCaseStmtOrDefaultStmt(const Stmt *stmt) {
 
 void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
     const SwitchStmt *switchStmt) {
+  const SourceLocation srcLoc = switchStmt->getSwitchLoc();
+
   // First handle the condition variable DeclStmt if one exists.
   // For example: handle 'int a = b' in the following:
   // switch (int a = b) {...}
@@ -10242,7 +10244,7 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
   discoverAllCaseStmtInSwitchStmt(switchStmt->getBody(), &defaultBB, &targets);
 
   // Create the OpSelectionMerge and OpSwitch.
-  spvBuilder.createSwitch(mergeBB, selector, defaultBB, targets);
+  spvBuilder.createSwitch(mergeBB, selector, defaultBB, targets, srcLoc);
 
   // Handle the switch body.
   doStmt(switchStmt->getBody());
