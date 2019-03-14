@@ -309,7 +309,7 @@ public:
                     SpirvInstruction *compareVal, SpirvInstruction *constOffset,
                     SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
                     SpirvInstruction *sample, SpirvInstruction *residencyCode,
-                    SourceLocation loc = {});
+                    SourceLocation);
 
   /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
   /// given Resident Code and returns the instruction pointer.
