@@ -1059,6 +1059,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // basic block. Make sure we have a termination instruction.
     if (!spvBuilder.isCurrentBasicBlockTerminated()) {
       const auto retType = decl->getReturnType();
+      const auto returnLoc = decl->getBody()->getLocEnd();
 
       if (retType->isVoidType()) {
         spvBuilder.createReturn();
@@ -1066,7 +1067,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
         // value here.
-        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType));
+        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType),
+                                     returnLoc);
       }
     }
   }
