@@ -42,7 +42,7 @@ void main() {
 
   append_bool.Append(consume_int.Consume());
 
-// CHECK:       [[p_2:%\d+]] = OpAccessChain %_ptr_Uniform_uint %consume_float %uint_0 {{%\d+}}
+// CHECK:       [[p_2:%\d+]] = OpAccessChain %_ptr_Uniform_float %consume_float %uint_0 {{%\d+}}
 // CHECK-NEXT:  [[f_0:%\d+]] = OpLoad %float [[p_2]]
 // CHECK-NEXT:  [[b_1:%\d+]] = OpFOrdNotEqual %bool [[f_0]] %float_0
 // CHECK-NEXT: [[bi_1:%\d+]] = OpSelect %uint [[b_1]] %uint_1 %uint_0
