@@ -369,7 +369,7 @@ public:
       SourceLocation loc = {});
 
   /// \brief Creates a return instruction.
-  void createReturn(SourceLocation loc = {});
+  void createReturn(SourceLocation);
   /// \brief Creates a return value instruction.
   void createReturnValue(SpirvInstruction *value, SourceLocation);
 
