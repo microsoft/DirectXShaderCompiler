@@ -6749,6 +6749,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   auto *zero =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto *dest = expr->getArg(0);
+  const auto srcLoc = expr->getExprLoc();
   const auto baseType = dest->getType()->getCanonicalTypeUnqualified();
 
   if (!baseType->isIntegerType()) {
@@ -6800,7 +6801,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       }
       auto *coordInstr = doExpr(index);
       ptr = spvBuilder.createImageTexelPointer(baseType, baseInstr, coordInstr,
-                                               zero);
+                                               zero, srcLoc);
     }
   }
   if (!ptr) {
