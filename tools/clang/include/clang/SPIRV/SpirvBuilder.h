@@ -341,7 +341,7 @@ public:
                SourceLocation loc = {});
 
   /// \brief Creates a fragment-shader discard via by emitting OpKill.
-  void createKill(SourceLocation loc = {});
+  void createKill(SourceLocation);
 
   /// \brief Creates an unconditional branch to the given target label.
   /// If mergeBB and continueBB are non-null, it creates an OpLoopMerge

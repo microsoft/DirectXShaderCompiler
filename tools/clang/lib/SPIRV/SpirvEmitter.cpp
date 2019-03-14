@@ -1337,7 +1337,7 @@ spv::LoopControlMask SpirvEmitter::translateLoopAttribute(const Stmt *stmt,
 
 void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
-  spvBuilder.createKill();
+  spvBuilder.createKill(discardStmt->getLoc());
   // Some statements that alter the control flow (break, continue, return, and
   // discard), require creation of a new basic block to hold any statement that
   // may follow them.
@@ -7636,6 +7636,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
 
   assert(callExpr->getNumArgs() == 1u);
   const Expr *arg = callExpr->getArg(0);
+  const auto loc = callExpr->getExprLoc();
   const auto argType = arg->getType();
   const auto boolType = astContext.BoolTy;
   SpirvInstruction *condition = nullptr;
@@ -7678,8 +7679,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
         spvBuilder.createCompositeConstruct(boolRowType, cmpResults);
     condition = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
   } else {
-    emitError("invalid argument type passed to clip intrinsic function",
-              callExpr->getExprLoc());
+    emitError("invalid argument type passed to clip intrinsic function", loc);
     return nullptr;
   }
 
@@ -7693,7 +7693,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
   spvBuilder.setMergeTarget(mergeBB);
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
-  spvBuilder.createKill();
+  spvBuilder.createKill(loc);
   spvBuilder.addSuccessor(mergeBB);
   // From now on, we'll emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
