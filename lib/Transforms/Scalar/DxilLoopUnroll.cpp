@@ -668,11 +668,15 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
 }
 
 static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
+  // Copy the sub loops into a separate list because
+  // the original list may change.
+  SmallVector<Loop *, 4> SubLoops(L->getSubLoops().begin(), L->getSubLoops().end());
+
   // Must remove all child loops first.
-  while (L->getSubLoops().size()) {
-    // This also removes the subloops from parent loop.
-    RecursivelyRemoveLoopFromQueue(LPM, L->getSubLoops().front());
+  for (Loop *SubL : SubLoops) {
+    RecursivelyRemoveLoopFromQueue(LPM, SubL);
   }
+
   LPM.deleteLoopFromQueue(L);
 }
 
