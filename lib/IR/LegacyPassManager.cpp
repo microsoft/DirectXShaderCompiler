@@ -1546,6 +1546,13 @@ bool FPPassManager::runOnFunction(Function &F) {
       TimeRegion PassTimer(getPassTimer(FP));
 
       LocalChanged |= FP->runOnFunction(F);
+
+//#ifdef DEBUG
+//      llvm::errs() << "\n======================================";
+//      llvm::errs() << "\nDumping module after applying pass:  " << FP->getPassName();
+//      llvm::errs() << "\n======================================\n";
+//      F.getParent()->print(llvm::errs(), nullptr);
+//#endif
     }
 
     Changed |= LocalChanged;
@@ -1622,6 +1629,13 @@ MPPassManager::runOnModule(Module &M) {
       TimeRegion PassTimer(getPassTimer(MP));
 
       LocalChanged |= MP->runOnModule(M);
+
+//#ifdef DEBUG
+//      llvm::errs() << "\n======================================";
+//      llvm::errs() << "\nDumping module after applying pass:  " << MP->getPassName();
+//      llvm::errs() << "\n======================================\n";
+//      M.print(llvm::errs(), nullptr);
+//#endif
     }
 
     Changed |= LocalChanged;

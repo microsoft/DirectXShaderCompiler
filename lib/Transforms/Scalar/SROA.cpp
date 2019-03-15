@@ -4327,11 +4327,7 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
             continue;
           Size = std::min(Size, AbsEnd - Start);
         }
-#if 0 // HLSL Change
         PieceExpr = DIB.createBitPieceExpression(Start, Size);
-#else // HLSL Change
-        PieceExpr = DIB.createBitPieceExpression(Start / 8, Size / 8);
-#endif // HLSL Change
       }
 
       // Remove any existing dbg.declare intrinsic describing the same alloca.

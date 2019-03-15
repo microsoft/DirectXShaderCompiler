@@ -181,6 +181,7 @@ private:
   void gather(Instruction *, const ValueVector &);
   bool canTransferMetadata(unsigned Kind);
   void transferMetadata(Instruction *, const ValueVector &);
+  void transferDebugValue(Instruction *, const ValueVector &); // HLSL Change
   bool getVectorLayout(Type *, unsigned, VectorLayout &, const DataLayout &);
   bool finish();
 
@@ -315,6 +316,7 @@ void Scalarizer::gather(Instruction *Op, const ValueVector &CV) {
     Op->setOperand(I, UndefValue::get(Op->getOperand(I)->getType()));
 
   transferMetadata(Op, CV);
+  transferDebugValue(Op, CV); // HLSL Change
 
   // If we already have a scattered form of Op (created from ExtractElements
   // of Op itself), replace them with the new form.
@@ -364,6 +366,14 @@ void Scalarizer::transferMetadata(Instruction *Op, const ValueVector &CV) {
     }
   }
 }
+
+// HLSL Change Begins
+// Transfer metadata from a vector-producing instruction to the
+// scalars which compose it.
+void Scalarizer::transferDebugValue(Instruction *Op, const ValueVector &CV) {
+
+}
+// HLSL Change Ends
 
 // Try to fill in Layout from Ty, returning true on success.  Alignment is
 // the alignment of the vector, or 0 if the ABI default should be used.
@@ -693,21 +703,21 @@ bool Scalarizer::finish() {
           Type *Ty = Op->getType();
           unsigned Count = Ty->getVectorNumElements();
           Type *EltTy = Ty->getVectorElementType();
-          unsigned EltSize = DL.getTypeSizeInBits(EltTy);
+          unsigned EltSizeInBits = DL.getTypeSizeInBits(EltTy);
           for (User *U : DINode->users())
             if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
               DIBuilder DIB(M, /*AllowUnresolved*/ false);
               auto *VarInfo = DVI->getVariable();
               DebugLoc DbgLoc = DVI->getDebugLoc();
-              unsigned Offset = 0;
+              unsigned OffsetInBits = 0;
               for (unsigned I = 0; I < Count; ++I) {
                 // TODO: need to use DIExpression::createFragmentExpression for
                 // case DVI->getExpression is already bit piece.
                 DIExpression *EltExpr =
-                    DIB.createBitPieceExpression(Offset / 8, EltSize / 8);
-                Offset += EltSize;
+                    DIB.createBitPieceExpression(OffsetInBits, EltSizeInBits);
+                OffsetInBits += EltSizeInBits;
 
-                DIB.insertDbgValueIntrinsic(CV[I], Offset, VarInfo, EltExpr,
+                DIB.insertDbgValueIntrinsic(CV[I], OffsetInBits, VarInfo, EltExpr,
                                             DbgLoc, DVI);
               }
             }
