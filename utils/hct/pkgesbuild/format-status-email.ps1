@@ -2,7 +2,8 @@
     [parameter(Mandatory=$true)]  [System.IO.FileInfo]$BuildLogs,
     [parameter(Mandatory=$false)] [System.IO.FileInfo]$EmailBodyFile = "email-body.html",
     [parameter(Mandatory=$false)] [string[]]$StatusItems = @("Build", "Tests"),
-    [parameter(Mandatory=$false)] [string[]]$StatusItemsCanFail = @("Tests")
+    [parameter(Mandatory=$false)] [string[]]$StatusItemsCanFail = @("Tests"),
+    [parameter(Mandatory=$false)] [string]$AdditionalInfo = ""
 )
 
 $platforms = "x64", "x86", "arm64"
@@ -63,6 +64,7 @@ $email_template_file = $script_root + "\status-email-template.html"
 #create email body
 $email_template = Get-Content $email_template_file
 $email_body = $email_template.Replace("{status_tables}", $status_tables)
+$email_body = $email_body.Replace("{additional_info}", $AdditionalInfo)
 
 Set-Content -Path $EmailBodyFile -Value $email_body
 
@@ -71,4 +73,3 @@ Write-Host "##vso[task.setvariable variable=OverallStatus;isOutput=true]$overall
 
 Write-Host $email_body`n
 Write-Host $overall_status
-    
