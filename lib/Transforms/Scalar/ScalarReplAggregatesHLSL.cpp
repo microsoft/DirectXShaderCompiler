@@ -1685,11 +1685,10 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
 
             DIExpression *DDIExp = nullptr;
             if (parentOffset+debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
-              std::vector<uint64_t> args;
-              DDIExp = DIB.createExpression(args);
+              DDIExp = DIB.createExpression();
             }
             else {
-              DDIExp = DIB.createBitPieceExpression(parentOffset+debugOffset, size);
+              DDIExp = DIB.createBitPieceExpression((parentOffset+debugOffset) * 8, size * 8);
             }
             OffsetMap[Elt] = parentOffset+debugOffset;
 #endif // HLSL Change
@@ -5692,11 +5691,10 @@ void SROA_Parameter_HLSL::flattenArgument(
           argTy = argTy->getPointerElementType();
         DIExpression *DDIExp = nullptr;
         if (debugOffset == 0 && DL.getTypeAllocSize(argTy) == size) {
-          std::vector<uint64_t> Addr;
-          DDIExp = DIB.createExpression(Addr);
+          DDIExp = DIB.createExpression();
         }
         else {
-          DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+          DDIExp = DIB.createBitPieceExpression(debugOffset * 8, size * 8);
         }
 #endif // HLSL Change
         debugOffset += size;
