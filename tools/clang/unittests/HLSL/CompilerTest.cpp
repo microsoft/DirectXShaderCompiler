@@ -2384,27 +2384,91 @@ TEST_F(CompilerTest, CodeGenExpandTrig) {
   CodeGenTestCheckBatchDir(L"expand_trig");
 }
 
-struct FPEnableExceptionsScope
+#ifdef _WIN32
+
+#pragma fenv_access(on)
+#pragma optimize("", off)
+#pragma warning(disable : 4723)
+
+// Define test state as something weird that we can verify was restored
+static const unsigned int fpTestState =
+    (_MCW_EM & (~_EM_ZERODIVIDE)) |   // throw on div by zero
+    _DN_FLUSH_OPERANDS_SAVE_RESULTS | // denorm flush operands & save results
+    _RC_UP;                           // round up
+static const unsigned int fpTestMask = _MCW_EM | _MCW_DN | _MCW_RC;
+
+struct FPTestScope
 {
   // _controlfp_s is non-standard and <cfenv> doesn't have a function to enable exceptions
-#ifdef _WIN32
-  unsigned int previousValue;
-  FPEnableExceptionsScope() {
-    VERIFY_IS_TRUE(_controlfp_s(&previousValue, 0, _MCW_EM) == 0); // _MCW_EM == 0 means enable all exceptions
-  }
-  ~FPEnableExceptionsScope() {
+  unsigned int fpSavedState;
+  FPTestScope() {
+    VERIFY_IS_TRUE(_controlfp_s(&fpSavedState, 0, 0) == 0);
     unsigned int newValue;
-    errno_t error = _controlfp_s(&newValue, previousValue, _MCW_EM);
-    DXASSERT(error == 0, "Failed to restore floating-point environment.");
-    (void)error;
+    VERIFY_IS_TRUE(_controlfp_s(&newValue, fpTestState, fpTestMask) == 0);
   }
-#endif
+  ~FPTestScope() {
+    unsigned int newValue;
+    errno_t error = _controlfp_s(&newValue, fpSavedState, fpTestMask);
+    DXASSERT_LOCALVAR(error, error == 0, "Failed to restore floating-point environment.");
+  }
 };
 
-TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
-  FPEnableExceptionsScope fpEnableExceptions;
-  CodeGenTestCheck(L"fpexcept.hlsl");
+void VerifyDivByZeroThrows() {
+  bool bCaughtExpectedException = false;
+  __try {
+    float one = 1.0;
+    float zero = 0.0;
+    float val = one / zero;
+    (void)val;
+  } __except(EXCEPTION_EXECUTE_HANDLER) {
+    bCaughtExpectedException = true;
+  }
+  VERIFY_IS_TRUE(bCaughtExpectedException);
 }
+
+TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
+  unsigned int fpOriginal;
+  VERIFY_IS_TRUE(_controlfp_s(&fpOriginal, 0, 0) == 0);
+
+  {
+    FPTestScope fpTestScope;
+    // Get state before/after compilation, making sure it's our test state,
+    // and that it is restored after the compile.
+    unsigned int fpBeforeCompile;
+    VERIFY_IS_TRUE(_controlfp_s(&fpBeforeCompile, 0, 0) == 0);
+    VERIFY_ARE_EQUAL((fpBeforeCompile & fpTestMask), fpTestState);
+
+    CodeGenTestCheck(L"fpexcept.hlsl");
+
+    // Verify excpetion environment was restored
+    unsigned int fpAfterCompile;
+    VERIFY_IS_TRUE(_controlfp_s(&fpAfterCompile, 0, 0) == 0);
+    VERIFY_ARE_EQUAL((fpBeforeCompile & fpTestMask), (fpAfterCompile & fpTestMask));
+
+    // Make sure round up is set
+    VERIFY_ARE_EQUAL(rint(12.25), 13);
+
+    // Make sure we actually enabled div-by-zero exception
+    VerifyDivByZeroThrows();
+  }
+
+  // Verify original state has been restored
+  unsigned int fpLocal;
+  VERIFY_IS_TRUE(_controlfp_s(&fpLocal, 0, 0) == 0);
+  VERIFY_ARE_EQUAL(fpLocal, fpOriginal);
+}
+
+#pragma optimize("", on)
+
+#else   // _WIN32
+
+// Only implemented on Win32
+TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
+  VERIFY_IS_TRUE(true);
+}
+
+#endif  // _WIN32
+
 
 TEST_F(CompilerTest, CodeGenFixedWidthTypes) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
