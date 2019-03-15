@@ -231,7 +231,10 @@ public:
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
 
+#if _ITERATOR_DEBUG_LEVEL==0 
+  // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
   TEST_METHOD(CompileWhenNoMemThenOOM)
+#endif
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
@@ -1958,6 +1961,8 @@ public:
   }
 };
 
+#if _ITERATOR_DEBUG_LEVEL==0
+// CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
 TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -2055,6 +2060,7 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
     VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
   }
 }
+#endif
 
 TEST_F(CompilerTest, CompileWhenShaderModelMismatchAttributeThenFail) {
   CComPtr<IDxcCompiler> pCompiler;

@@ -1594,6 +1594,10 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST, bool IsCBuf,
   DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
   DXASSERT(SA, "must have annotation for struct type");
 
+  if (SA->IsEmptyStruct()) {
+    return ST;
+  }
+
   for (unsigned i = 0; i < fieldsCount; i++) {
     Type *EltTy = ST->getElementType(i);
     Type *UpdatedTy = UpdateFieldTypeForLegacyLayout(
