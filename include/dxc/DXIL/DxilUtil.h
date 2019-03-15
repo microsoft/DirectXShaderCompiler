@@ -97,6 +97,7 @@ namespace dxilutil {
                                       unsigned startOpIdx,
                                       unsigned numOperands);
   bool SimplifyTrivialPHIs(llvm::BasicBlock *BB);
+  void ScatterDebugValueToVectorElements(llvm::Value *Val);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,

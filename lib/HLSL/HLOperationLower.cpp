@@ -2716,6 +2716,10 @@ void GenerateDxilSample(CallInst *CI, Function *F, ArrayRef<Value *> sampleArgs,
   // Replace ret val.
   CI->replaceAllUsesWith(retVal);
 
+  // Update the debug info
+  if (retVal->getType()->isVectorTy())
+    dxilutil::ScatterDebugValueToVectorElements(retVal);
+
   // get status
   if (status) {
     UpdateStatus(call, status, Builder, hlslOp);
@@ -3001,14 +3005,12 @@ void GenerateDxilGather(CallInst *CI, Function *F,
 
   CallInst *call = Builder.CreateCall(F, gatherArgs);
 
+  Value *retVal;
   if (!helper.hasSampleOffsets) {
     // extract value part
-    Value *retVal = ScalarizeResRet(CI->getType(), call, Builder);
-
-    // Replace ret val.
-    CI->replaceAllUsesWith(retVal);
+    retVal = ScalarizeResRet(CI->getType(), call, Builder);
   } else {
-    Value *retVal = UndefValue::get(CI->getType());
+    retVal = UndefValue::get(CI->getType());
     Value *elt = Builder.CreateExtractValue(call, (uint64_t)0);
     retVal = Builder.CreateInsertElement(retVal, elt, (uint64_t)0);
 
@@ -3026,10 +3028,16 @@ void GenerateDxilGather(CallInst *CI, Function *F,
     CallInst *callW = Builder.CreateCall(F, gatherArgs);
     elt = Builder.CreateExtractValue(callW, (uint64_t)3);
     retVal = Builder.CreateInsertElement(retVal, elt, 3);
-    // Replace ret val.
-    CI->replaceAllUsesWith(retVal);
+
     // TODO: UpdateStatus for each gather call.
   }
+
+  // Replace ret val.
+  CI->replaceAllUsesWith(retVal);
+
+  if (retVal->getType()->isVectorTy())
+    dxilutil::ScatterDebugValueToVectorElements(retVal);
+
   // Get status
   if (helper.status) {
     UpdateStatus(call, helper.status, Builder, hlslOp);
@@ -3327,6 +3335,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
     Value *retValNew = ScalarizeElements(Ty, ResultElts, Builder);
     helper.retVal->replaceAllUsesWith(retValNew);
     helper.retVal = retValNew;
+    if (Ty->isVectorTy()) dxilutil::ScatterDebugValueToVectorElements(retValNew);
     return;
   }
 
@@ -3433,6 +3442,9 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   helper.retVal->replaceAllUsesWith(retValNew);
   // Save new ret val.
   helper.retVal = retValNew;
+  // Update debug info
+  if (retValNew->getType()->isVectorTy())
+    dxilutil::ScatterDebugValueToVectorElements(retValNew);
   // get status
   UpdateStatus(ResRet, helper.status, Builder, OP);
 }
