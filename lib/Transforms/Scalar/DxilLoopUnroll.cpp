@@ -669,8 +669,9 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
 
 static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
   // Must remove all child loops first.
-  for (Loop *ChildLoop : *L) {
-    RecursivelyRemoveLoopFromQueue(LPM, ChildLoop);
+  while (L->getSubLoops().size()) {
+    // This also removes the subloops from parent loop.
+    RecursivelyRemoveLoopFromQueue(LPM, L->getSubLoops().front());
   }
   LPM.deleteLoopFromQueue(L);
 }
