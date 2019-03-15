@@ -181,7 +181,6 @@ private:
   void gather(Instruction *, const ValueVector &);
   bool canTransferMetadata(unsigned Kind);
   void transferMetadata(Instruction *, const ValueVector &);
-  void transferDebugValue(Instruction *, const ValueVector &); // HLSL Change
   bool getVectorLayout(Type *, unsigned, VectorLayout &, const DataLayout &);
   bool finish();
 
@@ -316,7 +315,6 @@ void Scalarizer::gather(Instruction *Op, const ValueVector &CV) {
     Op->setOperand(I, UndefValue::get(Op->getOperand(I)->getType()));
 
   transferMetadata(Op, CV);
-  transferDebugValue(Op, CV); // HLSL Change
 
   // If we already have a scattered form of Op (created from ExtractElements
   // of Op itself), replace them with the new form.
@@ -366,14 +364,6 @@ void Scalarizer::transferMetadata(Instruction *Op, const ValueVector &CV) {
     }
   }
 }
-
-// HLSL Change Begins
-// Transfer metadata from a vector-producing instruction to the
-// scalars which compose it.
-void Scalarizer::transferDebugValue(Instruction *Op, const ValueVector &CV) {
-
-}
-// HLSL Change Ends
 
 // Try to fill in Layout from Ty, returning true on success.  Alignment is
 // the alignment of the vector, or 0 if the ABI default should be used.
