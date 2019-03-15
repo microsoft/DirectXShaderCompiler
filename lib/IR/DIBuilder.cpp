@@ -623,13 +623,11 @@ DIExpression *DIBuilder::createExpression(ArrayRef<int64_t> Signed) {
   return createExpression(Addr);
 }
 
-DIExpression *DIBuilder::createBitPieceExpression(unsigned OffsetInBytes,
-                                                  unsigned SizeInBytes) {
-#if 0 // HLSL Change
-  uint64_t Addr[] = {dwarf::DW_OP_bit_piece, OffsetInBytes, SizeInBytes};
-#else // HLSL Change
-  uint64_t Addr[] = {dwarf::DW_OP_bit_piece, OffsetInBytes*8, SizeInBytes*8};
-#endif // HLSL Change
+// HLSL Begin Change: Match -InBits suffixes from header
+DIExpression *DIBuilder::createBitPieceExpression(unsigned OffsetInBits, 
+                                                  unsigned SizeInBits) {
+  uint64_t Addr[] = {dwarf::DW_OP_bit_piece, OffsetInBits, SizeInBits};
+// HLSL End Change
   return DIExpression::get(VMContext, Addr);
 }
 
