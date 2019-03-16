@@ -495,7 +495,10 @@ TEST_F(FileTest, FunctionParamUnsizedArray) {
   // Unsized ararys as function params are not supported.
   runFileTest("fn.param.unsized-array.hlsl", Expect::Failure);
 }
-
+TEST_F(FileTest, FunctionInOutParamTypeMismatch) {
+  // The type for the inout parameter doesn't match the argument type.
+  runFileTest("fn.param.inout.type-mismatch.hlsl");
+}
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
 }
