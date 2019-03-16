@@ -178,7 +178,7 @@ void main() {
 // CHECK:      [[p_21:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
 // CHECK-NEXT: [[vu_8:%\d+]] = OpLoad %v2uint [[p_21]]
 // CHECK-NEXT: [[vb_7:%\d+]] = OpINotEqual %v2bool [[vu_8]] {{%\d+}}
-// CHECK-NEXT: [[vu_9:%\d+]] = OpSelect %v2uint [[vb_7]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT: [[vu_9:%\d+]] = OpSelect %v2int [[vb_7]] {{%\d+}} {{%\d+}}
 // CHECK-NEXT:                 OpStore {{%\d+}} [[vu_9]]
   append_v2int.Append(consume_v2bool.Consume());
 
@@ -348,7 +348,7 @@ void main() {
 // CHECK-NEXT:                 OpStore [[p_45]] [[i_19]]
   append_bool.Append(rw_bool[0]);
 
-// CHECK-NEXT: [[i_19:%\d+]] = OpLoad %uint {{%\d+}}
+// CHECK:      [[i_19:%\d+]] = OpLoad %uint {{%\d+}}
 // CHECK-NEXT: [[b_14:%\d+]] = OpINotEqual %bool [[i_19]] %uint_0
 // CHECK-NEXT: [[i_20:%\d+]] = OpSelect %uint [[b_14]] %uint_1 %uint_0
 // CHECK-NEXT:                 OpStore {{%\d+}} [[i_20]]
@@ -362,7 +362,7 @@ void main() {
 // CHECK-NEXT:                 OpStore [[p_47]] [[i_22]]
   append_int.Append(rw_bool[0]);
 
-// CHECK-NEXT: [[i_23:%\d+]] = OpLoad %uint {{%\d+}}
+// CHECK:      [[i_23:%\d+]] = OpLoad %uint {{%\d+}}
 // CHECK-NEXT: [[b_16:%\d+]] = OpINotEqual %bool [[i_23]] %uint_0
 // CHECK-NEXT: [[i_24:%\d+]] = OpSelect %int [[b_16]] %int_1 %int_0
 // CHECK-NEXT:                 OpStore {{%\d+}} [[i_24]]
@@ -376,7 +376,7 @@ void main() {
 // CHECK-NEXT:                 OpStore [[p_49]] [[f_12]]
   append_float.Append(rw_bool[0]);
 
-// CHECK-NEXT: [[i_26:%\d+]] = OpLoad %uint {{%\d+}}
+// CHECK:      [[i_26:%\d+]] = OpLoad %uint {{%\d+}}
 // CHECK-NEXT: [[b_18:%\d+]] = OpINotEqual %bool [[i_26]] %uint_0
 // CHECK-NEXT: [[i_27:%\d+]] = OpSelect %float [[b_18]] %float_1 %float_0
 // CHECK-NEXT:                 OpStore {{%\d+}} [[i_27]]
