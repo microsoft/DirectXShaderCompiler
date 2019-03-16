@@ -3426,7 +3426,7 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
       bufferInfo = spvBuilder.createLoad(bufferElemTy, bufferInfo);
 
       if (bufferInfo->getLayoutRule() != SpirvLayoutRule::Void &&
-          isBoolOrVecMatOfBoolType(bufferElemTy)) {
+          isBoolOrVecOfBoolType(bufferElemTy)) {
         uint32_t vecSize = 1;
         const bool isVec = isVectorType(bufferElemTy, nullptr, &vecSize);
         const auto fromType =
