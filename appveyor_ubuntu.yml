@@ -1,0 +1,43 @@
+version: 1.0.{build}
+
+image:
+- Ubuntu
+platform: x64
+configuration: Release
+
+clone_folder: ~/projects/DirectXShaderCompiler
+
+install:
+- sh: sudo apt-get install ninja-build
+- sh: git submodule update --init
+
+
+before_build:
+- sh: mkdir build && cd build
+
+build_script:
+- sh: cmake .. -GNinja $(cat ../utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+- sh: ninja
+
+#test_script:
+- sh: ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
+
+after_test:
+- sh: mkdir Release
+- sh: mkdir Release/bin
+- sh: mkdir Release/lib
+- sh: cp ./bin/dxc ./Release/bin/
+- sh: cp ./lib/libdxcompiler.so.3.7 ./Release/lib/
+- sh: cd ./Release/lib
+- sh: ln -s libdxcompiler.so.3.7 libdxcompiler.so
+- sh: cd ../../
+- sh: zip --symlinks -r dxc-artifacts.zip dxc ./Release
+
+artifacts:
+- path: build/dxc-artifacts.zip
+
+notifications:
+- provider: GitHubPullRequest
+  on_build_success: true
+  on_build_failure: true
+  on_build_status_changed: true
