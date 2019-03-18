@@ -65,14 +65,14 @@ public:
 
 class VarReferenceVisitor : public RecursiveASTVisitor<VarReferenceVisitor> {
 private:
-  SmallPtrSet<VarDecl*, 128>& m_unusedGlobals;
-  SmallPtrSet<FunctionDecl*, 128>& m_visitedFunctions;
-  SmallVector<FunctionDecl*, 32>& m_pendingFunctions;
+  SmallPtrSetImpl<VarDecl*>& m_unusedGlobals;
+  SmallPtrSetImpl<FunctionDecl*>& m_visitedFunctions;
+  SmallVectorImpl<FunctionDecl*>& m_pendingFunctions;
 public:
   VarReferenceVisitor(
-    SmallPtrSet<VarDecl*, 128>& unusedGlobals,
-    SmallPtrSet<FunctionDecl*, 128>& visitedFunctions,
-    SmallVector<FunctionDecl*, 32>& pendingFunctions) :
+    SmallPtrSetImpl<VarDecl*>& unusedGlobals,
+    SmallPtrSetImpl<FunctionDecl*>& visitedFunctions,
+    SmallVectorImpl<FunctionDecl*>& pendingFunctions) :
     m_unusedGlobals(unusedGlobals),
     m_visitedFunctions(visitedFunctions),
     m_pendingFunctions(pendingFunctions) {
@@ -80,17 +80,13 @@ public:
 
   bool VisitDeclRefExpr(DeclRefExpr* ref) {
     ValueDecl* valueDecl = ref->getDecl();
-    FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(valueDecl);
-    if (fnDecl != nullptr) {
+    if (FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(valueDecl)) {
       if (!m_visitedFunctions.count(fnDecl)) {
         m_pendingFunctions.push_back(fnDecl);
       }
     }
-    else {
-      VarDecl* varDecl = dyn_cast_or_null<VarDecl>(valueDecl);
-      if (varDecl != nullptr) {
-        m_unusedGlobals.erase(varDecl);
-      }
+    else if (VarDecl* varDecl = dyn_cast_or_null<VarDecl>(valueDecl)) {
+      m_unusedGlobals.erase(varDecl);
     }
     return true;
   }
@@ -395,16 +391,24 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
 
   // Gather all global variables that are not in cbuffers and all functions.
   SmallPtrSet<VarDecl*, 128> unusedGlobals;
+  DenseMap<RecordDecl*, unsigned> anonymousRecordRefCounts;
   SmallPtrSet<FunctionDecl*, 128> unusedFunctions;
-  auto tuDeclsEnd = tu->decls_end();
-  for (auto && tuDecl = tu->decls_begin(); tuDecl != tuDeclsEnd; ++tuDecl) {
-    VarDecl* varDecl = dyn_cast_or_null<VarDecl>(*tuDecl);
-    if (varDecl != nullptr) {
+  for (Decl *tuDecl : tu->decls()) {
+    if (tuDecl->isImplicit()) continue;
+
+    VarDecl* varDecl = dyn_cast_or_null<VarDecl>(tuDecl);
+    if (varDecl != nullptr && varDecl->getFormalLinkage() == clang::Linkage::InternalLinkage) {
       unusedGlobals.insert(varDecl);
+      if (const RecordType *recordType = varDecl->getType()->getAs<RecordType>()) {
+        RecordDecl *recordDecl = recordType->getDecl();
+        if (recordDecl && recordDecl->getName().empty()) {
+          anonymousRecordRefCounts[recordDecl]++; // Zero initialized if non-existing
+        }
+      }
       continue;
     }
 
-    FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(*tuDecl);
+    FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(tuDecl);
     if (fnDecl != nullptr) {
       if (fnDecl->doesThisDeclarationHaveABody()) {
         unusedFunctions.insert(fnDecl);
@@ -454,9 +458,24 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
         w << "//found " << unusedFunctions.size() << " functions to remove\n";
 
         // Remove all unused variables and functions.
-        auto globalsEnd = unusedGlobals.end();
-        for (auto && unusedGlobal = unusedGlobals.begin(); unusedGlobal != globalsEnd; ++unusedGlobal) {
-          tu->removeDecl(*unusedGlobal);
+        for (VarDecl *unusedGlobal : unusedGlobals) {
+          if (const RecordType *recordTy = unusedGlobal->getType()->getAs<RecordType>()) {
+            RecordDecl *recordDecl = recordTy->getDecl();
+            if (recordDecl && recordDecl->getName().empty()) {
+              // Anonymous structs can only be referenced by the variable they declare.
+              // If we've removed all declared variables of such a struct, remove it too,
+              // because anonymous structs without variable declarations in global scope are illegal.
+              auto recordRefCountIter = anonymousRecordRefCounts.find(recordDecl);
+              DXASSERT_NOMSG(recordRefCountIter != anonymousRecordRefCounts.end() && recordRefCountIter->second > 0);
+              recordRefCountIter->second--;
+              if (recordRefCountIter->second == 0) {
+                tu->removeDecl(recordDecl);
+                anonymousRecordRefCounts.erase(recordRefCountIter);
+              }
+            }
+          }
+
+          tu->removeDecl(unusedGlobal);
         }
 
         for (FunctionDecl *unusedFn : unusedFunctions) {
