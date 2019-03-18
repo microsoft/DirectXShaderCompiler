@@ -36,27 +36,27 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace {
-class PoisonUndefResources : public ModulePass {
+class InvalidateUndefResources : public ModulePass {
 public:
   static char ID;
 
-  explicit PoisonUndefResources() : ModulePass(ID) {
+  explicit InvalidateUndefResources() : ModulePass(ID) {
     initializeScalarizerPass(*PassRegistry::getPassRegistry());
   }
 
-  const char *getPassName() const override { return "Poison undef resources"; }
+  const char *getPassName() const override { return "Invalidate undef resources"; }
 
   bool runOnModule(Module &M) override;
 };
 }
 
-char PoisonUndefResources::ID = 0;
+char InvalidateUndefResources::ID = 0;
 
-ModulePass *llvm::createPoisonUndefResourcesPass() { return new PoisonUndefResources(); }
+ModulePass *llvm::createInvalidateUndefResourcesPass() { return new InvalidateUndefResources(); }
 
-INITIALIZE_PASS(PoisonUndefResources, "poison-undef-resource", "Poison undef resources", false, false)
+INITIALIZE_PASS(InvalidateUndefResources, "invalidate-undef-resource", "Invalidate undef resources", false, false)
 
-bool PoisonUndefResources::runOnModule(Module &M) {
+bool InvalidateUndefResources::runOnModule(Module &M) {
   // Undef resources typically indicate uninitialized locals being used
   // in some code path, which we should catch and report. However, some
   // code patterns in large shaders cause dead undef resources to momentarily,
@@ -64,7 +64,7 @@ bool PoisonUndefResources::runOnModule(Module &M) {
   // have run to know whether we must produce an error.
   // However, we can't leave the undef values in because they could eliminated,
   // such as by reading from resources seen in a code path that was not taken.
-  // We avoid the problem by replacing undef values by another poison
+  // We avoid the problem by replacing undef values by another invalid
   // value that we can identify later.
   for (auto &F : M.functions()) {
     if (GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
@@ -72,8 +72,8 @@ bool PoisonUndefResources::runOnModule(Module &M) {
         HLOperandIndex::kCreateHandleResourceOpIdx);
       UndefValue *UndefRes = UndefValue::get(ResTy);
       if (!UndefRes->use_empty()) {
-        Constant *PoisonRes = ConstantAggregateZero::get(ResTy);
-        UndefRes->replaceAllUsesWith(PoisonRes);
+        Constant *InvalidRes = ConstantAggregateZero::get(ResTy);
+        UndefRes->replaceAllUsesWith(InvalidRes);
       }
     }
   }

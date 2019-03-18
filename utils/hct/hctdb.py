@@ -1560,7 +1560,7 @@ class db_dxil(object):
         add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
-        add_pass('poison-undef-resource', 'PoisonUndefResources', 'Poison undef resources', [])
+        add_pass('invalidate-undef-resource', 'InvalidateUndefResources', 'Invalidate undef resources', [])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
         add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
         add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
