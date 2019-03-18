@@ -229,22 +229,22 @@ void main()
     // DXC: i32 1, i32 1, i32 0, i32 0, i8 15)
     // FXC: l(1,1,0,0)
     output_a2((A2)i);
-    // DXC rejects (GitHub #1863)
+    // DXC: i32 1, i32 1, i32 0, i32 0, i8 15)
     // FXC: l(1,1,0,0)
-    // output_a2((A2)v1);
-    // DXC rejects (GitHub #1863)
+    output_a2((A2)v1);
+    // DXC: i32 11, i32 11, i32 0, i32 0, i8 15)
     // FXC: l(11,11,0,0)
-    // output_a2((A2)m1x1);
+    output_a2((A2)m1x1);
 
     // DXC: i32 1, i32 1, i32 0, i32 0, i8 15)
     // FXC: l(1,1,0,0)
     output_s2((S2)i);
-    // DXC rejects (GitHub #1863)
+    // DXC: i32 1, i32 1, i32 0, i32 0, i8 15)
     // FXC: l(1,1,0,0)
-    // output_s2((S2)v1);
-    // DXC rejects (GitHub #1863)
+    output_s2((S2)v1);
+    // DXC: i32 11, i32 11, i32 0, i32 0, i8 15)
     // FXC: l(11,11,0,0)
-    // output_s2((S2)m1x1);
+    output_s2((S2)m1x1);
     
     // DXC: 8888
     output_separator();
