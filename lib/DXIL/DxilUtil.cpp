@@ -340,6 +340,21 @@ static DbgValueInst *FindDbgValueInst(Value *Val) {
   return nullptr;
 }
 
+void MigrateDebugValue(Value *Old, Value *New) {
+  DbgValueInst *DbgValInst = FindDbgValueInst(Old);
+  if (DbgValInst == nullptr) return;
+  
+  DbgValInst->setOperand(0, MetadataAsValue::get(New->getContext(), ValueAsMetadata::get(New)));
+
+  // Move the dbg value after the new instruction
+  if (Instruction *NewInst = dyn_cast<Instruction>(New)) {
+    if (NewInst->getNextNode() != DbgValInst) {
+      DbgValInst->removeFromParent();
+      DbgValInst->insertAfter(NewInst);
+    }
+  }
+}
+
 // Propagates any llvm.dbg.value instruction for a given vector
 // to the elements that were used to create it through a series
 // of insertelement instructions.
@@ -373,7 +388,9 @@ void ScatterDebugValueToVectorElements(Value *Val) {
     }
 
     DIExpression *DIExpr = DbgInfoBuilder.createBitPieceExpression(OffsetInBits, ElemSizeInBits);
-    DbgInfoBuilder.insertDbgValueIntrinsic(NewElt, EltIdx, VecDbgValInst->getVariable(),
+    // Offset is basically unused and deprecated in later LLVM versions.
+    // Emit it as zero otherwise later versions of the bitcode reader will drop the intrinsic.
+    DbgInfoBuilder.insertDbgValueIntrinsic(NewElt, /* Offset */ 0, VecDbgValInst->getVariable(),
       DIExpr, VecDbgValInst->getDebugLoc(), InsertElt);
     Val = InsertElt->getOperand(0);
   }
