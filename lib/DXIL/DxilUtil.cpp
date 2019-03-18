@@ -10,23 +10,25 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
-#include "llvm/IR/GlobalVariable.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/Support/Global.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
-#include "dxc/Support/Global.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Twine.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -324,6 +326,74 @@ bool SimplifyTrivialPHIs(BasicBlock *BB) {
     I->eraseFromParent();
 
   return Changed;
+}
+
+static DbgValueInst *FindDbgValueInst(Value *Val) {
+  if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
+    if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
+      for (User *ValMDUser : ValMDAsVal->users()) {
+        if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(ValMDUser))
+          return DbgValInst;
+      }
+    }
+  }
+  return nullptr;
+}
+
+void MigrateDebugValue(Value *Old, Value *New) {
+  DbgValueInst *DbgValInst = FindDbgValueInst(Old);
+  if (DbgValInst == nullptr) return;
+  
+  DbgValInst->setOperand(0, MetadataAsValue::get(New->getContext(), ValueAsMetadata::get(New)));
+
+  // Move the dbg value after the new instruction
+  if (Instruction *NewInst = dyn_cast<Instruction>(New)) {
+    if (NewInst->getNextNode() != DbgValInst) {
+      DbgValInst->removeFromParent();
+      DbgValInst->insertAfter(NewInst);
+    }
+  }
+}
+
+// Propagates any llvm.dbg.value instruction for a given vector
+// to the elements that were used to create it through a series
+// of insertelement instructions.
+//
+// This is used after lowering a vector-returning intrinsic.
+// If we just keep the debug info on the recomposed vector,
+// we will lose it when we break it apart again during later
+// optimization stages.
+void ScatterDebugValueToVectorElements(Value *Val) {
+  DXASSERT(isa<InsertElementInst>(Val), "Should be a newly gathered vector.");
+  DbgValueInst *VecDbgValInst = FindDbgValueInst(Val);
+  if (VecDbgValInst == nullptr) return;
+
+  Type *ElemTy = Val->getType()->getVectorElementType();
+  DIBuilder DbgInfoBuilder(*VecDbgValInst->getModule());
+  unsigned ElemSizeInBits = VecDbgValInst->getModule()->getDataLayout().getTypeSizeInBits(ElemTy);
+
+  DIExpression *ParentBitPiece = VecDbgValInst->getExpression();
+  if (ParentBitPiece != nullptr && !ParentBitPiece->isBitPiece())
+    ParentBitPiece = nullptr;
+
+  while (InsertElementInst *InsertElt = dyn_cast<InsertElementInst>(Val)) {
+    Value *NewElt = InsertElt->getOperand(1);
+    unsigned EltIdx = static_cast<unsigned>(cast<ConstantInt>(InsertElt->getOperand(2))->getLimitedValue());
+    unsigned OffsetInBits = EltIdx * ElemSizeInBits;
+
+    if (ParentBitPiece) {
+      assert(OffsetInBits + ElemSizeInBits <= ParentBitPiece->getBitPieceSize()
+        && "Nested bit piece expression exceeds bounds of its parent.");
+      OffsetInBits += ParentBitPiece->getBitPieceOffset();
+    }
+
+    DIExpression *DIExpr = DbgInfoBuilder.createBitPieceExpression(OffsetInBits, ElemSizeInBits);
+    // Offset is basically unused and deprecated in later LLVM versions.
+    // Emit it as zero otherwise later versions of the bitcode reader will drop the intrinsic.
+    DbgInfoBuilder.insertDbgValueIntrinsic(NewElt, /* Offset */ 0, VecDbgValInst->getVariable(),
+      DIExpr, VecDbgValInst->getDebugLoc(), InsertElt);
+    Val = InsertElt->getOperand(0);
+  }
 }
 
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {

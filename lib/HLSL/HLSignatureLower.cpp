@@ -25,7 +25,6 @@
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -609,29 +608,6 @@ Value *replaceLdWithLdInput(Function *loadInput, LoadInst *ldInst,
   }
 }
 
-static DbgValueInst *findDbgValueInst(Value *Val) {
-  if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
-    if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
-      for (User *ValMDUser : ValMDAsVal->users()) {
-        if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(ValMDUser))
-          return DbgValInst;
-      }
-    }
-  }
-  return nullptr;
-}
-
-static DIExpression *createNestedBitPieceExpression(DIBuilder &DbgInfoBuilder,
-  DIExpression* ParentDIExpr, unsigned OffsetInBits, unsigned SizeInBits) {
-  if (ParentDIExpr && ParentDIExpr->isBitPiece()) {
-    assert(OffsetInBits + SizeInBits <= ParentDIExpr->getBitPieceSize()
-      && "Nested bit piece expression exceeds bounds of its parent.");
-    OffsetInBits += ParentDIExpr->getBitPieceOffset();
-  }
-
-  return DbgInfoBuilder.createBitPieceExpression(OffsetInBits, SizeInBits);
-}
-
 void replaceDirectInputParameter(Value *param, Function *loadInput,
                                  unsigned cols, MutableArrayRef<Value *> args,
                                  bool bCast, OP *hlslOP, IRBuilder<> &Builder) {
@@ -643,38 +619,18 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
     Value *newVec = llvm::UndefValue::get(VT);
     DXASSERT(cols == VT->getNumElements(), "vec size must match");
 
-    // We're about to essentially SROA a vector,
-    // since we'll load elements individually and reconstruct it.
-    // We need to migrate the debug information from the vector
-    // to the constituing scalars since those are the original
-    // source of the data. Optimizations will later make the vector disappear,
-    // and we'll lose debug information applied to it.
-    DbgValueInst *DbgValInst = findDbgValueInst(param);
-    DIBuilder DbgInfoBuilder(*loadInput->getParent());
-    unsigned ElemSizeInBits = loadInput->getParent()->getDataLayout()
-      .getTypeAllocSize(VT->getElementType()) * 8;
-
     for (unsigned col = 0; col < cols; col++) {
       Value *colIdx = hlslOP->GetU8Const(col);
       args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
       Value *input =
           GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
       newVec = Builder.CreateInsertElement(newVec, input, col);
-      if (DbgValInst) {
-        unsigned OffsetInBits = col * ElemSizeInBits;
-        DIExpression *DIExpr = createNestedBitPieceExpression(DbgInfoBuilder,
-          DbgValInst->getExpression(), OffsetInBits, ElemSizeInBits);
-        DbgInfoBuilder.insertDbgValueIntrinsic(input, 0, DbgValInst->getVariable(), DIExpr,
-          DbgValInst->getDebugLoc(), cast<Instruction>(newVec));
-      }
     }
 
-    // This will relocate the DbgValueInst to the newly created vector.
-    // We will eventually lose it as optimizations realize that the
-    // new authoritative source of data are the loadInput instructions
-    // that we generated above, but this is fine since we created
-    // DbgValueInsts for them too.
     param->replaceAllUsesWith(newVec);
+
+    // THe individual loadInputs are the authoritative source of values for the vector.
+    dxilutil::ScatterDebugValueToVectorElements(newVec);
   } else if (!Ty->isArrayTy() && !HLMatrixType::isa(Ty)) {
     DXASSERT(cols == 1, "only support scalar here");
     Value *colIdx = hlslOP->GetU8Const(0);
