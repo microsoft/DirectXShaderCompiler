@@ -64,9 +64,11 @@ GlPerVertex::GlPerVertex(ASTContext &context, SpirvContext &spirvContext,
                          SpirvBuilder &spirvBuilder)
     : astContext(context), spvContext(spirvContext), spvBuilder(spirvBuilder),
       inClipVar(nullptr), inCullVar(nullptr), outClipVar(nullptr),
-      outCullVar(nullptr), inArraySize(0), outArraySize(0), inClipArraySize(1),
-      outClipArraySize(1), inCullArraySize(1), outCullArraySize(1),
-      inSemanticStrs(2, ""), outSemanticStrs(2, "") {}
+      outCullVar(nullptr), inClipPrecise(false), outClipPrecise(false),
+      inCullPrecise(false), outCullPrecise(false), inArraySize(0),
+      outArraySize(0), inClipArraySize(1), outClipArraySize(1),
+      inCullArraySize(1), outCullArraySize(1), inSemanticStrs(2, ""),
+      outSemanticStrs(2, "") {}
 
 void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
   inArraySize = inArrayLen;
@@ -74,16 +76,16 @@ void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
 
   if (!inClipType.empty())
     inClipVar = createClipCullDistanceVar(/*asInput=*/true, /*isClip=*/true,
-                                          inClipArraySize);
+                                          inClipArraySize, inClipPrecise);
   if (!inCullType.empty())
     inCullVar = createClipCullDistanceVar(/*asInput=*/true, /*isClip=*/false,
-                                          inCullArraySize);
+                                          inCullArraySize, inCullPrecise);
   if (!outClipType.empty())
     outClipVar = createClipCullDistanceVar(/*asInput=*/false, /*isClip=*/true,
-                                           outClipArraySize);
+                                           outClipArraySize, outClipPrecise);
   if (!outCullType.empty())
     outCullVar = createClipCullDistanceVar(/*asInput=*/false, /*isClip=*/false,
-                                           outCullArraySize);
+                                           outCullArraySize, outCullPrecise);
 }
 
 llvm::SmallVector<SpirvVariable *, 2> GlPerVertex::getStageInVars() const {
@@ -124,6 +126,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};
   uint32_t semanticIndex = {};
+  bool isPrecise = decl->hasAttr<HLSLPreciseAttr>();
 
   if (!getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
     if (baseType->isStructureType()) {
@@ -188,6 +191,18 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   default:
     // Only Cull or Clip apply.
     break;
+  }
+
+  if (isCull) {
+    if (asInput)
+      inCullPrecise = isPrecise;
+    else
+      outCullPrecise = isPrecise;
+  } else {
+    if (asInput)
+      inClipPrecise = isPrecise;
+    else
+      outClipPrecise = isPrecise;
   }
 
   // Remember the semantic strings provided by the developer so that we can
@@ -307,7 +322,8 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
 }
 
 SpirvVariable *GlPerVertex::createClipCullDistanceVar(bool asInput, bool isClip,
-                                                      uint32_t arraySize) {
+                                                      uint32_t arraySize,
+                                                      bool isPrecise) {
   QualType type = astContext.getConstantArrayType(astContext.FloatTy,
                                                   llvm::APInt(32, arraySize),
                                                   clang::ArrayType::Normal, 0);
@@ -325,7 +341,8 @@ SpirvVariable *GlPerVertex::createClipCullDistanceVar(bool asInput, bool isClip,
 
   SpirvVariable *var = spvBuilder.addStageBuiltinVar(
       type, sc,
-      isClip ? spv::BuiltIn::ClipDistance : spv::BuiltIn::CullDistance);
+      isClip ? spv::BuiltIn::ClipDistance : spv::BuiltIn::CullDistance,
+      isPrecise);
 
   const auto index = isClip ? gClipDistanceIndex : gCullDistanceIndex;
   spvBuilder.decorateHlslSemantic(var, asInput ? inSemanticStrs[index]

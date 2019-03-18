@@ -12,6 +12,7 @@
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
+#include "PreciseVisitor.h"
 #include "RelaxedPrecisionVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 
@@ -25,11 +26,10 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
   module = new (context) SpirvModule;
 }
 
-SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
-                                           SpirvType *functionType,
-                                           SourceLocation loc,
-                                           llvm::StringRef funcName,
-                                           SpirvFunction *func) {
+SpirvFunction *
+SpirvBuilder::beginFunction(QualType returnType, SpirvType *functionType,
+                            SourceLocation loc, llvm::StringRef funcName,
+                            bool isPrecise, SpirvFunction *func) {
   assert(!function && "found nested function");
   if (func) {
     function = func;
@@ -37,20 +37,21 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
     function->setFunctionType(functionType);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
+    function->setPrecise(isPrecise);
   } else {
     function = new (context)
-        SpirvFunction(returnType, functionType,
-                      spv::FunctionControlMask::MaskNone, loc, funcName);
+        SpirvFunction(returnType, functionType, loc, funcName, isPrecise);
   }
 
   return function;
 }
 
 SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
+                                                 bool isPrecise,
                                                  SourceLocation loc,
                                                  llvm::StringRef name) {
   assert(function && "found detached parameter");
-  auto *param = new (context) SpirvFunctionParameter(ptrType, loc);
+  auto *param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
   param->setStorageClass(spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
@@ -58,11 +59,11 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
 }
 
 SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
-                                      llvm::StringRef name,
+                                      llvm::StringRef name, bool isPrecise,
                                       SpirvInstruction *init) {
   assert(function && "found detached local variable");
-  auto *var = new (context)
-      SpirvVariable(valueType, loc, spv::StorageClass::Function, init);
+  auto *var = new (context) SpirvVariable(
+      valueType, loc, spv::StorageClass::Function, isPrecise, init);
   var->setDebugName(name);
   function->addVariable(var);
   return var;
@@ -830,10 +831,10 @@ SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet(SourceLocation loc) {
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
                                            spv::StorageClass storageClass,
-                                           std::string name,
+                                           std::string name, bool isPrecise,
                                            SourceLocation loc) {
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var = new (context) SpirvVariable(type, loc, storageClass);
+  auto *var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
   var->setDebugName(name);
   module->addVariable(var);
   return var;
@@ -842,6 +843,7 @@ SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
 SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
                                                 spv::StorageClass storageClass,
                                                 spv::BuiltIn builtin,
+                                                bool isPrecise,
                                                 SourceLocation loc) {
   // If the built-in variable has already been added (via a built-in alias),
   // return the existing variable.
@@ -855,7 +857,7 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
   }
 
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var = new (context) SpirvVariable(type, loc, storageClass);
+  auto *var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
   module->addVariable(var);
 
   // Decorate with the specified Builtin
@@ -869,25 +871,29 @@ SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
   return var;
 }
 
-SpirvVariable *SpirvBuilder::addModuleVar(
-    QualType type, spv::StorageClass storageClass, llvm::StringRef name,
-    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+SpirvVariable *
+SpirvBuilder::addModuleVar(QualType type, spv::StorageClass storageClass,
+                           bool isPrecise, llvm::StringRef name,
+                           llvm::Optional<SpirvInstruction *> init,
+                           SourceLocation loc) {
   assert(storageClass != spv::StorageClass::Function);
   // Note: We store the underlying type in the variable, *not* the pointer type.
-  auto *var = new (context) SpirvVariable(
-      type, loc, storageClass, init.hasValue() ? init.getValue() : nullptr);
+  auto *var =
+      new (context) SpirvVariable(type, loc, storageClass, isPrecise,
+                                  init.hasValue() ? init.getValue() : nullptr);
   var->setDebugName(name);
   module->addVariable(var);
   return var;
 }
 
 SpirvVariable *SpirvBuilder::addModuleVar(
-    const SpirvType *type, spv::StorageClass storageClass, llvm::StringRef name,
-    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+    const SpirvType *type, spv::StorageClass storageClass, bool isPrecise,
+    llvm::StringRef name, llvm::Optional<SpirvInstruction *> init,
+    SourceLocation loc) {
   assert(storageClass != spv::StorageClass::Function);
   // Note: We store the underlying type in the variable, *not* the pointer type.
   auto *var =
-      new (context) SpirvVariable(/*QualType*/ {}, loc, storageClass,
+      new (context) SpirvVariable(/*QualType*/ {}, loc, storageClass, isPrecise,
                                   init.hasValue() ? init.getValue() : nullptr);
   var->setResultType(type);
   var->setDebugName(name);
@@ -1058,6 +1064,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
+  PreciseVisitor preciseVisitor(context, spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   module->invokeVisitor(&literalTypeVisitor, true);
@@ -1070,6 +1077,9 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Propagate RelaxedPrecision decorations
   module->invokeVisitor(&relaxedPrecisionVisitor);
+
+  // Propagate NoContraction decorations
+  module->invokeVisitor(&preciseVisitor, true);
 
   // Emit SPIR-V
   module->invokeVisitor(&emitVisitor);

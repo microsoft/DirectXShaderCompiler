@@ -215,7 +215,9 @@ operator==(const StructType::FieldInfo &that) const {
          (!isRowMajor.hasValue() ||
           isRowMajor.getValue() == that.isRowMajor.getValue()) &&
          // Both should have the same precision
-         isRelaxedPrecision == that.isRelaxedPrecision;
+         isRelaxedPrecision == that.isRelaxedPrecision &&
+         // Both fields should be precise or not precise
+         isPrecise == that.isPrecise;
 }
 
 bool StructType::operator==(const StructType &that) const {

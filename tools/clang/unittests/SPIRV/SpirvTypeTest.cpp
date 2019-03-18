@@ -33,8 +33,8 @@ TEST_F(SpirvTypeTest, IntType) {
   EXPECT_TRUE(llvm::isa<IntegerType>(uint32));
   EXPECT_TRUE(llvm::isa<NumericalType>(sint16));
   EXPECT_TRUE(llvm::isa<NumericalType>(uint32));
-  EXPECT_EQ(16, sint16.getBitwidth());
-  EXPECT_EQ(32, uint32.getBitwidth());
+  EXPECT_EQ(16u, sint16.getBitwidth());
+  EXPECT_EQ(32u, uint32.getBitwidth());
   EXPECT_EQ(true, sint16.isSignedInt());
   EXPECT_EQ(false, uint32.isSignedInt());
 }
@@ -43,7 +43,7 @@ TEST_F(SpirvTypeTest, FloatType) {
   FloatType f16(16);
   EXPECT_TRUE(llvm::isa<FloatType>(f16));
   EXPECT_TRUE(llvm::isa<NumericalType>(f16));
-  EXPECT_EQ(16, f16.getBitwidth());
+  EXPECT_EQ(16u, f16.getBitwidth());
 }
 
 TEST_F(SpirvTypeTest, VectorType) {
@@ -51,7 +51,7 @@ TEST_F(SpirvTypeTest, VectorType) {
   VectorType float3(&f16, 3);
   EXPECT_TRUE(llvm::isa<VectorType>(float3));
   EXPECT_EQ(&f16, float3.getElementType());
-  EXPECT_EQ(3, float3.getElementCount());
+  EXPECT_EQ(3u, float3.getElementCount());
 }
 
 TEST_F(SpirvTypeTest, MatrixType) {
@@ -61,9 +61,9 @@ TEST_F(SpirvTypeTest, MatrixType) {
 
   EXPECT_TRUE(llvm::isa<MatrixType>(mat2x3));
   EXPECT_EQ(&f16, float3.getElementType());
-  EXPECT_EQ(2, mat2x3.getVecCount());
-  EXPECT_EQ(2, mat2x3.numCols());
-  EXPECT_EQ(3, mat2x3.numRows());
+  EXPECT_EQ(2u, mat2x3.getVecCount());
+  EXPECT_EQ(2u, mat2x3.numCols());
+  EXPECT_EQ(3u, mat2x3.numRows());
 }
 
 TEST_F(SpirvTypeTest, ImageType) {
@@ -108,9 +108,9 @@ TEST_F(SpirvTypeTest, ArrayType) {
   ArrayType arr5(&f16, 5, 2);
   EXPECT_TRUE(llvm::isa<ArrayType>(arr5));
   EXPECT_EQ(arr5.getElementType(), &f16);
-  EXPECT_EQ(arr5.getElementCount(), 5);
+  EXPECT_EQ(arr5.getElementCount(), 5u);
   EXPECT_TRUE(arr5.getStride().hasValue());
-  EXPECT_EQ(arr5.getStride().getValue(), 2);
+  EXPECT_EQ(arr5.getStride().getValue(), 2u);
 }
 
 TEST_F(SpirvTypeTest, RuntimeArrayType) {
@@ -119,7 +119,7 @@ TEST_F(SpirvTypeTest, RuntimeArrayType) {
   EXPECT_TRUE(llvm::isa<RuntimeArrayType>(ra));
   EXPECT_EQ(ra.getElementType(), &f16);
   EXPECT_TRUE(ra.getStride().hasValue());
-  EXPECT_EQ(ra.getStride().getValue(), 2);
+  EXPECT_EQ(ra.getStride().getValue(), 2u);
 }
 
 TEST_F(SpirvTypeTest, StructType) {
@@ -138,7 +138,7 @@ TEST_F(SpirvTypeTest, StructType) {
   EXPECT_EQ(s.getStructName(), "some_struct");
 
   const auto &fields = s.getFields();
-  EXPECT_EQ(2, fields.size());
+  EXPECT_EQ(2u, fields.size());
   EXPECT_EQ(fields[0], field0);
   EXPECT_EQ(fields[1], field1);
   EXPECT_TRUE(s.isReadOnly());

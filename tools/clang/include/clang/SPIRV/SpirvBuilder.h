@@ -9,8 +9,8 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 
-#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
@@ -56,12 +56,13 @@ public:
   /// At any time, there can only exist at most one function under building.
   SpirvFunction *beginFunction(QualType returnType, SpirvType *functionType,
                                SourceLocation, llvm::StringRef name = "",
+                               bool isPrecise = false,
                                SpirvFunction *func = nullptr);
 
   /// \brief Creates and registers a function parameter of the given pointer
   /// type in the current function and returns its pointer.
-  SpirvFunctionParameter *addFnParam(QualType ptrType, SourceLocation,
-                                     llvm::StringRef name = "");
+  SpirvFunctionParameter *addFnParam(QualType ptrType, bool isPrecise,
+                                     SourceLocation, llvm::StringRef name = "");
 
   /// \brief Creates a local variable of the given type in the current
   /// function and returns it.
@@ -69,7 +70,7 @@ public:
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
   SpirvVariable *addFnVar(QualType valueType, SourceLocation,
-                          llvm::StringRef name = "",
+                          llvm::StringRef name = "", bool isPrecise = false,
                           SpirvInstruction *init = nullptr);
 
   /// \brief Ends building of the current function. All basic blocks constructed
@@ -460,7 +461,8 @@ public:
   /// Note: the corresponding pointer type of the given type will not be
   /// constructed in this method.
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
-                               std::string name, SourceLocation loc = {});
+                               std::string name, bool isPrecise,
+                               SourceLocation loc = {});
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
@@ -468,7 +470,8 @@ public:
   /// constructed in this method.
   SpirvVariable *addStageBuiltinVar(QualType type,
                                     spv::StorageClass storageClass,
-                                    spv::BuiltIn, SourceLocation loc = {});
+                                    spv::BuiltIn, bool isPrecise,
+                                    SourceLocation loc = {});
 
   /// \brief Adds a module variable. This variable should not have the Function
   /// storage class.
@@ -477,12 +480,12 @@ public:
   /// constructed in this method.
   SpirvVariable *
   addModuleVar(QualType valueType, spv::StorageClass storageClass,
-               llvm::StringRef name = "",
+               bool isPrecise, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
-               llvm::StringRef name = "",
+               bool isPrecise, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
 
@@ -557,7 +560,6 @@ public:
 
 public:
   std::vector<uint32_t> takeModule();
-
 
 protected:
   /// Only friend classes are allowed to add capability/extension to the module
