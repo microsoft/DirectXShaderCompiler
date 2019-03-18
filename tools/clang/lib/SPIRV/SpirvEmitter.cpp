@@ -1032,13 +1032,13 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   auto *funcType = spvContext.getFunctionType(retType, paramTypes);
   spvBuilder.beginFunction(retType, funcType, decl->getLocation(), funcName,
-                           func);
+                           decl->hasAttr<HLSLPreciseAttr>(), func);
 
   if (isNonStaticMemberFn) {
-    // Remember the parameter for the this object so later we can handle
+    // Remember the parameter for the 'this' object so later we can handle
     // CXXThisExpr correctly.
-    curThis = spvBuilder.addFnParam(paramTypes[0], /*SourceLocation*/ {},
-                                    "param.this");
+    curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false,
+                                    /*SourceLocation*/ {}, "param.this");
   }
 
   // Create all parameters.
@@ -2049,8 +2049,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       const QualType varType =
           declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
       const std::string varName = "param.var." + param->getNameAsString();
-      auto *tempVar =
-          spvBuilder.addFnVar(varType, param->getLocation(), varName);
+      // Temporary "param.var.*" variables are used for OpFunctionCall purposes.
+      // 'precise' attribute on function parameters only affect computations
+      // inside the function, not the variables at the call sites. Therefore, we
+      // do not need to mark the "param.var.*" variables as precise.
+      const bool isPrecise = false;
+
+      auto *tempVar = spvBuilder.addFnVar(varType, param->getLocation(),
+                                          varName, isPrecise);
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
@@ -4804,7 +4810,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
                               SpirvInstruction *rhsVal, QualType lhsValType) {
   // Defend against nullptr source or destination so errors can bubble up to the
   // user.
-  if(!lhsPtr || !rhsVal)
+  if (!lhsPtr || !rhsVal)
     return;
 
   if (const auto *refType = lhsValType->getAs<ReferenceType>())
@@ -5165,9 +5171,9 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
   varName = "init.done." + varName;
 
   // Create a file/module visible variable to hold the initialization state.
-  SpirvVariable *initDoneVar =
-      spvBuilder.addModuleVar(astContext.BoolTy, spv::StorageClass::Private,
-                              varName, spvBuilder.getConstantBool(false));
+  SpirvVariable *initDoneVar = spvBuilder.addModuleVar(
+      astContext.BoolTy, spv::StorageClass::Private, /*isPrecise*/ false,
+      varName, spvBuilder.getConstantBool(false));
 
   auto *condition = spvBuilder.createLoad(astContext.BoolTy, initDoneVar);
 
@@ -9605,7 +9611,8 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     const auto paramType = param->getType();
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
-        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName);
+        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
+                            param->hasAttr<HLSLPreciseAttr>());
 
     SpirvVariable *curStageVar = nullptr;
 
@@ -9802,7 +9809,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     const auto paramType = param->getType();
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
-        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName);
+        spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
+                            param->hasAttr<HLSLPreciseAttr>());
 
     params.push_back(tempVar);
 
@@ -9982,7 +9990,8 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
         const QualType type = param->getType();
         std::string tempVarName = "param.var." + param->getNameAsString();
         auto *tempVar =
-            spvBuilder.addFnVar(type, param->getLocation(), tempVarName);
+            spvBuilder.addFnVar(type, param->getLocation(), tempVarName,
+                                param->hasAttr<HLSLPreciseAttr>());
         SpirvInstruction *loadedValue = nullptr;
         declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
         spvBuilder.createStore(tempVar, loadedValue);

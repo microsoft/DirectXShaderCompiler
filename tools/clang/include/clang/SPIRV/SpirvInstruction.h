@@ -147,6 +147,8 @@ public:
   void setDebugName(llvm::StringRef name) { debugName = name; }
   llvm::StringRef getDebugName() const { return debugName; }
 
+  bool isArithmeticInstruction() const;
+
   SpirvLayoutRule getLayoutRule() const { return layoutRule; }
   void setLayoutRule(SpirvLayoutRule rule) { layoutRule = rule; }
 
@@ -161,6 +163,9 @@ public:
 
   void setNonUniform(bool nu = true) { isNonUniform_ = nu; }
   bool isNonUniform() const { return isNonUniform_; }
+
+  void setPrecise(bool p = true) { isPrecise_ = p; }
+  bool isPrecise() const { return isPrecise_; }
 
   /// Legalization-specific code
   ///
@@ -202,6 +207,7 @@ protected:
   bool isRValue_;
   bool isRelaxedPrecision_;
   bool isNonUniform_;
+  bool isPrecise_;
 };
 
 #define DECLARE_INVOKE_VISITOR_FOR_CLASS(cls)                                  \
@@ -450,7 +456,7 @@ public:
   };
 
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
-                SpirvInstruction *initializerId = 0);
+                bool isPrecise, SpirvInstruction *initializerId = 0);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -471,7 +477,8 @@ private:
 
 class SpirvFunctionParameter : public SpirvInstruction {
 public:
-  SpirvFunctionParameter(QualType resultType, SourceLocation loc);
+  SpirvFunctionParameter(QualType resultType, bool isPrecise,
+                         SourceLocation loc);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {

@@ -16,11 +16,11 @@ namespace clang {
 namespace spirv {
 
 SpirvFunction::SpirvFunction(QualType returnType, SpirvType *functionType,
-                             spv::FunctionControlMask control,
-                             SourceLocation loc, llvm::StringRef name)
+                             SourceLocation loc, llvm::StringRef name,
+                             bool isPrecise)
     : functionId(0), astReturnType(returnType), returnType(nullptr),
-      fnType(functionType), relaxedPrecision(false), containsAlias(false),
-      rvalue(false), functionControl(control), functionLoc(loc),
+      fnType(functionType), relaxedPrecision(false), precise(isPrecise),
+      containsAlias(false), rvalue(false), functionLoc(loc),
       functionName(name) {}
 
 bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {

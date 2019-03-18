@@ -378,7 +378,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           field->getType(), field->getName(),
           /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
           /*packoffset*/ getPackOffset(field),
-          /*RegisterAssignment*/ nullptr));
+          /*RegisterAssignment*/ nullptr,
+          /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>()));
     }
 
     auto loweredFields = populateLayoutInformation(fields, rule);
@@ -726,6 +727,11 @@ LowerTypeVisitor::populateLayoutInformation(
     // Set RelaxedPrecision information for the lowered field.
     if (isRelaxedPrecisionType(fieldType, spvOptions)) {
       loweredField.isRelaxedPrecision = true;
+    }
+
+    // Set 'precise' information for the lowered field.
+    if (field.isPrecise) {
+      loweredField.isPrecise = true;
     }
 
     // We only need layout information for strcutres with non-void layout rule.
