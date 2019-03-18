@@ -8119,14 +8119,8 @@ bool HLSLExternalSource::CanConvert(
       return false;
     }
 
-    const RecordType *targetRT = target->getAsStructureType();
-    if (!targetRT)
-      targetRT = dyn_cast<RecordType>(target);
-
-    const RecordType *sourceRT = source->getAsStructureType();
-    if (!sourceRT)
-      sourceRT = dyn_cast<RecordType>(source);
-
+    const RecordType *targetRT = dyn_cast<RecordType>(target);
+    const RecordType *sourceRT = dyn_cast<RecordType>(source);
     if (targetRT && sourceRT) {
       RecordDecl *targetRD = targetRT->getDecl();
       RecordDecl *sourceRD = sourceRT->getDecl();
@@ -8149,22 +8143,29 @@ bool HLSLExternalSource::CanConvert(
       }
     }
 
-    if (const BuiltinType *BT = source->getAs<BuiltinType>()) {
-      BuiltinType::Kind kind = BT->getKind();
-      switch (kind) {
-      case BuiltinType::Kind::UInt:
-      case BuiltinType::Kind::Int:
-      case BuiltinType::Kind::Float:
-      case BuiltinType::Kind::LitFloat:
-      case BuiltinType::Kind::LitInt:
-        if (explicitConversion) {
+    // Handle explicit splats from single element numerical types (scalars, vector1s and matrix1x1s) to aggregate types.
+    if (explicitConversion) {
+      const BuiltinType *sourceSingleElementBuiltinType = source->getAs<BuiltinType>();
+      if (sourceSingleElementBuiltinType == nullptr
+        && hlsl::IsHLSLVecMatType(source)
+        && hlsl::GetElementCount(source) == 1) {
+        sourceSingleElementBuiltinType = hlsl::GetElementTypeOrType(source)->getAs<BuiltinType>();
+      }
+
+      if (sourceSingleElementBuiltinType != nullptr) {
+        BuiltinType::Kind kind = sourceSingleElementBuiltinType->getKind();
+        switch (kind) {
+        case BuiltinType::Kind::UInt:
+        case BuiltinType::Kind::Int:
+        case BuiltinType::Kind::Float:
+        case BuiltinType::Kind::LitFloat:
+        case BuiltinType::Kind::LitInt:
           Second = ICK_Flat_Conversion;
           goto lSuccess;
+        default:
+          // Only flat conversion kinds are relevant.
+          break;
         }
-        break;
-      default:
-        // Only flat conversion kinds are relevant.
-        break;
       }
     }
 
