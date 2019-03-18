@@ -277,7 +277,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
   // Verify no undef resource again after promotion
-  MPM.add(createPoisonUndefResourcesPass());
+  MPM.add(createInvalidateUndefResourcesPass());
 
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
 
