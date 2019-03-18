@@ -624,6 +624,7 @@ bool CleanupSharedMemoryAddrSpaceCast(Module &M) {
                                valueMap)) {
         bConverged = false;
         bChanged = true;
+        break;
       }
       if (PHI->use_empty()) {
         phiReplacements.erase(PHI);
