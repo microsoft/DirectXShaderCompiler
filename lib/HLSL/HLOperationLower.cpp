@@ -2710,6 +2710,8 @@ void GenerateDxilSample(CallInst *CI, Function *F, ArrayRef<Value *> sampleArgs,
 
   CallInst *call = Builder.CreateCall(F, sampleArgs);
 
+  dxilutil::MigrateDebugValue(CI, call);
+
   // extract value part
   Value *retVal = ScalarizeResRet(CI->getType(), call, Builder);
 
@@ -3001,14 +3003,14 @@ void GenerateDxilGather(CallInst *CI, Function *F,
 
   CallInst *call = Builder.CreateCall(F, gatherArgs);
 
+  dxilutil::MigrateDebugValue(CI, call);
+
+  Value *retVal;
   if (!helper.hasSampleOffsets) {
     // extract value part
-    Value *retVal = ScalarizeResRet(CI->getType(), call, Builder);
-
-    // Replace ret val.
-    CI->replaceAllUsesWith(retVal);
+    retVal = ScalarizeResRet(CI->getType(), call, Builder);
   } else {
-    Value *retVal = UndefValue::get(CI->getType());
+    retVal = UndefValue::get(CI->getType());
     Value *elt = Builder.CreateExtractValue(call, (uint64_t)0);
     retVal = Builder.CreateInsertElement(retVal, elt, (uint64_t)0);
 
@@ -3026,10 +3028,13 @@ void GenerateDxilGather(CallInst *CI, Function *F,
     CallInst *callW = Builder.CreateCall(F, gatherArgs);
     elt = Builder.CreateExtractValue(callW, (uint64_t)3);
     retVal = Builder.CreateInsertElement(retVal, elt, 3);
-    // Replace ret val.
-    CI->replaceAllUsesWith(retVal);
+
     // TODO: UpdateStatus for each gather call.
   }
+
+  // Replace ret val.
+  CI->replaceAllUsesWith(retVal);
+
   // Get status
   if (helper.status) {
     UpdateStatus(call, helper.status, Builder, hlslOp);
@@ -3291,7 +3296,7 @@ static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::
   return OP->GetI8Const(mask);
 }
 
-void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
   Value *status, Type *EltTy,
   MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
   IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
@@ -3322,8 +3327,9 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (RK == HLResource::Kind::StructuredBuffer) {
     // Basic type case for StructuredBuffer::Load()
     Value *ResultElts[4];
-    GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
+    Value *StructBufLoad = GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
       helper.status, EltTy, ResultElts, OP, Builder, numComponents, Alignment);
+    dxilutil::MigrateDebugValue(helper.retVal, StructBufLoad);
     Value *retValNew = ScalarizeElements(Ty, ResultElts, Builder);
     helper.retVal->replaceAllUsesWith(retValNew);
     helper.retVal = retValNew;
@@ -3408,6 +3414,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   Value *ResRet =
       Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
+  dxilutil::MigrateDebugValue(helper.retVal, ResRet);
 
   Value *retValNew = nullptr;
   if (!is64 || !isTyped) {
@@ -5933,7 +5940,7 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
   return addr;
 }
 
-void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
                          IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment) {
@@ -5958,7 +5965,7 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
 
   // status
   UpdateStatus(Ld, status, Builder, OP);
-  return;
+  return Ld;
 }
 
 void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
