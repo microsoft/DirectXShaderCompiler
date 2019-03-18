@@ -255,6 +255,13 @@ class CGDebugInfo {
   /// Create a new lexical block node and push it on the stack.
   void CreateLexicalBlock(SourceLocation Loc);
 
+  // HLSL Change Begins
+private:
+  bool TryCollectHLSLRecordElements(const RecordType *Ty,
+                                    llvm::DICompositeType *DITy,
+                                    SmallVectorImpl<llvm::Metadata *> &Elements);
+  // HLSL Change Ends
+
 public:
   CGDebugInfo(CodeGenModule &CGM);
   ~CGDebugInfo();

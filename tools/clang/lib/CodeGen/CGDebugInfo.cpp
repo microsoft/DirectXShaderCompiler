@@ -1023,6 +1023,34 @@ void CGDebugInfo::CollectRecordFields(
   }
 }
 
+// HLSL Change Begins
+bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
+    llvm::DICompositeType *DITy,
+    SmallVectorImpl<llvm::Metadata *> &Elements) {
+  QualType QualTy(Ty, 0);
+  if (hlsl::IsHLSLVecType(QualTy)) {
+    // The HLSL vector type is defined as containing a field 'h' of
+    // extended vector type, which is represented as an array in DWARF.
+    // However, we logically represent it as one field per component.
+    QualType ElemQualTy = hlsl::GetHLSLVecElementType(QualTy);
+    unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
+    unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+    for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
+      StringRef FieldName = StringRef("xyzw" + ElemIdx, 1);
+      unsigned OffsetInBits = ElemSizeInBits * ElemIdx;
+      llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
+        SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
+        /* tunit */ nullptr, DITy, Ty->getDecl());
+      Elements.emplace_back(FieldType);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+// HLSL Chage Ends
+
 llvm::DISubroutineType *
 CGDebugInfo::getOrCreateMethodType(const CXXMethodDecl *Method,
                                    llvm::DIFile *Unit) {
@@ -1564,20 +1592,24 @@ llvm::DIType *CGDebugInfo::CreateTypeDefinition(const RecordType *Ty) {
   SmallVector<llvm::Metadata *, 16> EltTys;
   // what about nested types?
 
-  // Note: The split of CXXDecl information here is intentional, the
-  // gdb tests will depend on a certain ordering at printout. The debug
-  // information offsets are still correct if we merge them all together
-  // though.
-  const CXXRecordDecl *CXXDecl = dyn_cast<CXXRecordDecl>(RD);
-  if (CXXDecl) {
-    CollectCXXBases(CXXDecl, DefUnit, EltTys, FwdDecl);
-    CollectVTableInfo(CXXDecl, DefUnit, EltTys);
-  }
+  if (!TryCollectHLSLRecordElements(Ty, FwdDecl, EltTys)) { // HLSL Change
 
-  // Collect data fields (including static variables and any initializers).
-  CollectRecordFields(RD, DefUnit, EltTys, FwdDecl);
-  if (CXXDecl)
-    CollectCXXMemberFunctions(CXXDecl, DefUnit, EltTys, FwdDecl);
+    // Note: The split of CXXDecl information here is intentional, the
+    // gdb tests will depend on a certain ordering at printout. The debug
+    // information offsets are still correct if we merge them all together
+    // though.
+    const CXXRecordDecl *CXXDecl = dyn_cast<CXXRecordDecl>(RD);
+    if (CXXDecl) {
+      CollectCXXBases(CXXDecl, DefUnit, EltTys, FwdDecl);
+      CollectVTableInfo(CXXDecl, DefUnit, EltTys);
+    }
+
+    // Collect data fields (including static variables and any initializers).
+    CollectRecordFields(RD, DefUnit, EltTys, FwdDecl);
+    if (CXXDecl)
+      CollectCXXMemberFunctions(CXXDecl, DefUnit, EltTys, FwdDecl);
+
+  } // HLSL Change
 
   LexicalBlockStack.pop_back();
   RegionMap.erase(Ty->getDecl());
