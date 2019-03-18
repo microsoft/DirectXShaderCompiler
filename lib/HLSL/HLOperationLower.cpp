@@ -2710,15 +2710,13 @@ void GenerateDxilSample(CallInst *CI, Function *F, ArrayRef<Value *> sampleArgs,
 
   CallInst *call = Builder.CreateCall(F, sampleArgs);
 
+  dxilutil::MigrateDebugValue(CI, call);
+
   // extract value part
   Value *retVal = ScalarizeResRet(CI->getType(), call, Builder);
 
   // Replace ret val.
   CI->replaceAllUsesWith(retVal);
-
-  // Update the debug info
-  if (retVal->getType()->isVectorTy())
-    dxilutil::ScatterDebugValueToVectorElements(retVal);
 
   // get status
   if (status) {
@@ -3005,6 +3003,8 @@ void GenerateDxilGather(CallInst *CI, Function *F,
 
   CallInst *call = Builder.CreateCall(F, gatherArgs);
 
+  dxilutil::MigrateDebugValue(CI, call);
+
   Value *retVal;
   if (!helper.hasSampleOffsets) {
     // extract value part
@@ -3034,9 +3034,6 @@ void GenerateDxilGather(CallInst *CI, Function *F,
 
   // Replace ret val.
   CI->replaceAllUsesWith(retVal);
-
-  if (retVal->getType()->isVectorTy())
-    dxilutil::ScatterDebugValueToVectorElements(retVal);
 
   // Get status
   if (helper.status) {
@@ -3299,7 +3296,7 @@ static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::
   return OP->GetI8Const(mask);
 }
 
-void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
   Value *status, Type *EltTy,
   MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
   IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
@@ -3330,12 +3327,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (RK == HLResource::Kind::StructuredBuffer) {
     // Basic type case for StructuredBuffer::Load()
     Value *ResultElts[4];
-    GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
+    Value *StructBufLoad = GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
       helper.status, EltTy, ResultElts, OP, Builder, numComponents, Alignment);
+    dxilutil::MigrateDebugValue(helper.retVal, StructBufLoad);
     Value *retValNew = ScalarizeElements(Ty, ResultElts, Builder);
     helper.retVal->replaceAllUsesWith(retValNew);
     helper.retVal = retValNew;
-    if (Ty->isVectorTy()) dxilutil::ScatterDebugValueToVectorElements(retValNew);
     return;
   }
 
@@ -3417,6 +3414,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   Value *ResRet =
       Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
+  dxilutil::MigrateDebugValue(helper.retVal, ResRet);
 
   Value *retValNew = nullptr;
   if (!is64 || !isTyped) {
@@ -3442,9 +3440,6 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   helper.retVal->replaceAllUsesWith(retValNew);
   // Save new ret val.
   helper.retVal = retValNew;
-  // Update debug info
-  if (retValNew->getType()->isVectorTy())
-    dxilutil::ScatterDebugValueToVectorElements(retValNew);
   // get status
   UpdateStatus(ResRet, helper.status, Builder, OP);
 }
@@ -5945,7 +5940,7 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
   return addr;
 }
 
-void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
                          IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment) {
@@ -5970,7 +5965,7 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
 
   // status
   UpdateStatus(Ld, status, Builder, OP);
-  return;
+  return Ld;
 }
 
 void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
