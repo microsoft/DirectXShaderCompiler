@@ -101,27 +101,42 @@ static void CreateOperationResultFromOutputs(
                                    ppResult);
 }
 
+#ifdef _WIN32
+
+#pragma fenv_access(on)
+
 struct DefaultFPEnvScope
 {
   // _controlfp_s is non-standard and <cfenv>.feholdexceptions doesn't work on windows...?
-#ifdef _WIN32
   unsigned int previousValue;
   DefaultFPEnvScope() {
+    // _controlfp_s returns the value of the control word as it is after
+    // the call, not before the call.  This is the proper way to get the
+    // previous value.
+    errno_t error = _controlfp_s(&previousValue, 0, 0);
+    IFT(error == 0 ? S_OK : E_FAIL);
     // No exceptions, preserve denormals & round to nearest.
-    errno_t error = _controlfp_s(&previousValue, _MCW_EM | _DN_SAVE | _RC_NEAR, _MCW_EM | _MCW_DN | _MCW_RC);
+    unsigned int newValue;
+    error = _controlfp_s(&newValue, _MCW_EM | _DN_SAVE | _RC_NEAR,
+                                    _MCW_EM | _MCW_DN  | _MCW_RC);
     IFT(error == 0 ? S_OK : E_FAIL);
   }
   ~DefaultFPEnvScope() {
+    _clearfp();
     unsigned int newValue;
     errno_t error = _controlfp_s(&newValue, previousValue, _MCW_EM | _MCW_DN | _MCW_RC);
     // During cleanup we can't throw as we might already be handling another one.
-    DXASSERT(error == 0, "Failed to restore floating-point environment.");
-    (void)error;
+    DXASSERT_LOCALVAR(error, error == 0, "Failed to restore floating-point environment.");
   }
-#else
-  DefaultFPEnvScope() {} // Dummy ctor to avoid unused local warning
-#endif
 };
+
+#else   // _WIN32
+
+struct DefaultFPEnvScope {
+  DefaultFPEnvScope() {} // Dummy ctor to avoid unused local warning
+};
+
+#endif  // _WIN32
 
 class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
