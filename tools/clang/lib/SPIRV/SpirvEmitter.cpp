@@ -3399,6 +3399,7 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   // If this is a variable to communicate with host e.g., ACSBuffer
   // and its type is bool or vector of bool, its effective type used
   // for SPIRV must be uint not bool. We must convert it to uint here.
+  bool needCast = false;
   if (bufferInfo->getLayoutRule() != SpirvLayoutRule::Void &&
       isBoolOrVecOfBoolType(bufferElemTy)) {
     uint32_t vecSize = 1;
@@ -3406,6 +3407,7 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     bufferElemTy =
         isVec ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
               : astContext.UnsignedIntTy;
+    needCast = true;
   }
 
   bufferInfo = turnIntoElementPtr(object->getType(), bufferInfo, bufferElemTy,
@@ -3419,8 +3421,9 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
     if (!arg0->isRValue()) {
       arg0 = spvBuilder.createLoad(bufferElemTy, arg0);
-    } else if (!isSameType(astContext, bufferElemTy,
-                           arg0->getAstResultType())) {
+    }
+    if (needCast &&
+        !isSameType(astContext, bufferElemTy, arg0->getAstResultType())) {
       arg0 = castToType(arg0, arg0->getAstResultType(), bufferElemTy,
                         expr->getArg(0)->getExprLoc());
     }
