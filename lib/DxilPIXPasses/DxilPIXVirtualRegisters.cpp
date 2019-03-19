@@ -22,13 +22,6 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Type.h"
 
-static llvm::Metadata *MetadataForValue(llvm::Value *V) {
-  if (auto *C = llvm::dyn_cast<llvm::Constant>(V)) {
-    return llvm::ConstantAsMetadata::get(C);
-  }
-  return llvm::ValueAsMetadata::get(V);
-}
-
 void pix_dxil::PixDxilInstNum::AddMD(llvm::LLVMContext &Ctx, llvm::Instruction *pI, std::uint32_t InstNum) {
   llvm::IRBuilder<> B(Ctx);
   pI->setMetadata(
@@ -130,13 +123,36 @@ void pix_dxil::PixAllocaReg::AddMD(llvm::LLVMContext &Ctx, llvm::AllocaInst *pAl
                                llvm::ConstantAsMetadata::get(B.getInt32(Count)) }));
 }
 
+namespace pix_dxil {
+namespace PixAllocaRegWrite {
+static constexpr uint32_t IndexIsConst = 1;
+static constexpr uint32_t IndexIsPixInst = 2;
+}  // namespace PixAllocaRegWrite
+}  // namespace pix_dxil {
+
 void pix_dxil::PixAllocaRegWrite::AddMD(llvm::LLVMContext &Ctx, llvm::StoreInst *pSt, llvm::MDNode *pAllocaReg, llvm::Value *Index) {
   llvm::IRBuilder<> B(Ctx);
-  pSt->setMetadata(
+  if (auto *C = llvm::dyn_cast<llvm::ConstantInt>(Index)) {
+    pSt->setMetadata(
       llvm::StringRef(MDName),
       llvm::MDNode::get(Ctx, { llvm::ConstantAsMetadata::get(B.getInt32(ID)),
                                pAllocaReg,
-                               MetadataForValue(Index) }));
+                               llvm::ConstantAsMetadata::get(B.getInt32(IndexIsConst)),
+                               llvm::ConstantAsMetadata::get(C) }));
+  }
+
+  if (auto *I = llvm::dyn_cast<llvm::Instruction>(Index)) {
+    std::uint32_t InstNum;
+    if (!PixDxilInstNum::FromInst(I, &InstNum)) {
+      return;
+    }
+    pSt->setMetadata(
+      llvm::StringRef(MDName),
+      llvm::MDNode::get(Ctx, { llvm::ConstantAsMetadata::get(B.getInt32(ID)),
+                               pAllocaReg,
+                               llvm::ConstantAsMetadata::get(B.getInt32(IndexIsPixInst)),
+                               llvm::ConstantAsMetadata::get(B.getInt32(InstNum)) }));
+  }
 }
 
 bool pix_dxil::PixAllocaRegWrite::FromInst(llvm::StoreInst *pI, std::uint32_t *pRegBase, std::uint32_t *pRegSize, llvm::Value **pIndex) {
@@ -145,7 +161,7 @@ bool pix_dxil::PixAllocaRegWrite::FromInst(llvm::StoreInst *pI, std::uint32_t *p
   *pIndex = nullptr;
 
   auto *mdNodes = pI->getMetadata(MDName);
-  if (mdNodes == nullptr || mdNodes->getNumOperands() != 3) {
+  if (mdNodes == nullptr || mdNodes->getNumOperands() != 4) {
     return false;
   }
 
@@ -159,11 +175,48 @@ bool pix_dxil::PixAllocaRegWrite::FromInst(llvm::StoreInst *pI, std::uint32_t *p
     return false;
   }
 
-  auto *mdIndex = llvm::dyn_cast<llvm::ValueAsMetadata>(mdNodes->getOperand(2));
+  auto *mdIndexType = llvm::dyn_cast<llvm::ConstantAsMetadata>(mdNodes->getOperand(2));
+  if (mdIndexType == nullptr) {
+    return false;
+  }
+
+  auto* cIndexType = llvm::dyn_cast<llvm::ConstantInt>(mdIndexType->getValue());
+  if (cIndexType == nullptr) {
+    return false;
+  }
+
+  auto *mdIndex = llvm::dyn_cast<llvm::ConstantAsMetadata>(mdNodes->getOperand(3));
   if (mdIndex == nullptr) {
     return false;
   }
-  *pIndex = mdIndex->getValue();
 
-  return true;
+  auto *cIndex = llvm::dyn_cast<llvm::ConstantInt>(mdIndex->getValue());
+  if (cIndex == nullptr) {
+    return false;
+  }
+
+  switch (cIndexType->getLimitedValue()) {
+  default:
+    return false;
+
+  case IndexIsConst: {
+    *pIndex = cIndex;
+    return true;
+  }
+
+  case IndexIsPixInst: {
+    for (llvm::Instruction &I : llvm::inst_range(pI->getParent()->getParent())) {
+      uint32_t InstNum;
+      if (PixDxilInstNum::FromInst(&I, &InstNum)) {
+        *pIndex = &I;
+        if (InstNum == cIndex->getLimitedValue()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  }
+
+  return false;
 }
