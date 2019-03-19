@@ -10,11 +10,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
-
 #include <memory>
 
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -29,8 +29,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "DxilPIXVirtualRegisters.h"
 
 #define DEBUG_TYPE "dxil-annotate-with-virtual-regs"
 
@@ -70,12 +68,26 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   if (OSOverride != nullptr) {
-    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
+    *OSOverride << "\nBegin - instruction ID to line\n";
   }
 
   std::uint32_t InstNum = 0;
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, ++InstNum);
+    if (OSOverride != nullptr) {
+      *OSOverride << InstNum << ' ';
+      I.print(*OSOverride);
+      *OSOverride << "\n";
+    }
+    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+  }
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nEnd - instruction ID to line\n";
+  }
+
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
@@ -165,7 +177,10 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(llvm::Value *V, llvm
 
 void DxilAnnotateWithVirtualRegister::AnnotateAlloca(llvm::AllocaInst *pAlloca) {
   llvm::Type *pAllocaTy = pAlloca->getType()->getElementType();
-  if (pAllocaTy->isFloatTy() || pAllocaTy->isIntegerTy()) {
+  if (pAllocaTy->isFloatTy() ||
+      pAllocaTy->isIntegerTy() ||
+      pAllocaTy->isHalfTy() ||
+      pAllocaTy->isIntegerTy(16)) {
     AssignNewAllocaRegister(pAlloca, 1);
   } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, AT->getNumElements());

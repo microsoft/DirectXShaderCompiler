@@ -13,6 +13,8 @@
 
 #include "dxc/Support/WinIncludes.h"
 
+#include <vector>
+
 #include "dia2.h"
 
 #include "dxc/Support/Global.h"
@@ -26,32 +28,50 @@ class Session;
 
 class Symbol : public IDiaSymbol {
   DXC_MICROCOM_TM_REF_FIELDS()
+
+protected:
+  DXC_MICROCOM_TM_CTOR_ONLY(Symbol)
+
     CComPtr<Session> m_pSession;
-  DWORD m_index;
+
+private:
+  DWORD m_ID;
   DWORD m_symTag;
+  bool m_hasLexicalParent = false;
   DWORD m_lexicalParent = 0;
+  bool m_hasIsHLSLData = false;
+  bool m_isHLSLData = false;
+  bool m_hasDataKind = false;
   DWORD m_dataKind = 0;
+  bool m_hasSourceFileName = false;
   CComBSTR m_sourceFileName;
+  bool m_hasName = false;
   CComBSTR m_name;
+  bool m_hasValue = false;
   CComVariant m_value;
+
 public:
+  virtual ~Symbol();
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-    DXC_MICROCOM_TM_CTOR(Symbol)
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) final {
     return DoBasicQueryInterface<IDiaSymbol>(this, iid, ppvObject);
   }
 
-  static HRESULT Create(IMalloc *pMalloc, Session *pSession, DWORD index, DWORD symTag, Symbol **pSymbol);
-
   void Init(Session *pSession, DWORD index, DWORD symTag);
 
-  void SetDataKind(DWORD value) { m_dataKind = value; }
-  void SetLexicalParent(DWORD value) { m_lexicalParent = value; }
-  void SetName(LPCWSTR value) { m_name = value; }
-  void SetValue(LPCSTR value) { m_value = value; }
-  void SetValue(VARIANT *pValue) { m_value.Copy(pValue); }
-  void SetValue(unsigned value) { m_value = value; }
-  void SetSourceFileName(BSTR value) { m_sourceFileName = value; }
+  DWORD GetID() const { return m_ID; }
+
+  void SetDataKind(DWORD value) { m_hasDataKind = true; m_dataKind = value; }
+  void SetLexicalParent(DWORD value) { m_hasLexicalParent = true; m_lexicalParent = value; }
+  bool HasName() const { return m_hasName; }
+  void SetName(LPCWSTR value) { m_hasName = true; m_name = value; }
+  void SetValue(LPCSTR value) { m_hasValue = true; m_value = value; }
+  void SetValue(VARIANT *pValue) { m_hasValue = true; m_value.Copy(pValue); }
+  void SetValue(unsigned value) { m_hasValue = true; m_value = value; }
+  void SetSourceFileName(BSTR value) { m_hasSourceFileName = true; m_sourceFileName = value; }
+  void SetIsHLSLData(bool value) { m_hasIsHLSLData = true; m_isHLSLData = value; }
+
+  virtual HRESULT GetChildren(std::vector<CComPtr<Symbol>> *children) = 0;
 
 #pragma region IDiaSymbol implementation.
   STDMETHODIMP get_symIndexId(
@@ -64,19 +84,19 @@ public:
     /* [retval][out] */ BSTR *pRetVal) override;
 
   STDMETHODIMP get_lexicalParent(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override;
 
   STDMETHODIMP get_classParent(
     /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_type(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override;
 
   STDMETHODIMP get_dataKind(
     /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_locationType(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_addressSection(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -94,10 +114,10 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_offset(
-    /* [retval][out] */ LONG *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ LONG *pRetVal) override;
 
   STDMETHODIMP get_length(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ ULONGLONG *pRetVal) override;
 
   STDMETHODIMP get_slot(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -175,7 +195,7 @@ public:
     /* [retval][out] */ VARIANT *pRetVal) override;
 
   STDMETHODIMP get_baseType(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_token(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -193,7 +213,7 @@ public:
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_count(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_bitPosition(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -238,7 +258,7 @@ public:
     /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_lexicalParentId(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_classParentId(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -306,13 +326,13 @@ public:
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override;
 
   STDMETHODIMP findChildrenEx(
     /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override;
 
   STDMETHODIMP findChildrenExByAddr(
     /* [in] */ enum SymTagEnum symtag,
@@ -441,7 +461,7 @@ public:
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_isAggregated(
-    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ BOOL *pRetVal) override;
 
   STDMETHODIMP get_isSplitted(
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
@@ -522,7 +542,7 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_liveRangeStartAddressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_liveRangeStartRelativeVirtualAddress(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -531,10 +551,10 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_liveRangeLength(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ ULONGLONG *pRetVal) override;
 
   STDMETHODIMP get_offsetInUdt(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_paramBasePointerRegisterId(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -560,7 +580,7 @@ public:
   STDMETHODIMP get_numericProperties(
     /* [in] */ DWORD cnt,
     /* [out] */ DWORD *pcnt,
-    /* [size_is][out] */ DWORD *pProperties) override { return ENotImpl(); }
+    /* [size_is][out] */ DWORD *pProperties) override;
 
   STDMETHODIMP get_modifierValues(
     /* [in] */ DWORD cnt,
@@ -577,7 +597,7 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_registerType(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_baseDataSlot(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -595,7 +615,7 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_sizeInUdt(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_memorySpaceKind(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
@@ -613,10 +633,10 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_numberOfRegisterIndices(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_isHLSLData(
-    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ BOOL *pRetVal) override;
 
   STDMETHODIMP get_isPointerToDataMember(
     /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
@@ -808,7 +828,48 @@ public:
   STDMETHODIMP get_bindSlot(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
-#pragma endregion IDiaSymbol implementation.
+#pragma endregion
+};
+
+class SymbolChildrenEnumerator : public IDiaEnumSymbols {
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(SymbolChildrenEnumerator)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    return DoBasicQueryInterface<IDiaEnumSymbols>(this, iid, ppvObject);
+  }
+
+  void Init(std::vector<CComPtr<Symbol>> &&syms);
+
+#pragma region IDiaEnumSymbols implementation
+  /* [id][helpstring][propget] */ HRESULT STDMETHODCALLTYPE get__NewEnum(
+    /* [retval][out] */ IUnknown **pRetVal) override { return ENotImpl(); }
+
+  /* [id][helpstring][propget] */ HRESULT STDMETHODCALLTYPE get_Count(
+    /* [retval][out] */ LONG *pRetVal) override;
+
+  /* [helpstring][id] */ HRESULT STDMETHODCALLTYPE Item(
+    /* [in] */ DWORD index,
+    /* [retval][out] */ IDiaSymbol **symbol) override;
+
+  HRESULT STDMETHODCALLTYPE Next(
+    /* [in] */ ULONG celt,
+    /* [out] */ IDiaSymbol **rgelt,
+    /* [out] */ ULONG *pceltFetched) override;
+
+  HRESULT STDMETHODCALLTYPE Skip(
+    /* [in] */ ULONG celt) override { return ENotImpl(); }
+
+  HRESULT STDMETHODCALLTYPE Reset(void) override;
+
+  HRESULT STDMETHODCALLTYPE Clone(
+    /* [out] */ IDiaEnumSymbols **ppenum) override { return ENotImpl(); }
+#pragma endregion
+
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  std::vector<CComPtr<Symbol>> m_symbols;
+  std::vector<CComPtr<Symbol>>::iterator m_pos;
 };
 
 class SymbolsTable : public impl::TableBase<IDiaEnumSymbols, IDiaSymbol> {

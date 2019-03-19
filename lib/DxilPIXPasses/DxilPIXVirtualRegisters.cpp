@@ -10,7 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "DxilPIXVirtualRegisters.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 
 #include "dxc/Support/Global.h"
 #include "llvm/IR/Constant.h"
@@ -121,6 +121,18 @@ void pix_dxil::PixAllocaReg::AddMD(llvm::LLVMContext &Ctx, llvm::AllocaInst *pAl
       llvm::MDNode::get(Ctx, { llvm::ConstantAsMetadata::get(B.getInt32(ID)),
                                llvm::ConstantAsMetadata::get(B.getInt32(RegNum)),
                                llvm::ConstantAsMetadata::get(B.getInt32(Count)) }));
+}
+
+bool pix_dxil::PixAllocaReg::FromInst(llvm::AllocaInst *pAlloca, std::uint32_t *pRegBase, std::uint32_t *pRegSize) {
+  *pRegBase = 0;
+  *pRegSize = 0;
+
+  auto *mdNodes = pAlloca->getMetadata(MDName);
+  if (mdNodes == nullptr) {
+    return false;
+  }
+
+  return ParsePixAllocaReg(mdNodes, pRegBase, pRegSize);
 }
 
 namespace pix_dxil {
