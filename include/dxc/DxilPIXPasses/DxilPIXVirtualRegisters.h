@@ -43,6 +43,7 @@ static constexpr char MDName[] = "pix-alloca-reg";
 static constexpr uint32_t ID = 1;
 
 void AddMD(llvm::LLVMContext &Ctx, llvm::AllocaInst *pAlloca, std::uint32_t RegNum, std::uint32_t Count);
+bool FromInst(llvm::AllocaInst *pAlloca, std::uint32_t *pRegBase, std::uint32_t *pRegSize);
 }  // namespace PixAllocaReg
 
 namespace PixAllocaRegWrite {
