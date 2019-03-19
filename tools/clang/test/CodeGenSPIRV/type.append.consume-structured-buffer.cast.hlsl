@@ -35,43 +35,29 @@ void main() {
 
 // CHECK:       [[p_1:%\d+]] = OpAccessChain %_ptr_Uniform_uint %consume_bool %uint_0 {{%\d+}}
 // CHECK-NEXT:  [[i_0:%\d+]] = OpLoad %uint [[p_1]]
-// CHECK-NEXT:  [[b_0:%\d+]] = OpINotEqual %bool [[i_0]] %uint_0
-// CHECK-NEXT: [[bi_0:%\d+]] = OpSelect %uint [[b_0]] %uint_1 %uint_0
-// CHECK-NEXT:                 OpStore [[p_0]] [[bi_0]]
+// CHECK-NEXT:                 OpStore [[p_0]] [[i_0]]
   append_bool.Append(consume_bool.Consume());
 
 // CHECK:       [[p_2:%\d+]] = OpAccessChain %_ptr_Uniform_int %consume_int %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[i_1:%\d+]] = OpLoad %int [[p_2]]
-// CHECK-NEXT:  [[b_1:%\d+]] = OpINotEqual %bool [[i_1]] %int_0
-// CHECK-NEXT: [[bi_1:%\d+]] = OpSelect %uint [[b_1]] %uint_1 %uint_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_1]]
+// CHECK-NEXT:  [[i_2:%\d+]] = OpLoad %int [[p_2]]
+// CHECK-NEXT:  [[b_2:%\d+]] = OpINotEqual %bool [[i_2]] %int_0
+// CHECK-NEXT: [[bi_2:%\d+]] = OpSelect %uint [[b_2]] %uint_1 %uint_0
+// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_2]]
   append_bool.Append(consume_int.Consume());
 
 // CHECK:       [[p_3:%\d+]] = OpAccessChain %_ptr_Uniform_float %consume_float %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[f_0:%\d+]] = OpLoad %float [[p_3]]
-// CHECK-NEXT:  [[b_2:%\d+]] = OpFOrdNotEqual %bool [[f_0]] %float_0
-// CHECK-NEXT: [[bi_2:%\d+]] = OpSelect %uint [[b_2]] %uint_1 %uint_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_2]]
+// CHECK-NEXT:  [[f_3:%\d+]] = OpLoad %float [[p_3]]
+// CHECK-NEXT:  [[b_3:%\d+]] = OpFOrdNotEqual %bool [[f_3]] %float_0
+// CHECK-NEXT: [[bi_3:%\d+]] = OpSelect %uint [[b_3]] %uint_1 %uint_0
+// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_3]]
   append_bool.Append(consume_float.Consume());
 
 // CHECK:       [[p_4:%\d+]] = OpAccessChain %_ptr_Uniform_uint %append_bool %uint_0 {{%\d+}}
 
 // CHECK:       [[p_5:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[s_0:%\d+]] = OpLoad %struct_with_bool [[p_5]]
-// CHECK-NEXT: [[vu_0:%\d+]] = OpCompositeExtract %v2uint [[s_0]] 0
-// CHECK-NEXT: [[vb_0:%\d+]] = OpINotEqual %v2bool [[vu_0]] {{%\d+}}
-// CHECK-NEXT: [[vi_0:%\d+]] = OpCompositeExtract %v2int [[s_0]] 1
-// CHECK-NEXT: [[vf_0:%\d+]] = OpCompositeExtract %v2float [[s_0]] 2
-// CHECK-NEXT:  [[i_2:%\d+]] = OpCompositeExtract %uint [[s_0]] 3
-// CHECK-NEXT:  [[b_3:%\d+]] = OpINotEqual %bool [[i_2]] %uint_0
-// CHECK-NEXT:  [[i_3:%\d+]] = OpCompositeExtract %int [[s_0]] 4
-// CHECK-NEXT:  [[f_1:%\d+]] = OpCompositeExtract %float [[s_0]] 5
-// CHECK-NEXT:  [[s_1:%\d+]] = OpCompositeConstruct %struct_with_bool_0 [[vb_0]] [[vi_0]] [[vf_0]] [[b_3]] [[i_3]] [[f_1]]
-// CHECK-NEXT:                 OpStore [[temp_0:%\w+]] [[s_1]]
-// CHECK-NEXT:  [[p_6:%\d+]] = OpAccessChain %_ptr_Function_bool [[temp_0]] %int_3
-// CHECK-NEXT:  [[b_4:%\d+]] = OpLoad %bool [[p_6]]
-// CHECK-NEXT: [[bi_3:%\d+]] = OpSelect %uint [[b_4]] %uint_1 %uint_0
-// CHECK-NEXT:                 OpStore [[p_4]] [[bi_3]]
+// CHECK-NEXT:  [[p_6:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[p_5]] %int_3
+// CHECK-NEXT:  [[i_5:%\d+]] = OpLoad %uint [[p_6]]
+// CHECK-NEXT:                 OpStore [[p_4]] [[i_5]]
   append_bool.Append(consume_struct_with_bool.Consume().elem_bool);
 
   //
@@ -82,303 +68,296 @@ void main() {
   // append_bool.Append(consume_struct_with_bool.Consume().elem_float);
 
 // CHECK:       [[p_7:%\d+]] = OpAccessChain %_ptr_Uniform_uint %consume_bool %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[i_4:%\d+]] = OpLoad %uint [[p_7]]
-// CHECK-NEXT:  [[b_5:%\d+]] = OpINotEqual %bool [[i_4]] %uint_0
-// CHECK-NEXT: [[bi_4:%\d+]] = OpSelect %int [[b_5]] %int_1 %int_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_4]]
+// CHECK-NEXT:  [[i_7:%\d+]] = OpLoad %uint [[p_7]]
+// CHECK-NEXT:  [[b_7:%\d+]] = OpINotEqual %bool [[i_7]] %uint_0
+// CHECK-NEXT: [[bi_7:%\d+]] = OpSelect %int [[b_7]] %int_1 %int_0
+// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_7]]
   append_int.Append(consume_bool.Consume());
 
 // CHECK:       [[p_8:%\d+]] = OpAccessChain %_ptr_Uniform_int %consume_int %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[i_5:%\d+]] = OpLoad %int [[p_8]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[i_5]]
+// CHECK-NEXT:  [[i_8:%\d+]] = OpLoad %int [[p_8]]
+// CHECK-NEXT:                 OpStore {{%\d+}} [[i_8]]
   append_int.Append(consume_int.Consume());
 
 // CHECK:       [[p_9:%\d+]] = OpAccessChain %_ptr_Uniform_float %consume_float %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[f_2:%\d+]] = OpLoad %float [[p_9]]
-// CHECK-NEXT:  [[i_6:%\d+]] = OpConvertFToS %int [[f_2]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[i_6]]
+// CHECK-NEXT:  [[f_9:%\d+]] = OpLoad %float [[p_9]]
+// CHECK-NEXT:  [[i_9:%\d+]] = OpConvertFToS %int [[f_9]]
+// CHECK-NEXT:                 OpStore {{%\d+}} [[i_9]]
   append_int.Append(consume_float.Consume());
 
   // append_int.Append(consume_struct_with_bool.Consume().elem_bool);
 
-// CHECK:      [[p_10:%\d+]] = OpAccessChain %_ptr_Function_int {{%\w+}} %int_4
-// CHECK-NEXT:  [[i_7:%\d+]] = OpLoad %int [[p_10]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[i_7]]
+// CHECK:      [[p_10:%\d+]] = OpAccessChain %_ptr_Uniform_int {{%\d+}} %int_4
+// CHECK-NEXT: [[i_10:%\d+]] = OpLoad %int [[p_10]]
+// CHECK-NEXT:                 OpStore {{%\d+}} [[i_10]]
   append_int.Append(consume_struct_with_bool.Consume().elem_int);
 
   // append_int.Append(consume_struct_with_bool.Consume().elem_float);
 
 // CHECK:      [[p_11:%\d+]] = OpAccessChain %_ptr_Uniform_uint %consume_bool %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[i_7:%\d+]] = OpLoad %uint [[p_11]]
-// CHECK-NEXT:  [[b_6:%\d+]] = OpINotEqual %bool [[i_7]] %uint_0
-// CHECK-NEXT: [[bf_0:%\d+]] = OpSelect %float [[b_6]] %float_1 %float_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[bf_0]]
+// CHECK-NEXT: [[i_11:%\d+]] = OpLoad %uint [[p_11]]
+// CHECK-NEXT: [[b_11:%\d+]] = OpINotEqual %bool [[i_11]] %uint_0
+// CHECK-NEXT: [[f_11:%\d+]] = OpSelect %float [[b_11]] %float_1 %float_0
+// CHECK-NEXT:                 OpStore {{%\d+}} [[f_11]]
   append_float.Append(consume_bool.Consume());
 
 // CHECK:      [[p_12:%\d+]] = OpAccessChain %_ptr_Uniform_int %consume_int %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[i_8:%\d+]] = OpLoad %int [[p_12]]
-// CHECK-NEXT:  [[f_3:%\d+]] = OpConvertSToF %float [[i_8]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[f_3]]
+// CHECK-NEXT: [[i_12:%\d+]] = OpLoad %int [[p_12]]
+// CHECK-NEXT: [[f_12:%\d+]] = OpConvertSToF %float [[i_12]]
+// CHECK-NEXT:                 OpStore {{%\d+}} [[f_12]]
   append_float.Append(consume_int.Consume());
 
 // CHECK:      [[p_13:%\d+]] = OpAccessChain %_ptr_Uniform_float %consume_float %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[f_4:%\d+]] = OpLoad %float [[p_13]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[f_4]]
+// CHECK-NEXT: [[f_13:%\d+]] = OpLoad %float [[p_13]]
+// CHECK-NEXT:                 OpStore {{%\d+}} [[f_13]]
   append_float.Append(consume_float.Consume());
 
   // append_float.Append(consume_struct_with_bool.Consume().elem_bool);
   // append_float.Append(consume_struct_with_bool.Consume().elem_int);
 
-// CHECK:      [[p_14:%\d+]] = OpAccessChain %_ptr_Function_float {{%\w+}} %int_5
-// CHECK-NEXT:  [[f_5:%\d+]] = OpLoad %float [[p_14]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[f_5]]
+// CHECK:      [[p_14:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
+// CHECK-NEXT: [[p_15:%\d+]] = OpAccessChain %_ptr_Function_float [[p_14]] %int_5
+// CHECK-NEXT: [[f_15:%\d+]] = OpLoad %float [[p_15]]
+// CHECK-NEXT:                 OpStore {{%\d+}} [[f_15]]
   append_float.Append(consume_struct_with_bool.Consume().elem_float);
 
-// CHECK:      [[p_15:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_1:%\d+]] = OpLoad %v2uint [[p_15]]
-// CHECK-NEXT: [[vb_1:%\d+]] = OpINotEqual %v2bool [[vu_1]] {{%\d+}}
-// CHECK-NEXT: [[vu_2:%\d+]] = OpSelect %v2uint [[vb_1]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_2]]
+// CHECK:       [[p_16:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vu_16:%\d+]] = OpLoad %v2uint [[p_16]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_16]]
   append_v2bool.Append(consume_v2bool.Consume());
 
-// CHECK:      [[p_16:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vi_1:%\d+]] = OpLoad %v2int [[p_16]]
-// CHECK-NEXT: [[vb_2:%\d+]] = OpINotEqual %v2bool [[vi_1]] {{%\d+}}
-// CHECK-NEXT: [[vu_3:%\d+]] = OpSelect %v2uint [[vb_2]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_3]]
+// CHECK:       [[p_17:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vi_17:%\d+]] = OpLoad %v2int [[p_17]]
+// CHECK-NEXT: [[vb_17:%\d+]] = OpINotEqual %v2bool [[vi_17]] {{%\d+}}
+// CHECK-NEXT: [[vu_17:%\d+]] = OpSelect %v2uint [[vb_17]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_17]]
   append_v2bool.Append(consume_v2int.Consume());
 
-// CHECK:      [[p_17:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vf_1:%\d+]] = OpLoad %v2float [[p_17]]
-// CHECK-NEXT: [[vb_3:%\d+]] = OpFOrdNotEqual %v2bool [[vf_1]] {{%\d+}}
-// CHECK-NEXT: [[vu_4:%\d+]] = OpSelect %v2uint [[vb_3]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_4]]
+// CHECK:       [[p_18:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vf_18:%\d+]] = OpLoad %v2float [[p_18]]
+// CHECK-NEXT: [[vb_18:%\d+]] = OpFOrdNotEqual %v2bool [[vf_18]] {{%\d+}}
+// CHECK-NEXT: [[vu_18:%\d+]] = OpSelect %v2uint [[vb_18]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_18]]
   append_v2bool.Append(consume_v2float.Consume());
 
-// CHECK:      [[p_18:%\d+]] = OpAccessChain %_ptr_Function_v2bool {{%\w+}} %int_0
-// CHECK-NEXT: [[vb_4:%\d+]] = OpLoad %v2bool [[p_18]]
-// CHECK-NEXT: [[vu_5:%\d+]] = OpSelect %v2uint [[vb_4]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_5]]
+// CHECK:       [[p_19:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
+// CHECK-NEXT:  [[p_20:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint [[p_19]] %int_0
+// CHECK-NEXT: [[vu_20:%\d+]] = OpLoad %v2uint [[p_20]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_20]]
   append_v2bool.Append(consume_struct_with_bool.Consume().elem_v2bool);
 
-// CHECK:      [[p_19:%\d+]] = OpAccessChain %_ptr_Function_v2int {{%\w+}} %int_1
-// CHECK-NEXT: [[vi_2:%\d+]] = OpLoad %v2int [[p_19]]
-// CHECK-NEXT: [[vb_5:%\d+]] = OpINotEqual %v2bool [[vi_2]] {{%\d+}}
-// CHECK-NEXT: [[vu_6:%\d+]] = OpSelect %v2uint [[vb_5]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_6]]
+// CHECK:       [[p_21:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
+// CHECK:       [[p_22:%\d+]] = OpAccessChain %_ptr_Uniform_v2int [[p_21]] %int_1
+// CHECK-NEXT: [[vi_22:%\d+]] = OpLoad %v2int [[p_22]]
+// CHECK-NEXT: [[vb_22:%\d+]] = OpINotEqual %v2bool [[vi_22]] {{%\d+}}
+// CHECK-NEXT: [[vu_22:%\d+]] = OpSelect %v2uint [[vb_22]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_22]]
   append_v2bool.Append(consume_struct_with_bool.Consume().elem_v2int);
 
-// CHECK:      [[p_20:%\d+]] = OpAccessChain %_ptr_Function_v2float {{%\w+}} %int_2
-// CHECK-NEXT: [[vf_2:%\d+]] = OpLoad %v2float [[p_20]]
-// CHECK-NEXT: [[vb_6:%\d+]] = OpFOrdNotEqual %v2bool [[vf_2]] {{%\d+}}
-// CHECK-NEXT: [[vu_7:%\d+]] = OpSelect %v2uint [[vb_6]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_7]]
+// CHECK:       [[p_23:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
+// CHECK:       [[p_24:%\d+]] = OpAccessChain %_ptr_Uniform_v2float [[p_23]] %int_2
+// CHECK-NEXT: [[vf_24:%\d+]] = OpLoad %v2float [[p_24]]
+// CHECK-NEXT: [[vb_24:%\d+]] = OpFOrdNotEqual %v2bool [[vf_24]] {{%\d+}}
+// CHECK-NEXT: [[vu_24:%\d+]] = OpSelect %v2uint [[vb_24]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_24]]
   append_v2bool.Append(consume_struct_with_bool.Consume().elem_v2float);
 
-// CHECK:      [[p_21:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_8:%\d+]] = OpLoad %v2uint [[p_21]]
-// CHECK-NEXT: [[vb_7:%\d+]] = OpINotEqual %v2bool [[vu_8]] {{%\d+}}
-// CHECK-NEXT: [[vu_9:%\d+]] = OpSelect %v2int [[vb_7]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vu_9]]
+// CHECK:       [[p_25:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vu_25:%\d+]] = OpLoad %v2uint [[p_25]]
+// CHECK-NEXT: [[vb_25:%\d+]] = OpINotEqual %v2bool [[vu_25]] {{%\d+}}
+// CHECK-NEXT: [[vu_25:%\d+]] = OpSelect %v2int [[vb_25]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_25]]
   append_v2int.Append(consume_v2bool.Consume());
 
-// CHECK:      [[p_22:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vi_3:%\d+]] = OpLoad %v2int [[p_22]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vi_3]]
+// CHECK:       [[p_26:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vi_26:%\d+]] = OpLoad %v2int [[p_26]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vi_26]]
   append_v2int.Append(consume_v2int.Consume());
 
-// CHECK:      [[p_23:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vf_3:%\d+]] = OpLoad %v2float [[p_23]]
-// CHECK-NEXT: [[vi_4:%\d+]] = OpConvertFToS %v2int [[vf_3]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vi_4]]
+// CHECK:       [[p_27:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vf_27:%\d+]] = OpLoad %v2float [[p_27]]
+// CHECK-NEXT: [[vi_27:%\d+]] = OpConvertFToS %v2int [[vf_27]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vi_27]]
   append_v2int.Append(consume_v2float.Consume());
 
-// CHECK:       [[p_24:%\d+]] = OpAccessChain %_ptr_Function_v2bool {{%\w+}} %int_0
-// CHECK-NEXT:  [[vb_8:%\d+]] = OpLoad %v2bool [[p_24]]
-// CHECK-NEXT: [[vu_10:%\d+]] = OpSelect %v2int [[vb_8]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                  OpStore {{%\d+}} [[vu_10]]
+// CHECK:       [[p_28:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint {{%\d+}} %int_0
+// CHECK-NEXT: [[vu_28:%\d+]] = OpLoad %v2uint [[p_28]]
+// CHECK-NEXT: [[vb_28:%\d+]] = OpINotEqual %v2bool [[vu_28]] {{%\d+}}
+// CHECK-NEXT: [[vi_28:%\d+]] = OpSelect %v2int [[vb_28]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vi_28]]
   append_v2int.Append(consume_struct_with_bool.Consume().elem_v2bool);
 
-// CHECK:      [[p_25:%\d+]] = OpAccessChain %_ptr_Function_v2int {{%\w+}} %int_1
-// CHECK-NEXT: [[vi_5:%\d+]] = OpLoad %v2int [[p_25]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vi_5]]
+// CHECK:       [[p_29:%\d+]] = OpAccessChain %_ptr_Uniform_v2int {{%\d+}} %int_1
+// CHECK-NEXT: [[vi_29:%\d+]] = OpLoad %v2int [[p_29]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vi_29]]
   append_v2int.Append(consume_struct_with_bool.Consume().elem_v2int);
 
-// CHECK:      [[p_26:%\d+]] = OpAccessChain %_ptr_Function_v2float {{%\w+}} %int_2
-// CHECK-NEXT: [[vf_4:%\d+]] = OpLoad %v2float [[p_26]]
-// CHECK-NEXT: [[vi_6:%\d+]] = OpConvertFToS %v2int [[vf_4]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vi_6]]
+// CHECK:       [[p_30:%\d+]] = OpAccessChain %_ptr_Uniform_v2float {{%\d+}} %int_2
+// CHECK-NEXT: [[vf_30:%\d+]] = OpLoad %v2float [[p_30]]
+// CHECK-NEXT: [[vi_30:%\d+]] = OpConvertFToS %v2int [[vf_30]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vi_30]]
   append_v2int.Append(consume_struct_with_bool.Consume().elem_v2float);
 
-// CHECK:       [[p_27:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_11:%\d+]] = OpLoad %v2uint [[p_27]]
-// CHECK-NEXT:  [[vb_9:%\d+]] = OpINotEqual %v2bool [[vu_11]] {{%\d+}}
-// CHECK-NEXT:  [[vf_5:%\d+]] = OpSelect %v2float [[vb_9]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_5]]
+// CHECK:       [[p_31:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vu_31:%\d+]] = OpLoad %v2uint [[p_31]]
+// CHECK-NEXT: [[vb_31:%\d+]] = OpINotEqual %v2bool [[vu_31]] {{%\d+}}
+// CHECK-NEXT: [[vf_31:%\d+]] = OpSelect %v2float [[vb_31]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_31]]
   append_v2float.Append(consume_v2bool.Consume());
 
-// CHECK:      [[p_28:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vi_7:%\d+]] = OpLoad %v2int [[p_28]]
-// CHECK-NEXT: [[vf_6:%\d+]] = OpConvertSToF %v2float [[vi_7]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vf_6]]
+// CHECK:       [[p_32:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vi_32:%\d+]] = OpLoad %v2int [[p_32]]
+// CHECK-NEXT: [[vf_32:%\d+]] = OpConvertSToF %v2float [[vi_32]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_32]]
   append_v2float.Append(consume_v2int.Consume());
 
-// CHECK:      [[p_29:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vf_7:%\d+]] = OpLoad %v2float [[p_29]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vf_7]]
+// CHECK:       [[p_33:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
+// CHECK-NEXT: [[vf_33:%\d+]] = OpLoad %v2float [[p_33]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_33]]
   append_v2float.Append(consume_v2float.Consume());
 
-// CHECK:       [[p_30:%\d+]] = OpAccessChain %_ptr_Function_v2bool {{%\w+}} %int_0
-// CHECK-NEXT: [[vb_10:%\d+]] = OpLoad %v2bool [[p_30]]
-// CHECK-NEXT:  [[vf_8:%\d+]] = OpSelect %v2float [[vb_10]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_8]]
+// CHECK:       [[p_34:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint {{%\d+}} %int_0
+// CHECK-NEXT: [[vu_34:%\d+]] = OpLoad %v2uint [[p_34]]
+// CHECK-NEXT: [[vb_34:%\d+]] = OpINotEqual %v2bool [[vu_34]] {{%\d+}}
+// CHECK-NEXT: [[vf_34:%\d+]] = OpSelect %v2float [[vb_34]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_34]]
   append_v2float.Append(consume_struct_with_bool.Consume().elem_v2bool);
 
-// CHECK:      [[p_31:%\d+]] = OpAccessChain %_ptr_Function_v2int {{%\w+}} %int_1
-// CHECK-NEXT: [[vi_8:%\d+]] = OpLoad %v2int [[p_31]]
-// CHECK-NEXT: [[vf_9:%\d+]] = OpConvertSToF %v2float [[vi_8]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vf_9]]
+// CHECK:       [[p_35:%\d+]] = OpAccessChain %_ptr_Uniform_v2int {{%\d+}} %int_1
+// CHECK-NEXT: [[vi_35:%\d+]] = OpLoad %v2int [[p_35]]
+// CHECK-NEXT: [[vf_35:%\d+]] = OpConvertSToF %v2float [[vi_35]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_35]]
   append_v2float.Append(consume_struct_with_bool.Consume().elem_v2int);
 
-// CHECK:       [[p_32:%\d+]] = OpAccessChain %_ptr_Function_v2float {{%\w+}} %int_2
-// CHECK-NEXT: [[vf_10:%\d+]] = OpLoad %v2float [[p_32]]
-// CHECK-NEXT:                 OpStore {{%\d+}} [[vf_10]]
+// CHECK:       [[p_36:%\d+]] = OpAccessChain %_ptr_Uniform_v2float {{%\w+}} %int_2
+// CHECK-NEXT: [[vf_36:%\d+]] = OpLoad %v2float [[p_36]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[vf_36]]
   append_v2float.Append(consume_struct_with_bool.Consume().elem_v2float);
 
-// CHECK:       [[p_33:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_12:%\d+]] = OpLoad %v2uint [[p_33]]
-// CHECK-NEXT: [[vb_11:%\d+]] = OpINotEqual %v2bool [[vu_12]] {{%\d+}}
-// CHECK-NEXT:   [[b_7:%\d+]] = OpCompositeExtract %bool [[vb_11]] 0
-// CHECK-NEXT:   [[i_9:%\d+]] = OpSelect %uint [[b_7]] %uint_1 %uint_0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_9]]
+// CHECK:       [[p_37:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
+// CHECK-NEXT:  [[p_38:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[p_37]] %uint_0
+// CHECK-NEXT:  [[i_38:%\d+]] = OpLoad %uint [[p_38]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[i_38]]
   append_bool.Append(consume_v2bool.Consume().x);
 
-// CHECK:       [[p_34:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_13:%\d+]] = OpLoad %v2int [[p_34]]
-// CHECK-NEXT:  [[i_10:%\d+]] = OpCompositeExtract %int [[vu_13]] 0
-// CHECK-NEXT:   [[b_8:%\d+]] = OpINotEqual %bool [[i_10]] %int_0
-// CHECK-NEXT:  [[i_10:%\d+]] = OpSelect %uint [[b_8]] %uint_1 %uint_0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_10]]
+// CHECK:       [[p_39:%\d+]] = OpAccessChain %_ptr_Uniform_int {{%\d+}} %int_0
+// CHECK-NEXT:  [[i_39:%\d+]] = OpLoad %int [[p_39]]
+// CHECK-NEXT:  [[b_39:%\d+]] = OpINotEqual %bool [[i_39]] %int_0
+// CHECK-NEXT: [[bi_39:%\d+]] = OpSelect %uint [[b_39]] %uint_1 %uint_0
+// CHECK-NEXT:                  OpStore {{%\d+}} [[bi_39]]
   append_bool.Append(consume_v2int.Consume().x);
 
-// CHECK:       [[p_35:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vf_11:%\d+]] = OpLoad %v2float [[p_35]]
-// CHECK-NEXT:   [[f_6:%\d+]] = OpCompositeExtract %float [[vf_11]] 0
-// CHECK-NEXT:   [[b_9:%\d+]] = OpFOrdNotEqual %bool [[f_6]] %float_0
-// CHECK-NEXT:  [[i_11:%\d+]] = OpSelect %uint [[b_9]] %uint_1 %uint_0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_11]]
+// CHECK:       [[p_40:%\d+]] = OpAccessChain %_ptr_Uniform_float {{%\d+}} %int_0
+// CHECK-NEXT:  [[f_40:%\d+]] = OpLoad %float [[p_40]]
+// CHECK-NEXT:  [[b_40:%\d+]] = OpFOrdNotEqual %bool [[f_40]] %float_0
+// CHECK-NEXT: [[bi_40:%\d+]] = OpSelect %uint [[b_40]] %uint_1 %uint_0
+// CHECK-NEXT:                  OpStore {{%\d+}} [[bi_40]]
   append_bool.Append(consume_v2float.Consume().x);
 
-// CHECK:       [[p_36:%\d+]] = OpAccessChain %_ptr_Function_v2bool {{%\w+}} %int_0
-// CHECK-NEXT: [[vb_12:%\d+]] = OpLoad %v2bool [[p_36]]
-// CHECK-NEXT:  [[b_10:%\d+]] = OpCompositeExtract %bool [[vb_12]] 0
-// CHECK-NEXT:  [[i_12:%\d+]] = OpSelect %uint [[b_10]] %uint_1 %uint_0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_12]]
+// CHECK:       [[p_41:%\d+]] = OpAccessChain %_ptr_Uniform_uint {{%\d+}} %int_0
+// CHECK-NEXT:  [[i_41:%\d+]] = OpLoad %uint [[p_41]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[i_41]]
   append_bool.Append(consume_struct_with_bool.Consume().elem_v2bool.x);
 
   // append_bool.Append(consume_struct_with_bool.Consume().elem_v2int.x);
   // append_bool.Append(consume_struct_with_bool.Consume().elem_v2float.x);
 
-// CHECK:       [[p_37:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_14:%\d+]] = OpLoad %v2uint [[p_37]]
-// CHECK-NEXT: [[vb_13:%\d+]] = OpINotEqual %v2bool [[vu_14]] {{%\d+}}
-// CHECK-NEXT:  [[b_11:%\d+]] = OpCompositeExtract %bool [[vb_13]] 0
-// CHECK-NEXT:  [[i_13:%\d+]] = OpSelect %int [[b_11]] %int_1 %int_0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_13]]
+// CHECK:       [[p_42:%\d+]] = OpAccessChain %_ptr_Uniform_uint {{%\d+}} %uint_0
+// CHECK-NEXT:  [[i_42:%\d+]] = OpLoad %uint [[p_42]]
+// CHECK-NEXT:  [[b_42:%\d+]] = OpINotEqual %bool [[i_42]] %uint_0
+// CHECK-NEXT: [[bi_42:%\d+]] = OpSelect %int [[b_42]] %int_1 %int_0
+// CHECK-NEXT:                  OpStore {{%\d+}} [[bi_42]]
   append_int.Append(consume_v2bool.Consume().x);
 
-// CHECK:       [[p_38:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[vi_9:%\d+]] = OpLoad %v2int [[p_38]]
-// CHECK-NEXT:  [[i_14:%\d+]] = OpCompositeExtract %int [[vi_9]] 0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_14]]
+// CHECK:       [[p_43:%\d+]] = OpAccessChain %_ptr_Uniform_int {{%\d+}} %uint_0
+// CHECK-NEXT:  [[i_43:%\d+]] = OpLoad %int [[p_43]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[i_43]]
   append_int.Append(consume_v2int.Consume().x);
 
-// CHECK:       [[p_39:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vf_12:%\d+]] = OpLoad %v2float [[p_39]]
-// CHECK-NEXT:   [[f_7:%\d+]] = OpCompositeExtract %float [[vf_12]] 0
-// CHECK-NEXT:  [[i_15:%\d+]] = OpConvertFToS %int [[f_7]]
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_15]]
+// CHECK:       [[p_44:%\d+]] = OpAccessChain %_ptr_Uniform_float {{%\d+}} %uint_0
+// CHECK-NEXT:  [[f_44:%\d+]] = OpLoad %float [[p_44]]
+// CHECK-NEXT:  [[i_44:%\d+]] = OpConvertFToS %int [[f_44]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[i_44]]
   append_int.Append(consume_v2float.Consume().x);
 
   // append_int.Append(consume_struct_with_bool.Consume().elem_v2bool.x);
 
-// CHECK:       [[p_40:%\d+]] = OpAccessChain %_ptr_Function_v2int {{%\w+}} %int_1
-// CHECK-NEXT: [[vi_10:%\d+]] = OpLoad %v2int [[p_40]]
-// CHECK-NEXT:  [[i_16:%\d+]] = OpCompositeExtract %int [[vi_10]] 0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[i_16]]
+// CHECK:       [[p_45:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
+// CHECK-NEXT:  [[p_46:%\d+]] = OpAccessChain %_ptr_Uniform_v2int [[p_45]] %int_1
+// CHECK-NEXT:  [[p_47:%\d+]] = OpAccessChain %_ptr_Uniform_int [[p_46]] %int_0
+// CHECK-NEXT:  [[i_47:%\d+]] = OpLoad %int [[p_47]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[i_47]]
   append_int.Append(consume_struct_with_bool.Consume().elem_v2int.x);
 
   // append_int.Append(consume_struct_with_bool.Consume().elem_v2float.x);
 
-// CHECK:       [[p_41:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint %consume_v2bool %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vu_15:%\d+]] = OpLoad %v2uint [[p_41]]
-// CHECK-NEXT: [[vb_14:%\d+]] = OpINotEqual %v2bool [[vu_15]] {{%\d+}}
-// CHECK-NEXT:  [[b_12:%\d+]] = OpCompositeExtract %bool [[vb_14]] 0
-// CHECK-NEXT:   [[f_8:%\d+]] = OpSelect %float [[b_12]] %float_1 %float_0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[f_8]]
+// CHECK:       [[p_48:%\d+]] = OpAccessChain %_ptr_Uniform_uint {{%\d+}} %int_0
+// CHECK-NEXT:  [[i_48:%\d+]] = OpLoad %uint [[p_48]]
+// CHECK-NEXT:  [[b_48:%\d+]] = OpINotEqual %bool [[i_48]] %uint_0
+// CHECK-NEXT:  [[f_48:%\d+]] = OpSelect %float [[b_48]] %float_1 %float_0
+// CHECK-NEXT:                  OpStore {{%\d+}} [[f_48]]
   append_float.Append(consume_v2bool.Consume().x);
 
-// CHECK:       [[p_42:%\d+]] = OpAccessChain %_ptr_Uniform_v2int %consume_v2int %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vi_11:%\d+]] = OpLoad %v2int [[p_42]]
-// CHECK-NEXT:  [[i_17:%\d+]] = OpCompositeExtract %int [[vi_11]] 0
-// CHECK-NEXT:   [[f_9:%\d+]] = OpConvertSToF %float [[i_17]]
-// CHECK-NEXT:                  OpStore {{%\d+}} [[f_9]]
+// CHECK:       [[p_49:%\d+]] = OpAccessChain %_ptr_Uniform_int {{%\d+}} %int_0
+// CHECK-NEXT:  [[i_49:%\d+]] = OpLoad %int [[p_49]]
+// CHECK-NEXT:  [[f_49:%\d+]] = OpConvertSToF %float [[i_49]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[f_49]]
   append_float.Append(consume_v2int.Consume().x);
 
-// CHECK:       [[p_43:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %consume_v2float %uint_0 {{%\d+}}
-// CHECK-NEXT: [[vf_13:%\d+]] = OpLoad %v2float [[p_43]]
-// CHECK-NEXT:  [[f_10:%\d+]] = OpCompositeExtract %float [[vf_13]] 0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[f_10]]
+// CHECK:       [[p_50:%\d+]] = OpAccessChain %_ptr_Uniform_float {{%\d+}} %int_0
+// CHECK-NEXT:  [[f_50:%\d+]] = OpLoad %float [[p_50]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[f_50]]
   append_float.Append(consume_v2float.Consume().x);
 
   // append_float.Append(consume_struct_with_bool.Consume().elem_v2bool.x);
   // append_float.Append(consume_struct_with_bool.Consume().elem_v2int.x);
 
-// CHECK:       [[p_44:%\d+]] = OpAccessChain %_ptr_Function_v2float {{%\w+}} %int_2
-// CHECK-NEXT: [[vf_14:%\d+]] = OpLoad %v2float [[p_44]]
-// CHECK-NEXT:  [[f_11:%\d+]] = OpCompositeExtract %float [[vf_14]] 0
-// CHECK-NEXT:                  OpStore {{%\d+}} [[f_11]]
+// CHECK:       [[p_51:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
+// CHECK-NEXT:  [[p_52:%\d+]] = OpAccessChain %_ptr_Uniform_v2float [[p_51]] %int_2
+// CHECK-NEXT:  [[p_53:%\d+]] = OpAccessChain %_ptr_Uniform_float [[p_52]] %int_0
+// CHECK-NEXT:  [[f_53:%\d+]] = OpLoad %float [[p_53]]
+// CHECK-NEXT:                  OpStore {{%\d+}} [[f_53]]
   append_float.Append(consume_struct_with_bool.Consume().elem_v2float.x);
 
-// CHECK:      [[p_45:%\d+]] = OpAccessChain %_ptr_Uniform_uint %append_bool %uint_0 {{%\d+}}
-// CHECK:      [[p_46:%\d+]] = OpAccessChain %_ptr_Uniform_uint %rw_bool %int_0 %uint_0
-// CHECK-NEXT: [[i_18:%\d+]] = OpLoad %uint [[p_46]]
-// CHECK-NEXT: [[b_13:%\d+]] = OpINotEqual %bool [[i_18]] %uint_0
-// CHECK-NEXT: [[i_19:%\d+]] = OpSelect %uint [[b_13]] %uint_1 %uint_0
-// CHECK-NEXT:                 OpStore [[p_45]] [[i_19]]
+// CHECK:       [[p_54:%\d+]] = OpAccessChain %_ptr_Uniform_uint %append_bool %uint_0 {{%\d+}}
+// CHECK:       [[p_55:%\d+]] = OpAccessChain %_ptr_Uniform_uint %rw_bool %int_0 %uint_0
+// CHECK-NEXT:  [[i_55:%\d+]] = OpLoad %uint [[p_55]]
+// CHECK-NEXT:  [[b_55:%\d+]] = OpINotEqual %bool [[i_55]] %uint_0
+// CHECK-NEXT: [[bi_55:%\d+]] = OpSelect %uint [[b_55]] %uint_1 %uint_0
+// CHECK-NEXT:                  OpStore [[p_54]] [[bi_55]]
   append_bool.Append(rw_bool[0]);
 
-// CHECK:      [[i_19:%\d+]] = OpLoad %uint {{%\d+}}
-// CHECK-NEXT: [[b_14:%\d+]] = OpINotEqual %bool [[i_19]] %uint_0
-// CHECK-NEXT: [[i_20:%\d+]] = OpSelect %uint [[b_14]] %uint_1 %uint_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[i_20]]
+// CHECK:       [[i_56:%\d+]] = OpLoad %uint {{%\d+}}
+// CHECK-NEXT:  [[b_56:%\d+]] = OpINotEqual %bool [[i_56]] %uint_0
+// CHECK-NEXT: [[bi_56:%\d+]] = OpSelect %uint [[b_56]] %uint_1 %uint_0
+// CHECK-NEXT:                  OpStore {{%\d+}} [[bi_56]]
   append_bool.Append(rw_v2bool[0].x);
 
-// CHECK:      [[p_47:%\d+]] = OpAccessChain %_ptr_Uniform_int %append_int %uint_0 {{%\d+}}
-// CHECK:      [[p_48:%\d+]] = OpAccessChain %_ptr_Uniform_uint %rw_bool %int_0 %uint_0
-// CHECK-NEXT: [[i_21:%\d+]] = OpLoad %uint [[p_48]]
-// CHECK-NEXT: [[b_15:%\d+]] = OpINotEqual %bool [[i_21]] %uint_0
-// CHECK-NEXT: [[i_22:%\d+]] = OpSelect %int [[b_15]] %int_1 %int_0
-// CHECK-NEXT:                 OpStore [[p_47]] [[i_22]]
+// CHECK:       [[p_57:%\d+]] = OpAccessChain %_ptr_Uniform_int %append_int %uint_0 {{%\d+}}
+// CHECK:       [[p_58:%\d+]] = OpAccessChain %_ptr_Uniform_uint %rw_bool %int_0 %uint_0
+// CHECK-NEXT:  [[i_58:%\d+]] = OpLoad %uint [[p_58]]
+// CHECK-NEXT:  [[b_58:%\d+]] = OpINotEqual %bool [[i_58]] %uint_0
+// CHECK-NEXT: [[bi_58:%\d+]] = OpSelect %int [[b_58]] %int_1 %int_0
+// CHECK-NEXT:                  OpStore [[p_57]] [[bi_58]]
   append_int.Append(rw_bool[0]);
 
-// CHECK:      [[i_23:%\d+]] = OpLoad %uint {{%\d+}}
-// CHECK-NEXT: [[b_16:%\d+]] = OpINotEqual %bool [[i_23]] %uint_0
-// CHECK-NEXT: [[i_24:%\d+]] = OpSelect %int [[b_16]] %int_1 %int_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[i_24]]
+// CHECK:       [[i_59:%\d+]] = OpLoad %uint {{%\d+}}
+// CHECK-NEXT:  [[b_59:%\d+]] = OpINotEqual %bool [[i_59]] %uint_0
+// CHECK-NEXT: [[bi_59:%\d+]] = OpSelect %int [[b_59]] %int_1 %int_0
+// CHECK-NEXT:                 OpStore {{%\d+}} [[bi_59]]
   append_int.Append(rw_v2bool[0].x);
 
-// CHECK:      [[p_49:%\d+]] = OpAccessChain %_ptr_Uniform_float %append_float %uint_0 {{%\d+}}
-// CHECK:      [[p_50:%\d+]] = OpAccessChain %_ptr_Uniform_uint %rw_bool %int_0 %uint_0
-// CHECK-NEXT: [[i_25:%\d+]] = OpLoad %uint [[p_50]]
-// CHECK-NEXT: [[b_17:%\d+]] = OpINotEqual %bool [[i_25]] %uint_0
-// CHECK-NEXT: [[f_12:%\d+]] = OpSelect %float [[b_17]] %float_1 %float_0
-// CHECK-NEXT:                 OpStore [[p_49]] [[f_12]]
+// CHECK:      [[p_60:%\d+]] = OpAccessChain %_ptr_Uniform_float %append_float %uint_0 {{%\d+}}
+// CHECK:      [[p_61:%\d+]] = OpAccessChain %_ptr_Uniform_uint %rw_bool %int_0 %uint_0
+// CHECK-NEXT: [[i_61:%\d+]] = OpLoad %uint [[p_61]]
+// CHECK-NEXT: [[b_61:%\d+]] = OpINotEqual %bool [[i_61]] %uint_0
+// CHECK-NEXT: [[f_61:%\d+]] = OpSelect %float [[b_61]] %float_1 %float_0
+// CHECK-NEXT:                 OpStore [[p_60]] [[f_61]]
   append_float.Append(rw_bool[0]);
 
-// CHECK:      [[i_26:%\d+]] = OpLoad %uint {{%\d+}}
-// CHECK-NEXT: [[b_18:%\d+]] = OpINotEqual %bool [[i_26]] %uint_0
-// CHECK-NEXT: [[i_27:%\d+]] = OpSelect %float [[b_18]] %float_1 %float_0
-// CHECK-NEXT:                 OpStore {{%\d+}} [[i_27]]
+// CHECK:       [[i_61:%\d+]] = OpLoad %uint {{%\d+}}
+// CHECK-NEXT:  [[b_61:%\d+]] = OpINotEqual %bool [[i_61]] %uint_0
+// CHECK-NEXT: [[bi_61:%\d+]] = OpSelect %float [[b_61]] %float_1 %float_0
+// CHECK-NEXT:                  OpStore {{%\d+}} [[bi_61]]
   append_float.Append(rw_v2bool[0].x);
 }
