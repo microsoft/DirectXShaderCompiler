@@ -1565,10 +1565,17 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
                       std::function<bool(AllocaInst *, AllocaInst *)>>
       WorkList(size_cmp);
   std::unordered_map<AllocaInst*, DbgDeclareInst*> DDIMap;
+
   // HLSL Change - Begin
-  std::unordered_map<AllocaInst*, unsigned> OffsetMap; // Map to keep track the offset of an alloca
-                                                       // in the variable that it's a part of.
+  // Keep track of the fragment of the original variable that an SROA-generated alloca maps to.
+  // This might be non-contiguous in cases like:
+  //   [2 x { int, float }] -> [2 x int], [2 x float]
+  // where x starts at offset zero but has array elements at a stride of 8 bytes in the
+  // original variable.
+  struct VariableFragment { unsigned StartOffsetInBytes, ArrayElemStrideInBytes; };
+  std::unordered_map<AllocaInst*, VariableFragment> FragmentMap;
   // HLSL Change - End
+
   // Scan the entry basic block, adding allocas to the worklist.
   BasicBlock &BB = F.getEntryBlock();
   for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
@@ -1659,14 +1666,27 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
           }
         }
 // HLSL Change - Begin
-        unsigned parentOffset = 0;
-        auto offsetIt = OffsetMap.find(AI);
-        if (offsetIt != OffsetMap.end())
-          parentOffset = offsetIt->second;
+        VariableFragment parentFragment = {};
+        auto fragmentIt = FragmentMap.find(AI);
+        if (fragmentIt != FragmentMap.end())
+          parentFragment = fragmentIt->second;
+
+        // Special case for arrays of structs/vectors
+        // which doesn't maintain contiguousness after breaking up:
+        // [2 x { int, float }] -> [2 x int], [2 x float]
+        Type *OldAggType = AI->getAllocatedType();
+        unsigned NumAggs = 1;
+        while (ArrayType *ArrayTy = dyn_cast<ArrayType>(OldAggType)) {
+          NumAggs *= ArrayTy->getNumElements();
+          OldAggType = ArrayTy->getElementType();
+        }
+        
+        DXASSERT((OldAggType->isVectorTy() && OldAggType->getVectorNumElements() == Elts.size())
+          || (OldAggType->isStructTy() && OldAggType->getNumContainedTypes() == Elts.size()),
+          "Expected SROA to have broken arrays of vector/structs into arrays of their elements.");
 // HLSL Change - End
 
         DbgDeclareInst *DDI = nullptr;
-        unsigned debugOffset = 0;
         auto iter = DDIMap.find(AI);
         if (iter != DDIMap.end()) {
           DDI = iter->second;
@@ -1677,25 +1697,54 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
           WorkList.push(Elt);
           if (DDI) {
             Type *Ty = Elt->getAllocatedType();
-            unsigned size = DL.getTypeAllocSize(Ty);
 #if 0 // HLSL Change
             DIExpression *DDIExp =
                 DIB.createBitPieceExpression(debugOffset, size);
 #else // HLSL Change
 
-            DIExpression *DDIExp = nullptr;
-            if (parentOffset+debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
-              DDIExp = DIB.createExpression();
+            unsigned EltIdx = static_cast<unsigned>(iter - Elts.begin());
+            unsigned EltSizeInBytes = DL.getTypeAllocSize(Ty);
+            Type *ScalEltType = nullptr;
+
+            // Determine the offsets into the original source code variable
+            VariableFragment EltFragment = parentFragment;
+            if (StructType *OldStructType = dyn_cast<StructType>(OldAggType)) {
+              ScalEltType = OldStructType->getContainedType(EltIdx);
+              EltFragment.StartOffsetInBytes += DL.getStructLayout(OldStructType)->getElementOffset(EltIdx);
             }
             else {
-              DDIExp = DIB.createBitPieceExpression((parentOffset+debugOffset) * 8, size * 8);
+              ScalEltType = OldAggType->getVectorElementType();
+              EltFragment.StartOffsetInBytes += EltIdx * DL.getTypeStoreSize(ScalEltType);
             }
-            OffsetMap[Elt] = parentOffset+debugOffset;
+
+            if (AI->getAllocatedType()->isArrayTy() && EltFragment.ArrayElemStrideInBytes == 0) {
+              EltFragment.ArrayElemStrideInBytes = DL.getTypeAllocSize(OldAggType);
+            }
+
+            if (EltFragment.ArrayElemStrideInBytes > 0) {
+              // Elements are not contiguous anymore, we need to split the debug info
+              for (unsigned i = 0; i < NumAggs; ++i) {
+                unsigned SubEltOffsetInBytes = EltFragment.StartOffsetInBytes + EltFragment.ArrayElemStrideInBytes * i;
+                unsigned SubEltSizeInBytes = DL.getTypeStoreSize(ScalEltType);
+                DIExpression *DDIExp = DIB.createBitPieceExpression(
+                  SubEltOffsetInBytes * 8, SubEltSizeInBytes * 8);
+                DIB.insertDbgValueIntrinsic(Elt, i * SubEltSizeInBytes * 8, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI);
+              }
+            }
+            else {
+              DIExpression *DDIExp = nullptr;
+              if (EltFragment.StartOffsetInBytes == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == EltSizeInBytes) {
+                DDIExp = DIB.createExpression();
+              }
+              else {
+                DDIExp = DIB.createBitPieceExpression(EltFragment.StartOffsetInBytes * 8, EltSizeInBytes * 8);
+              }
+              DIB.insertDeclare(Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI);
+            }
+
+            FragmentMap[Elt] = EltFragment;
+            DDIMap[Elt] = DDI;
 #endif // HLSL Change
-            debugOffset += size;
-            DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DIB.insertDeclare(
-                Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI));
-            DDIMap[Elt] = EltDDI;
           }
         }
 
