@@ -69,6 +69,8 @@ public:
 class SourceFilesTable : public impl::TableBase<IDiaEnumSourceFiles, IDiaSourceFile> {
 public:
   SourceFilesTable(IMalloc *pMalloc, Session *pSession);
+  SourceFilesTable(IMalloc *pMalloc, Session *pSession,
+                   std::vector<CComPtr<IDiaSourceFile>> &&items);
 
   HRESULT GetItem(DWORD index, IDiaSourceFile **ppItem) override;
 

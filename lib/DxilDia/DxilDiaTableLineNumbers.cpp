@@ -64,9 +64,61 @@ STDMETHODIMP dxil_dia::LineNumber::get_columnNumberEnd(
   return S_OK;
 }
 
+STDMETHODIMP dxil_dia::LineNumber::get_addressOffset(
+  /* [retval][out] */ DWORD *pRetVal) {
+  return get_relativeVirtualAddress(pRetVal);
+}
+
 STDMETHODIMP dxil_dia::LineNumber::get_relativeVirtualAddress(
   /* [retval][out] */ DWORD *pRetVal) {
-  *pRetVal = m_pSession->RvaMapRef()[m_inst];
+  if (pRetVal == nullptr) {
+    return E_INVALIDARG;
+  }
+  *pRetVal = 0;
+
+  const auto &rvaMap = m_pSession->RvaMapRef();
+  auto it = rvaMap.find(m_inst);
+  if (it == rvaMap.end()) {
+    return E_FAIL;
+  }
+
+  *pRetVal = it->second;
+  return S_OK;
+}
+
+STDMETHODIMP dxil_dia::LineNumber::get_length(
+  /* [retval][out] */ DWORD *pRetVal) {
+  if (pRetVal == nullptr) {
+    return E_INVALIDARG;
+  }
+  *pRetVal = 1;
+
+  if (llvm::DebugLoc DL = m_inst->getDebugLoc()) {
+    const auto &LineToColumn = m_pSession->LineToColumnStartMapRef();
+    auto it = LineToColumn.find(DL.getLine());
+    if (it != LineToColumn.end()) {
+      *pRetVal = it->second.Last - it->second.First;
+    }
+  }
+
+  return S_OK;
+}
+
+STDMETHODIMP dxil_dia::LineNumber::get_statement(
+  /* [retval][out] */ BOOL *pRetVal) {
+  if (pRetVal == nullptr) {
+    return E_INVALIDARG;
+  }
+  *pRetVal = FALSE;
+
+  if (llvm::DebugLoc DL = m_inst->getDebugLoc()) {
+    const auto &LineToColumn = m_pSession->LineToColumnStartMapRef();
+    auto it = LineToColumn.find(DL.getLine());
+    if (it != LineToColumn.end()) {
+      *pRetVal = it->second.StartCol == DL.getCol();
+    }
+  }
+
   return S_OK;
 }
 

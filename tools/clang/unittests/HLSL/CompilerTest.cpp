@@ -981,7 +981,7 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   //WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 
   // Very basic tests - we have basic symbols, line numbers, and files with sources.
-  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, value: ps_6_0"));
+  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, lexicalParent: id=2, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
   std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
@@ -1013,28 +1013,40 @@ TEST_F(CompilerTest, CompileDebugLines) {
     "  return z;\r\n"
     "}", &pDiaSource));
     
-  const int numExpectedRVAs = 6;
+  static constexpr uint32_t numExpectedRVAs = 10;
 
   auto verifyLines = [=](const std::vector<LineNumber> lines) {
     VERIFY_ARE_EQUAL(lines.size(), numExpectedRVAs);
     // 0: loadInput
     VERIFY_ARE_EQUAL(lines[0].rva,  0);
     VERIFY_ARE_EQUAL(lines[0].line, 1);
-    // 1: abs
+    // 1: dbg.value
     VERIFY_ARE_EQUAL(lines[1].rva,  1);
-    VERIFY_ARE_EQUAL(lines[1].line, 2);
-    // 2: sin
+    VERIFY_ARE_EQUAL(lines[1].line, 1);
+    // 2: abs
     VERIFY_ARE_EQUAL(lines[2].rva,  2);
-    VERIFY_ARE_EQUAL(lines[2].line, 3);
-    // 3: add
+    VERIFY_ARE_EQUAL(lines[2].line, 2);
+    // 3: dbg.value
     VERIFY_ARE_EQUAL(lines[3].rva,  3);
-    VERIFY_ARE_EQUAL(lines[3].line, 4);
-    // 4: storeOutput
+    VERIFY_ARE_EQUAL(lines[3].line, 2);
+    // 4: sin
     VERIFY_ARE_EQUAL(lines[4].rva,  4);
-    VERIFY_ARE_EQUAL(lines[4].line, 5);
-    // 5: ret
+    VERIFY_ARE_EQUAL(lines[4].line, 3);
+    // 5: dbg.value
     VERIFY_ARE_EQUAL(lines[5].rva,  5);
-    VERIFY_ARE_EQUAL(lines[5].line, 5);
+    VERIFY_ARE_EQUAL(lines[5].line, 3);
+    // 6: fadd
+    VERIFY_ARE_EQUAL(lines[6].rva,  6);
+    VERIFY_ARE_EQUAL(lines[6].line, 4);
+    // 7: dbg.value
+    VERIFY_ARE_EQUAL(lines[7].rva,  7);
+    VERIFY_ARE_EQUAL(lines[7].line, 4);
+    // 8: storeOutput
+    VERIFY_ARE_EQUAL(lines[8].rva,  8);
+    VERIFY_ARE_EQUAL(lines[8].line, 5);
+    // 9: ret
+    VERIFY_ARE_EQUAL(lines[9].rva,  9);
+    VERIFY_ARE_EQUAL(lines[9].line, 5);
   };
   
   CComPtr<IDiaSession> pSession;

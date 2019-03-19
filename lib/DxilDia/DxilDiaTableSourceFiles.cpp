@@ -44,14 +44,23 @@ dxil_dia::SourceFilesTable::SourceFilesTable(
     m_items.assign(m_count, nullptr);
   }
 
-  HRESULT dxil_dia::SourceFilesTable::GetItem(DWORD index, IDiaSourceFile **ppItem) {
-    if (!m_items[index]) {
-      m_items[index] = CreateOnMalloc<SourceFile>(m_pMalloc, m_pSession, index);
-      if (m_items[index] == nullptr)
-        return E_OUTOFMEMORY;
-    }
-    m_items[index].p->AddRef();
-    *ppItem = m_items[index];
-    (*ppItem)->AddRef();
-    return S_OK;
+dxil_dia::SourceFilesTable::SourceFilesTable(
+    IMalloc *pMalloc,
+    Session *pSession,
+    std::vector<CComPtr<IDiaSourceFile>> &&items)
+    : impl::TableBase<IDiaEnumSourceFiles, IDiaSourceFile>(pMalloc, pSession, Table::Kind::SourceFiles),
+      m_items(std::move(items)) {
+    m_count = m_items.size();
+}
+
+HRESULT dxil_dia::SourceFilesTable::GetItem(DWORD index, IDiaSourceFile **ppItem) {
+  if (!m_items[index]) {
+    m_items[index] = CreateOnMalloc<SourceFile>(m_pMalloc, m_pSession, index);
+    if (m_items[index] == nullptr)
+      return E_OUTOFMEMORY;
   }
+  m_items[index].p->AddRef();
+  *ppItem = m_items[index];
+  (*ppItem)->AddRef();
+  return S_OK;
+}
