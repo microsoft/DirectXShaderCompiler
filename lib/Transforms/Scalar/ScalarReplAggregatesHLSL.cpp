@@ -1696,14 +1696,12 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
           AllocaInst *Elt = cast<AllocaInst>(*iter);
           WorkList.push(Elt);
           if (DDI) {
-            Type *Ty = Elt->getAllocatedType();
 #if 0 // HLSL Change
             DIExpression *DDIExp =
                 DIB.createBitPieceExpression(debugOffset, size);
 #else // HLSL Change
 
             unsigned EltIdx = static_cast<unsigned>(iter - Elts.begin());
-            unsigned EltSizeInBytes = DL.getTypeAllocSize(Ty);
             Type *ScalEltType = nullptr;
 
             // Determine the offsets into the original source code variable
@@ -1721,7 +1719,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
               EltFragment.ArrayElemStrideInBytes = DL.getTypeAllocSize(OldAggType);
             }
 
-            if (EltFragment.ArrayElemStrideInBytes > 0) {
+            if (EltFragment.ArrayElemStrideInBytes > 0 && NumAggs > 1) {
               // Elements are not contiguous anymore, we need to split the debug info
               for (unsigned i = 0; i < NumAggs; ++i) {
                 unsigned SubEltOffsetInBytes = EltFragment.StartOffsetInBytes + EltFragment.ArrayElemStrideInBytes * i;
@@ -1733,11 +1731,12 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
             }
             else {
               DIExpression *DDIExp = nullptr;
-              if (EltFragment.StartOffsetInBytes == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == EltSizeInBytes) {
+              unsigned NewAllocaSizeInBits = DL.getTypeAllocSizeInBits(Elt->getAllocatedType());
+              if (EltFragment.StartOffsetInBytes == 0 && DL.getTypeAllocSizeInBits(AI->getAllocatedType()) == NewAllocaSizeInBits) {
                 DDIExp = DIB.createExpression();
               }
               else {
-                DDIExp = DIB.createBitPieceExpression(EltFragment.StartOffsetInBytes * 8, EltSizeInBytes * 8);
+                DDIExp = DIB.createBitPieceExpression(EltFragment.StartOffsetInBytes * 8, NewAllocaSizeInBits);
               }
               DIB.insertDeclare(Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI);
             }
@@ -6692,14 +6691,26 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
     AllocaInst *NewA = lowerAlloca(A);
     if (HasDbgInfo) {
       // Add debug info.
-      DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A);
-      if (DDI) {
-        Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
-        Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
-        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-        IRBuilder<> debugBuilder(DDI);
-        debugBuilder.CreateCall(DDI->getCalledFunction(),
-                                {VMD, DDIVar, DDIExp});
+      if (auto *OldAllocaMD = LocalAsMetadata::getIfExists(A)) {
+        if (auto *MDValue = MetadataAsValue::getIfExists(A->getContext(), OldAllocaMD)) {
+          for (User *U : MDValue->users()) {
+            if (DbgDeclareInst *DbgDecl = dyn_cast<DbgDeclareInst>(U)) {
+              Value *DDIVar = MetadataAsValue::get(Context, DbgDecl->getRawVariable());
+              Value *DDIExp = MetadataAsValue::get(Context, DbgDecl->getRawExpression());
+              Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
+              IRBuilder<> debugBuilder(DbgDecl);
+              debugBuilder.CreateCall(DbgDecl->getCalledFunction(), { VMD, DDIVar, DDIExp });
+            }
+            else if (DbgValueInst *DbgVal = dyn_cast<DbgValueInst>(U)) {
+              Value *DDIVar = MetadataAsValue::get(Context, DbgVal->getRawVariable());
+              Value *DDIExp = MetadataAsValue::get(Context, DbgVal->getRawExpression());
+              Value *Offset = DbgVal->getOperand(1);
+              Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
+              IRBuilder<> debugBuilder(DbgVal);
+              debugBuilder.CreateCall(DbgVal->getCalledFunction(), { VMD, Offset, DDIVar, DDIExp });
+            }
+          }
+        }
       }
     }
     // Replace users.
