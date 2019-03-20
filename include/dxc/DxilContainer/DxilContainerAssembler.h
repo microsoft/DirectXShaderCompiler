@@ -13,6 +13,7 @@
 
 #include <functional>
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace hlsl {
 
@@ -48,6 +49,7 @@ DxilContainerWriter *NewDxilContainerWriter();
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,
                                      AbstractMemoryStream *pStream,
+                                     llvm::StringRef DebugName,
                                      SerializeDxilFlags Flags);
 void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
                                      AbstractMemoryStream *pStream);
