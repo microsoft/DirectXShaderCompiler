@@ -395,6 +395,9 @@ TEST_F(FileTest, CastFlatConversionStruct) {
 TEST_F(FileTest, CastFlatConversionNoOp) {
   runFileTest("cast.flat-conversion.no-op.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionStructToStruct) {
+  runFileTest("cast.flat-conversion.struct-to-struct.hlsl");
+}
 TEST_F(FileTest, CastFlatConversionLiteralInitializer) {
   runFileTest("cast.flat-conversion.literal-initializer.hlsl");
 }
