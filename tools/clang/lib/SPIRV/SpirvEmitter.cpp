@@ -2382,15 +2382,24 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
     // For assigning one array instance to another one with the same array type
     // (regardless of constness and literalness), the rhs will be wrapped in a
-    // FlatConversion:
+    // FlatConversion. Similarly for assigning a struct to another struct with
+    // identical members.
     //  |- <lhs>
     //  `- ImplicitCastExpr <FlatConversion>
     //     `- ImplicitCastExpr <LValueToRValue>
     //        `- <rhs>
-    // This FlatConversion does not affect CodeGen, so that we can ignore it.
-    else if (subExprType->isArrayType() &&
-             isSameType(astContext, expr->getType(), subExprType)) {
-      return doExpr(subExpr);
+    else if (isSameType(astContext, toType, evalType) ||
+             // We can have casts changing the shape but without affecting
+             // memory order, e.g., `float4 a[2]; float b[8] = (float[8])a;`.
+             // This is also represented as FlatConversion. For such cases, we
+             // can rely on the InitListHandler, which can decompse
+             // vectors/matrices.
+             subExprType->isArrayType()) {
+      auto *valInstr =
+          InitListHandler(astContext, *this).processCast(toType, subExpr);
+      if (valInstr)
+        valInstr->setRValue();
+      return valInstr;
     }
     // We can have casts changing the shape but without affecting memory order,
     // e.g., `float4 a[2]; float b[8] = (float[8])a;`. This is also represented
