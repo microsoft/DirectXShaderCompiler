@@ -2181,7 +2181,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
       return value;
     }
 
-    auto *value = castToFloat(doExpr(subExpr), subExprType, toType,
+    auto *value = castToFloat(loadIfGLValue(subExpr), subExprType, toType,
                               subExpr->getExprLoc());
     value->setRValue();
     return value;
@@ -2196,7 +2196,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
       return value;
     }
 
-    auto *value = castToBool(doExpr(subExpr), subExprType, toType);
+    auto *value = castToBool(loadIfGLValue(subExpr), subExprType, toType);
     value->setRValue();
     return value;
   }
@@ -3456,7 +3456,21 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
       // We have already translated the object in the above. Avoid duplication.
       /*loadObject=*/false);
 
-  const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
+  auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
+
+  // If this is a variable to communicate with host e.g., ACSBuffer
+  // and its type is bool or vector of bool, its effective type used
+  // for SPIRV must be uint not bool. We must convert it to uint here.
+  bool needCast = false;
+  if (bufferInfo->getLayoutRule() != SpirvLayoutRule::Void &&
+      isBoolOrVecOfBoolType(bufferElemTy)) {
+    uint32_t vecSize = 1;
+    const bool isVec = isVectorType(bufferElemTy, nullptr, &vecSize);
+    bufferElemTy =
+        isVec ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
+              : astContext.UnsignedIntTy;
+    needCast = true;
+  }
 
   bufferInfo = turnIntoElementPtr(object->getType(), bufferInfo, bufferElemTy,
                                   {zero, index});
@@ -3464,8 +3478,16 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   if (isAppend) {
     // Write out the value
     auto *arg0 = doExpr(expr->getArg(0));
+    if (!arg0)
+      return nullptr;
+
     if (!arg0->isRValue()) {
       arg0 = spvBuilder.createLoad(bufferElemTy, arg0);
+    }
+    if (needCast &&
+        !isSameType(astContext, bufferElemTy, arg0->getAstResultType())) {
+      arg0 = castToType(arg0, arg0->getAstResultType(), bufferElemTy,
+                        expr->getArg(0)->getExprLoc());
     }
     storeValue(bufferInfo, arg0, bufferElemTy);
     return 0;
