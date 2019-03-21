@@ -1538,6 +1538,147 @@ static unsigned getNestedLevelInStruct(const Type *ty) {
   return lvl;
 }
 
+// Migrates the debug information intrinsics from an alloca of an aggregate type
+// to one of the SROA-generated allocas of its element types.
+//
+// The bulk of the complexity here is to deal with array-of-struct to per-element arrays
+// SROA'ing, which breaks continuity between elements of the user variable,
+// and can hence not be represented using single debug info ranges.
+//
+// Example: [2 x { int, float }] -> [2 x int], [2 x float]
+// The int array maps to user variable bit ranges [0, 32) and [64,96),
+// whereas the float array maps to [32,64) and [96,128)
+//
+// This situation can happen recursively with arrays of structs containing arrays of structs.
+//
+// Note that arrays of vectors are treated the same and also get split into per-component arrays.
+static void migrateDebugInfo(AllocaInst *OldAlloca, AllocaInst *NewAlloca, unsigned EltIndex,
+    DIBuilder &DbgBuilder) {
+  // Check if we have a value as metadata as value representation as an early out.
+  ValueAsMetadata *OldAllocaMD = ValueAsMetadata::getLocalIfExists(OldAlloca);
+  if (OldAllocaMD == nullptr) return;
+
+  Value *OldAllocaMDVal = MetadataAsValue::getIfExists(OldAllocaMD->getContext(), OldAllocaMD);
+  if (OldAllocaMDVal == nullptr) return;
+
+  // Figure out what is the type of the aggregate (struct or vector) that was broken up,
+  // considering it may be arbitrarily deeply nested in arrays.
+  Type *OldAggregateType = OldAlloca->getAllocatedType();
+  unsigned NumOldAggregates = 1;
+  while (ArrayType *ArrayTy = dyn_cast<ArrayType>(OldAggregateType)) {
+    NumOldAggregates *= ArrayTy->getNumElements();
+    OldAggregateType = ArrayTy->getElementType();
+  }
+
+  const DataLayout &DatLayout = OldAlloca->getModule()->getDataLayout();
+
+  // The aggregate type is either a struct or a vector
+  unsigned EltOffsetInOldAggregateInBits;
+  unsigned NumOldAggregateMembers;
+  Type *EltTypeInOldAggregate;
+  if (StructType *OldStructType = dyn_cast<StructType>(OldAggregateType)) {
+    EltOffsetInOldAggregateInBits = DatLayout.getStructLayout(OldStructType)->getElementOffsetInBits(EltIndex);
+    NumOldAggregateMembers = OldStructType->getNumElements();
+    DXASSERT_NOMSG(EltIndex < NumOldAggregateMembers);
+    EltTypeInOldAggregate = OldStructType->getElementType(EltIndex);
+  }
+  else {
+    VectorType *OldVectorType = cast<VectorType>(OldAggregateType);
+    NumOldAggregateMembers = OldVectorType->getNumElements();
+    DXASSERT_NOMSG(EltIndex < NumOldAggregateMembers);
+    EltTypeInOldAggregate = OldVectorType->getElementType();
+    EltOffsetInOldAggregateInBits = DatLayout.getTypeStoreSizeInBits(EltTypeInOldAggregate) * EltIndex;
+  }
+
+  // We can have either one @llvm.dbg.declare or one or more @llvm.dbg.value.
+  // We have multiple @llvm.dbg.values when
+  // [2 x { int, float }] -> [2 x int], [2 x float]
+  for (User *OldAllocaMDUser : OldAllocaMDVal->users()) {
+    // Extract common information between @llvm.dbg.declare and @llvm.dbg.value
+    DbgInfoIntrinsic *OldDbgInst;
+    DILocalVariable *DbgVar;
+    DIExpression *OldDbgExpr;
+    bool IsDbgDecl = false;
+    unsigned OldAllocaDbgOffsetInBits;
+    if (DbgDeclareInst *OldDbgDecl = dyn_cast<DbgDeclareInst>(OldAllocaMDUser)) {
+      OldDbgInst = OldDbgDecl;
+      DbgVar = OldDbgDecl->getVariable();
+      OldDbgExpr = OldDbgDecl->getExpression();
+      IsDbgDecl = true;
+    }
+    else if (DbgValueInst *OldDbgVal = dyn_cast<DbgValueInst>(OldAllocaMDUser)) {
+      OldDbgInst = OldDbgVal;
+      DbgVar = OldDbgVal->getVariable();
+      OldDbgExpr = OldDbgVal->getExpression();
+      OldAllocaDbgOffsetInBits = OldDbgVal->getOffset();
+    }
+    else continue;
+
+    // If we have a bitpiece, get its info.
+    unsigned OldBitPieceOffset = 0;
+    unsigned OldBitPieceSize = 0;
+    if (OldDbgExpr->isBitPiece()) {
+      OldBitPieceOffset = OldDbgExpr->getBitPieceOffset();
+      OldBitPieceSize = OldDbgExpr->getBitPieceSize();
+    }
+
+    // Keep using @llvm.dbg.declare as long as the debug pieces are contiguous:
+    //   alloca { i32, float } => alloca i32, alloca float
+    //   alloca [1 x { i32, float }] => alloca [1 x i32], alloca [1 x float]
+    //   alloca [2 x { i32 }] => alloca [2 x i32]
+    if (IsDbgDecl && (NumOldAggregates == 1 || NumOldAggregateMembers == 1)) {
+      DIExpression *NewDbgExpr;
+      if (NumOldAggregates == 1 && NumOldAggregateMembers == 1)
+        NewDbgExpr = OldDbgExpr; // No real layout change, can reuse expression
+      else {
+        // Generate a bit piece based on the parent one, if any.
+        NewDbgExpr = DbgBuilder.createBitPieceExpression(
+          OldBitPieceOffset + EltOffsetInOldAggregateInBits,
+          DatLayout.getTypeStoreSizeInBits(NewAlloca->getAllocatedType()));
+      }
+      DbgBuilder.insertDeclare(NewAlloca, DbgVar, NewDbgExpr, OldDbgInst->getDebugLoc(), OldDbgInst);
+    }
+    else {
+      // Either the old alloca already used @llvm.dbg.value, or the debug pieces
+      // won't represent contiguous pieces of the original variable anymore:
+      //   alloca [2 x { i32, float }] => alloca [2 x i32], alloca [2 x float]
+      
+      // We have to generate one @llvm.dbg.value per element of each resulting alloca.
+      unsigned OldAggregateSizeInBits = DatLayout.getTypeAllocSizeInBits(OldAggregateType);
+      unsigned NewBitPieceSizeInBits = DatLayout.getTypeStoreSizeInBits(EltTypeInOldAggregate);
+      unsigned NewBitPieceOffsetInBits = OldBitPieceOffset + EltOffsetInOldAggregateInBits;
+      for (unsigned OldAggregateIndex = 0; OldAggregateIndex < NumOldAggregates; ++OldAggregateIndex) {
+        unsigned OffsetInOldAllocaInBits = OldAggregateSizeInBits * OldAggregateIndex + EltOffsetInOldAggregateInBits;
+        bool IsOldAggregateWithinDbgValue = OldBitPieceSize == 0 || (
+          OffsetInOldAllocaInBits >= OldAllocaDbgOffsetInBits && OffsetInOldAllocaInBits < OldAllocaDbgOffsetInBits + OldBitPieceSize);
+        if (IsOldAggregateWithinDbgValue) {
+          // Should we generate a dwarf::DW_OP_deref prefix?
+          unsigned OffsetInNewAllocaInBits = NewBitPieceSizeInBits * OldAggregateIndex;
+          DIExpression *NewDbgExpr = DbgBuilder.createBitPieceExpression(
+            NewBitPieceOffsetInBits, NewBitPieceSizeInBits);
+          DbgBuilder.insertDbgValueIntrinsic(NewAlloca, OffsetInNewAllocaInBits, DbgVar, NewDbgExpr,
+            OldDbgInst->getDebugLoc(), OldDbgInst);
+          NewBitPieceOffsetInBits += OldAggregateSizeInBits;
+        }
+      }
+    }
+  }
+}
+
+static void eraseDebugIntrinsics(Instruction *Inst) {
+  ValueAsMetadata *InstMD = ValueAsMetadata::getLocalIfExists(Inst);
+  if (InstMD == nullptr) return;
+
+  Value *InstMDVal = MetadataAsValue::getIfExists(InstMD->getContext(), InstMD);
+  if (InstMDVal == nullptr) return;
+
+  for (auto Iter = InstMDVal->user_begin(), EndIter = InstMDVal->user_end(); Iter != EndIter;) {
+    if (DbgInfoIntrinsic* DbgInst = dyn_cast<DbgInfoIntrinsic>(*(Iter++))) {
+      DbgInst->eraseFromParent();
+    }
+  }
+}
+
 // performScalarRepl - This algorithm is a simple worklist driven algorithm,
 // which runs on all of the alloca instructions in the entry block, removing
 // them if they are only used by getelementptr instructions.
@@ -1564,17 +1705,6 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
   std::priority_queue<AllocaInst *, std::vector<AllocaInst *>,
                       std::function<bool(AllocaInst *, AllocaInst *)>>
       WorkList(size_cmp);
-  std::unordered_map<AllocaInst*, DbgDeclareInst*> DDIMap;
-
-  // HLSL Change - Begin
-  // Keep track of the fragment of the original variable that an SROA-generated alloca maps to.
-  // This might be non-contiguous in cases like:
-  //   [2 x { int, float }] -> [2 x int], [2 x float]
-  // where x starts at offset zero but has array elements at a stride of 8 bytes in the
-  // original variable.
-  struct VariableFragment { unsigned StartOffsetInBytes, ArrayElemStrideInBytes; };
-  std::unordered_map<AllocaInst*, VariableFragment> FragmentMap;
-  // HLSL Change - End
 
   // Scan the entry basic block, adding allocas to the worklist.
   BasicBlock &BB = F.getEntryBlock();
@@ -1584,9 +1714,6 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         WorkList.push(A);
         // merge GEP use for the allocs
         HLModule::MergeGepUse(A);
-        if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A)) {
-          DDIMap[A] = DDI;
-        }
       }
     }
 
@@ -1665,86 +1792,12 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
             }
           }
         }
-// HLSL Change - Begin
-        VariableFragment parentFragment = {};
-        auto fragmentIt = FragmentMap.find(AI);
-        if (fragmentIt != FragmentMap.end())
-          parentFragment = fragmentIt->second;
 
-        // Special case for arrays of structs/vectors
-        // which doesn't maintain contiguousness after breaking up:
-        // [2 x { int, float }] -> [2 x int], [2 x float]
-        Type *OldAggType = AI->getAllocatedType();
-        unsigned NumAggs = 1;
-        while (ArrayType *ArrayTy = dyn_cast<ArrayType>(OldAggType)) {
-          NumAggs *= ArrayTy->getNumElements();
-          OldAggType = ArrayTy->getElementType();
-        }
-        
-        DXASSERT((OldAggType->isVectorTy() && OldAggType->getVectorNumElements() == Elts.size())
-          || (OldAggType->isStructTy() && OldAggType->getNumContainedTypes() == Elts.size()),
-          "Expected SROA to have broken arrays of vector/structs into arrays of their elements.");
-// HLSL Change - End
-
-        DbgDeclareInst *DDI = nullptr;
-        auto iter = DDIMap.find(AI);
-        if (iter != DDIMap.end()) {
-          DDI = iter->second;
-        }
         // Push Elts into workList.
-        for (auto iter = Elts.begin(); iter != Elts.end(); iter++) {
-          AllocaInst *Elt = cast<AllocaInst>(*iter);
+        for (unsigned EltIdx = 0; EltIdx < Elts.size(); ++EltIdx) {
+          AllocaInst *Elt = cast<AllocaInst>(Elts[EltIdx]);
           WorkList.push(Elt);
-          if (DDI) {
-#if 0 // HLSL Change
-            DIExpression *DDIExp =
-                DIB.createBitPieceExpression(debugOffset, size);
-#else // HLSL Change
-
-            unsigned EltIdx = static_cast<unsigned>(iter - Elts.begin());
-            Type *ScalEltType = nullptr;
-
-            // Determine the offsets into the original source code variable
-            VariableFragment EltFragment = parentFragment;
-            if (StructType *OldStructType = dyn_cast<StructType>(OldAggType)) {
-              ScalEltType = OldStructType->getContainedType(EltIdx);
-              EltFragment.StartOffsetInBytes += DL.getStructLayout(OldStructType)->getElementOffset(EltIdx);
-            }
-            else {
-              ScalEltType = OldAggType->getVectorElementType();
-              EltFragment.StartOffsetInBytes += EltIdx * DL.getTypeStoreSize(ScalEltType);
-            }
-
-            if (AI->getAllocatedType()->isArrayTy() && EltFragment.ArrayElemStrideInBytes == 0) {
-              EltFragment.ArrayElemStrideInBytes = DL.getTypeAllocSize(OldAggType);
-            }
-
-            if (EltFragment.ArrayElemStrideInBytes > 0 && NumAggs > 1) {
-              // Elements are not contiguous anymore, we need to split the debug info
-              for (unsigned i = 0; i < NumAggs; ++i) {
-                unsigned SubEltOffsetInBytes = EltFragment.StartOffsetInBytes + EltFragment.ArrayElemStrideInBytes * i;
-                unsigned SubEltSizeInBytes = DL.getTypeStoreSize(ScalEltType);
-                DIExpression *DDIExp = DIB.createBitPieceExpression(
-                  SubEltOffsetInBytes * 8, SubEltSizeInBytes * 8);
-                DIB.insertDbgValueIntrinsic(Elt, i * SubEltSizeInBytes * 8, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI);
-              }
-            }
-            else {
-              DIExpression *DDIExp = nullptr;
-              unsigned NewAllocaSizeInBits = DL.getTypeAllocSizeInBits(Elt->getAllocatedType());
-              if (EltFragment.StartOffsetInBytes == 0 && DL.getTypeAllocSizeInBits(AI->getAllocatedType()) == NewAllocaSizeInBits) {
-                DDIExp = DIB.createExpression();
-              }
-              else {
-                DDIExp = DIB.createBitPieceExpression(EltFragment.StartOffsetInBytes * 8, NewAllocaSizeInBits);
-              }
-              DIB.insertDeclare(Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI);
-            }
-
-            FragmentMap[Elt] = EltFragment;
-            DDIMap[Elt] = DDI;
-#endif // HLSL Change
-          }
+          migrateDebugInfo(AI, Elt, EltIdx, DIB);
         }
 
         // Now erase any instructions that were made dead while rewriting the
@@ -1752,6 +1805,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         DeleteDeadInstructions();
         ++NumReplaced;
         DXASSERT(AI->getNumUses() == 0, "must have zero users.");
+        eraseDebugIntrinsics(AI);
         AI->eraseFromParent();
         Changed = true;
         continue;
@@ -6690,24 +6744,14 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
   for (AllocaInst *A : workList) {
     AllocaInst *NewA = lowerAlloca(A);
     if (HasDbgInfo) {
-      // Add debug info.
+      // Migrate debug info to the new alloca
+      NewA->setDebugLoc(A->getDebugLoc());
       if (auto *OldAllocaMD = LocalAsMetadata::getIfExists(A)) {
         if (auto *MDValue = MetadataAsValue::getIfExists(A->getContext(), OldAllocaMD)) {
-          for (User *U : MDValue->users()) {
-            if (DbgDeclareInst *DbgDecl = dyn_cast<DbgDeclareInst>(U)) {
-              Value *DDIVar = MetadataAsValue::get(Context, DbgDecl->getRawVariable());
-              Value *DDIExp = MetadataAsValue::get(Context, DbgDecl->getRawExpression());
-              Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-              IRBuilder<> debugBuilder(DbgDecl);
-              debugBuilder.CreateCall(DbgDecl->getCalledFunction(), { VMD, DDIVar, DDIExp });
-            }
-            else if (DbgValueInst *DbgVal = dyn_cast<DbgValueInst>(U)) {
-              Value *DDIVar = MetadataAsValue::get(Context, DbgVal->getRawVariable());
-              Value *DDIExp = MetadataAsValue::get(Context, DbgVal->getRawExpression());
-              Value *Offset = DbgVal->getOperand(1);
-              Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-              IRBuilder<> debugBuilder(DbgVal);
-              debugBuilder.CreateCall(DbgVal->getCalledFunction(), { VMD, Offset, DDIVar, DDIExp });
+          for (auto UserIter = MDValue->user_begin(), UserEndIter = MDValue->user_end(); UserIter != UserEndIter;) {
+            User *U = *(UserIter++); // Move iterator now because we might remove the user.
+            if (isa<DbgDeclareInst>(U) || isa<DbgValueInst>(U)) {
+              U->setOperand(0, MetadataAsValue::get(Context, ValueAsMetadata::getLocal(NewA)));
             }
           }
         }

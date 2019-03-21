@@ -15,7 +15,7 @@
 // CHECK: call void @dx.op.storeOutput.f32
 
 // Exclude quoted source file (see readme)
-// CHECK: {{!"[^"]*\\0A[^"]*"}}
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 sampler samp;
 Texture2D<float4> tex;

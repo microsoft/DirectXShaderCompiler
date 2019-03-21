@@ -13,11 +13,10 @@ The current workaround is to include the following in your test to explicitly ma
 the quoted source file:
 
   // Exclude quoted source file (see readme)
-  // CHECK: {{!"[^"]*\\0A[^"]*"}}
+  // CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 This will match a metadata string containing \0A (newline), which should only appear
 in the quoted source file. It will not match itself in the quoted source file because
-the regex won't match itself, and even less the escaped version of itself.
-
-Note that if you see a failure on that line, it means that something else before that
-CHECK failed to match.
+the regex won't match itself, and even less the escaped version of itself. We use
+CHECK-LABEL such that CHECKs above that line cannot match in or past the quoted source
+file, which improves error messages.
