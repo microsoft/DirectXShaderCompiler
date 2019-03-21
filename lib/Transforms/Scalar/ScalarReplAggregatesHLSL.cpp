@@ -1637,7 +1637,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
       bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
 
       bool SROAed = SROA_Helper::DoScalarReplacement(
-          AI, Elts, Builder, /*bFlatVector*/ true, hasPrecise, typeSys, DL,
+          AI, Elts, Builder, /*bFlatVector*/ false, hasPrecise, typeSys, DL,
           DeadInsts);
 
       if (SROAed) {
@@ -4706,12 +4706,7 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     }
 
     // Flat Global vector if no dynamic vector indexing.
-    bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
-
-    // Disable scalarization of groupshared vector arrays
-    if (GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace &&
-        Ty->isArrayTy())
-      bFlatVector = false;
+    bool bFlatVector = false;
 
     std::vector<Value *> Elts;
     bool SROAed = SROA_Helper::DoScalarReplacement(

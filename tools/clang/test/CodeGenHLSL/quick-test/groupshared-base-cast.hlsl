@@ -9,16 +9,14 @@
 // The barrier and write to RWBuf prevents optimizations from eliminating
 // groupshared use, considering this dead-code, or detecting a race condition.
 
-// CHECK: @[[gs0:.+]] = addrspace(3) global i32 undef
-// CHECK: @[[gs1:.+]] = addrspace(3) global i32 undef
-// CHECK: @[[gs2:.+]] = addrspace(3) global i32 undef
-// CHECK: store i32 1, i32 addrspace(3)* @[[gs0]], align 4
-// CHECK: store i32 2, i32 addrspace(3)* @[[gs1]], align 4
-// CHECK: store i32 3, i32 addrspace(3)* @[[gs2]], align 4
+// CHECK: @[[gs:.+]] = addrspace(3) global [3 x i32] undef
+// CHECK: store i32 1, i32 addrspace(3)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(3)* @[[gs]], i32 0, i32 0), align 4
+// CHECK: store i32 2, i32 addrspace(3)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(3)* @[[gs]], i32 0, i32 1), align 4
+// CHECK: store i32 3, i32 addrspace(3)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(3)* @[[gs]], i32 0, i32 2), align 4
 
-// CHECK: %[[l0:[^ ]+]] = load i32, i32 addrspace(3)* @[[gs0]], align 4
-// CHECK: %[[l1:[^ ]+]] = load i32, i32 addrspace(3)* @[[gs1]], align 4
-// CHECK: %[[l2:[^ ]+]] = load i32, i32 addrspace(3)* @[[gs2]], align 4
+// CHECK: %[[l0:[^ ]+]] = load i32, i32 addrspace(3)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(3)* @[[gs]], i32 0, i32 0), align 4
+// CHECK: %[[l1:[^ ]+]] = load i32, i32 addrspace(3)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(3)* @[[gs]], i32 0, i32 1), align 4
+// CHECK: %[[l2:[^ ]+]] = load i32, i32 addrspace(3)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(3)* @[[gs]], i32 0, i32 2), align 4
 // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{.+}}, i32 %{{.+}}, i32 undef, i32 %[[l0]], i32 %[[l1]], i32 %[[l2]], i32 undef, i8 7)
 
 

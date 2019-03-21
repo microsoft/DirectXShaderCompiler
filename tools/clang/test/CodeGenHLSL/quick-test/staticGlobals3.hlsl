@@ -1,20 +1,13 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 
-// t3.b.x
-// CHECK: [3 x float] [float 0.000000e+00, float 2.500000e+01, float 0.000000e+00]
-// t3.b.y
-// CHECK: [3 x float] [float 0.000000e+00, float 2.600000e+01, float 0.000000e+00]
-// t3.c.x
-// CHECK: constant [3 x i32] [i32 0, i32 27, i32 0]
-// t3.c.y
-// CHECK: [3 x i32] [i32 0, i32 28, i32 0]
+// t3.b
+// CHECK: [6 x float] [float 0.000000e+00, float 0.000000e+00, float 2.500000e+01, float 2.600000e+01, float 0.000000e+00, float 0.000000e+00]
+// t3.c
+// CHECK: constant [6 x i32] [i32 0, i32 0, i32 27, i32 28, i32 0, i32 0]
 // t3.a
-
 // CHECK: [12 x float] [float 5.000000e+00, float 7.000000e+00, float 6.000000e+00, float 8.000000e+00, float 2.500000e+01, float 2.700000e+01, float 2.600000e+01, float 2.800000e+01, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00]
-
 // t3.t
-
 // CHECK: [24 x float] [float 2.500000e+01, float 2.700000e+01, float 2.600000e+01, float 2.800000e+01, float 2.500000e+01, float 2.700000e+01, float 2.600000e+01, float 2.800000e+01, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 5.000000e+00, float 7.000000e+00, float 6.000000e+00, float 8.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 5.000000e+00, float 7.000000e+00, float 6.000000e+00, float 8.000000e+00]
 
 
