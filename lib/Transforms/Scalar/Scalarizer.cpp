@@ -694,23 +694,23 @@ bool Scalarizer::finish() {
           unsigned Count = Ty->getVectorNumElements();
           Type *EltTy = Ty->getVectorElementType();
           unsigned EltSizeInBits = DL.getTypeSizeInBits(EltTy);
-          for (User *U : DINode->users())
+          for (User *U : DINode->users()) {
             if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
               DIBuilder DIB(M, /*AllowUnresolved*/ false);
               auto *VarInfo = DVI->getVariable();
               DebugLoc DbgLoc = DVI->getDebugLoc();
               unsigned OffsetInBits = 0;
+              if (DVI->getExpression()->isBitPiece())
+                OffsetInBits = DVI->getExpression()->getBitPieceOffset();
               for (unsigned I = 0; I < Count; ++I) {
-                // TODO: need to use DIExpression::createFragmentExpression for
-                // case DVI->getExpression is already bit piece.
                 DIExpression *EltExpr =
-                    DIB.createBitPieceExpression(OffsetInBits, EltSizeInBits);
+                  DIB.createBitPieceExpression(OffsetInBits, EltSizeInBits);
                 OffsetInBits += EltSizeInBits;
 
-                DIB.insertDbgValueIntrinsic(CV[I], OffsetInBits, VarInfo, EltExpr,
-                                            DbgLoc, DVI);
+                DIB.insertDbgValueIntrinsic(CV[I], 0, VarInfo, EltExpr, DbgLoc, DVI);
               }
             }
+          }
         }
       }
     }
