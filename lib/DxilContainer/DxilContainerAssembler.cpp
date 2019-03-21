@@ -1608,7 +1608,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       const uint32_t DebugInfoContentLen =
           sizeof(DxilShaderDebugName) + NameLen + DebugInfoNameNullAndPad;
 
-      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen, [&](AbstractMemoryStream *pStream) {
+      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+        [DebugInfoNameSuffix, DebugInfoNameHashLen, UseDebugName, DebugName, pHashStream]
+        (AbstractMemoryStream *pStream)
+      {
         DxilShaderDebugName NameContent;
         NameContent.Flags = 0;
 
