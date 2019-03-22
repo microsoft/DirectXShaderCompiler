@@ -46,23 +46,19 @@ void main() {
 // CHECK-NEXT: [[s:%\d+]] = OpLoad %float %scalar
 // CHECK-NEXT: [[vec1:%\d+]] = OpLoad %float %vec1
 // CHECK-NEXT: [[vec2:%\d+]] = OpLoad %v2float %vec2
+// CHECK-NEXT: [[vec3:%\d+]] = OpLoad %v3float %vec3
+// CHECK-NEXT: [[vec2a:%\d+]] = OpLoad %v2float %vec2
+// CHECK-NEXT: [[vec4:%\d+]] = OpLoad %v4float %vec4
 // CHECK-NEXT: [[ce00:%\d+]] = OpCompositeExtract %float [[vec2]] 0
 // CHECK-NEXT: [[ce01:%\d+]] = OpCompositeExtract %float [[vec2]] 1
 // CHECK-NEXT: [[cc14:%\d+]] = OpCompositeConstruct %v4float [[s]] [[vec1]] [[ce00]] [[ce01]]
-
-// CHECK-NEXT: [[vec3:%\d+]] = OpLoad %v3float %vec3
 // CHECK-NEXT: [[ce02:%\d+]] = OpCompositeExtract %float [[vec3]] 0
 // CHECK-NEXT: [[ce03:%\d+]] = OpCompositeExtract %float [[vec3]] 1
 // CHECK-NEXT: [[ce04:%\d+]] = OpCompositeExtract %float [[vec3]] 2
-// CHECK-NEXT: [[vec2a:%\d+]] = OpLoad %v2float %vec2
 // CHECK-NEXT: [[ce05:%\d+]] = OpCompositeExtract %float [[vec2a]] 0
 // CHECK-NEXT: [[ce06:%\d+]] = OpCompositeExtract %float [[vec2a]] 1
 // CHECK-NEXT: [[cc15:%\d+]] = OpCompositeConstruct %v4float [[ce02]] [[ce03]] [[ce04]] [[ce05]]
-
 // CHECK-NEXT: [[cc16:%\d+]] = OpCompositeConstruct %v4float [[ce06]] %float_1 %float_2 %float_3
-
-// CHECK-NEXT: [[vec4:%\d+]] = OpLoad %v4float %vec4
-
 // CHECK-NEXT: [[cc17:%\d+]] = OpCompositeConstruct %mat4v4float [[cc14]] [[cc15]] [[cc16]] [[vec4]]
 // CHECK-NEXT:  OpStore %mat5 [[cc17]]
     float4x4 mat5 = {scalar, vec1, vec2,  // [0]
@@ -85,23 +81,23 @@ void main() {
 
     // Casting
 // CHECK-NEXT: [[intvec1:%\d+]] = OpLoad %int %intVec1
-// CHECK-NEXT: [[convert0:%\d+]] = OpConvertSToF %float [[intvec1]]
 // CHECK-NEXT: [[uintscalar:%\d+]] = OpLoad %uint %uintScalar
 // CHECK-NEXT: [[convert1:%\d+]] = OpConvertUToF %float [[uintscalar]]
 // CHECK-NEXT: [[uintvec2:%\d+]] = OpLoad %v2uint %uintVec2
+// CHECK-NEXT: [[intscalar:%\d+]] = OpLoad %int %intScalar
+// CHECK-NEXT: [[convert4:%\d+]] = OpConvertSToF %float [[intscalar]]
+// CHECK-NEXT: [[boolscalar:%\d+]] = OpLoad %bool %boolScalar
+// CHECK-NEXT: [[convert5:%\d+]] = OpSelect %float [[boolscalar]] %float_1 %float_0
+// CHECK-NEXT: [[boolvec3:%\d+]] = OpLoad %v3bool %boolVec3
+// CHECK-NEXT: [[convert0:%\d+]] = OpConvertSToF %float [[intvec1]]
 // CHECK-NEXT: [[ce07:%\d+]] = OpCompositeExtract %uint [[uintvec2]] 0
 // CHECK-NEXT: [[ce08:%\d+]] = OpCompositeExtract %uint [[uintvec2]] 1
 // CHECK-NEXT: [[convert2:%\d+]] = OpConvertUToF %float [[ce07]]
 // CHECK-NEXT: [[cc18:%\d+]] = OpCompositeConstruct %v3float [[convert0]] [[convert1]] [[convert2]]
 
 // CHECK-NEXT: [[convert3:%\d+]] = OpConvertUToF %float [[ce08]]
-// CHECK-NEXT: [[intscalar:%\d+]] = OpLoad %int %intScalar
-// CHECK-NEXT: [[convert4:%\d+]] = OpConvertSToF %float [[intscalar]]
-// CHECK-NEXT: [[boolscalar:%\d+]] = OpLoad %bool %boolScalar
-// CHECK-NEXT: [[convert5:%\d+]] = OpSelect %float [[boolscalar]] %float_1 %float_0
 // CHECK-NEXT: [[cc19:%\d+]] = OpCompositeConstruct %v3float [[convert3]] [[convert4]] [[convert5]]
 
-// CHECK-NEXT: [[boolvec3:%\d+]] = OpLoad %v3bool %boolVec3
 // CHECK-NEXT: [[convert6:%\d+]] = OpSelect %v3float [[boolvec3]] [[v3fc1]] [[v3fc0]]
 // CHECK-NEXT: [[cc20:%\d+]] = OpCompositeConstruct %mat3v3float [[cc18]] [[cc19]] [[convert6]]
 
@@ -120,13 +116,15 @@ void main() {
     // extract vectors from matrices directly.
 
 // CHECK-NEXT: [[mat8:%\d+]] = OpLoad %mat2v2float %mat8
+// CHECK-NEXT: [[mat9:%\d+]] = OpLoad %mat2v4float %mat9
+// CHECK-NEXT: [[mat10:%\d+]] = OpLoad %v4float %mat10
+
 // CHECK-NEXT: [[mat8_00:%\d+]] = OpCompositeExtract %float [[mat8]] 0 0
 // CHECK-NEXT: [[mat8_01:%\d+]] = OpCompositeExtract %float [[mat8]] 0 1
 // CHECK-NEXT: [[mat8_10:%\d+]] = OpCompositeExtract %float [[mat8]] 1 0
 // CHECK-NEXT: [[mat8_11:%\d+]] = OpCompositeExtract %float [[mat8]] 1 1
 // CHECK-NEXT: [[cc21:%\d+]] = OpCompositeConstruct %v4float [[mat8_00]] [[mat8_01]] [[mat8_10]] [[mat8_11]]
 
-// CHECK-NEXT: [[mat9:%\d+]] = OpLoad %mat2v4float %mat9
 // CHECK-NEXT: [[mat9_00:%\d+]] = OpCompositeExtract %float [[mat9]] 0 0
 // CHECK-NEXT: [[mat9_01:%\d+]] = OpCompositeExtract %float [[mat9]] 0 1
 // CHECK-NEXT: [[mat9_02:%\d+]] = OpCompositeExtract %float [[mat9]] 0 2
@@ -138,7 +136,6 @@ void main() {
 // CHECK-NEXT: [[cc22:%\d+]] = OpCompositeConstruct %v4float [[mat9_00]] [[mat9_01]] [[mat9_02]] [[mat9_03]]
 // CHECK-NEXT: [[cc23:%\d+]] = OpCompositeConstruct %v4float [[mat9_10]] [[mat9_11]] [[mat9_12]] [[mat9_13]]
 
-// CHECK-NEXT: [[mat10:%\d+]] = OpLoad %v4float %mat10
 // CHECK-NEXT: [[mat10_0:%\d+]] = OpCompositeExtract %float [[mat10]] 0
 // CHECK-NEXT: [[mat10_1:%\d+]] = OpCompositeExtract %float [[mat10]] 1
 // CHECK-NEXT: [[mat10_2:%\d+]] = OpCompositeExtract %float [[mat10]] 2
@@ -188,23 +185,21 @@ void main() {
 // CHECK:         [[s:%\d+]] = OpLoad %int %intScalar
 // CHECK-NEXT: [[vec1:%\d+]] = OpLoad %int %intVec1
 // CHECK-NEXT: [[vec2:%\d+]] = OpLoad %v2int %intVec2
+// CHECK-NEXT: [[vec3:%\d+]] = OpLoad %v3int %intVec3
+// CHECK-NEXT:[[vec2a:%\d+]] = OpLoad %v2int %intVec2
+// CHECK-NEXT: [[vec4:%\d+]] = OpLoad %v4int %intVec4
+
 // CHECK-NEXT: [[ce00:%\d+]] = OpCompositeExtract %int [[vec2]] 0
 // CHECK-NEXT: [[ce01:%\d+]] = OpCompositeExtract %int [[vec2]] 1
 // CHECK-NEXT: [[cc14:%\d+]] = OpCompositeConstruct %v4int [[s]] [[vec1]] [[ce00]] [[ce01]]
 
-// CHECK-NEXT: [[vec3:%\d+]] = OpLoad %v3int %intVec3
 // CHECK-NEXT: [[ce02:%\d+]] = OpCompositeExtract %int [[vec3]] 0
 // CHECK-NEXT: [[ce03:%\d+]] = OpCompositeExtract %int [[vec3]] 1
 // CHECK-NEXT: [[ce04:%\d+]] = OpCompositeExtract %int [[vec3]] 2
-// CHECK-NEXT:[[vec2a:%\d+]] = OpLoad %v2int %intVec2
 // CHECK-NEXT: [[ce05:%\d+]] = OpCompositeExtract %int [[vec2a]] 0
 // CHECK-NEXT: [[ce06:%\d+]] = OpCompositeExtract %int [[vec2a]] 1
 // CHECK-NEXT: [[cc15:%\d+]] = OpCompositeConstruct %v4int [[ce02]] [[ce03]] [[ce04]] [[ce05]]
-
 // CHECK-NEXT: [[cc16:%\d+]] = OpCompositeConstruct %v4int [[ce06]] %int_1 %int_2 %int_3
-
-// CHECK-NEXT: [[vec4:%\d+]] = OpLoad %v4int %intVec4
-
 // CHECK-NEXT: [[cc17:%\d+]] = OpCompositeConstruct %_arr_v4int_uint_4 [[cc14]] [[cc15]] [[cc16]] [[vec4]]
 // CHECK-NEXT:  OpStore %imat5 [[cc17]]
     int4x4 imat5 = {intScalar, intVec1, intVec2, // [0]
@@ -224,19 +219,19 @@ void main() {
 // CHECK-NEXT:              [[uintScalar:%\d+]] = OpLoad %uint %uintScalar
 // CHECK-NEXT:               [[intScalar:%\d+]] = OpBitcast %int [[uintScalar]]
 // CHECK-NEXT:                [[uintVec2:%\d+]] = OpLoad %v2uint %uintVec2
+// CHECK-NEXT:             [[floatScalar:%\d+]] = OpLoad %float %floatScalar
+// CHECK-NEXT: [[convert_floatScalar_int:%\d+]] = OpConvertFToS %int [[floatScalar]]
+// CHECK-NEXT:              [[boolScalar:%\d+]] = OpLoad %bool %boolScalar
+// CHECK-NEXT:  [[convert_boolScalar_int:%\d+]] = OpSelect %int [[boolScalar]] %int_1 %int_0
+// CHECK-NEXT:                  [[v3bool:%\d+]] = OpLoad %v3bool %boolVec3
 // CHECK-NEXT:              [[uintVec2e0:%\d+]] = OpCompositeExtract %uint [[uintVec2]] 0
 // CHECK-NEXT:              [[uintVec2e1:%\d+]] = OpCompositeExtract %uint [[uintVec2]] 1
 // CHECK-NEXT:  [[convert_uintVec2e0_int:%\d+]] = OpBitcast %int [[uintVec2e0]]
 // CHECK-NEXT:                [[imat7_r0:%\d+]] = OpCompositeConstruct %v3int [[intVec1]] [[intScalar]] [[convert_uintVec2e0_int]]
 // CHECK-NEXT:  [[convert_uintVec2e1_int:%\d+]] = OpBitcast %int [[uintVec2e1]]
-// CHECK-NEXT:             [[floatScalar:%\d+]] = OpLoad %float %floatScalar
-// CHECK-NEXT: [[convert_floatScalar_int:%\d+]] = OpConvertFToS %int [[floatScalar]]
-// CHECK-NEXT:              [[boolScalar:%\d+]] = OpLoad %bool %boolScalar
-// CHECK-NEXT:  [[convert_boolScalar_int:%\d+]] = OpSelect %int [[boolScalar]] %int_1 %int_0
 // CHECK-NEXT:                [[imat7_r1:%\d+]] = OpCompositeConstruct %v3int [[convert_uintVec2e1_int]] [[convert_floatScalar_int]] [[convert_boolScalar_int]]
-// CHECK-NEXT:                  [[v3bool:%\d+]] = OpLoad %v3bool %boolVec3
 // CHECK-NEXT:                [[imat7_r2:%\d+]] = OpSelect %v3int [[v3bool]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:                         {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_3 [[imat7_r0]] [[imat7_r1]] [[imat7_r2]] 
+// CHECK-NEXT:                         {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_3 [[imat7_r0]] [[imat7_r1]] [[imat7_r2]]
     int3x3 imat7 = {intVec1, uintScalar, uintVec2, // [0] + 1 scalar
                     floatScalar, boolScalar,       // [1] - 1 scalar
                     boolVec3                       // [2]
@@ -251,13 +246,15 @@ void main() {
     // extract vectors from matrices directly.
 
 // CHECK:         [[imat8:%\d+]] = OpLoad %_arr_v2int_uint_2 %imat8
+// CHECK-NEXT:    [[imat9:%\d+]] = OpLoad %_arr_v4int_uint_2 %imat9
+// CHECK-NEXT:   [[imat10:%\d+]] = OpLoad %v4int %imat10
+
 // CHECK-NEXT: [[imat8_00:%\d+]] = OpCompositeExtract %int [[imat8]] 0 0
 // CHECK-NEXT: [[imat8_01:%\d+]] = OpCompositeExtract %int [[imat8]] 0 1
 // CHECK-NEXT: [[imat8_10:%\d+]] = OpCompositeExtract %int [[imat8]] 1 0
 // CHECK-NEXT: [[imat8_11:%\d+]] = OpCompositeExtract %int [[imat8]] 1 1
 // CHECK-NEXT:     [[cc21:%\d+]] = OpCompositeConstruct %v4int [[imat8_00]] [[imat8_01]] [[imat8_10]] [[imat8_11]]
 
-// CHECK-NEXT:    [[imat9:%\d+]] = OpLoad %_arr_v4int_uint_2 %imat9
 // CHECK-NEXT: [[imat9_00:%\d+]] = OpCompositeExtract %int [[imat9]] 0 0
 // CHECK-NEXT: [[imat9_01:%\d+]] = OpCompositeExtract %int [[imat9]] 0 1
 // CHECK-NEXT: [[imat9_02:%\d+]] = OpCompositeExtract %int [[imat9]] 0 2
@@ -269,7 +266,6 @@ void main() {
 // CHECK-NEXT:     [[cc22:%\d+]] = OpCompositeConstruct %v4int [[imat9_00]] [[imat9_01]] [[imat9_02]] [[imat9_03]]
 // CHECK-NEXT:     [[cc23:%\d+]] = OpCompositeConstruct %v4int [[imat9_10]] [[imat9_11]] [[imat9_12]] [[imat9_13]]
 
-// CHECK-NEXT: [[imat10:%\d+]] = OpLoad %v4int %imat10
 // CHECK-NEXT: [[imat10_0:%\d+]] = OpCompositeExtract %int [[imat10]] 0
 // CHECK-NEXT: [[imat10_1:%\d+]] = OpCompositeExtract %int [[imat10]] 1
 // CHECK-NEXT: [[imat10_2:%\d+]] = OpCompositeExtract %int [[imat10]] 2
