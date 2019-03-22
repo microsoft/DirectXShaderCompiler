@@ -389,6 +389,9 @@ TEST_F(FileTest, CastExplicit2FP) { runFileTest("cast.2fp.explicit.hlsl"); }
 TEST_F(FileTest, CastImplicit2LiteralInt) {
   runFileTest("cast.2literal-int.implicit.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionArrayToVector) {
+  runFileTest("cast.flat-conversion.array-to-vector.hlsl");
+}
 TEST_F(FileTest, CastImplicitFlatConversion) {
   runFileTest("cast.flat-conversion.implicit.hlsl");
 }
