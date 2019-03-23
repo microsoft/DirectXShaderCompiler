@@ -29,16 +29,53 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d 1>nul
+rem /Fd implies /Zi and /Qstrip_debug
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd %CD%\smoke.hlsl.d
+  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\smoke.hlsl.d
   call :cleanup 2>nul
   exit /b 1
 )
-
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
+dxc.exe -dumpbin smoke.hlsl.Fd.dxo | findstr "shader debug name: smoke.hlsl.d" 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd %CD%\
+  echo Failed to find shader debug name.
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.Fd.dxo | findstr "DICompileUnit" 1>nul
+if %errorlevel% equ 0 (
+  echo Found DICompileUnit after implied strip.
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem Override embedded debug name with -pdb-alt-path
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd smoke.hlsl.alt.d -pdb-alt-path smoke.hlsl.pdb-alt-path.d /Fo smoke.hlsl.Fd.alt.dxo 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\smoke.hlsl.alt.d -pdb-alt-path smoke.hlsl.pdb-alt-path.d
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.Fd.dxo | findstr "shader debug name: smoke.hlsl.pdb-alt-path.d" 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find shader debug name.
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.Fd.dxo | findstr "DICompileUnit" 1>nul
+if %errorlevel% equ 0 (
+  echo Found DICompileUnit after implied strip.
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem del .lld file if exists
+dir %CD%\*.lld 1>nul
+if %errorlevel% equ 0 (
+  del %CD%\*.lld
+)
+rem /Fd implies /Zi ; path with \ produces auto hash-named .lld file
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
   call :cleanup 2>nul
   exit /b 1
 )
@@ -49,8 +86,8 @@ if %errorlevel% neq 0 (
   call :cleanup 2>nul
   exit /b 1
 )
-rem /Fd with trailing backslash implies /Qstrip_debug
-dxc.exe -dumpbin smoke.hlsl.strip | findstr "shader debug name" 1>nul
+rem auto debug name is hex digest + .lld
+dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find shader debug name.
   call :cleanup 2>nul
@@ -59,6 +96,39 @@ if %errorlevel% neq 0 (
 dxc.exe -dumpbin smoke.hlsl.strip | findstr "DICompileUnit" 1>nul
 if %errorlevel% equ 0 (
   echo Found DICompileUnit after implied strip.
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+rem Embed debug info
+rem first delete .lld file if exists
+dir %CD%\*.lld 1>nul
+if %errorlevel% equ 0 (
+  del %CD%\*.lld
+)
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem .lld file should NOT be produced
+dir %CD%\*.lld 1>nul
+if %errorlevel% equ 0 (
+  echo Found unexpected .lld file at %CD%
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem should have auto debug name, which is hex digest + .lld
+dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find shader debug name.
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr "DICompileUnit" 1>nul
+if %errorlevel% neq 0 (
+  echo Did not find DICompileUnit when /Zi is used to embed debug info.
   call :cleanup 2>nul
   exit /b 1
 )
@@ -639,7 +709,11 @@ call :cleanup
 exit /b 0
 
 :cleanup
-del %CD%\*.lld
+rem del .lld file if exists
+dir %CD%\*.lld 1>nul
+if %errorlevel% equ 0 (
+  del %CD%\*.lld
+)
 del %CD%\NonUniform.cso
 del %CD%\NonUniformNoRootSig.cso
 del %CD%\NonUniformRootSig.cso
@@ -660,9 +734,13 @@ del %CD%\smoke.cso.plain.bc
 del %CD%\smoke.hl.txt
 del %CD%\smoke.hlsl.c
 del %CD%\smoke.hlsl.d
+del %CD%\smoke.hlsl.Fd.dxo
+del %CD%\smoke.hlsl.alt.d
+del %CD%\smoke.hlsl.Fd.alt.dxo
 del %CD%\smoke.hlsl.e
 del %CD%\smoke.hlsl.h
 del %CD%\smoke.hlsl.strip
+del %CD%\smoke.hlsl.embedpdb
 del %CD%\smoke.ll
 del %CD%\smoke.opt.ll
 del %CD%\smoke.opt.prn.txt
@@ -679,6 +757,8 @@ del %CD%\test-global-rs.hlsl
 del %CD%\test-local-rs.hlsl
 del %CD%\test-global-rs.cso
 del %CD%\test-local-rs.cso
+del %CD%\smoke.no.warning.txt
+del %CD%\smoke.warning.txt
 
 exit /b 0
 

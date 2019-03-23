@@ -1592,30 +1592,24 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       // bitcode, which will include the source references, line numbers, etc. Otherwise,
       // do it exclusively on the target shader bitcode.
 
-      pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
-                        ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
-                        : CComPtr<AbstractMemoryStream>(pProgramStream);
-
-      // Use user specified debug name if a) it's given and b) it's not a path
-      bool UseDebugName = DebugName.size() && !DebugName.endswith(llvm::StringRef("\\"));
-
       // Calculate the length of the name
-      const uint32_t NameLen = UseDebugName ? 
-        DebugName.size() :
-        DebugInfoNameHashLen +  DebugInfoNameSuffix;
+      const uint32_t NameLen = !DebugName.empty()
+                              ? DebugName.size()
+                              : DebugInfoNameHashLen +  DebugInfoNameSuffix;
 
       // Calculate the size of the blob part.
       const uint32_t DebugInfoContentLen =
           sizeof(DxilShaderDebugName) + NameLen + DebugInfoNameNullAndPad;
 
-      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
-        [DebugInfoNameSuffix, DebugInfoNameHashLen, UseDebugName, DebugName, pHashStream]
-        (AbstractMemoryStream *pStream)
-      {
-        DxilShaderDebugName NameContent;
-        NameContent.Flags = 0;
+      if (!DebugName.empty()) {
+        // Write user-supplied name
+        writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+          [DebugName]
+          (AbstractMemoryStream *pStream)
+        {
+          DxilShaderDebugName NameContent;
+          NameContent.Flags = 0;
 
-        if (UseDebugName) {
           NameContent.NameLength = DebugName.size();
           IFT(WriteStreamValue(pStream, NameContent));
 
@@ -1623,8 +1617,20 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
           IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
           const char Pad[] = { '\0','\0','\0','\0' };
           IFT(pStream->Write(Pad, _countof(Pad), &cbWritten));
-        }
-        else {
+        });
+      } else {
+        pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
+                          ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
+                          : CComPtr<AbstractMemoryStream>(pProgramStream);
+
+        // Write auto-generated name based on hash of module
+        writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+          [DebugInfoNameSuffix, DebugInfoNameHashLen, pHashStream]
+          (AbstractMemoryStream *pStream)
+        {
+          DxilShaderDebugName NameContent;
+          NameContent.Flags = 0;
+
           NameContent.NameLength = DebugInfoNameHashLen + DebugInfoNameSuffix;
           IFT(WriteStreamValue(pStream, NameContent));
 
@@ -1640,8 +1646,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
           IFT(pStream->Write(Hash.data(), Hash.size(), &cbWritten));
           const char SuffixAndPad[] = { '.','l','l','d','\0','\0','\0','\0' };
           IFT(pStream->Write(SuffixAndPad, _countof(SuffixAndPad), &cbWritten));
-        }
-      });
+        });
+      }
     }
   }
 

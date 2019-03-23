@@ -144,6 +144,30 @@ bool DxcOpts::IsLibraryProfile() {
   return TargetProfile.startswith("lib_");
 }
 
+bool DxcOpts::IsDebugInfoEnabled() {
+  return DebugInfo || !DebugFile.empty();
+}
+
+bool DxcOpts::EmbedDebugInfo() {
+  return DebugInfo && DebugFile.empty() && !StripDebug;
+}
+
+bool DxcOpts::EmbedPDBName() {
+  return IsDebugInfoEnabled() || !DebugFile.empty() || !PDBAltPath.empty();
+}
+
+bool DxcOpts::DebugFileIsDirectory() {
+  return !DebugFile.empty() && DebugFile.endswith(llvm::StringRef("\\"));
+}
+
+llvm::StringRef DxcOpts::GetPDBName() {
+  if (!PDBAltPath.empty())
+    return PDBAltPath;
+  if (!DebugFileIsDirectory())
+    return DebugFile;
+  return llvm::StringRef();
+}
+
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   if (argc > skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);
@@ -406,6 +430,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
+  opts.PDBAltPath = Args.getLastArgValue(OPT_pdb_alt_path);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
@@ -614,6 +639,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
   else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
     errors << "Cannot specify both /Zss and /Zsb";
+    return 1;
+  }
+
+  if (!opts.PDBAltPath.empty() && opts.DebugFileIsDirectory()) {
+    errors << "pdb-alt-path cannot be used when providing a directory output for Fd (ending in '\\').";
     return 1;
   }
 

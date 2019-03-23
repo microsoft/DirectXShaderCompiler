@@ -330,7 +330,12 @@ def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Ou
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
 def Fh : JoinedOrSeparate<["-", "/"], "Fh">, MetaVarName<"<file>">, HelpText<"Output header file containing object code">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Output warnings and errors to the given file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
-def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">, HelpText<"Write debug information to the given file or directory; trail \\ to auto-generate and imply Qstrip_priv">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">,
+  HelpText<"Write debug information to the given file, or automatically named file in directory when ending in '\\'; implies Zi and Qstrip_debug">,
+  Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def pdb_alt_path : JoinedOrSeparate<["-", "/"], "pdb-alt-path">,
+  MetaVarName<"<file>">, HelpText<"Embed this PDB path in the binary instead of the path written to by Fd">,
+  Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Vn : JoinedOrSeparate<["-", "/"], "Vn">, MetaVarName<"<name>">, HelpText<"Use <name> as variable name in header file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Cc : Flag<["-", "/"], "Cc">, HelpText<"Output color coded assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
 def Ni : Flag<["-", "/"], "Ni">, HelpText<"Output instruction numbers in assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;

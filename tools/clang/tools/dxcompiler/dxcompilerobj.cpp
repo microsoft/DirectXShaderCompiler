@@ -368,6 +368,20 @@ public:
         goto Cleanup;
       }
 
+      // Should we fail on this combination?
+      //if (ppDebugBlob && opts.DebugFile.empty()) {
+      //  raw_stream_ostream outStream(pOutputStream.p);
+      //  outStream << "Error: PDB output expected, but /Fd option was not provided.\n";
+      //  CComPtr<IDxcBlob> pErrorBlob;
+      //  IFT(pOutputStream->QueryInterface(&pErrorBlob));
+      //  CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
+      //  outStream.flush();
+      //  IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
+      //                                   &pErrorBlobWithEncoding));
+      //  IFT(DxcOperationResult::CreateFromResultErrorStatus(
+      //        nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
+      //}
+
 #ifdef ENABLE_SPIRV_CODEGEN
       // We want to embed the preprocessed source code in the final SPIR-V if
       // debug information is enabled. Therefore, we invoke Preprocess() here
@@ -573,12 +587,11 @@ public:
         outStream.flush();
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
-        if (opts.DebugInfo) {
-          SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
-          // Unless we want to strip it right away, include it in the container.
-          if (!opts.StripDebug || ppDebugBlob == nullptr) {
-            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-          }
+        if (opts.EmbedPDBName()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+        }
+        if (opts.EmbedDebugInfo()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
         if (opts.DebugNameForSource) {
           SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
@@ -592,7 +605,7 @@ public:
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.DebugInfo, opts.DebugFile, compiler.getDiagnostics());
+                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics());
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
                                                  pOutputBlob, m_pMalloc,
@@ -635,7 +648,7 @@ public:
       HRESULT status;
       DXVERIFY_NOMSG(SUCCEEDED((*ppResult)->GetStatus(&status)));
       if (SUCCEEDED(status)) {
-        if (opts.DebugInfo && ppDebugBlob) {
+        if (opts.IsDebugInfoEnabled() && ppDebugBlob) {
           DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(ppDebugBlob)));
         }
         if (ppDebugBlobName) {
@@ -851,7 +864,7 @@ public:
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.
-    if (Opts.DebugInfo) {
+    if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
       CGOpts.DebugColumnInfo = 1;

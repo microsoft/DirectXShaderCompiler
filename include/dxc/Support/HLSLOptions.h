@@ -93,6 +93,7 @@ public:
 
   llvm::StringRef AssemblyCode; // OPT_Fc
   llvm::StringRef DebugFile;    // OPT_Fd
+  llvm::StringRef PDBAltPath;   // OPT_pdb_alt_path
   llvm::StringRef EntryPoint;   // OPT_entrypoint
   llvm::StringRef ExternalFn;   // OPT_external_fn
   llvm::StringRef ExternalLib;  // OPT_external_lib
@@ -166,6 +167,13 @@ public:
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();
+
+  // Helpers to clarify interpretation of flags for behavior in implementation
+  bool IsDebugInfoEnabled();    // Zi || Fd
+  bool EmbedDebugInfo();        // Zi && !Fd && !Qstrip_debug
+  bool EmbedPDBName();          // Zi || Fd || pdb_alt_path
+  bool DebugFileIsDirectory();  // Fd ends in '\\'
+  llvm::StringRef GetPDBName(); // pdb_alt_path or Fd
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN

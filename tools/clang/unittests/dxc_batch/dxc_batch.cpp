@@ -235,12 +235,6 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
 
   // Extract and write the PDB/debug information.
   if (!m_Opts.DebugFile.empty()) {
-    IFTBOOLMSG(m_Opts.DebugInfo, E_INVALIDARG,
-               "/Fd specified, but no Debug Info was "
-               "found in the shader, please use the "
-               "/Zi switch to generate debug "
-               "information compiling this shader.");
-
     if (pDebugBlob != nullptr) {
       IFTBOOLMSG(pDebugBlobName && *pDebugBlobName, E_INVALIDARG,
                  "/Fd was specified but no debug name was produced");

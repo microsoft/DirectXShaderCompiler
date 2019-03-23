@@ -150,7 +150,10 @@ public:
   }
 
   int  Compile();
-  void Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args, IDxcOperationResult **pCompileResult);
+  void Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
+                 IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args,
+                 std::wstring &outputPDBPath, CComPtr<IDxcBlob> &pDebugBlob,
+                 IDxcOperationResult **pCompileResult);
   int DumpBinary();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
@@ -219,17 +222,12 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
 
   // Extract and write the PDB/debug information.
   if (!m_Opts.DebugFile.empty()) {
-    IFTBOOLMSG(m_Opts.DebugInfo, E_INVALIDARG, "/Fd specified, but no Debug Info was "
-      "found in the shader, please use the "
-      "/Zi switch to generate debug "
-      "information compiling this shader.");
-
     if (pDebugBlob != nullptr) {
       IFTBOOLMSG(pDebugBlobName && *pDebugBlobName, E_INVALIDARG,
         "/Fd was specified but no debug name was produced");
       WriteBlobToFile(pDebugBlob, pDebugBlobName);
-    }
-    else {
+    } else {
+      // Note: This is for load from binary case
       WritePartToFile(pBlob, hlsl::DFCC_ShaderDebugInfoDXIL, m_Opts.DebugFile);
     }
   }
@@ -542,7 +540,11 @@ public:
   }
 };
 
-void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args, IDxcOperationResult **ppCompileResult) {
+void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
+                           IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args,
+                           std::wstring &outputPDBPath,
+                           CComPtr<IDxcBlob> &pDebugBlob,
+                           IDxcOperationResult **ppCompileResult) {
 // Recompile currently only supported on Windows
 #ifdef _WIN32
   CComPtr<IDxcBlob> pTargetBlob;
@@ -689,11 +691,29 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompile
   }
 
   CComPtr<IDxcOperationResult> pResult;
-  IFT(pCompiler->Compile(pCompileSource, pMainFileName,
-    StringRefUtf16(EntryPoint),
-    StringRefUtf16(TargetProfile), ConcatArgs.data(),
-    ConcatArgs.size(), ConcatDefines.data(),
-    ConcatDefines.size(), pIncludeHandler, &pResult));
+
+  if (!m_Opts.DebugFile.empty()) {
+    CComPtr<IDxcCompiler2> pCompiler2;
+    CComHeapPtr<WCHAR> pDebugName;
+    Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
+    IFT(pCompiler->QueryInterface(&pCompiler2));
+    IFT(pCompiler2->CompileWithDebug(
+        pCompileSource, pMainFileName, StringRefUtf16(EntryPoint),
+        StringRefUtf16(TargetProfile), ConcatArgs.data(), ConcatArgs.size(),
+        ConcatDefines.data(), ConcatDefines.size(), pIncludeHandler, &pResult,
+        &pDebugName, &pDebugBlob));
+    if (pDebugName.m_pData &&
+        m_Opts.DebugFile.endswith(llvm::StringRef("\\"))) {
+      outputPDBPath += pDebugName.m_pData;
+    }
+  } else {
+    IFT(pCompiler->Compile(pCompileSource, pMainFileName,
+      StringRefUtf16(EntryPoint),
+      StringRefUtf16(TargetProfile), ConcatArgs.data(),
+      ConcatArgs.size(), ConcatDefines.data(),
+      ConcatDefines.size(), pIncludeHandler, &pResult));
+  }
+
   *ppCompileResult = pResult.Detach();
 #else
   assert(false && "Recompile is currently only supported on Windows.");
@@ -705,7 +725,7 @@ int DxcContext::Compile() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pCompileResult;
   CComPtr<IDxcBlob> pDebugBlob;
-  std::wstring debugName;
+  std::wstring outputPDBPath;
   {
     CComPtr<IDxcBlobEncoding> pSource;
 
@@ -727,9 +747,9 @@ int DxcContext::Compile() {
     IFTARG(pSource->GetBufferSize() >= 4);
 
     if (m_Opts.RecompileFromBinary) {
-      Recompile(pSource, pLibrary, pCompiler, args, &pCompileResult);
-    }
-    else {
+      Recompile(pSource, pLibrary, pCompiler, args, outputPDBPath, pDebugBlob,
+                &pCompileResult);
+    } else {
       CComPtr<IDxcIncludeHandler> pIncludeHandler;
       IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
@@ -744,10 +764,10 @@ int DxcContext::Compile() {
         }
       }
 
-      if (!m_Opts.DebugFile.empty() && m_Opts.DebugFile.endswith(llvm::StringRef("\\"))) {
-        args.push_back(L"/Qstrip_debug"); // implied
+      if (!m_Opts.DebugFile.empty()) {
         CComPtr<IDxcCompiler2> pCompiler2;
         CComHeapPtr<WCHAR> pDebugName;
+        Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
         IFT(pCompiler.QueryInterface(&pCompiler2));
         IFT(pCompiler2->CompileWithDebug(
             pSource, StringRefUtf16(m_Opts.InputFile),
@@ -755,9 +775,8 @@ int DxcContext::Compile() {
             args.data(), args.size(), m_Opts.Defines.data(),
             m_Opts.Defines.size(), pIncludeHandler, &pCompileResult,
             &pDebugName, &pDebugBlob));
-        if (pDebugName.m_pData) {
-          Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &debugName);
-          debugName += pDebugName.m_pData;
+        if (pDebugName.m_pData && m_Opts.DebugFileIsDirectory()) {
+          outputPDBPath += pDebugName.m_pData;
         }
       } else {
         IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
@@ -766,6 +785,13 @@ int DxcContext::Compile() {
           args.size(), m_Opts.Defines.data(),
           m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
       }
+    }
+
+    // When compiling we don't embed debug info if options don't ask for it.
+    // If user specified /Qstrip_debug, remove from m_Opts now so we don't
+    // try to modify the container to strip debug info that isn't there.
+    if (!m_Opts.EmbedDebugInfo()) {
+      m_Opts.StripDebug = false;
     }
   }
 
@@ -786,7 +812,7 @@ int DxcContext::Compile() {
     pCompiler.Release();
     pCompileResult.Release();
     if (pProgram.p != nullptr) {
-      ActOnBlob(pProgram.p, pDebugBlob, debugName.c_str());
+      ActOnBlob(pProgram.p, pDebugBlob, outputPDBPath.c_str());
     }
   }
   return status;
