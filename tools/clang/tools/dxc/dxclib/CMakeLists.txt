@@ -11,7 +11,7 @@ add_clang_library(dxclib
   )
 
 if(ENABLE_SPIRV_CODEGEN)
-  target_link_libraries(dxclib SPIRV-Tools)
+  target_link_libraries(dxclib PRIVATE SPIRV-Tools)
 endif()
 
 if (WIN32)
