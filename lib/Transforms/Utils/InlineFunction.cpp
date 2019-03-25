@@ -877,7 +877,7 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   if (!TheCallDL)
     return;
 #else // HLSL Change - Begin
-  // Global variable initialization code gets inlined but the call inst does't
+  // Global variable initialization code gets inlined but the call inst doesn't
   // get a location. Fix it here by giving it a dummy location so the debug
   // info is well-formed.
   if (!TheCallDL) {
