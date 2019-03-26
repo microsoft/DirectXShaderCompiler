@@ -122,6 +122,9 @@ TEST_F(FileTest, 16BitEnabledScalarConstants) {
   // needed extension.
   runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success, false);
 }
+TEST_F(FileTest, 16BitEnabledScalarConstantsHalfZero) {
+  runFileTest("constant.scalar.16bit.enabled.half.zero.hlsl");
+}
 TEST_F(FileTest, 64BitScalarConstants) {
   runFileTest("constant.scalar.64bit.hlsl");
 }
