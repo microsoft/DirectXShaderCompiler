@@ -6191,13 +6191,10 @@ SpirvInstruction *SpirvEmitter::convertBitwidth(SpirvInstruction *fromVal,
                                                 QualType fromType,
                                                 QualType toType,
                                                 QualType *resultType) {
-  // At the moment, we will not make bitwidth conversions for literal int and
-  // literal float types because they always indicate 64-bit and do not
-  // represent what SPIR-V was actually resolved to.
-  // TODO: If the evaluated type is added to SpirvEvalInfo, change 'fromVal' to
-  // SpirvEvalInfo and use it to handle literal types more accurately.
-  if (fromType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
-      fromType->isSpecificBuiltinType(BuiltinType::LitInt))
+  // At the moment, we will not make bitwidth conversions to/from literal int
+  // and literal float types because they do not represent the intended SPIR-V
+  // bitwidth.
+  if (isLitTypeOrVecOfLitType(fromType) || isLitTypeOrVecOfLitType(toType))
     return fromVal;
 
   const auto fromBitwidth = getElementSpirvBitwidth(

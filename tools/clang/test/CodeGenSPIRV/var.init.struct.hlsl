@@ -33,6 +33,10 @@ struct P {
     float z;
 };
 
+struct W {
+  float4 color;
+};
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -88,4 +92,10 @@ void main() {
            s2,          // Embedded struct
            s2           // Decomposing struct + type casting
           };
+
+    // Using InitListExpr
+// CHECK:        [[int4_zero:%\d+]] = OpCompositeConstruct %v4int %int_0 %int_0 %int_0 %int_0
+// CHECK-NEXT: [[float4_zero:%\d+]] = OpConvertSToF %v4float [[int4_zero]]
+// CHECK-NEXT:             {{%\d+}} = OpCompositeConstruct %W [[float4_zero]]
+    W w = { (0).xxxx };
 }
