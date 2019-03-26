@@ -215,8 +215,8 @@ public:
   // NonUniform attribute.
   static const char kDxilNonUniformAttributeMDName[];
 
-  // Array debug layout metadata.
-  static const char kDxilDebugArrayLayoutMDName[];
+  // Variable debug layout metadata.
+  static const char kDxilVariableDebugLayoutMDName[];
 
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
@@ -447,8 +447,10 @@ public:
   static void MarkPrecise(llvm::Instruction *inst);
   static bool IsMarkedNonUniform(const llvm::Instruction *inst);
   static void MarkNonUniform(llvm::Instruction *inst);
-  static void GetDebugArrayLayout(llvm::DbgDeclareInst *inst, std::vector<DxilDIArrayDim> &ArrayDims);
-  static void SetDebugArrayLayout(llvm::DbgDeclareInst *inst, const std::vector<DxilDIArrayDim> &ArrayDims);
+  static bool GetVariableDebugLayout(llvm::DbgDeclareInst *inst,
+    unsigned &StartOffsetInBits, std::vector<DxilDIArrayDim> &ArrayDims);
+  static void SetVariableDebugLayout(llvm::DbgDeclareInst *inst,
+    unsigned StartOffsetInBits, const std::vector<DxilDIArrayDim> &ArrayDims);
 
 private:
   llvm::LLVMContext &m_Ctx;
