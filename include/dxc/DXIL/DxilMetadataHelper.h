@@ -21,6 +21,7 @@ class LLVMContext;
 class Module;
 class Function;
 class Instruction;
+class DbgDeclareInst;
 class Value;
 class MDOperand;
 class Metadata;
@@ -52,6 +53,14 @@ class RootSignatureHandle;
 struct DxilFunctionProps;
 class DxilSubobjects;
 class DxilSubobject;
+
+// Additional debug information for SROA'ed array variables,
+// where adjacent elements in DXIL might not have been adjacent
+// in the original user variable.
+struct DxilDIArrayDim {
+  unsigned StrideInBits;
+  unsigned NumElements;
+};
 
 /// Use this class to manipulate DXIL-spcific metadata.
 // In our code, only DxilModule and HLModule should use this class.
@@ -205,6 +214,9 @@ public:
 
   // NonUniform attribute.
   static const char kDxilNonUniformAttributeMDName[];
+
+  // Array debug layout metadata.
+  static const char kDxilDebugArrayLayoutMDName[];
 
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
@@ -435,6 +447,8 @@ public:
   static void MarkPrecise(llvm::Instruction *inst);
   static bool IsMarkedNonUniform(const llvm::Instruction *inst);
   static void MarkNonUniform(llvm::Instruction *inst);
+  static void GetDebugArrayLayout(llvm::DbgDeclareInst *inst, std::vector<DxilDIArrayDim> &ArrayDims);
+  static void SetDebugArrayLayout(llvm::DbgDeclareInst *inst, const std::vector<DxilDIArrayDim> &ArrayDims);
 
 private:
   llvm::LLVMContext &m_Ctx;

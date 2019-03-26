@@ -78,6 +78,7 @@ public:
   // Split V into AllocaInsts with Builder and save the new AllocaInsts into Elts.
   // Then do SROA on V.
   static bool DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
+                                  Type *&BrokenUpTy, uint64_t &NumInstances,
                                   IRBuilder<> &Builder, bool bFlatVector,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   const DataLayout &DL,
@@ -1565,10 +1566,6 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
                       std::function<bool(AllocaInst *, AllocaInst *)>>
       WorkList(size_cmp);
   std::unordered_map<AllocaInst*, DbgDeclareInst*> DDIMap;
-  // HLSL Change - Begin
-  std::unordered_map<AllocaInst*, unsigned> OffsetMap; // Map to keep track the offset of an alloca
-                                                       // in the variable that it's a part of.
-  // HLSL Change - End
   // Scan the entry basic block, adding allocas to the worklist.
   BasicBlock &BB = F.getEntryBlock();
   for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
@@ -1636,9 +1633,11 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
       IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(AI));
       bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
 
+      Type *BrokenUpTy = nullptr;
+      uint64_t NumInstances = 1;
       bool SROAed = SROA_Helper::DoScalarReplacement(
-          AI, Elts, Builder, /*bFlatVector*/ true, hasPrecise, typeSys, DL,
-          DeadInsts);
+        AI, Elts, BrokenUpTy, NumInstances, Builder,
+        /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts);
 
       if (SROAed) {
         Type *Ty = AI->getAllocatedType();
@@ -1658,44 +1657,86 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
             }
           }
         }
-// HLSL Change - Begin
-        unsigned parentOffset = 0;
-        auto offsetIt = OffsetMap.find(AI);
-        if (offsetIt != OffsetMap.end())
-          parentOffset = offsetIt->second;
-// HLSL Change - End
 
         DbgDeclareInst *DDI = nullptr;
-        unsigned debugOffset = 0;
         auto iter = DDIMap.find(AI);
         if (iter != DDIMap.end()) {
           DDI = iter->second;
         }
-        // Push Elts into workList.
-        for (auto iter = Elts.begin(); iter != Elts.end(); iter++) {
-          AllocaInst *Elt = cast<AllocaInst>(*iter);
-          WorkList.push(Elt);
-          if (DDI) {
-            Type *Ty = Elt->getAllocatedType();
-            unsigned size = DL.getTypeAllocSize(Ty);
-#if 0 // HLSL Change
-            DIExpression *DDIExp =
-                DIB.createBitPieceExpression(debugOffset, size);
-#else // HLSL Change
 
+        unsigned ParentBitPieceOffset = 0;
+        if (DDI != nullptr) {
+          if (DIExpression *ParentDbgExpr = DDI->getExpression()) {
+            if (ParentDbgExpr->isBitPiece()) {
+              ParentBitPieceOffset = ParentDbgExpr->getBitPieceOffset();
+            }
+          }
+        }
+
+        // If the type that was broken up is nested in arrays,
+        // then each element will also be an array,
+        // but the continuity between successive elements of the original aggregate
+        // will have been broken, such that we must store the stride to rebuild it.
+        // For example: [2 x {i32, float}] => [2 x i32], [2 x float], each with stride 64 bits
+        std::vector<DxilDIArrayDim> DIArrayDims;
+        if (DDI) {
+          DxilMDHelper::GetDebugArrayLayout(DDI, DIArrayDims);
+          if (NumInstances > 1 && Elts.size() > 1) {
+            // Existing dimentions already account for part of the stride
+            uint64_t NewDimNumElements = NumInstances;
+            for (const DxilDIArrayDim& ArrayDim : DIArrayDims) {
+              DXASSERT(NewDimNumElements % ArrayDim.NumElements == 0,
+                "Debug array stride is inconsistent with the number of elements.");
+              NewDimNumElements /= ArrayDim.NumElements;
+            }
+
+            // Add a stride dimension
+            DxilDIArrayDim NewDIArrayDim = {};
+            NewDIArrayDim.StrideInBits = (unsigned)DL.getTypeAllocSizeInBits(BrokenUpTy);
+            NewDIArrayDim.NumElements = (unsigned)NewDimNumElements;
+            DIArrayDims.emplace_back(NewDIArrayDim);
+          }
+          else {
+            DIArrayDims.clear();
+          }
+        }
+
+        // Push Elts into workList.
+        for (unsigned EltIdx = 0; EltIdx < Elts.size(); ++EltIdx) {
+          AllocaInst *EltAlloca = cast<AllocaInst>(Elts[EltIdx]);
+          WorkList.push(EltAlloca);
+          if (DDI) {
+            unsigned EltBitPieceSize = DL.getTypeAllocSizeInBits(EltAlloca->getAllocatedType());
+
+            // Figure out the offset of the element in the broken up type
+            unsigned EltBitPieceOffset = ParentBitPieceOffset;
+            if (StructType *ParentStructTy = dyn_cast<StructType>(BrokenUpTy)) {
+              DXASSERT_NOMSG(Elts.size() == ParentStructTy->getNumElements());
+              EltBitPieceOffset += (unsigned)DL.getStructLayout(ParentStructTy)->getElementOffsetInBits(EltIdx);
+            }
+            else if (VectorType *ParentVecTy = dyn_cast<VectorType>(BrokenUpTy)) {
+              DXASSERT_NOMSG(Elts.size() == ParentVecTy->getNumElements());
+              EltBitPieceOffset += (unsigned)DL.getTypeStoreSizeInBits(ParentVecTy->getElementType()) * EltIdx;
+            }
+            else if (ArrayType *ParentArrayTy = dyn_cast<ArrayType>(BrokenUpTy)) {
+              DXASSERT_NOMSG(Elts.size() == ParentArrayTy->getNumElements());
+              EltBitPieceOffset += (unsigned)DL.getTypeStoreSizeInBits(ParentArrayTy->getElementType()) * EltIdx;
+            }
+
+            // Create the bit piece expression and @llvm.dbg.declare call
             DIExpression *DDIExp = nullptr;
-            if (parentOffset+debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
+            if (EltBitPieceOffset == 0 && DL.getTypeAllocSizeInBits(AI->getAllocatedType()) == EltBitPieceSize) {
               DDIExp = DIB.createExpression();
             }
             else {
-              DDIExp = DIB.createBitPieceExpression((parentOffset+debugOffset) * 8, size * 8);
+              DDIExp = DIB.createBitPieceExpression(EltBitPieceOffset, EltBitPieceSize);
             }
-            OffsetMap[Elt] = parentOffset+debugOffset;
-#endif // HLSL Change
-            debugOffset += size;
+
             DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DIB.insertDeclare(
-                Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI));
-            DDIMap[Elt] = EltDDI;
+              EltAlloca, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI));
+            DDIMap[EltAlloca] = EltDDI;
+
+            if (!DIArrayDims.empty()) DxilMDHelper::SetDebugArrayLayout(EltDDI, DIArrayDims);
           }
         }
 
@@ -3447,6 +3488,7 @@ static ArrayType *CreateNestArrayTy(Type *FinalEltTy,
 /// DoScalarReplacement - Split V into AllocaInsts with Builder and save the new AllocaInsts into Elts.
 /// Then do SROA on V.
 bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
+                                      Type *&BrokenUpTy, uint64_t &NumInstances,
                                       IRBuilder<> &Builder, bool bFlatVector,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
@@ -3473,6 +3515,9 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
       return false;
     }
 
+    BrokenUpTy = ST;
+    NumInstances = 1;
+
     unsigned numTypes = ST->getNumContainedTypes();
     Elts.reserve(numTypes);
     DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
@@ -3498,14 +3543,16 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     }
     Type *ElTy = AT->getElementType();
     SmallVector<ArrayType *, 4> nestArrayTys;
-
     nestArrayTys.emplace_back(AT);
+    NumInstances = AT->getNumElements();
     // support multi level of array
     while (ElTy->isArrayTy()) {
       ArrayType *ElAT = cast<ArrayType>(ElTy);
       nestArrayTys.emplace_back(ElAT);
+      NumInstances *= ElAT->getNumElements();
       ElTy = ElAT->getElementType();
     }
+    BrokenUpTy = ElTy;
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
@@ -3540,6 +3587,8 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
             // Only support 1 dim split.
             nestArrayTys.size() > 1)
           return false;
+        BrokenUpTy = AT;
+        NumInstances = 1;
         for (int i = 0, e = AT->getNumElements(); i != e; ++i) {
           AllocaInst *NA = AllocaBuilder.CreateAlloca(ElTy, nullptr,
                                                 V->getName() + "." + Twine(i));
@@ -3554,6 +3603,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
       // for array of vector
       // split into arrays of scalar
       VectorType *ElVT = cast<VectorType>(ElTy);
+      BrokenUpTy = ElVT;
       Elts.reserve(ElVT->getNumElements());
 
       ArrayType *scalarArrayTy = CreateNestArrayTy(ElVT->getElementType(), nestArrayTys);
@@ -5522,8 +5572,11 @@ void SROA_Parameter_HLSL::flattenArgument(
     std::vector<Value *> Elts;
 
     // Not flat vector for entry function currently.
+    Type *BrokenUpTy = nullptr;
+    uint64_t NumInstances = 1;
     bool SROAed = SROA_Helper::DoScalarReplacement(
-        V, Elts, Builder, /*bFlatVector*/ false, annotation.IsPrecise(),
+        V, Elts, BrokenUpTy, NumInstances, Builder,
+        /*bFlatVector*/ false, annotation.IsPrecise(),
         dxilTypeSys, DL, DeadInsts);
 
     if (SROAed) {
@@ -6642,16 +6695,9 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
   for (AllocaInst *A : workList) {
     AllocaInst *NewA = lowerAlloca(A);
     if (HasDbgInfo) {
-      // Add debug info.
+      // Migrate debug info.
       DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A);
-      if (DDI) {
-        Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
-        Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
-        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-        IRBuilder<> debugBuilder(DDI);
-        debugBuilder.CreateCall(DDI->getCalledFunction(),
-                                {VMD, DDIVar, DDIExp});
-      }
+      if (DDI) DDI->setOperand(0, MetadataAsValue::get(Context, LocalAsMetadata::get(NewA)));
     }
     // Replace users.
     lowerUseWithNewValue(A, NewA);
