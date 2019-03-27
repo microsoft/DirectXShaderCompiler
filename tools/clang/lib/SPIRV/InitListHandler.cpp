@@ -84,13 +84,12 @@ void InitListHandler::flatten(const InitListExpr *expr) {
 void InitListHandler::decompose(SpirvInstruction *inst) {
   const QualType type = inst->getAstResultType();
 
-  if (hlsl::IsHLSLVecType(type)) {
-    const QualType elemType = hlsl::GetHLSLVecElementType(type);
-    const auto size = hlsl::GetHLSLVecSize(type);
-
-    decomposeVector(inst, elemType, size);
+  QualType elemType;
+  uint32_t elemCount;
+  if (isVectorType(type, &elemType, &elemCount)) {
+    decomposeVector(inst, elemType, elemCount);
   } else if (hlsl::IsHLSLMatType(type)) {
-    const QualType elemType = hlsl::GetHLSLMatElementType(type);
+    elemType = hlsl::GetHLSLMatElementType(type);
 
     uint32_t rowCount = 0, colCount = 0;
     hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
@@ -197,9 +196,10 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
   if (type->isBuiltinType())
     return createInitForBuiltinType(type, srcLoc);
 
-  if (hlsl::IsHLSLVecType(type))
-    return createInitForVectorType(hlsl::GetHLSLVecElementType(type),
-                                   hlsl::GetHLSLVecSize(type), srcLoc);
+  QualType elemType;
+  uint32_t elemCount = 0;
+  if (isVectorType(type, &elemType, &elemCount))
+    return createInitForVectorType(elemType, elemCount, srcLoc);
 
   if (hlsl::IsHLSLMatType(type)) {
     return createInitForMatrixType(type, srcLoc);
@@ -266,8 +266,9 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
 
     auto *init = initializers.back();
 
-    if (hlsl::IsHLSLVecType(init->getAstResultType()) &&
-        hlsl::GetHLSLVecSize(init->getAstResultType()) == count) {
+    uint32_t elemCount = 0;
+    if (isVectorType(init->getAstResultType(), nullptr, &elemCount) &&
+        elemCount == count) {
       initializers.pop_back();
       /// HLSL vector types are parameterized templates and we cannot
       /// construct them. So we construct an ExtVectorType here instead.

@@ -136,13 +136,7 @@ void main() {
 // CHECK-NEXT: [[cc22:%\d+]] = OpCompositeConstruct %v4float [[mat9_00]] [[mat9_01]] [[mat9_02]] [[mat9_03]]
 // CHECK-NEXT: [[cc23:%\d+]] = OpCompositeConstruct %v4float [[mat9_10]] [[mat9_11]] [[mat9_12]] [[mat9_13]]
 
-// CHECK-NEXT: [[mat10_0:%\d+]] = OpCompositeExtract %float [[mat10]] 0
-// CHECK-NEXT: [[mat10_1:%\d+]] = OpCompositeExtract %float [[mat10]] 1
-// CHECK-NEXT: [[mat10_2:%\d+]] = OpCompositeExtract %float [[mat10]] 2
-// CHECK-NEXT: [[mat10_3:%\d+]] = OpCompositeExtract %float [[mat10]] 3
-// CHECK-NEXT: [[cc24:%\d+]] = OpCompositeConstruct %v4float [[mat10_0]] [[mat10_1]] [[mat10_2]] [[mat10_3]]
-
-// CHECK-NEXT: [[cc25:%\d+]] = OpCompositeConstruct %mat4v4float [[cc21]] [[cc22]] [[cc23]] [[cc24]]
+// CHECK-NEXT: [[cc25:%\d+]] = OpCompositeConstruct %mat4v4float [[cc21]] [[cc22]] [[cc23]] [[mat10]]
 // CHECK-NEXT: OpStore %mat11 [[cc25]]
     float4x4 mat11 = {mat8, mat9, mat10};
 
@@ -266,13 +260,7 @@ void main() {
 // CHECK-NEXT:     [[cc22:%\d+]] = OpCompositeConstruct %v4int [[imat9_00]] [[imat9_01]] [[imat9_02]] [[imat9_03]]
 // CHECK-NEXT:     [[cc23:%\d+]] = OpCompositeConstruct %v4int [[imat9_10]] [[imat9_11]] [[imat9_12]] [[imat9_13]]
 
-// CHECK-NEXT: [[imat10_0:%\d+]] = OpCompositeExtract %int [[imat10]] 0
-// CHECK-NEXT: [[imat10_1:%\d+]] = OpCompositeExtract %int [[imat10]] 1
-// CHECK-NEXT: [[imat10_2:%\d+]] = OpCompositeExtract %int [[imat10]] 2
-// CHECK-NEXT: [[imat10_3:%\d+]] = OpCompositeExtract %int [[imat10]] 3
-// CHECK-NEXT: [[cc24:%\d+]] = OpCompositeConstruct %v4int [[imat10_0]] [[imat10_1]] [[imat10_2]] [[imat10_3]]
-
-// CHECK-NEXT: [[cc25:%\d+]] = OpCompositeConstruct %_arr_v4int_uint_4 [[cc21]] [[cc22]] [[cc23]] [[cc24]]
+// CHECK-NEXT: [[cc25:%\d+]] = OpCompositeConstruct %_arr_v4int_uint_4 [[cc21]] [[cc22]] [[cc23]] [[imat10]]
 // CHECK-NEXT: OpStore %imat11 [[cc25]]
     int4x4 imat11 = {imat8, imat9, imat10};
 
