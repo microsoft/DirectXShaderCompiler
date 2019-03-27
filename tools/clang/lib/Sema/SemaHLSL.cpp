@@ -10245,15 +10245,19 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
 
     if (CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-      CXXRecordDecl::base_class_iterator bi, be;
-      bi = cxxRecordDecl->bases_begin();
-      be = cxxRecordDecl->bases_end();
-      if (bi != be) {
-        // Add type tracker for base.
-        // Add base after child to make sure base considered first.
-        m_typeTrackers.push_back(
+      // We'll error elsewhere if the record has no definition,
+      // just don't attempt to use it.
+      if (cxxRecordDecl->hasDefinition()) {
+        CXXRecordDecl::base_class_iterator bi, be;
+        bi = cxxRecordDecl->bases_begin();
+        be = cxxRecordDecl->bases_end();
+        if (bi != be) {
+          // Add type tracker for base.
+          // Add base after child to make sure base considered first.
+          m_typeTrackers.push_back(
             FlattenedTypeIterator::FlattenedTypeTracker(type, bi, be));
-        bAddTracker = true;
+          bAddTracker = true;
+        }
       }
     }
     return bAddTracker;
