@@ -1415,9 +1415,10 @@ TEST_F(ValidationTest, UnusedMetadata) {
 
 TEST_F(ValidationTest, MemoryOutOfBound) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
-                          "getelementptr [8 x float], [8 x float]* %5, i32 0, i32 3",
-                          "getelementptr [8 x float], [8 x float]* %5, i32 0, i32 10",
-                          "Access to out-of-bounds memory is disallowed");
+                          "getelementptr \\[8 x float\\], \\[8 x float\\]\\* %([0-9]+), i32 0, i32 3",
+                          "getelementptr [8 x float], [8 x float]* %\\1, i32 0, i32 10",
+                          "Access to out-of-bounds memory is disallowed",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, LocalRes2) {
