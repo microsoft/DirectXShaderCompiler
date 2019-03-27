@@ -48,9 +48,10 @@ namespace spirv {
 ///
 /// The logic for handling initalizer lists is largely the following:
 ///
-/// First we flatten() the given initalizer list recursively and put all non-
-/// initializer-list AST Exprs into the initializers queue. This handles curly
-/// braces of even wired forms like float2x2 mat = {{1.}, {2., {{3.}}}, 4.};
+/// First we flatten() the given initalizer list recursively and put all
+/// SPIRV instructions for non-nitializer-list AST Exprs into the initializers
+/// queue. This handles curly braces of even wired forms like
+/// float2x2 mat = {{1.}, {2., {{3.}}}, 4.};
 ///
 /// Then we construct the final SPIR-V composite from the initializer list
 /// by traversing the type of the composite. This is done recursively in the
@@ -72,8 +73,8 @@ namespace spirv {
 /// If the composite type is vector or matrix, we decompose() it into scalars as
 /// explained above. If it is a struct or array type, the element type is not
 /// guaranteed to be scalars. But still, we need to split them into their
-/// elements. For such cases, we create faux MemberExpr or ArraySubscriptExpr
-/// AST nodes for all the elements and push them into the initializers queue.
+/// elements. For such cases, we create OpCompositeExtract SPIRV instructions
+/// for all the elements and push them into the initializers queue.
 class InitListHandler {
 public:
   /// Constructs an InitListHandler which uses the given emitter for normal
@@ -99,25 +100,26 @@ private:
     return diags.Report(loc, diagId);
   }
 
-  /// Processes the expressions in initializers and returns the <result-id> for
-  /// the final SPIR-V value of the given type.
+  /// Construct a SPIRV instruction whose type is |type| using |initializers|
+  /// and returns the <result-id> for the final SPIR-V value of the given type.
   SpirvInstruction *doProcess(QualType type, SourceLocation srcLoc);
 
-  /// Flattens the given InitListExpr and puts all non-InitListExpr AST nodes
-  /// into initializers.
+  /// Flattens the given InitListExpr and generates SPIRV instructions for
+  /// all non-InitListExpr AST nodes. Puts those generated SPIRV instructions
+  /// into |initializers|.
   void flatten(const InitListExpr *expr);
 
-  /// Decomposes the given Expr and puts all elements into the end of the
-  /// scalars queue.
+  /// Decomposes the given SpirvInstruction and puts all elements into the end
+  /// of the scalars queue.
   void decompose(SpirvInstruction *inst);
   void decomposeVector(SpirvInstruction *vec, QualType elemType, uint32_t size);
 
-  /// If the next initializer is a struct, replaces it with MemberExprs to all
+  /// If the next initializer is a struct, replaces it with OpCompositeExtract
   /// its members and returns true. Otherwise, does nothing and return false.
   bool tryToSplitStruct();
-  /// If the next initializer is a constant array, replaces it with MemberExprs
-  /// to all its members and returns true. Otherwise, does nothing and return
-  /// false.
+  /// If the next initializer is a constant array, replaces it with
+  /// OpCompositeExtract to all its members and returns true. Otherwise, does
+  /// nothing and return false.
   bool tryToSplitConstantArray();
 
   /// Emits the necessary SPIR-V instructions to create a SPIR-V value of the
@@ -141,7 +143,7 @@ private:
   SpirvBuilder &spvBuilder;
   DiagnosticsEngine &diags;
 
-  /// A queue keeping track of unused AST nodes for initializers. Since we will
+  /// A queue keeping track of unused SPIRV for initializers. Since we will
   /// only comsume initializers from the head of the queue and will not add new
   /// initializers to the tail of the queue, we use a vector (containing the
   /// reverse of the original intializer list) here and manipulate its tail.
