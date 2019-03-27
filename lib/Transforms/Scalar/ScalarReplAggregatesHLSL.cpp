@@ -1555,11 +1555,16 @@ static void addDebugInfoForElements(Value *ParentVal,
   DIExpression *ParentDbgExpr;
   DILocation *ParentDbgLocation;
   Instruction *DbgDeclareInsertPt = nullptr;
-  if (AllocaInst *ParentAlloca = dyn_cast<AllocaInst>(ParentVal)) {
-    DXASSERT_NOMSG(DbgBuilder != nullptr);
-    ParentTy = ParentAlloca->getAllocatedType();
+  if (isa<GlobalVariable>(ParentVal)) {
+    llvm_unreachable("Not implemented: sroa debug info propagation for global vars.");
+  }
+  else {
+    if (AllocaInst *ParentAlloca = dyn_cast<AllocaInst>(ParentVal))
+      ParentTy = ParentAlloca->getAllocatedType();
+    else
+      ParentTy = cast<Argument>(ParentVal)->getType();
 
-    DbgDeclareInst *ParentDbgDeclare = llvm::FindAllocaDbgDeclare(ParentAlloca);
+    DbgDeclareInst *ParentDbgDeclare = llvm::FindAllocaDbgDeclare(ParentVal);
     if (ParentDbgDeclare == nullptr) return;
 
     // Get the bit piece offset
@@ -1580,10 +1585,6 @@ static void addDebugInfoForElements(Value *ParentVal,
       DXASSERT(ParentBitPieceOffsetFromMD == ParentBitPieceOffset,
         "Bit piece offset mismatch between llvm.dbg.declare and DXIL metadata.");
     }
-  }
-  else {
-    // TODO: Arguments and GlobalVariables
-    return;
   }
 
   // If the type that was broken up is nested in arrays,
@@ -1644,15 +1645,14 @@ static void addDebugInfoForElements(Value *ParentVal,
         ElemDbgExpr = DbgBuilder->createBitPieceExpression(ElemBitPieceOffset, ElemBitPieceSize);
       }
 
+      DXASSERT_NOMSG(DbgBuilder != nullptr);
       DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DbgBuilder->insertDeclare(
         ElemAlloca, cast<DILocalVariable>(ParentDbgVariable), ElemDbgExpr, ParentDbgLocation, DbgDeclareInsertPt));
 
       if (!DIArrayDims.empty()) DxilMDHelper::SetVariableDebugLayout(EltDDI, ElemBitPieceOffset, DIArrayDims);
     }
     else {
-      GlobalVariable *ElemGlobalVar = cast<GlobalVariable>(Elems[ElemIdx]);
-      (void)ElemGlobalVar;
-      llvm_unreachable("Not implemented: debug info propagation on SROA'd global vars");
+      llvm_unreachable("Non-AllocaInst SROA'd elements.");
     }
   }
 }
@@ -1683,7 +1683,6 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
   std::priority_queue<AllocaInst *, std::vector<AllocaInst *>,
                       std::function<bool(AllocaInst *, AllocaInst *)>>
       WorkList(size_cmp);
-  std::unordered_map<AllocaInst*, DbgDeclareInst*> DDIMap;
   // Scan the entry basic block, adding allocas to the worklist.
   BasicBlock &BB = F.getEntryBlock();
   for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
@@ -1692,9 +1691,6 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         WorkList.push(A);
         // merge GEP use for the allocs
         HLModule::MergeGepUse(A);
-        if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A)) {
-          DDIMap[A] = DDI;
-        }
       }
     }
 
@@ -5796,7 +5792,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 #endif // HLSL Change
         debugOffset += size;
         DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
-                          Builder.GetInsertPoint());
+          Builder.GetInsertPoint());
       }
 
       // Flatten stream out.
@@ -6287,7 +6283,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
     flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
-                    FlatParamAnnotationList, EntryBlock, DDI);
+      FlatParamAnnotationList, EntryBlock, DDI);
 
     unsigned newFlatParamCount = FlatParamList.size() - prevFlatParamCount;
     for (unsigned i = 0; i < newFlatParamCount; i++) {
@@ -6355,8 +6351,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
     flattenArgument(F, retValAddr, bForParamTrue,
-                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
-                    FlatRetAnnotationList, EntryBlock, DDI);
+      funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+      FlatRetAnnotationList, EntryBlock, DDI);
 
     const int kRetArgNo = -1;
     for (unsigned i = 0; i < FlatRetList.size(); i++) {
