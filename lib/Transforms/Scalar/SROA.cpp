@@ -4352,13 +4352,14 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
         uint64_t PieceFragmentIndex = Piece.Offset / FragmentSizeInBits;
 
         // Compute the offset in the original user variable
-        uint64_t Start = FirstFragmentOffsetInBits;
+        uint64_t StartInFragment = Piece.Offset % FragmentSizeInBits;
+        uint64_t Start = FirstFragmentOffsetInBits + Piece.Offset % FragmentSizeInBits;
         for (auto ArrayDimIter = ArrayDims.rbegin(); ArrayDimIter != ArrayDims.rend(); ++ArrayDimIter) {
           Start += ArrayDimIter->StrideInBits * (PieceFragmentIndex % ArrayDimIter->NumElements);
           PieceFragmentIndex /= ArrayDimIter->NumElements;
         }
 
-        uint64_t Size = std::min<uint64_t>(Piece.Size, FragmentSizeInBits);
+        uint64_t Size = std::min<uint64_t>(Piece.Size, FragmentSizeInBits - StartInFragment);
 #endif
 // HLSL Change Ends
         PieceExpr = DIB.createBitPieceExpression(Start, Size);
