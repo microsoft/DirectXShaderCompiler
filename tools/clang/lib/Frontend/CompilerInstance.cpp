@@ -372,7 +372,6 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
   if (!ModuleDepCollector && !DepOpts.ModuleDependencyOutputDir.empty())
     ModuleDepCollector = std::make_shared<ModuleDependencyCollector>(
         DepOpts.ModuleDependencyOutputDir);
-#endif // HLSL Change Ends - no support for modules
 
   // Handle generating header include information, if requested.
   if (DepOpts.ShowHeaderIncludes)
@@ -389,6 +388,7 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
     AttachHeaderIncludeGen(*PP, /*ShowAllHeaders=*/false, /*OutputPath=*/"",
                            /*ShowDepth=*/true, /*MSStyle=*/true);
   }
+#endif // HLSL Change Ends - no support for modules
 }
 
 std::string CompilerInstance::getSpecificModuleCachePath() {

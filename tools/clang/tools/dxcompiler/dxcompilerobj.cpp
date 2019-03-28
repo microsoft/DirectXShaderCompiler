@@ -402,7 +402,7 @@ public:
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       if (opts.DisplayIncludeProcess)
-        msfPtr->EnableDisplayIncludeProcess();
+        msfPtr->DisplayIncludeProcess();
 
       // Prepare UTF8-encoded versions of API values.
       CW2A pUtf8EntryPoint(pEntryPoint, CP_UTF8);
@@ -548,12 +548,35 @@ public:
           for (auto opt : mainArgs.getArrayRef())
             opts.SpirvOptions.clOptions += " " + std::string(opt);
 
+        if (opts.DisplayIncludeProcess) {
+          // Generate a Makefile-style dependency list for the shader, which is
+          // slightly different from DxcArgsFileSystem's way of displaying the
+          // include process.
+          msfPtr->DisplayIncludeProcess(false);
+          compiler.getDependencyOutputOpts().ShowHeaderIncludes = true;
+        }
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
         clang::EmitSpirvAction action;
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
+
+        // User has asked for the shader's dependency list. We provide a
+        // Makefile format. For example:
+        // shader.spv: shader.hlsl dependency_1.hlsl dependency_2.hlsl
+        if (opts.DisplayIncludeProcess) {
+          if (opts.OutputObject.empty()) {
+            w << "Error: the output binary file name is needed for generating "
+                 "the dependency list. Please use -Fo to specify the output "
+                 "file name\n";
+          } else {
+            w << opts.OutputObject << ":";
+            for (auto name : msfPtr->GetIncludeFileNames())
+              w << " " << name;
+          }
+        }
+
         outStream.flush();
       }
 #endif

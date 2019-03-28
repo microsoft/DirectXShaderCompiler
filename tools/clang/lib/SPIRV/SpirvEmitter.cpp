@@ -566,6 +566,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
+  // Do not generate SPIR-V if only file dependecies are asked for.
+  if (theCompilerInstance.getDependencyOutputOpts().ShowHeaderIncludes)
+    return;
+
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
   uint32_t numEntryPoints = 0;
 

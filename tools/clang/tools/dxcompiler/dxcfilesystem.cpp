@@ -341,8 +341,8 @@ public:
     IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
     m_includedFiles.push_back(IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
   }
-  void EnableDisplayIncludeProcess() override {
-    m_bDisplayIncludeProcess = true;
+  void DisplayIncludeProcess(bool enable = true) override {
+    m_bDisplayIncludeProcess = enable;
   }
   void WriteStdErrToStream(raw_string_ostream &s) override {
     s.write((char*)m_pStdErrStream->GetPtr(), m_pStdErrStream->GetPtrSize());
@@ -561,6 +561,16 @@ public:
 
     SetLastError(findError);
     return INVALID_FILE_ATTRIBUTES;
+  }
+
+  llvm::SetVector<std::string> GetIncludeFileNames() {
+    llvm::SetVector<std::string> result;
+    for (auto file : m_includedFiles) {
+      std::string nameStr = CW2A(file.Name.c_str()).m_psz;
+      std::replace(nameStr.begin(), nameStr.end(), '\\', '/');
+      result.insert(nameStr);
+    }
+    return result;
   }
 
   BOOL CloseHandle(_In_ HANDLE hObject) throw() override {

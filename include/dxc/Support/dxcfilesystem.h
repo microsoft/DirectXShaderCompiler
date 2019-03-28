@@ -12,6 +12,7 @@
 #pragma once
 
 #include "dxc/dxcapi.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Support/MSFileSystem.h"
 
 namespace clang {
@@ -37,9 +38,10 @@ public:
   virtual void SetupForCompilerInstance(clang::CompilerInstance &compiler) = 0;
   virtual void GetStdOutpuHandleStream(IStream **ppResultStream) = 0;
   virtual void WriteStdErrToStream(llvm::raw_string_ostream &s) = 0;
-  virtual void EnableDisplayIncludeProcess() = 0;
+  virtual void DisplayIncludeProcess(bool enable = true) = 0;
   virtual HRESULT CreateStdStreams(_In_ IMalloc *pMalloc) = 0;
   virtual HRESULT RegisterOutputStream(LPCWSTR pName, IStream *pStream) = 0;
+  virtual llvm::SetVector<std::string> GetIncludeFileNames() = 0;
 };
 
 DxcArgsFileSystem *
