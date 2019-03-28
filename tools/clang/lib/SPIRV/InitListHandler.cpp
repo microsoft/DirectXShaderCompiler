@@ -88,6 +88,8 @@ void InitListHandler::decompose(SpirvInstruction *inst) {
   uint32_t elemCount;
   if (isVectorType(type, &elemType, &elemCount)) {
     decomposeVector(inst, elemType, elemCount);
+  } else if (isScalarType(type, &elemType) && !type->isBuiltinType()) {
+    decomposeVector(inst, elemType, 1);
   } else if (hlsl::IsHLSLMatType(type)) {
     elemType = hlsl::GetHLSLMatElementType(type);
 
@@ -201,6 +203,9 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
   if (isVectorType(type, &elemType, &elemCount))
     return createInitForVectorType(elemType, elemCount, srcLoc);
 
+  if (isScalarType(type, &elemType))
+    return createInitForVectorType(elemType, 1, srcLoc);
+
   if (hlsl::IsHLSLMatType(type)) {
     return createInitForMatrixType(type, srcLoc);
   }
@@ -265,10 +270,10 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
       ;
 
     auto *init = initializers.back();
+    const auto initType = init->getAstResultType();
 
     uint32_t elemCount = 0;
-    if (isVectorType(init->getAstResultType(), nullptr, &elemCount) &&
-        elemCount == count) {
+    if (isVectorType(initType, nullptr, &elemCount) && elemCount == count) {
       initializers.pop_back();
       /// HLSL vector types are parameterized templates and we cannot
       /// construct them. So we construct an ExtVectorType here instead.
@@ -276,8 +281,7 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
       /// in all type casting methods in SpirvEmitter.
       const auto toVecType =
           theEmitter.getASTContext().getExtVectorType(elemType, count);
-      return theEmitter.castToType(init, init->getAstResultType(), toVecType,
-                                   srcLoc);
+      return theEmitter.castToType(init, initType, toVecType, srcLoc);
     }
   }
 
