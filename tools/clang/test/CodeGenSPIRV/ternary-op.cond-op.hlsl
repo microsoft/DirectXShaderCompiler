@@ -117,8 +117,8 @@ void main() {
   // CHECK-NEXT:       {{%\d+}} = OpSelect %uint {{%\d+}} %uint_9 [[inner]]
   uint h = cond ? 9 : (cond ? 1 : 2);
 
-  //CHECK:      [[i_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
-  //CHECK-NEXT:       {{%\d+}} = OpINotEqual %bool [[i_int]] %int_0
+  //CHECK:      [[i_int:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_0
+  //CHECK-NEXT:       {{%\d+}} = OpINotEqual %bool [[i_int]] %uint_0
   bool i = cond ? 1 : 0;
 
   // CHECK:     [[foo:%\d+]] = OpFunctionCall %uint %foo
