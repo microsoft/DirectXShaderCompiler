@@ -4467,6 +4467,14 @@ void SROA::deleteDeadInstructions(
           DeadInsts.insert(U);
       }
 
+#if 0 // HLSL Change - blocked moved before replaceAllUsesWith
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
+      DeletedAllocas.insert(AI);
+      if (DbgDeclareInst *DbgDecl = FindAllocaDbgDeclare(AI))
+        DbgDecl->eraseFromParent();
+    }
+#endif // HLSL Change
+
     ++NumDeleted;
     I->eraseFromParent();
   }
