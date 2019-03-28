@@ -9096,11 +9096,8 @@ SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
   {
     QualType scalarType = {};
     if (isScalarType(type, &scalarType)) {
-      if (scalarType->isSignedIntegerType()) {
-        return spvBuilder.getConstantInt(scalarType, llvm::APInt(32, 0));
-      }
-
-      if (scalarType->isUnsignedIntegerType()) {
+      if (scalarType->isSignedIntegerType() ||
+          scalarType->isUnsignedIntegerType()) {
         return spvBuilder.getConstantInt(scalarType, llvm::APInt(32, 0));
       }
 
