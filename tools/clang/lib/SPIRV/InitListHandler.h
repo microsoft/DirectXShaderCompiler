@@ -49,7 +49,7 @@ namespace spirv {
 /// The logic for handling initalizer lists is largely the following:
 ///
 /// First we flatten() the given initalizer list recursively and put all
-/// SPIRV instructions for non-nitializer-list AST Exprs into the initializers
+/// SPIR-V instructions for non-nitializer-list AST Exprs into the initializers
 /// queue. This handles curly braces of even wired forms like
 /// float2x2 mat = {{1.}, {2., {{3.}}}, 4.};
 ///
@@ -73,7 +73,7 @@ namespace spirv {
 /// If the composite type is vector or matrix, we decompose() it into scalars as
 /// explained above. If it is a struct or array type, the element type is not
 /// guaranteed to be scalars. But still, we need to split them into their
-/// elements. For such cases, we create OpCompositeExtract SPIRV instructions
+/// elements. For such cases, we create OpCompositeExtract SPIR-V instructions
 /// for all the elements and push them into the initializers queue.
 class InitListHandler {
 public:
@@ -100,12 +100,12 @@ private:
     return diags.Report(loc, diagId);
   }
 
-  /// Construct a SPIRV instruction whose type is |type| using |initializers|
+  /// Construct a SPIR-V instruction whose type is |type| using |initializers|
   /// and returns the <result-id> for the final SPIR-V value of the given type.
   SpirvInstruction *doProcess(QualType type, SourceLocation srcLoc);
 
-  /// Flattens the given InitListExpr and generates SPIRV instructions for
-  /// all non-InitListExpr AST nodes. Puts those generated SPIRV instructions
+  /// Flattens the given InitListExpr and generates SPIR-V instructions for
+  /// all non-InitListExpr AST nodes. Puts those generated SPIR-V instructions
   /// into |initializers|.
   void flatten(const InitListExpr *expr);
 
@@ -143,7 +143,7 @@ private:
   SpirvBuilder &spvBuilder;
   DiagnosticsEngine &diags;
 
-  /// A queue keeping track of unused SPIRV for initializers. Since we will
+  /// A queue keeping track of unused SPIR-V for initializers. Since we will
   /// only comsume initializers from the head of the queue and will not add new
   /// initializers to the tail of the queue, we use a vector (containing the
   /// reverse of the original intializer list) here and manipulate its tail.
