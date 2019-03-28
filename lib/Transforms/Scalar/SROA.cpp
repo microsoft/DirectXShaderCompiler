@@ -4446,6 +4446,17 @@ void SROA::deleteDeadInstructions(
     Instruction *I = DeadInsts.pop_back_val();
     DEBUG(dbgs() << "Deleting dead instruction: " << *I << "\n");
 
+    // HLSL Change Begins
+    // If the instruction is an alloca, find the possible dbg.declare connected
+    // to it, and remove it too. We must do this before calling RAUW or we will
+    // not be able to find it.
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
+      DeletedAllocas.insert(AI);
+      if (DbgDeclareInst *DbgDecl = FindAllocaDbgDeclare(AI))
+        DbgDecl->eraseFromParent();
+    }
+    // HLSL Change Ends
+
     I->replaceAllUsesWith(UndefValue::get(I->getType()));
 
     for (Use &Operand : I->operands())
@@ -4456,11 +4467,13 @@ void SROA::deleteDeadInstructions(
           DeadInsts.insert(U);
       }
 
+#if 0 // HLSL Change - blocked moved before replaceAllUsesWith
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
       DeletedAllocas.insert(AI);
       if (DbgDeclareInst *DbgDecl = FindAllocaDbgDeclare(AI))
         DbgDecl->eraseFromParent();
     }
+#endif // HLSL Change
 
     ++NumDeleted;
     I->eraseFromParent();
