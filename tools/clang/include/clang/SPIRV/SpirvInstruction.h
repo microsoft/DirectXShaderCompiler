@@ -210,9 +210,6 @@ protected:
   bool isPrecise_;
 };
 
-#define DECLARE_INVOKE_VISITOR_FOR_CLASS(cls)                                  \
-  bool invokeVisitor(Visitor *v) override;
-
 /// \brief OpCapability instruction
 class SpirvCapability : public SpirvInstruction {
 public:
@@ -223,7 +220,7 @@ public:
     return inst->getKind() == IK_Capability;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCapability)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::Capability getCapability() const { return capability; }
 
@@ -241,7 +238,7 @@ public:
     return inst->getKind() == IK_Extension;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtension)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::StringRef getExtensionName() const { return extName; }
 
@@ -260,7 +257,7 @@ public:
     return inst->getKind() == IK_ExtInstImport;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInstImport)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::StringRef getExtendedInstSetName() const { return extName; }
 
@@ -278,7 +275,7 @@ public:
     return inst->getKind() == IK_MemoryModel;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvMemoryModel)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::AddressingModel getAddressingModel() const { return addressModel; }
   spv::MemoryModel getMemoryModel() const { return memoryModel; }
@@ -300,7 +297,7 @@ public:
     return inst->getKind() == IK_EntryPoint;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::ExecutionModel getExecModel() const { return execModel; }
   SpirvFunction *getEntryPoint() const { return entryPoint; }
@@ -326,7 +323,7 @@ public:
     return inst->getKind() == IK_ExecutionMode;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   spv::ExecutionMode getExecutionMode() const { return execMode; }
@@ -348,7 +345,7 @@ public:
     return inst->getKind() == IK_String;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::StringRef getString() const { return str; }
 
@@ -367,7 +364,7 @@ public:
     return inst->getKind() == IK_Source;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::SourceLanguage getSourceLanguage() const { return lang; }
   uint32_t getVersion() const { return version; }
@@ -392,7 +389,7 @@ public:
     return inst->getKind() == IK_ModuleProcessed;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::StringRef getProcess() const { return process; }
 
@@ -420,7 +417,7 @@ public:
     return inst->getKind() == IK_Decoration;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
+  bool invokeVisitor(Visitor *v) override;
 
   // Returns the instruction that is the target of the decoration.
   SpirvInstruction *getTarget() const { return target; }
@@ -463,7 +460,7 @@ public:
     return inst->getKind() == IK_Variable;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
+  bool invokeVisitor(Visitor *v) override;
 
   bool hasInitializer() const { return initializer != nullptr; }
   SpirvInstruction *getInitializer() const { return initializer; }
@@ -485,7 +482,7 @@ public:
     return inst->getKind() == IK_FunctionParameter;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionParameter)
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief Merge instructions include OpLoopMerge and OpSelectionMerge
@@ -517,7 +514,7 @@ public:
     return inst->getKind() == IK_LoopMerge;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvBasicBlock *getContinueTarget() const { return continueTarget; }
   spv::LoopControlMask getLoopControlMask() const { return loopControlMask; }
@@ -537,7 +534,7 @@ public:
     return inst->getKind() == IK_SelectionMerge;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSelectionMerge)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::SelectionControlMask getSelectionControlMask() const {
     return selControlMask;
@@ -592,7 +589,7 @@ public:
     return inst->getKind() == IK_Branch;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranch)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvBasicBlock *getTargetLabel() const { return targetLabel; }
 
@@ -618,7 +615,7 @@ public:
     return inst->getKind() == IK_BranchConditional;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranchConditional)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const override {
     return {trueLabel, falseLabel};
@@ -644,7 +641,7 @@ public:
     return inst->getKind() == IK_Kill;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvKill)
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief OpReturn and OpReturnValue instructions
@@ -657,7 +654,7 @@ public:
     return inst->getKind() == IK_Return;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvReturn)
+  bool invokeVisitor(Visitor *v) override;
 
   bool hasReturnValue() const { return returnValue != 0; }
   SpirvInstruction *getReturnValue() const { return returnValue; }
@@ -679,7 +676,7 @@ public:
     return inst->getKind() == IK_Switch;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getSelector() const { return selector; }
   SpirvBasicBlock *getDefaultLabel() const { return defaultLabel; }
@@ -707,7 +704,7 @@ public:
     return inst->getKind() == IK_Unreachable;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief Access Chain instruction representation (OpAccessChain)
@@ -725,7 +722,7 @@ public:
     return inst->getKind() == IK_AccessChain;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getBase() const { return base; }
   llvm::ArrayRef<SpirvInstruction *> getIndexes() const { return indices; }
@@ -772,7 +769,7 @@ public:
     return inst->getKind() == IK_Atomic;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getPointer() const { return pointer; }
   spv::Scope getScope() const { return scope; }
@@ -809,7 +806,7 @@ public:
     return inst->getKind() == IK_Barrier;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::Scope getMemoryScope() const { return memoryScope; }
   spv::MemorySemanticsMask getMemorySemantics() const {
@@ -896,7 +893,7 @@ public:
     return inst->getKind() == IK_BinaryOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBinaryOp)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getOperand1() const { return operand1; }
   SpirvInstruction *getOperand2() const { return operand2; }
@@ -947,7 +944,7 @@ public:
     return inst->getKind() == IK_BitFieldExtract;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldExtract)
+  bool invokeVisitor(Visitor *v) override;
 
   uint32_t isSigned() const {
     return getopcode() == spv::Op::OpBitFieldSExtract;
@@ -965,7 +962,7 @@ public:
     return inst->getKind() == IK_BitFieldInsert;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getInsert() const { return insert; }
 
@@ -1000,7 +997,7 @@ public:
 
   bool operator==(const SpirvConstantBoolean &that) const;
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantBoolean)
+  bool invokeVisitor(Visitor *v) override;
 
   bool getValue() const { return value; }
 
@@ -1021,7 +1018,7 @@ public:
 
   bool operator==(const SpirvConstantInteger &that) const;
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::APInt getValue() const { return value; }
 
@@ -1041,7 +1038,7 @@ public:
 
   bool operator==(const SpirvConstantFloat &that) const;
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::APFloat getValue() const { return value; }
 
@@ -1060,7 +1057,7 @@ public:
     return inst->getKind() == IK_ConstantComposite;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::ArrayRef<SpirvConstant *> getConstituents() const {
     return constituents;
@@ -1075,7 +1072,7 @@ public:
   SpirvConstantNull(const SpirvType *type);
   SpirvConstantNull(QualType type);
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
+  bool invokeVisitor(Visitor *v) override;
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1096,7 +1093,7 @@ public:
     return inst->getKind() == IK_CompositeConstruct;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::ArrayRef<SpirvInstruction *> getConstituents() const {
     return consituents;
@@ -1118,7 +1115,7 @@ public:
     return inst->getKind() == IK_CompositeExtract;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getComposite() const { return composite; }
   llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
@@ -1140,7 +1137,7 @@ public:
     return inst->getKind() == IK_CompositeInsert;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getComposite() const { return composite; }
   SpirvInstruction *getObject() const { return object; }
@@ -1162,7 +1159,7 @@ public:
     return inst->getKind() == IK_EmitVertex;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitVertex)
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief EndPrimitive instruction
@@ -1175,7 +1172,7 @@ public:
     return inst->getKind() == IK_EndPrimitive;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEndPrimitive)
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief ExtInst instruction
@@ -1189,7 +1186,7 @@ public:
     return inst->getKind() == IK_ExtInst;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
   GLSLstd450 getInstruction() const { return instruction; }
@@ -1213,7 +1210,7 @@ public:
     return inst->getKind() == IK_FunctionCall;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvFunction *getFunction() const { return function; }
   llvm::ArrayRef<SpirvInstruction *> getArgs() const { return args; }
@@ -1254,7 +1251,7 @@ public:
     return inst->getKind() == IK_GroupNonUniformBinaryOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getArg1() const { return arg1; }
   SpirvInstruction *getArg2() const { return arg2; }
@@ -1276,7 +1273,7 @@ public:
     return inst->getKind() == IK_GroupNonUniformElect;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformElect)
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief OpGroupNonUniform* unary instructions.
@@ -1292,7 +1289,7 @@ public:
     return inst->getKind() == IK_GroupNonUniformUnaryOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformUnaryOp)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getArg() const { return arg; }
   bool hasGroupOp() const { return groupOp.hasValue(); }
@@ -1351,7 +1348,7 @@ public:
     return inst->getKind() == IK_ImageOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getImage() const { return image; }
   SpirvInstruction *getCoordinate() const { return coordinate; }
@@ -1425,7 +1422,7 @@ public:
     return inst->getKind() == IK_ImageQuery;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getImage() const { return image; }
   bool hasLod() const { return lod != nullptr; }
@@ -1450,7 +1447,7 @@ public:
     return inst->getKind() == IK_ImageSparseTexelsResident;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getResidentCode() const { return residentCode; }
 
@@ -1473,7 +1470,7 @@ public:
     return inst->getKind() == IK_ImageTexelPointer;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getImage() const { return image; }
   SpirvInstruction *getCoordinate() const { return coordinate; }
@@ -1496,7 +1493,7 @@ public:
     return inst->getKind() == IK_Load;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getPointer() const { return pointer; }
   bool hasMemoryAccessSemantics() const { return memoryAccess.hasValue(); }
@@ -1523,7 +1520,7 @@ public:
     return inst->getKind() == IK_SampledImage;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getImage() const { return image; }
   SpirvInstruction *getSampler() const { return sampler; }
@@ -1544,7 +1541,7 @@ public:
     return inst->getKind() == IK_Select;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getCondition() const { return condition; }
   SpirvInstruction *getTrueObject() const { return trueObject; }
@@ -1568,7 +1565,7 @@ public:
     return inst->getKind() == IK_SpecConstantBinaryOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::Op getSpecConstantopcode() const { return specOp; }
   SpirvInstruction *getOperand1() const { return operand1; }
@@ -1591,7 +1588,7 @@ public:
     return inst->getKind() == IK_SpecConstantUnaryOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
+  bool invokeVisitor(Visitor *v) override;
 
   spv::Op getSpecConstantopcode() const { return specOp; }
   SpirvInstruction *getOperand() const { return operand; }
@@ -1613,7 +1610,7 @@ public:
     return inst->getKind() == IK_Store;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getPointer() const { return pointer; }
   SpirvInstruction *getObject() const { return object; }
@@ -1676,7 +1673,7 @@ public:
     return inst->getKind() == IK_UnaryOp;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getOperand() const { return operand; }
   bool isConversionOp() const;
@@ -1697,7 +1694,7 @@ public:
     return inst->getKind() == IK_VectorShuffle;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getVec1() const { return vec1; }
   SpirvInstruction *getVec2() const { return vec2; }
@@ -1719,7 +1716,7 @@ public:
     return inst->getKind() == IK_ArrayLength;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getStructure() const { return structure; }
   uint32_t getArrayMember() const { return arrayMember; }
@@ -1740,7 +1737,7 @@ public:
     return inst->getKind() == IK_LineInfo;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLineInfo)
+  bool invokeVisitor(Visitor *v) override;
 
   SpirvString *getSourceFile() { return file; }
   uint32_t getSourceLine() { return line; }
@@ -1767,7 +1764,7 @@ public:
     return inst->getKind() == IK_RayTracingOpNV;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
+  bool invokeVisitor(Visitor *v) override;
 
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
