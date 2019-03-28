@@ -5349,14 +5349,18 @@ void SpirvEmitter::condenseVectorElementExpr(
     const HLSLVectorElementExpr *expr, const Expr **basePtr,
     hlsl::VectorMemberAccessPositions *flattenedAccessor) {
   llvm::SmallVector<hlsl::VectorMemberAccessPositions, 2> accessors;
-  accessors.push_back(expr->getEncodedElementAccess());
+  *basePtr = expr;
 
-  // Recursively descending until we find the true base vector. In the
-  // meanwhile, collecting accessors in the reverse order.
-  *basePtr = expr->getBase();
+  // Recursively descending until we find the true base vector (the base vector
+  // that does not have a base vector). In the meanwhile, collecting accessors
+  // in the reverse order.
+  // Example: for myVector.yxwz.yxz.xx.yx, the true base is 'myVector'.
   while (const auto *vecElemBase = dyn_cast<HLSLVectorElementExpr>(*basePtr)) {
     accessors.push_back(vecElemBase->getEncodedElementAccess());
     *basePtr = vecElemBase->getBase();
+    // We need to skip any number of parentheses around swizzling at any level.
+    while (const auto *parenExpr = dyn_cast<ParenExpr>(*basePtr))
+      *basePtr = parenExpr->getSubExpr();
   }
 
   *flattenedAccessor = accessors.back();
