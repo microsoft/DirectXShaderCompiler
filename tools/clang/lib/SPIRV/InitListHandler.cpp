@@ -88,9 +88,6 @@ void InitListHandler::decompose(SpirvInstruction *inst) {
   uint32_t elemCount;
   if (isVectorType(type, &elemType, &elemCount)) {
     decomposeVector(inst, elemType, elemCount);
-  } else if (isScalarType(type, &elemType)) {
-    // decomposeVector also handles the scalar cases.
-    decomposeVector(inst, elemType, 1);
   } else if (hlsl::IsHLSLMatType(type)) {
     elemType = hlsl::GetHLSLMatElementType(type);
 
@@ -108,8 +105,11 @@ void InitListHandler::decompose(SpirvInstruction *inst) {
           scalars.emplace_back(element, elemType);
         }
     }
+  } else if (isScalarType(type, &elemType)) {
+    scalars.emplace_back(inst, elemType);
   } else {
-    llvm_unreachable("decompose() should only handle vector or matrix types");
+    llvm_unreachable(
+        "decompose() should only handle scalar or vector or matrix types");
   }
 }
 
