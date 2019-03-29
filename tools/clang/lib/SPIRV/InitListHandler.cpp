@@ -88,7 +88,8 @@ void InitListHandler::decompose(SpirvInstruction *inst) {
   uint32_t elemCount;
   if (isVectorType(type, &elemType, &elemCount)) {
     decomposeVector(inst, elemType, elemCount);
-  } else if (isScalarType(type, &elemType) && !type->isBuiltinType()) {
+  } else if (isScalarType(type, &elemType)) {
+    // decomposeVector also handles the scalar cases.
     decomposeVector(inst, elemType, 1);
   } else if (hlsl::IsHLSLMatType(type)) {
     elemType = hlsl::GetHLSLMatElementType(type);
@@ -203,6 +204,8 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
   if (isVectorType(type, &elemType, &elemCount))
     return createInitForVectorType(elemType, elemCount, srcLoc);
 
+  // The purpose of this check is for vectors of size 1 (for which isVectorType
+  // is false).
   if (isScalarType(type, &elemType))
     return createInitForVectorType(elemType, 1, srcLoc);
 
