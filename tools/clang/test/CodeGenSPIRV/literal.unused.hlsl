@@ -8,8 +8,10 @@
 
 float4 main() : SV_Target {
 
-// CHECK: %uint_0 = OpConstant %uint 0
-  0;
+// CHECK: %int_2 = OpConstant %int 2
+  2;
+// CHECK: %uint_2 = OpConstant %uint 2
+  2u;
 // CHECK: %float_0 = OpConstant %float 0
   0.0;
 
