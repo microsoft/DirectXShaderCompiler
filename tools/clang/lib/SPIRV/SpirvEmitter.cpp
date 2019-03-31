@@ -9097,18 +9097,14 @@ SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
   {
     QualType scalarType = {};
     if (isScalarType(type, &scalarType)) {
-      if (scalarType->isSignedIntegerType()) {
-        return spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
+      if (scalarType->isBooleanType()) {
+        return spvBuilder.getConstantBool(false);
       }
-
-      if (scalarType->isUnsignedIntegerType()) {
-        return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, 0));
+      if (scalarType->isIntegerType()) {
+        return spvBuilder.getConstantInt(scalarType, llvm::APInt(32, 0));
       }
-
       if (scalarType->isFloatingType()) {
-        return spvBuilder.getConstantFloat(astContext.FloatTy,
-                                           llvm::APFloat(0.0f));
+        return spvBuilder.getConstantFloat(scalarType, llvm::APFloat(0.0f));
       }
     }
   }
