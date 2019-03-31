@@ -16,8 +16,8 @@ float4 main(float4 a: A) : SV_Target {
 // CHECK-NEXT:              OpStore %s [[s]]
     S s = (S)a;
 
-// CHECK:      [[valptr:%\d+]] = OpAccessChain %_ptr_Function_v4float %s %int_0
-// CHECK-NEXT:    [[val:%\d+]] = OpLoad %v4float [[valptr]]
+// CHECK:           [[s:%\d+]] = OpLoad %S %s
+// CHECK-NEXT:    [[val:%\d+]] = OpCompositeExtract %v4float [[s]] 0
 // CHECK-NEXT:      [[s:%\d+]] = OpCompositeConstruct %S [[val]]
 // CHECK-NEXT:      [[t:%\d+]] = OpCompositeConstruct %T [[s]]
 // CHECK-NEXT:                   OpStore %t [[t]]
