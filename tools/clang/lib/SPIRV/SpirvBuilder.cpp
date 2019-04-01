@@ -1015,9 +1015,8 @@ SpirvConstant *SpirvBuilder::getConstantFloat(QualType type,
 
 SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
   // We do not care about making unique constants at this point.
-  auto *boolConst = new (context)
-      SpirvConstantBoolean(context.getBoolType(), value, specConst);
-  boolConst->setAstResultType(astContext.BoolTy);
+  auto *boolConst =
+      new (context) SpirvConstantBoolean(astContext.BoolTy, value, specConst);
   module->addConstant(boolConst);
   return boolConst;
 }

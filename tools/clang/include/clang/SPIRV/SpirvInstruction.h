@@ -987,7 +987,7 @@ protected:
 
 class SpirvConstantBoolean : public SpirvConstant {
 public:
-  SpirvConstantBoolean(const BoolType *type, bool value,
+  SpirvConstantBoolean(QualType type, bool value,
                        bool isSpecConst = false);
 
   // For LLVM-style RTTI

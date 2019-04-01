@@ -418,7 +418,7 @@ bool SpirvConstant::isSpecConstant() const {
          opcode == spv::Op::OpSpecConstantComposite;
 }
 
-SpirvConstantBoolean::SpirvConstantBoolean(const BoolType *type, bool val,
+SpirvConstantBoolean::SpirvConstantBoolean(QualType type, bool val,
                                            bool isSpecConst)
     : SpirvConstant(IK_ConstantBoolean,
                     val ? (isSpecConst ? spv::Op::OpSpecConstantTrue
