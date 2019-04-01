@@ -104,9 +104,9 @@ TEST_F(SpirvConstantTest, CheckOperatorEqualOnFloat) {
 }
 
 TEST_F(SpirvConstantTest, CheckOperatorEqualOnNull) {
-  SpirvContext ctx;
-  SpirvConstantNull constant1(ctx.getSIntType(32));
-  SpirvConstantNull constant2(ctx.getSIntType(32));
+  clang::ASTContext &astContext = getAstContext();
+  SpirvConstantNull constant1(astContext.IntTy);
+  SpirvConstantNull constant2(astContext.IntTy);
   EXPECT_TRUE(constant1 == constant2);
 }
 
@@ -163,9 +163,9 @@ TEST_F(SpirvConstantTest, CheckOperatorEqualOnInt4) {
 }
 
 TEST_F(SpirvConstantTest, CheckOperatorEqualOnNull2) {
-  SpirvContext ctx;
-  SpirvConstantNull constant1(ctx.getSIntType(32));
-  SpirvConstantNull constant2(ctx.getUIntType(32));
+  clang::ASTContext &astContext = getAstContext();
+  SpirvConstantNull constant1(astContext.IntTy);
+  SpirvConstantNull constant2(astContext.UnsignedIntTy);
   EXPECT_FALSE(constant1 == constant2);
 }
 

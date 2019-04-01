@@ -1069,7 +1069,6 @@ private:
 
 class SpirvConstantNull : public SpirvConstant {
 public:
-  SpirvConstantNull(const SpirvType *type);
   SpirvConstantNull(QualType type);
 
   bool invokeVisitor(Visitor *v) override;
