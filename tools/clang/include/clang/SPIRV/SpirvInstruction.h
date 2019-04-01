@@ -1735,7 +1735,7 @@ private:
 // annotating and have a pass write out the binaries for them directly.
 class SpirvLineInfo : public SpirvInstruction {
 public:
-  SpirvLineInfo(SpirvString *srcFile, uint32_t srcLine, uint32_t srcCol);
+  SpirvLineInfo(SpirvString *srcFile, SourceLocation srcLoc);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1745,13 +1745,9 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvString *getSourceFile() { return file; }
-  uint32_t getSourceLine() { return line; }
-  uint32_t getSourceColumn() { return column; }
 
 private:
   SpirvString *file;
-  uint32_t line;
-  uint32_t column;
 };
 
 /// \brief Base class for all NV raytracing instructions.

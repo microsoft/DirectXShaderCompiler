@@ -783,10 +783,9 @@ SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
   return inst;
 }
 
-void SpirvBuilder::createLineInfo(SpirvString *file, uint32_t line,
-                                  uint32_t column) {
+void SpirvBuilder::createLineInfo(SpirvString *file, SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *inst = new (context) SpirvLineInfo(file, line, column);
+  auto *inst = new (context) SpirvLineInfo(file, loc);
   insertPoint->addInstruction(inst);
 }
 

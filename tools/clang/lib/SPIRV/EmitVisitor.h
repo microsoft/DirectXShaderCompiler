@@ -187,8 +187,8 @@ public:
 public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
-      : Visitor(opts, spvCtx), id(0), astContext(astCtx),
-      debugFileId(0), debugLine(0), debugColumn(0),
+      : Visitor(opts, spvCtx), id(0), astContext(astCtx), debugFileId(0),
+        debugLine(0), debugColumn(0),
         typeHandler(astCtx, spvCtx, &debugBinary, &annotationsBinary,
                     &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }) {}
@@ -273,10 +273,10 @@ private:
     return obj->getResultId();
   }
 
-  void emitDebugLine(const SourceLocation& loc);
+  void emitDebugLine(const SourceLocation &loc);
 
   // Initiates the creation of a new instruction with the given Opcode.
-  void initInstruction(spv::Op, const SourceLocation&);
+  void initInstruction(spv::Op, const SourceLocation &);
   // Initiates the creation of the given SPIR-V instruction.
   // If the given instruction has a return type, it will also trigger emitting
   // the necessary type (and its associated decorations) and uses its result-id
@@ -307,7 +307,7 @@ private:
   }
 
 private:
-  ASTContext & astContext;
+  ASTContext &astContext;
   // The last result-id that's been used so far.
   uint32_t id;
   // Handler for emitting types and their related instructions.

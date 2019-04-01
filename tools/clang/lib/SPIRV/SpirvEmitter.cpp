@@ -9827,9 +9827,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunction =
-      spvBuilder.beginFunction(astContext.VoidTy, funcType,
-                               /*SourceLocation*/ {}, decl->getName());
+  entryFunction = spvBuilder.beginFunction(
+      astContext.VoidTy, funcType, decl->getLocation(), decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
@@ -10021,7 +10020,12 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     }
   }
 
-  spvBuilder.createReturn(decl->getBody()->getLocEnd());
+  // For wrapper of entry point, it is better not to specify SourceLocation
+  // for return statement, because it is not the location of the actual
+  // return and emitting the location of the end of entry function makes
+  // us confused. It is better to emit debug line just before OpFunctionEnd.
+  spvBuilder.createReturn(/* SourceLocation */ {});
+  emitDebugLine(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
@@ -10438,10 +10442,7 @@ SpirvInstruction *SpirvEmitter::extractVecFromVec4(SpirvInstruction *from,
 
 void SpirvEmitter::emitDebugLine(SourceLocation loc) {
   if (spirvOptions.debugInfoLine && mainSourceFile != nullptr) {
-    auto floc = FullSourceLoc(loc, theCompilerInstance.getSourceManager());
-    uint32_t line = floc.getSpellingLineNumber();
-    uint32_t column = floc.getSpellingColumnNumber();
-    spvBuilder.createLineInfo(mainSourceFile, line, column);
+    spvBuilder.createLineInfo(mainSourceFile, loc);
   }
 }
 

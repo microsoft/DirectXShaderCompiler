@@ -413,7 +413,7 @@ public:
                                       SpirvInstruction *structure,
                                       uint32_t arrayMember);
 
-  void createLineInfo(SpirvString *file, uint32_t line, uint32_t column);
+  void createLineInfo(SpirvString *file, SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for NV raytracing ops.
   SpirvInstruction *

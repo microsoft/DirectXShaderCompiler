@@ -194,10 +194,9 @@ SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
                        QualType(), loc),
       process(processStr) {}
 
-SpirvLineInfo::SpirvLineInfo(SpirvString *srcFile, uint32_t srcLine,
-                             uint32_t srcCol)
-    : SpirvInstruction(IK_LineInfo, spv::Op::OpLine, QualType(), {}),
-      file(srcFile), line(srcLine), column(srcCol) {}
+SpirvLineInfo::SpirvLineInfo(SpirvString *srcFile, SourceLocation loc)
+    : SpirvInstruction(IK_LineInfo, spv::Op::OpLine, QualType(), loc),
+      file(srcFile) {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,

@@ -118,7 +118,7 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
   debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
 }
 
-void EmitVisitor::emitDebugLine(const SourceLocation& loc) {
+void EmitVisitor::emitDebugLine(const SourceLocation &loc) {
   if (!spvOptions.debugInfoLine)
     return;
 
@@ -127,7 +127,7 @@ void EmitVisitor::emitDebugLine(const SourceLocation& loc) {
     return;
   }
 
-  const auto& sm = astContext.getSourceManager();
+  const auto &sm = astContext.getSourceManager();
   uint32_t line = sm.getPresumedLineNumber(loc);
   uint32_t column = sm.getPresumedColumnNumber(loc);
 
@@ -182,7 +182,7 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   curInst.push_back(static_cast<uint32_t>(op));
 }
 
-void EmitVisitor::initInstruction(spv::Op op, const SourceLocation& loc) {
+void EmitVisitor::initInstruction(spv::Op op, const SourceLocation &loc) {
   if (isOpForConstantOrMainBinary(op))
     emitDebugLine(loc);
 
