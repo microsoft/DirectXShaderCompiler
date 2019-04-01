@@ -8042,6 +8042,7 @@ bool HLSLExternalSource::CanConvert(
   _Inout_opt_ StandardConversionSequence* standard)
 {
   UINT uTSize, uSSize;
+  bool SourceIsAggregate, TargetIsAggregate; // Early declarations due to gotos below
 
   DXASSERT_NOMSG(sourceExpr != nullptr);
   DXASSERT_NOMSG(!target.isNull());
@@ -8112,8 +8113,8 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Structure cast.
-  bool SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
-  bool TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
+  SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
+  TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
   if (SourceIsAggregate || TargetIsAggregate) {
     // For implicit conversions, FXC treats arrays the same as structures
     // and rejects conversions between them and numeric types
