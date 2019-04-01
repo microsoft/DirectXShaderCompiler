@@ -280,8 +280,6 @@ public:
   TEST_METHOD(CodeGenLibNoAlias)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
-  TEST_METHOD(CodeGenMatIn1)
-  TEST_METHOD(CodeGenMatIn2)
   TEST_METHOD(CodeGenMultiUAVLoad2)
   TEST_METHOD(CodeGenMultiUAVLoad4)
   TEST_METHOD(CodeGenMultiUAVLoad5)
