@@ -87,7 +87,7 @@ void main()
     (A1)v1;
     to_a1(m1x1);                                            /* expected-error {{no matching function for call to 'to_a1'}} fxc-error {{X3017: 'to_a1': cannot convert from 'int1' to 'typedef int[1]'}} */
     (A1)m1x1;
-    to_a1(s1);                                              /* expected-error {{no matching function for call to 'to_a1'}} fxc-pass {{}} */
+    to_a1(s1);
     (A1)s1;
 
     to_s1(i);                                               /* expected-error {{no matching function for call to 'to_s1'}} fxc-error {{X3017: 'to_s1': cannot convert from 'int' to 'struct S1'}} */
@@ -96,7 +96,7 @@ void main()
     (S1)v1;
     to_s1(m1x1);                                            /* expected-error {{no matching function for call to 'to_s1'}} fxc-error {{X3017: 'to_s1': cannot convert from 'int1' to 'struct S1'}} */
     (S1)m1x1;
-    to_s1(a1);                                              /* expected-error {{no matching function for call to 'to_s1'}} fxc-pass {{}} */
+    to_s1(a1);
     (S1)a1;
 
     // =========== Truncation to scalar/single-element ===========
@@ -204,7 +204,7 @@ void main()
     (A2)m2x1;
     to_a4(m2x2);                                            /* expected-error {{no matching function for call to 'to_a4'}} fxc-error {{X3017: 'to_a4': cannot convert from 'int2x2' to 'typedef int[4]'}} */
     (A4)m2x2;
-    to_a2(s2);                                              /* expected-error {{no matching function for call to 'to_a2'}} fxc-pass {{}} */
+    to_a2(s2);
     (A2)s2;
 
     to_s2(v2);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-error {{X3017: 'to_s2': cannot convert from 'int2' to 'struct S2'}} */
@@ -215,7 +215,7 @@ void main()
     (S2)m2x1;
     to_s4(m2x2);                                            /* expected-error {{no matching function for call to 'to_s4'}} fxc-error {{X3017: 'to_s4': cannot convert from 'int2x2' to 'struct S4'}} */
     (S4)m2x2;
-    to_s2(a2);                                              /* expected-error {{no matching function for call to 'to_s2'}} fxc-pass {{}} */
+    to_s2(a2);
     (S2)a2;
 
     // =========== Truncating ===========

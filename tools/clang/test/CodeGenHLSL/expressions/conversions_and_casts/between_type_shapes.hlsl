@@ -120,9 +120,9 @@ void main()
     // DXC: i32 11, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(11,0,0,0)
     output_a1((A1)m1x1);
-    // DXC rejects (GitHub #1862)
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_a1(s1); 
+    output_a1(s1); 
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_a1((A1)s1);
@@ -136,9 +136,9 @@ void main()
     // DXC: i32 11, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(11,0,0,0)
     output_s1((S1)m1x1);
-    // DXC rejects (GitHub #1862)
+    // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
-    // output_s1(a1);
+    output_s1(a1);
     // DXC: i32 1, i32 0, i32 0, i32 0, i8 15)
     // FXC: l(1,0,0,0)
     output_s1((S1)a1);
@@ -307,9 +307,9 @@ void main()
     // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
     // FXC: l(11,12,21,22)
     output_a4((A4)m2x2);
-    // DXC rejects (GitHub #1862)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_a2(s2);
+    output_a2(s2);
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_a2((A2)s2);
@@ -326,9 +326,9 @@ void main()
     // DXC: i32 11, i32 12, i32 21, i32 22, i8 15)
     // FXC: l(11,12,21,22)
     output_s4((S4)m2x2);
-    // DXC rejects (GitHub #1862)
+    // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
-    // output_s2(a2);
+    output_s2(a2);
     // DXC: i32 1, i32 2, i32 0, i32 0, i8 15)
     // FXC: l(1,2,0,0)
     output_s2((S2)a2);
