@@ -1682,29 +1682,30 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(llvm::Module
       return E_FAIL;
     }
 
+    static constexpr uint64_t kNumBytesPerDword = 4;
     if (Fields->isBitPiece()) {
-      const uint64_t Offset = Fields->getBitPieceOffset();
-      const uint64_t Size = Fields->getBitPieceSize();
+      const uint64_t BitPieceOffset = Fields->getBitPieceOffset();
+      const uint64_t BitPieceSize = Fields->getBitPieceSize();
 
       // dxcompiler had a bug (fixed in
       // 4870297404a37269e24ddce7db3bd94a8110fff8) where the BitPieceSize
       // was defined in bytes, not bits. We use the register size in bits to
       // verify if Size is bits or bytes.
-      static constexpr uint64_t kNumBytesPerDword = 4;
-      if (*pRegSize * kNumBytesPerDword == Size) {
-          // Size is bytes.
-          *pStartOffset = Offset;
-          *pEndOffset = *pStartOffset + Size;
+      if (*pRegSize * kNumBytesPerDword == BitPieceSize) {
+        // Size is bytes.
+        *pStartOffset = BitPieceOffset;
+        *pEndOffset = *pStartOffset + BitPieceSize;
       } else {
-          // Size is (should be) bits; pStartOffset/pEndOffset should be bytes.
-          static constexpr uint64_t kNumBitsPerByte = 8;
-          (void)kNumBitsPerByte;
-          assert(*pRegSize * kNumBytesPerDword * kNumBitsPerByte == Size);
-          *pStartOffset = Offset / kNumBitsPerByte;
-          *pEndOffset = *pStartOffset + (Size / kNumBitsPerByte);
+        // Size is (should be) bits; pStartOffset/pEndOffset should be bytes.
+        // We don't expect to encounter bit pieces more granular than bytes.
+        static constexpr uint64_t kNumBitsPerByte = 8;
+        (void)kNumBitsPerByte;
+        assert(BitPieceOffset % kNumBitsPerByte == 0);
+        assert(BitPieceSize % kNumBitsPerByte == 0);
+        *pStartOffset = BitPieceOffset / kNumBitsPerByte;
+        *pEndOffset = *pStartOffset + (BitPieceSize / kNumBitsPerByte);
       }
     } else {
-      static constexpr uint64_t kNumBytesPerDword = 4;
       *pStartOffset = 0;
       *pEndOffset = *pRegSize * kNumBytesPerDword;
     }
