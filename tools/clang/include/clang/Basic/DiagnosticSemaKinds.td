@@ -7441,7 +7441,7 @@ def err_opencl_constant_no_init : Error<
 // HLSL Change Starts
 let CategoryName = "HLSL Issue" in {
 def err_hlsl_array_element_index_out_of_bounds: Error<
-  "array element index '%0' is out of bounds">;
+  "array index %0 is out of bounds">;
 def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
