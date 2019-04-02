@@ -32,7 +32,6 @@
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 
 #include "DeclResultIdMapper.h"
 #include "SpirvEvalInfo.h"
