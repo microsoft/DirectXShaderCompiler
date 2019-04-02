@@ -252,8 +252,6 @@ public:
   TEST_METHOD(DiaLoadDebugThenOK)
   TEST_METHOD(DiaTableIndexThenOK)
 
-  TEST_METHOD(CodeGenPix)
-
   TEST_METHOD(CodeGenAttributeAtVertex)
   TEST_METHOD(CodeGenAttributeAtVertexNoOpt)
   TEST_METHOD(CodeGenBarycentrics)
@@ -267,7 +265,6 @@ public:
   TEST_METHOD(CodeGenCbufferInt16Struct)
   TEST_METHOD(CodeGenDataLayoutHalf)
   TEST_METHOD(CodeGenEnum3)
-  TEST_METHOD(CodeGenExpandTrig)
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenFixedWidthTypes)
   TEST_METHOD(CodeGenFixedWidthTypes16Bit)
@@ -312,26 +309,17 @@ public:
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
-  TEST_METHOD(CodeGenDX11Sample)
-  TEST_METHOD(CodeGenSamplesD12)
-  TEST_METHOD(CodeGenDx12MiniEngine)
-  TEST_METHOD(HoistConstantArray)
+  TEST_METHOD(CodeGenSamples)
   TEST_METHOD(ViewID)
   TEST_METHOD(SubobjectCodeGenErrors)
-  TEST_METHOD(ShaderCompatSuite)
-  TEST_METHOD(Unroll)
   TEST_METHOD(DebugInfo)
   TEST_METHOD(QuickTest)
-  TEST_METHOD(QuickLlTest)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
 
   // Batch directories
-  TEST_METHOD(CodeGenDeclarations)
-  TEST_METHOD(CodeGenExpressions)
-  TEST_METHOD(CodeGenPreprocessor)
-  TEST_METHOD(CodeGenShaderStages)
+  TEST_METHOD(CodeGenBatch)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -2329,10 +2317,6 @@ TEST_F(CompilerTest, DiaTableIndexThenOK) {
 }
 #endif // _WIN32 - exclude dia stuff
 
-TEST_F(CompilerTest, CodeGenPix) {
-  CodeGenTestCheckBatchDir(L"pix");
-}
-
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"attributeAtVertex.hlsl");
@@ -2396,10 +2380,6 @@ TEST_F(CompilerTest, CodeGenDataLayoutHalf) {
 TEST_F(CompilerTest, CodeGenEnum3) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"enum3.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenExpandTrig) {
-  CodeGenTestCheckBatchDir(L"expand_trig");
 }
 
 #ifdef _WIN32
@@ -2667,20 +2647,8 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
   CodeGenTest(L"rootSigProfile5.hlsl");
 }
 
-TEST_F(CompilerTest, CodeGenDX11Sample){
-  CodeGenTestCheckBatchDir(L"Samples\\DX11");
-}
-
-TEST_F(CompilerTest, CodeGenSamplesD12) {
-  CodeGenTestCheckBatchDir(L"Samples\\D12");
-}
-
-TEST_F(CompilerTest, CodeGenDx12MiniEngine) {
-  CodeGenTestCheckBatchDir(L"Samples\\MiniEngine");
-}
-
-TEST_F(CompilerTest, HoistConstantArray) {
-  CodeGenTestCheckBatchDir(L"hoist_constant_array");
+TEST_F(CompilerTest, CodeGenSamples){
+  CodeGenTestCheckBatchDir(L"Samples");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
@@ -2852,24 +2820,12 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
   }
 }
 
-TEST_F(CompilerTest, Unroll) {
-  CodeGenTestCheckBatchDir(L"unroll");
-}
-
 TEST_F(CompilerTest, DebugInfo) {
-  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\debug");
-}
-
-TEST_F(CompilerTest, ShaderCompatSuite) {
-  CodeGenTestCheckBatchDir(L"shader-compat-suite");
+  CodeGenTestCheckBatchDir(L"debug");
 }
 
 TEST_F(CompilerTest, QuickTest) {
   CodeGenTestCheckBatchDir(L"quick-test");
-}
-
-TEST_F(CompilerTest, QuickLlTest) {
-	CodeGenTestCheckBatchDir(L"quick-ll-test");
 }
 
 #ifdef _WIN32
@@ -2907,18 +2863,6 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   }
 }
 
-TEST_F(CompilerTest, CodeGenDeclarations) {
-  CodeGenTestCheckBatchDir(L"declarations");
-}
-
-TEST_F(CompilerTest, CodeGenExpressions) {
-  CodeGenTestCheckBatchDir(L"expressions");
-}
-
-TEST_F(CompilerTest, CodeGenPreprocessor) {
-  CodeGenTestCheckBatchDir(L"preprocessor");
-}
-
-TEST_F(CompilerTest, CodeGenShaderStages) {
-  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\shader_stages");
+TEST_F(CompilerTest, CodeGenBatch) {
+  CodeGenTestCheckBatchDir(L"batch");
 }
