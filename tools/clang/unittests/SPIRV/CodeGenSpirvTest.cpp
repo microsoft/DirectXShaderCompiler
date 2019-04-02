@@ -1852,6 +1852,12 @@ TEST_F(FileTest, RayTracingNVLibrary) {
 // For decoration uniqueness
 TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 
+// For capability uniqueness
+TEST_F(FileTest, CapabilityUnique) { runFileTest("capability.unique.hlsl"); }
+
+// For extension uniqueness
+TEST_F(FileTest, ExtensionUnique) { runFileTest("extension.unique.hlsl"); }
+
 // For RelaxedPrecision decorations
 TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {
   runFileTest("decoration.relaxed-precision.basic.hlsl");
