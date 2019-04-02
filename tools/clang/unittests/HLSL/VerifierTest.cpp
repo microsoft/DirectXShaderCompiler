@@ -47,6 +47,7 @@ public:
   TEST_METHOD(RunCXX11Attributes)
   TEST_METHOD(RunEnums)
   TEST_METHOD(RunFunctions)
+  TEST_METHOD(RunIncompleteType)
   TEST_METHOD(RunIndexingOperator)
   TEST_METHOD(RunIntrinsicExamples)
   TEST_METHOD(RunMatrixAssignments)
@@ -187,6 +188,10 @@ TEST_F(VerifierTest, RunEnums) {
 
 TEST_F(VerifierTest, RunFunctions) {
   CheckVerifiesHLSL(L"functions.hlsl");
+}
+
+TEST_F(VerifierTest, RunIncompleteType) {
+  CheckVerifiesHLSL(L"incomplete-type.hlsl");
 }
 
 TEST_F(VerifierTest, RunIndexingOperator) {
