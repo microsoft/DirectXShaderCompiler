@@ -53,8 +53,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    for (auto iter = decorations.rbegin(); iter != decorations.rend(); ++iter) {
-      auto *decoration = *iter;
+    // Since SetVector doesn't have 'rbegin()' and 'rend()' methods, we use
+    // manual indexing.
+    for (auto decorIndex = decorations.size(); decorIndex > 0; --decorIndex) {
+      auto *decoration = decorations[decorIndex - 1];
       if (!decoration->invokeVisitor(visitor))
         return false;
     }
@@ -232,7 +234,7 @@ void SpirvModule::addVariable(SpirvVariable *var) {
 
 void SpirvModule::addDecoration(SpirvDecoration *decor) {
   assert(decor && "cannot add null decoration to the module");
-  decorations.push_back(decor);
+  decorations.insert(decor);
 }
 
 void SpirvModule::addConstant(SpirvConstant *constant) {
