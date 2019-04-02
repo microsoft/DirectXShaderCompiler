@@ -236,6 +236,13 @@ spv::Op SpirvDecoration::getDecorateOpcode(
                                 : spv::Op::OpDecorate;
 }
 
+bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
+  return target == that.target && decoration == that.decoration &&
+         params == that.params && idParams == that.idParams &&
+         index.hasValue() == that.index.hasValue() &&
+         (!index.hasValue() || index.getValue() == that.index.getValue());
+}
+
 SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              SpirvInstruction *initializerInst)

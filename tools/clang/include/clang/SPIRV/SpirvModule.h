@@ -34,6 +34,19 @@ struct ExtensionComparisonInfo {
   }
 };
 
+struct DecorationComparisonInfo {
+  static inline SpirvDecoration *getEmptyKey() { return nullptr; }
+  static inline SpirvDecoration *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const SpirvDecoration *decor) {
+    return llvm::hash_combine(decor->getTarget(),
+                              static_cast<uint32_t>(decor->getDecoration()));
+  }
+  static bool isEqual(SpirvDecoration *LHS, SpirvDecoration *RHS) {
+    // Either both are null, or both should have the same underlying decoration.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
 /// The class representing a SPIR-V module in memory.
 ///
 /// A SPIR-V module contains two main parts: instructions for "metadata" (e.g.,
@@ -122,7 +135,15 @@ private:
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
   SpirvSource *debugSource;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
-  std::vector<SpirvDecoration *> decorations;
+
+  // Use a set for storing decoration. This will ensure that we don't apply the
+  // same decoration to the same target more than once. Although the set stores
+  // pointers, the provided DecorationComparisonInfo compares the
+  // SpirvDecoration objects, not the pointers.
+  llvm::SetVector<SpirvDecoration *, std::vector<SpirvDecoration *>,
+                  llvm::DenseSet<SpirvDecoration *, DecorationComparisonInfo>>
+      decorations;
+
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
   std::vector<SpirvFunction *> functions;

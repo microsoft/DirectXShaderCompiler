@@ -421,6 +421,8 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  bool operator==(const SpirvDecoration &that) const;
+
   // Returns the instruction that is the target of the decoration.
   SpirvInstruction *getTarget() const { return target; }
 
