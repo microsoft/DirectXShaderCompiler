@@ -140,6 +140,7 @@ public:
 
 TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
   CheckVerifiesHLSL(L"array-index-out-of-bounds.hlsl");
+  CheckVerifiesHLSL(L"array-index-out-of-bounds-HV-2016.hlsl");
 }
 
 TEST_F(VerifierTest, RunArrayLength) {
