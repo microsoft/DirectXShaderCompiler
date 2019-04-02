@@ -418,7 +418,7 @@ bool SpirvConstant::isSpecConstant() const {
          opcode == spv::Op::OpSpecConstantComposite;
 }
 
-SpirvConstantBoolean::SpirvConstantBoolean(const BoolType *type, bool val,
+SpirvConstantBoolean::SpirvConstantBoolean(QualType type, bool val,
                                            bool isSpecConst)
     : SpirvConstant(IK_ConstantBoolean,
                     val ? (isSpecConst ? spv::Op::OpSpecConstantTrue
@@ -470,15 +470,12 @@ SpirvConstantComposite::SpirvConstantComposite(
                     type),
       constituents(constituentsVec.begin(), constituentsVec.end()) {}
 
-SpirvConstantNull::SpirvConstantNull(const SpirvType *type)
-    : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
-
 SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
 
 bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
-  // QualType may contain 'literal type'. We can only compare the SPIR-V types.
-  return opcode == that.opcode && resultType == that.resultType;
+  return opcode == that.opcode && resultType == that.resultType &&
+         astResultType == that.astResultType;
 }
 
 SpirvCompositeExtract::SpirvCompositeExtract(QualType resultType,
