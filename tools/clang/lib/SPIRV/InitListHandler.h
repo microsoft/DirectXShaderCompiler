@@ -112,7 +112,6 @@ private:
   /// Decomposes the given SpirvInstruction and puts all elements into the end
   /// of the scalars queue.
   void decompose(SpirvInstruction *inst);
-  void decomposeVector(SpirvInstruction *vec, QualType elemType, uint32_t size);
 
   /// If the next initializer is a struct, replaces it with OpCompositeExtract
   /// its members and returns true. Otherwise, does nothing and return false.
