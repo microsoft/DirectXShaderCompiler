@@ -658,10 +658,9 @@ void SpirvBuilder::createKill(SourceLocation loc) {
 }
 
 void SpirvBuilder::createBranch(SpirvBasicBlock *targetLabel,
-                                SpirvBasicBlock *mergeBB,
+                                SourceLocation loc, SpirvBasicBlock *mergeBB,
                                 SpirvBasicBlock *continueBB,
-                                spv::LoopControlMask loopControl,
-                                SourceLocation loc) {
+                                spv::LoopControlMask loopControl) {
   assert(insertPoint && "null insert point");
 
   if (mergeBB && continueBB) {

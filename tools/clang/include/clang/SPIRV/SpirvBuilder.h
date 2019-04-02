@@ -342,10 +342,9 @@ public:
   /// If mergeBB and continueBB are non-null, it creates an OpLoopMerge
   /// instruction followed by an unconditional branch to the given target label.
   void createBranch(
-      SpirvBasicBlock *targetLabel, SpirvBasicBlock *mergeBB = nullptr,
-      SpirvBasicBlock *continueBB = nullptr,
-      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone,
-      SourceLocation loc = {});
+      SpirvBasicBlock *targetLabel, SourceLocation loc,
+      SpirvBasicBlock *mergeBB = nullptr, SpirvBasicBlock *continueBB = nullptr,
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
   /// \brief Creates a conditional branch. An OpSelectionMerge instruction
   /// will be created if mergeLabel is not null and continueLabel is null.

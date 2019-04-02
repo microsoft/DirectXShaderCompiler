@@ -1429,13 +1429,15 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
   breakStack.push(mergeBB);
 
   // Branch from the current insert point to the header block.
-  spvBuilder.createBranch(headerBB);
+  spvBuilder.createBranch(headerBB, theDoStmt->getLocStart());
   spvBuilder.addSuccessor(headerBB);
 
   // Process the <header> block
   // The header block must always branch to the body.
   spvBuilder.setInsertPoint(headerBB);
-  spvBuilder.createBranch(bodyBB, mergeBB, continueBB, loopControl);
+  const Stmt *body = theDoStmt->getBody();
+  spvBuilder.createBranch(bodyBB, body ? body->getLocStart() : SourceLocation(),
+                          mergeBB, continueBB, loopControl);
   spvBuilder.addSuccessor(bodyBB);
   // The current basic block has OpLoopMerge instruction. We need to set its
   // continue and merge target.
@@ -1444,11 +1446,13 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
 
   // Process the <body> block
   spvBuilder.setInsertPoint(bodyBB);
-  if (const Stmt *body = theDoStmt->getBody()) {
+  if (body) {
     doStmt(body);
   }
-  if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB);
+  if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+    spvBuilder.createBranch(continueBB,
+                            body ? body->getLocEnd() : SourceLocation());
+  }
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. The check for whether the loop should
@@ -1479,7 +1483,7 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
 void SpirvEmitter::doContinueStmt(const ContinueStmt *continueStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
   auto *continueTargetBB = continueStack.top();
-  spvBuilder.createBranch(continueTargetBB);
+  spvBuilder.createBranch(continueTargetBB, continueStmt->getLocStart());
   spvBuilder.addSuccessor(continueTargetBB);
 
   // Some statements that alter the control flow (break, continue, return, and
@@ -1546,7 +1550,9 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   breakStack.push(mergeBB);
 
   // Process the <check> block
-  spvBuilder.createBranch(checkBB);
+  const Expr *check = whileStmt->getCond();
+  spvBuilder.createBranch(checkBB,
+                          check ? check->getLocStart() : SourceLocation());
   spvBuilder.addSuccessor(checkBB);
   spvBuilder.setInsertPoint(checkBB);
 
@@ -1558,7 +1564,7 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
     doStmt(condVarDecl);
 
   SpirvInstruction *condition = nullptr;
-  if (const Expr *check = whileStmt->getCond()) {
+  if (check) {
     emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
@@ -1582,13 +1588,13 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
     doStmt(body);
   }
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB);
+    spvBuilder.createBranch(continueBB, whileStmt->getLocEnd());
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. While loops do not have an explicit
   // continue block. The continue block just branches to the <check> block.
   spvBuilder.setInsertPoint(continueBB);
-  spvBuilder.createBranch(checkBB);
+  spvBuilder.createBranch(checkBB, whileStmt->getLocEnd());
   spvBuilder.addSuccessor(checkBB);
 
   // Set insertion point to the <merge> block for subsequent statements
@@ -1654,13 +1660,15 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
     emitDebugLine(initStmt->getLocStart());
     doStmt(initStmt);
   }
-  spvBuilder.createBranch(checkBB);
+  const Expr *check = forStmt->getCond();
+  spvBuilder.createBranch(checkBB,
+                          check ? check->getLocStart() : SourceLocation());
   spvBuilder.addSuccessor(checkBB);
 
   // Process the <check> block
   spvBuilder.setInsertPoint(checkBB);
   SpirvInstruction *condition = nullptr;
-  if (const Expr *check = forStmt->getCond()) {
+  if (check) {
     emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
@@ -1680,11 +1688,13 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
 
   // Process the <body> block
   spvBuilder.setInsertPoint(bodyBB);
-  if (const Stmt *body = forStmt->getBody()) {
+  const Stmt *body = forStmt->getBody();
+  if (body) {
     doStmt(body);
   }
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB);
+    spvBuilder.createBranch(continueBB,
+                            body ? body->getLocEnd() : SourceLocation());
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block
@@ -1693,7 +1703,8 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
     emitDebugLine(cont->getLocStart());
     doExpr(cont);
   }
-  spvBuilder.createBranch(checkBB); // <continue> should jump back to header
+  // <continue> should jump back to header
+  spvBuilder.createBranch(checkBB, /* SourceLocation */ {});
   spvBuilder.addSuccessor(checkBB);
 
   // Set insertion point to the <merge> block for subsequent statements
@@ -1790,15 +1801,16 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   spvBuilder.setInsertPoint(thenBB);
   doStmt(ifStmt->getThen());
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(mergeBB);
+    spvBuilder.createBranch(mergeBB, ifStmt->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
 
   // Handle the else branch (if exists)
   if (hasElse) {
     spvBuilder.setInsertPoint(elseBB);
-    doStmt(ifStmt->getElse());
+    const auto *elseStmt = ifStmt->getElse();
+    doStmt(elseStmt);
     if (!spvBuilder.isCurrentBasicBlockTerminated())
-      spvBuilder.createBranch(mergeBB);
+      spvBuilder.createBranch(mergeBB, elseStmt->getLocEnd());
     spvBuilder.addSuccessor(mergeBB);
   }
 
@@ -1852,7 +1864,7 @@ void SpirvEmitter::doBreakStmt(const BreakStmt *breakStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
   auto *breakTargetBB = breakStack.top();
   spvBuilder.addSuccessor(breakTargetBB);
-  spvBuilder.createBranch(breakTargetBB);
+  spvBuilder.createBranch(breakTargetBB, breakStmt->getLocStart());
 
   // Some statements that alter the control flow (break, continue, return, and
   // discard), require creation of a new basic block to hold any statement that
@@ -2694,12 +2706,12 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
   spvBuilder.createStore(tempVar, trueBranch);
-  spvBuilder.createBranch(mergeBB);
+  spvBuilder.createBranch(mergeBB, expr->getTrueExpr()->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // Handle the else branch
   spvBuilder.setInsertPoint(elseBB);
   spvBuilder.createStore(tempVar, falseBranch);
-  spvBuilder.createBranch(mergeBB);
+  spvBuilder.createBranch(mergeBB, expr->getFalseExpr()->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // From now on, emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
@@ -3709,7 +3721,7 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   spvBuilder.setInsertPoint(then2BB);
   auto *ac = spvBuilder.createAccessChain(ptrType, pos2Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
-  spvBuilder.createBranch(merge2BB);
+  spvBuilder.createBranch(merge2BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge2BB);
 
   //   else if (count == 4) {
@@ -3727,7 +3739,7 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   spvBuilder.setInsertPoint(then4BB);
   ac = spvBuilder.createAccessChain(ptrType, pos4Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
-  spvBuilder.createBranch(merge4BB);
+  spvBuilder.createBranch(merge4BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge4BB);
 
   //   else if (count == 8) {
@@ -3745,7 +3757,7 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   spvBuilder.setInsertPoint(then8BB);
   ac = spvBuilder.createAccessChain(ptrType, pos8Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
-  spvBuilder.createBranch(merge8BB);
+  spvBuilder.createBranch(merge8BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge8BB);
 
   //   else if (count == 16) {
@@ -3763,7 +3775,7 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   spvBuilder.setInsertPoint(then16BB);
   ac = spvBuilder.createAccessChain(ptrType, pos16Arr, {sampleIndex});
   spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac));
-  spvBuilder.createBranch(merge16BB);
+  spvBuilder.createBranch(merge16BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge16BB);
 
   //   else {
@@ -3774,19 +3786,19 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
       spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
   auto *v2f32Zero = spvBuilder.getConstantComposite(v2f32Type, {zero, zero});
   spvBuilder.createStore(resultVar, v2f32Zero);
-  spvBuilder.createBranch(merge16BB);
+  spvBuilder.createBranch(merge16BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge16BB);
 
   spvBuilder.setInsertPoint(merge16BB);
-  spvBuilder.createBranch(merge8BB);
+  spvBuilder.createBranch(merge8BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge8BB);
 
   spvBuilder.setInsertPoint(merge8BB);
-  spvBuilder.createBranch(merge4BB);
+  spvBuilder.createBranch(merge4BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge4BB);
 
   spvBuilder.setInsertPoint(merge4BB);
-  spvBuilder.createBranch(merge2BB);
+  spvBuilder.createBranch(merge2BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge2BB);
 
   spvBuilder.setInsertPoint(merge2BB);
@@ -5298,7 +5310,7 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
     spvBuilder.createStore(var, spvBuilder.getConstantNull(varType));
   }
   spvBuilder.createStore(initDoneVar, spvBuilder.getConstantBool(true));
-  spvBuilder.createBranch(doneBB);
+  spvBuilder.createBranch(doneBB, varInit->getLocEnd());
   spvBuilder.addSuccessor(doneBB);
 
   spvBuilder.setInsertPoint(doneBB);
@@ -10160,7 +10172,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
                                          /*forPCF*/ true))
     return false;
 
-  spvBuilder.createBranch(mergeBB);
+  spvBuilder.createBranch(mergeBB, hullMainFuncDecl->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   spvBuilder.setInsertPoint(mergeBB);
   return true;
@@ -10285,7 +10297,7 @@ void SpirvEmitter::processCaseStmtOrDefaultStmt(const Stmt *stmt) {
     // We are about to handle the case passed in as parameter. If the current
     // basic block is not terminated, it means the previous case is a fall
     // through case. We need to link it to the case to be processed.
-    spvBuilder.createBranch(caseBB);
+    spvBuilder.createBranch(caseBB, stmt->getLocStart());
     spvBuilder.addSuccessor(caseBB);
   }
   spvBuilder.setInsertPoint(caseBB);
@@ -10324,7 +10336,7 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
   doStmt(switchStmt->getBody());
 
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(mergeBB);
+    spvBuilder.createBranch(mergeBB, switchStmt->getLocEnd());
   spvBuilder.setInsertPoint(mergeBB);
   breakStack.pop();
 }
