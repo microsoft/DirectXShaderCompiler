@@ -240,6 +240,8 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  bool operator==(const SpirvExtension &that) const;
+
   llvm::StringRef getExtensionName() const { return extName; }
 
 private:

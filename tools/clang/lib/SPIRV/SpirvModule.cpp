@@ -92,8 +92,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    for (auto iter = extensions.rbegin(); iter != extensions.rend(); ++iter) {
-      auto *extension = *iter;
+    // Since SetVector doesn't have 'rbegin()' and 'rend()' methods, we use
+    // manual indexing.
+    for (auto extIndex = extensions.size(); extIndex > 0; --extIndex) {
+      auto *extension = extensions[extIndex - 1];
       if (!extension->invokeVisitor(visitor))
         return false;
     }
@@ -198,17 +200,9 @@ void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
 
 void SpirvModule::addExtension(SpirvExtension *ext) {
   assert(ext && "cannot add null extension");
-  // Only add the extension to the module if it is not already added.
-  // Due to the small number of extensions, this should not be too expensive.
-  const auto extName = ext->getExtensionName();
-  auto found =
-      std::find_if(extensions.begin(), extensions.end(),
-                   [&extName](SpirvExtension *existingExtension) {
-                     return extName == existingExtension->getExtensionName();
-                   });
-  if (found == extensions.end()) {
-    extensions.push_back(ext);
-  }
+  // The underlying data structure is a set, so there will not be any duplicate
+  // extensions.
+  extensions.insert(ext);
 }
 
 void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {

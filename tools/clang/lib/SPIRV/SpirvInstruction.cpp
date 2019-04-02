@@ -137,6 +137,10 @@ SpirvExtension::SpirvExtension(SourceLocation loc,
     : SpirvInstruction(IK_Extension, spv::Op::OpExtension, QualType(), loc),
       extName(extensionName) {}
 
+bool SpirvExtension::operator==(const SpirvExtension &that) const {
+  return extName == that.extName;
+}
+
 SpirvExtInstImport::SpirvExtInstImport(SourceLocation loc,
                                        llvm::StringRef extensionName)
     : SpirvInstruction(IK_ExtInstImport, spv::Op::OpExtInstImport, QualType(),
