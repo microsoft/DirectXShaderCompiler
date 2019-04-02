@@ -132,6 +132,10 @@ SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
     : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(), loc),
       capability(cap) {}
 
+bool SpirvCapability::operator==(const SpirvCapability &that) const {
+  return capability == that.capability;
+}
+
 SpirvExtension::SpirvExtension(SourceLocation loc,
                                llvm::StringRef extensionName)
     : SpirvInstruction(IK_Extension, spv::Op::OpExtension, QualType(), loc),

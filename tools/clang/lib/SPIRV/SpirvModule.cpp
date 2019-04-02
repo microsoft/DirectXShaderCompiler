@@ -102,9 +102,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    for (auto iter = capabilities.rbegin(); iter != capabilities.rend();
-         ++iter) {
-      auto *capability = *iter;
+    // Since SetVector doesn't have 'rbegin()' and 'rend()' methods, we use
+    // manual indexing.
+    for (auto capIndex = capabilities.size(); capIndex > 0; --capIndex) {
+      auto *capability = capabilities[capIndex - 1];
       if (!capability->invokeVisitor(visitor))
         return false;
     }
@@ -172,17 +173,7 @@ void SpirvModule::addFunction(SpirvFunction *fn) {
 
 void SpirvModule::addCapability(SpirvCapability *cap) {
   assert(cap && "cannot add null capability to the module");
-  // Only add the capability to the module if it is not already added.
-  // Due to the small number of capabilities, this should not be too expensive.
-  const spv::Capability capability = cap->getCapability();
-  auto found =
-      std::find_if(capabilities.begin(), capabilities.end(),
-                   [capability](SpirvCapability *existingCapability) {
-                     return capability == existingCapability->getCapability();
-                   });
-  if (found == capabilities.end()) {
-    capabilities.push_back(cap);
-  }
+  capabilities.insert(cap);
 }
 
 void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
@@ -202,8 +193,6 @@ void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
 
 void SpirvModule::addExtension(SpirvExtension *ext) {
   assert(ext && "cannot add null extension");
-  // The underlying data structure is a set, so there will not be any duplicate
-  // extensions.
   extensions.insert(ext);
 }
 
