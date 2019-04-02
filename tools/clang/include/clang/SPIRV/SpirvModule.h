@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "clang/SPIRV/SpirvInstruction.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace clang {
@@ -19,6 +21,18 @@ namespace spirv {
 
 class SpirvFunction;
 class SpirvVisitor;
+
+struct ExtensionComparisonInfo {
+  static inline SpirvExtension *getEmptyKey() { return nullptr; }
+  static inline SpirvExtension *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const SpirvExtension *ext) {
+    return llvm::hash_combine(ext->getExtensionName());
+  }
+  static bool isEqual(SpirvExtension *LHS, SpirvExtension *RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
 
 /// The class representing a SPIR-V module in memory.
 ///
@@ -93,7 +107,15 @@ public:
 private:
   // "Metadata" instructions
   llvm::SmallVector<SpirvCapability *, 8> capabilities;
-  llvm::SmallVector<SpirvExtension *, 4> extensions;
+
+  // Use a set for storing extensions. This will ensure there are no duplicate
+  // extensions. Although the set stores pointers, the provided
+  // ExtensionComparisonInfo compares the SpirvExtension objects, not the
+  // pointers.
+  llvm::SetVector<SpirvExtension *, std::vector<SpirvExtension *>,
+                  llvm::DenseSet<SpirvExtension *, ExtensionComparisonInfo>>
+      extensions;
+
   llvm::SmallVector<SpirvExtInstImport *, 1> extInstSets;
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
