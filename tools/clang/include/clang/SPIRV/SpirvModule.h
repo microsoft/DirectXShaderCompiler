@@ -29,7 +29,7 @@ struct ExtensionComparisonInfo {
     return llvm::hash_combine(ext->getExtensionName());
   }
   static bool isEqual(SpirvExtension *LHS, SpirvExtension *RHS) {
-    // Either both are null, or both should have the same underlying type.
+    // Either both are null, or both should have the same underlying extension.
     return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
   }
 };
@@ -43,6 +43,18 @@ struct DecorationComparisonInfo {
   }
   static bool isEqual(SpirvDecoration *LHS, SpirvDecoration *RHS) {
     // Either both are null, or both should have the same underlying decoration.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
+struct CapabilityComparisonInfo {
+  static inline SpirvCapability *getEmptyKey() { return nullptr; }
+  static inline SpirvCapability *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const SpirvCapability *cap) {
+    return llvm::hash_combine(static_cast<uint32_t>(cap->getCapability()));
+  }
+  static bool isEqual(SpirvCapability *LHS, SpirvCapability *RHS) {
+    // Either both are null, or both should have the same underlying capability.
     return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
   }
 };
@@ -118,8 +130,13 @@ public:
   void addModuleProcessed(SpirvModuleProcessed *);
 
 private:
-  // "Metadata" instructions
-  llvm::SmallVector<SpirvCapability *, 8> capabilities;
+  // Use a set for storing capabilities. This will ensure there are no duplicate
+  // capabilities. Although the set stores pointers, the provided
+  // CapabilityComparisonInfo compares the SpirvCapability objects, not the
+  // pointers.
+  llvm::SetVector<SpirvCapability *, std::vector<SpirvCapability *>,
+                  llvm::DenseSet<SpirvCapability *, CapabilityComparisonInfo>>
+      capabilities;
 
   // Use a set for storing extensions. This will ensure there are no duplicate
   // extensions. Although the set stores pointers, the provided

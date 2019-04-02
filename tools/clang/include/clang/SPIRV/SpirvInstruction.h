@@ -222,6 +222,8 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  bool operator==(const SpirvCapability &that) const;
+
   spv::Capability getCapability() const { return capability; }
 
 private:
