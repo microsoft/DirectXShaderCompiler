@@ -380,7 +380,8 @@ private:
   /// Transposes a non-floating point matrix and returns the result-id of the
   /// transpose.
   SpirvInstruction *processNonFpMatrixTranspose(QualType matType,
-                                                SpirvInstruction *matrix);
+                                                SpirvInstruction *matrix,
+                                                SourceLocation loc);
 
   /// Processes the dot product of two non-floating point vectors. The SPIR-V
   /// OpDot only accepts float vectors. Assumes that the two vectors are of the
@@ -394,7 +395,8 @@ private:
   SpirvInstruction *processNonFpScalarTimesMatrix(QualType scalarType,
                                                   SpirvInstruction *scalar,
                                                   QualType matType,
-                                                  SpirvInstruction *matrix);
+                                                  SpirvInstruction *matrix,
+                                                  SourceLocation loc);
 
   /// Processes the multiplication of a *non-floating point* matrix by a vector.
   /// Assumes the matrix element type and the vector element type are the same.
@@ -406,6 +408,7 @@ private:
   SpirvInstruction *
   processNonFpVectorTimesMatrix(QualType vecType, SpirvInstruction *vector,
                                 QualType matType, SpirvInstruction *matrix,
+                                SourceLocation loc,
                                 SpirvInstruction *matrixTranspose = nullptr);
 
   /// Processes the multiplication of a vector by a *non-floating point* matrix.
@@ -413,7 +416,8 @@ private:
   SpirvInstruction *processNonFpMatrixTimesVector(QualType matType,
                                                   SpirvInstruction *matrix,
                                                   QualType vecType,
-                                                  SpirvInstruction *vector);
+                                                  SpirvInstruction *vector,
+                                                  SourceLocation loc);
 
   /// Processes a non-floating point matrix multiplication. Assumes that the
   /// number of columns in lhs matrix is the same as number of rows in the rhs
@@ -421,7 +425,8 @@ private:
   SpirvInstruction *processNonFpMatrixTimesMatrix(QualType lhsType,
                                                   SpirvInstruction *lhs,
                                                   QualType rhsType,
-                                                  SpirvInstruction *rhs);
+                                                  SpirvInstruction *rhs,
+                                                  SourceLocation loc);
 
   /// Processes the 'dot' intrinsic function.
   SpirvInstruction *processIntrinsicDot(const CallExpr *);

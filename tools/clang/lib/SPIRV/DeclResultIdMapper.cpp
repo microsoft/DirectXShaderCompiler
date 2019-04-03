@@ -1691,7 +1691,7 @@ bool DeclResultIdMapper::createStageVars(
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticToUse->index, invocationId, value,
-                                noWriteBack))
+                                noWriteBack, decl->getLocation()))
       return true;
 
     switch (semanticKind) {
@@ -1799,7 +1799,8 @@ bool DeclResultIdMapper::createStageVars(
         for (uint32_t i = 0; i < tessFactorSize; ++i)
           components.push_back(spvBuilder.createCompositeExtract(
               astContext.FloatTy, *value, {i}));
-        *value = spvBuilder.createCompositeConstruct(arrType, components);
+        *value = spvBuilder.createCompositeConstruct(arrType, components,
+                                                     decl->getLocation());
       }
       // Special handling of SV_InsideTessFactor DS patch constant input.
       // TessLevelInner is always an array of size 2 in SPIR-V, but
@@ -1815,7 +1816,8 @@ bool DeclResultIdMapper::createStageVars(
           const auto arrType = astContext.getConstantArrayType(
               astContext.FloatTy, llvm::APInt(32, 1), clang::ArrayType::Normal,
               0);
-          *value = spvBuilder.createCompositeConstruct(arrType, {*value});
+          *value = spvBuilder.createCompositeConstruct(arrType, {*value},
+                                                       decl->getLocation());
         }
       }
       // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
@@ -1870,7 +1872,8 @@ bool DeclResultIdMapper::createStageVars(
                                         llvm::APFloat(1.0f)),
             xy);
         *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z});
+            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
+            decl->getLocation());
       }
       // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
       // be a uint or uint2, but the underlying stage input variable is a uint3.
@@ -2036,7 +2039,8 @@ bool DeclResultIdMapper::createStageVars(
     }
 
     if (arraySize == 0) {
-      *value = spvBuilder.createCompositeConstruct(evalType, subValues);
+      *value = spvBuilder.createCompositeConstruct(evalType, subValues,
+                                                   decl->getLocation());
       return true;
     }
 
@@ -2074,11 +2078,12 @@ bool DeclResultIdMapper::createStageVars(
             {arrayIndex}));
       }
       // Compose a new struct out of them
-      arrayElements.push_back(
-          spvBuilder.createCompositeConstruct(structType, fields));
+      arrayElements.push_back(spvBuilder.createCompositeConstruct(
+          structType, fields, decl->getLocation()));
     }
 
-    *value = spvBuilder.createCompositeConstruct(arrayType, arrayElements);
+    *value = spvBuilder.createCompositeConstruct(arrayType, arrayElements,
+                                                 decl->getLocation());
   } else {
     // If we have base classes, we need to handle them first.
     if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
@@ -2145,9 +2150,10 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     // Decl to the corresponding stage output variable.
 
     // Handle SV_Position, SV_ClipDistance, and SV_CullDistance
-    if (glPerVertex.tryToAccess(
-            hlsl::DXIL::SigPointKind::GSOut, semanticInfo.semantic->GetKind(),
-            semanticInfo.index, llvm::None, &value, /*noWriteBack=*/false))
+    if (glPerVertex.tryToAccess(hlsl::DXIL::SigPointKind::GSOut,
+                                semanticInfo.semantic->GetKind(),
+                                semanticInfo.index, llvm::None, &value,
+                                /*noWriteBack=*/false, decl->getLocation()))
       return true;
 
     // Query the <result-id> for the stage output variable generated out

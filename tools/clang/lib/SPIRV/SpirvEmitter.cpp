@@ -910,7 +910,8 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
                                                         loadedInstr, {i});
           rows.push_back(castToBool(row, uintRowQualType, boolRowQualType));
         }
-        loadedInstr = spvBuilder.createCompositeConstruct(resultType, rows);
+        loadedInstr = spvBuilder.createCompositeConstruct(resultType, rows,
+                                                          expr->getLocEnd());
       }
       // Now that it is converted to Bool, it has no layout rule.
       // This result-id should be evaluated as bool from here on out.
@@ -2265,8 +2266,10 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     auto *value = elements.front();
-    if (toSize > 1)
-      value = spvBuilder.createCompositeConstruct(toVecType, elements);
+    if (toSize > 1) {
+      value = spvBuilder.createCompositeConstruct(toVecType, elements,
+                                                  expr->getLocEnd());
+    }
 
     value->setRValue();
     return value;
@@ -2294,7 +2297,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     QualType vec2Type = astContext.getExtVectorType(elemType, 2);
     auto *subVec1 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {0, 1});
     auto *subVec2 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3});
-    auto *mat = spvBuilder.createCompositeConstruct(toType, {subVec1, subVec2});
+    auto *mat = spvBuilder.createCompositeConstruct(toType, {subVec1, subVec2},
+                                                    expr->getLocEnd());
     mat->setRValue();
     return mat;
   }
@@ -2323,7 +2327,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     } else {
       llvm::SmallVector<SpirvInstruction *, 4> vectors(size_t(rowCount),
                                                        vecSplat);
-      auto *value = spvBuilder.createCompositeConstruct(toType, vectors);
+      auto *value = spvBuilder.createCompositeConstruct(toType, vectors,
+                                                        expr->getLocEnd());
       value->setRValue();
       return value;
     }
@@ -2378,7 +2383,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
 
     auto *val = extractedVecs.front();
     if (extractedVecs.size() > 1) {
-      val = spvBuilder.createCompositeConstruct(toType, extractedVecs);
+      val = spvBuilder.createCompositeConstruct(toType, extractedVecs,
+                                                expr->getLocEnd());
     }
     val->setRValue();
     return val;
@@ -2574,7 +2580,7 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
       auto *elem = processFlatConversion(elemType, initType, initInstr, srcLoc);
       llvm::SmallVector<SpirvInstruction *, 4> constituents(size_t(elemCount),
                                                             elem);
-      return spvBuilder.createCompositeConstruct(type, constituents);
+      return spvBuilder.createCompositeConstruct(type, constituents, srcLoc);
     }
   }
 
@@ -2590,10 +2596,11 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
       auto *elem = processFlatConversion(elemType, initType, initInstr, srcLoc);
       const llvm::SmallVector<SpirvInstruction *, 4> constituents(
           size_t(colCount), elem);
-      auto *col = spvBuilder.createCompositeConstruct(vecType, constituents);
+      auto *col =
+          spvBuilder.createCompositeConstruct(vecType, constituents, srcLoc);
       const llvm::SmallVector<SpirvInstruction *, 4> rows(size_t(rowCount),
                                                           col);
-      return spvBuilder.createCompositeConstruct(type, rows);
+      return spvBuilder.createCompositeConstruct(type, rows, srcLoc);
     }
   }
 
@@ -2615,7 +2622,7 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
       }
     }
 
-    return spvBuilder.createCompositeConstruct(type, fields);
+    return spvBuilder.createCompositeConstruct(type, fields, srcLoc);
   }
 
   // Array type
@@ -2625,7 +2632,7 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
     auto *elem = processFlatConversion(arrayType->getElementType(), initType,
                                        initInstr, srcLoc);
     llvm::SmallVector<SpirvInstruction *, 4> constituents(size_t(size), elem);
-    return spvBuilder.createCompositeConstruct(type, constituents);
+    return spvBuilder.createCompositeConstruct(type, constituents, srcLoc);
   }
 
   emitError("flat conversion of type %0 unimplemented", {})
@@ -2682,7 +2689,8 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
       const llvm::SmallVector<SpirvInstruction *, 4> components(size_t(count),
                                                                 condition);
       condition = spvBuilder.createCompositeConstruct(
-          astContext.getExtVectorType(astContext.BoolTy, count), components);
+          astContext.getExtVectorType(astContext.BoolTy, count), components,
+          expr->getCond()->getLocEnd());
     }
 
     auto *value =
@@ -3104,7 +3112,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
       texels[i] = spvBuilder.createCompositeExtract(elemType, gatherRet, {i});
     }
     return spvBuilder.createCompositeConstruct(
-        retType, {texels[0], texels[1], texels[2], texels[3]});
+        retType, {texels[0], texels[1], texels[2], texels[3]}, loc);
   }
 
   return spvBuilder.createImageGather(
@@ -3310,7 +3318,8 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
       }
       const QualType resultType =
           astContext.getExtVectorType(addressType, numWords);
-      result = spvBuilder.createCompositeConstruct(resultType, values);
+      result = spvBuilder.createCompositeConstruct(resultType, values,
+                                                   expr->getLocEnd());
       result->setRValue();
     }
   }
@@ -4537,7 +4546,8 @@ SpirvEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
   auto *value = elements.front();
   if (size > 1) {
     value = spvBuilder.createCompositeConstruct(
-        astContext.getExtVectorType(elemType, size), elements);
+        astContext.getExtVectorType(elemType, size), elements,
+        baseExpr->getLocEnd());
   }
 
   // Note: Special-case: Booleans have no physical layout, and therefore when
@@ -4621,7 +4631,8 @@ SpirvEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     auto *info = loadIfGLValue(baseExpr);
     const auto type = expr->getType();
     llvm::SmallVector<SpirvInstruction *, 4> components(accessorSize, info);
-    info = spvBuilder.createCompositeConstruct(type, components);
+    info = spvBuilder.createCompositeConstruct(type, components,
+                                               baseExpr->getLocEnd());
     info->setRValue();
     return info;
   }
@@ -5011,7 +5022,8 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
 
     // Create a new composite and write out once
     spvBuilder.createStore(
-        lhsPtr, spvBuilder.createCompositeConstruct(lhsValType, elements));
+        lhsPtr, spvBuilder.createCompositeConstruct(
+                    lhsValType, elements, rhsVal->getSourceLocation()));
   } else if (lhsPtr->getLayoutRule() == rhsVal->getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
@@ -5080,7 +5092,8 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
       subSrcVal->setLayoutRule(srcVal->getLayoutRule());
       elements.push_back(reconstructValue(subSrcVal, arrayElemType, dstLR));
     }
-    auto *result = spvBuilder.createCompositeConstruct(valType, elements);
+    auto *result = spvBuilder.createCompositeConstruct(
+        valType, elements, srcVal->getSourceLocation());
     result->setLayoutRule(dstLR);
     return result;
   };
@@ -5124,7 +5137,8 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
       elements.push_back(reconstructValue(subSrcVal, field->getType(), dstLR));
       ++index;
     }
-    auto *result = spvBuilder.createCompositeConstruct(valType, elements);
+    auto *result = spvBuilder.createCompositeConstruct(
+        valType, elements, srcVal->getSourceLocation());
     result->setLayoutRule(dstLR);
     return result;
   }
@@ -5488,7 +5502,8 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
     return value;
   } else {
     llvm::SmallVector<SpirvInstruction *, 4> elements(size_t(size), scalarVal);
-    auto *value = spvBuilder.createCompositeConstruct(vecType, elements);
+    auto *value = spvBuilder.createCompositeConstruct(vecType, elements,
+                                                      scalarExpr->getLocEnd());
     value->setRValue();
     return value;
   }
@@ -5544,7 +5559,8 @@ SpirvEmitter::convertVectorToStruct(QualType structType, QualType elemType,
     }
   }
 
-  return spvBuilder.createCompositeConstruct(structType, members);
+  return spvBuilder.createCompositeConstruct(structType, members,
+                                             vector->getSourceLocation());
 }
 
 SpirvInstruction *
@@ -5880,7 +5896,8 @@ SpirvInstruction *SpirvEmitter::processEachVectorInMatrix(
   }
 
   // Construct the result matrix
-  auto *val = spvBuilder.createCompositeConstruct(matType, vectors);
+  auto *val = spvBuilder.createCompositeConstruct(matType, vectors,
+                                                  matrix->getLocStart());
   val->setRValue();
   return val;
 }
@@ -6183,7 +6200,8 @@ SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
             spvBuilder.createCompositeExtract(fromRowQualType, fromVal, {i});
         rows.push_back(castToBool(row, fromRowQualType, toBoolRowQualType));
       }
-      return spvBuilder.createCompositeConstruct(toBoolType, rows);
+      return spvBuilder.createCompositeConstruct(toBoolType, rows,
+                                                 fromVal->getSourceLocation());
     }
   }
 
@@ -6257,7 +6275,7 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
         castedRows.push_back(
             castToInt(rowId, fromVecQualType, toIntVecQualType, srcLoc));
       }
-      return spvBuilder.createCompositeConstruct(toIntType, castedRows);
+      return spvBuilder.createCompositeConstruct(toIntType, castedRows, srcLoc);
     }
   }
 
@@ -6360,7 +6378,8 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
         castedRows.push_back(
             castToFloat(rowId, fromVecQualType, toIntVecQualType, srcLoc));
       }
-      return spvBuilder.createCompositeConstruct(toFloatType, castedRows);
+      return spvBuilder.createCompositeConstruct(toFloatType, castedRows,
+                                                 srcLoc);
     }
   }
 
@@ -6676,7 +6695,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
       retVal =
           processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpTranspose, false);
     else
-      retVal = processNonFpMatrixTranspose(matType, doExpr(mat));
+      retVal = processNonFpMatrixTranspose(matType, doExpr(mat), srcLoc);
 
     break;
   }
@@ -7116,7 +7135,8 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
                                                   accums[msadNum], diff);
     }
   }
-  return spvBuilder.createCompositeConstruct(uint4Type, accums);
+  return spvBuilder.createCompositeConstruct(uint4Type, accums,
+                                             callExpr->getLocEnd());
 }
 
 SpirvInstruction *SpirvEmitter::processWaveQuery(const CallExpr *callExpr,
@@ -7402,14 +7422,16 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
         fracs.push_back(spvBuilder.createCompositeExtract(colType, modf, {0}));
       }
 
-      SpirvInstruction *ip = spvBuilder.createCompositeConstruct(argType, ips);
+      SpirvInstruction *ip = spvBuilder.createCompositeConstruct(
+          argType, ips, callExpr->getLocStart());
       // If the 'ip' is not a float type, the AST will not contain a CastExpr
       // because this is internal to the intrinsic function. So, in such a
       // case we need to cast manually.
       if (!hlsl::GetHLSLMatElementType(ipType)->isFloatingType())
         ip = castToInt(ip, argType, ipType, ipArg->getExprLoc());
       processAssignment(ipArg, ip, false, nullptr);
-      return spvBuilder.createCompositeConstruct(returnType, fracs);
+      return spvBuilder.createCompositeConstruct(returnType, fracs,
+                                                 callExpr->getLocEnd());
     }
   }
 
@@ -7508,7 +7530,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
         spvBuilder.decorateNoContraction(add, loc);
         resultRows.push_back(add);
       }
-      return spvBuilder.createCompositeConstruct(argType, resultRows);
+      return spvBuilder.createCompositeConstruct(argType, resultRows,
+                                                 callExpr->getLocEnd());
     }
   }
 
@@ -7548,7 +7571,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicLit(const CallExpr *callExpr) {
   auto *specular =
       spvBuilder.createSelect(floatType, isNeg, floatZero, mul, loc);
   return spvBuilder.createCompositeConstruct(
-      retType, {floatOne, diffuse, specular, floatOne});
+      retType, {floatOne, diffuse, specular, floatOne}, callExpr->getLocEnd());
 }
 
 SpirvInstruction *
@@ -7637,9 +7660,10 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
             spvBuilder.createCompositeExtract(colType, frexp, {0}));
       }
       auto *exponentsResult =
-          spvBuilder.createCompositeConstruct(returnType, exponents);
+          spvBuilder.createCompositeConstruct(returnType, exponents, loc);
       spvBuilder.createStore(expInstr, exponentsResult);
-      return spvBuilder.createCompositeConstruct(returnType, mantissas);
+      return spvBuilder.createCompositeConstruct(returnType, mantissas,
+                                                 callExpr->getLocEnd());
     }
   }
 
@@ -7711,7 +7735,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDst(const CallExpr *callExpr) {
   return spvBuilder.createCompositeConstruct(
       callExpr->getType(),
       {spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
-       arg0yMularg1y, arg0z, arg1w});
+       arg0yMularg1y, arg0z, arg1w},
+      callExpr->getLocEnd());
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
@@ -7762,7 +7787,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
     }
     const auto boolRowType = astContext.getExtVectorType(boolType, rowCount);
     auto *results =
-        spvBuilder.createCompositeConstruct(boolRowType, cmpResults);
+        spvBuilder.createCompositeConstruct(boolRowType, cmpResults, loc);
     condition = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
   } else {
     emitError("invalid argument type passed to clip intrinsic function", loc);
@@ -7891,9 +7916,8 @@ SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
   return nullptr;
 }
 
-SpirvInstruction *
-SpirvEmitter::processNonFpMatrixTranspose(QualType matType,
-                                          SpirvInstruction *matrix) {
+SpirvInstruction *SpirvEmitter::processNonFpMatrixTranspose(
+    QualType matType, SpirvInstruction *matrix, SourceLocation loc) {
   // Simplest way is to flatten the matrix construct a new matrix from the
   // flattened elements. (for a mat4x4).
   QualType elemType = {};
@@ -7920,12 +7944,13 @@ SpirvEmitter::processNonFpMatrixTranspose(QualType matType,
     for (uint32_t j = 0; j < numRows; ++j)
       indexes.push_back(elems[i + (j * numCols)]);
 
-    cols.push_back(spvBuilder.createCompositeConstruct(colQualType, indexes));
+    cols.push_back(
+        spvBuilder.createCompositeConstruct(colQualType, indexes, loc));
   }
 
   auto transposeType = astContext.getConstantArrayType(
       colQualType, llvm::APInt(32, numCols), clang::ArrayType::Normal, 0);
-  return spvBuilder.createCompositeConstruct(transposeType, cols);
+  return spvBuilder.createCompositeConstruct(transposeType, cols, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processNonFpDot(SpirvInstruction *vec1Id,
@@ -7949,7 +7974,7 @@ SpirvInstruction *SpirvEmitter::processNonFpDot(SpirvInstruction *vec1Id,
 
 SpirvInstruction *SpirvEmitter::processNonFpScalarTimesMatrix(
     QualType scalarType, SpirvInstruction *scalar, QualType matrixType,
-    SpirvInstruction *matrix) {
+    SpirvInstruction *matrix, SourceLocation loc) {
   assert(isScalarType(scalarType));
   QualType elemType = {};
   uint32_t numRows = 0, numCols = 0;
@@ -7966,19 +7991,20 @@ SpirvInstruction *SpirvEmitter::processNonFpScalarTimesMatrix(
   // passed to mul().
   const auto rowType = astContext.getExtVectorType(elemType, numCols);
   llvm::SmallVector<SpirvInstruction *, 4> splat(size_t(numCols), scalar);
-  auto *scalarSplat = spvBuilder.createCompositeConstruct(rowType, splat);
+  auto *scalarSplat = spvBuilder.createCompositeConstruct(rowType, splat, loc);
   llvm::SmallVector<SpirvInstruction *, 4> mulRows;
   for (uint32_t row = 0; row < numRows; ++row) {
     auto *rowInstr = spvBuilder.createCompositeExtract(rowType, matrix, {row});
     mulRows.push_back(spvBuilder.createBinaryOp(
         translateOp(BO_Mul, scalarType), rowType, rowInstr, scalarSplat));
   }
-  return spvBuilder.createCompositeConstruct(matrixType, mulRows);
+  return spvBuilder.createCompositeConstruct(matrixType, mulRows, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processNonFpVectorTimesMatrix(
     QualType vecType, SpirvInstruction *vector, QualType matType,
-    SpirvInstruction *matrix, SpirvInstruction *matrixTranspose) {
+    SpirvInstruction *matrix, SourceLocation loc,
+    SpirvInstruction *matrixTranspose) {
   // This function assumes that the vector element type and matrix elemet type
   // are the same.
   QualType vecElemType = {}, matElemType = {};
@@ -7997,7 +8023,7 @@ SpirvInstruction *SpirvEmitter::processNonFpVectorTimesMatrix(
   // handle this in SPIR-V would be to first transpose the matrix, and then use
   // OpAccessChain.
   if (!matrixTranspose)
-    matrixTranspose = processNonFpMatrixTranspose(matType, matrix);
+    matrixTranspose = processNonFpMatrixTranspose(matType, matrix, loc);
 
   llvm::SmallVector<SpirvInstruction *, 4> resultElems;
   for (uint32_t col = 0; col < numCols; ++col) {
@@ -8007,12 +8033,12 @@ SpirvInstruction *SpirvEmitter::processNonFpVectorTimesMatrix(
         processNonFpDot(vector, colInstr, vecSize, vecElemType));
   }
   return spvBuilder.createCompositeConstruct(
-      astContext.getExtVectorType(vecElemType, numCols), resultElems);
+      astContext.getExtVectorType(vecElemType, numCols), resultElems, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processNonFpMatrixTimesVector(
     QualType matType, SpirvInstruction *matrix, QualType vecType,
-    SpirvInstruction *vector) {
+    SpirvInstruction *vector, SourceLocation loc) {
   // This function assumes that the vector element type and matrix elemet type
   // are the same.
   QualType vecElemType = {}, matElemType = {};
@@ -8036,12 +8062,12 @@ SpirvInstruction *SpirvEmitter::processNonFpMatrixTimesVector(
         processNonFpDot(rowInstr, vector, vecSize, vecElemType));
   }
   return spvBuilder.createCompositeConstruct(
-      astContext.getExtVectorType(vecElemType, numRows), resultElems);
+      astContext.getExtVectorType(vecElemType, numRows), resultElems, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processNonFpMatrixTimesMatrix(
     QualType lhsType, SpirvInstruction *lhs, QualType rhsType,
-    SpirvInstruction *rhs) {
+    SpirvInstruction *rhs, SourceLocation loc) {
   // This function assumes that the vector element type and matrix elemet type
   // are the same.
   QualType lhsElemType = {}, rhsElemType = {};
@@ -8057,13 +8083,13 @@ SpirvInstruction *SpirvEmitter::processNonFpMatrixTimesMatrix(
   (void)rhsIsMat;
   (void)lhsIsMat;
 
-  auto *rhsTranspose = processNonFpMatrixTranspose(rhsType, rhs);
+  auto *rhsTranspose = processNonFpMatrixTranspose(rhsType, rhs, loc);
   const auto vecType = astContext.getExtVectorType(lhsElemType, lhsNumCols);
   llvm::SmallVector<SpirvInstruction *, 4> resultRows;
   for (uint32_t row = 0; row < lhsNumRows; ++row) {
     auto *rowInstr = spvBuilder.createCompositeExtract(vecType, lhs, {row});
     resultRows.push_back(processNonFpVectorTimesMatrix(
-        vecType, rowInstr, rhsType, rhs, rhsTranspose));
+        vecType, rowInstr, rhsType, rhs, loc, rhsTranspose));
   }
 
   // The resulting matrix will have 'lhsNumRows' rows and 'rhsNumCols' columns.
@@ -8071,7 +8097,7 @@ SpirvInstruction *SpirvEmitter::processNonFpMatrixTimesMatrix(
       astContext.getExtVectorType(lhsElemType, rhsNumCols);
   const auto resultType = astContext.getConstantArrayType(
       resultColType, llvm::APInt(32, lhsNumRows), clang::ArrayType::Normal, 0);
-  return spvBuilder.createCompositeConstruct(resultType, resultRows);
+  return spvBuilder.createCompositeConstruct(resultType, resultRows, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
@@ -8148,8 +8174,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
         return spvBuilder.createBinaryOp(spv::Op::OpMatrixTimesScalar,
                                          returnType, arg1Id, arg0Id);
       else
-        return processNonFpScalarTimesMatrix(arg0Type, arg0Id, arg1Type,
-                                             arg1Id);
+        return processNonFpScalarTimesMatrix(arg0Type, arg0Id, arg1Type, arg1Id,
+                                             callExpr->getExprLoc());
     }
   }
 
@@ -8163,8 +8189,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
         return spvBuilder.createBinaryOp(spv::Op::OpMatrixTimesScalar,
                                          returnType, arg0Id, arg1Id);
       else
-        return processNonFpScalarTimesMatrix(arg1Type, arg1Id, arg0Type,
-                                             arg0Id);
+        return processNonFpScalarTimesMatrix(arg1Type, arg1Id, arg0Type, arg0Id,
+                                             callExpr->getExprLoc());
     }
   }
 
@@ -8180,8 +8206,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
         return spvBuilder.createBinaryOp(spv::Op::OpMatrixTimesVector,
                                          returnType, arg1Id, arg0Id);
       else
-        return processNonFpVectorTimesMatrix(arg0Type, arg0Id, arg1Type,
-                                             arg1Id);
+        return processNonFpVectorTimesMatrix(arg0Type, arg0Id, arg1Type, arg1Id,
+                                             callExpr->getExprLoc());
     }
   }
 
@@ -8196,8 +8222,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
         return spvBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix,
                                          returnType, arg1Id, arg0Id);
       else
-        return processNonFpMatrixTimesVector(arg0Type, arg0Id, arg1Type,
-                                             arg1Id);
+        return processNonFpMatrixTimesVector(arg0Type, arg0Id, arg1Type, arg1Id,
+                                             callExpr->getExprLoc());
     }
   }
 
@@ -8213,8 +8239,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
         return spvBuilder.createBinaryOp(spv::Op::OpMatrixTimesMatrix,
                                          returnType, arg1Id, arg0Id);
       else
-        return processNonFpMatrixTimesMatrix(arg0Type, arg0Id, arg1Type,
-                                             arg1Id);
+        return processNonFpMatrixTimesMatrix(arg0Type, arg0Id, arg1Type, arg1Id,
+                                             callExpr->getExprLoc());
     }
   }
 
@@ -8380,7 +8406,8 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
       // Create a new vector that is the concatenation of results of all rows.
       const QualType vecOfBools =
           astContext.getExtVectorType(astContext.BoolTy, matRowCount);
-      auto *row = spvBuilder.createCompositeConstruct(vecOfBools, rowResults);
+      auto *row = spvBuilder.createCompositeConstruct(vecOfBools, rowResults,
+                                                      callExpr->getExprLoc());
 
       // Run OpAny/OpAll on the newly-created vector.
       return spvBuilder.createUnaryOp(spvOp, returnType, row);
@@ -8454,7 +8481,8 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
       castedRows.push_back(
           spvBuilder.createUnaryOp(spv::Op::OpBitcast, toVecType, rowInstr));
     }
-    return spvBuilder.createCompositeConstruct(returnType, castedRows);
+    return spvBuilder.createCompositeConstruct(returnType, castedRows,
+                                               callExpr->getLocEnd());
   }
   case 2: {
     auto *lowbits = doExpr(arg0);
@@ -8464,8 +8492,8 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     // Handling Method 4
     if (argType->isUnsignedIntegerType()) {
       const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
-      auto *operand = spvBuilder.createCompositeConstruct(uintVec2Type,
-                                                          {lowbits, highbits});
+      auto *operand = spvBuilder.createCompositeConstruct(
+          uintVec2Type, {lowbits, highbits}, callExpr->getExprLoc());
       return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand);
     }
     // Handling Method 5
@@ -8662,7 +8690,8 @@ SpirvEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
           spvBuilder.createCompositeExtract(f32Type, convert, {0}));
     }
     return spvBuilder.createCompositeConstruct(
-        astContext.getExtVectorType(f32Type, elemCount), elements);
+        astContext.getExtVectorType(f32Type, elemCount), elements,
+        callExpr->getLocEnd());
   }
 
   auto *convert = spvBuilder.createExtInst(
@@ -8693,19 +8722,21 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
 
     for (uint32_t i = 0; i < elemCount; ++i) {
       auto *srcElem = spvBuilder.createCompositeExtract(f32Type, argId, {i});
-      auto *srcVec =
-          spvBuilder.createCompositeConstruct(v2f32Type, {srcElem, zero});
+      auto *srcVec = spvBuilder.createCompositeConstruct(
+          v2f32Type, {srcElem, zero}, callExpr->getExprLoc());
 
       elements.push_back(spvBuilder.createExtInst(
           u32Type, glsl, GLSLstd450::GLSLstd450PackHalf2x16, srcVec, loc));
     }
     return spvBuilder.createCompositeConstruct(
-        astContext.getExtVectorType(u32Type, elemCount), elements);
+        astContext.getExtVectorType(u32Type, elemCount), elements,
+        callExpr->getLocEnd());
   }
 
   // f16tof32() stores the float into the low-half of the uint. So we need
   // to supply another zero to take the other half.
-  auto *srcVec = spvBuilder.createCompositeConstruct(v2f32Type, {argId, zero});
+  auto *srcVec = spvBuilder.createCompositeConstruct(v2f32Type, {argId, zero},
+                                                     callExpr->getExprLoc());
   return spvBuilder.createExtInst(
       u32Type, glsl, GLSLstd450::GLSLstd450PackHalf2x16, srcVec, loc);
 }

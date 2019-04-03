@@ -213,7 +213,7 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
   }
 
   if (type->isStructureType())
-    return createInitForStructType(type);
+    return createInitForStructType(type, srcLoc);
 
   if (type->isConstantArrayType())
     return createInitForConstantArrayType(type, srcLoc);
@@ -289,7 +289,7 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
   const QualType vecType = astContext.getExtVectorType(elemType, count);
 
   // TODO: use OpConstantComposite when all components are constants
-  return spvBuilder.createCompositeConstruct(vecType, elements);
+  return spvBuilder.createCompositeConstruct(vecType, elements, srcLoc);
 }
 
 SpirvInstruction *
@@ -333,10 +333,11 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
   }
 
   // TODO: use OpConstantComposite when all components are constants
-  return spvBuilder.createCompositeConstruct(matrixType, vectors);
+  return spvBuilder.createCompositeConstruct(matrixType, vectors, srcLoc);
 }
 
-SpirvInstruction *InitListHandler::createInitForStructType(QualType type) {
+SpirvInstruction *
+InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc) {
   assert(type->isStructureType() && !isSampler(type));
 
   // Same as the vector case, first try to see if we already have a struct at
@@ -371,7 +372,7 @@ SpirvInstruction *InitListHandler::createInitForStructType(QualType type) {
   }
 
   // TODO: use OpConstantComposite when all components are constants
-  return spvBuilder.createCompositeConstruct(type, fields);
+  return spvBuilder.createCompositeConstruct(type, fields, srcLoc);
 }
 
 SpirvInstruction *
@@ -412,7 +413,7 @@ InitListHandler::createInitForConstantArrayType(QualType type,
     elements.push_back(createInitForType(elemType, srcLoc));
 
   // TODO: use OpConstantComposite when all components are constants
-  return spvBuilder.createCompositeConstruct(type, elements);
+  return spvBuilder.createCompositeConstruct(type, elements, srcLoc);
 }
 
 SpirvInstruction *

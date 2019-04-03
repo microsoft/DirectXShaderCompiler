@@ -83,7 +83,8 @@ public:
   bool tryToAccess(hlsl::SigPoint::Kind sigPoint, hlsl::Semantic::Kind,
                    uint32_t semanticIndex,
                    llvm::Optional<SpirvInstruction *> invocation,
-                   SpirvInstruction **value, bool noWriteBack);
+                   SpirvInstruction **value, bool noWriteBack,
+                   SourceLocation loc);
 
 private:
   template <unsigned N>
@@ -101,10 +102,11 @@ private:
   /// the ClipDistance/CullDistance builtin. The data read will be transformed
   /// into the given type asType.
   SpirvInstruction *readClipCullArrayAsType(bool isClip, uint32_t offset,
-                                            QualType asType) const;
+                                            QualType asType,
+                                            SourceLocation loc) const;
   /// Creates SPIR-V instructions to read a field in gl_PerVertex.
   bool readField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
-                 SpirvInstruction **value);
+                 SpirvInstruction **value, SourceLocation loc);
 
   /// Creates SPIR-V instructions for writing data into the ClipDistance/
   /// CullDistance builtin starting from offset. The value to be written is
