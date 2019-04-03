@@ -300,7 +300,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         // Example:
         // void main() { 1.0; 1; }
         case BuiltinType::LitInt:
-          return spvContext.getUIntType(32);
+          return type->isSignedIntegerType() ? spvContext.getSIntType(32)
+                                             : spvContext.getUIntType(32);
         case BuiltinType::LitFloat: {
           return spvContext.getFloatType(32);
 
