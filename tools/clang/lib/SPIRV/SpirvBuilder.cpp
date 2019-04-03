@@ -675,9 +675,10 @@ void SpirvBuilder::createBranch(SpirvBasicBlock *targetLabel,
 
 void SpirvBuilder::createConditionalBranch(
     SpirvInstruction *condition, SpirvBasicBlock *trueLabel,
-    SpirvBasicBlock *falseLabel, SpirvBasicBlock *mergeLabel,
-    SpirvBasicBlock *continueLabel, spv::SelectionControlMask selectionControl,
-    spv::LoopControlMask loopControl, SourceLocation loc) {
+    SpirvBasicBlock *falseLabel, SourceLocation loc,
+    SpirvBasicBlock *mergeLabel, SpirvBasicBlock *continueLabel,
+    spv::SelectionControlMask selectionControl,
+    spv::LoopControlMask loopControl) {
   assert(insertPoint && "null insert point");
 
   if (mergeLabel) {

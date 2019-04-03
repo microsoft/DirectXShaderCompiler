@@ -1468,7 +1468,8 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
   } else {
     condition = spvBuilder.getConstantBool(true);
   }
-  spvBuilder.createConditionalBranch(condition, headerBB, mergeBB);
+  spvBuilder.createConditionalBranch(condition, headerBB, mergeBB,
+                                     theDoStmt->getLocEnd());
   spvBuilder.addSuccessor(headerBB);
   spvBuilder.addSuccessor(mergeBB);
 
@@ -1569,11 +1570,12 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   } else {
     condition = spvBuilder.getConstantBool(true);
   }
-  spvBuilder.createConditionalBranch(condition, bodyBB,
-                                     /*false branch*/ mergeBB,
-                                     /*merge*/ mergeBB, continueBB,
-                                     spv::SelectionControlMask::MaskNone,
-                                     loopControl);
+  spvBuilder.createConditionalBranch(
+      condition, bodyBB,
+      /*false branch*/ mergeBB,
+      check ? check->getLocEnd() : whileStmt->getLocStart(),
+      /*merge*/ mergeBB, continueBB, spv::SelectionControlMask::MaskNone,
+      loopControl);
   spvBuilder.addSuccessor(bodyBB);
   spvBuilder.addSuccessor(mergeBB);
   // The current basic block has OpLoopMerge instruction. We need to set its
@@ -1673,11 +1675,14 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
   } else {
     condition = spvBuilder.getConstantBool(true);
   }
-  spvBuilder.createConditionalBranch(condition, bodyBB,
-                                     /*false branch*/ mergeBB,
-                                     /*merge*/ mergeBB, continueBB,
-                                     spv::SelectionControlMask::MaskNone,
-                                     loopControl);
+  const Stmt *body = forStmt->getBody();
+  spvBuilder.createConditionalBranch(
+      condition, bodyBB,
+      /*false branch*/ mergeBB,
+      check ? check->getLocEnd()
+            : (body ? body->getLocStart() : SourceLocation()),
+      /*merge*/ mergeBB, continueBB, spv::SelectionControlMask::MaskNone,
+      loopControl);
   spvBuilder.addSuccessor(bodyBB);
   spvBuilder.addSuccessor(mergeBB);
   // The current basic block has OpLoopMerge instruction. We need to set its
@@ -1687,7 +1692,6 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
 
   // Process the <body> block
   spvBuilder.setInsertPoint(bodyBB);
-  const Stmt *body = forStmt->getBody();
   if (body) {
     doStmt(body);
   }
@@ -1786,7 +1790,9 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   auto *elseBB = hasElse ? spvBuilder.createBasicBlock("if.false") : mergeBB;
 
   // Create the branch instruction. This will end the current basic block.
-  spvBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB,
+  const auto *then = ifStmt->getThen();
+  spvBuilder.createConditionalBranch(condition, thenBB, elseBB,
+                                     ifStmt->getCond()->getLocEnd(), mergeBB,
                                      /*continue*/ 0, selectionControl);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
@@ -1796,7 +1802,7 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
 
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
-  doStmt(ifStmt->getThen());
+  doStmt(then);
   if (!spvBuilder.isCurrentBasicBlockTerminated())
     spvBuilder.createBranch(mergeBB, ifStmt->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
@@ -2701,7 +2707,8 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   auto *elseBB = spvBuilder.createBasicBlock("if.false");
 
   // Create the branch instruction. This will end the current basic block.
-  spvBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+  spvBuilder.createConditionalBranch(condition, thenBB, elseBB,
+                                     expr->getCond()->getLocEnd(), mergeBB);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
   spvBuilder.setMergeTarget(mergeBB);
@@ -3714,7 +3721,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   const auto check2 = spvBuilder.createBinaryOp(
       spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2)));
-  spvBuilder.createConditionalBranch(check2, then2BB, else2BB, merge2BB);
+  spvBuilder.createConditionalBranch(check2, then2BB, else2BB,
+                                     /*SourceLocation*/ {}, merge2BB);
   spvBuilder.addSuccessor(then2BB);
   spvBuilder.addSuccessor(else2BB);
   spvBuilder.setMergeTarget(merge2BB);
@@ -3732,7 +3740,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   const auto check4 = spvBuilder.createBinaryOp(
       spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 4)));
-  spvBuilder.createConditionalBranch(check4, then4BB, else4BB, merge4BB);
+  spvBuilder.createConditionalBranch(check4, then4BB, else4BB,
+                                     /*SourceLocation*/ {}, merge4BB);
   spvBuilder.addSuccessor(then4BB);
   spvBuilder.addSuccessor(else4BB);
   spvBuilder.setMergeTarget(merge4BB);
@@ -3750,7 +3759,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   const auto check8 = spvBuilder.createBinaryOp(
       spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 8)));
-  spvBuilder.createConditionalBranch(check8, then8BB, else8BB, merge8BB);
+  spvBuilder.createConditionalBranch(check8, then8BB, else8BB,
+                                     /*SourceLocation*/ {}, merge8BB);
   spvBuilder.addSuccessor(then8BB);
   spvBuilder.addSuccessor(else8BB);
   spvBuilder.setMergeTarget(merge8BB);
@@ -3768,7 +3778,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   const auto check16 = spvBuilder.createBinaryOp(
       spv::Op::OpIEqual, astContext.BoolTy, sampleCount,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16)));
-  spvBuilder.createConditionalBranch(check16, then16BB, else16BB, merge16BB);
+  spvBuilder.createConditionalBranch(check16, then16BB, else16BB,
+                                     /*SourceLocation*/ {}, merge16BB);
   spvBuilder.addSuccessor(then16BB);
   spvBuilder.addSuccessor(else16BB);
   spvBuilder.setMergeTarget(merge16BB);
@@ -5302,7 +5313,8 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
 
   // If initDoneVar contains true, we jump to the "done" basic block; otherwise,
   // jump to the "todo" basic block.
-  spvBuilder.createConditionalBranch(condition, doneBB, todoBB, doneBB);
+  spvBuilder.createConditionalBranch(condition, doneBB, todoBB,
+                                     varInit->getLocStart(), doneBB);
   spvBuilder.addSuccessor(todoBB);
   spvBuilder.addSuccessor(doneBB);
   spvBuilder.setMergeTarget(doneBB);
@@ -7792,7 +7804,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
   auto *thenBB = spvBuilder.createBasicBlock("if.true");
   auto *mergeBB = spvBuilder.createBasicBlock("if.merge");
   // Create the branch instruction. This will end the current basic block.
-  spvBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  spvBuilder.createConditionalBranch(condition, thenBB, mergeBB, loc, mergeBB);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(mergeBB);
   spvBuilder.setMergeTarget(mergeBB);
@@ -10134,7 +10146,8 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0)));
   auto *thenBB = spvBuilder.createBasicBlock("if.true");
   auto *mergeBB = spvBuilder.createBasicBlock("if.merge");
-  spvBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  spvBuilder.createConditionalBranch(condition, thenBB, mergeBB,
+                                     hullMainFuncDecl->getLocation(), mergeBB);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(mergeBB);
   spvBuilder.setMergeTarget(mergeBB);

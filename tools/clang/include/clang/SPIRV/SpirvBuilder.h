@@ -355,12 +355,12 @@ public:
   /// Otherwise, MaskNone will be used.
   void createConditionalBranch(
       SpirvInstruction *condition, SpirvBasicBlock *trueLabel,
-      SpirvBasicBlock *falseLabel, SpirvBasicBlock *mergeLabel = nullptr,
+      SpirvBasicBlock *falseLabel, SourceLocation loc,
+      SpirvBasicBlock *mergeLabel = nullptr,
       SpirvBasicBlock *continueLabel = nullptr,
       spv::SelectionControlMask selectionControl =
           spv::SelectionControlMask::MaskNone,
-      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone,
-      SourceLocation loc = {});
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
   /// \brief Creates a return instruction.
   void createReturn(SourceLocation);
