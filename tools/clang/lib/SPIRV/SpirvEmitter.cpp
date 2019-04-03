@@ -1583,11 +1583,13 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   // Process the <body> block
   spvBuilder.setInsertPoint(bodyBB);
-  if (const Stmt *body = whileStmt->getBody()) {
+  const Stmt *body = whileStmt->getBody();
+  if (body) {
     doStmt(body);
   }
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB, whileStmt->getLocEnd());
+    spvBuilder.createBranch(continueBB,
+                            body ? body->getLocEnd() : SourceLocation());
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. While loops do not have an explicit
@@ -1700,7 +1702,7 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
     doExpr(cont);
   }
   // <continue> should jump back to header
-  spvBuilder.createBranch(checkBB, /* SourceLocation */ {});
+  spvBuilder.createBranch(checkBB, forStmt->getLocEnd());
   spvBuilder.addSuccessor(checkBB);
 
   // Set insertion point to the <merge> block for subsequent statements
