@@ -82,6 +82,7 @@ public:
   static const uint8_t kEFSGV = 1 << 2;
   static const uint8_t kEFSV = 1 << 3;
   static const uint8_t kEFTessFactor = 1 << 4;
+  static const uint8_t kEFClipCull = 1 << 5;
   static const uint8_t kEFConflictsWithIndexed = kEFSGV | kEFSV;
   static uint8_t GetElementFlags(const PackElement *SE);
 
