@@ -280,8 +280,6 @@ public:
   TEST_METHOD(CodeGenLibNoAlias)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
-  TEST_METHOD(CodeGenMatIn1)
-  TEST_METHOD(CodeGenMatIn2)
   TEST_METHOD(CodeGenMultiUAVLoad2)
   TEST_METHOD(CodeGenMultiUAVLoad4)
   TEST_METHOD(CodeGenMultiUAVLoad5)
@@ -2527,16 +2525,6 @@ TEST_F(CompilerTest, CodeGenLibResource) {
 
 TEST_F(CompilerTest, CodeGenLibUnusedFunc) {
   CodeGenTestCheck(L"lib_unused_func.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMatIn1) {
-  if (m_ver.SkipIRSensitiveTest()) return;
-  CodeGenTestCheck(L"matrixIn1.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMatIn2) {
-  if (m_ver.SkipIRSensitiveTest()) return;
-  CodeGenTestCheck(L"matrixIn2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
