@@ -934,9 +934,6 @@ private:
                     SpirvInstruction *minLod,
                     SpirvInstruction *residencyCodeId);
 
-  /// \brief Emit an OpLine instruction for the given source location.
-  void emitDebugLine(SourceLocation);
-
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also

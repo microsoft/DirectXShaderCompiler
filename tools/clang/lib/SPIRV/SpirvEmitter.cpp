@@ -1464,7 +1464,6 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
   spvBuilder.setInsertPoint(continueBB);
   SpirvInstruction *condition = nullptr;
   if (const Expr *check = theDoStmt->getCond()) {
-    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = spvBuilder.getConstantBool(true);
@@ -1566,7 +1565,6 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   SpirvInstruction *condition = nullptr;
   if (check) {
-    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = spvBuilder.getConstantBool(true);
@@ -1658,7 +1656,6 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
 
   // Process the <init> block
   if (const Stmt *initStmt = forStmt->getInit()) {
-    emitDebugLine(initStmt->getLocStart());
     doStmt(initStmt);
   }
   const Expr *check = forStmt->getCond();
@@ -1670,7 +1667,6 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
   spvBuilder.setInsertPoint(checkBB);
   SpirvInstruction *condition = nullptr;
   if (check) {
-    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = spvBuilder.getConstantBool(true);
@@ -1701,7 +1697,6 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
   // Process the <continue> block
   spvBuilder.setInsertPoint(continueBB);
   if (const Expr *cont = forStmt->getInc()) {
-    emitDebugLine(cont->getLocStart());
     doExpr(cont);
   }
   // <continue> should jump back to header
@@ -1778,7 +1773,6 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
     doDeclStmt(declStmt);
 
-  emitDebugLine(ifStmt->getCond()->getLocStart());
   // First emit the instruction for evaluating the condition.
   auto *condition = doExpr(ifStmt->getCond());
 
@@ -1976,8 +1970,6 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
 }
 
 SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
-  emitDebugLine(callExpr->getLocStart());
-
   if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
     return doCXXOperatorCallExpr(operatorCall);
 
@@ -10068,7 +10060,6 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // return and emitting the location of the end of entry function makes
   // us confused. It is better to emit debug line just before OpFunctionEnd.
   spvBuilder.createReturn(/* SourceLocation */ {});
-  emitDebugLine(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
@@ -10480,12 +10471,6 @@ SpirvInstruction *SpirvEmitter::extractVecFromVec4(SpirvInstruction *from,
     return from;
   default:
     llvm_unreachable("vector element count must be 1, 2, 3, or 4");
-  }
-}
-
-void SpirvEmitter::emitDebugLine(SourceLocation loc) {
-  if (spirvOptions.debugInfoLine && mainSourceFile != nullptr) {
-    spvBuilder.createLineInfo(mainSourceFile, loc);
   }
 }
 
