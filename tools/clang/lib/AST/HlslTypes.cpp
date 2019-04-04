@@ -576,20 +576,37 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
 }
 
 QualType GetHLSLResourceResultType(QualType type) {
-  type = type.getCanonicalType();
-  const RecordType *RT = cast<RecordType>(type);
-  StringRef name = RT->getDecl()->getName();
+  // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>
+  const RecordType *RT = type->getAs<RecordType>();
+  const RecordDecl* RD = RT->getDecl();
 
-  if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer") {
-    RecordDecl *RD = RT->getDecl();
-    QualType resultTy = RD->field_begin()->getType();
-    return resultTy;
+  if (const ClassTemplateSpecializationDecl *templateDecl =
+    dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+    // Templated resource types
+
+    // First attempt to get the template argument from the TemplateSpecializationType sugar,
+    // since this preserves 'snorm' from 'Buffer<snorm float>' which is lost on the
+    // ClassTemplateSpecializationDecl since it's considered type sugar.
+    if (const TemplateSpecializationType *specializationType = type->getAs<TemplateSpecializationType>()) {
+      if (specializationType->getNumArgs() >= 1) {
+        const TemplateArgument& templateArg = specializationType->getArg(0);
+        return templateArg.getAsType();
+      }
+    }
+
+    const TemplateArgumentList& argList = templateDecl->getTemplateArgs();
+    DXASSERT(argList.size() >= 1, "Templated resource must have at least one argument");
+    return argList[0].getAsType();
   }
-  const ClassTemplateSpecializationDecl *templateDecl =
-      cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
-  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  return argList[0].getAsType();
+  else {
+    // Non-templated resource types like [RW][RasterOrder]ByteAddressBuffer
+    // Get the result type from handle field.
+    FieldDecl* HandleFieldDecl = *(RD->field_begin());
+    DXASSERT(HandleFieldDecl->getName() == "h", "Resource must have a handle field");
+    return HandleFieldDecl->getType();
+  }
 }
+
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type) {
   if (type->isIncompleteArrayType()) {

@@ -116,7 +116,7 @@ private:
   uint32_t AddSampler(VarDecl *samplerDecl);
   uint32_t AddUAVSRV(VarDecl *decl, hlsl::DxilResourceBase::Class resClass);
   bool SetUAVSRV(SourceLocation loc, hlsl::DxilResourceBase::Class resClass,
-                 DxilResource *hlslRes, const RecordDecl *RD);
+                 DxilResource *hlslRes, QualType QualTy);
   uint32_t AddCBuffer(HLSLBufferDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
@@ -739,7 +739,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   case DXIL::ResourceClass::UAV: {
     DxilResource UAV;
     // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
-    SetUAVSRV(loc, resClass, &UAV, RD);
+    SetUAVSRV(loc, resClass, &UAV, resTy);
     // Set global symbol to save type.
     UAV.SetGlobalSymbol(UndefValue::get(Ty));
     MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
@@ -748,7 +748,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   } break;
   case DXIL::ResourceClass::SRV: {
     DxilResource SRV;
-    SetUAVSRV(loc, resClass, &SRV, RD);
+    SetUAVSRV(loc, resClass, &SRV, resTy);
     // Set global symbol to save type.
     SRV.SetGlobalSymbol(UndefValue::get(Ty));
     MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
@@ -2314,7 +2314,8 @@ hlsl::DxilResourceBase::Class CGMSHLSLRuntime::TypeToClass(clang::QualType Ty) {
 namespace {
   void GetResourceDeclElemTypeAndRangeSize(CodeGenModule &CGM, HLModule &HL, VarDecl &VD,
     QualType &ElemType, unsigned& rangeSize) {
-    ElemType = VD.getType().getCanonicalType();
+    // We can't canonicalize nor desugar the type without losing the 'snorm' in Buffer<snorm float>
+    ElemType = VD.getType();
     rangeSize = 1;
     while (const clang::ArrayType *arrayType = CGM.getContext().getAsArrayType(ElemType)) {
       if (rangeSize != UINT_MAX) {
@@ -2594,14 +2595,14 @@ static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
 
 bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
                                 hlsl::DxilResourceBase::Class resClass,
-                                DxilResource *hlslRes, const RecordDecl *RD) {
+                                DxilResource *hlslRes, QualType QualTy) {
+
+  RecordDecl *RD = QualTy->getAs<RecordType>()->getDecl();
+
   hlsl::DxilResource::Kind kind = KeywordToKind(RD->getName());
   hlslRes->SetKind(kind);
-
-  // Get the result type from handle field.
-  FieldDecl *FD = *(RD->field_begin());
-  DXASSERT(FD->getName() == "h", "must be handle field");
-  QualType resultTy = FD->getType();
+  
+  QualType resultTy = hlsl::GetHLSLResourceResultType(QualTy);
   // Type annotation for result type of resource.
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
@@ -2673,12 +2674,10 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       }
     }
 
-    EltTy = EltTy.getCanonicalType();
     bool bSNorm = false;
     bool bHasNormAttribute = hlsl::HasHLSLUNormSNorm(Ty, &bSNorm);
 
-    if (EltTy->isBuiltinType()) {
-      const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
+    if (const BuiltinType *BTy = EltTy->getAs<BuiltinType>()) {
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bHasNormAttribute && bSNorm, bHasNormAttribute && !bSNorm);
       // 64bits types are implemented with u32.
       if (kind == CompType::Kind::U64 || kind == CompType::Kind::I64 ||
@@ -2763,14 +2762,11 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
     }
   }
 
-  const RecordType *RT = VarTy->getAs<RecordType>();
-  RecordDecl *RD = RT->getDecl();
-
   if (decl->hasAttr<HLSLGloballyCoherentAttr>()) {
     hlslRes->SetGloballyCoherent(true);
   }
 
-  if (!SetUAVSRV(decl->getLocation(), resClass, hlslRes.get(), RD))
+  if (!SetUAVSRV(decl->getLocation(), resClass, hlslRes.get(), VarTy))
     return 0;
 
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
