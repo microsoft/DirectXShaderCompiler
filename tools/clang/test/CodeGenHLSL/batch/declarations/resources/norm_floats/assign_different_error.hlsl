@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main %s | FileCheck %s | XFail
+// RUN: %dxc -T vs_6_0 -E main %s | FileCheck %s | XFail GitHub #2106
 
 // Test that assignments between resources of different
 // snorm/unorm qualifiers are reported as errors.
