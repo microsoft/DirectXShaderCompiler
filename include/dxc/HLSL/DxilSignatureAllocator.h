@@ -131,6 +131,10 @@ public:
   ConflictType DetectColConflict(const PackElement *SE, unsigned row, unsigned col);
   void PlaceElement(const PackElement *SE, unsigned row, unsigned col);
 
+  // FindNext/PackNext return found/packed location + element rows if found,
+  // otherwise, they return 0.
+  unsigned FindNext(unsigned &foundRow, unsigned &foundCol,
+                    PackElement* SE, unsigned startRow, unsigned numRows, unsigned startCol = 0);
   unsigned PackNext(PackElement* SE, unsigned startRow, unsigned numRows, unsigned startCol = 0);
 
   // Simple greedy in-order packer used by PackOptimized
