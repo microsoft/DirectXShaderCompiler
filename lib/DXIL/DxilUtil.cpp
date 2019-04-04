@@ -363,8 +363,9 @@ void MigrateDebugValue(Value *Old, Value *New) {
 // If we just keep the debug info on the recomposed vector,
 // we will lose it when we break it apart again during later
 // optimization stages.
-void ScatterDebugValueToVectorElements(Value *Val) {
-  DXASSERT(isa<InsertElementInst>(Val), "Should be a newly gathered vector.");
+void TryScatterDebugValueToVectorElements(Value *Val) {
+  if (!isa<InsertElementInst>(Val) || !Val->getType()->isVectorTy()) return;
+
   DbgValueInst *VecDbgValInst = FindDbgValueInst(Val);
   if (VecDbgValInst == nullptr) return;
 
