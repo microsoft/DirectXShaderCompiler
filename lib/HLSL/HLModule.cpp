@@ -1237,11 +1237,12 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
   DIType *DITy = DIGV->getType().resolve(EmptyMap);
   DIScope *DITyScope = DITy->getScope().resolve(EmptyMap);
 
-  // If element size is greater than base size for some reason (for example: 
-  // empty struct), just cap it at that size.
+  // If element size is greater than base size make sure we're dealing with an empty struct.
   unsigned compositeSize = GetCompositeTypeSize(DITy);
-  if (sizeInBits > compositeSize)
+  if (sizeInBits > compositeSize) {
+    DXASSERT_NOMSG(offsetInBits == 0 && compositeSize == 8);
     sizeInBits = compositeSize;
+  }
 
   // Create Elt type.
   DIType *EltDITy =
