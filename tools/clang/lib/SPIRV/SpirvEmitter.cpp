@@ -1951,7 +1951,8 @@ SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   auto *info = loadIfAliasVarRef(base);
 
   if (!indices.empty()) {
-    info = turnIntoElementPtr(base->getType(), info, expr->getType(), indices);
+    info = turnIntoElementPtr(base->getType(), info, expr->getType(), indices,
+                              base->getExprLoc());
   }
 
   return info;
@@ -2521,7 +2522,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
 
     auto *derivedInfo = doExpr(subExpr);
     return turnIntoElementPtr(subExpr->getType(), derivedInfo, expr->getType(),
-                              baseIndexInstructions);
+                              baseIndexInstructions, subExpr->getExprLoc());
   }
   default:
     emitError("implicit cast kind '%0' unimplemented", expr->getExprLoc())
@@ -3357,7 +3358,8 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   auto *zero = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
   auto *index = doExpr(expr->getArg(0));
 
-  return turnIntoElementPtr(buffer->getType(), info, structType, {zero, index});
+  return turnIntoElementPtr(buffer->getType(), info, structType, {zero, index},
+                            buffer->getExprLoc());
 }
 
 SpirvInstruction *
@@ -3574,7 +3576,7 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   }
 
   bufferInfo = turnIntoElementPtr(object->getType(), bufferInfo, bufferElemTy,
-                                  {zero, index});
+                                  {zero, index}, object->getExprLoc());
 
   if (isAppend) {
     // Write out the value
@@ -4502,8 +4504,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
                               baseExpr->getExprLoc());
   }
 
-  return turnIntoElementPtr(baseExpr->getType(), base, expr->getType(),
-                            indices);
+  return turnIntoElementPtr(baseExpr->getType(), base, expr->getType(), indices,
+                            baseExpr->getExprLoc());
 }
 
 SpirvInstruction *
@@ -4694,8 +4696,8 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr) {
   auto *instr = loadIfAliasVarRef(base);
 
   if (instr && !indices.empty()) {
-    instr =
-        turnIntoElementPtr(base->getType(), instr, expr->getType(), indices);
+    instr = turnIntoElementPtr(base->getType(), instr, expr->getType(), indices,
+                               base->getExprLoc());
   }
 
   return instr;
@@ -6173,7 +6175,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
 
 SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
     QualType baseType, SpirvInstruction *base, QualType elemType,
-    const llvm::SmallVector<SpirvInstruction *, 4> &indices) {
+    const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+    SourceLocation loc) {
   // If this is a rvalue, we need a temporary object to hold it
   // so that we can get access chain from it.
   const bool needTempVar = base->isRValue();
@@ -6181,8 +6184,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
 
   if (needTempVar) {
     auto varName = getAstTypeName(baseType);
-    const auto var =
-        createTemporaryVar(baseType, varName, base /* need SourceLocation! */);
+    const auto var = createTemporaryVar(baseType, varName, base, loc);
     var->setLayoutRule(SpirvLayoutRule::Void);
     var->setStorageClass(spv::StorageClass::Function);
     var->setContainsAliasComponent(base->containsAliasComponent());
@@ -6191,7 +6193,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
 
   base = spvBuilder.createAccessChain(
       spvContext.getPointerType(elemType, accessChainBase->getStorageClass()),
-      accessChainBase, indices);
+      accessChainBase, indices, loc);
 
   // Okay, this part seems weird, but it is intended:
   // If the base is originally a rvalue, the whole AST involving the base
@@ -6203,7 +6205,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
   // we must do the load here. Otherwise, it's up to the consumer of this
   // access chain to do the load, and that can be everywhere.
   if (needTempVar) {
-    base = spvBuilder.createLoad(elemType, base /* need SourceLocation! */, {});
+    base = spvBuilder.createLoad(elemType, base, loc);
   }
 
   return base;

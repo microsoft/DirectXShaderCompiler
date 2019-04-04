@@ -286,7 +286,7 @@ private:
   /// Returns the instruction pointer for the variable.
   SpirvVariable *createTemporaryVar(QualType varType, llvm::StringRef varName,
                                     SpirvInstruction *initValue,
-                                    SourceLocation loc = {});
+                                    SourceLocation loc);
 
   /// Collects all indices from consecutive MemberExprs
   /// TODO: Update method description here.
@@ -300,7 +300,8 @@ private:
   SpirvInstruction *
   turnIntoElementPtr(QualType baseType, SpirvInstruction *base,
                      QualType elemType,
-                     const llvm::SmallVector<SpirvInstruction *, 4> &indices);
+                     const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+                     SourceLocation loc);
 
 private:
   /// Validates that vk::* attributes are used correctly and returns false if
