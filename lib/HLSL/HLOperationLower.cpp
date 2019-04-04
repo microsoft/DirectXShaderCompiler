@@ -5500,7 +5500,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       Value *newLd = TranslateConstBufMatLdLegacy(
         MatTy, handle, legacyIdx, colMajor, hlslOP, /*memElemRepr*/false, DL, Builder);
       CI->replaceAllUsesWith(newLd);
-      dxilutil::ScatterDebugValueToVectorElements(newLd);
+      dxilutil::TryScatterDebugValueToVectorElements(newLd);
       CI->eraseFromParent();
     } else if (group == HLOpcodeGroup::HLSubscript) {
       HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
@@ -5669,7 +5669,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
                                    hlslOP, Builder);
 
     ldInst->replaceAllUsesWith(newLd);
-    if (Ty->isVectorTy()) dxilutil::ScatterDebugValueToVectorElements(newLd);
+    dxilutil::TryScatterDebugValueToVectorElements(newLd);
     ldInst->eraseFromParent();
   } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
     for (auto it = BCI->user_begin(); it != BCI->user_end(); ) {

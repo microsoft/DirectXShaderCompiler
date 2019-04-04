@@ -630,7 +630,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
     param->replaceAllUsesWith(newVec);
 
     // THe individual loadInputs are the authoritative source of values for the vector.
-    dxilutil::ScatterDebugValueToVectorElements(newVec);
+    dxilutil::TryScatterDebugValueToVectorElements(newVec);
   } else if (!Ty->isArrayTy() && !HLMatrixType::isa(Ty)) {
     DXASSERT(cols == 1, "only support scalar here");
     Value *colIdx = hlslOP->GetU8Const(0);
