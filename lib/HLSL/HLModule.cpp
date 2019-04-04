@@ -1209,6 +1209,22 @@ static void AddDIGlobalVariable(DIBuilder &Builder, DIGlobalVariable *LocDIGV,
   DXVERIFY_NOMSG(DbgInfoFinder.appendGlobalVariable(EltDIGV));
 }
 
+static unsigned GetCompositeTypeSize(DIType *Ty) {
+  DICompositeType *StructTy = nullptr;
+  DITypeIdentifierMap EmptyMap;
+
+  if (DIDerivedType *DerivedTy = dyn_cast<DIDerivedType>(Ty)) {
+    DXASSERT_NOMSG(DerivedTy->getTag() == dwarf::DW_TAG_const_type || DerivedTy->getTag() == dwarf::DW_TAG_typedef);
+    DIType *BaseTy = DerivedTy->getBaseType().resolve(EmptyMap);
+    return GetCompositeTypeSize(BaseTy);
+  }
+  else {
+    StructTy = cast<DICompositeType>(Ty);
+  }
+
+  return StructTy->getSizeInBits();
+}
+
 void HLModule::CreateElementGlobalVariableDebugInfo(
     GlobalVariable *GV, DebugInfoFinder &DbgInfoFinder, GlobalVariable *EltGV,
     unsigned sizeInBits, unsigned alignInBits, unsigned offsetInBits,
@@ -1220,6 +1236,13 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
 
   DIType *DITy = DIGV->getType().resolve(EmptyMap);
   DIScope *DITyScope = DITy->getScope().resolve(EmptyMap);
+
+  // If element size is greater than base size for some reason (for example: 
+  // empty struct), just cap it at that size.
+  unsigned compositeSize = GetCompositeTypeSize(DITy);
+  if (sizeInBits > compositeSize)
+    sizeInBits = compositeSize;
+
   // Create Elt type.
   DIType *EltDITy =
       Builder.createMemberType(DITyScope, DITy->getName().str() + eltName.str(),
