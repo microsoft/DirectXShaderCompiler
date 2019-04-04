@@ -415,7 +415,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
                                                       llvm::APInt(32, offset));
       auto *ptr =
           spvBuilder.createAccessChain(ptrType, clipCullVar, {spirvConstant});
-      return spvBuilder.createLoad(astContext.FloatTy, ptr);
+      return spvBuilder.createLoad(astContext.FloatTy, ptr, loc);
     }
 
     if (isVectorType(asType, &elemType, &count)) {
@@ -428,7 +428,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
             astContext.UnsignedIntTy, llvm::APInt(32, offset + i));
         auto *ptr =
             spvBuilder.createAccessChain(ptrType, clipCullVar, {spirvConstant});
-        elements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
+        elements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
       }
       return spvBuilder.createCompositeConstruct(
           spvContext.getVectorType(f32Type, count), elements, loc);
@@ -460,7 +460,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
                                      llvm::APInt(32, i)), // Block array index
            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                      llvm::APInt(32, offset))});
-      arrayElements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
+      arrayElements.push_back(
+          spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
     }
   } else if (isVectorType(asType, &elemType, &count)) {
     arrayType =
@@ -479,7 +480,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
              // Read elements sequentially from the float array
              spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                        llvm::APInt(32, offset + j))});
-        vecElements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr));
+        vecElements.push_back(
+            spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
       }
       arrayElements.push_back(spvBuilder.createCompositeConstruct(
           spvContext.getVectorType(f32Type, count), vecElements, loc));

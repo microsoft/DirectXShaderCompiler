@@ -147,7 +147,7 @@ private:
   /// recursive if lhsValType is a composite type. rhsExpr will be used as a
   /// reference to adjust the CodeGen if not nullptr.
   void storeValue(SpirvInstruction *lhsPtr, SpirvInstruction *rhsVal,
-                  QualType lhsValType);
+                  QualType lhsValType, SourceLocation loc);
 
   /// Decomposes and reconstructs the given srcVal of the given valType to meet
   /// the requirements of the dstLR layout rule.
@@ -285,7 +285,8 @@ private:
   /// varType and varName. Initializes the variable with the given initValue.
   /// Returns the instruction pointer for the variable.
   SpirvVariable *createTemporaryVar(QualType varType, llvm::StringRef varName,
-                                    SpirvInstruction *initValue);
+                                    SpirvInstruction *initValue,
+                                    SourceLocation loc = {});
 
   /// Collects all indices from consecutive MemberExprs
   /// TODO: Update method description here.
@@ -905,7 +906,8 @@ private:
   /// \brief Emulates GetSamplePosition() for standard sample settings, i.e.,
   /// with 1, 2, 4, 8, or 16 samples. Returns float2(0) for other cases.
   SpirvInstruction *emitGetSamplePosition(SpirvInstruction *sampleCount,
-                                          SpirvInstruction *sampleIndex);
+                                          SpirvInstruction *sampleIndex,
+                                          SourceLocation loc);
 
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3

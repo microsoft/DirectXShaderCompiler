@@ -335,7 +335,8 @@ SpirvInstruction *CounterIdAliasPair::get(SpirvBuilder &builder,
     const auto *counterType = spvContext.getACSBufferCounterType();
     const auto *counterVarType =
         spvContext.getPointerType(counterType, spv::StorageClass::Uniform);
-    return builder.createLoad(counterVarType, counterVar);
+    return builder.createLoad(counterVarType, counterVar,
+                              /* SourceLocation */ {});
   }
   return counterVar;
 }
@@ -1781,7 +1782,7 @@ bool DeclResultIdMapper::createStageVars(
       decoratePSInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
-      *value = spvBuilder.createLoad(evalType, varInstr);
+      *value = spvBuilder.createLoad(evalType, varInstr, decl->getLocation());
 
       // Fix ups for corner cases
 

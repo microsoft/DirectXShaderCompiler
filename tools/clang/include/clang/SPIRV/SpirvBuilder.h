@@ -149,9 +149,9 @@ public:
   /// <result-type> from the given pointer. Returns the instruction pointer for
   /// the loaded value.
   SpirvLoad *createLoad(QualType resultType, SpirvInstruction *pointer,
-                        SourceLocation loc = {});
+                        SourceLocation loc);
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
-                        SourceLocation loc = {});
+                        SourceLocation loc);
 
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
