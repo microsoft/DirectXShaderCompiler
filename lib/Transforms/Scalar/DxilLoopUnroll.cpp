@@ -372,7 +372,8 @@ static bool processInstruction(SetVector<BasicBlock *> &Body, Loop &L, Instructi
     // Recurse and re-process each PHI instruction. FIXME: we should really
     // convert this entire thing to a worklist approach where we process a
     // vector of instructions...
-    processInstruction(Body, *OtherLoop, *I, DT, EBs, PredCache, LI);
+    SetVector<BasicBlock *> OtherLoopBody(OtherLoop->block_begin(), OtherLoop->block_end()); // HLSL Change
+    processInstruction(OtherLoopBody, *OtherLoop, *I, DT, EBs, PredCache, LI);
   }
 
   // Remove PHI nodes that did not have any uses rewritten.
