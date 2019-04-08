@@ -945,17 +945,17 @@ bool SpirvEmitter::loadIfAliasVarRef(const Expr *varExpr,
 SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
                                            QualType fromType, QualType toType,
                                            SourceLocation srcLoc) {
-  if (isFloatOrVecOfFloatType(toType))
+  if (isFloatOrVecMatOfFloatType(toType))
     return castToFloat(value, fromType, toType, srcLoc);
 
   // Order matters here. Bool (vector) values will also be considered as uint
   // (vector) values. So given a bool (vector) argument, isUintOrVecOfUintType()
   // will also return true. We need to check bool before uint. The opposite is
   // not true.
-  if (isBoolOrVecOfBoolType(toType))
+  if (isBoolOrVecMatOfBoolType(toType))
     return castToBool(value, fromType, toType);
 
-  if (isSintOrVecOfSintType(toType) || isUintOrVecOfUintType(toType))
+  if (isSintOrVecMatOfSintType(toType) || isUintOrVecMatOfUintType(toType))
     return castToInt(value, fromType, toType, srcLoc);
 
   emitError("casting to type %0 unimplemented", {}) << toType;
