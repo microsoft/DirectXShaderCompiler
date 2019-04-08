@@ -5793,8 +5793,8 @@ SpirvEmitter::tryToAssignToVectorElements(const Expr *lhs,
       // We need to use OpImageWrite here.
       // Compose the new vector value first
       auto *oldVec = doExpr(base);
-      auto *newVec = spvBuilder.createCompositeInsert(baseType, oldVec,
-                                                      {accessor.Swz0}, rhs);
+      auto *newVec = spvBuilder.createCompositeInsert(
+          baseType, oldVec, {accessor.Swz0}, rhs, lhs->getLocStart());
       auto *result = tryToAssignToRWBufferRWTexture(base, newVec);
       assert(result); // Definitely RWBuffer/RWTexture assignment
       (void)result;

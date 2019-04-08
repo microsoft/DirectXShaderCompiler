@@ -2223,8 +2223,8 @@ DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
     const auto newY =
         spvBuilder.createUnaryOp(spv::Op::OpFNegate, astContext.FloatTy, oldY);
     position = spvBuilder.createCompositeInsert(
-        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1},
-        newY);
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
+        loc);
   }
   return position;
 }
@@ -2241,8 +2241,8 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
         spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
         oldW);
     position = spvBuilder.createCompositeInsert(
-        astContext.getExtVectorType(astContext.FloatTy, 4), position, {3},
-        newW);
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {3}, newW,
+        loc);
   }
   return position;
 }

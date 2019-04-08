@@ -133,7 +133,7 @@ public:
                                               SpirvInstruction *composite,
                                               llvm::ArrayRef<uint32_t> indices,
                                               SpirvInstruction *object,
-                                              SourceLocation loc = {});
+                                              SourceLocation loc);
 
   /// \brief Creates a vector shuffle instruction of selecting from the two
   /// vectors using selectors and returns the instruction pointer of the result
