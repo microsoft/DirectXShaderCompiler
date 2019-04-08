@@ -111,7 +111,7 @@ private:
 
   /// Decomposes the given SpirvInstruction and puts all elements into the end
   /// of the scalars queue.
-  void decompose(SpirvInstruction *inst);
+  void decompose(SpirvInstruction *inst, SourceLocation loc);
 
   /// If the next initializer is a struct, replaces it with OpCompositeExtract
   /// its members and returns true. Otherwise, does nothing and return false.
@@ -147,7 +147,7 @@ private:
   /// initializers to the tail of the queue, we use a vector (containing the
   /// reverse of the original intializer list) here and manipulate its tail.
   /// This is more efficient than using deque.
-  std::vector<SpirvInstruction *> initializers;
+  std::vector<std::pair<SpirvInstruction *, SourceLocation>> initializers;
   /// A queue keeping track of previously extracted but unused scalars.
   /// Each element is a pair, with the first element as the SPIR-V <result-id>
   /// and the second element as the AST type of the scalar value.

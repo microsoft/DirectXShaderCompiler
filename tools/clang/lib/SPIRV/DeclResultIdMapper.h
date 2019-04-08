@@ -457,11 +457,13 @@ public:
                              SpirvInstruction *value);
 
   /// \brief Negates to get the additive inverse of SV_Position.y if requested.
-  SpirvInstruction *invertYIfRequested(SpirvInstruction *position);
+  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc);
 
   /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
   /// if requested.
-  SpirvInstruction *invertWIfRequested(SpirvInstruction *position);
+  SpirvInstruction *invertWIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc);
 
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.

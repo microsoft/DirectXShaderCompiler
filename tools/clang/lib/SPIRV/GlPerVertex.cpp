@@ -384,7 +384,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
     if (noWriteBack)
       return true;
 
-    return writeField(semanticKind, semanticIndex, invocationId, value);
+    return writeField(semanticKind, semanticIndex, invocationId, value, loc);
   default:
     // Only interfaces that involve gl_PerVertex are needed.
     break;
@@ -528,7 +528,8 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
 
 void GlPerVertex::writeClipCullArrayFromType(
     llvm::Optional<SpirvInstruction *> invocationId, bool isClip,
-    uint32_t offset, QualType fromType, SpirvInstruction *fromValue) const {
+    uint32_t offset, QualType fromType, SpirvInstruction *fromValue,
+    SourceLocation loc) const {
   auto *clipCullVar = isClip ? outClipVar : outCullVar;
 
   // The ClipDistance/CullDistance is always an float array. We are accessing
@@ -563,7 +564,7 @@ void GlPerVertex::writeClipCullArrayFromType(
         auto *ptr =
             spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
         auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                           fromValue, {i});
+                                                           fromValue, {i}, loc);
         spvBuilder.createStore(ptr, subValue);
       }
       return;
@@ -610,8 +611,8 @@ void GlPerVertex::writeClipCullArrayFromType(
            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                      llvm::APInt(32, offset + i))});
 
-      auto *subValue =
-          spvBuilder.createCompositeExtract(astContext.FloatTy, fromValue, {i});
+      auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
+                                                         fromValue, {i}, loc);
       spvBuilder.createStore(ptr, subValue);
     }
     return;
@@ -624,7 +625,7 @@ void GlPerVertex::writeClipCullArrayFromType(
 bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                              uint32_t semanticIndex,
                              llvm::Optional<SpirvInstruction *> invocationId,
-                             SpirvInstruction **value) {
+                             SpirvInstruction **value, SourceLocation loc) {
   // Similar to the writing logic in DeclResultIdMapper::createStageVars():
   //
   // Unlike reading, which may require us to read stand-alone builtins and
@@ -648,7 +649,8 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     assert(offsetIter != outClipOffset.end());
     assert(typeIter != outClipType.end());
     writeClipCullArrayFromType(invocationId, /*isClip=*/true,
-                               offsetIter->second, typeIter->second, *value);
+                               offsetIter->second, typeIter->second, *value,
+                               loc);
     return true;
   }
   case hlsl::Semantic::Kind::CullDistance: {
@@ -658,7 +660,8 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     assert(offsetIter != outCullOffset.end());
     assert(typeIter != outCullType.end());
     writeClipCullArrayFromType(invocationId, /*isClip=*/false,
-                               offsetIter->second, typeIter->second, *value);
+                               offsetIter->second, typeIter->second, *value,
+                               loc);
     return true;
   }
   default:

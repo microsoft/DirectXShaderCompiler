@@ -115,11 +115,12 @@ private:
   void
   writeClipCullArrayFromType(llvm::Optional<SpirvInstruction *> invocationId,
                              bool isClip, uint32_t offset, QualType fromType,
-                             SpirvInstruction *fromValue) const;
+                             SpirvInstruction *fromValue,
+                             SourceLocation loc) const;
   /// Creates SPIR-V instructions to write a field in gl_PerVertex.
   bool writeField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
                   llvm::Optional<SpirvInstruction *> invocationId,
-                  SpirvInstruction **value);
+                  SpirvInstruction **value, SourceLocation loc);
 
   /// Internal implementation for recordClipCullDistanceDecl().
   bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,

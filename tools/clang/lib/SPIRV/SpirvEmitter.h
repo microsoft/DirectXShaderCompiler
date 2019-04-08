@@ -152,7 +152,7 @@ private:
   /// Decomposes and reconstructs the given srcVal of the given valType to meet
   /// the requirements of the dstLR layout rule.
   SpirvInstruction *reconstructValue(SpirvInstruction *srcVal, QualType valType,
-                                     SpirvLayoutRule dstLR);
+                                     SpirvLayoutRule dstLR, SourceLocation loc);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
@@ -166,12 +166,11 @@ private:
   /// process will be written into it. If mandateGenOpcode is not spv::Op::Max,
   /// it will used as the SPIR-V opcode instead of deducing from Clang frontend
   /// opcode.
-  SpirvInstruction *processBinaryOp(const Expr *lhs, const Expr *rhs,
-                                    BinaryOperatorKind opcode,
-                                    QualType computationType,
-                                    QualType resultType, SourceRange,
-                                    SpirvInstruction **lhsInfo = nullptr,
-                                    spv::Op mandateGenOpcode = spv::Op::Max);
+  SpirvInstruction *
+  processBinaryOp(const Expr *lhs, const Expr *rhs, BinaryOperatorKind opcode,
+                  QualType computationType, QualType resultType, SourceRange,
+                  SourceLocation, SpirvInstruction **lhsInfo = nullptr,
+                  spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
   void initOnce(QualType varType, std::string varName, SpirvVariable *,
@@ -222,7 +221,7 @@ private:
   /// vector).
   void splitVecLastElement(QualType vecType, SpirvInstruction *vec,
                            SpirvInstruction **residual,
-                           SpirvInstruction **lastElement);
+                           SpirvInstruction **lastElement, SourceLocation loc);
 
   /// Converts a vector value into the given struct type with its element type's
   /// <result-id> as elemTypeId.
@@ -231,7 +230,8 @@ private:
   /// otherwise.
   SpirvInstruction *convertVectorToStruct(QualType structType,
                                           QualType elemType,
-                                          SpirvInstruction *vector);
+                                          SpirvInstruction *vector,
+                                          SourceLocation loc);
 
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
@@ -268,7 +268,8 @@ private:
       const Expr *matrix, SpirvInstruction *matrixVal,
       llvm::function_ref<SpirvInstruction *(uint32_t, QualType,
                                             SpirvInstruction *)>
-          actOnEachVector);
+          actOnEachVector,
+      SourceLocation loc = {});
 
   /// Translates the given varDecl into a spec constant.
   void createSpecConstant(const VarDecl *varDecl);
@@ -279,7 +280,7 @@ private:
   /// This method expects that both lhs and rhs are SPIR-V acceptable matrices.
   SpirvInstruction *processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
                                           const BinaryOperatorKind opcode,
-                                          SourceRange);
+                                          SourceRange, SourceLocation);
 
   /// Creates a temporary local variable in the current function of the given
   /// varType and varName. Initializes the variable with the given initValue.
@@ -321,7 +322,7 @@ private:
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
   SpirvInstruction *castToBool(SpirvInstruction *value, QualType fromType,
-                               QualType toType);
+                               QualType toType, SourceLocation loc);
 
   /// Processes the given expr, casts the result into the given integer (vector)
   /// type and returns the <result-id> of the casted value.
@@ -390,7 +391,7 @@ private:
   /// same size and have the same element type (elemType).
   SpirvInstruction *processNonFpDot(SpirvInstruction *vec1Id,
                                     SpirvInstruction *vec2Id, uint32_t vecSize,
-                                    QualType elemType);
+                                    QualType elemType, SourceLocation loc);
 
   /// Processes the multiplication of a *non-floating point* matrix by a scalar.
   /// Assumes that the matrix element type and the scalar type are the same.
@@ -918,7 +919,8 @@ private:
   /// Panics if the target vector size is not 1, 2, 3, or 4.
   SpirvInstruction *extractVecFromVec4(SpirvInstruction *fromInstr,
                                        uint32_t targetVecSize,
-                                       QualType targetElemType);
+                                       QualType targetElemType,
+                                       SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   /// It utilizes the ModuleBuilder's createImageSample and it ensures that the
@@ -934,8 +936,8 @@ private:
                     std::pair<SpirvInstruction *, SpirvInstruction *> grad,
                     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
                     SpirvInstruction *constOffsets, SpirvInstruction *sample,
-                    SpirvInstruction *minLod,
-                    SpirvInstruction *residencyCodeId);
+                    SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
+                    SourceLocation loc);
 
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates

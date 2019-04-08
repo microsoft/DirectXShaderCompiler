@@ -484,11 +484,11 @@ SpirvInstruction *SpirvBuilder::createImageSample(
 
   if (isSparse) {
     // Write the Residency Code
-    const auto status =
-        createCompositeExtract(astContext.UnsignedIntTy, imageSampleInst, {0});
+    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
+                                               imageSampleInst, {0}, loc);
     createStore(residencyCode, status, loc);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, imageSampleInst, {1});
+    return createCompositeExtract(texelType, imageSampleInst, {1}, loc);
   }
 
   return imageSampleInst;
@@ -522,11 +522,11 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
 
   if (isSparse) {
     // Write the Residency Code
-    const auto status =
-        createCompositeExtract(astContext.UnsignedIntTy, fetchOrReadInst, {0});
+    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
+                                               fetchOrReadInst, {0}, loc);
     createStore(residencyCode, status, loc);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, fetchOrReadInst, {1});
+    return createCompositeExtract(texelType, fetchOrReadInst, {1}, loc);
   }
 
   return fetchOrReadInst;
@@ -583,11 +583,11 @@ SpirvInstruction *SpirvBuilder::createImageGather(
 
   if (residencyCode) {
     // Write the Residency Code
-    const auto status =
-        createCompositeExtract(astContext.UnsignedIntTy, imageInstruction, {0});
+    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
+                                               imageInstruction, {0}, loc);
     createStore(residencyCode, status);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, imageInstruction, {1});
+    return createCompositeExtract(texelType, imageInstruction, {1}, loc);
   }
 
   return imageInstruction;
