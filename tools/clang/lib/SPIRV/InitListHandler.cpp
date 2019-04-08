@@ -308,16 +308,28 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
 
     auto *init = initializers.back();
 
-    if (hlsl::IsHLSLMatType(init->getAstResultType())) {
-      uint32_t initRowCount = 0, initColCount = 0;
-      hlsl::GetHLSLMatRowColCount(init->getAstResultType(), initRowCount,
-                                  initColCount);
-
+    QualType initElemType;
+    uint32_t initRowCount = 0, initColCount = 0;
+    if (isMxNMatrix(init->getAstResultType(), &initElemType, &initRowCount,
+                    &initColCount)) {
       if (rowCount == initRowCount && colCount == initColCount) {
         initializers.pop_back();
         // TODO: We only support FP matrices now. Do type cast here after
         // adding more matrix types.
-        return init;
+        if (isSameScalarOrVecType(initElemType, elemType))
+          return init;
+
+        const QualType initVecType =
+            astContext.getExtVectorType(initElemType, colCount);
+        llvm::SmallVector<SpirvInstruction *, 4> vectors;
+        for (uint32_t i = 0; i < rowCount; ++i) {
+          auto *inst =
+              spvBuilder.createCompositeExtract(initVecType, init, {i});
+          const auto vecType = astContext.getExtVectorType(elemType, colCount);
+          vectors.push_back(
+              theEmitter.castToType(inst, initVecType, vecType, srcLoc));
+        }
+        return spvBuilder.createCompositeConstruct(matrixType, vectors);
       }
     }
   }
