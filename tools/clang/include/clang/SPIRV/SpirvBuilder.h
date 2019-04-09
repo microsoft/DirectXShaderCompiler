@@ -162,7 +162,7 @@ public:
   SpirvFunctionCall *
   createFunctionCall(QualType returnType, SpirvFunction *func,
                      llvm::ArrayRef<SpirvInstruction *> params,
-                     SourceLocation loc = {});
+                     SourceLocation loc);
 
   /// \brief Creates an access chain instruction to retrieve the element from
   /// the given base by walking through the given indexes. Returns the

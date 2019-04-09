@@ -2162,7 +2162,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   // Get or forward declare the function <result-id>
   SpirvFunction *func = declIdMapper.getOrRegisterFn(callee);
 
-  auto *retVal = spvBuilder.createFunctionCall(retType, func, vars);
+  auto *retVal = spvBuilder.createFunctionCall(
+      retType, func, vars, callExpr->getCallee()->getExprLoc());
 
   // If we created a temporary variable for the lvalue object this method is
   // invoked upon, we need to copy the contents in the temporary variable back
@@ -9946,7 +9947,8 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
 
   // Call the original entry function
   const QualType retType = decl->getReturnType();
-  spvBuilder.createFunctionCall(retType, entryFuncInstr, params);
+  spvBuilder.createFunctionCall(retType, entryFuncInstr, params,
+                                decl->getLocation());
 
   // Write certain output variables back
   if (sKind == hlsl::ShaderModel::Kind::ClosestHit ||
@@ -10137,7 +10139,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // Call the original entry function
   const QualType retType = decl->getReturnType();
-  auto *retVal = spvBuilder.createFunctionCall(retType, entryFuncInstr, params);
+  auto *retVal = spvBuilder.createFunctionCall(retType, entryFuncInstr, params,
+                                               decl->getLocation());
 
   // Create and write stage output variables for return value. Special case for
   // Hull shaders since they operate differently in 2 ways:
@@ -10318,8 +10321,8 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
           << param->getName();
     }
   }
-  auto *pcfResultId =
-      spvBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
+  auto *pcfResultId = spvBuilder.createFunctionCall(
+      pcfRetType, pcfId, {pcfParams}, hullMainFuncDecl->getLocation());
   if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
                                          /*forPCF*/ true))
     return false;
