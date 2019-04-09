@@ -510,7 +510,8 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   return nullptr;
 }
 
-SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
+SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
+                                                      SourceLocation loc) {
   if (const auto *info = getDeclSpirvInfo(decl)) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
@@ -525,7 +526,8 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
       return spvBuilder.createAccessChain(
           ptrType, info->instr,
           {spvBuilder.getConstantInt(
-              astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))});
+              astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))},
+          loc);
     } else {
       return *info;
     }
@@ -1932,7 +1934,8 @@ bool DeclResultIdMapper::createStageVars(
           ptr = spvBuilder.createAccessChain(
               ptrType, varInstr,
               {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, i))});
+                                         llvm::APInt(32, i))},
+              thisSemantic.loc);
           spvBuilder.createStore(
               ptr,
               spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {i},
@@ -1953,7 +1956,8 @@ bool DeclResultIdMapper::createStageVars(
                                       spv::StorageClass::Output),
             varInstr,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, 0)));
+                                      llvm::APInt(32, 0)),
+            thisSemantic.loc);
         if (type->isArrayType()) // float[1]
           *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
                                                      {0}, thisSemantic.loc);
@@ -1967,7 +1971,8 @@ bool DeclResultIdMapper::createStageVars(
         ptr = spvBuilder.createAccessChain(
             ptrType, varInstr,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, 0)));
+                                      llvm::APInt(32, 0)),
+            thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
         spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
@@ -1982,7 +1987,7 @@ bool DeclResultIdMapper::createStageVars(
         auto index = invocationId.getValue();
         ptr = spvBuilder.createAccessChain(
             spvContext.getPointerType(elementType, spv::StorageClass::Output),
-            varInstr, index);
+            varInstr, index, thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
         spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }

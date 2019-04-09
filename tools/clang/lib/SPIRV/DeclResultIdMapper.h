@@ -400,7 +400,7 @@ public:
   /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
-  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl);
+  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl, SourceLocation loc);
 
   /// \brief Returns the instruction pointer for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and

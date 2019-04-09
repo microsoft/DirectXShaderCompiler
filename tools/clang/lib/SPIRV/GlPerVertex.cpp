@@ -413,8 +413,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
     if (isScalarType(asType)) {
       auto *spirvConstant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                       llvm::APInt(32, offset));
-      auto *ptr =
-          spvBuilder.createAccessChain(ptrType, clipCullVar, {spirvConstant});
+      auto *ptr = spvBuilder.createAccessChain(ptrType, clipCullVar,
+                                               {spirvConstant}, loc);
       return spvBuilder.createLoad(astContext.FloatTy, ptr, loc);
     }
 
@@ -426,8 +426,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
         // Read elements sequentially from the float array
         auto *spirvConstant = spvBuilder.getConstantInt(
             astContext.UnsignedIntTy, llvm::APInt(32, offset + i));
-        auto *ptr =
-            spvBuilder.createAccessChain(ptrType, clipCullVar, {spirvConstant});
+        auto *ptr = spvBuilder.createAccessChain(ptrType, clipCullVar,
+                                                 {spirvConstant}, loc);
         elements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
       }
       return spvBuilder.createCompositeConstruct(
@@ -459,7 +459,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
           {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                      llvm::APInt(32, i)), // Block array index
            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                     llvm::APInt(32, offset))});
+                                     llvm::APInt(32, offset))},
+          loc);
       arrayElements.push_back(
           spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
     }
@@ -479,7 +480,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
                                        llvm::APInt(32, i)),
              // Read elements sequentially from the float array
              spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                       llvm::APInt(32, offset + j))});
+                                       llvm::APInt(32, offset + j))},
+            loc);
         vecElements.push_back(
             spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
       }
@@ -549,7 +551,7 @@ void GlPerVertex::writeClipCullArrayFromType(
       auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                  llvm::APInt(32, offset));
       auto *ptr =
-          spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
+          spvBuilder.createAccessChain(ptrType, clipCullVar, {constant}, loc);
       spvBuilder.createStore(ptr, fromValue, loc);
       return;
     }
@@ -562,7 +564,7 @@ void GlPerVertex::writeClipCullArrayFromType(
         auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                    llvm::APInt(32, offset + i));
         auto *ptr =
-            spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
+            spvBuilder.createAccessChain(ptrType, clipCullVar, {constant}, loc);
         auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
                                                            fromValue, {i}, loc);
         spvBuilder.createStore(ptr, subValue, loc);
@@ -595,7 +597,8 @@ void GlPerVertex::writeClipCullArrayFromType(
     auto *ptr = spvBuilder.createAccessChain(
         ptrType, clipCullVar,
         {arrayIndex, spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                               llvm::APInt(32, offset))});
+                                               llvm::APInt(32, offset))},
+        loc);
     spvBuilder.createStore(ptr, fromValue, loc);
     return;
   }
@@ -609,7 +612,8 @@ void GlPerVertex::writeClipCullArrayFromType(
           {arrayIndex,
            // Write elements sequentially into the float array
            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                     llvm::APInt(32, offset + i))});
+                                     llvm::APInt(32, offset + i))},
+          loc);
 
       auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
                                                          fromValue, {i}, loc);
