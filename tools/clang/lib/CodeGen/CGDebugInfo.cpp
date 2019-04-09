@@ -1024,6 +1024,10 @@ void CGDebugInfo::CollectRecordFields(
 }
 
 // HLSL Change Begins
+// Hook to allow us to lie about the contents of some HLSL types in the debug info,
+// by exposing clean members rather than our implementation detail internals.
+// Note that the debug size of types is not based on the fields reported here,
+// but rather on ASTContext::getTypeSize, so they should be consistent.
 bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     llvm::DICompositeType *DITy,
     SmallVectorImpl<llvm::Metadata *> &Elements) {
@@ -1068,6 +1072,10 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
       }
     }
 
+    return true;
+  }
+  else if (hlsl::IsHLSLResourceType(QualTy) || hlsl::IsHLSLStreamOutputType(QualTy)) {
+    // Should appear as having no members rather than exposing our internal handles.
     return true;
   }
 
