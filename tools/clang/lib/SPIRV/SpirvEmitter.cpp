@@ -1335,11 +1335,12 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     }
     // Function local variables. Just emit OpStore at the current insert point.
     else if (const Expr *init = decl->getInit()) {
-      if (auto *constInit = tryToEvaluateAsConst(init))
-        spvBuilder.createStore(var, constInit);
-      else
+      if (auto *constInit = tryToEvaluateAsConst(init)) {
+        spvBuilder.createStore(var, constInit, decl->getLocation());
+      } else {
         storeValue(var, loadIfGLValue(init), decl->getType(),
-                   init->getExprLoc());
+                   decl->getLocation());
+      }
 
       // Update counter variable associated with local variables
       tryToAssignCounterVar(decl, init);
@@ -2730,12 +2731,14 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   spvBuilder.setMergeTarget(mergeBB);
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
-  spvBuilder.createStore(tempVar, trueBranch);
+  spvBuilder.createStore(tempVar, trueBranch,
+                         expr->getTrueExpr()->getLocStart());
   spvBuilder.createBranch(mergeBB, expr->getTrueExpr()->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // Handle the else branch
   spvBuilder.setInsertPoint(elseBB);
-  spvBuilder.createStore(tempVar, falseBranch);
+  spvBuilder.createStore(tempVar, falseBranch,
+                         expr->getFalseExpr()->getLocStart());
   spvBuilder.createBranch(mergeBB, expr->getFalseExpr()->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
   // From now on, emit instructions into the merge block.
@@ -2771,7 +2774,8 @@ SpirvEmitter::processByteAddressBufferStructuredBufferGetDimensions(
         spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                   llvm::APInt(32, 4u)));
   }
-  spvBuilder.createStore(doExpr(expr->getArg(0)), length);
+  spvBuilder.createStore(doExpr(expr->getArg(0)), length,
+                         expr->getArg(0)->getLocStart());
 
   if (isStructuredBuf) {
     // For (RW)StructuredBuffer, the stride of the runtime array (which is the
@@ -2783,7 +2787,8 @@ SpirvEmitter::processByteAddressBufferStructuredBufferGetDimensions(
                                           /*isRowMajor*/ llvm::None, &stride);
     auto *sizeInstr = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                 llvm::APInt(32, size));
-    spvBuilder.createStore(doExpr(expr->getArg(1)), sizeInstr);
+    spvBuilder.createStore(doExpr(expr->getArg(1)), sizeInstr,
+                           expr->getArg(1)->getLocStart());
   }
 
   return nullptr;
@@ -2824,7 +2829,8 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
         spv::MemorySemanticsMask::MaskNone, spv::MemorySemanticsMask::MaskNone,
         doExpr(expr->getArg(2)), comparator, srcLoc);
     if (isCompareExchange)
-      spvBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
+      spvBuilder.createStore(doExpr(expr->getArg(3)), originalVal,
+                             expr->getArg(3)->getLocStart());
   } else {
     auto *value = doExpr(expr->getArg(1));
     SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
@@ -2835,7 +2841,8 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
       originalVal = castToType(originalVal, astContext.UnsignedIntTy,
                                expr->getArg(2)->getType(),
                                expr->getArg(2)->getLocStart());
-      spvBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
+      spvBuilder.createStore(doExpr(expr->getArg(2)), originalVal,
+                             expr->getArg(2)->getLocStart());
     }
   }
 
@@ -2927,7 +2934,7 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   const auto storeToOutputArg = [this](const Expr *outputArg,
                                        SpirvInstruction *id, QualType type) {
     id = castToType(id, type, outputArg->getType(), outputArg->getExprLoc());
-    spvBuilder.createStore(doExpr(outputArg), id);
+    spvBuilder.createStore(doExpr(outputArg), id, outputArg->getLocStart());
   };
 
   if ((typeName == "Texture1D" && numArgs > 1) ||
@@ -3320,7 +3327,8 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
       // Store the word to the right address at the output.
       auto *storePtr = spvBuilder.createAccessChain(
           ptrType, objectInfo, {constUint0, curStoreAddress});
-      spvBuilder.createStore(storePtr, curValue);
+      spvBuilder.createStore(storePtr, curValue,
+                             expr->getCallee()->getExprLoc());
     }
   } else {
     auto *loadPtr = spvBuilder.createAccessChain(ptrType, objectInfo,
@@ -3346,7 +3354,7 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
       const QualType resultType =
           astContext.getExtVectorType(addressType, numWords);
       result = spvBuilder.createCompositeConstruct(resultType, values,
-                                                   expr->getLocEnd());
+                                                   expr->getLocStart());
       result->setRValue();
     }
   }
@@ -3702,7 +3710,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
       spvContext.getPointerType(v2f32Type, spv::StorageClass::Function);
 
   // Creates a SPIR-V function scope variable of type float2[len].
-  const auto createArray = [this, v2f32Type](const Float2 *ptr, uint32_t len) {
+  const auto createArray = [this, v2f32Type, loc](const Float2 *ptr,
+                                                  uint32_t len) {
     llvm::SmallVector<SpirvConstant *, 16> components;
     for (uint32_t i = 0; i < len; ++i) {
       auto *x = spvBuilder.getConstantFloat(astContext.FloatTy,
@@ -3719,7 +3728,7 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
     const std::string varName =
         "var.GetSamplePosition.data." + std::to_string(len);
     auto *var = spvBuilder.addFnVar(arrType, /*SourceLocation*/ {}, varName);
-    spvBuilder.createStore(var, val);
+    spvBuilder.createStore(var, val, loc);
     return var;
   };
 
@@ -3760,7 +3769,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //   }
   spvBuilder.setInsertPoint(then2BB);
   auto *ac = spvBuilder.createAccessChain(ptrType, pos2Arr, {sampleIndex});
-  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc));
+  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc),
+                         loc);
   spvBuilder.createBranch(merge2BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge2BB);
 
@@ -3779,7 +3789,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //   }
   spvBuilder.setInsertPoint(then4BB);
   ac = spvBuilder.createAccessChain(ptrType, pos4Arr, {sampleIndex});
-  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc));
+  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc),
+                         loc);
   spvBuilder.createBranch(merge4BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge4BB);
 
@@ -3798,7 +3809,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //   }
   spvBuilder.setInsertPoint(then8BB);
   ac = spvBuilder.createAccessChain(ptrType, pos8Arr, {sampleIndex});
-  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc));
+  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc),
+                         loc);
   spvBuilder.createBranch(merge8BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge8BB);
 
@@ -3817,7 +3829,8 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   //   }
   spvBuilder.setInsertPoint(then16BB);
   ac = spvBuilder.createAccessChain(ptrType, pos16Arr, {sampleIndex});
-  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc));
+  spvBuilder.createStore(resultVar, spvBuilder.createLoad(v2f32Type, ac, loc),
+                         loc);
   spvBuilder.createBranch(merge16BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge16BB);
 
@@ -3828,7 +3841,7 @@ SpirvEmitter::emitGetSamplePosition(SpirvInstruction *sampleCount,
   auto *zero =
       spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
   auto *v2f32Zero = spvBuilder.getConstantComposite(v2f32Type, {zero, zero});
-  spvBuilder.createStore(resultVar, v2f32Zero);
+  spvBuilder.createStore(resultVar, v2f32Zero, loc);
   spvBuilder.createBranch(merge16BB, /*SourceLocation*/ {});
   spvBuilder.addSuccessor(merge16BB);
 
@@ -4779,7 +4792,7 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
       incValue->setRValue();
       subValue = incValue;
     } else {
-      spvBuilder.createStore(subValue, incValue);
+      spvBuilder.createStore(subValue, incValue, subExpr->getLocStart());
     }
 
     // Prefix increment/decrement operator returns a lvalue, while postfix
@@ -5007,7 +5020,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
       rhsVal = castToInt(rhsVal, fromType, toType, {});
     }
 
-    spvBuilder.createStore(lhsPtr, rhsVal);
+    spvBuilder.createStore(lhsPtr, rhsVal, loc);
   } else if (isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
@@ -5018,7 +5031,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // let SPIRV-Tools opt to do the legalization work.
     //
     // Note: legalization specific code
-    spvBuilder.createStore(lhsPtr, rhsVal);
+    spvBuilder.createStore(lhsPtr, rhsVal, loc);
     needsLegalization = true;
   } else if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
     // The rhs should be a pointer and the lhs should be a pointer-to-pointer.
@@ -5026,7 +5039,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // up.
     //
     // Note: legalization specific code
-    spvBuilder.createStore(lhsPtr, rhsVal);
+    spvBuilder.createStore(lhsPtr, rhsVal, loc);
     needsLegalization = true;
 
     // For ConstantBuffers/TextureBuffers, we decompose and assign each field
@@ -5067,19 +5080,22 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
 
     // Create a new composite and write out once
     spvBuilder.createStore(
-        lhsPtr, spvBuilder.createCompositeConstruct(
-                    lhsValType, elements, rhsVal->getSourceLocation()));
+        lhsPtr,
+        spvBuilder.createCompositeConstruct(lhsValType, elements,
+                                            rhsVal->getSourceLocation()),
+        loc);
   } else if (lhsPtr->getLayoutRule() == rhsVal->getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
     // Note: this check should happen after those setting needsLegalization.
     // TODO: is this optimization always correct?
-    spvBuilder.createStore(lhsPtr, rhsVal);
+    spvBuilder.createStore(lhsPtr, rhsVal, loc);
   } else if (lhsValType->isRecordType() || lhsValType->isConstantArrayType() ||
              lhsIsNonFpMat) {
     spvBuilder.createStore(
         lhsPtr,
-        reconstructValue(rhsVal, lhsValType, lhsPtr->getLayoutRule(), loc));
+        reconstructValue(rhsVal, lhsValType, lhsPtr->getLayoutRule(), loc),
+        loc);
   } else {
     emitError("storing value of type %0 unimplemented", {}) << lhsValType;
   }
@@ -5374,10 +5390,10 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
         var, doExpr(varInit), varInit->getType(), varInit->getLocEnd());
   } else {
     spvBuilder.createStore(var, spvBuilder.getConstantNull(varType),
-                           varInit->getLocEnd());
+                           varInit->getLocStart());
   }
   spvBuilder.createStore(initDoneVar, spvBuilder.getConstantBool(true),
-                         varInit->getLocEnd());
+                         varInit->getLocStart());
   spvBuilder.createBranch(doneBB, varInit->getLocEnd());
   spvBuilder.addSuccessor(doneBB);
 
@@ -5849,7 +5865,7 @@ SpirvEmitter::tryToAssignToVectorElements(const Expr *lhs,
                                                  selectors, lhs->getLocStart());
 
   if (!tryToAssignToRWBufferRWTexture(base, shuffle))
-    spvBuilder.createStore(vec1, shuffle);
+    spvBuilder.createStore(vec1, shuffle, lhs->getLocStart());
 
   // TODO: OK, this return value is incorrect for compound assignments, for
   // which cases we should return lvalues. Should at least emit errors if
@@ -5918,7 +5934,7 @@ SpirvEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     auto *rhsElem = rhs;
     if (accessor.Count > 1) {
       rhsElem = spvBuilder.createCompositeExtract(elemType, rhs, {i},
-                                                  lhs->getExprLoc());
+                                                  lhs->getLocStart());
     }
 
     // If the lhs is actually a matrix of size 1x1, we don't need the access
@@ -5932,7 +5948,7 @@ SpirvEmitter::tryToAssignToMatrixElements(const Expr *lhs,
           lhsElemPtr, indexInstructions);
     }
 
-    spvBuilder.createStore(lhsElemPtr, rhsElem);
+    spvBuilder.createStore(lhsElemPtr, rhsElem, lhs->getLocStart());
   }
 
   // TODO: OK, this return value is incorrect for compound assignments, for
@@ -6945,8 +6961,9 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     const auto outputArg = callExpr->getArg(outputArgIndex);
     const auto outputArgType = outputArg->getType();
     if (baseType != outputArgType)
-      toWrite = castToInt(toWrite, baseType, outputArgType, dest->getExprLoc());
-    spvBuilder.createStore(doExpr(outputArg), toWrite);
+      toWrite =
+          castToInt(toWrite, baseType, outputArgType, dest->getLocStart());
+    spvBuilder.createStore(doExpr(outputArg), toWrite, callExpr->getExprLoc());
   };
 
   // If the argument is indexing into a texture/buffer, we need to create an
@@ -7697,7 +7714,7 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
       // results.
       auto *exponentFloat = spvBuilder.createUnaryOp(spv::Op::OpConvertSToF,
                                                      returnType, exponentInt);
-      spvBuilder.createStore(expInstr, exponentFloat);
+      spvBuilder.createStore(expInstr, exponentFloat, loc);
       return spvBuilder.createCompositeExtract(argType, frexp, {0}, loc);
     }
   }
@@ -7736,7 +7753,7 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
       }
       auto *exponentsResult =
           spvBuilder.createCompositeConstruct(returnType, exponents, loc);
-      spvBuilder.createStore(expInstr, exponentsResult);
+      spvBuilder.createStore(expInstr, exponentsResult, loc);
       return spvBuilder.createCompositeConstruct(returnType, mantissas,
                                                  callExpr->getLocEnd());
     }
@@ -8600,12 +8617,14 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
     auto *vecResult =
         spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type, value);
-    spvBuilder.createStore(
-        lowbits, spvBuilder.createCompositeExtract(uintType, vecResult, {0},
-                                                   arg0->getLocStart()));
-    spvBuilder.createStore(
-        highbits, spvBuilder.createCompositeExtract(uintType, vecResult, {1},
-                                                    arg0->getLocStart()));
+    spvBuilder.createStore(lowbits,
+                           spvBuilder.createCompositeExtract(
+                               uintType, vecResult, {0}, arg0->getLocStart()),
+                           callExpr->getExprLoc());
+    spvBuilder.createStore(highbits,
+                           spvBuilder.createCompositeExtract(
+                               uintType, vecResult, {1}, arg0->getLocStart()),
+                           callExpr->getExprLoc());
     return nullptr;
   }
   default:
@@ -8665,13 +8684,13 @@ SpirvEmitter::processIntrinsicSinCos(const CallExpr *callExpr) {
   auto *sin =
       processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Sin,
                                     /*actPerRowForMatrices*/ true, srcLoc);
-  spvBuilder.createStore(doExpr(callExpr->getArg(1)), sin);
+  spvBuilder.createStore(doExpr(callExpr->getArg(1)), sin, srcLoc);
 
   // Perform Cos and store results in argument 2.
   auto *cos =
       processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Cos,
                                     /*actPerRowForMatrices*/ true, srcLoc);
-  spvBuilder.createStore(doExpr(callExpr->getArg(2)), cos);
+  spvBuilder.createStore(doExpr(callExpr->getArg(2)), cos, srcLoc);
   return nullptr;
 }
 
@@ -9107,7 +9126,8 @@ SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
   auto tempLoad =
       spvBuilder.createLoad(hitAttributeArg->getType(), hitAttributeArgInst,
                             hitAttributeArg->getLocStart());
-  spvBuilder.createStore(hitAttributeStageVar, tempLoad);
+  spvBuilder.createStore(hitAttributeStageVar, tempLoad,
+                         callExpr->getExprLoc());
 
   // SPIR-V Instruction :
   // bool OpReportIntersection(<id> float Hit, <id> uint HitKind)
@@ -9165,7 +9185,7 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
   const auto callDataArgInst = declIdMapper.getDeclEvalInfo(callDataArg);
   auto tempLoad = spvBuilder.createLoad(callDataArg->getType(), callDataArgInst,
                                         callDataArg->getLocStart());
-  spvBuilder.createStore(callDataStageVar, tempLoad);
+  spvBuilder.createStore(callDataStageVar, tempLoad, callExpr->getExprLoc());
 
   // SPIR-V Instruction
   // void OpExecuteCallable(<id> int SBT Index, <id> uint Callable Data Location
@@ -9180,7 +9200,7 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
   // Copy data back to argument
   tempLoad = spvBuilder.createLoad(callDataArg->getType(), callDataStageVar,
                                    callDataArg->getLocStart());
-  spvBuilder.createStore(callDataArgInst, tempLoad);
+  spvBuilder.createStore(callDataArgInst, tempLoad, callExpr->getExprLoc());
   return;
 }
 void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
@@ -9255,7 +9275,7 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
   const auto payloadArgInst = declIdMapper.getDeclEvalInfo(payloadArg);
   auto tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadArgInst,
                                         payloadArg->getLocStart());
-  spvBuilder.createStore(payloadStageVar, tempLoad);
+  spvBuilder.createStore(payloadStageVar, tempLoad, callExpr->getExprLoc());
 
   // SPIR-V Instruction
   // void OpTraceNV ( <id> AccelerationStructureNV acStruct,
@@ -9287,7 +9307,7 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
   // Copy arguments back to stage variable
   tempLoad = spvBuilder.createLoad(payloadArg->getType(), payloadStageVar,
                                    payloadArg->getLocStart());
-  spvBuilder.createStore(payloadArgInst, tempLoad);
+  spvBuilder.createStore(payloadArgInst, tempLoad, callExpr->getExprLoc());
   return;
 }
 
@@ -9862,7 +9882,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     // resource objects
     else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
       auto *nullValue = spvBuilder.getConstantNull(varDecl->getType());
-      spvBuilder.createStore(varInfo, nullValue);
+      spvBuilder.createStore(varInfo, nullValue, varDecl->getLocation());
     }
   }
 
@@ -10067,7 +10087,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // resource objects
     else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
       auto *nullValue = spvBuilder.getConstantNull(varDecl->getType());
-      spvBuilder.createStore(varInfo, nullValue);
+      spvBuilder.createStore(varInfo, nullValue, varDecl->getLocation());
     }
   }
 
@@ -10100,7 +10120,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
       // Only initialize the temporary variable if the parameter is indeed used.
       if (param->isUsed()) {
-        spvBuilder.createStore(tempVar, loadedValue);
+        spvBuilder.createStore(tempVar, loadedValue, param->getLocation());
       }
 
       // Record the temporary variable holding SV_OutputControlPointID,
@@ -10221,7 +10241,8 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     auto *tempLocation = spvBuilder.createAccessChain(
         spvContext.getPointerType(retType, spv::StorageClass::Function),
         hullMainOutputPatch, {outputControlPointId});
-    spvBuilder.createStore(tempLocation, retVal);
+    spvBuilder.createStore(tempLocation, retVal,
+                           hullMainFuncDecl->getLocation());
   }
 
   // Now create a barrier before calling the Patch Constant Function (PCF).
@@ -10268,7 +10289,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
                                 param->hasAttr<HLSLPreciseAttr>());
         SpirvInstruction *loadedValue = nullptr;
         declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
-        spvBuilder.createStore(tempVar, loadedValue);
+        spvBuilder.createStore(tempVar, loadedValue, param->getLocation());
         return tempVar;
       };
 

@@ -585,7 +585,7 @@ SpirvInstruction *SpirvBuilder::createImageGather(
     // Write the Residency Code
     const auto status = createCompositeExtract(astContext.UnsignedIntTy,
                                                imageInstruction, {0}, loc);
-    createStore(residencyCode, status);
+    createStore(residencyCode, status, loc);
     // Extract the real result from the struct
     return createCompositeExtract(texelType, imageInstruction, {1}, loc);
   }

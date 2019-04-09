@@ -1799,8 +1799,9 @@ bool DeclResultIdMapper::createStageVars(
             clang::ArrayType::Normal, 0);
         for (uint32_t i = 0; i < tessFactorSize; ++i)
           components.push_back(spvBuilder.createCompositeExtract(
-              astContext.FloatTy, *value, {i}, loc));
-        *value = spvBuilder.createCompositeConstruct(arrType, components, loc);
+              astContext.FloatTy, *value, {i}, thisSemantic.loc));
+        *value = spvBuilder.createCompositeConstruct(arrType, components,
+                                                     thisSemantic.loc);
       }
       // Special handling of SV_InsideTessFactor DS patch constant input.
       // TessLevelInner is always an array of size 2 in SPIR-V, but
@@ -1811,12 +1812,13 @@ bool DeclResultIdMapper::createStageVars(
                // Some developers use float[1] instead of a scalar float.
                (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
         *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
-                                                   {0}, loc);
+                                                   {0}, thisSemantic.loc);
         if (type->isArrayType()) { // float[1]
           const auto arrType = astContext.getConstantArrayType(
               astContext.FloatTy, llvm::APInt(32, 1), clang::ArrayType::Normal,
               0);
-          *value = spvBuilder.createCompositeConstruct(arrType, {*value}, loc);
+          *value = spvBuilder.createCompositeConstruct(arrType, {*value},
+                                                       thisSemantic.loc);
         }
       }
       // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
@@ -1828,12 +1830,13 @@ bool DeclResultIdMapper::createStageVars(
         const auto domainLocSize = hlsl::GetHLSLVecSize(type);
         *value = spvBuilder.createVectorShuffle(
             astContext.getExtVectorType(astContext.FloatTy, domainLocSize),
-            *value, *value, {0, 1}, loc);
+            *value, *value, {0, 1}, thisSemantic.loc);
       }
       // Special handling of SV_Coverage, which is an uint value. We need to
       // read SampleMask and extract its first element.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        *value = spvBuilder.createCompositeExtract(type, *value, {0}, loc);
+        *value = spvBuilder.createCompositeExtract(type, *value, {0},
+                                                   thisSemantic.loc);
       }
       // Special handling of SV_InnerCoverage, which is an uint value. We need
       // to read FullyCoveredEXT, which is a boolean value, and convert it to an
@@ -1859,10 +1862,10 @@ bool DeclResultIdMapper::createStageVars(
       // underlying stage input variable is a float2 (only provides the first
       // two components). Calculate the third element.
       else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
-        const auto x = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                         *value, {0}, loc);
-        const auto y = spvBuilder.createCompositeExtract(astContext.FloatTy,
-                                                         *value, {1}, loc);
+        const auto x = spvBuilder.createCompositeExtract(
+            astContext.FloatTy, *value, {0}, thisSemantic.loc);
+        const auto y = spvBuilder.createCompositeExtract(
+            astContext.FloatTy, *value, {1}, thisSemantic.loc);
         const auto xy = spvBuilder.createBinaryOp(spv::Op::OpFAdd,
                                                   astContext.FloatTy, x, y);
         const auto z = spvBuilder.createBinaryOp(
@@ -1871,7 +1874,8 @@ bool DeclResultIdMapper::createStageVars(
                                         llvm::APFloat(1.0f)),
             xy);
         *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z}, loc);
+            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
+            thisSemantic.loc);
       }
       // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
       // be a uint or uint2, but the underlying stage input variable is a uint3.
@@ -1888,21 +1892,22 @@ bool DeclResultIdMapper::createStageVars(
             hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
         if (vecSize == 1)
           *value = spvBuilder.createCompositeExtract(srcVecElemType, *value,
-                                                     {0}, loc);
+                                                     {0}, thisSemantic.loc);
         else if (vecSize == 2)
           *value = spvBuilder.createVectorShuffle(
               astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
-              {0, 1}, loc);
+              {0, 1}, thisSemantic.loc);
       }
 
       // Reciprocate SV_Position.w if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertWIfRequested(*value, loc);
+        *value = invertWIfRequested(*value, thisSemantic.loc);
 
       // Since boolean stage input variables are represented as unsigned
       // integers, after loading them, we should cast them to boolean.
       if (isBooleanStageIOVar(decl, type, semanticKind, sigPoint->GetKind())) {
-        *value = theEmitter.castToType(*value, evalType, type, loc);
+        *value =
+            theEmitter.castToType(*value, evalType, type, thisSemantic.loc);
       }
     } else {
       if (noWriteBack)
@@ -1910,7 +1915,7 @@ bool DeclResultIdMapper::createStageVars(
 
       // Negate SV_Position.y if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertYIfRequested(*value, loc);
+        *value = invertYIfRequested(*value, thisSemantic.loc);
 
       SpirvInstruction *ptr = varInstr;
 
@@ -1929,8 +1934,10 @@ bool DeclResultIdMapper::createStageVars(
               {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                          llvm::APInt(32, i))});
           spvBuilder.createStore(
-              ptr, spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
-                                                     {i}, loc));
+              ptr,
+              spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {i},
+                                                thisSemantic.loc),
+              thisSemantic.loc);
         }
       }
       // Special handling of SV_InsideTessFactor HS patch constant output.
@@ -1949,8 +1956,8 @@ bool DeclResultIdMapper::createStageVars(
                                       llvm::APInt(32, 0)));
         if (type->isArrayType()) // float[1]
           *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
-                                                     {0}, loc);
-        spvBuilder.createStore(ptr, *value);
+                                                     {0}, thisSemantic.loc);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // Special handling of SV_Coverage, which is an unit value. We need to
       // write it to the first element in the SampleMask builtin.
@@ -1962,7 +1969,7 @@ bool DeclResultIdMapper::createStageVars(
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                       llvm::APInt(32, 0)));
         ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // Special handling of HS ouput, for which we write to only one
       // element in the per-vertex data array: the one indexed by
@@ -1977,18 +1984,19 @@ bool DeclResultIdMapper::createStageVars(
             spvContext.getPointerType(elementType, spv::StorageClass::Output),
             varInstr, index);
         ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // Since boolean output stage variables are represented as unsigned
       // integers, we must cast the value to uint before storing.
       else if (isBooleanStageIOVar(decl, type, semanticKind,
                                    sigPoint->GetKind())) {
-        *value = theEmitter.castToType(*value, type, evalType, loc);
-        spvBuilder.createStore(ptr, *value);
+        *value =
+            theEmitter.castToType(*value, type, evalType, thisSemantic.loc);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // For all normal cases
       else {
-        spvBuilder.createStore(ptr, *value);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
     }
 
@@ -2172,7 +2180,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
       value = theEmitter.castToType(value, type, uintType, loc);
     }
 
-    spvBuilder.createStore(found->second, value);
+    spvBuilder.createStore(found->second, value, loc);
     return true;
   }
 

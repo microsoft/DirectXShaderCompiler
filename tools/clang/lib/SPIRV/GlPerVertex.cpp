@@ -550,7 +550,7 @@ void GlPerVertex::writeClipCullArrayFromType(
                                                  llvm::APInt(32, offset));
       auto *ptr =
           spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
-      spvBuilder.createStore(ptr, fromValue);
+      spvBuilder.createStore(ptr, fromValue, loc);
       return;
     }
 
@@ -565,7 +565,7 @@ void GlPerVertex::writeClipCullArrayFromType(
             spvBuilder.createAccessChain(ptrType, clipCullVar, {constant});
         auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
                                                            fromValue, {i}, loc);
-        spvBuilder.createStore(ptr, subValue);
+        spvBuilder.createStore(ptr, subValue, loc);
       }
       return;
     }
@@ -596,7 +596,7 @@ void GlPerVertex::writeClipCullArrayFromType(
         ptrType, clipCullVar,
         {arrayIndex, spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                llvm::APInt(32, offset))});
-    spvBuilder.createStore(ptr, fromValue);
+    spvBuilder.createStore(ptr, fromValue, loc);
     return;
   }
 
@@ -613,7 +613,7 @@ void GlPerVertex::writeClipCullArrayFromType(
 
       auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
                                                          fromValue, {i}, loc);
-      spvBuilder.createStore(ptr, subValue);
+      spvBuilder.createStore(ptr, subValue, loc);
     }
     return;
   }
