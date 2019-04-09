@@ -2307,10 +2307,12 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     assert(isMat && rowCount == 2 && colCount == 2);
     (void)isMat;
     QualType vec2Type = astContext.getExtVectorType(elemType, 2);
-    auto *subVec1 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {0, 1});
-    auto *subVec2 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3});
+    auto *subVec1 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {0, 1},
+                                                   expr->getLocStart());
+    auto *subVec2 = spvBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3},
+                                                   expr->getLocStart());
     auto *mat = spvBuilder.createCompositeConstruct(toType, {subVec1, subVec2},
-                                                    expr->getLocEnd());
+                                                    expr->getLocStart());
     mat->setRValue();
     return mat;
   }
@@ -2360,7 +2362,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
           isVectorType(toType, nullptr, &dstVecSize)) {
         for (uint32_t i = 0; i < dstVecSize; ++i)
           indexes.push_back(i);
-        auto *val = spvBuilder.createVectorShuffle(toType, src, src, indexes);
+        auto *val = spvBuilder.createVectorShuffle(toType, src, src, indexes,
+                                                   expr->getLocStart());
         val->setRValue();
         return val;
       }
@@ -2386,10 +2389,10 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
       // If dstCols equals srcCols, we can use the whole row directly.
       if (dstCols == 1) {
         rowInstr = spvBuilder.createCompositeExtract(elemType, rowInstr, {0},
-                                                     expr->getExprLoc());
+                                                     expr->getLocStart());
       } else if (dstCols < srcCols) {
-        rowInstr = spvBuilder.createVectorShuffle(dstRowType, rowInstr,
-                                                  rowInstr, indexes);
+        rowInstr = spvBuilder.createVectorShuffle(
+            dstRowType, rowInstr, rowInstr, indexes, expr->getLocStart());
       }
       extractedVecs.push_back(rowInstr);
     }
@@ -4690,7 +4693,8 @@ SpirvEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
   auto *info = loadIfGLValue(baseExpr);
   // Use base for both vectors. But we are only selecting values from the
   // first one.
-  return spvBuilder.createVectorShuffle(expr->getType(), info, info, selectors);
+  return spvBuilder.createVectorShuffle(expr->getType(), info, info, selectors,
+                                        expr->getLocStart());
 }
 
 SpirvInstruction *SpirvEmitter::doInitListExpr(const InitListExpr *expr) {
@@ -5577,7 +5581,7 @@ void SpirvEmitter::splitVecLastElement(QualType vecType, SpirvInstruction *vec,
       indices.push_back(i);
 
     const QualType type = astContext.getExtVectorType(elemType, count - 1);
-    *residual = spvBuilder.createVectorShuffle(type, vec, vec, indices);
+    *residual = spvBuilder.createVectorShuffle(type, vec, vec, indices, loc);
   }
 
   *lastElement =
@@ -5606,7 +5610,7 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType structType,
 
       members.push_back(spvBuilder.createVectorShuffle(
           astContext.getExtVectorType(elemType, elemCount), vector, vector,
-          indices));
+          indices, loc));
     } else {
       assert(false && "unhandled type");
     }
@@ -5840,9 +5844,9 @@ SpirvEmitter::tryToAssignToVectorElements(const Expr *lhs,
   auto *vec1 = doExpr(base);
   auto *vec1Val = vec1->isRValue() ? vec1
                                    : spvBuilder.createLoad(baseType, vec1,
-                                                           base->getExprLoc());
-  auto *shuffle =
-      spvBuilder.createVectorShuffle(baseType, vec1Val, rhs, selectors);
+                                                           base->getLocStart());
+  auto *shuffle = spvBuilder.createVectorShuffle(baseType, vec1Val, rhs,
+                                                 selectors, lhs->getLocStart());
 
   if (!tryToAssignToRWBufferRWTexture(base, shuffle))
     spvBuilder.createStore(vec1, shuffle);
@@ -8573,15 +8577,16 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     if (argType->isUnsignedIntegerType()) {
       const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
       auto *operand = spvBuilder.createCompositeConstruct(
-          uintVec2Type, {lowbits, highbits}, callExpr->getExprLoc());
+          uintVec2Type, {lowbits, highbits}, callExpr->getLocStart());
       return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand);
     }
     // Handling Method 5
     else {
       const auto uintVec4Type = astContext.getExtVectorType(uintType, 4);
       const auto doubleVec2Type = astContext.getExtVectorType(doubleType, 2);
-      auto *operand = spvBuilder.createVectorShuffle(uintVec4Type, lowbits,
-                                                     highbits, {0, 2, 1, 3});
+      auto *operand =
+          spvBuilder.createVectorShuffle(uintVec4Type, lowbits, highbits,
+                                         {0, 2, 1, 3}, callExpr->getLocStart());
       return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleVec2Type,
                                       operand);
     }
@@ -8619,8 +8624,8 @@ SpirvEmitter::processD3DCOLORtoUBYTE4(const CallExpr *callExpr) {
   const auto arg = callExpr->getArg(0);
   auto *argId = doExpr(arg);
   const auto argType = arg->getType();
-  auto *swizzle =
-      spvBuilder.createVectorShuffle(argType, argId, argId, {2, 1, 0, 3});
+  auto *swizzle = spvBuilder.createVectorShuffle(
+      argType, argId, argId, {2, 1, 0, 3}, callExpr->getLocStart());
   auto *scaled = spvBuilder.createBinaryOp(
       spv::Op::OpVectorTimesScalar, argType, swizzle,
       spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(255.002f)));
@@ -10567,10 +10572,10 @@ SpirvInstruction *SpirvEmitter::extractVecFromVec4(SpirvInstruction *from,
     return spvBuilder.createCompositeExtract(retType, from, {0}, loc);
     break;
   case 2:
-    return spvBuilder.createVectorShuffle(retType, from, from, {0, 1});
+    return spvBuilder.createVectorShuffle(retType, from, from, {0, 1}, loc);
     break;
   case 3:
-    return spvBuilder.createVectorShuffle(retType, from, from, {0, 1, 2});
+    return spvBuilder.createVectorShuffle(retType, from, from, {0, 1, 2}, loc);
     break;
   case 4:
     return from;

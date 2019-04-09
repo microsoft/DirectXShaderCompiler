@@ -142,7 +142,7 @@ public:
                                           SpirvInstruction *vector1,
                                           SpirvInstruction *vector2,
                                           llvm::ArrayRef<uint32_t> selectors,
-                                          SourceLocation loc = {});
+                                          SourceLocation loc);
 
   /// \brief Creates a load instruction loading the value of the given
   /// <result-type> from the given pointer. Returns the instruction pointer for

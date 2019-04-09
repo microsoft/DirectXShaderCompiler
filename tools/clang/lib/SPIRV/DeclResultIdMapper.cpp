@@ -1828,7 +1828,7 @@ bool DeclResultIdMapper::createStageVars(
         const auto domainLocSize = hlsl::GetHLSLVecSize(type);
         *value = spvBuilder.createVectorShuffle(
             astContext.getExtVectorType(astContext.FloatTy, domainLocSize),
-            *value, *value, {0, 1});
+            *value, *value, {0, 1}, loc);
       }
       // Special handling of SV_Coverage, which is an uint value. We need to
       // read SampleMask and extract its first element.
@@ -1892,7 +1892,7 @@ bool DeclResultIdMapper::createStageVars(
         else if (vecSize == 2)
           *value = spvBuilder.createVectorShuffle(
               astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
-              {0, 1});
+              {0, 1}, loc);
       }
 
       // Reciprocate SV_Position.w if requested
