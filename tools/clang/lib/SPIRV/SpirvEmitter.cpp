@@ -6117,7 +6117,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
 SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
                                            QualType fromType,
                                            QualType toBoolType) {
-  if (isSameScalarOrVecType(fromType, toBoolType))
+  if (isSameScalarOrVecMatType(fromType, toBoolType))
     return fromVal;
 
   { // Special case handling for converting to a matrix of booleans.
@@ -6147,7 +6147,7 @@ SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
 SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
                                           QualType fromType, QualType toIntType,
                                           SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toIntType))
+  if (isSameScalarOrVecMatType(fromType, toIntType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
@@ -6254,7 +6254,7 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
                                             QualType fromType,
                                             QualType toFloatType,
                                             SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toFloatType))
+  if (isSameScalarOrVecMatType(fromType, toFloatType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {

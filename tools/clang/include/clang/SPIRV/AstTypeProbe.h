@@ -104,6 +104,10 @@ bool canTreatAsSameScalarType(QualType type1, QualType type2);
 /// regardless of constness and literalness.
 bool isSameScalarOrVecType(QualType type1, QualType type2);
 
+/// \brief Returns true if the two types are the same scalar or vector or matrix
+/// type, regardless of constness and literalness.
+bool isSameScalarOrVecMatType(QualType type1, QualType type2);
+
 /// \brief Returns true if the two types are the same type, regardless of
 /// constness and literalness.
 bool isSameType(const ASTContext &, QualType type1, QualType type2);

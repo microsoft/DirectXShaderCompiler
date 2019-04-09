@@ -312,9 +312,6 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
       uint32_t initRowCount = 0, initColCount = 0;
       hlsl::GetHLSLMatRowColCount(init->getAstResultType(), initRowCount,
                                   initColCount);
-      const QualType initElemType =
-          hlsl::GetHLSLMatElementType(init->getAstResultType());
-
       if (rowCount == initRowCount && colCount == initColCount) {
         initializers.pop_back();
         return theEmitter.castToType(init, init->getAstResultType(), matrixType,

@@ -624,6 +624,22 @@ bool isSameScalarOrVecType(QualType type1, QualType type2) {
   return false;
 }
 
+bool isSameScalarOrVecMatType(QualType type1, QualType type2) {
+  if (isSameScalarOrVecType(type1, type2))
+    return true;
+
+  { // Matrix types
+    QualType elemType1 = {}, elemType2 = {};
+    uint32_t row1 = 0, row2 = 0, col1 = 0, col2 = 0;
+    if (isMxNMatrix(type1, &elemType1, &row1, &col1) &&
+        isMxNMatrix(type2, &elemType2, &row2, &col2))
+      return row1 == row2 && col1 == col2 &&
+             canTreatAsSameScalarType(elemType1, elemType2);
+  }
+
+  return false;
+}
+
 bool isSameType(const ASTContext &astContext, QualType type1, QualType type2) {
   if (isSameScalarOrVecType(type1, type2))
     return true;
