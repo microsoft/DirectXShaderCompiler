@@ -8,6 +8,7 @@
 // CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // Texture types are currently 64 bits due to an implementation detail.
+// If this changes, this test can be safely updated.
 // CHECK-DAG: !DICompositeType(tag: DW_TAG_structure_type, name: "TexAndCoord", {{.*}}, size: 96, align: 32
 // CHECK-DAG: !DIDerivedType(tag: DW_TAG_member, name: "tex", scope: !53, {{.*}}, size: 64, align: 32
 // CHECK-DAG: !DIDerivedType(tag: DW_TAG_member, name: "u", scope: !53, {{.*}}, size: 32, align: 32, offset: 64
