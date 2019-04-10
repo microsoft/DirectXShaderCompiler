@@ -347,6 +347,7 @@ class CShaderReflectionType : public ID3D12ShaderReflectionType
 {
 protected:
   D3D12_SHADER_TYPE_DESC              m_Desc;
+  UINT                                m_SizeInCBuffer;
   std::string                         m_Name;
   std::vector<StringRef>              m_MemberNames;
   std::vector<CShaderReflectionType*> m_MemberTypes;
@@ -382,6 +383,8 @@ public:
   bool CheckEqual(_In_ CShaderReflectionType *pOther) {
     return m_Identity == pOther->m_Identity;
   }
+
+  UINT GetCBufferSize() { return m_SizeInCBuffer; }
 };
 
 class CShaderReflectionVariable : public ID3D12ShaderReflectionVariable
@@ -747,6 +750,13 @@ HRESULT CShaderReflectionType::Initialize(
   m_Desc.Columns = 0;
   m_Desc.Elements = 0;
   m_Desc.Members = 0;
+  m_SizeInCBuffer = 0;
+
+  // Used for calculating size later
+  unsigned cbRows = 1;
+  unsigned cbCols = 1;
+  unsigned cbCompSize = 4;    // or 8 for 64-bit types.
+  unsigned cbRowStride = 16;  // or 32 if 64-bit and cols > 2.
 
   // Extract offset relative to parent.
   // Note: the `baseOffset` is used in the case where the type in
@@ -818,6 +828,7 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   case hlsl::DXIL::ComponentType::I64:
+    cbCompSize = 8;
 #ifdef DBG
     OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'I64' being reflected as if 'I32'\n");
 #endif
@@ -827,6 +838,7 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   case hlsl::DXIL::ComponentType::U64:
+    cbCompSize = 8;
 #ifdef DBG
     OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'U64' being reflected as if 'U32'\n");
 #endif
@@ -852,6 +864,7 @@ HRESULT CShaderReflectionType::Initialize(
   case hlsl::DXIL::ComponentType::F64:
   case hlsl::DXIL::ComponentType::SNormF64:
   case hlsl::DXIL::ComponentType::UNormF64:
+    cbCompSize = 8;
     componentType = D3D_SVT_DOUBLE;
     m_Name = "double";
     break;
@@ -891,6 +904,12 @@ HRESULT CShaderReflectionType::Initialize(
     m_Desc.Rows = matrixAnnotation.Rows;
     m_Desc.Columns = matrixAnnotation.Cols;
     m_Name += std::to_string(matrixAnnotation.Rows) + "x" + std::to_string(matrixAnnotation.Cols);
+
+    cbRows = m_Desc.Rows;
+    cbCols = m_Desc.Columns;
+    if (m_Desc.Class == D3D_SVC_MATRIX_COLUMNS) {
+      std::swap(cbRows, cbCols);
+    }
   }
   else if( type->isVectorTy() )
   {
@@ -904,6 +923,9 @@ HRESULT CShaderReflectionType::Initialize(
     m_Desc.Columns = type->getVectorNumElements();
 
     m_Name += std::to_string(type->getVectorNumElements());
+
+    cbRows = m_Desc.Rows;
+    cbCols = m_Desc.Columns;
   }
   else if( type->isStructTy() )
   {
@@ -943,6 +965,8 @@ HRESULT CShaderReflectionType::Initialize(
       // `struct` type from the fields (see below)
       UINT columnCounter = 0;
 
+      CShaderReflectionType *fieldReflectionType = nullptr;
+
       for(unsigned int ff = 0; ff < fieldCount; ++ff)
       {
         DxilFieldAnnotation& fieldAnnotation = structAnnotation->GetFieldAnnotation(ff);
@@ -957,7 +981,7 @@ HRESULT CShaderReflectionType::Initialize(
           continue;
         }
 
-        CShaderReflectionType *fieldReflectionType = new CShaderReflectionType();
+        fieldReflectionType = new CShaderReflectionType();
         allTypes.push_back(std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
 
         fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, 0, allTypes);
@@ -977,6 +1001,15 @@ HRESULT CShaderReflectionType::Initialize(
       }
 
       m_Desc.Columns = columnCounter;
+
+      if (fieldReflectionType) {
+        // Set our size based on the last fields offset + size:
+        m_SizeInCBuffer = fieldReflectionType->m_Desc.Offset + fieldReflectionType->m_SizeInCBuffer;
+        if (m_Desc.Elements > 1) {
+          unsigned alignedSize = ((m_SizeInCBuffer + 15) & ~0xF);
+          m_SizeInCBuffer += (m_Desc.Elements - 1) * alignedSize;
+        }
+      }
 
       // Because we might have skipped fields during enumeration,
       // the `Members` count in the description might not be the same
@@ -1016,8 +1049,25 @@ HRESULT CShaderReflectionType::Initialize(
       m_Name = "dword";
       break;
     }
+
+    cbRows = 1;
+    cbCols = 1;
   }
   // TODO: are there other cases to be handled?
+
+  // Compute our cbuffer size for member reflection
+  switch (m_Desc.Class) {
+  case D3D_SVC_SCALAR:
+  case D3D_SVC_MATRIX_COLUMNS:
+  case D3D_SVC_MATRIX_ROWS:
+  case D3D_SVC_VECTOR:
+    if (m_Desc.Elements > 1)
+      cbRows = cbRows * m_Desc.Elements;
+    if (cbCompSize > 4 && cbCols > 2)
+      cbRowStride = 32;
+    m_SizeInCBuffer = cbRowStride * (cbRows - 1) + cbCompSize * cbCols;
+    break;
+  }
 
   m_Desc.Name = m_Name.c_str();
 
@@ -1050,7 +1100,6 @@ void CShaderReflectionConstantBuffer::Initialize(
     return;
 
   m_Desc.Variables = ST->getNumContainedTypes();
-  unsigned lastIndex = ST->getNumContainedTypes() - 1;
 
   for (unsigned i = 0; i < ST->getNumContainedTypes(); ++i) {
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(i);
@@ -1068,14 +1117,7 @@ void CShaderReflectionConstantBuffer::Initialize(
 
     VarDesc.Name = fieldAnnotation.GetFieldName().c_str();
     VarDesc.StartOffset = fieldAnnotation.GetCBufferOffset();
-    if (i < lastIndex) {
-      DxilFieldAnnotation &nextFieldAnnotation =
-          annotation->GetFieldAnnotation(i + 1);
-      VarDesc.Size = nextFieldAnnotation.GetCBufferOffset() - fieldAnnotation.GetCBufferOffset();
-    }
-    else {
-      VarDesc.Size = CB.GetSize() - fieldAnnotation.GetCBufferOffset();
-    }
+    VarDesc.Size = pVarType->GetCBufferSize();
     Var.Initialize(this, &VarDesc, pVarType, pDefaultValue);
     m_Variables.push_back(Var);
   }
