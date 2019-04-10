@@ -1039,7 +1039,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   auto *funcType = spvContext.getFunctionType(retType, paramTypes);
-  spvBuilder.beginFunction(retType, funcType, decl->getLocation(), funcName,
+  spvBuilder.beginFunction(retType, funcType, decl->getLocStart(), funcName,
                            decl->hasAttr<HLSLPreciseAttr>(), func);
 
   if (isNonStaticMemberFn) {
@@ -1561,8 +1561,7 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   // Process the <check> block
   const Expr *check = whileStmt->getCond();
-  spvBuilder.createBranch(checkBB,
-                          check ? check->getLocStart() : SourceLocation());
+  spvBuilder.createBranch(checkBB, whileStmt->getLocStart());
   spvBuilder.addSuccessor(checkBB);
   spvBuilder.setInsertPoint(checkBB);
 
@@ -1801,7 +1800,7 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   // Create the branch instruction. This will end the current basic block.
   const auto *then = ifStmt->getThen();
   spvBuilder.createConditionalBranch(condition, thenBB, elseBB,
-                                     ifStmt->getCond()->getLocEnd(), mergeBB,
+                                     then->getLocStart(), mergeBB,
                                      /*continue*/ 0, selectionControl);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
@@ -2144,11 +2143,11 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         if (const auto *refType = paramType->getAs<ReferenceType>())
           paramType = refType->getPointeeType();
         rhsVal =
-            castToType(rhsVal, arg->getType(), paramType, arg->getExprLoc());
+            castToType(rhsVal, arg->getType(), paramType, arg->getLocStart());
       }
 
       // Initialize the temporary variables using the contents of the arguments
-      storeValue(tempVar, rhsVal, param->getType(), arg->getExprLoc());
+      storeValue(tempVar, rhsVal, param->getType(), arg->getLocStart());
     }
   }
 
@@ -2193,7 +2192,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         auto paramType = param->getType();
         if (const auto *refType = paramType->getAs<ReferenceType>())
           paramType = refType->getPointeeType();
-        value = castToType(value, paramType, arg->getType(), arg->getExprLoc());
+        value = castToType(value, paramType, arg->getType(), arg->getLocStart());
       }
 
       processAssignment(arg, value, false, args[index]);
@@ -9973,7 +9972,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
   // Call the original entry function
   const QualType retType = decl->getReturnType();
   spvBuilder.createFunctionCall(retType, entryFuncInstr, params,
-                                decl->getLocation());
+                                decl->getLocStart());
 
   // Write certain output variables back
   if (sKind == hlsl::ShaderModel::Kind::ClosestHit ||
@@ -10016,7 +10015,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
   entryFunction = spvBuilder.beginFunction(
-      astContext.VoidTy, funcType, decl->getLocation(), decl->getName());
+      astContext.VoidTy, funcType, decl->getLocStart(), decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
@@ -10166,7 +10165,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Call the original entry function
   const QualType retType = decl->getReturnType();
   auto *retVal = spvBuilder.createFunctionCall(retType, entryFuncInstr, params,
-                                               decl->getLocation());
+                                               decl->getLocStart());
 
   // Create and write stage output variables for return value. Special case for
   // Hull shaders since they operate differently in 2 ways:
@@ -10349,7 +10348,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     }
   }
   auto *pcfResultId = spvBuilder.createFunctionCall(
-      pcfRetType, pcfId, {pcfParams}, hullMainFuncDecl->getLocation());
+      pcfRetType, pcfId, {pcfParams}, hullMainFuncDecl->getLocStart());
   if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
                                          /*forPCF*/ true))
     return false;

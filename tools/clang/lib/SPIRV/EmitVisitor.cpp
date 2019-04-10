@@ -128,8 +128,8 @@ void EmitVisitor::emitDebugLine(const SourceLocation &loc) {
   }
 
   const auto &sm = astContext.getSourceManager();
-  uint32_t line = sm.getPresumedLineNumber(loc);
-  uint32_t column = sm.getPresumedColumnNumber(loc);
+  uint32_t line = sm.getSpellingLineNumber(loc);
+  uint32_t column = sm.getSpellingColumnNumber(loc);
 
   if (!line || !column)
     return;
