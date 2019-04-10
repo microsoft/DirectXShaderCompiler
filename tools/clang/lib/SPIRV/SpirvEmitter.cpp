@@ -2146,6 +2146,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
   const Expr *subExpr = expr->getSubExpr();
   const QualType subExprType = subExpr->getType();
   const QualType toType = expr->getType();
+  const auto srcLoc = expr->getExprLoc();
 
   switch (expr->getCastKind()) {
   case CastKind::CK_LValueToRValue:
@@ -2343,9 +2344,32 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLMatrixToVectorCast: {
-    // The underlying should already be a matrix of 1xN.
-    assert(is1xNMatrix(subExprType) || isMx1Matrix(subExprType));
-    return doExpr(subExpr);
+    // If the underlying matrix is Mx1 or 1xM for M in {1, 2,3,4}, we can return
+    // the underlying matrix because it'll be evaluated as a vector by default.
+    if (is1x1Matrix(subExprType) || is1xNMatrix(subExprType) ||
+        isMx1Matrix(subExprType))
+      return doExpr(subExpr);
+
+    // A vector can have no more than 4 elements. The only remaining case
+    // is casting from a 2x2 matrix to a vector of size 4.
+
+    auto *mat = loadIfGLValue(subExpr);
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0, elemCount = 0;
+    const bool isMat =
+        isMxNMatrix(subExprType, &elemType, &rowCount, &colCount);
+    const bool isVec = isVectorType(toType, nullptr, &elemCount);
+    assert(isMat && rowCount == 2 && colCount == 2);
+    assert(isVec && elemCount == 4);
+    (void)isMat;
+    (void)isVec;
+    QualType vec2Type = astContext.getExtVectorType(elemType, 2);
+    auto *row0 = spvBuilder.createCompositeExtract(vec2Type, mat, {0}, srcLoc);
+    auto *row1 = spvBuilder.createCompositeExtract(vec2Type, mat, {1}, srcLoc);
+    auto *vec = spvBuilder.createVectorShuffle(toType, row0, row1, {0, 1, 2, 3},
+                                               srcLoc);
+    vec->setRValue();
+    return vec;
   }
   case CastKind::CK_FunctionToPointerDecay:
     // Just need to return the function id
