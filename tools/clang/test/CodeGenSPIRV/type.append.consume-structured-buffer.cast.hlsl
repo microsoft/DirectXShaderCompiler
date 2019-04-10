@@ -30,6 +30,9 @@ AppendStructuredBuffer<int> append_int;
 RWStructuredBuffer<bool> rw_bool;
 RWStructuredBuffer<bool2> rw_v2bool;
 
+ConsumeStructuredBuffer<float2x2> consume_float2x2;
+AppendStructuredBuffer<float4> append_v4float;
+
 void main() {
 // CHECK:       [[p_0:%\d+]] = OpAccessChain %_ptr_Uniform_uint %append_bool %uint_0 {{%\d+}}
 
@@ -360,4 +363,12 @@ void main() {
 // CHECK-NEXT: [[bi_61:%\d+]] = OpSelect %float [[b_61]] %float_1 %float_0
 // CHECK-NEXT:                  OpStore {{%\d+}} [[bi_61]]
   append_float.Append(rw_v2bool[0].x);
+
+// CHECK:      [[matPtr:%\d+]] = OpAccessChain %_ptr_Uniform_mat2v2float %consume_float2x2 %uint_0 %459
+// CHECK-NEXT:    [[mat:%\d+]] = OpLoad %mat2v2float [[matPtr]]
+// CHECK-NEXT:   [[row0:%\d+]] = OpCompositeExtract %v2float [[mat]] 0
+// CHECK-NEXT:   [[row1:%\d+]] = OpCompositeExtract %v2float [[mat]] 1
+// CHECK-NEXT:   [[vec4:%\d+]] = OpVectorShuffle %v4float [[row0]] [[row1]] 0 1 2 3
+// CHECK-NEXT:                   OpStore {{%\d+}} [[vec4]]
+  append_v4float.Append(consume_float2x2.Consume());
 }
