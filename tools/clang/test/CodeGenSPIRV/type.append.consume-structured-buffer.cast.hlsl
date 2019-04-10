@@ -364,7 +364,7 @@ void main() {
 // CHECK-NEXT:                  OpStore {{%\d+}} [[bi_61]]
   append_float.Append(rw_v2bool[0].x);
 
-// CHECK:      [[matPtr:%\d+]] = OpAccessChain %_ptr_Uniform_mat2v2float %consume_float2x2 %uint_0 %459
+// CHECK:      [[matPtr:%\d+]] = OpAccessChain %_ptr_Uniform_mat2v2float %consume_float2x2 %uint_0 {{%\d+}}
 // CHECK-NEXT:    [[mat:%\d+]] = OpLoad %mat2v2float [[matPtr]]
 // CHECK-NEXT:   [[row0:%\d+]] = OpCompositeExtract %v2float [[mat]] 0
 // CHECK-NEXT:   [[row1:%\d+]] = OpCompositeExtract %v2float [[mat]] 1
