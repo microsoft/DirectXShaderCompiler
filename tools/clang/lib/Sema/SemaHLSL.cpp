@@ -8153,7 +8153,8 @@ bool HLSLExternalSource::CanConvert(
         sourceSingleElementBuiltinType = hlsl::GetElementTypeOrType(source)->getAs<BuiltinType>();
       }
 
-      if (sourceSingleElementBuiltinType != nullptr) {
+      // We can only splat to target types that do not contain object/resource types
+      if (sourceSingleElementBuiltinType != nullptr && hlsl::IsHLSLNumericOrAggregateOfNumericType(target)) {
         BuiltinType::Kind kind = sourceSingleElementBuiltinType->getKind();
         switch (kind) {
         case BuiltinType::Kind::UInt:

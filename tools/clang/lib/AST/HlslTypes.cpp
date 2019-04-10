@@ -91,14 +91,14 @@ bool IsHLSLVecType(clang::QualType type) {
   return false;
 }
 
-static bool IsHLSLNumeric(clang::QualType type) {
+bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
       return true;
     return IsHLSLNumericUserDefinedType(type);
   } else if (type->isArrayType()) {
-    return IsHLSLNumeric(QualType(type->getArrayElementTypeNoTypeQual(), 0));
+    return IsHLSLNumericOrAggregateOfNumericType(QualType(type->getArrayElementTypeNoTypeQual(), 0));
   }
   return Ty->isBuiltinType();
 }
@@ -117,7 +117,7 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
         name == "RaytracingAccelerationStructure")
       return false;
     for (auto member : RD->fields()) {
-      if (!IsHLSLNumeric(member->getType()))
+      if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
         return false;
     }
     return true;
