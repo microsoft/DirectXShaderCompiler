@@ -417,6 +417,9 @@ TEST_F(FileTest, CastFlatConversionDecomposeVector) {
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
 }
+TEST_F(FileTest, CastMatrixToVector) {
+  runFileTest("cast.mat-to-vec.hlsl");
+}
 TEST_F(FileTest, CastBitwidth) { runFileTest("cast.bitwidth.hlsl"); }
 
 TEST_F(FileTest, CastLiteralTypeForArraySubscript) {
