@@ -1513,16 +1513,9 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   bool AlignIsRequired = false;
   // HLSL Change Starts
   if (getLangOpts().HLSL) {
-    QualType QualTy(T, 0);
     if (const ExtVectorType *Ty =
-            hlsl::ConvertHLSLVecMatTypeToExtVectorType(*this, QualTy)) {
+            hlsl::ConvertHLSLVecMatTypeToExtVectorType(*this, QualType(T, 0))) {
       T = Ty;
-    }
-    else if (hlsl::IsHLSLResourceType(QualTy) || hlsl::IsHLSLStreamOutputType(QualTy)) {
-      // Lie that those are pointer-sized.
-      // We don't know how big they will be on the target architecture.
-      // And the fields we stuff into those structures are irrelevant.
-      T = getIntPtrType().getTypePtr();
     }
   }
   // HLSL Change Ends
