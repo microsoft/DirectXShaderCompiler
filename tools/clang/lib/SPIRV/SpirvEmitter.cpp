@@ -3969,14 +3969,16 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
   case IntrinsicOp::MOP_IncrementCounter:
-    retVal = spvBuilder.createUnaryOp(
-        spv::Op::OpBitcast, astContext.UnsignedIntTy,
-        incDecRWACSBufferCounter(expr, /*isInc*/ true));
+    retVal =
+        spvBuilder.createUnaryOp(spv::Op::OpBitcast, astContext.UnsignedIntTy,
+                                 incDecRWACSBufferCounter(expr, /*isInc*/ true),
+                                 expr->getCallee()->getExprLoc());
     break;
   case IntrinsicOp::MOP_DecrementCounter:
     retVal = spvBuilder.createUnaryOp(
         spv::Op::OpBitcast, astContext.UnsignedIntTy,
-        incDecRWACSBufferCounter(expr, /*isInc*/ false));
+        incDecRWACSBufferCounter(expr, /*isInc*/ false),
+        expr->getCallee()->getExprLoc());
     break;
   case IntrinsicOp::MOP_Append:
     if (hlsl::IsHLSLStreamOutputType(
@@ -4812,15 +4814,16 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     }
   }
   case UO_Not: {
-    subValue = spvBuilder.createUnaryOp(spv::Op::OpNot, subType, subValue);
+    subValue = spvBuilder.createUnaryOp(spv::Op::OpNot, subType, subValue,
+                                        expr->getOperatorLoc());
     subValue->setRValue();
     return subValue;
   }
   case UO_LNot: {
     // Parsing will do the necessary casting to make sure we are applying the
     // ! operator on boolean values.
-    subValue =
-        spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, subType, subValue);
+    subValue = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, subType,
+                                        subValue, expr->getOperatorLoc());
     subValue->setRValue();
     return subValue;
   }
@@ -4831,7 +4834,8 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     // SPIR-V have two opcodes for negating values: OpSNegate and OpFNegate.
     const spv::Op spvOp = isFloatOrVecOfFloatType(subType) ? spv::Op::OpFNegate
                                                            : spv::Op::OpSNegate;
-    subValue = spvBuilder.createUnaryOp(spvOp, subType, subValue);
+    subValue = spvBuilder.createUnaryOp(spvOp, subType, subValue,
+                                        expr->getOperatorLoc());
     subValue->setRValue();
     return subValue;
   }
@@ -6320,22 +6324,24 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
     QualType convertedType = {};
-    fromVal = convertBitwidth(fromVal, fromType, toIntType, &convertedType);
+    fromVal =
+        convertBitwidth(fromVal, srcLoc, fromType, toIntType, &convertedType);
     // If bitwidth conversion was the only thing we needed to do, we're done.
     if (isSameScalarOrVecType(convertedType, toIntType))
       return fromVal;
-    return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toIntType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toIntType, fromVal,
+                                    srcLoc);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
-    fromVal = convertBitwidth(fromVal, fromType, toIntType);
+    fromVal = convertBitwidth(fromVal, srcLoc, fromType, toIntType);
     if (isSintOrVecOfSintType(toIntType)) {
       return spvBuilder.createUnaryOp(spv::Op::OpConvertFToS, toIntType,
-                                      fromVal);
+                                      fromVal, srcLoc);
     } else if (isUintOrVecOfUintType(toIntType)) {
       return spvBuilder.createUnaryOp(spv::Op::OpConvertFToU, toIntType,
-                                      fromVal);
+                                      fromVal, srcLoc);
     } else {
       emitError("casting from floating point to integer unimplemented", srcLoc);
     }
@@ -6377,6 +6383,7 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
 }
 
 SpirvInstruction *SpirvEmitter::convertBitwidth(SpirvInstruction *fromVal,
+                                                SourceLocation loc,
                                                 QualType fromType,
                                                 QualType toType,
                                                 QualType *resultType) {
@@ -6403,11 +6410,14 @@ SpirvInstruction *SpirvEmitter::convertBitwidth(SpirvInstruction *fromVal,
     *resultType = targetType;
 
   if (isFloatOrVecOfFloatType(fromType))
-    return spvBuilder.createUnaryOp(spv::Op::OpFConvert, targetType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpFConvert, targetType, fromVal,
+                                    loc);
   if (isSintOrVecOfSintType(fromType))
-    return spvBuilder.createUnaryOp(spv::Op::OpSConvert, targetType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpSConvert, targetType, fromVal,
+                                    loc);
   if (isUintOrVecOfUintType(fromType))
-    return spvBuilder.createUnaryOp(spv::Op::OpUConvert, targetType, fromVal);
+    return spvBuilder.createUnaryOp(spv::Op::OpUConvert, targetType, fromVal,
+                                    loc);
   llvm_unreachable("invalid type passed to convertBitwidth");
 }
 
@@ -6426,21 +6436,21 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
 
   if (isSintOrVecOfSintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
-    fromVal = convertBitwidth(fromVal, fromType, toFloatType);
+    fromVal = convertBitwidth(fromVal, srcLoc, fromType, toFloatType);
     return spvBuilder.createUnaryOp(spv::Op::OpConvertSToF, toFloatType,
-                                    fromVal);
+                                    fromVal, srcLoc);
   }
 
   if (isUintOrVecOfUintType(fromType)) {
     // First convert the source to the bitwidth of the destination if necessary.
-    fromVal = convertBitwidth(fromVal, fromType, toFloatType);
+    fromVal = convertBitwidth(fromVal, srcLoc, fromType, toFloatType);
     return spvBuilder.createUnaryOp(spv::Op::OpConvertUToF, toFloatType,
-                                    fromVal);
+                                    fromVal, srcLoc);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
     // This is the case of float to float conversion with different bitwidths.
-    return convertBitwidth(fromVal, fromType, toFloatType);
+    return convertBitwidth(fromVal, srcLoc, fromType, toFloatType);
   }
 
   // Casting matrix types
@@ -7199,8 +7209,8 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
         spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                   llvm::APInt(32, i * 8)),
         /*count*/ uint8, /*isSigned*/ false, loc));
-    signedRefBytes.push_back(
-        spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refBytes.back()));
+    signedRefBytes.push_back(spvBuilder.createUnaryOp(
+        spv::Op::OpBitcast, intType, refBytes.back(), loc));
     isRefByteZero.push_back(spvBuilder.createBinaryOp(
         spv::Op::OpIEqual, boolType, refBytes.back(), uint0));
   }
@@ -7215,14 +7225,15 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
                                     llvm::APInt(32, 8 * byteCount)),
           /*count*/ uint8, /*isSigned*/ false, loc);
       auto *signedSrcByte =
-          spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
+          spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte, loc);
       auto *sub = spvBuilder.createBinaryOp(
           spv::Op::OpISub, intType, signedRefBytes[byteCount], signedSrcByte);
       auto *absSub = spvBuilder.createExtInst(
           intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub}, loc);
       auto *diff = spvBuilder.createSelect(
           uintType, isRefByteZero[byteCount], uint0,
-          spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub), loc);
+          spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub, loc),
+          loc);
 
       // As pointed out by the DXIL reference above, it is *not* required to
       // saturate the output to UINT_MAX in case of overflow. Wrapping around is
@@ -7695,7 +7706,7 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   const Expr *arg = callExpr->getArg(0);
   const auto argType = arg->getType();
   const auto returnType = callExpr->getType();
-  const auto loc = callExpr->getLocStart();
+  const auto loc = callExpr->getExprLoc();
   auto *argInstr = doExpr(arg);
   auto *expInstr = doExpr(callExpr->getArg(1));
 
@@ -7720,8 +7731,8 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
       // Since the SPIR-V instruction returns an int, and the intrinsic HLSL
       // expects a float, an conversion must take place before writing the
       // results.
-      auto *exponentFloat = spvBuilder.createUnaryOp(spv::Op::OpConvertSToF,
-                                                     returnType, exponentInt);
+      auto *exponentFloat = spvBuilder.createUnaryOp(
+          spv::Op::OpConvertSToF, returnType, exponentInt, loc);
       spvBuilder.createStore(expInstr, exponentFloat, loc);
       return spvBuilder.createCompositeExtract(argType, frexp, {0}, loc);
     }
@@ -7753,8 +7764,8 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
         // Since the SPIR-V instruction returns an int, and the intrinsic HLSL
         // expects a float, an conversion must take place before writing the
         // results.
-        auto *exponentFloat = spvBuilder.createUnaryOp(spv::Op::OpConvertSToF,
-                                                       colType, exponentInt);
+        auto *exponentFloat = spvBuilder.createUnaryOp(
+            spv::Op::OpConvertSToF, colType, exponentInt, loc);
         exponents.push_back(exponentFloat);
         mantissas.push_back(
             spvBuilder.createCompositeExtract(colType, frexp, {0}, loc));
@@ -7871,7 +7882,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
         astContext.getExtVectorType(boolType, elemCount);
     auto *cmp = spvBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, boolVecType,
                                           argInstr, zero);
-    condition = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp);
+    condition = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp, loc);
   } else if (isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
     const auto floatVecType = astContext.getExtVectorType(elemType, colCount);
     auto *elemZero = getValueZero(elemType);
@@ -7884,13 +7895,14 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
       const auto boolColType = astContext.getExtVectorType(boolType, colCount);
       auto *cmp = spvBuilder.createBinaryOp(spv::Op::OpFOrdLessThan,
                                             boolColType, lhsVec, zero);
-      auto *any = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp);
+      auto *any = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp, loc);
       cmpResults.push_back(any);
     }
     const auto boolRowType = astContext.getExtVectorType(boolType, rowCount);
     auto *results =
         spvBuilder.createCompositeConstruct(boolRowType, cmpResults, loc);
-    condition = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
+    condition =
+        spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, results, loc);
   } else {
     emitError("invalid argument type passed to clip intrinsic function", loc);
     return nullptr;
@@ -8464,6 +8476,7 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   const QualType returnType = callExpr->getType();
   const Expr *arg = callExpr->getArg(0);
   const QualType argType = arg->getType();
+  const auto loc = callExpr->getExprLoc();
 
   // Handle scalars, vectors of size 1, and 1x1 matrices as arguments.
   // Optimization: can directly cast them to boolean. No need for OpAny/OpAll.
@@ -8472,7 +8485,7 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
     if (isScalarType(argType, &scalarType) &&
         (scalarType->isBooleanType() || scalarType->isFloatingType() ||
          scalarType->isIntegerType()))
-      return castToBool(doExpr(arg), argType, returnType, arg->getLocStart());
+      return castToBool(doExpr(arg), argType, returnType, loc);
   }
 
   // Handle vectors larger than 1, Mx1 matrices, and 1xN matrices as arguments.
@@ -8484,8 +8497,8 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
       const QualType castToBoolType =
           astContext.getExtVectorType(returnType, size);
       auto *castedToBool =
-          castToBool(doExpr(arg), argType, castToBoolType, arg->getLocStart());
-      return spvBuilder.createUnaryOp(spvOp, returnType, castedToBool);
+          castToBool(doExpr(arg), argType, castToBoolType, loc);
+      return spvBuilder.createUnaryOp(spvOp, returnType, castedToBool, loc);
     }
   }
 
@@ -8510,16 +8523,16 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
                                       rowBoolQualType, arg->getLocStart());
         // Perform OpAny/OpAll on the boolean vector.
         rowResults.push_back(
-            spvBuilder.createUnaryOp(spvOp, returnType, rowBoolVec));
+            spvBuilder.createUnaryOp(spvOp, returnType, rowBoolVec, loc));
       }
       // Create a new vector that is the concatenation of results of all rows.
       const QualType vecOfBools =
           astContext.getExtVectorType(astContext.BoolTy, matRowCount);
-      auto *row = spvBuilder.createCompositeConstruct(vecOfBools, rowResults,
-                                                      callExpr->getExprLoc());
+      auto *row =
+          spvBuilder.createCompositeConstruct(vecOfBools, rowResults, loc);
 
       // Run OpAny/OpAll on the newly-created vector.
-      return spvBuilder.createUnaryOp(spvOp, returnType, row);
+      return spvBuilder.createUnaryOp(spvOp, returnType, row, loc);
     }
   }
 
@@ -8563,6 +8576,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   const uint32_t numArgs = callExpr->getNumArgs();
   const Expr *arg0 = callExpr->getArg(0);
   const QualType argType = arg0->getType();
+  const auto loc = callExpr->getExprLoc();
 
   // Method 3 return type may be the same as arg type, so it would be a no-op.
   if (isSameType(astContext, returnType, argType))
@@ -8576,7 +8590,8 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     uint32_t numRows = 0, numCols = 0;
     // For non-matrix arguments (scalar or vector), just do an OpBitCast.
     if (!isMxNMatrix(argType, &fromElemType, &numRows, &numCols)) {
-      return spvBuilder.createUnaryOp(spv::Op::OpBitcast, returnType, argInstr);
+      return spvBuilder.createUnaryOp(spv::Op::OpBitcast, returnType, argInstr,
+                                      loc);
     }
 
     // Input or output type is a matrix.
@@ -8587,11 +8602,10 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     for (uint32_t row = 0; row < numRows; ++row) {
       auto *rowInstr = spvBuilder.createCompositeExtract(
           fromVecType, argInstr, {row}, arg0->getLocStart());
-      castedRows.push_back(
-          spvBuilder.createUnaryOp(spv::Op::OpBitcast, toVecType, rowInstr));
+      castedRows.push_back(spvBuilder.createUnaryOp(spv::Op::OpBitcast,
+                                                    toVecType, rowInstr, loc));
     }
-    return spvBuilder.createCompositeConstruct(returnType, castedRows,
-                                               callExpr->getLocStart());
+    return spvBuilder.createCompositeConstruct(returnType, castedRows, loc);
   }
   case 2: {
     auto *lowbits = doExpr(arg0);
@@ -8602,18 +8616,18 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     if (argType->isUnsignedIntegerType()) {
       const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
       auto *operand = spvBuilder.createCompositeConstruct(
-          uintVec2Type, {lowbits, highbits}, callExpr->getLocStart());
-      return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand);
+          uintVec2Type, {lowbits, highbits}, loc);
+      return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand,
+                                      loc);
     }
     // Handling Method 5
     else {
       const auto uintVec4Type = astContext.getExtVectorType(uintType, 4);
       const auto doubleVec2Type = astContext.getExtVectorType(doubleType, 2);
-      auto *operand =
-          spvBuilder.createVectorShuffle(uintVec4Type, lowbits, highbits,
-                                         {0, 2, 1, 3}, callExpr->getLocStart());
+      auto *operand = spvBuilder.createVectorShuffle(
+          uintVec4Type, lowbits, highbits, {0, 2, 1, 3}, loc);
       return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleVec2Type,
-                                      operand);
+                                      operand, loc);
     }
   }
   case 3: {
@@ -8624,20 +8638,19 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     const auto uintType = astContext.UnsignedIntTy;
     const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
     auto *vecResult =
-        spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type, value);
+        spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type, value, loc);
     spvBuilder.createStore(lowbits,
                            spvBuilder.createCompositeExtract(
                                uintType, vecResult, {0}, arg0->getLocStart()),
-                           callExpr->getExprLoc());
+                           loc);
     spvBuilder.createStore(highbits,
                            spvBuilder.createCompositeExtract(
                                uintType, vecResult, {1}, arg0->getLocStart()),
-                           callExpr->getExprLoc());
+                           loc);
     return nullptr;
   }
   default:
-    emitError("unrecognized signature for %0 intrinsic function",
-              callExpr->getExprLoc())
+    emitError("unrecognized signature for %0 intrinsic function", loc)
         << callExpr->getDirectCallee()->getName();
     return nullptr;
   }
@@ -8667,14 +8680,15 @@ SpirvEmitter::processIntrinsicIsFinite(const CallExpr *callExpr) {
   // isFinite = !(isNan || isInf)
   const auto arg = doExpr(callExpr->getArg(0));
   const auto returnType = callExpr->getType();
+  const auto loc = callExpr->getExprLoc();
   const auto isNan =
-      spvBuilder.createUnaryOp(spv::Op::OpIsNan, returnType, arg);
+      spvBuilder.createUnaryOp(spv::Op::OpIsNan, returnType, arg, loc);
   const auto isInf =
-      spvBuilder.createUnaryOp(spv::Op::OpIsInf, returnType, arg);
+      spvBuilder.createUnaryOp(spv::Op::OpIsInf, returnType, arg, loc);
   const auto isNanOrInf =
       spvBuilder.createBinaryOp(spv::Op::OpLogicalOr, returnType, isNan, isInf);
-  return spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, returnType,
-                                  isNanOrInf);
+  return spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, returnType, isNanOrInf,
+                                  loc);
 }
 
 SpirvInstruction *
@@ -8877,7 +8891,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
       break;
     }
 
-  const auto loc = callExpr->getLocStart();
+  const auto loc = callExpr->getExprLoc();
   const QualType returnType = callExpr->getType();
   if (callExpr->getNumArgs() == 1u) {
     const Expr *arg = callExpr->getArg(0);
@@ -8893,7 +8907,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
       };
       return processEachVectorInMatrix(arg, argId, actOnEachVec, loc);
     }
-    return spvBuilder.createUnaryOp(opcode, returnType, argId);
+    return spvBuilder.createUnaryOp(opcode, returnType, argId, loc);
   } else if (callExpr->getNumArgs() == 2u) {
     const Expr *arg0 = callExpr->getArg(0);
     auto *arg0Id = doExpr(arg0);
@@ -9014,6 +9028,7 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
                                                    hlsl::IntrinsicOp op) {
   spv::BuiltIn builtin = spv::BuiltIn::Max;
   bool transposeMatrix = false;
+  const auto loc = callExpr->getExprLoc();
   switch (op) {
   case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
     builtin = spv::BuiltIn::LaunchSizeNV;
@@ -9065,7 +9080,7 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     builtin = spv::BuiltIn::WorldToObjectNV;
     break;
   default:
-    emitError("ray intrinsic function unimplemented", callExpr->getExprLoc());
+    emitError("ray intrinsic function unimplemented", loc);
     return nullptr;
   }
 
@@ -9085,11 +9100,11 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
                                     templateDecl, astContext.FloatTy, 4, 3);
   }
   SpirvInstruction *retVal =
-      declIdMapper.getBuiltinVar(builtin, builtinType, callExpr->getExprLoc());
-  retVal = spvBuilder.createLoad(builtinType, retVal, callExpr->getExprLoc());
+      declIdMapper.getBuiltinVar(builtin, builtinType, loc);
+  retVal = spvBuilder.createLoad(builtinType, retVal, loc);
   if (transposeMatrix)
     retVal = spvBuilder.createUnaryOp(spv::Op::OpTranspose, callExpr->getType(),
-                                      retVal);
+                                      retVal, loc);
   return retVal;
 }
 

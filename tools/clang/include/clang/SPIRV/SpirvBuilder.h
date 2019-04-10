@@ -179,8 +179,7 @@ public:
   /// \brief Creates a unary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
   SpirvUnaryOp *createUnaryOp(spv::Op op, QualType resultType,
-                              SpirvInstruction *operand,
-                              SourceLocation loc = {});
+                              SpirvInstruction *operand, SourceLocation loc);
 
   /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.

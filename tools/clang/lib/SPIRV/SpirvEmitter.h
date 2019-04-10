@@ -315,8 +315,8 @@ private:
   /// If resultType is not nullptr, the resulting value's type will be written
   /// to resultType. Panics if the given types are not scalar or vector of
   /// float/integer type.
-  SpirvInstruction *convertBitwidth(SpirvInstruction *value, QualType fromType,
-                                    QualType toType,
+  SpirvInstruction *convertBitwidth(SpirvInstruction *value, SourceLocation loc,
+                                    QualType fromType, QualType toType,
                                     QualType *resultType = nullptr);
 
   /// Processes the given expr, casts the result into the given bool (vector)

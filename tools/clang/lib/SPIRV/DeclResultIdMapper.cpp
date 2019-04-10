@@ -2233,8 +2233,8 @@ DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
   if (spirvOptions.invertY) {
     const auto oldY = spvBuilder.createCompositeExtract(astContext.FloatTy,
                                                         position, {1}, loc);
-    const auto newY =
-        spvBuilder.createUnaryOp(spv::Op::OpFNegate, astContext.FloatTy, oldY);
+    const auto newY = spvBuilder.createUnaryOp(spv::Op::OpFNegate,
+                                               astContext.FloatTy, oldY, loc);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
         loc);
