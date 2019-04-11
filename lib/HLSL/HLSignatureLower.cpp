@@ -326,6 +326,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
     case DXIL::SemanticInterpretationKind::Target:
     case DXIL::SemanticInterpretationKind::TessFactor:
     case DXIL::SemanticInterpretationKind::NotPacked:
+    case DXIL::SemanticInterpretationKind::ClipCull:
       // Will be replaced with load/store intrinsics in
       // GenerateDxilInputsOutputs
       break;
