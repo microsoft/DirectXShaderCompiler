@@ -20,10 +20,10 @@
 
 // CHECK-DAG: !DILocalVariable(tag: DW_TAG_auto_variable, name: "var"
 
-// ![[i1expr]] = !DIExpression(DW_OP_bit_piece, 0, 32)
-// ![[f1expr]] = !DIExpression(DW_OP_bit_piece, 32, 32)
-// ![[i2expr]] = !DIExpression(DW_OP_bit_piece, 64, 32)
-// ![[f2expr]] = !DIExpression(DW_OP_bit_piece, 96, 32)
+// CHECK-DAG: ![[i1expr]] = !DIExpression(DW_OP_bit_piece, 0, 32)
+// CHECK-DAG: ![[f1expr]] = !DIExpression(DW_OP_bit_piece, 32, 32)
+// CHECK-DAG: ![[i2expr]] = !DIExpression(DW_OP_bit_piece, 64, 32)
+// CHECK-DAG: ![[f2expr]] = !DIExpression(DW_OP_bit_piece, 96, 32)
 
 struct intfloat { int i; float f; };
 
