@@ -1789,6 +1789,7 @@ class db_dxil(object):
             (6, "Target", "Special handling for SV_Target"),
             (7, "TessFactor", "Special handling for tessellation factors"),
             (8, "Shadow", "Shadow element must be added to a signature for compatibility"),
+            (8, "ClipCull", "Special packing rules for SV_ClipDistance or SV_CullDistance"),
             (9, "Invalid", ""),
             ])
         self.enums.append(SemanticInterpretationKind)
@@ -1802,8 +1803,8 @@ class db_dxil(object):
             Position,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
             RenderTargetArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
             ViewPortArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            ClipDistance,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            CullDistance,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
+            ClipDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
+            CullDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
             OutputControlPointID,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
             DomainLocation,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA
             PrimitiveID,NA,NA,NotInSig,NotInSig,NA,NA,NA,NotInSig,NA,NA,NA,Shadow,SGV,SGV,NA,NA
