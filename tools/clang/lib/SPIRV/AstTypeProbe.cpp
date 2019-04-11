@@ -709,6 +709,17 @@ bool isRowMajorMatrix(const SpirvCodeGenOptions &spvOptions, QualType type) {
   if (hlsl::HasHLSLMatOrientation(type, &attrRowMajor))
     return !attrRowMajor;
 
+  // If it is a templated type the attribute may have been applied to the
+  // underlying type. For example: StructuredBuffer<row_major float2x3>
+  if (const auto *tst = dyn_cast<clang::TemplateSpecializationType>(type)) {
+    if (tst->getNumArgs() >= 1) {
+      auto args = tst->getArgs();
+      auto templateArgument = args[0];
+      auto templateArgumentType = templateArgument.getAsType();
+      return isRowMajorMatrix(spvOptions, templateArgumentType);
+    }
+  }
+
   return !spvOptions.defaultRowMajor;
 }
 

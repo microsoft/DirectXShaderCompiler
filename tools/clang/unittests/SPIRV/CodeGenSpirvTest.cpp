@@ -1886,4 +1886,7 @@ TEST_F(FileTest, DecorationNoContractionStageVars) {
   runFileTest("decoration.no-contraction.stage-vars.hlsl");
 }
 
+// For pragmas
+TEST_F(FileTest, PragmaPackMatrix) { runFileTest("pragma.pack_matrix.hlsl"); }
+
 } // namespace
