@@ -312,12 +312,10 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
       uint32_t initRowCount = 0, initColCount = 0;
       hlsl::GetHLSLMatRowColCount(init->getAstResultType(), initRowCount,
                                   initColCount);
-
       if (rowCount == initRowCount && colCount == initColCount) {
         initializers.pop_back();
-        // TODO: We only support FP matrices now. Do type cast here after
-        // adding more matrix types.
-        return init;
+        return theEmitter.castToType(init, init->getAstResultType(), matrixType,
+                                     srcLoc);
       }
     }
   }

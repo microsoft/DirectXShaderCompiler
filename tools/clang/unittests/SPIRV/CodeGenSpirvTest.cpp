@@ -382,6 +382,9 @@ TEST_F(FileTest, OpTextureSampleAccess) {
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
+TEST_F(FileTest, CastNoOpMatrixFloatToInt) {
+  runFileTest("cast.no-op.matrix.float-to-int.hlsl");
+}
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
 TEST_F(FileTest, CastExplicit2Bool) { runFileTest("cast.2bool.explicit.hlsl"); }
 TEST_F(FileTest, CastImplicit2SInt) { runFileTest("cast.2sint.implicit.hlsl"); }
