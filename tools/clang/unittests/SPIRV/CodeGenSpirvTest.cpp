@@ -1507,7 +1507,7 @@ TEST_F(FileTest, VulkanRegisterBinding) {
 }
 TEST_F(FileTest, VulkanSpaceOnlyRegisterBinding) {
   // Resource binding from :register(spaceY)
-  runFileTest("vk.binding.register.hlsl");
+  runFileTest("vk.binding.register.space-only.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShift) {
   // Resource binding from :register() with shift specified via
