@@ -945,17 +945,17 @@ bool SpirvEmitter::loadIfAliasVarRef(const Expr *varExpr,
 SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
                                            QualType fromType, QualType toType,
                                            SourceLocation srcLoc) {
-  if (isFloatOrVecOfFloatType(toType))
+  if (isFloatOrVecMatOfFloatType(toType))
     return castToFloat(value, fromType, toType, srcLoc);
 
   // Order matters here. Bool (vector) values will also be considered as uint
   // (vector) values. So given a bool (vector) argument, isUintOrVecOfUintType()
   // will also return true. We need to check bool before uint. The opposite is
   // not true.
-  if (isBoolOrVecOfBoolType(toType))
+  if (isBoolOrVecMatOfBoolType(toType))
     return castToBool(value, fromType, toType);
 
-  if (isSintOrVecOfSintType(toType) || isUintOrVecOfUintType(toType))
+  if (isSintOrVecMatOfSintType(toType) || isUintOrVecMatOfUintType(toType))
     return castToInt(value, fromType, toType, srcLoc);
 
   emitError("casting to type %0 unimplemented", {}) << toType;
@@ -6117,7 +6117,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
 SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
                                            QualType fromType,
                                            QualType toBoolType) {
-  if (isSameScalarOrVecType(fromType, toBoolType))
+  if (isSameType(astContext, fromType, toBoolType))
     return fromVal;
 
   { // Special case handling for converting to a matrix of booleans.
@@ -6147,7 +6147,7 @@ SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
 SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
                                           QualType fromType, QualType toIntType,
                                           SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toIntType))
+  if (isSameType(astContext, fromType, toIntType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
@@ -6254,7 +6254,7 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
                                             QualType fromType,
                                             QualType toFloatType,
                                             SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toFloatType))
+  if (isSameType(astContext, fromType, toFloatType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
