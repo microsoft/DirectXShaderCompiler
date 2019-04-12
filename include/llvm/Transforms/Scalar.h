@@ -124,6 +124,11 @@ void initializeSROA_DT_HLSLPass(PassRegistry&);
 ModulePass *createSROA_Parameter_HLSL();
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
 
+//===----------------------------------------------------------------------===//
+//
+Pass *createDxilFixConstArrayInitializerPass();
+void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
+
 Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
 void initializeDxilLoopUnrollPass(PassRegistry&);
 //===----------------------------------------------------------------------===//
