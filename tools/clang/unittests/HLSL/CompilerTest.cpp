@@ -254,6 +254,7 @@ public:
 
   TEST_METHOD(CodeGenAttributeAtVertex)
   TEST_METHOD(CodeGenAttributeAtVertexNoOpt)
+  TEST_METHOD(CodeGenConstantArrayInitializer)
   TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBarycentrics1)
   TEST_METHOD(CodeGenBarycentricsThreeSV)
@@ -2318,6 +2319,12 @@ TEST_F(CompilerTest, DiaTableIndexThenOK) {
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"attributeAtVertex.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstantArrayInitializer) {
+  CodeGenTestCheck(L"function_call_initializer.hlsl");
+  CodeGenTestCheck(L"function_call_initializer_uint.hlsl");
+  CodeGenTestCheck(L"function_call_initializer_vec.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAttributeAtVertexNoOpt) {
