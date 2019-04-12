@@ -2322,9 +2322,7 @@ TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
 }
 
 TEST_F(CompilerTest, CodeGenConstantArrayInitializer) {
-  CodeGenTestCheck(L"function_call_initializer.hlsl");
-  CodeGenTestCheck(L"function_call_initializer_uint.hlsl");
-  CodeGenTestCheck(L"function_call_initializer_vec.hlsl");
+  CodeGenTestCheckBatchDir(L"initializer");
 }
 
 TEST_F(CompilerTest, CodeGenAttributeAtVertexNoOpt) {

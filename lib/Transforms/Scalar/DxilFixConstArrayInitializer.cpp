@@ -1,3 +1,12 @@
+//===- DxilFixConstArrayInitializer.cpp - Special Construct Initializer ------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -34,10 +43,13 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
   if (!GV.hasInitializer() || !isa<UndefValue>(GV.getInitializer()))
     return false;
 
-  // Only handle cases when it's a scalar type or if it's an array of
-  // scalars.
+  // Only handle cases when it's an array of scalars.
   Type *Ty = GV.getType()->getPointerElementType();
   if (!Ty->isArrayTy())
+    return false;
+
+  // Don't handle arrays that are too big
+  if (Ty->getArrayNumElements() > 1024)
     return false;
 
   Type *ElementTy = Ty->getArrayElementType();
@@ -46,23 +58,15 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
   if (ElementTy->isAggregateType() || ElementTy->isVectorTy())
     return false;
 
-  // Record the earliest load and latest store in the entry block.
-  unsigned EarliestLoad = std::numeric_limits<unsigned>::max();
-  unsigned LatestStore = 0;
+  // The instruction index at which point we no longer consider it
+  // safe to fold Stores. It's the earliest store with non-constant index,
+  // earliest store with non-constant value, or a load
+  unsigned FirstUnsafeIndex = std::numeric_limits<unsigned>::max();
 
-  SmallVector<Constant *, 16> InitValue;
-  SmallVector<unsigned, 16> LatestStores;
+  SmallVector<StoreInst *, 8> PossibleFoldableStores;
 
-  // Don't handle arrays that are too big
-  if (Ty->getArrayNumElements() > 1024)
-    return false;
-
-  InitValue.resize(Ty->getArrayNumElements());
-  LatestStores.resize(Ty->getArrayNumElements());
-  ElementTy = Ty->getArrayElementType();
-
-  SmallVector<StoreInst *, 8> StoresToRemove;
-
+  // First do a pass to find the boundary for where we could fold stores. Get a
+  // list of stores that may be folded.
   for (User *U : GV.users()) {
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       bool AllConstIndices = GEP->hasAllConstantIndices();
@@ -73,43 +77,52 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
 
       for (User *GEPUser : GEP->users()) {
         if (StoreInst *Store = dyn_cast<StoreInst>(GEPUser)) {
-          if (Store->getParent() == EntryBlock) {
-            if (!isa<Constant>(Store->getValueOperand()))
-              return false;
-
-            if (!AllConstIndices)
-              return false;
-
-            unsigned StoreIndex = InstOrder.at(Store);
-            if (StoreIndex > EarliestLoad)
-              return false;
-
-            LatestStore = std::max(LatestStore, StoreIndex);
-
-            uint64_t Index = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
-            if (LatestStores[Index] <= StoreIndex) {
-              InitValue[Index] = cast<Constant>(Store->getValueOperand());
-              LatestStores[Index] = StoreIndex;
-            }
-
-            StoresToRemove.push_back(Store);
+          if (Store->getParent() != EntryBlock)
+            continue;
+          unsigned StoreIndex = InstOrder.at(Store);
+          if (!AllConstIndices || !isa<Constant>(Store->getValueOperand())) {
+            FirstUnsafeIndex = std::min(StoreIndex, FirstUnsafeIndex);
+            continue;
           }
+          PossibleFoldableStores.push_back(Store);
         }
         else if (LoadInst *Load = dyn_cast<LoadInst>(GEPUser)) {
-          if (Load->getParent() == EntryBlock)
-            EarliestLoad = std::min(EarliestLoad, InstOrder.at(Load));
-
-          if (EarliestLoad < LatestStore)
-            return false;
+          if (Load->getParent() != EntryBlock)
+            continue;
+          FirstUnsafeIndex = std::min(FirstUnsafeIndex, InstOrder.at(Load));
         }
-        // If we have some weird cases, like chained GEPS, or bitcasts, give up.
+        // If we have something weird like chained GEPS, or bitcasts, give up.
         else {
           return false;
         }
       }
     }
   }
+  
+  SmallVector<Constant *, 16> InitValue;
+  SmallVector<unsigned, 16>   LatestStores;
+  SmallVector<StoreInst *, 8> StoresToRemove;
 
+  InitValue.resize(Ty->getArrayNumElements());
+  LatestStores.resize(Ty->getArrayNumElements());
+
+  for (StoreInst *Store : PossibleFoldableStores) {
+    unsigned StoreIndex = InstOrder.at(Store);
+    // Skip stores that are out of bounds
+    if (StoreIndex >= FirstUnsafeIndex)
+      continue;
+
+    GEPOperator *GEP = cast<GEPOperator>(Store->getPointerOperand());
+    uint64_t Index = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+
+    if (LatestStores[Index] <= StoreIndex) {
+      InitValue[Index] = cast<Constant>(Store->getValueOperand());
+      LatestStores[Index] = StoreIndex;
+    }
+    StoresToRemove.push_back(Store);
+  }
+
+  // Give up if we have missing indices
   for (Constant *C : InitValue)
     if (!C)
       return false;
