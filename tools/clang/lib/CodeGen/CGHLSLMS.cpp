@@ -4005,6 +4005,7 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
     Value *zeroIdx = Builder.getInt32(0);
     unsigned nestLevel = 1;
     while (llvm::StructType *ST = dyn_cast<llvm::StructType>(FromTy)) {
+      if (ST->getNumElements() == 0) break;
       FromTy = ST->getElementType(0);
       nestLevel++;
     }
