@@ -37,28 +37,29 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
   // Only handle cases when it's a scalar type or if it's an array of
   // scalars.
   Type *Ty = GV.getType()->getPointerElementType();
-  if (Ty->isArrayTy() && Ty->getArrayElementType()->isArrayTy())
+  if (!Ty->isArrayTy())
+    return false;
+
+  Type *ElementTy = Ty->getArrayElementType();
+
+  // Only handle arrays of scalar types
+  if (ElementTy->isAggregateType() || ElementTy->isVectorTy())
     return false;
 
   // Record the earliest load and latest store in the entry block.
   unsigned EarliestLoad = std::numeric_limits<unsigned>::max();
   unsigned LatestStore = 0;
 
-  bool IsArray = Ty->isArrayTy();
   SmallVector<Constant *, 16> InitValue;
   SmallVector<unsigned, 16> LatestStores;
 
-  Type *ElementTy = nullptr;
-  if (IsArray) {
-    InitValue.resize(Ty->getArrayNumElements());
-    LatestStores.resize(Ty->getArrayNumElements());
-    ElementTy = Ty->getArrayElementType();
-  }
-  else {
-    InitValue.resize(1);
-    LatestStores.resize(1);
-    ElementTy = Ty;
-  }
+  // Don't handle arrays that are too big
+  if (Ty->getArrayNumElements() > 1024)
+    return false;
+
+  InitValue.resize(Ty->getArrayNumElements());
+  LatestStores.resize(Ty->getArrayNumElements());
+  ElementTy = Ty->getArrayElementType();
 
   SmallVector<StoreInst *, 8> StoresToRemove;
 
@@ -66,9 +67,8 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       bool AllConstIndices = GEP->hasAllConstantIndices();
       unsigned NumIndices = GEP->getNumIndices();
-      if (IsArray && NumIndices != 2)
-        return false;
-      if (!IsArray && NumIndices != 1)
+
+      if (NumIndices != 2)
         return false;
 
       for (User *GEPUser : GEP->users()) {
@@ -86,18 +86,10 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
 
             LatestStore = std::max(LatestStore, StoreIndex);
 
-            if (IsArray) {
-              uint64_t Index = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
-              if (LatestStores[Index] <= StoreIndex) {
-                InitValue[Index] = cast<Constant>(Store->getValueOperand());
-                LatestStores[Index] = StoreIndex;
-              }
-            }
-            else {
-              if (LatestStores[0] <= StoreIndex) {
-                InitValue[0] = cast<Constant>(Store->getValueOperand());
-                LatestStores[0] = StoreIndex;
-              }
+            uint64_t Index = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+            if (LatestStores[Index] <= StoreIndex) {
+              InitValue[Index] = cast<Constant>(Store->getValueOperand());
+              LatestStores[Index] = StoreIndex;
             }
 
             StoresToRemove.push_back(Store);
@@ -118,20 +110,11 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
     }
   }
 
-  Constant *Initializer = nullptr;
-
   for (Constant *C : InitValue)
     if (!C)
       return false;
 
-  if (IsArray) {
-    Initializer = ConstantArray::get(cast<ArrayType>(Ty), InitValue);
-  }
-  else {
-    Initializer = InitValue[0];
-  }
-
-  GV.setInitializer(Initializer);
+  GV.setInitializer(ConstantArray::get(cast<ArrayType>(Ty), InitValue));
 
   for (StoreInst *Store : StoresToRemove)
     Store->eraseFromParent();
