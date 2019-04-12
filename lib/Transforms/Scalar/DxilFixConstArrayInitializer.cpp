@@ -7,6 +7,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/Transforms/Scalar.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
 
 #include <unordered_map>
 #include <limits>
@@ -18,7 +19,9 @@ namespace {
 class DxilFixConstArrayInitializer : public ModulePass {
 public:
   static char ID;
-  DxilFixConstArrayInitializer() : ModulePass(ID) {}
+  DxilFixConstArrayInitializer() : ModulePass(ID) {
+    initializeDxilFixConstArrayInitializerPass(*PassRegistry::getPassRegistry());
+  }
   bool runOnModule(Module &M) override;
   const char *getPassName() const override { return "Dxil Fix Const Array Initializer"; }
 };
@@ -43,13 +46,17 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
 
   bool IsArray = Ty->isArrayTy();
   SmallVector<Constant *, 16> InitValue;
+  SmallVector<unsigned, 16> LatestStores;
+
   Type *ElementTy = nullptr;
   if (IsArray) {
     InitValue.resize(Ty->getArrayNumElements());
+    LatestStores.resize(Ty->getArrayNumElements());
     ElementTy = Ty->getArrayElementType();
   }
   else {
     InitValue.resize(1);
+    LatestStores.resize(1);
     ElementTy = Ty;
   }
 
@@ -81,10 +88,16 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
 
             if (IsArray) {
               uint64_t Index = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
-              InitValue[Index] = cast<Constant>(Store->getValueOperand());
+              if (LatestStores[Index] <= StoreIndex) {
+                InitValue[Index] = cast<Constant>(Store->getValueOperand());
+                LatestStores[Index] = StoreIndex;
+              }
             }
             else {
-              InitValue[0] = cast<Constant>(Store->getValueOperand());
+              if (LatestStores[0] <= StoreIndex) {
+                InitValue[0] = cast<Constant>(Store->getValueOperand());
+                LatestStores[0] = StoreIndex;
+              }
             }
 
             StoresToRemove.push_back(Store);
@@ -112,23 +125,7 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
       return false;
 
   if (IsArray) {
-    if (ElementTy->isFloatingPointTy() && ElementTy->getScalarSizeInBits() == 32) {
-      SmallVector<float, 16> Values;
-      Values.reserve(InitValue.size());
-      for (Constant *C : InitValue)
-        Values.push_back(cast<ConstantFP>(C)->getValueAPF().convertToFloat());
-      Initializer = ConstantDataArray::get(GV.getContext(), Values);
-    }
-    else if (ElementTy->isIntegerTy()) {
-      SmallVector<uint32_t, 16> Values;
-      Values.reserve(InitValue.size());
-      for (Constant *C : InitValue)
-        Values.push_back(cast<ConstantInt>(C)->getLimitedValue());
-      Initializer = ConstantDataArray::get(GV.getContext(), Values);
-    }
-    else {
-      return false;
-    }
+    Initializer = ConstantArray::get(cast<ArrayType>(Ty), InitValue);
   }
   else {
     Initializer = InitValue[0];
@@ -143,11 +140,22 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
 }
 
 bool DxilFixConstArrayInitializer::runOnModule(Module &M) {
-  if (!M.HasDxilModule())
-    return false;
+  BasicBlock *EntryBlock = nullptr;
 
-  hlsl::DxilModule &DM = M.GetDxilModule();
-  BasicBlock *EntryBlock = &DM.GetEntryFunction()->getEntryBlock();
+  if (M.HasDxilModule()) {
+    hlsl::DxilModule &DM = M.GetDxilModule();
+    if (DM.GetEntryFunction()) {
+      EntryBlock = &DM.GetEntryFunction()->getEntryBlock();
+    }
+  }
+  else if (M.HasHLModule()) {
+    hlsl::HLModule &HM = M.GetHLModule();
+    if (HM.GetEntryFunction())
+      EntryBlock = &HM.GetEntryFunction()->getEntryBlock();
+  }
+
+  if (!EntryBlock)
+    return false;
 
   // If some block might branch to the entry for some reason (like if it's a loop header),
   // give up now. Have to make sure this block is not preceeded by anything.
