@@ -53,4 +53,8 @@ void main() {
 // CHECK-NEXT: [[z:%\d+]] = OpVectorShuffle %v3int [[z]] [[z]] 0 1 2
 // CHECK-NEXT:   {{%\d+}} = OpCompositeInsert %v3int %int_16 [[z]] 0
   z[uint2(2, 3)].x = 16;
+
+// TODO(jaebaek): Update InitListHandler to properly emit debug info.
+  b = float2x2(c);
+  c = int4(b);
 }

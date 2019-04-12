@@ -2192,7 +2192,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         auto paramType = param->getType();
         if (const auto *refType = paramType->getAs<ReferenceType>())
           paramType = refType->getPointeeType();
-        value = castToType(value, paramType, arg->getType(), arg->getLocStart());
+        value =
+            castToType(value, paramType, arg->getType(), arg->getLocStart());
       }
 
       processAssignment(arg, value, false, args[index]);
@@ -2996,7 +2997,7 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
       const uint32_t argIndex = mipLevel ? i + 1 : i;
       auto *component = spvBuilder.createCompositeExtract(
           astContext.UnsignedIntTy, query, {i},
-          expr->getArg(argIndex)->getExprLoc());
+          expr->getCallee()->getExprLoc());
       // If the first arg is the mipmap level, we must write the results
       // starting from Arg(i+1), not Arg(i).
       storeToOutputArg(expr->getArg(argIndex), component,
@@ -7795,6 +7796,7 @@ SpirvEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   auto *xInstr = doExpr(x);
   auto *expInstr = doExpr(callExpr->getArg(1));
   const auto loc = callExpr->getLocStart();
+  const auto arg0Loc = callExpr->getArg(1)->getLocStart();
 
   // For scalar and vector argument types.
   if (isScalarType(paramType) || isVectorType(paramType)) {
@@ -7808,15 +7810,15 @@ SpirvEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   {
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(paramType, nullptr, &rowCount, &colCount)) {
-      const auto actOnEachVec = [this, loc, glsl,
-                                 expInstr](uint32_t index, QualType vecType,
-                                           SpirvInstruction *xRowInstr) {
-        auto *expRowInstr =
-            spvBuilder.createCompositeExtract(vecType, expInstr, {index}, loc);
+      const auto actOnEachVec = [this, loc, glsl, expInstr,
+                                 arg0Loc](uint32_t index, QualType vecType,
+                                          SpirvInstruction *xRowInstr) {
+        auto *expRowInstr = spvBuilder.createCompositeExtract(vecType, expInstr,
+                                                              {index}, arg0Loc);
         auto *twoExp = spvBuilder.createExtInst(
             vecType, glsl, GLSLstd450::GLSLstd450Exp2, {expRowInstr}, loc);
         return spvBuilder.createBinaryOp(spv::Op::OpFMul, vecType, xRowInstr,
-                                         twoExp);
+                                         twoExp, loc);
       };
       return processEachVectorInMatrix(x, xInstr, actOnEachVec, loc);
     }
@@ -7945,17 +7947,20 @@ SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
   auto *argXInstr = doExpr(argX);
   auto *argMinInstr = doExpr(argMin);
   auto *argMaxInstr = doExpr(argMax);
+  const auto argMinLoc = argMin->getLocStart();
+  const auto argMaxLoc = argMax->getLocStart();
 
   // FClamp, UClamp, and SClamp do not operate on matrices, so we should perform
   // the operation on each vector of the matrix.
   if (isMxNMatrix(argX->getType())) {
     const auto actOnEachVec = [this, loc, glslInstSet, glslOpcode, argMinInstr,
-                               argMaxInstr](uint32_t index, QualType vecType,
-                                            SpirvInstruction *curRow) {
-      auto *minRowInstr =
-          spvBuilder.createCompositeExtract(vecType, argMinInstr, {index}, loc);
-      auto *maxRowInstr =
-          spvBuilder.createCompositeExtract(vecType, argMaxInstr, {index}, loc);
+                               argMaxInstr, argMinLoc,
+                               argMaxLoc](uint32_t index, QualType vecType,
+                                          SpirvInstruction *curRow) {
+      auto *minRowInstr = spvBuilder.createCompositeExtract(
+          vecType, argMinInstr, {index}, argMinLoc);
+      auto *maxRowInstr = spvBuilder.createCompositeExtract(
+          vecType, argMaxInstr, {index}, argMaxLoc);
       return spvBuilder.createExtInst(vecType, glslInstSet, glslOpcode,
                                       {curRow, minRowInstr, maxRowInstr}, loc);
     };
@@ -8911,14 +8916,15 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     const Expr *arg0 = callExpr->getArg(0);
     auto *arg0Id = doExpr(arg0);
     auto *arg1Id = doExpr(callExpr->getArg(1));
+    const auto arg1Loc = callExpr->getArg(1)->getLocStart();
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, opcode, arg1Id,
-                                 loc](uint32_t index, QualType vecType,
-                                      SpirvInstruction *arg0Row) {
-        auto *arg1Row =
-            spvBuilder.createCompositeExtract(vecType, arg1Id, {index}, loc);
+      const auto actOnEachVec = [this, opcode, arg1Id, loc,
+                                 arg1Loc](uint32_t index, QualType vecType,
+                                          SpirvInstruction *arg0Row) {
+        auto *arg1Row = spvBuilder.createCompositeExtract(vecType, arg1Id,
+                                                          {index}, arg1Loc);
         return spvBuilder.createBinaryOp(opcode, vecType, arg0Row, arg1Row,
                                          loc);
       };
@@ -8960,14 +8966,15 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
     const Expr *arg0 = callExpr->getArg(0);
     auto *arg0Instr = doExpr(arg0);
     auto *arg1Instr = doExpr(callExpr->getArg(1));
+    const auto arg1Loc = callExpr->getArg(1)->getLocStart();
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, loc, glslInstSet, opcode,
-                                 arg1Instr](uint32_t index, QualType vecType,
-                                            SpirvInstruction *arg0RowInstr) {
-        auto *arg1RowInstr =
-            spvBuilder.createCompositeExtract(vecType, arg1Instr, {index}, loc);
+      const auto actOnEachVec = [this, loc, glslInstSet, opcode, arg1Instr,
+                                 arg1Loc](uint32_t index, QualType vecType,
+                                          SpirvInstruction *arg0RowInstr) {
+        auto *arg1RowInstr = spvBuilder.createCompositeExtract(
+            vecType, arg1Instr, {index}, arg1Loc);
         return spvBuilder.createExtInst(vecType, glslInstSet, opcode,
                                         {arg0RowInstr, arg1RowInstr}, loc);
       };
@@ -8980,16 +8987,19 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
     auto *arg0Instr = doExpr(arg0);
     auto *arg1Instr = doExpr(callExpr->getArg(1));
     auto *arg2Instr = doExpr(callExpr->getArg(2));
+    auto arg1Loc = callExpr->getArg(1)->getLocStart();
+    auto arg2Loc = callExpr->getArg(2)->getLocStart();
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, loc, glslInstSet, opcode, arg1Instr,
-                                 arg2Instr](uint32_t index, QualType vecType,
-                                            SpirvInstruction *arg0RowInstr) {
-        auto *arg1RowInstr =
-            spvBuilder.createCompositeExtract(vecType, arg1Instr, {index}, loc);
-        auto *arg2RowInstr =
-            spvBuilder.createCompositeExtract(vecType, arg2Instr, {index}, loc);
+                                 arg2Instr, arg1Loc,
+                                 arg2Loc](uint32_t index, QualType vecType,
+                                          SpirvInstruction *arg0RowInstr) {
+        auto *arg1RowInstr = spvBuilder.createCompositeExtract(
+            vecType, arg1Instr, {index}, arg1Loc);
+        auto *arg2RowInstr = spvBuilder.createCompositeExtract(
+            vecType, arg2Instr, {index}, arg2Loc);
         return spvBuilder.createExtInst(
             vecType, glslInstSet, opcode,
             {arg0RowInstr, arg1RowInstr, arg2RowInstr}, loc);

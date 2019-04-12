@@ -320,8 +320,8 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
                                   initColCount);
       if (rowCount == initRowCount && colCount == initColCount) {
         initializers.pop_back();
-        return theEmitter.castToType(init, init->getAstResultType(), matrixType,
-                                     srcLoc);
+        return theEmitter.castToType(init.first, init.first->getAstResultType(),
+                                     matrixType, srcLoc);
       }
     }
   }
