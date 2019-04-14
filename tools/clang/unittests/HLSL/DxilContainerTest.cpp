@@ -286,8 +286,8 @@ public:
           D3D12_SHADER_VARIABLE_DESC baseConst = variableMap[testConst.Name];
           VERIFY_ARE_EQUAL(testConst.uFlags, baseConst.uFlags);
           VERIFY_ARE_EQUAL(testConst.StartOffset, baseConst.StartOffset);
-          // TODO: enalbe size cmp.
-          //VERIFY_ARE_EQUAL(testConst.Size, baseConst.Size);
+
+          VERIFY_ARE_EQUAL(testConst.Size, baseConst.Size);
 
           ID3D12ShaderReflectionType* pTestType = pTestConst->GetType();
           VERIFY_IS_NOT_NULL(pTestType);
