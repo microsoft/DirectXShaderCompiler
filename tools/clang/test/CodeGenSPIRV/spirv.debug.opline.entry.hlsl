@@ -34,7 +34,7 @@
 float4 main(float2 a : TEXCOORD0,
             float3 b : NORMAL,
             float4 c : COLOR) : SV_Target {
-// CHECK-NEXT:             OpLine [[file]] 3 1
+// CHECK:                  OpLine [[file]] 3 1
 // CHECK-NEXT: %src_main = OpFunction %v4float None %29
 // CHECK-NEXT:             OpLine [[file]] 3 20
 // CHECK-NEXT:        %a = OpFunctionParameter %_ptr_Function_v2float

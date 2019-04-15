@@ -1,7 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main -Zi
 
 // CHECK:      [[file:%\d+]] = OpString
-// CHECK-SAME: spirv.debug.opline.many.hlsl
+// CHECK-SAME: spirv.debug.opline.variables.hlsl
 
 struct S {
   float4 f;
@@ -10,19 +10,19 @@ struct S {
 // Note that preprocessor prepends a "#line 1 ..." line to the whole file,
 // the compliation sees line numbers incremented by 1.
 
-// CHECK-NEXT:                   OpLine [[file]] 16 32
+// CHECK:                        OpLine [[file]] 16 32
 // CHECK-NEXT: %consume_v2bool = OpVariable %_ptr_Uniform_type_ConsumeStructuredBuffer_v2bool Uniform
 ConsumeStructuredBuffer<bool2> consume_v2bool;
 
-// CHECK-NEXT:                   OpLine [[file]] 20 32
+// CHECK:                        OpLine [[file]] 20 32
 // CHECK-NEXT: %append_v2float = OpVariable %_ptr_Uniform_type_AppendStructuredBuffer_v2float Uniform
 AppendStructuredBuffer<float2> append_v2float;
 
-// CHECK-NEXT:                  OpLine [[file]] 24 19
+// CHECK:                       OpLine [[file]] 24 19
 // CHECK-NEXT: %byte_addr_buf = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
 ByteAddressBuffer byte_addr_buf;
 
-// CHECK-NEXT:               OpLine [[file]] 28 19
+// CHECK:                    OpLine [[file]] 28 19
 // CHECK-NEXT: %rw_texture = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
 RWTexture2D<int3> rw_texture;
 
@@ -30,25 +30,25 @@ RWTexture2D<int3> rw_texture;
 //                we must emit "OpLine .." here.
 TextureBuffer<S> texture_buf;
 
-// CHECK-NEXT:        OpLine [[file]] 36 14
+// CHECK:             OpLine [[file]] 36 14
 // CHECK-NEXT: %sam = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
 SamplerState sam;
 
-// CHECK-NEXT:                OpLine [[file]] 40 19
+// CHECK:                     OpLine [[file]] 40 19
 // CHECK-NEXT: %float_array = OpVariable %_ptr_Workgroup__arr_float_uint_10 Workgroup
 groupshared float float_array[10];
 
-// CHECK-NEXT:                OpLine [[file]] 44 12
+// CHECK:                     OpLine [[file]] 44 12
 // CHECK-NEXT:   %int_array = OpVariable %_ptr_Private__arr_int_uint_10 Private
 static int int_array[10];
 
 // "static" variables in functions must be defined first.
-// CHECK-NEXT:                OpLine [[file]] 65 16
+// CHECK:                     OpLine [[file]] 65 16
 // CHECK-NEXT:           %c = OpVariable %_ptr_Private_v3bool Private
 // CHECK-NEXT: %init_done_c = OpVariable %_ptr_Private_bool Private %false
 
 bool3 test_function_variables() {
-// CHECK-NEXT:                OpLine [[file]] 54 9
+// CHECK:                     OpLine [[file]] 54 9
 // CHECK-NEXT:         %a_0 = OpVariable %_ptr_Function_v3bool Function
   bool3 a;
 
@@ -69,7 +69,7 @@ bool3 test_function_variables() {
   return c;
 }
 
-// CHECK-NEXT:                OpLine [[file]] 79 1
+// CHECK:                     OpLine [[file]] 79 1
 // CHECK-NEXT: %test_function_param = OpFunction %v2float None
 // CHECK-NEXT:                OpLine [[file]] 79 35
 // CHECK-NEXT:         %a_1 = OpFunctionParameter %_ptr_Function_v2float

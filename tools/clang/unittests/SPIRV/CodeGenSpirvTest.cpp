@@ -418,9 +418,7 @@ TEST_F(FileTest, CastFlatConversionDecomposeVector) {
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
 }
-TEST_F(FileTest, CastMatrixToVector) {
-  runFileTest("cast.mat-to-vec.hlsl");
-}
+TEST_F(FileTest, CastMatrixToVector) { runFileTest("cast.mat-to-vec.hlsl"); }
 TEST_F(FileTest, CastBitwidth) { runFileTest("cast.bitwidth.hlsl"); }
 
 TEST_F(FileTest, CastLiteralTypeForArraySubscript) {
@@ -1412,6 +1410,21 @@ TEST_F(FileTest, SpirvDebugOpSource) {
 }
 
 TEST_F(FileTest, SpirvDebugOpLine) { runFileTest("spirv.debug.opline.hlsl"); }
+TEST_F(FileTest, SpirvDebugOpLineBranch) {
+  runFileTest("spirv.debug.opline.branch.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineComposite) {
+  runFileTest("spirv.debug.opline.composite.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineEntry) {
+  runFileTest("spirv.debug.opline.entry.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineIntrinsics) {
+  runFileTest("spirv.debug.opline.intrinsic.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineVariables) {
+  runFileTest("spirv.debug.opline.variables.hlsl");
+}
 
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
   useVulkan1p1();

@@ -26,7 +26,8 @@ RWTexture2D<int3> z;
 void main() {
   int4 a = {
       float2(1, 0),
-// CHECK:                   OpLine [[file]] 33 7
+// CHECK:                   OpConvertFToS %int %float_0
+// CHECK-NEXT:              OpLine [[file]] 34 7
 // CHECK-NEXT: [[z:%\d+]] = OpCompositeExtract %float {{%\d+}} 0
 // CHECK-NEXT: [[x:%\d+]] = OpCompositeExtract %float {{%\d+}} 1
       test_struct().c.zx
@@ -36,18 +37,19 @@ void main() {
 // CHECK-NEXT:   {{%\d+}} = OpCompositeConstruct %v4int {{%\d+}} {{%\d+}} [[z]] [[x]]
   };
 
-// CHECK:                        OpLine [[file]] 44 25
+// CHECK:                        OpFDiv %float {{%\d+}} %float_2
+// CHECK-NEXT:                   OpLine [[file]] 46 25
 // CHECK-NEXT:  [[first:%\d+]] = OpCompositeConstruct %v2float {{%\d+}} {{%\d+}}
 // CHECK-NEXT: [[second:%\d+]] = OpCompositeConstruct %v2float {{%\d+}} {{%\d+}}
 // CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %mat2v2float [[first]] [[second]]
   float2x2 b = float2x2(a.x, b._m00, 2 + a.y, b._m11 / 2);
 
-// CHECK:                   OpLine [[file]] 49 12
+// CHECK:                   OpLine [[file]] 51 12
 // CHECK-NEXT: [[y:%\d+]] = OpAccessChain %_ptr_Uniform_int4_bool_float3 %CONSTANTS %int_0
 // CHECK-NEXT:   {{%\d+}} = OpAccessChain %_ptr_Uniform_v4int [[y]] %int_0
   int4 c = y.a;
 
-// CHECK:                   OpLine [[file]] 56 3
+// CHECK:                   OpLine [[file]] 58 3
 // CHECK-NEXT: [[z:%\d+]] = OpLoad %type_2d_image %z
 // CHECK-NEXT: [[z:%\d+]] = OpImageRead %v4int [[z]] {{%\d+}} None
 // CHECK-NEXT: [[z:%\d+]] = OpVectorShuffle %v3int [[z]] [[z]] 0 1 2

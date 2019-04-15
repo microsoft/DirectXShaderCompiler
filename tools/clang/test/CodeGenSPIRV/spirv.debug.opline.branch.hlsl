@@ -77,19 +77,19 @@ void main() {
   switch (a) {
   case 1:
     b = c;
-// CHECK-NEXT: OpLine [[file]] 83 5
+// CHECK:      OpLine [[file]] 83 5
 // CHECK-NEXT: OpBranch %switch_merge
     break;
   case 2:
     b = 2 * c;
-// CHECK-NEXT: OpLine [[file]] 88 3
+// CHECK:      OpLine [[file]] 88 3
 // CHECK-NEXT: OpBranch %switch_4
   case 4:
     b = b + 4;
     break;
   default:
     b = a;
-// CHECK-NEXT: OpLine [[file]] 95 3
+// CHECK:      OpLine [[file]] 95 3
 // CHECK-NEXT: OpBranch %switch_merge
   }
 }
