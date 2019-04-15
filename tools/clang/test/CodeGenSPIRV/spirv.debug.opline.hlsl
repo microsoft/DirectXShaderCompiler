@@ -16,20 +16,21 @@ uint foo(uint val) {
 // the compliation sees line numbers incremented by 1.
 
 float4 main(uint val : A) : SV_Target {
-  // CHECK:      OpLine [[file]] 23 12
+  // CHECK:      OpLine [[file]] 24 24
   // CHECK-NEXT: OpLoad %uint %val
+  // CHECK-NEXT: OpLine [[file]] 24 12
   // CHECK-NEXT: OpBitReverse
   uint a = reversebits(val);
 
-  // CHECK:      OpLine [[file]] 27 12
+  // CHECK:      OpLine [[file]] 28 16
   // CHECK-NEXT: OpLoad %uint %a
   uint b = foo(a);
 
-  // CHECK:      OpLine [[file]] 31 14
+  // CHECK:      OpLine [[file]] 32 14
   // CHECK-NEXT: OpLoad %type_2d_image %MyTexture
   float4 c = MyTexture.Sample(MySampler, float2(0.1, 0.2));
 
-  // CHECK:      OpLine [[file]] 36 7
+  // CHECK:      OpLine [[file]] 37 7
   // CHECK-NEXT: OpLoad %uint %val
   // CHECK-NEXT: OpUGreaterThan
   if (val > 10) {
@@ -39,12 +40,11 @@ float4 main(uint val : A) : SV_Target {
   }
 
   for (
-  // CHECK:      OpLine [[file]] 45 7
+  // CHECK:      OpLine [[file]] 46 7
   // CHECK-NEXT: OpStore %b %uint_0
       b = 0;
   // CHECK:      OpLine [[file]] 49 7
-  // CHECK-NEXT: OpLoad %uint %b
-  // CHECK-NEXT: OpULessThan
+  // CHECK-NEXT: OpBranch %for_check
       b < 10;
   // CHECK:      OpLine [[file]] 53 7
   // CHECK-NEXT: OpLoad %uint %b

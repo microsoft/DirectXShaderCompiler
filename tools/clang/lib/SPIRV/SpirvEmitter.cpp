@@ -5374,21 +5374,21 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
 
   varName = "init.done." + varName;
 
+  auto loc = varInit ? varInit->getLocStart() : SourceLocation();
+
   // Create a file/module visible variable to hold the initialization state.
   SpirvVariable *initDoneVar = spvBuilder.addModuleVar(
       astContext.BoolTy, spv::StorageClass::Private, /*isPrecise*/ false,
       varName, spvBuilder.getConstantBool(false));
 
-  auto *condition = spvBuilder.createLoad(astContext.BoolTy, initDoneVar,
-                                          varInit->getLocStart());
+  auto *condition = spvBuilder.createLoad(astContext.BoolTy, initDoneVar, loc);
 
   auto *todoBB = spvBuilder.createBasicBlock("if.init.todo");
   auto *doneBB = spvBuilder.createBasicBlock("if.init.done");
 
   // If initDoneVar contains true, we jump to the "done" basic block; otherwise,
   // jump to the "todo" basic block.
-  spvBuilder.createConditionalBranch(condition, doneBB, todoBB,
-                                     varInit->getLocStart(), doneBB);
+  spvBuilder.createConditionalBranch(condition, doneBB, todoBB, loc, doneBB);
   spvBuilder.addSuccessor(todoBB);
   spvBuilder.addSuccessor(doneBB);
   spvBuilder.setMergeTarget(doneBB);
@@ -5401,12 +5401,10 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
         // Static function variable are of private storage class
         var, doExpr(varInit), varInit->getType(), varInit->getLocEnd());
   } else {
-    spvBuilder.createStore(var, spvBuilder.getConstantNull(varType),
-                           varInit->getLocStart());
+    spvBuilder.createStore(var, spvBuilder.getConstantNull(varType), loc);
   }
-  spvBuilder.createStore(initDoneVar, spvBuilder.getConstantBool(true),
-                         varInit->getLocStart());
-  spvBuilder.createBranch(doneBB, varInit->getLocEnd());
+  spvBuilder.createStore(initDoneVar, spvBuilder.getConstantBool(true), loc);
+  spvBuilder.createBranch(doneBB, loc);
   spvBuilder.addSuccessor(doneBB);
 
   spvBuilder.setInsertPoint(doneBB);
