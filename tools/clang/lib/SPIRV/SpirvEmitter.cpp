@@ -2757,12 +2757,16 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
       spvBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
   } else {
     auto *value = doExpr(expr->getArg(1));
-    auto *originalVal = spvBuilder.createAtomicOp(
+    SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
         translateAtomicHlslOpcodeToSpirvOpcode(opcode),
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
         spv::MemorySemanticsMask::MaskNone, value, srcLoc);
-    if (expr->getNumArgs() > 2)
+    if (expr->getNumArgs() > 2) {
+      originalVal = castToType(originalVal, astContext.UnsignedIntTy,
+                               expr->getArg(2)->getType(),
+                               expr->getArg(2)->getLocStart());
       spvBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
+    }
   }
 
   return nullptr;
