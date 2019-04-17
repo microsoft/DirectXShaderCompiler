@@ -7127,18 +7127,6 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                         CGF.getContext().getTrivialTypeSourceInfo(ParamTy),
                         StorageClass::SC_Auto);
 
-    bool isEmptyAggregate = false;
-    if (isAggregateType) {
-      DXASSERT(argAddr, "should be RV or simple LV");
-      llvm::Type *ElTy = argAddr->getType()->getPointerElementType();
-      while (ElTy->isArrayTy())
-        ElTy = ElTy->getArrayElementType();
-      if (llvm::StructType *ST = dyn_cast<StructType>(ElTy)) {
-        DxilStructAnnotation *SA = m_pHLModule->GetTypeSystem().GetStructAnnotation(ST);
-        isEmptyAggregate = SA && SA->IsEmptyStruct();
-      }
-    }
-
     // Aggregate type will be indirect param convert to pointer type.
     // So don't update to ReferenceType, use RValue for it.
     const DeclRefExpr *tmpRef = DeclRefExpr::Create(
@@ -7160,11 +7148,6 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
-
-    // If param is empty, copy in/out will just create problems.
-    // No copy will result in undef, which is fine.
-    if (isEmptyAggregate)
-      continue;
 
     LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argAlignment,
                                     CGF.getContext());
