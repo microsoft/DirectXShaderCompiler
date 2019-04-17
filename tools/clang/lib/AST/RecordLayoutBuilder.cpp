@@ -2358,8 +2358,14 @@ void MicrosoftRecordLayoutBuilder::layout(const RecordDecl *RD) {
 }
 
 void MicrosoftRecordLayoutBuilder::cxxLayout(const CXXRecordDecl *RD) {
-  // The C++ standard says that empty structs have size 1.
-  MinEmptyStructSize = CharUnits::One();
+  // HLSL Change Begins
+  if (Context.getLangOpts().HLSL) {
+    MinEmptyStructSize = CharUnits::fromQuantity(0);
+  }
+  else { // HLSL Change Ends
+    // The C++ standard says that empty structs have size 1.
+    MinEmptyStructSize = CharUnits::One();
+  } // HLSL Change
   initializeLayout(RD);
   initializeCXXLayout(RD);
   layoutNonVirtualBases(RD);
@@ -2741,12 +2747,14 @@ void MicrosoftRecordLayoutBuilder::finalizeLayout(const RecordDecl *RD) {
   if (Size.isZero()) {
     EndsWithZeroSizedObject = true;
     LeadsWithZeroSizedBase = true;
+    if (!Context.getLangOpts().HLSL) { // HLSL Change - allow empty structs to be zero sized
     // Zero-sized structures have size equal to their alignment if a
     // __declspec(align) came into play.
     if (RequiredAlignment >= MinEmptyStructSize)
       Size = Alignment;
     else
       Size = MinEmptyStructSize;
+    } // HLSL Change
   }
 
   if (UseExternalLayout) {
