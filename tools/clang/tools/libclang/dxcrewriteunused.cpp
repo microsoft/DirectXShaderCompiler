@@ -363,13 +363,10 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
                      _In_ ASTUnit::RemappedFile *pRemap,
                      _In_ LPCSTR pEntryPoint,
                      _In_ LPCSTR pDefines,
-                     _Outptr_result_z_ LPSTR *pWarnings,
-                     _Outptr_result_z_ LPSTR *pResult) {
-  if (pWarnings != nullptr) *pWarnings = nullptr;
-  if (pResult != nullptr) *pResult = nullptr;
+                     std::string &warnings,
+                     std::string &result) {
 
-  std::string s, warnings;
-  raw_string_ostream o(s);
+  raw_string_ostream o(result);
   raw_string_ostream w(warnings);
 
   // Setup a compiler instance.
@@ -493,8 +490,8 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   }
 
   // Flush and return results.
-  raw_string_ostream_to_CoString(o, pResult);
-  raw_string_ostream_to_CoString(w, pWarnings);
+  o.flush();
+  w.flush();
 
   if (compiler.getDiagnosticClient().getNumErrors() > 0)
     return E_FAIL;
@@ -547,18 +544,15 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ hlsl::options::DxcOpts &opts,
                _In_ LPCSTR pDefines,
                _In_ UINT32 rewriteOption,
-               _Outptr_result_z_ LPSTR *pWarnings,
-               _Outptr_result_z_ LPSTR *pResult) {
-  if (pWarnings != nullptr) *pWarnings = nullptr;
-  if (pResult != nullptr) *pResult = nullptr;
+               std::string &warnings,
+               std::string &result) {
 
   bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
   bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
   bool bGlobalExternByDefault = rewriteOption & RewriterOptionMask::GlobalExternByDefault;
   bool bKeepUserMacro = rewriteOption & RewriterOptionMask::KeepUserMacro;
 
-  std::string s, warnings;
-  raw_string_ostream o(s);
+  raw_string_ostream o(result);
   raw_string_ostream w(warnings);
 
   // Setup a compiler instance.
@@ -594,8 +588,8 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
     WriteUserMacroDefines(compiler, o);
 
   // Flush and return results.
-  raw_string_ostream_to_CoString(o, pResult);
-  raw_string_ostream_to_CoString(w, pWarnings);
+  o.flush();
+  w.flush();
 
   if (compiler.getDiagnosticClient().getNumErrors() > 0)
     return E_FAIL;
@@ -648,12 +642,12 @@ public:
       CW2A utf8EntryPoint(pEntryPoint, CP_UTF8);
       std::string definesStr = DefinesToString(pDefines, defineCount);
 
-      LPSTR errors = nullptr;
-      LPSTR rewrite = nullptr;
+      std::string errors;
+      std::string rewrite;
       HRESULT status = DoRewriteUnused(
           &m_langExtensionsHelper, fakeName, pRemap.get(), utf8EntryPoint,
-          defineCount > 0 ? definesStr.c_str() : nullptr, &errors, &rewrite);
-      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+          defineCount > 0 ? definesStr.c_str() : nullptr, errors, rewrite);
+      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
                                                        ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
@@ -692,14 +686,14 @@ public:
       hlsl::options::DxcOpts opts;
       opts.HLSLVersion = 2015;
 
-      LPSTR errors = nullptr;
-      LPSTR rewrite = nullptr;
+      std::string errors;
+      std::string rewrite;
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          RewriterOptionMask::Default, &errors, &rewrite);
+                          RewriterOptionMask::Default, errors, rewrite);
 
-      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
                                                        ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
@@ -743,14 +737,14 @@ public:
       hlsl::options::DxcOpts opts;
       opts.HLSLVersion = 2015;
 
-      LPSTR errors = nullptr;
-      LPSTR rewrite = nullptr;
+      std::string errors;
+      std::string rewrite;
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          rewriteOption, &errors, &rewrite);
+                          rewriteOption, errors, rewrite);
 
-      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
                                                        ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
@@ -803,14 +797,14 @@ public:
       hlsl::options::DxcOpts opts;
       IFR(ReadOptsAndValidate(pArguments, argCount, opts, ppResult));
 
-      LPSTR errors = nullptr;
-      LPSTR rewrite = nullptr;
+      std::string errors;
+      std::string rewrite;
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          Default, &errors, &rewrite);
+                          Default, errors, rewrite);
 
-      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
                                                        ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
