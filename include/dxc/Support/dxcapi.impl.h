@@ -74,7 +74,6 @@ public:
     *pResult = nullptr;
     CComPtr<IDxcBlobEncoding> resultBlob;
     CComPtr<IDxcBlobEncoding> errorBlob;
-    CComPtr<DxcOperationResult> result;
 
     HRESULT hr = S_OK;
 
@@ -87,7 +86,7 @@ public:
     }
 
     if (pResultStr != nullptr) {
-      hr = hlsl::DxcCreateBlobWithEncodingOnHeap(
+      hr = hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
         pResultStr, strlen(pResultStr), CP_UTF8, &resultBlob);
       if (FAILED(hr)) {
         return hr;

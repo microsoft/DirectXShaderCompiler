@@ -207,14 +207,6 @@ public:
   }
 
   static HRESULT
-  CreateFromHeap(LPCVOID buffer, SIZE_T bufferSize, bool encodingKnown,
-                 UINT32 codePage,
-                 _COM_Outptr_ InternalDxcBlobEncoding **ppEncoding) {
-    return CreateFromMalloc(buffer, DxcGetThreadMallocNoRef(), bufferSize,
-                            encodingKnown, codePage, ppEncoding);
-  }
-
-  static HRESULT
   CreateFromBlob(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc, bool encodingKnown, UINT32 codePage,
                  _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
     *pEncoding = InternalDxcBlobEncoding::Alloc(pMalloc);
@@ -346,14 +338,14 @@ HRESULT DxcCreateBlobFromBlob(
 
 _Use_decl_annotations_
 HRESULT
-DxcCreateBlobOnHeap(LPCVOID pData, UINT32 size, IDxcBlob **ppResult) throw() {
+DxcCreateBlobOnMalloc(LPCVOID pData, IMalloc *pIMalloc, UINT32 size, IDxcBlob **ppResult) throw() {
   if (pData == nullptr || ppResult == nullptr) {
     return E_POINTER;
   }
 
   *ppResult = nullptr;
   CComPtr<InternalDxcBlobEncoding> blob;
-  IFR(InternalDxcBlobEncoding::CreateFromHeap(pData, size, false, 0, &blob));
+  IFR(InternalDxcBlobEncoding::CreateFromMalloc(pData, pIMalloc, size, false, 0, &blob));
   *ppResult = blob.Detach();
   return S_OK;
 }
@@ -368,14 +360,15 @@ DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
 
   *ppResult = nullptr;
 
-  CComHeapPtr<char> heapCopy;
-  if (!heapCopy.AllocateBytes(size)) {
+  IMalloc *pMallocNoRef = DxcGetThreadMallocNoRef();
+  CDxcMallocHeapPtr<char> heapCopy(pMallocNoRef);
+  if (!heapCopy.Allocate(size)) {
     return E_OUTOFMEMORY;
   }
   memcpy(heapCopy.m_pData, pData, size);
 
   CComPtr<InternalDxcBlobEncoding> blob;
-  IFR(InternalDxcBlobEncoding::CreateFromHeap(heapCopy.m_pData, size, false, 0, &blob));
+  IFR(InternalDxcBlobEncoding::CreateFromMalloc(heapCopy.m_pData, pMallocNoRef, size, false, 0, &blob));
   heapCopy.Detach();
   *ppResult = blob.Detach();
   return S_OK;
@@ -453,8 +446,8 @@ HRESULT DxcCreateBlobWithEncodingFromPinned(LPCVOID pText, UINT32 size,
   *pBlobEncoding = nullptr;
 
   InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromHeap(
-      pText, size, true, codePage, &internalEncoding);
+  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(
+      pText, DxcGetThreadMallocNoRef(), size, true, codePage, &internalEncoding);
   if (SUCCEEDED(hr)) {
     internalEncoding->ClearFreeFlag();
     *pBlobEncoding = internalEncoding;
@@ -494,33 +487,19 @@ DxcCreateBlobWithEncodingFromStream(IStream *pStream, bool newInstanceAlways,
 
 _Use_decl_annotations_
 HRESULT
-DxcCreateBlobWithEncodingOnHeap(LPCVOID pText, UINT32 size, UINT32 codePage,
-                                IDxcBlobEncoding **pBlobEncoding) throw() {
-  *pBlobEncoding = nullptr;
-
-  InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromHeap(
-      pText, size, true, codePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    *pBlobEncoding = internalEncoding;
-  }
-  return hr;
-}
-
-_Use_decl_annotations_
-HRESULT
 DxcCreateBlobWithEncodingOnHeapCopy(LPCVOID pText, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **pBlobEncoding) throw() {
   *pBlobEncoding = nullptr;
 
-  CDxcMallocHeapPtr<char> heapCopy(DxcGetThreadMallocNoRef());
+  IMalloc* mallocNoRef = DxcGetThreadMallocNoRef();
+  CDxcMallocHeapPtr<char> heapCopy(mallocNoRef);
   if (!heapCopy.Allocate(size)) {
     return E_OUTOFMEMORY;
   }
   memcpy(heapCopy.m_pData, pText, size);
 
   InternalDxcBlobEncoding* internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromHeap(heapCopy.m_pData, size, true, codePage, &internalEncoding);
+  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(heapCopy.m_pData, mallocNoRef, size, true, codePage, &internalEncoding);
   if (SUCCEEDED(hr)) {
     *pBlobEncoding = internalEncoding;
     heapCopy.Detach();
