@@ -265,14 +265,13 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
   memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
 
   // Create the result blob.
-  IMalloc* pMallocNoRef = DxcGetThreadMallocNoRef();
-  CDxcMallocHeapPtr<char> bytes(pMallocNoRef);
+  CDxcMallocHeapPtr<char> bytes(DxcGetThreadMallocNoRef());
   CComPtr<IDxcBlob> pBlob;
   unsigned cb = Serializer.GetSize();
   DXASSERT_NOMSG((cb & 0x3) == 0);
   IFTBOOL(bytes.Allocate(cb), E_OUTOFMEMORY);
   IFT(Serializer.Compact(bytes.m_pData, cb));
-  IFT(DxcCreateBlobOnMalloc(bytes.m_pData, pMallocNoRef, cb, ppBlob));
+  IFT(DxcCreateBlobOnMalloc(bytes.m_pData, bytes.GetMallocNoRef(), cb, ppBlob));
   bytes.Detach(); // Ownership transfered to ppBlob.
 }
 

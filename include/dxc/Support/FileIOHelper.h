@@ -77,6 +77,8 @@ public:
 
   operator T *() const throw() { return m_pData; }
 
+  IMalloc* GetMallocNoRef() const throw() { return m_pMalloc.p; }
+
   bool Allocate(_In_ SIZE_T ElementCount) throw() {
     ATLASSERT(m_pData == NULL);
     SIZE_T nBytes = ElementCount * sizeof(T);
@@ -171,7 +173,7 @@ DxcCreateBlobWithEncodingFromStream(
     IStream *pStream, bool newInstanceAlways, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
-// Should rename this 'OnHeap' to be 'OnMalloc', change callers to pass arg. Using TLS.
+// Creates a blob with a copy of the encoded text
 HRESULT
 DxcCreateBlobWithEncodingOnHeapCopy(
     _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
