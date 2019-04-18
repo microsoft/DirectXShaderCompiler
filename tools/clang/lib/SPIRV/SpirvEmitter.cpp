@@ -7743,15 +7743,27 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
 
 SpirvInstruction *
 SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
-  // According the HLSL reference: clamp(X, Min, Max) takes 3 arguments. Each
-  // one may be int, uint, or float.
+  // According the HLSL reference: clamp(X, minVal, maxVal) takes 3 arguments.
+  // Each one may be int, uint, or float.
+
+  // The GLSL extended instruction set spec for FClamp indicates:
+  // "Result is undefined if minVal > maxVal"
+  // However, the HLSL developer may not necessarily respect this restriction.
+  // Therefore, we can't use the GLSL extended instruction set's clamp function.
+  // We will therefore use the Min and Max functions:
+  // clamp (X, minVal, maxVal) = min(max(x, minVal), maxVal)
+
   auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
   const QualType returnType = callExpr->getType();
-  GLSLstd450 glslOpcode = GLSLstd450::GLSLstd450UClamp;
-  if (isFloatOrVecMatOfFloatType(returnType))
-    glslOpcode = GLSLstd450::GLSLstd450FClamp;
-  else if (isSintOrVecMatOfSintType(returnType))
-    glslOpcode = GLSLstd450::GLSLstd450SClamp;
+  GLSLstd450 glslMin = GLSLstd450::GLSLstd450UMin;
+  GLSLstd450 glslMax = GLSLstd450::GLSLstd450UMax;
+  if (isFloatOrVecMatOfFloatType(returnType)) {
+    glslMin = GLSLstd450::GLSLstd450FMin;
+    glslMax = GLSLstd450::GLSLstd450FMax;
+  } else if (isSintOrVecMatOfSintType(returnType)) {
+    glslMin = GLSLstd450::GLSLstd450SMin;
+    glslMax = GLSLstd450::GLSLstd450SMax;
+  }
 
   // Get the function parameters. Expect 3 parameters.
   assert(callExpr->getNumArgs() == 3u);
@@ -7763,24 +7775,32 @@ SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
   auto *argMinInstr = doExpr(argMin);
   auto *argMaxInstr = doExpr(argMax);
 
-  // FClamp, UClamp, and SClamp do not operate on matrices, so we should perform
-  // the operation on each vector of the matrix.
+  // FMin/FMax, UMin/UMax, and SMin/SMax do not operate on matrices, so we
+  // should perform the operation on each vector of the matrix.
   if (isMxNMatrix(argX->getType())) {
-    const auto actOnEachVec = [this, loc, glslInstSet, glslOpcode, argMinInstr,
-                               argMaxInstr](uint32_t index, QualType vecType,
-                                            SpirvInstruction *curRow) {
-      auto *minRowInstr =
-          spvBuilder.createCompositeExtract(vecType, argMinInstr, {index});
-      auto *maxRowInstr =
-          spvBuilder.createCompositeExtract(vecType, argMaxInstr, {index});
-      return spvBuilder.createExtInst(vecType, glslInstSet, glslOpcode,
-                                      {curRow, minRowInstr, maxRowInstr}, loc);
-    };
+    const auto actOnEachVec =
+        [this, loc, glslInstSet, glslMin, glslMax, argMinInstr, argMaxInstr](
+            uint32_t index, QualType vecType, SpirvInstruction *curRow) {
+          auto *minRowInstr =
+              spvBuilder.createCompositeExtract(vecType, argMinInstr, {index});
+          auto *maxRowInstr =
+              spvBuilder.createCompositeExtract(vecType, argMaxInstr, {index});
+          return spvBuilder.createExtInst(
+              vecType, glslInstSet, glslMin,
+              {spvBuilder.createExtInst(vecType, glslInstSet, glslMax,
+                                        {curRow, minRowInstr}, loc),
+               maxRowInstr},
+              loc);
+        };
     return processEachVectorInMatrix(argX, argXInstr, actOnEachVec);
   }
 
-  return spvBuilder.createExtInst(returnType, glslInstSet, glslOpcode,
-                                  {argXInstr, argMinInstr, argMaxInstr}, loc);
+  return spvBuilder.createExtInst(
+      returnType, glslInstSet, glslMin,
+      {spvBuilder.createExtInst(returnType, glslInstSet, glslMax,
+                                {argXInstr, argMinInstr}, loc),
+       argMaxInstr},
+      loc);
 }
 
 SpirvInstruction *
