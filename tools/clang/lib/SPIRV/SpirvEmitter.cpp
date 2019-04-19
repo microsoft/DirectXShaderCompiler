@@ -945,17 +945,17 @@ bool SpirvEmitter::loadIfAliasVarRef(const Expr *varExpr,
 SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
                                            QualType fromType, QualType toType,
                                            SourceLocation srcLoc) {
-  if (isFloatOrVecOfFloatType(toType))
+  if (isFloatOrVecMatOfFloatType(toType))
     return castToFloat(value, fromType, toType, srcLoc);
 
   // Order matters here. Bool (vector) values will also be considered as uint
   // (vector) values. So given a bool (vector) argument, isUintOrVecOfUintType()
   // will also return true. We need to check bool before uint. The opposite is
   // not true.
-  if (isBoolOrVecOfBoolType(toType))
+  if (isBoolOrVecMatOfBoolType(toType))
     return castToBool(value, fromType, toType);
 
-  if (isSintOrVecOfSintType(toType) || isUintOrVecOfUintType(toType))
+  if (isSintOrVecMatOfSintType(toType) || isUintOrVecMatOfUintType(toType))
     return castToInt(value, fromType, toType, srcLoc);
 
   emitError("casting to type %0 unimplemented", {}) << toType;
@@ -1059,14 +1059,16 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // basic block. Make sure we have a termination instruction.
     if (!spvBuilder.isCurrentBasicBlockTerminated()) {
       const auto retType = decl->getReturnType();
+      const auto returnLoc = decl->getBody()->getLocEnd();
 
       if (retType->isVoidType()) {
-        spvBuilder.createReturn();
+        spvBuilder.createReturn(returnLoc);
       } else {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
         // value here.
-        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType));
+        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType),
+                                     returnLoc);
       }
     }
   }
@@ -1335,7 +1337,7 @@ spv::LoopControlMask SpirvEmitter::translateLoopAttribute(const Stmt *stmt,
 
 void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
-  spvBuilder.createKill();
+  spvBuilder.createKill(discardStmt->getLoc());
   // Some statements that alter the control flow (break, continue, return, and
   // discard), require creation of a new basic block to hold any statement that
   // may follow them.
@@ -2144,6 +2146,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
   const Expr *subExpr = expr->getSubExpr();
   const QualType subExprType = subExpr->getType();
   const QualType toType = expr->getType();
+  const auto srcLoc = expr->getExprLoc();
 
   switch (expr->getCastKind()) {
   case CastKind::CK_LValueToRValue:
@@ -2181,7 +2184,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
       return value;
     }
 
-    auto *value = castToFloat(doExpr(subExpr), subExprType, toType,
+    auto *value = castToFloat(loadIfGLValue(subExpr), subExprType, toType,
                               subExpr->getExprLoc());
     value->setRValue();
     return value;
@@ -2196,7 +2199,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
       return value;
     }
 
-    auto *value = castToBool(doExpr(subExpr), subExprType, toType);
+    auto *value = castToBool(loadIfGLValue(subExpr), subExprType, toType);
     value->setRValue();
     return value;
   }
@@ -2341,9 +2344,32 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLMatrixToVectorCast: {
-    // The underlying should already be a matrix of 1xN.
-    assert(is1xNMatrix(subExprType) || isMx1Matrix(subExprType));
-    return doExpr(subExpr);
+    // If the underlying matrix is Mx1 or 1xM for M in {1, 2,3,4}, we can return
+    // the underlying matrix because it'll be evaluated as a vector by default.
+    if (is1x1Matrix(subExprType) || is1xNMatrix(subExprType) ||
+        isMx1Matrix(subExprType))
+      return doExpr(subExpr);
+
+    // A vector can have no more than 4 elements. The only remaining case
+    // is casting from a 2x2 matrix to a vector of size 4.
+
+    auto *mat = loadIfGLValue(subExpr);
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0, elemCount = 0;
+    const bool isMat =
+        isMxNMatrix(subExprType, &elemType, &rowCount, &colCount);
+    const bool isVec = isVectorType(toType, nullptr, &elemCount);
+    assert(isMat && rowCount == 2 && colCount == 2);
+    assert(isVec && elemCount == 4);
+    (void)isMat;
+    (void)isVec;
+    QualType vec2Type = astContext.getExtVectorType(elemType, 2);
+    auto *row0 = spvBuilder.createCompositeExtract(vec2Type, mat, {0}, srcLoc);
+    auto *row1 = spvBuilder.createCompositeExtract(vec2Type, mat, {1}, srcLoc);
+    auto *vec = spvBuilder.createVectorShuffle(toType, row0, row1, {0, 1, 2, 3},
+                                               srcLoc);
+    vec->setRValue();
+    return vec;
   }
   case CastKind::CK_FunctionToPointerDecay:
     // Just need to return the function id
@@ -2382,15 +2408,24 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
     // For assigning one array instance to another one with the same array type
     // (regardless of constness and literalness), the rhs will be wrapped in a
-    // FlatConversion:
+    // FlatConversion. Similarly for assigning a struct to another struct with
+    // identical members.
     //  |- <lhs>
     //  `- ImplicitCastExpr <FlatConversion>
     //     `- ImplicitCastExpr <LValueToRValue>
     //        `- <rhs>
-    // This FlatConversion does not affect CodeGen, so that we can ignore it.
-    else if (subExprType->isArrayType() &&
-             isSameType(astContext, expr->getType(), subExprType)) {
-      return doExpr(subExpr);
+    else if (isSameType(astContext, toType, evalType) ||
+             // We can have casts changing the shape but without affecting
+             // memory order, e.g., `float4 a[2]; float b[8] = (float[8])a;`.
+             // This is also represented as FlatConversion. For such cases, we
+             // can rely on the InitListHandler, which can decompse
+             // vectors/matrices.
+             subExprType->isArrayType()) {
+      auto *valInstr =
+          InitListHandler(astContext, *this).processCast(toType, subExpr);
+      if (valInstr)
+        valInstr->setRValue();
+      return valInstr;
     }
     // We can have casts changing the shape but without affecting memory order,
     // e.g., `float4 a[2]; float b[8] = (float[8])a;`. This is also represented
@@ -2579,6 +2614,7 @@ SpirvEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
 SpirvInstruction *
 SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const auto type = expr->getType();
+  const SourceLocation loc = expr->getExprLoc();
 
   // According to HLSL doc, all sides of the ?: expression are always evaluated.
 
@@ -2605,7 +2641,7 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
     }
 
     auto *value =
-        spvBuilder.createSelect(type, condition, trueBranch, falseBranch);
+        spvBuilder.createSelect(type, condition, trueBranch, falseBranch, loc);
     value->setRValue();
     return value;
   }
@@ -2690,6 +2726,7 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
   // void Interlocked*(in UINT dest, in UINT value, out UINT original_value);
 
   const auto *object = expr->getImplicitObjectArgument();
+  const auto srcLoc = expr->getExprLoc();
   auto *objectInfo = loadIfAliasVarRef(object);
 
   auto *zero =
@@ -2715,17 +2752,21 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
     auto *originalVal = spvBuilder.createAtomicCompareExchange(
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
         spv::MemorySemanticsMask::MaskNone, spv::MemorySemanticsMask::MaskNone,
-        doExpr(expr->getArg(2)), comparator);
+        doExpr(expr->getArg(2)), comparator, srcLoc);
     if (isCompareExchange)
       spvBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
   } else {
     auto *value = doExpr(expr->getArg(1));
-    auto *originalVal = spvBuilder.createAtomicOp(
+    SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
         translateAtomicHlslOpcodeToSpirvOpcode(opcode),
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, value);
-    if (expr->getNumArgs() > 2)
+        spv::MemorySemanticsMask::MaskNone, value, srcLoc);
+    if (expr->getNumArgs() > 2) {
+      originalVal = castToType(originalVal, astContext.UnsignedIntTy,
+                               expr->getArg(2)->getType(),
+                               expr->getArg(2)->getLocStart());
       spvBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
+    }
   }
 
   return nullptr;
@@ -2954,6 +2995,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
+  const auto loc = expr->getExprLoc();
   const QualType imageType = imageExpr->getType();
   const QualType retType = callee->getReturnType();
 
@@ -3013,7 +3055,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
                                     llvm::APInt(32, component, true)),
           compareVal,
           /*constOffset*/ nullptr, varOffset, /*constOffsets*/ nullptr,
-          /*sampleNumber*/ nullptr, status);
+          /*sampleNumber*/ nullptr, status, loc);
       texels[i] = spvBuilder.createCompositeExtract(elemType, gatherRet, {i});
     }
     return spvBuilder.createCompositeConstruct(
@@ -3025,7 +3067,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
       spvBuilder.getConstantInt(astContext.IntTy,
                                 llvm::APInt(32, component, true)),
       compareVal, constOffset, varOffset, constOffsets,
-      /*sampleNumber*/ nullptr, status);
+      /*sampleNumber*/ nullptr, status, loc);
 }
 
 SpirvInstruction *
@@ -3053,6 +3095,7 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
 
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
+  const auto loc = expr->getExprLoc();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   const bool hasOffsetArg = (numArgs == 5) || (numArgs == 4 && !hasStatusArg);
@@ -3075,7 +3118,7 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
       retType, imageType, image, sampler, coordinate,
       /*component*/ nullptr, comparator, constOffset, varOffset,
       /*constOffsets*/ nullptr,
-      /*sampleNumber*/ nullptr, status);
+      /*sampleNumber*/ nullptr, status, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
@@ -3259,6 +3302,7 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
   auto *sOne =
       spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 1, true));
 
+  const auto srcLoc = expr->getExprLoc();
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
 
@@ -3284,15 +3328,15 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
   SpirvInstruction *index = nullptr;
   if (isInc) {
-    index = spvBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, astContext.IntTy,
-                                      counterPtr, spv::Scope::Device,
-                                      spv::MemorySemanticsMask::MaskNone, sOne);
+    index = spvBuilder.createAtomicOp(
+        spv::Op::OpAtomicIAdd, astContext.IntTy, counterPtr, spv::Scope::Device,
+        spv::MemorySemanticsMask::MaskNone, sOne, srcLoc);
   } else {
     // Note that OpAtomicISub returns the value before the subtraction;
     // so we need to do substraction again with OpAtomicISub's return value.
     auto *prev = spvBuilder.createAtomicOp(
         spv::Op::OpAtomicISub, astContext.IntTy, counterPtr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, sOne);
+        spv::MemorySemanticsMask::MaskNone, sOne, srcLoc);
     index = spvBuilder.createBinaryOp(spv::Op::OpISub, astContext.IntTy, prev,
                                       sOne);
   }
@@ -3447,7 +3491,21 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
       // We have already translated the object in the above. Avoid duplication.
       /*loadObject=*/false);
 
-  const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
+  auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
+
+  // If this is a variable to communicate with host e.g., ACSBuffer
+  // and its type is bool or vector of bool, its effective type used
+  // for SPIRV must be uint not bool. We must convert it to uint here.
+  bool needCast = false;
+  if (bufferInfo->getLayoutRule() != SpirvLayoutRule::Void &&
+      isBoolOrVecOfBoolType(bufferElemTy)) {
+    uint32_t vecSize = 1;
+    const bool isVec = isVectorType(bufferElemTy, nullptr, &vecSize);
+    bufferElemTy =
+        isVec ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
+              : astContext.UnsignedIntTy;
+    needCast = true;
+  }
 
   bufferInfo = turnIntoElementPtr(object->getType(), bufferInfo, bufferElemTy,
                                   {zero, index});
@@ -3455,8 +3513,16 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   if (isAppend) {
     // Write out the value
     auto *arg0 = doExpr(expr->getArg(0));
+    if (!arg0)
+      return nullptr;
+
     if (!arg0->isRValue()) {
       arg0 = spvBuilder.createLoad(bufferElemTy, arg0);
+    }
+    if (needCast &&
+        !isSameType(astContext, bufferElemTy, arg0->getAstResultType())) {
+      arg0 = castToType(arg0, arg0->getAstResultType(), bufferElemTy,
+                        expr->getArg(0)->getExprLoc());
     }
     storeValue(bufferInfo, arg0, bufferElemTy);
     return 0;
@@ -3477,7 +3543,7 @@ SpirvEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
   auto *value = doExpr(expr->getArg(0));
 
   declIdMapper.writeBackOutputStream(stream, stream->getType(), value);
-  spvBuilder.createEmitVertex();
+  spvBuilder.createEmitVertex(expr->getExprLoc());
 
   return nullptr;
 }
@@ -3485,7 +3551,7 @@ SpirvEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processStreamOutputRestart(const CXXMemberCallExpr *expr) {
   // TODO: handle multiple stream-output objects
-  spvBuilder.createEndPrimitive();
+  spvBuilder.createEndPrimitive(expr->getExprLoc());
   return 0;
 }
 
@@ -3935,6 +4001,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   // Other Texture types do not have a Gather method.
 
   const auto numArgs = expr->getNumArgs();
+  const auto loc = expr->getExprLoc();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
 
@@ -3975,7 +4042,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
         // .Gather() doc says we return four components of red data.
         spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)),
         /*compareVal*/ nullptr, constOffset, varOffset,
-        /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status);
+        /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status, loc);
   }
 }
 
@@ -5310,14 +5377,18 @@ void SpirvEmitter::condenseVectorElementExpr(
     const HLSLVectorElementExpr *expr, const Expr **basePtr,
     hlsl::VectorMemberAccessPositions *flattenedAccessor) {
   llvm::SmallVector<hlsl::VectorMemberAccessPositions, 2> accessors;
-  accessors.push_back(expr->getEncodedElementAccess());
+  *basePtr = expr;
 
-  // Recursively descending until we find the true base vector. In the
-  // meanwhile, collecting accessors in the reverse order.
-  *basePtr = expr->getBase();
+  // Recursively descending until we find the true base vector (the base vector
+  // that does not have a base vector). In the meanwhile, collecting accessors
+  // in the reverse order.
+  // Example: for myVector.yxwz.yxz.xx.yx, the true base is 'myVector'.
   while (const auto *vecElemBase = dyn_cast<HLSLVectorElementExpr>(*basePtr)) {
     accessors.push_back(vecElemBase->getEncodedElementAccess());
     *basePtr = vecElemBase->getBase();
+    // We need to skip any number of parentheses around swizzling at any level.
+    while (const auto *parenExpr = dyn_cast<ParenExpr>(*basePtr))
+      *basePtr = parenExpr->getSubExpr();
   }
 
   *flattenedAccessor = accessors.back();
@@ -5829,7 +5900,8 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
   // translate the varDecl directly into the spec constant here.
 
   spvBuilder.decorateSpecId(
-      specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId());
+      specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId(),
+      varDecl->getLocation());
 
   declIdMapper.registerSpecConstant(varDecl, specConstant);
 }
@@ -6049,7 +6121,7 @@ SpirvInstruction *SpirvEmitter::turnIntoElementPtr(
 SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
                                            QualType fromType,
                                            QualType toBoolType) {
-  if (isSameScalarOrVecType(fromType, toBoolType))
+  if (isSameType(astContext, fromType, toBoolType))
     return fromVal;
 
   { // Special case handling for converting to a matrix of booleans.
@@ -6079,13 +6151,13 @@ SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
 SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
                                           QualType fromType, QualType toIntType,
                                           SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toIntType))
+  if (isSameType(astContext, fromType, toIntType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
     auto *one = getValueOne(toIntType);
     auto *zero = getValueZero(toIntType);
-    return spvBuilder.createSelect(toIntType, fromVal, one, zero);
+    return spvBuilder.createSelect(toIntType, fromVal, one, zero, srcLoc);
   }
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
@@ -6151,13 +6223,10 @@ SpirvInstruction *SpirvEmitter::convertBitwidth(SpirvInstruction *fromVal,
                                                 QualType fromType,
                                                 QualType toType,
                                                 QualType *resultType) {
-  // At the moment, we will not make bitwidth conversions for literal int and
-  // literal float types because they always indicate 64-bit and do not
-  // represent what SPIR-V was actually resolved to.
-  // TODO: If the evaluated type is added to SpirvEvalInfo, change 'fromVal' to
-  // SpirvEvalInfo and use it to handle literal types more accurately.
-  if (fromType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
-      fromType->isSpecificBuiltinType(BuiltinType::LitInt))
+  // At the moment, we will not make bitwidth conversions to/from literal int
+  // and literal float types because they do not represent the intended SPIR-V
+  // bitwidth.
+  if (isLitTypeOrVecOfLitType(fromType) || isLitTypeOrVecOfLitType(toType))
     return fromVal;
 
   const auto fromBitwidth = getElementSpirvBitwidth(
@@ -6189,13 +6258,13 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
                                             QualType fromType,
                                             QualType toFloatType,
                                             SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toFloatType))
+  if (isSameType(astContext, fromType, toFloatType))
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
     auto *one = getValueOne(toFloatType);
     auto *zero = getValueZero(toFloatType);
-    return spvBuilder.createSelect(toFloatType, fromVal, one, zero);
+    return spvBuilder.createSelect(toFloatType, fromVal, one, zero, srcLoc);
   }
 
   if (isSintOrVecOfSintType(fromType)) {
@@ -6257,6 +6326,7 @@ SpirvInstruction *SpirvEmitter::castToFloat(SpirvInstruction *fromVal,
 SpirvInstruction *
 SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   const FunctionDecl *callee = callExpr->getDirectCallee();
+  const SourceLocation srcLoc = callExpr->getExprLoc();
   assert(hlsl::IsIntrinsicOp(callee) &&
          "doIntrinsicCallExpr was called for a non-intrinsic function.");
 
@@ -6281,7 +6351,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 #define INTRINSIC_OP_CASE(intrinsicOp, glslOp, doEachVec)                      \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     glslOpcode = GLSLstd450::GLSLstd450##glslOp;                               \
-    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);   \
+    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
+                                           srcLoc);                            \
   } break
 
 #define INTRINSIC_OP_CASE_INT_FLOAT(intrinsicOp, glslIntOp, glslFloatOp,       \
@@ -6289,7 +6360,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     glslOpcode = isFloatType ? GLSLstd450::GLSLstd450##glslFloatOp             \
                              : GLSLstd450::GLSLstd450##glslIntOp;              \
-    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);   \
+    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
+                                           srcLoc);                            \
   } break
 
 #define INTRINSIC_OP_CASE_SINT_UINT(intrinsicOp, glslSintOp, glslUintOp,       \
@@ -6297,7 +6369,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     glslOpcode = isSintType ? GLSLstd450::GLSLstd450##glslSintOp               \
                             : GLSLstd450::GLSLstd450##glslUintOp;              \
-    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);   \
+    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
+                                           srcLoc);                            \
   } break
 
 #define INTRINSIC_OP_CASE_SINT_UINT_FLOAT(intrinsicOp, glslSintOp, glslUintOp, \
@@ -6307,7 +6380,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                      ? GLSLstd450::GLSLstd450##glslFloatOp                     \
                      : isSintType ? GLSLstd450::GLSLstd450##glslSintOp         \
                                   : GLSLstd450::GLSLstd450##glslUintOp;        \
-    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);   \
+    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
+                                           srcLoc);                            \
   } break
 
   switch (const auto hlslOpcode = static_cast<hlsl::IntrinsicOp>(opcode)) {
@@ -6388,8 +6462,8 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            /*isAllBarrier*/ true);
     break;
   case hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped:
-    retVal =
-        spvBuilder.createImageSparseTexelsResident(doExpr(callExpr->getArg(0)));
+    retVal = spvBuilder.createImageSparseTexelsResident(
+        doExpr(callExpr->getArg(0)), srcLoc);
     break;
 
   case hlsl::IntrinsicOp::IOP_mul:
@@ -6442,7 +6516,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     else
       retVal =
           processIntrinsicUsingGLSLInst(callExpr, GLSLstd450::GLSLstd450SSign,
-                                        /*actPerRowForMatrices*/ true);
+                                        /*actPerRowForMatrices*/ true, srcLoc);
   } break;
   case hlsl::IntrinsicOp::IOP_D3DCOLORtoUBYTE4:
     retVal = processD3DCOLORtoUBYTE4(callExpr);
@@ -6706,6 +6780,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   auto *zero =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto *dest = expr->getArg(0);
+  const auto srcLoc = expr->getExprLoc();
   const auto baseType = dest->getType()->getCanonicalTypeUnqualified();
 
   if (!baseType->isIntegerType()) {
@@ -6757,7 +6832,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       }
       auto *coordInstr = doExpr(index);
       ptr = spvBuilder.createImageTexelPointer(baseType, baseInstr, coordInstr,
-                                               zero);
+                                               zero, srcLoc);
     }
   }
   if (!ptr) {
@@ -6782,7 +6857,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     auto *valueInstr = doArg(expr, 2);
     auto *originalVal = spvBuilder.createAtomicCompareExchange(
         baseType, ptr, spv::Scope::Device, spv::MemorySemanticsMask::MaskNone,
-        spv::MemorySemanticsMask::MaskNone, valueInstr, comparator);
+        spv::MemorySemanticsMask::MaskNone, valueInstr, comparator, srcLoc);
     if (isCompareExchange)
       writeToOutputArg(originalVal, expr, 3);
   } else {
@@ -6802,9 +6877,9 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       atomicOp = spv::Op::OpAtomicSMin;
     if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
       atomicOp = spv::Op::OpAtomicUMin;
-    auto *originalVal =
-        spvBuilder.createAtomicOp(atomicOp, baseType, ptr, spv::Scope::Device,
-                                  spv::MemorySemanticsMask::MaskNone, value);
+    auto *originalVal = spvBuilder.createAtomicOp(
+        atomicOp, baseType, ptr, spv::Scope::Device,
+        spv::MemorySemanticsMask::MaskNone, value, srcLoc);
     if (expr->getNumArgs() > 2)
       writeToOutputArg(originalVal, expr, 2);
   }
@@ -6866,6 +6941,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   auto *reference = doExpr(callExpr->getArg(0));
   auto *source = doExpr(callExpr->getArg(1));
   auto *accum = doExpr(callExpr->getArg(2));
+  const auto loc = callExpr->getExprLoc();
   const auto uint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto uint8 =
@@ -6894,15 +6970,15 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   auto *t0y =
       spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS8, /*insert*/ v1y,
                                       /*offset*/ uint24,
-                                      /*width*/ uint8);
+                                      /*width*/ uint8, loc);
   auto *t0z =
       spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS16, /*insert*/ v1y,
                                       /*offset*/ uint16,
-                                      /*width*/ uint16);
+                                      /*width*/ uint16, loc);
   auto *t0w =
       spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS24, /*insert*/ v1y,
                                       /*offset*/ uint8,
-                                      /*width*/ uint24);
+                                      /*width*/ uint24, loc);
 
   // Step 3. MSAD (Masked Sum of Absolute Differences)
 
@@ -6962,7 +7038,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
         uintType, reference, /*offset*/
         spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                   llvm::APInt(32, i * 8)),
-        /*count*/ uint8, /*isSigned*/ false));
+        /*count*/ uint8, /*isSigned*/ false, loc));
     signedRefBytes.push_back(
         spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refBytes.back()));
     isRefByteZero.push_back(spvBuilder.createBinaryOp(
@@ -6977,16 +7053,16 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
           /*offset*/
           spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                     llvm::APInt(32, 8 * byteCount)),
-          /*count*/ uint8, /*isSigned*/ false);
+          /*count*/ uint8, /*isSigned*/ false, loc);
       auto *signedSrcByte =
           spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
       auto *sub = spvBuilder.createBinaryOp(
           spv::Op::OpISub, intType, signedRefBytes[byteCount], signedSrcByte);
       auto *absSub = spvBuilder.createExtInst(
-          intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub});
+          intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub}, loc);
       auto *diff = spvBuilder.createSelect(
           uintType, isRefByteZero[byteCount], uint0,
-          spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub));
+          spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub), loc);
 
       // As pointed out by the DXIL reference above, it is *not* required to
       // saturate the output to UINT_MAX in case of overflow. Wrapping around is
@@ -7008,8 +7084,8 @@ SpirvInstruction *SpirvEmitter::processWaveQuery(const CallExpr *callExpr,
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
   const QualType retType = callExpr->getCallReturnType(astContext);
-  return spvBuilder.createGroupNonUniformElect(opcode, retType,
-                                               spv::Scope::Subgroup);
+  return spvBuilder.createGroupNonUniformElect(
+      opcode, retType, spv::Scope::Subgroup, callExpr->getExprLoc());
 }
 
 SpirvInstruction *SpirvEmitter::processWaveVote(const CallExpr *callExpr,
@@ -7024,7 +7100,7 @@ SpirvInstruction *SpirvEmitter::processWaveVote(const CallExpr *callExpr,
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformUnaryOp(
-      opcode, retType, spv::Scope::Subgroup, predicate);
+      callExpr->getExprLoc(), opcode, retType, spv::Scope::Subgroup, predicate);
 }
 
 spv::Op SpirvEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
@@ -7107,16 +7183,18 @@ SpirvEmitter::processWaveCountBits(const CallExpr *callExpr,
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
   auto *predicate = doExpr(callExpr->getArg(0));
+  const auto srcLoc = callExpr->getExprLoc();
   const QualType u32Type = astContext.UnsignedIntTy;
   const QualType v4u32Type = astContext.getExtVectorType(u32Type, 4);
   const QualType retType = callExpr->getCallReturnType(astContext);
   auto *ballot = spvBuilder.createGroupNonUniformUnaryOp(
-      spv::Op::OpGroupNonUniformBallot, v4u32Type, spv::Scope::Subgroup,
+      srcLoc, spv::Op::OpGroupNonUniformBallot, v4u32Type, spv::Scope::Subgroup,
       predicate);
 
   return spvBuilder.createGroupNonUniformUnaryOp(
-      spv::Op::OpGroupNonUniformBallotBitCount, retType, spv::Scope::Subgroup,
-      ballot, llvm::Optional<spv::GroupOperation>(groupOp));
+      srcLoc, spv::Op::OpGroupNonUniformBallotBitCount, retType,
+      spv::Scope::Subgroup, ballot,
+      llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
 SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
@@ -7139,7 +7217,7 @@ SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformUnaryOp(
-      opcode, retType, spv::Scope::Subgroup, predicate,
+      callExpr->getExprLoc(), opcode, retType, spv::Scope::Subgroup, predicate,
       llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
@@ -7148,6 +7226,7 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   // <type> WaveReadLaneFirst(<type> expr)
   // <type> WaveReadLaneAt(<type> expr, uint laneIndex)
   const auto numArgs = callExpr->getNumArgs();
+  const auto srcLoc = callExpr->getExprLoc();
   assert(numArgs == 1 || numArgs == 2);
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
@@ -7156,11 +7235,11 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   if (numArgs == 2)
     return spvBuilder.createGroupNonUniformBinaryOp(
         spv::Op::OpGroupNonUniformBroadcast, retType, spv::Scope::Subgroup,
-        value, doExpr(callExpr->getArg(1)));
+        value, doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(
-        spv::Op::OpGroupNonUniformBroadcastFirst, retType, spv::Scope::Subgroup,
-        value);
+        srcLoc, spv::Op::OpGroupNonUniformBroadcastFirst, retType,
+        spv::Scope::Subgroup, value);
 }
 
 SpirvInstruction *
@@ -7176,6 +7255,7 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
                                   callExpr->getExprLoc());
 
   auto *value = doExpr(callExpr->getArg(0));
+  const auto srcLoc = callExpr->getExprLoc();
   const QualType retType = callExpr->getCallReturnType(astContext);
 
   SpirvInstruction *target = nullptr;
@@ -7202,7 +7282,7 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
   }
 
   return spvBuilder.createGroupNonUniformBinaryOp(
-      opcode, retType, spv::Scope::Subgroup, value, target);
+      opcode, retType, spv::Scope::Subgroup, value, target, srcLoc);
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
@@ -7228,6 +7308,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
   const Expr *arg = callExpr->getArg(0);
   const Expr *ipArg = callExpr->getArg(1);
+  const auto loc = callExpr->getExprLoc();
   const auto argType = arg->getType();
   const auto ipType = ipArg->getType();
   const auto returnType = callExpr->getType();
@@ -7243,7 +7324,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
           "ModfStructType");
       auto *modf = spvBuilder.createExtInst(modfStructType, glslInstSet,
                                             GLSLstd450::GLSLstd450ModfStruct,
-                                            {argInstr});
+                                            {argInstr}, loc);
       SpirvInstruction *ip =
           spvBuilder.createCompositeExtract(argType, modf, {1});
       // This will do nothing if the input number (x) and the ip are both of the
@@ -7271,7 +7352,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
             spvBuilder.createCompositeExtract(colType, argInstr, {i});
         auto *modf = spvBuilder.createExtInst(modfStructType, glslInstSet,
                                               GLSLstd450::GLSLstd450ModfStruct,
-                                              {curRow});
+                                              {curRow}, loc);
         ips.push_back(spvBuilder.createCompositeExtract(colType, modf, {1}));
         fracs.push_back(spvBuilder.createCompositeExtract(colType, modf, {0}));
       }
@@ -7306,6 +7387,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
 
   // TODO: We currently don't propagate the NoContraction decoration.
 
+  const auto loc = callExpr->getExprLoc();
   const Expr *arg0 = callExpr->getArg(0);
   const Expr *arg1 = callExpr->getArg(1);
   const Expr *arg2 = callExpr->getArg(2);
@@ -7323,24 +7405,26 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
     auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
     // For matrix cases, operate on each row of the matrix.
     if (isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSet, arg1Instr,
+      const auto actOnEachVec = [this, loc, glslInstSet, arg1Instr,
                                  arg2Instr](uint32_t index, QualType vecType,
                                             SpirvInstruction *arg0Row) {
         auto *arg1Row =
             spvBuilder.createCompositeExtract(vecType, arg1Instr, {index});
         auto *arg2Row =
             spvBuilder.createCompositeExtract(vecType, arg2Instr, {index});
-        auto *fma = spvBuilder.createExtInst(
-            vecType, glslInstSet, GLSLstd450Fma, {arg0Row, arg1Row, arg2Row});
-        spvBuilder.decorateNoContraction(fma);
+        auto *fma =
+            spvBuilder.createExtInst(vecType, glslInstSet, GLSLstd450Fma,
+                                     {arg0Row, arg1Row, arg2Row}, loc);
+        spvBuilder.decorateNoContraction(fma, loc);
         return fma;
       };
       return processEachVectorInMatrix(arg0, arg0Instr, actOnEachVec);
     }
     // Non-matrix cases
-    auto *fma = spvBuilder.createExtInst(argType, glslInstSet, GLSLstd450Fma,
-                                         {arg0Instr, arg1Instr, arg2Instr});
-    spvBuilder.decorateNoContraction(fma);
+    auto *fma =
+        spvBuilder.createExtInst(argType, glslInstSet, GLSLstd450Fma,
+                                 {arg0Instr, arg1Instr, arg2Instr}, loc);
+    spvBuilder.decorateNoContraction(fma, loc);
     return fma;
   }
 
@@ -7351,8 +7435,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
                                             arg1Instr);
       auto *add =
           spvBuilder.createBinaryOp(spv::Op::OpIAdd, argType, mul, arg2Instr);
-      spvBuilder.decorateNoContraction(mul);
-      spvBuilder.decorateNoContraction(add);
+      spvBuilder.decorateNoContraction(mul, loc);
+      spvBuilder.decorateNoContraction(add, loc);
       return add;
     }
   }
@@ -7375,8 +7459,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMad(const CallExpr *callExpr) {
                                               rowArg1);
         auto *add =
             spvBuilder.createBinaryOp(spv::Op::OpIAdd, colType, mul, rowArg2);
-        spvBuilder.decorateNoContraction(mul);
-        spvBuilder.decorateNoContraction(add);
+        spvBuilder.decorateNoContraction(mul, loc);
+        spvBuilder.decorateNoContraction(add, loc);
         resultRows.push_back(add);
       }
       return spvBuilder.createCompositeConstruct(argType, resultRows);
@@ -7400,6 +7484,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicLit(const CallExpr *callExpr) {
   auto *nDotL = doExpr(callExpr->getArg(0));
   auto *nDotH = doExpr(callExpr->getArg(1));
   auto *m = doExpr(callExpr->getArg(2));
+  const auto loc = callExpr->getExprLoc();
   const QualType floatType = astContext.FloatTy;
   const QualType boolType = astContext.BoolTy;
   SpirvInstruction *floatZero =
@@ -7407,14 +7492,16 @@ SpirvInstruction *SpirvEmitter::processIntrinsicLit(const CallExpr *callExpr) {
   SpirvInstruction *floatOne =
       spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f));
   const QualType retType = callExpr->getType();
-  auto *diffuse = spvBuilder.createExtInst(
-      floatType, glslInstSet, GLSLstd450::GLSLstd450FMax, {floatZero, nDotL});
+  auto *diffuse = spvBuilder.createExtInst(floatType, glslInstSet,
+                                           GLSLstd450::GLSLstd450FMax,
+                                           {floatZero, nDotL}, loc);
   auto *min = spvBuilder.createExtInst(
-      floatType, glslInstSet, GLSLstd450::GLSLstd450FMin, {nDotL, nDotH});
+      floatType, glslInstSet, GLSLstd450::GLSLstd450FMin, {nDotL, nDotH}, loc);
   auto *isNeg = spvBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, boolType,
                                           min, floatZero);
   auto *mul = spvBuilder.createBinaryOp(spv::Op::OpFMul, floatType, nDotH, m);
-  auto *specular = spvBuilder.createSelect(floatType, isNeg, floatZero, mul);
+  auto *specular =
+      spvBuilder.createSelect(floatType, isNeg, floatZero, mul, loc);
   return spvBuilder.createCompositeConstruct(
       retType, {floatOne, diffuse, specular, floatOne});
 }
@@ -7440,6 +7527,7 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   const Expr *arg = callExpr->getArg(0);
   const auto argType = arg->getType();
   const auto returnType = callExpr->getType();
+  const auto loc = callExpr->getExprLoc();
   auto *argInstr = doExpr(arg);
   auto *expInstr = doExpr(callExpr->getArg(1));
 
@@ -7457,7 +7545,7 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
           "FrexpStructType");
       auto *frexp = spvBuilder.createExtInst(frexpStructType, glslInstSet,
                                              GLSLstd450::GLSLstd450FrexpStruct,
-                                             {argInstr});
+                                             {argInstr}, loc);
       auto *exponentInt =
           spvBuilder.createCompositeExtract(expType, frexp, {1});
 
@@ -7490,7 +7578,7 @@ SpirvEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
             spvBuilder.createCompositeExtract(colType, argInstr, {i});
         auto *frexp = spvBuilder.createExtInst(
             frexpStructType, glslInstSet, GLSLstd450::GLSLstd450FrexpStruct,
-            {curRow});
+            {curRow}, loc);
         auto *exponentInt =
             spvBuilder.createCompositeExtract(expType, frexp, {1});
 
@@ -7527,11 +7615,12 @@ SpirvEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   const auto paramType = x->getType();
   auto *xInstr = doExpr(x);
   auto *expInstr = doExpr(callExpr->getArg(1));
+  const auto loc = callExpr->getExprLoc();
 
   // For scalar and vector argument types.
   if (isScalarType(paramType) || isVectorType(paramType)) {
     const auto twoExp = spvBuilder.createExtInst(
-        paramType, glsl, GLSLstd450::GLSLstd450Exp2, {expInstr});
+        paramType, glsl, GLSLstd450::GLSLstd450Exp2, {expInstr}, loc);
     return spvBuilder.createBinaryOp(spv::Op::OpFMul, paramType, xInstr,
                                      twoExp);
   }
@@ -7540,13 +7629,13 @@ SpirvEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   {
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(paramType, nullptr, &rowCount, &colCount)) {
-      const auto actOnEachVec = [this, glsl,
+      const auto actOnEachVec = [this, loc, glsl,
                                  expInstr](uint32_t index, QualType vecType,
                                            SpirvInstruction *xRowInstr) {
         auto *expRowInstr =
             spvBuilder.createCompositeExtract(vecType, expInstr, {index});
         auto *twoExp = spvBuilder.createExtInst(
-            vecType, glsl, GLSLstd450::GLSLstd450Exp2, {expRowInstr});
+            vecType, glsl, GLSLstd450::GLSLstd450Exp2, {expRowInstr}, loc);
         return spvBuilder.createBinaryOp(spv::Op::OpFMul, vecType, xRowInstr,
                                          twoExp);
       };
@@ -7588,6 +7677,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
 
   assert(callExpr->getNumArgs() == 1u);
   const Expr *arg = callExpr->getArg(0);
+  const auto loc = callExpr->getExprLoc();
   const auto argType = arg->getType();
   const auto boolType = astContext.BoolTy;
   SpirvInstruction *condition = nullptr;
@@ -7630,8 +7720,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
         spvBuilder.createCompositeConstruct(boolRowType, cmpResults);
     condition = spvBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
   } else {
-    emitError("invalid argument type passed to clip intrinsic function",
-              callExpr->getExprLoc());
+    emitError("invalid argument type passed to clip intrinsic function", loc);
     return nullptr;
   }
 
@@ -7645,7 +7734,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
   spvBuilder.setMergeTarget(mergeBB);
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
-  spvBuilder.createKill();
+  spvBuilder.createKill(loc);
   spvBuilder.addSuccessor(mergeBB);
   // From now on, we'll emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
@@ -7669,6 +7758,7 @@ SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
   const Expr *argX = callExpr->getArg(0);
   const Expr *argMin = callExpr->getArg(1);
   const Expr *argMax = callExpr->getArg(2);
+  const auto loc = callExpr->getExprLoc();
   auto *argXInstr = doExpr(argX);
   auto *argMinInstr = doExpr(argMin);
   auto *argMaxInstr = doExpr(argMax);
@@ -7676,7 +7766,7 @@ SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
   // FClamp, UClamp, and SClamp do not operate on matrices, so we should perform
   // the operation on each vector of the matrix.
   if (isMxNMatrix(argX->getType())) {
-    const auto actOnEachVec = [this, glslInstSet, glslOpcode, argMinInstr,
+    const auto actOnEachVec = [this, loc, glslInstSet, glslOpcode, argMinInstr,
                                argMaxInstr](uint32_t index, QualType vecType,
                                             SpirvInstruction *curRow) {
       auto *minRowInstr =
@@ -7684,13 +7774,13 @@ SpirvEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
       auto *maxRowInstr =
           spvBuilder.createCompositeExtract(vecType, argMaxInstr, {index});
       return spvBuilder.createExtInst(vecType, glslInstSet, glslOpcode,
-                                      {curRow, minRowInstr, maxRowInstr});
+                                      {curRow, minRowInstr, maxRowInstr}, loc);
     };
     return processEachVectorInMatrix(argX, argXInstr, actOnEachVec);
   }
 
   return spvBuilder.createExtInst(returnType, glslInstSet, glslOpcode,
-                                  {argXInstr, argMinInstr, argMaxInstr});
+                                  {argXInstr, argMinInstr, argMaxInstr}, loc);
 }
 
 SpirvInstruction *
@@ -7738,7 +7828,7 @@ SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
 
   // Get <result-id> for execution scope.
   // If present, execution scope is always Workgroup!
-  llvm::Optional<spv::Scope> execScope;
+  llvm::Optional<spv::Scope> execScope = llvm::None;
   if (groupSync) {
     execScope = spv::Scope::Workgroup;
   }
@@ -7751,7 +7841,8 @@ SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
   const auto memSemaMask = isAllBarrier ? allMemoryBarrierSema
                                         : isDevice ? deviceMemoryBarrierSema
                                                    : groupMemoryBarrierSema;
-  spvBuilder.createBarrier(memScope, memSemaMask, execScope);
+  spvBuilder.createBarrier(memScope, memSemaMask, execScope,
+                           callExpr->getExprLoc());
   return nullptr;
 }
 
@@ -8408,17 +8499,18 @@ SpirvEmitter::processIntrinsicSinCos(const CallExpr *callExpr) {
   sincosExpr->setType(callExpr->getArg(0)->getType());
   sincosExpr->setNumArgs(astContext, 1);
   sincosExpr->setArg(0, const_cast<Expr *>(callExpr->getArg(0)));
+  const auto srcLoc = callExpr->getExprLoc();
 
   // Perform Sin and store results in argument 1.
   auto *sin =
       processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Sin,
-                                    /*actPerRowForMatrices*/ true);
+                                    /*actPerRowForMatrices*/ true, srcLoc);
   spvBuilder.createStore(doExpr(callExpr->getArg(1)), sin);
 
   // Perform Cos and store results in argument 2.
   auto *cos =
       processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Cos,
-                                    /*actPerRowForMatrices*/ true);
+                                    /*actPerRowForMatrices*/ true, srcLoc);
   spvBuilder.createStore(doExpr(callExpr->getArg(2)), cos);
   return nullptr;
 }
@@ -8426,6 +8518,7 @@ SpirvEmitter::processIntrinsicSinCos(const CallExpr *callExpr) {
 SpirvInstruction *
 SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
   const auto *arg = callExpr->getArg(0);
+  const auto loc = callExpr->getExprLoc();
   auto *argId = doExpr(arg);
   const auto argType = arg->getType();
   const QualType returnType = callExpr->getType();
@@ -8436,7 +8529,7 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
     auto *floatOne = getValueOne(argType);
     return spvBuilder.createExtInst(returnType, glslInstSet,
                                     GLSLstd450::GLSLstd450FClamp,
-                                    {argId, floatZero, floatOne});
+                                    {argId, floatZero, floatOne}, loc);
   }
 
   QualType elemType = {};
@@ -8446,19 +8539,19 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
     auto *vecOne = getVecValueOne(elemType, vecSize);
     return spvBuilder.createExtInst(returnType, glslInstSet,
                                     GLSLstd450::GLSLstd450FClamp,
-                                    {argId, vecZero, vecOne});
+                                    {argId, vecZero, vecOne}, loc);
   }
 
   uint32_t numRows = 0, numCols = 0;
   if (isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     auto *vecZero = getVecValueZero(elemType, numCols);
     auto *vecOne = getVecValueOne(elemType, numCols);
-    const auto actOnEachVec = [this, vecZero, vecOne, glslInstSet](
+    const auto actOnEachVec = [this, loc, vecZero, vecOne, glslInstSet](
                                   uint32_t /*index*/, QualType vecType,
                                   SpirvInstruction *curRow) {
       return spvBuilder.createExtInst(vecType, glslInstSet,
                                       GLSLstd450::GLSLstd450FClamp,
-                                      {curRow, vecZero, vecOne});
+                                      {curRow, vecZero, vecOne}, loc);
     };
     return processEachVectorInMatrix(arg, argId, actOnEachVec);
   }
@@ -8473,6 +8566,7 @@ SpirvEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
   // Import the GLSL.std.450 extended instruction set.
   auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
   const Expr *arg = callExpr->getArg(0);
+  const auto loc = callExpr->getExprLoc();
   const QualType returnType = callExpr->getType();
   const QualType argType = arg->getType();
   assert(isFloatOrVecMatOfFloatType(argType));
@@ -8481,16 +8575,16 @@ SpirvEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
 
   // For matrices, we can perform the instruction on each vector of the matrix.
   if (isMxNMatrix(argType)) {
-    const auto actOnEachVec = [this, glslInstSet](uint32_t /*index*/,
-                                                  QualType vecType,
-                                                  SpirvInstruction *curRow) {
-      return spvBuilder.createExtInst(vecType, glslInstSet,
-                                      GLSLstd450::GLSLstd450FSign, {curRow});
-    };
+    const auto actOnEachVec =
+        [this, loc, glslInstSet](uint32_t /*index*/, QualType vecType,
+                                 SpirvInstruction *curRow) {
+          return spvBuilder.createExtInst(
+              vecType, glslInstSet, GLSLstd450::GLSLstd450FSign, {curRow}, loc);
+        };
     floatSign = processEachVectorInMatrix(arg, argId, actOnEachVec);
   } else {
-    floatSign = spvBuilder.createExtInst(argType, glslInstSet,
-                                         GLSLstd450::GLSLstd450FSign, {argId});
+    floatSign = spvBuilder.createExtInst(
+        argType, glslInstSet, GLSLstd450::GLSLstd450FSign, {argId}, loc);
   }
 
   return castToInt(floatSign, arg->getType(), returnType, arg->getExprLoc());
@@ -8505,6 +8599,7 @@ SpirvEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
   const QualType u32Type = astContext.UnsignedIntTy;
   const QualType v2f32Type = astContext.getExtVectorType(f32Type, 2);
 
+  const auto loc = callExpr->getExprLoc();
   const auto *arg = callExpr->getArg(0);
   auto *argId = doExpr(arg);
 
@@ -8517,7 +8612,7 @@ SpirvEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
     for (uint32_t i = 0; i < elemCount; ++i) {
       auto *srcElem = spvBuilder.createCompositeExtract(u32Type, argId, {i});
       auto *convert = spvBuilder.createExtInst(
-          v2f32Type, glsl, GLSLstd450::GLSLstd450UnpackHalf2x16, srcElem);
+          v2f32Type, glsl, GLSLstd450::GLSLstd450UnpackHalf2x16, srcElem, loc);
       elements.push_back(
           spvBuilder.createCompositeExtract(f32Type, convert, {0}));
     }
@@ -8526,7 +8621,7 @@ SpirvEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
   }
 
   auto *convert = spvBuilder.createExtInst(
-      v2f32Type, glsl, GLSLstd450::GLSLstd450UnpackHalf2x16, argId);
+      v2f32Type, glsl, GLSLstd450::GLSLstd450UnpackHalf2x16, argId, loc);
   // f16tof32() converts the float16 stored in the low-half of the uint to
   // a float. So just need to return the first component.
   return spvBuilder.createCompositeExtract(f32Type, convert, {0});
@@ -8542,6 +8637,7 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
   const QualType v2f32Type = astContext.getExtVectorType(f32Type, 2);
   auto *zero = spvBuilder.getConstantFloat(f32Type, llvm::APFloat(0.0f));
 
+  const auto loc = callExpr->getExprLoc();
   const auto *arg = callExpr->getArg(0);
   auto *argId = doExpr(arg);
   uint32_t elemCount = {};
@@ -8556,7 +8652,7 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
           spvBuilder.createCompositeConstruct(v2f32Type, {srcElem, zero});
 
       elements.push_back(spvBuilder.createExtInst(
-          u32Type, glsl, GLSLstd450::GLSLstd450PackHalf2x16, srcVec));
+          u32Type, glsl, GLSLstd450::GLSLstd450PackHalf2x16, srcVec, loc));
     }
     return spvBuilder.createCompositeConstruct(
         astContext.getExtVectorType(u32Type, elemCount), elements);
@@ -8565,8 +8661,8 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
   // f16tof32() stores the float into the low-half of the uint. So we need
   // to supply another zero to take the other half.
   auto *srcVec = spvBuilder.createCompositeConstruct(v2f32Type, {argId, zero});
-  return spvBuilder.createExtInst(u32Type, glsl,
-                                  GLSLstd450::GLSLstd450PackHalf2x16, srcVec);
+  return spvBuilder.createExtInst(
+      u32Type, glsl, GLSLstd450::GLSLstd450PackHalf2x16, srcVec, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
@@ -8632,10 +8728,12 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
-    const CallExpr *callExpr, GLSLstd450 opcode, bool actPerRowForMatrices) {
+    const CallExpr *callExpr, GLSLstd450 opcode, bool actPerRowForMatrices,
+    SourceLocation loc) {
   // Import the GLSL.std.450 extended instruction set.
   auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
   const QualType returnType = callExpr->getType();
+
   if (callExpr->getNumArgs() == 1u) {
     const Expr *arg = callExpr->getArg(0);
     auto *argInstr = doExpr(arg);
@@ -8643,16 +8741,16 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && isMxNMatrix(arg->getType())) {
-      const auto actOnEachVec = [this, glslInstSet,
+      const auto actOnEachVec = [this, loc, glslInstSet,
                                  opcode](uint32_t /*index*/, QualType vecType,
                                          SpirvInstruction *curRowInstr) {
         return spvBuilder.createExtInst(vecType, glslInstSet, opcode,
-                                        {curRowInstr});
+                                        {curRowInstr}, loc);
       };
       return processEachVectorInMatrix(arg, argInstr, actOnEachVec);
     }
-    return spvBuilder.createExtInst(returnType, glslInstSet, opcode,
-                                    {argInstr});
+    return spvBuilder.createExtInst(returnType, glslInstSet, opcode, {argInstr},
+                                    loc);
   } else if (callExpr->getNumArgs() == 2u) {
     const Expr *arg0 = callExpr->getArg(0);
     auto *arg0Instr = doExpr(arg0);
@@ -8660,18 +8758,18 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSet, opcode,
+      const auto actOnEachVec = [this, loc, glslInstSet, opcode,
                                  arg1Instr](uint32_t index, QualType vecType,
                                             SpirvInstruction *arg0RowInstr) {
         auto *arg1RowInstr =
             spvBuilder.createCompositeExtract(vecType, arg1Instr, {index});
         return spvBuilder.createExtInst(vecType, glslInstSet, opcode,
-                                        {arg0RowInstr, arg1RowInstr});
+                                        {arg0RowInstr, arg1RowInstr}, loc);
       };
       return processEachVectorInMatrix(arg0, arg0Instr, actOnEachVec);
     }
     return spvBuilder.createExtInst(returnType, glslInstSet, opcode,
-                                    {arg0Instr, arg1Instr});
+                                    {arg0Instr, arg1Instr}, loc);
   } else if (callExpr->getNumArgs() == 3u) {
     const Expr *arg0 = callExpr->getArg(0);
     auto *arg0Instr = doExpr(arg0);
@@ -8680,7 +8778,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSet, opcode, arg1Instr,
+      const auto actOnEachVec = [this, loc, glslInstSet, opcode, arg1Instr,
                                  arg2Instr](uint32_t index, QualType vecType,
                                             SpirvInstruction *arg0RowInstr) {
         auto *arg1RowInstr =
@@ -8689,12 +8787,12 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
             spvBuilder.createCompositeExtract(vecType, arg2Instr, {index});
         return spvBuilder.createExtInst(
             vecType, glslInstSet, opcode,
-            {arg0RowInstr, arg1RowInstr, arg2RowInstr});
+            {arg0RowInstr, arg1RowInstr, arg2RowInstr}, loc);
       };
       return processEachVectorInMatrix(arg0, arg0Instr, actOnEachVec);
     }
     return spvBuilder.createExtInst(returnType, glslInstSet, opcode,
-                                    {arg0Instr, arg1Instr, arg2Instr});
+                                    {arg0Instr, arg1Instr, arg2Instr}, loc);
   }
 
   emitError("unsupported %0 intrinsic function", callExpr->getExprLoc())
@@ -8709,8 +8807,8 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
   // 1 / log2(10) = 0.30103
   auto *scale =
       spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.30103f));
-  auto *log2 =
-      processIntrinsicUsingGLSLInst(callExpr, GLSLstd450::GLSLstd450Log2, true);
+  auto *log2 = processIntrinsicUsingGLSLInst(
+      callExpr, GLSLstd450::GLSLstd450Log2, true, callExpr->getExprLoc());
   const auto returnType = callExpr->getType();
   spv::Op scaleOp = isScalarType(returnType)
                         ? spv::Op::OpFMul
@@ -9027,18 +9125,14 @@ SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
   {
     QualType scalarType = {};
     if (isScalarType(type, &scalarType)) {
-      if (scalarType->isSignedIntegerType()) {
-        return spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
+      if (scalarType->isBooleanType()) {
+        return spvBuilder.getConstantBool(false);
       }
-
-      if (scalarType->isUnsignedIntegerType()) {
-        return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, 0));
+      if (scalarType->isIntegerType()) {
+        return spvBuilder.getConstantInt(scalarType, llvm::APInt(32, 0));
       }
-
       if (scalarType->isFloatingType()) {
-        return spvBuilder.getConstantFloat(astContext.FloatTy,
-                                           llvm::APFloat(0.0f));
+        return spvBuilder.getConstantFloat(scalarType, llvm::APFloat(0.0f));
       }
     }
   }
@@ -9672,7 +9766,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     spvBuilder.createStore(stageVars[0], tempLoad);
   }
 
-  spvBuilder.createReturn();
+  spvBuilder.createReturn(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
 
   return true;
@@ -9894,7 +9988,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     }
   }
 
-  spvBuilder.createReturn();
+  spvBuilder.createReturn(decl->getBody()->getLocEnd());
   spvBuilder.endFunction();
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
@@ -9958,7 +10052,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   // Memory Semantics Barrier scope = None (0)
   spvBuilder.createBarrier(spv::Scope::Invocation,
                            spv::MemorySemanticsMask::MaskNone,
-                           spv::Scope::Workgroup);
+                           spv::Scope::Workgroup, {});
 
   // The PCF should be called only once. Therefore, we check the invocationID,
   // and we only allow ID 0 to call the PCF.
@@ -10163,6 +10257,8 @@ void SpirvEmitter::processCaseStmtOrDefaultStmt(const Stmt *stmt) {
 
 void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
     const SwitchStmt *switchStmt) {
+  const SourceLocation srcLoc = switchStmt->getSwitchLoc();
+
   // First handle the condition variable DeclStmt if one exists.
   // For example: handle 'int a = b' in the following:
   // switch (int a = b) {...}
@@ -10185,7 +10281,7 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
   discoverAllCaseStmtInSwitchStmt(switchStmt->getBody(), &defaultBB, &targets);
 
   // Create the OpSelectionMerge and OpSwitch.
-  spvBuilder.createSwitch(mergeBB, selector, defaultBB, targets);
+  spvBuilder.createSwitch(mergeBB, selector, defaultBB, targets, srcLoc);
 
   // Handle the switch body.
   doStmt(switchStmt->getBody());

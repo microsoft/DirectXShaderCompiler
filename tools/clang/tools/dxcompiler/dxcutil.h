@@ -41,7 +41,7 @@ namespace dxcutil {
 HRESULT ValidateAndAssembleToContainer(
     std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputContainerBlob,
     IMalloc *pMalloc, hlsl::SerializeDxilFlags SerializeFlags,
-    CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode, bool bDebugInfo,
+    CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode, bool bDebugInfo, llvm::StringRef DebugName,
     clang::DiagnosticsEngine &Diag);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(std::unique_ptr<llvm::Module> pM,

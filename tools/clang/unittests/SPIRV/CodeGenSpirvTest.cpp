@@ -94,6 +94,9 @@ TEST_F(FileTest, StructuredByteBufferArray) {
 TEST_F(FileTest, StructuredByteBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, AppendConsumeStructuredBufferTypeCast) {
+  runFileTest("type.append.consume-structured-buffer.cast.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferType) {
   runFileTest("type.append-structured-buffer.hlsl");
 }
@@ -118,6 +121,9 @@ TEST_F(FileTest, 16BitEnabledScalarConstants) {
   // TODO: Validator complains about Float16 capability even though we use the
   // needed extension.
   runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success, false);
+}
+TEST_F(FileTest, 16BitEnabledScalarConstantsHalfZero) {
+  runFileTest("constant.scalar.16bit.enabled.half.zero.hlsl");
 }
 TEST_F(FileTest, 64BitScalarConstants) {
   runFileTest("constant.scalar.64bit.hlsl");
@@ -157,6 +163,7 @@ TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
 TEST_F(FileTest, VarInitCrossStorageClass) {
   runFileTest("var.init.cross-storage-class.hlsl");
 }
+TEST_F(FileTest, VarInitVec1) { runFileTest("var.init.vec.size.1.hlsl"); }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 TEST_F(FileTest, UninitStaticResourceVar) {
   runFileTest("var.static.resource.hlsl");
@@ -375,6 +382,9 @@ TEST_F(FileTest, OpTextureSampleAccess) {
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
+TEST_F(FileTest, CastNoOpMatrixFloatToInt) {
+  runFileTest("cast.no-op.matrix.float-to-int.hlsl");
+}
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
 TEST_F(FileTest, CastExplicit2Bool) { runFileTest("cast.2bool.explicit.hlsl"); }
 TEST_F(FileTest, CastImplicit2SInt) { runFileTest("cast.2sint.implicit.hlsl"); }
@@ -386,6 +396,9 @@ TEST_F(FileTest, CastExplicit2FP) { runFileTest("cast.2fp.explicit.hlsl"); }
 TEST_F(FileTest, CastImplicit2LiteralInt) {
   runFileTest("cast.2literal-int.implicit.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionArrayToVector) {
+  runFileTest("cast.flat-conversion.array-to-vector.hlsl");
+}
 TEST_F(FileTest, CastImplicitFlatConversion) {
   runFileTest("cast.flat-conversion.implicit.hlsl");
 }
@@ -395,6 +408,9 @@ TEST_F(FileTest, CastFlatConversionStruct) {
 TEST_F(FileTest, CastFlatConversionNoOp) {
   runFileTest("cast.flat-conversion.no-op.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionStructToStruct) {
+  runFileTest("cast.flat-conversion.struct-to-struct.hlsl");
+}
 TEST_F(FileTest, CastFlatConversionLiteralInitializer) {
   runFileTest("cast.flat-conversion.literal-initializer.hlsl");
 }
@@ -403,6 +419,9 @@ TEST_F(FileTest, CastFlatConversionDecomposeVector) {
 }
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
+}
+TEST_F(FileTest, CastMatrixToVector) {
+  runFileTest("cast.mat-to-vec.hlsl");
 }
 TEST_F(FileTest, CastBitwidth) { runFileTest("cast.bitwidth.hlsl"); }
 
@@ -985,7 +1004,9 @@ TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
 TEST_F(FileTest, IntrinsicsMin) { runFileTest("intrinsics.min.hlsl"); }
 TEST_F(FileTest, IntrinsicsLit) { runFileTest("intrinsics.lit.hlsl"); }
 TEST_F(FileTest, IntrinsicsModf) { runFileTest("intrinsics.modf.hlsl"); }
-TEST_F(FileTest, IntrinsicsModfWithSwizzling) { runFileTest("intrinsics.modf.swizzle.hlsl"); }
+TEST_F(FileTest, IntrinsicsModfWithSwizzling) {
+  runFileTest("intrinsics.modf.swizzle.hlsl");
+}
 TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }
 TEST_F(FileTest, IntrinsicsMsad4) { runFileTest("intrinsics.msad4.hlsl"); }
@@ -1489,7 +1510,7 @@ TEST_F(FileTest, VulkanRegisterBinding) {
 }
 TEST_F(FileTest, VulkanSpaceOnlyRegisterBinding) {
   // Resource binding from :register(spaceY)
-  runFileTest("vk.binding.register.hlsl");
+  runFileTest("vk.binding.register.space-only.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShift) {
   // Resource binding from :register() with shift specified via
@@ -1834,6 +1855,15 @@ TEST_F(FileTest, RayTracingNVLibrary) {
   runFileTest("raytracing.nv.library.hlsl");
 }
 
+// For decoration uniqueness
+TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
+
+// For capability uniqueness
+TEST_F(FileTest, CapabilityUnique) { runFileTest("capability.unique.hlsl"); }
+
+// For extension uniqueness
+TEST_F(FileTest, ExtensionUnique) { runFileTest("extension.unique.hlsl"); }
+
 // For RelaxedPrecision decorations
 TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {
   runFileTest("decoration.relaxed-precision.basic.hlsl");
@@ -1858,5 +1888,8 @@ TEST_F(FileTest, DecorationNoContractionStruct) {
 TEST_F(FileTest, DecorationNoContractionStageVars) {
   runFileTest("decoration.no-contraction.stage-vars.hlsl");
 }
+
+// For pragmas
+TEST_F(FileTest, PragmaPackMatrix) { runFileTest("pragma.pack_matrix.hlsl"); }
 
 } // namespace

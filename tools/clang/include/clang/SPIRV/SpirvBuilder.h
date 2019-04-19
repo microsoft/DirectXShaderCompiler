@@ -188,9 +188,7 @@ public:
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc = {});
-  SpirvBinaryOp *createBinaryOp(spv::Op op, const SpirvType *,
-                                SpirvInstruction *lhs, SpirvInstruction *rhs,
-                                SourceLocation loc = {});
+
   SpirvSpecConstantBinaryOp *
   createSpecConstantBinaryOp(spv::Op op, QualType resultType,
                              SpirvInstruction *lhs, SpirvInstruction *rhs,
@@ -201,16 +199,14 @@ public:
   SpirvNonUniformElect *createGroupNonUniformElect(spv::Op op,
                                                    QualType resultType,
                                                    spv::Scope execScope,
-                                                   SourceLocation loc = {});
+                                                   SourceLocation);
   SpirvNonUniformUnaryOp *createGroupNonUniformUnaryOp(
-      spv::Op op, QualType resultType, spv::Scope execScope,
+      SourceLocation, spv::Op op, QualType resultType, spv::Scope execScope,
       SpirvInstruction *operand,
-      llvm::Optional<spv::GroupOperation> groupOp = llvm::None,
-      SourceLocation loc = {});
+      llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
   SpirvNonUniformBinaryOp *createGroupNonUniformBinaryOp(
       spv::Op op, QualType resultType, spv::Scope execScope,
-      SpirvInstruction *operand1, SpirvInstruction *operand2,
-      SourceLocation loc = {});
+      SpirvInstruction *operand1, SpirvInstruction *operand2, SourceLocation);
 
   /// \brief Creates an atomic instruction with the given parameters and returns
   /// its pointer.
@@ -218,20 +214,19 @@ public:
                               SpirvInstruction *orignalValuePtr,
                               spv::Scope scope,
                               spv::MemorySemanticsMask memorySemantics,
-                              SpirvInstruction *valueToOp,
-                              SourceLocation loc = {});
+                              SpirvInstruction *valueToOp, SourceLocation);
   SpirvAtomic *createAtomicCompareExchange(
       QualType resultType, SpirvInstruction *orignalValuePtr, spv::Scope scope,
       spv::MemorySemanticsMask equalMemorySemantics,
       spv::MemorySemanticsMask unequalMemorySemantics,
       SpirvInstruction *valueToOp, SpirvInstruction *comparator,
-      SourceLocation loc = {});
+      SourceLocation);
 
   /// \brief Creates an OpSampledImage SPIR-V instruction with proper
   /// decorations for the given parameters.
   SpirvSampledImage *createSampledImage(QualType, SpirvInstruction *image,
                                         SpirvInstruction *sampler,
-                                        SourceLocation loc = {});
+                                        SourceLocation);
 
   /// \brief Creates an OpImageTexelPointer SPIR-V instruction with the given
   /// parameters.
@@ -239,7 +234,7 @@ public:
                                                   SpirvInstruction *image,
                                                   SpirvInstruction *coordinate,
                                                   SpirvInstruction *sample,
-                                                  SourceLocation loc = {});
+                                                  SourceLocation);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
@@ -309,13 +304,13 @@ public:
                     SpirvInstruction *compareVal, SpirvInstruction *constOffset,
                     SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
                     SpirvInstruction *sample, SpirvInstruction *residencyCode,
-                    SourceLocation loc = {});
+                    SourceLocation);
 
   /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
   /// given Resident Code and returns the instruction pointer.
   SpirvImageSparseTexelsResident *
   createImageSparseTexelsResident(SpirvInstruction *resident_code,
-                                  SourceLocation loc = {});
+                                  SourceLocation);
 
   /// \brief Creates an image query instruction.
   /// The given 'lod' is used as the Lod argument in the case of
@@ -330,7 +325,7 @@ public:
   SpirvSelect *createSelect(QualType resultType, SpirvInstruction *condition,
                             SpirvInstruction *trueValue,
                             SpirvInstruction *falseValue,
-                            SourceLocation loc = {});
+                            SourceLocation);
 
   /// \brief Creates a switch statement for the given selector, default, and
   /// branches. Results in OpSelectionMerge followed by OpSwitch.
@@ -338,10 +333,10 @@ public:
   createSwitch(SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
                SpirvBasicBlock *defaultLabel,
                llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> target,
-               SourceLocation loc = {});
+               SourceLocation);
 
   /// \brief Creates a fragment-shader discard via by emitting OpKill.
-  void createKill(SourceLocation loc = {});
+  void createKill(SourceLocation);
 
   /// \brief Creates an unconditional branch to the given target label.
   /// If mergeBB and continueBB are non-null, it creates an OpLoopMerge
@@ -369,9 +364,9 @@ public:
       SourceLocation loc = {});
 
   /// \brief Creates a return instruction.
-  void createReturn(SourceLocation loc = {});
+  void createReturn(SourceLocation);
   /// \brief Creates a return value instruction.
-  void createReturnValue(SpirvInstruction *value, SourceLocation loc = {});
+  void createReturnValue(SpirvInstruction *value, SourceLocation);
 
   /// \brief Creates an OpExtInst instruction with the given instruction set,
   /// instruction number, and operands. Returns the resulting instruction
@@ -379,39 +374,39 @@ public:
   SpirvInstruction *createExtInst(QualType resultType, SpirvExtInstImport *set,
                                   GLSLstd450 instId,
                                   llvm::ArrayRef<SpirvInstruction *> operands,
-                                  SourceLocation loc = {});
+                                  SourceLocation);
   SpirvInstruction *createExtInst(const SpirvType *resultType,
                                   SpirvExtInstImport *set, GLSLstd450 instId,
                                   llvm::ArrayRef<SpirvInstruction *> operands,
-                                  SourceLocation loc = {});
+                                  SourceLocation);
 
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
   /// is created; otherwise an OpMemoryBarrier is created.
   void createBarrier(spv::Scope memoryScope,
                      spv::MemorySemanticsMask memorySemantics,
-                     llvm::Optional<spv::Scope> exec = llvm::None,
-                     SourceLocation loc = {});
+                     llvm::Optional<spv::Scope> exec, SourceLocation);
 
   /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
   SpirvBitFieldInsert *
   createBitFieldInsert(QualType resultType, SpirvInstruction *base,
                        SpirvInstruction *insert, SpirvInstruction *offset,
-                       SpirvInstruction *count, SourceLocation loc = {});
+                       SpirvInstruction *count, SourceLocation);
 
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
   /// instruction for the given arguments.
-  SpirvBitFieldExtract *
-  createBitFieldExtract(QualType resultType, SpirvInstruction *base,
-                        SpirvInstruction *offset, SpirvInstruction *count,
-                        bool isSigned, SourceLocation loc = {});
+  SpirvBitFieldExtract *createBitFieldExtract(QualType resultType,
+                                              SpirvInstruction *base,
+                                              SpirvInstruction *offset,
+                                              SpirvInstruction *count,
+                                              bool isSigned, SourceLocation);
 
   /// \brief Creates an OpEmitVertex instruction.
-  void createEmitVertex(SourceLocation loc = {});
+  void createEmitVertex(SourceLocation);
 
   /// \brief Creates an OpEndPrimitive instruction.
-  void createEndPrimitive(SourceLocation loc = {});
+  void createEndPrimitive(SourceLocation);
 
   /// \brief Creates an OpArrayLength instruction.
   SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,
@@ -433,8 +428,7 @@ public:
   /// support a single entry point per module for now.
   inline void addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                             std::string targetName,
-                            llvm::ArrayRef<SpirvVariable *> interfaces,
-                            SourceLocation loc = {});
+                            llvm::ArrayRef<SpirvVariable *> interfaces);
 
   /// \brief Sets the shader model version, source file name, and source file
   /// content. Returns the SpirvString instruction of the file name.
@@ -444,8 +438,7 @@ public:
 
   /// \brief Adds an execution mode to the module under construction.
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
-                               llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc = {});
+                               llvm::ArrayRef<uint32_t> params, SourceLocation);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -454,7 +447,7 @@ public:
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the  the imported
   /// GLSL instruction set.
-  SpirvExtInstImport *getGLSLExtInstSet(SourceLocation loc = {});
+  SpirvExtInstImport *getGLSLExtInstSet();
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -490,59 +483,50 @@ public:
                SourceLocation loc = {});
 
   /// \brief Decorates the given target with the given location.
-  void decorateLocation(SpirvInstruction *target, uint32_t location,
-                        SourceLocation srcLoc = {});
+  void decorateLocation(SpirvInstruction *target, uint32_t location);
 
   /// \brief Decorates the given target with the given index.
-  void decorateIndex(SpirvInstruction *target, uint32_t index,
-                     SourceLocation srcLoc = {});
+  void decorateIndex(SpirvInstruction *target, uint32_t index, SourceLocation);
 
   /// \brief Decorates the given target with the given descriptor set and
   /// binding number.
   void decorateDSetBinding(SpirvInstruction *target, uint32_t setNumber,
-                           uint32_t bindingNumber, SourceLocation srcLoc = {});
+                           uint32_t bindingNumber);
 
   /// \brief Decorates the given target with the given SpecId.
   void decorateSpecId(SpirvInstruction *target, uint32_t specId,
-                      SourceLocation srcLoc = {});
+                      SourceLocation);
 
   /// \brief Decorates the given target with the given input attchment index
   /// number.
   void decorateInputAttachmentIndex(SpirvInstruction *target,
-                                    uint32_t indexNumber,
-                                    SourceLocation srcLoc = {});
+                                    uint32_t indexNumber, SourceLocation);
 
   /// \brief Decorates the given main buffer with the given counter buffer.
   void decorateCounterBuffer(SpirvInstruction *mainBuffer,
-                             SpirvInstruction *counterBuffer,
-                             SourceLocation srcLoc = {});
+                             SpirvInstruction *counterBuffer, SourceLocation);
 
   /// \brief Decorates the given target with the given HLSL semantic string.
   void decorateHlslSemantic(SpirvInstruction *target, llvm::StringRef semantic,
-                            llvm::Optional<uint32_t> memberIdx = llvm::None,
-                            SourceLocation srcLoc = {});
+                            llvm::Optional<uint32_t> memberIdx = llvm::None);
 
   /// \brief Decorates the given target with centroid
-  void decorateCentroid(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decorateCentroid(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with flat
-  void decorateFlat(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decorateFlat(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with noperspective
-  void decorateNoPerspective(SpirvInstruction *target,
-                             SourceLocation srcLoc = {});
+  void decorateNoPerspective(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with sample
-  void decorateSample(SpirvInstruction *target, SourceLocation srcLoc = {});
-
-  /// \brief Decorates the given target with block
-  void decorateBlock(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decorateSample(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with patch
-  void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc = {});
+  void decoratePatch(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with NoContraction
-  void decorateNoContraction(SpirvInstruction *target, SourceLocation loc = {});
+  void decorateNoContraction(SpirvInstruction *target, SourceLocation);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
@@ -627,10 +611,9 @@ void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
 
 void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                                  std::string targetName,
-                                 llvm::ArrayRef<SpirvVariable *> interfaces,
-                                 SourceLocation loc) {
-  module->addEntryPoint(
-      new (context) SpirvEntryPoint(loc, em, target, targetName, interfaces));
+                                 llvm::ArrayRef<SpirvVariable *> interfaces) {
+  module->addEntryPoint(new (context) SpirvEntryPoint(
+      target->getSourceLocation(), em, target, targetName, interfaces));
 }
 
 SpirvString *SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,

@@ -300,7 +300,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         // Example:
         // void main() { 1.0; 1; }
         case BuiltinType::LitInt:
-          return spvContext.getUIntType(32);
+          return type->isSignedIntegerType() ? spvContext.getSIntType(32)
+                                             : spvContext.getUIntType(32);
         case BuiltinType::LitFloat: {
           return spvContext.getFloatType(32);
 
@@ -514,35 +515,33 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       rule = getCodeGenOptions().sBufferLayoutRule;
     }
 
+    // Get the underlying resource type.
     const auto s = hlsl::GetHLSLResourceResultType(type);
-    const auto *structType =
-        lowerType(s, rule, /*isRowMajor*/ llvm::None, srcLoc);
-    std::string structName;
-    const auto innerType = hlsl::GetHLSLResourceResultType(type);
-    if (innerType->isStructureType())
-      structName = innerType->getAs<RecordType>()->getDecl()->getName();
-    else
-      structName = getAstTypeName(innerType);
 
+    // If the underlying type is a matrix, check majorness.
+    llvm::Optional<bool> isRowMajor = llvm::None;
+    if (isMxNMatrix(s))
+      isRowMajor = isRowMajorMatrix(spvOptions, type);
+
+    // Lower the underlying type.
+    const auto *structType = lowerType(s, rule, isRowMajor, srcLoc);
+
+    // Calculate memory alignment for the resource.
     uint32_t size = 0, stride = 0;
-    std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
-        s, rule, /*isRowMajor*/ llvm::None, &stride);
+    std::tie(std::ignore, size) =
+        alignmentCalc.getAlignmentAndSize(s, rule, isRowMajor, &stride);
 
     // We have a runtime array of structures. So:
     // The stride of the runtime array is the size of the struct.
     const auto *raType = spvContext.getRuntimeArrayType(structType, size);
     const bool isReadOnly = (name == "StructuredBuffer");
 
-    // Attach majorness and stride decorations if this is a
-    // *StructuredBuffer<matrix>.
-    llvm::Optional<bool> isRowMajor = llvm::None;
+    // Attach matrix stride decorations if this is a *StructuredBuffer<matrix>.
     llvm::Optional<uint32_t> matrixStride = llvm::None;
-    if (isMxNMatrix(s)) {
-      isRowMajor = isRowMajorMatrix(spvOptions, s);
+    if (isMxNMatrix(s))
       matrixStride = stride;
-    }
 
-    const std::string typeName = "type." + name.str() + "." + structName;
+    const std::string typeName = "type." + name.str() + "." + getAstTypeName(s);
     const auto *valType = spvContext.getStructType(
         {StructType::FieldInfo(raType, /*name*/ "", /*offset*/ 0, matrixStride,
                                isRowMajor)},

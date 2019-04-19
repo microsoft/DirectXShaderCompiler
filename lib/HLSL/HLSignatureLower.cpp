@@ -326,6 +326,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
     case DXIL::SemanticInterpretationKind::Target:
     case DXIL::SemanticInterpretationKind::TessFactor:
     case DXIL::SemanticInterpretationKind::NotPacked:
+    case DXIL::SemanticInterpretationKind::ClipCull:
       // Will be replaced with load/store intrinsics in
       // GenerateDxilInputsOutputs
       break;
@@ -630,7 +631,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
     param->replaceAllUsesWith(newVec);
 
     // THe individual loadInputs are the authoritative source of values for the vector.
-    dxilutil::ScatterDebugValueToVectorElements(newVec);
+    dxilutil::TryScatterDebugValueToVectorElements(newVec);
   } else if (!Ty->isArrayTy() && !HLMatrixType::isa(Ty)) {
     DXASSERT(cols == 1, "only support scalar here");
     Value *colIdx = hlslOP->GetU8Const(0);

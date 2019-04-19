@@ -17,16 +17,16 @@ namespace {
 class SpirvConstantTest : public SpirvTestBase {};
 
 TEST_F(SpirvConstantTest, BoolFalse) {
-  SpirvContext ctx;
+  clang::ASTContext &astContext = getAstContext();
   const bool val = false;
-  SpirvConstantBoolean constant(ctx.getBoolType(), val);
+  SpirvConstantBoolean constant(astContext.BoolTy, val);
   EXPECT_EQ(val, constant.getValue());
 }
 
 TEST_F(SpirvConstantTest, BoolTrue) {
-  SpirvContext ctx;
+  clang::ASTContext &astContext = getAstContext();
   const bool val = true;
-  SpirvConstantBoolean constant(ctx.getBoolType(), val);
+  SpirvConstantBoolean constant(astContext.BoolTy, val);
   EXPECT_EQ(val, constant.getValue());
 }
 
@@ -80,10 +80,10 @@ TEST_F(SpirvConstantTest, Float32) {
 }
 
 TEST_F(SpirvConstantTest, CheckOperatorEqualOnBool) {
-  SpirvContext ctx;
+  clang::ASTContext &astContext = getAstContext();
   const bool val = true;
-  SpirvConstantBoolean constant1(ctx.getBoolType(), val);
-  SpirvConstantBoolean constant2(ctx.getBoolType(), val);
+  SpirvConstantBoolean constant1(astContext.BoolTy, val);
+  SpirvConstantBoolean constant2(astContext.BoolTy, val);
   EXPECT_TRUE(constant1 == constant2);
 }
 
@@ -104,16 +104,16 @@ TEST_F(SpirvConstantTest, CheckOperatorEqualOnFloat) {
 }
 
 TEST_F(SpirvConstantTest, CheckOperatorEqualOnNull) {
-  SpirvContext ctx;
-  SpirvConstantNull constant1(ctx.getSIntType(32));
-  SpirvConstantNull constant2(ctx.getSIntType(32));
+  clang::ASTContext &astContext = getAstContext();
+  SpirvConstantNull constant1(astContext.IntTy);
+  SpirvConstantNull constant2(astContext.IntTy);
   EXPECT_TRUE(constant1 == constant2);
 }
 
 TEST_F(SpirvConstantTest, CheckOperatorEqualOnBool2) {
-  SpirvContext ctx;
-  SpirvConstantBoolean constant1(ctx.getBoolType(), true);
-  SpirvConstantBoolean constant2(ctx.getBoolType(), false);
+  clang::ASTContext &astContext = getAstContext();
+  SpirvConstantBoolean constant1(astContext.BoolTy, true);
+  SpirvConstantBoolean constant2(astContext.BoolTy, false);
   EXPECT_FALSE(constant1 == constant2);
 }
 
@@ -163,16 +163,16 @@ TEST_F(SpirvConstantTest, CheckOperatorEqualOnInt4) {
 }
 
 TEST_F(SpirvConstantTest, CheckOperatorEqualOnNull2) {
-  SpirvContext ctx;
-  SpirvConstantNull constant1(ctx.getSIntType(32));
-  SpirvConstantNull constant2(ctx.getUIntType(32));
+  clang::ASTContext &astContext = getAstContext();
+  SpirvConstantNull constant1(astContext.IntTy);
+  SpirvConstantNull constant2(astContext.UnsignedIntTy);
   EXPECT_FALSE(constant1 == constant2);
 }
 
 TEST_F(SpirvConstantTest, BoolConstNotEqualSpecConst) {
-  SpirvContext ctx;
-  SpirvConstantBoolean constant1(ctx.getBoolType(), true, /*SpecConst*/ true);
-  SpirvConstantBoolean constant2(ctx.getBoolType(), false, /*SpecConst*/ false);
+  clang::ASTContext &astContext = getAstContext();
+  SpirvConstantBoolean constant1(astContext.BoolTy, true, /*SpecConst*/ true);
+  SpirvConstantBoolean constant2(astContext.BoolTy, false, /*SpecConst*/ false);
   EXPECT_FALSE(constant1 == constant2);
 }
 

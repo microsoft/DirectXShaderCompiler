@@ -1024,6 +1024,10 @@ void CGDebugInfo::CollectRecordFields(
 }
 
 // HLSL Change Begins
+// Hook to allow us to lie about the contents of some HLSL types in the debug info,
+// by exposing clean members rather than our implementation detail internals.
+// Note that the debug size of types is not based on the fields reported here,
+// but rather on ASTContext::getTypeSize, so they should be consistent.
 bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     llvm::DICompositeType *DITy,
     SmallVectorImpl<llvm::Metadata *> &Elements) {
@@ -1044,6 +1048,34 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
       Elements.emplace_back(FieldType);
     }
 
+    return true;
+  }
+  else if (hlsl::IsHLSLMatType(QualTy)) {
+    // The HLSL matrix type is defined as containing a field 'h' of
+    // array of extended vector type, but logically we want to represent
+    // it as per-element fields.
+    QualType ElemQualTy = hlsl::GetHLSLMatElementType(QualTy);
+    uint32_t NumRows, NumCols;
+    hlsl::GetHLSLMatRowColCount(QualTy, NumRows, NumCols);
+    unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+    for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx) {
+      for (unsigned ColIdx = 0; ColIdx < NumCols; ++ColIdx) {
+        char FieldName[] = "_11";
+        FieldName[1] += RowIdx;
+        FieldName[2] += ColIdx;
+        unsigned RowMajorIdx = RowIdx * NumCols + ColIdx;
+        unsigned OffsetInBits = ElemSizeInBits * RowMajorIdx;
+        llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
+          SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
+          /* tunit */ nullptr, DITy, Ty->getDecl());
+        Elements.emplace_back(FieldType);
+      }
+    }
+
+    return true;
+  }
+  else if (hlsl::IsHLSLResourceType(QualTy) || hlsl::IsHLSLStreamOutputType(QualTy)) {
+    // Should appear as having no members rather than exposing our internal handles.
     return true;
   }
 

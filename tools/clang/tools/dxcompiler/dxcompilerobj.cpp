@@ -592,7 +592,7 @@ public:
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.DebugInfo, compiler.getDiagnostics());
+                pOutputStream, opts.DebugInfo, opts.DebugFile, compiler.getDiagnostics());
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
                                                  pOutputBlob, m_pMalloc,

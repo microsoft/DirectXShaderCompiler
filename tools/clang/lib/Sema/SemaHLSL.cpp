@@ -8042,6 +8042,7 @@ bool HLSLExternalSource::CanConvert(
   _Inout_opt_ StandardConversionSequence* standard)
 {
   UINT uTSize, uSSize;
+  bool SourceIsAggregate, TargetIsAggregate; // Early declarations due to gotos below
 
   DXASSERT_NOMSG(sourceExpr != nullptr);
   DXASSERT_NOMSG(!target.isNull());
@@ -8112,32 +8113,32 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Structure cast.
-  if (TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY ||
-      SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY) {
-    if (!explicitConversion && TargetInfo.ShapeKind != SourceInfo.ShapeKind)
+  SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
+  TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
+  if (SourceIsAggregate || TargetIsAggregate) {
+    // For implicit conversions, FXC treats arrays the same as structures
+    // and rejects conversions between them and numeric types
+    if (!explicitConversion && SourceIsAggregate != TargetIsAggregate)
     {
       return false;
     }
 
+    // Structure to structure cases
     const RecordType *targetRT = dyn_cast<RecordType>(target);
     const RecordType *sourceRT = dyn_cast<RecordType>(source);
     if (targetRT && sourceRT) {
       RecordDecl *targetRD = targetRT->getDecl();
       RecordDecl *sourceRD = sourceRT->getDecl();
-      const CXXRecordDecl *targetCXXRD = dyn_cast<CXXRecordDecl>(targetRD);
-      const CXXRecordDecl *sourceCXXRD = dyn_cast<CXXRecordDecl>(sourceRD);
-      if (targetCXXRD && sourceCXXRD) {
+      if (sourceRT && targetRT) {
         if (targetRD == sourceRD) {
           Second = ICK_Flat_Conversion;
           goto lSuccess;
         }
-        if (sourceCXXRD->isDerivedFrom(targetCXXRD)) {
+
+        const CXXRecordDecl* targetCXXRD = dyn_cast<CXXRecordDecl>(targetRD);
+        const CXXRecordDecl* sourceCXXRD = dyn_cast<CXXRecordDecl>(sourceRD);
+        if (targetCXXRD && sourceCXXRD && sourceCXXRD->isDerivedFrom(targetCXXRD)) {
           Second = ICK_HLSL_Derived_To_Base;
-          goto lSuccess;
-        }
-      } else {
-        if (targetRD == sourceRD) {
-          Second = ICK_Flat_Conversion;
           goto lSuccess;
         }
       }
@@ -10245,15 +10246,19 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
 
     if (CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-      CXXRecordDecl::base_class_iterator bi, be;
-      bi = cxxRecordDecl->bases_begin();
-      be = cxxRecordDecl->bases_end();
-      if (bi != be) {
-        // Add type tracker for base.
-        // Add base after child to make sure base considered first.
-        m_typeTrackers.push_back(
+      // We'll error elsewhere if the record has no definition,
+      // just don't attempt to use it.
+      if (cxxRecordDecl->hasDefinition()) {
+        CXXRecordDecl::base_class_iterator bi, be;
+        bi = cxxRecordDecl->bases_begin();
+        be = cxxRecordDecl->bases_end();
+        if (bi != be) {
+          // Add type tracker for base.
+          // Add base after child to make sure base considered first.
+          m_typeTrackers.push_back(
             FlattenedTypeIterator::FlattenedTypeTracker(type, bi, be));
-        bAddTracker = true;
+          bAddTracker = true;
+        }
       }
     }
     return bAddTracker;

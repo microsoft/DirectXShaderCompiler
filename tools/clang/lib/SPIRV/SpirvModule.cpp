@@ -53,8 +53,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    for (auto iter = decorations.rbegin(); iter != decorations.rend(); ++iter) {
-      auto *decoration = *iter;
+    // Since SetVector doesn't have 'rbegin()' and 'rend()' methods, we use
+    // manual indexing.
+    for (auto decorIndex = decorations.size(); decorIndex > 0; --decorIndex) {
+      auto *decoration = decorations[decorIndex - 1];
       if (!decoration->invokeVisitor(visitor))
         return false;
     }
@@ -92,15 +94,18 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    for (auto iter = extensions.rbegin(); iter != extensions.rend(); ++iter) {
-      auto *extension = *iter;
+    // Since SetVector doesn't have 'rbegin()' and 'rend()' methods, we use
+    // manual indexing.
+    for (auto extIndex = extensions.size(); extIndex > 0; --extIndex) {
+      auto *extension = extensions[extIndex - 1];
       if (!extension->invokeVisitor(visitor))
         return false;
     }
 
-    for (auto iter = capabilities.rbegin(); iter != capabilities.rend();
-         ++iter) {
-      auto *capability = *iter;
+    // Since SetVector doesn't have 'rbegin()' and 'rend()' methods, we use
+    // manual indexing.
+    for (auto capIndex = capabilities.size(); capIndex > 0; --capIndex) {
+      auto *capability = capabilities[capIndex - 1];
       if (!capability->invokeVisitor(visitor))
         return false;
     }
@@ -168,17 +173,7 @@ void SpirvModule::addFunction(SpirvFunction *fn) {
 
 void SpirvModule::addCapability(SpirvCapability *cap) {
   assert(cap && "cannot add null capability to the module");
-  // Only add the capability to the module if it is not already added.
-  // Due to the small number of capabilities, this should not be too expensive.
-  const spv::Capability capability = cap->getCapability();
-  auto found =
-      std::find_if(capabilities.begin(), capabilities.end(),
-                   [capability](SpirvCapability *existingCapability) {
-                     return capability == existingCapability->getCapability();
-                   });
-  if (found == capabilities.end()) {
-    capabilities.push_back(cap);
-  }
+  capabilities.insert(cap);
 }
 
 void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
@@ -198,17 +193,7 @@ void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
 
 void SpirvModule::addExtension(SpirvExtension *ext) {
   assert(ext && "cannot add null extension");
-  // Only add the extension to the module if it is not already added.
-  // Due to the small number of extensions, this should not be too expensive.
-  const auto extName = ext->getExtensionName();
-  auto found =
-      std::find_if(extensions.begin(), extensions.end(),
-                   [&extName](SpirvExtension *existingExtension) {
-                     return extName == existingExtension->getExtensionName();
-                   });
-  if (found == extensions.end()) {
-    extensions.push_back(ext);
-  }
+  extensions.insert(ext);
 }
 
 void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
@@ -238,7 +223,7 @@ void SpirvModule::addVariable(SpirvVariable *var) {
 
 void SpirvModule::addDecoration(SpirvDecoration *decor) {
   assert(decor && "cannot add null decoration to the module");
-  decorations.push_back(decor);
+  decorations.insert(decor);
 }
 
 void SpirvModule::addConstant(SpirvConstant *constant) {

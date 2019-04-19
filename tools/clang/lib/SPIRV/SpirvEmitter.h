@@ -32,7 +32,6 @@
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 
 #include "DeclResultIdMapper.h"
 #include "SpirvEvalInfo.h"
@@ -465,7 +464,8 @@ private:
   /// construction to generate the resulting matrix.
   SpirvInstruction *processIntrinsicUsingGLSLInst(const CallExpr *,
                                                   GLSLstd450 instr,
-                                                  bool canOperateOnMatrix);
+                                                  bool canOperateOnMatrix,
+                                                  SourceLocation);
 
   /// Processes the given intrinsic function call using the given SPIR-V
   /// instruction. If the given instruction cannot operate on matrices, it

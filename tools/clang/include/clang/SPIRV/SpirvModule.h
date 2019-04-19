@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "clang/SPIRV/SpirvInstruction.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -20,6 +21,43 @@ namespace spirv {
 
 class SpirvFunction;
 class SpirvVisitor;
+
+struct ExtensionComparisonInfo {
+  static inline SpirvExtension *getEmptyKey() { return nullptr; }
+  static inline SpirvExtension *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const SpirvExtension *ext) {
+    return llvm::hash_combine(ext->getExtensionName());
+  }
+  static bool isEqual(SpirvExtension *LHS, SpirvExtension *RHS) {
+    // Either both are null, or both should have the same underlying extension.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
+struct DecorationComparisonInfo {
+  static inline SpirvDecoration *getEmptyKey() { return nullptr; }
+  static inline SpirvDecoration *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const SpirvDecoration *decor) {
+    return llvm::hash_combine(decor->getTarget(),
+                              static_cast<uint32_t>(decor->getDecoration()));
+  }
+  static bool isEqual(SpirvDecoration *LHS, SpirvDecoration *RHS) {
+    // Either both are null, or both should have the same underlying decoration.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
+
+struct CapabilityComparisonInfo {
+  static inline SpirvCapability *getEmptyKey() { return nullptr; }
+  static inline SpirvCapability *getTombstoneKey() { return nullptr; }
+  static unsigned getHashValue(const SpirvCapability *cap) {
+    return llvm::hash_combine(static_cast<uint32_t>(cap->getCapability()));
+  }
+  static bool isEqual(SpirvCapability *LHS, SpirvCapability *RHS) {
+    // Either both are null, or both should have the same underlying capability.
+    return (LHS == RHS) || (LHS && RHS && *LHS == *RHS);
+  }
+};
 
 /// The class representing a SPIR-V module in memory.
 ///
@@ -92,16 +130,37 @@ public:
   void addModuleProcessed(SpirvModuleProcessed *);
 
 private:
-  // "Metadata" instructions
-  llvm::SmallVector<SpirvCapability *, 8> capabilities;
-  llvm::SmallVector<SpirvExtension *, 4> extensions;
+  // Use a set for storing capabilities. This will ensure there are no duplicate
+  // capabilities. Although the set stores pointers, the provided
+  // CapabilityComparisonInfo compares the SpirvCapability objects, not the
+  // pointers.
+  llvm::SetVector<SpirvCapability *, std::vector<SpirvCapability *>,
+                  llvm::DenseSet<SpirvCapability *, CapabilityComparisonInfo>>
+      capabilities;
+
+  // Use a set for storing extensions. This will ensure there are no duplicate
+  // extensions. Although the set stores pointers, the provided
+  // ExtensionComparisonInfo compares the SpirvExtension objects, not the
+  // pointers.
+  llvm::SetVector<SpirvExtension *, std::vector<SpirvExtension *>,
+                  llvm::DenseSet<SpirvExtension *, ExtensionComparisonInfo>>
+      extensions;
+
   llvm::SmallVector<SpirvExtInstImport *, 1> extInstSets;
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
   SpirvSource *debugSource;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
-  std::vector<SpirvDecoration *> decorations;
+
+  // Use a set for storing decoration. This will ensure that we don't apply the
+  // same decoration to the same target more than once. Although the set stores
+  // pointers, the provided DecorationComparisonInfo compares the
+  // SpirvDecoration objects, not the pointers.
+  llvm::SetVector<SpirvDecoration *, std::vector<SpirvDecoration *>,
+                  llvm::DenseSet<SpirvDecoration *, DecorationComparisonInfo>>
+      decorations;
+
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
   std::vector<SpirvFunction *> functions;

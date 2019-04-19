@@ -24,7 +24,7 @@ cbuffer myCbuffer : register(space2) {
 
 // CHECK:      OpDecorate %myTbuffer DescriptorSet 2
 // CHECK-NEXT: OpDecorate %myTbuffer Binding 2
-tbuffer myTBuffer : register(space2) {
+tbuffer myTbuffer : register(space2) {
     float4 TB_a;
 }
 
@@ -44,8 +44,8 @@ struct S {
 // CHECK-NEXT: OpDecorate %myCbuffer2 Binding 3
 ConstantBuffer<S> myCbuffer2 : register(space2);
 
-// CHECK:      OpDecorate %myCbuffer2 DescriptorSet 4
-// CHECK-NEXT: OpDecorate %myCbuffer2 Binding 0
+// CHECK:      OpDecorate %myTbuffer2 DescriptorSet 4
+// CHECK-NEXT: OpDecorate %myTbuffer2 Binding 0
 TextureBuffer<S> myTbuffer2 : register(space4);
 
 // CHECK:      OpDecorate %sbuffer1 DescriptorSet 1
@@ -53,7 +53,7 @@ TextureBuffer<S> myTbuffer2 : register(space4);
 StructuredBuffer<S> sbuffer1 : register(space1);
 
 // CHECK:      OpDecorate %sbuffer2 DescriptorSet 3
-// CHECK-NEXT: OpDecorate %sbuffer2 Binding 3
+// CHECK-NEXT: OpDecorate %sbuffer2 Binding 2
 RWStructuredBuffer<S> sbuffer2 : register(space3);
 
 // CHECK:      OpDecorate %abuffer DescriptorSet 2

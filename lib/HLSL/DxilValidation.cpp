@@ -4125,7 +4125,8 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     }
     // Maximum rows is 1 for system values other than Target
     // with the exception of tessfactors, which are validated in CheckPatchConstantSemantic
-    if (!bIsTessfactor && SE.GetRows() > 1) {
+    // and ClipDistance/CullDistance, which have other custom constraints.
+    if (!bIsTessfactor && !bIsClipCull && SE.GetRows() > 1) {
       ValCtx.EmitSignatureError(&SE, ValidationRule::MetaSystemValueRows);
     }
   }
@@ -4307,7 +4308,8 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
     case DXIL::SemanticKind::ClipDistance:
     case DXIL::SemanticKind::CullDistance:
       // Validate max 8 components across 2 rows (registers)
-      clipcullRowSet[streamId].insert(E->GetStartRow());
+      for (unsigned rowIdx = 0; rowIdx < E->GetRows(); rowIdx++)
+        clipcullRowSet[streamId].insert(E->GetStartRow() + rowIdx);
       if (clipcullRowSet[streamId].size() > 2) {
         ValCtx.EmitError(ValidationRule::MetaClipCullMaxRows);
       }

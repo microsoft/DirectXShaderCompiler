@@ -308,20 +308,6 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   return instruction;
 }
 
-SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op,
-                                            const SpirvType *resultType,
-                                            SpirvInstruction *lhs,
-                                            SpirvInstruction *rhs,
-                                            SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvBinaryOp(op, /*QualType*/ {}, loc, lhs, rhs);
-  instruction->setResultType(resultType);
-  instruction->setNonUniform(lhs->isNonUniform() || rhs->isNonUniform());
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
 SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
     spv::Op op, QualType resultType, SpirvInstruction *lhs,
     SpirvInstruction *rhs, SourceLocation loc) {
@@ -342,9 +328,8 @@ SpirvNonUniformElect *SpirvBuilder::createGroupNonUniformElect(
 }
 
 SpirvNonUniformUnaryOp *SpirvBuilder::createGroupNonUniformUnaryOp(
-    spv::Op op, QualType resultType, spv::Scope execScope,
-    SpirvInstruction *operand, llvm::Optional<spv::GroupOperation> groupOp,
-    SourceLocation loc) {
+    SourceLocation loc, spv::Op op, QualType resultType, spv::Scope execScope,
+    SpirvInstruction *operand, llvm::Optional<spv::GroupOperation> groupOp) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvNonUniformUnaryOp(op, resultType, loc, execScope, groupOp, operand);
@@ -820,10 +805,13 @@ void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   module->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
 
-SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet(SourceLocation loc) {
+SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet() {
   SpirvExtInstImport *glslSet = module->getGLSLExtInstSet();
   if (!glslSet) {
-    glslSet = new (context) SpirvExtInstImport(loc, "GLSL.std.450");
+    // The extended instruction set is likely required for several different
+    // reasons. We can't pinpoint the source location for one specific function.
+    glslSet =
+        new (context) SpirvExtInstImport(/*SourceLocation*/ {}, "GLSL.std.450");
     module->addExtInstSet(glslSet);
   }
   return glslSet;
@@ -901,10 +889,11 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   return var;
 }
 
-void SpirvBuilder::decorateLocation(SpirvInstruction *target, uint32_t location,
-                                    SourceLocation srcLoc) {
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, target, spv::Decoration::Location, {location});
+void SpirvBuilder::decorateLocation(SpirvInstruction *target,
+                                    uint32_t location) {
+  auto *decor =
+      new (context) SpirvDecoration(target->getSourceLocation(), target,
+                                    spv::Decoration::Location, {location});
   module->addDecoration(decor);
 }
 
@@ -917,8 +906,8 @@ void SpirvBuilder::decorateIndex(SpirvInstruction *target, uint32_t index,
 
 void SpirvBuilder::decorateDSetBinding(SpirvInstruction *target,
                                        uint32_t setNumber,
-                                       uint32_t bindingNumber,
-                                       SourceLocation srcLoc) {
+                                       uint32_t bindingNumber) {
+  const SourceLocation srcLoc = target->getSourceLocation();
   auto *dset = new (context) SpirvDecoration(
       srcLoc, target, spv::Decoration::DescriptorSet, {setNumber});
   module->addDecoration(dset);
@@ -956,12 +945,11 @@ void SpirvBuilder::decorateCounterBuffer(SpirvInstruction *mainBuffer,
 
 void SpirvBuilder::decorateHlslSemantic(SpirvInstruction *target,
                                         llvm::StringRef semantic,
-                                        llvm::Optional<uint32_t> memberIdx,
-                                        SourceLocation srcLoc) {
+                                        llvm::Optional<uint32_t> memberIdx) {
   if (spirvOptions.enableReflect) {
-    auto *decor = new (context)
-        SpirvDecoration(srcLoc, target, spv::Decoration::HlslSemanticGOOGLE,
-                        semantic, memberIdx);
+    auto *decor = new (context) SpirvDecoration(
+        target->getSourceLocation(), target,
+        spv::Decoration::HlslSemanticGOOGLE, semantic, memberIdx);
     module->addDecoration(decor);
   }
 }
@@ -991,13 +979,6 @@ void SpirvBuilder::decorateSample(SpirvInstruction *target,
                                   SourceLocation srcLoc) {
   auto *decor =
       new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Sample);
-  module->addDecoration(decor);
-}
-
-void SpirvBuilder::decorateBlock(SpirvInstruction *target,
-                                 SourceLocation srcLoc) {
-  auto *decor =
-      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Block);
   module->addDecoration(decor);
 }
 
@@ -1034,8 +1015,8 @@ SpirvConstant *SpirvBuilder::getConstantFloat(QualType type,
 
 SpirvConstant *SpirvBuilder::getConstantBool(bool value, bool specConst) {
   // We do not care about making unique constants at this point.
-  auto *boolConst = new (context)
-      SpirvConstantBoolean(context.getBoolType(), value, specConst);
+  auto *boolConst =
+      new (context) SpirvConstantBoolean(astContext.BoolTy, value, specConst);
   module->addConstant(boolConst);
   return boolConst;
 }

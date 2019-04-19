@@ -6219,9 +6219,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
         DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
             funcDI->getLine(), RetDIType);
-        DIExpression *Expr = nullptr;
+        DIExpression *Expr = DIB.createExpression();
         // TODO: how to get col?
-        DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
+        DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0, funcDI);
         DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
     }
     for (BasicBlock &BB : F->getBasicBlockList()) {

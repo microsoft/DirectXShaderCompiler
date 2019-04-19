@@ -984,7 +984,8 @@ void DeclResultIdMapper::createCounterVar(
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
     assert(declInstr);
-    spvBuilder.decorateCounterBuffer(declInstr, counterInstr);
+    spvBuilder.decorateCounterBuffer(declInstr, counterInstr,
+                                     decl->getLocation());
   }
 
   if (indices)
@@ -1210,7 +1211,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
       spvBuilder.decorateLocation(var.getSpirvInstr(), loc);
       if (var.getIndexAttr())
-        spvBuilder.decorateIndex(var.getSpirvInstr(), idx);
+        spvBuilder.decorateIndex(var.getSpirvInstr(), idx,
+                                 var.getSemanticInfo().loc);
     }
 
     return noError;
@@ -1687,7 +1689,7 @@ bool DeclResultIdMapper::createStageVars(
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
         hlsl::DXIL::SignatureKind::PatchConstant)
-      spvBuilder.decoratePatch(varInstr);
+      spvBuilder.decoratePatch(varInstr, varInstr->getSourceLocation());
 
     // Decorate with interpolation modes for pixel shader input variables
     if (spvContext.isPS() && sigPoint->IsInput() &&
@@ -1765,8 +1767,9 @@ bool DeclResultIdMapper::createStageVars(
             astContext.UnsignedIntTy, llvm::APInt(32, 1));
         const auto constZero = spvBuilder.getConstantInt(
             astContext.UnsignedIntTy, llvm::APInt(32, 0));
-        *value = spvBuilder.createSelect(astContext.UnsignedIntTy, *value,
-                                         constOne, constZero);
+        *value =
+            spvBuilder.createSelect(astContext.UnsignedIntTy, *value, constOne,
+                                    constZero, /*SourceLocation*/ {});
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
       // underlying stage input variable is a float2 (only provides the first
@@ -2173,7 +2176,7 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
                 "parameters in pixel shader",
                 decl->getLocation());
     } else {
-      spvBuilder.decorateFlat(varInstr);
+      spvBuilder.decorateFlat(varInstr, loc);
     }
   } else {
     // Do nothing for HLSLLinearAttr since its the default
@@ -2350,13 +2353,13 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     stageVar->setIsSpirvBuiltin();
     // Vulkan requires the DepthReplacing execution mode to write to FragDepth.
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::DepthReplacing, {});
+                                spv::ExecutionMode::DepthReplacing, {}, srcLoc);
     if (semanticKind == hlsl::Semantic::Kind::DepthGreaterEqual)
       spvBuilder.addExecutionMode(entryFunction,
-                                  spv::ExecutionMode::DepthGreater, {});
+                                  spv::ExecutionMode::DepthGreater, {}, srcLoc);
     else if (semanticKind == hlsl::Semantic::Kind::DepthLessEqual)
       spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::DepthLess,
-                                  {});
+                                  {}, srcLoc);
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth,
                                          isPrecise, srcLoc);
   }
