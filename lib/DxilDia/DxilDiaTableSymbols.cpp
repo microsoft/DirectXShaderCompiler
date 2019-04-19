@@ -280,16 +280,24 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
     std::swap(tmp, children);
   }
 
+  CComBSTR n(name);
+  if (compareFlags == nsfCaseInsensitive) {
+      IFR(n.ToLower());
+  }
   if (name != nullptr && compareFlags != nsNone) {
     std::vector<CComPtr<Symbol>> tmp;
     tmp.reserve(children.size());
     for (const auto & c : children) {
       CComBSTR cName;
       IFR(c->get_name(&cName));
-      if (compareFlags == nsfCaseInsensitive && StrCmpW(cName, name) != 0) {
-        continue;
-      } else if (compareFlags == nsfCaseSensitive && StrCmpIW(cName, name) != 0) {
-        continue;
+      switch (compareFlags) {
+      case nsfCaseInsensitive:
+          IFR(cName.ToLower());
+          // fallthrough
+      case nsfCaseSensitive:
+          if (cName != n) {
+              continue;
+          }
       }
 
       if (c->m_symTag == symtag) {
