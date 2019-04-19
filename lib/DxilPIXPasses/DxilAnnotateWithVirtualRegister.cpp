@@ -77,6 +77,14 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   if (OSOverride != nullptr) {
+    *OSOverride << "\nInstructionCount:" << InstNum << "\n";
+  }
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nEnd - instruction ID to line\n";
+  }
+
+  if (OSOverride != nullptr) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
