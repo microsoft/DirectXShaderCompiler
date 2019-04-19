@@ -71,22 +71,9 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     return false;
   }
 
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nBegin - instruction ID to line\n";
-  }
-
   std::uint32_t InstNum = 0;
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    if (OSOverride != nullptr) {
-      *OSOverride << InstNum << ' ';
-      I.print(*OSOverride);
-      *OSOverride << "\n";
-    }
     pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
-  }
-
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nEnd - instruction ID to line\n";
   }
 
   if (OSOverride != nullptr) {
