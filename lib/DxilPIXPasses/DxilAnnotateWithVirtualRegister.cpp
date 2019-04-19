@@ -25,6 +25,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
@@ -53,9 +54,12 @@ private:
 
   hlsl::DxilModule *m_DM;
   std::uint32_t m_uVReg;
+  std::unique_ptr < llvm::ModuleSlotTracker > m_MST;
   void Init(llvm::Module &M) {
     m_DM = &M.GetOrCreateDxilModule();
     m_uVReg = 0;
+    m_MST.reset(new llvm::ModuleSlotTracker(&M));
+    m_MST->incorporateFunction(*m_DM->GetEntryFunction());
   }
 };
 
@@ -66,25 +70,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   if (m_DM == nullptr) {
     return false;
   }
-
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nBegin - instruction ID to line\n";
-  }
-
-  std::uint32_t InstNum = 0;
-  for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    if (OSOverride != nullptr) {
-      *OSOverride << InstNum << ' ';
-      I.print(*OSOverride);
-      *OSOverride << "\n";
-    }
-    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
-  }
-
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nEnd - instruction ID to line\n";
-  }
-
 
   if (OSOverride != nullptr) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
@@ -200,7 +185,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(llvm::Instruction *p
   PixDxilReg::AddMD(m_DM->GetCtx(), pI, m_uVReg);
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
-    pI->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
+    pI->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
     *OSOverride << " dxil " << m_uVReg << "\n";
   }
   m_uVReg++;
@@ -210,7 +195,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
-    pAlloca->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
+    pAlloca->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
     *OSOverride << " alloca " << m_uVReg << " " << C << "\n";
   }
   m_uVReg += C;
