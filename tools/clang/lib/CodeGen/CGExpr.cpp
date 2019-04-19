@@ -3509,7 +3509,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Type *ToTy = ResultType->getPointerElementType();
     llvm::Type *FromTy = This->getType()->getPointerElementType();
     // For empty struct, just bitcast.
-    if (!isa<llvm::StructType>(FromTy->getStructElementType(0))) {
+    if (FromTy->getStructNumElements()== 0) {
       llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
       return MakeAddrLValue(bitcast, ToType);
     }
