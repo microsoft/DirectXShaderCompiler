@@ -71,8 +71,8 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcLinker, pResultLinker));
   }
 
-  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob, LPCWSTR *pArguments,
-                  UINT32 argCount) {
+  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob,
+                  llvm::ArrayRef<LPCWSTR> pArguments = {}) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(filename);
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcLibrary> pLibrary;
@@ -89,13 +89,10 @@ public:
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", shWide,
-                                        pArguments, argCount, nullptr, 0,
+                                        const_cast<LPCWSTR*>(pArguments.data()), pArguments.size(),
+                                        nullptr, 0,
                                         nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
-  }
-
-  void CompileLib(LPCWSTR filename, IDxcBlob **pResourceBlob) {
-    CompileLib(filename, pResourceBlob, nullptr, 0);
   }
 
   void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob,
@@ -170,10 +167,10 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib, option, 1);
+  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib, option);
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
   Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {},{});
@@ -379,15 +376,15 @@ TEST_F(LinkerTest, RunLinkResRet) {
 }
 
 TEST_F(LinkerTest, RunLinkToLib) {
-  LPCWSTR option[] = {L"-Zi"};
+  LPCWSTR option[] = {L"-Zi", L"-Qembed_debug"};
 
   CComPtr<IDxcBlob> pEntryLib;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
-             &pEntryLib, option, 1);
+             &pEntryLib, option);
   CComPtr<IDxcBlob> pLib;
   CompileLib(
       L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
-      &pLib, option, 1);
+      &pLib, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -398,7 +395,7 @@ TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
 
-  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {});
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {}, option);
 }
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
@@ -444,14 +441,14 @@ TEST_F(LinkerTest, RunLinkFailSelectRes) {
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-             &pLib1, option, 1);
+             &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-             &pLib2, option, 1);
+             &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -474,14 +471,14 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option, 1);
+    &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option, 1);
+    &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -509,14 +506,14 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithExportNamesSwapped) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option, 1);
+    &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option, 1);
+    &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -541,14 +538,14 @@ TEST_F(LinkerTest, RunLinkToLibWithExportNamesSwapped) {
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithExportCollision) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option, 1);
+    &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option, 1);
+    &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -566,14 +563,14 @@ TEST_F(LinkerTest, RunLinkToLibWithExportCollision) {
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithUnusedExport) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option, 1);
+    &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option, 1);
+    &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -591,14 +588,14 @@ TEST_F(LinkerTest, RunLinkToLibWithUnusedExport) {
 }
 
 TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func1.hlsl",
-    &pLib1, option, 1);
+    &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\lib_unresolved_func2.hlsl",
-    &pLib2, option, 1);
+    &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -616,14 +613,14 @@ TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
 }
 
 TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
-  LPCWSTR option[] = { L"-Zi" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi.hlsl",
-    &pLib1, option, 1);
+    &pLib1, option);
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi2.hlsl",
-    &pLib2, option, 1);
+    &pLib2, option);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
