@@ -1556,6 +1556,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If metadata was stripped, re-serialize the module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
+  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
+    bModuleDirty = true;
+    pModule->StripReflection();
+  }
   if (bModuleDirty) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
