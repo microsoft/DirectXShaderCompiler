@@ -342,7 +342,7 @@ public:
     HRESULT hr = S_OK;
     CComPtr<IDxcBlobEncoding> utf8Source;
     CComPtr<AbstractMemoryStream> pOutputStream;
-    CHeapPtr<wchar_t> DebugBlobName;
+    CComHeapPtr<wchar_t> DebugBlobName;
 
     DxcEtw_DXCompilerCompile_Start();
     pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
