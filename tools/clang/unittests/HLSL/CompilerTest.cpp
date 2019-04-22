@@ -308,6 +308,7 @@ public:
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   TEST_METHOD(CodeGenSamples)
+  TEST_METHOD(AllocaAfterStaticInit)
   TEST_METHOD(ViewID)
   TEST_METHOD(SubobjectCodeGenErrors)
   TEST_METHOD(DebugInfo)
@@ -2637,6 +2638,10 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
 
 TEST_F(CompilerTest, CodeGenSamples){
   CodeGenTestCheckBatchDir(L"Samples");
+}
+
+TEST_F(CompilerTest, AllocaAfterStaticInit) {
+  CodeGenTest(L"gv_memcpy_before_alloca.hlsl");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {

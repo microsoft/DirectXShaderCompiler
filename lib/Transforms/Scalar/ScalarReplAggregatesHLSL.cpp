@@ -4309,6 +4309,8 @@ static void LegalizeDxilInputOutputs(Function *F,
                                      DxilTypeSystem &typeSys);
 static void InjectReturnAfterNoReturnPreserveOutput(HLModule &HLM);
 
+static void FrontLoadAllAllocas(Module &M);
+
 namespace {
 class SROA_Parameter_HLSL : public ModulePass {
   HLModule *m_pHLModule;
@@ -4324,6 +4326,10 @@ public:
     // Patch memcpy to cover case bitcast (gep ptr, 0,0) is transformed into
     // bitcast ptr.
     MemcpySplitter::PatchMemCpyWithZeroIdxGEP(M);
+
+    // Move all Allocas to the front of the entry block, as the entry block might be
+    // split at some point, leaving some allocas stranded in a non-entry block.
+    FrontLoadAllAllocas(M);
 
     m_pHLModule = &M.GetOrCreateHLModule();
     const DataLayout &DL = M.getDataLayout();
@@ -6134,6 +6140,30 @@ static void LegalizeDxilInputOutputs(Function *F,
     }
   }
 }
+
+// Move all allocas in entry blocks into the beginning of the block
+static void FrontLoadAllAllocas(Module &M) {
+  SmallVector<AllocaInst *, 8> WorkList;
+  for (Function &F : M) {
+    if (F.begin() == F.end())
+      continue;
+
+    BasicBlock *BB = &F.getEntryBlock();
+    WorkList.clear();
+
+    for (Instruction &I : *BB) {
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I))
+        WorkList.push_back(AI);
+    }
+
+    auto &List = BB->getInstList();
+    for (AllocaInst *AI : WorkList) {
+      AI->removeFromParent();
+      List.insert(List.begin(), AI);
+    }
+  }
+}
+
 
 void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
