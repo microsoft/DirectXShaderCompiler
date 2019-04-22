@@ -3,8 +3,8 @@
 // This is mostly a regression test for a bug where a bitcast
 // from i32* to i1* was emitted.
 
-// CHECK: alloca i32
-// CHECK: alloca [2 x i32]
+// CHECK-DAG: alloca i32
+// CHECK-DAG: alloca [2 x i32]
 // CHECK-NOT: bitcast
 
 float main() : SV_Target
