@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: alloca [16 x i32]
+// CHECK-DAG: alloca [16 x i32]
+// CHECK-DAG: alloca [4 x i1]
 
 // For b4[2]
 // CHECK: cbufferLoadLegacy
@@ -30,7 +31,6 @@
 // CHECK: fcmp fast olt
 // CHECK: fcmp fast olt
 // CHECK: fcmp fast olt
-// CHECK: alloca [4 x i1]
 
 // For (xt == 0)[i][i]
 // CHECK: fcmp fast oeq
