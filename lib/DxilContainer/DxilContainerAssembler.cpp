@@ -1556,10 +1556,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If metadata was stripped, re-serialize the module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
-    bModuleDirty = true;
-    pModule->StripReflection();
-  }
   if (bModuleDirty) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
@@ -1569,11 +1565,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
+  bool bModuleStripped = false;
+  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   const uint32_t DebugInfoNameHashLen = 32;   // 32 chars of MD5
   const uint32_t DebugInfoNameSuffix = 4;     // '.lld'
   const uint32_t DebugInfoNameNullAndPad = 4; // '\0\0\0\0'
   CComPtr<AbstractMemoryStream> pHashStream;
-  if (HasDebugInfo(*pModule->GetModule())) {
+  if (bHasDebugInfo) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
@@ -1582,71 +1580,82 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       });
     }
 
-    pProgramStream.Release();
-
     llvm::StripDebugInfo(*pModule->GetModule());
     pModule->StripDebugRelatedCode();
+    bModuleStripped = true;
+  }
 
+  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
+    pModule->StripReflection();
+    bModuleStripped = true;
+  }
+
+  if (bModuleStripped) {
+    pProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pProgramStream));
     raw_stream_ostream outStream(pProgramStream.p);
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
+  }
 
-    if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
-      // If the debug name should be specific to the sources, base the name on the debug
-      // bitcode, which will include the source references, line numbers, etc. Otherwise,
-      // do it exclusively on the target shader bitcode.
+  if (bHasDebugInfo && (Flags & SerializeDxilFlags::IncludeDebugNamePart)) {
+    // If the debug name should be specific to the sources, base the name on the
+    // debug bitcode, which will include the source references, line numbers,
+    // etc. Otherwise, do it exclusively on the target shader bitcode.
 
-      pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
-                        ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
-                        : CComPtr<AbstractMemoryStream>(pProgramStream);
+    pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
+                      ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
+                      : CComPtr<AbstractMemoryStream>(pProgramStream);
 
-      // Use user specified debug name if a) it's given and b) it's not a path
-      bool UseDebugName = DebugName.size() && !DebugName.endswith(llvm::StringRef("\\"));
+    // Use user specified debug name if a) it's given and b) it's not a path
+    bool UseDebugName =
+        DebugName.size() && !DebugName.endswith(llvm::StringRef("\\"));
 
-      // Calculate the length of the name
-      const uint32_t NameLen = UseDebugName ? 
-        DebugName.size() :
-        DebugInfoNameHashLen +  DebugInfoNameSuffix;
+    // Calculate the length of the name
+    const uint32_t NameLen = UseDebugName
+                                 ? DebugName.size()
+                                 : DebugInfoNameHashLen + DebugInfoNameSuffix;
 
-      // Calculate the size of the blob part.
-      const uint32_t DebugInfoContentLen =
-          sizeof(DxilShaderDebugName) + NameLen + DebugInfoNameNullAndPad;
+    // Calculate the size of the blob part.
+    const uint32_t DebugInfoContentLen =
+        sizeof(DxilShaderDebugName) + NameLen + DebugInfoNameNullAndPad;
 
-      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
-        [DebugInfoNameSuffix, DebugInfoNameHashLen, UseDebugName, DebugName, pHashStream]
-        (AbstractMemoryStream *pStream)
-      {
-        DxilShaderDebugName NameContent;
-        NameContent.Flags = 0;
+    writer.AddPart(
+        DFCC_ShaderDebugName, DebugInfoContentLen,
+        [DebugInfoNameSuffix, DebugInfoNameHashLen, UseDebugName, DebugName,
+         pHashStream](AbstractMemoryStream *pStream) {
+          DxilShaderDebugName NameContent;
+          NameContent.Flags = 0;
 
-        if (UseDebugName) {
-          NameContent.NameLength = DebugName.size();
-          IFT(WriteStreamValue(pStream, NameContent));
+          if (UseDebugName) {
+            NameContent.NameLength = DebugName.size();
+            IFT(WriteStreamValue(pStream, NameContent));
 
-          ULONG cbWritten;
-          IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
-          const char Pad[] = { '\0','\0','\0','\0' };
-          IFT(pStream->Write(Pad, _countof(Pad), &cbWritten));
-        }
-        else {
-          NameContent.NameLength = DebugInfoNameHashLen + DebugInfoNameSuffix;
-          IFT(WriteStreamValue(pStream, NameContent));
+            ULONG cbWritten;
+            IFT(pStream->Write(DebugName.begin(), DebugName.size(),
+                               &cbWritten));
+            const char Pad[] = {'\0', '\0', '\0', '\0'};
+            IFT(pStream->Write(Pad, _countof(Pad), &cbWritten));
+          } else {
+            NameContent.NameLength = DebugInfoNameHashLen + DebugInfoNameSuffix;
+            IFT(WriteStreamValue(pStream, NameContent));
 
-          ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(), pHashStream->GetPtrSize());
-          llvm::MD5 md5;
-          llvm::MD5::MD5Result md5Result;
-          SmallString<32> Hash;
-          md5.update(Data);
-          md5.final(md5Result);
-          md5.stringifyResult(md5Result, Hash);
+            ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(),
+                                   pHashStream->GetPtrSize());
+            llvm::MD5 md5;
+            llvm::MD5::MD5Result md5Result;
+            SmallString<32> Hash;
+            md5.update(Data);
+            md5.final(md5Result);
+            md5.stringifyResult(md5Result, Hash);
 
-          ULONG cbWritten;
-          IFT(pStream->Write(Hash.data(), Hash.size(), &cbWritten));
-          const char SuffixAndPad[] = { '.','l','l','d','\0','\0','\0','\0' };
-          IFT(pStream->Write(SuffixAndPad, _countof(SuffixAndPad), &cbWritten));
-        }
-      });
-    }
+            ULONG cbWritten;
+            IFT(pStream->Write(Hash.data(), Hash.size(), &cbWritten));
+            const char SuffixAndPad[] = {'.',  'l',  'l',  'd',
+                                         '\0', '\0', '\0', '\0'};
+            IFT(pStream->Write(SuffixAndPad, _countof(SuffixAndPad),
+                               &cbWritten));
+          }
+        });
   }
 
   // Compute padded bitcode size.
