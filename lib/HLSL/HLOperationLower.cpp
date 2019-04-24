@@ -858,6 +858,9 @@ Type *GetInsertElementTypeForEvaluate(Value *src) {
   else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
     return SV->getOperand(0)->getType();
   }
+  else if (!src->getType()->isVectorTy()) {
+    return src->getType();
+  }
   src->getContext().emitError("Invalid type call for EvaluateAttribute function");
   return src->getType();
 }
@@ -868,6 +871,7 @@ Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   Value *val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *sampleIdx = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
+
 
   std::vector<CallInst*> loadList;
   Constant *shufMask = GetLoadInputsForEvaluate(val, loadList);
@@ -887,7 +891,10 @@ Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
     Value *rowIdx = loadInput->getArgOperand(DXIL::OperandIndex::kLoadInputRowOpIdx);
     Value *colIdx = loadInput->getArgOperand(DXIL::OperandIndex::kLoadInputColOpIdx);
     Value *Elt = Builder.CreateCall(evalFunc, { opArg, inputElemID, rowIdx, colIdx, sampleIdx });
-    result = Builder.CreateInsertElement(result, Elt, i);
+    if (val->getType()->isVectorTy())
+      result = Builder.CreateInsertElement(result, Elt, i);
+    else
+      result = Elt;
   }
   if (shufMask)
     result = Builder.CreateShuffleVector(result, UndefValue::get(Ty), shufMask);
