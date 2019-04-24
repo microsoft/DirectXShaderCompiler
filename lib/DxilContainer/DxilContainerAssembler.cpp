@@ -1529,7 +1529,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(pModule->GetSerializedRootSignature());
 
-  bool bModuleDirty = false;
+  bool bMetadataStripped = false;
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
@@ -1538,7 +1538,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     writer.AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
-    bModuleDirty |= pModule->StripSubobjectsFromMetadata();
+    bMetadataStripped |= pModule->StripSubobjectsFromMetadata();
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
@@ -1550,13 +1550,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
-      bModuleDirty |= pModule->StripRootSignatureFromMetadata();
+      bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
     }
   }
 
-  // If metadata was stripped, re-serialize the module.
+  // If metadata was stripped, re-serialize the input module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (bModuleDirty) {
+  if (bMetadataStripped) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
     raw_stream_ostream outStream(pInputProgramStream.p);
@@ -1590,6 +1590,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     bModuleStripped = true;
   }
 
+  // If debug info or reflection was stripped, re-serialize the module.
   if (bModuleStripped) {
     pProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pProgramStream));
