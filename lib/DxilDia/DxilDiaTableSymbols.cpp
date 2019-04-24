@@ -280,24 +280,16 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
     std::swap(tmp, children);
   }
 
-  CComBSTR n(name);
-  if (compareFlags == nsfCaseInsensitive) {
-      IFR(n.ToLower());
-  }
   if (name != nullptr && compareFlags != nsNone) {
     std::vector<CComPtr<Symbol>> tmp;
     tmp.reserve(children.size());
     for (const auto & c : children) {
       CComBSTR cName;
       IFR(c->get_name(&cName));
-      switch (compareFlags) {
-      case nsfCaseInsensitive:
-          IFR(cName.ToLower());
-          // fallthrough
-      case nsfCaseSensitive:
-          if (cName != n) {
-              continue;
-          }
+      // Careful with the string comparison function we use as it can make us pull in new dependencies
+      // CompareStringOrdinal lives in kernel32.dll
+      if (CompareStringOrdinal(cName, cName.Length(), name, -1, (BOOL)(compareFlags == nsfCaseInsensitive)) != CSTR_EQUAL) {
+        continue;
       }
 
       if (c->m_symTag == symtag) {
