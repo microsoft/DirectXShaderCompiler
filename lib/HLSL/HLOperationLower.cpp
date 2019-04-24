@@ -776,13 +776,14 @@ Value *TranslateAddUint64(CallInst *CI, IntrinsicOp IOP,
   return RetVal;
 }
 
-
+static const char kAttributeEvaluateError[] =
+      "attribute evaluation can only be done on values "
+      "taken directly from inputs";
 bool IsValidLoadInput(Value *V) {
   // Must be load input.
   // TODO: report this error on front-end
   if (!isa<CallInst>(V)) {
-    V->getContext().emitError("attribute evaluation can only be done on values "
-                              "taken directly from inputs");
+    V->getContext().emitError(kAttributeEvaluateError);
     return false;
   }
   CallInst *CI = cast<CallInst>(V);
@@ -791,8 +792,7 @@ bool IsValidLoadInput(Value *V) {
       cast<ConstantInt>(CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
   DXIL::OpCode op = static_cast<DXIL::OpCode>(opArg->getLimitedValue());
   if (op != DXIL::OpCode::LoadInput) {
-    V->getContext().emitError("attribute evaluation can only be done on values "
-                              "taken directly from inputs");
+    V->getContext().emitError(kAttributeEvaluateError);
     return false;
   }
   return true;
@@ -829,7 +829,11 @@ Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
     // TODO: We are assuming that the operand of insertelement is a LoadInput.
     // This will fail on the case where we pass in matrix member using array subscript.
     while (!isa<UndefValue>(Vec)) {
-      InsertElementInst *insertInst = cast<InsertElementInst>(Vec);
+      InsertElementInst *insertInst = dyn_cast<InsertElementInst>(Vec);
+      if (!insertInst) {
+        Vec->getContext().emitError(kAttributeEvaluateError);
+        break;
+      }
       Vec = insertInst->getOperand(0);
       Value *Elt = insertInst->getOperand(1);
       if (IsValidLoadInput(Elt)) {
@@ -855,7 +859,7 @@ Type *GetInsertElementTypeForEvaluate(Value *src) {
     return SV->getOperand(0)->getType();
   }
   src->getContext().emitError("Invalid type call for EvaluateAttribute function");
-  return nullptr;
+  return src->getType();
 }
 
 Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,

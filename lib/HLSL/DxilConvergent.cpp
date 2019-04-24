@@ -156,11 +156,12 @@ bool DxilConvergentMark::PropagateConvergentImpl(Value *V, Function *F,
       // TODO: static indexing cbuffer is fine.
       return true;
     }
-  } else {
+  } else if (!isa<Argument>(V)) {
     IRBuilder<> EntryBuilder(F->getEntryBlock().getFirstInsertionPt());
     MarkConvergent(V, EntryBuilder, *F->getParent());
     return false;
   }
+  return false;
 }
 
 Value *DxilConvergentMark::FindConvergentOperand(Instruction *I) {
