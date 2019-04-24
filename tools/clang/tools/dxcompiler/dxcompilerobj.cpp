@@ -583,6 +583,9 @@ public:
         if (opts.DebugNameForSource) {
           SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
         }
+        if (opts.StripReflection) {
+          SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
