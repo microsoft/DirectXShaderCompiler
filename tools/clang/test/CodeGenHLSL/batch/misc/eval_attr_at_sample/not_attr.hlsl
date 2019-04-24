@@ -13,7 +13,7 @@ float4 main(float2 uv : TEXCOORD0) : SV_TARGET {
     float2 coord = EvaluateAttributeAtSample(result.xy, i);
     result += tex0.Sample(samp0, coord);
   }
-	return result;
+  return result;
 }
 
 
