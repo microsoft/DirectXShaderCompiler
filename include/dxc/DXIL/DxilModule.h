@@ -176,6 +176,7 @@ public:
   void ReEmitDxilResources();
   /// Deserialize DXIL metadata form into in-memory form.
   void LoadDxilMetadata();
+
   /// Check if a Named meta data node is known by dxil module.
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
 
@@ -186,6 +187,7 @@ public:
   void ResetOP(hlsl::OP *hlslOP);
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
+  void StripReflection();
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 
