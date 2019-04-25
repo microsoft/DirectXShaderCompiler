@@ -294,6 +294,10 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   MPM.add(createCFGSimplificationPass());
 
   MPM.add(createDeadCodeEliminationPass());
+
+  if (OptLevel > 0) {
+    MPM.add(createDxilFixConstArrayInitializerPass());
+  }
 }
 // HLSL Change Ends
 

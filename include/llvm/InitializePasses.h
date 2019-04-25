@@ -260,6 +260,7 @@ void initializeResourceToHandlePass(PassRegistry&);
 void initializeSROA_SSAUp_HLSLPass(PassRegistry&);
 void initializeHoistConstantArrayPass(PassRegistry&);
 void initializeDxilLoopUnrollPass(PassRegistry&);
+void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 // HLSL Change Ends
 void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);
 void initializeScalarEvolutionPass(PassRegistry&);

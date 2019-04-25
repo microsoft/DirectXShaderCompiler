@@ -342,7 +342,7 @@ public:
     HRESULT hr = S_OK;
     CComPtr<IDxcBlobEncoding> utf8Source;
     CComPtr<AbstractMemoryStream> pOutputStream;
-    CHeapPtr<wchar_t> DebugBlobName;
+    CComHeapPtr<wchar_t> DebugBlobName;
 
     DxcEtw_DXCompilerCompile_Start();
     pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
@@ -587,6 +587,9 @@ public:
         }
         if (opts.DebugNameForSource) {
           SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        }
+        if (opts.StripReflection) {
+          SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
         }
 
         // Don't do work to put in a container if an error has occurred
