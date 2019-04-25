@@ -1529,7 +1529,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(pModule->GetSerializedRootSignature());
 
-  bool bModuleDirty = false;
+  bool bMetadataStripped = false;
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
@@ -1538,7 +1538,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     writer.AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
-    bModuleDirty |= pModule->StripSubobjectsFromMetadata();
+    bMetadataStripped |= pModule->StripSubobjectsFromMetadata();
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
@@ -1550,13 +1550,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
-      bModuleDirty |= pModule->StripRootSignatureFromMetadata();
+      bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
     }
   }
 
-  // If metadata was stripped, re-serialize the module.
+  // If metadata was stripped, re-serialize the input module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (bModuleDirty) {
+  if (bMetadataStripped) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
     raw_stream_ostream outStream(pInputProgramStream.p);
@@ -1565,7 +1565,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
-  if (HasDebugInfo(*pModule->GetModule())) {
+  bool bModuleStripped = false;
+  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
+  if (bHasDebugInfo) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
@@ -1574,18 +1576,26 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       });
     }
 
-    pProgramStream.Release();
-
     llvm::StripDebugInfo(*pModule->GetModule());
     pModule->StripDebugRelatedCode();
-
-    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pProgramStream));
-    raw_stream_ostream outStream(pProgramStream.p);
-    WriteBitcodeToFile(pModule->GetModule(), outStream, true);
+    bModuleStripped = true;
   } else {
     // If no debug info, clear DebugNameDependOnSource
     // (it's default, and this scenario can happen)
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
+  }
+
+  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
+    pModule->StripReflection();
+    bModuleStripped = true;
+  }
+
+  // If debug info or reflection was stripped, re-serialize the module.
+  if (bModuleStripped) {
+    pProgramStream.Release();
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pProgramStream));
+    raw_stream_ostream outStream(pProgramStream.p);
+    WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
   // Serialize debug name if requested.
