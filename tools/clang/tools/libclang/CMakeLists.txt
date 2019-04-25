@@ -184,6 +184,8 @@ if(ENABLE_SHARED)
 endif()
 endif() # HLSL Change
 
+add_dependencies(libclang TablegenHLSLOptions)  # HLSL Change
+
 # HLSL Change Starts
 # add_clang_library(${LIBCLANG_STATIC_TARGET_NAME} STATIC ${SOURCES})
 # target_link_libraries(${LIBCLANG_STATIC_TARGET_NAME} ${LIBS})

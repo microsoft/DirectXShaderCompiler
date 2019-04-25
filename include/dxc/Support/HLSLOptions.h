@@ -150,6 +150,7 @@ public:
   bool DisplayIncludeProcess = false; // OPT__vi
   bool RecompileFromBinary = false; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
   bool StripDebug = false; // OPT Qstrip_debug
+  bool EmbedDebug = false; // OPT Qembed_debug
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
   bool StripPrivate = false; // OPT_Qstrip_priv
   bool StripReflection = false; // OPT_Qstrip_reflect
@@ -166,6 +167,13 @@ public:
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();
+
+  // Helpers to clarify interpretation of flags for behavior in implementation
+  bool IsDebugInfoEnabled();    // Zi
+  bool EmbedDebugInfo();        // Qembed_debug
+  bool EmbedPDBName();          // Zi or Fd
+  bool DebugFileIsDirectory();  // Fd ends in '\\'
+  llvm::StringRef GetPDBName(); // Fd name
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN

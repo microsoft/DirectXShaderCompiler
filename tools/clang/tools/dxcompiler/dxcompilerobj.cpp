@@ -573,12 +573,17 @@ public:
         outStream.flush();
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
-        if (opts.DebugInfo) {
-          SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
-          // Unless we want to strip it right away, include it in the container.
-          if (!opts.StripDebug || ppDebugBlob == nullptr) {
-            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-          }
+        if (opts.EmbedPDBName()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+        }
+        // If -Qembed_debug specified, embed the debug info.
+        // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
+        // embed the debug info and emit a note.
+        if (opts.EmbedDebugInfo()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+        } else if (opts.DebugInfo && !ppDebugBlob) {
+          w << "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning.\n";
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
         if (opts.DebugNameForSource) {
           SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
@@ -595,7 +600,7 @@ public:
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.DebugInfo, opts.DebugFile, compiler.getDiagnostics());
+                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics());
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
                                                  pOutputBlob, m_pMalloc,
@@ -638,7 +643,7 @@ public:
       HRESULT status;
       DXVERIFY_NOMSG(SUCCEEDED((*ppResult)->GetStatus(&status)));
       if (SUCCEEDED(status)) {
-        if (opts.DebugInfo && ppDebugBlob) {
+        if (opts.IsDebugInfoEnabled() && ppDebugBlob) {
           DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(ppDebugBlob)));
         }
         if (ppDebugBlobName) {
@@ -854,7 +859,7 @@ public:
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.
-    if (Opts.DebugInfo) {
+    if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
       CGOpts.DebugColumnInfo = 1;
