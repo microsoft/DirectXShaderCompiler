@@ -522,9 +522,9 @@ bool DxilContainerTest::InitSupport() {
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
-  LPCWSTR Zi[] = { L"/Zi" };
-  LPCWSTR ZiZss[] = { L"/Zi", L"/Zss" };
-  LPCWSTR ZiZsb[] = { L"/Zi", L"/Zsb" };
+  LPCWSTR Zi[] = { L"/Zi", L"/Qembed_debug" };
+  LPCWSTR ZiZss[] = { L"/Zi", L"/Qembed_debug", L"/Zss" };
+  LPCWSTR ZiZsb[] = { L"/Zi", L"/Qembed_debug", L"/Zsb" };
   
   // No debug info, no debug name...
   std::string noName = CompileToDebugName(program1, L"main", L"ps_6_0", nullptr, 0);
@@ -1497,11 +1497,12 @@ TEST_F(DxilContainerTest, DxilContainerUnitTest) {
   CComPtr<IDxcOperationResult> pResult;
   std::vector<LPCWSTR> arguments;
   arguments.emplace_back(L"/Zi");
+  arguments.emplace_back(L"/Qembed_debug");
   
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
   // Test DxilContainer with ShaderDebugInfoDXIL
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", arguments.data(), 1, nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", arguments.data(), arguments.size(), nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   
   const hlsl::DxilContainerHeader *pHeader = static_cast<const hlsl::DxilContainerHeader *> (pProgram->GetBufferPointer());
