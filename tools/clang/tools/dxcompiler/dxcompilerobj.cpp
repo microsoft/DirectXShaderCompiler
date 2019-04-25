@@ -576,10 +576,13 @@ public:
         if (opts.EmbedPDBName()) {
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
-        // If -Qembed_debug specified, or if there is no output pointer
-        // for the debug blob (such as when called by Compile()),
-        // embed the debug info.
-        if (opts.EmbedDebugInfo() || (opts.DebugInfo && !ppDebugBlob)) {
+        // If -Qembed_debug specified, embed the debug info.
+        // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
+        // embed the debug info and emit a note.
+        if (opts.EmbedDebugInfo()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+        } else if (opts.DebugInfo && !ppDebugBlob) {
+          w << "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning.\n";
           SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
         if (opts.DebugNameForSource) {
