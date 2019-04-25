@@ -114,22 +114,23 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-rem Drop embedded debug info after compile and warn.
+del smoke.hlsl.embedpdb
+rem Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
 rem first delete .lld file if exists
 dir %CD%\*.lld 1>nul
 if %errorlevel% equ 0 (
   del %CD%\*.lld
 )
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.noembedpdb /Fe smoke.err.noembedpdb 1>nul
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb /Fe smoke.err.embedpdb 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi
   call :cleanup 2>nul
   exit /b 1
 )
 rem Search for warning:
-findstr -c:"warning: Debug info (PDB) will not be embedded in shader binary without -Qembed_debug" smoke.err.noembedpdb
+findstr -c:"warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning." smoke.err.embedpdb
 if %errorlevel% neq 0 (
-  echo Did not find warning about not embedding debug info without -Qembed_debug.
+  echo Did not find warning about embedding debug info without -Qembed_debug.
   call :cleanup 2>nul
   exit /b 1
 )
@@ -141,15 +142,15 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 rem should have auto debug name, which is hex digest + .lld
-dxc.exe -dumpbin smoke.hlsl.noembedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find shader debug name.
   call :cleanup 2>nul
   exit /b 1
 )
-dxc.exe -dumpbin smoke.hlsl.noembedpdb | findstr "DICompileUnit" 1>nul
-if %errorlevel% equ 0 (
-  echo Found DICompileUnit when /Zi is used without /Qembed_debug, which should not embed debug info.
+dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr "DICompileUnit" 1>nul
+if %errorlevel% neq 0 (
+  echo Did not find DICompileUnit when /Zi /Qembed_debug is used to embed debug info.
   call :cleanup 2>nul
   exit /b 1
 )
@@ -761,8 +762,7 @@ del %CD%\smoke.hlsl.e
 del %CD%\smoke.hlsl.h
 del %CD%\smoke.hlsl.strip
 del %CD%\smoke.hlsl.embedpdb
-del %CD%\smoke.hlsl.noembedpdb
-del %CD%\smoke.err.noembedpdb
+del %CD%\smoke.err.embedpdb
 del %CD%\smoke.ll
 del %CD%\smoke.opt.ll
 del %CD%\smoke.opt.prn.txt
