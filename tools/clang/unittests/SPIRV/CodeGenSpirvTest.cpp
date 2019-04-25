@@ -1525,6 +1525,16 @@ TEST_F(FileTest, VulkanRegisterBindingShiftAllSets) {
 TEST_F(FileTest, VulkanRegisterBinding1to1Mapping) {
   runFileTest("vk.binding.cl.register.hlsl");
 }
+TEST_F(FileTest, VulkanGlobalsBinding) {
+  // Binding the $Globals buffer to a specific set/binding via command line
+  // option.
+  runFileTest("vk.binding.cl.globals.hlsl");
+}
+TEST_F(FileTest, VulkanGlobalsBindingRegisterBinding) {
+  // Using command line option for specifying both the 1-1 register mapping as
+  // well as $Globals binding.
+  runFileTest("vk.binding.cl.register-and-globals.hlsl");
+}
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSpaceNo) {
   runFileTest("vk.binding.cl.register.invalid-space.hlsl", Expect::Failure);
 }

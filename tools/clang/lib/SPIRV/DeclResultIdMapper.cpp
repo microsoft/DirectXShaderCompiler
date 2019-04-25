@@ -862,7 +862,8 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       "$Globals");
 
   resourceVars.emplace_back(globals, SourceLocation(), nullptr, nullptr,
-                            nullptr);
+                            nullptr, /*isCounterVar*/ false,
+                            /*isGlobalsCBuffer*/ true);
 
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context))
@@ -1371,6 +1372,25 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   // - m2
   // - m3, m4, mX * c2
 
+  const bool bindGlobals = !spirvOptions.bindGlobals.empty();
+  int32_t globalsBindNo = -1, globalsSetNo = -1;
+  if (bindGlobals) {
+    assert(spirvOptions.bindGlobals.size() == 2);
+    if (StringRef(spirvOptions.bindGlobals[0])
+            .getAsInteger(10, globalsBindNo) ||
+        globalsBindNo < 0) {
+      emitError("invalid -fvk-globals-binding binding number: %0", {})
+          << spirvOptions.bindGlobals[0];
+      return false;
+    }
+    if (StringRef(spirvOptions.bindGlobals[1]).getAsInteger(10, globalsSetNo) ||
+        globalsSetNo < 0) {
+      emitError("invalid -fvk-globals-binding set number: %0", {})
+          << spirvOptions.bindGlobals[1];
+      return false;
+    }
+  }
+
   // Special handling of -fvk-bind-register, which requires
   // * All resources are annoated with :register() in the source code
   // * -fvk-bind-register is specified for every resource
@@ -1398,6 +1418,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           }
           spvBuilder.decorateDSetBinding(var.getSpirvInstr(), setNo, bindNo);
         }
+      } else if (bindGlobals && var.isGlobalsBuffer()) {
+        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
+                                       globalsBindNo);
       } else {
         emitError(
             "-fvk-bind-register requires register annotations on all resources",
@@ -1498,9 +1521,20 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
       } else if (!reg) {
-        // Process m3
-        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), 0,
-                                       bindingSet.useNextBinding(0));
+        // Process m3 (no 'vk::binding' and no ':register' assignment)
+
+        // There is a special case for the $Globals cbuffer. The $Globals buffer
+        // doesn't have either 'vk::binding' or ':register', but the user may
+        // ask for a specific binding for it via command line options.
+        if (bindGlobals && var.isGlobalsBuffer()) {
+          spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
+                                         globalsBindNo);
+        }
+        // The normal case
+        else {
+          spvBuilder.decorateDSetBinding(var.getSpirvInstr(), 0,
+                                         bindingSet.useNextBinding(0));
+        }
       }
     }
   }

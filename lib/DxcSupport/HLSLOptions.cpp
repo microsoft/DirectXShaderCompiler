@@ -682,6 +682,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
 
   opts.SpirvOptions.bindRegister = Args.getAllArgValues(OPT_fvk_bind_register);
+  opts.SpirvOptions.bindGlobals = Args.getAllArgValues(OPT_fvk_globals_binding);
   opts.SpirvOptions.stageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
   if (opts.SpirvOptions.stageIoOrder != "alpha" && opts.SpirvOptions.stageIoOrder != "decl") {
     errors << "unknown Vulkan stage I/O location assignment order: "
@@ -756,6 +757,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
       !Args.getLastArgValue(OPT_Oconfig).empty() ||
       !Args.getLastArgValue(OPT_fvk_bind_register).empty() ||
+      !Args.getLastArgValue(OPT_fvk_globals_binding).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
