@@ -24,6 +24,7 @@
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/HLSL/DxilConvergent.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -842,6 +843,8 @@ Value *FindScalarSource(Value *src, unsigned vecIdx = 0) {
         vecIdx = (unsigned)cast<ConstantInt>(EE->getIndexOperand())
           ->getUniqueInteger().getLimitedValue();
         src = EE->getVectorOperand();
+      } else if (hlsl::IsConvergentMarker(src)) {
+        src = hlsl::GetConvergentSource(src);
       } else {
         break;  // Found it.
       }
