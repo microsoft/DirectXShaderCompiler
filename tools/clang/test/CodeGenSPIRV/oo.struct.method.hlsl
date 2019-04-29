@@ -104,16 +104,8 @@ float main() : A {
 // CHECK-NEXT:        {{%\d+}} = OpFunctionCall %float %S_fn_ref %temp_var_S
   float f2 = foo().get_S().fn_ref();
 
-// CHECK:         [[uniformPtr:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
-// CHECK-NEXT:   [[originalObj:%\d+]] = OpLoad %R [[uniformPtr]]
-// CHECK-NEXT:        [[member:%\d+]] = OpCompositeExtract %int [[originalObj]] 0
-// CHECK-NEXT:       [[tempVar:%\d+]] = OpCompositeConstruct %R_0 [[member]]
-// CHECK-NEXT:                          OpStore %temp_var_R [[tempVar]]
-// CHECK-NEXT:                          OpFunctionCall %void %R_incr %temp_var_R
-// CHECK-NEXT:       [[tempVar:%\d+]] = OpLoad %R_0 %temp_var_R
-// CHECK-NEXT: [[tempVarMember:%\d+]] = OpCompositeExtract %int [[tempVar]] 0
-// CHECK-NEXT:          [[newR:%\d+]] = OpCompositeConstruct %R [[tempVarMember]]
-// CHECK-NEXT:                          OpStore [[uniformPtr]] [[newR]]
+// CHECK:      [[rwsb_0:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
+// CHECK-NEXT:                   OpFunctionCall %void %R_incr [[rwsb_0]]
   rwsb[0].incr();
 
   return f1;

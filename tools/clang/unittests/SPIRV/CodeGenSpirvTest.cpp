@@ -501,6 +501,9 @@ TEST_F(FileTest, FunctionInOutParamVector) {
 TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
   runFileTest("fn.param.inout.storage-class.hlsl");
 }
+TEST_F(FileTest, FunctionInOutParamIsomorphism) {
+  runFileTest("fn.param.inout.isomorphism.hlsl");
+}
 TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
   // Tests that referencing function scope variables as a whole with out/inout
   // annotation does not create temporary variables
@@ -538,6 +541,7 @@ TEST_F(FileTest, StaticMemberInitializer) {
   runFileTest("oo.static.member.init.hlsl");
 }
 TEST_F(FileTest, MethodCallOnStaticVar) {
+  setRelaxLogicalPointer();
   runFileTest("oo.method.on-static-var.hlsl");
 }
 TEST_F(FileTest, Inheritance) { runFileTest("oo.inheritance.hlsl"); }
@@ -1785,6 +1789,10 @@ TEST_F(FileTest, ComputeShaderGroupShared) {
 TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
   setRelaxLogicalPointer();
   runFileTest("cs.groupshared.function-param.hlsl");
+}
+TEST_F(FileTest, ComputeShaderGroupSharedFunctionParamOut) {
+  setRelaxLogicalPointer();
+  runFileTest("cs.groupshared.function-param.out.hlsl");
 }
 TEST_F(FileTest, ComputeShaderGroupSharedStructFunction) {
   setRelaxLogicalPointer();
