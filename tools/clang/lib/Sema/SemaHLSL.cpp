@@ -9043,7 +9043,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
         QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
         ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
+        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR || hlsl::IsHLSLNumericUserDefinedType(explicitType)) {
           isLegalTemplate = true;
           argTypes[0] = explicitType;
         }
