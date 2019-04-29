@@ -63,10 +63,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     switch (floatType->getBitwidth()) {
     case 16: {
       // Usage of a 16-bit float type.
-      // It looks like the validator does not approve of Float16
-      // capability even though we do use the necessary extension.
-      // TODO: Re-enable adding Float16 capability below.
-      // addCapability(spv::Capability::Float16);
+      addCapability(spv::Capability::Float16);
       addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float", loc);
 
       // Usage of a 16-bit float type as stage I/O.

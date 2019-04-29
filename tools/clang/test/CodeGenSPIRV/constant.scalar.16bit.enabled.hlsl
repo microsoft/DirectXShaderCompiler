@@ -15,6 +15,7 @@
 // min16uint:  uint16_t(warning)
 // uint16_t:   uint16_t
 
+// CHECK: OpCapability Float16
 // CHECK: OpCapability Int16
 // CHECK: OpExtension "SPV_AMD_gpu_shader_half_float"
 
