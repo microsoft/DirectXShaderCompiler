@@ -68,7 +68,40 @@ public:
   static bool isSubpassInput(const SpirvType *);
   static bool isSubpassInputMS(const SpirvType *);
   static bool isResourceType(const SpirvType *);
-  static bool isOrContains16BitType(const SpirvType *);
+
+  template <class T, unsigned int Bitwidth = 0>
+  static bool isOrContainsType(const SpirvType *type) {
+    if (isa<T>(type)) {
+      if (Bitwidth == 0)
+        // No specific bitwidth was asked for.
+        return true;
+      else
+        // We want to make sure it is a numberical type of a specific bitwidth.
+        return isa<NumericalType>(type) &&
+               cast<NumericalType>(type)->getBitwidth() == Bitwidth;
+    }
+
+    if (const auto *vecType = dyn_cast<VectorType>(type))
+      return isOrContainsType<T, Bitwidth>(vecType->getElementType());
+    if (const auto *matType = dyn_cast<MatrixType>(type))
+      return isOrContainsType<T, Bitwidth>(matType->getElementType());
+    if (const auto *arrType = dyn_cast<ArrayType>(type))
+      return isOrContainsType<T, Bitwidth>(arrType->getElementType());
+    if (const auto *pointerType = dyn_cast<SpirvPointerType>(type))
+      return isOrContainsType<T, Bitwidth>(pointerType->getPointeeType());
+    if (const auto *raType = dyn_cast<RuntimeArrayType>(type))
+      return isOrContainsType<T, Bitwidth>(raType->getElementType());
+    if (const auto *imgType = dyn_cast<ImageType>(type))
+      return isOrContainsType<T, Bitwidth>(imgType->getSampledType());
+    if (const auto *sampledImageType = dyn_cast<SampledImageType>(type))
+      return isOrContainsType<T, Bitwidth>(sampledImageType->getImageType());
+    if (const auto *structType = dyn_cast<StructType>(type))
+      for (auto &field : structType->getFields())
+        if (isOrContainsType<T, Bitwidth>(field.type))
+          return true;
+
+    return false;
+  }
 
 protected:
   SpirvType(Kind k, llvm::StringRef name = "") : kind(k), debugName(name) {}
