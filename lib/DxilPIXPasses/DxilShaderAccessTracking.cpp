@@ -483,16 +483,16 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
           auto instruction = cast<Instruction>(FunctionUser);
 
           auto res = GetResourceFromHandle(instruction->getOperand(1), DM);
-            
+
           // Don't instrument the accesses to the UAV that we just added
           if (res.resource->GetSpaceID() == (unsigned)-2) {
             continue;
           }
-            
+
           if (EmitResourceAccess(res, instruction, HlslOP, Ctx, raFunction.readWrite)) {
             Modified = true;
           }
-            
+
           if (raFunction.functionUsesSamplerAtIndex2) {
             auto sampler = GetResourceFromHandle(instruction->getOperand(2), DM);
             if (EmitResourceAccess(sampler, instruction, HlslOP, Ctx, ShaderAccessFlags::Read)) {
