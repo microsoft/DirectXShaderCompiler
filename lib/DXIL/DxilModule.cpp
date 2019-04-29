@@ -1403,6 +1403,53 @@ void DxilModule::ReEmitDxilResources() {
   EmitDxilMetadata();
 }
 
+template <typename TResource>
+static void
+StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
+  for (auto &p : vec) {
+    p->SetGlobalName("");
+    // Cannot remove global symbol which used by validation.
+  }
+}
+
+void DxilModule::StripReflection() {
+  // Remove names.
+  for (Function &F : m_pModule->functions()) {
+    for (BasicBlock &BB : F) {
+      if (BB.hasName())
+        BB.setName("");
+      for (Instruction &I : BB) {
+        if (I.hasName())
+          I.setName("");
+      }
+    }
+  }
+  // Remove struct annotation.
+  // FunctionAnnotation is used later, so keep it.
+  m_pTypeSystem->GetStructAnnotationMap().clear();
+
+
+  // Resource
+  StripResourcesReflection(m_CBuffers);
+  StripResourcesReflection(m_UAVs);
+  StripResourcesReflection(m_SRVs);
+  StripResourcesReflection(m_Samplers);
+
+  // Unused global.
+  SmallVector<GlobalVariable *,2> UnusedGlobals;
+  for (GlobalVariable &GV : m_pModule->globals()) {
+    if (GV.use_empty())
+      UnusedGlobals.emplace_back(&GV);
+  }
+
+  for (GlobalVariable *GV : UnusedGlobals) {
+    GV->eraseFromParent();
+  }
+
+  // ReEmit meta.
+  ReEmitDxilResources();
+}
+
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   if (MDO.get() == nullptr)
     return;

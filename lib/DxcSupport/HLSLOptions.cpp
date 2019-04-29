@@ -12,6 +12,7 @@
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -142,6 +143,28 @@ bool DxcOpts::IsRootSignatureProfile() {
 
 bool DxcOpts::IsLibraryProfile() {
   return TargetProfile.startswith("lib_");
+}
+
+bool DxcOpts::IsDebugInfoEnabled() {
+  return DebugInfo;
+}
+
+bool DxcOpts::EmbedDebugInfo() {
+  return EmbedDebug;
+}
+
+bool DxcOpts::EmbedPDBName() {
+  return IsDebugInfoEnabled() || !DebugFile.empty();
+}
+
+bool DxcOpts::DebugFileIsDirectory() {
+  return !DebugFile.empty() && llvm::sys::path::is_separator(DebugFile[DebugFile.size() - 1]);
+}
+
+llvm::StringRef DxcOpts::GetPDBName() {
+  if (!DebugFileIsDirectory())
+    return DebugFile;
+  return llvm::StringRef();
 }
 
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
@@ -411,10 +434,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
-  opts.UseColor = Args.hasFlag(OPT_Cc, OPT_INVALID);
-  opts.UseInstructionNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID);
-  opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID);
-  opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID);
+  opts.UseColor = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
+  opts.UseInstructionNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
+  opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID, false);
+  opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
@@ -533,6 +556,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.PreferFlowControl = Args.hasFlag(OPT_Gfp, OPT_INVALID, false);
   opts.RecompileFromBinary = Args.hasFlag(OPT_recompile, OPT_INVALID, false);
   opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
+  opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
@@ -609,8 +633,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
+  if (opts.EmbedDebug && !opts.DebugInfo) {
+    errors << "Must enable debug info with /Zi for /Qembed_debug";
+    return 1;
+  }
+
   if (!opts.DebugNameForBinary && !opts.DebugNameForSource) {
-    opts.DebugNameForSource = true;
+    if (opts.DebugInfo)
+      opts.DebugNameForSource = true;
+    else
+      opts.DebugNameForBinary = true;
   }
   else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
     errors << "Cannot specify both /Zss and /Zsb";

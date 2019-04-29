@@ -391,10 +391,11 @@ inline bool GetDxilShaderDebugName(const DxilPartHeader *pDebugNamePart,
 }
 
 enum class SerializeDxilFlags : uint32_t {
-  None = 0,                     // No flags defined.
-  IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
-  IncludeDebugNamePart = 2,     // Include the debug name part in the container.
-  DebugNameDependOnSource = 4   // Make the debug name depend on source (and not just final module).
+  None = 0,                         // No flags defined.
+  IncludeDebugInfoPart = 1,         // Include the debug info part in the container.
+  IncludeDebugNamePart = 2,         // Include the debug name part in the container.
+  DebugNameDependOnSource = 4,      // Make the debug name depend on source (and not just final module).
+  StripReflectionFromDxilPart = 8,  // Strip Reflection info from DXIL part.
 };
 inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));

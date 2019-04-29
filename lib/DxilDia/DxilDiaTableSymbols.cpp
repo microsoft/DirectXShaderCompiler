@@ -286,9 +286,9 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
     for (const auto & c : children) {
       CComBSTR cName;
       IFR(c->get_name(&cName));
-      if (compareFlags == nsfCaseInsensitive && StrCmpW(cName, name) != 0) {
-        continue;
-      } else if (compareFlags == nsfCaseSensitive && StrCmpIW(cName, name) != 0) {
+      // Careful with the string comparison function we use as it can make us pull in new dependencies
+      // CompareStringOrdinal lives in kernel32.dll
+      if (CompareStringOrdinal(cName, cName.Length(), name, -1, (BOOL)(compareFlags == nsfCaseInsensitive)) != CSTR_EQUAL) {
         continue;
       }
 
