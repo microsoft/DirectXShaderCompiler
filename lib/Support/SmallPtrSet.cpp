@@ -22,14 +22,14 @@ using namespace llvm;
 
 void SmallPtrSetImplBase::shrink_and_clear() {
   assert(!isSmall() && "Can't shrink a small set!");
-  free(CurArray);
+  delete[] CurArray; // HLSL Change: Use overridable operator delete
 
   // Reduce the number of buckets.
   CurArraySize = NumElements > 16 ? 1 << (Log2_32_Ceil(NumElements) + 1) : 32;
   NumElements = NumTombstones = 0;
 
   // Install the new array.  Clear all the buckets to empty.
-  CurArray = (const void**)malloc(sizeof(void*) * CurArraySize);
+  CurArray = new const void*[CurArraySize]; // HLSL Change: Use overridable operator new
   assert(CurArray && "Failed to allocate memory?");
   memset(CurArray, -1, CurArraySize*sizeof(void*));
 }
@@ -138,7 +138,7 @@ void SmallPtrSetImplBase::Grow(unsigned NewSize) {
   bool WasSmall = isSmall();
   
   // Install the new array.  Clear all the buckets to empty.
-  CurArray = (const void**)malloc(sizeof(void*) * NewSize);
+  CurArray = new const void*[NewSize]; // HLSL Change: Use overridable operator new
   assert(CurArray && "Failed to allocate memory?");
   CurArraySize = NewSize;
   memset(CurArray, -1, NewSize*sizeof(void*));
@@ -161,7 +161,7 @@ void SmallPtrSetImplBase::Grow(unsigned NewSize) {
         *const_cast<void**>(FindBucketFor(Elt)) = const_cast<void*>(Elt);
     }
     
-    free(OldBuckets);
+    delete[] OldBuckets; // HLSL Change: Use overridable operator delete
     NumTombstones = 0;
   }
 }
@@ -175,7 +175,7 @@ SmallPtrSetImplBase::SmallPtrSetImplBase(const void **SmallStorage,
     CurArray = SmallArray;
   // Otherwise, allocate new heap space (unless we were the same size)
   } else {
-    CurArray = (const void**)malloc(sizeof(void*) * that.CurArraySize);
+    CurArray = new const void*[that.CurArraySize]; // HLSL Change: Use overridable operator new
     assert(CurArray && "Failed to allocate memory?");
   }
   
@@ -228,18 +228,19 @@ void SmallPtrSetImplBase::CopyFrom(const SmallPtrSetImplBase &RHS) {
   // If we're becoming small, prepare to insert into our stack space
   if (RHS.isSmall()) {
     if (!isSmall())
-      free(CurArray);
+      delete[] CurArray; // HLSL Change: Use overridable operator delete
     CurArray = SmallArray;
   // Otherwise, allocate new heap space (unless we were the same size)
   } else if (CurArraySize != RHS.CurArraySize) {
     if (isSmall())
-      CurArray = (const void**)malloc(sizeof(void*) * RHS.CurArraySize);
+      CurArray = new const void*[RHS.CurArraySize]; // HLSL Change: Use overridable operator new
     else {
-      const void **T = (const void**)realloc(CurArray,
-                                             sizeof(void*) * RHS.CurArraySize);
-      if (!T)
-        free(CurArray);
+      // HLSL Change Begins: Use overridable operator new
+      const void **T = new const void*[RHS.CurArraySize];
+      std::memcpy(T, CurArray, std::min(CurArraySize, RHS.CurArraySize));
+      delete[] CurArray;
       CurArray = T;
+      // HLSL Change Ends
     }
     assert(CurArray && "Failed to allocate memory?");
   }
@@ -259,7 +260,7 @@ void SmallPtrSetImplBase::MoveFrom(unsigned SmallSize,
   assert(&RHS != this && "Self-move should be handled by the caller.");
 
   if (!isSmall())
-    free(CurArray);
+    delete[] CurArray; // HLSL Change: Use overridable operator delete
 
   if (RHS.isSmall()) {
     // Copy a small RHS rather than moving.
@@ -334,5 +335,5 @@ void SmallPtrSetImplBase::swap(SmallPtrSetImplBase &RHS) {
 
 SmallPtrSetImplBase::~SmallPtrSetImplBase() {
   if (!isSmall())
-    free(CurArray);
+    delete[] CurArray; // HLSL Change: Use overridable operator delete
 }
