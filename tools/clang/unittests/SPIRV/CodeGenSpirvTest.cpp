@@ -118,9 +118,7 @@ TEST_F(FileTest, 16BitDisabledScalarConstants) {
   runFileTest("constant.scalar.16bit.disabled.hlsl");
 }
 TEST_F(FileTest, 16BitEnabledScalarConstants) {
-  // TODO: Validator complains about Float16 capability even though we use the
-  // needed extension.
-  runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success, false);
+  runFileTest("constant.scalar.16bit.enabled.hlsl");
 }
 TEST_F(FileTest, 16BitEnabledScalarConstantsHalfZero) {
   runFileTest("constant.scalar.16bit.enabled.half.zero.hlsl");
