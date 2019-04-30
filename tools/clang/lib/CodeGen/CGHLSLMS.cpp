@@ -7086,7 +7086,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       continue;
     }
 
-    if (!Param->isModifierOut() && !RValOnRef) {
+    if (!Param->isModifierOut() && !RValOnRef && Arg->isRValue()) {
       // No need to copy arg to in-only param for hlsl intrinsic.
       if (const FunctionDecl *Callee = E->getDirectCallee()) {
         if (Callee->hasAttr<HLSLIntrinsicAttr>())
