@@ -83,7 +83,7 @@ public:
   /// bits are initialized to the specified value.
   explicit BitVector(unsigned s, bool t = false) : Size(s) {
     Capacity = NumBitWords(s);
-    Bits = (BitWord *)std::malloc(Capacity * sizeof(BitWord));
+    Bits = new BitWord[Capacity]; // HLSL Change: Use overridable operator new
     init_words(Bits, Capacity, t);
     if (t)
       clear_unused_bits();
@@ -98,8 +98,7 @@ public:
     }
 
     Capacity = NumBitWords(RHS.size());
-    Bits = (BitWord *)std::malloc(Capacity * sizeof(BitWord));
-	if (Bits == nullptr) throw std::bad_alloc(); // HLSL Change
+    Bits = new BitWord[Capacity]; // HLSL Change: Use overridable operator new
     std::memcpy(Bits, RHS.Bits, Capacity * sizeof(BitWord));
   }
 
@@ -109,7 +108,7 @@ public:
   }
 
   ~BitVector() {
-    std::free(Bits);
+    delete[] Bits; // HLSL Change: Use overridable operator new
   }
 
   /// empty - Tests whether there are no bits in this bitvector.
@@ -436,12 +435,11 @@ public:
     // Grow the bitvector to have enough elements.
     Capacity = RHSWords;
     assert(Capacity > 0 && "negative capacity?");
-    BitWord *NewBits = (BitWord *)std::malloc(Capacity * sizeof(BitWord));
-	if (NewBits == nullptr) throw std::bad_alloc(); // HLSL Change
+    BitWord *NewBits = new BitWord[Capacity]; // HLSL Change: Use overridable operator new
     std::memcpy(NewBits, RHS.Bits, Capacity * sizeof(BitWord));
 
     // Destroy the old bits.
-    std::free(Bits);
+    delete[] Bits; // HLSL Change: Use overridable operator delete
     Bits = NewBits;
 
     return *this;
@@ -450,7 +448,7 @@ public:
   const BitVector &operator=(BitVector &&RHS) {
     if (this == &RHS) return *this;
 
-    std::free(Bits);
+    delete[] Bits; // HLSL Change: Use overridable operator delete
     Bits = RHS.Bits;
     Size = RHS.Size;
     Capacity = RHS.Capacity;
@@ -533,11 +531,11 @@ private:
   void grow(unsigned NewSize) {
     Capacity = std::max(NumBitWords(NewSize), Capacity * 2);
     assert(Capacity > 0 && "realloc-ing zero space");
-    // HLSL Change Starts: don't lose old buffer while reallocating
+    // HLSL Change Starts: Use overridable operator new
     // Bits = (BitWord *)std::realloc(Bits, Capacity * sizeof(BitWord));
-    BitWord  *newBits = (BitWord *)std::realloc(Bits, Capacity * sizeof(BitWord));
-    if (newBits == nullptr)
-      throw std::bad_alloc();
+    BitWord  *newBits = new BitWord[Capacity];
+    std::memcpy(newBits, Bits, NumBitWords(Size));
+    delete[] Bits;
     Bits = newBits;
     // HLSL Change Ends
 

@@ -1883,6 +1883,7 @@ void FunctionPass::assignPassManager(PMStack &PMS,
 
     // [1] Create new Function Pass Manager
     FPP = new FPPassManager();
+    std::unique_ptr<FPPassManager> NewFPP(FPP); // HLSL Change
     FPP->populateInheritedAnalysis(PMS);
 
     // [2] Set up new manager's top level manager
@@ -1891,6 +1892,7 @@ void FunctionPass::assignPassManager(PMStack &PMS,
 
     // [3] Assign manager to manage this new manager. This may create
     // and push new managers into PMS
+    NewFPP.release(); // HLSL Change: assignPassManager transfers ownership of 'this'...
     FPP->assignPassManager(PMS, PMD->getPassManagerType());
 
     // [4] Push new manager into PMS
