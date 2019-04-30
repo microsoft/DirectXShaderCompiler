@@ -496,9 +496,11 @@ TEST_F(FileTest, FunctionInOutParam) {
   runFileTest("fn.param.inout.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamVector) {
+  setRelaxLogicalPointer();
   runFileTest("fn.param.inout.vector.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
+  setRelaxLogicalPointer();
   runFileTest("fn.param.inout.storage-class.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamIsomorphism) {
@@ -1930,6 +1932,7 @@ TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
 
 // For NoContraction decorations
 TEST_F(FileTest, DecorationNoContraction) {
+  setRelaxLogicalPointer();
   runFileTest("decoration.no-contraction.hlsl");
 }
 TEST_F(FileTest, DecorationNoContractionVariableReuse) {

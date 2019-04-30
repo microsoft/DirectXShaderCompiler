@@ -672,8 +672,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     std::string messages;
     if (!spirvToolsValidate(targetEnv, spirvOptions,
                             relaxLogicalPointerForFunctionParam ||
-                            declIdMapper.requiresLegalization(), &m,
-                            &messages)) {
+                                declIdMapper.requiresLegalization(),
+                            &m, &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -2099,9 +2099,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
                                              arg->getLocStart());
     }
 
-    auto* argInst = doExpr(arg);
+    auto *argInst = doExpr(arg);
+    auto argType = arg->getType();
 
-    if (canActAsOutParmVar(param) &&
+    // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
+    // pointer to pass to the function. we need a temporal variable in that
+    // case.
+    if ((argInfo || (argInst && !argInst->isRValue())) &&
+        canActAsOutParmVar(param) &&
         paramTypeMatchesArgType(param->getType(), arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument
@@ -2182,6 +2187,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   // Go through all parameters and write those marked as out/inout
   for (uint32_t i = 0; i < numParams; ++i) {
     const auto *param = callee->getParamDecl(i);
+    // If it calls a non-static member function, we must calculate the argument
+    // position with the object itself.
     const uint32_t index = i + isNonStaticMemberCall;
     if (isTempVar[index] && canActAsOutParmVar(param)) {
       const auto *arg = callExpr->getArg(i);
