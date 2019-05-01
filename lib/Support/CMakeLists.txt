@@ -105,6 +105,7 @@ add_llvm_library(LLVMSupport
   regexec.c
   regfree.c
   regstrlcpy.c
+  regmalloc.cpp # HLSL Change
 
 # System
   assert.cpp      # HLSL Change

@@ -184,8 +184,8 @@ namespace clang {
     static TemplateIdAnnotation *
     Allocate(unsigned NumArgs, SmallVectorImpl<TemplateIdAnnotation*> &List) {
       TemplateIdAnnotation *TemplateId
-        = (TemplateIdAnnotation *)std::malloc(sizeof(TemplateIdAnnotation) +
-                                      sizeof(ParsedTemplateArgument) * NumArgs);
+        = (TemplateIdAnnotation *)::operator new(sizeof(TemplateIdAnnotation) +
+                                      sizeof(ParsedTemplateArgument) * NumArgs); // HLSL Change: Use overridable operator new
       TemplateId->NumArgs = NumArgs;
       
       // Default-construct nested-name-specifier.
@@ -202,7 +202,7 @@ namespace clang {
     
     void Destroy() { 
       SS.~CXXScopeSpec();
-      free(this); 
+      ::operator delete(this); // HLSL Change: Use overridable operator delete 
     }
   };
 

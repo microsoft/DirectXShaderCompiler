@@ -55,4 +55,18 @@ typedef unsigned char uch;
 #define	memmove(d, s, c)	bcopy(s, d, c)
 #endif
 
+// HLSL Change Begin: Use custom allocators
+#ifdef __cplusplus
+extern "C" {
+#endif
+void* re_malloc(size_t size);
+void* re_calloc(size_t num, size_t size);
+// Realloc diverges from standard because we can't implement it in terms of new[]/delete[]
+void* re_realloc(void* ptr, size_t oldsize, size_t newsize);
+void re_free(void* ptr);
+#ifdef __cplusplus
+}
+#endif
+// HLSL Change Ends
+
 #endif

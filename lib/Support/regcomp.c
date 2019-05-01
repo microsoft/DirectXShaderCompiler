@@ -187,15 +187,15 @@ llvm_regcomp(llvm_regex_t *preg, const char *pattern, int cflags)
 		len = strlen((const char *)pattern);
 
 	/* do the mallocs early so failure handling is easy */
-	g = (struct re_guts *)malloc(sizeof(struct re_guts) +
+	g = (struct re_guts *)re_malloc(sizeof(struct re_guts) + // HLSL Change: Use custom allocator
 							(NC-1)*sizeof(cat_t));
 	if (g == NULL)
 		return(REG_ESPACE);
 	p->ssize = len/(size_t)2*(size_t)3 + (size_t)1;	/* ugh */
-	p->strip = (sop *)calloc(p->ssize, sizeof(sop));
+	p->strip = (sop *)re_calloc(p->ssize, sizeof(sop)); // HLSL Change: Use custom allocator
 	p->slen = 0;
 	if (p->strip == NULL) {
-		free((char *)g);
+		re_free((char *)g); // HLSL Change: Use custom allocator
 		return(REG_ESPACE);
 	}
 
@@ -1082,12 +1082,12 @@ allocset(struct parse *p)
 		assert(nc % CHAR_BIT == 0);
 		nbytes = nc / CHAR_BIT * css;
 
-		ptr = (cset *)realloc((char *)p->g->sets, nc * sizeof(cset));
+		ptr = (cset *)re_realloc((char *)p->g->sets, no * sizeof(cset), nc * sizeof(cset)); // HLSL Change: Use custom allocator
 		if (ptr == NULL)
 			goto nomem;
 		p->g->sets = ptr;
 
-		ptr = (uch *)realloc((char *)p->g->setbits, nbytes);
+		ptr = (uch *)re_realloc((char *)p->g->setbits, no / CHAR_BIT * css, nbytes); // HLSL Change: Use custom allocator
 		if (ptr == NULL)
 			goto nomem;
 		p->g->setbits = ptr;
@@ -1113,9 +1113,9 @@ allocset(struct parse *p)
 
 	return(cs);
 nomem:
-	free(p->g->sets);
+	re_free(p->g->sets); // HLSL Change: Use custom allocator
 	p->g->sets = NULL;
-	free(p->g->setbits);
+	re_free(p->g->setbits); // HLSL Change: Use custom allocator
 	p->g->setbits = NULL;
 
 	SETERROR(REG_ESPACE);
@@ -1218,10 +1218,10 @@ mcadd( struct parse *p, cset *cs, const char *cp)
 	void *np;
 
 	cs->smultis += strlen(cp) + 1;
-	np = realloc(cs->multis, cs->smultis);
+	np = re_realloc(cs->multis, oldend, cs->smultis); // HLSL Change: Use custom allocator
 	if (np == NULL) {
 		if (cs->multis)
-			free(cs->multis);
+			re_free(cs->multis); // HLSL Change: Use custom allocator
 		cs->multis = NULL;
 		SETERROR(REG_ESPACE);
 		return;
@@ -1430,7 +1430,7 @@ enlarge(struct parse *p, sopno size)
 		return;
 	}
 
-	sp = (sop *)realloc(p->strip, size*sizeof(sop));
+	sp = (sop *)re_realloc(p->strip, p->ssize*sizeof(sop), size*sizeof(sop)); // HLSL Change: Use custom allocator
 	if (sp == NULL) {
 		SETERROR(REG_ESPACE);
 		return;
@@ -1452,7 +1452,7 @@ stripsnug(struct parse *p, struct re_guts *g)
 		return;
 	}
 
-	g->strip = (sop *)realloc((char *)p->strip, p->slen * sizeof(sop));
+	g->strip = (sop *)re_realloc((char *)p->strip, p->slen * sizeof(sop), p->slen * sizeof(sop)); // HLSL Change: Use custom allocator
 	if (g->strip == NULL) {
 		SETERROR(REG_ESPACE);
 		g->strip = p->strip;
@@ -1526,7 +1526,7 @@ findmust(struct parse *p, struct re_guts *g)
 		return;
 
 	/* turn it into a character string */
-	g->must = malloc((size_t)g->mlen + 1);
+	g->must = re_malloc((size_t)g->mlen + 1); // HLSL Change: Use custom allocator
 	if (g->must == NULL) {		/* argh; just forget it */
 		g->mlen = 0;
 		return;
