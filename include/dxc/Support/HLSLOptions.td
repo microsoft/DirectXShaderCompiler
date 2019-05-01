@@ -256,7 +256,7 @@ def fvk_s_shift : MultiArg<["-"], "fvk-s-shift", 2>, MetaVarName<"<shift> <space
   HelpText<"Specify Vulkan binding number shift for s-type register">;
 def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan binding number shift for u-type register">;
-def fvk_globals_binding : MultiArg<["-"], "fvk-globals-binding", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+def fvk_bind_globals : MultiArg<["-"], "fvk-bind-globals", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan binding number and set number for the $Globals cbuffer">;
 def fvk_bind_register : MultiArg<["-"], "fvk-bind-register", 4>, MetaVarName<"<type-number> <space> <binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan descriptor set and binding for a specific register">;

@@ -1379,13 +1379,13 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     if (StringRef(spirvOptions.bindGlobals[0])
             .getAsInteger(10, globalsBindNo) ||
         globalsBindNo < 0) {
-      emitError("invalid -fvk-globals-binding binding number: %0", {})
+      emitError("invalid -fvk-bind-globals binding number: %0", {})
           << spirvOptions.bindGlobals[0];
       return false;
     }
     if (StringRef(spirvOptions.bindGlobals[1]).getAsInteger(10, globalsSetNo) ||
         globalsSetNo < 0) {
-      emitError("invalid -fvk-globals-binding set number: %0", {})
+      emitError("invalid -fvk-bind-globals set number: %0", {})
           << spirvOptions.bindGlobals[1];
       return false;
     }

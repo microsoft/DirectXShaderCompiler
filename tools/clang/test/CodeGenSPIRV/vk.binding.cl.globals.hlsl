@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-globals-binding 1 2
+// Run: %dxc -T ps_6_0 -E main -fvk-bind-globals 1 2
 
 // CHECK: OpDecorate %_Globals DescriptorSet 2
 // CHECK: OpDecorate %_Globals Binding 1

@@ -1529,10 +1529,10 @@ Example 2:
     // $Globals cbuffer placed at DescriptorSet #0, Binding #1
 
 In order provide more control over the descriptor set and binding number of the
-``$Globals`` cbuffer, you can use the ``-fvk-globals-binding B S`` command line
+``$Globals`` cbuffer, you can use the ``-fvk-bind-globals B S`` command line
 option, which will place this cbuffer at descriptor set ``S``, and binding number ``B``.
 
-Example 3: (compiled with ``-fvk-globals-binding 2 1``)
+Example 3: (compiled with ``-fvk-bind-globals 2 1``)
 
 .. code:: hlsl
 
@@ -3243,7 +3243,7 @@ codegen for Vulkan:
   It requires all source code resources have ``:register()`` attribute and
   all registers have corresponding Vulkan descriptors specified using this
   option.
-- ``-fvk-globals-binding N M``: Places the ``$Globals`` cbuffer at
+- ``-fvk-bind-globals N M``: Places the ``$Globals`` cbuffer at
   descriptor set #M and binding #N. See `HLSL global variables and Vulkan binding`_
   for explanation and examples.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
