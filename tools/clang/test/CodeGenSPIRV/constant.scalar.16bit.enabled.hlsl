@@ -17,7 +17,6 @@
 
 // CHECK: OpCapability Float16
 // CHECK: OpCapability Int16
-// CHECK: OpExtension "SPV_AMD_gpu_shader_half_float"
 
 // CHECK-NOT: OpDecorate %c_half RelaxedPrecision
 // CHECK-NOT: OpDecorate %c_min10float RelaxedPrecision
