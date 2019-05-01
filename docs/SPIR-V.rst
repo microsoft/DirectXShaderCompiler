@@ -1502,7 +1502,48 @@ If we compile with ``-fvk-t-shift 10 0 -fvk-t-shift 20 1``:
 - ``sampler1`` will take binding 1 in set #0, since that's the next available
   binding number in set #0.
 
+HLSL global variables and Vulkan binding
+----------------------------------------
+As mentioned above, all global externally-visible non-resource-type stand-alone
+variables will be collected into a cbuffer named ``$Globals``. By default,
+the ``$Globals`` cbuffer is placed in descriptor set #0, and the binding number
+would be the next available binding number in that set. Meaning, the binding number
+depends on where the very first global variable is in the code.
+
+Example 1:
+
 .. code:: hlsl
+
+  float4 someColors;
+    // $Globals cbuffer placed at DescriptorSet #0, Binding #0
+  Texture2D<float4> texture1;
+    // texture1         placed at DescriptorSet #0, Binding #1
+
+Example 2:
+
+.. code:: hlsl
+
+  Texture2D<float4> texture1;
+    // texture1         placed at DescriptorSet #0, Binding #0
+  float4 someColors;
+    // $Globals cbuffer placed at DescriptorSet #0, Binding #1
+
+In order provide more control over the descriptor set and binding number of the
+``$Globals`` cbuffer, you can use the ``-fvk-bind-globals B S`` command line
+option, which will place this cbuffer at descriptor set ``S``, and binding number ``B``.
+
+Example 3: (compiled with ``-fvk-bind-globals 2 1``)
+
+.. code:: hlsl
+
+  Texture2D<float4> texture1;
+    // texture1         placed at DescriptorSet #0, Binding #0
+  float4 someColors;
+    // $Globals cbuffer placed at DescriptorSet #1, Binding #2
+
+Note that if the developer chooses to use this command line option, it is their
+responsibility to provide proper numbers and avoid binding overlaps.
+
 HLSL Expressions
 ================
 
@@ -3202,6 +3243,9 @@ codegen for Vulkan:
   It requires all source code resources have ``:register()`` attribute and
   all registers have corresponding Vulkan descriptors specified using this
   option.
+- ``-fvk-bind-globals N M``: Places the ``$Globals`` cbuffer at
+  descriptor set #M and binding #N. See `HLSL global variables and Vulkan binding`_
+  for explanation and examples.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
