@@ -46,6 +46,7 @@ set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
+set SPEAK=1
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -118,6 +119,11 @@ if "%1"=="-tblgen" (
   ) 
   set BUILD_TBLGEN_PATH=%2
   shift /1
+  shift /1
+)
+
+if "%1"=="-dont-speak" (
+  set SPEAK=0
   shift /1
 )
 
@@ -239,7 +245,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -248,7 +254,8 @@ echo   -alldef  adds optional projects to the default build
 echo   -analyze adds /analyze option
 echo   -fv      fixes the resource version for release
 echo.
-echo   -rel builds release rather than debug
+echo   -rel     builds release rather than debug
+echo   -dont-speak  disables audible build confirmation
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -376,9 +383,13 @@ if exist %1\clang-tblgen.exe (
 exit /b 1
 
 :handlefail
-cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctspeak.js /say:"build failed"
+if %SPEAK%==1 (
+  cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctspeak.js /say:"build failed"
+)
 exit /b 0
 
 :handlesuccess
-cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctspeak.js /say:"build succeeded"
+if %SPEAK%==1 (
+  cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctspeak.js /say:"build succeeded"
+)
 exit /b 0
