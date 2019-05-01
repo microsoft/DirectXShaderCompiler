@@ -102,33 +102,6 @@ bool SpirvType::isResourceType(const SpirvType *type) {
   return false;
 }
 
-bool SpirvType::isOrContains16BitType(const SpirvType *type) {
-  if (const auto *numericType = dyn_cast<NumericalType>(type))
-    if (numericType->getBitwidth() == 16)
-      return true;
-
-  if (const auto *vecType = dyn_cast<VectorType>(type))
-    return isOrContains16BitType(vecType->getElementType());
-  if (const auto *matType = dyn_cast<MatrixType>(type))
-    return isOrContains16BitType(matType->getElementType());
-  if (const auto *arrType = dyn_cast<ArrayType>(type))
-    return isOrContains16BitType(arrType->getElementType());
-  if (const auto *pointerType = dyn_cast<SpirvPointerType>(type))
-    return isOrContains16BitType(pointerType->getPointeeType());
-  if (const auto *raType = dyn_cast<RuntimeArrayType>(type))
-    return isOrContains16BitType(raType->getElementType());
-  if (const auto *imgType = dyn_cast<ImageType>(type))
-    return isOrContains16BitType(imgType->getSampledType());
-  if (const auto *sampledImageType = dyn_cast<SampledImageType>(type))
-    return isOrContains16BitType(sampledImageType->getImageType());
-  if (const auto *structType = dyn_cast<StructType>(type))
-    for (auto &field : structType->getFields())
-      if (isOrContains16BitType(field.type))
-        return true;
-
-  return false;
-}
-
 MatrixType::MatrixType(const VectorType *vecType, uint32_t vecCount)
     : SpirvType(TK_Matrix), vectorType(vecType), vectorCount(vecCount) {}
 
