@@ -1560,7 +1560,6 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   breakStack.push(mergeBB);
 
   // Process the <check> block
-  const Expr *check = whileStmt->getCond();
   spvBuilder.createBranch(checkBB, whileStmt->getLocStart());
   spvBuilder.addSuccessor(checkBB);
   spvBuilder.setInsertPoint(checkBB);
@@ -1573,6 +1572,7 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
     doStmt(condVarDecl);
 
   SpirvInstruction *condition = nullptr;
+  const Expr *check = whileStmt->getCond();
   if (check) {
     condition = doExpr(check);
   } else {
@@ -2064,11 +2064,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
                      objInstr->getStorageClass() != spv::StorageClass::Function;
 
       if (needsTempVar) {
-        args.push_back(
-            createTemporaryVar(objectType, getAstTypeName(objectType),
-                               // May need to load to use as initializer
-                               loadIfGLValue(object, objInstr),
-                               memberCall->getCallee()->getExprLoc()));
+        args.push_back(createTemporaryVar(
+            objectType, getAstTypeName(objectType),
+            // May need to load to use as initializer
+            loadIfGLValue(object, objInstr), object->getExprLoc()));
       } else {
         args.push_back(objInstr);
       }
@@ -2261,7 +2260,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     auto *value = castToBool(loadIfGLValue(subExpr), subExprType, toType,
-                             expr->getLocStart());
+                             subExpr->getLocStart());
     value->setRValue();
     return value;
   }
@@ -5944,7 +5943,7 @@ SpirvEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     auto *rhsElem = rhs;
     if (accessor.Count > 1) {
       rhsElem = spvBuilder.createCompositeExtract(elemType, rhs, {i},
-                                                  lhs->getLocStart());
+                                                  rhs->getSourceLocation());
     }
 
     // If the lhs is actually a matrix of size 1x1, we don't need the access
@@ -6587,8 +6586,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_texCUBEgrad:
   case hlsl::IntrinsicOp::IOP_texCUBElod:
   case hlsl::IntrinsicOp::IOP_texCUBEproj: {
-    emitError("deprecated %0 intrinsic function will not be supported",
-              callExpr->getExprLoc())
+    emitError("deprecated %0 intrinsic function will not be supported", srcLoc)
         << callee->getName();
     return nullptr;
   }
@@ -6710,21 +6708,20 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneCount",
-                                    callExpr->getExprLoc());
+                                    srcLoc);
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize, retType,
-                                           callExpr->getExprLoc());
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize, retType, srcLoc);
 
-    retVal = spvBuilder.createLoad(retType, var, callExpr->getExprLoc());
+    retVal = spvBuilder.createLoad(retType, var, srcLoc);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
-                                    callExpr->getExprLoc());
+                                    srcLoc);
     const QualType retType = callExpr->getCallReturnType(astContext);
-    auto *var =
-        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId,
-                                   retType, callExpr->getExprLoc());
-    retVal = spvBuilder.createLoad(retType, var, callExpr->getExprLoc());
+    auto *var = declIdMapper.getBuiltinVar(
+        spv::BuiltIn::SubgroupLocalInvocationId, retType, srcLoc);
+    retVal = spvBuilder.createLoad(retType, var, srcLoc);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
     retVal = processWaveQuery(callExpr, spv::Op::OpGroupNonUniformElect);
@@ -6757,7 +6754,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveActiveBitXor: {
     const auto retType = callExpr->getCallReturnType(astContext);
     retVal = processWaveReductionOrPrefix(
-        callExpr, translateWaveOp(hlslOpcode, retType, callExpr->getExprLoc()),
+        callExpr, translateWaveOp(hlslOpcode, retType, srcLoc),
         spv::GroupOperation::Reduce);
   } break;
   case hlsl::IntrinsicOp::IOP_WavePrefixUSum:
@@ -6766,7 +6763,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WavePrefixProduct: {
     const auto retType = callExpr->getCallReturnType(astContext);
     retVal = processWaveReductionOrPrefix(
-        callExpr, translateWaveOp(hlslOpcode, retType, callExpr->getExprLoc()),
+        callExpr, translateWaveOp(hlslOpcode, retType, srcLoc),
         spv::GroupOperation::ExclusiveScan);
   } break;
   case hlsl::IntrinsicOp::IOP_WavePrefixCountBits:
@@ -6785,8 +6782,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
-    emitError("no equivalent for %0 intrinsic function in Vulkan",
-              callExpr->getExprLoc())
+    emitError("no equivalent for %0 intrinsic function in Vulkan", srcLoc)
         << callee->getName();
     return 0;
   }
@@ -6824,12 +6820,12 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   }
   case hlsl::IntrinsicOp::IOP_AcceptHitAndEndSearch: {
     spvBuilder.createRayTracingOpsNV(spv::Op::OpTerminateRayNV, QualType(), {},
-                                     callExpr->getExprLoc());
+                                     srcLoc);
     break;
   }
   case hlsl::IntrinsicOp::IOP_IgnoreHit: {
     spvBuilder.createRayTracingOpsNV(spv::Op::OpIgnoreIntersectionNV,
-                                     QualType(), {}, callExpr->getExprLoc());
+                                     QualType(), {}, srcLoc);
     break;
   }
   case hlsl::IntrinsicOp::IOP_ReportHit: {
@@ -6902,7 +6898,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(sqrt, Sqrt, true);
     INTRINSIC_OP_CASE(trunc, Trunc, true);
   default:
-    emitError("%0 intrinsic function unimplemented", callExpr->getExprLoc())
+    emitError("%0 intrinsic function unimplemented", srcLoc)
         << callee->getName();
     return 0;
   }
@@ -7794,7 +7790,7 @@ SpirvEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   auto *xInstr = doExpr(x);
   auto *expInstr = doExpr(callExpr->getArg(1));
   const auto loc = callExpr->getLocStart();
-  const auto arg0Loc = callExpr->getArg(1)->getLocStart();
+  const auto arg1Loc = callExpr->getArg(1)->getLocStart();
 
   // For scalar and vector argument types.
   if (isScalarType(paramType) || isVectorType(paramType)) {
@@ -7809,10 +7805,10 @@ SpirvEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(paramType, nullptr, &rowCount, &colCount)) {
       const auto actOnEachVec = [this, loc, glsl, expInstr,
-                                 arg0Loc](uint32_t index, QualType vecType,
+                                 arg1Loc](uint32_t index, QualType vecType,
                                           SpirvInstruction *xRowInstr) {
         auto *expRowInstr = spvBuilder.createCompositeExtract(vecType, expInstr,
-                                                              {index}, arg0Loc);
+                                                              {index}, arg1Loc);
         auto *twoExp = spvBuilder.createExtInst(
             vecType, glsl, GLSLstd450::GLSLstd450Exp2, {expRowInstr}, loc);
         return spvBuilder.createBinaryOp(spv::Op::OpFMul, vecType, xRowInstr,

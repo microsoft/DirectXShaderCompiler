@@ -33,7 +33,6 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLineInfo)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
 
@@ -193,10 +192,6 @@ SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
     : SpirvInstruction(IK_ModuleProcessed, spv::Op::OpModuleProcessed,
                        QualType(), loc),
       process(processStr) {}
-
-SpirvLineInfo::SpirvLineInfo(SpirvString *srcFile, SourceLocation loc)
-    : SpirvInstruction(IK_LineInfo, spv::Op::OpLine, QualType(), loc),
-      file(srcFile) {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,

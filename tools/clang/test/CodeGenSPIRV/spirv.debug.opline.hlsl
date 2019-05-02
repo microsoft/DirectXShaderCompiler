@@ -64,5 +64,11 @@ float4 main(uint val : A) : SV_Target {
   // CHECK-NEXT: OpAccessChain %_ptr_Function_float %c %int_0
   } while (c.x < 10);
 
+// CHECK:      OpLine [[file]] 72 7
+// CHECK-NEXT: OpAccessChain %_ptr_Function_float %c %int_0
+// CHECK:      OpLine [[file]] 72 3
+// CHECK-NEXT: pStore %a
+  a = c.x;
+
   return b * c;
 }

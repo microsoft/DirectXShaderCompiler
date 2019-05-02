@@ -83,8 +83,9 @@ void InitListHandler::flatten(const InitListExpr *expr) {
   }
 }
 
-void InitListHandler::decompose(SpirvInstruction *inst, SourceLocation loc) {
+void InitListHandler::decompose(SpirvInstruction *inst) {
   const QualType type = inst->getAstResultType();
+  auto loc = inst->getSourceLocation();
 
   QualType elemType = {};
   uint32_t elemCount = 0, rowCount = 0, colCount = 0;
@@ -246,7 +247,7 @@ InitListHandler::createInitForBuiltinType(QualType type,
   initializers.pop_back();
 
   if (!init.first->getAstResultType()->isBuiltinType()) {
-    decompose(init.first, init.second);
+    decompose(init.first);
     return createInitForBuiltinType(type, srcLoc);
   }
 

@@ -43,9 +43,11 @@ void chopString(llvm::StringRef original,
   }
 }
 
-/// If SPIR-V instruction with |op| opcode must be placed in constant or
-/// main binary (e.g., not capability, not decorate), returns true.
-bool isOpForConstantOrMainBinary(spv::Op op) {
+/// Returns true if an OpLine instruction can be emitted for the given OpCode.
+/// According to the SPIR-V Spec section 2.4 (Logical Layout of a Module), the
+/// first section to allow use of OpLine debug information is after all
+/// annotation instructions.
+bool isOpLineLegalForOp(spv::Op op) {
   switch (op) {
     // Preamble binary
   case spv::Op::OpCapability:
@@ -118,7 +120,10 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
   debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
 }
 
-void EmitVisitor::emitDebugLine(const SourceLocation &loc) {
+void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
+  if (!isOpLineLegalForOp(op))
+    return;
+
   if (!spvOptions.debugInfoLine)
     return;
 
@@ -173,9 +178,8 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
                                spv::Decoration::NoContraction, {});
   }
 
-  const auto op = static_cast<spv::Op>(inst->getopcode());
-  if (isOpForConstantOrMainBinary(op))
-    emitDebugLine(inst->getSourceLocation());
+  const auto op = inst->getopcode();
+  emitDebugLine(op, inst->getSourceLocation());
 
   // Initialize the current instruction for emitting.
   curInst.clear();
@@ -183,8 +187,7 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
 }
 
 void EmitVisitor::initInstruction(spv::Op op, const SourceLocation &loc) {
-  if (isOpForConstantOrMainBinary(op))
-    emitDebugLine(loc);
+  emitDebugLine(op, loc);
 
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(op));
@@ -433,12 +436,6 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
   initInstruction(inst);
   encodeString(inst->getProcess());
   finalizeInstruction();
-  return true;
-}
-
-bool EmitVisitor::visit(SpirvLineInfo *inst) {
-  assert(inst->getSourceFile()->getResultId() == debugFileId);
-  emitDebugLine(inst->getSourceLocation());
   return true;
 }
 

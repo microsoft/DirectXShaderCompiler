@@ -322,8 +322,7 @@ public:
   /// cases and returns the instruction pointer.
   SpirvSelect *createSelect(QualType resultType, SpirvInstruction *condition,
                             SpirvInstruction *trueValue,
-                            SpirvInstruction *falseValue,
-                            SourceLocation);
+                            SpirvInstruction *falseValue, SourceLocation);
 
   /// \brief Creates a switch statement for the given selector, default, and
   /// branches. Results in OpSelectionMerge followed by OpSwitch.
@@ -409,8 +408,6 @@ public:
   SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,
                                       SpirvInstruction *structure,
                                       uint32_t arrayMember);
-
-  void createLineInfo(SpirvString *file, SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for NV raytracing ops.
   SpirvInstruction *

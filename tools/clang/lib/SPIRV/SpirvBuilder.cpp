@@ -783,12 +783,6 @@ SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
   return inst;
 }
 
-void SpirvBuilder::createLineInfo(SpirvString *file, SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *inst = new (context) SpirvLineInfo(file, loc);
-  insertPoint->addInstruction(inst);
-}
-
 SpirvInstruction *
 SpirvBuilder::createRayTracingOpsNV(spv::Op opcode, QualType resultType,
                                     ArrayRef<SpirvInstruction *> operands,
