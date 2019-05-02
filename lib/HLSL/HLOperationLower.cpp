@@ -6457,13 +6457,13 @@ void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
   Value *subscriptIndex = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
   Value* bufIdx = nullptr;
   Value *offset = nullptr;
-  if (ResKind == HLResource::Kind::StructuredBuffer) {
-    bufIdx = subscriptIndex;
-  }
-  else if (ResKind == HLResource::Kind::RawBuffer) {
+  if (ResKind == HLResource::Kind::RawBuffer) {
     offset = subscriptIndex;
   }
-  else llvm_unreachable("Unexpected structured buffer resource kind.");
+  else {
+    // StructuredBuffer, TypedBuffer, etc.
+    bufIdx = subscriptIndex;
+  }
 
   for (auto U = CI->user_begin(); U != CI->user_end();) {
     Value *user = *(U++);

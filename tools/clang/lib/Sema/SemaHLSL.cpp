@@ -9038,14 +9038,17 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
           !IsBABLoad
               ? diag::err_hlsl_intrinsic_template_arg_unsupported
               : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_scalar_vector;
+                        : diag::err_hlsl_intrinsic_template_arg_numerical;
       if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
-        Loc = (*ExplicitTemplateArgs)[0].getLocation();
-        QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
-        ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR || hlsl::IsHLSLNumericUserDefinedType(explicitType)) {
-          isLegalTemplate = true;
-          argTypes[0] = explicitType;
+        const TemplateArgumentLoc& TemplateArgLoc = (*ExplicitTemplateArgs)[0];
+        Loc = TemplateArgLoc.getLocation();
+        if (TemplateArgLoc.getArgument().getKind() == TemplateArgument::ArgKind::Type) {
+          QualType explicitType = TemplateArgLoc.getArgument().getAsType();
+          ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
+          if (hlsl::IsHLSLNumericOrAggregateOfNumericType(explicitType)) {
+            isLegalTemplate = true;
+            argTypes[0] = explicitType;
+          }
         }
       }
 
