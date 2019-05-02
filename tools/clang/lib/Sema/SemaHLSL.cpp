@@ -3063,7 +3063,7 @@ private:
     QualType sampleSliceType = m_context->getRecordType(sampleSliceTypeDecl);
 
     CXXMethodDecl* sampleSubscriptDecl = CreateObjectFunctionDeclarationWithParams(*m_context,
-      sampleTypeDecl, m_context->getRValueReferenceType(sampleSliceType), // TODO: choose LValueRef if writable.
+      sampleTypeDecl, m_context->getLValueReferenceType(sampleSliceType),
       ArrayRef<QualType>(indexer0Type), ArrayRef<StringRef>(StringRef(indexer0Name)), subscriptName, true);
     sampleTypeDecl->completeDefinition();
 
@@ -3108,10 +3108,8 @@ private:
         typeDecl->getTemplateParameters()->getParam(0));
     QualType resultType = m_context->getTemplateTypeParmType(
         templateDepth, 0, ParameterPackFalse, templateTypeParmDecl);
-    if (isReadWrite)
-      resultType = m_context->getLValueReferenceType(resultType, false);
-    else
-      resultType = m_context->getRValueReferenceType(resultType);
+    if (!isReadWrite) resultType = m_context->getConstType(resultType);
+    resultType = m_context->getLValueReferenceType(resultType);
 
     QualType indexType =
         op.SubscriptCardinality == 1
@@ -4638,10 +4636,10 @@ public:
       return SpecFunc;
     }
 
-    // Change return type to rvalue reference type for aggregate types
+    // Change return type to lvalue reference type for aggregate types
     QualType retTy = parameterTypes[0];
     if (hlsl::IsHLSLAggregateType(retTy))
-      parameterTypes[0] = m_context->getRValueReferenceType(retTy);
+      parameterTypes[0] = m_context->getLValueReferenceType(retTy);
 
     // Create a new specialization.
     SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
@@ -4950,13 +4948,8 @@ FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
   // Create the template argument.
   bool isReadWrite = GetBasicKindProps(findResult.Kind) & BPROP_RWBUFFER;
   QualType resultType = objectElement;
-  if (isReadWrite)
-    resultType = m_context->getLValueReferenceType(resultType, false);
-  else {
-    // Add const to avoid write.
-    resultType = m_context->getConstType(resultType);
-    resultType = m_context->getLValueReferenceType(resultType);
-  }
+  if (!isReadWrite) resultType = m_context->getConstType(resultType);
+  resultType = m_context->getLValueReferenceType(resultType);
 
   TemplateArgument templateArgument(resultType);
   unsigned subscriptCardinality =
