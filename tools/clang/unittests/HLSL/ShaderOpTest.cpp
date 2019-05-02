@@ -699,7 +699,7 @@ void ShaderOpTest::CreateShaders() {
           pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
       CHECK_HR(pCompiler->Compile(pTextBlob, nameW, entryPointW, targetW,
-                                  (LPCWSTR *)argumentsWList.data(), argumentsWList.size(),
+                                  (LPCWSTR *)argumentsWList.data(), (UINT32)argumentsWList.size(),
                                   nullptr, 0,
                                   nullptr, &pResult));
       CHECK_HR(pResult->GetStatus(&resultCode));
@@ -717,7 +717,9 @@ void ShaderOpTest::CreateShaders() {
       CHECK_HR(pResult->GetResult(&pCode));
       CComPtr<IDxcBlobEncoding> pBlob;
       CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
-      dxc::WriteUtf8ToConsoleSizeT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+      CComPtr<IDxcBlobEncoding> pUtf16Blob;
+      pLibrary->GetBlobAsUtf16(pBlob, &pUtf16Blob);
+      hlsl_test::LogCommentFmt(L"%*s", (int)pUtf16Blob->GetBufferSize() / 2, (LPCWSTR)pUtf16Blob->GetBufferPointer());
 #endif
     } else {
       CComPtr<ID3DBlob> pError;
@@ -1429,7 +1431,7 @@ static HRESULT ReadAttrEnumT(IXmlReader *pReader, LPCWSTR pAttrName, ParserEnumK
   }
   LPCWSTR pText;
   CHECK_HR(pReader->GetValue(&pText, nullptr));
-  if (pStripPrefix && *pStripPrefix && _wcsnicmp(pAttrName, pText, wcslen(pStripPrefix)) == 0)
+  if (pStripPrefix && *pStripPrefix && _wcsnicmp(pStripPrefix, pText, wcslen(pStripPrefix)) == 0)
     pText += wcslen(pStripPrefix);
   CHECK_HR(GetEnumValueT(pText, K, pValue));
   CHECK_HR(pReader->MoveToElement());

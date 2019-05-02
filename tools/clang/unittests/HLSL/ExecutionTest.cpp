@@ -1010,7 +1010,11 @@ public:
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlob;
     CComPtr<IStream> pStream;
+#ifdef _HLK_CONF
+    std::wstring path = GetPathToHLKDataFile(relativePath);
+#else
     std::wstring path = GetPathToHlslDataFile(relativePath);
+#endif
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
     VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
