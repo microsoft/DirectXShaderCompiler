@@ -1021,13 +1021,19 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
           OS << " register(";
           if (!registerAssignment->ShaderProfile.empty())
             OS << registerAssignment->ShaderProfile << ", ";
-          if (!registerAssignment->RegisterType)
-            OS << "invalid";
-          else
-            OS << std::string(&(registerAssignment->RegisterType), 1);
-          OS << registerAssignment->RegisterNumber + registerAssignment->RegisterOffset;
-          if (registerAssignment->RegisterSpace)
-            OS << ", space" << registerAssignment->RegisterSpace;
+          bool needsComma = false;
+          if (!registerAssignment->isSpaceOnly()) {
+            if (!registerAssignment->RegisterType)
+              OS << "invalid";
+            else
+              OS << StringRef(&registerAssignment->RegisterType, 1);
+            OS << registerAssignment->RegisterNumber + registerAssignment->RegisterOffset;
+            needsComma = true;
+          }
+          if (registerAssignment->RegisterSpace.hasValue()) {
+            if (needsComma) OS << ", ";
+            OS << "space" << registerAssignment->RegisterSpace.getValue();
+          }
           OS << ")";
           if (!registerAssignment->IsValid)
             OS << " invalid";

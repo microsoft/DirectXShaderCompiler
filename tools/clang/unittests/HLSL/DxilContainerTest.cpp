@@ -1031,7 +1031,7 @@ static void Ref1_CheckBinding_b_buf(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_UAV_RWBYTEADDRESS);
   // not explicitly bound:
   VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295);
-  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.Space, 4294967295);
   VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
 }
 

@@ -256,8 +256,6 @@ public:
   TEST_METHOD(WhenMissingPayloadThenFail)
   TEST_METHOD(ShaderFunctionReturnTypeVoid)
 
-  TEST_METHOD(SpaceOnlyRegisterFail)
-
   TEST_METHOD(WhenDisassembleInvalidBlobThenFail)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -3055,10 +3053,6 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
     /*bRegex*/true);
 }
 
-TEST_F(ValidationTest, SpaceOnlyRegisterFail) {
-  TestCheck(L"..\\CodeGenHLSL\\space-only-register.hlsl");
-}
-
 // Regression test for a double-delete when failing to parse bitcode.
 TEST_F(ValidationTest, WhenDisassembleInvalidBlobThenFail) {
   if (!m_dllSupport.IsEnabled()) {
@@ -3074,7 +3068,6 @@ TEST_F(ValidationTest, WhenDisassembleInvalidBlobThenFail) {
   CComPtr<IDxcBlobEncoding> pDisassembly;
   VERIFY_FAILED(pCompiler->Disassemble(pInvalidBitcode, &pDisassembly));
 }
-
 
 TEST_F(ValidationTest, GSMainMissingAttributeFail) {
   TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-main.hlsl");
@@ -3194,8 +3187,8 @@ TEST_F(ValidationTest, ResCounter) {
     RewriteAssemblyCheckMsg(
         "RWStructuredBuffer<float4> buf; export float GetCounter() {return buf.IncrementCounter();}",
         "lib_6_3",
-        { "!\"buf\", i32 0, i32 -1, i32 1, i32 12, i1 false, i1 true, i1 false, !" },
-        { "!\"buf\", i32 0, i32 -1, i32 1, i32 12, i1 false, i1 false, i1 false, !" },
+        { "!\"buf\", i32 -1, i32 -1, i32 1, i32 12, i1 false, i1 true, i1 false, !" },
+        { "!\"buf\", i32 -1, i32 -1, i32 1, i32 12, i1 false, i1 false, i1 false, !" },
         "BufferUpdateCounter valid only when HasCounter is true",
         true);
 }

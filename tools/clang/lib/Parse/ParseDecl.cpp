@@ -214,9 +214,12 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   DXASSERT_NOMSG(registerNumber != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
-  if (*name != 'b' && *name != 'c' && *name != 'i' && *name != 's' &&
-      *name != 't' && *name != 'u' && *name != 'B' && *name != 'C' &&
-	  *name != 'I' && *name != 'S' && *name != 'T' && *name != 'U') {
+  char firstLetter = name[0];
+  if (firstLetter >= 'A' && firstLetter <= 'Z')
+    firstLetter += 'a' - 'A';
+
+  StringRef validExplicitRegisterTypes("bcistu");
+  if (validExplicitRegisterTypes.find(firstLetter) == StringRef::npos) {
     *diagId = diag::err_hlsl_unsupported_register_type;
     *registerType = 0;
     *registerNumber = 0;
@@ -226,7 +229,7 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   *registerType = *name;
   ++name;
 
-  // It's valid to omit the register name.
+  // It's valid to omit the register number.
   if (*name) {
     char *nameEnd;
     unsigned long num;
@@ -393,20 +396,11 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       DXASSERT(Tok.is(tok::identifier), "otherwise previous code should have failed");
       unsigned diagId;
 
-      // SPIRV Change Starts
       bool hasOnlySpace = false;
       identifierText = Tok.getIdentifierInfo()->getName().data();
       if (strncmp(identifierText, "space", strlen("space")) == 0) {
-        if (!getLangOpts().SPIRV) {
-          Diag(Tok.getLocation(),
-               diag::err_hlsl_missing_register_type_and_number);
-          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-          return true;
-        }
         hasOnlySpace = true;
       } else {
-        // SPIRV Change Ends
-
         ParseRegisterNumberForHLSL(
           Tok.getIdentifierInfo()->getName().data(), &r.RegisterType, &r.RegisterNumber, &diagId);
         if (diagId == 0) {
@@ -461,22 +455,19 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
             return true;
           }
         }
-
-        // SPIRV Change Starts
       }
       if (hasOnlySpace) {
-        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &r.RegisterSpace, &diagId);
+        unsigned RegisterSpaceValue = 0;
+        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &RegisterSpaceValue, &diagId);
         if (diagId != 0) {
           Diag(Tok.getLocation(), diagId);
           r.setIsValid(false);
         } else {
-          r.setAsSpaceOnly();
+          r.RegisterSpace = RegisterSpaceValue;
           r.setIsValid(true);
         }
         ConsumeToken(); // consume identifier
       } else {
-        // SPIRV Change Ends
-
         if (Tok.is(tok::comma)) {
           ConsumeToken(); // consume comma
           if (!Tok.is(tok::identifier)) {
@@ -484,15 +475,18 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
             SkipUntil(tok::r_paren, StopAtSemi); // skip through )
             return true;
           }
-          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &r.RegisterSpace, &diagId);
+          unsigned RegisterSpaceVal = 0;
+          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &RegisterSpaceVal, &diagId);
           if (diagId != 0) {
             Diag(Tok.getLocation(), diagId);
             r.setIsValid(false);
           }
+          else {
+            r.RegisterSpace = RegisterSpaceVal;
+          }
           ConsumeToken(); // consume identifier
         }
-
-      } // SPIRV Change
+      }
 
       if (ExpectAndConsume(tok::r_paren, diag::err_expected)) {
         SkipUntil(tok::r_paren, StopAtSemi); // skip through )

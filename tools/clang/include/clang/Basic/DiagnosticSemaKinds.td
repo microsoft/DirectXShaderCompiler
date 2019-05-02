@@ -7530,10 +7530,6 @@ def err_hlsl_unsupported_lvalue_cast_op : Error<
   "cannot truncate lvalue vector/matrix">;
 def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
-def err_hlsl_unsupported_cbuffer_register : Error<
-  "invalid register specification, expected 'b' binding">;
-def err_hlsl_unsupported_tbuffer_register : Error<
-  "invalid register specification, expected 't' binding">;
 def err_hlsl_unsupported_buffer_slot_target_specific : Error<
   "user defined constant buffer slots cannot be target specific">;
 def err_hlsl_unsupported_builtin_op: Error<
