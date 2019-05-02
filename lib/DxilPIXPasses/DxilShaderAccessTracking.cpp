@@ -244,7 +244,7 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuild
 
   (void)Builder.CreateCall(AtomicOpFunc, {
       AtomicBinOpcode,// i32, ; opcode
-      m_FunctionToUAVHandle[Builder.GetInsertBlock()->getParent()], // %dx.types.Handle, ; resource handle
+      m_FunctionToUAVHandle.at(Builder.GetInsertBlock()->getParent()), // %dx.types.Handle, ; resource handle
       AtomicOr,       // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
       ByteIndex,      // i32, ; coordinate c0: byte offset
       UndefArg,       // i32, ; coordinate c1 (unused)
