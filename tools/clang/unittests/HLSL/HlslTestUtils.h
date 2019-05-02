@@ -21,6 +21,10 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
 
+#ifndef HLSLDATAFILEPARAM
+#define HLSLDATAFILEPARAM L"HlslDataDir"
+#endif
+
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
 //
@@ -115,7 +119,7 @@ inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
 inline std::wstring GetPathToHlslDataFile(const wchar_t* relative) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   WEX::Common::String HlslDataDirValue;
-  ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(L"HlslDataDir", HlslDataDirValue));
+  ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
 
   wchar_t envPath[MAX_PATH];
   wchar_t expanded[MAX_PATH];
@@ -232,33 +236,29 @@ inline float ifdenorm_flushf(float a) {
   return isdenorm(a) ? copysign(0.0f, a) : a;
 }
 
-inline bool ifdenorm_flushf_eq(float a, float b) {
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
-
-inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
-  if (std::isnan(a) && std::isnan(b)) return true;
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
-
 #else
 
 inline bool isdenorm(float f) {
   return (std::numeric_limits<float>::denorm_min() <= f && f < std::numeric_limits<float>::min()) ||
-         (-std::numeric_limits<float>::min() <= f && f < -std::numeric_limits<float>::denorm_min());
+         (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
 }
+
 inline bool isinf(float f) {
   static const INT32 Max32 = 0x7f7FFFFF;
   UINT n = *(UINT*)&f;
   UINT abs = n & 0x7FFFFFFF;
   return abs > Max32;
 }
+
 inline int signbit(float f) {
   return copysign(1.0, (double)f) == 1.0 ? 0 : 1; // A non-zero value if the sign of f is negative.
 }
+
 inline float ifdenorm_flushf(float a) {
   return isdenorm(a) ? (float)_copysign(0.0f, a) : a;
 }
+
+#endif // FP_SUBNORMAL
 
 inline bool ifdenorm_flushf_eq(float a, float b) {
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
@@ -268,8 +268,6 @@ inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
   if (std::isnan(a) && std::isnan(b)) return true;
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
 }
-
-#endif // FP_SUBNORMAL
 
 static const uint16_t Float16NaN = 0xff80;
 static const uint16_t Float16PosInf = 0x7c00;
