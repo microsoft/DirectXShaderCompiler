@@ -63,11 +63,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     switch (floatType->getBitwidth()) {
     case 16: {
       // Usage of a 16-bit float type.
-      // It looks like the validator does not approve of Float16
-      // capability even though we do use the necessary extension.
-      // TODO: Re-enable adding Float16 capability below.
-      // addCapability(spv::Capability::Float16);
-      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float", loc);
+      addCapability(spv::Capability::Float16);
 
       // Usage of a 16-bit float type as stage I/O.
       if (sc == spv::StorageClass::Input || sc == spv::StorageClass::Output) {
@@ -183,7 +179,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Struct type
   else if (const auto *structType = dyn_cast<StructType>(type)) {
-    if (SpirvType::isOrContains16BitType(structType)) {
+    if (SpirvType::isOrContainsType<NumericalType, 16>(structType)) {
       addExtension(Extension::KHR_16bit_storage, "16-bit types in resource",
                    loc);
       if (sc == spv::StorageClass::PushConstant) {
@@ -505,6 +501,48 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
                  "[[vk::post_depth_coverage]]", execMode->getSourceLocation());
   }
   return true;
+}
+
+bool CapabilityVisitor::visit(SpirvExtInst *instr) {
+  // OpExtInst using the GLSL extended instruction allows only 32-bit types by
+  // default. The AMD_gpu_shader_half_float extension adds support for 16-bit
+  // floating-point component types for the following instructions described in
+  // the GLSL.std.450 extended instruction set:
+  // Acos, Acosh, Asin, Asinh, Atan2, Atanh, Atan, Cos, Cosh, Degrees, Exp,
+  // Exp2, InterpolateAtCentroid, InterpolateAtSample, InterpolateAtOffset, Log,
+  // Log2, Pow, Radians, Sin, Sinh, Tan, Tanh
+  if (SpirvType::isOrContainsType<FloatType, 16>(instr->getResultType()))
+    switch (instr->getInstruction()) {
+    case GLSLstd450::GLSLstd450Acos:
+    case GLSLstd450::GLSLstd450Acosh:
+    case GLSLstd450::GLSLstd450Asin:
+    case GLSLstd450::GLSLstd450Asinh:
+    case GLSLstd450::GLSLstd450Atan2:
+    case GLSLstd450::GLSLstd450Atanh:
+    case GLSLstd450::GLSLstd450Atan:
+    case GLSLstd450::GLSLstd450Cos:
+    case GLSLstd450::GLSLstd450Cosh:
+    case GLSLstd450::GLSLstd450Degrees:
+    case GLSLstd450::GLSLstd450Exp:
+    case GLSLstd450::GLSLstd450Exp2:
+    case GLSLstd450::GLSLstd450InterpolateAtCentroid:
+    case GLSLstd450::GLSLstd450InterpolateAtSample:
+    case GLSLstd450::GLSLstd450InterpolateAtOffset:
+    case GLSLstd450::GLSLstd450Log:
+    case GLSLstd450::GLSLstd450Log2:
+    case GLSLstd450::GLSLstd450Pow:
+    case GLSLstd450::GLSLstd450Radians:
+    case GLSLstd450::GLSLstd450Sin:
+    case GLSLstd450::GLSLstd450Sinh:
+    case GLSLstd450::GLSLstd450Tan:
+    case GLSLstd450::GLSLstd450Tanh:
+      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
+                   instr->getSourceLocation());
+    default:
+      break;
+    }
+
+  return visitInstruction(instr);
 }
 
 } // end namespace spirv

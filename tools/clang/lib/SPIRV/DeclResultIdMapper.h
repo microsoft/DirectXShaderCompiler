@@ -114,15 +114,17 @@ class ResourceVar {
 public:
   ResourceVar(SpirvVariable *var, SourceLocation loc,
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
-              const VKCounterBindingAttr *cb, bool counter = false)
+              const VKCounterBindingAttr *cb, bool counter = false,
+              bool globalsBuffer = false)
       : variable(var), srcLoc(loc), reg(r), binding(b), counterBinding(cb),
-        isCounterVar(counter) {}
+        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer) {}
 
   SpirvVariable *getSpirvInstr() const { return variable; }
   SourceLocation getSourceLocation() const { return srcLoc; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
   bool isCounter() const { return isCounterVar; }
+  bool isGlobalsBuffer() const { return isGlobalsCBuffer; }
   const VKCounterBindingAttr *getCounterBinding() const {
     return counterBinding;
   }
@@ -134,6 +136,7 @@ private:
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
   const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding
   bool isCounterVar;                          ///< Couter variable or not
+  bool isGlobalsCBuffer;                      ///< $Globals cbuffer or not
 };
 
 /// A (instruction-pointer, is-alias-or-not) pair for counter variables

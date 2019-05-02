@@ -118,9 +118,7 @@ TEST_F(FileTest, 16BitDisabledScalarConstants) {
   runFileTest("constant.scalar.16bit.disabled.hlsl");
 }
 TEST_F(FileTest, 16BitEnabledScalarConstants) {
-  // TODO: Validator complains about Float16 capability even though we use the
-  // needed extension.
-  runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success, false);
+  runFileTest("constant.scalar.16bit.enabled.hlsl");
 }
 TEST_F(FileTest, 16BitEnabledScalarConstantsHalfZero) {
   runFileTest("constant.scalar.16bit.enabled.half.zero.hlsl");
@@ -1525,6 +1523,16 @@ TEST_F(FileTest, VulkanRegisterBindingShiftAllSets) {
 TEST_F(FileTest, VulkanRegisterBinding1to1Mapping) {
   runFileTest("vk.binding.cl.register.hlsl");
 }
+TEST_F(FileTest, VulkanGlobalsBinding) {
+  // Binding the $Globals buffer to a specific set/binding via command line
+  // option.
+  runFileTest("vk.binding.cl.globals.hlsl");
+}
+TEST_F(FileTest, VulkanGlobalsBindingRegisterBinding) {
+  // Using command line option for specifying both the 1-1 register mapping as
+  // well as $Globals binding.
+  runFileTest("vk.binding.cl.register-and-globals.hlsl");
+}
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSpaceNo) {
   runFileTest("vk.binding.cl.register.invalid-space.hlsl", Expect::Failure);
 }
@@ -1863,6 +1871,19 @@ TEST_F(FileTest, CapabilityUnique) { runFileTest("capability.unique.hlsl"); }
 
 // For extension uniqueness
 TEST_F(FileTest, ExtensionUnique) { runFileTest("extension.unique.hlsl"); }
+
+// For vendor-specific extensions
+TEST_F(FileTest, VendorSpecificExtensionAllowed) {
+  // The SPV_AMD_gpu_shader_half_float extension adds support for 16-bit
+  // floating-point component types for a number of instructions in the
+  // GLSL.std.450 extended instruction set.
+  runFileTest("extension.GLSLstd450-fp16.allowed.hlsl");
+}
+TEST_F(FileTest, VendorSpecificExtensionNotAllowed) {
+  // Command line options can entirely prevent the compiler from using
+  // vendor-specific extensions.
+  runFileTest("extension.GLSLstd450-fp16.not-allowed.hlsl", Expect::Failure);
+}
 
 // For RelaxedPrecision decorations
 TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {

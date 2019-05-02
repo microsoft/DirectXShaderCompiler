@@ -25,13 +25,17 @@ void SmallVectorBase::grow_pod(void *FirstEl, size_t MinSizeInBytes,
 
   void *NewElts;
   if (BeginX == FirstEl) {
-    NewElts = malloc(NewCapacityInBytes);
+    NewElts = new char[NewCapacityInBytes]; // HLSL Change: Use overridable operator new
 
     // Copy the elements over.  No need to run dtors on PODs.
     memcpy(NewElts, this->BeginX, CurSizeBytes);
   } else {
     // If this wasn't grown from the inline copy, grow the allocated space.
-    NewElts = realloc(this->BeginX, NewCapacityInBytes);
+    // HLSL Change Begins: Use overridable operator new
+    NewElts = new char[NewCapacityInBytes];
+    memcpy(NewElts, this->BeginX, CurSizeBytes);
+    delete[] (char*)this->BeginX;
+    // HLSL Change Ends
   }
   assert(NewElts && "Out of memory");
 
