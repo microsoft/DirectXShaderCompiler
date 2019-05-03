@@ -10,8 +10,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define HLSLDATAFILEPARAM L"HlslDataDir"
-
 #include <algorithm>
 #include <memory>
 #include <vector>
