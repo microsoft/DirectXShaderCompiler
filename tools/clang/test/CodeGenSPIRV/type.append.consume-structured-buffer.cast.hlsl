@@ -60,6 +60,8 @@ void main() {
 // CHECK:       [[p_5:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
 // CHECK-NEXT:  [[p_6:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[p_5]] %int_3
 // CHECK-NEXT:  [[i_5:%\d+]] = OpLoad %uint [[p_6]]
+// CHECK-NEXT: [[bi_5:%\d+]] = OpINotEqual %bool [[i_5]] %uint_0
+// CHECK-NEXT:  [[i_5:%\d+]] = OpSelect %uint [[bi_5]] %uint_1 %uint_0
 // CHECK-NEXT:                 OpStore [[p_4]] [[i_5]]
   append_bool.Append(consume_struct_with_bool.Consume().elem_bool);
 
@@ -146,6 +148,8 @@ void main() {
 // CHECK:       [[p_19:%\d+]] = OpAccessChain %_ptr_Uniform_struct_with_bool %consume_struct_with_bool %uint_0 {{%\d+}}
 // CHECK-NEXT:  [[p_20:%\d+]] = OpAccessChain %_ptr_Uniform_v2uint [[p_19]] %int_0
 // CHECK-NEXT: [[vu_20:%\d+]] = OpLoad %v2uint [[p_20]]
+// CHECK-NEXT: [[vb_20:%\d+]] = OpINotEqual %v2bool [[vu_20]] {{%\d+}}
+// CHECK-NEXT: [[vu_20:%\d+]] = OpSelect %v2uint [[vb_20]] {{%\d+}} {{%\d+}}
 // CHECK-NEXT:                  OpStore {{%\d+}} [[vu_20]]
   append_v2bool.Append(consume_struct_with_bool.Consume().elem_v2bool);
 
@@ -259,6 +263,8 @@ void main() {
 
 // CHECK:       [[p_41:%\d+]] = OpAccessChain %_ptr_Uniform_uint {{%\d+}} %int_0
 // CHECK-NEXT:  [[i_41:%\d+]] = OpLoad %uint [[p_41]]
+// CHECK-NEXT:  [[b_41:%\d+]] = OpINotEqual %bool [[i_41]] %uint_0
+// CHECK-NEXT:  [[i_41:%\d+]] = OpSelect %uint [[b_41]] %uint_1 %uint_0
 // CHECK-NEXT:                  OpStore {{%\d+}} [[i_41]]
   append_bool.Append(consume_struct_with_bool.Consume().elem_v2bool.x);
 
