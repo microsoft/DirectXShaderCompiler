@@ -4615,7 +4615,8 @@ namespace {
 
 Value *EmptyLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
                   HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
-  DXASSERT(0, "unsupported intrinsic");
+  Translated = false;
+  CI->getContext().emitError(CI, "Unsupported intrinsic");
   return nullptr;
 }
 
@@ -4626,7 +4627,8 @@ Value *UnsupportedVulkanIntrinsic(CallInst *CI, IntrinsicOp IOP,
                                   HLOperationLowerHelper &helper,
                                   HLObjectOperationLowerHelper *pObjHelper,
                                   bool &Translated) {
-  DXASSERT(0, "unsupported Vulkan intrinsic");
+  Translated = false;
+  CI->getContext().emitError(CI, "Unsupported Vulkan intrinsic");
   return nullptr;
 }
 #endif // ENABLE_SPIRV_CODEGEN
