@@ -945,6 +945,10 @@ const std::vector<uint8_t> &DxilModule::GetSerializedRootSignature() const {
   return m_SerializedRootSignature;
 }
 
+std::vector<uint8_t> &DxilModule::GetSerializedRootSignature() {
+  return m_SerializedRootSignature;
+}
+
 // Entry props.
 bool DxilModule::HasDxilEntrySignature(const llvm::Function *F) const {
   return m_DxilEntryPropsMap.find(F) != m_DxilEntryPropsMap.end();

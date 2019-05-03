@@ -1448,10 +1448,10 @@ namespace {
 
 class RootSignatureWriter : public DxilPartWriter {
 private:
-  const std::vector<uint8_t> &m_Sig;
+  std::vector<uint8_t> m_Sig;
 
 public:
-  RootSignatureWriter(const std::vector<uint8_t> &S) : m_Sig(S) {}
+  RootSignatureWriter(std::vector<uint8_t> &&S) : m_Sig(std::move(S)) {}
   uint32_t size() const { return m_Sig.size(); }
   void write(AbstractMemoryStream *pStream) {
     ULONG cbWritten;
@@ -1527,7 +1527,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
-  RootSignatureWriter rootSigWriter(pModule->GetSerializedRootSignature());
+  RootSignatureWriter rootSigWriter(std::move(pModule->GetSerializedRootSignature())); // Grab RS here
+  DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
   if (pModule->GetShaderModel()->IsLib()) {
@@ -1546,7 +1547,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
     // Write the root signature (RTS0) part.
-    if (!pModule->GetSerializedRootSignature().empty()) {
+    if (rootSigWriter.size()) {
       writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
