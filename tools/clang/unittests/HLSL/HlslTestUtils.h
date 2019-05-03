@@ -240,7 +240,7 @@ inline bool isdenorm(float f) {
 }
 
 inline float ifdenorm_flushf(float a) {
-  return isdenorm(a) ? (float)_copysign(0.0f, a) : a;
+  return isdenorm(a) ? (float)copysign(0.0f, a) : a;
 }
 
 #endif // FP_SUBNORMAL
