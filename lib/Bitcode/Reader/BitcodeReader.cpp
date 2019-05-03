@@ -4741,24 +4741,19 @@ getBitcodeModuleImpl(std::unique_ptr<DataStreamer> Streamer, StringRef Name,
   M->setMaterializer(R);
   // HLSL Change End
 
-  auto cleanupOnError = [&](std::error_code EC) {
-    R->releaseBuffer(); // Never take ownership on error.
-    return EC;
-  };
-
   // Delay parsing Metadata if ShouldLazyLoadMetadata is true.
   if (std::error_code EC = R->parseBitcodeInto(std::move(Streamer), M.get(),
                                                ShouldLazyLoadMetadata))
-    return cleanupOnError(EC);
+    return EC; // HLSL Change: Correct memory management of BitcodeReader.buffer
 
   if (MaterializeAll) {
     // Read in the entire module, and destroy the BitcodeReader.
     if (std::error_code EC = M->materializeAllPermanently())
-      return cleanupOnError(EC);
+      return EC; // HLSL Change: Correct memory management of BitcodeReader.buffer
   } else {
     // Resolve forward references from blockaddresses.
     if (std::error_code EC = R->materializeForwardReferencedFunctions())
-      return cleanupOnError(EC);
+      return EC; // HLSL Change: Correct memory management of BitcodeReader.buffer
   }
   return std::move(M);
 }
