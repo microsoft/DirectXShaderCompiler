@@ -1,4 +1,4 @@
-// RUN: %dxc /Tps_6_2 /Eps_main /Zpc /O3 /Zi > %s | FileCheck %s
+// RUN: %dxc /Tps_6_2 /Eps_main /Zpc /O3 > %s | FileCheck %s
 // CHECK: define void @main()
 // CHECK: entry
 

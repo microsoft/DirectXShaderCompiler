@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: @dx.op.storePatchConstant.f32(i32 106, i32 0, i32 2, i8 0, float 3.000000e+00)
 // CHECK: @dx.op.storePatchConstant.f32(i32 106, i32 1, i32 0, i8 0, float 3.000000e+00)

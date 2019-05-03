@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: warning: min10float is promoted to min16float
 // CHECK: define void @main

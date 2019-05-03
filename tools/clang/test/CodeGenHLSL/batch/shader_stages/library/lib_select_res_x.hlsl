@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_x -Od -Zi -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_x -Od -auto-binding-space 11 %s | FileCheck %s
 
 // lib_6_x allows phi on resource, targeting offline linking only.
 // CHECK: phi %struct.ByteAddressBuffer
