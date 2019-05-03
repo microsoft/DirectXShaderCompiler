@@ -121,6 +121,7 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const std::vector<uint8_t> &GetSerializedRootSignature() const;
+  std::vector<uint8_t> &GetSerializedRootSignature();
 
   bool HasDxilEntrySignature(const llvm::Function *F) const;
   DxilEntrySignature &GetDxilEntrySignature(const llvm::Function *F);

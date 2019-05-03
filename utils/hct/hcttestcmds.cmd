@@ -155,6 +155,41 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+rem /Zi with /Qstrip_debug and no output should not embed
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qstrip_debug /Fo smoke.hlsl.strip 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem auto debug name is hex digest + .lld
+dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find shader debug name.
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.strip | findstr "DICompileUnit" 1>nul
+if %errorlevel% equ 0 (
+  echo Found DICompileUnit when -Qstrip_debug used.
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+rem /Qstrip_reflect strips reflection
+dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -D DX12 /Qstrip_reflect /Fo smoke.hlsl.strip 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.strip | findstr -c:"i32 6, !\"g\"" 1>nul
+if %errorlevel% equ 0 (
+  echo Found reflection when -Qstrip_reflect used.
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fe smoke.hlsl.e 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fe %CD%\smoke.hlsl.e
