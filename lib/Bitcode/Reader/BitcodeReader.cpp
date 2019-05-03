@@ -222,7 +222,7 @@ public:
   std::error_code error(BitcodeError E);
   std::error_code error(const Twine &Message);
 
-  BitcodeReader(MemoryBuffer *Buffer, LLVMContext &Context,
+  BitcodeReader(std::unique_ptr<MemoryBuffer> &&Buffer, LLVMContext &Context, // HLSL Change: unique_ptr
                 DiagnosticHandlerFunction DiagnosticHandler);
   BitcodeReader(LLVMContext &Context,
                 DiagnosticHandlerFunction DiagnosticHandler);
@@ -435,11 +435,11 @@ static void ReportWarning(DiagnosticHandlerFunction F, const char *Msg) {
 }
 // HLSL Change Ends
 
-BitcodeReader::BitcodeReader(MemoryBuffer *Buffer, LLVMContext &Context,
+BitcodeReader::BitcodeReader(std::unique_ptr<MemoryBuffer> &&Buffer, LLVMContext &Context, // HLSL Change: unique_ptr
                              DiagnosticHandlerFunction DiagnosticHandler)
     : Context(Context),
       DiagnosticHandler(getDiagHandler(DiagnosticHandler, Context)),
-      Buffer(Buffer), ValueList(Context), MDValueList(Context) {}
+      Buffer(std::move(Buffer)), ValueList(Context), MDValueList(Context) {} // HLSL Change: std::move
 
 BitcodeReader::BitcodeReader(LLVMContext &Context,
                              DiagnosticHandlerFunction DiagnosticHandler)
@@ -4733,10 +4733,13 @@ const std::error_category &llvm::BitcodeErrorCategory() {
 
 static ErrorOr<std::unique_ptr<Module>>
 getBitcodeModuleImpl(std::unique_ptr<DataStreamer> Streamer, StringRef Name,
-                     BitcodeReader *R, LLVMContext &Context,
+                     std::unique_ptr<BitcodeReader> RPtr, LLVMContext &Context, // HLSL Change: unique_ptr
                      bool MaterializeAll, bool ShouldLazyLoadMetadata) {
   std::unique_ptr<Module> M = make_unique<Module>(Name, Context);
+  // HLSL Change Begin: Transfer ownership of R to M, but keep a raw pointer
+  BitcodeReader* R = RPtr.release();
   M->setMaterializer(R);
+  // HLSL Change End
 
   auto cleanupOnError = [&](std::error_code EC) {
     R->releaseBuffer(); // Never take ownership on error.
@@ -4773,16 +4776,20 @@ getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
                          LLVMContext &Context, bool MaterializeAll,
                          DiagnosticHandlerFunction DiagnosticHandler,
                          bool ShouldLazyLoadMetadata = false) {
-  BitcodeReader *R =
-      new BitcodeReader(Buffer.get(), Context, DiagnosticHandler);
+  // HLSL Change Begin: Proper memory management with unique_ptr
+  // Get the buffer identifier before we transfer the ownership to the bitcode reader,
+  // this is ugly but safe as long as it keeps the buffer, and hence identifier string, alive.
+  const char* BufferIdentifier = Buffer->getBufferIdentifier();
+  std::unique_ptr<BitcodeReader> R = std::make_unique<BitcodeReader>(
+    std::move(Buffer), Context, DiagnosticHandler);
 
   ErrorOr<std::unique_ptr<Module>> Ret =
-      getBitcodeModuleImpl(nullptr, Buffer->getBufferIdentifier(), R, Context,
+      getBitcodeModuleImpl(nullptr, BufferIdentifier, std::move(R), Context,
                            MaterializeAll, ShouldLazyLoadMetadata);
+  // HLSL Change End
   if (!Ret)
     return Ret;
 
-  Buffer.release(); // The BitcodeReader owns it now.
   return Ret;
 }
 
@@ -4797,9 +4804,9 @@ ErrorOr<std::unique_ptr<Module>> llvm::getStreamedBitcodeModule(
     StringRef Name, std::unique_ptr<DataStreamer> Streamer,
     LLVMContext &Context, DiagnosticHandlerFunction DiagnosticHandler) {
   std::unique_ptr<Module> M = make_unique<Module>(Name, Context);
-  BitcodeReader *R = new BitcodeReader(Context, DiagnosticHandler);
+  std::unique_ptr<BitcodeReader> R = std::make_unique<BitcodeReader>(Context, DiagnosticHandler); // HLSL Change: unique_ptr
 
-  return getBitcodeModuleImpl(std::move(Streamer), Name, R, Context, false,
+  return getBitcodeModuleImpl(std::move(Streamer), Name, std::move(R), Context, false, // HLSL Change: std::move
                               false);
 }
 
@@ -4838,7 +4845,7 @@ std::string
 llvm::getBitcodeTargetTriple(MemoryBufferRef Buffer, LLVMContext &Context,
                              DiagnosticHandlerFunction DiagnosticHandler) {
   std::unique_ptr<MemoryBuffer> Buf = MemoryBuffer::getMemBuffer(Buffer, false);
-  auto R = llvm::make_unique<BitcodeReader>(Buf.release(), Context,
+  auto R = llvm::make_unique<BitcodeReader>(std::move(Buf), Context, // HLSL Change: std::move
                                             DiagnosticHandler);
   ErrorOr<std::string> Triple = R->parseTriple();
   if (Triple.getError())
