@@ -453,6 +453,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
 
     // todo: should "GetDimensions" mean a resource access?
+    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(165), "Please update PIX passes if any resource access opcodes are added");
     ResourceAccessFunction raFunctions[] = {
       { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read   , false, f32i32f64 },
       { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read   , false, f16f32f64i16i32i64 },
@@ -468,6 +469,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
       { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f32i32 }, // todo: SM6: f16f32i16i32 },
       { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read   , false, f32i32 },
       { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f32i32 },
+      { DXIL::OpCode::RawBufferStore        , ShaderAccessFlags::Write  , false, f32i32 },
       { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write  , false, f32i32 },
       { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, false, voidType },
       { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write  , false, i32 },
