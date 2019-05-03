@@ -581,7 +581,7 @@ public:
         // embed the debug info and emit a note.
         if (opts.EmbedDebugInfo()) {
           SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-        } else if (opts.DebugInfo && !ppDebugBlob) {
+        } else if (!opts.StripDebug && opts.DebugInfo && !ppDebugBlob) {
           w << "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning.\n";
           SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
