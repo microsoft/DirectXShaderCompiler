@@ -228,10 +228,6 @@ inline bool isdenorm(float f) {
   return FP_SUBNORMAL == std::fpclassify(f);
 }
 
-inline bool isdenorm(double d) {
-  return FP_SUBNORMAL == std::fpclassify(d);
-}
-
 inline float ifdenorm_flushf(float a) {
   return isdenorm(a) ? copysign(0.0f, a) : a;
 }
@@ -243,17 +239,6 @@ inline bool isdenorm(float f) {
          (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
 }
 
-inline bool isinf(float f) {
-  static const INT32 Max32 = 0x7f7FFFFF;
-  UINT n = *(UINT*)&f;
-  UINT abs = n & 0x7FFFFFFF;
-  return abs > Max32;
-}
-
-inline int signbit(float f) {
-  return copysign(1.0, (double)f) == 1.0 ? 0 : 1; // A non-zero value if the sign of f is negative.
-}
-
 inline float ifdenorm_flushf(float a) {
   return isdenorm(a) ? (float)_copysign(0.0f, a) : a;
 }
@@ -261,11 +246,6 @@ inline float ifdenorm_flushf(float a) {
 #endif // FP_SUBNORMAL
 
 inline bool ifdenorm_flushf_eq(float a, float b) {
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
-
-inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
-  if (std::isnan(a) && std::isnan(b)) return true;
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
 }
 
