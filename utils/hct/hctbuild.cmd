@@ -47,6 +47,7 @@ set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
 set SPEAK=1
+set PARALLEL_OPT=
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -124,6 +125,11 @@ if "%1"=="-tblgen" (
 
 if "%1"=="-dont-speak" (
   set SPEAK=0
+  shift /1
+)
+
+if "%1"=="-parallel" (
+  set PARALLEL_OPT=/m
   shift /1
 )
 
@@ -245,7 +251,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-parallel]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -256,6 +262,7 @@ echo   -fv      fixes the resource version for release
 echo.
 echo   -rel     builds release rather than debug
 echo   -dont-speak  disables audible build confirmation
+echo   -parallel    enables parallel build
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -346,7 +353,7 @@ if "%BUILD_GENERATOR%" NEQ "Ninja" (
 )
 
 rem Just defer to cmake for now.
-cmake --build . --config %1
+cmake --build . --config %1 -- %PARALLEL_OPT%
 goto :donebuild
 
 :donebuild
