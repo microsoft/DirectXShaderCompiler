@@ -7672,8 +7672,8 @@ def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
    "Explicit template arguments on intrinsic %0 requires HLSL version 2018 or above">;
-def err_hlsl_intrinsic_template_arg_numerical: Error<
-   "Explicit template arguments on intrinsic %0 must be a single numerical type">;
+def err_hlsl_intrinsic_template_arg_numeric: Error<
+   "Explicit template arguments on intrinsic %0 must be a single numeric type">;
 }
 def err_hlsl_no_struct_user_defined_type: Error<
    "User defined type intrinsic arg must be struct">;

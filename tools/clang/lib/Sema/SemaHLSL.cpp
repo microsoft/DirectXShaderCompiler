@@ -9038,7 +9038,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
           !IsBABLoad
               ? diag::err_hlsl_intrinsic_template_arg_unsupported
               : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_numerical;
+                        : diag::err_hlsl_intrinsic_template_arg_numeric;
       if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
         const TemplateArgumentLoc& TemplateArgLoc = (*ExplicitTemplateArgs)[0];
         Loc = TemplateArgLoc.getLocation();
