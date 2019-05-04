@@ -203,22 +203,17 @@ inline bool GetTestParamBool(LPCWSTR name) {
 }
 
 inline bool GetTestParamUseWARP(bool defaultVal) {
-#ifdef _HLK_CONF
-    UNREFERENCED_PARAMETER(defaultVal);
-    return false;
-#else
-    WEX::Common::String AdapterValue;
-    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-          L"Adapter", AdapterValue))) {
-      return defaultVal;
-    }
-    if ((defaultVal && AdapterValue.IsEmpty()) ||
-        AdapterValue.CompareNoCase(L"WARP") == 0) {
-      return true;
-    }
-    return false;
-#endif // _HLK_CONF
+  WEX::Common::String AdapterValue;
+  if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+        L"Adapter", AdapterValue))) {
+    return defaultVal;
   }
+  if ((defaultVal && AdapterValue.IsEmpty()) ||
+      AdapterValue.CompareNoCase(L"WARP") == 0) {
+    return true;
+  }
+  return false;
+}
 
 }
 
@@ -228,10 +223,6 @@ inline bool isdenorm(float f) {
   return FP_SUBNORMAL == std::fpclassify(f);
 }
 
-inline float ifdenorm_flushf(float a) {
-  return isdenorm(a) ? copysign(0.0f, a) : a;
-}
-
 #else
 
 inline bool isdenorm(float f) {
@@ -239,11 +230,11 @@ inline bool isdenorm(float f) {
          (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
 }
 
-inline float ifdenorm_flushf(float a) {
-  return isdenorm(a) ? (float)copysign(0.0f, a) : a;
-}
-
 #endif // FP_SUBNORMAL
+
+inline float ifdenorm_flushf(float a) {
+  return isdenorm(a) ? copysign(0.0f, a) : a;
+}
 
 inline bool ifdenorm_flushf_eq(float a, float b) {
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
