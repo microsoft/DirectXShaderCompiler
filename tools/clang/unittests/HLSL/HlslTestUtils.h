@@ -12,6 +12,7 @@
 #include <sstream>
 #include <fstream>
 #include <atomic>
+#include <cmath>
 #ifdef _WIN32
 #include <dxgiformat.h>
 #include "WexTestClass.h"
