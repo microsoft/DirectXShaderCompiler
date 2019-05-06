@@ -48,13 +48,13 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += uav1.Load<S>(20, status).f.xxxx;
 
   // errors
-  r += uav1.Load<float, float3>(16);                        /* expected-error {{Explicit template arguments on intrinsic Load must be a single numerical type}} */
+  r += uav1.Load<float, float3>(16);                        /* expected-error {{Explicit template arguments on intrinsic Load must be a single numeric type}} */
   r += uav1.Load<double3>(16);                              /* expected-error {{cannot convert from 'double3' to 'float4'}} */
   r += uav1.Load2<float>(16);                               /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported}} */
   r += uav1.Load3<int>(20);                                 /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported}} */
   r += uav1.Load4<int16_t>(24);                             /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported}} */
   r += uav1.Load<half3x4>(24);                              /* expected-error {{cannot convert from 'half3x4' to 'float4'}} */
-  r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load must be a single numerical type}} */
+  r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load must be a single numeric type}} */
   r += uav1.Load<double3>(16, status);                      /* expected-error {{cannot convert from 'double3' to 'float4'}} */
   r += uav1.Load2<float>(16, status);                       /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported}} */
   r += uav1.Load3<int>(20, status);                         /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported}} */
