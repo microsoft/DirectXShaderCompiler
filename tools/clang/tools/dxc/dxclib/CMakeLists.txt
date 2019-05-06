@@ -18,3 +18,4 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
+add_dependencies(dxclib TablegenHLSLOptions)
