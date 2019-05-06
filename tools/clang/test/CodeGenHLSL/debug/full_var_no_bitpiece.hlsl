@@ -3,7 +3,10 @@
 // Make sure there's no bit piece debug expression when
 // the element covers the whole variable.
 
-// CHECK-NOT: !{{[0-9]+}} = !DIExpression(DW_OP_bit_piece
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
+// CHECK-NOT: !DIExpression(DW_OP_bit_piece
 
 float main(float a : A, float b : B) : SV_Target {
   float s[1] = {

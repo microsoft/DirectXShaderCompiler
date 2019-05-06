@@ -16,8 +16,10 @@
 // CHECK: DIDerivedType(tag: DW_TAG_member, name: "d"
 // CHECK: DIDerivedType(tag: DW_TAG_member, name: "b"
 
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 // Make sure source info contents exist.
-// CHECK: share_mem_dbg.hlsl", !"// RUN: %dxc
 // CHECK: !{!"DefineA=1", !"DefineB=0"}
 // CHECK: share_mem_dbg.hlsl"}
 // CHECK: !{!"-E", !"main", !"-T", !"cs_6_0", !"-Zi", !"-Od", !"-D", !"DefineA", !"-D", !"DefineB=0"}

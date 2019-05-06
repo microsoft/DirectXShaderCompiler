@@ -1,18 +1,19 @@
-// RUN: %dxc -T lib_6_x -Od -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_x -Od %s | FileCheck %s
 
 // lib_6_x allows phi on resource, targeting offline linking only.
 // CHECK: phi %struct.ByteAddressBuffer
 
-RWByteAddressBuffer outputBuffer : register(u0);
-ByteAddressBuffer ReadBuffer : register(t0);
-ByteAddressBuffer ReadBuffer1 : register(t1);
+ByteAddressBuffer firstBuffer, secondBuffer;
+uint firstBufferSize;
 
-void test( uint cond)
+uint load(uint offset)
 {
-	ByteAddressBuffer buffer = ReadBuffer;
-        if (cond > 2)
-           buffer = ReadBuffer1;
+    ByteAddressBuffer buffer = firstBuffer;
+    if (offset > firstBufferSize) {
+        // If we just do this assignment, we'll generate a select instead of a phi
+        buffer = secondBuffer;
+        offset -= firstBufferSize;
+    }
 
-	uint v= buffer.Load(0);
-    outputBuffer.Store(0, v);
+    return buffer.Load(offset);
 }

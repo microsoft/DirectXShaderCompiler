@@ -54,6 +54,7 @@ public:
   TEST_METHOD(RunMatrixAssignments)
   TEST_METHOD(RunMatrixSyntax)
   TEST_METHOD(RunMatrixSyntaxExactPrecision)
+  TEST_METHOD(RunMintypesPromotionWarnings)
   TEST_METHOD(RunMoreOperators)
   TEST_METHOD(RunObjectOperators)
   TEST_METHOD(RunPackReg)
@@ -218,6 +219,10 @@ TEST_F(VerifierTest, RunMatrixSyntax) {
 
 TEST_F(VerifierTest, RunMatrixSyntaxExactPrecision) {
   CheckVerifiesHLSL(L"matrix-syntax-exact-precision.hlsl");
+}
+
+TEST_F(VerifierTest, RunMintypesPromotionWarnings) {
+  CheckVerifiesHLSL(L"mintypes-promotion-warnings.hlsl");
 }
 
 TEST_F(VerifierTest, RunMoreOperators) {
