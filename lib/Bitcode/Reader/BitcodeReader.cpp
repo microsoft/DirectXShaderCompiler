@@ -4775,7 +4775,7 @@ getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
   // Get the buffer identifier before we transfer the ownership to the bitcode reader,
   // this is ugly but safe as long as it keeps the buffer, and hence identifier string, alive.
   const char* BufferIdentifier = Buffer->getBufferIdentifier();
-  std::unique_ptr<BitcodeReader> R = std::make_unique<BitcodeReader>(
+  std::unique_ptr<BitcodeReader> R = make_unique<BitcodeReader>(
     std::move(Buffer), Context, DiagnosticHandler);
 
   ErrorOr<std::unique_ptr<Module>> Ret =
@@ -4799,7 +4799,7 @@ ErrorOr<std::unique_ptr<Module>> llvm::getStreamedBitcodeModule(
     StringRef Name, std::unique_ptr<DataStreamer> Streamer,
     LLVMContext &Context, DiagnosticHandlerFunction DiagnosticHandler) {
   std::unique_ptr<Module> M = make_unique<Module>(Name, Context);
-  std::unique_ptr<BitcodeReader> R = std::make_unique<BitcodeReader>(Context, DiagnosticHandler); // HLSL Change: unique_ptr
+  std::unique_ptr<BitcodeReader> R = make_unique<BitcodeReader>(Context, DiagnosticHandler); // HLSL Change: unique_ptr
 
   return getBitcodeModuleImpl(std::move(Streamer), Name, std::move(R), Context, false, // HLSL Change: std::move
                               false);
