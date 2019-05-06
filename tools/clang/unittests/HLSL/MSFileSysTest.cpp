@@ -15,6 +15,7 @@
 #include "HlslTestUtils.h"
 
 #include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/Atomic.h"
 
 #include <D3Dcommon.h>
 #include "dxc/dxcapi.internal.h"
@@ -28,6 +29,27 @@ using namespace llvm::sys;
 using namespace llvm::sys::fs;
 
 const GUID DECLSPEC_SELECTANY GUID_NULL = { 0, 0, 0, { 0, 0, 0, 0, 0, 0, 0, 0 } };
+
+#define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
+  private: volatile std::atomic<llvm::sys::cas_flag> m_dwRef; \
+  public:\
+  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; } \
+  ULONG STDMETHODCALLTYPE Release() { \
+    ULONG result = (ULONG)--m_dwRef; \
+    if (result == 0) delete this; \
+    return result; \
+  } \
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) { \
+    if (ppvObject == nullptr) return E_POINTER; \
+    if (IsEqualIID(iid, __uuidof(IUnknown)) || \
+      IsEqualIID(iid, __uuidof(INoMarshal)) || \
+      IsEqualIID(iid, __uuidof(_IFACE_))) { \
+      *ppvObject = reinterpret_cast<_IFACE_*>(this); \
+      reinterpret_cast<_IFACE_*>(this)->AddRef(); \
+      return S_OK; \
+    } \
+    return E_NOINTERFACE; \
+  }
 
 class MSFileSysTest
 {
