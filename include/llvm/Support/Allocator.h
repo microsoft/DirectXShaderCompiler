@@ -100,7 +100,7 @@ public:
   using AllocatorBase<MallocAllocator>::Allocate;
 
   void Deallocate(const void *Ptr, size_t /*Size*/) {
-    delete[] const_cast<void *>(Ptr); // HLSL Change: use overridable operator delete
+    ::operator delete(const_cast<void*>(Ptr)); // HLSL Change: use overridable operator delete
   }
 
   // Pull in base class overloads.

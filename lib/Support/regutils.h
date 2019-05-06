@@ -38,6 +38,8 @@
 #ifndef LLVM_SUPPORT_REGUTILS_H
 #define LLVM_SUPPORT_REGUTILS_H
 
+#include <stdlib.h>
+
 /* utility definitions */
 #define	NC		(CHAR_MAX - CHAR_MIN + 1)
 typedef unsigned char uch;
