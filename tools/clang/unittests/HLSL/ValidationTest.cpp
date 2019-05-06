@@ -258,6 +258,8 @@ public:
 
   TEST_METHOD(SpaceOnlyRegisterFail)
 
+  TEST_METHOD(WhenDisassembleInvalidBlobThenFail)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -3056,6 +3058,23 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 TEST_F(ValidationTest, SpaceOnlyRegisterFail) {
   TestCheck(L"..\\CodeGenHLSL\\space-only-register.hlsl");
 }
+
+// Regression test for a double-delete when failing to parse bitcode.
+TEST_F(ValidationTest, WhenDisassembleInvalidBlobThenFail) {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+  }
+
+  CComPtr<IDxcBlobEncoding> pInvalidBitcode;
+  Utf8ToBlob(m_dllSupport, "This text is certainly not bitcode", &pInvalidBitcode);
+
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  VERIFY_FAILED(pCompiler->Disassemble(pInvalidBitcode, &pDisassembly));
+}
+
 
 TEST_F(ValidationTest, GSMainMissingAttributeFail) {
   TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-main.hlsl");
