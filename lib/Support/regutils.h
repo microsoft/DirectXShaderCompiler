@@ -61,11 +61,11 @@ typedef unsigned char uch;
 #ifdef __cplusplus
 extern "C" {
 #endif
-void* re_malloc(size_t size);
-void* re_calloc(size_t num, size_t size);
+void* regex_malloc(size_t size);
+void* regex_calloc(size_t num, size_t size);
 // Realloc diverges from standard because we can't implement it in terms of new[]/delete[]
-void* re_realloc(void* ptr, size_t oldsize, size_t newsize);
-void re_free(void* ptr);
+void* regex_realloc(void* ptr, size_t oldsize, size_t newsize);
+void regex_free(void* ptr);
 #ifdef __cplusplus
 }
 #endif

@@ -113,10 +113,10 @@
 #define	EQ(a, b)	(memcmp(a, b, m->g->nstates) == 0)
 #define	STATEVARS	long vn; char *space
  // HLSL Change Begin: Use custom allocator
-#define	STATESETUP(m, nv)	{ (m)->space = re_malloc((nv)*(m)->g->nstates); \
+#define	STATESETUP(m, nv)	{ (m)->space = regex_malloc((nv)*(m)->g->nstates); \
 				if ((m)->space == NULL) return(REG_ESPACE); \
 				(m)->vn = 0; }
-#define	STATETEARDOWN(m)	{ re_free((m)->space); }
+#define	STATETEARDOWN(m)	{ regex_free((m)->space); }
  // HLSL Change End
 #define	SETUP(v)	((v) = &m->space[m->vn++ * m->g->nstates])
 #define	onestate	long
