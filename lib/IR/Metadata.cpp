@@ -365,9 +365,17 @@ MDString *MDString::get(LLVMContext &Context, StringRef Str) {
 
   auto *Entry =
       StringMapEntry<MDString>::Create(Str, Store.getAllocator(), MDString());
+  // HLSL Change Begin: Don't leak on insertion failure
+  try {
   bool WasInserted = Store.insert(Entry);
   (void)WasInserted;
   assert(WasInserted && "Expected entry to be inserted");
+  }
+  catch (...) {
+    Entry->Destroy();
+    throw;
+  }
+  // HLSL Change End
   Entry->second.Entry = Entry;
   return &Entry->second;
 }

@@ -144,7 +144,7 @@ public:
   typedef const ValueT *const_pointer;
 
   SparseSet() : Sparse(nullptr), Universe(0) {}
-  ~SparseSet() { free(Sparse); }
+  ~SparseSet() { delete[] Sparse; } // HLSL Change Begin: Use overridable operator delete
 
   /// setUniverse - Set the universe size which determines the largest key the
   /// set can hold.  The universe must be sized before any elements can be
@@ -159,11 +159,14 @@ public:
     // Hysteresis prevents needless reallocations.
     if (U >= Universe/4 && U <= Universe)
       return;
-    free(Sparse);
+    // HLSL Change Begin: Use overridable operator new/delete
+    delete[] Sparse;
     // The Sparse array doesn't actually need to be initialized, so malloc
     // would be enough here, but that will cause tools like valgrind to
     // complain about branching on uninitialized data.
-    Sparse = reinterpret_cast<SparseT*>(calloc(U, sizeof(SparseT)));
+    Sparse = new SparseT[U];
+    std::memset(Sparse, 0, U * sizeof(SparseT));
+    // HLSL Change End
     Universe = U;
   }
 

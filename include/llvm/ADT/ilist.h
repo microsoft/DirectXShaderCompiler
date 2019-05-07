@@ -420,7 +420,21 @@ public:
       Head = New;
     this->setPrev(CurNode, New);
 
-    this->addNodeToList(New);  // Notify traits that we added a node...
+    // HLSL Change Begin: Undo insertion if exception
+    try {
+      this->addNodeToList(New);  // Notify traits that we added a node...
+    } catch (...) {
+      // Undo insertion
+      if (New == Head)
+        Head = CurNode;
+      else
+        this->setNext(PrevNode, CurNode);
+      this->setPrev(CurNode, PrevNode);
+      this->setPrev(New, nullptr);
+      this->setNext(New, nullptr);
+      throw;
+    }
+    // HLSL Change End
     return New;
   }
 

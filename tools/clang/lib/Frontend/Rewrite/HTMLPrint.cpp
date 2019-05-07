@@ -88,8 +88,8 @@ void HTMLPrinter::HandleTranslationUnit(ASTContext &Ctx) {
 
   // Emit the HTML.
   const RewriteBuffer &RewriteBuf = R.getEditBuffer(FID);
-  char *Buffer = (char*)malloc(RewriteBuf.size());
+  char *Buffer = new char[RewriteBuf.size()]; // HLSL Change: Use overridable operator new
   std::copy(RewriteBuf.begin(), RewriteBuf.end(), Buffer);
   Out->write(Buffer, RewriteBuf.size());
-  free(Buffer);
+  delete[] Buffer; // HLSL Change: Use overridable operator delete
 }

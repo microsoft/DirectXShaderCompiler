@@ -34,11 +34,12 @@ const InterferenceCache::BlockInterference
 // numbers of PhysRegs: in this case PhysRegEntries is freed and reinitialized.
 void InterferenceCache::reinitPhysRegEntries() {
   if (PhysRegEntriesCount == TRI->getNumRegs()) return;
-  free(PhysRegEntries);
+  delete[] PhysRegEntries; // HLSL Change: Use overridable operator delete
   PhysRegEntriesCount = TRI->getNumRegs();
-  PhysRegEntries = (unsigned char*)
-    calloc(PhysRegEntriesCount, sizeof(unsigned char));
-  if (PhysRegEntries == nullptr) throw std::bad_alloc(); // HLSL Change
+  // HLSL Change Begin: Use overridable operator new
+  PhysRegEntries = new unsigned char[PhysRegEntriesCount];
+  std::memset(PhysRegEntries, 0, PhysRegEntriesCount);
+  // HLSL Change End
 }
 
 void InterferenceCache::init(MachineFunction *mf,
