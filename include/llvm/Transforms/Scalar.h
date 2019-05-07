@@ -108,6 +108,9 @@ FunctionPass *createScalarReplAggregatesPass(signed Threshold = -1,
                                              signed ArrayElementThreshold = -1,
                                              signed ScalarLoadThreshold = -1);
 // HLSL Change Begins
+FunctionPass* createHLExpandStoreIntrinsicsPass();
+void initializeHLExpandStoreIntrinsicsPass(PassRegistry&);
+
 //===----------------------------------------------------------------------===//
 //
 // ScalarReplAggregatesHLSL - Break up alloca's of aggregates into multiple allocas
