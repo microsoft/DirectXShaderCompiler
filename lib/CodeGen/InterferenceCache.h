@@ -154,7 +154,7 @@ public:
       PhysRegEntriesCount(0), RoundRobin(0) {}
 
   ~InterferenceCache() {
-    free(PhysRegEntries);
+    delete[] PhysRegEntries; // HLSL Change: Use overridable operator delete
   }
 
   void reinitPhysRegEntries();
