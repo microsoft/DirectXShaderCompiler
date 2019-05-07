@@ -856,9 +856,9 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
 
   if (!annotation) {
     if (!sizeOfStruct) {
-      (OS << comment).indent(indent) << "/* empty struct */\n";
+      (OS << comment).indent(fieldIndent) << "/* empty struct */\n";
     } else {
-      (OS << comment).indent(indent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
+      (OS << comment).indent(fieldIndent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
     }
   } else {
     for (unsigned i = 0; i < ST->getNumElements(); i++) {
@@ -877,12 +877,12 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
   }
   (OS << comment).indent(indent) << "\n";
   // The 2 in offsetIndent-indent-2 is for "} ".
-  (OS << comment).indent(indent)
-      << "} " << left_justify(varName, offsetIndent - 2);
+  std::string varNameAndSemicolon = varName;
+  varNameAndSemicolon += ';';
+  (OS << comment).indent(indent) << "} " << left_justify(varNameAndSemicolon, offsetIndent - 2);
   OS << comment << " Offset:" << right_justify(std::to_string(offset), 5);
   if (sizeOfStruct)
     OS << " Size: " << right_justify(std::to_string(sizeOfStruct), 5);
-  ;
   OS << "\n";
 
   OS << comment << "\n";
@@ -928,7 +928,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
       OS << comment << "   [" << DL.getTypeAllocSize(ST)
          << " x i8] (type annotation not present)\n";
     } else {
-      PrintStructLayout(ST, typeSys, &DL, OS, comment, "$Element;",
+      PrintStructLayout(ST, typeSys, &DL, OS, comment, "$Element",
                         /*offset*/ 0, /*indent*/ 3, offsetIndent,
                         DL.getTypeAllocSize(ST));
     }

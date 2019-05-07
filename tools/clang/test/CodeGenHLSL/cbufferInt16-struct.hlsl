@@ -21,7 +21,7 @@
 // CHECK:       int i1;                                   ; Offset:   80
 // CHECK:       double d2;                                ; Offset:   88
 
-// CHECK:   } f                                           ; Offset:    0 Size:    96
+// CHECK:   } f;                                          ; Offset:    0 Size:    96
 
 struct Foo {
   int16_t h1;
@@ -74,7 +74,7 @@ struct Foo {
 // CHECK:       uint16_t h22;                                  ; Offset:   76
 // CHECK:       int16_t h23;                                   ; Offset:   78
 
-// CHECK:   } b                                             ; Offset:    0 Size:    80
+// CHECK:   } b;                                            ; Offset:    0 Size:    80
 
 struct Bar {
   int16_t h1;

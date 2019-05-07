@@ -13,10 +13,10 @@
 // CHECK: ;
 // CHECK: ;           float4 g1[16];                            ; Offset:    0
 // CHECK: ;
-// CHECK: ;       } buf1                                        ; Offset:    0
+// CHECK: ;       } buf1;                                       ; Offset:    0
 // CHECK: ;
 // CHECK: ;
-// CHECK: ;   } buf1                                            ; Offset:    0 Size:  256
+// CHECK: ;   } buf1;                                           ; Offset:    0 Size:  256
 // CHECK: ;
 // CHECK: ; }
 // CHECK: ;
@@ -34,13 +34,13 @@
 // CHECK: ;
 // CHECK: ;               float4 g1[16];                        ; Offset:    0
 // CHECK: ;
-// CHECK: ;           } foo                                     ; Offset:    0
+// CHECK: ;           } foo;                                    ; Offset:    0
 // CHECK: ;
 // CHECK: ;           uint3 idx[16];                            ; Offset:  256
 // CHECK: ;
-// CHECK: ;       } buf2                                        ; Offset:    0
+// CHECK: ;       } buf2;                                       ; Offset:    0
 // CHECK: ;
-// CHECK: ;   } buf2                                            ; Offset:    0 Size: 508
+// CHECK: ;   } buf2;                                           ; Offset:    0 Size: 508
 // CHECK: ;
 // CHECK: ; }
 // CHECK: ;
