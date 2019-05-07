@@ -30,6 +30,7 @@
 #include "DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/MD5.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -81,6 +82,15 @@ static std::vector<std::string> strtok(const std::string &value, const char *del
 
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
+
+void FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSupport) {
+  if (0 == _stricmp(Command.c_str(), "%dxc")) {
+    RunDxcHashTest(DllSupport);
+  }
+  else {
+    RunResult = 0;
+  }
+}
 
 FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   bool isFileCheck =
@@ -184,6 +194,217 @@ FileRunCommandResult FileRunCommandPart::ReadOptsForDxc(
     return FileRunCommandResult::Error(RunResult, errorString);
 
   return FileRunCommandResult::Success("");
+}
+
+static HRESULT ReAssembleTo(dxc::DxcDllSupport &DllSupport, void *bitcode, UINT32 size, IDxcBlob **pBlob) {
+  CComPtr<IDxcAssembler> pAssembler;
+  CComPtr<IDxcLibrary> pLibrary;
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcBlobEncoding> pInBlob;
+
+  IFR(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, size, 0, &pInBlob));
+  
+  CComPtr<IDxcOperationResult> pResult;
+  pAssembler->AssembleToContainer(pInBlob, &pResult);
+
+  HRESULT Result = 0;
+  IFR(pResult->GetStatus(&Result));
+  IFR(Result);
+
+  IFR(pResult->GetResult(pBlob));
+
+  return S_OK;
+}
+
+static HRESULT GetBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlob, IDxcBlob **pBitcodeBlob) {
+  CComPtr<IDxcContainerReflection> pReflection;
+  CComPtr<IDxcLibrary> pLibrary;
+  IFR(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+
+  IFR(pReflection->Load(pCompiledBlob));
+
+  UINT32 uIndex = 0;
+  IFR(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
+  CComPtr<IDxcBlob> pPart;
+  IFR(pReflection->GetPartContent(uIndex, &pPart));
+
+  auto header = (hlsl::DxilProgramHeader*)pPart->GetBufferPointer();
+  void *bitcode = (char *)&header->BitcodeHeader + header->BitcodeHeader.BitcodeOffset;
+  UINT32 bitcode_size = header->BitcodeHeader.BitcodeSize;
+
+  CComPtr<IDxcBlobEncoding> pBlob;
+  IFR(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, bitcode_size, 0, &pBlob));
+  *pBitcodeBlob = pBlob.Detach();
+
+  return S_OK;
+}
+
+static HRESULT CompileForHash(std::string &StdOut, std::string &StdErr, hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash) {
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcBlob> pCompiledBlob;
+  CComPtr<IDxcIncludeHandler> pIncludeHandler;
+
+  HRESULT resultStatus;
+
+  std::wstring entry =
+      Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+  std::wstring profile =
+      Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
+
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
+  IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
+  IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  if (FAILED(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
+                          flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult)))
+  {
+    return E_FAIL;
+  }
+
+  IFT(pResult->GetStatus(&resultStatus));
+  if (SUCCEEDED(resultStatus)) {
+    IFT(pResult->GetResult(&pCompiledBlob));
+    std::string disasmStr;
+    if (!opts.AstDump) {
+      IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
+      disasmStr = BlobToUtf8(pDisassembly);
+    } else {
+      disasmStr = BlobToUtf8(pCompiledBlob);
+    }
+    StdOut = disasmStr;
+    CComPtr<IDxcBlobEncoding> pStdErr;
+    IFT(pResult->GetErrorBuffer(&pStdErr));
+    StdErr = BlobToUtf8(pStdErr);
+
+    CComPtr<IDxcContainerReflection> pReflection;
+    IFT(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+
+    // If failed to load here, it's likely some non-compile operation thing. Just fail the hash generation.
+    if (FAILED(pReflection->Load(pCompiledBlob)))
+      return E_FAIL;
+
+
+    goto skip_save;
+
+skip_save:
+
+#if 0
+    UINT32 count = 0;
+    IFT(pReflection->GetPartCount(&count));
+    for (UINT32 i = 0; i < count; i++) {
+      UINT32 Kind = 0;
+      IFT(pReflection->GetPartKind(i, &Kind));
+      (void)Kind;
+    }
+#endif
+
+    CComPtr<IDxcBlob> pBitcodeBlob;
+    IFT(GetBitcode(DllSupport, pCompiledBlob, &pBitcodeBlob));
+#if 0
+    UINT32 uIndex = 0;
+    IFT(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
+    CComPtr<IDxcBlob> pPart;
+    IFT(pReflection->GetPartContent(uIndex, &pPart));
+
+    void *ptr = pPart->GetBufferPointer();
+    UINT32 buffer_size = pPart->GetBufferSize();
+    (void)ptr;
+    (void)buffer_size;
+
+    auto header = (hlsl::DxilProgramHeader*)ptr;
+    void *bitcode = (char *)&header->BitcodeHeader + header->BitcodeHeader.BitcodeOffset;
+    int bitcode_size = header->BitcodeHeader.BitcodeSize;
+    (void)bitcode;
+    (void)bitcode_size;
+#endif
+    CComPtr<IDxcBlob> pReassembledBlob;
+    IFT(ReAssembleTo(DllSupport, pBitcodeBlob->GetBufferPointer(), pBitcodeBlob->GetBufferSize(), &pReassembledBlob));
+
+    CComPtr<IDxcBlob> pReassembledBitcodeBlob;
+    IFT(GetBitcode(DllSupport, pReassembledBlob, &pReassembledBitcodeBlob));
+
+    {
+      CComPtr<IDxcBlobEncoding> pDisassembly;
+      IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
+      disasmStr = BlobToUtf8(pDisassembly);
+    }
+
+    //llvm::ArrayRef<uint8_t> Data((uint8_t *)pPart->GetBufferPointer(), pPart->GetBufferSize());
+    //llvm::ArrayRef<uint8_t> Data((uint8_t *)pReassembledBitcodeBlob->GetBufferPointer(), pReassembledBitcodeBlob->GetBufferSize());
+    llvm::ArrayRef<uint8_t> Data((uint8_t *)disasmStr.data(), disasmStr.size());
+    llvm::MD5 md5;
+    llvm::MD5::MD5Result md5Result;
+    md5.update(Data);
+    md5.final(md5Result);
+    md5.stringifyResult(md5Result, Hash);
+
+    return 0;
+  }
+  else {
+    IFT(pResult->GetErrorBuffer(&pDisassembly));
+    StdErr = BlobToUtf8(pDisassembly);
+    return resultStatus;
+  }
+}
+
+void FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
+  hlsl::options::MainArgs args;
+  hlsl::options::DxcOpts opts;
+  ReadOptsForDxc(args, opts);
+
+  std::vector<std::wstring> argWStrings;
+  CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
+
+  std::vector<LPCWSTR> normal_flags;
+  std::vector<LPCWSTR> dbg_flags;
+  for (const std::wstring &a : argWStrings) {
+    if (a.find(L"Zi") == std::wstring::npos || a.find(L"Fd") == std::wstring::npos) {
+      normal_flags.push_back(a.data());
+    }
+    dbg_flags.push_back(a.data());
+  }
+  dbg_flags.push_back(L"/Zi");
+
+  bool stop = true;
+
+  const WCHAR *cmp_str = L"F:\\dxc\\tools\\clang\\test\\HLSL\\..\\CodeGenHLSL\\batch\\declarations\\bool_representation\\misc\\bool_stress.hlsl";
+  //const WCHAR *cmp_str = L"F:\\dxc\\tools\\clang\\test\\HLSL\\..\\CodeGenHLSL\\batch\\declarations\\resources\\nonglobal\\misc\\res_select2_x.hlsl";
+  //stop = std::wstring(CommandFileName) == L"F:\\dxc\\tools\\clang\\test\\HLSL\\..\\CodeGenHLSL\\batch\\declarations\\resources\\constant_buffers\\misc\\mat_row_dyn_cb.hlsl";
+  stop = std::wstring(CommandFileName) == cmp_str;
+  (void)stop;
+
+  if (!stop) {
+    RunResult = 0;
+    return;
+  }
+    
+
+  llvm::SmallString<32> Hash0;
+  llvm::SmallString<32> Hash1;
+  HRESULT succ0 = CompileForHash(StdOut, StdErr, opts, CommandFileName, DllSupport, normal_flags, Hash0);
+  HRESULT succ1 = CompileForHash(StdOut, StdErr, opts, CommandFileName, DllSupport, dbg_flags, Hash1);
+
+  // If either compilations failed, just pass this test. The original test could be
+  // failing the compilation intentionally.
+  if (FAILED(succ0) || FAILED(succ1)) {
+    RunResult = 0;
+    return;
+  }
+
+  if (Hash0 != Hash1) {
+    StdErr = "Hash does not match!!!\n";
+    RunResult = -1;
+  }
+  else {
+    RunResult = 0;
+  }
 }
 
 FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
@@ -498,6 +719,24 @@ FileRunCommandResult FileRunCommandPart::RunDxilVer(dxc::DxcDllSupport& DllSuppo
 class FileRunTestResultImpl : public FileRunTestResult {
   dxc::DxcDllSupport &m_support;
 
+  void RunHashTestFromCommands(LPCSTR commands, LPCWSTR fileName) {
+    std::vector<FileRunCommandPart> parts;
+    ParseCommandParts(commands, fileName, parts);
+    FileRunCommandPart *prior = nullptr;
+    for (FileRunCommandPart & part : parts) {
+      part.RunHashTests(m_support);
+      prior = &part;
+      break;
+    }
+    if (prior != nullptr) {
+      this->RunResult = prior->RunResult;
+      this->ErrorMessage = prior->StdErr;
+    }
+    else {
+      this->RunResult = 0;
+    }
+  }
+
   void RunFileCheckFromCommands(LPCSTR commands, LPCWSTR fileName) {
     std::vector<FileRunCommandPart> parts;
     ParseCommandParts(commands, fileName, parts);
@@ -527,7 +766,21 @@ public:
     std::string commands(GetFirstLine(fileName));
     return RunFileCheckFromCommands(commands.c_str(), fileName);
   }
+
+  void RunHashTestFromFileCommands(LPCWSTR fileName) {
+    // Assume UTF-8 files.
+    std::string commands(GetFirstLine(fileName));
+    return RunHashTestFromCommands(commands.c_str(), fileName);
+  }
 };
+
+FileRunTestResult FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileName) {
+  dxc::DxcDllSupport dllSupport;
+  IFT(dllSupport.Initialize());
+  FileRunTestResultImpl result(dllSupport);
+  result.RunHashTestFromFileCommands(fileName);
+  return result;
+}
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName) {
   dxc::DxcDllSupport dllSupport;
