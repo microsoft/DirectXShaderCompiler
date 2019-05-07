@@ -67,6 +67,11 @@ public:
   /// This ID is uniqued across modules in the current LLVMContext.
   unsigned getMDKindID(StringRef Name) const;
 
+  // HLSL Change - Begin
+  /// Return a unique non-zero ID for the specified metadata kind if it exists.
+  bool findMDKindID(StringRef Name, unsigned *ID) const;
+  // HLSL Change - End
+
   /// getMDKindNames - Populate client supplied SmallVector with the name for
   /// custom metadata IDs registered in this LLVMContext.
   void getMDKindNames(SmallVectorImpl<StringRef> &Result) const;
