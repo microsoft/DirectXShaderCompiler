@@ -22,7 +22,7 @@
 
 // CHECK:       int f_i1;                                     ; Offset:   80
 // CHECK:       double f_d2;                                  ; Offset:   88
-// CHECK:   } Foo                                             ; Offset:    0 Size:    96
+// CHECK:   } Foo;                                            ; Offset:    0 Size:    96
 // CHECK: }
 
 cbuffer Foo {
@@ -77,7 +77,7 @@ cbuffer Foo {
 // CHECK:       half b_h22;                                   ; Offset:   76
 // CHECK:       half b_h23;                                   ; Offset:   78
 
-// CHECK:   } Bar                                             ; Offset:    0 Size:    80
+// CHECK:   } Bar;                                            ; Offset:    0 Size:    80
 // CHECK: }
 
 cbuffer Bar {

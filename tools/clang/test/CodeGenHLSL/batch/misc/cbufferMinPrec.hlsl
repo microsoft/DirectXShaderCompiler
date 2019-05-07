@@ -14,7 +14,7 @@
 // CHECK:       min16float2 h2_1;                             ; Offset:   80
 // CHECK:       min16float3 h3;                               ; Offset:   96
 // CHECK:       double d1;                                    ; Offset:  112
-// CHECK:   } Foo                                             ; Offset:    0 Size:   120
+// CHECK:   } Foo;                                            ; Offset:    0 Size:   120
 // CHECK: }
 
 // CHECK: %dx.types.CBufRet.f16 = type { half, half, half, half }

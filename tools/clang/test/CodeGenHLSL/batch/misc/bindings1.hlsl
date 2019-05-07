@@ -10,7 +10,7 @@
 // CHECK: ;       float4 f2;                                    ; Offset:  112
 // CHECK: ;       float fa[15];                                 ; Offset:  128
 // CHECK: ;
-// CHECK: ;   } MyCB                                            ; Offset:    0 Size:   356
+// CHECK: ;   } MyCB;                                           ; Offset:    0 Size:   356
 // CHECK: ;
 // CHECK: ; }
 
@@ -26,10 +26,10 @@
 // CHECK: ;           float4 f;                                 ; Offset:    0
 // CHECK: ;           int4 i;                                   ; Offset:   16
 // CHECK: ;
-// CHECK: ;       } buf2                                        ; Offset:    0
+// CHECK: ;       } buf2;                                       ; Offset:    0
 // CHECK: ;
 // CHECK: ;
-// CHECK: ;   } buf2                                            ; Offset:    0 Size:    32
+// CHECK: ;   } buf2;                                           ; Offset:    0 Size:    32
 // CHECK: ;
 // CHECK: ; }
 
@@ -42,7 +42,7 @@
 // CHECK: ;       float f3;                                     ; Offset:    0
 // CHECK: ;       float4 f4;                                    ; Offset:   16
 // CHECK: ;
-// CHECK: ;   } MyTB                                            ; Offset:    0 Size:    32
+// CHECK: ;   } MyTB;                                           ; Offset:    0 Size:    32
 // CHECK: ;
 // CHECK: ; }
 
@@ -58,10 +58,10 @@
 // CHECK: ;           float4 f;                                 ; Offset:    0
 // CHECK: ;           int4 i;                                   ; Offset:   16
 // CHECK: ;
-// CHECK: ;       } tbuf1                                       ; Offset:    0
+// CHECK: ;       } tbuf1;                                      ; Offset:    0
 // CHECK: ;
 // CHECK: ;
-// CHECK: ;   } tbuf1                                           ; Offset:    0 Size:    32
+// CHECK: ;   } tbuf1;                                          ; Offset:    0 Size:    32
 // CHECK: ;
 // CHECK: ; }
 
