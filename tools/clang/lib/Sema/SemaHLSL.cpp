@@ -5575,12 +5575,26 @@ bool HLSLExternalSource::MatchArguments(
       }
     }
     else if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
-      // Only [RW]ByteAddressBuffer.Load/Store have function template,
-      // and they default to uint if unspecified.
       if (functionTemplateTypeArg.isNull()) {
-        pNewType = m_context->UnsignedIntTy;
+        if (i == 0) {
+          // [RW]ByteAddressBuffer.Load, default to uint
+          pNewType = m_context->UnsignedIntTy;
+        }
+        else {
+          // [RW]ByteAddressBuffer.Store, default to argument type
+          pNewType = Args[i - 1]->getType().getNonReferenceType();
+          if (const BuiltinType *BuiltinTy = pNewType->getAs<BuiltinType>()) {
+            if (BuiltinTy->getKind() == BuiltinType::LitInt) {
+              // For backcompat, ensure that Store(0, 42) matches a uint overload
+              // rather than a uint64_t one.
+              pNewType = m_context->UnsignedIntTy;
+            }
+          }
+        }
       }
-      else pNewType = functionTemplateTypeArg;
+      else {
+        pNewType = functionTemplateTypeArg;
+      }
     }
     else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       if (objectElement.isNull()) {
@@ -8961,7 +8975,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
 
   QualType functionTemplateTypeArg {};
-  if (ExplicitTemplateArgs->size() == 1) {
+  if (ExplicitTemplateArgs != nullptr && ExplicitTemplateArgs->size() == 1) {
     const TemplateArgument &firstTemplateArg = (*ExplicitTemplateArgs)[0].getArgument();
     if (firstTemplateArg.getKind() == TemplateArgument::ArgKind::Type)
       functionTemplateTypeArg = firstTemplateArg.getAsType();
@@ -9049,21 +9063,20 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      auto TemplateDiag =
-          !IsBABLoad
-              ? diag::err_hlsl_intrinsic_template_arg_unsupported
-              : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_numeric;
-      if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
-        const TemplateArgumentLoc& TemplateArgLoc = (*ExplicitTemplateArgs)[0];
-        Loc = TemplateArgLoc.getLocation();
-        if (TemplateArgLoc.getArgument().getKind() == TemplateArgument::ArgKind::Type) {
-          QualType explicitType = TemplateArgLoc.getArgument().getAsType();
-          ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-          if (hlsl::IsHLSLNumericOrAggregateOfNumericType(explicitType)) {
+      auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
+      if (ExplicitTemplateArgs->size() == 1 && !functionTemplateTypeArg.isNull() && (IsBABLoad || IsBABStore)) {
+        Loc = (*ExplicitTemplateArgs)[0].getLocation();
+        if (Is2018) {
+          if (hlsl::IsHLSLNumericOrAggregateOfNumericType(functionTemplateTypeArg)) {
             isLegalTemplate = true;
-            argTypes[0] = explicitType;
+            argTypes[0] = functionTemplateTypeArg;
           }
+          else {
+            TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
+          }
+        }
+        else {
+          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
         }
       }
 

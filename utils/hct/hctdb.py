@@ -1545,6 +1545,7 @@ class db_dxil(object):
         category_lib="dxil_gen"
 
         add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
+        add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
         add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
         add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
@@ -1590,6 +1591,7 @@ class db_dxil(object):
         add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
         add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
         add_pass('hlsl-dxil-cleanup-addrspacecast', 'DxilCleanupAddrSpaceCast', 'HLSL DXIL Cleanup Address Space Cast (part of hlsl-dxilfinalize)', [])
+        add_pass('dxil-fix-array-init', 'DxilFixConstArrayInitializer', 'Dxil Fix Array Initializer', [])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
