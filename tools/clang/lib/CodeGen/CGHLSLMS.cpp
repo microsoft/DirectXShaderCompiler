@@ -2849,7 +2849,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
           DiagnosticsEngine& Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
-            "space is only allowed in a constant buffer.");
+            "register space cannot be specified on global constants.");
           Diags.Report(it->Loc, DiagID);
         }
         offset = ra->RegisterNumber << 2;
