@@ -862,6 +862,7 @@ enum AttributeDeclKind {
   ,ExpectedGlobalVarOrCTBuffer
   ,ExpectedCounterStructuredBuffer
   ,ExpectedSubpassInput
+  ,ExpectedCTBuffer
   // SPIRV Change Ends
   // HLSL Change Begins - add attribute decl combinations
   ,ExpectedVariableOrParam,

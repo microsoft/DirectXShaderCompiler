@@ -11057,6 +11057,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_VKPostDepthCoverage:
     declAttr = ::new (S.Context) VKPostDepthCoverageAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKShaderRecordNV:
+    declAttr = ::new (S.Context) VKShaderRecordNVAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;
@@ -12372,6 +12375,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::VKLocation:
   case clang::attr::VKOffset:
   case clang::attr::VKPushConstant:
+  case clang::attr::VKShaderRecordNV:
     return true;
   default:
     // Only HLSL/VK Attributes return true. Only used for printPretty(), which doesn't support them.

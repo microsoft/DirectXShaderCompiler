@@ -697,6 +697,8 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forTBuffer = usageKind == ContextUsageKind::TBuffer;
   const bool forGlobals = usageKind == ContextUsageKind::Globals;
   const bool forPC = usageKind == ContextUsageKind::PushConstant;
+  const bool forShaderRecordNV =
+      usageKind == ContextUsageKind::ShaderRecordBufferNV;
 
   const llvm::SmallVector<const Decl *, 4> &declGroup =
       collectDeclsInDeclContext(decl);
@@ -743,8 +745,10 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Register the <type-id> for this decl
   ctBufferPCTypes[decl] = resultType;
 
-  const auto sc =
-      forPC ? spv::StorageClass::PushConstant : spv::StorageClass::Uniform;
+  const auto sc = forPC ? spv::StorageClass::PushConstant
+                        : forShaderRecordNV
+                              ? spv::StorageClass::ShaderRecordBufferNV
+                              : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
@@ -850,6 +854,51 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // descriptor set.
 
   return var;
+}
+
+SpirvVariable *
+DeclResultIdMapper::createShaderRecordBufferNV(const VarDecl *decl) {
+  const auto *recordType = decl->getType()->getAs<RecordType>();
+  assert(recordType);
+
+  const std::string structName =
+      "type.ShaderRecordBufferNV." + recordType->getDecl()->getName().str();
+  SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
+      recordType->getDecl(), /*arraySize*/ 0,
+      ContextUsageKind::ShaderRecordBufferNV, structName, decl->getName());
+
+  // Register the VarDecl
+  astDecls[decl] = DeclSpirvInfo(var);
+
+  // Do not push this variable into resourceVars since it does not need
+  // descriptor set.
+
+  return var;
+}
+
+SpirvVariable *
+DeclResultIdMapper::createShaderRecordBufferNV(const HLSLBufferDecl *decl) {
+
+  const std::string structName =
+      "type.ShaderRecordBufferNV." + decl->getName().str();
+  // The front-end does not allow arrays of cbuffer/tbuffer.
+  SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
+      decl, /*arraySize*/ 0, ContextUsageKind::ShaderRecordBufferNV, structName,
+      decl->getName());
+
+  // We still register all VarDecls seperately here. All the VarDecls are
+  // mapped to the <result-id> of the buffer object, which means when querying
+  // querying the <result-id> for a certain VarDecl, we need to do an extra
+  // OpAccessChain.
+  int index = 0;
+  for (const auto *subDecl : decl->decls()) {
+    if (shouldSkipInStructLayout(subDecl))
+      continue;
+
+    const auto *varDecl = cast<VarDecl>(subDecl);
+    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+  }
+  return bufferVar;
 }
 
 void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {

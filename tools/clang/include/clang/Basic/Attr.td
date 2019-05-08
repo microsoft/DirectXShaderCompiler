@@ -974,6 +974,13 @@ def VKPostDepthCoverage : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKShaderRecordNV : InheritableAttr {
+  let Spellings = [CXX11<"vk", "shader_record_nv">];
+  let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer], ErrorDiag, "ExpectedCTBuffer">;
+  let Args = [];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
 // SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {

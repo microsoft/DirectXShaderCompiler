@@ -234,6 +234,19 @@ To use Vulkan specialization constants, annotate global constants with the
   [[vk::constant_id(2)]] const int   specConstInt   = 42;
   [[vk::constant_id(3)]] const float specConstFloat = 1.5;
 
+Shader Record Buffer
+~~~~~~~~~~~~~~~~~~~~
+
+SPV_NV_ray_tracing exposes user managed buffer in shader binding table by
+using storage class ShaderRecordBufferNV. ConstantBuffer or cbuffer blocks
+can now be mapped to this storage class under HLSL by using
+``[[vk::shader_record_nv]]`` annotation. It is applicable only on ConstantBuffer
+and cbuffer declarations.
+
+Please note as per the requirements of VK_NV_ray_tracing, "there must be no
+more than one shader_record_nv block statically used per shader entry point
+otherwise results are undefined."
+
 Builtin variables
 ~~~~~~~~~~~~~~~~~
 

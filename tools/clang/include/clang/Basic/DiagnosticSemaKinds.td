@@ -2332,6 +2332,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "global variables, cbuffers, and tbuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   "SubpassInput, SubpassInputMS|"
+  "cbuffer or ConstantBuffer|"
   // SPIRV Change Ends
   // HLSL Change Starts - add 3 more enum values
   "variables and parameters|functions, parameters, and fields|"
