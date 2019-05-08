@@ -3213,7 +3213,7 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
 }
 
 void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
-                                 hlsl::OP *OP, const DataLayout &DL);
+                                 hlsl::OP *OP, HLResource::Kind RK, const DataLayout &DL);
 
 // Create { v0, v1 } from { v0.lo, v0.hi, v1.lo, v1.hi }
 void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
@@ -3280,7 +3280,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (Ty->isPointerTy()) {
     DXASSERT(!DxilResource::IsAnyTexture(RK), "Textures should not be treated as structured buffers.");
     TranslateStructBufSubscript(cast<CallInst>(helper.retVal), helper.handle,
-                                helper.status, OP, DL);
+                                helper.status, OP, RK, DL);
     return;
   }
 
@@ -5925,6 +5925,13 @@ Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
   DXASSERT(resultElts.size() <= 4,
            "buffer load cannot load more than 4 values");
 
+  if (bufIdx == nullptr) {
+    // This is actually a byte address buffer load with a struct template type.
+    // The call takes only one coordinates for the offset.
+    bufIdx = offset;
+    offset = UndefValue::get(offset->getType());
+  }
+
   Function *dxilF = OP->GetOpFunc(opcode, EltTy);
   Constant *mask = GetRawBufferMaskForETy(EltTy, NumComponents, OP);
   Value *Args[] = {OP->GetU32Const((unsigned)opcode),
@@ -6448,14 +6455,23 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
 }
 
 void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
-                                 hlsl::OP *OP, const DataLayout &DL) {
-  Value *bufIdx = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
+                                 hlsl::OP *OP, HLResource::Kind ResKind, const DataLayout &DL) {
+  Value *subscriptIndex = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
+  Value* bufIdx = nullptr;
+  Value *offset = nullptr;
+  if (ResKind == HLResource::Kind::RawBuffer) {
+    offset = subscriptIndex;
+  }
+  else {
+    // StructuredBuffer, TypedBuffer, etc.
+    bufIdx = subscriptIndex;
+  }
 
   for (auto U = CI->user_begin(); U != CI->user_end();) {
     Value *user = *(U++);
 
     TranslateStructBufSubscriptUser(cast<Instruction>(user), handle, bufIdx,
-                                    /*baseOffset*/ nullptr, status, OP, DL);
+                                    offset, status, OP, DL);
   }
 }
 }
@@ -6802,11 +6818,11 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
       Type *ObjTy = pObjHelper->GetResourceType(handle);
       Type *RetTy = ObjTy->getStructElementType(0);
       if (RK == DxilResource::Kind::StructuredBuffer) {
-        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
+        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, RK,
                                     helper.dataLayout);
       } else if (RetTy->isAggregateType() &&
                  RK == DxilResource::Kind::TypedBuffer) {
-        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
+        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, RK,
                                     helper.dataLayout);
         // Clear offset for typed buf.
         for (auto User = handle->user_begin(); User != handle->user_end(); ) {

@@ -7669,11 +7669,11 @@ def err_hlsl_unsupported_for_version_lower : Error<
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
-   "Explicit template arguments on intrinsic %0 are not supported.">;
+   "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
-   "Explicit template arguments on intrinsic %0 requires HLSL version 2018 or above.">;
-def err_hlsl_intrinsic_template_arg_scalar_vector: Error<
-   "Explicit template arguments on intrinsic %0 are limited one to scalar or vector type.">;
+   "Explicit template arguments on intrinsic %0 requires HLSL version 2018 or above">;
+def err_hlsl_intrinsic_template_arg_numeric: Error<
+   "Explicit template arguments on intrinsic %0 must be a single numeric type">;
 }
 def err_hlsl_no_struct_user_defined_type: Error<
    "User defined type intrinsic arg must be struct">;
