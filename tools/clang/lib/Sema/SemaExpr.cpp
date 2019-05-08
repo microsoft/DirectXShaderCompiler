@@ -3805,6 +3805,13 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
                                        ExprKind))
     return true;
 
+
+  if (getLangOpts().HLSL) {
+    if (!hlsl::IsHLSLNumericOrAggregateOfNumericType(ExprType)) {
+      Diag(OpLoc, diag::err_hlsl_sizeof_arg_nonnumeric);
+    }
+  }
+
   return false;
 }
 
