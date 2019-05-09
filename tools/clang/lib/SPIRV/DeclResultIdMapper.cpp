@@ -1334,7 +1334,7 @@ public:
   bool getSetBinding(const hlsl::RegisterAssignment *regAttr, int *setNo,
                      int *bindNo) const {
     std::ostringstream iss;
-    iss << regAttr->RegisterSpace << regAttr->RegisterType
+    iss << regAttr->RegisterSpace.getValueOr(0) << regAttr->RegisterType
         << regAttr->RegisterNumber;
 
     auto found = mapping.find(iss.str());
@@ -1450,7 +1450,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         if (const auto *vkBinding = var.getBinding())
           set = vkBinding->getSet();
         else if (const auto *reg = var.getRegister())
-          set = reg->RegisterSpace;
+          set = reg->RegisterSpace.getValueOr(0);
 
         tryToDecorate(var.getSpirvInstr(), set, vkCBinding->getBinding());
       }
@@ -1476,7 +1476,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         if (reg->isSpaceOnly())
           continue;
 
-        const uint32_t set = reg->RegisterSpace;
+        const uint32_t set = reg->RegisterSpace.getValueOr(0);
         uint32_t binding = reg->RegisterNumber;
         switch (reg->RegisterType) {
         case 'b':
@@ -1509,7 +1509,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         if (const auto *vkBinding = var.getBinding())
           set = vkBinding->getSet();
         else if (const auto *reg = var.getRegister())
-          set = reg->RegisterSpace;
+          set = reg->RegisterSpace.getValueOr(0);
 
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
@@ -1517,7 +1517,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     } else if (!var.getBinding()) {
       const auto *reg = var.getRegister();
       if (reg && reg->isSpaceOnly()) {
-        const uint32_t set = reg->RegisterSpace;
+        const uint32_t set = reg->RegisterSpace.getValueOr(0);
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
       } else if (!reg) {

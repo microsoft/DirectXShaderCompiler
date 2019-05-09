@@ -2337,12 +2337,43 @@ namespace {
   }
 }
 
+static void InitFromUnusualAnnotations(DxilResourceBase &Resource, NamedDecl &Decl) {
+  for (hlsl::UnusualAnnotation* It : Decl.getUnusualAnnotations()) {
+    switch (It->getKind()) {
+    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
+      hlsl::RegisterAssignment* RegAssign = cast<hlsl::RegisterAssignment>(It);
+      if (RegAssign->RegisterType) {
+        Resource.SetLowerBound(RegAssign->RegisterNumber);
+        // For backcompat, don't auto-assign the register space if there's an
+        // explicit register type.
+        Resource.SetSpaceID(RegAssign->RegisterSpace.getValueOr(0));
+      }
+      else {
+        Resource.SetSpaceID(RegAssign->RegisterSpace.getValueOr(UINT_MAX));
+      }
+      break;
+    }
+    case hlsl::UnusualAnnotation::UA_SemanticDecl:
+      // Ignore Semantics
+      break;
+    case hlsl::UnusualAnnotation::UA_ConstantPacking:
+      // Should be handled by front-end
+      llvm_unreachable("packoffset on resource");
+      break;
+    default:
+      llvm_unreachable("unknown UnusualAnnotation on resource");
+      break;
+    }
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   llvm::GlobalVariable *val =
     cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobalVar(samplerDecl));
 
   unique_ptr<DxilSampler> hlslRes(new DxilSampler);
   hlslRes->SetLowerBound(UINT_MAX);
+  hlslRes->SetSpaceID(UINT_MAX);
   hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(samplerDecl->getName());
 
@@ -2356,27 +2387,7 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   DxilSampler::SamplerKind kind = KeywordToSamplerKind(RT->getDecl()->getName());
 
   hlslRes->SetSamplerKind(kind);
-
-  for (hlsl::UnusualAnnotation *it : samplerDecl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-      hlsl::RegisterAssignment *ra = cast<hlsl::RegisterAssignment>(it);
-      hlslRes->SetLowerBound(ra->RegisterNumber);
-      hlslRes->SetSpaceID(ra->RegisterSpace);
-      break;
-    }
-    case hlsl::UnusualAnnotation::UA_SemanticDecl:
-      // Ignore Semantics
-      break;
-    case hlsl::UnusualAnnotation::UA_ConstantPacking:
-      // Should be handled by front-end
-      llvm_unreachable("packoffset on sampler");
-      break;
-    default:
-      llvm_unreachable("unknown UnusualAnnotation on sampler");
-      break;
-    }
-  }
+  InitFromUnusualAnnotations(*hlslRes, *samplerDecl);
 
   hlslRes->SetID(m_pHLModule->GetSamplers().size());
   return m_pHLModule->AddSampler(std::move(hlslRes));
@@ -2732,6 +2743,7 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
 
   unique_ptr<HLResource> hlslRes(new HLResource);
   hlslRes->SetLowerBound(UINT_MAX);
+  hlslRes->SetSpaceID(UINT_MAX);
   hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(decl->getName());
 
@@ -2740,27 +2752,7 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   GetResourceDeclElemTypeAndRangeSize(CGM, *m_pHLModule, *decl,
     VarTy, rangeSize);
   hlslRes->SetRangeSize(rangeSize);
-
-  for (hlsl::UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-      hlsl::RegisterAssignment *ra = cast<hlsl::RegisterAssignment>(it);
-      hlslRes->SetLowerBound(ra->RegisterNumber);
-      hlslRes->SetSpaceID(ra->RegisterSpace);
-      break;
-    }
-    case hlsl::UnusualAnnotation::UA_SemanticDecl:
-      // Ignore Semantics
-      break;
-    case hlsl::UnusualAnnotation::UA_ConstantPacking:
-      // Should be handled by front-end
-      llvm_unreachable("packoffset on uav/srv");
-      break;
-    default:
-      llvm_unreachable("unknown UnusualAnnotation on uav/srv");
-      break;
-    }
-  }
+  InitFromUnusualAnnotations(*hlslRes, *decl);
 
   if (decl->hasAttr<HLSLGloballyCoherentAttr>()) {
     hlslRes->SetGloballyCoherent(true);
@@ -2853,6 +2845,13 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       if (isGlobalCB) {
         RegisterAssignment *ra = cast<RegisterAssignment>(it);
+        if (ra->RegisterSpace.hasValue()) {
+          DiagnosticsEngine& Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "register space cannot be specified on global constants.");
+          Diags.Report(it->Loc, DiagID);
+        }
         offset = ra->RegisterNumber << 2;
         // Change to byte.
         offset <<= 2;
@@ -2868,6 +2867,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
 
   std::unique_ptr<DxilResourceBase> pHlslConst = llvm::make_unique<DxilResourceBase>(DXIL::ResourceClass::Invalid);
   pHlslConst->SetLowerBound(UINT_MAX);
+  pHlslConst->SetSpaceID(0);
   pHlslConst->SetGlobalSymbol(cast<llvm::GlobalVariable>(constVal));
   pHlslConst->SetGlobalName(constDecl->getName());
 
@@ -2913,6 +2913,7 @@ uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   // setup the CB
   CB->SetGlobalSymbol(nullptr);
   CB->SetGlobalName(D->getNameAsString());
+  CB->SetSpaceID(UINT_MAX);
   CB->SetLowerBound(UINT_MAX);
   if (!D->isCBuffer()) {
     CB->SetKind(DXIL::ResourceKind::TBuffer);
@@ -2921,24 +2922,7 @@ uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   // the global variable will only used once by the createHandle?
   // SetHandle(llvm::Value *pHandle);
 
-  for (hlsl::UnusualAnnotation *it : D->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-      hlsl::RegisterAssignment *ra = cast<hlsl::RegisterAssignment>(it);
-      uint32_t regNum = ra->RegisterNumber;
-      uint32_t regSpace = ra->RegisterSpace;
-      CB->SetSpaceID(regSpace);
-      CB->SetLowerBound(regNum);
-      break;
-    }
-    case hlsl::UnusualAnnotation::UA_SemanticDecl:
-      // skip semantic on constant buffer
-      break;
-    case hlsl::UnusualAnnotation::UA_ConstantPacking:
-      llvm_unreachable("no packoffset on constant buffer");
-      break;
-    }
-  }
+  InitFromUnusualAnnotations(*CB, *D);
 
   // Add constant
   if (D->isConstantBufferView()) {

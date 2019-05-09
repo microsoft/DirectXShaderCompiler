@@ -9501,10 +9501,12 @@ void hlsl::DiagnoseRegisterType(
   clang::QualType type,
   char registerType)
 {
-  // SPIRV Change Starts - skip the check if space-only for SPIR-V
-  if (self->getLangOpts().SPIRV && registerType == 'x')
+  // Register type can be zero if only a register space was provided.
+  if (registerType == 0)
     return;
-  // SPIRV Change Ends
+
+  if (registerType >= 'A' && registerType <= 'Z')
+    registerType = registerType + ('a' - 'A');
 
   HLSLExternalSource* source = HLSLExternalSource::FromSema(self);
   ArBasicKind element = source->GetTypeElementKind(type);
@@ -9535,8 +9537,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_BASIC_MIN16INT:
   case AR_BASIC_MIN16UINT:
     expected = "'b', 'c', or 'i'";
-    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i' ||
-		registerType == 'B' || registerType == 'C' || registerType == 'I';
+    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i';
     break;
 
   case AR_OBJECT_TEXTURE1D:
@@ -9549,8 +9550,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_TEXTURE2DMS:
   case AR_OBJECT_TEXTURE2DMS_ARRAY:
     expected = "'t' or 's'";
-    isValid = registerType == 't' || registerType == 's' ||
-		    registerType == 'T' || registerType == 'S';
+    isValid = registerType == 't' || registerType == 's';
     break;
 
   case AR_OBJECT_SAMPLER:
@@ -9560,13 +9560,12 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_SAMPLERCUBE:
   case AR_OBJECT_SAMPLERCOMPARISON:
     expected = "'s' or 't'";
-    isValid = registerType == 's' || registerType == 't' ||
-		registerType == 'S' || registerType == 'T';
+    isValid = registerType == 's' || registerType == 't';
     break;
 
   case AR_OBJECT_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't' || registerType == 'T';
+    isValid = registerType == 't';
     break;
 
   case AR_OBJECT_POINTSTREAM:
@@ -9589,13 +9588,13 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWTEXTURE3D:
   case AR_OBJECT_RWBUFFER:
     expected = "'u'";
-    isValid = registerType == 'u' || registerType == 'U';
+    isValid = registerType == 'u';
     break;
 
   case AR_OBJECT_BYTEADDRESS_BUFFER:
   case AR_OBJECT_STRUCTURED_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't' || registerType == 'T';
+    isValid = registerType == 't';
     break;
 
   case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
@@ -9605,16 +9604,16 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME:
   case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     expected = "'u'";
-    isValid = registerType == 'u' || registerType == 'U';
+    isValid = registerType == 'u';
     break;
 
   case AR_OBJECT_CONSTANT_BUFFER:
     expected = "'b'";
-    isValid = registerType == 'b' || registerType == 'B';
+    isValid = registerType == 'b';
     break;
   case AR_OBJECT_TEXTURE_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't' || registerType == 'T';
+    isValid = registerType == 't';
     break;
 
   case AR_OBJECT_ROVBUFFER:
@@ -9626,7 +9625,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_ROVTEXTURE2D_ARRAY:
   case AR_OBJECT_ROVTEXTURE3D:
     expected = "'u'";
-    isValid = registerType == 'u' || registerType == 'U';
+    isValid = registerType == 'u';
     break;
 
   case AR_OBJECT_LEGACY_EFFECT:   // Used for all unsupported but ignored legacy effect types
@@ -9638,12 +9637,9 @@ void hlsl::DiagnoseRegisterType(
 
   // fxc is inconsistent as to when it reports an error and when it ignores invalid bind semantics, so emit
   // a warning instead.
-  if (!isValid)
-  {
-    if (isWarning)
-      self->Diag(loc, diag::warn_hlsl_incorrect_bind_semantic) << expected;
-    else
-      self->Diag(loc, diag::err_hlsl_incorrect_bind_semantic) << expected;
+  if (!isValid) {
+    unsigned DiagID = isWarning ? diag::warn_hlsl_incorrect_bind_semantic : diag::err_hlsl_incorrect_bind_semantic;
+    self->Diag(loc, DiagID) << expected;
   }
 }
 
@@ -11175,14 +11171,11 @@ Decl* Sema::ActOnStartHLSLBuffer(
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       hlsl::RegisterAssignment* registerAssignment = cast<hlsl::RegisterAssignment>(*unusualIter);
 
-      // SPIRV Change Starts - skip the check if space-only for SPIR-V
-      if (getLangOpts().SPIRV && registerAssignment->isSpaceOnly())
+      if (registerAssignment->isSpaceOnly())
         continue;
-      // SPIRV Change Ends
 
       if (registerAssignment->RegisterType != expectedRegisterType && registerAssignment->RegisterType != toupper(expectedRegisterType)) {
-        Diag(registerAssignment->Loc, cbuffer ? diag::err_hlsl_unsupported_cbuffer_register : 
-                                                diag::err_hlsl_unsupported_tbuffer_register);
+        Diag(registerAssignment->Loc, diag::err_hlsl_incorrect_bind_semantic) << (cbuffer ? "'b'" : "'t'");
       } else if (registerAssignment->ShaderProfile.size() > 0) {
         Diag(registerAssignment->Loc, diag::err_hlsl_unsupported_buffer_slot_target_specific);
       }

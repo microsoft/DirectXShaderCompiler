@@ -168,22 +168,21 @@ private:
     }
 
     // Allocate unallocated resources
-    const unsigned space = AutoBindingSpace;
-    typename SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
-    typename SpacesAllocator<unsigned, T>::Allocator &reservedAlloc0 = ReservedRegisters.Get(space);
     for (auto &res : resourceList) {
       if (res->IsAllocated())
         continue;
 
-      DXASSERT(res->GetSpaceID() == 0,
-        "otherwise non-zero space has no user register assignment");
+      unsigned space = res->GetSpaceID();
+      if (space == UINT_MAX) space = AutoBindingSpace;
+      typename SpacesAllocator<unsigned, T>::Allocator& alloc = SAlloc.Get(space);
+      typename SpacesAllocator<unsigned, T>::Allocator& reservedAlloc = ReservedRegisters.Get(space);
 
       unsigned reg = 0;
       unsigned end = 0;
       bool allocateSpaceFound = false;
       if (res->IsUnbounded()) {
-        if (alloc0.GetUnbounded() != nullptr) {
-          const T *unbounded = alloc0.GetUnbounded();
+        if (alloc.GetUnbounded() != nullptr) {
+          const T *unbounded = alloc.GetUnbounded();
           Ctx.emitError(Twine("more than one unbounded resource (") +
             unbounded->GetGlobalName() + Twine(" and ") +
             res->GetGlobalName() + Twine(") in space ") +
@@ -191,26 +190,26 @@ private:
           continue;
         }
 
-        if (reservedAlloc0.FindForUnbounded(reg)) {
+        if (reservedAlloc.FindForUnbounded(reg)) {
           end = UINT_MAX;
           allocateSpaceFound = true;
         }
       }
-      else if (reservedAlloc0.Find(res->GetRangeSize(), reg)) {
+      else if (reservedAlloc.Find(res->GetRangeSize(), reg)) {
         end = reg + res->GetRangeSize() - 1;
         allocateSpaceFound = true;
       }
 
       if (allocateSpaceFound) {
-        bool success = reservedAlloc0.Insert(res.get(), reg, end) == nullptr;
+        bool success = reservedAlloc.Insert(res.get(), reg, end) == nullptr;
         DXASSERT_NOMSG(success);
 
-        success = alloc0.Insert(res.get(), reg, end) == nullptr;
+        success = alloc.Insert(res.get(), reg, end) == nullptr;
         DXASSERT_NOMSG(success);
 
         if (res->IsUnbounded()) {
-          alloc0.SetUnbounded(res.get());
-          reservedAlloc0.SetUnbounded(res.get());
+          alloc.SetUnbounded(res.get());
+          reservedAlloc.SetUnbounded(res.get());
         }
 
         res->SetLowerBound(reg);
