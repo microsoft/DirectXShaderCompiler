@@ -6,14 +6,12 @@ struct S
 {
   int16_t i;
   // 2-byte padding here, to test offsets.
-  float f;
-  struct {} _; // 0-byte field
+  struct { float f; } s; // Nested struct, to test recursion
+  struct {} _; // 0-byte field, to test offsets
 };
 RWByteAddressBuffer buf;
 
 void main() {
-  // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 100, i32 undef, i32 42, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
-  buf.Store(100, 42); // Test with literal int to make sure it becomes a uint, not a uint64_t
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 104, i32 undef, i32 42, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
   buf.Store(104, (int)42);
   // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, {{.*}}, i32 108, i32 undef, i16 42, i16 undef, i16 undef, i16 undef, i8 1, i32 2)
@@ -26,8 +24,6 @@ void main() {
 
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 300, i32 undef, i32 42, i32 42, i32 42, i32 42, i8 15, i32 4)
   buf.Store(300, (int2x2)42);
-  // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 316, i32 undef, i32 42, i32 42, i32 42, i32 42, i8 15, i32 4)
-  buf.Store<int2x2>(316, 42); // Also test explicit template argument and conversions
   
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 400, i32 undef, i32 42, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 404, i32 undef, i32 42, i32 undef, i32 undef, i32 undef, i8 1, i32 4)

@@ -9,7 +9,9 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
@@ -49,18 +51,15 @@ char HLExpandStoreIntrinsics::ID = 0;
 bool HLExpandStoreIntrinsics::runOnFunction(Function& Func) {
   bool changed = false;
 
-  for (auto BlockIt = Func.begin(); BlockIt != Func.end(); BlockIt++) {
-    BasicBlock &Block = *BlockIt;
-    for (auto InstIt = Block.begin(); InstIt != Block.end();) {
-      CallInst *Call = dyn_cast<CallInst>(InstIt++);
-      if (Call == nullptr
-        || GetHLOpcodeGroup(Call->getCalledFunction()) != HLOpcodeGroup::HLIntrinsic
-        || static_cast<IntrinsicOp>(GetHLOpcode(Call)) != IntrinsicOp::MOP_Store) {
-        continue;
-      }
-
-      changed |= expand(Call);
+  for (auto InstIt = inst_begin(Func), InstEnd = inst_end(Func); InstIt != InstEnd;) {
+    CallInst *Call = dyn_cast<CallInst>(&*(InstIt++));
+    if (Call == nullptr
+      || GetHLOpcodeGroup(Call->getCalledFunction()) != HLOpcodeGroup::HLIntrinsic
+      || static_cast<IntrinsicOp>(GetHLOpcode(Call)) != IntrinsicOp::MOP_Store) {
+      continue;
     }
+
+    changed |= expand(Call);
   }
   return changed;
 }
@@ -75,7 +74,8 @@ bool HLExpandStoreIntrinsics::expand(CallInst* StoreCall) {
   SmallVector<Value*, 4> GEPIndicesStack;
   GEPIndicesStack.emplace_back(Builder.getInt32(0));
   emitElementStores(*StoreCall, GEPIndicesStack, OldStoreValueArgTy->getPointerElementType(), /* OffsetFromBase */ 0);
-  DXASSERT_NOMSG(StoreCall->use_empty()); // Should return void
+  DXASSERT(StoreCall->getType()->isVoidTy() && StoreCall->use_empty(),
+    "Buffer store intrinsic is expected to return void and hence not have uses.");
   StoreCall->eraseFromParent();
   return true;
 }
@@ -86,7 +86,8 @@ void HLExpandStoreIntrinsics::emitElementStores(CallInst &OriginalCall,
   llvm::Module &Module = *OriginalCall.getModule();
   IRBuilder<> Builder(&OriginalCall);
 
-  if (StructType *StructTy = dyn_cast<StructType>(StackTopTy)) {
+  StructType* StructTy = dyn_cast<StructType>(StackTopTy);
+  if (StructTy != nullptr && !HLMatrixType::isa(StructTy)) {
     const StructLayout* Layout = Module.getDataLayout().getStructLayout(StructTy);
     for (unsigned i = 0; i < StructTy->getNumElements(); ++i) {
       Type *ElemTy = StructTy->getElementType(i);

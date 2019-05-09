@@ -3314,6 +3314,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (is64 && isTyped) {
     EltTy = i32Ty;
   }
+  bool isBool = EltTy->isIntegerTy(1);
+  if (isBool) {
+    // Value will be loaded in its memory representation.
+    EltTy = i32Ty;
+    if (Ty->isVectorTy()) Ty = VectorType::get(EltTy, numComponents);
+  }
 
   Function *F = OP->GetOpFunc(opcode, EltTy);
   llvm::Constant *opArg = OP->GetU32Const((unsigned)opcode);
@@ -3408,6 +3414,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     retValNew = ScalarizeElements(Ty, Elts, Builder);
   }
+
+  if (isBool) {
+    // Convert result back to register representation.
+    retValNew = Builder.CreateICmpNE(retValNew, Constant::getNullValue(retValNew->getType()));
+  }
+
   // replace
   helper.retVal->replaceAllUsesWith(retValNew);
   // Save new ret val.
@@ -3498,6 +3510,14 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
+  if (EltTy->isIntegerTy(1)) {
+    // Since we're going to memory, convert bools to their memory representation.
+    EltTy = i32Ty;
+    if (Ty->isVectorTy()) Ty = VectorType::get(EltTy, Ty->getVectorNumElements());
+    else Ty = EltTy;
+    val = Builder.CreateZExt(val, Ty);
+  }
+
   Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64 && isTyped) {

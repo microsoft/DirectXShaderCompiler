@@ -5584,10 +5584,12 @@ bool HLSLExternalSource::MatchArguments(
           // [RW]ByteAddressBuffer.Store, default to argument type
           pNewType = Args[i - 1]->getType().getNonReferenceType();
           if (const BuiltinType *BuiltinTy = pNewType->getAs<BuiltinType>()) {
+            // For backcompat, ensure that Store(0, 42 or 42.0) matches a uint/float overload
+            // rather than a uint64_t/double one.
             if (BuiltinTy->getKind() == BuiltinType::LitInt) {
-              // For backcompat, ensure that Store(0, 42) matches a uint overload
-              // rather than a uint64_t one.
               pNewType = m_context->UnsignedIntTy;
+            } else if (BuiltinTy->getKind() == BuiltinType::LitFloat) {
+              pNewType = m_context->FloatTy;
             }
           }
         }
@@ -9064,19 +9066,17 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
       auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
-      if (ExplicitTemplateArgs->size() == 1 && !functionTemplateTypeArg.isNull() && (IsBABLoad || IsBABStore)) {
+      if (ExplicitTemplateArgs->size() >= 1 && (IsBABLoad || IsBABStore)) {
+        TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
         if (Is2018) {
-          if (hlsl::IsHLSLNumericOrAggregateOfNumericType(functionTemplateTypeArg)) {
+          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
+          if (ExplicitTemplateArgs->size() == 1
+              && !functionTemplateTypeArg.isNull()
+              && hlsl::IsHLSLNumericOrAggregateOfNumericType(functionTemplateTypeArg)) {
             isLegalTemplate = true;
             argTypes[0] = functionTemplateTypeArg;
           }
-          else {
-            TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
-          }
-        }
-        else {
-          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
         }
       }
 
