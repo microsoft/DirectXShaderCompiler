@@ -372,9 +372,9 @@ public:
       IFR(pDxbcBlob.QueryInterface(ppBlob));
     }
     else {
-      dxc.Run(m_dllSupport, nullptr);
-      IFRBOOL(dxc.RunResult == 0, E_FAIL);
-      IFR(dxc.OpResult->GetResult(ppBlob));
+      FileRunCommandResult result = dxc.Run(m_dllSupport, nullptr);
+      IFRBOOL(result.ExitCode == 0, E_FAIL);
+      IFR(result.OpResult->GetResult(ppBlob));
     }
     return S_OK;
   }

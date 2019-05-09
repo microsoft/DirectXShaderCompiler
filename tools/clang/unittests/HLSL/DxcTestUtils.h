@@ -54,34 +54,62 @@ public:
   int Run();
 };
 
+// The result of running a single command in a run pipeline
+struct FileRunCommandResult {
+  CComPtr<IDxcOperationResult> OpResult; // The operation result, if any.
+  std::string StdOut;
+  std::string StdErr;
+  int ExitCode = 0;
+  bool AbortPipeline = false; // True to prevent running subsequent commands
+
+  static inline FileRunCommandResult Success() {
+    FileRunCommandResult result;
+    result.ExitCode = 0;
+    return std::move(result);
+  }
+
+  static inline FileRunCommandResult Success(std::string StdOut) {
+    FileRunCommandResult result;
+    result.ExitCode = 0;
+    result.StdOut = std::move(StdOut);
+    return std::move(result);
+  }
+
+  static inline FileRunCommandResult Error(int ExitCode, std::string StdErr) {
+    FileRunCommandResult result;
+    result.ExitCode = ExitCode;
+    result.StdErr = std::move(StdErr);
+    return std::move(result);
+  }
+
+  static inline FileRunCommandResult Error(std::string StdErr) {
+    return Error(1, StdErr);
+  }
+};
+
 class FileRunCommandPart {
 public:
   FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName);
   FileRunCommandPart(const FileRunCommandPart&) = default;
   FileRunCommandPart(FileRunCommandPart&&) = default;
   
-  void Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
+  FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   
-  void ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts);
+  FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts);
 
   std::string Command;      // Command to run, eg %dxc
   std::string Arguments;    // Arguments to command
   LPCWSTR CommandFileName;  // File name replacement for %s
 
-  // These fields are set after an invocation to Run().
-  CComPtr<IDxcOperationResult> OpResult;  // The operation result, if any.
-  int RunResult;                          // The exit code for the operation.
-  std::string StdOut;                     // Standard output text.
-  std::string StdErr;                     // Standard error text.
-
 private:
-  void RunFileChecker(const FileRunCommandPart *Prior);
-  void RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
-  void RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
-  void RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
-  void RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior);
-  void RunTee(const FileRunCommandPart *Prior);
-  void RunXFail(const FileRunCommandPart *Prior);
+  FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
+  FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior);
 };
 
 void ParseCommandParts(LPCSTR commands, LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);

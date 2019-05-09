@@ -252,26 +252,8 @@ public:
   TEST_METHOD(DiaLoadDebugThenOK)
   TEST_METHOD(DiaTableIndexThenOK)
 
-  TEST_METHOD(CodeGenAttributeAtVertex)
-  TEST_METHOD(CodeGenAttributeAtVertexNoOpt)
-  TEST_METHOD(CodeGenBarycentrics)
-  TEST_METHOD(CodeGenBarycentrics1)
-  TEST_METHOD(CodeGenBarycentricsThreeSV)
-  TEST_METHOD(CodeGenBitCast16Bits)
-  TEST_METHOD(CodeGenCbuffer64Types)
-  TEST_METHOD(CodeGenCbufferHalf)
-  TEST_METHOD(CodeGenCbufferHalfStruct)
-  TEST_METHOD(CodeGenCbufferInt16)
-  TEST_METHOD(CodeGenCbufferInt16Struct)
-  TEST_METHOD(CodeGenDataLayoutHalf)
-  TEST_METHOD(CodeGenEnum3)
   TEST_METHOD(CodeGenFloatingPointEnvironment)
-  TEST_METHOD(CodeGenFixedWidthTypes)
-  TEST_METHOD(CodeGenFixedWidthTypes16Bit)
-  TEST_METHOD(CodeGenFunctionAttribute)
   TEST_METHOD(CodeGenInclude)
-  TEST_METHOD(CodeGenInt16Op)
-  TEST_METHOD(CodeGenInt16OpBits)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -280,26 +262,7 @@ public:
   TEST_METHOD(CodeGenLibNoAlias)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
-  TEST_METHOD(CodeGenMultiUAVLoad2)
-  TEST_METHOD(CodeGenMultiUAVLoad4)
-  TEST_METHOD(CodeGenMultiUAVLoad5)
-  TEST_METHOD(CodeGenMultiUAVLoad6)
-  TEST_METHOD(CodeGenMultiUAVLoad7)
-  TEST_METHOD(CodeGenRaw_Buf2)
-  TEST_METHOD(CodeGenRaw_Buf4)
-  TEST_METHOD(CodeGenRaw_Buf5)
-  TEST_METHOD(CodeGenSignaturePackingByWidth)
-  TEST_METHOD(CodeGenStruct_Buf2)
-  TEST_METHOD(CodeGenStruct_Buf3)
-  TEST_METHOD(CodeGenStruct_Buf4)
-  TEST_METHOD(CodeGenStruct_Buf5)
-  TEST_METHOD(CodeGenStruct_Buf6)
-  TEST_METHOD(CodeGenStruct_Buf_New_Layout)
-  TEST_METHOD(CodeGenUav_Typed_Load_Store3)
-  TEST_METHOD(CodeGenUint64_2)
 
-  TEST_METHOD(CodeGenLiterals_Exact_Precision_Mod)
-  TEST_METHOD(CodeGenTypedBufferHalf)
   TEST_METHOD(CodeGenRootSigProfile)
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile5)
@@ -308,7 +271,6 @@ public:
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   TEST_METHOD(CodeGenSamples)
-  TEST_METHOD(ViewID)
   TEST_METHOD(SubobjectCodeGenErrors)
   TEST_METHOD(DebugInfo)
   TEST_METHOD(QuickTest)
@@ -2318,71 +2280,6 @@ TEST_F(CompilerTest, DiaTableIndexThenOK) {
 }
 #endif // _WIN32 - exclude dia stuff
 
-TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"attributeAtVertex.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenAttributeAtVertexNoOpt) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"attributeAtVertexNoOpt.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenBarycentrics) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"barycentrics.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenBarycentrics1) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"barycentrics1.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenBarycentricsThreeSV) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"barycentricsThreeSV.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenBitCast16Bits) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"bitcast_16bits.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenCbuffer64Types) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"cbuffer64Types.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenCbufferHalf) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"cbufferHalf.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenCbufferHalfStruct) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"cbufferHalf-struct.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenCbufferInt16) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"cbufferInt16.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenCbufferInt16Struct) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"cbufferInt16-struct.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenDataLayoutHalf) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"dataLayoutHalf.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenEnum3) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"enum3.hlsl");
-}
-
 #ifdef _WIN32
 
 #pragma fenv_access(on)
@@ -2468,34 +2365,8 @@ TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
 
 #endif  // _WIN32
 
-
-TEST_F(CompilerTest, CodeGenFixedWidthTypes) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"fixedWidth.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenFixedWidthTypes16Bit) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"fixedWidth16Bit.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenFunctionAttribute) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"functionAttribute.hlsl");
-}
-
 TEST_F(CompilerTest, CodeGenInclude) {
   CodeGenTestCheck(L"Include.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenInt16Op) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"int16Op.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenInt16OpBits) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"int16OpBits.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
@@ -2528,101 +2399,6 @@ TEST_F(CompilerTest, CodeGenLibResource) {
 
 TEST_F(CompilerTest, CodeGenLibUnusedFunc) {
   CodeGenTestCheck(L"lib_unused_func.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"multiUAVLoad2.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"multiUAVLoad4.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"multiUAVLoad5.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"multiUAVLoad6.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenMultiUAVLoad7) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"multiUAVLoad7.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenRaw_Buf2) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"raw_buf2.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenRaw_Buf4) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"raw_buf4.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenRaw_Buf5) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"raw_buf5.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenSignaturePackingByWidth) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"signature_packing_by_width.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenStruct_Buf2) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"struct_buf2.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenStruct_Buf3) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"struct_buf3.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenStruct_Buf4) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"struct_buf4.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenStruct_Buf5) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"struct_buf5.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenStruct_Buf6) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"struct_buf6.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenStruct_Buf_New_Layout) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"struct_buf_new_layout.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenUav_Typed_Load_Store3) {
-  if (m_ver.SkipDxilVersion(1,2)) return;
-  CodeGenTestCheck(L"uav_typed_load_store3.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenUint64_2) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheck(L"uint64_2.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenLiterals_Exact_Precision_Mod) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"literals_exact_precision_Mod.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenTypedBufferHalf) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
-  CodeGenTestCheck(L"typed_buffer_half.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile) {
@@ -2767,11 +2543,6 @@ TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
   std::string failLog(VerifyOperationFailed(pResult));
   VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find(
     "Signature element SV_Position, referred to by patch constant function, is not found in corresponding hull shader output."));
-}
-
-TEST_F(CompilerTest, ViewID) {
-  if (m_ver.SkipDxilVersion(1,1)) return;
-  CodeGenTestCheckBatchDir(L"viewid");
 }
 
 TEST_F(CompilerTest, SubobjectCodeGenErrors) {
