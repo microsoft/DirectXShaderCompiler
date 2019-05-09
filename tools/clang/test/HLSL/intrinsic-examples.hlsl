@@ -62,26 +62,25 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += uav1.Load<half3x4>(24, status);                      /* expected-error {{cannot convert from 'half3x4' to 'float4'}} */
 
   // valid template argument
+  struct MyStruct {
+    float4 x;
+  };
   uav1.Store(0, r);
   uav1.Store(0, r.x);
   uav1.Store(0, (half2)r.xy);
   uav1.Store(0, (int3)r.xyz);
   uav1.Store(0, (double2)r.xy);
+  uav1.Store<float>(0, r.x);
+  uav1.Store<int64_t4>(0, r);
+  uav1.Store(0, float2x4(1,2,3,4,5,6,7,8));
+  uav1.Store<float3x2>(0, float3x2(1,2,3,4,5,6));
+  uav1.Store(0, (double3)r.xyz);
+  uav1.Store(0, (uint64_t4)r);
+  uav1.Store(0, (MyStruct)0);
   // errors
-  struct MyStruct {
-    float4 x;
-  };
-  uav1.Store<float>(0, r);                                  /* expected-error {{Explicit template arguments on intrinsic Store are not supported}} */
-  uav1.Store<int64_t4>(0, r);                               /* expected-error {{Explicit template arguments on intrinsic Store are not supported}} */
   uav1.Store2<float>(0, r.xy);                              /* expected-error {{Explicit template arguments on intrinsic Store2 are not supported}} */
   uav1.Store3<float>(0, r.xyz);                             /* expected-error {{Explicit template arguments on intrinsic Store3 are not supported}} */
   uav1.Store4<float>(0, r);                                 /* expected-error {{Explicit template arguments on intrinsic Store4 are not supported}} */
-  uav1.Store(0, float2x4(1,2,3,4,5,6,7,8));                 /* expected-error {{no matching member function for call to 'Store'}} */
-  uav1.Store<float3x2>(0, float3x2(1,2,3,4,5,6));           /* expected-error {{no matching member function for call to 'Store'}} */
-  uav1.Store(0, (double3)r.xyz);                            
-  uav1.Store(0, (uint64_t4)r);                              
-  MyStruct myStruct;
-  uav1.Store(0, myStruct);                                  /* expected-error {{no matching member function for call to 'Store'}} */
   return r;
 }
 

@@ -4014,6 +4014,7 @@ public:
   bool MatchArguments(
     const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
+    _In_ QualType functionTemplateTypeArg,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
     _Out_range_(0, g_MaxIntrinsicParamCount + 1) size_t* argCount);
@@ -4099,7 +4100,7 @@ public:
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
       QualType functionArgTypes[g_MaxIntrinsicParamCount + 1];
       size_t functionArgTypeCount = 0;
-      if (!MatchArguments(pIntrinsic, QualType(), Args, functionArgTypes, &functionArgTypeCount))
+      if (!MatchArguments(pIntrinsic, QualType(), QualType(), Args, functionArgTypes, &functionArgTypeCount))
       {
         ++cursor;
         continue;
@@ -5208,6 +5209,7 @@ _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
   const HLSL_INTRINSIC* pIntrinsic,
   QualType objectElement,
+  QualType functionTemplateTypeArg,
   ArrayRef<Expr *> Args,
   QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
   size_t* argCount)
@@ -5282,7 +5284,8 @@ bool HLSLExternalSource::MatchArguments(
     }
 
     // If we are a type and templateID requires one, this isn't a match.
-    if (pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
+    if (pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE
+      || pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
       ++iArg;
       continue;
     }
@@ -5405,7 +5408,9 @@ bool HLSLExternalSource::MatchArguments(
   DXASSERT(iterArg == end, "otherwise the argument list wasn't fully processed");
 
   // Default template and component type for return value
-  if (pIntrinsic->pArgs[0].qwUsage && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE) {
+  if (pIntrinsic->pArgs[0].qwUsage
+    && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE
+    && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION) {
     CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs);
     if (AR_TOBJ_UNKNOWN == Template[pIntrinsic->pArgs[0].uTemplateId]) {
       Template[pIntrinsic->pArgs[0].uTemplateId] =
@@ -5435,7 +5440,8 @@ bool HLSLExternalSource::MatchArguments(
     const HLSL_INTRINSIC_ARGUMENT *pArgument = &pIntrinsic->pArgs[i];
 
     // Check template.
-    if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
+    if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE
+      || pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
       continue; // Already verified that this is available.
     }
     if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
@@ -5567,7 +5573,32 @@ bool HLSLExternalSource::MatchArguments(
         }
         pNewType = objectElement;
       }
-    } else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
+    }
+    else if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
+      if (functionTemplateTypeArg.isNull()) {
+        if (i == 0) {
+          // [RW]ByteAddressBuffer.Load, default to uint
+          pNewType = m_context->UnsignedIntTy;
+        }
+        else {
+          // [RW]ByteAddressBuffer.Store, default to argument type
+          pNewType = Args[i - 1]->getType().getNonReferenceType();
+          if (const BuiltinType *BuiltinTy = pNewType->getAs<BuiltinType>()) {
+            // For backcompat, ensure that Store(0, 42 or 42.0) matches a uint/float overload
+            // rather than a uint64_t/double one.
+            if (BuiltinTy->getKind() == BuiltinType::LitInt) {
+              pNewType = m_context->UnsignedIntTy;
+            } else if (BuiltinTy->getKind() == BuiltinType::LitFloat) {
+              pNewType = m_context->FloatTy;
+            }
+          }
+        }
+      }
+      else {
+        pNewType = functionTemplateTypeArg;
+      }
+    }
+    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       if (objectElement.isNull()) {
         return false;
       }
@@ -8945,6 +8976,13 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   DXASSERT(functionParentRecord != nullptr, "otherwise function is orphaned");
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
 
+  QualType functionTemplateTypeArg {};
+  if (ExplicitTemplateArgs != nullptr && ExplicitTemplateArgs->size() == 1) {
+    const TemplateArgument &firstTemplateArg = (*ExplicitTemplateArgs)[0].getArgument();
+    if (firstTemplateArg.getKind() == TemplateArgument::ArgKind::Type)
+      functionTemplateTypeArg = firstTemplateArg.getAsType();
+  }
+
   // Handle subscript overloads.
   if (FunctionTemplate->getDeclName() == m_context->DeclarationNames.getCXXOperatorName(OO_Subscript))
   {
@@ -9005,14 +9043,14 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   while (cursor != end)
   {
-    if (!MatchArguments(*cursor, objectElement, Args, argTypes, &argCount))
+    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, argTypes, &argCount))
     {
       ++cursor;
       continue;
     }
 
     // Currently only intrinsic we allow for explicit template arguments are
-    // for Load return types for ByteAddressBuffer/RWByteAddressBuffer
+    // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
     // TODO: handle template arguments for future intrinsics in a more natural way
 
     // Check Explicit template arguments
@@ -9027,20 +9065,17 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      auto TemplateDiag =
-          !IsBABLoad
-              ? diag::err_hlsl_intrinsic_template_arg_unsupported
-              : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_numeric;
-      if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
-        const TemplateArgumentLoc& TemplateArgLoc = (*ExplicitTemplateArgs)[0];
-        Loc = TemplateArgLoc.getLocation();
-        if (TemplateArgLoc.getArgument().getKind() == TemplateArgument::ArgKind::Type) {
-          QualType explicitType = TemplateArgLoc.getArgument().getAsType();
-          ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-          if (hlsl::IsHLSLNumericOrAggregateOfNumericType(explicitType)) {
+      auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
+      if (ExplicitTemplateArgs->size() >= 1 && (IsBABLoad || IsBABStore)) {
+        TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
+        Loc = (*ExplicitTemplateArgs)[0].getLocation();
+        if (Is2018) {
+          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
+          if (ExplicitTemplateArgs->size() == 1
+              && !functionTemplateTypeArg.isNull()
+              && hlsl::IsHLSLNumericOrAggregateOfNumericType(functionTemplateTypeArg)) {
             isLegalTemplate = true;
-            argTypes[0] = explicitType;
+            argTypes[0] = functionTemplateTypeArg;
           }
         }
       }
