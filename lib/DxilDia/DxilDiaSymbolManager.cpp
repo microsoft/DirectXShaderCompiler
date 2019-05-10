@@ -371,7 +371,7 @@ class TypedefType final : public SymbolManager::SymbolFactory {
 public:
     TypedefType(DWORD ID, DWORD ParentID, llvm::DIType *Node, DWORD BaseTypeID)
         : SymbolManager::SymbolFactory(ID, ParentID),
-          m_Node(Node), m_BaseTypeID(m_BaseTypeID) {}
+          m_Node(Node), m_BaseTypeID(BaseTypeID) {}
 
     virtual HRESULT Create(Session *pSession, Symbol **ppRet) override {
         IMalloc *pMalloc = pSession->GetMallocNoRef();
