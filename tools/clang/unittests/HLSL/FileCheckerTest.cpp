@@ -218,7 +218,7 @@ static HRESULT ReAssembleTo(dxc::DxcDllSupport &DllSupport, void *bitcode, UINT3
   return S_OK;
 }
 
-static HRESULT GetBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlob, IDxcBlob **pBitcodeBlob) {
+static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlob, IDxcBlob **pBitcodeBlob) {
   CComPtr<IDxcContainerReflection> pReflection;
   CComPtr<IDxcLibrary> pLibrary;
   IFR(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
@@ -242,7 +242,7 @@ static HRESULT GetBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlo
   return S_OK;
 }
 
-static HRESULT CompileForHash(std::string &StdOut, std::string &StdErr, hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash) {
+static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash, std::string &Disasm) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -251,7 +251,6 @@ static HRESULT CompileForHash(std::string &StdOut, std::string &StdErr, hlsl::op
   CComPtr<IDxcBlob> pCompiledBlob;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
 
-  HRESULT resultStatus;
 
   std::wstring entry =
       Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
@@ -262,26 +261,14 @@ static HRESULT CompileForHash(std::string &StdOut, std::string &StdErr, hlsl::op
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
   IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  if (FAILED(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
-                          flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult)))
-  {
-    return E_FAIL;
-  }
+  IFR(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
+                          flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
 
+  HRESULT resultStatus = 0;
   IFT(pResult->GetStatus(&resultStatus));
   if (SUCCEEDED(resultStatus)) {
+
     IFT(pResult->GetResult(&pCompiledBlob));
-    std::string disasmStr;
-    if (!opts.AstDump) {
-      IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
-      disasmStr = BlobToUtf8(pDisassembly);
-    } else {
-      disasmStr = BlobToUtf8(pCompiledBlob);
-    }
-    StdOut = disasmStr;
-    CComPtr<IDxcBlobEncoding> pStdErr;
-    IFT(pResult->GetErrorBuffer(&pStdErr));
-    StdErr = BlobToUtf8(pStdErr);
 
     CComPtr<IDxcContainerReflection> pReflection;
     IFT(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
@@ -290,55 +277,17 @@ static HRESULT CompileForHash(std::string &StdOut, std::string &StdErr, hlsl::op
     if (FAILED(pReflection->Load(pCompiledBlob)))
       return E_FAIL;
 
-
-    goto skip_save;
-
-skip_save:
-
-#if 0
-    UINT32 count = 0;
-    IFT(pReflection->GetPartCount(&count));
-    for (UINT32 i = 0; i < count; i++) {
-      UINT32 Kind = 0;
-      IFT(pReflection->GetPartKind(i, &Kind));
-      (void)Kind;
-    }
-#endif
-
     CComPtr<IDxcBlob> pBitcodeBlob;
-    IFT(GetBitcode(DllSupport, pCompiledBlob, &pBitcodeBlob));
-#if 0
-    UINT32 uIndex = 0;
-    IFT(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
-    CComPtr<IDxcBlob> pPart;
-    IFT(pReflection->GetPartContent(uIndex, &pPart));
+    IFT(GetDxilBitcode(DllSupport, pCompiledBlob, &pBitcodeBlob));
 
-    void *ptr = pPart->GetBufferPointer();
-    UINT32 buffer_size = pPart->GetBufferSize();
-    (void)ptr;
-    (void)buffer_size;
-
-    auto header = (hlsl::DxilProgramHeader*)ptr;
-    void *bitcode = (char *)&header->BitcodeHeader + header->BitcodeHeader.BitcodeOffset;
-    int bitcode_size = header->BitcodeHeader.BitcodeSize;
-    (void)bitcode;
-    (void)bitcode_size;
-#endif
     CComPtr<IDxcBlob> pReassembledBlob;
     IFT(ReAssembleTo(DllSupport, pBitcodeBlob->GetBufferPointer(), pBitcodeBlob->GetBufferSize(), &pReassembledBlob));
 
-    CComPtr<IDxcBlob> pReassembledBitcodeBlob;
-    IFT(GetBitcode(DllSupport, pReassembledBlob, &pReassembledBitcodeBlob));
+    CComPtr<IDxcBlobEncoding> pDisassembly;
+    IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
+    Disasm = BlobToUtf8(pDisassembly);
 
-    {
-      CComPtr<IDxcBlobEncoding> pDisassembly;
-      IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
-      disasmStr = BlobToUtf8(pDisassembly);
-    }
-
-    //llvm::ArrayRef<uint8_t> Data((uint8_t *)pPart->GetBufferPointer(), pPart->GetBufferSize());
-    //llvm::ArrayRef<uint8_t> Data((uint8_t *)pReassembledBitcodeBlob->GetBufferPointer(), pReassembledBitcodeBlob->GetBufferSize());
-    llvm::ArrayRef<uint8_t> Data((uint8_t *)disasmStr.data(), disasmStr.size());
+    llvm::ArrayRef<uint8_t> Data((uint8_t *)Disasm.data(), Disasm.size());
     llvm::MD5 md5;
     llvm::MD5::MD5Result md5Result;
     md5.update(Data);
@@ -348,8 +297,10 @@ skip_save:
     return 0;
   }
   else {
-    IFT(pResult->GetErrorBuffer(&pDisassembly));
-    StdErr = BlobToUtf8(pDisassembly);
+    CComPtr<IDxcBlobEncoding> pErrors;
+    IFT(pResult->GetErrorBuffer(&pErrors));
+    const char *errors = (char *)pErrors->GetBufferPointer();
+    (void)errors;
     return resultStatus;
   }
 }
@@ -362,9 +313,11 @@ void FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
   std::vector<std::wstring> argWStrings;
   CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
 
+  // Create the two versions of the flags
   std::vector<LPCWSTR> normal_flags;
   std::vector<LPCWSTR> dbg_flags;
   for (const std::wstring &a : argWStrings) {
+    if (a.find(L"ast-dump") != std::wstring::npos) continue;
     if (a.find(L"Zi") == std::wstring::npos || a.find(L"Fd") == std::wstring::npos) {
       normal_flags.push_back(a.data());
     }
@@ -372,34 +325,32 @@ void FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
   }
   dbg_flags.push_back(L"/Zi");
 
-  bool stop = true;
-
-  const WCHAR *cmp_str = L"F:\\dxc\\tools\\clang\\test\\HLSL\\..\\CodeGenHLSL\\batch\\declarations\\bool_representation\\misc\\bool_stress.hlsl";
-  //const WCHAR *cmp_str = L"F:\\dxc\\tools\\clang\\test\\HLSL\\..\\CodeGenHLSL\\batch\\declarations\\resources\\nonglobal\\misc\\res_select2_x.hlsl";
-  //stop = std::wstring(CommandFileName) == L"F:\\dxc\\tools\\clang\\test\\HLSL\\..\\CodeGenHLSL\\batch\\declarations\\resources\\constant_buffers\\misc\\mat_row_dyn_cb.hlsl";
-  stop = std::wstring(CommandFileName) == cmp_str;
-  (void)stop;
-
-  if (!stop) {
-    RunResult = 0;
-    return;
-  }
-    
+  // Add the flags to strip value names and unused GV's.
+  //normal_flags.push_back(L"-Qstrip_reflect");
+  //dbg_flags.push_back(L"-Qstrip_reflect");
 
   llvm::SmallString<32> Hash0;
   llvm::SmallString<32> Hash1;
-  HRESULT succ0 = CompileForHash(StdOut, StdErr, opts, CommandFileName, DllSupport, normal_flags, Hash0);
-  HRESULT succ1 = CompileForHash(StdOut, StdErr, opts, CommandFileName, DllSupport, dbg_flags, Hash1);
+  std::string Disasm0;
+  std::string Disasm1;
 
-  // If either compilations failed, just pass this test. The original test could be
-  // failing the compilation intentionally.
-  if (FAILED(succ0) || FAILED(succ1)) {
+  HRESULT normalStatus = CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Disasm0);
+  // If the normal compilation fails, just skip this test. It's likely that this was meant to test for failures.
+  if (FAILED(normalStatus)) {
     RunResult = 0;
+    return;
+  }
+
+  HRESULT augmentedStatus = CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Disasm1);
+  if (FAILED(augmentedStatus)) {
+    RunResult = -1;
     return;
   }
 
   if (Hash0 != Hash1) {
     StdErr = "Hash does not match!!!\n";
+    StdErr += Disasm0;
+    StdErr += Disasm1;
     RunResult = -1;
   }
   else {
