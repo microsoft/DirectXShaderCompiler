@@ -3664,17 +3664,17 @@ static void warnOnSizeofOnArrayDecay(Sema &S, SourceLocation Loc, QualType T,
 // HLSL Change Begins
 bool Sema::CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
                                                 UnaryExprOrTypeTrait ExprKind) {
-  assert(ExprKind == UnaryExprOrTypeTrait::UETT_SizeOf || ExprKind == UnaryExprOrTypeTrait::UETT_AlignOf);
+  assert(ExprKind == UnaryExprOrTypeTrait::UETT_SizeOf);
 
   // "sizeof 42" is ill-defined because HLSL has literal int type which can decay to an int of any size.
   const BuiltinType* BuiltinTy = ExprType->getAs<BuiltinType>();
   if (BuiltinTy != nullptr && (BuiltinTy->getKind() == BuiltinType::LitInt || BuiltinTy->getKind() == BuiltinType::LitFloat)) {
-    Diag(Loc, diag::err_hlsl_sizeof_literal) << ExprKind << ExprType;
+    Diag(Loc, diag::err_hlsl_sizeof_literal) << ExprType;
     return true;
   }
 
   if (!hlsl::IsHLSLNumericOrAggregateOfNumericType(ExprType)) {
-    Diag(Loc, diag::err_hlsl_sizeof_nonnumeric) << ExprKind << ExprType;
+    Diag(Loc, diag::err_hlsl_sizeof_nonnumeric) << ExprType;
     return true;
   }
 
