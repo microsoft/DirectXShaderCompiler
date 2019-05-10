@@ -300,7 +300,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pResult->GetErrorBuffer(&pErrors));
     const char *errors = (char *)pErrors->GetBufferPointer();
-    (void)errors;
+    Disasm += errors;
     return resultStatus;
   }
 }
@@ -326,15 +326,39 @@ void FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
   dbg_flags.push_back(L"/Zi");
 
   // Add the flags to strip value names and unused GV's.
-  //normal_flags.push_back(L"-Qstrip_reflect");
-  //dbg_flags.push_back(L"-Qstrip_reflect");
+  normal_flags.push_back(L"-Qstrip_reflect");
+  dbg_flags.push_back(L"-Qstrip_reflect");
 
   llvm::SmallString<32> Hash0;
   llvm::SmallString<32> Hash1;
   std::string Disasm0;
   std::string Disasm1;
 
+  HRESULT vanillaStatus = 0;
+  std::string Disasm;
+  {
+    std::vector<LPCWSTR> vanilla_flags = normal_flags;
+    for (int i = 0; i < vanilla_flags.size(); i++) {
+      if (std::wstring(vanilla_flags[i]) == L"-Qstrip_reflect") {
+        vanilla_flags.erase(vanilla_flags.begin() + i);
+        break;
+      }
+    }
+    llvm::SmallString<32> Hash;
+    vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, vanilla_flags, Hash, Disasm);
+  }
+
+
   HRESULT normalStatus = CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Disasm0);
+
+  if (SUCCEEDED(vanillaStatus) && FAILED(normalStatus)) {
+    StdErr += "Adding strip_reflect failed compilation.";
+    StdErr += Disasm;
+    StdErr += Disasm0;
+    RunResult = -1;
+    return;
+  }
+
   // If the normal compilation fails, just skip this test. It's likely that this was meant to test for failures.
   if (FAILED(normalStatus)) {
     RunResult = 0;
