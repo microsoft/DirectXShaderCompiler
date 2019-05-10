@@ -507,15 +507,35 @@ struct LocalVariableSymbol : public TypedSymbol<llvm::DIVariable *> {
 };
 
 namespace symbol_factory {
+class LocalVarInfo {
+public:
+  LocalVarInfo() = default;
+  LocalVarInfo(const LocalVarInfo &) = delete;
+  LocalVarInfo(LocalVarInfo &&) = default;
+
+  DWORD GetVarID() const { return m_dwVarID; }
+  DWORD GetOffsetInUDT() const { return m_dwOffsetInUDT; }
+  DWORD GetDxilRegister() const { return m_dwDxilRegister; }
+
+  void SetVarID(DWORD dwVarID) { m_dwVarID = dwVarID; }
+  void SetOffsetInUDT(DWORD dwOffsetInUDT) { m_dwOffsetInUDT = dwOffsetInUDT; }
+  void SetDxilRegister(DWORD dwDxilReg) { m_dwDxilRegister = dwDxilReg; }
+
+private:
+  DWORD m_dwVarID = 0;
+  DWORD m_dwOffsetInUDT = 0;
+  DWORD m_dwDxilRegister = 0;
+};
+
 class LocalVariable final : public SymbolManager::SymbolFactory {
 public:
-    LocalVariable(DWORD ID, DWORD ParentID, llvm::DIVariable *Node, DWORD TypeID, llvm::DIType *Type, DWORD OffsetInUDT, DWORD DxilRegNum)
+    LocalVariable(DWORD ID, DWORD ParentID, llvm::DIVariable *Node, DWORD TypeID, llvm::DIType *Type, std::shared_ptr<LocalVarInfo> VI)
         : SymbolManager::SymbolFactory(ID, ParentID),
-          m_Node(Node), m_TypeID(TypeID), m_Type(Type), m_OffsetInUDT(OffsetInUDT), m_DxilRegNum(DxilRegNum) {}
+          m_Node(Node), m_TypeID(TypeID), m_Type(Type), m_VI(VI) {}
 
     virtual HRESULT Create(Session *pSession, Symbol **ppRet) override {
         IMalloc *pMalloc = pSession->GetMallocNoRef();
-        IFR(LocalVariableSymbol::Create(pMalloc, pSession, m_ID, m_Node, m_TypeID, m_Type, m_OffsetInUDT, m_DxilRegNum, ppRet));
+        IFR(LocalVariableSymbol::Create(pMalloc, pSession, m_ID, m_Node, m_TypeID, m_Type, m_VI->GetOffsetInUDT(), m_VI->GetDxilRegister(), ppRet));
         (*ppRet)->SetLexicalParent(m_ParentID);
         (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str()));
         (*ppRet)->SetDataKind(m_Node->getTag() == llvm::dwarf::DW_TAG_arg_variable ? DataIsParam : DataIsLocal);
@@ -526,8 +546,7 @@ private:
     llvm::DIVariable *m_Node;
     DWORD m_TypeID;
     llvm::DIType *m_Type;
-    DWORD m_OffsetInUDT;
-    DWORD m_DxilRegNum;
+    std::shared_ptr<LocalVarInfo> m_VI;
 };
 }  // namespace symbol_factory
 
@@ -593,34 +612,16 @@ public:
   };
   using TypeToInfoMap = llvm::DenseMap<llvm::DIType *, TypeInfo>;
 
-  class VarInfo {
-  public:
-    VarInfo() = default;
-    VarInfo(const VarInfo &) = delete;
-    VarInfo(VarInfo &&) = default;
-
-    DWORD GetVarID() const { return m_dwVarID; }
-    DWORD GetOffsetInUDT() const { return m_dwOffsetInUDT; }
-    DWORD GetDxilRegister() const { return m_dwDxilRegister; }
-
-    void SetVarID(DWORD dwVarID) { m_dwVarID = dwVarID; }
-    void SetOffsetInUDT(DWORD dwOffsetInUDT) { m_dwOffsetInUDT = dwOffsetInUDT; }
-    void SetDxilRegister(DWORD dwDxilReg) { m_dwDxilRegister = dwDxilReg; }
-
-  private:
-    DWORD m_dwVarID = 0;
-    DWORD m_dwOffsetInUDT = 0;
-    DWORD m_dwDxilRegister = 0;
-  };
-
-  // Because of the way the VarToID map is constructed, the vector<VarInfo>
-  // may need to grow. The Symbol Constructor for local variable captures
-  // the VarInfo for the local variable it creates, and it needs access to
-  // the information on this map (thus a by-value capture is not enough).
-  // We heap-allocate the VarInfos, and the local variables symbol
+  // Because of the way the VarToID map is constructed, the
+  // vector<LocalVarInfo> may need to grow. The Symbol Constructor for local
+  // variable captures the LocalVarInfo for the local variable it creates, and
+  // it needs access to the information on this map (thus a by-value capture is
+  // not enough). We heap-allocate the VarInfos, and the local variables symbol
   // constructors capture the pointer - meaning everything should be fine
   // even if the vector is moved around.
-  using LocalVarToIDMap = llvm::DenseMap<llvm::DILocalVariable *, std::vector<std::shared_ptr<VarInfo>>>;
+  using LocalVarToIDMap = llvm::DenseMap<
+      llvm::DILocalVariable *,
+      std::vector<std::shared_ptr<symbol_factory::LocalVarInfo>>>;
 
   using UDTFieldToIDMap = llvm::DenseMap<llvm::DIDerivedType *, DWORD>;
 
@@ -1675,9 +1676,9 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLocalVariable(DWORD dwP
     IFR(GetTypeInfo(Ty, &TI));
     const DWORD dwTypeID = TI->GetTypeID();
     DWORD dwNewLVID;
-    newVars.emplace_back(std::make_shared<VarInfo>());
-    std::shared_ptr<VarInfo> VI = newVars.back();
-    IFR(AddSymbol<symbol_factory::LocalVariable>(dwParentID, &dwNewLVID, LV, dwLVTypeID, LVTy, VI->GetOffsetInUDT(), VI->GetDxilRegister()));
+    newVars.emplace_back(std::make_shared<symbol_factory::LocalVarInfo>());
+    std::shared_ptr<symbol_factory::LocalVarInfo> VI = newVars.back();
+    IFR(AddSymbol<symbol_factory::LocalVariable>(dwParentID, &dwNewLVID, LV, dwLVTypeID, LVTy, VI));
     VI->SetVarID(dwNewLVID);
     VI->SetOffsetInUDT(dwOffsetInUDT);
 
