@@ -42,7 +42,18 @@ public:
     unsigned Length;
   };
 
-  using CreateSymbolFn = std::function<HRESULT(Session *pSession, Symbol **)>;
+  class SymbolFactory {
+  protected:
+      SymbolFactory(DWORD ID, DWORD ParentID);
+
+      DWORD m_ID;
+      DWORD m_ParentID;
+
+  public:
+      virtual ~SymbolFactory();
+      virtual HRESULT Create(Session *pSession, Symbol **) = 0;
+  };
+
   using ScopeToIDMap = llvm::DenseMap<llvm::DIScope *, DWORD>;
   using IDToLiveRangeMap = std::unordered_map<DWORD, LiveRange>;
   using ParentToChildrenMap = std::unordered_multimap<DWORD, DWORD>;
@@ -66,8 +77,8 @@ private:
   // Not a CComPtr, and not AddRef'd - m_pSession is the owner of this.
   Session *m_pSession = nullptr;
 
-  // Vector of all symbols in the DXIL module.
-  std::vector<CreateSymbolFn> m_symbolCtors;
+  // Vector of factories for all symbols in the DXIL module.
+  std::vector<std::unique_ptr<SymbolFactory>> m_symbolCtors;
 
   // Mapping from scope to its ID.
   ScopeToIDMap m_scopeToID;
