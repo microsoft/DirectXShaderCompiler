@@ -7506,6 +7506,10 @@ def err_hlsl_requires_non_aggregate : Error<
   "scalar, vector, or matrix expected">;
 def err_hlsl_require_numeric_base_for_ctor : Error<
   "constructors only defined for numeric base types">;
+def err_hlsl_sizeof_literal : Error<
+  "invalid application of 'sizeof' to literal type %0">;
+def err_hlsl_sizeof_nonnumeric : Error<
+  "invalid application of 'sizeof' to non-numeric type %0">;
 def err_hlsl_typecheck_duplicate_matrix_components_not_mlvalue : Error< // Patterned after err_typecheck_duplicate_matrix_components_not_mlvalue
   "matrix is not assignable (contains duplicate components)">;
 def err_hlsl_typecheck_subscript_value : Error< // Patterned after err_typecheck_subscript_value

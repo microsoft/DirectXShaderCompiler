@@ -64,6 +64,7 @@ public:
   TEST_METHOD(RunScalarOperatorsAssignExactPrecision)
   TEST_METHOD(RunScalarOperators)
   TEST_METHOD(RunScalarOperatorsExactPrecision)
+  TEST_METHOD(RunSizeof)
   TEST_METHOD(RunString)
   TEST_METHOD(RunStructAssignments)
   TEST_METHOD(RunSubobjects)
@@ -258,6 +259,10 @@ TEST_F(VerifierTest, RunScalarOperators) {
 
 TEST_F(VerifierTest, RunScalarOperatorsExactPrecision) {
   CheckVerifiesHLSL(L"scalar-operators-exact-precision.hlsl");
+}
+
+TEST_F(VerifierTest, RunSizeof) {
+  CheckVerifiesHLSL(L"sizeof.hlsl");
 }
 
 TEST_F(VerifierTest, RunString) {
