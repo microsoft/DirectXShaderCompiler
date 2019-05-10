@@ -100,7 +100,10 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   } else if (type->isArrayType()) {
     return IsHLSLNumericOrAggregateOfNumericType(QualType(type->getArrayElementTypeNoTypeQual(), 0));
   }
-  return Ty->isBuiltinType();
+
+  // Chars can only appear as part of strings, which we don't consider numeric.
+  const BuiltinType* BuiltinTy = dyn_cast<BuiltinType>(Ty);
+  return BuiltinTy != nullptr && BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
 }
 
 bool IsHLSLNumericUserDefinedType(clang::QualType type) {

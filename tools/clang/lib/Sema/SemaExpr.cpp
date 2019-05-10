@@ -3661,6 +3661,27 @@ static void warnOnSizeofOnArrayDecay(Sema &S, SourceLocation Loc, QualType T,
                                              << ICE->getSubExpr()->getType();
 }
 
+// HLSL Change Begins
+bool Sema::CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
+                                                UnaryExprOrTypeTrait ExprKind) {
+  assert(ExprKind == UnaryExprOrTypeTrait::UETT_SizeOf || ExprKind == UnaryExprOrTypeTrait::UETT_AlignOf);
+
+  // "sizeof 42" is ill-defined because HLSL has literal int type which can decay to an int of any size.
+  const BuiltinType* BuiltinTy = ExprType->getAs<BuiltinType>();
+  if (BuiltinTy != nullptr && (BuiltinTy->getKind() == BuiltinType::LitInt || BuiltinTy->getKind() == BuiltinType::LitFloat)) {
+    Diag(Loc, diag::err_hlsl_sizeof_literal) << ExprKind << ExprType;
+    return true;
+  }
+
+  if (!hlsl::IsHLSLNumericOrAggregateOfNumericType(ExprType)) {
+    Diag(Loc, diag::err_hlsl_sizeof_nonnumeric) << ExprKind << ExprType;
+    return true;
+  }
+
+  return false;
+}
+// HLSL Change Ends
+
 /// \brief Check the constraints on expression operands to unary type expression
 /// and type traits.
 ///
@@ -3701,6 +3722,10 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(Expr *E,
   // Completing the expression's type may have changed it.
   ExprTy = E->getType();
   assert(!ExprTy->isReferenceType());
+
+  if (getLangOpts().HLSL && CheckHLSLUnaryExprOrTypeTraitOperand(ExprTy, E->getExprLoc(), ExprKind)) {
+    return true;
+  }
 
   if (ExprTy->isFunctionType()) {
     Diag(E->getExprLoc(), diag::err_sizeof_alignof_function_type)
@@ -3776,6 +3801,10 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
   if (const ReferenceType *Ref = ExprType->getAs<ReferenceType>())
     ExprType = Ref->getPointeeType();
 
+  if (getLangOpts().HLSL && CheckHLSLUnaryExprOrTypeTraitOperand(ExprType, OpLoc, ExprKind)) {
+    return true;
+  }
+
   // C11 6.5.3.4/3, C++11 [expr.alignof]p3:
   //   When alignof or _Alignof is applied to an array type, the result
   //   is the alignment of the element type.
@@ -3804,13 +3833,6 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
   if (CheckObjCTraitOperandConstraints(*this, ExprType, OpLoc, ExprRange,
                                        ExprKind))
     return true;
-
-
-  if (getLangOpts().HLSL) {
-    if (!hlsl::IsHLSLNumericOrAggregateOfNumericType(ExprType)) {
-      Diag(OpLoc, diag::err_hlsl_sizeof_arg_nonnumeric);
-    }
-  }
 
   return false;
 }
