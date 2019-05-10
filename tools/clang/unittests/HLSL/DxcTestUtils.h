@@ -94,7 +94,7 @@ public:
   FileRunCommandPart(FileRunCommandPart&&) = default;
   
   FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  void RunHashTests(dxc::DxcDllSupport &DllSupport);
+  FileRunCommandResult RunHashTests(dxc::DxcDllSupport &DllSupport);
   
   FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts);
 
@@ -111,7 +111,7 @@ private:
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior);
-  void RunDxcHashTest(dxc::DxcDllSupport &DllSupport);
+  FileRunCommandResult RunDxcHashTest(dxc::DxcDllSupport &DllSupport);
 };
 
 void ParseCommandParts(LPCSTR commands, LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);

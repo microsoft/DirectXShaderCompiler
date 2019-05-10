@@ -83,12 +83,12 @@ static std::vector<std::string> strtok(const std::string &value, const char *del
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
 
-void FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSupport) {
+FileRunCommandResult FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSupport) {
   if (0 == _stricmp(Command.c_str(), "%dxc")) {
-    RunDxcHashTest(DllSupport);
+    return RunDxcHashTest(DllSupport);
   }
   else {
-    RunResult = 0;
+    return FileRunCommandResult::Success();
   }
 }
 
@@ -305,7 +305,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   }
 }
 
-void FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
+FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
   ReadOptsForDxc(args, opts);
@@ -348,38 +348,34 @@ void FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
     vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, vanilla_flags, Hash, Disasm);
   }
 
-
   HRESULT normalStatus = CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Disasm0);
 
+  std::string StdErr;
   if (SUCCEEDED(vanillaStatus) && FAILED(normalStatus)) {
     StdErr += "Adding strip_reflect failed compilation.";
     StdErr += Disasm;
     StdErr += Disasm0;
-    RunResult = -1;
-    return;
+    return FileRunCommandResult::Error(StdErr);
   }
 
   // If the normal compilation fails, just skip this test. It's likely that this was meant to test for failures.
   if (FAILED(normalStatus)) {
-    RunResult = 0;
-    return;
+    return FileRunCommandResult::Success();
   }
 
   HRESULT augmentedStatus = CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Disasm1);
   if (FAILED(augmentedStatus)) {
-    RunResult = -1;
-    return;
+    return FileRunCommandResult::Error("");
   }
 
   if (Hash0 != Hash1) {
     StdErr = "Hash does not match!!!\n";
     StdErr += Disasm0;
     StdErr += Disasm1;
-    RunResult = -1;
+    return FileRunCommandResult::Error(StdErr);
   }
-  else {
-    RunResult = 0;
-  }
+
+  return FileRunCommandResult::Success();
 }
 
 FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
@@ -697,15 +693,16 @@ class FileRunTestResultImpl : public FileRunTestResult {
   void RunHashTestFromCommands(LPCSTR commands, LPCWSTR fileName) {
     std::vector<FileRunCommandPart> parts;
     ParseCommandParts(commands, fileName, parts);
-    FileRunCommandPart *prior = nullptr;
+    FileRunCommandResult result;
+    bool ran = false;
     for (FileRunCommandPart & part : parts) {
-      part.RunHashTests(m_support);
-      prior = &part;
+      result = part.RunHashTests(m_support);
+      ran = true;
       break;
     }
-    if (prior != nullptr) {
-      this->RunResult = prior->RunResult;
-      this->ErrorMessage = prior->StdErr;
+    if (ran) {
+      this->RunResult = result.ExitCode;
+      this->ErrorMessage = result.StdErr;
     }
     else {
       this->RunResult = 0;
