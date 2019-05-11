@@ -971,7 +971,6 @@ using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
 private:
-  const DxilModule &m_Module;
   SmallVector<char, 1024> m_RDATBuffer;
 
   std::vector<std::unique_ptr<RDATPart>> m_Parts;
@@ -1070,21 +1069,21 @@ private:
     m_pResourceTable->Insert(info);
   }
 
-  void UpdateResourceInfo() {
+  void UpdateResourceInfo(const DxilModule &DM) {
     // Try to allocate string table for resources. String table is a sequence
     // of strings delimited by \0
     uint32_t resourceIndex = 0;
-    for (auto &resource : m_Module.GetCBuffers()) {
+    for (auto &resource : DM.GetCBuffers()) {
       InsertToResourceTable(*resource.get(), ResourceClass::CBuffer, resourceIndex);
 
     }
-    for (auto &resource : m_Module.GetSamplers()) {
+    for (auto &resource : DM.GetSamplers()) {
       InsertToResourceTable(*resource.get(), ResourceClass::Sampler, resourceIndex);
     }
-    for (auto &resource : m_Module.GetSRVs()) {
+    for (auto &resource : DM.GetSRVs()) {
       InsertToResourceTable(*resource.get(), ResourceClass::SRV, resourceIndex);
     }
-    for (auto &resource : m_Module.GetUAVs()) {
+    for (auto &resource : DM.GetUAVs()) {
       InsertToResourceTable(*resource.get(), ResourceClass::UAV, resourceIndex);
     }
   }
@@ -1102,8 +1101,8 @@ private:
     }
   }
 
-  void UpdateFunctionInfo() {
-    for (auto &function : m_Module.GetModule()->getFunctionList()) {
+  void UpdateFunctionInfo(const DxilModule &DM) {
+    for (auto &function : DM.GetModule()->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic()) {
         if (OP::IsDxilOpFunc(&function)) {
           // update min shader model and shader stage mask per function
@@ -1114,7 +1113,7 @@ private:
         }
       }
     }
-    for (auto &function : m_Module.GetModule()->getFunctionList()) {
+    for (auto &function : DM.GetModule()->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
         StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
@@ -1135,8 +1134,8 @@ private:
           functionDependencies =
               m_pIndexArraysPart->AddIndex(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
-        if (m_Module.HasDxilFunctionProps(&function)) {
-          auto props = m_Module.GetDxilFunctionProps(&function);
+        if (DM.HasDxilFunctionProps(&function)) {
+          auto props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
             payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
             attrSizeInBytes = props.ShaderProps.Ray.attributeSizeInBytes;
@@ -1149,7 +1148,7 @@ private:
           }
           shaderKind = (uint32_t)props.shaderKind;
         }
-        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &m_Module);
+        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
         RuntimeDataFunctionInfo info = {};
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
@@ -1193,10 +1192,10 @@ private:
     }
   }
 
-  void UpdateSubobjectInfo() {
-    if (!m_Module.GetSubobjects())
+  void UpdateSubobjectInfo(const DxilModule &DM) {
+    if (!DM.GetSubobjects())
       return;
-    for (auto &it : m_Module.GetSubobjects()->GetSubobjects()) {
+    for (auto &it : DM.GetSubobjects()->GetSubobjects()) {
       auto &obj = *it.second;
       RuntimeDataSubobjectInfo info = {};
       info.Name = m_pStringBufferPart->Insert(obj.GetName());
@@ -1280,11 +1279,11 @@ private:
 
 public:
   DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
-      : m_Module(module), m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
+      : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     CreateParts();
-    UpdateResourceInfo();
-    UpdateFunctionInfo();
-    UpdateSubobjectInfo();
+    UpdateResourceInfo(module);
+    UpdateFunctionInfo(module);
+    UpdateSubobjectInfo(module);
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();
@@ -1531,6 +1530,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
+  bool bModuleStripped = false;
+
+  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
+    pModule->StripReflection();
+    bModuleStripped = true;
+  }
+
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
@@ -1540,6 +1546,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
     bMetadataStripped |= pModule->StripSubobjectsFromMetadata();
+    pModule->ResetSubobjects(nullptr);
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
     pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
@@ -1566,7 +1573,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
-  bool bModuleStripped = false;
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   if (bHasDebugInfo) {
     uint32_t debugInUInt32, debugPaddingBytes;
@@ -1584,11 +1590,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     // If no debug info, clear DebugNameDependOnSource
     // (it's default, and this scenario can happen)
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
-  }
-
-  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
-    pModule->StripReflection();
-    bModuleStripped = true;
   }
 
   // If debug info or reflection was stripped, re-serialize the module.
