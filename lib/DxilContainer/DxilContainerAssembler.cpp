@@ -1530,11 +1530,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
-  bool bModuleStripped = false;
 
   if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
     pModule->StripReflection();
-    bModuleStripped = true;
+    bMetadataStripped = true;
   }
 
   if (pModule->GetShaderModel()->IsLib()) {
@@ -1571,6 +1570,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
+  bool bModuleStripped = false;
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
