@@ -267,6 +267,7 @@ public:
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile5)
   TEST_METHOD(PreprocessWhenValidThenOK)
+  TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
@@ -2416,6 +2417,82 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
 
 TEST_F(CompilerTest, CodeGenSamples){
   CodeGenTestCheckBatchDir(L"Samples");
+}
+
+TEST_F(CompilerTest, LibGVStore) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcContainerReflection> pReflection;
+  CComPtr<IDxcAssembler> pAssembler;
+
+  VERIFY_SUCCEEDED(this->m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(this->m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    R"(
+      struct T {
+      RWByteAddressBuffer outputBuffer;
+      RWByteAddressBuffer outputBuffer2;
+      };
+
+      struct D {
+        float4 a;
+        int4 b;
+      };
+
+      struct T2 {
+         RWStructuredBuffer<D> uav;
+      };
+
+      T2 resStruct(T t, uint2 id);
+
+      RWByteAddressBuffer outputBuffer;
+      RWByteAddressBuffer outputBuffer2;
+
+      [numthreads(8, 8, 1)]
+      void main( uint2 id : SV_DispatchThreadID )
+      {
+          T t = {outputBuffer,outputBuffer2};
+          T2 t2 = resStruct(t, id);
+          uint counter = t2.uav.IncrementCounter();
+          t2.uav[counter].b.xy = id;
+      }
+    )", &pSource);
+
+  const WCHAR *pArgs[] = {
+    L"/Zi",
+  };
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"file.hlsl", L"", L"lib_6_x",
+                                         pArgs, _countof(pArgs), nullptr, 0, nullptr,
+                                         &pResult));
+
+  CComPtr<IDxcBlob> pShader;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pShader));
+  VERIFY_SUCCEEDED(pReflection->Load(pShader));
+
+  UINT32 index = 0;
+  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &index));
+
+  CComPtr<IDxcBlob> pBitcode;
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &pBitcode));
+
+  const char *bitcode = hlsl::GetDxilBitcodeData((hlsl::DxilProgramHeader *)pBitcode->GetBufferPointer());
+  unsigned bitcode_size = hlsl::GetDxilBitcodeSize((hlsl::DxilProgramHeader *)pBitcode->GetBufferPointer());
+
+  CComPtr<IDxcBlobEncoding> pBitcodeBlob;
+  CreateBlobPinned(bitcode, bitcode_size, CP_UTF8, &pBitcodeBlob);
+
+  CComPtr<IDxcBlob> pReassembled;
+  CComPtr<IDxcOperationResult> pReassembleResult;
+  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pBitcodeBlob, &pReassembleResult));
+  VERIFY_SUCCEEDED(pReassembleResult->GetResult(&pReassembled));
+
+  CComPtr<IDxcBlobEncoding> pTextBlob;
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pReassembled, &pTextBlob));
+
+  std::string Text = (const char *)pTextBlob->GetBufferPointer();
+  VERIFY_ARE_NOT_EQUAL(std::string::npos, Text.find("store"));
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
