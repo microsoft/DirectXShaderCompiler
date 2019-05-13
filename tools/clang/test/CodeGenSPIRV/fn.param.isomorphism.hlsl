@@ -1,3 +1,5 @@
+// Run: %dxc -T ps_6_0 -E main
+
 struct R {
   int a;
   void incr() { ++a; }

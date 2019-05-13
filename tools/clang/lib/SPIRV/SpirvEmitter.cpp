@@ -486,7 +486,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                    spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
-      relaxLogicalPointerForFunctionParam(false), mainSourceFile(nullptr) {
+      beforeHlslLegalization(false), mainSourceFile(nullptr) {
 
   // Get ShaderModel from command line hlsl profile option.
   const hlsl::ShaderModel *shaderModel =
@@ -671,7 +671,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (!spirvOptions.disableValidation) {
     std::string messages;
     if (!spirvToolsValidate(targetEnv, spirvOptions,
-                            relaxLogicalPointerForFunctionParam ||
+                            beforeHlslLegalization ||
                                 declIdMapper.requiresLegalization(),
                             &m, &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
@@ -2070,7 +2070,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         // scope. If we pass a non-function scope argument, we need
         // the legalization.
         if (objInstr->getStorageClass() != spv::StorageClass::Function)
-          relaxLogicalPointerForFunctionParam = true;
+          beforeHlslLegalization = true;
 
         args.push_back(objInstr);
       }
@@ -2113,7 +2113,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // to function. If we pass an argument that is not function scope
       // or not memory object declaration, we need the legalization.
       if (!argInfo || argInfo->getStorageClass() != spv::StorageClass::Function)
-        relaxLogicalPointerForFunctionParam = true;
+        beforeHlslLegalization = true;
 
       isTempVar.push_back(false);
       args.push_back(argInst);
@@ -2166,7 +2166,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     }
   }
 
-  if (relaxLogicalPointerForFunctionParam)
+  if (beforeHlslLegalization)
     needsLegalization = true;
 
   assert(vars.size() == isTempVar.size());

@@ -35,10 +35,12 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 }
 
 bool validateSpirvBinary(spv_target_env env, std::vector<uint32_t> &binary,
-                         bool relaxLogicalPointer, bool glLayout, bool dxLayout,
-                         bool scalarLayout, std::string *message) {
+                         bool relaxLogicalPointer, bool beforeHlslLegalization,
+                         bool glLayout, bool dxLayout, bool scalarLayout,
+                         std::string *message) {
   spvtools::ValidatorOptions options;
   options.SetRelaxLogicalPointer(relaxLogicalPointer);
+  options.SetBeforeHlslLegalization(beforeHlslLegalization);
   if (dxLayout || scalarLayout) {
     options.SetSkipBlockLayout(true);
   } else if (glLayout) {
