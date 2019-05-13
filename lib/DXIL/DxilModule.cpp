@@ -1498,67 +1498,7 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-void DxilModule::RemoveGlobalResourcesUsers() {
-  // Remove all users of global resources.
-  //
-  // Only do this when shader is not a library. This making the assumption that
-  // there would be no variables of resources, but it's not true for library
-  // shaders.
-  if (GetShaderModel()->IsLib())
-    return;
-
-  for (GlobalVariable &GV : m_pModule->globals()) {
-    if (GV.hasInternalLinkage())
-      continue;
-    if (GV.getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace)
-      continue;
-    for (auto git = GV.user_begin(); git != GV.user_end();) {
-      User *U = *(git++);
-      // Try to remove load of GV.
-      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-        for (auto it = LI->user_begin(); it != LI->user_end();) {
-          Instruction *LIUser = cast<Instruction>(*(it++));
-          if (StoreInst *SI = dyn_cast<StoreInst>(LIUser)) {
-            Value *Ptr = SI->getPointerOperand();
-            SI->eraseFromParent();
-            if (Instruction *PtrInst = dyn_cast<Instruction>(Ptr)) {
-              if (Ptr->user_empty())
-                PtrInst->eraseFromParent();
-            }
-          }
-        }
-        if (LI->user_empty())
-          LI->eraseFromParent();
-      } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-        for (auto GEPIt = GEP->user_begin(); GEPIt != GEP->user_end();) {
-          User *GEPU = *(GEPIt++);
-          // Try to remove load of GEP.
-          if (LoadInst *LI = dyn_cast<LoadInst>(GEPU)) {
-            for (auto it = LI->user_begin(); it != LI->user_end();) {
-              Instruction *LIUser = cast<Instruction>(*(it++));
-              if (StoreInst *SI = dyn_cast<StoreInst>(LIUser)) {
-                Value *Ptr = SI->getPointerOperand();
-                SI->eraseFromParent();
-                if (Instruction *PtrInst = dyn_cast<Instruction>(Ptr)) {
-                  if (Ptr->user_empty())
-                    PtrInst->eraseFromParent();
-                }
-              }
-              if (LI->user_empty())
-                LI->eraseFromParent();
-            }
-          }
-        }
-        if (GEP->user_empty())
-          GEP->eraseFromParent();
-      }
-    }
-  }
-}
-
 void DxilModule::StripDebugRelatedCode() {
-  RemoveGlobalResourcesUsers();
-
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
