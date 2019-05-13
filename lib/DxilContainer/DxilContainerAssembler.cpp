@@ -1531,11 +1531,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   bool bMetadataStripped = false;
 
-  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
-    pModule->StripReflection();
-    bMetadataStripped = true;
-  }
-
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
@@ -1590,6 +1585,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     // If no debug info, clear DebugNameDependOnSource
     // (it's default, and this scenario can happen)
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
+  }
+
+  if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
+    pModule->StripReflection();
+    bModuleStripped = true;
   }
 
   // If debug info or reflection was stripped, re-serialize the module.
