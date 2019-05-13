@@ -1530,7 +1530,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DXASSERT_NOMSG(pModule->GetSerializedRootSignature().empty());
 
   bool bMetadataStripped = false;
-
   if (pModule->GetShaderModel()->IsLib()) {
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
