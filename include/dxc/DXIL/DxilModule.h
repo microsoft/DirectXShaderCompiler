@@ -342,6 +342,7 @@ private:
   // Helpers.
   template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
   void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig, bool bInput);
+  void RemoveGlobalResourcesUsers();
 
   // properties from HLModule preserved as ShaderFlags
   bool m_bDisableOptimizations;

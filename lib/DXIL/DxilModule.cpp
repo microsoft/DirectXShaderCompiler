@@ -1498,8 +1498,15 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-void DxilModule::StripDebugRelatedCode() {
+void DxilModule::RemoveGlobalResourcesUsers() {
   // Remove all users of global resources.
+  //
+  // Only do this when shader is not a library. This making the assumption that
+  // there would be no variables of resources, but it's not true for library
+  // shaders.
+  if (GetShaderModel()->IsLib())
+    return;
+
   for (GlobalVariable &GV : m_pModule->globals()) {
     if (GV.hasInternalLinkage())
       continue;
@@ -1547,6 +1554,11 @@ void DxilModule::StripDebugRelatedCode() {
       }
     }
   }
+}
+
+void DxilModule::StripDebugRelatedCode() {
+  RemoveGlobalResourcesUsers();
+
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
