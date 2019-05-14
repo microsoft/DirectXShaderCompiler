@@ -242,7 +242,7 @@ static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompile
   return S_OK;
 }
 
-static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash, std::string &Disasm) {
+static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash, std::string &output) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -250,7 +250,6 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   CComPtr<IDxcBlobEncoding> pDisassembly;
   CComPtr<IDxcBlob> pCompiledBlob;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
-
 
   std::wstring entry =
       Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
@@ -285,9 +284,10 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
 
     CComPtr<IDxcBlobEncoding> pDisassembly;
     IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
-    Disasm = BlobToUtf8(pDisassembly);
+    output = BlobToUtf8(pDisassembly);
 
-    llvm::ArrayRef<uint8_t> Data((uint8_t *)Disasm.data(), Disasm.size());
+    // For now, just has the disassembly. Once we fix the bitcode differences, we'll switch to that.
+    llvm::ArrayRef<uint8_t> Data((uint8_t *)pDisassembly->GetBufferPointer(), pDisassembly->GetBufferSize());
     llvm::MD5 md5;
     llvm::MD5::MD5Result md5Result;
     md5.update(Data);
@@ -300,7 +300,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pResult->GetErrorBuffer(&pErrors));
     const char *errors = (char *)pErrors->GetBufferPointer();
-    Disasm += errors;
+    output = errors;
     return resultStatus;
   }
 }
@@ -313,7 +313,7 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   std::vector<std::wstring> argWStrings;
   CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
 
-  // Create the two versions of the flags
+  // Extract the vanilla flags for the test (i.e. no debug or ast-dump)
   std::vector<LPCWSTR> original_flags;
   for (const std::wstring &a : argWStrings) {
     if (a.find(L"ast-dump") != std::wstring::npos) continue;
@@ -321,46 +321,42 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
     original_flags.push_back(a.data());
   }
 
-  std::vector<LPCWSTR> normal_flags = original_flags;
-  normal_flags.push_back(L"-Qstrip_reflect");
-  std::vector<LPCWSTR> dbg_flags = original_flags;
-  dbg_flags.push_back(L"/Zi");
-  dbg_flags.push_back(L"-Qstrip_reflect");
-
-  llvm::SmallString<32> Hash0;
-  llvm::SmallString<32> Hash1;
-  std::string Disasm0;
-  std::string Disasm1;
-
-  HRESULT vanillaStatus = 0;
-  std::string vanillaDisasm;
-  {
-    std::vector<LPCWSTR> flags = original_flags;
-    llvm::SmallString<32> Hash;
-    vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, flags, Hash, vanillaDisasm);
-  }
-  if (FAILED(vanillaStatus))
+  std::string originalOutput;
+  llvm::SmallString<32> originalHash;
+  // If failed the original compilation, just pass the test. The original test was likely
+  // testing for failure.
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, original_flags, originalHash, originalOutput)))
     return FileRunCommandResult::Success();
 
-  HRESULT normalStatus = CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Disasm0);
+  // Results of our compilations
+  llvm::SmallString<32> Hash1;
+  std::string Output0;
+  llvm::SmallString<32> Hash0;
+  std::string Output1;
 
+  // Fail if -Qstrip_reflect failed the compilation
+  std::vector<LPCWSTR> normal_flags = original_flags;
+  normal_flags.push_back(L"-Qstrip_reflect");
   std::string StdErr;
-  if (FAILED(normalStatus)) {
-    StdErr += "Adding strip_reflect failed compilation.";
-    StdErr += vanillaDisasm;
-    StdErr += Disasm0;
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Output0))) {
+    StdErr += "Adding Qstrip_reflect failed compilation.";
+    StdErr += originalOutput;
+    StdErr += Output0;
     return FileRunCommandResult::Error(StdErr);
   }
 
-  HRESULT augmentedStatus = CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Disasm1);
-  if (FAILED(augmentedStatus)) {
-    return FileRunCommandResult::Error("");
+  // Fail if -Qstrip_reflect failed the compilation
+  std::vector<LPCWSTR> dbg_flags = original_flags;
+  dbg_flags.push_back(L"/Zi");
+  dbg_flags.push_back(L"-Qstrip_reflect");
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Output1))) {
+    return FileRunCommandResult::Error("Adding Qstrip_reflect and Zi failed compilation.");
   }
 
   if (Hash0 != Hash1) {
-    StdErr = "Hash does not match!!!\n";
-    StdErr += Disasm0;
-    StdErr += Disasm1;
+    StdErr = "Hashes do not match between normal and debug!!!\n";
+    StdErr += Output0;
+    StdErr += Output1;
     return FileRunCommandResult::Error(StdErr);
   }
 
