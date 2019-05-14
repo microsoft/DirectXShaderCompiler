@@ -396,11 +396,8 @@ set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 
 include(HandleLLVMOptions)
 
-# Verify that we can find a Python 3 interpreter.
+# Verify that we can find a Python 3 interpreter and force cmake to use it.
 find_package(PythonInterp 3 REQUIRED)
-if( ${PYTHON_VERSION_STRING} VERSION_LESS 3.0 )
-  message(FATAL_ERROR "Python 3.0 or newer is required")
-endif()
 
 ######
 # LLVMBuild Integration
