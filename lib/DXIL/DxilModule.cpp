@@ -1434,10 +1434,12 @@ void DxilModule::StripReflection() {
 
 
   // Resource
-  StripResourcesReflection(m_CBuffers);
-  StripResourcesReflection(m_UAVs);
-  StripResourcesReflection(m_SRVs);
-  StripResourcesReflection(m_Samplers);
+  if (!GetShaderModel()->IsLib()) {
+    StripResourcesReflection(m_CBuffers);
+    StripResourcesReflection(m_UAVs);
+    StripResourcesReflection(m_SRVs);
+    StripResourcesReflection(m_Samplers);
+  }
 
   // Unused global.
   SmallVector<GlobalVariable *,2> UnusedGlobals;
