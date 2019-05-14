@@ -2771,7 +2771,7 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 
 
 TEST_F(CompilerTest, CodeGenHashStability) {
-  CodeGenTestCheckBatchHash(L"");
+  CodeGenTestCheckBatchHash(L"batch");
 }
 
 TEST_F(CompilerTest, CodeGenBatch) {
