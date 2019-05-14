@@ -313,10 +313,6 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   std::vector<std::wstring> argWStrings;
   CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
 
-  bool stop = std::wstring(CommandFileName) == LR"(F:\dxc\tools\clang\test\HLSL\..\CodeGenHLSL\batch\declarations\precise\matrix.hlsl)";
-  (void)stop;
-  if (!stop) return FileRunCommandResult::Success();
-
   // Create the two versions of the flags
   std::vector<LPCWSTR> original_flags;
   for (const std::wstring &a : argWStrings) {
