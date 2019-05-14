@@ -313,20 +313,22 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   std::vector<std::wstring> argWStrings;
   CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
 
+  bool stop = std::wstring(CommandFileName) == LR"(F:\dxc\tools\clang\test\HLSL\..\CodeGenHLSL\batch\declarations\precise\matrix.hlsl)";
+  (void)stop;
+  if (!stop) return FileRunCommandResult::Success();
+
   // Create the two versions of the flags
-  std::vector<LPCWSTR> normal_flags;
-  std::vector<LPCWSTR> dbg_flags;
+  std::vector<LPCWSTR> original_flags;
   for (const std::wstring &a : argWStrings) {
     if (a.find(L"ast-dump") != std::wstring::npos) continue;
-    if (a.find(L"Zi") == std::wstring::npos || a.find(L"Fd") == std::wstring::npos) {
-      normal_flags.push_back(a.data());
-    }
-    dbg_flags.push_back(a.data());
+    if (a.find(L"Zi") != std::wstring::npos) continue;
+    original_flags.push_back(a.data());
   }
-  dbg_flags.push_back(L"/Zi");
 
-  // Add the flags to strip value names and unused GV's.
+  std::vector<LPCWSTR> normal_flags = original_flags;
   normal_flags.push_back(L"-Qstrip_reflect");
+  std::vector<LPCWSTR> dbg_flags = original_flags;
+  dbg_flags.push_back(L"/Zi");
   dbg_flags.push_back(L"-Qstrip_reflect");
 
   llvm::SmallString<32> Hash0;
@@ -335,32 +337,34 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   std::string Disasm1;
 
   HRESULT vanillaStatus = 0;
-  std::string Disasm;
+  std::string vanillaDisasm;
   {
-    std::vector<LPCWSTR> vanilla_flags = normal_flags;
-    for (int i = 0; i < vanilla_flags.size(); i++) {
-      if (std::wstring(vanilla_flags[i]) == L"-Qstrip_reflect") {
-        vanilla_flags.erase(vanilla_flags.begin() + i);
-        break;
-      }
-    }
+    std::vector<LPCWSTR> flags = original_flags;
     llvm::SmallString<32> Hash;
-    vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, vanilla_flags, Hash, Disasm);
+    vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, flags, Hash, vanillaDisasm);
+  }
+  if (FAILED(vanillaStatus))
+    return FileRunCommandResult::Success();
+
+  HRESULT noOptStatus = 0;
+  {
+    std::vector<LPCWSTR> flags = original_flags;
+    flags.push_back(L"/Od");
+    llvm::SmallString<32> Hash;
+    vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, flags, Hash, vanillaDisasm);
+  }
+  if (FAILED(noOptStatus)) {
+    return FileRunCommandResult::Error("Adding /Od failed the compilation.");
   }
 
   HRESULT normalStatus = CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Disasm0);
 
   std::string StdErr;
-  if (SUCCEEDED(vanillaStatus) && FAILED(normalStatus)) {
+  if (FAILED(normalStatus)) {
     StdErr += "Adding strip_reflect failed compilation.";
-    StdErr += Disasm;
+    StdErr += vanillaDisasm;
     StdErr += Disasm0;
     return FileRunCommandResult::Error(StdErr);
-  }
-
-  // If the normal compilation fails, just skip this test. It's likely that this was meant to test for failures.
-  if (FAILED(normalStatus)) {
-    return FileRunCommandResult::Success();
   }
 
   HRESULT augmentedStatus = CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Disasm1);
