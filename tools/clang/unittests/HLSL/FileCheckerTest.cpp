@@ -342,17 +342,6 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   if (FAILED(vanillaStatus))
     return FileRunCommandResult::Success();
 
-  HRESULT noOptStatus = 0;
-  {
-    std::vector<LPCWSTR> flags = original_flags;
-    flags.push_back(L"/Od");
-    llvm::SmallString<32> Hash;
-    vanillaStatus = CompileForHash(opts, CommandFileName, DllSupport, flags, Hash, vanillaDisasm);
-  }
-  if (FAILED(noOptStatus)) {
-    return FileRunCommandResult::Error("Adding /Od failed the compilation.");
-  }
-
   HRESULT normalStatus = CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Disasm0);
 
   std::string StdErr;
