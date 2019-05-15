@@ -28,6 +28,7 @@
 #include <unordered_set>
 
 namespace llvm {
+template<typename T> class ArrayRef;
 class LLVMContext;
 class Module;
 class Function;
