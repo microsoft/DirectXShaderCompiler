@@ -221,22 +221,22 @@ static HRESULT ReAssembleTo(dxc::DxcDllSupport &DllSupport, void *bitcode, UINT3
 static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlob, IDxcBlob **pBitcodeBlob) {
   CComPtr<IDxcContainerReflection> pReflection;
   CComPtr<IDxcLibrary> pLibrary;
-  IFR(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
 
-  IFR(pReflection->Load(pCompiledBlob));
+  IFT(pReflection->Load(pCompiledBlob));
 
   UINT32 uIndex = 0;
-  IFR(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
+  IFT(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
   CComPtr<IDxcBlob> pPart;
-  IFR(pReflection->GetPartContent(uIndex, &pPart));
+  IFT(pReflection->GetPartContent(uIndex, &pPart));
 
   auto header = (hlsl::DxilProgramHeader*)pPart->GetBufferPointer();
   void *bitcode = (char *)&header->BitcodeHeader + header->BitcodeHeader.BitcodeOffset;
   UINT32 bitcode_size = header->BitcodeHeader.BitcodeSize;
 
   CComPtr<IDxcBlobEncoding> pBlob;
-  IFR(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, bitcode_size, 0, &pBlob));
+  IFT(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, bitcode_size, 0, &pBlob));
   *pBitcodeBlob = pBlob.Detach();
 
   return S_OK;
@@ -247,7 +247,6 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlobEncoding> pDisassembly;
   CComPtr<IDxcBlob> pCompiledBlob;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
 
@@ -260,8 +259,8 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
   IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  IFR(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
-                          flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
+  IFT(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
+    flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
 
   HRESULT resultStatus = 0;
   IFT(pResult->GetStatus(&resultStatus));
@@ -294,7 +293,7 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
     md5.final(md5Result);
     md5.stringifyResult(md5Result, Hash);
 
-    return 0;
+    return S_OK;
   }
   else {
     CComPtr<IDxcBlobEncoding> pErrors;
