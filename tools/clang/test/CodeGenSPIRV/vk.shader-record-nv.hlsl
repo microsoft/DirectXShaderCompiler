@@ -9,6 +9,8 @@ struct T {
 // CHECK: OpMemberName %type_ShaderRecordBufferNV_S 1 "f2"
 // CHECK: OpMemberName %type_ShaderRecordBufferNV_S 2 "f3"
 // CHECK: OpMemberName %type_ShaderRecordBufferNV_S 3 "f4"
+// CHECK-NOT: OpDecorate %srb DescriptorSet
+// CHECK-NOT: OpDecorate %srb Binding
 
 // CHECK: %type_ShaderRecordBufferNV_S = OpTypeStruct %float %v3float %mat2v3float %T
 struct S {

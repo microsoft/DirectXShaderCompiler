@@ -5,6 +5,10 @@
 // CHECK: OpDecorate %_arr_v2int_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr__arr_v2int_uint_3_uint_2 ArrayStride 24
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2_0 ArrayStride 24
+// CHECK-NOT: OpDecorate %cbuf DescriptorSet
+// CHECK-NOT: OpDecorate %cbuf Binding
+// CHECK-NOT: OpDecorate %block DescriptorSet
+// CHECK-NOT: OpDecorate %block Binding
 
 // CHECK: OpMemberDecorate %T 0 Offset 0
 // CHECK: OpMemberDecorate %T 1 Offset 32

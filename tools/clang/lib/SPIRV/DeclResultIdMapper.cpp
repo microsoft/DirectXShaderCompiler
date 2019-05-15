@@ -887,7 +887,7 @@ DeclResultIdMapper::createShaderRecordBufferNV(const HLSLBufferDecl *decl) {
       decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
-  // mapped to the <result-id> of the buffer object, which means when querying
+  // mapped to the <result-id> of the buffer object, which means when
   // querying the <result-id> for a certain VarDecl, we need to do an extra
   // OpAccessChain.
   int index = 0;
