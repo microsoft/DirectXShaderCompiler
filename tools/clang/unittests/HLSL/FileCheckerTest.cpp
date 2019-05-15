@@ -204,16 +204,16 @@ static HRESULT ReAssembleTo(dxc::DxcDllSupport &DllSupport, void *bitcode, UINT3
 
   CComPtr<IDxcBlobEncoding> pInBlob;
 
-  IFR(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, size, 0, &pInBlob));
+  IFT(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, size, 0, &pInBlob));
   
   CComPtr<IDxcOperationResult> pResult;
   pAssembler->AssembleToContainer(pInBlob, &pResult);
 
   HRESULT Result = 0;
-  IFR(pResult->GetStatus(&Result));
-  IFR(Result);
+  IFT(pResult->GetStatus(&Result));
+  IFT(Result);
 
-  IFR(pResult->GetResult(pBlob));
+  IFT(pResult->GetResult(pBlob));
 
   return S_OK;
 }
