@@ -88,8 +88,8 @@ void main()
     // CHECK: i32 1, i32 undef
     Append(output_b, f0_5 || f1_5); // LOr
 
-    // CHECK: i32 6, i32 undef
-    Append(output_u, u3 * u2); // UDiv
+    // CHECK: i32 2147483647, i32 undef
+    Append(output_u, um1 / u2); // UDiv
     // CHECK: i32 1, i32 undef
     Append(output_u, u3 % u2); // URem
     // CHECK: i32 2147483647, i32 undef
