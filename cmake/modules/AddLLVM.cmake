@@ -960,14 +960,14 @@ function(hlsl_update_product_ver RC_INTERNAL_NAME)
                  "RC_COMPANY_NAME=\"Microsoft(r) Corporation\""
                  "RC_VERSION_FIELD_1=0"
                  "RC_VERSION_FIELD_2=2019"
-                 "RC_VERSION_FIELD_3=03"
+                 "RC_VERSION_FIELD_3=05"
                  "RC_VERSION_FIELD_4=00"
-                 "RC_FILE_VERSION=\"0.2019.03.00\""
+                 "RC_FILE_VERSION=\"0.2019.05.00\""
                  "RC_FILE_DESCRIPTION=\"DirectX Compiler - Out Of Band\""
                  "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\""
                  "RC_COPYRIGHT=\"(c) Microsoft Corporation. All rights reserved.\""
                  "RC_PRODUCT_NAME=\"Microsoft(r) DirectX for Windows(r) - Out Of Band\""
-                 "RC_PRODUCT_VERSION=\"0.2019.03.00\"")
+                 "RC_PRODUCT_VERSION=\"0.2019.05.00\"")
   endif (HLSL_ENABLE_FIXED_VER)
 endfunction(hlsl_update_product_ver)
 # HLSL Change Ends
