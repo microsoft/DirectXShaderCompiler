@@ -42,6 +42,20 @@ float foo([[vk::push_constant]] int param) // error
 [[vk::push_constant(5)]]
 T pcs;
 
+struct SRB {
+    [[vk::shader_record_nv]] // error
+    float4 f;
+};
+
+[[vk::shader_record_nv]] // error
+float foosrb([[vk::shader_record_nv]] int param) // error
+{
+    return param;
+}
+
+[[vk::shader_record_nv(5)]]
+SRB recordBuf;
+
 // CHECK:   :4:7: error: 'binding' attribute only applies to global variables, cbuffers, and tbuffers
 // CHECK:   :6:7: error: 'counter_binding' attribute only applies to RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers
 // CHECK:  :10:3: error: 'counter_binding' attribute only applies to RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers
@@ -55,3 +69,7 @@ T pcs;
 // CHECK: :37:13: error: 'push_constant' attribute only applies to global variables of struct type
 // CHECK:  :36:3: error: 'push_constant' attribute only applies to global variables of struct type
 // CHECK:  :42:3: error: 'push_constant' attribute takes no arguments
+// CHECK:  :46:7: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
+// CHECK: :51:16: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
+// CHECK:  :50:3: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
+// CHECK:  :56:3: error: 'shader_record_nv' attribute takes no arguments
