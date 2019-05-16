@@ -370,6 +370,10 @@ public:
   /// stages.
   void createRayTracingNVImplicitVar(const VarDecl *varDecl);
 
+  /// \brief Creates a ShaderRecordBufferNV block from the given decl.
+  SpirvVariable *createShaderRecordBufferNV(const VarDecl *decl);
+  SpirvVariable *createShaderRecordBufferNV(const HLSLBufferDecl *decl);
+
 private:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
@@ -531,6 +535,7 @@ private:
     TBuffer,
     PushConstant,
     Globals,
+    ShaderRecordBufferNV,
   };
 
   /// Creates a variable of struct type with explicit layout decorations.
