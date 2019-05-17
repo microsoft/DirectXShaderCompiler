@@ -2,7 +2,7 @@
 
 // CHECK: 64-Bit integer
 // CHECK: add i64
-// CHECK: sdiv i64
+// CHECK: udiv i64
 // CHECK: shl i64
 // CHECK: mul i64
 // CHECK: UMax
