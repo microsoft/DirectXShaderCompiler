@@ -1518,6 +1518,22 @@ void DxilModule::StripDebugRelatedCode() {
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
     arguments->eraseFromParent();
   }
+
+  if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
+    SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
+    m_pModule->getModuleFlagsMetadata(flagEntries);
+    flags->eraseFromParent();
+
+    for (unsigned i = 0; i < flagEntries.size(); i++) {
+      llvm::Module::ModuleFlagEntry &entry = flagEntries[i];
+      if (entry.Key->getString() == "Dwarf Version" || entry.Key->getString() == "Debug Info Version") {
+        continue;
+      }
+      m_pModule->addModuleFlag(
+        entry.Behavior, entry.Key->getString(),
+        cast<ConstantAsMetadata>(entry.Val)->getValue());
+    }
+  }
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {

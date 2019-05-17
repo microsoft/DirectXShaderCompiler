@@ -1058,7 +1058,16 @@ void Instruction::setMetadata(StringRef Kind, MDNode *Node) {
 }
 
 MDNode *Instruction::getMetadataImpl(StringRef Kind) const {
-  return getMetadataImpl(getContext().getMDKindID(Kind));
+  unsigned KindID = 0;
+#if 0 // HLSL Change Starts
+  return getMetadataImpl(getContext().getMDKindID(Kind))
+#else
+  // Calling special function to check for existence of string id,
+  // so it doesn't get instantiated in the context.
+  if (getContext().findMDKindID(Kind, &KindID))
+    return getMetadataImpl(KindID);
+  return nullptr;
+#endif // HLSL Change Ends
 }
 
 void Instruction::dropUnknownMetadata(ArrayRef<unsigned> KnownIDs) {
