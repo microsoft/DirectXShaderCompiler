@@ -1596,7 +1596,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     pProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pProgramStream));
     raw_stream_ostream outStream(pProgramStream.p);
-    WriteBitcodeToFile(pModule->GetModule(), outStream, true);
+    WriteBitcodeToFile(pModule->GetModule(), outStream, false);
   }
 
   // Serialize debug name if requested.

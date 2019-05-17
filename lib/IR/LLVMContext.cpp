@@ -252,6 +252,18 @@ void LLVMContext::emitError(unsigned LocCookie, const Twine &ErrorStr) {
 // Metadata Kind Uniquing
 //===----------------------------------------------------------------------===//
 
+// HLSL Change - Begin
+/// Return a unique non-zero ID for the specified metadata kind if it exists.
+bool LLVMContext::findMDKindID(StringRef Name, unsigned *ID) const {
+  auto it = pImpl->CustomMDKindNames.find(Name);
+  if (it != pImpl->CustomMDKindNames.end()) {
+    *ID = it->second;
+    return true;
+  }
+  return false;
+}
+// HLSL Change - End
+
 /// Return a unique non-zero ID for the specified metadata kind.
 unsigned LLVMContext::getMDKindID(StringRef Name) const {
   // If this is new, assign it its ID.

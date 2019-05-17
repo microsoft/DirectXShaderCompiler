@@ -290,7 +290,13 @@ Scatterer Scalarizer::scatter(Instruction *Point, Value *V) {
     // so that it can be used everywhere.
     Function *F = VArg->getParent();
     BasicBlock *BB = &F->getEntryBlock();
-    return Scatterer(BB, BB->begin(), V, &Scattered[V]);
+    // HLSL Change - Begin
+    // return Scatterer(BB, BB->begin(), V, &Scattered[V]);
+    auto InsertPoint = BB->begin();
+    while (InsertPoint != BB->end() && isa<DbgInfoIntrinsic>(InsertPoint))
+      InsertPoint++;
+    return Scatterer(BB, InsertPoint, V, &Scattered[V]);
+    // HLSL Change - End
   }
   if (Instruction *VOp = dyn_cast<Instruction>(V)) {
     // Put the scattered form of an instruction directly after the

@@ -281,6 +281,9 @@ public:
 
   // Batch directories
   TEST_METHOD(CodeGenBatch)
+  BEGIN_TEST_METHOD(CodeGenHashStability)
+      TEST_METHOD_PROPERTY(L"Priority", L"2")
+  END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -669,6 +672,72 @@ public:
 
     std::string disassembleString(BlobToUtf8(pDisassembleBlob));
     VERIFY_ARE_NOT_EQUAL(0U, disassembleString.size());
+  }
+  
+  void CodeGenTestHashFullPath(LPCWSTR fullPath) {
+    FileRunTestResult t = FileRunTestResult::RunHashTestFromFileCommands(fullPath);
+    if (t.RunResult != 0) {
+      CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
+      WEX::Logging::Log::Comment(commentWide);
+      WEX::Logging::Log::Error(L"Run result is not zero");
+    }
+  }
+
+  void CodeGenTestHash(LPCWSTR name, bool implicitDir) {
+    std::wstring path = name;
+    if (implicitDir) {
+      path.insert(0, L"..\\CodeGenHLSL\\");
+      path = hlsl_test::GetPathToHlslDataFile(path.c_str());
+    }
+    CodeGenTestHashFullPath(path.c_str());
+  }
+
+  void CodeGenTestCheckBatchHash(std::wstring suitePath, bool implicitDir = true) {
+    using namespace llvm;
+    using namespace WEX::TestExecution;
+
+    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+
+    ::llvm::sys::fs::MSFileSystem *msfPtr;
+    VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
+    CW2A pUtf8Filename(suitePath.c_str());
+    if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+      suitePath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str());
+    }
+
+    CW2A utf8SuitePath(suitePath.c_str());
+
+    unsigned numTestsRun = 0;
+
+    std::error_code EC;
+    llvm::SmallString<128> DirNative;
+    llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
+    for (llvm::sys::fs::recursive_directory_iterator Dir(DirNative, EC), DirEnd;
+         Dir != DirEnd && !EC; Dir.increment(EC)) {
+      // Check whether this entry has an extension typically associated with
+      // headers.
+      if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
+          .Cases(".hlsl", ".ll", true).Default(false))
+        continue;
+      StringRef filename = Dir->path();
+      std::string filetag = Dir->path();
+      filetag += "<HASH>";
+
+      CA2W wRelTag(filetag.data());
+      CA2W wRelPath(filename.data());
+
+      WEX::Logging::Log::StartGroup(wRelTag);
+      CodeGenTestHash(wRelPath, /*implicitDir*/ false);
+      WEX::Logging::Log::EndGroup(wRelTag);
+
+      numTestsRun++;
+    }
+
+    VERIFY_IS_GREATER_THAN(numTestsRun, (unsigned)0, L"No test files found in batch directory.");
   }
 
   void CodeGenTestCheckFullPath(LPCWSTR fullPath) {
@@ -2700,6 +2769,11 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
   } else {
     CodeGenTestCheck(path.c_str(), /*implicitDir*/ false);
   }
+}
+
+
+TEST_F(CompilerTest, CodeGenHashStability) {
+  CodeGenTestCheckBatchHash(L"batch");
 }
 
 TEST_F(CompilerTest, CodeGenBatch) {

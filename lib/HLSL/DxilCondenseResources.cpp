@@ -1726,8 +1726,6 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
       GV->removeDeadConstantUsers();
       DXASSERT(GV->user_empty(), "else resource not lowered");
       res->SetGlobalSymbol(UndefValue::get(GV->getType()));
-      if (m_HasDbgInfo)
-        LLVMUsed.emplace_back(GV);
     }
   };
 
