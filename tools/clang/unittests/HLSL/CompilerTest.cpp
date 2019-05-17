@@ -281,7 +281,9 @@ public:
 
   // Batch directories
   TEST_METHOD(CodeGenBatch)
-  TEST_METHOD(CodeGenHashStability)
+  BEGIN_TEST_METHOD(CodeGenHashStability)
+      TEST_METHOD_PROPERTY(L"Priority", L"2")
+  END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
