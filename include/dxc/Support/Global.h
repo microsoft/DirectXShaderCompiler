@@ -62,6 +62,14 @@ public:
   IMalloc *GetInstalledAllocator() const { return p; }
 
 private:
+  // Copy constructor and assignment are dangerous and should always be
+  // deleted...
+  DxcThreadMalloc(const DxcThreadMalloc &) = delete;
+  DxcThreadMalloc &operator =(const DxcThreadMalloc &) = delete;
+  // Move constructor and assignment should be OK to be added if needed.
+  DxcThreadMalloc(DxcThreadMalloc &&) = delete;
+  DxcThreadMalloc &operator =(DxcThreadMalloc &&) = delete;
+
   IMalloc *p;
   IMalloc *pPrior;
 };
