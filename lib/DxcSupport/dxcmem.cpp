@@ -66,14 +66,11 @@ void DxcClearThreadMalloc() throw() {
   g_ThreadMallocTls->erase();
   pMalloc->Release();
 }
-void DxcSetThreadMalloc(IMalloc *pMalloc) throw() {
+
+void DxcSetThreadMallocToDefault() throw() {
   DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
   DXASSERT(DxcGetThreadMallocNoRef() == nullptr, "else nested allocation invoked");
-  g_ThreadMallocTls->set(pMalloc);
-  pMalloc->AddRef();
-}
-void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw() {
-  DxcSetThreadMalloc(pMalloc ? pMalloc : g_pDefaultMalloc);
+  g_pDefaultMalloc->AddRef();
 }
 
 static IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw() {

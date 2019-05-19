@@ -48,9 +48,8 @@ void DxcCleanupThreadMalloc() throw();
 // Used by APIs entry points to set up per-thread/invocation allocator.
 // Setting the IMalloc on the thread increases the reference count,
 // clearing it decreases it.
+void DxcSetThreadMallocToDefault() throw();
 void DxcClearThreadMalloc() throw();
-void DxcSetThreadMalloc(IMalloc *pMalloc) throw();
-void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw();
 
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
