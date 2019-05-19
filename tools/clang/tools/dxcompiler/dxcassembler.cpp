@@ -101,7 +101,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
         parseIR(memBuf->getMemBufferRef(), Err, Context);
 
     CComPtr<AbstractMemoryStream> pOutputStream;
-    IFT(CreateMemoryStream(TM.p, &pOutputStream));
+    IFT(CreateMemoryStream(TM.GetInstalledAllocator(), &pOutputStream));
     raw_stream_ostream outStream(pOutputStream.p);
 
     // Check for success.
@@ -148,7 +148,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       flags |= SerializeDxilFlags::DebugNameDependOnSource;
     }
     dxcutil::AssembleToContainer(std::move(M), pResultBlob,
-                                         TM.p, flags,
+                                         TM.GetInstalledAllocator(), flags,
                                          pOutputStream);
 
     IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));

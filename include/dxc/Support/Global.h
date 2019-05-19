@@ -52,22 +52,17 @@ void DxcClearThreadMalloc() throw();
 void DxcSetThreadMalloc(IMalloc *pMalloc) throw();
 void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw();
 
-// Swapping does not AddRef or Release new or prior. The pattern is to keep both alive,
-// either in TLS, or on the stack to restore later. The returned value is the effective
-// IMalloc also available in TLS.
-IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw();
-IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMalloc, IMalloc **ppPrior) throw();
-
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
 
-struct DxcThreadMalloc {
-  DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
-    p = DxcSwapThreadMallocOrDefault(pMallocOrNull, &pPrior);
-  }
-  ~DxcThreadMalloc() {
-    DxcSwapThreadMalloc(pPrior, nullptr);
-  }
+class DxcThreadMalloc {
+public:
+  explicit DxcThreadMalloc(IMalloc *pMallocOrNull) throw();
+  ~DxcThreadMalloc();
+
+  IMalloc *GetInstalledAllocator() const { return p; }
+
+private:
   IMalloc *p;
   IMalloc *pPrior;
 };
