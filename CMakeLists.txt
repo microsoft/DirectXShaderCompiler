@@ -79,7 +79,13 @@ if ( LLVM_USE_FOLDERS )
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
 
-option(HLSL_ENABLE_FIXED_VER "Sets up fixed version information." OFF) # HLSL Change
+option(HLSL_EMBED_VERSION "If set, embeds version information in the binaries." ON) # HLSL Change
+# HLSL Change - Directory with version.inc file used for the build (generated or copied from HLSL_FIXED_VERSION_LOCATION)
+set(HLSL_VERSION_LOCATION ${CMAKE_BINARY_DIR}\\utils\\version) 
+option(HLSL_ENABLE_FIXED_VER "Reads version information from a file instead of generating it one for each build." OFF) # HLSL Change
+# HLSL Change - Directory with fixed version.inc file
+set(HLSL_FIXED_VERSION_LOCATION  ${CMAKE_SOURCE_DIR}\\utils\\version) 
+
 option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) # HLSL Change
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 
@@ -616,6 +622,10 @@ add_subdirectory(include/dxc/Support) # HLSL Change
 add_subdirectory(include/dxc/Tracing) # HLSL Change
 
 add_subdirectory(lib)
+
+if (HLSL_EMBED_VERSION) 
+  add_subdirectory(utils/version)
+endif()
 
 if( LLVM_INCLUDE_UTILS )
   # add_subdirectory(utils/FileCheck) # HLSL Change
