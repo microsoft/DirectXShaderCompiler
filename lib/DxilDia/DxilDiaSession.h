@@ -13,6 +13,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 
+#include <map>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -25,12 +26,25 @@
 #include "dxc/Support/microcom.h"
 
 #include "DxilDia.h"
+#include "DxilDiaSymbolManager.h"
 
 namespace dxil_dia {
-
 class Session : public IDiaSession {
 public:
   using RVA = unsigned;
+  using RVAMap = std::map<RVA, const llvm::Instruction *>;
+
+  struct LineInfo {
+    LineInfo(std::uint32_t start_col, RVA first, RVA last)
+      : StartCol(start_col),
+        First(first),
+        Last(last) {}
+
+    std::uint32_t StartCol = 0;
+    RVA First = 0;
+    RVA Last = 0;
+  };
+  using LineToInfoMap = std::unordered_map<std::uint32_t, LineInfo>;
 
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(Session)
@@ -48,9 +62,11 @@ public:
   hlsl::DxilModule &DxilModuleRef() { return *m_dxilModule.get(); }
   llvm::Module &ModuleRef() { return *m_module.get(); }
   llvm::DebugInfoFinder &InfoRef() { return *m_finder.get(); }
-  std::vector<const llvm::Instruction *> &InstructionsRef() { return m_instructions; }
-  std::vector<const llvm::Instruction *> &InstructionLinesRef() { return m_instructionLines; }
-  std::unordered_map<const llvm::Instruction *, RVA> &RvaMapRef() { return m_rvaMap; }
+  const SymbolManager &SymMgr() const { return m_symsMgr; }
+  const RVAMap &InstructionsRef() const { return m_instructions; }
+  const std::vector<const llvm::Instruction *> &InstructionLinesRef() const { return m_instructionLines; }
+  const std::unordered_map<const llvm::Instruction *, RVA> &RvaMapRef() const { return m_rvaMap; }
+  const LineToInfoMap &LineToColumnStartMapRef() const { return m_lineToInfoMap; }
 
   HRESULT getSourceFileIdByName(llvm::StringRef fileName, DWORD *pRetVal);
 
@@ -65,7 +81,7 @@ public:
     /* [in] */ ULONGLONG NewVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_globalScope(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ IDiaSymbol **pRetVal) override;
 
   STDMETHODIMP getEnumTables(
     _COM_Outptr_ IDiaEnumTables **ppEnumTables) override;
@@ -75,21 +91,21 @@ public:
 
   STDMETHODIMP findChildren(
     /* [in] */ IDiaSymbol *parent,
-  /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findChildrenEx(
     /* [in] */ IDiaSymbol *parent,
-  /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
 
   STDMETHODIMP findChildrenExByAddr(
     /* [in] */ IDiaSymbol *parent,
-  /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD isect,
@@ -98,7 +114,7 @@ public:
 
   STDMETHODIMP findChildrenExByVA(
     /* [in] */ IDiaSymbol *parent,
-  /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ ULONGLONG va,
@@ -106,7 +122,7 @@ public:
 
   STDMETHODIMP findChildrenExByRVA(
     /* [in] */ IDiaSymbol *parent,
-  /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD rva,
@@ -115,7 +131,7 @@ public:
   STDMETHODIMP findSymbolByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-  /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ enum SymTagEnum symtag,
     /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
 
   STDMETHODIMP findSymbolByRVA(
@@ -157,7 +173,7 @@ public:
     /* [in] */ IDiaSymbol *pCompiland,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSourceFiles **ppResult) override { return ENotImpl(); }
+    /* [out] */ IDiaEnumSourceFiles **ppResult) override;
 
   STDMETHODIMP findFileById(
     /* [in] */ DWORD uniqueId,
@@ -189,7 +205,7 @@ public:
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override;
 
   STDMETHODIMP findInjectedSource(
       /* [in] */ LPCOLESTR srcFile,
@@ -202,7 +218,7 @@ public:
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+    /* [out] */ IDiaEnumSymbols **ppResult) override;
 
   STDMETHODIMP findInlineFramesByRVA(
     /* [in] */ IDiaSymbol *parent,
@@ -223,7 +239,7 @@ public:
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override;
 
   STDMETHODIMP findInlineeLinesByRVA(
     /* [in] */ IDiaSymbol *parent,
@@ -369,9 +385,11 @@ private:
   llvm::NamedMDNode *m_defines;
   llvm::NamedMDNode *m_mainFileName;
   llvm::NamedMDNode *m_arguments;
-  std::vector<const llvm::Instruction *> m_instructions;
+  RVAMap m_instructions;
   std::vector<const llvm::Instruction *> m_instructionLines; // Instructions with line info.
   std::unordered_map<const llvm::Instruction *, RVA> m_rvaMap; // Map instruction to its RVA.
+  LineToInfoMap m_lineToInfoMap;
+  SymbolManager m_symsMgr;
 
 private:
   CComPtr<IDiaEnumTables> m_pEnumTables;

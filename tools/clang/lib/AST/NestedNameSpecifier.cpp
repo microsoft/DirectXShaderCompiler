@@ -445,10 +445,10 @@ namespace {
       unsigned NewCapacity = std::max(
           (unsigned)(BufferCapacity ? BufferCapacity * 2 : sizeof(void *) * 2),
           (unsigned)(BufferSize + (End - Start)));
-      char *NewBuffer = static_cast<char *>(malloc(NewCapacity));
+      char *NewBuffer = new char[NewCapacity]; // HLSL Change: Use overridable operator new
       if (BufferCapacity) {
         memcpy(NewBuffer, Buffer, BufferSize);
-        free(Buffer);
+        delete[] Buffer; // HLSL Change: Use overridable operator delete
       }
       Buffer = NewBuffer;
       BufferCapacity = NewCapacity;

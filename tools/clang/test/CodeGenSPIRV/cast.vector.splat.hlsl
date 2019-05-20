@@ -1,6 +1,7 @@
 // Run: %dxc -T vs_6_0 -E main
 
 // CHECK: [[v4f32c:%\d+]] = OpConstantComposite %v4float %float_1 %float_1 %float_1 %float_1
+// CHECK: [[v3f32c:%\d+]] = OpConstantComposite %v3float %float_2 %float_2 %float_2
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -9,7 +10,6 @@ void main() {
 // CHECK: OpStore %vf4 [[v4f32c]]
     float4 vf4 = 1;
 
-// CHECK: [[v3f32c:%\d+]] = OpCompositeConstruct %v3float %float_2 %float_2 %float_2
 // CHECK-NEXT: OpStore %vf3 [[v3f32c]]
     float3 vf3;
     vf3 = float1(2);

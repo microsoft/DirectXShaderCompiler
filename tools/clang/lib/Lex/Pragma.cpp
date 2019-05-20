@@ -64,9 +64,13 @@ PragmaHandler *PragmaNamespace::FindHandler(StringRef Name,
 }
 
 void PragmaNamespace::AddPragma(PragmaHandler *Handler) {
+  // HLSL Change Begins: Don't leak on exceptions
+  std::unique_ptr<PragmaHandler> HandlerPtr(Handler);
   assert(!Handlers.lookup(Handler->getName()) &&
          "A handler with this name is already registered in this namespace");
-  Handlers[Handler->getName()] = Handler;
+  PragmaHandler*& MapHandler = Handlers[Handler->getName()];
+  MapHandler = HandlerPtr.release();
+  // HLSL Change Ends
 }
 
 void PragmaNamespace::RemovePragmaHandler(PragmaHandler *Handler) {
@@ -724,6 +728,7 @@ void Preprocessor::HandlePragmaIncludeAlias(Token &Tok) {
 /// pragma line before the pragma string starts, e.g. "STDC" or "GCC".
 void Preprocessor::AddPragmaHandler(StringRef Namespace,
                                     PragmaHandler *Handler) {
+  std::unique_ptr<PragmaHandler> HandlerPtr(Handler); // HLSL Change: Don't leak on exceptions
   PragmaNamespace *InsertNS = PragmaHandlers.get();
 
   // If this is specified to be in a namespace, step down into it.
@@ -746,7 +751,7 @@ void Preprocessor::AddPragmaHandler(StringRef Namespace,
   // Check to make sure we don't already have a pragma for this identifier.
   assert(!InsertNS->FindHandler(Handler->getName()) &&
          "Pragma handler already exists for this identifier!");
-  InsertNS->AddPragma(Handler);
+  InsertNS->AddPragma(HandlerPtr.release()); // HLSL Change: Don't leak on exceptions
 }
 
 /// RemovePragmaHandler - Remove the specific pragma handler from the

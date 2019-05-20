@@ -12,6 +12,7 @@
 #include <sstream>
 #include <fstream>
 #include <atomic>
+#include <cmath>
 #ifdef _WIN32
 #include <dxgiformat.h>
 #include "WexTestClass.h"
@@ -20,7 +21,10 @@
 #endif
 #include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
-#include "llvm/Support/Atomic.h"
+
+#ifndef HLSLDATAFILEPARAM
+#define HLSLDATAFILEPARAM L"HlslDataDir"
+#endif
 
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
@@ -67,8 +71,8 @@
 #define ASSERT_HRESULT_SUCCEEDED VERIFY_SUCCEEDED
 #ifndef EXPECT_EQ
 #define EXPECT_EQ(expected, actual) VERIFY_ARE_EQUAL(expected, actual)
-#endif
-#endif
+#endif 
+#endif // VERIFY_ARE_EQUAL
 
 namespace hlsl_test {
 
@@ -116,7 +120,7 @@ inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
 inline std::wstring GetPathToHlslDataFile(const wchar_t* relative) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   WEX::Common::String HlslDataDirValue;
-  ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(L"HlslDataDir", HlslDataDirValue));
+  ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
 
   wchar_t envPath[MAX_PATH];
   wchar_t expanded[MAX_PATH];
@@ -202,7 +206,7 @@ inline bool GetTestParamBool(LPCWSTR name) {
 inline bool GetTestParamUseWARP(bool defaultVal) {
   WEX::Common::String AdapterValue;
   if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-          L"Adapter", AdapterValue))) {
+        L"Adapter", AdapterValue))) {
     return defaultVal;
   }
   if ((defaultVal && AdapterValue.IsEmpty()) ||
@@ -214,24 +218,26 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 
 }
 
+#ifdef FP_SUBNORMAL
+
 inline bool isdenorm(float f) {
   return FP_SUBNORMAL == std::fpclassify(f);
 }
 
-inline bool isdenorm(double d) {
-  return FP_SUBNORMAL == std::fpclassify(d);
+#else
+
+inline bool isdenorm(float f) {
+  return (std::numeric_limits<float>::denorm_min() <= f && f < std::numeric_limits<float>::min()) ||
+         (-std::numeric_limits<float>::min() < f && f <= -std::numeric_limits<float>::denorm_min());
 }
+
+#endif // FP_SUBNORMAL
 
 inline float ifdenorm_flushf(float a) {
   return isdenorm(a) ? copysign(0.0f, a) : a;
 }
 
 inline bool ifdenorm_flushf_eq(float a, float b) {
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
-
-inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
-  if (std::isnan(a) && std::isnan(b)) return true;
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
 }
 
@@ -301,17 +307,17 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
 
   if (isLessThanNormal) {
     // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (sign >> 16);
+    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (uint16_t)(sign >> 16);
   }
   else if (isInfOrNaN) {
     // Compute Inf or Nan result
     uint32_t Fraction = Abs.u_bits & Fraction32Mask;
     uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
-    return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (sign >> 16);
+    return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (uint16_t)(sign >> 16);
   }
   else {
     // Compute Normal result
-    return (uint16_t)((Abs.u_bits - NormalDelta) >> 13) | (sign >> 16);
+    return (uint16_t)((Abs.u_bits - NormalDelta) >> 13) | (uint16_t)(sign >> 16);
   }
 }
 
@@ -353,8 +359,8 @@ inline float ConvertFloat16ToFloat32(uint16_t x) {
 }
 uint16_t ConvertFloat32ToFloat16(float val);
 float ConvertFloat16ToFloat32(uint16_t val);
-inline bool CompareFloatULP(const float &fsrc, const float &fref,
-                            int ULPTolerance,
+
+inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance,
                             hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
   if (fsrc == fref) {
     return true;
@@ -375,8 +381,7 @@ inline bool CompareFloatULP(const float &fsrc, const float &fref,
   return uDiff <= (unsigned int)ULPTolerance;
 }
 
-inline bool
-CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
+inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
                     hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
   if (fsrc == fref) {
     return true;
@@ -396,9 +401,7 @@ CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
 }
 
 // Compare using relative error (relative error < 2^{nRelativeExp})
-inline bool
-CompareFloatRelativeEpsilon(const float &fsrc, const float &fref,
-                            int nRelativeExp,
+inline bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp,
                             hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
   return CompareFloatULP(fsrc, fref, 23 - nRelativeExp, mode);
 }
@@ -424,10 +427,8 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
   return std::abs(src_f32-ref_f32) < epsilon;
 }
 
-inline bool
-CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref,
-  int nRelativeExp) {
-  return CompareHalfULP(fsrc, fref, 10 - nRelativeExp);
+inline bool CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref, int nRelativeExp) {
+  return CompareHalfULP(fsrc, fref, (float)(10 - nRelativeExp));
 }
 
 #ifdef _WIN32
@@ -507,25 +508,3 @@ inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
     }
 }
 #endif
-
-#define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
-  private: volatile std::atomic<llvm::sys::cas_flag> m_dwRef; \
-  public:\
-  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; } \
-  ULONG STDMETHODCALLTYPE Release() { \
-    ULONG result = (ULONG)--m_dwRef; \
-    if (result == 0) delete this; \
-    return result; \
-  } \
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) { \
-    if (ppvObject == nullptr) return E_POINTER; \
-    if (IsEqualIID(iid, __uuidof(IUnknown)) || \
-      IsEqualIID(iid, __uuidof(INoMarshal)) || \
-      IsEqualIID(iid, __uuidof(_IFACE_))) { \
-      *ppvObject = reinterpret_cast<_IFACE_*>(this); \
-      reinterpret_cast<_IFACE_*>(this)->AddRef(); \
-      return S_OK; \
-    } \
-    return E_NOINTERFACE; \
-  }
-

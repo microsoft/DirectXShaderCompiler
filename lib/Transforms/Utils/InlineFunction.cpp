@@ -873,8 +873,23 @@ updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
 static void fixupLineNumbers(Function *Fn, Function::iterator FI,
                              Instruction *TheCall) {
   DebugLoc TheCallDL = TheCall->getDebugLoc();
+#if 0 // HLSL Change
   if (!TheCallDL)
     return;
+#else // HLSL Change - Begin
+  // Global variable initialization code gets inlined but the call inst doesn't
+  // get a location. Fix it here by giving it a dummy location so the debug
+  // info is well-formed.
+  if (!TheCallDL) {
+    if (DISubprogram *Subprogram = getDISubprogram(Fn)) {
+      TheCallDL = DebugLoc(llvm::DILocation::get(Fn->getContext(), 0, 0, Subprogram));
+      TheCall->setDebugLoc(TheCallDL);
+    }
+    else {
+      return;
+    }
+  }
+#endif // HLSL Change - End
 
   auto &Ctx = Fn->getContext();
   DILocation *InlinedAtNode = TheCallDL;

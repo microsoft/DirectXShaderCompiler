@@ -48,6 +48,8 @@ public:
 
   const llvm::DebugLoc &DL() const;
 
+  const llvm::Instruction *Inst() const { return m_inst; }
+
   STDMETHODIMP get_compiland(
     /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
 
@@ -70,7 +72,7 @@ public:
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_addressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_relativeVirtualAddress(
     /* [retval][out] */ DWORD *pRetVal) override;
@@ -79,13 +81,13 @@ public:
     /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_length(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_sourceFileId(
     /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_statement(
-    /* [retval][out] */ BOOL *pRetVal) override { return ENotImpl(); }
+    /* [retval][out] */ BOOL *pRetVal) override;
 
   STDMETHODIMP get_compilandId(
     /* [retval][out] */ DWORD *pRetVal) override;

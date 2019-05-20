@@ -13,6 +13,7 @@ environment:
 
 install:
 - cmd: git submodule update --init
+- cmd: set PATH=C:\ninja;C:\Python36;%PATH%
 
 before_build:
 - cmd: call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%

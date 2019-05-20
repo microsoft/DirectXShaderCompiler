@@ -17,8 +17,9 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 
 #include "llvm/IR/Instructions.h"
@@ -167,22 +168,21 @@ private:
     }
 
     // Allocate unallocated resources
-    const unsigned space = AutoBindingSpace;
-    typename SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
-    typename SpacesAllocator<unsigned, T>::Allocator &reservedAlloc0 = ReservedRegisters.Get(space);
     for (auto &res : resourceList) {
       if (res->IsAllocated())
         continue;
 
-      DXASSERT(res->GetSpaceID() == 0,
-        "otherwise non-zero space has no user register assignment");
+      unsigned space = res->GetSpaceID();
+      if (space == UINT_MAX) space = AutoBindingSpace;
+      typename SpacesAllocator<unsigned, T>::Allocator& alloc = SAlloc.Get(space);
+      typename SpacesAllocator<unsigned, T>::Allocator& reservedAlloc = ReservedRegisters.Get(space);
 
       unsigned reg = 0;
       unsigned end = 0;
       bool allocateSpaceFound = false;
       if (res->IsUnbounded()) {
-        if (alloc0.GetUnbounded() != nullptr) {
-          const T *unbounded = alloc0.GetUnbounded();
+        if (alloc.GetUnbounded() != nullptr) {
+          const T *unbounded = alloc.GetUnbounded();
           Ctx.emitError(Twine("more than one unbounded resource (") +
             unbounded->GetGlobalName() + Twine(" and ") +
             res->GetGlobalName() + Twine(") in space ") +
@@ -190,26 +190,26 @@ private:
           continue;
         }
 
-        if (reservedAlloc0.FindForUnbounded(reg)) {
+        if (reservedAlloc.FindForUnbounded(reg)) {
           end = UINT_MAX;
           allocateSpaceFound = true;
         }
       }
-      else if (reservedAlloc0.Find(res->GetRangeSize(), reg)) {
+      else if (reservedAlloc.Find(res->GetRangeSize(), reg)) {
         end = reg + res->GetRangeSize() - 1;
         allocateSpaceFound = true;
       }
 
       if (allocateSpaceFound) {
-        bool success = reservedAlloc0.Insert(res.get(), reg, end) == nullptr;
+        bool success = reservedAlloc.Insert(res.get(), reg, end) == nullptr;
         DXASSERT_NOMSG(success);
 
-        success = alloc0.Insert(res.get(), reg, end) == nullptr;
+        success = alloc.Insert(res.get(), reg, end) == nullptr;
         DXASSERT_NOMSG(success);
 
         if (res->IsUnbounded()) {
-          alloc0.SetUnbounded(res.get());
-          reservedAlloc0.SetUnbounded(res.get());
+          alloc.SetUnbounded(res.get());
+          reservedAlloc.SetUnbounded(res.get());
         }
 
         res->SetLowerBound(reg);
@@ -446,6 +446,8 @@ public:
     m_bIsLib = DM.GetShaderModel()->IsLib();
     m_bLegalizationFailed = false;
 
+    FailOnPoisonResources();
+
     bool bChanged = false;
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -505,6 +507,7 @@ public:
   }
 
 private:
+  void FailOnPoisonResources();
   bool RemovePhiOnResource();
   void UpdateResourceSymbols();
   void TranslateDxilResourceUses(DxilResourceBase &res);
@@ -1534,10 +1537,12 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
       return Ty;
     else
       return ArrayType::get(UpdatedTy, Ty->getArrayNumElements());
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (hlsl::HLMatrixType::isa(Ty)) {
     DXASSERT(annotation.HasMatrixAnnotation(), "must a matrix");
-    unsigned rows, cols;
-    Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, cols, rows);
+    HLMatrixType MatTy = HLMatrixType::cast(Ty);
+    unsigned rows = MatTy.getNumRows();
+    unsigned cols = MatTy.getNumColumns();
+    Type *EltTy = MatTy.getElementTypeForReg();
 
     // Get cols and rows from annotation.
     const DxilMatrixAnnotation &matrix = annotation.GetMatrixAnnotation();
@@ -1590,6 +1595,10 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST, bool IsCBuf,
   std::vector<Type *> fieldTypes(fieldsCount);
   DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
   DXASSERT(SA, "must have annotation for struct type");
+
+  if (SA->IsEmptyStruct()) {
+    return ST;
+  }
 
   for (unsigned i = 0; i < fieldsCount; i++) {
     Type *EltTy = ST->getElementType(i);
@@ -1687,6 +1696,23 @@ void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
 
 } // namespace
 
+void DxilLowerCreateHandleForLib::FailOnPoisonResources() {
+  // A previous pass replaced all undef resources with constant zero resources.
+  // If those made it here, the program is malformed.
+  for (Function &Func : this->m_DM->GetModule()->functions()) {
+    hlsl::OP::OpCodeClass OpcodeClass;
+    if (m_DM->GetOP()->GetOpCodeClass(&Func, OpcodeClass)
+      && OpcodeClass == OP::OpCodeClass::CreateHandleForLib) {
+      Type *ResTy = Func.getFunctionType()->getParamType(
+        DXIL::OperandIndex::kCreateHandleForLibResOpIdx);
+      Constant *PoisonRes = ConstantAggregateZero::get(ResTy);
+      for (User *PoisonUser : PoisonRes->users())
+        if (Instruction *PoisonUserInst = dyn_cast<Instruction>(PoisonUser))
+          dxilutil::EmitResMappingError(PoisonUserInst);
+    }
+  }
+}
+
 void DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
   UpdateStructTypeForLegacyLayoutOnDM(*m_DM);
 }
@@ -1700,8 +1726,6 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
       GV->removeDeadConstantUsers();
       DXASSERT(GV->user_empty(), "else resource not lowered");
       res->SetGlobalSymbol(UndefValue::get(GV->getType()));
-      if (m_HasDbgInfo)
-        LLVMUsed.emplace_back(GV);
     }
   };
 

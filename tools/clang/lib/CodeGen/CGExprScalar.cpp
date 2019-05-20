@@ -218,10 +218,11 @@ public:
           }
       }
     } else if (UnaryOperator *UnOp = dyn_cast<UnaryOperator>(E)) {
-      if (hlsl::IsHLSLMatType(E->getType())) {
-        llvm::Value *Oper = CGF.EmitScalarExpr(UnOp->getSubExpr());
+      // ++/-- operators are handled in EmitScalarPrePostIncDec
+      if (hlsl::IsHLSLMatType(E->getType()) && !UnOp->isIncrementDecrementOp()) {
+        llvm::Value *Operand = CGF.EmitScalarExpr(UnOp->getSubExpr());
         return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
-            CGF, E, Oper->getType(), {Oper});
+            CGF, E, Operand->getType(), { Operand });
       }
     }
     // HLSL Change Ends
@@ -1825,7 +1826,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     // If the aggregate type is the cast source, it should be a pointer.
     // Aggregate to aggregate casts are handled in CGExprAgg.cpp
     auto areCompoundAndNumeric = [this](QualType lhs, QualType rhs) {
-      return hlsl::IsHLSLAggregateType(CGF.getContext(), lhs)
+      return hlsl::IsHLSLAggregateType(lhs)
         && (rhs->isBuiltinType() || hlsl::IsHLSLVecMatType(rhs));
     };
     assert(Src->getType()->isPointerTy()
@@ -1843,7 +1844,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixLoad(CGF, DstPtr, DestTy);
     
     // Structs/arrays are pointers to temporaries
-    if (hlsl::IsHLSLAggregateType(CGF.getContext(), DestTy))
+    if (hlsl::IsHLSLAggregateType(DestTy))
       return DstPtr;
     
     // Scalars/vectors are loaded regularly

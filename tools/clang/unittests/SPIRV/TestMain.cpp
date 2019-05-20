@@ -12,7 +12,7 @@
 
 #include "llvm/Support/Signals.h"
 
-#include "SPIRVTestOptions.h"
+#include "SpirvTestOptions.h"
 
 #if defined(_WIN32)
 #include <windows.h>

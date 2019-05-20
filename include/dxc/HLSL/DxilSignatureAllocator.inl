@@ -36,6 +36,9 @@ uint8_t DxilSignatureAllocator::GetElementFlags(const PackElement *SE) {
     case DXIL::SemanticInterpretationKind::TessFactor:
       flags |= kEFTessFactor;
       break;
+    case DXIL::SemanticInterpretationKind::ClipCull:
+      flags |= kEFClipCull;
+      break;
     default:
       DXASSERT(false, "otherwise, unexpected interpretation for allocated element");
   }
@@ -49,10 +52,12 @@ uint8_t DxilSignatureAllocator::GetElementFlags(const PackElement *SE) {
 uint8_t DxilSignatureAllocator::GetConflictFlagsLeft(uint8_t flags) {
   uint8_t conflicts = 0;
   if (flags & kEFArbitrary)
-    conflicts |= kEFSGV | kEFSV | kEFTessFactor;
+    conflicts |= kEFSGV | kEFSV | kEFTessFactor | kEFClipCull;
   if (flags & kEFSV)
     conflicts |= kEFSGV;
   if (flags & kEFTessFactor)
+    conflicts |= kEFSGV;
+  if (flags & kEFClipCull)
     conflicts |= kEFSGV;
   return conflicts;
 }
@@ -61,10 +66,12 @@ uint8_t DxilSignatureAllocator::GetConflictFlagsLeft(uint8_t flags) {
 uint8_t DxilSignatureAllocator::GetConflictFlagsRight(uint8_t flags) {
   uint8_t conflicts = 0;
   if (flags & kEFSGV)
-    conflicts |= kEFArbitrary | kEFSV | kEFTessFactor;
+    conflicts |= kEFArbitrary | kEFSV | kEFTessFactor | kEFClipCull;
   if (flags & kEFSV)
     conflicts |= kEFArbitrary;
   if (flags & kEFTessFactor)
+    conflicts |= kEFArbitrary;
+  if (flags & kEFClipCull)
     conflicts |= kEFArbitrary;
   return conflicts;
 }
@@ -220,12 +227,13 @@ struct {
 
 } // anonymous namespace
 
-unsigned DxilSignatureAllocator::PackNext(PackElement* SE, unsigned startRow, unsigned numRows, unsigned startCol) {
-  unsigned rowsUsed = startRow;
+unsigned DxilSignatureAllocator::FindNext(
+    unsigned &foundRow, unsigned &foundCol,
+    PackElement* SE, unsigned startRow, unsigned numRows, unsigned startCol) {
 
   unsigned rows = SE->GetRows();
   if (rows > numRows)
-    return rowsUsed; // element will not fit
+    return 0; // element will not fit
 
   unsigned cols = SE->GetCols();
   DXASSERT_NOMSG(startCol + cols <= 4);
@@ -236,18 +244,27 @@ unsigned DxilSignatureAllocator::PackNext(PackElement* SE, unsigned startRow, un
     for (unsigned col = startCol; col <= 4 - cols; ++col) {
       if (DetectColConflict(SE, row, col))
         continue;
-      PlaceElement(SE, row, col);
-      SE->SetLocation(row, col);
+      foundRow = row;
+      foundCol = col;
       return row + rows;
     }
   }
+  return 0;
+}
 
+unsigned DxilSignatureAllocator::PackNext(PackElement* SE, unsigned startRow, unsigned numRows, unsigned startCol) {
+  unsigned row, col;
+  unsigned rowsUsed = FindNext(row, col, SE, startRow, numRows, startCol);
+  if (rowsUsed) {
+    PlaceElement(SE, row, col);
+    SE->SetLocation(row, col);
+  }
   return rowsUsed;
 }
 
 unsigned DxilSignatureAllocator::PackGreedy(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows, unsigned startCol) {
   // Allocation failures should be caught by IsFullyAllocated()
-  unsigned rowsUsed = startRow;
+  unsigned rowsUsed = 0;
 
   for (auto &SE : elements) {
     rowsUsed = std::max(rowsUsed, PackNext(SE, startRow, numRows, startCol));
@@ -256,8 +273,11 @@ unsigned DxilSignatureAllocator::PackGreedy(std::vector<PackElement*> elements, 
   return rowsUsed;
 }
 
+static_assert(DXIL::kMaxClipOrCullDistanceElementCount == 2,
+              "code here assumes this is 2");
+
 unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows) {
-  unsigned rowsUsed = startRow;
+  unsigned rowsUsed = 0;
 
   // Clip/Cull needs special handling due to limitations unique to these.
   //  Otherwise, packer could easily pack across too many registers in available gaps.
@@ -266,29 +286,33 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
   //  - both have a maximum of 8 components shared between them
   //  - you can have a combined maximum of two registers declared with clip or cull SV's
   // other SV rules still apply:
-  //  - no indexing allowed
+  //  - X no indexing allowed X - This rule has been changed to allow indexing
   //  - cannot come before arbitrary values in same register
-  // Strategy for dealing with these:
+  // Strategy for dealing with these with rows == 1 for all elements:
   //  - attempt to pack these into a two register allocator
   //    - if this fails, some constraint is blocking, or declaration order is preventing good packing
   //      for example: 2, 1, 2, 3 - total 8 components and packable, but if greedily packed, it will fail
   //      Packing largest to smallest would solve this.
   //  - track components used for each register and create temp elements for allocation tests
+  //  - iterate rows and look for a viable location for each temp element
+  //    When found, allocate original sub-elements associated with temp element.
+  // If one or more clip/cull elements have rows > 1:
+  //  - walk through each pair of adjacent rows, initializing a temp two-row allocator
+  //    with existing contents and trying to pack all elements into the remaining space.
+  //  - when successful, do real allocation into these rows.
 
   // Packing overview
   //  - pack 4-component elements first
   //  - pack indexed tessfactors to the right
   //  - pack arbitrary elements
+  //  - pack system value elements
   //  - pack clip/cull
-  //    - iterate rows and look for a viable location for each temp element
-  //      When found, allocate original sub-elements associated with temp element.
-  //  - next, pack system value elements
-  //  - finally, pack SGV elements
+  //  - pack SGV elements
 
   // ==========
   // Group elements
   std::vector<PackElement*>  clipcullElements,
-                                      clipcullElementsByRow[2],
+                                      clipcullElementsByRow[DXIL::kMaxClipOrCullDistanceElementCount],
                                       vec4Elements,
                                       arbElements,
                                       svElements,
@@ -308,15 +332,14 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
         else
           arbElements.push_back(SE);
         break;
+      case DXIL::SemanticInterpretationKind::ClipCull:
+        clipcullElements.push_back(SE);
+        break;
       case DXIL::SemanticInterpretationKind::SV:
-        if (SE->GetKind() == DXIL::SemanticKind::ClipDistance || SE->GetKind() == DXIL::SemanticKind::CullDistance)
-          clipcullElements.push_back(SE);
-        else {
-          if (SE->GetCols() == 4)
-            vec4Elements.push_back(SE);
-          else
-            svElements.push_back(SE);
-        }
+        if (SE->GetCols() == 4)
+          vec4Elements.push_back(SE);
+        else
+          svElements.push_back(SE);
         break;
       case DXIL::SemanticInterpretationKind::SGV:
         sgvElements.push_back(SE);
@@ -333,95 +356,129 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
   }
 
   // ==========
-  // Preallocate clip/cull elements
-  std::sort(clipcullElements.begin(), clipcullElements.end(), CmpElementsLess);
-  DxilSignatureAllocator clipcullAllocator(2, m_bUseMinPrecision);
-  unsigned clipcullRegUsed = clipcullAllocator.PackGreedy(clipcullElements, 0, 2);
-  unsigned clipcullComponentsByRow[2] = {0, 0};
-  for (auto &SE : clipcullElements) {
-    if (!SE->IsAllocated()) {
-      continue;
-    }
-    unsigned row = SE->GetStartRow();
-    DXASSERT_NOMSG(row < clipcullRegUsed);
-    clipcullElementsByRow[row].push_back(SE);
-    clipcullComponentsByRow[row] += SE->GetCols();
-    // Deallocate element, to be allocated later:
-    SE->ClearLocation();
-  }
-  // Init temp elements, used to find compatible spaces for subsets:
-  DummyElement clipcullTempElements[2];
-  for (unsigned row = 0; row < clipcullRegUsed; ++row) {
-    DXASSERT_NOMSG(!clipcullElementsByRow[row].empty());
-    clipcullTempElements[row].kind = clipcullElementsByRow[row][0]->GetKind();
-    clipcullTempElements[row].interpolation = clipcullElementsByRow[row][0]->GetInterpolationMode();
-    clipcullTempElements[row].interpretation = clipcullElementsByRow[row][0]->GetInterpretation();
-    clipcullTempElements[row].dataBitWidth = clipcullElementsByRow[row][0]->GetDataBitWidth();
-    clipcullTempElements[row].rows = 1;
-    clipcullTempElements[row].cols = clipcullComponentsByRow[row];
-  }
-
-  // ==========
   // Allocate 4-component elements
   if (!vec4Elements.empty()) {
     std::sort(vec4Elements.begin(), vec4Elements.end(), CmpElementsLess);
-    unsigned used = PackGreedy(vec4Elements, startRow, numRows);
-    startRow += used;
-    numRows -= used;
-    if (rowsUsed < used)
-      rowsUsed = used;
+    rowsUsed = std::max(rowsUsed, PackGreedy(vec4Elements, startRow, numRows));
+    startRow = std::max(startRow, rowsUsed);
   }
 
   // ==========
   // Allocate indexed tessfactors in rightmost column
   if (!indexedtessElements.empty()) {
     std::sort(indexedtessElements.begin(), indexedtessElements.end(), CmpElementsLess);
-    unsigned used = PackGreedy(indexedtessElements, startRow, numRows, 3);
-    if (rowsUsed < used)
-      rowsUsed = used;
+    rowsUsed = std::max(rowsUsed, PackGreedy(indexedtessElements, startRow, numRows, 3));
   }
 
   // ==========
   // Allocate arbitrary
   if (!arbElements.empty()) {
     std::sort(arbElements.begin(), arbElements.end(), CmpElementsLess);
-    unsigned used = PackGreedy(arbElements, startRow, numRows);
-    if (rowsUsed < used)
-      rowsUsed = used;
+    rowsUsed = std::max(rowsUsed, PackGreedy(arbElements, startRow, numRows));
   }
 
   // ==========
   // Allocate system values
   if (!svElements.empty()) {
     std::sort(svElements.begin(), svElements.end(), CmpElementsLess);
-    unsigned used = PackGreedy(svElements, startRow, numRows);
-    if (rowsUsed < used)
-      rowsUsed = used;
+    rowsUsed = std::max(rowsUsed, PackGreedy(svElements, startRow, numRows));
   }
 
   // ==========
   // Allocate clip/cull
-  for (unsigned i = 0; i < clipcullRegUsed; ++i) {
-    bool bAllocated = false;
-    unsigned cols = clipcullComponentsByRow[i];
-    for (unsigned row = startRow; row < startRow + numRows; ++row) {
-      if (DetectRowConflict(&clipcullTempElements[i], row))
+  std::sort(clipcullElements.begin(), clipcullElements.end(), CmpElementsLess);
+  unsigned numClipCullComponents = 0;
+  unsigned clipCullMultiRowCols = 0;
+  for (auto &SE : clipcullElements) {
+    numClipCullComponents += SE->GetRows() * SE->GetCols();
+    if (SE->GetRows() > 1) {
+      clipCullMultiRowCols += SE->GetCols();
+    }
+  }
+  if (0 == clipCullMultiRowCols) {
+    // Preallocate clip/cull elements into two rows and allocate independently
+    DxilSignatureAllocator clipcullAllocator(DXIL::kMaxClipOrCullDistanceElementCount, m_bUseMinPrecision);
+    unsigned clipcullRegUsed = clipcullAllocator.PackGreedy(clipcullElements, 0, DXIL::kMaxClipOrCullDistanceElementCount);
+    unsigned clipcullComponentsByRow[DXIL::kMaxClipOrCullDistanceElementCount] = {0, 0};
+    for (auto &SE : clipcullElements) {
+      if (!SE->IsAllocated()) {
         continue;
-      for (unsigned col = 0; col <= 4 - cols; ++col) {
-        if (DetectColConflict(&clipcullTempElements[i], row, col))
+      }
+      unsigned row = SE->GetStartRow();
+      DXASSERT_NOMSG(row < clipcullRegUsed);
+      clipcullElementsByRow[row].push_back(SE);
+      clipcullComponentsByRow[row] += SE->GetCols();
+      // Deallocate element, to be allocated later:
+      SE->ClearLocation();
+    }
+
+    // Allocate rows independently
+    // Init temp elements, used to find compatible spaces for subsets:
+    DummyElement clipcullTempElements[DXIL::kMaxClipOrCullDistanceElementCount];
+    for (unsigned row = 0; row < clipcullRegUsed; ++row) {
+      DXASSERT_NOMSG(!clipcullElementsByRow[row].empty());
+      clipcullTempElements[row].kind = clipcullElementsByRow[row][0]->GetKind();
+      clipcullTempElements[row].interpolation = clipcullElementsByRow[row][0]->GetInterpolationMode();
+      clipcullTempElements[row].interpretation = clipcullElementsByRow[row][0]->GetInterpretation();
+      clipcullTempElements[row].dataBitWidth = clipcullElementsByRow[row][0]->GetDataBitWidth();
+      clipcullTempElements[row].rows = 1;
+      clipcullTempElements[row].cols = clipcullComponentsByRow[row];
+    }
+    for (unsigned i = 0; i < clipcullRegUsed; ++i) {
+      bool bAllocated = false;
+      unsigned cols = clipcullComponentsByRow[i];
+      for (unsigned row = startRow; row < startRow + numRows; ++row) {
+        if (DetectRowConflict(&clipcullTempElements[i], row))
           continue;
-        for (auto &SE : clipcullElementsByRow[i]) {
-          PlaceElement(SE, row, col);
-          SE->SetLocation(row, col);
-          col += SE->GetCols();
+        for (unsigned col = 0; col <= 4 - cols; ++col) {
+          if (DetectColConflict(&clipcullTempElements[i], row, col))
+            continue;
+          for (auto &SE : clipcullElementsByRow[i]) {
+            PlaceElement(SE, row, col);
+            SE->SetLocation(row, col);
+            col += SE->GetCols();
+          }
+          bAllocated = true;
+          if (rowsUsed < row + 1)
+            rowsUsed = row + 1;
+          break;
         }
-        bAllocated = true;
-        if (rowsUsed < row + 1)
-          rowsUsed = row + 1;
+        if (bAllocated)
+          break;
+      }
+    }
+  } else if (numRows > 1) {
+    // Multi-row clip/cull element found, test allocation at each pair of
+    // rows.  If location found, allocate the elements.
+    for (unsigned i = 0; i < numRows - 1; ++i) {
+      unsigned row = startRow + i;
+      // Use temp allocator with copy of rows to test locations
+      DxilSignatureAllocator clipcullAllocator(DXIL::kMaxClipOrCullDistanceElementCount, m_bUseMinPrecision);
+      clipcullAllocator.m_Registers[0] = m_Registers[row];
+      clipcullAllocator.m_Registers[1] = m_Registers[row + 1];
+      clipcullAllocator.PackGreedy(clipcullElements, 0, DXIL::kMaxClipOrCullDistanceElementCount, 0);
+      bool bFullyAllocated = true;
+      for (auto &SE : clipcullElements) {
+        bFullyAllocated &= SE->IsAllocated();
+        if (!bFullyAllocated)
+          break;
+      }
+      // Clear temp allocations
+      for (auto &SE : clipcullElements)
+        SE->ClearLocation();
+      if (bFullyAllocated) {
+        // Found a spot, do real allocation
+        PackGreedy(clipcullElements, row, DXIL::kMaxClipOrCullDistanceElementCount);
+#ifdef DBG
+        for (auto &SE : clipcullElements) {
+          bFullyAllocated &= SE->IsAllocated();
+          if (!bFullyAllocated)
+            break;
+        }
+        DXASSERT(bFullyAllocated, "otherwise, clip/cull allocation failed when predicted to succeed.");
+#endif
         break;
       }
-      if (bAllocated)
-        break;
     }
   }
 
@@ -429,22 +486,23 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
   // Allocate system generated values
   if (!sgvElements.empty()) {
     std::sort(sgvElements.begin(), sgvElements.end(), CmpElementsLess);
-    unsigned used = PackGreedy(sgvElements, startRow, numRows);
-    if (rowsUsed < used)
-      rowsUsed = used;
+    rowsUsed = std::max(rowsUsed, PackGreedy(sgvElements, startRow, numRows));
   }
 
   return rowsUsed;
 }
 
 unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows) {
-  unsigned rowsUsed = startRow;
+  unsigned rowsUsed = 0;
 
   // Special handling for prefix-stable clip/cull arguments
   // - basically, do not pack with anything else to maximize chance to pack into two register limit
+  // - this is complicated by multi-row clip/cull elements, which force allocation adjacency,
+  //   but PrefixStable does not know in advance if this will be the case.
   unsigned clipcullRegUsed = 0;
-  DxilSignatureAllocator clipcullAllocator(2, m_bUseMinPrecision);
-  DummyElement clipcullTempElements[2];
+  bool clipcullIndexed = false;
+  DxilSignatureAllocator clipcullAllocator(DXIL::kMaxClipOrCullDistanceElementCount, m_bUseMinPrecision);
+  DummyElement clipcullTempElements[DXIL::kMaxClipOrCullDistanceElementCount];
 
   for (auto &SE : elements) {
     // Clear any existing allocation
@@ -457,23 +515,64 @@ unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<PackElement*> elem
       case DXIL::SemanticInterpretationKind::SGV:
         break;
       case DXIL::SemanticInterpretationKind::SV:
-        if (SE->GetKind() == DXIL::SemanticKind::ClipDistance || SE->GetKind() == DXIL::SemanticKind::CullDistance) {
-          unsigned used = clipcullAllocator.PackNext(SE, 0, 2);
-          if (used) {
-            if (used > clipcullRegUsed) {
-              clipcullRegUsed = used;
-              // allocate placeholder element, reserving new row
-              clipcullTempElements[used - 1].kind = SE->GetKind();
-              clipcullTempElements[used - 1].interpolation = SE->GetInterpolationMode();
-              clipcullTempElements[used - 1].interpretation = SE->GetInterpretation();
-              clipcullTempElements[used - 1].dataBitWidth = SE->GetDataBitWidth();
-              clipcullTempElements[used - 1].rows = 1;
-              clipcullTempElements[used - 1].cols = 4;
-              rowsUsed = std::max(rowsUsed, PackNext(&clipcullTempElements[used - 1], startRow, numRows));
-            }
-            // Actually place element in correct row:
-            SE->SetLocation(clipcullTempElements[used - 1].GetStartRow(), SE->GetStartCol());
+        break;
+      case DXIL::SemanticInterpretationKind::ClipCull:
+        {
+          unsigned row, col;
+          unsigned used = clipcullAllocator.FindNext(row, col, SE, 0, DXIL::kMaxClipOrCullDistanceElementCount);
+          if (!used)
+            continue;
+          if (SE->GetRows() > 1 && !clipcullIndexed) {
+            // If two rows already allocated, they must be adjacent to
+            // pack indexed elements.
+            if (clipcullRegUsed == DXIL::kMaxClipOrCullDistanceElementCount &&
+                clipcullTempElements[0].row + 1 != clipcullTempElements[1].row)
+              continue;
+            clipcullIndexed = true;
           }
+          // If necessary, allocate placeholder element to reserve space in signature:
+          if (used > clipcullRegUsed) {
+            auto &DE = clipcullTempElements[clipcullRegUsed];
+            DE.kind = SE->GetKind();
+            DE.interpolation = SE->GetInterpolationMode();
+            DE.interpretation = SE->GetInterpretation();
+            DE.dataBitWidth = SE->GetDataBitWidth();
+            DE.rows = 1;
+            DE.cols = 4;
+            if (clipcullIndexed) {
+              // Either allocate one 2-row placeholder element, or allocate on adjacent row.
+              if (clipcullRegUsed < 1) {
+                // Allocate one element with 2 rows
+                DE.rows = DXIL::kMaxClipOrCullDistanceElementCount;
+                rowsUsed = std::max(rowsUsed, PackNext(&DE, startRow, numRows));
+                if (!DE.IsAllocated())
+                  continue;
+                // Init second placeholder element to next row because it's used to
+                // adjust element locations starting on that row.
+                clipcullTempElements[1] = DE;
+                clipcullTempElements[1].row = DE.row + 1;
+                clipcullTempElements[1].rows = 1;
+              } else {
+                DXASSERT_NOMSG(clipcullRegUsed == 1);
+                // Make sure additional element can be placed just after other
+                // element, otherwise fail to allocate this element.
+                rowsUsed = std::max(rowsUsed, PackNext(&DE,
+                  clipcullTempElements[0].row + 1, clipcullTempElements[0].row + 2));
+                if (!DE.IsAllocated())
+                  continue;
+              }
+              clipcullRegUsed = DXIL::kMaxClipOrCullDistanceElementCount;
+            } else {
+              // allocate placeholder element, reserving new row(s)
+              rowsUsed = std::max(rowsUsed, PackNext(&DE, startRow, numRows));
+              if (!DE.IsAllocated())
+                continue;
+              clipcullRegUsed = used;
+            }
+          }
+          // Place element in temp allocator and adjust row for signature
+          clipcullAllocator.PlaceElement(SE, row, col);
+          SE->SetLocation(clipcullTempElements[row].GetStartRow(), col);
           continue;
         }
         break;

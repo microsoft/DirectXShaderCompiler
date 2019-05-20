@@ -139,7 +139,7 @@ private:
 private:
   bool m_CheckForDynamicIndexing = false;
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
-  CallInst *m_HandleForUAV;
+  std::map<llvm::Function*, CallInst *> m_FunctionToUAVHandle;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
 };
 
@@ -244,7 +244,7 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuild
 
   (void)Builder.CreateCall(AtomicOpFunc, {
       AtomicBinOpcode,// i32, ; opcode
-      m_HandleForUAV, // %dx.types.Handle, ; resource handle
+      m_FunctionToUAVHandle.at(Builder.GetInsertBlock()->getParent()), // %dx.types.Handle, ; resource handle
       AtomicOr,       // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
       ByteIndex,      // i32, ; coordinate c0: byte offset
       UndefArg,       // i32, ; coordinate c1 (unused)
@@ -385,49 +385,53 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
           FOS << "ShouldAssumeDsvAccess";
         }
       }
-      IRBuilder<> Builder(DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt());
 
-      unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
+      for (llvm::Function & F : M.functions()) {
+        if (!F.getBasicBlockList().empty()) {
+          IRBuilder<> Builder(F.getEntryBlock().getFirstInsertionPt());
 
-      // Set up a UAV with structure of a single int
-      SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
-      llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "class.RWStructuredBuffer");
-      std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-      pUAV->SetGlobalName("PIX_CountUAVName");
-      pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-      pUAV->SetID(UAVResourceHandle);
-      pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
-      pUAV->SetSampleCount(1);
-      pUAV->SetGloballyCoherent(false);
-      pUAV->SetHasCounter(false);
-      pUAV->SetCompType(CompType::getI32());
-      pUAV->SetLowerBound(0);
-      pUAV->SetRangeSize(1);
-      pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
+          unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
 
-      auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
-      if (pAnnotation == nullptr) {
+          // Set up a UAV with structure of a single int
+          SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
+          llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "class.RWStructuredBuffer");
+          std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+          pUAV->SetGlobalName("PIX_CountUAVName");
+          pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
+          pUAV->SetID(UAVResourceHandle);
+          pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
+          pUAV->SetSampleCount(1);
+          pUAV->SetGloballyCoherent(false);
+          pUAV->SetHasCounter(false);
+          pUAV->SetCompType(CompType::getI32());
+          pUAV->SetLowerBound(0);
+          pUAV->SetRangeSize(1);
+          pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
-          pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
-          pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
-          pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
-          pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+          auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
+          if (pAnnotation == nullptr) {
+
+            pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
+            pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
+            pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
+            pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+          }
+
+          ID = DM.AddUAV(std::move(pUAV));
+
+          assert((unsigned)ID == UAVResourceHandle);
+
+          // Create handle for the newly-added UAV
+          Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+          Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
+          Constant* UAVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
+          Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
+          Constant* IndexArg = HlslOP->GetU32Const(0); // 
+          Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
+          m_FunctionToUAVHandle[&F] = Builder.CreateCall(CreateHandleOpFunc,
+            { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
+        }
       }
-
-      ID = DM.AddUAV(std::move(pUAV));
-
-      assert((unsigned)ID == UAVResourceHandle);
-
-      // Create handle for the newly-added UAV
-      Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-      Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-      Constant* UAVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
-      Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
-      Constant* IndexArg = HlslOP->GetU32Const(0); // 
-      Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
-      m_HandleForUAV = Builder.CreateCall(CreateHandleOpFunc,
-      { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
-
       DM.ReEmitDxilResources();
     }
 
@@ -449,6 +453,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
 
     // todo: should "GetDimensions" mean a resource access?
+    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(165), "Please update PIX passes if any resource access opcodes are added");
     ResourceAccessFunction raFunctions[] = {
       { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read   , false, f32i32f64 },
       { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read   , false, f16f32f64i16i32i64 },
@@ -460,10 +465,11 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
       { DXIL::OpCode::SampleCmpLevelZero    , ShaderAccessFlags::Read   , true , f16f32 },
       { DXIL::OpCode::TextureLoad           , ShaderAccessFlags::Read   , false, f16f32i16i32 },
       { DXIL::OpCode::TextureStore          , ShaderAccessFlags::Write  , false, f16f32i16i32 },
-      { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read   , true , f32i32 }, // todo: SM6: f16f32i16i32 },
-      { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f32i32 }, // todo: SM6: f16f32i16i32 },
+      { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read   , true , f16f32i16i32 },
+      { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f16f32i16i32 },
       { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read   , false, f32i32 },
-      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f32i32 },
+      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f16f32i16i32 },
+      { DXIL::OpCode::RawBufferStore        , ShaderAccessFlags::Write  , false, f16f32i16i32 },
       { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write  , false, f32i32 },
       { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, false, voidType },
       { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write  , false, i32 },

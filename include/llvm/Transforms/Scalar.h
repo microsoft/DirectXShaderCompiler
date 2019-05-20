@@ -108,6 +108,9 @@ FunctionPass *createScalarReplAggregatesPass(signed Threshold = -1,
                                              signed ArrayElementThreshold = -1,
                                              signed ScalarLoadThreshold = -1);
 // HLSL Change Begins
+FunctionPass* createHLExpandStoreIntrinsicsPass();
+void initializeHLExpandStoreIntrinsicsPass(PassRegistry&);
+
 //===----------------------------------------------------------------------===//
 //
 // ScalarReplAggregatesHLSL - Break up alloca's of aggregates into multiple allocas
@@ -123,6 +126,13 @@ void initializeSROA_DT_HLSLPass(PassRegistry&);
 //
 ModulePass *createSROA_Parameter_HLSL();
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
+
+//===----------------------------------------------------------------------===//
+//
+// Cleans up constant stores that didn't get a chance to be turned into initializers
+//
+Pass *createDxilFixConstArrayInitializerPass();
+void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 
 Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
 void initializeDxilLoopUnrollPass(PassRegistry&);

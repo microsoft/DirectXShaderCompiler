@@ -15,6 +15,7 @@
 
 #include "dia2.h"
 
+#include "dxc/Support/Global.h"
 #include "dxc/Support/microcom.h"
 
 #include "DxilDia.h"
@@ -47,6 +48,19 @@ namespace impl {
 
 template<typename T, typename TItem>
 class TableBase : public IDiaTable, public T {
+public:
+  // COM Interfaces do not have virtual destructors; they instead rely on
+  // AddRef/Release matching calls for managing object lifetimes. This
+  // template is inherited by the implementing table types (which is fine),
+  // and it also provides the base implementation of the COM's memory
+  // management callbacks (which is not fine: once a table goes out of scope
+  // a method in this class will invoke the object's destructor -- which, being
+  // non-virtual, will be this class' instead of the derived table's.) Therefore,
+  // we introduce a virtual destructor.
+  virtual ~TableBase() {
+    DXASSERT(m_dwRef == 0, "deleting COM table with active references");
+  }
+
 protected:
   static constexpr LPCWSTR TableNames[] = {
     L"Symbols",
@@ -64,6 +78,7 @@ protected:
   unsigned m_next;
   unsigned m_count;
   Table::Kind m_kind;
+
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 

@@ -2712,6 +2712,12 @@ bool Sema::isCopyElisionCandidate(QualType ReturnType, const VarDecl *VD,
   if (!ReturnType.isNull() && !ReturnType->isDependentType()) {
     if (!ReturnType->isRecordType())
       return false;
+    // HLSL Change Begins: exclude vectors/matrix (not treated as record type)
+    // NRVO breaks on bool component type due to diff between
+    // i32 memory and i1 register representation
+    if (hlsl::IsHLSLVecMatType(ReturnType))
+      return false;
+    // HLSL Change Ends
     // ... the same cv-unqualified type as the function return type ...
     if (!VDType->isDependentType() &&
         !Context.hasSameUnqualifiedType(ReturnType, VDType))

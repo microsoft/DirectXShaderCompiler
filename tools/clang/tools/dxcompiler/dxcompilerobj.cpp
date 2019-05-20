@@ -50,7 +50,7 @@
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
-#include "clang/SPIRV/EmitSPIRVAction.h"
+#include "clang/SPIRV/EmitSpirvAction.h"
 #endif
 // SPIRV change ends
 
@@ -101,27 +101,42 @@ static void CreateOperationResultFromOutputs(
                                    ppResult);
 }
 
+#ifdef _WIN32
+
+#pragma fenv_access(on)
+
 struct DefaultFPEnvScope
 {
   // _controlfp_s is non-standard and <cfenv>.feholdexceptions doesn't work on windows...?
-#ifdef _WIN32
   unsigned int previousValue;
   DefaultFPEnvScope() {
+    // _controlfp_s returns the value of the control word as it is after
+    // the call, not before the call.  This is the proper way to get the
+    // previous value.
+    errno_t error = _controlfp_s(&previousValue, 0, 0);
+    IFT(error == 0 ? S_OK : E_FAIL);
     // No exceptions, preserve denormals & round to nearest.
-    errno_t error = _controlfp_s(&previousValue, _MCW_EM | _DN_SAVE | _RC_NEAR, _MCW_EM | _MCW_DN | _MCW_RC);
+    unsigned int newValue;
+    error = _controlfp_s(&newValue, _MCW_EM | _DN_SAVE | _RC_NEAR,
+                                    _MCW_EM | _MCW_DN  | _MCW_RC);
     IFT(error == 0 ? S_OK : E_FAIL);
   }
   ~DefaultFPEnvScope() {
+    _clearfp();
     unsigned int newValue;
     errno_t error = _controlfp_s(&newValue, previousValue, _MCW_EM | _MCW_DN | _MCW_RC);
     // During cleanup we can't throw as we might already be handling another one.
-    DXASSERT(error == 0, "Failed to restore floating-point environment.");
-    (void)error;
+    DXASSERT_LOCALVAR(error, error == 0, "Failed to restore floating-point environment.");
   }
-#else
-  DefaultFPEnvScope() {} // Dummy ctor to avoid unused local warning
-#endif
 };
+
+#else   // _WIN32
+
+struct DefaultFPEnvScope {
+  DefaultFPEnvScope() {} // Dummy ctor to avoid unused local warning
+};
+
+#endif  // _WIN32
 
 class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
@@ -327,7 +342,7 @@ public:
     HRESULT hr = S_OK;
     CComPtr<IDxcBlobEncoding> utf8Source;
     CComPtr<AbstractMemoryStream> pOutputStream;
-    CHeapPtr<wchar_t> DebugBlobName;
+    CComHeapPtr<wchar_t> DebugBlobName;
 
     DxcEtw_DXCompilerCompile_Start();
     pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
@@ -534,7 +549,7 @@ public:
             opts.SpirvOptions.clOptions += " " + std::string(opt);
 
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
-        clang::EmitSPIRVAction action;
+        clang::EmitSpirvAction action;
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
@@ -558,15 +573,23 @@ public:
         outStream.flush();
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
-        if (opts.DebugInfo) {
-          SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
-          // Unless we want to strip it right away, include it in the container.
-          if (!opts.StripDebug || ppDebugBlob == nullptr) {
-            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-          }
+        if (opts.EmbedPDBName()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+        }
+        // If -Qembed_debug specified, embed the debug info.
+        // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
+        // embed the debug info and emit a note.
+        if (opts.EmbedDebugInfo()) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+        } else if (!opts.StripDebug && opts.DebugInfo && !ppDebugBlob) {
+          w << "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning.\n";
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
         if (opts.DebugNameForSource) {
           SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        }
+        if (opts.StripReflection) {
+          SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
         }
 
         // Don't do work to put in a container if an error has occurred
@@ -577,7 +600,7 @@ public:
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.DebugInfo, compiler.getDiagnostics());
+                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics());
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
                                                  pOutputBlob, m_pMalloc,
@@ -620,7 +643,7 @@ public:
       HRESULT status;
       DXVERIFY_NOMSG(SUCCEEDED((*ppResult)->GetStatus(&status)));
       if (SUCCEEDED(status)) {
-        if (opts.DebugInfo && ppDebugBlob) {
+        if (opts.IsDebugInfoEnabled() && ppDebugBlob) {
           DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(ppDebugBlob)));
         }
         if (ppDebugBlobName) {
@@ -836,7 +859,7 @@ public:
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.
-    if (Opts.DebugInfo) {
+    if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
       CGOpts.DebugColumnInfo = 1;

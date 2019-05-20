@@ -496,7 +496,6 @@
     </RenderTargets>
 
     <Shader Name="VS" Target="vs_6_2" Arguments="/enable-16bit-types">
-    <!--<Shader Name="VS" Target="vs_6_0"> -->
     <![CDATA[
     struct PSInput {
       half4 position : SV_POSITION;
@@ -514,7 +513,6 @@
     </Shader>
 
     <Shader Name="PS" Target="ps_6_2" Arguments="/enable-16bit-types">
-    <!--<Shader Name="PS" Target="ps_6_0">-->
     <![CDATA[
     struct PSInput {
       half4 position : SV_POSITION;
@@ -566,8 +564,8 @@
          result.position = position;
          return result;
         }
-        float4 PSMain(PSInput input) : SV_TARGET {
-         return float4(first, second, third, fourth);
+        half4 PSMain(PSInput input) : SV_TARGET {
+         return half4(first, second, third, fourth);
         }
       ]]>
     </Shader>

@@ -7,26 +7,26 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_unittest(clang-spirv-tests
-  CodeGenSPIRVTest.cpp
-  ConstantTest.cpp
-  DecorationTest.cpp
+  CodeGenSpirvTest.cpp
   FileTestFixture.cpp
   FileTestUtils.cpp
-  InstBuilderTest.cpp
-  ModuleBuilderTest.cpp
-  SPIRVContextTest.cpp
-  SPIRVTestOptions.cpp
-  StructureTest.cpp
-  TestMain.cpp
+  SpirvBasicBlockTest.cpp
+  SpirvContextTest.cpp
+  SpirvTestOptions.cpp
+  SpirvTypeTest.cpp
+  SpirvConstantTest.cpp
   StringTest.cpp
-  TypeTest.cpp
+  TestMain.cpp
   WholeFileTestFixture.cpp
   )
 
 target_link_libraries(clang-spirv-tests
+  clangAST
+  clangBasic
   clangCodeGen
   clangFrontend
   clangSPIRV
+  clangTooling
   dxcompiler
   effcee
   SPIRV-Tools

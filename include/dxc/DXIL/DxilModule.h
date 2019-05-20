@@ -121,6 +121,7 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const std::vector<uint8_t> &GetSerializedRootSignature() const;
+  std::vector<uint8_t> &GetSerializedRootSignature();
 
   bool HasDxilEntrySignature(const llvm::Function *F) const;
   DxilEntrySignature &GetDxilEntrySignature(const llvm::Function *F);
@@ -176,6 +177,7 @@ public:
   void ReEmitDxilResources();
   /// Deserialize DXIL metadata form into in-memory form.
   void LoadDxilMetadata();
+
   /// Check if a Named meta data node is known by dxil module.
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
 
@@ -186,6 +188,7 @@ public:
   void ResetOP(hlsl::OP *hlslOP);
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
+  void StripReflection();
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 

@@ -21,6 +21,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/IR/DebugInfo.h" // HLSL Change -debug info in scalarizer.
+#include "llvm/IR/DIBuilder.h" // HLSL Change -debug info in scalarizer.
 
 using namespace llvm;
 
@@ -288,7 +290,13 @@ Scatterer Scalarizer::scatter(Instruction *Point, Value *V) {
     // so that it can be used everywhere.
     Function *F = VArg->getParent();
     BasicBlock *BB = &F->getEntryBlock();
-    return Scatterer(BB, BB->begin(), V, &Scattered[V]);
+    // HLSL Change - Begin
+    // return Scatterer(BB, BB->begin(), V, &Scattered[V]);
+    auto InsertPoint = BB->begin();
+    while (InsertPoint != BB->end() && isa<DbgInfoIntrinsic>(InsertPoint))
+      InsertPoint++;
+    return Scatterer(BB, InsertPoint, V, &Scattered[V]);
+    // HLSL Change - End
   }
   if (Instruction *VOp = dyn_cast<Instruction>(V)) {
     // Put the scattered form of an instruction directly after the
@@ -673,6 +681,10 @@ bool Scalarizer::finish() {
   if (Gathered.empty())
     return false;
   // HLSL Change Begins.
+  Module &M = *Gathered.front().first->getModule();
+  LLVMContext &Ctx = M.getContext();
+  const DataLayout &DL = M.getDataLayout();
+  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
   // Map from an extract element inst to a Value which replaced it.
   DenseMap<Instruction *, Value*> EltMap;
   // HLSL Change Ends.
@@ -680,11 +692,41 @@ bool Scalarizer::finish() {
        GMI != GME; ++GMI) {
     Instruction *Op = GMI->first;
     ValueVector &CV = *GMI->second;
+    // HLSL Change Begin - debug info in scalarizer.
+    if (HasDbgInfo) {
+      if (auto *L = LocalAsMetadata::getIfExists(Op)) {
+        if (auto *DINode = MetadataAsValue::getIfExists(Ctx, L)) {
+          Type *Ty = Op->getType();
+          unsigned Count = Ty->getVectorNumElements();
+          Type *EltTy = Ty->getVectorElementType();
+          unsigned EltSizeInBits = DL.getTypeSizeInBits(EltTy);
+          for (User *U : DINode->users()) {
+            if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
+              DIBuilder DIB(M, /*AllowUnresolved*/ false);
+              auto *VarInfo = DVI->getVariable();
+              DebugLoc DbgLoc = DVI->getDebugLoc();
+              unsigned OffsetInBits = 0;
+              if (DVI->getExpression()->isBitPiece())
+                OffsetInBits = DVI->getExpression()->getBitPieceOffset();
+              for (unsigned I = 0; I < Count; ++I) {
+                DIExpression *EltExpr =
+                  DIB.createBitPieceExpression(OffsetInBits, EltSizeInBits);
+                OffsetInBits += EltSizeInBits;
+
+                DIB.insertDbgValueIntrinsic(CV[I], 0, VarInfo, EltExpr, DbgLoc, DVI);
+              }
+            }
+          }
+        }
+      }
+    }
+    // HLSL Change End.
+
     if (!Op->use_empty()) {
       // HLSL Change Begins.
       // Remove the extract element users if possible.
-      for (auto UI = Op->user_begin(); UI != Op->user_end(); ) {
-        if (ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(*(UI++))) {
+      for (User *UI : Op->users()) {
+        if (ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(UI)) {
           Value *Idx = EEI->getIndexOperand();
           if (!isa<ConstantInt>(Idx))
             continue;
@@ -701,6 +743,7 @@ bool Scalarizer::finish() {
             } else
               break;
           }
+
           EEI->replaceAllUsesWith(Elt);
 
           EltMap[EEI] = Elt;

@@ -189,7 +189,7 @@ void LiveIntervalUnion::Array::init(LiveIntervalUnion::Allocator &Alloc,
   clear();
   Size = NSize;
   LIUs = static_cast<LiveIntervalUnion*>(
-    malloc(sizeof(LiveIntervalUnion)*NSize));
+    new char[sizeof(LiveIntervalUnion)*NSize]); // HLSL Change: Use overridable operator new
   for (unsigned i = 0; i != Size; ++i)
     new(LIUs + i) LiveIntervalUnion(Alloc);
 }
@@ -199,7 +199,7 @@ void LiveIntervalUnion::Array::clear() {
     return;
   for (unsigned i = 0; i != Size; ++i)
     LIUs[i].~LiveIntervalUnion();
-  free(LIUs);
+  delete[] static_cast<char*>(LIUs); // HLSL Change: Use overridable operator delete
   Size =  0;
   LIUs = nullptr;
 }

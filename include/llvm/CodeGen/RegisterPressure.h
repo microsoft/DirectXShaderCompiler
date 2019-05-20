@@ -146,7 +146,7 @@ class PressureDiffs {
   unsigned Max;
 public:
   PressureDiffs(): PDiffArray(nullptr), Size(0), Max(0) {}
-  ~PressureDiffs() { free(PDiffArray); }
+  ~PressureDiffs() { delete[] PDiffArray; } // HLSL Change: Use overridable operator delete
 
   void clear() { Size = 0; }
 

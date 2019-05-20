@@ -20,12 +20,12 @@ void main(uint3 id: SV_DispatchThreadID) {
        int val3 = values[x].val3;
 
 // CHECK:      [[val1:%\d+]] = OpLoad %v4float %val1
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformFMul %v4float %int_3 ExclusiveScan [[val1]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformFMul %v4float %uint_3 ExclusiveScan [[val1]]
     values[x].val1 = WavePrefixProduct(val1);
 // CHECK:      [[val2:%\d+]] = OpLoad %v2uint %val2
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformIMul %v2uint %int_3 ExclusiveScan [[val2]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformIMul %v2uint %uint_3 ExclusiveScan [[val2]]
     values[x].val2 = WavePrefixProduct(val2);
 // CHECK:      [[val3:%\d+]] = OpLoad %int %val3
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformIMul %int %int_3 ExclusiveScan [[val3]]
+// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformIMul %int %uint_3 ExclusiveScan [[val3]]
     values[x].val3 = WavePrefixProduct(val3);
 }

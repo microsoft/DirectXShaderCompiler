@@ -159,4 +159,9 @@ void main() {
     uint4 uj, uk;
     uint ul;
     ul = dot(uj, uk);
+
+    // CHECK:      OpCompositeConstruct %v3float %float_1 %float_1 %float_1
+    // CHECK-NEXT: OpDot %float
+    float3 f3;
+    float dotProductByLiteral = dot(f3, float3(1.0.xxx));
 }

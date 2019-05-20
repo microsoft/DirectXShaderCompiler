@@ -388,9 +388,11 @@ void PressureDiffs::init(unsigned N) {
     return;
   }
   Max = Size;
-  free(PDiffArray);
-  PDiffArray = reinterpret_cast<PressureDiff*>(calloc(N, sizeof(PressureDiff)));
-  if (PDiffArray == nullptr) throw std::bad_alloc(); // HLSL Change
+  // HLSL Change Begin: Use overridable operator new/delete
+  delete[] PDiffArray;
+  PDiffArray = new PressureDiff[N];
+  std::memset(PDiffArray, 0, N * sizeof(PressureDiff));
+  // HLSL Change End
 }
 
 /// Add a change in pressure to the pressure diff of a given instruction.

@@ -447,13 +447,21 @@ void hlsl::AddHLSLVectorTemplate(ASTContext& context, ClassTemplateDecl** vector
   templateRecordDecl->setLexicalDeclContext(currentDeclContext);
   templateRecordDecl->startDefinition();
 
-  // Add an 'h' field to hold the handle.
-  AddHLSLHandleField(context, templateRecordDecl, QualType(GetHLSLObjectHandleType(context)));
+  Expr *vecSizeExpr = DeclRefExpr::Create(
+      context, NestedNameSpecifierLoc(), NoLoc, colCountTemplateParamDecl,
+      false,
+      DeclarationNameInfo(colCountTemplateParamDecl->getDeclName(), NoLoc),
+      intType, ExprValueKind::VK_RValue);
 
-  // Add an operator[]. The operator ranges from zero to colcount-1, and returns a scalar.
   const unsigned int templateDepth = 0;
   QualType resultType = context.getTemplateTypeParmType(
     templateDepth, 0, ParameterPackFalse, elementTemplateParamDecl);
+  QualType vectorType = context.getDependentSizedExtVectorType(
+      resultType, vecSizeExpr, SourceLocation());
+  // Add an 'h' field to hold the handle.
+  AddHLSLHandleField(context, templateRecordDecl, vectorType);
+
+  // Add an operator[]. The operator ranges from zero to colcount-1, and returns a scalar.
 
   // ForConstTrue:
   QualType refResultType = context.getConstType(context.getLValueReferenceType(resultType));

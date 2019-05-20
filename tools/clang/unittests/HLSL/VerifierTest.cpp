@@ -34,22 +34,27 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_METHOD(RunArrayIndexOutOfBounds)
   TEST_METHOD(RunArrayLength)
   TEST_METHOD(RunAttributes)
+  TEST_METHOD(RunBuiltinTypesNoInheritance)
   TEST_METHOD(RunConstExpr)
   TEST_METHOD(RunConstAssign)
   TEST_METHOD(RunConstDefault)
   TEST_METHOD(RunConversionsBetweenTypeShapes)
+  TEST_METHOD(RunConversionsNonNumericAggregates)
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
   TEST_METHOD(RunCXX11Attributes)
   TEST_METHOD(RunEnums)
   TEST_METHOD(RunFunctions)
+  TEST_METHOD(RunIncompleteType)
   TEST_METHOD(RunIndexingOperator)
   TEST_METHOD(RunIntrinsicExamples)
   TEST_METHOD(RunMatrixAssignments)
   TEST_METHOD(RunMatrixSyntax)
   TEST_METHOD(RunMatrixSyntaxExactPrecision)
+  TEST_METHOD(RunMintypesPromotionWarnings)
   TEST_METHOD(RunMoreOperators)
   TEST_METHOD(RunObjectOperators)
   TEST_METHOD(RunPackReg)
@@ -60,6 +65,7 @@ public:
   TEST_METHOD(RunScalarOperatorsAssignExactPrecision)
   TEST_METHOD(RunScalarOperators)
   TEST_METHOD(RunScalarOperatorsExactPrecision)
+  TEST_METHOD(RunSizeof)
   TEST_METHOD(RunString)
   TEST_METHOD(RunStructAssignments)
   TEST_METHOD(RunSubobjects)
@@ -135,12 +141,21 @@ public:
   }
 };
 
+TEST_F(VerifierTest, RunArrayIndexOutOfBounds) {
+  CheckVerifiesHLSL(L"array-index-out-of-bounds.hlsl");
+  CheckVerifiesHLSL(L"array-index-out-of-bounds-HV-2016.hlsl");
+}
+
 TEST_F(VerifierTest, RunArrayLength) {
   CheckVerifiesHLSL(L"array-length.hlsl");
 }
 
 TEST_F(VerifierTest, RunAttributes) {
   CheckVerifiesHLSL(L"attributes.hlsl");
+}
+
+TEST_F(VerifierTest, RunBuiltinTypesNoInheritance) {
+  CheckVerifiesHLSL(L"builtin-types-no-inheritance.hlsl");
 }
 
 TEST_F(VerifierTest, RunConstExpr) {
@@ -157,6 +172,10 @@ TEST_F(VerifierTest, RunConstDefault) {
 
 TEST_F(VerifierTest, RunConversionsBetweenTypeShapes) {
   CheckVerifiesHLSL(L"conversions-between-type-shapes.hlsl");
+}
+
+TEST_F(VerifierTest, RunConversionsNonNumericAggregates) {
+  CheckVerifiesHLSL(L"conversions-non-numeric-aggregates.hlsl");
 }
 
 TEST_F(VerifierTest, RunCppErrors) {
@@ -179,6 +198,10 @@ TEST_F(VerifierTest, RunFunctions) {
   CheckVerifiesHLSL(L"functions.hlsl");
 }
 
+TEST_F(VerifierTest, RunIncompleteType) {
+  CheckVerifiesHLSL(L"incomplete-type.hlsl");
+}
+
 TEST_F(VerifierTest, RunIndexingOperator) {
   CheckVerifiesHLSL(L"indexing-operator.hlsl");
 }
@@ -197,6 +220,10 @@ TEST_F(VerifierTest, RunMatrixSyntax) {
 
 TEST_F(VerifierTest, RunMatrixSyntaxExactPrecision) {
   CheckVerifiesHLSL(L"matrix-syntax-exact-precision.hlsl");
+}
+
+TEST_F(VerifierTest, RunMintypesPromotionWarnings) {
+  CheckVerifiesHLSL(L"mintypes-promotion-warnings.hlsl");
 }
 
 TEST_F(VerifierTest, RunMoreOperators) {
@@ -237,6 +264,10 @@ TEST_F(VerifierTest, RunScalarOperators) {
 
 TEST_F(VerifierTest, RunScalarOperatorsExactPrecision) {
   CheckVerifiesHLSL(L"scalar-operators-exact-precision.hlsl");
+}
+
+TEST_F(VerifierTest, RunSizeof) {
+  CheckVerifiesHLSL(L"sizeof.hlsl");
 }
 
 TEST_F(VerifierTest, RunString) {

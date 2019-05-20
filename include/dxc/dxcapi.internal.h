@@ -32,6 +32,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 
 static const BYTE INTRIN_TEMPLATE_FROM_TYPE = 0xff;
 static const BYTE INTRIN_TEMPLATE_VARARGS = 0xfe;
+static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION = 0xfd;
 
 // Use this enumeration to describe allowed templates (layouts) in intrinsics.
 enum LEGAL_INTRINSIC_TEMPLATES {
