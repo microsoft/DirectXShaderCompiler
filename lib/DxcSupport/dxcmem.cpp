@@ -76,7 +76,6 @@ void DxcSetThreadMallocToDefault() throw() {
 
 static IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw() {
   DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
-  pMalloc = pMalloc ? pMalloc : g_pDefaultMalloc;
   IMalloc *pPrior = DxcGetThreadMallocNoRef();
   if (ppPrior) {
     *ppPrior = pPrior;
@@ -86,7 +85,7 @@ static IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw()
 }
 
 DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
-    p = DxcSwapThreadMalloc(pMallocOrNull, &pPrior);
+    p = DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, &pPrior);
 }
 
 DxcThreadMalloc::~DxcThreadMalloc() {
