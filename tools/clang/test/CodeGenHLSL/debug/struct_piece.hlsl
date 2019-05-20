@@ -1,8 +1,12 @@
 // RUN: %dxc -Od -Zi -E main -T ps_6_0 %s | FileCheck %s
 
 // Make sure the bit pieces have the offset in bits
-// CHECK-DAG: !{{[0-9]+}} = !DIExpression(DW_OP_bit_piece, 0, 32)
-// CHECK-DAG: !{{[0-9]+}} = !DIExpression(DW_OP_bit_piece, 32, 32)
+
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
+// CHECK-DAG: !DIExpression(DW_OP_bit_piece, 0, 32)
+// CHECK-DAG: !DIExpression(DW_OP_bit_piece, 32, 32)
 
 struct S {
   float foo;

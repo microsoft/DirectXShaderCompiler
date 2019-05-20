@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -Zi -Od -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -Od -T ps_6_0 %s | FileCheck %s
 
 // CHECK: local resource not guaranteed to map to unique global resource
 

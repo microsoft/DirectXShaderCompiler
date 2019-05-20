@@ -1,9 +1,11 @@
 // RUN: %dxc -T ps_6_0 -E main -Zi -O3 %s | FileCheck %s
 
-// CHECK: @main
-
 // Test for an infinite loop in scalarizer when generating
 
+// CHECK: @main
+
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 float3 fn(float3 a, float3 b, float3 c) {
   float3 x = (a - b) * a;

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // TODO: validate the debug info for clip plane.
 
