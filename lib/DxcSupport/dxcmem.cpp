@@ -70,6 +70,7 @@ void DxcClearThreadMalloc() throw() {
 void DxcSetThreadMallocToDefault() throw() {
   DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
   DXASSERT(DxcGetThreadMallocNoRef() == nullptr, "else nested allocation invoked");
+  g_ThreadMallocTls->set(g_pDefaultMalloc);
   g_pDefaultMalloc->AddRef();
 }
 
