@@ -136,4 +136,26 @@ void main() {
 // CHECK-NEXT: [[ac3:%\d+]] = OpAccessChain %_ptr_Function_float %v4f2 %int_3
 // CHECK-NEXT: OpStore [[ac3]] [[e0]]
     v4f2.w.x.x.x = v4f1.y.x.x.x; // continuously selecting one element
+
+    // Continuous selection with parentheses
+
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_3
+// CHECK-NEXT:                OpStore [[ptr]] %float_5
+    (v4f1.xwzy.yxz).x = 5.0f;
+
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_3
+// CHECK-NEXT:                OpStore [[ptr]] %float_5
+    (v4f1.xwzy).yxz.x = 5.0f;
+
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_3
+// CHECK-NEXT:                OpStore [[ptr]] %float_5
+    ((v4f1.xwzy).yxz).x = 5.0f;
+
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_3
+// CHECK-NEXT:                OpStore [[ptr]] %float_5
+    (((v4f1.xwzy).yxz).x) = 5.0f;
+
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_3
+// CHECK-NEXT:                OpStore [[ptr]] %float_5
+    ((((v4f1.xwzy).yxz)).x) = 5.0f;
 }

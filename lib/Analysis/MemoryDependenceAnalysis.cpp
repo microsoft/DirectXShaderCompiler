@@ -201,6 +201,13 @@ getCallSiteDependencyFrom(CallSite CS, bool isReadOnlyCall,
 
   // Walk backwards through the block, looking for dependencies
   while (ScanIt != BB->begin()) {
+    // HLSL Change - Begin
+    // Skip debug info
+    if (isa<DbgInfoIntrinsic>(*std::prev(ScanIt))) {
+      ScanIt--; continue;
+    }
+    // HLSL Change - End
+
     // Limit the amount of scanning we do so we don't end up with quadratic
     // running time on extreme testcases.
     --Limit;

@@ -234,6 +234,19 @@ To use Vulkan specialization constants, annotate global constants with the
   [[vk::constant_id(2)]] const int   specConstInt   = 42;
   [[vk::constant_id(3)]] const float specConstFloat = 1.5;
 
+Shader Record Buffer
+~~~~~~~~~~~~~~~~~~~~
+
+SPV_NV_ray_tracing exposes user managed buffer in shader binding table by
+using storage class ShaderRecordBufferNV. ConstantBuffer or cbuffer blocks
+can now be mapped to this storage class under HLSL by using
+``[[vk::shader_record_nv]]`` annotation. It is applicable only on ConstantBuffer
+and cbuffer declarations.
+
+Please note as per the requirements of VK_NV_ray_tracing, "there must be no
+more than one shader_record_nv block statically used per shader entry point
+otherwise results are undefined."
+
 Builtin variables
 ~~~~~~~~~~~~~~~~~
 
@@ -879,6 +892,22 @@ to a struct memeber affects all variables of the struct type in question. So
 sharing the same struct definition having ``[[vk::offset]]`` annotations means
 also sharing the layout.
 
+For global variables (which are collected into the ``$Globals`` cbuffer), you
+can use the native HLSL ``:register(c#)`` attribute. Note that ``[[vk::offset]]``
+and ``:packoffset`` cannot be applied to these variables.
+
+If ``register(cX)`` is used on any global variable, the offset for that variable
+is set to ``X * 16``, and the offset for all other global variables without the
+``register(c#)`` annotation will be set to the next available address after
+the highest explicit address. For example:
+
+.. code:: hlsl
+
+  float x : register(c10);   // Offset = 160 (10 * 16)
+  float y;                   // Offset = 164 (160 + 4)
+  float z: register(c1);     // Offset = 16  (1  * 16)
+
+
 These attributes give great flexibility but also responsibility to the
 developer; the compiler will just take in what is specified in the source code
 and emit it to SPIR-V with no error checking.
@@ -1486,7 +1515,48 @@ If we compile with ``-fvk-t-shift 10 0 -fvk-t-shift 20 1``:
 - ``sampler1`` will take binding 1 in set #0, since that's the next available
   binding number in set #0.
 
+HLSL global variables and Vulkan binding
+----------------------------------------
+As mentioned above, all global externally-visible non-resource-type stand-alone
+variables will be collected into a cbuffer named ``$Globals``. By default,
+the ``$Globals`` cbuffer is placed in descriptor set #0, and the binding number
+would be the next available binding number in that set. Meaning, the binding number
+depends on where the very first global variable is in the code.
+
+Example 1:
+
 .. code:: hlsl
+
+  float4 someColors;
+    // $Globals cbuffer placed at DescriptorSet #0, Binding #0
+  Texture2D<float4> texture1;
+    // texture1         placed at DescriptorSet #0, Binding #1
+
+Example 2:
+
+.. code:: hlsl
+
+  Texture2D<float4> texture1;
+    // texture1         placed at DescriptorSet #0, Binding #0
+  float4 someColors;
+    // $Globals cbuffer placed at DescriptorSet #0, Binding #1
+
+In order provide more control over the descriptor set and binding number of the
+``$Globals`` cbuffer, you can use the ``-fvk-bind-globals B S`` command line
+option, which will place this cbuffer at descriptor set ``S``, and binding number ``B``.
+
+Example 3: (compiled with ``-fvk-bind-globals 2 1``)
+
+.. code:: hlsl
+
+  Texture2D<float4> texture1;
+    // texture1         placed at DescriptorSet #0, Binding #0
+  float4 someColors;
+    // $Globals cbuffer placed at DescriptorSet #1, Binding #2
+
+Note that if the developer chooses to use this command line option, it is their
+responsibility to provide proper numbers and avoid binding overlaps.
+
 HLSL Expressions
 ================
 
@@ -2805,6 +2875,288 @@ behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
 generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 ``OpEndPrimitive`` instruction.
 
+Raytracing Shader Stages
+------------------------
+
+DirectX Raytracing adds six new shader stages for raytracing namely ray generation, intersection, closest-hit,
+any-hit, miss and callable.
+
+| Refer to following pages for details:
+| https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing
+| https://docs.microsoft.com/en-us/windows/desktop/direct3d12/direct3d-12-raytracing-hlsl-reference
+
+
+Flow chart for various stages in a raytracing pipeline is as follows:
+::
+
+          +---------------------+
+          |   Ray generation    |
+          +---------------------+
+                     |
+          TraceRay() |                      +--------------+
+                     |      _ _ _ _ _ _ _ _ |   Any Hit    |
+                     |     |                +--------------+
+                     V     V                       ^
+          +---------------------+                  |
+          |    Acceleration     |           +--------------+
+          |     Structure       |           | Intersection |
+          |     Traversal       |           +--------------+
+          +---------------------+                  ^
+                    |        |                     |
+                    |        |_ _ _ _ _ _ _ _ _ _ _|
+                    |
+                    |
+                    V
+          +--------------------+            +-------------+
+          |      Is Hit ?      |            |  Callable   |
+          +--------------------+            +-------------+
+              |            |
+          Yes |            | No
+              V            V
+         +---------+    +------+
+         | Closest |    | Miss |
+         |   Hit   |    |      |
+         +---------+    +------+
+
+
+| *Note : DXC does not add special shader profiles for raytracing under -T option.*
+| *All raytracing shaders must be compiled as library using lib_6_3/lib_6_4 profile option.*
+
+Ray Generation Stage
+~~~~~~~~~~~~~~~~~~~~
+
+| Ray generation shaders start ray tracing work and work on a compute-like 3D grid of threads.
+| Entry functions of this stage type are annotated with **[shader("raygeneration")]** in HLSL source.
+| Such entry functions must return void and do not accept any arguments.
+
+| For example:
+
+.. code:: hlsl
+
+  RaytracingAccelerationStructure rs;
+  struct Payload
+  {
+  float4 color;
+  };
+  [shader("raygeneration")]
+  void main() {
+    Payload myPayload = { float4(0.0f,0.0f,0.0f,0.0f) };
+    RayDesc rayDesc;
+    rayDesc.Origin = float3(0.0f, 0.0f, 0.0f);
+    rayDesc.Direction = float3(0.0f, 0.0f, -1.0f);
+    rayDesc.TMin = 0.0f;
+    rayDesc.TMax = 1000.0f;
+    TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
+  }
+
+Intersection Stage
+~~~~~~~~~~~~~~~~~~
+
+| Intersection shader stage is used to implement arbitrary ray-primitive intersections such spheres or axis-aligned bounding boxes (AABB). Triangle primitives do not require a custom intersection shader.
+| Entry functions of this stage are annotated with **[shader("intersection")]** in HLSL source.
+| Such entry functions must return void and do not accept any arguments.
+
+| For example:
+
+.. code:: hlsl
+
+  struct Attribute
+  {
+    float2 bary;
+  };
+
+  [shader("intersection")]
+  void main() {
+  Attribute myHitAttribute = { float2(0.0f,0.0f) };
+  ReportHit(0.0f, 0U, myHitAttribute);
+  }
+
+
+Closest-Hit Stage
+~~~~~~~~~~~~~~~~~
+
+| Hit shaders are invoked when a ray primitive intersection is found. A closest-hit shader
+| is invoked for the closest intersection point along a ray and can be used to compute interactions
+| at intersection point or spawn secondary rays.
+| Entry functions of this stage are annotated with **[shader("closesthit")]** in HLSL source.
+| Such entry functions must return void and accept exactly two arguments. First argument must be an inout
+| variable of user defined structure type and second argument must be a in variable of user defined structure type.
+
+| For example:
+
+.. code:: hlsl
+
+  struct Attribute
+  {
+    float2 bary;
+  };
+  struct Payload {
+    float4 color;
+  };
+  [shader("closesthit")]
+  void main(inout Payload a, in Attribute b) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+Any-Hit Stage
+~~~~~~~~~~~~~~~~~
+
+| Hit shaders are invoked when a ray primitive intersection is found. An any-hit shader
+| is invoked for all intersections along a ray with a primitive.
+| Entry functions of this stage are annotated with **[shader("anyhit")]** in HLSL source.
+| Such entry functions must return void and accept exactly two arguments. First argument must be an inout
+| variable of user defined structure type and second argument must be an in variable of user defined structure type.
+
+| For example:
+
+.. code:: hlsl
+
+  struct Attribute
+  {
+    float2 bary;
+  };
+  struct Payload {
+    float4 color;
+  };
+  [shader("anyhit")]
+  void main(inout Payload a, in Attribute b) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+Miss Stage
+~~~~~~~~~~
+
+| Miss shaders are invoked when no intersection is found.
+| Entry functions of this stage are annotated with **[shader("miss")]** in HLSL source.
+| Such entry functions return void and accept exactly one argument. First argument must be an inout variable of user defined structure type.
+
+| For example:
+
+.. code:: hlsl
+
+  struct Payload {
+    float4 color;
+  };
+  [shader("miss")]
+  void main(inout Payload a) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+Callable Stage
+~~~~~~~~~~~~~~
+
+| Callables are generic function calls which can be invoked from either raygeneration, closest-hit, 
+| miss or callable shader stages.
+| Entry functions of this stage are annotated with **[shader("callable")]** in HLSL source.
+| Such entry functions must return void and accept exactly one argument. First argument must be an inout
+| variable of user defined structure type.
+
+| For example:
+
+.. code:: hlsl
+
+  struct CallData {
+    float4 data;
+  };
+  [shader("callable")]
+  void main(inout CallData a) {
+    a.color = float4(0.0f,1.0f,0.0f,0.0f);
+  }
+
+
+Raytracing in Vulkan and SPIRV
+==============================
+
+| SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension
+| SPIR-V specification for reference:
+| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_ray_tracing.asciidoc
+
+| Vulkan ray tracing samples:
+| https://developer.nvidia.com/rtx/raytracing/vkray
+
+
+Raytracing Mapping to SPIR-V
+----------------------------
+
+Intrinsics
+~~~~~~~~~~
+
+
+| Following table provides mapping for system value intrinsics along with supported shader stages.
+
+============================    ============================ ====== ============ =========== ======= ======== ========
+        HLSL                               SPIR-V                             HLSL Shader Stage
+----------------------------    ---------------------------- ---------------------------------------------------------
+  System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit   Miss   Callable
+============================    ============================ ====== ============ =========== ======= ======== ========
+``DispatchRaysIndex()``         ``LaunchIdNV``                 ✓         ✓            ✓        ✓      ✓        ✓
+``DispatchRaysDimensions()``    ``LaunchSizeNV``               ✓         ✓            ✓        ✓      ✓        ✓
+``WorldRayOrigin()``            ``WorldRayOriginNV``                     ✓            ✓        ✓      ✓
+``WorldRayDirection()``         ``WorldRayDirectionNV``                  ✓            ✓        ✓      ✓
+``RayTMin()``                   ``RayTminNV``                            ✓            ✓        ✓      ✓
+``RayTCurrent()``               ``HitTNV``                               ✓            ✓        ✓      ✓
+``RayFlags()``                  ``IncomingRayFlagsNV``                   ✓            ✓        ✓      ✓
+``InstanceIndex()``             ``InstanceId``                           ✓            ✓        ✓
+``InstanceID()``                ``InstanceCustomIndexNV``                ✓            ✓        ✓
+``PrimitiveIndex()``            ``PrimitiveId``                          ✓            ✓        ✓
+``ObjectRayOrigin()``           ``ObjectRayOriginNV``                    ✓            ✓        ✓
+``ObjectRayDirection()``        ``ObjectRayDirectionNV``                 ✓            ✓        ✓
+``ObjectToWorld3x4()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
+``ObjectToWorld4x3()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
+``WorldToObject3x4()``          ``WorldToObjectNV``                      ✓            ✓        ✓
+``WorldToObject4x3()``          ``WorldToObjectNV``                      ✓            ✓        ✓
+``HitKind()``                   ``HitKindNV``                            ✓            ✓        ✓
+============================    ============================ ====== ============ =========== ======= ======== ========
+
+| *There is no separate builtin for transposed matrices ObjectToWorld3x4 and WorldToObject3x4 in SPIR-V hence we internally transpose during translation*
+
+
+| Following table provides mapping for other intrinsics along with supported shader stages.
+
+
+===========================     ============================ ====== ============ =========== ======= ===== ========
+        HLSL                               SPIR-V                             HLSL Shader Stage
+---------------------------     ---------------------------- ------------------------------------------------------
+   Intrinsic                              Opcode             Raygen Intersection Closest Hit Any Hit  Miss Callable
+===========================     ============================ ====== ============ =========== ======= ===== ========
+``TraceRay``                    ``OpTraceNV``                  ✓                     ✓                ✓
+``ReportHit``                   ``OpReportIntersectionNV``     ✓         ✓
+``IgnoreHit``                   ``OpIgnoreIntersectionNV``     ✓                                ✓
+``AcceptHitAndEndSearch``       ``OpTerminateRayNV``           ✓                                ✓
+``CallShader``                  ``OpExecuteCallable``          ✓                     ✓                ✓      ✓
+===========================     ============================ ====== ============ =========== ======= ===== ========
+
+
+Resource Types
+~~~~~~~~~~~~~~
+
+| Following table provides mapping for new resource types supported in all raytracing shaders.
+
+
+===================================     =================================
+        HLSL Type                               SPIR-V Opcode
+-----------------------------------     ---------------------------------
+``RaytracingAccelerationStructure``     ``OpTypeAccelerationStructureNV``
+===================================     =================================
+
+Interface Variables
+~~~~~~~~~~~~~~~~~~~
+
+| Interface variables are created for various ray tracing storage classes based on intrinsic/shader stage
+| Following table gives high level overview of the mapping.
+
+
+===========================     ===========================================================
+   SPIR-V Storage Class                Created For
+---------------------------     -----------------------------------------------------------
+``RayPayloadNV``                Last argument to TraceRay
+``IncomingRayPayloadNV``        First argument of entry for AnyHit/ClosestHit & Miss stage
+``HitAttributeNV``              Last argument to ReportHit
+``CallableDataNV``              Last argument to CallShader
+``IncomingCallableDataNV``      First argument of entry for Callable stage
+===========================     ===========================================================
+
+
 Shader Model 6.0 Wave Intrinsics
 ================================
 
@@ -2904,6 +3256,9 @@ codegen for Vulkan:
   It requires all source code resources have ``:register()`` attribute and
   all registers have corresponding Vulkan descriptors specified using this
   option.
+- ``-fvk-bind-globals N M``: Places the ``$Globals`` cbuffer at
+  descriptor set #M and binding #N. See `HLSL global variables and Vulkan binding`_
+  for explanation and examples.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.

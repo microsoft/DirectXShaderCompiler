@@ -104,6 +104,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     // We don't implement this:
     //if(Flags1 & D3DCOMPILE_PARTIAL_PRECISION) arguments.push_back(L"/Gpp");
     if(Flags1 & D3DCOMPILE_RESOURCES_MAY_ALIAS) arguments.push_back(L"/res_may_alias");
+    arguments.push_back(L"-HV");
+    arguments.push_back(L"2016");
 
     IFR(CreateCompiler(&compiler));
     IFR(compiler->Compile(pSource, pSourceName, pEntrypointW, pTargetProfileW,

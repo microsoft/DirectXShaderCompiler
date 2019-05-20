@@ -40,10 +40,14 @@ void StringMapImpl::init(unsigned InitSize) {
   NumItems = 0;
   NumTombstones = 0;
   
-  TheTable = (StringMapEntryBase **)calloc(NumBuckets+1,
-                                           sizeof(StringMapEntryBase **) +
-                                           sizeof(unsigned));
-  if (TheTable == nullptr) throw std::bad_alloc(); // HLSL Change
+  // HLSL Change Begin: Use overridable operator new
+  unsigned NewNumBuckets = NumBuckets;
+  NumBuckets = 0; // If allocation fails, we should have zero buckets.
+  size_t TableSize = (NewNumBuckets + 1) * (sizeof(StringMapEntryBase *) + sizeof(unsigned));
+  TheTable = (StringMapEntryBase **)::operator new(TableSize);
+  std::memset(TheTable, 0, TableSize);
+  NumBuckets = NewNumBuckets;
+  // HLSL Change End
 
   // Allocate one extra bucket, set it to look filled so the iterators stop at
   // end.
@@ -201,10 +205,11 @@ unsigned StringMapImpl::RehashTable(unsigned BucketNo) {
   unsigned NewBucketNo = BucketNo;
   // Allocate one extra bucket which will always be non-empty.  This allows the
   // iterators to stop at end.
-  StringMapEntryBase **NewTableArray =
-    (StringMapEntryBase **)calloc(NewSize+1, sizeof(StringMapEntryBase *) +
-                                             sizeof(unsigned));
-  if (NewTableArray == nullptr) throw std::bad_alloc(); // HLSL Change
+  // HLSL Change Begin: Use overridable operator new
+  size_t NewTableSize = (NewSize + 1) * (sizeof(StringMapEntryBase*) + sizeof(unsigned));
+  StringMapEntryBase **NewTableArray = (StringMapEntryBase **)::operator new(NewTableSize);
+  std::memset(NewTableArray, 0, NewTableSize);
+  // HLSL Change End
   unsigned *NewHashArray = (unsigned *)(NewTableArray + NewSize + 1);
   NewTableArray[NewSize] = (StringMapEntryBase*)2;
 
@@ -238,7 +243,7 @@ unsigned StringMapImpl::RehashTable(unsigned BucketNo) {
     }
   }
   
-  free(TheTable);
+  ::operator delete(TheTable); // HLSL Change: Use overridable operator delete
   
   TheTable = NewTableArray;
   NumBuckets = NewSize;

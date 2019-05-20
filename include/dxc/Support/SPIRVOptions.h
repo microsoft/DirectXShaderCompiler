@@ -32,6 +32,7 @@ enum class SpirvLayoutRule {
   FxcCTBuffer,       // fxc.exe layout rule for cbuffer/tbuffer
   FxcSBuffer,        // fxc.exe layout rule for structured buffers
   Scalar,            // VK_EXT_scalar_block_layout
+  Max,               // This is an invalid layout rule
 };
 
 struct SpirvCodeGenOptions {
@@ -64,6 +65,7 @@ struct SpirvCodeGenOptions {
   llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
   std::vector<std::string> bindRegister;
+  std::vector<std::string> bindGlobals;
 
   // String representation of all command line options.
   std::string clOptions;

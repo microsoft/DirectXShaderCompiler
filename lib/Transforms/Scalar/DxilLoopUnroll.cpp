@@ -372,7 +372,8 @@ static bool processInstruction(SetVector<BasicBlock *> &Body, Loop &L, Instructi
     // Recurse and re-process each PHI instruction. FIXME: we should really
     // convert this entire thing to a worklist approach where we process a
     // vector of instructions...
-    processInstruction(Body, *OtherLoop, *I, DT, EBs, PredCache, LI);
+    SetVector<BasicBlock *> OtherLoopBody(OtherLoop->block_begin(), OtherLoop->block_end()); // HLSL Change
+    processInstruction(OtherLoopBody, *OtherLoop, *I, DT, EBs, PredCache, LI);
   }
 
   // Remove PHI nodes that did not have any uses rewritten.
@@ -667,7 +668,18 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
+static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
+  // Copy the sub loops into a separate list because
+  // the original list may change.
+  SmallVector<Loop *, 4> SubLoops(L->getSubLoops().begin(), L->getSubLoops().end());
 
+  // Must remove all child loops first.
+  for (Loop *SubL : SubLoops) {
+    RecursivelyRemoveLoopFromQueue(LPM, SubL);
+  }
+
+  LPM.deleteLoopFromQueue(L);
+}
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
@@ -895,7 +907,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       // Replace the phi nodes with the value defined INSIDE the previous iteration.
       for (PHINode *PN : PHIs) {
         PHINode *ClonedPN = cast<PHINode>(CurIteration.VarMap[PN]);
-        Value *ReplacementVal = PrevIteration->VarMap[PN->getIncomingValueForBlock(Latch)];
+        Value *ReplacementVal = PN->getIncomingValueForBlock(Latch);
+        auto itRep = PrevIteration->VarMap.find(ReplacementVal);
+        if (itRep != PrevIteration->VarMap.end())
+          ReplacementVal = itRep->second;
         ClonedPN->replaceAllUsesWith(ReplacementVal);
         ClonedPN->eraseFromParent();
         CurIteration.VarMap[PN] = ReplacementVal;
@@ -956,7 +971,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // they're in entry block so deleting loop blocks don't 
     // kill them too.
     for (AllocaInst *AI : ProblemAllocas)
-      DXASSERT(AI->getParent() == &F->getEntryBlock(), "Alloca is not in entry block.");
+      DXASSERT_LOCALVAR(AI, AI->getParent() == &F->getEntryBlock(), "Alloca is not in entry block.");
 
     LoopIteration &FirstIteration = *Iterations.front().get();
     // Make the predecessor branch to the first new header.
@@ -1001,7 +1016,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (BasicBlock *BB : ToBeCloned)
       LI->removeBlock(BB);
 
-    LPM.deleteLoopFromQueue(L);
+    // Remove loop and all child loops from queue.
+    RecursivelyRemoveLoopFromQueue(LPM, L);
 
     // Remove dead blocks.
     for (BasicBlock *BB : ToBeCloned)

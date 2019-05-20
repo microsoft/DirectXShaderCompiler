@@ -256,7 +256,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
           valHR = dxcutil::ValidateAndAssembleToContainer(
               std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
               pOutputStream,
-              /*bDebugInfo*/ false, Diag);
+              /*bDebugInfo*/ false, llvm::StringRef(), Diag);
         } else {
           dxcutil::AssembleToContainer(std::move(pM), pOutputBlob, m_pMalloc,
                                        SerializeFlags, pOutputStream);

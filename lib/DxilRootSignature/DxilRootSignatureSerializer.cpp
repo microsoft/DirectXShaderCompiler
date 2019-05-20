@@ -271,7 +271,7 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
   DXASSERT_NOMSG((cb & 0x3) == 0);
   IFTBOOL(bytes.Allocate(cb), E_OUTOFMEMORY);
   IFT(Serializer.Compact(bytes.m_pData, cb));
-  IFT(DxcCreateBlobOnHeap(bytes.m_pData, cb, ppBlob));
+  IFT(DxcCreateBlobOnMalloc(bytes.m_pData, bytes.GetMallocNoRef(), cb, ppBlob));
   bytes.Detach(); // Ownership transfered to ppBlob.
 }
 

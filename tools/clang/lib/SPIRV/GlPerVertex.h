@@ -11,14 +11,11 @@
 #define LLVM_CLANG_LIB_SPIRV_GLPERVERTEX_H
 
 #include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSigPoint.h"
-#include "clang/SPIRV/ModuleBuilder.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
-
-#include "TypeTranslator.h"
 
 namespace clang {
 namespace spirv {
@@ -44,8 +41,8 @@ namespace spirv {
 /// array for ClipDistance builtin.
 class GlPerVertex {
 public:
-  GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
-              ModuleBuilder &builder, TypeTranslator &translator);
+  GlPerVertex(ASTContext &context, SpirvContext &spvContext,
+              SpirvBuilder &spvBuilder);
 
   /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
@@ -64,14 +61,10 @@ public:
   /// and calculateClipCullDistanceArraySize().
   void generateVars(uint32_t inputArrayLength, uint32_t outputArrayLength);
 
-  /// Returns the <result-id>s for stage input variables.
-  llvm::SmallVector<uint32_t, 2> getStageInVars() const;
-  /// Returns the <result-id>s for stage output variables.
-  llvm::SmallVector<uint32_t, 2> getStageOutVars() const;
-
-  /// Requires the ClipDistance/CullDistance capability if we've seen
-  /// definition of SV_ClipDistance/SV_CullDistance.
-  void requireCapabilityIfNecessary();
+  /// Returns the stage input variables.
+  llvm::SmallVector<SpirvVariable *, 2> getStageInVars() const;
+  /// Returns the stage output variables.
+  llvm::SmallVector<SpirvVariable *, 2> getStageOutVars() const;
 
   /// Tries to access the builtin translated from the given HLSL semantic of the
   /// given index.
@@ -84,12 +77,13 @@ public:
   /// If invocation (should only be used for HS) is not llvm::None, only
   /// accesses the element at the invocation offset in the gl_PerVeterx array.
   ///
-  /// Emits SPIR-V instructions and returns true if we are accessing builtins
+  /// Creates SPIR-V instructions and returns true if we are accessing builtins
   /// that are ClipDistance or CullDistance. Does nothing and returns true if
   /// accessing builtins for others. Returns false if errors occurs.
   bool tryToAccess(hlsl::SigPoint::Kind sigPoint, hlsl::Semantic::Kind,
-                   uint32_t semanticIndex, llvm::Optional<uint32_t> invocation,
-                   uint32_t *value, bool noWriteBack);
+                   uint32_t semanticIndex,
+                   llvm::Optional<SpirvInstruction *> invocation,
+                   SpirvInstruction **value, bool noWriteBack);
 
 private:
   template <unsigned N>
@@ -100,28 +94,30 @@ private:
   }
 
   /// Creates a stand-alone ClipDistance/CullDistance builtin variable.
-  uint32_t createClipCullDistanceVar(bool asInput, bool isClip,
-                                     uint32_t arraySize);
+  SpirvVariable *createClipCullDistanceVar(bool asInput, bool isClip,
+                                           uint32_t arraySize, bool isPrecise);
 
-  /// Emits SPIR-V instructions for reading the data starting from offset in
+  /// Creates SPIR-V instructions for reading the data starting from offset in
   /// the ClipDistance/CullDistance builtin. The data read will be transformed
   /// into the given type asType.
-  uint32_t readClipCullArrayAsType(bool isClip, uint32_t offset,
-                                   QualType asType) const;
-  /// Emits SPIR-V instructions to read a field in gl_PerVertex.
+  SpirvInstruction *readClipCullArrayAsType(bool isClip, uint32_t offset,
+                                            QualType asType) const;
+  /// Creates SPIR-V instructions to read a field in gl_PerVertex.
   bool readField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
-                 uint32_t *value);
+                 SpirvInstruction **value);
 
-  /// Emits SPIR-V instructions for writing data into the ClipDistance/
+  /// Creates SPIR-V instructions for writing data into the ClipDistance/
   /// CullDistance builtin starting from offset. The value to be written is
   /// fromValue, whose type is fromType. Necessary transformations will be
   /// generated to make sure type correctness.
-  void writeClipCullArrayFromType(llvm::Optional<uint32_t> invocationId,
-                                  bool isClip, uint32_t offset,
-                                  QualType fromType, uint32_t fromValue) const;
-  /// Emits SPIR-V instructions to write a field in gl_PerVertex.
+  void
+  writeClipCullArrayFromType(llvm::Optional<SpirvInstruction *> invocationId,
+                             bool isClip, uint32_t offset, QualType fromType,
+                             SpirvInstruction *fromValue) const;
+  /// Creates SPIR-V instructions to write a field in gl_PerVertex.
   bool writeField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
-                  llvm::Optional<uint32_t> invocationId, uint32_t *value);
+                  llvm::Optional<SpirvInstruction *> invocationId,
+                  SpirvInstruction **value);
 
   /// Internal implementation for recordClipCullDistanceDecl().
   bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,
@@ -131,13 +127,18 @@ private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
   using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
 
-  const hlsl::ShaderModel &shaderModel;
   ASTContext &astContext;
-  ModuleBuilder &theBuilder;
+  SpirvContext &spvContext;
+  SpirvBuilder &spvBuilder;
 
   /// Input/output ClipDistance/CullDistance variable.
-  uint32_t inClipVar, inCullVar;
-  uint32_t outClipVar, outCullVar;
+  SpirvVariable *inClipVar, *inCullVar;
+  SpirvVariable *outClipVar, *outCullVar;
+
+  // We need to record whether the variables with 'SV_ClipDistance' or
+  // 'SV_CullDistance' have the HLSL 'precise' keyword.
+  bool inClipPrecise, outClipPrecise;
+  bool inCullPrecise, outCullPrecise;
 
   /// The array size for the input/output gl_PerVertex block member variables.
   /// HS input and output, DS input, GS input has an additional level of

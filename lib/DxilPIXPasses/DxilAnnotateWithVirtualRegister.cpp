@@ -10,11 +10,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
-
 #include <memory>
 
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -25,12 +25,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "DxilPIXVirtualRegisters.h"
 
 #define DEBUG_TYPE "dxil-annotate-with-virtual-regs"
 
@@ -55,9 +54,12 @@ private:
 
   hlsl::DxilModule *m_DM;
   std::uint32_t m_uVReg;
+  std::unique_ptr < llvm::ModuleSlotTracker > m_MST;
   void Init(llvm::Module &M) {
     m_DM = &M.GetOrCreateDxilModule();
     m_uVReg = 0;
+    m_MST.reset(new llvm::ModuleSlotTracker(&M));
+    m_MST->incorporateFunction(*m_DM->GetEntryFunction());
   }
 };
 
@@ -69,13 +71,21 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     return false;
   }
 
-  if (OSOverride != nullptr) {
-    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
-  }
-
   std::uint32_t InstNum = 0;
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, ++InstNum);
+    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+  }
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nInstructionCount:" << InstNum << "\n";
+  }
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nEnd - instruction ID to line\n";
+  }
+
+  if (OSOverride != nullptr) {
+    *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
@@ -165,7 +175,10 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(llvm::Value *V, llvm
 
 void DxilAnnotateWithVirtualRegister::AnnotateAlloca(llvm::AllocaInst *pAlloca) {
   llvm::Type *pAllocaTy = pAlloca->getType()->getElementType();
-  if (pAllocaTy->isFloatTy() || pAllocaTy->isIntegerTy()) {
+  if (pAllocaTy->isFloatTy() ||
+      pAllocaTy->isIntegerTy() ||
+      pAllocaTy->isHalfTy() ||
+      pAllocaTy->isIntegerTy(16)) {
     AssignNewAllocaRegister(pAlloca, 1);
   } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, AT->getNumElements());
@@ -185,7 +198,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(llvm::Instruction *p
   PixDxilReg::AddMD(m_DM->GetCtx(), pI, m_uVReg);
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
-    pI->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
+    pI->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
     *OSOverride << " dxil " << m_uVReg << "\n";
   }
   m_uVReg++;
@@ -195,7 +208,7 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
-    pAlloca->printAsOperand(*OSOverride, DontPrintType, m_DM->GetModule());
+    pAlloca->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
     *OSOverride << " alloca " << m_uVReg << " " << C << "\n";
   }
   m_uVReg += C;

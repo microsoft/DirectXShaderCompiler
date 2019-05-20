@@ -17,7 +17,7 @@
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResource.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "llvm/IR/DiagnosticInfo.h"
@@ -784,9 +784,9 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
     llvm::Type *EltTy = Ty;
     unsigned arraySize = 0;
     unsigned arrayLevel = 0;
-    if (!dxilutil::IsHLSLMatrixType(EltTy) && EltTy->isArrayTy()) {
+    if (!HLMatrixType::isa(EltTy) && EltTy->isArrayTy()) {
       arraySize = 1;
-      while (!dxilutil::IsHLSLMatrixType(EltTy) && EltTy->isArrayTy()) {
+      while (!HLMatrixType::isa(EltTy) && EltTy->isArrayTy()) {
         arraySize *= EltTy->getArrayNumElements();
         EltTy = EltTy->getArrayElementType();
         arrayLevel++;
@@ -808,16 +808,15 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
       }
       if (EltTy->isVectorTy()) {
         EltTy = EltTy->getVectorElementType();
-      } else if (EltTy->isStructTy()) {
-        unsigned col, row;
-        EltTy = HLMatrixLower::GetMatrixInfo(EltTy, col, row);
-      }
+      } else if (EltTy->isStructTy())
+        EltTy = HLMatrixType::cast(EltTy).getElementTypeForReg();
+
       if (arrayLevel == 1)
         arraySize = 0;
     }
 
     std::string StreamStr;
-    if (!dxilutil::IsHLSLMatrixType(EltTy) && EltTy->isStructTy()) {
+    if (!HLMatrixType::isa(EltTy) && EltTy->isStructTy()) {
       std::string NameTypeStr = annotation.GetFieldName();
       raw_string_ostream Stream(NameTypeStr);
       if (arraySize)
@@ -857,9 +856,9 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
 
   if (!annotation) {
     if (!sizeOfStruct) {
-      (OS << comment).indent(indent) << "/* empty struct */\n";
+      (OS << comment).indent(fieldIndent) << "/* empty struct */\n";
     } else {
-      (OS << comment).indent(indent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
+      (OS << comment).indent(fieldIndent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
     }
   } else {
     for (unsigned i = 0; i < ST->getNumElements(); i++) {
@@ -878,12 +877,12 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
   }
   (OS << comment).indent(indent) << "\n";
   // The 2 in offsetIndent-indent-2 is for "} ".
-  (OS << comment).indent(indent)
-      << "} " << left_justify(varName, offsetIndent - 2);
+  std::string varNameAndSemicolon = varName;
+  varNameAndSemicolon += ';';
+  (OS << comment).indent(indent) << "} " << left_justify(varNameAndSemicolon, offsetIndent - 2);
   OS << comment << " Offset:" << right_justify(std::to_string(offset), 5);
   if (sizeOfStruct)
     OS << " Size: " << right_justify(std::to_string(sizeOfStruct), 5);
-  ;
   OS << "\n";
 
   OS << comment << "\n";
@@ -901,7 +900,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   OS << comment << "\n";
   llvm::Type *RetTy = buf->GetRetType();
   // Skip none struct type.
-  if (!RetTy->isStructTy() || dxilutil::IsHLSLMatrixType(RetTy)) {
+  if (!RetTy->isStructTy() || HLMatrixType::isa(RetTy)) {
     llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
     // For resource array, use element type.
     if (Ty->isArrayTy())
@@ -929,7 +928,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
       OS << comment << "   [" << DL.getTypeAllocSize(ST)
          << " x i8] (type annotation not present)\n";
     } else {
-      PrintStructLayout(ST, typeSys, &DL, OS, comment, "$Element;",
+      PrintStructLayout(ST, typeSys, &DL, OS, comment, "$Element",
                         /*offset*/ 0, /*indent*/ 3, offsetIndent,
                         DL.getTypeAllocSize(ST));
     }

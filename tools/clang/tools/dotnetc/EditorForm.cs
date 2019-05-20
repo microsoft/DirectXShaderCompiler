@@ -3368,13 +3368,15 @@ namespace MainNs
             IDxcCompiler compiler = HlslDxcLib.CreateDxcCompiler();
             string fileName = "hlsl.hlsl";
             HlslFileVariables fileVars = GetFileVars();
-            string[] args = new string[] { "-fcgl" };
+            List<string> args = new List<string>();
+            args.Add("-fcgl");
+            args.AddRange(tbOptions.Text.Split());
             string resultText = "";
             IDxcBlob source = null;
             {
                 try
                 {
-                    var result = compiler.Compile(this.CreateBlobForCodeText(), fileName, fileVars.Entry, fileVars.Target, args, args.Length, null, 0, library.CreateIncludeHandler());
+                    var result = compiler.Compile(this.CreateBlobForCodeText(), fileName, fileVars.Entry, fileVars.Target, args.ToArray(), args.Count, null, 0, library.CreateIncludeHandler());
                     if (result.GetStatus() == 0)
                     {
                         source = result.GetResult();

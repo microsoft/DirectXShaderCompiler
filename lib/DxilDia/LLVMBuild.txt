@@ -13,4 +13,4 @@
 type = Library
 name = DxilDia
 parent = Libraries
-required_libraries = Core DxcSupport Support
+required_libraries = Core DxilPIXPasses DxcSupport Support

@@ -10,23 +10,25 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
-#include "llvm/IR/GlobalVariable.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/Support/Global.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
-#include "dxc/Support/Global.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Twine.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -326,6 +328,75 @@ bool SimplifyTrivialPHIs(BasicBlock *BB) {
   return Changed;
 }
 
+static DbgValueInst *FindDbgValueInst(Value *Val) {
+  if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
+    if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
+      for (User *ValMDUser : ValMDAsVal->users()) {
+        if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(ValMDUser))
+          return DbgValInst;
+      }
+    }
+  }
+  return nullptr;
+}
+
+void MigrateDebugValue(Value *Old, Value *New) {
+  DbgValueInst *DbgValInst = FindDbgValueInst(Old);
+  if (DbgValInst == nullptr) return;
+  
+  DbgValInst->setOperand(0, MetadataAsValue::get(New->getContext(), ValueAsMetadata::get(New)));
+
+  // Move the dbg value after the new instruction
+  if (Instruction *NewInst = dyn_cast<Instruction>(New)) {
+    if (NewInst->getNextNode() != DbgValInst) {
+      DbgValInst->removeFromParent();
+      DbgValInst->insertAfter(NewInst);
+    }
+  }
+}
+
+// Propagates any llvm.dbg.value instruction for a given vector
+// to the elements that were used to create it through a series
+// of insertelement instructions.
+//
+// This is used after lowering a vector-returning intrinsic.
+// If we just keep the debug info on the recomposed vector,
+// we will lose it when we break it apart again during later
+// optimization stages.
+void TryScatterDebugValueToVectorElements(Value *Val) {
+  if (!isa<InsertElementInst>(Val) || !Val->getType()->isVectorTy()) return;
+
+  DbgValueInst *VecDbgValInst = FindDbgValueInst(Val);
+  if (VecDbgValInst == nullptr) return;
+
+  Type *ElemTy = Val->getType()->getVectorElementType();
+  DIBuilder DbgInfoBuilder(*VecDbgValInst->getModule());
+  unsigned ElemSizeInBits = VecDbgValInst->getModule()->getDataLayout().getTypeSizeInBits(ElemTy);
+
+  DIExpression *ParentBitPiece = VecDbgValInst->getExpression();
+  if (ParentBitPiece != nullptr && !ParentBitPiece->isBitPiece())
+    ParentBitPiece = nullptr;
+
+  while (InsertElementInst *InsertElt = dyn_cast<InsertElementInst>(Val)) {
+    Value *NewElt = InsertElt->getOperand(1);
+    unsigned EltIdx = static_cast<unsigned>(cast<ConstantInt>(InsertElt->getOperand(2))->getLimitedValue());
+    unsigned OffsetInBits = EltIdx * ElemSizeInBits;
+
+    if (ParentBitPiece) {
+      assert(OffsetInBits + ElemSizeInBits <= ParentBitPiece->getBitPieceSize()
+        && "Nested bit piece expression exceeds bounds of its parent.");
+      OffsetInBits += ParentBitPiece->getBitPieceOffset();
+    }
+
+    DIExpression *DIExpr = DbgInfoBuilder.createBitPieceExpression(OffsetInBits, ElemSizeInBits);
+    // Offset is basically unused and deprecated in later LLVM versions.
+    // Emit it as zero otherwise later versions of the bitcode reader will drop the intrinsic.
+    DbgInfoBuilder.insertDbgValueIntrinsic(NewElt, /* Offset */ 0, VecDbgValInst->getVariable(),
+      DIExpr, VecDbgValInst->getDebugLoc(), InsertElt);
+    Val = InsertElt->getOperand(0);
+  }
+}
+
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
   Instruction *prototype = Inst;
   for (unsigned i = 0; i < prototype->getNumOperands(); i++) {
@@ -396,29 +467,15 @@ llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
   return SkipAllocas(FindAllocaInsertionPt(F));
 }
 
-bool IsHLSLObjectType(llvm::Type *Ty) {
+bool IsHLSLResourceType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     StringRef name = ST->getName();
-    // TODO: don't check names.
-    if (name.startswith("dx.types.wave_t"))
-      return true;
-
-    if (name.endswith("_slice_type"))
-      return false;
-
     name = name.ltrim("class.");
     name = name.ltrim("struct.");
 
     if (name == "SamplerState")
       return true;
     if (name == "SamplerComparisonState")
-      return true;
-
-    if (name.startswith("TriangleStream<"))
-      return true;
-    if (name.startswith("PointStream<"))
-      return true;
-    if (name.startswith("LineStream<"))
       return true;
 
     if (name.startswith("AppendStructuredBuffer<"))
@@ -441,40 +498,60 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
     if (name.startswith("StructuredBuffer<"))
       return true;
-    if (name.startswith("Texture1D<"))
+
+    if (name.startswith("Texture")) {
+      name = name.ltrim("Texture");
+      if (name.startswith("1D<"))
+        return true;
+      if (name.startswith("1DArray<"))
+        return true;
+      if (name.startswith("2D<"))
+        return true;
+      if (name.startswith("2DArray<"))
+        return true;
+      if (name.startswith("3D<"))
+        return true;
+      if (name.startswith("Cube<"))
+        return true;
+      if (name.startswith("CubeArray<"))
+        return true;
+      if (name.startswith("2DMS<"))
+        return true;
+      if (name.startswith("2DMSArray<"))
+        return true;
+    }
+  }
+  return false;
+}
+
+bool IsHLSLObjectType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    StringRef name = ST->getName();
+    // TODO: don't check names.
+    if (name.startswith("dx.types.wave_t"))
       return true;
-    if (name.startswith("Texture1DArray<"))
+
+    if (name.endswith("_slice_type"))
+      return false;
+
+    if (IsHLSLResourceType(Ty))
       return true;
-    if (name.startswith("Texture2D<"))
+
+    name = name.ltrim("class.");
+    name = name.ltrim("struct.");
+
+    if (name.startswith("TriangleStream<"))
       return true;
-    if (name.startswith("Texture2DArray<"))
+    if (name.startswith("PointStream<"))
       return true;
-    if (name.startswith("Texture3D<"))
-      return true;
-    if (name.startswith("TextureCube<"))
-      return true;
-    if (name.startswith("TextureCubeArray<"))
-      return true;
-    if (name.startswith("Texture2DMS<"))
-      return true;
-    if (name.startswith("Texture2DMSArray<"))
+    if (name.startswith("LineStream<"))
       return true;
   }
   return false;
 }
 
-bool IsHLSLMatrixType(Type *Ty) {
-  if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    Type *EltTy = ST->getElementType(0);
-    if (!ST->getName().startswith("class.matrix"))
-      return false;
-
-    bool isVecArray =
-        EltTy->isArrayTy() && EltTy->getArrayElementType()->isVectorTy();
-
-    return isVecArray && EltTy->getArrayNumElements() <= 4;
-  }
-  return false;
+bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
+  return Ty->isIntegerTy() || Ty->isFloatingPointTy();
 }
 
 bool ContainsHLSLObjectType(llvm::Type *Ty) {

@@ -32,6 +32,7 @@ LLVMContext& llvm::getGlobalContext() {
 }
 
 LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
+  std::unique_ptr<LLVMContextImpl> implPtrGuard(pImpl); // HLSL Change: Don't leak if constructor throws.
   // Create the fixed metadata kinds. This is done in the same order as the
   // MD_* enum values so that they correspond.
 
@@ -104,6 +105,8 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   assert(DereferenceableOrNullID == MD_dereferenceable_or_null && 
          "dereferenceable_or_null kind id drifted");
   (void)DereferenceableOrNullID;
+
+  implPtrGuard.release(); // HLSL Change: Destructor now on the hook for destruction
 }
 LLVMContext::~LLVMContext() { delete pImpl; }
 
@@ -248,6 +251,18 @@ void LLVMContext::emitError(unsigned LocCookie, const Twine &ErrorStr) {
 //===----------------------------------------------------------------------===//
 // Metadata Kind Uniquing
 //===----------------------------------------------------------------------===//
+
+// HLSL Change - Begin
+/// Return a unique non-zero ID for the specified metadata kind if it exists.
+bool LLVMContext::findMDKindID(StringRef Name, unsigned *ID) const {
+  auto it = pImpl->CustomMDKindNames.find(Name);
+  if (it != pImpl->CustomMDKindNames.end()) {
+    *ID = it->second;
+    return true;
+  }
+  return false;
+}
+// HLSL Change - End
 
 /// Return a unique non-zero ID for the specified metadata kind.
 unsigned LLVMContext::getMDKindID(StringRef Name) const {

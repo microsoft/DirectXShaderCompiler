@@ -56,6 +56,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include <deque>
 #include <unordered_map>
@@ -112,7 +113,7 @@ private:
 
   void RewriteForConstExpr(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
-  void RewriteForAddrSpaceCast(ConstantExpr *user, IRBuilder<> &Builder);
+  void RewriteForAddrSpaceCast(Value *user, IRBuilder<> &Builder);
   void RewriteForLoad(LoadInst *loadInst);
   void RewriteForStore(StoreInst *storeInst);
   void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
@@ -304,767 +305,6 @@ FunctionPass *llvm::createScalarReplAggregatesHLSLPass(bool UseDomTree, bool Pro
   if (UseDomTree)
     return new SROA_DT_HLSL(Promote);
   return new SROA_SSAUp_HLSL(Promote);
-}
-
-//===----------------------------------------------------------------------===//
-// Convert To Scalar Optimization.
-//===----------------------------------------------------------------------===//
-
-namespace {
-/// ConvertToScalarInfo - This class implements the "Convert To Scalar"
-/// optimization, which scans the uses of an alloca and determines if it can
-/// rewrite it in terms of a single new alloca that can be mem2reg'd.
-class ConvertToScalarInfo {
-  /// AllocaSize - The size of the alloca being considered in bytes.
-  unsigned AllocaSize;
-  const DataLayout &DL;
-  unsigned ScalarLoadThreshold;
-
-  /// IsNotTrivial - This is set to true if there is some access to the object
-  /// which means that mem2reg can't promote it.
-  bool IsNotTrivial;
-
-  /// ScalarKind - Tracks the kind of alloca being considered for promotion,
-  /// computed based on the uses of the alloca rather than the LLVM type system.
-  enum {
-    Unknown,
-
-    // Accesses via GEPs that are consistent with element access of a vector
-    // type. This will not be converted into a vector unless there is a later
-    // access using an actual vector type.
-    ImplicitVector,
-
-    // Accesses via vector operations and GEPs that are consistent with the
-    // layout of a vector type.
-    Vector,
-
-    // An integer bag-of-bits with bitwise operations for insertion and
-    // extraction. Any combination of types can be converted into this kind
-    // of scalar.
-    Integer
-  } ScalarKind;
-
-  /// VectorTy - This tracks the type that we should promote the vector to if
-  /// it is possible to turn it into a vector.  This starts out null, and if it
-  /// isn't possible to turn into a vector type, it gets set to VoidTy.
-  VectorType *VectorTy;
-
-  /// HadNonMemTransferAccess - True if there is at least one access to the
-  /// alloca that is not a MemTransferInst.  We don't want to turn structs into
-  /// large integers unless there is some potential for optimization.
-  bool HadNonMemTransferAccess;
-
-  /// HadDynamicAccess - True if some element of this alloca was dynamic.
-  /// We don't yet have support for turning a dynamic access into a large
-  /// integer.
-  bool HadDynamicAccess;
-
-public:
-  explicit ConvertToScalarInfo(unsigned Size, const DataLayout &DL,
-                               unsigned SLT)
-      : AllocaSize(Size), DL(DL), ScalarLoadThreshold(SLT), IsNotTrivial(false),
-        ScalarKind(Unknown), VectorTy(nullptr), HadNonMemTransferAccess(false),
-        HadDynamicAccess(false) {}
-
-  AllocaInst *TryConvert(AllocaInst *AI);
-
-private:
-  bool CanConvertToScalar(Value *V, uint64_t Offset, Value *NonConstantIdx);
-  void MergeInTypeForLoadOrStore(Type *In, uint64_t Offset);
-  bool MergeInVectorType(VectorType *VInTy, uint64_t Offset);
-  void ConvertUsesToScalar(Value *Ptr, AllocaInst *NewAI, uint64_t Offset,
-                           Value *NonConstantIdx);
-
-  Value *ConvertScalar_ExtractValue(Value *NV, Type *ToType, uint64_t Offset,
-                                    Value *NonConstantIdx,
-                                    IRBuilder<> &Builder);
-  Value *ConvertScalar_InsertValue(Value *StoredVal, Value *ExistingVal,
-                                   uint64_t Offset, Value *NonConstantIdx,
-                                   IRBuilder<> &Builder);
-};
-} // end anonymous namespace.
-
-/// TryConvert - Analyze the specified alloca, and if it is safe to do so,
-/// rewrite it to be a new alloca which is mem2reg'able.  This returns the new
-/// alloca if possible or null if not.
-AllocaInst *ConvertToScalarInfo::TryConvert(AllocaInst *AI) {
-  // If we can't convert this scalar, or if mem2reg can trivially do it, bail
-  // out.
-  if (!CanConvertToScalar(AI, 0, nullptr) || !IsNotTrivial)
-    return nullptr;
-
-  // If an alloca has only memset / memcpy uses, it may still have an Unknown
-  // ScalarKind. Treat it as an Integer below.
-  if (ScalarKind == Unknown)
-    ScalarKind = Integer;
-
-  if (ScalarKind == Vector && VectorTy->getBitWidth() != AllocaSize * 8)
-    ScalarKind = Integer;
-
-  // If we were able to find a vector type that can handle this with
-  // insert/extract elements, and if there was at least one use that had
-  // a vector type, promote this to a vector.  We don't want to promote
-  // random stuff that doesn't use vectors (e.g. <9 x double>) because then
-  // we just get a lot of insert/extracts.  If at least one vector is
-  // involved, then we probably really do have a union of vector/array.
-  Type *NewTy;
-  if (ScalarKind == Vector) {
-    assert(VectorTy && "Missing type for vector scalar.");
-    DEBUG(dbgs() << "CONVERT TO VECTOR: " << *AI << "\n  TYPE = " << *VectorTy
-                 << '\n');
-    NewTy = VectorTy; // Use the vector type.
-  } else {
-    unsigned BitWidth = AllocaSize * 8;
-
-    // Do not convert to scalar integer if the alloca size exceeds the
-    // scalar load threshold.
-    if (BitWidth > ScalarLoadThreshold)
-      return nullptr;
-
-    if ((ScalarKind == ImplicitVector || ScalarKind == Integer) &&
-        !HadNonMemTransferAccess && !DL.fitsInLegalInteger(BitWidth))
-      return nullptr;
-    // Dynamic accesses on integers aren't yet supported.  They need us to shift
-    // by a dynamic amount which could be difficult to work out as we might not
-    // know whether to use a left or right shift.
-    if (ScalarKind == Integer && HadDynamicAccess)
-      return nullptr;
-
-    DEBUG(dbgs() << "CONVERT TO SCALAR INTEGER: " << *AI << "\n");
-    // Create and insert the integer alloca.
-    NewTy = IntegerType::get(AI->getContext(), BitWidth);
-  }
-  AllocaInst *NewAI =
-      new AllocaInst(NewTy, nullptr, "", AI->getParent()->begin());
-  ConvertUsesToScalar(AI, NewAI, 0, nullptr);
-  return NewAI;
-}
-
-/// MergeInTypeForLoadOrStore - Add the 'In' type to the accumulated vector type
-/// (VectorTy) so far at the offset specified by Offset (which is specified in
-/// bytes).
-///
-/// There are two cases we handle here:
-///   1) A union of vector types of the same size and potentially its elements.
-///      Here we turn element accesses into insert/extract element operations.
-///      This promotes a <4 x float> with a store of float to the third element
-///      into a <4 x float> that uses insert element.
-///   2) A fully general blob of memory, which we turn into some (potentially
-///      large) integer type with extract and insert operations where the loads
-///      and stores would mutate the memory.  We mark this by setting VectorTy
-///      to VoidTy.
-void ConvertToScalarInfo::MergeInTypeForLoadOrStore(Type *In, uint64_t Offset) {
-  // If we already decided to turn this into a blob of integer memory, there is
-  // nothing to be done.
-  if (ScalarKind == Integer)
-    return;
-
-  // If this could be contributing to a vector, analyze it.
-
-  // If the In type is a vector that is the same size as the alloca, see if it
-  // matches the existing VecTy.
-  if (VectorType *VInTy = dyn_cast<VectorType>(In)) {
-    if (MergeInVectorType(VInTy, Offset))
-      return;
-  } else if (In->isFloatTy() || In->isDoubleTy() ||
-             (In->isIntegerTy() && In->getPrimitiveSizeInBits() >= 8 &&
-              isPowerOf2_32(In->getPrimitiveSizeInBits()))) {
-    // Full width accesses can be ignored, because they can always be turned
-    // into bitcasts.
-    unsigned EltSize = In->getPrimitiveSizeInBits() / 8;
-    if (EltSize == AllocaSize)
-      return;
-
-    // If we're accessing something that could be an element of a vector, see
-    // if the implied vector agrees with what we already have and if Offset is
-    // compatible with it.
-    if (Offset % EltSize == 0 && AllocaSize % EltSize == 0 &&
-        (!VectorTy ||
-         EltSize == VectorTy->getElementType()->getPrimitiveSizeInBits() / 8)) {
-      if (!VectorTy) {
-        ScalarKind = ImplicitVector;
-        VectorTy = VectorType::get(In, AllocaSize / EltSize);
-      }
-      return;
-    }
-  }
-
-  // Otherwise, we have a case that we can't handle with an optimized vector
-  // form.  We can still turn this into a large integer.
-  ScalarKind = Integer;
-}
-
-/// MergeInVectorType - Handles the vector case of MergeInTypeForLoadOrStore,
-/// returning true if the type was successfully merged and false otherwise.
-bool ConvertToScalarInfo::MergeInVectorType(VectorType *VInTy,
-                                            uint64_t Offset) {
-  if (VInTy->getBitWidth() / 8 == AllocaSize && Offset == 0) {
-    // If we're storing/loading a vector of the right size, allow it as a
-    // vector.  If this the first vector we see, remember the type so that
-    // we know the element size. If this is a subsequent access, ignore it
-    // even if it is a differing type but the same size. Worst case we can
-    // bitcast the resultant vectors.
-    if (!VectorTy)
-      VectorTy = VInTy;
-    ScalarKind = Vector;
-    return true;
-  }
-
-  return false;
-}
-
-/// CanConvertToScalar - V is a pointer.  If we can convert the pointee and all
-/// its accesses to a single vector type, return true and set VecTy to
-/// the new type.  If we could convert the alloca into a single promotable
-/// integer, return true but set VecTy to VoidTy.  Further, if the use is not a
-/// completely trivial use that mem2reg could promote, set IsNotTrivial.  Offset
-/// is the current offset from the base of the alloca being analyzed.
-///
-/// If we see at least one access to the value that is as a vector type, set the
-/// SawVec flag.
-bool ConvertToScalarInfo::CanConvertToScalar(Value *V, uint64_t Offset,
-                                             Value *NonConstantIdx) {
-  for (User *U : V->users()) {
-    Instruction *UI = cast<Instruction>(U);
-
-    if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
-      // Don't break volatile loads.
-      if (!LI->isSimple())
-        return false;
-
-      HadNonMemTransferAccess = true;
-      MergeInTypeForLoadOrStore(LI->getType(), Offset);
-      continue;
-    }
-
-    if (StoreInst *SI = dyn_cast<StoreInst>(UI)) {
-      // Storing the pointer, not into the value?
-      if (SI->getOperand(0) == V || !SI->isSimple())
-        return false;
-
-      HadNonMemTransferAccess = true;
-      MergeInTypeForLoadOrStore(SI->getOperand(0)->getType(), Offset);
-      continue;
-    }
-
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(UI)) {
-      if (!onlyUsedByLifetimeMarkers(BCI))
-        IsNotTrivial = true; // Can't be mem2reg'd.
-      if (!CanConvertToScalar(BCI, Offset, NonConstantIdx))
-        return false;
-      continue;
-    }
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(UI)) {
-      // If this is a GEP with a variable indices, we can't handle it.
-      PointerType *PtrTy = dyn_cast<PointerType>(GEP->getPointerOperandType());
-      if (!PtrTy)
-        return false;
-
-      // Compute the offset that this GEP adds to the pointer.
-      SmallVector<Value *, 8> Indices(GEP->op_begin() + 1, GEP->op_end());
-      Value *GEPNonConstantIdx = nullptr;
-      if (!GEP->hasAllConstantIndices()) {
-        if (!isa<VectorType>(PtrTy->getElementType()))
-          return false;
-        if (NonConstantIdx)
-          return false;
-        GEPNonConstantIdx = Indices.pop_back_val();
-        if (!GEPNonConstantIdx->getType()->isIntegerTy(32))
-          return false;
-        HadDynamicAccess = true;
-      } else
-        GEPNonConstantIdx = NonConstantIdx;
-      uint64_t GEPOffset = DL.getIndexedOffset(PtrTy, Indices);
-      // See if all uses can be converted.
-      if (!CanConvertToScalar(GEP, Offset + GEPOffset, GEPNonConstantIdx))
-        return false;
-      IsNotTrivial = true; // Can't be mem2reg'd.
-      HadNonMemTransferAccess = true;
-      continue;
-    }
-
-    // If this is a constant sized memset of a constant value (e.g. 0) we can
-    // handle it.
-    if (MemSetInst *MSI = dyn_cast<MemSetInst>(UI)) {
-      // Store to dynamic index.
-      if (NonConstantIdx)
-        return false;
-      // Store of constant value.
-      if (!isa<ConstantInt>(MSI->getValue()))
-        return false;
-
-      // Store of constant size.
-      ConstantInt *Len = dyn_cast<ConstantInt>(MSI->getLength());
-      if (!Len)
-        return false;
-
-      // If the size differs from the alloca, we can only convert the alloca to
-      // an integer bag-of-bits.
-      // FIXME: This should handle all of the cases that are currently accepted
-      // as vector element insertions.
-      if (Len->getZExtValue() != AllocaSize || Offset != 0)
-        ScalarKind = Integer;
-
-      IsNotTrivial = true; // Can't be mem2reg'd.
-      HadNonMemTransferAccess = true;
-      continue;
-    }
-
-    // If this is a memcpy or memmove into or out of the whole allocation, we
-    // can handle it like a load or store of the scalar type.
-    if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(UI)) {
-      // Store to dynamic index.
-      if (NonConstantIdx)
-        return false;
-      ConstantInt *Len = dyn_cast<ConstantInt>(MTI->getLength());
-      if (!Len || Len->getZExtValue() != AllocaSize || Offset != 0)
-        return false;
-
-      IsNotTrivial = true; // Can't be mem2reg'd.
-      continue;
-    }
-
-    // If this is a lifetime intrinsic, we can handle it.
-    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(UI)) {
-      if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
-          II->getIntrinsicID() == Intrinsic::lifetime_end) {
-        continue;
-      }
-    }
-
-    // Otherwise, we cannot handle this!
-    return false;
-  }
-
-  return true;
-}
-
-/// ConvertUsesToScalar - Convert all of the users of Ptr to use the new alloca
-/// directly.  This happens when we are converting an "integer union" to a
-/// single integer scalar, or when we are converting a "vector union" to a
-/// vector with insert/extractelement instructions.
-///
-/// Offset is an offset from the original alloca, in bits that need to be
-/// shifted to the right.  By the end of this, there should be no uses of Ptr.
-void ConvertToScalarInfo::ConvertUsesToScalar(Value *Ptr, AllocaInst *NewAI,
-                                              uint64_t Offset,
-                                              Value *NonConstantIdx) {
-  while (!Ptr->use_empty()) {
-    Instruction *User = cast<Instruction>(Ptr->user_back());
-
-    if (BitCastInst *CI = dyn_cast<BitCastInst>(User)) {
-      ConvertUsesToScalar(CI, NewAI, Offset, NonConstantIdx);
-      CI->eraseFromParent();
-      continue;
-    }
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      // Compute the offset that this GEP adds to the pointer.
-      SmallVector<Value *, 8> Indices(GEP->op_begin() + 1, GEP->op_end());
-      Value *GEPNonConstantIdx = nullptr;
-      if (!GEP->hasAllConstantIndices()) {
-        assert(!NonConstantIdx &&
-               "Dynamic GEP reading from dynamic GEP unsupported");
-        GEPNonConstantIdx = Indices.pop_back_val();
-      } else
-        GEPNonConstantIdx = NonConstantIdx;
-      uint64_t GEPOffset =
-          DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
-      ConvertUsesToScalar(GEP, NewAI, Offset + GEPOffset * 8,
-                          GEPNonConstantIdx);
-      GEP->eraseFromParent();
-      continue;
-    }
-
-    IRBuilder<> Builder(User);
-
-    if (LoadInst *LI = dyn_cast<LoadInst>(User)) {
-      // The load is a bit extract from NewAI shifted right by Offset bits.
-      Value *LoadedVal = Builder.CreateLoad(NewAI);
-      Value *NewLoadVal = ConvertScalar_ExtractValue(
-          LoadedVal, LI->getType(), Offset, NonConstantIdx, Builder);
-      LI->replaceAllUsesWith(NewLoadVal);
-      LI->eraseFromParent();
-      continue;
-    }
-
-    if (StoreInst *SI = dyn_cast<StoreInst>(User)) {
-      assert(SI->getOperand(0) != Ptr && "Consistency error!");
-      Instruction *Old = Builder.CreateLoad(NewAI, NewAI->getName() + ".in");
-      Value *New = ConvertScalar_InsertValue(SI->getOperand(0), Old, Offset,
-                                             NonConstantIdx, Builder);
-      Builder.CreateStore(New, NewAI);
-      SI->eraseFromParent();
-
-      // If the load we just inserted is now dead, then the inserted store
-      // overwrote the entire thing.
-      if (Old->use_empty())
-        Old->eraseFromParent();
-      continue;
-    }
-
-    // If this is a constant sized memset of a constant value (e.g. 0) we can
-    // transform it into a store of the expanded constant value.
-    if (MemSetInst *MSI = dyn_cast<MemSetInst>(User)) {
-      assert(MSI->getRawDest() == Ptr && "Consistency error!");
-      assert(!NonConstantIdx && "Cannot replace dynamic memset with insert");
-      int64_t SNumBytes = cast<ConstantInt>(MSI->getLength())->getSExtValue();
-      if (SNumBytes > 0 && (SNumBytes >> 32) == 0) {
-        unsigned NumBytes = static_cast<unsigned>(SNumBytes);
-        unsigned Val = cast<ConstantInt>(MSI->getValue())->getZExtValue();
-
-        // Compute the value replicated the right number of times.
-        APInt APVal(NumBytes * 8, Val);
-
-        // Splat the value if non-zero.
-        if (Val)
-          for (unsigned i = 1; i != NumBytes; ++i)
-            APVal |= APVal << 8;
-
-        Instruction *Old = Builder.CreateLoad(NewAI, NewAI->getName() + ".in");
-        Value *New = ConvertScalar_InsertValue(
-            ConstantInt::get(User->getContext(), APVal), Old, Offset, nullptr,
-            Builder);
-        Builder.CreateStore(New, NewAI);
-
-        // If the load we just inserted is now dead, then the memset overwrote
-        // the entire thing.
-        if (Old->use_empty())
-          Old->eraseFromParent();
-      }
-      MSI->eraseFromParent();
-      continue;
-    }
-
-    // If this is a memcpy or memmove into or out of the whole allocation, we
-    // can handle it like a load or store of the scalar type.
-    if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(User)) {
-      assert(Offset == 0 && "must be store to start of alloca");
-      assert(!NonConstantIdx && "Cannot replace dynamic transfer with insert");
-
-      // If the source and destination are both to the same alloca, then this is
-      // a noop copy-to-self, just delete it.  Otherwise, emit a load and store
-      // as appropriate.
-      AllocaInst *OrigAI = cast<AllocaInst>(GetUnderlyingObject(Ptr, DL, 0));
-
-      if (GetUnderlyingObject(MTI->getSource(), DL, 0) != OrigAI) {
-        // Dest must be OrigAI, change this to be a load from the original
-        // pointer (bitcasted), then a store to our new alloca.
-        assert(MTI->getRawDest() == Ptr && "Neither use is of pointer?");
-        Value *SrcPtr = MTI->getSource();
-        PointerType *SPTy = cast<PointerType>(SrcPtr->getType());
-        PointerType *AIPTy = cast<PointerType>(NewAI->getType());
-        if (SPTy->getAddressSpace() != AIPTy->getAddressSpace()) {
-          AIPTy = PointerType::get(AIPTy->getElementType(),
-                                   SPTy->getAddressSpace());
-        }
-        SrcPtr = Builder.CreateBitCast(SrcPtr, AIPTy);
-
-        LoadInst *SrcVal = Builder.CreateLoad(SrcPtr, "srcval");
-        SrcVal->setAlignment(MTI->getAlignment());
-        Builder.CreateStore(SrcVal, NewAI);
-      } else if (GetUnderlyingObject(MTI->getDest(), DL, 0) != OrigAI) {
-        // Src must be OrigAI, change this to be a load from NewAI then a store
-        // through the original dest pointer (bitcasted).
-        assert(MTI->getRawSource() == Ptr && "Neither use is of pointer?");
-        LoadInst *SrcVal = Builder.CreateLoad(NewAI, "srcval");
-
-        PointerType *DPTy = cast<PointerType>(MTI->getDest()->getType());
-        PointerType *AIPTy = cast<PointerType>(NewAI->getType());
-        if (DPTy->getAddressSpace() != AIPTy->getAddressSpace()) {
-          AIPTy = PointerType::get(AIPTy->getElementType(),
-                                   DPTy->getAddressSpace());
-        }
-        Value *DstPtr = Builder.CreateBitCast(MTI->getDest(), AIPTy);
-
-        StoreInst *NewStore = Builder.CreateStore(SrcVal, DstPtr);
-        NewStore->setAlignment(MTI->getAlignment());
-      } else {
-        // Noop transfer. Src == Dst
-      }
-
-      MTI->eraseFromParent();
-      continue;
-    }
-
-    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(User)) {
-      if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
-          II->getIntrinsicID() == Intrinsic::lifetime_end) {
-        // There's no need to preserve these, as the resulting alloca will be
-        // converted to a register anyways.
-        II->eraseFromParent();
-        continue;
-      }
-    }
-
-    llvm_unreachable("Unsupported operation!");
-  }
-}
-
-/// ConvertScalar_ExtractValue - Extract a value of type ToType from an integer
-/// or vector value FromVal, extracting the bits from the offset specified by
-/// Offset.  This returns the value, which is of type ToType.
-///
-/// This happens when we are converting an "integer union" to a single
-/// integer scalar, or when we are converting a "vector union" to a vector with
-/// insert/extractelement instructions.
-///
-/// Offset is an offset from the original alloca, in bits that need to be
-/// shifted to the right.
-Value *ConvertToScalarInfo::ConvertScalar_ExtractValue(Value *FromVal,
-                                                       Type *ToType,
-                                                       uint64_t Offset,
-                                                       Value *NonConstantIdx,
-                                                       IRBuilder<> &Builder) {
-  // If the load is of the whole new alloca, no conversion is needed.
-  Type *FromType = FromVal->getType();
-  if (FromType == ToType && Offset == 0)
-    return FromVal;
-
-  // If the result alloca is a vector type, this is either an element
-  // access or a bitcast to another vector type of the same size.
-  if (VectorType *VTy = dyn_cast<VectorType>(FromType)) {
-    unsigned FromTypeSize = DL.getTypeAllocSize(FromType);
-    unsigned ToTypeSize = DL.getTypeAllocSize(ToType);
-    if (FromTypeSize == ToTypeSize)
-      return Builder.CreateBitCast(FromVal, ToType);
-
-    // Otherwise it must be an element access.
-    unsigned Elt = 0;
-    if (Offset) {
-      unsigned EltSize = DL.getTypeAllocSizeInBits(VTy->getElementType());
-      Elt = Offset / EltSize;
-      assert(EltSize * Elt == Offset && "Invalid modulus in validity checking");
-    }
-    // Return the element extracted out of it.
-    Value *Idx;
-    if (NonConstantIdx) {
-      if (Elt)
-        Idx = Builder.CreateAdd(NonConstantIdx, Builder.getInt32(Elt),
-                                "dyn.offset");
-      else
-        Idx = NonConstantIdx;
-    } else
-      Idx = Builder.getInt32(Elt);
-    Value *V = Builder.CreateExtractElement(FromVal, Idx);
-    if (V->getType() != ToType)
-      V = Builder.CreateBitCast(V, ToType);
-    return V;
-  }
-
-  // If ToType is a first class aggregate, extract out each of the pieces and
-  // use insertvalue's to form the FCA.
-  if (StructType *ST = dyn_cast<StructType>(ToType)) {
-    assert(!NonConstantIdx &&
-           "Dynamic indexing into struct types not supported");
-    const StructLayout &Layout = *DL.getStructLayout(ST);
-    Value *Res = UndefValue::get(ST);
-    for (unsigned i = 0, e = ST->getNumElements(); i != e; ++i) {
-      Value *Elt = ConvertScalar_ExtractValue(
-          FromVal, ST->getElementType(i),
-          Offset + Layout.getElementOffsetInBits(i), nullptr, Builder);
-      Res = Builder.CreateInsertValue(Res, Elt, i);
-    }
-    return Res;
-  }
-
-  if (ArrayType *AT = dyn_cast<ArrayType>(ToType)) {
-    assert(!NonConstantIdx &&
-           "Dynamic indexing into array types not supported");
-    uint64_t EltSize = DL.getTypeAllocSizeInBits(AT->getElementType());
-    Value *Res = UndefValue::get(AT);
-    for (unsigned i = 0, e = AT->getNumElements(); i != e; ++i) {
-      Value *Elt =
-          ConvertScalar_ExtractValue(FromVal, AT->getElementType(),
-                                     Offset + i * EltSize, nullptr, Builder);
-      Res = Builder.CreateInsertValue(Res, Elt, i);
-    }
-    return Res;
-  }
-
-  // Otherwise, this must be a union that was converted to an integer value.
-  IntegerType *NTy = cast<IntegerType>(FromVal->getType());
-
-  // If this is a big-endian system and the load is narrower than the
-  // full alloca type, we need to do a shift to get the right bits.
-  int ShAmt = 0;
-  if (DL.isBigEndian()) {
-    // On big-endian machines, the lowest bit is stored at the bit offset
-    // from the pointer given by getTypeStoreSizeInBits.  This matters for
-    // integers with a bitwidth that is not a multiple of 8.
-    ShAmt = DL.getTypeStoreSizeInBits(NTy) - DL.getTypeStoreSizeInBits(ToType) -
-            Offset;
-  } else {
-    ShAmt = Offset;
-  }
-
-  // Note: we support negative bitwidths (with shl) which are not defined.
-  // We do this to support (f.e.) loads off the end of a structure where
-  // only some bits are used.
-  if (ShAmt > 0 && (unsigned)ShAmt < NTy->getBitWidth())
-    FromVal = Builder.CreateLShr(FromVal,
-                                 ConstantInt::get(FromVal->getType(), ShAmt));
-  else if (ShAmt < 0 && (unsigned)-ShAmt < NTy->getBitWidth())
-    FromVal = Builder.CreateShl(FromVal,
-                                ConstantInt::get(FromVal->getType(), -ShAmt));
-
-  // Finally, unconditionally truncate the integer to the right width.
-  unsigned LIBitWidth = DL.getTypeSizeInBits(ToType);
-  if (LIBitWidth < NTy->getBitWidth())
-    FromVal = Builder.CreateTrunc(
-        FromVal, IntegerType::get(FromVal->getContext(), LIBitWidth));
-  else if (LIBitWidth > NTy->getBitWidth())
-    FromVal = Builder.CreateZExt(
-        FromVal, IntegerType::get(FromVal->getContext(), LIBitWidth));
-
-  // If the result is an integer, this is a trunc or bitcast.
-  if (ToType->isIntegerTy()) {
-    // Should be done.
-  } else if (ToType->isFloatingPointTy() || ToType->isVectorTy()) {
-    // Just do a bitcast, we know the sizes match up.
-    FromVal = Builder.CreateBitCast(FromVal, ToType);
-  } else {
-    // Otherwise must be a pointer.
-    FromVal = Builder.CreateIntToPtr(FromVal, ToType);
-  }
-  assert(FromVal->getType() == ToType && "Didn't convert right?");
-  return FromVal;
-}
-
-/// ConvertScalar_InsertValue - Insert the value "SV" into the existing integer
-/// or vector value "Old" at the offset specified by Offset.
-///
-/// This happens when we are converting an "integer union" to a
-/// single integer scalar, or when we are converting a "vector union" to a
-/// vector with insert/extractelement instructions.
-///
-/// Offset is an offset from the original alloca, in bits that need to be
-/// shifted to the right.
-///
-/// NonConstantIdx is an index value if there was a GEP with a non-constant
-/// index value.  If this is 0 then all GEPs used to find this insert address
-/// are constant.
-Value *ConvertToScalarInfo::ConvertScalar_InsertValue(Value *SV, Value *Old,
-                                                      uint64_t Offset,
-                                                      Value *NonConstantIdx,
-                                                      IRBuilder<> &Builder) {
-  // Convert the stored type to the actual type, shift it left to insert
-  // then 'or' into place.
-  Type *AllocaType = Old->getType();
-  LLVMContext &Context = Old->getContext();
-
-  if (VectorType *VTy = dyn_cast<VectorType>(AllocaType)) {
-    uint64_t VecSize = DL.getTypeAllocSizeInBits(VTy);
-    uint64_t ValSize = DL.getTypeAllocSizeInBits(SV->getType());
-
-    // Changing the whole vector with memset or with an access of a different
-    // vector type?
-    if (ValSize == VecSize)
-      return Builder.CreateBitCast(SV, AllocaType);
-
-    // Must be an element insertion.
-    Type *EltTy = VTy->getElementType();
-    if (SV->getType() != EltTy)
-      SV = Builder.CreateBitCast(SV, EltTy);
-    uint64_t EltSize = DL.getTypeAllocSizeInBits(EltTy);
-    unsigned Elt = Offset / EltSize;
-    Value *Idx;
-    if (NonConstantIdx) {
-      if (Elt)
-        Idx = Builder.CreateAdd(NonConstantIdx, Builder.getInt32(Elt),
-                                "dyn.offset");
-      else
-        Idx = NonConstantIdx;
-    } else
-      Idx = Builder.getInt32(Elt);
-    return Builder.CreateInsertElement(Old, SV, Idx);
-  }
-
-  // If SV is a first-class aggregate value, insert each value recursively.
-  if (StructType *ST = dyn_cast<StructType>(SV->getType())) {
-    assert(!NonConstantIdx &&
-           "Dynamic indexing into struct types not supported");
-    const StructLayout &Layout = *DL.getStructLayout(ST);
-    for (unsigned i = 0, e = ST->getNumElements(); i != e; ++i) {
-      Value *Elt = Builder.CreateExtractValue(SV, i);
-      Old = ConvertScalar_InsertValue(Elt, Old,
-                                      Offset + Layout.getElementOffsetInBits(i),
-                                      nullptr, Builder);
-    }
-    return Old;
-  }
-
-  if (ArrayType *AT = dyn_cast<ArrayType>(SV->getType())) {
-    assert(!NonConstantIdx &&
-           "Dynamic indexing into array types not supported");
-    uint64_t EltSize = DL.getTypeAllocSizeInBits(AT->getElementType());
-    for (unsigned i = 0, e = AT->getNumElements(); i != e; ++i) {
-      Value *Elt = Builder.CreateExtractValue(SV, i);
-      Old = ConvertScalar_InsertValue(Elt, Old, Offset + i * EltSize, nullptr,
-                                      Builder);
-    }
-    return Old;
-  }
-
-  // If SV is a float, convert it to the appropriate integer type.
-  // If it is a pointer, do the same.
-  unsigned SrcWidth = DL.getTypeSizeInBits(SV->getType());
-  unsigned DestWidth = DL.getTypeSizeInBits(AllocaType);
-  unsigned SrcStoreWidth = DL.getTypeStoreSizeInBits(SV->getType());
-  unsigned DestStoreWidth = DL.getTypeStoreSizeInBits(AllocaType);
-  if (SV->getType()->isFloatingPointTy() || SV->getType()->isVectorTy())
-    SV =
-        Builder.CreateBitCast(SV, IntegerType::get(SV->getContext(), SrcWidth));
-  else if (SV->getType()->isPointerTy())
-    SV = Builder.CreatePtrToInt(SV, DL.getIntPtrType(SV->getType()));
-
-  // Zero extend or truncate the value if needed.
-  if (SV->getType() != AllocaType) {
-    if (SV->getType()->getPrimitiveSizeInBits() <
-        AllocaType->getPrimitiveSizeInBits())
-      SV = Builder.CreateZExt(SV, AllocaType);
-    else {
-      // Truncation may be needed if storing more than the alloca can hold
-      // (undefined behavior).
-      SV = Builder.CreateTrunc(SV, AllocaType);
-      SrcWidth = DestWidth;
-      SrcStoreWidth = DestStoreWidth;
-    }
-  }
-
-  // If this is a big-endian system and the store is narrower than the
-  // full alloca type, we need to do a shift to get the right bits.
-  int ShAmt = 0;
-  if (DL.isBigEndian()) {
-    // On big-endian machines, the lowest bit is stored at the bit offset
-    // from the pointer given by getTypeStoreSizeInBits.  This matters for
-    // integers with a bitwidth that is not a multiple of 8.
-    ShAmt = DestStoreWidth - SrcStoreWidth - Offset;
-  } else {
-    ShAmt = Offset;
-  }
-
-  // Note: we support negative bitwidths (with shr) which are not defined.
-  // We do this to support (f.e.) stores off the end of a structure where
-  // only some bits in the structure are set.
-  APInt Mask(APInt::getLowBitsSet(DestWidth, SrcWidth));
-  if (ShAmt > 0 && (unsigned)ShAmt < DestWidth) {
-    SV = Builder.CreateShl(SV, ConstantInt::get(SV->getType(), ShAmt));
-    Mask <<= ShAmt;
-  } else if (ShAmt < 0 && (unsigned)-ShAmt < DestWidth) {
-    SV = Builder.CreateLShr(SV, ConstantInt::get(SV->getType(), -ShAmt));
-    Mask = Mask.lshr(-ShAmt);
-  }
-
-  // Mask out the bits we are about to insert from the old value, and or
-  // in the new bits.
-  if (SrcWidth != DestWidth) {
-    assert(DestWidth > SrcWidth);
-    Old = Builder.CreateAnd(Old, ConstantInt::get(Context, ~Mask), "mask");
-    SV = Builder.CreateOr(Old, SV, "ins");
-  }
-  return SV;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1564,6 +804,10 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
                       std::function<bool(AllocaInst *, AllocaInst *)>>
       WorkList(size_cmp);
   std::unordered_map<AllocaInst*, DbgDeclareInst*> DDIMap;
+  // HLSL Change - Begin
+  std::unordered_map<AllocaInst*, unsigned> OffsetMap; // Map to keep track the offset of an alloca
+                                                       // in the variable that it's a part of.
+  // HLSL Change - End
   // Scan the entry basic block, adding allocas to the worklist.
   BasicBlock &BB = F.getEntryBlock();
   for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
@@ -1639,7 +883,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
         Type *Ty = AI->getAllocatedType();
         // Skip empty struct parameters.
         if (StructType *ST = dyn_cast<StructType>(Ty)) {
-          if (!dxilutil::IsHLSLMatrixType(Ty)) {
+          if (!HLMatrixType::isa(Ty)) {
             DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
             if (SA && SA->IsEmptyStruct()) {
               for (User *U : AI->users()) {
@@ -1653,6 +897,12 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
             }
           }
         }
+// HLSL Change - Begin
+        unsigned parentOffset = 0;
+        auto offsetIt = OffsetMap.find(AI);
+        if (offsetIt != OffsetMap.end())
+          parentOffset = offsetIt->second;
+// HLSL Change - End
 
         DbgDeclareInst *DDI = nullptr;
         unsigned debugOffset = 0;
@@ -1667,8 +917,20 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
           if (DDI) {
             Type *Ty = Elt->getAllocatedType();
             unsigned size = DL.getTypeAllocSize(Ty);
+#if 0 // HLSL Change
             DIExpression *DDIExp =
                 DIB.createBitPieceExpression(debugOffset, size);
+#else // HLSL Change
+
+            DIExpression *DDIExp = nullptr;
+            if (parentOffset+debugOffset == 0 && DL.getTypeAllocSize(AI->getAllocatedType()) == size) {
+              DDIExp = DIB.createExpression();
+            }
+            else {
+              DDIExp = DIB.createBitPieceExpression((parentOffset+debugOffset) * 8, size * 8);
+            }
+            OffsetMap[Elt] = parentOffset+debugOffset;
+#endif // HLSL Change
             debugOffset += size;
             DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DIB.insertDeclare(
                 Elt, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI));
@@ -1884,7 +1146,7 @@ void SROA_HLSL::isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset,
 
   for (;GEPIt != E; ++GEPIt) {
     Type *Ty = *GEPIt;
-    if (Ty->isStructTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
+    if (Ty->isStructTy() && !HLMatrixType::isa(Ty)) {
       // Don't go inside struct when mark hasArrayIndexing and hasVectorIndexing.
       // The following level won't affect scalar repl on the struct.
       break;
@@ -2250,7 +1512,7 @@ static void EltMemCpy(Type *Ty, Value *Dest, Value *Src,
 static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
   if (!Ty->isAggregateType())
     return false;
-  if (dxilutil::IsHLSLMatrixType(Ty))
+  if (HLMatrixType::isa(Ty))
     return false;
   if (dxilutil::IsHLSLObjectType(Ty))
     return false;
@@ -2282,7 +1544,7 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
              fieldAnnotation, bEltMemCpy);
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType::isa(Ty)) {
     // If no fieldAnnotation, use row major as default.
     // Only load then store immediately should be fine.
     bool bRowMajor = true;
@@ -2389,7 +1651,7 @@ static void SplitPtr(Value *Ptr, // The root value pointer
   }
   
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (!dxilutil::IsHLSLMatrixType(Ty) && !dxilutil::IsHLSLObjectType(ST)) {
+    if (!HLMatrixType::isa(Ty) && !dxilutil::IsHLSLObjectType(ST)) {
       const DxilStructAnnotation* SA = TypeSys.GetStructAnnotation(ST);
 
       for (uint32_t i = 0; i < ST->getNumElements(); i++) {
@@ -2425,7 +1687,7 @@ static void SplitPtr(Value *Ptr, // The root value pointer
       ElTy = ElAT->getElementType();
     }
 
-    if (ElTy->isStructTy() && !dxilutil::IsHLSLMatrixType(ElTy)) {
+    if (ElTy->isStructTy() && !HLMatrixType::isa(ElTy)) {
       DXASSERT(0, "Not support array of struct when split pointers.");
       return;
     }
@@ -2442,8 +1704,8 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
   if (ptrSize == size) {
-    // Not go deeper for matrix.
-    if (dxilutil::IsHLSLMatrixType(Ty))
+    // Do not go deeper for matrix or object.
+    if (HLMatrixType::isa(Ty) || dxilutil::IsHLSLObjectType(Ty))
       return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
@@ -2568,6 +1830,24 @@ static void DeleteMemcpy(MemCpyInst *MI) {
   }
 }
 
+// If user is function call, return param annotation to get matrix major.
+static DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
+  DxilTypeSystem &typeSys) {
+  for (User *U : Mat->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *F = CI->getCalledFunction();
+      if (DxilFunctionAnnotation *Anno = typeSys.GetFunctionAnnotation(F)) {
+        for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
+          if (CI->getArgOperand(i) == Mat) {
+            return &Anno->GetParameterAnnotation(i);
+          }
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
                                  DxilTypeSystem &typeSys, const bool bEltMemCpy) {
@@ -2596,8 +1876,8 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   // Try to find fieldAnnotation from user of Dest/Src.
   if (!fieldAnnotation) {
     Type *EltTy = dxilutil::GetArrayEltTy(DestTy);
-    if (dxilutil::IsHLSLMatrixType(EltTy)) {
-      fieldAnnotation = HLMatrixLower::FindAnnotationFromMatUser(Dest, typeSys);
+    if (HLMatrixType::isa(EltTy)) {
+      fieldAnnotation = FindAnnotationFromMatUser(Dest, typeSys);
     }
   }
 
@@ -2688,8 +1968,6 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
     assert(NewGEP->getType() == GEP->getType() && "type mismatch");
     
     GEP->replaceAllUsesWith(NewGEP);
-    if (isa<Instruction>(GEP))
-      DeadInsts.push_back(GEP);
   } else {
     // End at array of basic type.
     Type *Ty = GEP->getType()->getPointerElementType();
@@ -2706,22 +1984,16 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
         NewGEPs.emplace_back(NewGEP);
       }
       const bool bAllowReplace = isa<AllocaInst>(OldVal);
-      if (SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL,
-                                   bAllowReplace)) {
-        if (GEP->user_empty() && isa<Instruction>(GEP))
-          DeadInsts.push_back(GEP);
-        return;
-      }
-      SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL);
-      helper.RewriteForScalarRepl(GEP, Builder);
-      for (Value *NewGEP : NewGEPs) {
-        if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
-          // Delete unused newGEP.
-          cast<Instruction>(NewGEP)->eraseFromParent();
+      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, bAllowReplace)) {
+        SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL);
+        helper.RewriteForScalarRepl(GEP, Builder);
+        for (Value *NewGEP : NewGEPs) {
+          if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
+            // Delete unused newGEP.
+            cast<Instruction>(NewGEP)->eraseFromParent();
+          }
         }
       }
-      if (GEP->user_empty() && isa<Instruction>(GEP))
-        DeadInsts.push_back(GEP);
     } else {
       Value *vecIdx = NewArgs.back();
       if (ConstantInt *immVecIdx = dyn_cast<ConstantInt>(vecIdx)) {
@@ -2739,13 +2011,21 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
         assert(NewGEP->getType() == GEP->getType() && "type mismatch");
 
         GEP->replaceAllUsesWith(NewGEP);
-        if (isa<Instruction>(GEP))
-          DeadInsts.push_back(GEP);
       } else {
         // dynamic vector indexing.
         assert(0 && "should not reach here");
       }
     }
+  }
+
+  // Remove the use so that the caller can keep iterating over its other users
+  DXASSERT(GEP->user_empty(), "All uses of the GEP should have been eliminated");
+  if (isa<Instruction>(GEP)) {
+    GEP->setOperand(GEP->getPointerOperandIndex(), UndefValue::get(GEP->getPointerOperand()->getType()));
+    DeadInsts.push_back(GEP);
+  }
+  else {
+    cast<Constant>(GEP)->destroyConstant();
   }
 }
 
@@ -2809,7 +2089,6 @@ void SROA_Helper::RewriteForLoad(LoadInst *LI) {
       Insert = Builder.CreateInsertElement(Insert, Load, i, "insert");
     }
     LI->replaceAllUsesWith(Insert);
-    DeadInsts.push_back(LI);
   } else if (isCompatibleAggregate(LIType, ValTy)) {
     if (isVectorOrStructArray(LIType)) {
       // Replace:
@@ -2827,7 +2106,6 @@ void SROA_Helper::RewriteForLoad(LoadInst *LI) {
       Value *newLd =
           LoadVectorOrStructArray(cast<ArrayType>(LIType), NewElts, idxList, Builder);
       LI->replaceAllUsesWith(newLd);
-      DeadInsts.push_back(LI);
     } else {
       // Replace:
       //   %res = load { i32, i32 }* %alloc
@@ -2845,7 +2123,7 @@ void SROA_Helper::RewriteForLoad(LoadInst *LI) {
         Value *Ptr = NewElts[i];
         Type *Ty = Ptr->getType()->getPointerElementType();
         Value *Load = nullptr;
-        if (!dxilutil::IsHLSLMatrixType(Ty))
+        if (!HLMatrixType::isa(Ty))
           Load = Builder.CreateLoad(Ptr, "load");
         else {
           // Generate Matrix Load.
@@ -2861,11 +2139,14 @@ void SROA_Helper::RewriteForLoad(LoadInst *LI) {
       if (LIType->isStructTy()) {
         SimplifyStructValUsage(Insert, LdElts, DeadInsts);
       }
-      DeadInsts.push_back(LI);
     }
   } else {
     llvm_unreachable("other type don't need rewrite");
   }
+
+  // Remove the use so that the caller can keep iterating over its other users
+  LI->setOperand(LI->getPointerOperandIndex(), UndefValue::get(LI->getPointerOperand()->getType()));
+  DeadInsts.push_back(LI);
 }
 
 /// RewriteForStore - Replace OldVal with flattened NewElts in StoreInst.
@@ -2887,7 +2168,6 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
       Value *Extract = Builder.CreateExtractElement(Val, i, Val->getName());
       Builder.CreateStore(Extract, NewElts[i]);
     }
-    DeadInsts.push_back(SI);
   } else if (isCompatibleAggregate(SIType, ValTy)) {
     if (isVectorOrStructArray(SIType)) {
       // Replace:
@@ -2917,7 +2197,6 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
       SmallVector<Value *, 8> idxList;
       idxList.emplace_back(zero);
       StoreVectorOrStructArray(AT, Val, NewElts, idxList, Builder);
-      DeadInsts.push_back(SI);
     } else {
       // Replace:
       //   store { i32, i32 } %val, { i32, i32 }* %alloc
@@ -2930,7 +2209,7 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
       Module *M = SI->getModule();
       for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
         Value *Extract = Builder.CreateExtractValue(Val, i, Val->getName());
-        if (!dxilutil::IsHLSLMatrixType(Extract->getType())) {
+        if (!HLMatrixType::isa(Extract->getType())) {
           Builder.CreateStore(Extract, NewElts[i]);
         } else {
           // Generate Matrix Store.
@@ -2940,11 +2219,14 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
               Extract->getType(), {NewElts[i], Extract}, *M);
         }
       }
-      DeadInsts.push_back(SI);
     }
   } else {
     llvm_unreachable("other type don't need rewrite");
   }
+
+  // Remove the use so that the caller can keep iterating over its other users
+  SI->setOperand(SI->getPointerOperandIndex(), UndefValue::get(SI->getPointerOperand()->getType()));
+  DeadInsts.push_back(SI);
 }
 /// RewriteMemIntrin - MI is a memcpy/memset/memmove from or to AI.
 /// Rewrite it to copy or set the elements of the scalarized memory.
@@ -2987,6 +2269,10 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Value *OldV) {
            I != E; ++I)
         if (*I == MI)
           return;
+
+      // Remove the uses so that the caller can keep iterating over its other users
+      MI->setOperand(0, UndefValue::get(MI->getOperand(0)->getType()));
+      MI->setOperand(1, UndefValue::get(MI->getOperand(1)->getType()));
       DeadInsts.push_back(MI);
       return;
     }
@@ -3117,6 +2403,11 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Value *OldV) {
                               MI->isVolatile());
     }
   }
+
+  // Remove the use so that the caller can keep iterating over its other users
+  MI->setOperand(0, UndefValue::get(MI->getOperand(0)->getType()));
+  if (isa<MemTransferInst>(MI))
+    MI->setOperand(1, UndefValue::get(MI->getOperand(1)->getType()));
   DeadInsts.push_back(MI);
 }
 
@@ -3284,20 +2575,27 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
   }
 }
 
-/// RewriteForConstExpr - Rewrite the GEP which is ConstantExpr.
-void SROA_Helper::RewriteForAddrSpaceCast(ConstantExpr *CE,
+/// RewriteForAddrSpaceCast - Rewrite the AddrSpaceCast, either ConstExpr or Inst.
+void SROA_Helper::RewriteForAddrSpaceCast(Value *CE,
                                           IRBuilder<> &Builder) {
   SmallVector<Value *, 8> NewCasts;
   // create new AddrSpaceCast.
   for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
-    Value *NewGEP = Builder.CreateAddrSpaceCast(
+    Value *NewCast = Builder.CreateAddrSpaceCast(
         NewElts[i],
         PointerType::get(NewElts[i]->getType()->getPointerElementType(),
                          CE->getType()->getPointerAddressSpace()));
-    NewCasts.emplace_back(NewGEP);
+    NewCasts.emplace_back(NewCast);
   }
   SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL);
   helper.RewriteForScalarRepl(CE, Builder);
+
+  // Remove the use so that the caller can keep iterating over its other users
+  DXASSERT(CE->user_empty(), "All uses of the addrspacecast should have been eliminated");
+  if (Instruction *I = dyn_cast<Instruction>(CE))
+    I->eraseFromParent();
+  else
+    cast<Constant>(CE)->destroyConstant();
 }
 
 /// RewriteForConstExpr - Rewrite the GEP which is ConstantExpr.
@@ -3316,10 +2614,6 @@ void SROA_Helper::RewriteForConstExpr(ConstantExpr *CE, IRBuilder<> &Builder) {
       return;
     }
   }
-  // Skip unused CE. 
-  if (CE->use_empty())
-    return;
-
   for (Value::use_iterator UI = CE->use_begin(), E = CE->use_end(); UI != E;) {
     Use &TheUse = *UI++;
     if (Instruction *I = dyn_cast<Instruction>(TheUse.getUser())) {
@@ -3333,35 +2627,49 @@ void SROA_Helper::RewriteForConstExpr(ConstantExpr *CE, IRBuilder<> &Builder) {
       RewriteForConstExpr(cast<ConstantExpr>(TheUse.getUser()), Builder);
     }
   }
+
+  // Remove the use so that the caller can keep iterating over its other users
+  DXASSERT(CE->user_empty(), "All uses of the constantexpr should have been eliminated");
+  CE->destroyConstant();
 }
 /// RewriteForScalarRepl - OldVal is being split into NewElts, so rewrite
 /// users of V, which references it, to use the separate elements.
 void SROA_Helper::RewriteForScalarRepl(Value *V, IRBuilder<> &Builder) {
+  // Don't iterate upon the uses explicitly because we'll be removing them,
+  // and potentially adding new ones (if expanding memcpys) during the iteration.
+  Use* PrevUse = nullptr;
+  while (!V->use_empty()) {
+    Use &TheUse = *V->use_begin();
 
-  for (Value::use_iterator UI = V->use_begin(), E = V->use_end(); UI != E;) {
-    Use &TheUse = *UI++;
+    DXASSERT_LOCALVAR(PrevUse, &TheUse != PrevUse,
+      "Infinite loop while SROA'ing value, use isn't getting eliminated.");
+    PrevUse = &TheUse;
 
+    // Each of these must either call ->eraseFromParent()
+    // or null out the use of V so that we make progress.
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(TheUse.getUser())) {
       RewriteForConstExpr(CE, Builder);
-      continue;
     }
-    Instruction *User = cast<Instruction>(TheUse.getUser());
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      IRBuilder<> Builder(GEP);
-      RewriteForGEP(cast<GEPOperator>(GEP), Builder);
-    } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User))
-      RewriteForLoad(ldInst);
-    else if (StoreInst *stInst = dyn_cast<StoreInst>(User))
-      RewriteForStore(stInst);
-    else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(User))
-      RewriteMemIntrin(MI, cast<Instruction>(V));
-    else if (CallInst *CI = dyn_cast<CallInst>(User)) 
-      RewriteCall(CI);
-    else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User))
-      RewriteBitCast(BCI);
     else {
-      assert(0 && "not support.");
+      Instruction *User = cast<Instruction>(TheUse.getUser());
+      if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+        IRBuilder<> Builder(GEP);
+        RewriteForGEP(cast<GEPOperator>(GEP), Builder);
+      } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User))
+        RewriteForLoad(ldInst);
+      else if (StoreInst *stInst = dyn_cast<StoreInst>(User))
+        RewriteForStore(stInst);
+      else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(User))
+        RewriteMemIntrin(MI, V);
+      else if (CallInst *CI = dyn_cast<CallInst>(User)) 
+        RewriteCall(CI);
+      else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User))
+        RewriteBitCast(BCI);
+      else if (AddrSpaceCastInst *CI = dyn_cast<AddrSpaceCastInst>(User)) {
+        RewriteForAddrSpaceCast(CI, Builder);
+      } else {
+        assert(0 && "not support.");
+      }
     }
   }
 }
@@ -3393,7 +2701,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   if (!Ty->isAggregateType())
     return false;
   // Skip matrix types.
-  if (dxilutil::IsHLSLMatrixType(Ty))
+  if (HLMatrixType::isa(Ty))
     return false;
 
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
@@ -3440,7 +2748,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
-        !dxilutil::IsHLSLMatrixType(ElTy)) {
+        !HLMatrixType::isa(ElTy)) {
       if (!dxilutil::IsHLSLObjectType(ElTy)) {
         // for array of struct
         // split into arrays of struct elements
@@ -3569,7 +2877,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
   if (Ty->isSingleValueType() && !Ty->isVectorTy())
     return false;
   // Skip matrix types.
-  if (dxilutil::IsHLSLMatrixType(Ty))
+  if (HLMatrixType::isa(Ty))
     return false;
 
   Module *M = GV->getParent();
@@ -3638,7 +2946,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
-        !dxilutil::IsHLSLMatrixType(ElTy)) {
+        !HLMatrixType::isa(ElTy)) {
       // for array of struct
       // split into arrays of struct elements
       StructType *ElST = cast<StructType>(ElTy);
@@ -4186,9 +3494,28 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
 /// MarkEmptyStructUsers - Add instruction related to Empty struct to DeadInsts.
 void SROA_Helper::MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadInsts) {
-  for (User *U : V->users()) {
-    MarkEmptyStructUsers(U, DeadInsts);
+  UndefValue *undef = UndefValue::get(V->getType());
+  for (auto itU = V->user_begin(), E = V->user_end(); itU != E;) {
+    Value *U = *(itU++);
+    // Kill memcpy, set operands to undef for call and ret, and recurse
+    if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+      DeadInsts.emplace_back(MC);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      for (auto &operand : CI->operands()) {
+        if (operand == V)
+          operand.set(undef);
+      }
+    } else if (ReturnInst *Ret = dyn_cast<ReturnInst>(U)) {
+      Ret->setOperand(0, undef);
+    } else if (isa<Constant>(U) || isa<GetElementPtrInst>(U) ||
+               isa<BitCastInst>(U) || isa<LoadInst>(U) || isa<StoreInst>(U)) {
+      // Recurse users
+      MarkEmptyStructUsers(U, DeadInsts);
+    } else {
+      DXASSERT(false, "otherwise, recursing unexpected empty struct user");
+    }
   }
+
   if (Instruction *I = dyn_cast<Instruction>(V)) {
     // Only need to add no use inst here.
     // DeleteDeadInst will delete everything.
@@ -4202,7 +3529,7 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
     Ty = Ty->getArrayElementType();
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (!dxilutil::IsHLSLMatrixType(Ty)) {
+    if (!HLMatrixType::isa(Ty)) {
       DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
       if (SA && SA->IsEmptyStruct())
         return true;
@@ -4360,7 +3687,7 @@ public:
           continue;
 
         // Check matrix store.
-        if (dxilutil::IsHLSLMatrixType(
+        if (HLMatrixType::isa(
                 GV->getType()->getPointerElementType())) {
           if (CallInst *CI = dyn_cast<CallInst>(user)) {
             if (GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
@@ -4429,7 +3756,7 @@ private:
   /// we can remove them after we are done working.
   SmallVector<Value *, 32> DeadInsts;
   // Map from orginal function to the flatten version.
-  std::unordered_map<Function *, Function *> funcMap;
+  MapVector<Function *, Function *> funcMap; // Need deterministic order of iteration
   // Map from original arg/param to flatten cast version.
   std::unordered_map<Value *, std::pair<Value*, DxilParamInputQual>> castParamMap;
   // Map form first element of a vector the list of all elements of the vector.
@@ -4619,6 +3946,12 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
 
     // Flat Global vector if no dynamic vector indexing.
     bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
+
+    // Disable scalarization of groupshared vector arrays
+    if (GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace &&
+        Ty->isArrayTy())
+      bFlatVector = false;
+
     std::vector<Value *> Elts;
     bool SROAed = SROA_Helper::DoScalarReplacement(
         EltGV, Elts, Builder, bFlatVector,
@@ -4667,7 +4000,7 @@ static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAn
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (dxilutil::IsHLSLMatrixType(Ty))
+    if (HLMatrixType::isa(Ty))
       return annotation;
     DxilStructAnnotation *SA = dxilTypeSys.GetStructAnnotation(ST);
     if (SA) {
@@ -4735,13 +4068,13 @@ static unsigned AllocateSemanticIndex(
                                             FlatAnnotationList);
     }
     return updatedArgIdx;
-  } else if (Ty->isStructTy() && !dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (Ty->isStructTy() && !HLMatrixType::isa(Ty)) {
     unsigned fieldsCount = Ty->getStructNumElements();
     for (unsigned i = 0; i < fieldsCount; i++) {
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      if (!(EltTy->isStructTy() && !dxilutil::IsHLSLMatrixType(EltTy))) {
+      if (!(EltTy->isStructTy() && !HLMatrixType::isa(EltTy))) {
         // Update argIdx only when it is a leaf node.
         argIdx++;
       }
@@ -4872,23 +4205,19 @@ static void CopyEltsPtrToVectorPtr(ArrayRef<Value *> elts, Value *VecPtr,
 static void CopyMatToArrayPtr(Value *Mat, Value *ArrayPtr,
                               unsigned arrayBaseIdx, HLModule &HLM,
                               IRBuilder<> &Builder, bool bRowMajor) {
-  Type *Ty = Mat->getType();
   // Mat val is row major.
-  unsigned col, row;
-  HLMatrixLower::GetMatrixInfo(Mat->getType(), col, row);
-  Type *VecTy = HLMatrixLower::LowerMatrixType(Ty);
+  HLMatrixType MatTy = HLMatrixType::cast(Mat->getType());
+  Type *VecTy = MatTy.getLoweredVectorTypeForReg();
   Value *Vec =
       HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
                               (unsigned)HLCastOpcode::RowMatrixToVecCast, VecTy,
                               {Mat}, *HLM.GetModule());
   Value *zero = Builder.getInt32(0);
 
-  for (unsigned r = 0; r < row; r++) {
-    for (unsigned c = 0; c < col; c++) {
-      unsigned rowMatIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
-      Value *Elt = Builder.CreateExtractElement(Vec, rowMatIdx);
-      unsigned matIdx =
-          bRowMajor ? rowMatIdx :  HLMatrixLower::GetColMajorIdx(r, c, row);
+  for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      unsigned matIdx = MatTy.getColumnMajorIndex(r, c);
+      Value *Elt = Builder.CreateExtractElement(Vec, matIdx);
       Value *Ptr = Builder.CreateInBoundsGEP(
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Builder.CreateStore(Elt, Ptr);
@@ -4919,15 +4248,15 @@ static void CopyMatPtrToArrayPtr(Value *MatPtr, Value *ArrayPtr,
 static Value *LoadArrayPtrToMat(Value *ArrayPtr, unsigned arrayBaseIdx,
                                 Type *Ty, HLModule &HLM, IRBuilder<> &Builder,
                                 bool bRowMajor) {
-  unsigned col, row;
-  HLMatrixLower::GetMatrixInfo(Ty, col, row);
+  HLMatrixType MatTy = HLMatrixType::cast(Ty);
   // HLInit operands are in row major.
   SmallVector<Value *, 16> Elts;
   Value *zero = Builder.getInt32(0);
-  for (unsigned r = 0; r < row; r++) {
-    for (unsigned c = 0; c < col; c++) {
-      unsigned matIdx = bRowMajor ? HLMatrixLower::GetRowMajorIdx(r, c, col)
-                                  : HLMatrixLower::GetColMajorIdx(r, c, row);
+  for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      unsigned matIdx = bRowMajor
+        ? MatTy.getRowMajorIndex(r, c)
+        : MatTy.getColumnMajorIndex(r, c);
       Value *Ptr = Builder.CreateInBoundsGEP(
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Value *Elt = Builder.CreateLoad(Ptr);
@@ -4981,12 +4310,10 @@ CastCopyArrayMultiDimTo1Dim(Value *FromArray, Value *ToArray, Type *CurFromTy,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, ToPtr);
     }
-  } else if (dxilutil::IsHLSLMatrixType(CurFromTy)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(CurFromTy)) {
     // Copy matrix to array.
-    unsigned col, row;
-    HLMatrixLower::GetMatrixInfo(CurFromTy, col, row);
     // Calculate the offset.
-    unsigned offset = calcIdx * col * row;
+    unsigned offset = calcIdx * MatTy.getNumElements();
     Value *FromPtr = Builder.CreateInBoundsGEP(FromArray, idxList);
     CopyMatPtrToArrayPtr(FromPtr, ToArray, offset, HLM, Builder, bRowMajor);
   } else if (!CurFromTy->isArrayTy()) {
@@ -5028,12 +4355,10 @@ CastCopyArray1DimToMultiDim(Value *FromArray, Value *ToArray, Type *CurToTy,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, ToPtr);
-  } else if (dxilutil::IsHLSLMatrixType(CurToTy)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::cast(CurToTy)) {
     // Copy array to matrix.
-    unsigned col, row;
-    HLMatrixLower::GetMatrixInfo(CurToTy, col, row);
     // Calculate the offset.
-    unsigned offset = calcIdx * col * row;
+    unsigned offset = calcIdx * MatTy.getNumElements();
     Value *ToPtr = Builder.CreateInBoundsGEP(ToArray, idxList);
     CopyArrayPtrToMatPtr(FromArray, offset, ToPtr, HLM, Builder, bRowMajor);
   } else if (!CurToTy->isArrayTy()) {
@@ -5072,7 +4397,7 @@ static void CastCopyOldPtrToNewPtr(Value *OldPtr, Value *NewPtr, HLModule &HLM,
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateStore(Elt, EltPtr);
     }
-  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
+  } else if (HLMatrixType::isa(OldTy)) {
     CopyMatPtrToArrayPtr(OldPtr, NewPtr, /*arrayBaseIdx*/ 0, HLM, Builder,
                          bRowMajor);
   } else if (OldTy->isArrayTy()) {
@@ -5102,7 +4427,7 @@ static void CastCopyNewPtrToOldPtr(Value *NewPtr, Value *OldPtr, HLModule &HLM,
       V = Builder.CreateInsertElement(V, Elt, i);
     }
     Builder.CreateStore(V, OldPtr);
-  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
+  } else if (HLMatrixType::isa(OldTy)) {
     CopyArrayPtrToMatPtr(NewPtr, /*arrayBaseIdx*/ 0, OldPtr, HLM, Builder,
                          bRowMajor);
   } else if (OldTy->isArrayTy()) {
@@ -5200,7 +4525,7 @@ void SROA_Parameter_HLSL::replaceCastParameter(
     // Must be in param.
     // Store NewParam to OldParam at entry.
     Builder.CreateStore(NewParam, OldParam);
-  } else if (dxilutil::IsHLSLMatrixType(OldTy)) {
+  } else if (HLMatrixType::isa(OldTy)) {
     bool bRowMajor = castRowMajorParamMap.count(NewParam);
     Value *Mat = LoadArrayPtrToMat(NewParam, /*arrayBaseIdx*/ 0, OldTy,
                                    *m_pHLModule, Builder, bRowMajor);
@@ -5597,7 +4922,20 @@ void SROA_Parameter_HLSL::flattenArgument(
         if (Ty->isPointerTy())
           Ty = Ty->getPointerElementType();
         unsigned size = DL.getTypeAllocSize(Ty);
+#if 0 // HLSL Change
         DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+#else // HLSL Change
+        Type *argTy = Arg->getType();
+        if (argTy->isPointerTy())
+          argTy = argTy->getPointerElementType();
+        DIExpression *DDIExp = nullptr;
+        if (debugOffset == 0 && DL.getTypeAllocSize(argTy) == size) {
+          DDIExp = DIB.createExpression();
+        }
+        else {
+          DDIExp = DIB.createBitPieceExpression(debugOffset * 8, size * 8);
+        }
+#endif // HLSL Change
         debugOffset += size;
         DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
                           Builder.GetInsertPoint());
@@ -5912,7 +5250,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   BasicBlock &EntryBlk = F->getEntryBlock();
   Module *M = F->getParent();
   // Map from output to the temp created for it.
-  std::unordered_map<Argument *, Value*> outputTempMap;
+  MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
     Type *Ty = arg.getType();
 
@@ -5923,7 +5261,7 @@ static void LegalizeDxilInputOutputs(Function *F,
 
     // Skip arg which is not a pointer.
     if (!Ty->isPointerTy()) {
-      if (dxilutil::IsHLSLMatrixType(Ty)) {
+      if (HLMatrixType::isa(Ty)) {
         // Replace matrix arg with cast to vec. It will be lowered in
         // DxilGenerationPass.
         isColMajor = paramAnnotation.GetMatrixAnnotation().Orientation ==
@@ -5976,7 +5314,7 @@ static void LegalizeDxilInputOutputs(Function *F,
       bStoreInputToTemp = true;
     }
 
-    if (dxilutil::IsHLSLMatrixType(Ty)) {
+    if (HLMatrixType::isa(Ty)) {
       if (qual == DxilParamInputQual::In)
         bStoreInputToTemp = bLoad;
       else if (qual == DxilParamInputQual::Out)
@@ -6120,9 +5458,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
         DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
             funcDI->getLine(), RetDIType);
-        DIExpression *Expr = nullptr;
+        DIExpression *Expr = DIB.createExpression();
         // TODO: how to get col?
-        DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
+        DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0, funcDI);
         DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
     }
     for (BasicBlock &BB : F->getBasicBlockList()) {
@@ -6471,754 +5809,4 @@ INITIALIZE_PASS(LowerStaticGlobalIntoAlloca, "static-global-to-alloca",
 // Public interface to the LowerStaticGlobalIntoAlloca pass
 ModulePass *llvm::createLowerStaticGlobalIntoAlloca() {
   return new LowerStaticGlobalIntoAlloca();
-}
-
-//===----------------------------------------------------------------------===//
-// Lower one type to another type.
-//===----------------------------------------------------------------------===//
-namespace {
-class LowerTypePass : public ModulePass {
-public:
-  explicit LowerTypePass(char &ID)
-      : ModulePass(ID) {}
-
-  bool runOnModule(Module &M) override;
-private:
-  bool runOnFunction(Function &F, bool HasDbgInfo);
-  AllocaInst *lowerAlloca(AllocaInst *A);
-  GlobalVariable *lowerInternalGlobal(GlobalVariable *GV);
-protected:
-  virtual bool needToLower(Value *V) = 0;
-  virtual void lowerUseWithNewValue(Value *V, Value *NewV) = 0;
-  virtual Type *lowerType(Type *Ty) = 0;
-  virtual Constant *lowerInitVal(Constant *InitVal, Type *NewTy) = 0;
-  virtual StringRef getGlobalPrefix() = 0;
-  virtual void initialize(Module &M) {};
-};
-
-AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
-  IRBuilder<> AllocaBuilder(A);
-  Type *NewTy = lowerType(A->getAllocatedType());
-  return AllocaBuilder.CreateAlloca(NewTy);
-}
-
-GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
-  Type *NewTy = lowerType(GV->getType()->getPointerElementType());
-  // So set init val to undef.
-  Constant *InitVal = UndefValue::get(NewTy);
-  if (GV->hasInitializer()) {
-    Constant *OldInitVal = GV->getInitializer();
-    if (isa<ConstantAggregateZero>(OldInitVal))
-      InitVal = ConstantAggregateZero::get(NewTy);
-    else if (!isa<UndefValue>(OldInitVal)) {
-      InitVal = lowerInitVal(OldInitVal, NewTy);
-    }
-  }
-
-  bool isConst = GV->isConstant();
-  GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
-  unsigned AddressSpace = GV->getType()->getAddressSpace();
-  GlobalValue::LinkageTypes linkage = GV->getLinkage();
-
-  Module *M = GV->getParent();
-  GlobalVariable *NewGV = new llvm::GlobalVariable(
-      *M, NewTy, /*IsConstant*/ isConst, linkage,
-      /*InitVal*/ InitVal, GV->getName() + getGlobalPrefix(),
-      /*InsertBefore*/ nullptr, TLMode, AddressSpace);
-  return NewGV;
-}
-
-bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
-  std::vector<AllocaInst *> workList;
-  // Scan the entry basic block, adding allocas to the worklist.
-  BasicBlock &BB = F.getEntryBlock();
-  for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
-    if (!isa<AllocaInst>(I))
-      continue;
-    AllocaInst *A = cast<AllocaInst>(I);
-    if (needToLower(A))
-      workList.emplace_back(A);
-  }
-  LLVMContext &Context = F.getContext();
-  for (AllocaInst *A : workList) {
-    AllocaInst *NewA = lowerAlloca(A);
-    if (HasDbgInfo) {
-      // Add debug info.
-      DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A);
-      if (DDI) {
-        Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
-        Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
-        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-        IRBuilder<> debugBuilder(DDI);
-        debugBuilder.CreateCall(DDI->getCalledFunction(),
-                                {VMD, DDIVar, DDIExp});
-      }
-    }
-    // Replace users.
-    lowerUseWithNewValue(A, NewA);
-    // Remove alloca.
-    A->eraseFromParent();
-  }
-  return true;
-}
-
-bool LowerTypePass::runOnModule(Module &M) {
-  initialize(M);
-  // Load up debug information, to cross-reference values and the instructions
-  // used to load them.
-  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-  llvm::DebugInfoFinder Finder;
-  if (HasDbgInfo) {
-    Finder.processModule(M);
-  }
-
-  std::vector<AllocaInst*> multiDimAllocas;
-  for (Function &F : M.functions()) {
-    if (F.isDeclaration())
-      continue;
-    runOnFunction(F, HasDbgInfo);
-  }
-
-  // Work on internal global.
-  std::vector<GlobalVariable *> vecGVs;
-  for (GlobalVariable &GV : M.globals()) {
-    if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
-      if (needToLower(&GV) && !GV.user_empty())
-        vecGVs.emplace_back(&GV);
-    }
-  }
-
-  for (GlobalVariable *GV : vecGVs) {
-    GlobalVariable *NewGV = lowerInternalGlobal(GV);
-    // Add debug info.
-    if (HasDbgInfo) {
-      HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, NewGV);
-    }
-    // Replace users.
-    lowerUseWithNewValue(GV, NewGV);
-    // Remove GV.
-    GV->removeDeadConstantUsers();
-    GV->eraseFromParent();
-  }
-
-  return true;
-}
-
-}
-
-
-//===----------------------------------------------------------------------===//
-// DynamicIndexingVector to Array.
-//===----------------------------------------------------------------------===//
-
-namespace {
-class DynamicIndexingVectorToArray : public LowerTypePass {
-  bool ReplaceAllVectors;
-public:
-  explicit DynamicIndexingVectorToArray(bool ReplaceAll = false)
-      : LowerTypePass(ID), ReplaceAllVectors(ReplaceAll) {}
-  static char ID; // Pass identification, replacement for typeid
-  void applyOptions(PassOptions O) override;
-  void dumpConfig(raw_ostream &OS) override;
-protected:
-  bool needToLower(Value *V) override;
-  void lowerUseWithNewValue(Value *V, Value *NewV) override;
-  Type *lowerType(Type *Ty) override;
-  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
-  StringRef getGlobalPrefix() override { return ".v"; }
-
-private:
-  bool HasVectorDynamicIndexing(Value *V);
-  void ReplaceVecGEP(Value *GEP, ArrayRef<Value *> idxList, Value *A,
-                     IRBuilder<> &Builder);
-  void ReplaceVecArrayGEP(Value *GEP, ArrayRef<Value *> idxList, Value *A,
-                          IRBuilder<> &Builder);
-  void ReplaceVectorWithArray(Value *Vec, Value *Array);
-  void ReplaceVectorArrayWithArray(Value *VecArray, Value *Array);
-  void ReplaceStaticIndexingOnVector(Value *V);
-};
-
-void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
-  GetPassOptionBool(O, "ReplaceAllVectors", &ReplaceAllVectors,
-                    ReplaceAllVectors);
-}
-void DynamicIndexingVectorToArray::dumpConfig(raw_ostream &OS) {
-  ModulePass::dumpConfig(OS);
-  OS << ",ReplaceAllVectors=" << ReplaceAllVectors;
-}
-
-void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
-  for (auto U = V->user_begin(), E = V->user_end(); U != E;) {
-    Value *User = *(U++);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      // Only work on element access for vector.
-      if (GEP->getNumOperands() == 3) {
-        auto Idx = GEP->idx_begin();
-        // Skip the pointer idx.
-        Idx++;
-        ConstantInt *constIdx = cast<ConstantInt>(Idx);
-
-        for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end();
-             GEPU != GEPE;) {
-          Instruction *GEPUser = cast<Instruction>(*(GEPU++));
-
-          IRBuilder<> Builder(GEPUser);
-
-          if (LoadInst *ldInst = dyn_cast<LoadInst>(GEPUser)) {
-            // Change
-            //    ld a->x
-            // into
-            //    b = ld a
-            //    b.x
-            Value *ldVal = Builder.CreateLoad(V);
-            Value *Elt = Builder.CreateExtractElement(ldVal, constIdx);
-            ldInst->replaceAllUsesWith(Elt);
-            ldInst->eraseFromParent();
-          } else {
-            // Change
-            //    st val, a->x
-            // into
-            //    tmp = ld a
-            //    tmp.x = val
-            //    st tmp, a
-            // Must be store inst here.
-            StoreInst *stInst = cast<StoreInst>(GEPUser);
-            Value *val = stInst->getValueOperand();
-            Value *ldVal = Builder.CreateLoad(V);
-            ldVal = Builder.CreateInsertElement(ldVal, val, constIdx);
-            Builder.CreateStore(ldVal, V);
-            stInst->eraseFromParent();
-          }
-        }
-        GEP->eraseFromParent();
-      } else if (GEP->getNumIndices() == 1) {
-        Value *Idx = *GEP->idx_begin();
-        if (ConstantInt *C = dyn_cast<ConstantInt>(Idx)) {
-          if (C->getLimitedValue() == 0) {
-            GEP->replaceAllUsesWith(V);
-            GEP->eraseFromParent();
-          }
-        }
-      }
-    }
-  }
-}
-
-bool DynamicIndexingVectorToArray::needToLower(Value *V) {
-  Type *Ty = V->getType()->getPointerElementType();
-  if (dyn_cast<VectorType>(Ty)) {
-    if (isa<GlobalVariable>(V) || ReplaceAllVectors) {
-      return true;
-    }
-    // Don't lower local vector which only static indexing.
-    if (HasVectorDynamicIndexing(V)) {
-      return true;
-    } else {
-      // Change vector indexing with ld st.
-      ReplaceStaticIndexingOnVector(V);
-      return false;
-    }
-  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    // Array must be replaced even without dynamic indexing to remove vector
-    // type in dxil.
-    // TODO: optimize static array index in later pass.
-    Type *EltTy = dxilutil::GetArrayEltTy(AT);
-    return isa<VectorType>(EltTy);
-  }
-  return false;
-}
-
-void DynamicIndexingVectorToArray::ReplaceVecGEP(Value *GEP, ArrayRef<Value *> idxList,
-                                       Value *A, IRBuilder<> &Builder) {
-  Value *newGEP = Builder.CreateGEP(A, idxList);
-  if (GEP->getType()->getPointerElementType()->isVectorTy()) {
-    ReplaceVectorWithArray(GEP, newGEP);
-  } else {
-    GEP->replaceAllUsesWith(newGEP);
-  }
-}
-
-void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) {
-  unsigned size = Vec->getType()->getPointerElementType()->getVectorNumElements();
-  for (auto U = Vec->user_begin(); U != Vec->user_end();) {
-    User *User = (*U++);
-
-    // GlobalVariable user.
-    if (isa<ConstantExpr>(User)) {
-      if (User->user_empty())
-        continue;
-      if (GEPOperator *GEP = dyn_cast<GEPOperator>(User)) {
-        IRBuilder<> Builder(Vec->getContext());
-        SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-        ReplaceVecGEP(GEP, idxList, A, Builder);
-        continue;
-      }
-    }
-    // Instrution user.
-    Instruction *UserInst = cast<Instruction>(User);
-    IRBuilder<> Builder(UserInst);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-      ReplaceVecGEP(cast<GEPOperator>(GEP), idxList, A, Builder);
-      GEP->eraseFromParent();
-    } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
-      // If ld whole struct, need to split the load.
-      Value *newLd = UndefValue::get(ldInst->getType());
-      Value *zero = Builder.getInt32(0);
-      for (unsigned i = 0; i < size; i++) {
-        Value *idx = Builder.getInt32(i);
-        Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-        Value *Elt = Builder.CreateLoad(GEP);
-        newLd = Builder.CreateInsertElement(newLd, Elt, i);
-      }
-      ldInst->replaceAllUsesWith(newLd);
-      ldInst->eraseFromParent();
-    } else if (StoreInst *stInst = dyn_cast<StoreInst>(User)) {
-      Value *val = stInst->getValueOperand();
-      Value *zero = Builder.getInt32(0);
-      for (unsigned i = 0; i < size; i++) {
-        Value *Elt = Builder.CreateExtractElement(val, i);
-        Value *idx = Builder.getInt32(i);
-        Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-        Builder.CreateStore(Elt, GEP);
-      }
-      stInst->eraseFromParent();
-    } else {
-      // Vector parameter should be lowered.
-      // No function call should use vector.
-      DXASSERT(0, "not implement yet");
-    }
-  }
-}
-
-void DynamicIndexingVectorToArray::ReplaceVecArrayGEP(Value *GEP,
-                                            ArrayRef<Value *> idxList, Value *A,
-                                            IRBuilder<> &Builder) {
-  Value *newGEP = Builder.CreateGEP(A, idxList);
-  Type *Ty = GEP->getType()->getPointerElementType();
-  if (Ty->isVectorTy()) {
-    ReplaceVectorWithArray(GEP, newGEP);
-  } else if (Ty->isArrayTy()) {
-    ReplaceVectorArrayWithArray(GEP, newGEP);
-  } else {
-    DXASSERT(Ty->isSingleValueType(), "must be vector subscript here");
-    GEP->replaceAllUsesWith(newGEP);
-  }
-}
-
-void DynamicIndexingVectorToArray::ReplaceVectorArrayWithArray(Value *VA, Value *A) {
-  for (auto U = VA->user_begin(); U != VA->user_end();) {
-    User *User = *(U++);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      IRBuilder<> Builder(GEP);
-      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-      ReplaceVecArrayGEP(GEP, idxList, A, Builder);
-      GEP->eraseFromParent();
-    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(User)) {
-      IRBuilder<> Builder(GEPOp->getContext());
-      SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
-      ReplaceVecArrayGEP(GEPOp, idxList, A, Builder);
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User)) {
-      BCI->setOperand(0, A);
-    } else {
-      DXASSERT(0, "Array pointer should only used by GEP");
-    }
-  }
-}
-
-void DynamicIndexingVectorToArray::lowerUseWithNewValue(Value *V, Value *NewV) {
-  Type *Ty = V->getType()->getPointerElementType();
-  // Replace V with NewV.
-  if (Ty->isVectorTy()) {
-    ReplaceVectorWithArray(V, NewV);
-  } else {
-    ReplaceVectorArrayWithArray(V, NewV);
-  }
-}
-
-Type *DynamicIndexingVectorToArray::lowerType(Type *Ty) {
-  if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
-    return ArrayType::get(VT->getElementType(), VT->getNumElements());
-  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    SmallVector<ArrayType *, 4> nestArrayTys;
-    nestArrayTys.emplace_back(AT);
-
-    Type *EltTy = AT->getElementType();
-    // support multi level of array
-    while (EltTy->isArrayTy()) {
-      ArrayType *ElAT = cast<ArrayType>(EltTy);
-      nestArrayTys.emplace_back(ElAT);
-      EltTy = ElAT->getElementType();
-    }
-    if (EltTy->isVectorTy()) {
-      Type *vecAT = ArrayType::get(EltTy->getVectorElementType(),
-                                   EltTy->getVectorNumElements());
-      return CreateNestArrayTy(vecAT, nestArrayTys);
-    }
-    return nullptr;
-  }
-  return nullptr;
-}
-
-Constant *DynamicIndexingVectorToArray::lowerInitVal(Constant *InitVal, Type *NewTy) {
-  Type *VecTy = InitVal->getType();
-  ArrayType *ArrayTy = cast<ArrayType>(NewTy);
-  if (VecTy->isVectorTy()) {
-    SmallVector<Constant *, 4> Elts;
-    for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
-      Elts.emplace_back(InitVal->getAggregateElement(i));
-    }
-    return ConstantArray::get(ArrayTy, Elts);
-  } else {
-    ArrayType *AT = cast<ArrayType>(VecTy);
-    ArrayType *EltArrayTy = cast<ArrayType>(ArrayTy->getElementType());
-    SmallVector<Constant *, 4> Elts;
-    for (unsigned i = 0; i < AT->getNumElements(); i++) {
-      Constant *Elt = lowerInitVal(InitVal->getAggregateElement(i), EltArrayTy);
-      Elts.emplace_back(Elt);
-    }
-    return ConstantArray::get(ArrayTy, Elts);
-  }
-}
-
-bool DynamicIndexingVectorToArray::HasVectorDynamicIndexing(Value *V) {
-  return dxilutil::HasDynamicIndexing(V);
-}
-
-}
-
-char DynamicIndexingVectorToArray::ID = 0;
-
-INITIALIZE_PASS(DynamicIndexingVectorToArray, "dynamic-vector-to-array",
-  "Replace dynamic indexing vector with array", false,
-  false)
-
-// Public interface to the DynamicIndexingVectorToArray pass
-ModulePass *llvm::createDynamicIndexingVectorToArrayPass(bool ReplaceAllVector) {
-  return new DynamicIndexingVectorToArray(ReplaceAllVector);
-}
-
-//===----------------------------------------------------------------------===//
-// Flatten multi dim array into 1 dim.
-//===----------------------------------------------------------------------===//
-
-namespace {
-
-class MultiDimArrayToOneDimArray : public LowerTypePass {
-public:
-  explicit MultiDimArrayToOneDimArray() : LowerTypePass(ID) {}
-  static char ID; // Pass identification, replacement for typeid
-protected:
-  bool needToLower(Value *V) override;
-  void lowerUseWithNewValue(Value *V, Value *NewV) override;
-  Type *lowerType(Type *Ty) override;
-  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
-  StringRef getGlobalPrefix() override { return ".1dim"; }
-};
-
-bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
-  Type *Ty = V->getType()->getPointerElementType();
-  ArrayType *AT = dyn_cast<ArrayType>(Ty);
-  if (!AT)
-    return false;
-  if (!isa<ArrayType>(AT->getElementType())) {
-    return false;
-  } else {
-    // Merge all GEP.
-    HLModule::MergeGepUse(V);
-    return true;
-  }
-}
-
-void ReplaceMultiDimGEP(User *GEP, Value *OneDim, IRBuilder<> &Builder) {
-  gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
-
-  Value *PtrOffset = GEPIt.getOperand();
-  ++GEPIt;
-  Value *ArrayIdx = GEPIt.getOperand();
-  ++GEPIt;
-  Value *VecIdx = nullptr;
-  for (; GEPIt != E; ++GEPIt) {
-    if (GEPIt->isArrayTy()) {
-      unsigned arraySize = GEPIt->getArrayNumElements();
-      Value *V = GEPIt.getOperand();
-      ArrayIdx = Builder.CreateMul(ArrayIdx, Builder.getInt32(arraySize));
-      ArrayIdx = Builder.CreateAdd(V, ArrayIdx);
-    } else {
-      DXASSERT_NOMSG(isa<VectorType>(*GEPIt));
-      VecIdx = GEPIt.getOperand();
-    }
-  }
-  Value *NewGEP = nullptr;
-  if (!VecIdx)
-    NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx});
-  else
-    NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx, VecIdx});
-
-  GEP->replaceAllUsesWith(NewGEP);
-}
-
-void MultiDimArrayToOneDimArray::lowerUseWithNewValue(Value *MultiDim, Value *OneDim) {
-  LLVMContext &Context = MultiDim->getContext();
-  // All users should be element type.
-  // Replace users of AI.
-  for (auto it = MultiDim->user_begin(); it != MultiDim->user_end();) {
-    User *U = *(it++);
-    if (U->user_empty())
-      continue;
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      BCI->setOperand(0, OneDim);
-      continue;
-    }
-    // Must be GEP.
-    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U);
-
-    if (!GEP) {
-      DXASSERT_NOMSG(isa<GEPOperator>(U));
-      // NewGEP must be GEPOperator too.
-      // No instruction will be build.
-      IRBuilder<> Builder(Context);
-      ReplaceMultiDimGEP(U, OneDim, Builder);
-    } else {
-      IRBuilder<> Builder(GEP);
-      ReplaceMultiDimGEP(U, OneDim, Builder);
-    }
-    if (GEP)
-      GEP->eraseFromParent();
-  }
-}
-
-Type *MultiDimArrayToOneDimArray::lowerType(Type *Ty) {
-  ArrayType *AT = cast<ArrayType>(Ty);
-  unsigned arraySize = AT->getNumElements();
-
-  Type *EltTy = AT->getElementType();
-  // support multi level of array
-  while (EltTy->isArrayTy()) {
-    ArrayType *ElAT = cast<ArrayType>(EltTy);
-    arraySize *= ElAT->getNumElements();
-    EltTy = ElAT->getElementType();
-  }
-
-  return ArrayType::get(EltTy, arraySize);
-}
-
-void FlattenMultiDimConstArray(Constant *V, std::vector<Constant *> &Elts) {
-  if (!V->getType()->isArrayTy()) {
-    Elts.emplace_back(V);
-  } else {
-    ArrayType *AT = cast<ArrayType>(V->getType());
-    for (unsigned i = 0; i < AT->getNumElements(); i++) {
-      FlattenMultiDimConstArray(V->getAggregateElement(i), Elts);
-    }
-  }
-}
-
-Constant *MultiDimArrayToOneDimArray::lowerInitVal(Constant *InitVal, Type *NewTy) {
-  if (InitVal) {
-    // MultiDim array init should be done by store.
-    if (isa<ConstantAggregateZero>(InitVal))
-      InitVal = ConstantAggregateZero::get(NewTy);
-    else if (isa<UndefValue>(InitVal))
-      InitVal = UndefValue::get(NewTy);
-    else {
-      std::vector<Constant *> Elts;
-      FlattenMultiDimConstArray(InitVal, Elts);
-      InitVal = ConstantArray::get(cast<ArrayType>(NewTy), Elts);
-    }
-  } else {
-    InitVal = UndefValue::get(NewTy);
-  }
-  return InitVal;
-}
-
-}
-
-char MultiDimArrayToOneDimArray::ID = 0;
-
-INITIALIZE_PASS(MultiDimArrayToOneDimArray, "multi-dim-one-dim",
-  "Flatten multi-dim array into one-dim array", false,
-  false)
-
-// Public interface to the SROA_Parameter_HLSL pass
-ModulePass *llvm::createMultiDimArrayToOneDimArrayPass() {
-  return new MultiDimArrayToOneDimArray();
-}
-
-//===----------------------------------------------------------------------===//
-// Lower resource into handle.
-//===----------------------------------------------------------------------===//
-
-namespace {
-
-class ResourceToHandle : public LowerTypePass {
-public:
-  explicit ResourceToHandle() : LowerTypePass(ID) {}
-  static char ID; // Pass identification, replacement for typeid
-protected:
-  bool needToLower(Value *V) override;
-  void lowerUseWithNewValue(Value *V, Value *NewV) override;
-  Type *lowerType(Type *Ty) override;
-  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
-  StringRef getGlobalPrefix() override { return ".res"; }
-  void initialize(Module &M) override;
-private:
-  void ReplaceResourceWithHandle(Value *ResPtr, Value *HandlePtr);
-  void ReplaceResourceGEPWithHandleGEP(Value *GEP, ArrayRef<Value *> idxList,
-                                       Value *A, IRBuilder<> &Builder);
-  void ReplaceResourceArrayWithHandleArray(Value *VA, Value *A);
-
-  Type *m_HandleTy;
-  HLModule *m_pHLM;
-  bool  m_bIsLib;
-};
-
-void ResourceToHandle::initialize(Module &M) {
-  DXASSERT(M.HasHLModule(), "require HLModule");
-  m_pHLM = &M.GetHLModule();
-  m_HandleTy = m_pHLM->GetOP()->GetHandleType();
-  m_bIsLib = m_pHLM->GetShaderModel()->IsLib();
-}
-
-bool ResourceToHandle::needToLower(Value *V) {
-  Type *Ty = V->getType()->getPointerElementType();
-  Ty = dxilutil::GetArrayEltTy(Ty);
-  return (dxilutil::IsHLSLObjectType(Ty) &&
-          !HLModule::IsStreamOutputType(Ty)) &&
-         // Skip lib profile.
-         !m_bIsLib;
-}
-
-Type *ResourceToHandle::lowerType(Type *Ty) {
-  if ((dxilutil::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty))) {
-    return m_HandleTy;
-  }
-
-  ArrayType *AT = cast<ArrayType>(Ty);
-
-  SmallVector<ArrayType *, 4> nestArrayTys;
-  nestArrayTys.emplace_back(AT);
-
-  Type *EltTy = AT->getElementType();
-  // support multi level of array
-  while (EltTy->isArrayTy()) {
-    ArrayType *ElAT = cast<ArrayType>(EltTy);
-    nestArrayTys.emplace_back(ElAT);
-    EltTy = ElAT->getElementType();
-  }
-
-  return CreateNestArrayTy(m_HandleTy, nestArrayTys);
-}
-
-Constant *ResourceToHandle::lowerInitVal(Constant *InitVal, Type *NewTy) {
-  DXASSERT(isa<UndefValue>(InitVal), "resource cannot have real init val");
-  return UndefValue::get(NewTy);
-}
-
-void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
-                                                 Value *HandlePtr) {
-  for (auto it = ResPtr->user_begin(); it != ResPtr->user_end();) {
-    User *U = *(it++);
-    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      IRBuilder<> Builder(LI);
-      Value *Handle = Builder.CreateLoad(HandlePtr);
-      Type *ResTy = LI->getType();
-      // Used by createHandle or Store.
-      for (auto ldIt = LI->user_begin(); ldIt != LI->user_end();) {
-        User *ldU = *(ldIt++);
-        if (StoreInst *SI = dyn_cast<StoreInst>(ldU)) {
-          Value *TmpRes = HLModule::EmitHLOperationCall(
-              Builder, HLOpcodeGroup::HLCast,
-              (unsigned)HLCastOpcode::HandleToResCast, ResTy, {Handle},
-              *m_pHLM->GetModule());
-          SI->replaceUsesOfWith(LI, TmpRes);
-        } else {
-          CallInst *CI = cast<CallInst>(ldU);
-          DXASSERT(hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction()) == HLOpcodeGroup::HLCreateHandle,
-                   "must be createHandle");
-          CI->replaceAllUsesWith(Handle);
-          CI->eraseFromParent();
-        }
-      }
-      LI->eraseFromParent();
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *Res = SI->getValueOperand();
-      IRBuilder<> Builder(SI);
-      // CreateHandle from Res.
-      Value *Handle = HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLCreateHandle,
-          /*opcode*/ 0, m_HandleTy, {Res}, *m_pHLM->GetModule());
-      // Store Handle to HandlePtr.
-      Builder.CreateStore(Handle, HandlePtr);
-      // Remove resource Store.
-      SI->eraseFromParent();
-    } else if (U->user_empty() && isa<GEPOperator>(U)) {
-      continue;
-    } else {
-      CallInst *CI = cast<CallInst>(U);
-      IRBuilder<> Builder(CI);
-      HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-      // Allow user function to use res ptr as argument.
-      if (group == HLOpcodeGroup::NotHL) {
-          Value *TmpResPtr = Builder.CreateBitCast(HandlePtr, ResPtr->getType());
-          CI->replaceUsesOfWith(ResPtr, TmpResPtr);
-      } else {
-        DXASSERT(0, "invalid operation on resource");
-      }
-    }
-  }
-}
-
-void ResourceToHandle::ReplaceResourceGEPWithHandleGEP(
-    Value *GEP, ArrayRef<Value *> idxList, Value *A, IRBuilder<> &Builder) {
-  Value *newGEP = Builder.CreateGEP(A, idxList);
-  Type *Ty = GEP->getType()->getPointerElementType();
-  if (Ty->isArrayTy()) {
-    ReplaceResourceArrayWithHandleArray(GEP, newGEP);
-  } else {
-    DXASSERT(dxilutil::IsHLSLObjectType(Ty), "must be resource type here");
-    ReplaceResourceWithHandle(GEP, newGEP);
-  }
-}
-
-void ResourceToHandle::ReplaceResourceArrayWithHandleArray(Value *VA,
-                                                           Value *A) {
-  for (auto U = VA->user_begin(); U != VA->user_end();) {
-    User *User = *(U++);
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      IRBuilder<> Builder(GEP);
-      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-      ReplaceResourceGEPWithHandleGEP(GEP, idxList, A, Builder);
-      GEP->eraseFromParent();
-    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(User)) {
-      IRBuilder<> Builder(GEPOp->getContext());
-      SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
-      ReplaceResourceGEPWithHandleGEP(GEPOp, idxList, A, Builder);
-    } else {
-      DXASSERT(0, "Array pointer should only used by GEP");
-    }
-  }
-}
-
-void ResourceToHandle::lowerUseWithNewValue(Value *V, Value *NewV) {
-  Type *Ty = V->getType()->getPointerElementType();
-  // Replace V with NewV.
-  if (Ty->isArrayTy()) {
-    ReplaceResourceArrayWithHandleArray(V, NewV);
-  } else {
-    ReplaceResourceWithHandle(V, NewV);
-  }
-}
-
-}
-
-char ResourceToHandle::ID = 0;
-
-INITIALIZE_PASS(ResourceToHandle, "resource-handle",
-  "Lower resource into handle", false,
-  false)
-
-// Public interface to the ResourceToHandle pass
-ModulePass *llvm::createResourceToHandlePass() {
-  return new ResourceToHandle();
 }

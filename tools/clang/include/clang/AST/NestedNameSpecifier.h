@@ -368,7 +368,7 @@ public:
 
   ~NestedNameSpecifierLocBuilder() {
     if (BufferCapacity)
-      free(Buffer);
+      delete[] Buffer;
   }
 
   /// \brief Retrieve the representation of the nested-name-specifier.
