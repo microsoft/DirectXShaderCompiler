@@ -1,8 +1,8 @@
-// RUN: %dxc -E main -T ps_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // Make sure line number is show for resource failed to map.
 
-// CHECK:local_res_fail_map_error_msg.hlsl:11:10: local resource not guaranteed to map to unique global resource
+// CHECK: local resource not guaranteed to map to unique global resource
 
 SamplerState samp1 : register(s5);
 

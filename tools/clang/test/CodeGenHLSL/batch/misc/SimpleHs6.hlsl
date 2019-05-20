@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: may only have one InputPatch parameter
 

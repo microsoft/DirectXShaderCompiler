@@ -3,9 +3,12 @@
 // Make sure all elements of the struct (even when there are nested structs)
 // are at distinct offsets.
 
-// CHECK-DAG: !{{[0-9]+}} = !DIExpression(DW_OP_bit_piece, 0, 32)
-// CHECK-DAG: !{{[0-9]+}} = !DIExpression(DW_OP_bit_piece, 32, 32)
-// CHECK-DAG: !{{[0-9]+}} = !DIExpression(DW_OP_bit_piece, 64, 32)
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
+// CHECK-DAG: !DIExpression(DW_OP_bit_piece, 0, 32)
+// CHECK-DAG: !DIExpression(DW_OP_bit_piece, 32, 32)
+// CHECK-DAG: !DIExpression(DW_OP_bit_piece, 64, 32)
 
 struct K {
   float foo;

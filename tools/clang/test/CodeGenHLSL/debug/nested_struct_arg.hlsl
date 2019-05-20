@@ -3,8 +3,10 @@
 // Make sure all elements of the struct in an arg (even when there are nested
 // structs) are at distinct offsets.
 
-// CHECK-DAG: DW_OP_bit_piece
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
+// CHECK-DAG: DW_OP_bit_piece
 
 struct K_ARG {
   float foo : KFOO;

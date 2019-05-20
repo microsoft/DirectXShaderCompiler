@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader feeding rasterizer
 // CHECK: InputControlPointCount=3
