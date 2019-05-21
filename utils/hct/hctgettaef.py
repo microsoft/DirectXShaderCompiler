@@ -1,4 +1,4 @@
-import urllib
+import urllib.request 
 import os
 import ssl
 import zipfile
@@ -13,7 +13,7 @@ if not os.path.isdir(taef_dir):
 
 try:
   ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-  response = urllib.urlopen(url, context=ctx)
+  response = urllib.request.urlopen(url, context=ctx)
   f = open(zipfile_name, 'wb')
   f.write(response.read())
   f.close()
