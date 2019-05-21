@@ -33,6 +33,7 @@
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include <algorithm>
 #include <functional>
+#include <ctime> 
 
 using namespace llvm;
 using namespace hlsl;
@@ -1505,15 +1506,17 @@ struct MSFWriter {
 
   uint32_t AddFakeStream() {
     char Dummy[4] = {};
-    return AddStream({ Dummy, sizeof(Dummy) });
+    (void)Dummy;
+    //return AddStream({ Dummy, sizeof(Dummy) });
+    return AddStream({});
   }
 
   uint32_t CalculateDirectorySize() {
     uint32_t DirectorySizeInBytes = 0;
     DirectorySizeInBytes += sizeof(uint32_t);
-    DirectorySizeInBytes += m_Streams.size();
+    DirectorySizeInBytes += m_Streams.size() * 4;
     for (int i = 0; i < m_Streams.size(); i++) {
-      DirectorySizeInBytes += m_Streams[i].NumBlocks;
+      DirectorySizeInBytes += m_Streams[i].NumBlocks * 4;
     }
     return DirectorySizeInBytes;
   }
@@ -1526,6 +1529,7 @@ struct MSFWriter {
     SB.NumBlocks = 3 + m_NumBlocks + CalculateNumBlocks(SB.NumDirectoryBytes);
     SB.FreeBlockMapBlock = 1;
     SB.BlockMapAddr = 3;
+    return SB;
   }
 
   struct BlockWriter {
@@ -1603,12 +1607,12 @@ struct MSFWriter {
       SmallVector<support::ulittle32_t, 32> StreamDirectoryData;
       StreamDirectoryData.push_back(MakeUint32LE(m_Streams.size()));
       for (unsigned i = 0; i < m_Streams.size(); i++) {
-        StreamDirectoryData.push_back(MakeUint32LE(m_Streams[i].NumBlocks));
+        StreamDirectoryData.push_back(MakeUint32LE(m_Streams[i].Data.size()));
       }
       uint32_t Start = StreamStart;
       for (unsigned i = 0; i < m_Streams.size(); i++) {
         auto &Stream = m_Streams[i];
-        for (unsigned j = 0; j < Stream.NumBlocks; i++) {
+        for (unsigned j = 0; j < Stream.NumBlocks; j++) {
           StreamDirectoryData.push_back(MakeUint32LE(Start++));
         }
       }
@@ -1666,7 +1670,7 @@ private:
       Header.Type = Stream_Part_Hash;
       Header.Size = Bitcode.size();
       Stream.write((char *)&Header, sizeof(Header));
-      Stream.write(Bitcode.data(), Bitcode.size());
+      Stream.write((char *)Hash.data(), Hash.size());
     }
 
     Stream.flush();
@@ -1685,30 +1689,117 @@ private:
     VC110 = 20091201,
     VC140 = 20140508,
   };
-
   struct PdbStreamHeader {
     support::ulittle32_t Version;
     support::ulittle32_t Signature;
     support::ulittle32_t Age;
-    uint64_t UniqueId[2];
+    uint32_t UniqueId[4];
   };
+  static_assert(sizeof(PdbStreamHeader) == 28, "PDB Header size wrong.");
+
+  SmallVector<char, 0> WritePdbStream(SmallString<32> Hash) {
+    PdbStreamHeader PdbStreamHeader = {};
+    PdbStreamHeader.Version = (uint32_t)PdbStreamVersion::VC70;
+    PdbStreamHeader.Age = 1;
+    PdbStreamHeader.Signature = time(NULL);
+    memcpy(PdbStreamHeader.UniqueId, Hash.data(), Hash.size());
+
+    GUID gidReference;
+    HRESULT hCreateGuid = CoCreateGuid( &gidReference );
+    (void)hCreateGuid;
+    memcpy(PdbStreamHeader.UniqueId, &gidReference, sizeof(gidReference));
+
+    //{ (char *)&PdbStreamHeader, /*sizeof(PdbStreamHeader)*/28 }
+
+
+
+    SmallVector<char, 0> Result;
+    raw_svector_ostream OS(Result);
+
+    auto WriteU32 = [&](uint32_t val) {
+      OS.write((char *)&val, sizeof(val));
+    };
+
+    OS.write((char *)&PdbStreamHeader, 28);
+    WriteU32(0);
+    WriteU32(0); // Size
+    WriteU32(1); // Capacity
+    WriteU32(0); // Present count
+    WriteU32(0); // Deleted count
+
+    WriteU32(0); // Key
+    WriteU32(0); // Value
+
+#if 0
+
+    struct NamedStreams {
+      const char *name;
+      uint32_t index;
+      uint32_t string_offset;
+    };
+
+    NamedStreams NamedStreams[] = {
+      { "/LinkInfo",        5, },
+      { "/names",           6, },
+      { "/src/headerblock", 7, },
+    };
+
+    OS.write((char *)&PdbStreamHeader, 28);
+    uint32_t StringBufferSize = 0;
+    for (int i = 0; i < _countof(NamedStreams); i++) {
+      NamedStreams[i].string_offset = StringBufferSize;
+      StringBufferSize += strlen(NamedStreams[i].name)+1;
+    }
+
+    OS.write((char *)&StringBufferSize, 4);
+    for (int i = 0; i < _countof(NamedStreams); i++)
+      OS.write(NamedStreams[i].name, strlen(NamedStreams[i].name)+1);
+
+    uint32_t Size = 3;
+    uint32_t Capacity = 6;
+    uint32_t PresentBitVector = 26;
+
+    WriteU32(Size);
+    WriteU32(Capacity);
+    WriteU32(1);
+    WriteU32(PresentBitVector);
+    WriteU32(0);
+
+    for (unsigned i = 0; i < Capacity; i++) {
+      if (i < _countof(NamedStreams)) {
+        WriteU32(NamedStreams[i].string_offset);
+        WriteU32(NamedStreams[i].index);
+      }
+      else {
+        WriteU32(0);
+        WriteU32(0);
+      }
+    }
+#endif
+
+    OS.flush();
+    return Result;
+  }
 
   void CreatePDBData(ArrayRef<char> Bitcode, SmallString<32> Hash) {
 
-    PdbStreamHeader PdbStreamHeader = {};
-    PdbStreamHeader.Version = (uint32_t)PdbStreamVersion::VC70;
-    PdbStreamHeader.Age = 0;
-    PdbStreamHeader.Signature = 0;
-    memcpy(PdbStreamHeader.UniqueId, Hash.data(), Hash.size());
-
     SmallVector<char, 0> StreamBlob = WriteDxilStreamBlob(Bitcode, Hash);
+    SmallVector<char, 0> PdbStream = WritePdbStream(Hash);
 
     MSFWriter Writer;
     Writer.AddFakeStream(); // Old Directory
-    Writer.AddStream({ (char *)&PdbStreamHeader, sizeof(PdbStreamHeader) }); // PDB Header
+    Writer.AddStream(PdbStream); // PDB Header
+
+    // Fixed streams
     Writer.AddFakeStream(); // TPI
     Writer.AddFakeStream(); // DBI
     Writer.AddFakeStream(); // IPI
+
+    // Named streams
+    //Writer.AddFakeStream(); // /LinkInfo
+    //Writer.AddFakeStream(); // /names
+    //Writer.AddFakeStream(); // /src/headerblock
+    
     Writer.AddStream(StreamBlob);
 
     raw_svector_ostream OS(m_Buffer);
@@ -1720,6 +1811,13 @@ public:
   uint32_t size() const { return m_Buffer.size(); }
   PDBDataWriter(ArrayRef<char> Bitcode, SmallString<32> Hash) {
     CreatePDBData(Bitcode, Hash);
+
+    {
+      auto f = fopen("F:/test/pdb/data/simple.pdb", "wb");
+      fwrite(m_Buffer.data(), 1, m_Buffer.size(), f);
+      fclose(f);
+    }
+    return;
   }
   void write(AbstractMemoryStream *pStream) {
     ULONG cbWritten;
@@ -1856,8 +1954,16 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   if (bHasDebugInfo) {
 
-    //pPDBWriter = llvm::make_unique<PDBDataWriter>(*pModule);
+    SmallString<32> Hash;
+    ArrayRef<char> Bitcode = { (char *)pModuleBitcode->GetPtr(), pModuleBitcode->GetPtrSize() };
+    pPDBWriter = llvm::make_unique<PDBDataWriter>(Bitcode, Hash);
 
+    if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
+      writer.AddPart(DFCC_ShaderDebugInfoDXIL, pPDBWriter->size(), [&](AbstractMemoryStream *pStream) {
+        pPDBWriter->write(pStream);
+      });
+    }
+#if 0
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
@@ -1865,6 +1971,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
+#endif
 
     llvm::StripDebugInfo(*pModule->GetModule());
     pModule->StripDebugRelatedCode();
