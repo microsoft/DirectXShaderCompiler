@@ -66,16 +66,15 @@ void DxcClearThreadMalloc() throw() {
   g_ThreadMallocTls->erase();
   pMalloc->Release();
 }
-void DxcSetThreadMalloc(IMalloc *pMalloc) throw() {
+
+void DxcSetThreadMallocToDefault() throw() {
   DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
   DXASSERT(DxcGetThreadMallocNoRef() == nullptr, "else nested allocation invoked");
-  g_ThreadMallocTls->set(pMalloc);
-  pMalloc->AddRef();
+  g_ThreadMallocTls->set(g_pDefaultMalloc);
+  g_pDefaultMalloc->AddRef();
 }
-void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw() {
-  DxcSetThreadMalloc(pMalloc ? pMalloc : g_pDefaultMalloc);
-}
-IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw() {
+
+static IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw() {
   DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
   IMalloc *pPrior = DxcGetThreadMallocNoRef();
   if (ppPrior) {
@@ -84,8 +83,13 @@ IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw() {
   g_ThreadMallocTls->set(pMalloc);
   return pMalloc;
 }
-IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMallocOrNull, IMalloc **ppPrior) throw() {
-  return DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, ppPrior);
+
+DXC_HIDDEN_LINKAGE DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
+    p = DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, &pPrior);
+}
+
+DXC_HIDDEN_LINKAGE DxcThreadMalloc::~DxcThreadMalloc() {
+    DxcSwapThreadMalloc(pPrior, nullptr);
 }
 
 #ifndef _WIN32

@@ -31,7 +31,7 @@ bool TestModuleSetup() {
     return false;
   if (FAILED(DxcInitThreadMalloc()))
     return false;
-  DxcSetThreadMallocOrDefault(nullptr);
+  DxcSetThreadMallocToDefault();
 
   if (hlsl::options::initHlslOptTable()) {
     return false;
