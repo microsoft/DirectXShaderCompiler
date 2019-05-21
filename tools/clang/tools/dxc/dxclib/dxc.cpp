@@ -1095,7 +1095,7 @@ int dxc::main(int argc, const char **argv_) {
   const char *pStage = "Operation";
   int retVal = 0;
   if (FAILED(DxcInitThreadMalloc())) return 1;
-  DxcSetThreadMallocOrDefault(nullptr);
+  DxcSetThreadMallocToDefault();
   try {
     pStage = "Argument processing";
     if (initHlslOptTable()) throw std::bad_alloc();
