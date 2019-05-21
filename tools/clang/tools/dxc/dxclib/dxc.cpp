@@ -1011,6 +1011,26 @@ bool GetDLLFileVersionInfo(const char *dllPath, unsigned int *version) {
   return false;
 }
 
+bool GetDLLProductVersionInfo(const char *dllPath, std::string &productVersion) {
+  // This function is used to get product version information from the DLL file.
+  // This information in is not available through a Unix interface.
+#ifdef _WIN32
+  DWORD dwVerHnd = 0;
+  DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
+  if (size == 0) return false;
+  std::unique_ptr<int[]> VfInfo(new int[size]);
+  if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
+    LPVOID pvProductVersion = NULL;
+    unsigned int iProductVersionLen = 0;
+    if (VerQueryValue(VfInfo.get(), "\\StringFileInfo\\040904b0\\ProductVersion", &pvProductVersion, &iProductVersionLen)) {
+      productVersion = (LPCSTR)pvProductVersion;
+      return true;
+    }
+  }
+#endif // _WIN32
+  return false;
+}
+
 // Collects compiler/validator version info
 void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
   if (m_dxcSupport.IsEnabled()) {
@@ -1041,26 +1061,28 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
     }
 
 #ifdef _WIN32
-    unsigned int version[4];
-    if (GetDLLFileVersionInfo(compilerName, version)) {
-      // unofficial version always have file version 3.7.0.0
-      if (version[0] == 3 && version[1] == 7 && version[2] == 0 &&
-          version[3] == 0) {
-#endif // _WIN32
-        OS << "(dev"
-#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-           << ";" << commitCount << "-"
-           << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
-#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
-           << ")";
-#ifdef _WIN32
-      } else {
-        OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
-           << version[3] << ")";
-      }
+    std::string productVersion;
+    if (GetDLLProductVersionInfo(compilerName, productVersion)) {
+      OS << " - " << productVersion;
     }
+    else {
+      OS << "(dev"
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+        << ";" << commitCount << "-"
+        << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
+#endif // SUPPORT_QUERY_GIT_COMMIT_I#else 
+      << ")";
+    }
+#else // _WIN32
+    OS << "(dev"
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+    << ";" << commitCount << "-"
+    << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+    << ")";
 #endif // _WIN32
   }
+
   // Print validator if exists
   DxcDllSupport DxilSupport;
   DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
