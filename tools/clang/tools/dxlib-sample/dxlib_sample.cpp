@@ -45,7 +45,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
     DisableThreadLibraryCalls(hinstDLL);
 
     DxcInitThreadMalloc();
-    DxcSetThreadMallocOrDefault(nullptr);
+    DxcSetThreadMallocToDefault();
 
     if (hlsl::options::initHlslOptTable()) {
     DxcClearThreadMalloc();
@@ -55,7 +55,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
       return TRUE;
     }
   } else if (Reason == DLL_PROCESS_DETACH) {
-    DxcSetThreadMallocOrDefault(nullptr);
+    DxcSetThreadMallocToDefault();
     libshare::LibCacheManager::ReleaseLibCacheManager();
     ::hlsl::options::cleanupHlslOptTable();
     DxcClearThreadMalloc();

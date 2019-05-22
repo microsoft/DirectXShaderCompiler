@@ -13,8 +13,8 @@
 
 // CHECK: OpName %counter_var_buffer2 "counter.var.buffer2"
 
-// CHECK: OpDecorateId %buffer1 HlslCounterBufferGOOGLE %counter_var_buffer1
-// CHECK: OpDecorateId %buffer2 HlslCounterBufferGOOGLE %counter_var_buffer2
+// CHECK: OpDecorateId %buffer1 CounterBuffer %counter_var_buffer1
+// CHECK: OpDecorateId %buffer2 CounterBuffer %counter_var_buffer2
 
 // CHECK: %type_ConsumeStructuredBuffer_v4float = OpTypeStruct %_runtimearr_v4float
 // CHECK: %_ptr_Uniform_type_ConsumeStructuredBuffer_v4float = OpTypePointer Uniform %type_ConsumeStructuredBuffer_v4float
