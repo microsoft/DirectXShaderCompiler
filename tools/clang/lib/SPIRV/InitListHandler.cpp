@@ -44,8 +44,7 @@ SpirvInstruction *InitListHandler::processCast(QualType toType,
   initializers.clear();
   scalars.clear();
 
-  initializers.emplace_back(theEmitter.loadIfGLValue(expr),
-                            expr->getLocStart());
+  initializers.push_back(theEmitter.loadIfGLValue(expr));
 
   return doProcess(toType, expr->getExprLoc());
 }
@@ -77,8 +76,7 @@ void InitListHandler::flatten(const InitListExpr *expr) {
                    init->IgnoreParenNoopCasts(theEmitter.getASTContext()))) {
       flatten(subInitList);
     } else {
-      initializers.emplace_back(theEmitter.loadIfGLValue(init),
-                                init->getLocStart());
+      initializers.push_back(theEmitter.loadIfGLValue(init));
     }
   }
 }
@@ -122,7 +120,7 @@ bool InitListHandler::tryToSplitStruct() {
   if (initializers.empty())
     return false;
 
-  auto *init = initializers.back().first;
+  auto *init = initializers.back();
   const QualType initType = init->getAstResultType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
@@ -130,18 +128,18 @@ bool InitListHandler::tryToSplitStruct() {
     return false;
 
   // We are certain the current intializer will be replaced by now.
-  const auto loc = initializers.back().second;
   initializers.pop_back();
+  const auto &loc = init->getSourceLocation();
 
   const auto *structDecl = initType->getAsStructureType()->getDecl();
 
   // Create MemberExpr for each field of the struct
-  llvm::SmallVector<std::pair<SpirvInstruction *, SourceLocation>, 4> fields;
+  llvm::SmallVector<SpirvInstruction *, 4> fields;
   uint32_t i = 0;
   for (auto *field : structDecl->fields()) {
     auto *extract =
         spvBuilder.createCompositeExtract(field->getType(), init, {i}, loc);
-    fields.emplace_back(extract, loc);
+    fields.push_back(extract);
     ++i;
   }
 
@@ -155,14 +153,14 @@ bool InitListHandler::tryToSplitConstantArray() {
   if (initializers.empty())
     return false;
 
-  auto *init = initializers.back().first;
+  auto *init = initializers.back();
   const QualType initType = init->getAstResultType();
   if (!initType->isConstantArrayType())
     return false;
 
   // We are certain the current intializer will be replaced by now.
-  const auto loc = initializers.back().second;
   initializers.pop_back();
+  const auto &loc = init->getSourceLocation();
 
   const auto &context = theEmitter.getASTContext();
 
@@ -174,10 +172,10 @@ bool InitListHandler::tryToSplitConstantArray() {
   // Create ArraySubscriptExpr for each element of the array
   // TODO: It will generate lots of elements if the array size is very large.
   // But do we have a better solution?
-  llvm::SmallVector<std::pair<SpirvInstruction *, SourceLocation>, 4> elements;
+  llvm::SmallVector<SpirvInstruction *, 4> elements;
   for (uint32_t i = 0; i < size; ++i) {
     auto *extract = spvBuilder.createCompositeExtract(elemType, init, {i}, loc);
-    elements.emplace_back(extract, loc);
+    elements.push_back(extract);
   }
 
   // Push in the reverse order
@@ -246,13 +244,12 @@ InitListHandler::createInitForBuiltinType(QualType type,
   auto init = initializers.back();
   initializers.pop_back();
 
-  if (!init.first->getAstResultType()->isBuiltinType()) {
-    decompose(init.first);
+  if (!init->getAstResultType()->isBuiltinType()) {
+    decompose(init);
     return createInitForBuiltinType(type, srcLoc);
   }
 
-  return theEmitter.castToType(init.first, init.first->getAstResultType(), type,
-                               srcLoc);
+  return theEmitter.castToType(init, init->getAstResultType(), type, srcLoc);
 }
 
 SpirvInstruction *
@@ -268,7 +265,7 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
       ;
 
     auto init = initializers.back();
-    const auto initType = init.first->getAstResultType();
+    const auto initType = init->getAstResultType();
 
     uint32_t elemCount = 0;
     if (isVectorType(initType, nullptr, &elemCount) && elemCount == count) {
@@ -279,7 +276,7 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
       /// in all type casting methods in SpirvEmitter.
       const auto toVecType =
           theEmitter.getASTContext().getExtVectorType(elemType, count);
-      return theEmitter.castToType(init.first, initType, toVecType, srcLoc);
+      return theEmitter.castToType(init, initType, toVecType, srcLoc);
     }
   }
 
@@ -315,14 +312,14 @@ InitListHandler::createInitForMatrixType(QualType matrixType,
 
     auto init = initializers.back();
 
-    if (hlsl::IsHLSLMatType(init.first->getAstResultType())) {
+    if (hlsl::IsHLSLMatType(init->getAstResultType())) {
       uint32_t initRowCount = 0, initColCount = 0;
-      hlsl::GetHLSLMatRowColCount(init.first->getAstResultType(), initRowCount,
+      hlsl::GetHLSLMatRowColCount(init->getAstResultType(), initRowCount,
                                   initColCount);
       if (rowCount == initRowCount && colCount == initColCount) {
         initializers.pop_back();
-        return theEmitter.castToType(init.first, init.first->getAstResultType(),
-                                     matrixType, srcLoc);
+        return theEmitter.castToType(init, init->getAstResultType(), matrixType,
+                                     srcLoc);
       }
     }
   }
@@ -358,9 +355,9 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc) {
     // We can only avoid decomposing and reconstructing when the type is
     // exactly the same.
     if (type.getCanonicalType() ==
-        init.first->getAstResultType().getCanonicalType()) {
+        init->getAstResultType().getCanonicalType()) {
       initializers.pop_back();
-      return init.first;
+      return init;
     }
 
     // Otherwise, if the next initializer is a struct, it is not of the same
@@ -398,9 +395,9 @@ InitListHandler::createInitForConstantArrayType(QualType type,
     // We can only avoid decomposing and reconstructing when the type is
     // exactly the same.
     if (type.getCanonicalType() ==
-        init.first->getAstResultType().getCanonicalType()) {
+        init->getAstResultType().getCanonicalType()) {
       initializers.pop_back();
-      return init.first;
+      return init;
     }
 
     // Otherwise, if the next initializer is an array, it is not of the same
@@ -450,13 +447,12 @@ InitListHandler::createInitForSamplerImageType(QualType type,
   auto init = initializers.back();
   initializers.pop_back();
 
-  if (init.first->getAstResultType().getCanonicalType() !=
-      type.getCanonicalType()) {
+  if (init->getAstResultType().getCanonicalType() != type.getCanonicalType()) {
     emitError("Cannot cast initializer type %0 into variable type %1", srcLoc)
-        << init.first->getAstResultType() << type;
+        << init->getAstResultType() << type;
     return nullptr;
   }
-  return init.first;
+  return init;
 }
 
 } // end namespace spirv

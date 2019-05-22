@@ -185,8 +185,6 @@ public:
   };
 
 public:
-  // TODO(jaebaek): Check compiler warning because of the ordering of
-  // initialization.
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), id(0),
