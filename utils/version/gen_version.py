@@ -12,7 +12,7 @@ args = p.parse_args()
 d = datetime.datetime.now(datetime.timezone.utc)
 
 def rc_version_field_1(d):
-    return '14'     # DXIL version 1.4 (should match kDxilMajor/kDxilMinor in dxc\DXIL\DxilConstants.h)
+    return '14'     # DXIL version 1.4 (should match kDxilMajor/kDxilMinor in include\dxc\DXIL\DxilConstants.h)
 
 
 def rc_version_field_2(d):
