@@ -51,7 +51,7 @@ static HRESULT InitMaybeFail() throw() {
   HRESULT hr;
   bool fsSetup = false, memSetup = false;
   IFC(DxcInitThreadMalloc());
-  DxcSetThreadMallocOrDefault(nullptr);
+  DxcSetThreadMallocToDefault();
   memSetup = true;
   if (::llvm::sys::fs::SetupPerThreadFileSystem()) {
     hr = E_FAIL;
@@ -86,7 +86,7 @@ HRESULT __attribute__ ((constructor)) DllMain() {
 }
 
 void __attribute__ ((destructor)) DllShutdown() {
-  DxcSetThreadMallocOrDefault(nullptr);
+  DxcSetThreadMallocToDefault();
   ::hlsl::options::cleanupHlslOptTable();
   ::llvm::sys::fs::CleanupPerThreadFileSystem();
   ::llvm::llvm_shutdown();
@@ -105,7 +105,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
     result = SUCCEEDED(hr) ? TRUE : FALSE;
   } else if (Reason == DLL_PROCESS_DETACH) {
     DxcEtw_DXCompilerShutdown_Start();
-    DxcSetThreadMallocOrDefault(nullptr);
+    DxcSetThreadMallocToDefault();
     ::hlsl::options::cleanupHlslOptTable();
     ::llvm::sys::fs::CleanupPerThreadFileSystem();
     ::llvm::llvm_shutdown();

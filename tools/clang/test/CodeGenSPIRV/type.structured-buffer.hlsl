@@ -8,8 +8,8 @@
 // CHECK: OpName %type_RWStructuredBuffer_S "type.RWStructuredBuffer.S"
 // CHECK: OpName %type_RWStructuredBuffer_T "type.RWStructuredBuffer.T"
 
-// CHECK: OpDecorateId %mySBuffer3 HlslCounterBufferGOOGLE %counter_var_mySBuffer3
-// CHECK: OpDecorateId %mySBuffer4 HlslCounterBufferGOOGLE %counter_var_mySBuffer4
+// CHECK: OpDecorateId %mySBuffer3 CounterBuffer %counter_var_mySBuffer3
+// CHECK: OpDecorateId %mySBuffer4 CounterBuffer %counter_var_mySBuffer4
 
 // CHECK: %S = OpTypeStruct %float %v3float %mat2v3float
 // CHECK: %_runtimearr_S = OpTypeRuntimeArray %S
