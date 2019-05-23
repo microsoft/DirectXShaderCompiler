@@ -1476,7 +1476,8 @@ respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
-set #0.
+set #0 (If ``-auto-binding-space N`` command line option is used, then descriptor set #N
+will be used instead of descriptor set #0).
 
 Summary
 ~~~~~~~
