@@ -32,6 +32,7 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/dxcapi.internal.h"
+#include "dxc/DXIL/DxilPDB.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -66,6 +67,8 @@ using namespace hlsl;
 using std::string;
 
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
+
+HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -237,6 +240,57 @@ public:
     return CustomRootSignature::FOUND;
   }
 };
+
+HRESULT CreatePrivateDxcContainerBuilder(IDxcContainerBuilder **ppBuilder);
+
+static HRESULT CreatePDBBlob(IMalloc *pMalloc, IDxcBlob *pDxbcBlob, IDxcBlob **ppPDBBlob) {
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  CComPtr<IDxcContainerReflection> pReflection;
+  IFR(CreatePrivateDxcContainerBuilder(&pBuilder));
+  CreateDxcContainerReflection(&pReflection);
+
+  IFR(pReflection->Load(pDxbcBlob));
+  IFR(pBuilder->Load(pDxbcBlob));
+
+  auto RemoveIfContains = [&](DxilFourCC Part) -> HRESULT {
+    UINT32 uPartIndex = 0;
+    HRESULT FindResult = pReflection->FindFirstPartKind(Part, &uPartIndex);
+    if (FindResult == HRESULT_FROM_WIN32(ERROR_NOT_FOUND))
+      return S_OK;
+    IFR(FindResult);
+    IFR(pBuilder->RemovePart(Part));
+    return S_OK;
+  };
+
+  IFR(RemoveIfContains(DFCC_DXIL));
+  IFR(RemoveIfContains(DFCC_InputSignature));
+  IFR(RemoveIfContains(DFCC_OutputSignature));
+  IFR(RemoveIfContains(DFCC_PrivateData));
+  IFR(RemoveIfContains(DFCC_FeatureInfo));
+
+  CComPtr<IDxcOperationResult> pSerializeResult;
+  IFR(pBuilder->SerializeContainer(&pSerializeResult));
+
+  HRESULT SerializeResult = 0;
+  IFR(pSerializeResult->GetStatus(&SerializeResult));
+  IFR(SerializeResult);
+
+  CComPtr<IDxcBlob> pNewContainerBlob;
+  IFR(pSerializeResult->GetResult(&pNewContainerBlob));
+
+  CComPtr<hlsl::AbstractMemoryStream> pStream;
+  IFR(CreateMemoryStream(pMalloc, &pStream));
+
+  raw_stream_ostream OS(pStream);
+
+  SmallString<32> Hash;
+  hlsl::pdb::WriteDxilPDB({ (char *)pNewContainerBlob->GetBufferPointer(), pNewContainerBlob->GetBufferSize() }, Hash, OS);
+  OS.flush();
+
+  IFT(pStream.QueryInterface(ppPDBBlob));
+
+  return S_OK;
+}
 
 class DxcCompiler : public IDxcCompiler2,
                     public IDxcLangExtensions,
@@ -649,7 +703,7 @@ public:
       DXVERIFY_NOMSG(SUCCEEDED((*ppResult)->GetStatus(&status)));
       if (SUCCEEDED(status)) {
         if (opts.IsDebugInfoEnabled() && ppDebugBlob) {
-          DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(ppDebugBlob)));
+          DXVERIFY_NOMSG(SUCCEEDED((CreatePDBBlob(m_pMalloc, pOutputBlob, ppDebugBlob)))); 
         }
         if (ppDebugBlobName) {
           *ppDebugBlobName = DebugBlobName.Detach();

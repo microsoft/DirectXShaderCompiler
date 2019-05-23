@@ -29,6 +29,8 @@ HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 class DxcContainerBuilder : public IDxcContainerBuilder {
 public:
+  bool m_bAllowRemoveAllParts = false;
+
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) override; // Loads DxilContainer to the builder
   HRESULT STDMETHODCALLTYPE AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) override; // Add the given part with fourCC
   HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC) override;                // Remove the part with fourCC
@@ -120,11 +122,13 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ 
 HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
   DxcThreadMalloc TM(m_pMalloc);
   try {
-    IFTBOOL(fourCC == DxilFourCC::DFCC_ShaderDebugInfoDXIL ||
-                fourCC == DxilFourCC::DFCC_ShaderDebugName ||
-                fourCC == DxilFourCC::DFCC_RootSignature ||
-                fourCC == DxilFourCC::DFCC_PrivateData,
-            E_INVALIDARG); // You can only remove debug info, debug info name, rootsignature, or private data blob
+    if (!m_bAllowRemoveAllParts) {
+      IFTBOOL(fourCC == DxilFourCC::DFCC_ShaderDebugInfoDXIL ||
+                  fourCC == DxilFourCC::DFCC_ShaderDebugName ||
+                  fourCC == DxilFourCC::DFCC_RootSignature ||
+                  fourCC == DxilFourCC::DFCC_PrivateData,
+              E_INVALIDARG); // You can only remove debug info, debug info name, rootsignature, or private data blob
+    }
     PartList::iterator it =
       std::find_if(m_parts.begin(), m_parts.end(),
         [&](DxilPart part) { return part.m_fourCC == fourCC; });
@@ -233,6 +237,15 @@ HRESULT DxcContainerBuilder::UpdateParts(AbstractMemoryStream *pStream) {
     IFR(pStream->Write(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), &cbWritten));
     if (cbWritten != pBlob->GetBufferSize()) { return E_FAIL; }
   }
+  return S_OK;
+}
+
+HRESULT CreatePrivateDxcContainerBuilder(IDxcContainerBuilder **ppBuilder) {
+  CComPtr<DxcContainerBuilder> Result = DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef());
+  Result->m_bAllowRemoveAllParts = true;
+  IFROOM(Result.p);
+  Result->Init("");
+  *ppBuilder = Result.Detach();
   return S_OK;
 }
 

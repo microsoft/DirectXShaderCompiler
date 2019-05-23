@@ -5,6 +5,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/DXIL/DxilPDB.h"
+#include "dxc/dxcapi.h"
 
 using namespace llvm;
 
@@ -155,7 +156,10 @@ struct MSFWriter {
     Writer.WriteEmptyBlock();               // FPM 1
     Writer.WriteEmptyBlock();               // FPM 2
 
-    {                                       // BlockAddr
+    // BlockAddr
+    // This block contains a list of uint32's that point to the blocks that
+    // make up the stream directory.
+    {
       SmallVector<support::ulittle32_t, 4> BlockAddr;
       uint32_t Start = StreamDirectoryStart;
       for (unsigned i = 0; i < NumDirectoryBlocks; i++) {
@@ -166,6 +170,9 @@ struct MSFWriter {
       Writer.WriteBlocks(1, BlockAddr.data(), sizeof(BlockAddr[0])*BlockAddr.size());
     }
 
+    // Stream Directory. Describes where all the streams are
+    // Looks like this:
+    // 
     {
       SmallVector<support::ulittle32_t, 32> StreamDirectoryData;
       StreamDirectoryData.push_back(MakeUint32LE(m_Streams.size()));
@@ -182,6 +189,7 @@ struct MSFWriter {
       Writer.WriteBlocks(NumDirectoryBlocks, StreamDirectoryData.data(), StreamDirectoryData.size()*sizeof(StreamDirectoryData[0]));
     }
 
+    // Write the streams.
     {
       for (unsigned i = 0; i < m_Streams.size(); i++) {
         auto &Stream = m_Streams[i];
@@ -219,12 +227,6 @@ SmallVector<char, 0> WritePdbStream(SmallString<32> Hash) {
   Header.Age = 1;
   Header.Signature = 0;
   memcpy(Header.UniqueId, Hash.data(), Hash.size());
-#if 0
-  GUID gidReference;
-  HRESULT hCreateGuid = CoCreateGuid( &gidReference );
-  (void)hCreateGuid;
-  memcpy(Header.UniqueId, &gidReference, sizeof(gidReference));
-#endif
 
   SmallVector<char, 0> Result;
   raw_svector_ostream OS(Result);
@@ -249,20 +251,6 @@ SmallVector<char, 0> WritePdbStream(SmallString<32> Hash) {
   return Result;
 }
 
-enum Stream_Part_Type : uint32_t {
-  Stream_Part_DebugModule,
-  Stream_Part_Hash,
-};
-
-struct StreamPartHeader {
-  Stream_Part_Type Type;
-  uint32_t Size;
-};
-
-struct StreamHeader {
-  uint32_t NumParts;
-};
-
 void hlsl::pdb::WriteDxilPDB(ArrayRef<char> Data, SmallString<32> Hash, llvm::raw_ostream &OS) {
   SmallVector<char, 0> PdbStream = WritePdbStream(Hash);
 
@@ -279,6 +267,10 @@ void hlsl::pdb::WriteDxilPDB(ArrayRef<char> Data, SmallString<32> Hash, llvm::ra
 
   Writer.WriteToStream(OS);
   OS.flush();
+}
+
+static
+HRESULT CreatePDBFromDxilContainer(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **pPdbBlob) {
 }
 
 
