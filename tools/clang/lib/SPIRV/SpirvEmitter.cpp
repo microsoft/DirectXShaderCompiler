@@ -192,8 +192,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool relaxLogicalPointer, std::vector<uint32_t> *module,
-                        std::string *messages) {
+                        bool beforeHlslLegalization, bool relaxLogicalPointer,
+                        std::vector<uint32_t> *module, std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -202,7 +202,16 @@ bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
                  const char *message) { *messages += message; });
 
   spvtools::ValidatorOptions options;
-  options.SetRelaxLogicalPointer(relaxLogicalPointer);
+  options.SetBeforeHlslLegalization(beforeHlslLegalization);
+  // When beforeHlslLegalization is true and relaxLogicalPointer is false,
+  // options.SetBeforeHlslLegalization() enables --before-hlsl-legalization
+  // and --relax-logical-pointer. If options.SetRelaxLogicalPointer() is
+  // called, it disables --relax-logical-pointer that is not expected
+  // behavior. When beforeHlslLegalization is true, we must enable both
+  // options.
+  if (!beforeHlslLegalization)
+    options.SetRelaxLogicalPointer(relaxLogicalPointer);
+
   // GL: strict block layout rules
   // VK: relaxed block layout rules
   // DX: Skip block layout rules
@@ -670,10 +679,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(targetEnv, spirvOptions,
-                            beforeHlslLegalization ||
-                                declIdMapper.requiresLegalization(),
-                            &m, &messages)) {
+    if (!spirvToolsValidate(targetEnv, spirvOptions, beforeHlslLegalization,
+                            declIdMapper.requiresLegalization(), &m,
+                            &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -2066,7 +2074,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
                                // May need to load to use as initializer
                                loadIfGLValue(object, objInstr)));
       } else {
-        // Based on SPIR-V spec, function parameter must be always Function
+        // Based on SPIR-V spec, function parameter must always be in Function
         // scope. If we pass a non-function scope argument, we need
         // the legalization.
         if (objInstr->getStorageClass() != spv::StorageClass::Function)
@@ -2092,7 +2100,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
     // Get the evaluation info if this argument is referencing some variable
     // *as a whole*, in which case we can avoid creating the temporary variable
-    // for it if it an act as out parameter.
+    // for it if it can act as out parameter.
     SpirvInstruction *argInfo = nullptr;
     if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
       argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
@@ -2103,7 +2111,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     auto argType = arg->getType();
 
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
-    // pointer to pass to the function. we need a temporal variable in that
+    // pointer to pass to the function. we need a temporary variable in that
     // case.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
         canActAsOutParmVar(param) &&
@@ -2187,8 +2195,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   // Go through all parameters and write those marked as out/inout
   for (uint32_t i = 0; i < numParams; ++i) {
     const auto *param = callee->getParamDecl(i);
-    // If it calls a non-static member function, we must calculate the argument
-    // position with the object itself.
+    // If it calls a non-static member function, the object itself is argument
+    // 0, and therefore all other argument positions are shifted by 1.
     const uint32_t index = i + isNonStaticMemberCall;
     if (isTempVar[index] && canActAsOutParmVar(param)) {
       const auto *arg = callExpr->getArg(i);
