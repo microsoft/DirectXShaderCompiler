@@ -1262,10 +1262,10 @@ Value *TranslateWaveMultiPrefix(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
   // Decompose mask into scalars
   IRBuilder<> Builder(CI);
   Value *Mask = CI->getArgOperand(2);
-  Value *Mask0 = Builder.CreateExtractElement(Mask, 0ULL);
-  Value *Mask1 = Builder.CreateExtractElement(Mask, 1ULL);
-  Value *Mask2 = Builder.CreateExtractElement(Mask, 2ULL);
-  Value *Mask3 = Builder.CreateExtractElement(Mask, 3ULL);
+  Value *Mask0 = Builder.CreateExtractElement(Mask, (uint64_t)0);
+  Value *Mask1 = Builder.CreateExtractElement(Mask, (uint64_t)1);
+  Value *Mask2 = Builder.CreateExtractElement(Mask, (uint64_t)2);
+  Value *Mask3 = Builder.CreateExtractElement(Mask, (uint64_t)3);
 
   Value *Args[] = { nullptr, CI->getOperand(1),
                     Mask0, Mask1, Mask2, Mask3, KindValInt, SignValInt };
@@ -1284,10 +1284,10 @@ Value *TranslateWaveMultiPrefixBitCount(CallInst *CI, IntrinsicOp IOP,
   // Decompose mask into scalars
   IRBuilder<> Builder(CI);
   Value *Mask = CI->getArgOperand(2);
-  Value *Mask0 = Builder.CreateExtractElement(Mask, 0ULL);
-  Value *Mask1 = Builder.CreateExtractElement(Mask, 1ULL);
-  Value *Mask2 = Builder.CreateExtractElement(Mask, 2ULL);
-  Value *Mask3 = Builder.CreateExtractElement(Mask, 3ULL);
+  Value *Mask0 = Builder.CreateExtractElement(Mask, (uint64_t)0);
+  Value *Mask1 = Builder.CreateExtractElement(Mask, (uint64_t)1);
+  Value *Mask2 = Builder.CreateExtractElement(Mask, (uint64_t)2);
+  Value *Mask3 = Builder.CreateExtractElement(Mask, (uint64_t)3);
 
   Value *Args[] = { nullptr, CI->getOperand(1), Mask0, Mask1, Mask2, Mask3 };
 
