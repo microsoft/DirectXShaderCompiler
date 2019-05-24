@@ -184,8 +184,8 @@ matcher(struct re_guts *g, const char *string, size_t nmatch,
 	for (;;) {
 		endp = fast(m, start, stop, gf, gl);
 		if (endp == NULL) {		/* a miss */
-			free(m->pmatch);
-			free((void*)m->lastpos);
+			regex_free(m->pmatch); // HLSL Change: Use custom allocator
+			regex_free((void*)m->lastpos); // HLSL Change: Use custom allocator
 			STATETEARDOWN(m);
 			return(REG_NOMATCH);
 		}
@@ -207,7 +207,7 @@ matcher(struct re_guts *g, const char *string, size_t nmatch,
 
 		/* oh my, they want the subexpressions... */
 		if (m->pmatch == NULL)
-			m->pmatch = (llvm_regmatch_t *)malloc((m->g->nsub + 1) *
+			m->pmatch = (llvm_regmatch_t *)regex_malloc((m->g->nsub + 1) * // HLSL Change: Use custom allocator
 							sizeof(llvm_regmatch_t));
 		if (m->pmatch == NULL) {
 			STATETEARDOWN(m);
@@ -220,10 +220,10 @@ matcher(struct re_guts *g, const char *string, size_t nmatch,
 			dp = dissect(m, m->coldp, endp, gf, gl);
 		} else {
 			if (g->nplus > 0 && m->lastpos == NULL)
-				m->lastpos = (const char **)malloc((g->nplus+1) *
+				m->lastpos = (const char **)regex_malloc((g->nplus+1) * // HLSL Change: Use custom allocator
 							sizeof(char *));
 			if (g->nplus > 0 && m->lastpos == NULL) {
-				free(m->pmatch);
+				regex_free(m->pmatch); // HLSL Change: Use custom allocator
 				STATETEARDOWN(m);
 				return(REG_ESPACE);
 			}
@@ -281,9 +281,9 @@ matcher(struct re_guts *g, const char *string, size_t nmatch,
 	}
 
 	if (m->pmatch != NULL)
-		free((char *)m->pmatch);
+		regex_free((char *)m->pmatch); // HLSL Change: Use custom allocator
 	if (m->lastpos != NULL)
-		free((char *)m->lastpos);
+		regex_free((char *)m->lastpos); // HLSL Change: Use custom allocator
 	STATETEARDOWN(m);
 	return(0);
 }

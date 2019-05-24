@@ -51,6 +51,12 @@ public:
     return User::operator new(s, 1);
   }
 
+  // HLSL Change Begin: Match operator new/delete
+  void operator delete(void* Ptr) {
+    User::operator delete(Ptr, 1);
+  }
+  // HLSL Change End
+
   /// GlobalVariable ctor - If a parent module is specified, the global is
   /// automatically inserted into the end of the specified modules global list.
   GlobalVariable(Type *Ty, bool isConstant, LinkageTypes Linkage,

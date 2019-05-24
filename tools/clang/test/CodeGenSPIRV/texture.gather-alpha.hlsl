@@ -15,11 +15,9 @@ TextureCube<uint4> tCube : register(t3);
 // CHECK:      [[c56:%\d+]] = OpConstantComposite %v2int %int_5 %int_6
 // CHECK:      [[c78:%\d+]] = OpConstantComposite %v2int %int_7 %int_8
 // CHECK:    [[c1to8:%\d+]] = OpConstantComposite %_arr_v2int_uint_4 [[c12]] [[c34]] [[c56]] [[c78]]
-
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
-
 // CHECK: [[cv3f_1_5:%\d+]] = OpConstantComposite %v3float %float_1_5 %float_1_5 %float_1_5
 
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
 // CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4uint
 
 float4 main(float2 location: A) : SV_Target {

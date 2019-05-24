@@ -72,7 +72,7 @@ Build Requirements
 Please make sure you have the following resources before building:
 
 - `Git <https://git-scm.com/downloads>`_
-- `Python <https://www.python.org/downloads/>`_. Version 2.7.x is required, 3.x might work but it's not officially supported.
+- `Python <https://www.python.org/downloads/>`_. Version 3.x is required.
 - `Ninja <https://github.com/ninja-build/ninja/releases>`_ (*Optional* CMake generator)
 - Either of gcc/g++ or clang/clang++ compilers. Minimum supported version:
 

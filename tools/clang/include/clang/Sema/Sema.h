@@ -3786,6 +3786,11 @@ public:
   ExprResult CheckPlaceholderExpr(Expr *E);
   bool CheckVecStepExpr(Expr *E);
 
+  // HLSL Change Begins
+  bool CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
+                                            UnaryExprOrTypeTrait ExprKind);
+  // HLSL Change Ends
+
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
   bool CheckUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation OpLoc,
                                         SourceRange ExprRange,

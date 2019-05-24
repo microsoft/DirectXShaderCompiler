@@ -321,15 +321,17 @@ void CGDebugInfo::CreateCompileUnit() {
   // the file name itself with no path information. This file name may have had
   // a relative path, so we look into the actual file entry for the main
   // file to determine the real absolute path for the file.
-  std::string MainFileDir;
-  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
-    MainFileDir = MainFile->getDir()->getName();
-    if (MainFileDir != ".") {
-      llvm::SmallString<1024> MainFileDirSS(MainFileDir);
-      llvm::sys::path::append(MainFileDirSS, MainFileName);
-      MainFileName = MainFileDirSS.str();
+  if (!llvm::sys::path::is_absolute(MainFileName)) { // HLSL Change: we put the full path in -main-file-name
+    std::string MainFileDir;
+    if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+      MainFileDir = MainFile->getDir()->getName();
+      if (MainFileDir != ".") {
+        llvm::SmallString<1024> MainFileDirSS(MainFileDir);
+        llvm::sys::path::append(MainFileDirSS, MainFileName);
+        MainFileName = MainFileDirSS.str();
+      }
     }
-  }
+  } // HLSL Change
 
   // Save filename string.
   StringRef Filename = internString(MainFileName);
@@ -1021,6 +1023,66 @@ void CGDebugInfo::CollectRecordFields(
   }
 }
 
+// HLSL Change Begins
+// Hook to allow us to lie about the contents of some HLSL types in the debug info,
+// by exposing clean members rather than our implementation detail internals.
+// Note that the debug size of types is not based on the fields reported here,
+// but rather on ASTContext::getTypeSize, so they should be consistent.
+bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
+    llvm::DICompositeType *DITy,
+    SmallVectorImpl<llvm::Metadata *> &Elements) {
+  QualType QualTy(Ty, 0);
+  if (hlsl::IsHLSLVecType(QualTy)) {
+    // The HLSL vector type is defined as containing a field 'h' of
+    // extended vector type, which is represented as an array in DWARF.
+    // However, we logically represent it as one field per component.
+    QualType ElemQualTy = hlsl::GetHLSLVecElementType(QualTy);
+    unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
+    unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+    for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
+      StringRef FieldName = StringRef("xyzw" + ElemIdx, 1);
+      unsigned OffsetInBits = ElemSizeInBits * ElemIdx;
+      llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
+        SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
+        /* tunit */ nullptr, DITy, Ty->getDecl());
+      Elements.emplace_back(FieldType);
+    }
+
+    return true;
+  }
+  else if (hlsl::IsHLSLMatType(QualTy)) {
+    // The HLSL matrix type is defined as containing a field 'h' of
+    // array of extended vector type, but logically we want to represent
+    // it as per-element fields.
+    QualType ElemQualTy = hlsl::GetHLSLMatElementType(QualTy);
+    uint32_t NumRows, NumCols;
+    hlsl::GetHLSLMatRowColCount(QualTy, NumRows, NumCols);
+    unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+    for (unsigned RowIdx = 0; RowIdx < NumRows; ++RowIdx) {
+      for (unsigned ColIdx = 0; ColIdx < NumCols; ++ColIdx) {
+        char FieldName[] = "_11";
+        FieldName[1] += RowIdx;
+        FieldName[2] += ColIdx;
+        unsigned RowMajorIdx = RowIdx * NumCols + ColIdx;
+        unsigned OffsetInBits = ElemSizeInBits * RowMajorIdx;
+        llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
+          SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
+          /* tunit */ nullptr, DITy, Ty->getDecl());
+        Elements.emplace_back(FieldType);
+      }
+    }
+
+    return true;
+  }
+  else if (hlsl::IsHLSLResourceType(QualTy) || hlsl::IsHLSLStreamOutputType(QualTy)) {
+    // Should appear as having no members rather than exposing our internal handles.
+    return true;
+  }
+
+  return false;
+}
+// HLSL Chage Ends
+
 llvm::DISubroutineType *
 CGDebugInfo::getOrCreateMethodType(const CXXMethodDecl *Method,
                                    llvm::DIFile *Unit) {
@@ -1562,20 +1624,24 @@ llvm::DIType *CGDebugInfo::CreateTypeDefinition(const RecordType *Ty) {
   SmallVector<llvm::Metadata *, 16> EltTys;
   // what about nested types?
 
-  // Note: The split of CXXDecl information here is intentional, the
-  // gdb tests will depend on a certain ordering at printout. The debug
-  // information offsets are still correct if we merge them all together
-  // though.
-  const CXXRecordDecl *CXXDecl = dyn_cast<CXXRecordDecl>(RD);
-  if (CXXDecl) {
-    CollectCXXBases(CXXDecl, DefUnit, EltTys, FwdDecl);
-    CollectVTableInfo(CXXDecl, DefUnit, EltTys);
-  }
+  if (!TryCollectHLSLRecordElements(Ty, FwdDecl, EltTys)) { // HLSL Change
 
-  // Collect data fields (including static variables and any initializers).
-  CollectRecordFields(RD, DefUnit, EltTys, FwdDecl);
-  if (CXXDecl)
-    CollectCXXMemberFunctions(CXXDecl, DefUnit, EltTys, FwdDecl);
+    // Note: The split of CXXDecl information here is intentional, the
+    // gdb tests will depend on a certain ordering at printout. The debug
+    // information offsets are still correct if we merge them all together
+    // though.
+    const CXXRecordDecl *CXXDecl = dyn_cast<CXXRecordDecl>(RD);
+    if (CXXDecl) {
+      CollectCXXBases(CXXDecl, DefUnit, EltTys, FwdDecl);
+      CollectVTableInfo(CXXDecl, DefUnit, EltTys);
+    }
+
+    // Collect data fields (including static variables and any initializers).
+    CollectRecordFields(RD, DefUnit, EltTys, FwdDecl);
+    if (CXXDecl)
+      CollectCXXMemberFunctions(CXXDecl, DefUnit, EltTys, FwdDecl);
+
+  } // HLSL Change
 
   LexicalBlockStack.pop_back();
   RegionMap.erase(Ty->getDecl());

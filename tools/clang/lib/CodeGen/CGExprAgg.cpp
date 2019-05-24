@@ -710,17 +710,21 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
   // HLSL Change Begins.
   case CK_FlatConversion: {
     QualType Ty = E->getSubExpr()->getType();
-    llvm::Value *DestPtr = Dest.getAddr();
+
+    // We must emit the converted subexpression for any side-effects,
+    // but the conversion itself doesn't have any, so we should not
+    // emit it if we were not provided a destination aggregate value slot.
 
     if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(E->getSubExpr())) {
+      if (Dest.isIgnored()) return;
       llvm::Value *SrcVal = llvm::ConstantInt::get(CGF.getLLVMContext(), IL->getValue());
       CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
-          CGF, SrcVal, DestPtr, E->getType(), Ty);
-    } else if (FloatingLiteral *FL =
-                   dyn_cast<FloatingLiteral>(E->getSubExpr())) {
+          CGF, SrcVal, Dest.getAddr(), E->getType(), Ty);
+    } else if (FloatingLiteral *FL = dyn_cast<FloatingLiteral>(E->getSubExpr())) {
+      if (Dest.isIgnored()) return;
       llvm::Value *SrcVal = llvm::ConstantFP::get(CGF.getLLVMContext(), FL->getValue());
       CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
-          CGF, SrcVal, DestPtr, E->getType(), Ty);
+          CGF, SrcVal, Dest.getAddr(), E->getType(), Ty);
     } else {
       Expr *Src = E->getSubExpr();
       switch (CGF.getEvaluationKind(Ty)) {
@@ -731,21 +735,24 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
             Src = SrcCast->getSubExpr();
           }
         }
+
         // Just use decl if possible to skip useless copy.
-        if (DeclRefExpr *SrcDecl = dyn_cast<DeclRefExpr>(Src)) {
-          LValue LV = CGF.EmitLValue(SrcDecl);
-          CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionAggregateCopy(
-              CGF, LV.getAddress(), Src->getType(), DestPtr, E->getType());
-        } else {
-          LValue LV = CGF.EmitAggExprToLValue(Src);
-          CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionAggregateCopy(
-              CGF, LV.getAddress(), Src->getType(), DestPtr, E->getType());
-        }
+        LValue LV;
+        if (DeclRefExpr *SrcDecl = dyn_cast<DeclRefExpr>(Src))
+          LV = CGF.EmitLValue(SrcDecl);
+        else
+          LV = CGF.EmitAggExprToLValue(Src);
+
+        if (Dest.isIgnored()) return;
+        CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionAggregateCopy(
+          CGF, LV.getAddress(), Src->getType(), Dest.getAddr(), E->getType());
       } break;
       case TEK_Scalar: {
         llvm::Value *SrcVal = CGF.EmitScalarExpr(Src);
+
+        if (Dest.isIgnored()) return;
         CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversion(
-          CGF, SrcVal, DestPtr, E->getType(), Ty);
+          CGF, SrcVal, Dest.getAddr(), E->getType(), Ty);
       } break;
       default:
         assert(0 && "invalid type for flat cast");

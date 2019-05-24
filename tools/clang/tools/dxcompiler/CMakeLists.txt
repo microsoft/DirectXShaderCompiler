@@ -114,6 +114,7 @@ set(GENERATED_HEADERS
   )
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
+add_dependencies(dxcompiler TablegenHLSLOptions) 
 if (WIN32)
   # No DxcEtw on non-Windows platforms.
   add_dependencies(dxcompiler DxcEtw)

@@ -1,8 +1,8 @@
 // Run: %dxc -T gs_6_0 -E main -fspv-reflect
 
+// CHECK: OpCapability Geometry
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
-// CHECK: OpCapability Geometry
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
@@ -40,25 +40,25 @@ struct GsPerVertexOut {
 // CHECK: OpEntryPoint Geometry %main "main" %gl_ClipDistance %gl_ClipDistance_0 %gl_CullDistance %in_var_BAR %gl_Position %in_var_FOO %gl_PointSize %gl_Position_0 %out_var_FOO %gl_PointSize_0 %out_var_BAR
 
 // CHECK: OpDecorate %gl_ClipDistance BuiltIn ClipDistance
-// CHECK: OpDecorateStringGOOGLE %gl_ClipDistance HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpDecorateString %gl_ClipDistance UserSemantic "SV_ClipDistance"
 // CHECK: OpDecorate %gl_ClipDistance_0 BuiltIn ClipDistance
-// CHECK: OpDecorateStringGOOGLE %gl_ClipDistance_0 HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpDecorateString %gl_ClipDistance_0 UserSemantic "SV_ClipDistance"
 // CHECK: OpDecorate %gl_CullDistance BuiltIn CullDistance
-// CHECK: OpDecorateStringGOOGLE %gl_CullDistance HlslSemanticGOOGLE "SV_CullDistance"
-// CHECK: OpDecorateStringGOOGLE %in_var_BAR HlslSemanticGOOGLE "BAR"
+// CHECK: OpDecorateString %gl_CullDistance UserSemantic "SV_CullDistance"
+// CHECK: OpDecorateString %in_var_BAR UserSemantic "BAR"
 
 // CHECK: OpDecorate %gl_Position BuiltIn Position
-// CHECK: OpDecorateStringGOOGLE %gl_Position HlslSemanticGOOGLE "SV_Position"
-// CHECK: OpDecorateStringGOOGLE %in_var_FOO HlslSemanticGOOGLE "FOO"
+// CHECK: OpDecorateString %gl_Position UserSemantic "SV_Position"
+// CHECK: OpDecorateString %in_var_FOO UserSemantic "FOO"
 // CHECK: OpDecorate %gl_PointSize BuiltIn PointSize
-// CHECK: OpDecorateStringGOOGLE %gl_PointSize HlslSemanticGOOGLE "PSIZE"
+// CHECK: OpDecorateString %gl_PointSize UserSemantic "PSIZE"
 
 // CHECK: OpDecorate %gl_Position_0 BuiltIn Position
-// CHECK: OpDecorateStringGOOGLE %gl_Position_0 HlslSemanticGOOGLE "SV_Position"
-// CHECK: OpDecorateStringGOOGLE %out_var_FOO HlslSemanticGOOGLE "FOO"
+// CHECK: OpDecorateString %gl_Position_0 UserSemantic "SV_Position"
+// CHECK: OpDecorateString %out_var_FOO UserSemantic "FOO"
 // CHECK: OpDecorate %gl_PointSize_0 BuiltIn PointSize
-// CHECK: OpDecorateStringGOOGLE %gl_PointSize_0 HlslSemanticGOOGLE "PSIZE"
-// CHECK: OpDecorateStringGOOGLE %out_var_BAR HlslSemanticGOOGLE "BAR"
+// CHECK: OpDecorateString %gl_PointSize_0 UserSemantic "PSIZE"
+// CHECK: OpDecorateString %out_var_BAR UserSemantic "BAR"
 
 // CHECK: OpDecorate %in_var_BAR Location 0
 // CHECK: OpDecorate %in_var_FOO Location 1

@@ -286,8 +286,8 @@ public:
           D3D12_SHADER_VARIABLE_DESC baseConst = variableMap[testConst.Name];
           VERIFY_ARE_EQUAL(testConst.uFlags, baseConst.uFlags);
           VERIFY_ARE_EQUAL(testConst.StartOffset, baseConst.StartOffset);
-          // TODO: enalbe size cmp.
-          //VERIFY_ARE_EQUAL(testConst.Size, baseConst.Size);
+
+          VERIFY_ARE_EQUAL(testConst.Size, baseConst.Size);
 
           ID3D12ShaderReflectionType* pTestType = pTestConst->GetType();
           VERIFY_IS_NOT_NULL(pTestType);
@@ -372,9 +372,9 @@ public:
       IFR(pDxbcBlob.QueryInterface(ppBlob));
     }
     else {
-      dxc.Run(m_dllSupport, nullptr);
-      IFRBOOL(dxc.RunResult == 0, E_FAIL);
-      IFR(dxc.OpResult->GetResult(ppBlob));
+      FileRunCommandResult result = dxc.Run(m_dllSupport, nullptr);
+      IFRBOOL(result.ExitCode == 0, E_FAIL);
+      IFR(result.OpResult->GetResult(ppBlob));
     }
     return S_OK;
   }
@@ -522,9 +522,9 @@ bool DxilContainerTest::InitSupport() {
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
-  LPCWSTR Zi[] = { L"/Zi" };
-  LPCWSTR ZiZss[] = { L"/Zi", L"/Zss" };
-  LPCWSTR ZiZsb[] = { L"/Zi", L"/Zsb" };
+  LPCWSTR Zi[] = { L"/Zi", L"/Qembed_debug" };
+  LPCWSTR ZiZss[] = { L"/Zi", L"/Qembed_debug", L"/Zss" };
+  LPCWSTR ZiZsb[] = { L"/Zi", L"/Qembed_debug", L"/Zsb" };
   
   // No debug info, no debug name...
   std::string noName = CompileToDebugName(program1, L"main", L"ps_6_0", nullptr, 0);
@@ -1031,7 +1031,7 @@ static void Ref1_CheckBinding_b_buf(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_UAV_RWBYTEADDRESS);
   // not explicitly bound:
   VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295);
-  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.Space, 4294967295);
   VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
 }
 
@@ -1433,8 +1433,8 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
 #ifdef _WIN32 // Reflection unsupported
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples\\DX11\\SimpleBezier11DS.hlsl").c_str(), false);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples\\DX11\\SubD11_SmoothPS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
@@ -1486,7 +1486,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 #endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
-  CodeGenTestCheck(L"abs2_m.ll");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {
@@ -1497,11 +1497,12 @@ TEST_F(DxilContainerTest, DxilContainerUnitTest) {
   CComPtr<IDxcOperationResult> pResult;
   std::vector<LPCWSTR> arguments;
   arguments.emplace_back(L"/Zi");
+  arguments.emplace_back(L"/Qembed_debug");
   
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
   // Test DxilContainer with ShaderDebugInfoDXIL
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", arguments.data(), 1, nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", arguments.data(), arguments.size(), nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   
   const hlsl::DxilContainerHeader *pHeader = static_cast<const hlsl::DxilContainerHeader *> (pProgram->GetBufferPointer());

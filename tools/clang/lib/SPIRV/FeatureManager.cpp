@@ -113,8 +113,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::AMD_shader_explicit_vertex_parameter)
       .Case("SPV_GOOGLE_hlsl_functionality1",
             Extension::GOOGLE_hlsl_functionality1)
-      .Case("SPV_KHR_post_depth_coverage",
-            Extension::KHR_post_depth_coverage)
+      .Case("SPV_KHR_post_depth_coverage", Extension::KHR_post_depth_coverage)
+      .Case("SPV_NV_ray_tracing", Extension::NV_ray_tracing)
       .Default(Extension::Unknown);
 }
 
@@ -146,6 +146,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_AMD_shader_explicit_vertex_parameter";
   case Extension::GOOGLE_hlsl_functionality1:
     return "SPV_GOOGLE_hlsl_functionality1";
+  case Extension::NV_ray_tracing:
+    return "SPV_NV_ray_tracing";
   default:
     break;
   }

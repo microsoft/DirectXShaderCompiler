@@ -256,6 +256,8 @@ def fvk_s_shift : MultiArg<["-"], "fvk-s-shift", 2>, MetaVarName<"<shift> <space
   HelpText<"Specify Vulkan binding number shift for s-type register">;
 def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan binding number shift for u-type register">;
+def fvk_bind_globals : MultiArg<["-"], "fvk-bind-globals", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number and set number for the $Globals cbuffer">;
 def fvk_bind_register : MultiArg<["-"], "fvk-bind-register", 4>, MetaVarName<"<type-number> <space> <binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan descriptor set and binding for a specific register">;
 def vkbr : MultiArg<["-"], "vkbr", 4>, Flags<[CoreOption, DriverOption]>, Alias<fvk_bind_register>;
@@ -330,7 +332,9 @@ def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Ou
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
 def Fh : JoinedOrSeparate<["-", "/"], "Fh">, MetaVarName<"<file>">, HelpText<"Output header file containing object code">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Output warnings and errors to the given file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
-def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">, HelpText<"Write debug information to the given file or directory; trail \\ to auto-generate and imply Qstrip_priv">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
+def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">,
+  HelpText<"Write debug information to the given file, or automatically named file in directory when ending in '\\'">,
+  Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Vn : JoinedOrSeparate<["-", "/"], "Vn">, MetaVarName<"<name>">, HelpText<"Use <name> as variable name in header file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Cc : Flag<["-", "/"], "Cc">, HelpText<"Output color coded assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
 def Ni : Flag<["-", "/"], "Ni">, HelpText<"Output instruction numbers in assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
@@ -345,10 +349,12 @@ def P : Separate<["-", "/"], "P">, Flags<[DriverOption]>, Group<hlslutil_Group>,
 
 def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Load a binary file rather than compiling">;
-def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
 def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Strip debug information from 4_0+ shader bytecode  (must be used with /Fo <file>)">;
+def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
+  HelpText<"Embed PDB in shader container (must be used with /Zi)">;
 def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 

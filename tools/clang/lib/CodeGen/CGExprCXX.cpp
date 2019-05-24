@@ -198,7 +198,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
         This = EmitLValue(Base).getAddress();
       } else {
         llvm::Value *Val = EmitScalarExpr(Base);
-        This = Builder.CreateAlloca(Val->getType());
+        This = CreateTempAlloca(Val->getType());
         CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, Val, This, Base->getType());
       }
 
@@ -222,7 +222,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
           This = LV.getAddress();
           if (isa<ExtMatrixElementExpr>(Base)) {
             llvm::Value *Val = Builder.CreateLoad(This);
-            This = Builder.CreateAlloca(Val->getType());
+            This = CreateTempAlloca(Val->getType());
             Builder.CreateStore(Val, This);
           }
         } else {
@@ -245,7 +245,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
         }
       } else {
         llvm::Value *Val = EmitScalarExpr(Base);
-        This = Builder.CreateAlloca(Val->getType());
+        This = CreateTempAlloca(Val->getType());
         Builder.CreateStore(Val, This);
       }
       bool isBool = false;

@@ -26,13 +26,13 @@ VS_OUT FontVertexShader(VS_IN In) {
   Out.Position.x = In.Pos.x;
   Out.Position.y = In.Pos.y;
   Out.Diffuse = Color;
-  uint texX = (In.TexAndChannelSelector.x >> 0) & 65535U;
-  uint texY = (In.TexAndChannelSelector.x >> 16) & 65535U;
+  uint texX = (In.TexAndChannelSelector.x >> 0) & 65535;
+  uint texY = (In.TexAndChannelSelector.x >> 16) & 65535;
   Out.TexCoord0 = float2(texX, texY) * TexScale;
-  Out.ChannelSelector.w = (0 != (In.TexAndChannelSelector.y & 61440U)) ? 1 : 0;
-  Out.ChannelSelector.x = (0 != (In.TexAndChannelSelector.y & 3840U)) ? 1 : 0;
-  Out.ChannelSelector.y = (0 != (In.TexAndChannelSelector.y & 240U)) ? 1 : 0;
-  Out.ChannelSelector.z = (0 != (In.TexAndChannelSelector.y & 15U)) ? 1 : 0;
+  Out.ChannelSelector.w = (0 != (In.TexAndChannelSelector.y & 61440)) ? 1 : 0;
+  Out.ChannelSelector.x = (0 != (In.TexAndChannelSelector.y & 3840)) ? 1 : 0;
+  Out.ChannelSelector.y = (0 != (In.TexAndChannelSelector.y & 240)) ? 1 : 0;
+  Out.ChannelSelector.z = (0 != (In.TexAndChannelSelector.y & 15)) ? 1 : 0;
   return Out;
 }
 

@@ -3063,7 +3063,7 @@ private:
     QualType sampleSliceType = m_context->getRecordType(sampleSliceTypeDecl);
 
     CXXMethodDecl* sampleSubscriptDecl = CreateObjectFunctionDeclarationWithParams(*m_context,
-      sampleTypeDecl, m_context->getRValueReferenceType(sampleSliceType), // TODO: choose LValueRef if writable.
+      sampleTypeDecl, m_context->getLValueReferenceType(sampleSliceType),
       ArrayRef<QualType>(indexer0Type), ArrayRef<StringRef>(StringRef(indexer0Name)), subscriptName, true);
     sampleTypeDecl->completeDefinition();
 
@@ -3108,10 +3108,8 @@ private:
         typeDecl->getTemplateParameters()->getParam(0));
     QualType resultType = m_context->getTemplateTypeParmType(
         templateDepth, 0, ParameterPackFalse, templateTypeParmDecl);
-    if (isReadWrite)
-      resultType = m_context->getLValueReferenceType(resultType, false);
-    else
-      resultType = m_context->getRValueReferenceType(resultType);
+    if (!isReadWrite) resultType = m_context->getConstType(resultType);
+    resultType = m_context->getLValueReferenceType(resultType);
 
     QualType indexType =
         op.SubscriptCardinality == 1
@@ -3681,7 +3679,8 @@ public:
       type = RefType ? RefType->getPointeeType() : AttrType->getEquivalentType();
     }
 
-    return type->getCanonicalTypeUnqualified();
+    // Despite its name, getCanonicalTypeUnqualified will preserve const for array elements or something
+    return QualType(type->getCanonicalTypeUnqualified()->getTypePtr(), 0);
   }
 
   /// <summary>Given a Clang type, return the ArBasicKind classification for its contents.</summary>
@@ -4015,6 +4014,7 @@ public:
   bool MatchArguments(
     const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
+    _In_ QualType functionTemplateTypeArg,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
     _Out_range_(0, g_MaxIntrinsicParamCount + 1) size_t* argCount);
@@ -4100,7 +4100,7 @@ public:
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
       QualType functionArgTypes[g_MaxIntrinsicParamCount + 1];
       size_t functionArgTypeCount = 0;
-      if (!MatchArguments(pIntrinsic, QualType(), Args, functionArgTypes, &functionArgTypeCount))
+      if (!MatchArguments(pIntrinsic, QualType(), QualType(), Args, functionArgTypes, &functionArgTypeCount))
       {
         ++cursor;
         continue;
@@ -4637,10 +4637,10 @@ public:
       return SpecFunc;
     }
 
-    // Change return type to rvalue reference type for aggregate types
+    // Change return type to lvalue reference type for aggregate types
     QualType retTy = parameterTypes[0];
-    if (retTy->isAggregateType() && !IsHLSLVecMatType(retTy))
-      parameterTypes[0] = m_context->getRValueReferenceType(retTy);
+    if (hlsl::IsHLSLAggregateType(retTy))
+      parameterTypes[0] = m_context->getLValueReferenceType(retTy);
 
     // Create a new specialization.
     SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
@@ -4949,13 +4949,8 @@ FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
   // Create the template argument.
   bool isReadWrite = GetBasicKindProps(findResult.Kind) & BPROP_RWBUFFER;
   QualType resultType = objectElement;
-  if (isReadWrite)
-    resultType = m_context->getLValueReferenceType(resultType, false);
-  else {
-    // Add const to avoid write.
-    resultType = m_context->getConstType(resultType);
-    resultType = m_context->getLValueReferenceType(resultType);
-  }
+  if (!isReadWrite) resultType = m_context->getConstType(resultType);
+  resultType = m_context->getLValueReferenceType(resultType);
 
   TemplateArgument templateArgument(resultType);
   unsigned subscriptCardinality =
@@ -5214,6 +5209,7 @@ _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
   const HLSL_INTRINSIC* pIntrinsic,
   QualType objectElement,
+  QualType functionTemplateTypeArg,
   ArrayRef<Expr *> Args,
   QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
   size_t* argCount)
@@ -5288,7 +5284,8 @@ bool HLSLExternalSource::MatchArguments(
     }
 
     // If we are a type and templateID requires one, this isn't a match.
-    if (pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
+    if (pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE
+      || pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
       ++iArg;
       continue;
     }
@@ -5411,7 +5408,9 @@ bool HLSLExternalSource::MatchArguments(
   DXASSERT(iterArg == end, "otherwise the argument list wasn't fully processed");
 
   // Default template and component type for return value
-  if (pIntrinsic->pArgs[0].qwUsage && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE) {
+  if (pIntrinsic->pArgs[0].qwUsage
+    && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE
+    && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION) {
     CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs);
     if (AR_TOBJ_UNKNOWN == Template[pIntrinsic->pArgs[0].uTemplateId]) {
       Template[pIntrinsic->pArgs[0].uTemplateId] =
@@ -5441,7 +5440,8 @@ bool HLSLExternalSource::MatchArguments(
     const HLSL_INTRINSIC_ARGUMENT *pArgument = &pIntrinsic->pArgs[i];
 
     // Check template.
-    if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
+    if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE
+      || pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
       continue; // Already verified that this is available.
     }
     if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
@@ -5573,7 +5573,32 @@ bool HLSLExternalSource::MatchArguments(
         }
         pNewType = objectElement;
       }
-    } else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
+    }
+    else if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
+      if (functionTemplateTypeArg.isNull()) {
+        if (i == 0) {
+          // [RW]ByteAddressBuffer.Load, default to uint
+          pNewType = m_context->UnsignedIntTy;
+        }
+        else {
+          // [RW]ByteAddressBuffer.Store, default to argument type
+          pNewType = Args[i - 1]->getType().getNonReferenceType();
+          if (const BuiltinType *BuiltinTy = pNewType->getAs<BuiltinType>()) {
+            // For backcompat, ensure that Store(0, 42 or 42.0) matches a uint/float overload
+            // rather than a uint64_t/double one.
+            if (BuiltinTy->getKind() == BuiltinType::LitInt) {
+              pNewType = m_context->UnsignedIntTy;
+            } else if (BuiltinTy->getKind() == BuiltinType::LitFloat) {
+              pNewType = m_context->FloatTy;
+            }
+          }
+        }
+      }
+      else {
+        pNewType = functionTemplateTypeArg;
+      }
+    }
+    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       if (objectElement.isNull()) {
         return false;
       }
@@ -8041,6 +8066,7 @@ bool HLSLExternalSource::CanConvert(
   _Inout_opt_ StandardConversionSequence* standard)
 {
   UINT uTSize, uSSize;
+  bool SourceIsAggregate, TargetIsAggregate; // Early declarations due to gotos below
 
   DXASSERT_NOMSG(sourceExpr != nullptr);
   DXASSERT_NOMSG(!target.isNull());
@@ -8111,59 +8137,61 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Structure cast.
-  if (TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY ||
-      SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY) {
-    if (!explicitConversion && TargetInfo.ShapeKind != SourceInfo.ShapeKind)
+  SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
+  TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
+  if (SourceIsAggregate || TargetIsAggregate) {
+    // For implicit conversions, FXC treats arrays the same as structures
+    // and rejects conversions between them and numeric types
+    if (!explicitConversion && SourceIsAggregate != TargetIsAggregate)
     {
       return false;
     }
 
-    const RecordType *targetRT = target->getAsStructureType();
-    if (!targetRT)
-      targetRT = dyn_cast<RecordType>(target);
-
-    const RecordType *sourceRT = source->getAsStructureType();
-    if (!sourceRT)
-      sourceRT = dyn_cast<RecordType>(source);
-
+    // Structure to structure cases
+    const RecordType *targetRT = dyn_cast<RecordType>(target);
+    const RecordType *sourceRT = dyn_cast<RecordType>(source);
     if (targetRT && sourceRT) {
       RecordDecl *targetRD = targetRT->getDecl();
       RecordDecl *sourceRD = sourceRT->getDecl();
-      const CXXRecordDecl *targetCXXRD = dyn_cast<CXXRecordDecl>(targetRD);
-      const CXXRecordDecl *sourceCXXRD = dyn_cast<CXXRecordDecl>(sourceRD);
-      if (targetCXXRD && sourceCXXRD) {
+      if (sourceRT && targetRT) {
         if (targetRD == sourceRD) {
           Second = ICK_Flat_Conversion;
           goto lSuccess;
         }
-        if (sourceCXXRD->isDerivedFrom(targetCXXRD)) {
+
+        const CXXRecordDecl* targetCXXRD = dyn_cast<CXXRecordDecl>(targetRD);
+        const CXXRecordDecl* sourceCXXRD = dyn_cast<CXXRecordDecl>(sourceRD);
+        if (targetCXXRD && sourceCXXRD && sourceCXXRD->isDerivedFrom(targetCXXRD)) {
           Second = ICK_HLSL_Derived_To_Base;
-          goto lSuccess;
-        }
-      } else {
-        if (targetRD == sourceRD) {
-          Second = ICK_Flat_Conversion;
           goto lSuccess;
         }
       }
     }
 
-    if (const BuiltinType *BT = source->getAs<BuiltinType>()) {
-      BuiltinType::Kind kind = BT->getKind();
-      switch (kind) {
-      case BuiltinType::Kind::UInt:
-      case BuiltinType::Kind::Int:
-      case BuiltinType::Kind::Float:
-      case BuiltinType::Kind::LitFloat:
-      case BuiltinType::Kind::LitInt:
-        if (explicitConversion) {
+    // Handle explicit splats from single element numerical types (scalars, vector1s and matrix1x1s) to aggregate types.
+    if (explicitConversion) {
+      const BuiltinType *sourceSingleElementBuiltinType = source->getAs<BuiltinType>();
+      if (sourceSingleElementBuiltinType == nullptr
+        && hlsl::IsHLSLVecMatType(source)
+        && hlsl::GetElementCount(source) == 1) {
+        sourceSingleElementBuiltinType = hlsl::GetElementTypeOrType(source)->getAs<BuiltinType>();
+      }
+
+      // We can only splat to target types that do not contain object/resource types
+      if (sourceSingleElementBuiltinType != nullptr && hlsl::IsHLSLNumericOrAggregateOfNumericType(target)) {
+        BuiltinType::Kind kind = sourceSingleElementBuiltinType->getKind();
+        switch (kind) {
+        case BuiltinType::Kind::UInt:
+        case BuiltinType::Kind::Int:
+        case BuiltinType::Kind::Float:
+        case BuiltinType::Kind::LitFloat:
+        case BuiltinType::Kind::LitInt:
           Second = ICK_Flat_Conversion;
           goto lSuccess;
+        default:
+          // Only flat conversion kinds are relevant.
+          break;
         }
-        break;
-      default:
-        // Only flat conversion kinds are relevant.
-        break;
       }
     }
 
@@ -8948,6 +8976,13 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   DXASSERT(functionParentRecord != nullptr, "otherwise function is orphaned");
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
 
+  QualType functionTemplateTypeArg {};
+  if (ExplicitTemplateArgs != nullptr && ExplicitTemplateArgs->size() == 1) {
+    const TemplateArgument &firstTemplateArg = (*ExplicitTemplateArgs)[0].getArgument();
+    if (firstTemplateArg.getKind() == TemplateArgument::ArgKind::Type)
+      functionTemplateTypeArg = firstTemplateArg.getAsType();
+  }
+
   // Handle subscript overloads.
   if (FunctionTemplate->getDeclName() == m_context->DeclarationNames.getCXXOperatorName(OO_Subscript))
   {
@@ -9008,14 +9043,14 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   while (cursor != end)
   {
-    if (!MatchArguments(*cursor, objectElement, Args, argTypes, &argCount))
+    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, argTypes, &argCount))
     {
       ++cursor;
       continue;
     }
 
     // Currently only intrinsic we allow for explicit template arguments are
-    // for Load return types for ByteAddressBuffer/RWByteAddressBuffer
+    // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
     // TODO: handle template arguments for future intrinsics in a more natural way
 
     // Check Explicit template arguments
@@ -9030,18 +9065,18 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      auto TemplateDiag =
-          !IsBABLoad
-              ? diag::err_hlsl_intrinsic_template_arg_unsupported
-              : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
-                        : diag::err_hlsl_intrinsic_template_arg_scalar_vector;
-      if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
+      auto TemplateDiag = diag::err_hlsl_intrinsic_template_arg_unsupported;
+      if (ExplicitTemplateArgs->size() >= 1 && (IsBABLoad || IsBABStore)) {
+        TemplateDiag = diag::err_hlsl_intrinsic_template_arg_requires_2018;
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
-        QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
-        ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
-          isLegalTemplate = true;
-          argTypes[0] = explicitType;
+        if (Is2018) {
+          TemplateDiag = diag::err_hlsl_intrinsic_template_arg_numeric;
+          if (ExplicitTemplateArgs->size() == 1
+              && !functionTemplateTypeArg.isNull()
+              && hlsl::IsHLSLNumericOrAggregateOfNumericType(functionTemplateTypeArg)) {
+            isLegalTemplate = true;
+            argTypes[0] = functionTemplateTypeArg;
+          }
         }
       }
 
@@ -9466,10 +9501,12 @@ void hlsl::DiagnoseRegisterType(
   clang::QualType type,
   char registerType)
 {
-  // SPIRV Change Starts - skip the check if space-only for SPIR-V
-  if (self->getLangOpts().SPIRV && registerType == 'x')
+  // Register type can be zero if only a register space was provided.
+  if (registerType == 0)
     return;
-  // SPIRV Change Ends
+
+  if (registerType >= 'A' && registerType <= 'Z')
+    registerType = registerType + ('a' - 'A');
 
   HLSLExternalSource* source = HLSLExternalSource::FromSema(self);
   ArBasicKind element = source->GetTypeElementKind(type);
@@ -9500,8 +9537,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_BASIC_MIN16INT:
   case AR_BASIC_MIN16UINT:
     expected = "'b', 'c', or 'i'";
-    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i' ||
-		registerType == 'B' || registerType == 'C' || registerType == 'I';
+    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i';
     break;
 
   case AR_OBJECT_TEXTURE1D:
@@ -9514,8 +9550,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_TEXTURE2DMS:
   case AR_OBJECT_TEXTURE2DMS_ARRAY:
     expected = "'t' or 's'";
-    isValid = registerType == 't' || registerType == 's' ||
-		    registerType == 'T' || registerType == 'S';
+    isValid = registerType == 't' || registerType == 's';
     break;
 
   case AR_OBJECT_SAMPLER:
@@ -9525,13 +9560,12 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_SAMPLERCUBE:
   case AR_OBJECT_SAMPLERCOMPARISON:
     expected = "'s' or 't'";
-    isValid = registerType == 's' || registerType == 't' ||
-		registerType == 'S' || registerType == 'T';
+    isValid = registerType == 's' || registerType == 't';
     break;
 
   case AR_OBJECT_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't' || registerType == 'T';
+    isValid = registerType == 't';
     break;
 
   case AR_OBJECT_POINTSTREAM:
@@ -9554,13 +9588,13 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWTEXTURE3D:
   case AR_OBJECT_RWBUFFER:
     expected = "'u'";
-    isValid = registerType == 'u' || registerType == 'U';
+    isValid = registerType == 'u';
     break;
 
   case AR_OBJECT_BYTEADDRESS_BUFFER:
   case AR_OBJECT_STRUCTURED_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't' || registerType == 'T';
+    isValid = registerType == 't';
     break;
 
   case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
@@ -9570,16 +9604,16 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME:
   case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     expected = "'u'";
-    isValid = registerType == 'u' || registerType == 'U';
+    isValid = registerType == 'u';
     break;
 
   case AR_OBJECT_CONSTANT_BUFFER:
     expected = "'b'";
-    isValid = registerType == 'b' || registerType == 'B';
+    isValid = registerType == 'b';
     break;
   case AR_OBJECT_TEXTURE_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't' || registerType == 'T';
+    isValid = registerType == 't';
     break;
 
   case AR_OBJECT_ROVBUFFER:
@@ -9591,7 +9625,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_ROVTEXTURE2D_ARRAY:
   case AR_OBJECT_ROVTEXTURE3D:
     expected = "'u'";
-    isValid = registerType == 'u' || registerType == 'U';
+    isValid = registerType == 'u';
     break;
 
   case AR_OBJECT_LEGACY_EFFECT:   // Used for all unsupported but ignored legacy effect types
@@ -9603,12 +9637,9 @@ void hlsl::DiagnoseRegisterType(
 
   // fxc is inconsistent as to when it reports an error and when it ignores invalid bind semantics, so emit
   // a warning instead.
-  if (!isValid)
-  {
-    if (isWarning)
-      self->Diag(loc, diag::warn_hlsl_incorrect_bind_semantic) << expected;
-    else
-      self->Diag(loc, diag::err_hlsl_incorrect_bind_semantic) << expected;
+  if (!isValid) {
+    unsigned DiagID = isWarning ? diag::warn_hlsl_incorrect_bind_semantic : diag::err_hlsl_incorrect_bind_semantic;
+    self->Diag(loc, DiagID) << expected;
   }
 }
 
@@ -10243,15 +10274,19 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
 
     if (CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-      CXXRecordDecl::base_class_iterator bi, be;
-      bi = cxxRecordDecl->bases_begin();
-      be = cxxRecordDecl->bases_end();
-      if (bi != be) {
-        // Add type tracker for base.
-        // Add base after child to make sure base considered first.
-        m_typeTrackers.push_back(
+      // We'll error elsewhere if the record has no definition,
+      // just don't attempt to use it.
+      if (cxxRecordDecl->hasDefinition()) {
+        CXXRecordDecl::base_class_iterator bi, be;
+        bi = cxxRecordDecl->bases_begin();
+        be = cxxRecordDecl->bases_end();
+        if (bi != be) {
+          // Add type tracker for base.
+          // Add base after child to make sure base considered first.
+          m_typeTrackers.push_back(
             FlattenedTypeIterator::FlattenedTypeTracker(type, bi, be));
-        bAddTracker = true;
+          bAddTracker = true;
+        }
       }
     }
     return bAddTracker;
@@ -10806,6 +10841,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLGroupShared:
     declAttr = ::new (S.Context) HLSLGroupSharedAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
+    if (VarDecl *VD = dyn_cast<VarDecl>(D)) {
+      VD->setType(S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
+    }
     break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(A.getRange(), S.Context,
@@ -11019,6 +11057,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_VKPostDepthCoverage:
     declAttr = ::new (S.Context) VKPostDepthCoverageAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKShaderRecordNV:
+    declAttr = ::new (S.Context) VKShaderRecordNVAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;
@@ -11133,14 +11174,11 @@ Decl* Sema::ActOnStartHLSLBuffer(
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       hlsl::RegisterAssignment* registerAssignment = cast<hlsl::RegisterAssignment>(*unusualIter);
 
-      // SPIRV Change Starts - skip the check if space-only for SPIR-V
-      if (getLangOpts().SPIRV && registerAssignment->isSpaceOnly())
+      if (registerAssignment->isSpaceOnly())
         continue;
-      // SPIRV Change Ends
 
       if (registerAssignment->RegisterType != expectedRegisterType && registerAssignment->RegisterType != toupper(expectedRegisterType)) {
-        Diag(registerAssignment->Loc, cbuffer ? diag::err_hlsl_unsupported_cbuffer_register : 
-                                                diag::err_hlsl_unsupported_tbuffer_register);
+        Diag(registerAssignment->Loc, diag::err_hlsl_incorrect_bind_semantic) << (cbuffer ? "'b'" : "'t'");
       } else if (registerAssignment->ShaderProfile.size() > 0) {
         Diag(registerAssignment->Loc, diag::err_hlsl_unsupported_buffer_slot_target_specific);
       }
@@ -12337,6 +12375,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::VKLocation:
   case clang::attr::VKOffset:
   case clang::attr::VKPushConstant:
+  case clang::attr::VKShaderRecordNV:
     return true;
   default:
     // Only HLSL/VK Attributes return true. Only used for printPretty(), which doesn't support them.

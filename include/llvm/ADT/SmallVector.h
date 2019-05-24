@@ -248,7 +248,7 @@ void SmallVectorTemplateBase<T, isPodLike>::grow(size_t MinSize) {
   size_t NewCapacity = size_t(NextPowerOf2(CurCapacity+2));
   if (NewCapacity < MinSize)
     NewCapacity = MinSize;
-  T *NewElts = static_cast<T*>(malloc(NewCapacity*sizeof(T)));
+  T *NewElts = (T*)new char[NewCapacity*sizeof(T)]; // HLSL Change: Use overridable operator new
 
   // Move the elements over.
   this->uninitialized_move(this->begin(), this->end(), NewElts);
@@ -258,7 +258,7 @@ void SmallVectorTemplateBase<T, isPodLike>::grow(size_t MinSize) {
 
   // If this wasn't grown from the inline copy, deallocate the old space.
   if (!this->isSmall())
-    free(this->begin());
+    delete[] (char*)this->begin(); // HLSL Change: Use overridable operator delete
 
   this->setEnd(NewElts+CurSize);
   this->BeginX = NewElts;
@@ -364,7 +364,7 @@ public:
 
     // If this wasn't grown from the inline copy, deallocate the old space.
     if (!this->isSmall())
-      free(this->begin());
+      delete[] (char*)this->begin(); // HLSL Change: Use overridable operator delete
   }
 
 
@@ -784,7 +784,7 @@ SmallVectorImpl<T> &SmallVectorImpl<T>::operator=(SmallVectorImpl<T> &&RHS) {
   // If the RHS isn't small, clear this vector and then steal its buffer.
   if (!RHS.isSmall()) {
     this->destroy_range(this->begin(), this->end());
-    if (!this->isSmall()) free(this->begin());
+    if (!this->isSmall()) delete[] (char*)this->begin(); // HLSL Change: Use overridable operator delete
     this->BeginX = RHS.BeginX;
     this->EndX = RHS.EndX;
     this->CapacityX = RHS.CapacityX;

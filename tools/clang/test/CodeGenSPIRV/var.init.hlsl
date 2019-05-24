@@ -47,9 +47,9 @@ float4 main(float component: COLOR) : SV_TARGET {
 
     float2 y;
 // CHECK-NEXT: [[y0:%\d+]] = OpLoad %v2float %y
+// CHECK-NEXT: [[y1:%\d+]] = OpLoad %v2float %y
 // CHECK-NEXT: [[ce0:%\d+]] = OpCompositeExtract %float [[y0]] 0
 // CHECK-NEXT: [[ce1:%\d+]] = OpCompositeExtract %float [[y0]] 1
-// CHECK-NEXT: [[y1:%\d+]] = OpLoad %v2float %y
 // CHECK-NEXT: [[ce2:%\d+]] = OpCompositeExtract %float [[y1]] 0
 // CHECK-NEXT: [[ce3:%\d+]] = OpCompositeExtract %float [[y1]] 1
 // CHECK-NEXT: [[zinit:%\d+]] = OpCompositeConstruct %v4float [[ce0]] [[ce1]] [[ce2]] [[ce3]]

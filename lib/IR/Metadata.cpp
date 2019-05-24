@@ -365,9 +365,17 @@ MDString *MDString::get(LLVMContext &Context, StringRef Str) {
 
   auto *Entry =
       StringMapEntry<MDString>::Create(Str, Store.getAllocator(), MDString());
+  // HLSL Change Begin: Don't leak on insertion failure
+  try {
   bool WasInserted = Store.insert(Entry);
   (void)WasInserted;
   assert(WasInserted && "Expected entry to be inserted");
+  }
+  catch (...) {
+    Entry->Destroy();
+    throw;
+  }
+  // HLSL Change End
   Entry->second.Entry = Entry;
   return &Entry->second;
 }
@@ -1050,7 +1058,16 @@ void Instruction::setMetadata(StringRef Kind, MDNode *Node) {
 }
 
 MDNode *Instruction::getMetadataImpl(StringRef Kind) const {
-  return getMetadataImpl(getContext().getMDKindID(Kind));
+  unsigned KindID = 0;
+#if 0 // HLSL Change Starts
+  return getMetadataImpl(getContext().getMDKindID(Kind))
+#else
+  // Calling special function to check for existence of string id,
+  // so it doesn't get instantiated in the context.
+  if (getContext().findMDKindID(Kind, &KindID))
+    return getMetadataImpl(KindID);
+  return nullptr;
+#endif // HLSL Change Ends
 }
 
 void Instruction::dropUnknownMetadata(ArrayRef<unsigned> KnownIDs) {

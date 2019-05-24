@@ -48,26 +48,34 @@ void DxcCleanupThreadMalloc() throw();
 // Used by APIs entry points to set up per-thread/invocation allocator.
 // Setting the IMalloc on the thread increases the reference count,
 // clearing it decreases it.
+void DxcSetThreadMallocToDefault() throw();
 void DxcClearThreadMalloc() throw();
-void DxcSetThreadMalloc(IMalloc *pMalloc) throw();
-void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw();
-
-// Swapping does not AddRef or Release new or prior. The pattern is to keep both alive,
-// either in TLS, or on the stack to restore later. The returned value is the effective
-// IMalloc also available in TLS.
-IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw();
-IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMalloc, IMalloc **ppPrior) throw();
 
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
 
-struct DxcThreadMalloc {
-  DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
-    p = DxcSwapThreadMallocOrDefault(pMallocOrNull, &pPrior);
-  }
-  ~DxcThreadMalloc() {
-    DxcSwapThreadMalloc(pPrior, nullptr);
-  }
+#if defined(LLVM_ON_UNIX)
+#define DXC_HIDDEN_LINKAGE __attribute__(( visibility("hidden") ))
+#else  // LLVM_ON_UNIX
+#define DXC_HIDDEN_LINKAGE
+#endif  // LLVM_ON_UNIX
+
+class DxcThreadMalloc {
+public:
+  explicit DXC_HIDDEN_LINKAGE DxcThreadMalloc(IMalloc *pMallocOrNull) throw();
+  DXC_HIDDEN_LINKAGE ~DxcThreadMalloc();
+
+  IMalloc *GetInstalledAllocator() const { return p; }
+
+private:
+  // Copy constructor and assignment are dangerous and should always be
+  // deleted...
+  DxcThreadMalloc(const DxcThreadMalloc &) = delete;
+  DxcThreadMalloc &operator =(const DxcThreadMalloc &) = delete;
+  // Move constructor and assignment should be OK to be added if needed.
+  DxcThreadMalloc(DxcThreadMalloc &&) = delete;
+  DxcThreadMalloc &operator =(DxcThreadMalloc &&) = delete;
+
   IMalloc *p;
   IMalloc *pPrior;
 };

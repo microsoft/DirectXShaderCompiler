@@ -17,13 +17,13 @@ VSOut main(VSIn input)
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %main "main"
 // OpSource HLSL 600
-// OpName %bb_entry "bb.entry"
-// OpName %src_main "src.main"
 // OpName %main "main"
 // OpName %VSIn "VSIn"
 // OpName %param_var_input "param.var.input"
 // OpName %VSOut "VSOut"
+// OpName %src_main "src.main"
 // OpName %input "input"
+// OpName %bb_entry "bb.entry"
 // OpName %result "result"
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
@@ -33,10 +33,10 @@ VSOut main(VSIn input)
 // %12 = OpTypeFunction %VSOut %_ptr_Function_VSIn
 // %_ptr_Function_VSOut = OpTypePointer Function %VSOut
 // %main = OpFunction %void None %3
-// %5 = OpLabel
+// %4 = OpLabel
 // %param_var_input = OpVariable %_ptr_Function_VSIn Function
-// %9 = OpCompositeConstruct %VSIn
-// %11 = OpFunctionCall %VSOut %src_main %param_var_input
+// %8 = OpCompositeConstruct %VSIn
+// %10 = OpFunctionCall %VSOut %src_main %param_var_input
 // OpReturn
 // OpFunctionEnd
 // %src_main = OpFunction %VSOut None %12

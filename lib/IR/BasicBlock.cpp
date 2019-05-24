@@ -42,13 +42,19 @@ BasicBlock::BasicBlock(LLVMContext &C, const Twine &Name, Function *NewParent,
                        BasicBlock *InsertBefore)
   : Value(Type::getLabelTy(C), Value::BasicBlockVal), Parent(nullptr) {
 
+  // HLSL Change Begin
+  // Do everything that can throw before inserting into the
+  // linked list, which takes ownership of this object on success.
+  setName(Name);
+  // HLSL Change End
+
   if (NewParent)
     insertInto(NewParent, InsertBefore);
   else
     assert(!InsertBefore &&
            "Cannot insert block before another block with no function!");
 
-  setName(Name);
+  // setName(Name); // HLSL Change: moved above
 }
 
 void BasicBlock::insertInto(Function *NewParent, BasicBlock *InsertBefore) {

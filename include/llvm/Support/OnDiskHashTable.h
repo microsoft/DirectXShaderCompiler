@@ -94,8 +94,10 @@ private:
 
   /// \brief Resize the hash table, moving the old entries into the new buckets.
   void resize(size_t NewSize) {
-    Bucket *NewBuckets = (Bucket *)std::calloc(NewSize, sizeof(Bucket));
-    if (NewBuckets == nullptr) throw std::bad_alloc(); // HLSL Change
+    // HLSL Change Begin: Use overridable operator new
+    Bucket* NewBuckets = new Bucket[NewSize];
+    std::memset(NewBuckets, 0, NewSize * sizeof(Bucket));
+    // HLSL Change End
     // Populate NewBuckets with the old entries.
     for (size_t I = 0; I < NumBuckets; ++I)
       for (Item *E = Buckets[I].Head; E;) {
@@ -105,7 +107,7 @@ private:
         E = N;
       }
 
-    free(Buckets);
+    delete[] Buckets; // HLSL Change: Use overridable operator delete
     NumBuckets = NewSize;
     Buckets = NewBuckets;
   }
@@ -188,11 +190,13 @@ public:
     NumBuckets = 64;
     // Note that we do not need to run the constructors of the individual
     // Bucket objects since 'calloc' returns bytes that are all 0.
-    Buckets = (Bucket *)std::calloc(NumBuckets, sizeof(Bucket));
-    if (Buckets == nullptr) throw std::bad_alloc(); // HLSL Change
+    // HLSL Change Begin: Use overridable operator new
+    Buckets = new Bucket[NumBuckets];
+    std::memset(Buckets, 0, NumBuckets * sizeof(Bucket));
+    // HLSL Change End
   }
 
-  ~OnDiskChainedHashTableGenerator() { std::free(Buckets); }
+  ~OnDiskChainedHashTableGenerator() { delete[] Buckets; } // HLSL Change: Use overridable operator delete
 };
 
 /// \brief Provides lookup on an on disk hash table.

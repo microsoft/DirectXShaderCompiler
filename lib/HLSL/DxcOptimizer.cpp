@@ -85,6 +85,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDSEPass(Registry);
     initializeDeadInstEliminationPass(Registry);
     initializeDxilAllocateResourcesForLibPass(Registry);
+    initializeDxilCleanupAddrSpaceCastPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilConvergentClearPass(Registry);
     initializeDxilConvergentMarkPass(Registry);
@@ -93,6 +94,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
     initializeDxilFinalizeModulePass(Registry);
+    initializeDxilFixConstArrayInitializerPass(Registry);
     initializeDxilGenerationPassPass(Registry);
     initializeDxilLegalizeEvalOperationsPass(Registry);
     initializeDxilLegalizeResourcesPass(Registry);
@@ -109,7 +111,6 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);
-    initializeFailUndefResourcePass(Registry);
     initializeFloat2IntPass(Registry);
     initializeFunctionAttrsPass(Registry);
     initializeGVNPass(Registry);
@@ -118,12 +119,14 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeHLDeadFunctionEliminationPass(Registry);
     initializeHLEmitMetadataPass(Registry);
     initializeHLEnsureMetadataPass(Registry);
+    initializeHLExpandStoreIntrinsicsPass(Registry);
     initializeHLMatrixLowerPassPass(Registry);
     initializeHLPreprocessPass(Registry);
     initializeHoistConstantArrayPass(Registry);
     initializeIPSCCPPass(Registry);
     initializeIndVarSimplifyPass(Registry);
     initializeInstructionCombiningPassPass(Registry);
+    initializeInvalidateUndefResourcesPass(Registry);
     initializeJumpThreadingPass(Registry);
     initializeLICMPass(Registry);
     initializeLoadCombinePass(Registry);
