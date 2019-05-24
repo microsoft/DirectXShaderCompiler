@@ -377,6 +377,9 @@ class db_dxil(object):
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
             self.name_idx[i].category = "Dot product with accumulate"
             self.name_idx[i].shader_model = 6,4
+        for i in "WaveMatch,WaveMultiPrefixOp,WaveMultiPrefixBitCount".split(","):
+            self.name_idx[i].category = "Wave"
+            self.name_idx[i].shader_model = 6,5
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1338,6 +1341,41 @@ class db_dxil(object):
         # End of DXIL 1.4 opcodes.
         self.set_op_count_for_version(1, 4, next_op_idx)
         assert next_op_idx == 165, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
+
+        self.add_dxil_op("WaveMatch", next_op_idx, "WaveMatch", "returns the bitmask of active lanes that have the same value", "hfd8wil", "", [
+            db_dxil_param(0, "$u4", "", "operation result"),
+            db_dxil_param(2, "$o", "value", "input value")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WaveMultiPrefixOp", next_op_idx, "WaveMultiPrefixOp", "returns the result of the operation on groups of lanes identified by a bitmask", "hfd8wil", "", [
+            db_dxil_param(0, "$o", "", "operation result"),
+            db_dxil_param(2, "$o", "value", "input value"),
+            db_dxil_param(3, "i32", "mask0", "mask 0"),
+            db_dxil_param(4, "i32", "mask1", "mask 1"),
+            db_dxil_param(5, "i32", "mask2", "mask 2"),
+            db_dxil_param(6, "i32", "mask3", "mask 3"),
+            db_dxil_param(7, "i8", "op", "operation", enum_name="WaveMultiPrefixOpKind", is_const=True),
+            db_dxil_param(8, "i8", "sop", "sign of operands", enum_name="SignedOpKind", is_const=True)])
+        next_op_idx += 1
+        self.add_enum_type("WaveMultiPrefixOpKind", "Kind of cross-lane for multi-prefix operation", [
+            (0, "Sum", "sum of values"),
+            (1, "And", "bitwise and of values"),
+            (2, "Or", "bitwise or of values"),
+            (3, "Xor", "bitwise xor of values"),
+            (4, "Product", "product of values")])
+
+        self.add_dxil_op("WaveMultiPrefixBitCount", next_op_idx, "WaveMultiPrefixBitCount", "returns the count of bits set to 1 on groups of lanes identified by a bitmask", "v", "", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i1", "value", "input value"),
+            db_dxil_param(3, "i32", "mask0", "mask 0"),
+            db_dxil_param(4, "i32", "mask1", "mask 1"),
+            db_dxil_param(5, "i32", "mask2", "mask 2"),
+            db_dxil_param(6, "i32", "mask3", "mask 3")])
+        next_op_idx += 1
+
+        # End of DXIL 1.5 opcodes.
+        self.set_op_count_for_version(1, 5, next_op_idx)
+        assert next_op_idx == 168, "next operation index is %d rather than 168 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

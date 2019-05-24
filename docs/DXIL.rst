@@ -2253,6 +2253,9 @@ ID  Name                          Description
 162 Dot2AddHalf                   2D half dot product with accumulate to float
 163 Dot4AddI8Packed               signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32
 164 Dot4AddU8Packed               unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32
+165 WaveMatch                     returns the bitmask of active lanes that have the same value
+166 WaveMultiPrefixOp             returns the result of the operation on groups of lanes identified by a bitmask
+167 WaveMultiPrefixBitCount       returns the count of bits set to 1 on groups of lanes identified by a bitmask
 === ============================= =======================================================================================================================================================================================================================
 
 
