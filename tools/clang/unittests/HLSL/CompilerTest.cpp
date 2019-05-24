@@ -205,6 +205,7 @@ public:
 
   TEST_METHOD(CompileWhenDebugThenDIPresent)
   TEST_METHOD(CompileDebugLines)
+  TEST_METHOD(CompileDebugPDB)
 
   TEST_METHOD(CompileWhenDefinesThenApplied)
   TEST_METHOD(CompileWhenDefinesManyThenApplied)
@@ -1019,6 +1020,46 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   VERIFY_SUCCEEDED(CreateDiaSourceFromDxbcBlob(pLib, fxcBlob, &pDiaSource));
   WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 #endif
+}
+
+// Test that the new PDB format still works with Dia
+TEST_F(CompilerTest, CompileDebugPDB) {
+  const char *hlsl = R"(
+    [RootSignature("")]
+    float main(float pos : A) : SV_Target {
+      float x = abs(pos);
+      float y = sin(pos);
+      float z = x + y;
+      return z;
+    }
+  )";
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcCompiler2> pCompiler2;
+
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlob> pPdbBlob;
+  WCHAR *pDebugName = nullptr;
+
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
+  CreateBlobFromText(hlsl, &pSource);
+  LPCWSTR args[] = { L"/Zi", L"/Qembed_debug" };
+  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pProgramStream;
+
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pPdbBlob, &pProgramStream));
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+  VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pProgramStream));
 }
 
 TEST_F(CompilerTest, CompileDebugLines) {
