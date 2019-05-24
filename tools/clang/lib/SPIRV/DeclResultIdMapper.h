@@ -400,7 +400,7 @@ public:
   /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
-  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl);
+  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl, SourceLocation loc);
 
   /// \brief Returns the instruction pointer for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -457,11 +457,13 @@ public:
                              SpirvInstruction *value);
 
   /// \brief Negates to get the additive inverse of SV_Position.y if requested.
-  SpirvInstruction *invertYIfRequested(SpirvInstruction *position);
+  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc);
 
   /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
   /// if requested.
-  SpirvInstruction *invertWIfRequested(SpirvInstruction *position);
+  SpirvInstruction *invertWIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc);
 
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
@@ -756,7 +758,8 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
                                 SpirvBuilder &builder,
                                 SpirvContext &context) const {
   assert(isAlias);
-  builder.createStore(counterVar, srcPair.get(builder, context));
+  builder.createStore(counterVar, srcPair.get(builder, context),
+                      /* SourceLocation */ {});
 }
 
 DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,

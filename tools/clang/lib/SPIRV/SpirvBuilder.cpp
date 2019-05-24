@@ -484,11 +484,11 @@ SpirvInstruction *SpirvBuilder::createImageSample(
 
   if (isSparse) {
     // Write the Residency Code
-    const auto status =
-        createCompositeExtract(astContext.UnsignedIntTy, imageSampleInst, {0});
+    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
+                                               imageSampleInst, {0}, loc);
     createStore(residencyCode, status, loc);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, imageSampleInst, {1});
+    return createCompositeExtract(texelType, imageSampleInst, {1}, loc);
   }
 
   return imageSampleInst;
@@ -522,11 +522,11 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
 
   if (isSparse) {
     // Write the Residency Code
-    const auto status =
-        createCompositeExtract(astContext.UnsignedIntTy, fetchOrReadInst, {0});
+    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
+                                               fetchOrReadInst, {0}, loc);
     createStore(residencyCode, status, loc);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, fetchOrReadInst, {1});
+    return createCompositeExtract(texelType, fetchOrReadInst, {1}, loc);
   }
 
   return fetchOrReadInst;
@@ -583,11 +583,11 @@ SpirvInstruction *SpirvBuilder::createImageGather(
 
   if (residencyCode) {
     // Write the Residency Code
-    const auto status =
-        createCompositeExtract(astContext.UnsignedIntTy, imageInstruction, {0});
-    createStore(residencyCode, status);
+    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
+                                               imageInstruction, {0}, loc);
+    createStore(residencyCode, status, loc);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, imageInstruction, {1});
+    return createCompositeExtract(texelType, imageInstruction, {1}, loc);
   }
 
   return imageInstruction;
@@ -658,10 +658,9 @@ void SpirvBuilder::createKill(SourceLocation loc) {
 }
 
 void SpirvBuilder::createBranch(SpirvBasicBlock *targetLabel,
-                                SpirvBasicBlock *mergeBB,
+                                SourceLocation loc, SpirvBasicBlock *mergeBB,
                                 SpirvBasicBlock *continueBB,
-                                spv::LoopControlMask loopControl,
-                                SourceLocation loc) {
+                                spv::LoopControlMask loopControl) {
   assert(insertPoint && "null insert point");
 
   if (mergeBB && continueBB) {
@@ -676,9 +675,10 @@ void SpirvBuilder::createBranch(SpirvBasicBlock *targetLabel,
 
 void SpirvBuilder::createConditionalBranch(
     SpirvInstruction *condition, SpirvBasicBlock *trueLabel,
-    SpirvBasicBlock *falseLabel, SpirvBasicBlock *mergeLabel,
-    SpirvBasicBlock *continueLabel, spv::SelectionControlMask selectionControl,
-    spv::LoopControlMask loopControl, SourceLocation loc) {
+    SpirvBasicBlock *falseLabel, SourceLocation loc,
+    SpirvBasicBlock *mergeLabel, SpirvBasicBlock *continueLabel,
+    spv::SelectionControlMask selectionControl,
+    spv::LoopControlMask loopControl) {
   assert(insertPoint && "null insert point");
 
   if (mergeLabel) {
@@ -781,13 +781,6 @@ SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
       new (context) SpirvArrayLength(resultType, loc, structure, arrayMember);
   insertPoint->addInstruction(inst);
   return inst;
-}
-
-void SpirvBuilder::createLineInfo(SpirvString *file, uint32_t line,
-                                  uint32_t column) {
-  assert(insertPoint && "null insert point");
-  auto *inst = new (context) SpirvLineInfo(file, line, column);
-  insertPoint->addInstruction(inst);
 }
 
 SpirvInstruction *

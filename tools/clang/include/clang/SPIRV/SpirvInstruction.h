@@ -993,8 +993,7 @@ protected:
 
 class SpirvConstantBoolean : public SpirvConstant {
 public:
-  SpirvConstantBoolean(QualType type, bool value,
-                       bool isSpecConst = false);
+  SpirvConstantBoolean(QualType type, bool value, bool isSpecConst = false);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1729,29 +1728,6 @@ public:
 private:
   SpirvInstruction *structure;
   uint32_t arrayMember;
-};
-
-// TODO: It'd be better to leave debug info attached to whatever entity they are
-// annotating and have a pass write out the binaries for them directly.
-class SpirvLineInfo : public SpirvInstruction {
-public:
-  SpirvLineInfo(SpirvString *srcFile, uint32_t srcLine, uint32_t srcCol);
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_LineInfo;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
-
-  SpirvString *getSourceFile() { return file; }
-  uint32_t getSourceLine() { return line; }
-  uint32_t getSourceColumn() { return column; }
-
-private:
-  SpirvString *file;
-  uint32_t line;
-  uint32_t column;
 };
 
 /// \brief Base class for all NV raytracing instructions.

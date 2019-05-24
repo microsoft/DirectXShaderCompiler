@@ -113,19 +113,18 @@ public:
   SpirvCompositeConstruct *
   createCompositeConstruct(QualType resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
-                           SourceLocation loc = {});
+                           SourceLocation loc);
   SpirvCompositeConstruct *
   createCompositeConstruct(const SpirvType *resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
-                           SourceLocation loc = {});
+                           SourceLocation loc);
 
   /// \brief Creates a composite extract instruction. The given composite is
   /// indexed using the given literal indexes to obtain the resulting element.
   /// Returns the instruction pointer for the extracted element.
   SpirvCompositeExtract *
   createCompositeExtract(QualType resultType, SpirvInstruction *composite,
-                         llvm::ArrayRef<uint32_t> indexes,
-                         SourceLocation loc = {});
+                         llvm::ArrayRef<uint32_t> indexes, SourceLocation loc);
 
   /// \brief Creates a composite insert instruction. The given object will
   /// replace the component in the composite at the given indices. Returns the
@@ -134,7 +133,7 @@ public:
                                               SpirvInstruction *composite,
                                               llvm::ArrayRef<uint32_t> indices,
                                               SpirvInstruction *object,
-                                              SourceLocation loc = {});
+                                              SourceLocation loc);
 
   /// \brief Creates a vector shuffle instruction of selecting from the two
   /// vectors using selectors and returns the instruction pointer of the result
@@ -143,27 +142,27 @@ public:
                                           SpirvInstruction *vector1,
                                           SpirvInstruction *vector2,
                                           llvm::ArrayRef<uint32_t> selectors,
-                                          SourceLocation loc = {});
+                                          SourceLocation loc);
 
   /// \brief Creates a load instruction loading the value of the given
   /// <result-type> from the given pointer. Returns the instruction pointer for
   /// the loaded value.
   SpirvLoad *createLoad(QualType resultType, SpirvInstruction *pointer,
-                        SourceLocation loc = {});
+                        SourceLocation loc);
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
-                        SourceLocation loc = {});
+                        SourceLocation loc);
 
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
   void createStore(SpirvInstruction *address, SpirvInstruction *value,
-                   SourceLocation loc = {});
+                   SourceLocation loc);
 
   /// \brief Creates a function call instruction and returns the instruction
   /// pointer for the return value.
   SpirvFunctionCall *
   createFunctionCall(QualType returnType, SpirvFunction *func,
                      llvm::ArrayRef<SpirvInstruction *> params,
-                     SourceLocation loc = {});
+                     SourceLocation loc);
 
   /// \brief Creates an access chain instruction to retrieve the element from
   /// the given base by walking through the given indexes. Returns the
@@ -171,17 +170,16 @@ public:
   SpirvAccessChain *
   createAccessChain(QualType resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
-                    SourceLocation loc = {});
+                    SourceLocation loc);
   SpirvAccessChain *
   createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
-                    SourceLocation loc = {});
+                    SourceLocation loc);
 
   /// \brief Creates a unary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
   SpirvUnaryOp *createUnaryOp(spv::Op op, QualType resultType,
-                              SpirvInstruction *operand,
-                              SourceLocation loc = {});
+                              SpirvInstruction *operand, SourceLocation loc);
 
   /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
@@ -324,8 +322,7 @@ public:
   /// cases and returns the instruction pointer.
   SpirvSelect *createSelect(QualType resultType, SpirvInstruction *condition,
                             SpirvInstruction *trueValue,
-                            SpirvInstruction *falseValue,
-                            SourceLocation);
+                            SpirvInstruction *falseValue, SourceLocation);
 
   /// \brief Creates a switch statement for the given selector, default, and
   /// branches. Results in OpSelectionMerge followed by OpSwitch.
@@ -342,10 +339,9 @@ public:
   /// If mergeBB and continueBB are non-null, it creates an OpLoopMerge
   /// instruction followed by an unconditional branch to the given target label.
   void createBranch(
-      SpirvBasicBlock *targetLabel, SpirvBasicBlock *mergeBB = nullptr,
-      SpirvBasicBlock *continueBB = nullptr,
-      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone,
-      SourceLocation loc = {});
+      SpirvBasicBlock *targetLabel, SourceLocation loc,
+      SpirvBasicBlock *mergeBB = nullptr, SpirvBasicBlock *continueBB = nullptr,
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
   /// \brief Creates a conditional branch. An OpSelectionMerge instruction
   /// will be created if mergeLabel is not null and continueLabel is null.
@@ -356,12 +352,12 @@ public:
   /// Otherwise, MaskNone will be used.
   void createConditionalBranch(
       SpirvInstruction *condition, SpirvBasicBlock *trueLabel,
-      SpirvBasicBlock *falseLabel, SpirvBasicBlock *mergeLabel = nullptr,
+      SpirvBasicBlock *falseLabel, SourceLocation loc,
+      SpirvBasicBlock *mergeLabel = nullptr,
       SpirvBasicBlock *continueLabel = nullptr,
       spv::SelectionControlMask selectionControl =
           spv::SelectionControlMask::MaskNone,
-      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone,
-      SourceLocation loc = {});
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
   /// \brief Creates a return instruction.
   void createReturn(SourceLocation);
@@ -412,8 +408,6 @@ public:
   SpirvArrayLength *createArrayLength(QualType resultType, SourceLocation loc,
                                       SpirvInstruction *structure,
                                       uint32_t arrayMember);
-
-  void createLineInfo(SpirvString *file, uint32_t line, uint32_t column);
 
   /// \brief Creates SPIR-V instructions for NV raytracing ops.
   SpirvInstruction *

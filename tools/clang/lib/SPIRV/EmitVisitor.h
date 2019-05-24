@@ -187,10 +187,11 @@ public:
 public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
-      : Visitor(opts, spvCtx), id(0),
+      : Visitor(opts, spvCtx), astContext(astCtx), id(0),
         typeHandler(astCtx, spvCtx, &debugBinary, &annotationsBinary,
                     &typeConstantBinary,
-                    [this]() -> uint32_t { return takeNextId(); }) {}
+                    [this]() -> uint32_t { return takeNextId(); }),
+        debugFileId(0), debugLine(0), debugColumn(0) {}
 
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase);
@@ -208,7 +209,6 @@ public:
   bool visit(SpirvString *);
   bool visit(SpirvSource *);
   bool visit(SpirvModuleProcessed *);
-  bool visit(SpirvLineInfo *);
   bool visit(SpirvDecoration *);
   bool visit(SpirvVariable *);
   bool visit(SpirvFunctionParameter *);
@@ -272,8 +272,10 @@ private:
     return obj->getResultId();
   }
 
+  void emitDebugLine(spv::Op op, const SourceLocation &loc);
+
   // Initiates the creation of a new instruction with the given Opcode.
-  void initInstruction(spv::Op);
+  void initInstruction(spv::Op, const SourceLocation &);
   // Initiates the creation of the given SPIR-V instruction.
   // If the given instruction has a return type, it will also trigger emitting
   // the necessary type (and its associated decorations) and uses its result-id
@@ -294,6 +296,18 @@ private:
   // using the type information.
 
 private:
+  /// Emits error to the diagnostic engine associated with this visitor.
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
+    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+        clang::DiagnosticsEngine::Error, message);
+    return astContext.getDiagnostics().Report(loc, diagId);
+  }
+
+private:
+  // Object that holds Clang AST nodes.
+  ASTContext &astContext;
   // The last result-id that's been used so far.
   uint32_t id;
   // Handler for emitting types and their related instructions.
@@ -315,6 +329,16 @@ private:
   std::vector<uint32_t> typeConstantBinary;
   // All other instructions
   std::vector<uint32_t> mainBinary;
+  // File information for debugging that will be used by OpLine.
+  uint32_t debugFileId;
+  // One HLSL source line may result in several SPIR-V instructions. In order to
+  // avoid emitting many OpLine instructions with identical line and column
+  // numbers, we record the last line and column number that was used by OpLine,
+  // and only emit a new OpLine when a new line/column in the source is
+  // discovered. The last debug line number information emitted by OpLine.
+  uint32_t debugLine;
+  // The last debug column number information emitted by OpLine.
+  uint32_t debugColumn;
 };
 
 } // namespace spirv

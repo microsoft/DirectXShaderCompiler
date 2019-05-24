@@ -335,7 +335,8 @@ SpirvInstruction *CounterIdAliasPair::get(SpirvBuilder &builder,
     const auto *counterType = spvContext.getACSBufferCounterType();
     const auto *counterVarType =
         spvContext.getPointerType(counterType, spv::StorageClass::Uniform);
-    return builder.createLoad(counterVarType, counterVar);
+    return builder.createLoad(counterVarType, counterVar,
+                              /* SourceLocation */ {});
   }
   return counterVar;
 }
@@ -509,7 +510,8 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   return nullptr;
 }
 
-SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
+SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
+                                                      SourceLocation loc) {
   if (const auto *info = getDeclSpirvInfo(decl)) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
@@ -524,7 +526,8 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
       return spvBuilder.createAccessChain(
           ptrType, info->instr,
           {spvBuilder.getConstantInt(
-              astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))});
+              astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))},
+          loc);
     } else {
       return *info;
     }
@@ -1640,6 +1643,7 @@ bool DeclResultIdMapper::createStageVars(
     semanticToUse = inheritSemantic;
   }
 
+  const auto loc = decl->getLocation();
   if (semanticToUse->isValid() &&
       // Structs with attached semantics will be handled later.
       !type->isStructureType()) {
@@ -1656,8 +1660,7 @@ bool DeclResultIdMapper::createStageVars(
                                           spvContext.getMajorVersion(),
                                           spvContext.getMinorVersion()) ==
         hlsl::DXIL::SemanticInterpretationKind::NA) {
-      emitError("invalid usage of semantic '%0' in shader profile %1",
-                decl->getLocation())
+      emitError("invalid usage of semantic '%0' in shader profile %1", loc)
           << semanticToUse->str
           << hlsl::ShaderModel::GetKindName(
                  spvContext.getCurrentShaderModelKind());
@@ -1691,7 +1694,7 @@ bool DeclResultIdMapper::createStageVars(
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticToUse->index, invocationId, value,
-                                noWriteBack))
+                                noWriteBack, loc))
       return true;
 
     switch (semanticKind) {
@@ -1781,7 +1784,7 @@ bool DeclResultIdMapper::createStageVars(
       decoratePSInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
-      *value = spvBuilder.createLoad(evalType, varInstr);
+      *value = spvBuilder.createLoad(evalType, varInstr, loc);
 
       // Fix ups for corner cases
 
@@ -1798,8 +1801,9 @@ bool DeclResultIdMapper::createStageVars(
             clang::ArrayType::Normal, 0);
         for (uint32_t i = 0; i < tessFactorSize; ++i)
           components.push_back(spvBuilder.createCompositeExtract(
-              astContext.FloatTy, *value, {i}));
-        *value = spvBuilder.createCompositeConstruct(arrType, components);
+              astContext.FloatTy, *value, {i}, thisSemantic.loc));
+        *value = spvBuilder.createCompositeConstruct(arrType, components,
+                                                     thisSemantic.loc);
       }
       // Special handling of SV_InsideTessFactor DS patch constant input.
       // TessLevelInner is always an array of size 2 in SPIR-V, but
@@ -1809,13 +1813,14 @@ bool DeclResultIdMapper::createStageVars(
       else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
                // Some developers use float[1] instead of a scalar float.
                (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
-        *value =
-            spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {0});
+        *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
+                                                   {0}, thisSemantic.loc);
         if (type->isArrayType()) { // float[1]
           const auto arrType = astContext.getConstantArrayType(
               astContext.FloatTy, llvm::APInt(32, 1), clang::ArrayType::Normal,
               0);
-          *value = spvBuilder.createCompositeConstruct(arrType, {*value});
+          *value = spvBuilder.createCompositeConstruct(arrType, {*value},
+                                                       thisSemantic.loc);
         }
       }
       // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
@@ -1827,12 +1832,13 @@ bool DeclResultIdMapper::createStageVars(
         const auto domainLocSize = hlsl::GetHLSLVecSize(type);
         *value = spvBuilder.createVectorShuffle(
             astContext.getExtVectorType(astContext.FloatTy, domainLocSize),
-            *value, *value, {0, 1});
+            *value, *value, {0, 1}, thisSemantic.loc);
       }
       // Special handling of SV_Coverage, which is an uint value. We need to
       // read SampleMask and extract its first element.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        *value = spvBuilder.createCompositeExtract(type, *value, {0});
+        *value = spvBuilder.createCompositeExtract(type, *value, {0},
+                                                   thisSemantic.loc);
       }
       // Special handling of SV_InnerCoverage, which is an uint value. We need
       // to read FullyCoveredEXT, which is a boolean value, and convert it to an
@@ -1858,10 +1864,10 @@ bool DeclResultIdMapper::createStageVars(
       // underlying stage input variable is a float2 (only provides the first
       // two components). Calculate the third element.
       else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
-        const auto x =
-            spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {0});
-        const auto y =
-            spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {1});
+        const auto x = spvBuilder.createCompositeExtract(
+            astContext.FloatTy, *value, {0}, thisSemantic.loc);
+        const auto y = spvBuilder.createCompositeExtract(
+            astContext.FloatTy, *value, {1}, thisSemantic.loc);
         const auto xy = spvBuilder.createBinaryOp(spv::Op::OpFAdd,
                                                   astContext.FloatTy, x, y);
         const auto z = spvBuilder.createBinaryOp(
@@ -1870,7 +1876,8 @@ bool DeclResultIdMapper::createStageVars(
                                         llvm::APFloat(1.0f)),
             xy);
         *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z});
+            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
+            thisSemantic.loc);
       }
       // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
       // be a uint or uint2, but the underlying stage input variable is a uint3.
@@ -1886,23 +1893,23 @@ bool DeclResultIdMapper::createStageVars(
         const auto vecSize =
             hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
         if (vecSize == 1)
-          *value =
-              spvBuilder.createCompositeExtract(srcVecElemType, *value, {0});
+          *value = spvBuilder.createCompositeExtract(srcVecElemType, *value,
+                                                     {0}, thisSemantic.loc);
         else if (vecSize == 2)
           *value = spvBuilder.createVectorShuffle(
               astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
-              {0, 1});
+              {0, 1}, thisSemantic.loc);
       }
 
       // Reciprocate SV_Position.w if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertWIfRequested(*value);
+        *value = invertWIfRequested(*value, thisSemantic.loc);
 
       // Since boolean stage input variables are represented as unsigned
       // integers, after loading them, we should cast them to boolean.
       if (isBooleanStageIOVar(decl, type, semanticKind, sigPoint->GetKind())) {
         *value =
-            theEmitter.castToType(*value, evalType, type, decl->getLocation());
+            theEmitter.castToType(*value, evalType, type, thisSemantic.loc);
       }
     } else {
       if (noWriteBack)
@@ -1910,7 +1917,7 @@ bool DeclResultIdMapper::createStageVars(
 
       // Negate SV_Position.y if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertYIfRequested(*value);
+        *value = invertYIfRequested(*value, thisSemantic.loc);
 
       SpirvInstruction *ptr = varInstr;
 
@@ -1927,9 +1934,13 @@ bool DeclResultIdMapper::createStageVars(
           ptr = spvBuilder.createAccessChain(
               ptrType, varInstr,
               {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, i))});
-          spvBuilder.createStore(ptr, spvBuilder.createCompositeExtract(
-                                          astContext.FloatTy, *value, {i}));
+                                         llvm::APInt(32, i))},
+              thisSemantic.loc);
+          spvBuilder.createStore(
+              ptr,
+              spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {i},
+                                                thisSemantic.loc),
+              thisSemantic.loc);
         }
       }
       // Special handling of SV_InsideTessFactor HS patch constant output.
@@ -1945,11 +1956,12 @@ bool DeclResultIdMapper::createStageVars(
                                       spv::StorageClass::Output),
             varInstr,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, 0)));
+                                      llvm::APInt(32, 0)),
+            thisSemantic.loc);
         if (type->isArrayType()) // float[1]
           *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
-                                                     {0});
-        spvBuilder.createStore(ptr, *value);
+                                                     {0}, thisSemantic.loc);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // Special handling of SV_Coverage, which is an unit value. We need to
       // write it to the first element in the SampleMask builtin.
@@ -1959,9 +1971,10 @@ bool DeclResultIdMapper::createStageVars(
         ptr = spvBuilder.createAccessChain(
             ptrType, varInstr,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, 0)));
+                                      llvm::APInt(32, 0)),
+            thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // Special handling of HS ouput, for which we write to only one
       // element in the per-vertex data array: the one indexed by
@@ -1974,21 +1987,21 @@ bool DeclResultIdMapper::createStageVars(
         auto index = invocationId.getValue();
         ptr = spvBuilder.createAccessChain(
             spvContext.getPointerType(elementType, spv::StorageClass::Output),
-            varInstr, index);
+            varInstr, index, thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // Since boolean output stage variables are represented as unsigned
       // integers, we must cast the value to uint before storing.
       else if (isBooleanStageIOVar(decl, type, semanticKind,
                                    sigPoint->GetKind())) {
         *value =
-            theEmitter.castToType(*value, type, evalType, decl->getLocation());
-        spvBuilder.createStore(ptr, *value);
+            theEmitter.castToType(*value, type, evalType, thisSemantic.loc);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
       // For all normal cases
       else {
-        spvBuilder.createStore(ptr, *value);
+        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
     }
 
@@ -2001,7 +2014,7 @@ bool DeclResultIdMapper::createStageVars(
   if (!semanticToUse->isValid() && !type->isStructureType()) {
     emitError("semantic string missing for shader %select{output|input}0 "
               "variable '%1'",
-              decl->getLocation())
+              loc)
         << asInput << decl->getName();
     return false;
   }
@@ -2036,7 +2049,7 @@ bool DeclResultIdMapper::createStageVars(
     }
 
     if (arraySize == 0) {
-      *value = spvBuilder.createCompositeConstruct(evalType, subValues);
+      *value = spvBuilder.createCompositeConstruct(evalType, subValues, loc);
       return true;
     }
 
@@ -2061,7 +2074,7 @@ bool DeclResultIdMapper::createStageVars(
         for (auto base : cxxDecl->bases()) {
           const auto baseType = base.getType();
           fields.push_back(spvBuilder.createCompositeExtract(
-              baseType, subValues[baseIndex++], {arrayIndex}));
+              baseType, subValues[baseIndex++], {arrayIndex}, loc));
         }
       }
 
@@ -2071,14 +2084,14 @@ bool DeclResultIdMapper::createStageVars(
         fields.push_back(spvBuilder.createCompositeExtract(
             fieldType,
             subValues[getNumBaseClasses(type) + field->getFieldIndex()],
-            {arrayIndex}));
+            {arrayIndex}, loc));
       }
       // Compose a new struct out of them
       arrayElements.push_back(
-          spvBuilder.createCompositeConstruct(structType, fields));
+          spvBuilder.createCompositeConstruct(structType, fields, loc));
     }
 
-    *value = spvBuilder.createCompositeConstruct(arrayType, arrayElements);
+    *value = spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
   } else {
     // If we have base classes, we need to handle them first.
     if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
@@ -2087,7 +2100,7 @@ bool DeclResultIdMapper::createStageVars(
         SpirvInstruction *subValue = nullptr;
         if (!noWriteBack)
           subValue = spvBuilder.createCompositeExtract(base.getType(), *value,
-                                                       {baseIndex++});
+                                                       {baseIndex++}, loc);
 
         if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
                              asInput, base.getType(), arraySize, namePrefix,
@@ -2116,7 +2129,7 @@ bool DeclResultIdMapper::createStageVars(
       if (!noWriteBack)
         subValue = spvBuilder.createCompositeExtract(
             fieldType, *value,
-            {getNumBaseClasses(type) + field->getFieldIndex()});
+            {getNumBaseClasses(type) + field->getFieldIndex()}, loc);
 
       if (!createStageVars(sigPoint, field, asInput, field->getType(),
                            arraySize, namePrefix, invocationId, &subValue,
@@ -2139,15 +2152,17 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     type = astContext.getAsConstantArrayType(type)->getElementType();
 
   auto semanticInfo = getStageVarSemantic(decl);
+  const auto loc = decl->getLocation();
 
   if (semanticInfo.isValid()) {
     // Found semantic attached directly to this Decl. Write the value for this
     // Decl to the corresponding stage output variable.
 
     // Handle SV_Position, SV_ClipDistance, and SV_CullDistance
-    if (glPerVertex.tryToAccess(
-            hlsl::DXIL::SigPointKind::GSOut, semanticInfo.semantic->GetKind(),
-            semanticInfo.index, llvm::None, &value, /*noWriteBack=*/false))
+    if (glPerVertex.tryToAccess(hlsl::DXIL::SigPointKind::GSOut,
+                                semanticInfo.semantic->GetKind(),
+                                semanticInfo.index, llvm::None, &value,
+                                /*noWriteBack=*/false, loc))
       return true;
 
     // Query the <result-id> for the stage output variable generated out
@@ -2161,24 +2176,23 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
 
     // Negate SV_Position.y if requested
     if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
-      value = invertYIfRequested(value);
+      value = invertYIfRequested(value, loc);
 
     // Boolean stage output variables are represented as unsigned integers.
     if (isBooleanStageIOVar(decl, type, semanticInfo.semantic->GetKind(),
                             hlsl::SigPoint::Kind::GSOut)) {
       QualType uintType = getUintTypeWithSourceComponents(astContext, type);
-      value = theEmitter.castToType(value, type, uintType, decl->getLocation());
+      value = theEmitter.castToType(value, type, uintType, loc);
     }
 
-    spvBuilder.createStore(found->second, value);
+    spvBuilder.createStore(found->second, value, loc);
     return true;
   }
 
   // If the decl itself doesn't have semantic string attached, it should be
   // a struct having all its fields with semantic strings.
   if (!type->isStructureType()) {
-    emitError("semantic string missing for shader output variable '%0'",
-              decl->getLocation())
+    emitError("semantic string missing for shader output variable '%0'", loc)
         << decl->getName();
     return false;
   }
@@ -2188,7 +2202,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     uint32_t baseIndex = 0;
     for (auto base : cxxDecl->bases()) {
       auto *subValue = spvBuilder.createCompositeExtract(base.getType(), value,
-                                                         {baseIndex++});
+                                                         {baseIndex++}, loc);
 
       if (!writeBackOutputStream(base.getType()->getAsCXXRecordDecl(),
                                  base.getType(), subValue))
@@ -2202,7 +2216,8 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   for (const auto *field : structDecl->fields()) {
     const auto fieldType = field->getType();
     auto *subValue = spvBuilder.createCompositeExtract(
-        fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()});
+        fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()},
+        loc);
 
     if (!writeBackOutputStream(field, field->getType(), subValue))
       return false;
@@ -2212,33 +2227,35 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
 }
 
 SpirvInstruction *
-DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position) {
+DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc) {
   // Negate SV_Position.y if requested
   if (spirvOptions.invertY) {
-    const auto oldY =
-        spvBuilder.createCompositeExtract(astContext.FloatTy, position, {1});
-    const auto newY =
-        spvBuilder.createUnaryOp(spv::Op::OpFNegate, astContext.FloatTy, oldY);
+    const auto oldY = spvBuilder.createCompositeExtract(astContext.FloatTy,
+                                                        position, {1}, loc);
+    const auto newY = spvBuilder.createUnaryOp(spv::Op::OpFNegate,
+                                               astContext.FloatTy, oldY, loc);
     position = spvBuilder.createCompositeInsert(
-        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1},
-        newY);
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
+        loc);
   }
   return position;
 }
 
 SpirvInstruction *
-DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position) {
+DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc) {
   // Reciprocate SV_Position.w if requested
   if (spirvOptions.invertW && spvContext.isPS()) {
-    const auto oldW =
-        spvBuilder.createCompositeExtract(astContext.FloatTy, position, {3});
+    const auto oldW = spvBuilder.createCompositeExtract(astContext.FloatTy,
+                                                        position, {3}, loc);
     const auto newW = spvBuilder.createBinaryOp(
         spv::Op::OpFDiv, astContext.FloatTy,
         spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
         oldW);
     position = spvBuilder.createCompositeInsert(
-        astContext.getExtVectorType(astContext.FloatTy, 4), position, {3},
-        newW);
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {3}, newW,
+        loc);
   }
   return position;
 }
