@@ -6047,6 +6047,730 @@
             </Parameter>
         </Row>
     </Table>
+    <Table Id="WaveIntrinsicsMultiPrefixIntTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Keys">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Values">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="WaveMultiPrefixBitAnd">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitAnd</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    int value;
+                    int result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitAnd(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitAnd(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixBitOr">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitOr</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    int value;
+                    int result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitOr(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitOr(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixBitXor">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitXor</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    int value;
+                    int result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitXor(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitXor(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixSum">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixSum</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    int value;
+                    int result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixSum(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixSum(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixProduct">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixProduct</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    int value;
+                    int result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixProduct(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixProduct(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixCountBits">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixCountBits</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    int value;
+                    int result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+    </Table>
+    <Table Id="WaveIntrinsicsMultiPrefixUintTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Keys">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Values">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="WaveMultiPrefixBitAnd">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitAnd</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    uint value;
+                    uint result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitAnd(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitAnd(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixBitOr">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitOr</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    uint value;
+                    uint result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitOr(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitOr(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixBitXor">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitXor</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    uint value;
+                    uint result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitXor(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixBitXor(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixUSum">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixUSum</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    uint value;
+                    uint result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixSum(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixSum(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixUSum">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixUProduct</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    uint value;
+                    uint result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixProduct(data.value, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixProduct(data.value, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveMultiPrefixCountBits">
+            <Parameter Name="ShaderOp.Name">WaveMultiPrefixCountBits</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                struct ThreadData {
+                    uint key;
+                    uint firstLaneId;
+                    uint laneId;
+                    uint mask;
+                    uint value;
+                    uint result;
+                };
+
+                RWStructuredBuffer&lt;ThreadData&gt; g_buffer : register(u0);
+
+                [numthreads(8, 12, 1)]
+                void main
+                (
+                    uint id : SV_GroupIndex
+                )
+                {
+                    ThreadData data = g_buffer[id];
+
+                    data.firstLaneId = WaveReadLaneFirst(id);
+                    data.laneId = WaveGetLaneIndex();
+
+                    if (data.mask != 0) {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
+                    } else {
+                        uint4 mask = WaveMatch(data.key);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
+                    }
+
+                    g_buffer[id] = data;
+                }
+            </Parameter>
+            <Parameter Name="Validation.Keys">
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.Values">
+                <Value>10</Value>
+                <Value>42</Value>
+                <Value>1</Value>
+                <Value>64</Value>
+                <Value>11</Value>
+                <Value>76</Value>
+                <Value>90</Value>
+                <Value>111</Value>
+                <Value>9</Value>
+                <Value>6</Value>
+                <Value>79</Value>
+                <Value>34</Value>
+            </Parameter>
+        </Row>
+    </Table>
     <Table Id="DenormBinaryFloatOpTable">
         <ParameterTypes>
             <ParameterType Name="ShaderOp.Target">String</ParameterType>

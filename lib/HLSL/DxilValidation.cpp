@@ -855,6 +855,10 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
+  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
+  // WaveMultiPrefixBitCount=167
+  if ((165 <= op && op <= 167))
+    return (major > 6 || (major == 6 && minor >= 5));
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -5086,8 +5090,10 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // 1.4 adds:
   // - packed u8x4/i8x4 dot with accumulate to i32
   // - half dot2 with accumulate to float
+  // 1.5 adds:
+  // TODO: Fill this in.
   *pMajor = 1;
-  *pMinor = 4;
+  *pMinor = 5;
 }
 
 _Use_decl_annotations_ HRESULT

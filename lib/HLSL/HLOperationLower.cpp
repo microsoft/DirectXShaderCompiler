@@ -1062,6 +1062,68 @@ Value *TranslateWaveAllEqual(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TrivialDxilOperation(DXIL::OpCode::WaveActiveAllEqual, args, Ty, RetTy,
                               hlslOP, Builder);
 }
+
+// WaveMatch(val<n>)->uint4
+Value *TranslateWaveMatch(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
+                          HLOperationLowerHelper &Helper,
+                          HLObjectOperationLowerHelper *ObjHelper,
+                          bool &Translated) {
+  hlsl::OP *Op = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  // Generate a dx.op.waveMatch call for each scalar in the input, and perform
+  // a bitwise AND between each result to derive the final bitmask in the case
+  // of vector inputs.
+
+  // (1) Collect the list of all scalar inputs (e.g. decompose vectors)
+  SmallVector<Value *, 4> ScalarInputs;
+
+  Value *Val = CI->getArgOperand(1);
+  Type *ValTy = Val->getType();
+  Type *EltTy = ValTy->getScalarType();
+
+  if (ValTy->isVectorTy()) {
+    for (uint64_t i = 0, e = ValTy->getVectorNumElements(); i != e; ++i) {
+      Value *Elt = Builder.CreateExtractElement(Val, i);
+      ScalarInputs.push_back(Elt);
+    }
+  } else {
+    ScalarInputs.push_back(Val);
+  }
+
+  Value *Res = nullptr;
+  Constant *OpcArg = Op->GetU32Const((unsigned)DXIL::OpCode::WaveMatch);
+  Value *Fn = Op->GetOpFunc(OP::OpCode::WaveMatch, EltTy);
+
+  // (2) For each scalar, emit a call to dx.op.waveMatch. If this is not the
+  // first scalar, then AND the result with the accumulator.
+  for (unsigned i = 0, e = ScalarInputs.size(); i != e; ++i) {
+    Value *Args[] = { OpcArg, ScalarInputs[i] };
+    Value *Call = Builder.CreateCall(Fn, Args);
+
+    if (Res) {
+      // Generate bitwise AND of the components
+      for (unsigned j = 0; j != 4; ++j) {
+        Value *ResVal = Builder.CreateExtractValue(Res, j);
+        Value *CallVal = Builder.CreateExtractValue(Call, j);
+        Value *And = Builder.CreateAnd(ResVal, CallVal);
+        Res = Builder.CreateInsertValue(Res, And, j);
+      }
+    } else {
+      Res = Call;
+    }
+  }
+
+  // (3) Convert the final aggregate into a vector to make the types match
+  Value *ResVec = UndefValue::get(CI->getType());
+  for (unsigned i = 0; i != 4; ++i) {
+    Value *Elt = Builder.CreateExtractValue(Res, i);
+    ResVec = Builder.CreateInsertElement(ResVec, Elt, i);
+  }
+
+  return ResVec;
+}
+
 // Wave intrinsics of the form fn(valA)->valB, where no overloading takes place
 Value *TranslateWaveA2B(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                         HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
@@ -1112,6 +1174,8 @@ static unsigned WaveIntrinsicToSignedOpKind(IntrinsicOp IOP) {
       IOP == IntrinsicOp::IOP_WaveActiveUMin ||
       IOP == IntrinsicOp::IOP_WaveActiveUSum ||
       IOP == IntrinsicOp::IOP_WaveActiveUProduct ||
+      IOP == IntrinsicOp::IOP_WaveMultiPrefixUProduct ||
+      IOP == IntrinsicOp::IOP_WaveMultiPrefixUSum ||
       IOP == IntrinsicOp::IOP_WavePrefixUSum ||
       IOP == IntrinsicOp::IOP_WavePrefixUProduct)
     return (unsigned)DXIL::SignedOpKind::Unsigned;
@@ -1146,6 +1210,19 @@ static unsigned WaveIntrinsicToOpKind(IntrinsicOp IOP) {
     return (unsigned)DXIL::WaveOpKind::Sum;
   case IntrinsicOp::IOP_WaveActiveProduct:
   case IntrinsicOp::IOP_WaveActiveUProduct:
+  // MultiPrefix operations
+  case IntrinsicOp::IOP_WaveMultiPrefixBitAnd:
+    return (unsigned)DXIL::WaveMultiPrefixOpKind::And;
+  case IntrinsicOp::IOP_WaveMultiPrefixBitOr:
+    return (unsigned)DXIL::WaveMultiPrefixOpKind::Or;
+  case IntrinsicOp::IOP_WaveMultiPrefixBitXor:
+    return (unsigned)DXIL::WaveMultiPrefixOpKind::Xor;
+  case IntrinsicOp::IOP_WaveMultiPrefixProduct:
+  case IntrinsicOp::IOP_WaveMultiPrefixUProduct:
+    return (unsigned)DXIL::WaveMultiPrefixOpKind::Product;
+  case IntrinsicOp::IOP_WaveMultiPrefixSum:
+  case IntrinsicOp::IOP_WaveMultiPrefixUSum:
+    return (unsigned)DXIL::WaveMultiPrefixOpKind::Sum;
   default:
     DXASSERT(IOP == IntrinsicOp::IOP_WaveActiveProduct ||
              IOP == IntrinsicOp::IOP_WaveActiveUProduct,
@@ -1170,6 +1247,51 @@ Value *TranslateWaveA2A(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TrivialDxilOperation(opcode,
                               llvm::ArrayRef<Value *>(refArgs, refArgCount),
                               CI->getOperand(1)->getType(), CI, hlslOP);
+}
+
+// WaveMultiPrefixOP(val<n>, mask) -> val<n>
+Value *TranslateWaveMultiPrefix(CallInst *CI, IntrinsicOp IOP, OP::OpCode Opc,
+                                HLOperationLowerHelper &Helper,
+                                HLObjectOperationLowerHelper *ObjHelper,
+                                bool &Translated) {
+  hlsl::OP *Op = &Helper.hlslOP;
+
+  Constant *KindValInt = Op->GetI8Const(WaveIntrinsicToOpKind(IOP));
+  Constant *SignValInt = Op->GetI8Const(WaveIntrinsicToSignedOpKind(IOP));
+
+  // Decompose mask into scalars
+  IRBuilder<> Builder(CI);
+  Value *Mask = CI->getArgOperand(2);
+  Value *Mask0 = Builder.CreateExtractElement(Mask, (uint64_t)0);
+  Value *Mask1 = Builder.CreateExtractElement(Mask, (uint64_t)1);
+  Value *Mask2 = Builder.CreateExtractElement(Mask, (uint64_t)2);
+  Value *Mask3 = Builder.CreateExtractElement(Mask, (uint64_t)3);
+
+  Value *Args[] = { nullptr, CI->getOperand(1),
+                    Mask0, Mask1, Mask2, Mask3, KindValInt, SignValInt };
+
+  return TrivialDxilOperation(Opc, Args, CI->getOperand(1)->getType(), CI, Op);
+}
+
+// WaveMultiPrefixBitCount(i1, mask) -> i32
+Value *TranslateWaveMultiPrefixBitCount(CallInst *CI, IntrinsicOp IOP,
+                                        OP::OpCode Opc,
+                                        HLOperationLowerHelper &Helper,
+                                        HLObjectOperationLowerHelper *ObjHelper,
+                                        bool &Translated) {
+  hlsl::OP *Op = &Helper.hlslOP;
+
+  // Decompose mask into scalars
+  IRBuilder<> Builder(CI);
+  Value *Mask = CI->getArgOperand(2);
+  Value *Mask0 = Builder.CreateExtractElement(Mask, (uint64_t)0);
+  Value *Mask1 = Builder.CreateExtractElement(Mask, (uint64_t)1);
+  Value *Mask2 = Builder.CreateExtractElement(Mask, (uint64_t)2);
+  Value *Mask3 = Builder.CreateExtractElement(Mask, (uint64_t)3);
+
+  Value *Args[] = { nullptr, CI->getOperand(1), Mask0, Mask1, Mask2, Mask3 };
+
+  return TrivialDxilOperation(Opc, Args, Helper.voidTy, CI, Op);
 }
 
 // Wave intrinsics of the form fn()->val
@@ -4738,6 +4860,13 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_WaveGetLaneCount, TranslateWaveToVal, DXIL::OpCode::WaveGetLaneCount},
     {IntrinsicOp::IOP_WaveGetLaneIndex, TranslateWaveToVal, DXIL::OpCode::WaveGetLaneIndex},
     {IntrinsicOp::IOP_WaveIsFirstLane, TranslateWaveToVal, DXIL::OpCode::WaveIsFirstLane},
+    {IntrinsicOp::IOP_WaveMatch, TranslateWaveMatch, DXIL::OpCode::WaveMatch},
+    {IntrinsicOp::IOP_WaveMultiPrefixBitAnd, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp},
+    {IntrinsicOp::IOP_WaveMultiPrefixBitOr, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp},
+    {IntrinsicOp::IOP_WaveMultiPrefixBitXor, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp},
+    {IntrinsicOp::IOP_WaveMultiPrefixCountBits, TranslateWaveMultiPrefixBitCount, DXIL::OpCode::WaveMultiPrefixBitCount},
+    {IntrinsicOp::IOP_WaveMultiPrefixProduct, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp},
+    {IntrinsicOp::IOP_WaveMultiPrefixSum, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp},
     {IntrinsicOp::IOP_WavePrefixCountBits, TranslateWaveA2B, DXIL::OpCode::WavePrefixBitCount},
     {IntrinsicOp::IOP_WavePrefixProduct, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp},
     {IntrinsicOp::IOP_WavePrefixSum, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp},
@@ -4912,6 +5041,8 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     { IntrinsicOp::IOP_WaveActiveUMin, TranslateWaveA2A, DXIL::OpCode::WaveActiveOp },
     { IntrinsicOp::IOP_WaveActiveUProduct, TranslateWaveA2A, DXIL::OpCode::WaveActiveOp },
     { IntrinsicOp::IOP_WaveActiveUSum, TranslateWaveA2A, DXIL::OpCode::WaveActiveOp },
+    { IntrinsicOp::IOP_WaveMultiPrefixUProduct, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp },
+    { IntrinsicOp::IOP_WaveMultiPrefixUSum, TranslateWaveMultiPrefix, DXIL::OpCode::WaveMultiPrefixOp },
     { IntrinsicOp::IOP_WavePrefixUProduct, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp },
     { IntrinsicOp::IOP_WavePrefixUSum, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp },
     { IntrinsicOp::IOP_uabs, TranslateUAbs, DXIL::OpCode::NumOpCodes },

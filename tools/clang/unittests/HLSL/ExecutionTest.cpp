@@ -320,6 +320,15 @@ public:
   BEGIN_TEST_METHOD(WaveIntrinsicsPrefixUintTest)
   TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixUintTable")
   END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveIntrinsicsSM65IntTest)
+  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsMultiPrefixIntTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveIntrinsicsSM65UintTest)
+  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsMultiPrefixUintTable")
+  END_TEST_METHOD()
+
   // TAEF data-driven tests.
   BEGIN_TEST_METHOD(UnaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryFloatOpTable")
@@ -503,6 +512,10 @@ public:
   template <class T1, class T2>
   void WaveIntrinsicsActivePrefixTest(TableParameter *pParameterList,
                                       size_t numParameter, bool isPrefix);
+
+  template <typename T>
+  void WaveIntrinsicsMultiPrefixOpTest(TableParameter *pParameterList,
+                                       size_t numParameters);
 
   void BasicTriangleTestSetup(LPCSTR OpName, LPCWSTR FileName, D3D_SHADER_MODEL testModel);
 
@@ -3238,6 +3251,22 @@ static TableParameter WaveIntrinsicsPrefixUintParameters[] = {
   { L"Validation.InputSet2", TableParameter::UINT32_TABLE, false },
   { L"Validation.InputSet3", TableParameter::UINT32_TABLE, false },
   { L"Validation.InputSet4", TableParameter::UINT32_TABLE, false }
+};
+
+static TableParameter WaveIntrinsicsMultiPrefixIntParameters[] = {
+  { L"ShaderOp.Name", TableParameter::STRING, true },
+  { L"ShaderOp.Target", TableParameter::STRING, true },
+  { L"ShaderOp.Text", TableParameter::STRING, true },
+  { L"Validation.Keys", TableParameter::INT32_TABLE, true },
+  { L"Validation.Values", TableParameter::INT32_TABLE, true },
+};
+
+static TableParameter WaveIntrinsicsMultiPrefixUintParameters[] = {
+  { L"ShaderOp.Name", TableParameter::STRING, true },
+  { L"ShaderOp.Target", TableParameter::STRING, true },
+  { L"ShaderOp.Text", TableParameter::STRING, true },
+  { L"Validation.Keys", TableParameter::UINT32_TABLE, true },
+  { L"Validation.Values", TableParameter::UINT32_TABLE, true },
 };
 
 static TableParameter WaveIntrinsicsActiveBoolParameters[] = {
@@ -6146,6 +6175,178 @@ TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
       WaveIntrinsicsPrefixUintParameters,
       sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter),
       /*isPrefix*/ true);
+}
+
+template <typename T>
+static T GetWaveMultiPrefixInitialAccumValue(LPCWSTR testName) {
+  if (_wcsicmp(testName, L"WaveMultiPrefixProduct") == 0 ||
+      _wcsicmp(testName, L"WaveMultiPrefixUProduct") == 0) {
+    return static_cast<T>(1);
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixSum") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixUSum") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixBitOr") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixBitXor") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixCountBits") == 0) {
+    return static_cast<T>(0);
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixBitAnd") == 0) {
+    return static_cast<T>(-1);
+  } else {
+    return static_cast<T>(0);
+  }
+}
+
+template <typename T>
+std::function<T(T, T)> GetWaveMultiPrefixReferenceFunction(LPCWSTR testName) {
+  if (_wcsicmp(testName, L"WaveMultiPrefixProduct") == 0 ||
+      _wcsicmp(testName, L"WaveMultiPrefixUProduct") == 0) {
+    return [] (T lhs, T rhs) -> T { return lhs * rhs; };
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixSum") == 0 ||
+             _wcsicmp(testName, L"WaveMultiPrefixUSum") == 0) {
+    return [] (T lhs, T rhs) -> T { return lhs + rhs; };
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixBitAnd") == 0) {
+    return [] (T lhs, T rhs) -> T { return lhs & rhs; };
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixBitOr") == 0) {
+    return [] (T lhs, T rhs) -> T { return lhs | rhs; };
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixBitXor") == 0) {
+    return [] (T lhs, T rhs) -> T { return lhs ^ rhs; };
+  } else if (_wcsicmp(testName, L"WaveMultiPrefixCountBits") == 0) {
+    // For CountBits, each lane contributes a boolean value. The test input is
+    // an integer, so convert to a boolean by computing (input > 10) If this
+    // condition is true, we contribute one to the bit count.
+    return [] (T lhs, T rhs) -> T { return lhs + (rhs > 10 ? 1 : 0); };
+  } else {
+    return [] (T lhs, T rhs) -> T { return 0; };
+  }
+}
+
+template <class T>
+void
+ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(TableParameter *pParameterList,
+                                               size_t numParameters) {
+  WEX::TestExecution::SetVerifyOutput
+    verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  struct PerThreadData {
+    uint32_t key;
+    uint32_t firstLaneId;
+    uint32_t laneId;
+    uint32_t mask;
+    T value;
+    T result;
+  };
+
+  constexpr size_t NumThreadsX = 8;
+  constexpr size_t NumThreadsY = 12;
+  constexpr size_t NumThreadsZ = 1;
+
+  constexpr size_t ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
+  constexpr size_t DispatchGroupSize = 1;
+  constexpr size_t ThreadCount = ThreadsPerGroup * DispatchGroupSize;
+
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+
+  if (!CreateDevice(&pDevice)) {
+    return;
+  }
+
+  if (!DoesDeviceSupportWaveOps(pDevice)) {
+    // Optional feature, so it's correct to not support it if declared as such.
+    WEX::Logging::Log::Comment(L"Device does not support wave operations.");
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet>
+    ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  TableParameterHandler handler(pParameterList, numParameters);
+  CW2A shaderSource(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+  CW2A shaderProfile(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
+  auto testName = handler.GetTableParamByName(L"ShaderOp.Name")->m_str;
+
+  std::vector<T> *keys = handler.GetDataArray<T>(L"Validation.Keys");
+  std::vector<T> *values = handler.GetDataArray<T>(L"Validation.Values");
+
+  for (size_t maskIndex = 0; maskIndex < _countof(MaskFunctionTable); ++maskIndex) {
+    std::shared_ptr<ShaderOpTestResult> test =
+      RunShaderOpTestAfterParse(pDevice, m_support, "WaveIntrinsicsOp",
+      [&] (LPCSTR name, std::vector<BYTE> &data, st::ShaderOp *pShaderOp) {
+
+        const size_t dataSize = sizeof(PerThreadData) * ThreadCount;
+
+        data.resize(dataSize);
+        PerThreadData *pThreadData = reinterpret_cast<PerThreadData *>(data.data());
+
+        for (size_t i = 0; i != ThreadCount; ++i) {
+          pThreadData[i].key = keys->at(i % keys->size());
+          pThreadData[i].value = values->at(i % values->size());
+          pThreadData[i].firstLaneId = 0xdeadbeef;
+          pThreadData[i].laneId = 0xdeadbeef;
+          pThreadData[i].mask = MaskFunctionTable[maskIndex]((int)i);
+          pThreadData[i].result = 0xdeadbeef;
+        }
+
+        pShaderOp->Shaders.at(0).Text = shaderSource;
+        pShaderOp->Shaders.at(0).Target = shaderProfile;
+      }, ShaderOpSet);
+
+    MappedData mappedData;
+    test->Test->GetReadBackData("SWaveIntrinsicsOp", &mappedData);
+    PerThreadData *resultData = reinterpret_cast<PerThreadData *>(mappedData.data());
+
+    // Partition our data into waves
+    std::map<uint32_t, std::vector<PerThreadData *>> waves;
+
+    for (size_t i = 0, e = ThreadCount; i != e; ++i) {
+      PerThreadData *elt = &resultData[i];
+
+      // Basic sanity checks
+      VERIFY_IS_TRUE(elt->firstLaneId != 0xdeadbeef);
+      VERIFY_IS_TRUE(elt->laneId != 0xdeadbeef);
+
+      waves[elt->firstLaneId].push_back(elt);
+    }
+
+    // Verify each wave
+    auto refFn = GetWaveMultiPrefixReferenceFunction<T>(testName);
+
+    for (auto &w : waves) {
+      std::vector<PerThreadData *> &waveData = w.second;
+
+      LogCommentFmt(L"LaneId    Mask      Key       Value     Result    Expected");
+      LogCommentFmt(L"--------  --------  --------  --------  --------  --------");
+      for (size_t i = 0, e = waveData.size(); i != e; ++i) {
+        PerThreadData *data = waveData[i];
+
+        // Compute prefix operation over each previous lane element that has the
+        // same key value, and is part of the same active thread group
+        T accum = GetWaveMultiPrefixInitialAccumValue<T>(testName);
+        for (unsigned j = 0; j < i; ++j) {
+          if (waveData[j]->key == data->key && waveData[j]->mask == data->mask) {
+            accum = refFn(accum, waveData[j]->value);
+          }
+        }
+
+        LogCommentFmt(L"%08X  %08X  %08X  %08X  %08X  %08X", data->laneId, data->mask, data->key, data->value, data->result, accum);
+
+        VERIFY_IS_TRUE(accum == data->result);
+      }
+      LogCommentFmt(L"\n");
+    }
+  }
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsSM65IntTest) {
+  WaveIntrinsicsMultiPrefixOpTest<int>(WaveIntrinsicsMultiPrefixIntParameters,
+                                       _countof(WaveIntrinsicsMultiPrefixIntParameters));
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsSM65UintTest) {
+  WaveIntrinsicsMultiPrefixOpTest<unsigned>(WaveIntrinsicsMultiPrefixUintParameters,
+                                            _countof(WaveIntrinsicsMultiPrefixUintParameters));
 }
 
 TEST_F(ExecutionTest, CBufferTestHalf) {
