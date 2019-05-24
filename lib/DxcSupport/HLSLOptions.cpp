@@ -638,14 +638,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (!opts.DebugNameForBinary && !opts.DebugNameForSource) {
-    if (opts.DebugInfo)
-      opts.DebugNameForSource = true;
-    else
-      opts.DebugNameForBinary = true;
-  }
-  else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
+  if (opts.DebugInfo && !opts.DebugNameForBinary && !opts.DebugNameForSource) {
+    opts.DebugNameForBinary = true;
+  } else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
     errors << "Cannot specify both /Zss and /Zsb";
+    return 1;
+  }
+
+  if (opts.DebugNameForSource && !opts.DebugInfo) {
+    errors << "/Zss requires debug info (/Zi)";
     return 1;
   }
 

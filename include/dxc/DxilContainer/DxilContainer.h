@@ -40,6 +40,17 @@ struct DxilContainerHash {
   uint8_t Digest[DxilContainerHashSize];
 };
 
+enum class DxilShaderHashFlags : uint32_t {
+  None = 0,           // No flags defined.
+  IncludesSource = 1, // This flag indicates that the shader hash was computed
+                      // taking into account source information (-Zss)
+};
+
+typedef struct DxilShaderHash {
+  uint32_t Flags; // DxilShaderHashFlags
+  uint8_t Digest[DxilContainerHashSize];
+} DxcShaderHash;
+
 struct DxilContainerVersion {
   uint16_t Major;
   uint16_t Minor;
@@ -83,6 +94,7 @@ enum DxilFourCC {
   DFCC_DXIL                     = DXIL_FOURCC('D', 'X', 'I', 'L'),
   DFCC_PipelineStateValidation  = DXIL_FOURCC('P', 'S', 'V', '0'),
   DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
+  DFCC_ShaderHash               = DXIL_FOURCC('H', 'A', 'S', 'H'),
 };
 
 #undef DXIL_FOURCC

@@ -35,6 +35,9 @@
 #include <filesystem>
 #endif
 
+#include "llvm/Support/Format.h"
+#include "llvm/Support/raw_ostream.h"
+
 #include "HLSLTestData.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
@@ -422,6 +425,16 @@ public:
     return Major == 1 && (Minor >= 1);
   }
 
+  bool DoesValidatorSupportShaderHash() {
+    CComPtr<IDxcVersionInfo> pVersionInfo;
+    UINT Major, Minor;
+    HRESULT hrVer = m_dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo);
+    if (hrVer == E_NOINTERFACE) return false;
+    VERIFY_SUCCEEDED(hrVer);
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&Major, &Minor));
+    return Major == 1 && (Minor >= 5);
+  }
+
   std::string CompileToDebugName(LPCSTR program, LPCWSTR entryPoint,
                                  LPCWSTR target, LPCWSTR *pArguments, UINT32 argCount) {
     CComPtr<IDxcBlob> pProgram;
@@ -438,6 +451,28 @@ public:
     VERIFY_SUCCEEDED(pContainer->GetPartContent(index, &pNameBlob));
     const hlsl::DxilShaderDebugName *pDebugName = (hlsl::DxilShaderDebugName *)pNameBlob->GetBufferPointer();
     return std::string((const char *)(pDebugName + 1));
+  }
+
+  std::string CompileToShaderHash(LPCSTR program, LPCWSTR entryPoint,
+    LPCWSTR target, LPCWSTR *pArguments, UINT32 argCount) {
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcBlob> pHashBlob;
+    CComPtr<IDxcContainerReflection> pContainer;
+    UINT32 index;
+
+    CompileToProgram(program, entryPoint, target, pArguments, argCount, &pProgram);
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainer));
+    VERIFY_SUCCEEDED(pContainer->Load(pProgram));
+    if (FAILED(pContainer->FindFirstPartKind(hlsl::DFCC_ShaderHash, &index))) {
+      return std::string();
+    }
+    VERIFY_SUCCEEDED(pContainer->GetPartContent(index, &pHashBlob));
+    const hlsl::DxilShaderHash *pShaderHash = (hlsl::DxilShaderHash *)pHashBlob->GetBufferPointer();
+    std::string result;
+    llvm::raw_string_ostream os(result);
+    for (int i = 0; i < 16; ++i)
+      os << llvm::format("%.2x", pShaderHash->Digest[i]);
+    return os.str();
   }
 
   std::string DisassembleProgram(LPCSTR program, LPCWSTR entryPoint,
@@ -525,6 +560,7 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   LPCWSTR Zi[] = { L"/Zi", L"/Qembed_debug" };
   LPCWSTR ZiZss[] = { L"/Zi", L"/Qembed_debug", L"/Zss" };
   LPCWSTR ZiZsb[] = { L"/Zi", L"/Qembed_debug", L"/Zsb" };
+  LPCWSTR Zsb[] = { L"/Zsb" };
   
   // No debug info, no debug name...
   std::string noName = CompileToDebugName(program1, L"main", L"ps_6_0", nullptr, 0);
@@ -541,9 +577,9 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   std::string sourceName1Again = CompileToDebugName(program1, L"main", L"ps_6_0", Zi, _countof(Zi));
   VERIFY_ARE_EQUAL_STR(sourceName1.c_str(), sourceName1Again.c_str());
 
-  // Changes in source become changes in name.
+  // Use program binary by default, so name should be the same.
   std::string sourceName2 = CompileToDebugName(program2, L"main", L"ps_6_0", Zi, _countof(Zi));
-  VERIFY_IS_FALSE(0 == strcmp(sourceName2.c_str(), sourceName1.c_str()));
+  VERIFY_IS_TRUE(0 == strcmp(sourceName2.c_str(), sourceName1.c_str()));
 
   // Source again, different because different switches are specified.
   std::string sourceName1Zss = CompileToDebugName(program1, L"main", L"ps_6_0", ZiZss, _countof(ZiZss));
@@ -554,6 +590,25 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   std::string binName2 = CompileToDebugName(program2, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
   VERIFY_ARE_EQUAL_STR(binName1.c_str(), binName2.c_str());
   VERIFY_IS_FALSE(0 == strcmp(sourceName1Zss.c_str(), binName1.c_str()));
+
+  if (!DoesValidatorSupportShaderHash())
+    return;
+
+  // Verify source hash
+  std::string binHash1Zss = CompileToShaderHash(program1, L"main", L"ps_6_0", ZiZss, _countof(ZiZss));
+  VERIFY_IS_FALSE(binHash1Zss.empty());
+
+  // bin hash when compiling with /Zi
+  std::string binHash1 = CompileToShaderHash(program1, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
+  VERIFY_IS_FALSE(binHash1.empty());
+
+  // Without /Zi hash for /Zsb should be the same
+  std::string binHash2 = CompileToShaderHash(program2, L"main", L"ps_6_0", Zsb, _countof(Zsb));
+  VERIFY_IS_FALSE(binHash2.empty());
+  VERIFY_ARE_EQUAL_STR(binHash1.c_str(), binHash2.c_str());
+
+  // Source hash and bin hash should be different
+  VERIFY_IS_FALSE(0 == strcmp(binHash1Zss.c_str(), binHash1.c_str()));
 }
 #endif // _WIN32
 

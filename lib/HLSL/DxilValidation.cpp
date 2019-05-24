@@ -5091,7 +5091,8 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - packed u8x4/i8x4 dot with accumulate to i32
   // - half dot2 with accumulate to float
   // 1.5 adds:
-  // TODO: Fill this in.
+  // - WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount
+  // - HASH container part support
   *pMajor = 1;
   *pMinor = 5;
 }
@@ -5409,6 +5410,12 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_ShaderDebugInfoDXIL:
     case DFCC_ShaderDebugName:
       continue;
+
+    case DFCC_ShaderHash:
+      if (pPart->PartSize != sizeof(DxilShaderHash)) {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
+      }
+      break;
 
     // Runtime Data (RDAT) for libraries
     case DFCC_RuntimeData:

@@ -586,7 +586,12 @@ public:
           SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
         if (opts.DebugNameForSource) {
+          // Implies name part
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
           SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        } else if (opts.DebugNameForBinary) {
+          // Implies name part
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
         if (opts.StripReflection) {
           SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
