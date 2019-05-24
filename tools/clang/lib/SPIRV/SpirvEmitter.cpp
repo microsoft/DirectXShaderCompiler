@@ -2069,10 +2069,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // Also, any parameter passed to the member function must be of Function
       // storage class.
       if (objInstr->isRValue()) {
-        args.push_back(
-            createTemporaryVar(objectType, getAstTypeName(objectType),
-                               // May need to load to use as initializer
-                               loadIfGLValue(object, objInstr)));
+        args.push_back(createTemporaryVar(
+            objectType, getAstTypeName(objectType),
+            // May need to load to use as initializer
+            loadIfGLValue(object, objInstr), object->getLocStart()));
       } else {
         // Based on SPIR-V spec, function parameter must always be in Function
         // scope. If we pass a non-function scope argument, we need
@@ -2200,8 +2200,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     const uint32_t index = i + isNonStaticMemberCall;
     if (isTempVar[index] && canActAsOutParmVar(param)) {
       const auto *arg = callExpr->getArg(i);
-      SpirvInstruction *value =
-          spvBuilder.createLoad(param->getType(), vars[index]);
+      SpirvInstruction *value = spvBuilder.createLoad(
+          param->getType(), vars[index], arg->getLocStart());
 
       // Now we want to assign 'value' to arg. But first, in rare cases when
       // using 'out' or 'inout' where the parameter and argument have a type
