@@ -422,7 +422,7 @@ public:
     if (hrVer == E_NOINTERFACE) return false;
     VERIFY_SUCCEEDED(hrVer);
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&Major, &Minor));
-    return Major == 1 && (Minor >= 1);
+    return !(Major == 1 && Minor < 1);
   }
 
   bool DoesValidatorSupportShaderHash() {
@@ -432,7 +432,7 @@ public:
     if (hrVer == E_NOINTERFACE) return false;
     VERIFY_SUCCEEDED(hrVer);
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&Major, &Minor));
-    return Major == 1 && (Minor >= 5);
+    return !(Major == 1 && Minor < 5);
   }
 
   std::string CompileToDebugName(LPCSTR program, LPCWSTR entryPoint,
