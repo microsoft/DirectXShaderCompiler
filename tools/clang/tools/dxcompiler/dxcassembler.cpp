@@ -32,6 +32,17 @@ using namespace hlsl;
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
+static bool HasDebugInfo(const Module &M) {
+  for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
+                                             NME = M.named_metadata_end();
+       NMI != NME; ++NMI) {
+    if (NMI->getName().startswith("llvm.dbg.")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class DxcAssembler : public IDxcAssembler {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()      
@@ -90,7 +101,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
         parseIR(memBuf->getMemBufferRef(), Err, Context);
 
     CComPtr<AbstractMemoryStream> pOutputStream;
-    IFT(CreateMemoryStream(TM.p, &pOutputStream));
+    IFT(CreateMemoryStream(TM.GetInstalledAllocator(), &pOutputStream));
     raw_stream_ostream outStream(pOutputStream.p);
 
     // Check for success.
@@ -130,11 +141,14 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     outStream.flush();
 
     CComPtr<IDxcBlob> pResultBlob;
-    static constexpr hlsl::SerializeDxilFlags flags = static_cast<hlsl::SerializeDxilFlags>(
-        static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugNamePart) |
-        static_cast<uint32_t>(SerializeDxilFlags::IncludeDebugInfoPart));
+    hlsl::SerializeDxilFlags flags = hlsl::SerializeDxilFlags::None;
+    if (HasDebugInfo(*M)) {
+      flags |= SerializeDxilFlags::IncludeDebugInfoPart;
+      flags |= SerializeDxilFlags::IncludeDebugNamePart;
+      flags |= SerializeDxilFlags::DebugNameDependOnSource;
+    }
     dxcutil::AssembleToContainer(std::move(M), pResultBlob,
-                                         TM.p, flags,
+                                         TM.GetInstalledAllocator(), flags,
                                          pOutputStream);
 
     IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));

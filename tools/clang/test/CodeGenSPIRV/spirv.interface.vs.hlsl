@@ -8,24 +8,24 @@
 // CHECK: OpEntryPoint Vertex %main "main" %gl_ClipDistance %gl_CullDistance %gl_ClipDistance_0 %gl_CullDistance_0 %in_var_TEXCOORD %in_var_SV_Position %in_var_SV_ClipDistance %in_var_SV_CullDistance0 %gl_PointSize %out_var_COLOR %gl_Position %out_var_TEXCOORD
 
 // CHECK: OpDecorate %gl_ClipDistance BuiltIn ClipDistance
-// CHECK: OpDecorateStringGOOGLE %gl_ClipDistance HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpDecorateString %gl_ClipDistance UserSemantic "SV_ClipDistance"
 // CHECK: OpDecorate %gl_CullDistance BuiltIn CullDistance
-// CHECK: OpDecorateStringGOOGLE %gl_CullDistance HlslSemanticGOOGLE "SV_CullDistance0"
+// CHECK: OpDecorateString %gl_CullDistance UserSemantic "SV_CullDistance0"
 // CHECK: OpDecorate %gl_ClipDistance_0 BuiltIn ClipDistance
-// CHECK: OpDecorateStringGOOGLE %gl_ClipDistance_0 HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpDecorateString %gl_ClipDistance_0 UserSemantic "SV_ClipDistance"
 // CHECK: OpDecorate %gl_CullDistance_0 BuiltIn CullDistance
-// CHECK: OpDecorateStringGOOGLE %gl_CullDistance_0 HlslSemanticGOOGLE "SV_CullDistance"
+// CHECK: OpDecorateString %gl_CullDistance_0 UserSemantic "SV_CullDistance"
 
-// CHECK: OpDecorateStringGOOGLE %in_var_TEXCOORD HlslSemanticGOOGLE "TEXCOORD"
-// CHECK: OpDecorateStringGOOGLE %in_var_SV_Position HlslSemanticGOOGLE "SV_Position"
-// CHECK: OpDecorateStringGOOGLE %in_var_SV_ClipDistance HlslSemanticGOOGLE "SV_ClipDistance"
-// CHECK: OpDecorateStringGOOGLE %in_var_SV_CullDistance0 HlslSemanticGOOGLE "SV_CullDistance0"
+// CHECK: OpDecorateString %in_var_TEXCOORD UserSemantic "TEXCOORD"
+// CHECK: OpDecorateString %in_var_SV_Position UserSemantic "SV_Position"
+// CHECK: OpDecorateString %in_var_SV_ClipDistance UserSemantic "SV_ClipDistance"
+// CHECK: OpDecorateString %in_var_SV_CullDistance0 UserSemantic "SV_CullDistance0"
 // CHECK: OpDecorate %gl_PointSize BuiltIn PointSize
-// CHECK: OpDecorateStringGOOGLE %gl_PointSize HlslSemanticGOOGLE "PSize"
-// CHECK: OpDecorateStringGOOGLE %out_var_COLOR HlslSemanticGOOGLE "COLOR"
+// CHECK: OpDecorateString %gl_PointSize UserSemantic "PSize"
+// CHECK: OpDecorateString %out_var_COLOR UserSemantic "COLOR"
 // CHECK: OpDecorate %gl_Position BuiltIn Position
-// CHECK: OpDecorateStringGOOGLE %gl_Position HlslSemanticGOOGLE "SV_Position"
-// CHECK: OpDecorateStringGOOGLE %out_var_TEXCOORD HlslSemanticGOOGLE "TEXCOORD"
+// CHECK: OpDecorateString %gl_Position UserSemantic "SV_Position"
+// CHECK: OpDecorateString %out_var_TEXCOORD UserSemantic "TEXCOORD"
 
 // CHECK: OpDecorate %in_var_TEXCOORD Location 0
 // CHECK: OpDecorate %in_var_SV_Position Location 1

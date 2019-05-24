@@ -19,7 +19,7 @@ StateObjectConfig soc1_4 = { 1 };
 StateObjectConfig soc1_5 = { 0.1f };                        /* expected-warning {{implicit conversion from 'float' to 'unsigned int' changes value from 0.1 to 0}} */
 
 StateObjectConfig soc2_2 = STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS;    /* expected-error {{cannot initialize a variable of type 'StateObjectConfig' with an lvalue of type 'const unsigned int'}} */
-StateObjectConfig soc2_3 = 0x1;                             /* expected-error {{cannot initialize a variable of type 'StateObjectConfig' with an rvalue of type 'unsigned int'}} */
+StateObjectConfig soc2_3 = 0x1;                             /* expected-error {{cannot initialize a variable of type 'StateObjectConfig' with an rvalue of type 'literal int'}} */
 StateObjectConfig soc2_4 = "none";                          /* expected-error {{cannot initialize a variable of type 'StateObjectConfig' with an lvalue of type 'literal string'}} */
 StateObjectConfig soc2_5 = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS, STATE_OBJECT_FLAGS_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS };    /* expected-error {{too many elements in subobject initialization (expected 1 element, have 2)}} */
 StateObjectConfig soc2_6 = { 0x1, 0x2 };                    /* expected-error {{too many elements in subobject initialization (expected 1 element, have 2)}} */

@@ -1,6 +1,8 @@
 // Run: %dxc -T ps_6_2 -E main -enable-16bit-types
 
-// CHECK: OpCapability StorageUniform16
+// CHECK: OpCapability UniformAndStorageBuffer16BitAccess
+// CHECK: OpCapability Int16
+// CHECK: OpCapability Float16
 
 // CHECK: OpExtension "SPV_KHR_16bit_storage"
 

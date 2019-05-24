@@ -3398,8 +3398,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     QualType Ty;
     unsigned Width = 64;
     llvm::APInt ResultVal(Width, 0);
-    if (!Literal.isLong && !Literal.isLongLong &&
-        !Literal.isUnsigned && Literal.getRadix() == 10) {
+    if (!Literal.isLong && !Literal.isLongLong && !Literal.isUnsigned) {
       // in HLSL, unspecific literal ints are LitIntTy, using 64-bit
       Ty = Context.LitIntTy;
       if (Literal.GetIntegerValue(ResultVal)) {
@@ -3662,6 +3661,27 @@ static void warnOnSizeofOnArrayDecay(Sema &S, SourceLocation Loc, QualType T,
                                              << ICE->getSubExpr()->getType();
 }
 
+// HLSL Change Begins
+bool Sema::CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
+                                                UnaryExprOrTypeTrait ExprKind) {
+  assert(ExprKind == UnaryExprOrTypeTrait::UETT_SizeOf);
+
+  // "sizeof 42" is ill-defined because HLSL has literal int type which can decay to an int of any size.
+  const BuiltinType* BuiltinTy = ExprType->getAs<BuiltinType>();
+  if (BuiltinTy != nullptr && (BuiltinTy->getKind() == BuiltinType::LitInt || BuiltinTy->getKind() == BuiltinType::LitFloat)) {
+    Diag(Loc, diag::err_hlsl_sizeof_literal) << ExprType;
+    return true;
+  }
+
+  if (!hlsl::IsHLSLNumericOrAggregateOfNumericType(ExprType)) {
+    Diag(Loc, diag::err_hlsl_sizeof_nonnumeric) << ExprType;
+    return true;
+  }
+
+  return false;
+}
+// HLSL Change Ends
+
 /// \brief Check the constraints on expression operands to unary type expression
 /// and type traits.
 ///
@@ -3702,6 +3722,10 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(Expr *E,
   // Completing the expression's type may have changed it.
   ExprTy = E->getType();
   assert(!ExprTy->isReferenceType());
+
+  if (getLangOpts().HLSL && CheckHLSLUnaryExprOrTypeTraitOperand(ExprTy, E->getExprLoc(), ExprKind)) {
+    return true;
+  }
 
   if (ExprTy->isFunctionType()) {
     Diag(E->getExprLoc(), diag::err_sizeof_alignof_function_type)
@@ -3776,6 +3800,10 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
   //     shall be the alignment of the referenced type.
   if (const ReferenceType *Ref = ExprType->getAs<ReferenceType>())
     ExprType = Ref->getPointeeType();
+
+  if (getLangOpts().HLSL && CheckHLSLUnaryExprOrTypeTraitOperand(ExprType, OpLoc, ExprKind)) {
+    return true;
+  }
 
   // C11 6.5.3.4/3, C++11 [expr.alignof]p3:
   //   When alignof or _Alignof is applied to an array type, the result

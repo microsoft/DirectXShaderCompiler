@@ -17,11 +17,12 @@ set( LLVM_LINK_COMPONENTS
   )
 
 add_clang_executable(dxc
-  dxc.cpp
+  dxcmain.cpp
 #  dxr.rc
   )
 
 target_link_libraries(dxc
+  dxclib
   dxcompiler
   )
 
@@ -36,7 +37,7 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
-add_dependencies(dxc dxcompiler)
+add_dependencies(dxc dxclib dxcompiler)
 
 if(UNIX)
   set(CLANGXX_LINK_OR_COPY create_symlink)
@@ -49,4 +50,6 @@ endif()
 
 install(TARGETS dxc
   RUNTIME DESTINATION bin)
+
+add_subdirectory(dxclib)
 

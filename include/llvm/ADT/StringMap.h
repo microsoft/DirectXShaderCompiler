@@ -382,7 +382,7 @@ public:
         }
       }
     }
-    free(TheTable);
+    ::operator delete(TheTable); // HLSL Change Begin: Use overridable operator delete
   }
 };
 

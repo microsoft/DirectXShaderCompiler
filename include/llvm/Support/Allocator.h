@@ -93,18 +93,14 @@ public:
   _Ret_notnull_   // HLSL Change - SAL
   LLVM_ATTRIBUTE_RETURNS_NONNULL void *Allocate(size_t Size,
                                                 size_t /*Alignment*/) {
-    // HLSL Change Starts - throw on OOM
-    void* result = malloc(Size);
-    if (result == nullptr) throw std::bad_alloc();
-    return result;
-    // HLSL Change Ends - throw on OOM
+    return ::operator new(Size); // HLSL Change: use overridable operator new and throw on OOM
   }
 
   // Pull in base class overloads.
   using AllocatorBase<MallocAllocator>::Allocate;
 
   void Deallocate(const void *Ptr, size_t /*Size*/) {
-    free(const_cast<void *>(Ptr));
+    ::operator delete(const_cast<void*>(Ptr)); // HLSL Change: use overridable operator delete
   }
 
   // Pull in base class overloads.
@@ -314,6 +310,7 @@ private:
   void StartNewSlab() {
     size_t AllocatedSlabSize = computeSlabSize(Slabs.size());
 
+    Slabs.reserve(Slabs.size() + 1); // HLSL Change: Prevent leak on push_back exception
     void *NewSlab = Allocator.Allocate(AllocatedSlabSize, 0);
     Slabs.push_back(NewSlab);
     CurPtr = (char *)(NewSlab);

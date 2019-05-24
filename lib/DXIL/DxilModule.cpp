@@ -945,6 +945,10 @@ const std::vector<uint8_t> &DxilModule::GetSerializedRootSignature() const {
   return m_SerializedRootSignature;
 }
 
+std::vector<uint8_t> &DxilModule::GetSerializedRootSignature() {
+  return m_SerializedRootSignature;
+}
+
 // Entry props.
 bool DxilModule::HasDxilEntrySignature(const llvm::Function *F) const {
   return m_DxilEntryPropsMap.find(F) != m_DxilEntryPropsMap.end();
@@ -1403,6 +1407,55 @@ void DxilModule::ReEmitDxilResources() {
   EmitDxilMetadata();
 }
 
+template <typename TResource>
+static void
+StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
+  for (auto &p : vec) {
+    p->SetGlobalName("");
+    // Cannot remove global symbol which used by validation.
+  }
+}
+
+void DxilModule::StripReflection() {
+  // Remove names.
+  for (Function &F : m_pModule->functions()) {
+    for (BasicBlock &BB : F) {
+      if (BB.hasName())
+        BB.setName("");
+      for (Instruction &I : BB) {
+        if (I.hasName())
+          I.setName("");
+      }
+    }
+  }
+  // Remove struct annotation.
+  // FunctionAnnotation is used later, so keep it.
+  m_pTypeSystem->GetStructAnnotationMap().clear();
+
+
+  // Resource
+  if (!GetShaderModel()->IsLib()) {
+    StripResourcesReflection(m_CBuffers);
+    StripResourcesReflection(m_UAVs);
+    StripResourcesReflection(m_SRVs);
+    StripResourcesReflection(m_Samplers);
+  }
+
+  // Unused global.
+  SmallVector<GlobalVariable *,2> UnusedGlobals;
+  for (GlobalVariable &GV : m_pModule->globals()) {
+    if (GV.use_empty())
+      UnusedGlobals.emplace_back(&GV);
+  }
+
+  for (GlobalVariable *GV : UnusedGlobals) {
+    GV->eraseFromParent();
+  }
+
+  // ReEmit meta.
+  ReEmitDxilResources();
+}
+
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   if (MDO.get() == nullptr)
     return;
@@ -1448,54 +1501,6 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
 }
 
 void DxilModule::StripDebugRelatedCode() {
-  // Remove all users of global resources.
-  for (GlobalVariable &GV : m_pModule->globals()) {
-    if (GV.hasInternalLinkage())
-      continue;
-    if (GV.getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace)
-      continue;
-    for (auto git = GV.user_begin(); git != GV.user_end();) {
-      User *U = *(git++);
-      // Try to remove load of GV.
-      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-        for (auto it = LI->user_begin(); it != LI->user_end();) {
-          Instruction *LIUser = cast<Instruction>(*(it++));
-          if (StoreInst *SI = dyn_cast<StoreInst>(LIUser)) {
-            Value *Ptr = SI->getPointerOperand();
-            SI->eraseFromParent();
-            if (Instruction *PtrInst = dyn_cast<Instruction>(Ptr)) {
-              if (Ptr->user_empty())
-                PtrInst->eraseFromParent();
-            }
-          }
-        }
-        if (LI->user_empty())
-          LI->eraseFromParent();
-      } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-        for (auto GEPIt = GEP->user_begin(); GEPIt != GEP->user_end();) {
-          User *GEPU = *(GEPIt++);
-          // Try to remove load of GEP.
-          if (LoadInst *LI = dyn_cast<LoadInst>(GEPU)) {
-            for (auto it = LI->user_begin(); it != LI->user_end();) {
-              Instruction *LIUser = cast<Instruction>(*(it++));
-              if (StoreInst *SI = dyn_cast<StoreInst>(LIUser)) {
-                Value *Ptr = SI->getPointerOperand();
-                SI->eraseFromParent();
-                if (Instruction *PtrInst = dyn_cast<Instruction>(Ptr)) {
-                  if (Ptr->user_empty())
-                    PtrInst->eraseFromParent();
-                }
-              }
-              if (LI->user_empty())
-                LI->eraseFromParent();
-            }
-          }
-        }
-        if (GEP->user_empty())
-          GEP->eraseFromParent();
-      }
-    }
-  }
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
@@ -1512,6 +1517,22 @@ void DxilModule::StripDebugRelatedCode() {
   if (NamedMDNode *arguments =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
     arguments->eraseFromParent();
+  }
+
+  if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
+    SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
+    m_pModule->getModuleFlagsMetadata(flagEntries);
+    flags->eraseFromParent();
+
+    for (unsigned i = 0; i < flagEntries.size(); i++) {
+      llvm::Module::ModuleFlagEntry &entry = flagEntries[i];
+      if (entry.Key->getString() == "Dwarf Version" || entry.Key->getString() == "Debug Info Version") {
+        continue;
+      }
+      m_pModule->addModuleFlag(
+        entry.Behavior, entry.Key->getString(),
+        cast<ConstantAsMetadata>(entry.Val)->getValue());
+    }
   }
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {

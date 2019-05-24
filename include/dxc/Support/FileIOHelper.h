@@ -77,6 +77,8 @@ public:
 
   operator T *() const throw() { return m_pData; }
 
+  IMalloc* GetMallocNoRef() const throw() { return m_pMalloc.p; }
+
   bool Allocate(_In_ SIZE_T ElementCount) throw() {
     ATLASSERT(m_pData == NULL);
     SIZE_T nBytes = ElementCount * sizeof(T);
@@ -142,10 +144,12 @@ HRESULT DxcCreateBlobFromBlob(_In_ IDxcBlob *pBlob, UINT32 offset,
                               UINT32 length,
                               _COM_Outptr_ IDxcBlob **ppResult) throw();
 
+// Creates a blob wrapping a buffer to be freed with the provided IMalloc
 HRESULT
-DxcCreateBlobOnHeap(_In_bytecount_(size) LPCVOID pData, UINT32 size,
-                    _COM_Outptr_ IDxcBlob **ppResult) throw();
+DxcCreateBlobOnMalloc(_In_bytecount_(size) LPCVOID pData, _In_ IMalloc* pIMalloc,
+                      UINT32 size, _COM_Outptr_ IDxcBlob **ppResult) throw();
 
+// Creates a blob with a copy of the provided data
 HRESULT
 DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
                         _COM_Outptr_ IDxcBlob **ppResult) throw();
@@ -159,6 +163,7 @@ DxcCreateBlobWithEncodingSet(
     _In_ IMalloc *pMalloc, _In_ IDxcBlob *pBlob, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
 
+// Creates a blob around encoded text without ownership transfer
 HRESULT DxcCreateBlobWithEncodingFromPinned(
     _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
@@ -168,22 +173,19 @@ DxcCreateBlobWithEncodingFromStream(
     IStream *pStream, bool newInstanceAlways, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
-HRESULT
-DxcCreateBlobWithEncodingOnHeap(_In_bytecount_(size) LPCVOID pText, UINT32 size,
-                                UINT32 codePage,
-                                _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
-
-// Should rename this 'OnHeap' to be 'OnMalloc', change callers to pass arg. Using TLS.
+// Creates a blob with a copy of the encoded text
 HRESULT
 DxcCreateBlobWithEncodingOnHeapCopy(
     _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
+// Creates a blob wrapping encoded text to be freed with the provided IMalloc
 HRESULT
 DxcCreateBlobWithEncodingOnMalloc(
-  _In_bytecount_(size) LPCVOID pText, IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
+  _In_bytecount_(size) LPCVOID pText, _In_ IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
   _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
+// Creates a blob with a copy of encoded text, allocated using the provided IMalloc
 HRESULT
 DxcCreateBlobWithEncodingOnMallocCopy(
   _In_ IMalloc *pIMalloc, _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,

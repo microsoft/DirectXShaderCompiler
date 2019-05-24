@@ -78,16 +78,20 @@ public:
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
     SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(),
-                                    pModuleBitcode, pContainerStream, Flags);
+                                    pModuleBitcode, pContainerStream, m_debugName, Flags);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
+  }
+  void SetDebugName(llvm::StringRef DebugName) {
+    m_debugName = DebugName;
   }
 
   llvm::Module *get() { return m_llvmModule.get(); }
   llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
 
 private:
+  std::string m_debugName;
   std::unique_ptr<llvm::Module> m_llvmModule;
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
@@ -152,7 +156,7 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
 HRESULT ValidateAndAssembleToContainer(
     std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputBlob,
     IMalloc *pMalloc, SerializeDxilFlags SerializeFlags,
-    CComPtr<AbstractMemoryStream> &pOutputStream, bool bDebugInfo,
+    CComPtr<AbstractMemoryStream> &pOutputStream, bool bDebugInfo, llvm::StringRef DebugName,
     clang::DiagnosticsEngine &Diag) {
   HRESULT valHR = S_OK;
 
@@ -176,6 +180,9 @@ HRESULT ValidateAndAssembleToContainer(
     // module.
     if (bDebugInfo) {
       llvmModule.CloneForDebugInfo();
+      if (DebugName.size()) {
+        llvmModule.SetDebugName(DebugName);
+      }
     }
   }
 

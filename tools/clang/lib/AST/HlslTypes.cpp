@@ -91,16 +91,19 @@ bool IsHLSLVecType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLNumeric(clang::QualType type) {
+bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (isa<RecordType>(Ty)) {
     if (IsHLSLVecMatType(type))
       return true;
     return IsHLSLNumericUserDefinedType(type);
   } else if (type->isArrayType()) {
-    return IsHLSLNumeric(QualType(type->getArrayElementTypeNoTypeQual(), 0));
+    return IsHLSLNumericOrAggregateOfNumericType(QualType(type->getArrayElementTypeNoTypeQual(), 0));
   }
-  return Ty->isBuiltinType();
+
+  // Chars can only appear as part of strings, which we don't consider numeric.
+  const BuiltinType* BuiltinTy = dyn_cast<BuiltinType>(Ty);
+  return BuiltinTy != nullptr && BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
 }
 
 bool IsHLSLNumericUserDefinedType(clang::QualType type) {
@@ -117,7 +120,7 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
         name == "RaytracingAccelerationStructure")
       return false;
     for (auto member : RD->fields()) {
-      if (!IsHLSLNumeric(member->getType()))
+      if (!IsHLSLNumericOrAggregateOfNumericType(member->getType()))
         return false;
     }
     return true;
@@ -125,9 +128,11 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLAggregateType(clang::ASTContext& context, clang::QualType type) {
-  // Aggregate types are arrays and user-defined structs
-  if (context.getAsArrayType(type) != nullptr) return true;
+// Aggregate types are arrays and user-defined structs
+bool IsHLSLAggregateType(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (isa<clang::ArrayType>(type)) return true;
+
   const RecordType *Record = dyn_cast<RecordType>(type);
   return Record != nullptr
     && !IsHLSLVecMatType(type) && !IsHLSLResourceType(type)
@@ -574,20 +579,37 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
 }
 
 QualType GetHLSLResourceResultType(QualType type) {
-  type = type.getCanonicalType();
-  const RecordType *RT = cast<RecordType>(type);
-  StringRef name = RT->getDecl()->getName();
+  // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>
+  const RecordType *RT = type->getAs<RecordType>();
+  const RecordDecl* RD = RT->getDecl();
 
-  if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer") {
-    RecordDecl *RD = RT->getDecl();
-    QualType resultTy = RD->field_begin()->getType();
-    return resultTy;
+  if (const ClassTemplateSpecializationDecl *templateDecl =
+    dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+    // Templated resource types
+
+    // First attempt to get the template argument from the TemplateSpecializationType sugar,
+    // since this preserves 'snorm' from 'Buffer<snorm float>' which is lost on the
+    // ClassTemplateSpecializationDecl since it's considered type sugar.
+    if (const TemplateSpecializationType *specializationType = type->getAs<TemplateSpecializationType>()) {
+      if (specializationType->getNumArgs() >= 1) {
+        const TemplateArgument& templateArg = specializationType->getArg(0);
+        return templateArg.getAsType();
+      }
+    }
+
+    const TemplateArgumentList& argList = templateDecl->getTemplateArgs();
+    DXASSERT(argList.size() >= 1, "Templated resource must have at least one argument");
+    return argList[0].getAsType();
   }
-  const ClassTemplateSpecializationDecl *templateDecl =
-      cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
-  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  return argList[0].getAsType();
+  else {
+    // Non-templated resource types like [RW][RasterOrder]ByteAddressBuffer
+    // Get the result type from handle field.
+    FieldDecl* HandleFieldDecl = *(RD->field_begin());
+    DXASSERT(HandleFieldDecl->getName() == "h", "Resource must have a handle field");
+    return HandleFieldDecl->getType();
+  }
 }
+
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type) {
   if (type->isIncompleteArrayType()) {

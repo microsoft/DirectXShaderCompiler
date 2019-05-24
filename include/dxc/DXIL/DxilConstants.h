@@ -212,6 +212,7 @@ namespace DXIL {
     Target, // Special handling for SV_Target
     TessFactor, // Special handling for tessellation factors
     Shadow, // Shadow element must be added to a signature for compatibility
+    ClipCull, // Special packing rules for SV_ClipDistance or SV_CullDistance
     Invalid,
   };
   // SemanticInterpretationKind-ENUM:END

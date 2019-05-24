@@ -10,6 +10,7 @@ add_llvm_library(LLVMDxilDia
   DxilDiaDataSource.cpp
   DxilDiaEnumTables.cpp
   DxilDiaSession.cpp
+  DxilDiaSymbolManager.cpp
   DxilDiaTable.cpp
   DxilDiaTableFrameData.cpp
   DxilDiaTableInjectedSources.cpp
@@ -28,3 +29,5 @@ if (WIN32)
   target_link_libraries(LLVMDxilDia PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
   include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
+
+add_dependencies(LLVMDxilDia LLVMDxilPIXPasses intrinsics_gen)

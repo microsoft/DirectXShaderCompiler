@@ -1,12 +1,5 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK: OpMemberDecorate %type_RWStructuredBuffer_v4float 0 Offset 0
-// CHECK: OpDecorate %type_RWStructuredBuffer_v4float BufferBlock
-
-// CHECK: OpMemberDecorate %type__Globals 0 Offset 0
-// CHECK: OpDecorate %type__Globals Block
-
-
 // CHECK: OpDecorate %rw1 DescriptorSet 0
 // CHECK: OpDecorate %rw1 Binding 0
 // CHECK: OpDecorate %counter_var_rw1 DescriptorSet 0
@@ -19,6 +12,12 @@
 // CHECK: OpDecorate %rw3 Binding 4
 // CHECK: OpDecorate %counter_var_rw3 DescriptorSet 0
 // CHECK: OpDecorate %counter_var_rw3 Binding 5
+
+// CHECK: OpMemberDecorate %type_RWStructuredBuffer_v4float 0 Offset 0
+// CHECK: OpDecorate %type_RWStructuredBuffer_v4float BufferBlock
+
+// CHECK: OpMemberDecorate %type__Globals 0 Offset 0
+// CHECK: OpDecorate %type__Globals Block
 
 RWStructuredBuffer<float4> rw1;
 

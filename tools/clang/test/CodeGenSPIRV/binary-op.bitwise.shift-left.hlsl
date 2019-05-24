@@ -1,7 +1,7 @@
 // Run: %dxc -T ps_6_2 -E main -enable-16bit-types
 
 // CHECK: [[v2c31:%\d+]] = OpConstantComposite %v2uint %uint_31 %uint_31
-// CHECK: [[v3c63:%\d+]] = OpConstantComposite %v3ulong %ulong_63 %ulong_63 %ulong_63
+// CHECK: [[v3c63:%\d+]] = OpConstantComposite %v3long %long_63 %long_63 %long_63
 // CHECK: [[v4c15:%\d+]] = OpConstantComposite %v4ushort %ushort_15 %ushort_15 %ushort_15 %ushort_15
 void main() {
     int       a, b, c;
@@ -14,7 +14,7 @@ void main() {
     uint16_t4 p, q, r;
 
 // CHECK:        [[b:%\d+]] = OpLoad %int %b
-// CHECK-NEXT: [[rhs:%\d+]] = OpBitwiseAnd %int [[b]] %uint_31
+// CHECK-NEXT: [[rhs:%\d+]] = OpBitwiseAnd %int [[b]] %int_31
 // CHECK-NEXT:                OpShiftLeftLogical %int {{%\d+}} [[rhs]]
     c = a << b;
 
@@ -34,7 +34,7 @@ void main() {
     l = j << k;
 
 // CHECK:        [[n:%\d+]] = OpLoad %short %n
-// CHECK-NEXT: [[rhs:%\d+]] = OpBitwiseAnd %short [[n]] %ushort_15
+// CHECK-NEXT: [[rhs:%\d+]] = OpBitwiseAnd %short [[n]] %short_15
 // CHECK-NEXT:                OpShiftLeftLogical %short {{%\d+}} [[rhs]]
     o = m << n;
 

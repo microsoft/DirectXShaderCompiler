@@ -1583,6 +1583,7 @@ class db_dxil(object):
         category_lib="dxil_gen"
 
         add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
+        add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
         add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
         add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
@@ -1598,7 +1599,7 @@ class db_dxil(object):
         add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
-        add_pass('fail-undef-resource', 'FailUndefResource', 'Fail on undef resource use', [])
+        add_pass('invalidate-undef-resource', 'InvalidateUndefResources', 'Invalidate undef resources', [])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
         add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
         add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
@@ -1627,6 +1628,8 @@ class db_dxil(object):
         add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
         add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
         add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
+        add_pass('hlsl-dxil-cleanup-addrspacecast', 'DxilCleanupAddrSpaceCast', 'HLSL DXIL Cleanup Address Space Cast (part of hlsl-dxilfinalize)', [])
+        add_pass('dxil-fix-array-init', 'DxilFixConstArrayInitializer', 'Dxil Fix Array Initializer', [])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
@@ -1826,6 +1829,7 @@ class db_dxil(object):
             (6, "Target", "Special handling for SV_Target"),
             (7, "TessFactor", "Special handling for tessellation factors"),
             (8, "Shadow", "Shadow element must be added to a signature for compatibility"),
+            (8, "ClipCull", "Special packing rules for SV_ClipDistance or SV_CullDistance"),
             (9, "Invalid", ""),
             ])
         self.enums.append(SemanticInterpretationKind)
@@ -1839,8 +1843,8 @@ class db_dxil(object):
             Position,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
             RenderTargetArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
             ViewPortArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            ClipDistance,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            CullDistance,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
+            ClipDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
+            CullDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
             OutputControlPointID,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
             DomainLocation,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA
             PrimitiveID,NA,NA,NotInSig,NotInSig,NA,NA,NA,NotInSig,NA,NA,NA,Shadow,SGV,SGV,NA,NA
@@ -2351,11 +2355,15 @@ class db_hlsl(object):
             component_list = "LICOMPTYPE_ANY"
             rows = "1"
             cols = "1"
-            if type_name == "$unspec":
-                assert idx == 0, "'$unspec' can only be used as the return type"
+            if type_name == "$classT":
+                assert idx == 0, "'$classT' can only be used as the return type"
                 # template_id may be -1 in other places other than return type, for example in Stream.Append().
                 # $unspec is a shorthand for return types only though.
                 template_id = "-1"
+                component_id = "0"
+                type_name = "void"
+            if type_name == "$funcT":
+                template_id = "-3"
                 component_id = "0"
                 type_name = "void"
             elif type_name == "...":
@@ -2429,6 +2437,8 @@ class db_hlsl(object):
                 template_id = "INTRIN_TEMPLATE_FROM_TYPE"
             elif template_id == "-2":
                 template_id = "INTRIN_TEMPLATE_VARARGS"
+            elif template_id == "-3":
+                template_id = "INTRIN_TEMPLATE_FROM_FUNCTION"
             if component_id == "-1":
                 component_id = "INTRIN_COMPTYPE_FROM_TYPE_ELT0"
             return db_hlsl_intrisic_param(param_name, param_qual, template_id, template_list, component_id, component_list, rows, cols, type_name, idx, template_id_idx, component_id_idx)

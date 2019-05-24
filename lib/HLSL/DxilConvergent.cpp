@@ -22,6 +22,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/HlslIntrinsicOp.h"
 
 using namespace llvm;
@@ -29,6 +30,18 @@ using namespace hlsl;
 
 namespace {
 const StringRef kConvergentFunctionPrefix = "dxil.convergent.marker.";
+}
+
+bool hlsl::IsConvergentMarker(Value *V) {
+  CallInst *CI = dyn_cast<CallInst>(V);
+  if (!CI)
+    return false;
+  Function *F = CI->getCalledFunction();
+  return F->getName().startswith(kConvergentFunctionPrefix);
+}
+
+Value *hlsl::GetConvergentSource(Value *V) {
+  return cast<CallInst>(V)->getOperand(0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

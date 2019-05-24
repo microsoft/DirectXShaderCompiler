@@ -38,6 +38,8 @@
 #ifndef LLVM_SUPPORT_REGUTILS_H
 #define LLVM_SUPPORT_REGUTILS_H
 
+#include <stdlib.h>
+
 /* utility definitions */
 #define	NC		(CHAR_MAX - CHAR_MIN + 1)
 typedef unsigned char uch;
@@ -54,5 +56,19 @@ typedef unsigned char uch;
 #ifdef USEBCOPY
 #define	memmove(d, s, c)	bcopy(s, d, c)
 #endif
+
+// HLSL Change Begin: Use custom allocators
+#ifdef __cplusplus
+extern "C" {
+#endif
+void* regex_malloc(size_t size);
+void* regex_calloc(size_t num, size_t size);
+// Realloc diverges from standard because we can't implement it in terms of new[]/delete[]
+void* regex_realloc(void* ptr, size_t oldsize, size_t newsize);
+void regex_free(void* ptr);
+#ifdef __cplusplus
+}
+#endif
+// HLSL Change Ends
 
 #endif

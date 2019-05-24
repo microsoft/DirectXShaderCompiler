@@ -12,7 +12,7 @@
 namespace clang {
 namespace spirv {
 
-void BlockReadableOrderVisitor::visit(BasicBlock *block) {
+void BlockReadableOrderVisitor::visit(SpirvBasicBlock *block) {
   if (doneBlocks.count(block) || todoBlocks.count(block))
     return;
 
@@ -23,8 +23,8 @@ void BlockReadableOrderVisitor::visit(BasicBlock *block) {
   // Check the continue and merge targets. If any one of them exists, we need
   // to make sure visiting it is delayed until we've done the rest.
 
-  BasicBlock *continueBlock = block->getContinueTarget();
-  BasicBlock *mergeBlock = block->getMergeTarget();
+  SpirvBasicBlock *continueBlock = block->getContinueTarget();
+  SpirvBasicBlock *mergeBlock = block->getMergeTarget();
 
   if (continueBlock)
     todoBlocks.insert(continueBlock);
@@ -32,7 +32,7 @@ void BlockReadableOrderVisitor::visit(BasicBlock *block) {
   if (mergeBlock)
     todoBlocks.insert(mergeBlock);
 
-  for (BasicBlock *successor : block->getSuccessors())
+  for (SpirvBasicBlock *successor : block->getSuccessors())
     visit(successor);
 
   // Handle continue and merge targets now.

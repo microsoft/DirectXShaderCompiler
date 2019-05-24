@@ -107,15 +107,13 @@ Decl *Parser::ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
   ArrayRef<hlsl::UnusualAnnotation*> annotations = namedDecl->getUnusualAnnotations();
   for (hlsl::UnusualAnnotation* annotation : annotations) {
     if (const auto *regAssignment = dyn_cast<hlsl::RegisterAssignment>(annotation)) {
-      // SPIRV Change Starts - skip the check if space-only for SPIR-V
-      if (getLangOpts().SPIRV && regAssignment->isSpaceOnly())
+      if (regAssignment->isSpaceOnly())
         continue;
-      // SPIRV Change Ends
       if (isCBuffer && regAssignment->RegisterType != 'b' && regAssignment->RegisterType != 'B') {
-        Diag(namedDecl->getLocation(), diag::err_hlsl_unsupported_cbuffer_register);
+        Diag(namedDecl->getLocation(), diag::err_hlsl_incorrect_bind_semantic) << "'b'";
       }
       else if (!isCBuffer && regAssignment->RegisterType != 't' && regAssignment->RegisterType != 'T') {
-        Diag(namedDecl->getLocation(), diag::err_hlsl_unsupported_tbuffer_register);
+        Diag(namedDecl->getLocation(), diag::err_hlsl_incorrect_bind_semantic) << "'t'";
       }
     }
   }

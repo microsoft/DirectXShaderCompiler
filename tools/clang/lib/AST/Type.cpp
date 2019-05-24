@@ -1577,6 +1577,10 @@ AutoType *Type::getContainedAutoType() const {
 bool Type::hasIntegerRepresentation() const {
   if (const VectorType *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isIntegerType();
+  // HLSL Change Begins
+  else if (hlsl::IsHLSLVecType(CanonicalType))
+    return hlsl::GetHLSLVecElementType(CanonicalType)->isIntegerType();
+  // HLSL Change Ends
   else
     return isIntegerType();
 }
@@ -1714,6 +1718,10 @@ bool Type::isSignedIntegerOrEnumerationType() const {
 bool Type::hasSignedIntegerRepresentation() const {
   if (const VectorType *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isSignedIntegerOrEnumerationType();
+  // HLSL Change Begins
+  else if (hlsl::IsHLSLVecType(CanonicalType))
+    return hlsl::GetHLSLVecElementType(CanonicalType)->isSignedIntegerOrEnumerationType();
+  // HLSL Change Ends
   else
     return isSignedIntegerOrEnumerationType();
 }
@@ -1754,6 +1762,10 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
 bool Type::hasUnsignedIntegerRepresentation() const {
   if (const VectorType *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isUnsignedIntegerOrEnumerationType();
+  // HLSL Change Begins
+  else if (hlsl::IsHLSLVecType(CanonicalType))
+    return hlsl::GetHLSLVecElementType(CanonicalType)->isUnsignedIntegerOrEnumerationType();
+  // HLSL Change Ends
   else
     return isUnsignedIntegerOrEnumerationType();
 }
@@ -1770,6 +1782,10 @@ bool Type::isFloatingType() const {
 bool Type::hasFloatingRepresentation() const {
   if (const VectorType *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isFloatingType();
+  // HLSL Change Begins
+  else if (hlsl::IsHLSLVecType(CanonicalType))
+    return hlsl::GetHLSLVecElementType(CanonicalType)->isFloatingType();
+  // HLSL Change Ends
   else
     return isFloatingType();
 }

@@ -7,6 +7,9 @@
 // CHECK: OpMemberDecorate %type_CONSTANTS 0 Offset 0
 // CHECK: OpDecorate %type_CONSTANTS Block
 
+// CHECK: [[v3uint0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
+// CHECK: [[v2uint0:%\d+]] = OpConstantComposite %v2uint %uint_0 %uint_0
+
 // CHECK: %T = OpTypeStruct %_arr_uint_uint_1
 struct T {
   bool boolArray[1];
@@ -26,9 +29,6 @@ cbuffer CONSTANTS
 {
   FrameConstants frameConstants;
 };
-
-// CHECK: [[v3uint0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
-// CHECK: [[v2uint0:%\d+]] = OpConstantComposite %v2uint %uint_0 %uint_0
 
 // These are the types that hold SPIR-V booleans, rather than Uints.
 // CHECK:              %T_0 = OpTypeStruct %_arr_bool_uint_1

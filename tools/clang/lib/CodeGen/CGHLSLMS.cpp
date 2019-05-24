@@ -15,7 +15,7 @@
 #include "CodeGenModule.h"
 #include "CGRecordLayout.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
@@ -116,7 +116,7 @@ private:
   uint32_t AddSampler(VarDecl *samplerDecl);
   uint32_t AddUAVSRV(VarDecl *decl, hlsl::DxilResourceBase::Class resClass);
   bool SetUAVSRV(SourceLocation loc, hlsl::DxilResourceBase::Class resClass,
-                 DxilResource *hlslRes, const RecordDecl *RD);
+                 DxilResource *hlslRes, QualType QualTy);
   uint32_t AddCBuffer(HLSLBufferDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
@@ -194,7 +194,7 @@ private:
                                    clang::QualType DestType,
                                    llvm::Type *Ty);
 
-  void EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *SrcVal,
+  void EmitHLSLSplat(CodeGenFunction &CGF, Value *SrcVal,
                               llvm::Value *DestPtr,
                               SmallVector<Value *, 4> &idxList,
                               QualType Type, QualType SrcType,
@@ -739,7 +739,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   case DXIL::ResourceClass::UAV: {
     DxilResource UAV;
     // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
-    SetUAVSRV(loc, resClass, &UAV, RD);
+    SetUAVSRV(loc, resClass, &UAV, resTy);
     // Set global symbol to save type.
     UAV.SetGlobalSymbol(UndefValue::get(Ty));
     MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
@@ -748,7 +748,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   } break;
   case DXIL::ResourceClass::SRV: {
     DxilResource SRV;
-    SetUAVSRV(loc, resClass, &SRV, RD);
+    SetUAVSRV(loc, resClass, &SRV, resTy);
     // Set global symbol to save type.
     SRV.SetGlobalSymbol(UndefValue::get(Ty));
     MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
@@ -780,14 +780,9 @@ MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
                           : MatrixOrientation::ColumnMajor;
 }
 
-QualType GetArrayEltType(QualType Ty) {
-  // Get element type.
-  if (Ty->isArrayType()) {
-    while (isa<clang::ArrayType>(Ty)) {
-      const clang::ArrayType *ATy = dyn_cast<clang::ArrayType>(Ty);
-      Ty = ATy->getElementType();
-    }
-  }
+QualType GetArrayEltType(ASTContext& Context, QualType Ty) {
+  while (const clang::ArrayType *ArrayTy = Context.getAsArrayType(Ty))
+    Ty = ArrayTy->getElementType();
   return Ty;
 }
 
@@ -801,7 +796,7 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     Ty = Ty.getNonReferenceType();
 
   // Get element type.
-  Ty = GetArrayEltType(Ty);
+  Ty = GetArrayEltType(CGM.getContext(), Ty);
 
   QualType EltTy = Ty;
   if (hlsl::IsHLSLMatType(Ty)) {
@@ -981,8 +976,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   unsigned size = dataLayout.getTypeAllocSize(Type);
 
   if (IsHLSLMatType(Ty)) {
-    unsigned col, row;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Type, col, row);
+    llvm::Type *EltTy = HLMatrixType::cast(Type).getElementTypeForReg();
     bool b64Bit = dataLayout.getTypeAllocSize(EltTy) == 8;
     size = GetMatrixSizeInCB(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor,
                              b64Bit);
@@ -2320,7 +2314,8 @@ hlsl::DxilResourceBase::Class CGMSHLSLRuntime::TypeToClass(clang::QualType Ty) {
 namespace {
   void GetResourceDeclElemTypeAndRangeSize(CodeGenModule &CGM, HLModule &HL, VarDecl &VD,
     QualType &ElemType, unsigned& rangeSize) {
-    ElemType = VD.getType().getCanonicalType();
+    // We can't canonicalize nor desugar the type without losing the 'snorm' in Buffer<snorm float>
+    ElemType = VD.getType();
     rangeSize = 1;
     while (const clang::ArrayType *arrayType = CGM.getContext().getAsArrayType(ElemType)) {
       if (rangeSize != UINT_MAX) {
@@ -2342,12 +2337,43 @@ namespace {
   }
 }
 
+static void InitFromUnusualAnnotations(DxilResourceBase &Resource, NamedDecl &Decl) {
+  for (hlsl::UnusualAnnotation* It : Decl.getUnusualAnnotations()) {
+    switch (It->getKind()) {
+    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
+      hlsl::RegisterAssignment* RegAssign = cast<hlsl::RegisterAssignment>(It);
+      if (RegAssign->RegisterType) {
+        Resource.SetLowerBound(RegAssign->RegisterNumber);
+        // For backcompat, don't auto-assign the register space if there's an
+        // explicit register type.
+        Resource.SetSpaceID(RegAssign->RegisterSpace.getValueOr(0));
+      }
+      else {
+        Resource.SetSpaceID(RegAssign->RegisterSpace.getValueOr(UINT_MAX));
+      }
+      break;
+    }
+    case hlsl::UnusualAnnotation::UA_SemanticDecl:
+      // Ignore Semantics
+      break;
+    case hlsl::UnusualAnnotation::UA_ConstantPacking:
+      // Should be handled by front-end
+      llvm_unreachable("packoffset on resource");
+      break;
+    default:
+      llvm_unreachable("unknown UnusualAnnotation on resource");
+      break;
+    }
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   llvm::GlobalVariable *val =
     cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobalVar(samplerDecl));
 
   unique_ptr<DxilSampler> hlslRes(new DxilSampler);
   hlslRes->SetLowerBound(UINT_MAX);
+  hlslRes->SetSpaceID(UINT_MAX);
   hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(samplerDecl->getName());
 
@@ -2361,27 +2387,7 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   DxilSampler::SamplerKind kind = KeywordToSamplerKind(RT->getDecl()->getName());
 
   hlslRes->SetSamplerKind(kind);
-
-  for (hlsl::UnusualAnnotation *it : samplerDecl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-      hlsl::RegisterAssignment *ra = cast<hlsl::RegisterAssignment>(it);
-      hlslRes->SetLowerBound(ra->RegisterNumber);
-      hlslRes->SetSpaceID(ra->RegisterSpace);
-      break;
-    }
-    case hlsl::UnusualAnnotation::UA_SemanticDecl:
-      // Ignore Semantics
-      break;
-    case hlsl::UnusualAnnotation::UA_ConstantPacking:
-      // Should be handled by front-end
-      llvm_unreachable("packoffset on sampler");
-      break;
-    default:
-      llvm_unreachable("unknown UnusualAnnotation on sampler");
-      break;
-    }
-  }
+  InitFromUnusualAnnotations(*hlslRes, *samplerDecl);
 
   hlslRes->SetID(m_pHLModule->GetSamplers().size());
   return m_pHLModule->AddSampler(std::move(hlslRes));
@@ -2600,14 +2606,14 @@ static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
 
 bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
                                 hlsl::DxilResourceBase::Class resClass,
-                                DxilResource *hlslRes, const RecordDecl *RD) {
+                                DxilResource *hlslRes, QualType QualTy) {
+
+  RecordDecl *RD = QualTy->getAs<RecordType>()->getDecl();
+
   hlsl::DxilResource::Kind kind = KeywordToKind(RD->getName());
   hlslRes->SetKind(kind);
-
-  // Get the result type from handle field.
-  FieldDecl *FD = *(RD->field_begin());
-  DXASSERT(FD->getName() == "h", "must be handle field");
-  QualType resultTy = FD->getType();
+  
+  QualType resultTy = hlsl::GetHLSLResourceResultType(QualTy);
   // Type annotation for result type of resource.
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
@@ -2644,7 +2650,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       EltTy = hlsl::GetHLSLVecElementType(Ty);
     } else if (hlsl::IsHLSLMatType(Ty)) {
       EltTy = hlsl::GetHLSLMatElementType(Ty);
-    } else if (resultTy->isAggregateType()) {
+    } else if (hlsl::IsHLSLAggregateType(resultTy)) {
       // Struct or array in a none-struct resource.
       std::vector<QualType> ScalarTys;
       CollectScalarTypes(ScalarTys, resultTy);
@@ -2679,12 +2685,10 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
       }
     }
 
-    EltTy = EltTy.getCanonicalType();
     bool bSNorm = false;
     bool bHasNormAttribute = hlsl::HasHLSLUNormSNorm(Ty, &bSNorm);
 
-    if (EltTy->isBuiltinType()) {
-      const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
+    if (const BuiltinType *BTy = EltTy->getAs<BuiltinType>()) {
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bHasNormAttribute && bSNorm, bHasNormAttribute && !bSNorm);
       // 64bits types are implemented with u32.
       if (kind == CompType::Kind::U64 || kind == CompType::Kind::I64 ||
@@ -2739,6 +2743,7 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
 
   unique_ptr<HLResource> hlslRes(new HLResource);
   hlslRes->SetLowerBound(UINT_MAX);
+  hlslRes->SetSpaceID(UINT_MAX);
   hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(decl->getName());
 
@@ -2747,36 +2752,13 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   GetResourceDeclElemTypeAndRangeSize(CGM, *m_pHLModule, *decl,
     VarTy, rangeSize);
   hlslRes->SetRangeSize(rangeSize);
-
-  for (hlsl::UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-      hlsl::RegisterAssignment *ra = cast<hlsl::RegisterAssignment>(it);
-      hlslRes->SetLowerBound(ra->RegisterNumber);
-      hlslRes->SetSpaceID(ra->RegisterSpace);
-      break;
-    }
-    case hlsl::UnusualAnnotation::UA_SemanticDecl:
-      // Ignore Semantics
-      break;
-    case hlsl::UnusualAnnotation::UA_ConstantPacking:
-      // Should be handled by front-end
-      llvm_unreachable("packoffset on uav/srv");
-      break;
-    default:
-      llvm_unreachable("unknown UnusualAnnotation on uav/srv");
-      break;
-    }
-  }
-
-  const RecordType *RT = VarTy->getAs<RecordType>();
-  RecordDecl *RD = RT->getDecl();
+  InitFromUnusualAnnotations(*hlslRes, *decl);
 
   if (decl->hasAttr<HLSLGloballyCoherentAttr>()) {
     hlslRes->SetGloballyCoherent(true);
   }
 
-  if (!SetUAVSRV(decl->getLocation(), resClass, hlslRes.get(), RD))
+  if (!SetUAVSRV(decl->getLocation(), resClass, hlslRes.get(), VarTy))
     return 0;
 
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
@@ -2863,6 +2845,13 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       if (isGlobalCB) {
         RegisterAssignment *ra = cast<RegisterAssignment>(it);
+        if (ra->RegisterSpace.hasValue()) {
+          DiagnosticsEngine& Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "register space cannot be specified on global constants.");
+          Diags.Report(it->Loc, DiagID);
+        }
         offset = ra->RegisterNumber << 2;
         // Change to byte.
         offset <<= 2;
@@ -2878,6 +2867,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
 
   std::unique_ptr<DxilResourceBase> pHlslConst = llvm::make_unique<DxilResourceBase>(DXIL::ResourceClass::Invalid);
   pHlslConst->SetLowerBound(UINT_MAX);
+  pHlslConst->SetSpaceID(0);
   pHlslConst->SetGlobalSymbol(cast<llvm::GlobalVariable>(constVal));
   pHlslConst->SetGlobalName(constDecl->getName());
 
@@ -2923,6 +2913,7 @@ uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   // setup the CB
   CB->SetGlobalSymbol(nullptr);
   CB->SetGlobalName(D->getNameAsString());
+  CB->SetSpaceID(UINT_MAX);
   CB->SetLowerBound(UINT_MAX);
   if (!D->isCBuffer()) {
     CB->SetKind(DXIL::ResourceKind::TBuffer);
@@ -2931,24 +2922,7 @@ uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   // the global variable will only used once by the createHandle?
   // SetHandle(llvm::Value *pHandle);
 
-  for (hlsl::UnusualAnnotation *it : D->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-      hlsl::RegisterAssignment *ra = cast<hlsl::RegisterAssignment>(it);
-      uint32_t regNum = ra->RegisterNumber;
-      uint32_t regSpace = ra->RegisterSpace;
-      CB->SetSpaceID(regSpace);
-      CB->SetLowerBound(regNum);
-      break;
-    }
-    case hlsl::UnusualAnnotation::UA_SemanticDecl:
-      // skip semantic on constant buffer
-      break;
-    case hlsl::UnusualAnnotation::UA_ConstantPacking:
-      llvm_unreachable("no packoffset on constant buffer");
-      break;
-    }
-  }
+  InitFromUnusualAnnotations(*CB, *D);
 
   // Add constant
   if (D->isConstantBufferView()) {
@@ -3484,10 +3458,19 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
       llvm::Type *idxTy = counterTy;
       llvm::Type *valTy = bAppend ?
           funcTy->getParamType(HLOperandIndex::kAppendValOpIndex):funcTy->getReturnType();
+
+      // Return type for subscript should be pointer type, hence in memory representation
       llvm::Type *subscriptTy = valTy;
-      if (!valTy->isPointerTy()) {
-        // Return type for subscript should be pointer type.
-        subscriptTy = llvm::PointerType::get(valTy, 0);
+      bool isBoolScalarOrVector = false;
+      if (!subscriptTy->isPointerTy()) {
+        if (subscriptTy->getScalarType()->isIntegerTy(1)) {
+          isBoolScalarOrVector = true;
+          llvm::Type *memReprType = llvm::IntegerType::get(subscriptTy->getContext(), 32);
+          subscriptTy = subscriptTy->isVectorTy()
+            ? llvm::VectorType::get(memReprType, subscriptTy->getVectorNumElements())
+            : memReprType;
+        }
+        subscriptTy = llvm::PointerType::get(subscriptTy, 0);
       }
 
       llvm::FunctionType *SubscriptFuncTy =
@@ -3520,8 +3503,14 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
         if (valTy->isPointerTy()) {
           unsigned size = M.getDataLayout().getTypeAllocSize(subscript->getType()->getPointerElementType());
           Builder.CreateMemCpy(subscript, valArg, size, 1);
-        } else
-          Builder.CreateStore(valArg, subscript);
+        }
+        else {
+          Value *storedVal = valArg;
+          // Convert to memory representation
+          if (isBoolScalarOrVector)
+            storedVal = Builder.CreateZExt(storedVal, subscriptTy->getPointerElementType(), "frombool");
+          Builder.CreateStore(storedVal, subscript);
+        }
         Builder.CreateRetVoid();
       } else {
         // return Buf[counter];
@@ -3529,6 +3518,9 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
           Builder.CreateRet(subscript);
         else {
           Value *retVal = Builder.CreateLoad(subscript);
+          // Convert to register representation
+          if (isBoolScalarOrVector)
+            retVal = Builder.CreateICmpNE(retVal, Constant::getNullValue(retVal->getType()), "tobool");
           Builder.CreateRet(retVal);
         }
       }
@@ -3993,6 +3985,7 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
     Value *zeroIdx = Builder.getInt32(0);
     unsigned nestLevel = 1;
     while (llvm::StructType *ST = dyn_cast<llvm::StructType>(FromTy)) {
+      if (ST->getNumElements() == 0) break;
       FromTy = ST->getElementType(0);
       nestLevel++;
     }
@@ -4022,6 +4015,8 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
       // Skip function call.
     } else if (dyn_cast<BitCastInst>(U)) {
       // Skip bitcast.
+    } else if (dyn_cast<AddrSpaceCastInst>(U)) {
+      // Skip addrspacecast.
     } else {
       DXASSERT(0, "not support yet");
     }
@@ -4176,14 +4171,14 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
     if (Ty->isDoubleTy()) {
       double dV0 = fpV0->getValueAPF().convertToDouble();
       double dV1 = fpV1->getValueAPF().convertToDouble();
-      Value *atanV = ConstantFP::get(CI->getType(), atan(dV0 / dV1));
+      Value *atanV = ConstantFP::get(CI->getType(), atan2(dV0, dV1));
       CI->replaceAllUsesWith(atanV);
       Result = atanV;
     } else {
       DXASSERT_NOMSG(Ty->isFloatTy());
       float fV0 = fpV0->getValueAPF().convertToFloat();
       float fV1 = fpV1->getValueAPF().convertToFloat();
-      Value *atanV = ConstantFP::get(CI->getType(), atanf(fV0 / fV1));
+      Value *atanV = ConstantFP::get(CI->getType(), atan2f(fV0, fV1));
       CI->replaceAllUsesWith(atanV);
       Result = atanV;
     }
@@ -4288,7 +4283,7 @@ static void SimpleTransformForHLDXIR(Instruction *I,
   } break;
   case Instruction::Load: {
     LoadInst *ldInst = cast<LoadInst>(I);
-    DXASSERT(!dxilutil::IsHLSLMatrixType(ldInst->getType()),
+    DXASSERT(!HLMatrixType::isa(ldInst->getType()),
                       "matrix load should use HL LdStMatrix");
     Value *Ptr = ldInst->getPointerOperand();
     if (ConstantExpr *CE = dyn_cast_or_null<ConstantExpr>(Ptr)) {
@@ -4300,7 +4295,7 @@ static void SimpleTransformForHLDXIR(Instruction *I,
   case Instruction::Store: {
     StoreInst *stInst = cast<StoreInst>(I);
     Value *V = stInst->getValueOperand();
-    DXASSERT_LOCALVAR(V, !dxilutil::IsHLSLMatrixType(V->getType()),
+    DXASSERT_LOCALVAR(V, !HLMatrixType::isa(V->getType()),
                       "matrix store should use HL LdStMatrix");
     Value *Ptr = stInst->getPointerOperand();
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Ptr)) {
@@ -5279,7 +5274,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
         valEltTy->isSingleValueType()) {
       Value *ldVal = Builder.CreateLoad(val);
       FlattenValToInitList(CGF, elts, eltTys, Ty, ldVal);
-    } else if (dxilutil::IsHLSLMatrixType(valEltTy)) {
+    } else if (HLMatrixType::isa(valEltTy)) {
       Value *ldVal = EmitHLSLMatrixLoad(Builder, val, Ty);
       FlattenValToInitList(CGF, elts, eltTys, Ty, ldVal);
     } else {
@@ -5331,13 +5326,12 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       }
     }
   } else {
-    if (dxilutil::IsHLSLMatrixType(valTy)) {
-      unsigned col, row;
-      llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(valTy, col, row);
+    if (HLMatrixType MatTy = HLMatrixType::dyn_cast(valTy)) {
+      llvm::Type *EltTy = MatTy.getElementTypeForReg();
       // All matrix Value should be row major.
       // Init list is row major in scalar.
       // So the order is match here, just cast to vector.
-      unsigned matSize = col * row;
+      unsigned matSize = MatTy.getNumElements();
       bool isRowMajor = hlsl::IsHLSLMatRowMajor(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor);
 
       HLCastOpcode opcode = isRowMajor ? HLCastOpcode::RowMatrixToVecCast
@@ -5477,18 +5471,16 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     Result = CGF.EmitToMemory(Result, Type);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     bool isRowMajor = hlsl::IsHLSLMatRowMajor(Type, bDefaultRowMajor);
-    unsigned row, col;
-    HLMatrixLower::GetMatrixInfo(Ty, col, row);
-    std::vector<Value *> matInitList(col * row);
-    for (unsigned i = 0; i < col; i++) {
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = i * row + r;
+    std::vector<Value *> matInitList(MatTy.getNumElements());
+    for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
+      for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+        unsigned matIdx = c * MatTy.getNumRows() + r;
         matInitList[matIdx] = elts[idx + matIdx];
       }
     }
-    idx += row * col;
+    idx += MatTy.getNumElements();
     Value *matVal =
         EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLInit,
                                        /*opcode*/ 0, Ty, matInitList, M);
@@ -5769,7 +5761,7 @@ static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor,
       EltVals.emplace_back(C->getAggregateElement(i));
       EltQualTys.emplace_back(VecElemQualTy);
     }
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType::isa(Ty)) {
     DXASSERT(hlsl::IsHLSLMatType(QualTy), "QualType/Type mismatch!");
     // matrix type is struct { [rowcount x <colcount x T>] };
     // Strip the struct level here.
@@ -6518,10 +6510,9 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
                                  GepList, EltTyList);
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
-    unsigned col, row;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
     llvm::PointerType *EltPtrTy =
         llvm::PointerType::get(EltTy, Ptr->getType()->getPointerAddressSpace());
     QualType EltQualTy = hlsl::GetHLSLMatElementType(Type);
@@ -6529,8 +6520,8 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     Value *matPtr = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
 
     // Flatten matrix to elements.
-    for (unsigned r = 0; r < row; r++) {
-      for (unsigned c = 0; c < col; c++) {
+    for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
+      for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
         ConstantInt *cRow = CGF.Builder.getInt32(r);
         ConstantInt *cCol = CGF.Builder.getInt32(c);
         Constant *CV = llvm::ConstantVector::get({cRow, cCol});
@@ -6658,6 +6649,20 @@ void CGMSHLSLRuntime::ConvertAndStoreElements(CodeGenFunction &CGF,
   }
 }
 
+static bool AreMatrixArrayOrientationMatching(ASTContext& Context,
+  HLModule &Module, QualType LhsTy, QualType RhsTy) {
+  while (const clang::ArrayType *LhsArrayTy = Context.getAsArrayType(LhsTy)) {
+    LhsTy = LhsArrayTy->getElementType();
+    RhsTy = Context.getAsArrayType(RhsTy)->getElementType();
+  }
+
+  bool LhsRowMajor, RhsRowMajor;
+  LhsRowMajor = RhsRowMajor = Module.GetHLOptions().bDefaultRowMajor;
+  HasHLSLMatOrientation(LhsTy, &LhsRowMajor);
+  HasHLSLMatOrientation(RhsTy, &RhsRowMajor);
+  return LhsRowMajor == RhsRowMajor;
+}
+
 // Copy data from SrcPtr to DestPtr.
 // For matrix, use MatLoad/MatStore.
 // For matrix array, EmitHLSLAggregateCopy on each element.
@@ -6676,7 +6681,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
                           PT->getElementType());
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType::isa(Ty)) {
     // Use matLd/St for matrix.
     Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
@@ -6694,13 +6699,15 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     // Memcpy struct.
     CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    if (!HLMatrixLower::IsMatrixArrayPointer(llvm::PointerType::get(Ty,0))) {
+    if (!HLMatrixType::isMatrixArray(Ty)
+      || AreMatrixArrayOrientationMatching(CGF.getContext(), *m_pHLModule, SrcType, DestType)) {
       Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
       Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
       unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(AT);
       // Memcpy non-matrix array.
       CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
     } else {
+      // Copy matrix arrays elementwise if orientation changes are needed.
       llvm::Type *ET = AT->getElementType();
       QualType EltDestType = CGF.getContext().getBaseElementType(DestType);
       QualType EltSrcType = CGF.getContext().getBaseElementType(SrcType);
@@ -6775,9 +6782,9 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (SrcPtrTy == DestPtrTy) {
     bool bMatArrayRotate = false;
-    if (HLMatrixLower::IsMatrixArrayPointer(SrcPtr->getType())) {
-      QualType SrcEltTy = GetArrayEltType(SrcTy);
-      QualType DestEltTy = GetArrayEltType(DestTy);
+    if (HLMatrixType::isMatrixArrayPtr(SrcPtr->getType())) {
+      QualType SrcEltTy = GetArrayEltType(CGM.getContext(), SrcTy);
+      QualType DestEltTy = GetArrayEltType(CGM.getContext(), DestTy);
       if (GetMatrixMajor(SrcEltTy, bDefaultRowMajor) !=
           GetMatrixMajor(DestEltTy, bDefaultRowMajor)) {
         bMatArrayRotate = true;
@@ -6860,22 +6867,21 @@ static void SimpleFlatValCopy(CodeGenFunction &CGF,
     CGF.Builder.CreateStore(ResultScalar, DstPtr);
 }
 
-void CGMSHLSLRuntime::EmitHLSLFlatConversion(
+void CGMSHLSLRuntime::EmitHLSLSplat(
     CodeGenFunction &CGF, Value *SrcVal, llvm::Value *DestPtr,
     SmallVector<Value *, 4> &idxList, QualType Type, QualType SrcType,
     llvm::Type *Ty) {
   if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     idxList.emplace_back(CGF.Builder.getInt32(0));
 
-    EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, Type,
+    EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, Type,
                                       SrcType, PT->getElementType());
 
     idxList.pop_back();
-  } else if (dxilutil::IsHLSLMatrixType(Ty)) {
+  } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     // Use matLd/St for matrix.
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-    unsigned row, col;
-    llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
+    llvm::Type *EltTy = MatTy.getElementTypeForReg();
 
     llvm::VectorType *VT1 = llvm::VectorType::get(EltTy, 1);
     SrcVal = ConvertScalarOrVector(CGF, SrcVal, SrcType, hlsl::GetHLSLMatElementType(Type));
@@ -6883,7 +6889,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
     // Splat the value
     Value *V1 = CGF.Builder.CreateInsertElement(UndefValue::get(VT1), SrcVal,
                                                 (uint64_t)0);
-    std::vector<int> shufIdx(col * row, 0);
+    std::vector<int> shufIdx(MatTy.getNumElements(), 0);
     Value *VecMat = CGF.Builder.CreateShuffleVector(V1, V1, shufIdx);
     Value *MatInit = EmitHLSLMatrixOperationCallImp(
         CGF.Builder, HLOpcodeGroup::HLInit, 0, Ty, {VecMat}, TheModule);
@@ -6910,8 +6916,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
           Constant *idx = llvm::Constant::getIntegerValue(
               IntegerType::get(Ty->getContext(), 32), APInt(32, i));
           idxList.emplace_back(idx);
-          EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList,
-                                            parentTy, SrcType, ET);
+          EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, parentTy, SrcType, ET);
           idxList.pop_back();
         }
       }
@@ -6925,8 +6930,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList,
-                                        fieldIter->getType(), SrcType, ET);
+      EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, fieldIter->getType(), SrcType, ET);
 
       idxList.pop_back();
     }
@@ -6941,8 +6945,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLFlatConversion(CGF, SrcVal, DestPtr, idxList, EltType,
-                                        SrcType, ET);
+      EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, EltType, SrcType, ET);
 
       idxList.pop_back();
     }
@@ -6957,13 +6960,16 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
                                              Value *DestPtr,
                                              QualType Ty,
                                              QualType SrcTy) {
-  if (SrcTy->isBuiltinType()) {
-    SmallVector<Value *, 4> idxList;
-    // Add first 0 for DestPtr.
-    idxList.emplace_back(CGF.Builder.getInt32(0));
+  SmallVector<Value *, 4> SrcVals;
+  SmallVector<QualType, 4> SrcQualTys;
+  FlattenValToInitList(CGF, SrcVals, SrcQualTys, SrcTy, Val);
 
-    EmitHLSLFlatConversion(
-        CGF, Val, DestPtr, idxList, Ty, SrcTy,
+  if (SrcVals.size() == 1) {
+    // Perform a splat
+    SmallVector<Value *, 4> GEPIdxStack;
+    GEPIdxStack.emplace_back(CGF.Builder.getInt32(0)); // Add first 0 for DestPtr.
+    EmitHLSLSplat(
+        CGF, SrcVals[0], DestPtr, GEPIdxStack, Ty, SrcQualTys[0],
         DestPtr->getType()->getPointerElementType());
   }
   else {
@@ -6971,10 +6977,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
     SmallVector<Value *, 4> DstPtrs;
     SmallVector<QualType, 4> DstQualTys;
     FlattenAggregatePtrToGepList(CGF, DestPtr, GEPIdxStack, Ty, DestPtr->getType(), DstPtrs, DstQualTys);
-
-    SmallVector<Value *, 4> SrcVals;
-    SmallVector<QualType, 4> SrcQualTys;
-    FlattenValToInitList(CGF, SrcVals, SrcQualTys, SrcTy, Val);
 
     ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
   }
@@ -7010,9 +7012,15 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
+    bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isAggregateType = !isObject &&
+      (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
+      !hlsl::IsHLSLVecMatType(ParamTy);
+
+    bool EmitRValueAgg = false;
     bool RValOnRef = false;
     if (!Param->isModifierOut()) {
-      if (!ParamTy->isAggregateType() || hlsl::IsHLSLMatType(ParamTy)) {
+      if (!isAggregateType && !isObject) {
         if (Arg->isRValue() && Param->getType()->isReferenceType()) {
           // RValue on a reference type.
           if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
@@ -7035,27 +7043,61 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         } else {
           continue;
         }
+      } else if (isAggregateType) {
+        // aggregate in-only - emit RValue, unless LValueToRValue cast
+        EmitRValueAgg = true;
+        if (const ImplicitCastExpr *cast =
+                dyn_cast<ImplicitCastExpr>(Arg)) {
+          if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
+            EmitRValueAgg = false;
+          }
+        }
+      } else {
+        // Must be object
+        DXASSERT(isObject, "otherwise, flow condition changed, breaking assumption");
+        // in-only objects should be skipped to preserve previous behavior.
+        continue;
       }
     }
 
-    // get original arg
-    LValue argLV = CGF.EmitLValue(Arg);
+    // Skip unbounded array, since we cannot preserve copy-in copy-out
+    // semantics for these.
+    if (ParamTy->isIncompleteArrayType()) {
+      continue;
+    }
 
     if (!Param->isModifierOut() && !RValOnRef) {
-      bool isDefaultAddrSpace = true;
-      if (argLV.isSimple()) {
-        isDefaultAddrSpace =
-            argLV.getAddress()->getType()->getPointerAddressSpace() ==
-            DXIL::kDefaultAddrSpace;
-      }
-      bool isHLSLIntrinsic = false;
+      // No need to copy arg to in-only param for hlsl intrinsic.
       if (const FunctionDecl *Callee = E->getDirectCallee()) {
-        isHLSLIntrinsic = Callee->hasAttr<HLSLIntrinsicAttr>();
+        if (Callee->hasAttr<HLSLIntrinsicAttr>())
+          continue;
       }
-      // Copy in arg which is not default address space and not on hlsl intrinsic.
-      if (isDefaultAddrSpace || isHLSLIntrinsic)
-        continue;
     }
+
+
+    // get original arg
+    // FIXME: This will not emit in correct argument order with the other
+    //        arguments. This should be integrated into
+    //        CodeGenFunction::EmitCallArg if possible.
+    RValue argRV; // emit this if aggregate arg on in-only param
+    LValue argLV; // otherwise, we may emit this
+    llvm::Value *argAddr = nullptr;
+    QualType argType = Arg->getType();
+    CharUnits argAlignment;
+    if (EmitRValueAgg) {
+      argRV = CGF.EmitAnyExprToTemp(Arg);
+      argAddr = argRV.getAggregateAddr(); // must be alloca
+      argAlignment = CharUnits::fromQuantity(cast<AllocaInst>(argAddr)->getAlignment());
+      argLV = LValue::MakeAddr(argAddr, ParamTy, argAlignment, CGF.getContext());
+    } else {
+      argLV = CGF.EmitLValue(Arg);
+      if (argLV.isSimple())
+        argAddr = argLV.getAddress();
+      argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
+      argAlignment = argLV.getAlignment();
+    }
+    // After emit Arg, we must update the argList[i],
+    // otherwise we get double emit of the expression.
 
     // create temp Var
     VarDecl *tmpArg =
@@ -7067,15 +7109,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
     // Aggregate type will be indirect param convert to pointer type.
     // So don't update to ReferenceType, use RValue for it.
-    bool isAggregateType = (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
-      !hlsl::IsHLSLVecMatType(ParamTy);
-
     const DeclRefExpr *tmpRef = DeclRefExpr::Create(
         CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
         /*enclosing*/ false, tmpArg->getLocation(), ParamTy,
-        isAggregateType ? VK_RValue : VK_LValue);
+        (isAggregateType || isObject) ? VK_RValue : VK_LValue);
 
-    // update the arg
+    // must update the arg, since we did emit Arg, else we get double emit.
     argList[i] = tmpRef;
 
     // create alloc for the tmp arg
@@ -7090,7 +7129,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
 
-    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argLV.getAlignment(),
+    LValue tmpLV = LValue::MakeAddr(tmpArgAddr, ParamTy, argAlignment,
                                     CGF.getContext());
 
     // save for cast after call
@@ -7099,40 +7138,37 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       castArgList.emplace_back(argLV);
     }
 
-    bool isObject = dxilutil::IsHLSLObjectType(
-        tmpArgAddr->getType()->getPointerElementType());
-
     // cast before the call
     if (Param->isModifierIn() &&
         // Don't copy object
         !isObject) {
       QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
-      bool isAggregateTy = ParamTy->isAggregateType() && !IsHLSLVecMatType(ParamTy);
-      if (!isAggregateTy) {
+      if (!isAggregateType) {
         if (!IsHLSLMatType(ParamTy)) {
           RValue outRVal = CGF.EmitLoadOfLValue(argLV, SourceLocation());
           outVal = outRVal.getScalarVal();
         } else {
-          Value *argAddr = argLV.getAddress();
+          DXASSERT(argAddr, "should be RV or simple LV");
           outVal = EmitHLSLMatrixLoad(CGF, argAddr, ArgTy);
         }
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
-        if (dxilutil::IsHLSLMatrixType(ToTy)) {
+        if (HLMatrixType::isa(ToTy)) {
           Value *castVal = CGF.Builder.CreateBitCast(outVal, ToTy);
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
         }
         else {
-          Value *castVal = ConvertScalarOrVector(CGF, outVal, argLV.getType(), tmpLV.getType());
-          castVal = CGF.EmitToMemory(castVal, tmpLV.getType());
+          Value *castVal = ConvertScalarOrVector(CGF, outVal, argType, ParamTy);
+          castVal = CGF.EmitToMemory(castVal, ParamTy);
           CGF.Builder.CreateStore(castVal, tmpArgAddr);
         }
       } else {
+        DXASSERT(argAddr, "should be RV or simple LV");
         SmallVector<Value *, 4> idxList;
-        EmitHLSLAggregateCopy(CGF, argLV.getAddress(), tmpLV.getAddress(),
+        EmitHLSLAggregateCopy(CGF, argAddr, tmpArgAddr,
                               idxList, ArgTy, ParamTy,
-                              argLV.getAddress()->getType());
+                              argAddr->getType());
       }
     }
   }
@@ -7151,13 +7187,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
     
     Value *outVal = nullptr;
 
-    bool isAggrageteTy = ArgTy->isAggregateType();
-    isAggrageteTy &= !IsHLSLVecMatType(ArgTy);
+    bool isAggregateTy = hlsl::IsHLSLAggregateType(ArgTy);
 
     bool isObject = dxilutil::IsHLSLObjectType(
        tmpArgAddr->getType()->getPointerElementType());
     if (!isObject) {
-      if (!isAggrageteTy) {
+      if (!isAggregateTy) {
         if (!IsHLSLMatType(ParamTy))
           outVal = CGF.Builder.CreateLoad(tmpArgAddr);
         else
@@ -7188,7 +7223,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
           castVal = ConvertScalarOrVector(CGF,
             outVal, tmpLV.getType(), argLV.getType());
         }
-        if (!dxilutil::IsHLSLMatrixType(ToTy))
+        if (!HLMatrixType::isa(ToTy))
           CGF.EmitStoreThroughLValue(RValue::get(castVal), argLV);
         else {
           Value *destPtr = argLV.getAddress();

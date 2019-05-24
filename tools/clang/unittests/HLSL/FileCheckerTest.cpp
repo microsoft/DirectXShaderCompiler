@@ -16,6 +16,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <cctype>
 #include <cassert>
 #include <algorithm>
 #include "dxc/Support/WinIncludes.h"
@@ -29,6 +30,7 @@
 #include "DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/MD5.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -81,61 +83,69 @@ static std::vector<std::string> strtok(const std::string &value, const char *del
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
 
-void FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
+FileRunCommandResult FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSupport) {
+  if (0 == _stricmp(Command.c_str(), "%dxc")) {
+    return RunDxcHashTest(DllSupport);
+  }
+  else {
+    return FileRunCommandResult::Success();
+  }
+}
+
+FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   bool isFileCheck =
     0 == _stricmp(Command.c_str(), "FileCheck") ||
     0 == _stricmp(Command.c_str(), "%FileCheck");
   bool isXFail = 0 == _stricmp(Command.c_str(), "xfail");
+  bool consumeErrors = isFileCheck || isXFail;
 
-  // For now, propagate errors.
-  if (Prior && Prior->RunResult && !isFileCheck && !isXFail) {
-    StdErr = Prior->StdErr;
-    RunResult = Prior->RunResult;
-    return;
+  // Stop the pipeline if on errors unless the command can consume them.
+  if (Prior != nullptr && Prior->ExitCode && !consumeErrors) {
+    FileRunCommandResult result = *Prior;
+    result.AbortPipeline = true;
+    return result;
   }
 
   // We would add support for 'not' and 'llc' here.
   if (isFileCheck) {
-    RunFileChecker(Prior);
+    return RunFileChecker(Prior);
   }
   else if (isXFail) {
-    RunXFail(Prior);
+    return RunXFail(Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "tee")) {
-    RunTee(Prior);
+    return RunTee(Prior);
+  }
+  else if (0 == _stricmp(Command.c_str(), "%dxilver")) {
+    return RunDxilVer(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxc")) {
-    RunDxc(DllSupport, Prior);
+    return RunDxc(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxv")) {
-    RunDxv(DllSupport, Prior);
+    return RunDxv(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%opt")) {
-    RunOpt(DllSupport, Prior);
+    return RunOpt(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
-    RunD3DReflect(DllSupport, Prior);
+    return RunD3DReflect(DllSupport, Prior);
   }
   else {
-    RunResult = 1;
-    StdErr = "Unrecognized command ";
-    StdErr += Command;
+    FileRunCommandResult result {};
+    result.ExitCode = 1;
+    result.StdErr = "Unrecognized command ";
+    result.StdErr += Command;
+    return result;
   }
 }
 
-void FileRunCommandPart::RunFileChecker(const FileRunCommandPart *Prior) {
-  if (!Prior) {
-    StdErr = "Prior command required to generate stdin";
-    RunResult = 1;
-    return;
-  }
+FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResult *Prior) {
+  if (!Prior) return FileRunCommandResult::Error("Prior command required to generate stdin");
 
   FileCheckForTest t;
   t.CheckFilename = CW2A(CommandFileName, CP_UTF8);
-  if (Prior->RunResult)
-    t.InputForStdin = Prior->StdErr;
-  else
-    t.InputForStdin = Prior->StdOut;
+  t.InputForStdin = Prior->ExitCode ? Prior->StdErr : Prior->StdOut;
 
   // Parse command arguments
   static constexpr char checkPrefixStr[] = "-check-prefix=";
@@ -145,39 +155,30 @@ void FileRunCommandPart::RunFileChecker(const FileRunCommandPart *Prior) {
     else if (arg == "-input=stderr") t.InputForStdin = Prior->StdErr;
     else if (strstartswith(arg, checkPrefixStr))
       t.CheckPrefixes.emplace_back(arg.substr(sizeof(checkPrefixStr) - 1));
-    else {
-      StdErr = "Invalid argument";
-      RunResult = 1;
-      return;
-    }
+    else return FileRunCommandResult::Error("Invalid argument");
   }
-  if (!hasInputFilename) {
-    StdErr = "Missing input filename";
-    RunResult = 1;
-    return;
-  }
+  if (!hasInputFilename) return FileRunCommandResult::Error("Missing input filename");
 
+  FileRunCommandResult result {};
   // Run
-  RunResult = t.Run();
-
-  StdOut = t.test_outs;
-  StdErr = t.test_errs;
+  result.ExitCode = t.Run();
+  result.StdOut = t.test_outs;
+  result.StdErr = t.test_errs;
   // Capture the input as well.
-  if (RunResult != 0 && Prior != nullptr) {
-    StdErr += "\n<full input to FileCheck>\n";
-    StdErr += t.InputForStdin;
+  if (result.ExitCode != 0 && Prior != nullptr) {
+    result.StdErr += "\n<full input to FileCheck>\n";
+    result.StdErr += t.InputForStdin;
   }
+
+  return result;
 }
 
-void FileRunCommandPart::ReadOptsForDxc(hlsl::options::MainArgs &argStrings,
-                                        hlsl::options::DxcOpts &Opts) {
+FileRunCommandResult FileRunCommandPart::ReadOptsForDxc(
+    hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
-  if (inputPos == nullptr) {
-    StdErr = "Only supported pattern includes input file as argument";
-    RunResult = 1;
-    return;
-  }
+  if (inputPos == nullptr)
+    return FileRunCommandResult::Error("Only supported pattern includes input file as argument");
   args.erase(inputPos - args.c_str(), strlen("%s"));
 
   llvm::StringRef argsRef = args;
@@ -186,20 +187,188 @@ void FileRunCommandPart::ReadOptsForDxc(hlsl::options::MainArgs &argStrings,
   argStrings = hlsl::options::MainArgs(splitArgs);
   std::string errorString;
   llvm::raw_string_ostream errorStream(errorString);
-  RunResult = ReadDxcOpts(hlsl::options::getHlslOptTable(), /*flagsToInclude*/ 0,
+  int RunResult = ReadDxcOpts(hlsl::options::getHlslOptTable(), /*flagsToInclude*/ 0,
                           argStrings, Opts, errorStream);
   errorStream.flush();
-  if (RunResult) {
-    StdErr = errorString;
+  if (RunResult)
+    return FileRunCommandResult::Error(RunResult, errorString);
+
+  return FileRunCommandResult::Success("");
+}
+
+static HRESULT ReAssembleTo(dxc::DxcDllSupport &DllSupport, void *bitcode, UINT32 size, IDxcBlob **pBlob) {
+  CComPtr<IDxcAssembler> pAssembler;
+  CComPtr<IDxcLibrary> pLibrary;
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+  CComPtr<IDxcBlobEncoding> pInBlob;
+
+  IFT(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, size, 0, &pInBlob));
+  
+  CComPtr<IDxcOperationResult> pResult;
+  pAssembler->AssembleToContainer(pInBlob, &pResult);
+
+  HRESULT Result = 0;
+  IFT(pResult->GetStatus(&Result));
+  IFT(Result);
+
+  IFT(pResult->GetResult(pBlob));
+
+  return S_OK;
+}
+
+static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlob, IDxcBlob **pBitcodeBlob) {
+  CComPtr<IDxcContainerReflection> pReflection;
+  CComPtr<IDxcLibrary> pLibrary;
+  IFT(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+
+  IFT(pReflection->Load(pCompiledBlob));
+
+  UINT32 uIndex = 0;
+  IFT(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
+  CComPtr<IDxcBlob> pPart;
+  IFT(pReflection->GetPartContent(uIndex, &pPart));
+
+  auto header = (hlsl::DxilProgramHeader*)pPart->GetBufferPointer();
+  void *bitcode = (char *)&header->BitcodeHeader + header->BitcodeHeader.BitcodeOffset;
+  UINT32 bitcode_size = header->BitcodeHeader.BitcodeSize;
+
+  CComPtr<IDxcBlobEncoding> pBlob;
+  IFT(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, bitcode_size, 0, &pBlob));
+  *pBitcodeBlob = pBlob.Detach();
+
+  return S_OK;
+}
+
+static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash, std::string &output) {
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pCompiledBlob;
+  CComPtr<IDxcIncludeHandler> pIncludeHandler;
+
+  std::wstring entry =
+      Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+  std::wstring profile =
+      Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
+
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
+  IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
+  IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  IFT(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
+    flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
+
+  HRESULT resultStatus = 0;
+  IFT(pResult->GetStatus(&resultStatus));
+  if (SUCCEEDED(resultStatus)) {
+
+    IFT(pResult->GetResult(&pCompiledBlob));
+
+    CComPtr<IDxcContainerReflection> pReflection;
+    IFT(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+
+    // If failed to load here, it's likely some non-compile operation thing. Just fail the hash generation.
+    if (FAILED(pReflection->Load(pCompiledBlob)))
+      return E_FAIL;
+
+    CComPtr<IDxcBlob> pBitcodeBlob;
+    IFT(GetDxilBitcode(DllSupport, pCompiledBlob, &pBitcodeBlob));
+
+    CComPtr<IDxcBlob> pReassembledBlob;
+    IFT(ReAssembleTo(DllSupport, pBitcodeBlob->GetBufferPointer(), pBitcodeBlob->GetBufferSize(), &pReassembledBlob));
+
+    CComPtr<IDxcBlobEncoding> pDisassembly;
+    IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
+    output = BlobToUtf8(pDisassembly);
+
+    // For now, just has the disassembly. Once we fix the bitcode differences, we'll switch to that.
+    llvm::ArrayRef<uint8_t> Data((uint8_t *)pDisassembly->GetBufferPointer(), pDisassembly->GetBufferSize());
+    llvm::MD5 md5;
+    llvm::MD5::MD5Result md5Result;
+    md5.update(Data);
+    md5.final(md5Result);
+    md5.stringifyResult(md5Result, Hash);
+
+    return S_OK;
+  }
+  else {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    IFT(pResult->GetErrorBuffer(&pErrors));
+    const char *errors = (char *)pErrors->GetBufferPointer();
+    output = errors;
+    return resultStatus;
   }
 }
 
-void FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
+FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllSupport) {
+  hlsl::options::MainArgs args;
+  hlsl::options::DxcOpts opts;
+  ReadOptsForDxc(args, opts);
+
+  std::vector<std::wstring> argWStrings;
+  CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
+
+  // Extract the vanilla flags for the test (i.e. no debug or ast-dump)
+  std::vector<LPCWSTR> original_flags;
+  for (const std::wstring &a : argWStrings) {
+    if (a.find(L"ast-dump") != std::wstring::npos) continue;
+    if (a.find(L"Zi") != std::wstring::npos) continue;
+    original_flags.push_back(a.data());
+  }
+
+  std::string originalOutput;
+  llvm::SmallString<32> originalHash;
+  // If failed the original compilation, just pass the test. The original test was likely
+  // testing for failure.
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, original_flags, originalHash, originalOutput)))
+    return FileRunCommandResult::Success();
+
+  // Results of our compilations
+  llvm::SmallString<32> Hash1;
+  std::string Output0;
+  llvm::SmallString<32> Hash0;
+  std::string Output1;
+
+  // Fail if -Qstrip_reflect failed the compilation
+  std::vector<LPCWSTR> normal_flags = original_flags;
+  normal_flags.push_back(L"-Qstrip_reflect");
+  std::string StdErr;
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Output0))) {
+    StdErr += "Adding Qstrip_reflect failed compilation.";
+    StdErr += originalOutput;
+    StdErr += Output0;
+    return FileRunCommandResult::Error(StdErr);
+  }
+
+  // Fail if -Qstrip_reflect failed the compilation
+  std::vector<LPCWSTR> dbg_flags = original_flags;
+  dbg_flags.push_back(L"/Zi");
+  dbg_flags.push_back(L"-Qstrip_reflect");
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Output1))) {
+    return FileRunCommandResult::Error("Adding Qstrip_reflect and Zi failed compilation.");
+  }
+
+  if (Hash0 != Hash1) {
+    StdErr = "Hashes do not match between normal and debug!!!\n";
+    StdErr += Output0;
+    StdErr += Output1;
+    return FileRunCommandResult::Error(StdErr);
+  }
+
+  return FileRunCommandResult::Success();
+}
+
+FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
   hlsl::options::MainArgs args;
   hlsl::options::DxcOpts opts;
-  ReadOptsForDxc(args, opts);
+  FileRunCommandResult readOptsResult = ReadOptsForDxc(args, opts);
+  if (readOptsResult.ExitCode) return readOptsResult;
 
   std::wstring entry =
       Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
@@ -225,9 +394,6 @@ void FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCom
 
   HRESULT resultStatus;
 
-  if (RunResult)  // opt parsing already failed
-    return;
-
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
@@ -235,35 +401,36 @@ void FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCom
   IFT(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
                           flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
   IFT(pResult->GetStatus(&resultStatus));
+
+  FileRunCommandResult result = {};
   if (SUCCEEDED(resultStatus)) {
     IFT(pResult->GetResult(&pCompiledBlob));
     if (!opts.AstDump) {
       IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
-      StdOut = BlobToUtf8(pDisassembly);
+      result.StdOut = BlobToUtf8(pDisassembly);
     } else {
-      StdOut = BlobToUtf8(pCompiledBlob);
+      result.StdOut = BlobToUtf8(pCompiledBlob);
     }
     CComPtr<IDxcBlobEncoding> pStdErr;
     IFT(pResult->GetErrorBuffer(&pStdErr));
-    StdErr = BlobToUtf8(pStdErr);
-    RunResult = 0;
+    result.StdErr = BlobToUtf8(pStdErr);
+    result.ExitCode = 0;
   }
   else {
     IFT(pResult->GetErrorBuffer(&pDisassembly));
-    StdErr = BlobToUtf8(pDisassembly);
-    RunResult = resultStatus;
+    result.StdErr = BlobToUtf8(pDisassembly);
+    result.ExitCode = resultStatus;
   }
 
-  OpResult = pResult;
+  result.OpResult = pResult;
+  return result;
 }
 
-void FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
+FileRunCommandResult FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
   if (inputPos == nullptr) {
-    StdErr = "Only supported pattern includes input file as argument";
-    RunResult = 1;
-    return;
+    return FileRunCommandResult::Error("Only supported pattern includes input file as argument");
   }
   args.erase(inputPos - args.c_str(), strlen("%s"));
 
@@ -290,9 +457,7 @@ void FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCom
   if (FAILED(resultStatus)) {
     CComPtr<IDxcBlobEncoding> pAssembleBlob;
     IFT(pResult->GetErrorBuffer(&pAssembleBlob));
-    StdErr = BlobToUtf8(pAssembleBlob);
-    RunResult = resultStatus;
-    return;
+    return FileRunCommandResult::Error(resultStatus, BlobToUtf8(pAssembleBlob));
   }
   IFT(pResult->GetResult(&pContainerBlob));
 
@@ -301,22 +466,22 @@ void FileRunCommandPart::RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCom
   IFT(pValidator->Validate(pContainerBlob, DxcValidatorFlags_InPlaceEdit,
                             &pValidationResult));
   IFT(pValidationResult->GetStatus(&resultStatus));
-  if (resultStatus) {
+
+  if (FAILED(resultStatus)) {
     CComPtr<IDxcBlobEncoding> pValidateBlob;
     IFT(pValidationResult->GetErrorBuffer(&pValidateBlob));
-    StdOut = BlobToUtf8(pValidateBlob);
+    return FileRunCommandResult::Success(BlobToUtf8(pValidateBlob));
   }
-  RunResult = 0;
+
+  return FileRunCommandResult::Success("");
 }
 
-void FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
+FileRunCommandResult FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
   if (inputPos == nullptr && Prior == nullptr) {
-    StdErr = "Only supported patterns are input file as argument or prior "
-              "command with disassembly";
-    RunResult = 1;
-    return;
+    return FileRunCommandResult::Error("Only supported patterns are input file as argument or prior "
+      "command with disassembly");
   }
 
   CComPtr<IDxcLibrary> pLibrary;
@@ -358,22 +523,15 @@ void FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCom
 
   IFT(pOptimizer->RunOptimizer(pSource, options.data(), options.size(),
                                 &pOutputModule, &pOutputText));
-  StdOut = BlobToUtf8(pOutputText);
-  RunResult = 0;
+  return FileRunCommandResult::Success(BlobToUtf8(pOutputText));
 }
 
-void FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandPart *Prior) {
+FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
-  if (args != "%s") {
-    StdErr = "Only supported pattern is a plain input file";
-    RunResult = 1;
-    return;
-  }
-  if (!Prior) {
-    StdErr = "Prior command required to generate stdin";
-    RunResult = 1;
-    return;
-  }
+  if (args != "%s")
+    return FileRunCommandResult::Error("Only supported pattern is a plain input file");
+  if (!Prior)
+    return FileRunCommandResult::Error("Prior command required to generate stdin");
 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -401,9 +559,7 @@ void FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const Fil
   if (FAILED(resultStatus)) {
     CComPtr<IDxcBlobEncoding> pAssembleBlob;
     IFT(pResult->GetErrorBuffer(&pAssembleBlob));
-    StdErr = BlobToUtf8(pAssembleBlob);
-    RunResult = resultStatus;
-    return;
+    return FileRunCommandResult::Error(resultStatus, BlobToUtf8(pAssembleBlob));
   }
   IFT(pResult->GetResult(&pContainerBlob));
 
@@ -431,9 +587,7 @@ void FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const Fil
   }
 
   if (!blobFound) {
-    StdErr = "Unable to find DXIL part";
-    RunResult = 1;
-    return;
+    return FileRunCommandResult::Error("Unable to find DXIL part");
   } else if (pShaderReflection) {
     dumper.Dump(pShaderReflection);
   } else if (pLibraryReflection) {
@@ -441,15 +595,13 @@ void FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const Fil
   }
 
   ss.flush();
-  StdOut = ss.str();
-  RunResult = 0;
+
+  return FileRunCommandResult::Success(ss.str());
 }
 
-void FileRunCommandPart::RunTee(const FileRunCommandPart *Prior) {
+FileRunCommandResult FileRunCommandPart::RunTee(const FileRunCommandResult *Prior) {
   if (Prior == nullptr) {
-    StdErr = "tee requires a prior command";
-    RunResult = 1;
-    return;
+    return FileRunCommandResult::Error("tee requires a prior command");
   }
 
   // Ignore commands for now - simply log out through test framework.
@@ -463,45 +615,104 @@ void FileRunCommandPart::RunTee(const FileRunCommandPart *Prior) {
     WEX::Logging::Log::Comment(errWide.m_psz);
   }
 
-  StdErr = Prior->StdErr;
-  StdOut = Prior->StdOut;
-  RunResult = Prior->RunResult;
+  return *Prior;
 }
 
-void FileRunCommandPart::RunXFail(const FileRunCommandPart *Prior) {
-  if (Prior == nullptr) {
-    StdErr = "XFail requires a prior command";
-    RunResult = 1;
-    return;
+FileRunCommandResult FileRunCommandPart::RunXFail(const FileRunCommandResult *Prior) {
+  if (Prior == nullptr)
+    return FileRunCommandResult::Error("XFail requires a prior command");
+
+  if (Prior->ExitCode == 0) {
+    return FileRunCommandResult::Error("XFail expected a failure from previous command");
+  } else {
+    return FileRunCommandResult::Success("");
+  }
+}
+
+FileRunCommandResult FileRunCommandPart::RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior) {
+  Arguments = strtrim(Arguments);
+  if (Arguments.size() != 3 || !std::isdigit(Arguments[0]) || Arguments[1] != '.' || !std::isdigit(Arguments[2])) {
+    return FileRunCommandResult::Error("Invalid dxil version format");
   }
 
-  if (Prior->RunResult == 0) {
-    StdErr = "XFail expected a failure from previous command";
-    RunResult = 1;
-  } else {
-    RunResult = 0;
+  unsigned RequiredDxilMajor = Arguments[0] - '0';
+  unsigned RequiredDxilMinor = Arguments[2] - '0';
+  bool Supported = RequiredDxilMajor >= 1;
+  CComPtr<IDxcCompiler> pCompiler;
+
+  // If the following fails, we have Dxil 1.0 compiler
+  if (SUCCEEDED(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler))) {
+    CComPtr<IDxcVersionInfo> pVersionInfo;
+    IFT(pCompiler.QueryInterface(&pVersionInfo));
+    unsigned DxilMajor, DxilMinor;
+    IFT(pVersionInfo->GetVersion(&DxilMajor, &DxilMinor));
+    if (DxilMajor < RequiredDxilMajor || (DxilMajor == RequiredDxilMajor && DxilMinor < RequiredDxilMinor))
+      Supported = false;
   }
+
+  CComPtr<IDxcValidator> pValidator;
+  if (SUCCEEDED(DllSupport.CreateInstance(CLSID_DxcValidator, &pValidator))) {
+    CComPtr<IDxcVersionInfo> pVersionInfo;
+    IFT(pValidator.QueryInterface(&pVersionInfo));
+    unsigned DxilMajor, DxilMinor;
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&DxilMajor, &DxilMinor));
+    if (DxilMajor < RequiredDxilMajor || (DxilMajor == RequiredDxilMajor && DxilMinor < RequiredDxilMinor))
+      Supported = false;
+  }
+
+  if (!Supported) {
+    FileRunCommandResult result {};
+    result.StdErr = "Skipping test due to unsupported dxil version";
+    result.ExitCode = 0; // Succeed the test
+    result.AbortPipeline = true;
+    return result;
+  }
+
+  return FileRunCommandResult::Success();
 }
 
 class FileRunTestResultImpl : public FileRunTestResult {
   dxc::DxcDllSupport &m_support;
 
+  void RunHashTestFromCommands(LPCSTR commands, LPCWSTR fileName) {
+    std::vector<FileRunCommandPart> parts;
+    ParseCommandParts(commands, fileName, parts);
+    FileRunCommandResult result;
+    bool ran = false;
+    for (FileRunCommandPart & part : parts) {
+      result = part.RunHashTests(m_support);
+      ran = true;
+      break;
+    }
+    if (ran) {
+      this->RunResult = result.ExitCode;
+      this->ErrorMessage = result.StdErr;
+    }
+    else {
+      this->RunResult = 0;
+    }
+  }
+
   void RunFileCheckFromCommands(LPCSTR commands, LPCWSTR fileName) {
     std::vector<FileRunCommandPart> parts;
     ParseCommandParts(commands, fileName, parts);
-    FileRunCommandPart *prior = nullptr;
-    for (FileRunCommandPart & part : parts) {
-      part.Run(m_support, prior);
-      prior = &part;
-    }
-    if (prior == nullptr) {
+
+    if (parts.empty()) {
       this->RunResult = 1;
       this->ErrorMessage = "FileCheck found no commands to run";
+      return;
     }
-    else {
-      this->RunResult = prior->RunResult;
-      this->ErrorMessage = prior->StdErr;
+    
+    FileRunCommandResult result;
+    FileRunCommandResult* previousResult = nullptr;
+    for (FileRunCommandPart & part : parts) {
+      result = part.Run(m_support, previousResult);
+      previousResult = &result;
+      if (result.AbortPipeline) break;
     }
+
+    this->RunResult = result.ExitCode;
+    this->ErrorMessage = result.StdErr;
   }
 
 public:
@@ -511,7 +722,21 @@ public:
     std::string commands(GetFirstLine(fileName));
     return RunFileCheckFromCommands(commands.c_str(), fileName);
   }
+
+  void RunHashTestFromFileCommands(LPCWSTR fileName) {
+    // Assume UTF-8 files.
+    std::string commands(GetFirstLine(fileName));
+    return RunHashTestFromCommands(commands.c_str(), fileName);
+  }
 };
+
+FileRunTestResult FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileName) {
+  dxc::DxcDllSupport dllSupport;
+  IFT(dllSupport.Initialize());
+  FileRunTestResultImpl result(dllSupport);
+  result.RunHashTestFromFileCommands(fileName);
+  return result;
+}
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName) {
   dxc::DxcDllSupport dllSupport;

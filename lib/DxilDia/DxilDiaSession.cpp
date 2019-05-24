@@ -11,18 +11,24 @@
 
 #include "DxilDiaSession.h"
 
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/PassRegistry.h"
 
 #include "DxilDia.h"
 #include "DxilDiaEnumTables.h"
 #include "DxilDiaTable.h"
 #include "DxilDiaTableInjectedSources.h"
 #include "DxilDiaTableLineNumbers.h"
+#include "DxilDiaTableSourceFiles.h"
+#include "DxilDiaTableSymbols.h"
 
 void dxil_dia::Session::Init(
     std::shared_ptr<llvm::LLVMContext> context,
@@ -33,6 +39,11 @@ void dxil_dia::Session::Init(
   m_context = context;
   m_finder = finder;
   m_dxilModule = std::make_unique<hlsl::DxilModule>(module.get());
+
+  llvm::legacy::PassManager PM;
+  llvm::initializeDxilAnnotateWithVirtualRegisterPass(*llvm::PassRegistry::getPassRegistry());
+  PM.add(llvm::createDxilAnnotateWithVirtualRegisterPass());
+  PM.run(*m_module);
 
   // Extract HLSL metadata.
   m_dxilModule->LoadDxilMetadata();
@@ -59,30 +70,35 @@ void dxil_dia::Session::Init(
     m_arguments = m_module->getNamedMetadata("llvm.dbg.args");
 
   // Build up a linear list of instructions. The index will be used as the
-  // RVA. Debug instructions are ommitted from this enumeration.
-  for (const llvm::Function &fn : m_module->functions()) {
-    for (llvm::const_inst_iterator it = inst_begin(fn), end = inst_end(fn); it != end; ++it) {
-      const llvm::Instruction &i = *it;
-      if (const auto *call = llvm::dyn_cast<const llvm::CallInst>(&i)) {
-        const llvm::Function *pFn = call->getCalledFunction();
-        if (pFn && pFn->getName().startswith("llvm.dbg.")) {
-          continue;
-        }
+  // RVA.
+  for (llvm::Function &fn : m_module->functions()) {
+    for (llvm::inst_iterator it = inst_begin(fn), end = inst_end(fn); it != end; ++it) {
+      llvm::Instruction &i = *it;
+      RVA rva;
+      if (!pix_dxil::PixDxilInstNum::FromInst(&i, &rva)) {
+        continue;
       }
-
-      m_rvaMap.insert({ &i, static_cast<RVA>(m_instructions.size()) });
-      m_instructions.push_back(&i);
-      if (i.getDebugLoc()) {
+      m_rvaMap.insert({ &i, rva });
+      m_instructions.insert({ rva, &i});
+      if (llvm::DebugLoc DL = i.getDebugLoc()) {
+        auto result = m_lineToInfoMap.emplace(DL.getLine(), LineInfo(DL.getCol(), rva, rva + 1));
+        if (!result.second) {
+          result.first->second.StartCol = std::min(result.first->second.StartCol, DL.getCol());
+          result.first->second.Last = rva + 1;
+        }
         m_instructionLines.push_back(&i);
       }
     }
   }
 
   // Sanity check to make sure rva map is same as instruction index.
-  for (size_t i = 0, e = m_instructions.size(); i < e; ++i) {
-    DXASSERT(m_rvaMap.find(m_instructions[i]) != m_rvaMap.end(), "instruction not mapped to rva");
-    DXASSERT(m_rvaMap[m_instructions[i]] == i, "instruction mapped to wrong rva");
+  for (auto It = m_instructions.begin(); It != m_instructions.end(); ++It) {
+    DXASSERT(m_rvaMap.find(It->second) != m_rvaMap.end(), "instruction not mapped to rva");
+    DXASSERT(m_rvaMap[It->second] == It->first, "instruction mapped to wrong rva");
   }
+
+  // Initialize symbols
+  m_symsMgr.Init(this);
 }
 
 HRESULT dxil_dia::Session::getSourceFileIdByName(
@@ -106,6 +122,21 @@ HRESULT dxil_dia::Session::getSourceFileIdByName(
 STDMETHODIMP dxil_dia::Session::get_loadAddress(
     /* [retval][out] */ ULONGLONG *pRetVal) {
   *pRetVal = 0;
+  return S_OK;
+}
+
+STDMETHODIMP dxil_dia::Session::get_globalScope(
+  /* [retval][out] */ IDiaSymbol **pRetVal) {
+  DxcThreadMalloc TM(m_pMalloc);
+
+  if (pRetVal == nullptr) {
+    return E_INVALIDARG;
+  }
+  *pRetVal = nullptr;
+
+  Symbol *ret;
+  IFR(m_symsMgr.GetGlobalScope(&ret));
+  *pRetVal = ret;
   return S_OK;
 }
 
@@ -136,6 +167,57 @@ STDMETHODIMP dxil_dia::Session::findFileById(
   return pElt->QueryInterface(ppResult);
 }
 
+STDMETHODIMP dxil_dia::Session::findFile(
+    /* [in] */ IDiaSymbol *pCompiland,
+    /* [in] */ LPCOLESTR name,
+    /* [in] */ DWORD compareFlags,
+    /* [out] */ IDiaEnumSourceFiles **ppResult) {
+    if (!m_pEnumTables) {
+        return E_INVALIDARG;
+    }
+    
+    // TODO: properly support compareFlags.
+    auto namecmp = &_wcsicmp;
+    if (compareFlags & nsCaseSensitive) {
+        namecmp = &wcscmp;
+    }
+
+    DxcThreadMalloc TM(m_pMalloc);
+    CComPtr<IDiaTable> pTable;
+    VARIANT vtIndex;
+    vtIndex.vt = VT_UI4;
+    vtIndex.uintVal = (int)Table::Kind::SourceFiles;
+    IFR(m_pEnumTables->Item(vtIndex, &pTable));
+
+    CComPtr<IDiaEnumSourceFiles> pSourceTable;
+    IFR(pTable->QueryInterface(&pSourceTable));
+    HRESULT hr;
+    CComPtr<IDiaSourceFile> src;
+    ULONG cnt;
+    std::vector<CComPtr<IDiaSourceFile>> sources;
+
+    pSourceTable->Reset();
+    while (SUCCEEDED(hr = pSourceTable->Next(1, &src, &cnt)) && hr == S_OK && cnt == 1) {
+        CComBSTR currName;
+        IFR(src->get_fileName(&currName));
+        if (namecmp(name, currName) == 0) {
+            sources.emplace_back(src);
+        }
+        src.Release();
+    }
+
+    *ppResult = CreateOnMalloc<SourceFilesTable>(
+        GetMallocNoRef(),
+        this,
+        std::move(sources));
+
+    if (*ppResult == nullptr) {
+        return E_OUTOFMEMORY;
+    }
+    (*ppResult)->AddRef();
+    return S_OK;
+}
+
 namespace dxil_dia {
 static HRESULT DxcDiaFindLineNumbersByRVA(
   Session *pSession,
@@ -147,15 +229,16 @@ static HRESULT DxcDiaFindLineNumbersByRVA(
     return E_POINTER;
 
   std::vector<const llvm::Instruction*> instructions;
-  const std::vector<const llvm::Instruction*> &allInstructions = pSession->InstructionsRef();
+  auto &allInstructions = pSession->InstructionsRef();
 
   // Gather the list of insructions that map to the given rva range.
   for (DWORD i = rva; i < rva + length; ++i) {
-    if (i >= allInstructions.size())
+    auto It = allInstructions.find(i);
+    if (It == allInstructions.end())
       return E_INVALIDARG;
 
     // Only include the instruction if it has debug info for line mappings.
-    const llvm::Instruction *inst = allInstructions[i];
+    const llvm::Instruction *inst = It->second;
     if (inst->getDebugLoc())
       instructions.push_back(inst);
   }
@@ -187,6 +270,80 @@ STDMETHODIMP dxil_dia::Session::findLinesByRVA(
   return DxcDiaFindLineNumbersByRVA(this, rva, length, ppResult);
 }
 
+STDMETHODIMP dxil_dia::Session::findInlineeLinesByAddr(
+  /* [in] */ IDiaSymbol *parent,
+  /* [in] */ DWORD isect,
+  /* [in] */ DWORD offset,
+  /* [in] */ DWORD length,
+  /* [out] */ IDiaEnumLineNumbers **ppResult) {
+  DxcThreadMalloc TM(m_pMalloc);
+  return DxcDiaFindLineNumbersByRVA(this, offset, length, ppResult);
+}
+
+STDMETHODIMP dxil_dia::Session::findLinesByLinenum(
+  /* [in] */ IDiaSymbol *compiland,
+  /* [in] */ IDiaSourceFile *file,
+  /* [in] */ DWORD linenum,
+  /* [in] */ DWORD column,
+  /* [out] */ IDiaEnumLineNumbers **ppResult) {
+    if (!m_pEnumTables) {
+        return E_INVALIDARG;
+    }
+    *ppResult = nullptr;
+
+    DxcThreadMalloc TM(m_pMalloc);
+    CComPtr<IDiaTable> pTable;
+    VARIANT vtIndex;
+    vtIndex.vt = VT_UI4;
+    vtIndex.uintVal = (int)Table::Kind::LineNumbers;
+    IFR(m_pEnumTables->Item(vtIndex, &pTable));
+
+    CComPtr<IDiaEnumLineNumbers> pLineTable;
+    IFR(pTable->QueryInterface(&pLineTable));
+    HRESULT hr;
+    CComPtr<IDiaLineNumber> line;
+    ULONG cnt;
+    std::vector<const llvm::Instruction *> lines;
+
+    std::function<bool(DWORD, DWORD)>column_matches = [column](DWORD colStart, DWORD colEnd) -> bool {
+        return true;
+    };
+
+    if (column != 0) {
+        column_matches = [column](DWORD colStart, DWORD colEnd) -> bool {
+            return colStart < column && column < colEnd;
+        };
+    }
+
+    pLineTable->Reset();
+    while (SUCCEEDED(hr = pLineTable->Next(1, &line, &cnt)) && hr == S_OK && cnt == 1) {
+        CComPtr<IDiaSourceFile> f;
+        DWORD ln, lnEnd, cn, cnEnd;
+        IFR(line->get_lineNumber(&ln));
+        IFR(line->get_lineNumberEnd(&lnEnd));
+        IFR(line->get_columnNumber(&cn));
+        IFR(line->get_columnNumberEnd(&cnEnd));
+        IFR(line->get_sourceFile(&f));
+        
+        if (file == f && (ln <= linenum && linenum <= lnEnd) && column_matches(cn, cnEnd)) {
+            lines.emplace_back(reinterpret_cast<LineNumber*>(line.p)->Inst());
+        }
+        line.Release();
+    }
+
+    HRESULT result = lines.empty() ? S_FALSE : S_OK;
+    *ppResult = CreateOnMalloc<LineNumbersTable>(
+        GetMallocNoRef(),
+        this,
+        std::move(lines));
+
+    if (*ppResult == nullptr) {
+        return E_OUTOFMEMORY;
+    }
+    (*ppResult)->AddRef();
+    return result;
+}
+
 STDMETHODIMP dxil_dia::Session::findInjectedSource(
   /* [in] */ LPCOLESTR srcFile,
   /* [out] */ IDiaEnumInjectedSources **ppResult) {
@@ -202,4 +359,30 @@ STDMETHODIMP dxil_dia::Session::findInjectedSource(
     return S_OK;
   }
   return S_FALSE;
+}
+
+static constexpr DWORD kD3DCodeSection = 1;
+STDMETHODIMP dxil_dia::Session::findInlineFramesByAddr(
+  /* [in] */ IDiaSymbol *parent,
+  /* [in] */ DWORD isect,
+  /* [in] */ DWORD offset,
+  /* [out] */ IDiaEnumSymbols **ppResult) {
+  if (parent != nullptr || isect != kD3DCodeSection || ppResult == nullptr) {
+    return E_INVALIDARG;
+  }
+  *ppResult = nullptr;
+
+  DxcThreadMalloc TM(m_pMalloc);
+  auto &allInstructions = InstructionsRef();
+  auto It = allInstructions.find(offset);
+  if (It == allInstructions.end()) {
+    return E_INVALIDARG;
+  }
+
+  HRESULT hr;
+  SymbolChildrenEnumerator *ChildrenEnum;
+  IFR(hr = m_symsMgr.DbgScopeOf(It->second, &ChildrenEnum));
+
+  *ppResult = ChildrenEnum;
+  return hr;
 }

@@ -525,7 +525,7 @@ public:
     for (const auto &I : LayoutInfo) {
       StructLayout *Value = I.second;
       Value->~StructLayout();
-      free(Value);
+      ::operator delete(Value); // HLSL Change: Use overridable operator delete
     }
   }
 
@@ -560,7 +560,7 @@ const StructLayout *DataLayout::getStructLayout(StructType *Ty) const {
   // malloc it, then use placement new.
   int NumElts = Ty->getNumElements();
   StructLayout *L =
-    (StructLayout *)malloc(sizeof(StructLayout)+(NumElts-1) * sizeof(uint64_t));
+    (StructLayout *)::operator new(sizeof(StructLayout)+(NumElts-1) * sizeof(uint64_t)); // HLSL Change: Use overridable operator new
 
   // Set SL before calling StructLayout's ctor.  The ctor could cause other
   // entries to be added to TheMap, invalidating our reference.

@@ -2,10 +2,9 @@
 
 // CHECK: flattenedThreadIdInGroup
 // CHECK: bufferLoad
+// CHECK: br i1
 // CHECK: bufferStore
-// note that the following checks might fail on release builds, as they rely on basic block names being preserved
-// CHECK: if.then
-// CHECK: if.end
+// CHECK: br label
 
 //
 // Copyright (c) Microsoft. All rights reserved.

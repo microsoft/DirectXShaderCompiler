@@ -1182,40 +1182,47 @@ static void AddDIGlobalVariable(DIBuilder &Builder, DIGlobalVariable *LocDIGV,
       LocDIGV->getScope(), Name, GV->getName(), LocDIGV->getFile(),
       LocDIGV->getLine(), DITy, false, GV);
 
-  DICompileUnit *DICU = dyn_cast<DICompileUnit>(LocDIGV->getScope());
-  if (!DICU) {
-    DISubprogram *DIS = dyn_cast<DISubprogram>(LocDIGV->getScope());
-    if (DIS) {
-      // Find the DICU which has this Subprogram.
-      NamedMDNode *CompileUnits = GV->getParent()->getNamedMetadata("llvm.dbg.cu");
-      DXASSERT_NOMSG(CompileUnits);
-      for (unsigned I = 0, E = CompileUnits->getNumOperands(); I != E; ++I) {
-        auto *CU = cast<DICompileUnit>(CompileUnits->getOperand(I));
-        DXASSERT(CU , "Expected valid compile unit");
-
-        for (DISubprogram *SP : CU->getSubprograms()) {
-          if (SP == DIS) {
-            DICU = CU;
-            break;
-          }
-        }
-      }
-    }
+  DICompileUnit *DICU = nullptr;
+  std::vector<Metadata *> AllGVs;
+  std::vector<Metadata *>::iterator locIt;
+  for (auto itDICU : DbgInfoFinder.compile_units()) {
+    MDTuple *GTuple = cast_or_null<MDTuple>(itDICU->getRawGlobalVariables());
+    if (!GTuple)
+      continue;
+    AllGVs.assign(GTuple->operands().begin(), GTuple->operands().end());
+    locIt = std::find(AllGVs.begin(), AllGVs.end(), LocDIGV);
+    if (locIt == AllGVs.end())
+      continue;
+    DICU = itDICU;
+    break;
   }
   DXASSERT_NOMSG(DICU);
+  if (!DICU)
+    return;
+
   // Add global to CU.
-  auto *GlobalVariables = DICU->getRawGlobalVariables();
-  DXASSERT_NOMSG(GlobalVariables);
-  MDTuple *GTuple = cast<MDTuple>(GlobalVariables);
-  std::vector<Metadata *> AllGVs(GTuple->operands().begin(),
-                                 GTuple->operands().end());
   if (removeLocDIGV) {
-    auto locIt = std::find(AllGVs.begin(), AllGVs.end(), LocDIGV);
     AllGVs.erase(locIt);
   }
   AllGVs.emplace_back(EltDIGV);
   DICU->replaceGlobalVariables(MDTuple::get(GV->getContext(), AllGVs));
   DXVERIFY_NOMSG(DbgInfoFinder.appendGlobalVariable(EltDIGV));
+}
+
+static unsigned GetCompositeTypeSize(DIType *Ty) {
+  DICompositeType *StructTy = nullptr;
+  DITypeIdentifierMap EmptyMap;
+
+  if (DIDerivedType *DerivedTy = dyn_cast<DIDerivedType>(Ty)) {
+    DXASSERT_NOMSG(DerivedTy->getTag() == dwarf::DW_TAG_const_type || DerivedTy->getTag() == dwarf::DW_TAG_typedef);
+    DIType *BaseTy = DerivedTy->getBaseType().resolve(EmptyMap);
+    return GetCompositeTypeSize(BaseTy);
+  }
+  else {
+    StructTy = cast<DICompositeType>(Ty);
+  }
+
+  return StructTy->getSizeInBits();
 }
 
 void HLModule::CreateElementGlobalVariableDebugInfo(
@@ -1229,6 +1236,14 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
 
   DIType *DITy = DIGV->getType().resolve(EmptyMap);
   DIScope *DITyScope = DITy->getScope().resolve(EmptyMap);
+
+  // If element size is greater than base size make sure we're dealing with an empty struct.
+  unsigned compositeSize = GetCompositeTypeSize(DITy);
+  if (sizeInBits > compositeSize) {
+    DXASSERT_NOMSG(offsetInBits == 0 && compositeSize == 8);
+    sizeInBits = compositeSize;
+  }
+
   // Create Elt type.
   DIType *EltDITy =
       Builder.createMemberType(DITyScope, DITy->getName().str() + eltName.str(),

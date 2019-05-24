@@ -63,9 +63,13 @@
 // Certain $match situations are aliased for readability
 // and conciseness.
 //
-//   $unspec - This equates to $match<-1, 0> void and is
+//   $classT - This equates to $match<-1, 0> void and is
 //             used for method return types that are set from
 //             the object template type.
+//
+//   $funcT  - This equates to $match<-3, 0> void and is
+//             used for method return types that are set from
+//             the function template type.
 //
 //   $typeN - This equates to $match<N, N> <argtypeN> and is
 //            shorthand for a direct match of another type.
@@ -327,31 +331,31 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 levels) : res
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width) : resinfo_o;
 void [[]] GetDimensions(out float_like width) : resinfo_o;
-$unspec [[ro]] Load(in int<2> x) : tex1d_t_load;
-$unspec [[ro]] Load(in int<2> x, in int<1> o) : tex1d_t_load_o;
-$unspec [[]] Load(in int<2> x, in int<1> o, out uint_only status) : tex1d_t_load_o_s;
-$unspec [[ro]] Sample(in sampler s, in float<1> x) : tex1d_t;
-$unspec [[ro]] Sample(in sampler s, in float<1> x, in int<1> o) : tex1d_t_o;
-$unspec [[ro]] SampleBias(in sampler s, in float<1> x, in float bias) : tex1d_t_bias;
-$unspec [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o) : tex1d_t_bias_o;
+$classT [[ro]] Load(in int<2> x) : tex1d_t_load;
+$classT [[ro]] Load(in int<2> x, in int<1> o) : tex1d_t_load_o;
+$classT [[]] Load(in int<2> x, in int<1> o, out uint_only status) : tex1d_t_load_o_s;
+$classT [[ro]] Sample(in sampler s, in float<1> x) : tex1d_t;
+$classT [[ro]] Sample(in sampler s, in float<1> x, in int<1> o) : tex1d_t_o;
+$classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias) : tex1d_t_bias;
+$classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o) : tex1d_t_bias_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue) : tex1d_t_comp;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o) : tex1d_t_comp_o;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<1> x, in float compareValue) : tex1d_t_comp_lz;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o) : tex1d_t_comp_lz_o;
-$unspec [[ro]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy) : tex1d_t_dd;
-$unspec [[ro]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o) : tex1d_t_dd_o;
-$unspec [[ro]] SampleLevel(in sampler s, in float<1> x, in float lod) : tex1d_t_lod;
-$unspec [[ro]] SampleLevel(in sampler s, in float<1> x, in float lod, in int<1> o) : tex1d_t_lod_o;
-$unspec [[ro]] Sample(in sampler s, in float<1> x, in int<1> o, in float clamp) : tex1d_t_o_cl;
-$unspec [[]] Sample(in sampler s, in float<1> x, in int<1> o, in float clamp, out uint_only status) : tex1d_t_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy) : tex1d_t_dd;
+$classT [[ro]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o) : tex1d_t_dd_o;
+$classT [[ro]] SampleLevel(in sampler s, in float<1> x, in float lod) : tex1d_t_lod;
+$classT [[ro]] SampleLevel(in sampler s, in float<1> x, in float lod, in int<1> o) : tex1d_t_lod_o;
+$classT [[ro]] Sample(in sampler s, in float<1> x, in int<1> o, in float clamp) : tex1d_t_o_cl;
+$classT [[]] Sample(in sampler s, in float<1> x, in int<1> o, in float clamp, out uint_only status) : tex1d_t_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o, in float clamp) : tex1d_t_comp_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_o_cl_s;
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o, out uint_only status) : tex1d_t_comp_o_s;
-$unspec [[]] SampleLevel(in sampler s, in float<1> x, in float lod, in int<1> o, out uint_only status) : tex1d_t_lod_o_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_o_cl;
-$unspec [[]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_o_cl_s;
-$unspec [[]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp) : tex1d_t_dd_o_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<1> x, in float lod, in int<1> o, out uint_only status) : tex1d_t_lod_o_s;
+$classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_o_cl;
+$classT [[]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_o_cl_s;
+$classT [[]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp) : tex1d_t_dd_o_cl;
+$classT [[]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
 } namespace
 
 namespace Texture1DArrayMethods {
@@ -362,31 +366,31 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 elements, out
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 elements, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 elements) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 elements) : resinfo_o;
-$unspec [[ro]] Load(in int<3> x) : tex1d_t_load_array;
-$unspec [[ro]] Load(in int<3> x, in int<1> o) : tex1d_t_load_array_o;
-$unspec [[]] Load(in int<3> x, in int<1> o, out uint_only status) : tex1d_t_load_array_o_s;
-$unspec [[ro]] Sample(in sampler s, in float<2> x) : tex1d_t_array;
-$unspec [[ro]] Sample(in sampler s, in float<2> x, in int<1> o) : tex1d_t_array_o;
-$unspec [[ro]] SampleBias(in sampler s, in float<2> x, in float bias) : tex1d_t_bias_array;
-$unspec [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o) : tex1d_t_bias_array_o;
+$classT [[ro]] Load(in int<3> x) : tex1d_t_load_array;
+$classT [[ro]] Load(in int<3> x, in int<1> o) : tex1d_t_load_array_o;
+$classT [[]] Load(in int<3> x, in int<1> o, out uint_only status) : tex1d_t_load_array_o_s;
+$classT [[ro]] Sample(in sampler s, in float<2> x) : tex1d_t_array;
+$classT [[ro]] Sample(in sampler s, in float<2> x, in int<1> o) : tex1d_t_array_o;
+$classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias) : tex1d_t_bias_array;
+$classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o) : tex1d_t_bias_array_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue) : tex1d_t_comp_array;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o) : tex1d_t_comp_array_o;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue) : tex1d_t_comp_lz_array;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o) : tex1d_t_comp_lz_array_o;
-$unspec [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy) : tex1d_t_dd_array;
-$unspec [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o) : tex1d_t_dd_array_o;
-$unspec [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod) : tex1d_t_lod_array;
-$unspec [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<1> o) : tex1d_t_lod_array_o;
-$unspec [[ro]] Sample(in sampler s, in float<2> x, in int<1> o, in float clamp) : tex1d_t_array_o_cl;
-$unspec [[]] Sample(in sampler s, in float<2> x, in int<1> o, in float clamp, out uint_only status) : tex1d_t_array_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy) : tex1d_t_dd_array;
+$classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o) : tex1d_t_dd_array_o;
+$classT [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod) : tex1d_t_lod_array;
+$classT [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<1> o) : tex1d_t_lod_array_o;
+$classT [[ro]] Sample(in sampler s, in float<2> x, in int<1> o, in float clamp) : tex1d_t_array_o_cl;
+$classT [[]] Sample(in sampler s, in float<2> x, in int<1> o, in float clamp, out uint_only status) : tex1d_t_array_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o, in float clamp) : tex1d_t_comp_array_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_array_o_cl_s;
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o, out uint_only status) : tex1d_t_comp_array_o_s;
-$unspec [[]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<1> o, out uint_only status) : tex1d_t_lod_array_o_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_array_o_cl;
-$unspec [[]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_array_o_cl_s;
-$unspec [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp) : tex1d_t_dd_array_o_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_array_o_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<1> o, out uint_only status) : tex1d_t_lod_array_o_s;
+$classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_array_o_cl;
+$classT [[]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_array_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp) : tex1d_t_dd_array_o_cl;
+$classT [[]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_array_o_cl_s;
 } namespace
 
 namespace Texture2DMethods {
@@ -425,31 +429,31 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height) : resinfo_o;
-$unspec [[ro]] Load(in int<3> x) : tex2d_t_load;
-$unspec [[ro]] Load(in int<3> x, in int<2> o) : tex2d_t_load_o;
-$unspec [[]] Load(in int<3> x, in int<2> o, out uint_only status) : tex2d_t_load_o_s;
-$unspec [[ro]] Sample(in sampler s, in float<2> x) : tex2d_t;
-$unspec [[ro]] Sample(in sampler s, in float<2> x, in int<2> o) : tex2d_t_o;
-$unspec [[ro]] SampleBias(in sampler s, in float<2> x, in float bias) : tex2d_t_bias;
-$unspec [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o) : tex2d_t_bias_o;
+$classT [[ro]] Load(in int<3> x) : tex2d_t_load;
+$classT [[ro]] Load(in int<3> x, in int<2> o) : tex2d_t_load_o;
+$classT [[]] Load(in int<3> x, in int<2> o, out uint_only status) : tex2d_t_load_o_s;
+$classT [[ro]] Sample(in sampler s, in float<2> x) : tex2d_t;
+$classT [[ro]] Sample(in sampler s, in float<2> x, in int<2> o) : tex2d_t_o;
+$classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias) : tex2d_t_bias;
+$classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o) : tex2d_t_bias_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue) : tex2d_t_comp;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o) : tex2d_t_comp_o;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue) : tex2d_t_comp_lz;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o) : tex2d_t_comp_lz_o;
-$unspec [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy) : tex2d_t_dd;
-$unspec [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy, in int<2> o) : tex2d_t_dd_o;
-$unspec [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod) : tex2d_t_lod;
-$unspec [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<2> o) : tex2d_t_lod_o;
-$unspec [[ro]] Sample(in sampler s, in float<2> x, in int<2> o, in float clamp) : tex2d_t_o_cl;
-$unspec [[]] Sample(in sampler s, in float<2> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy) : tex2d_t_dd;
+$classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy, in int<2> o) : tex2d_t_dd_o;
+$classT [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod) : tex2d_t_lod;
+$classT [[ro]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<2> o) : tex2d_t_lod_o;
+$classT [[ro]] Sample(in sampler s, in float<2> x, in int<2> o, in float clamp) : tex2d_t_o_cl;
+$classT [[]] Sample(in sampler s, in float<2> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o, in float clamp) : tex2d_t_comp_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_o_cl_s;
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o, out uint_only status) : tex2d_t_comp_o_s;
-$unspec [[]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<2> o, out uint_only status) : tex2d_t_lod_o_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o, in float clamp) : tex2d_t_bias_o_cl;
-$unspec [[]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o, in float clamp, out uint_only status) : tex2d_t_bias_o_cl_s;
-$unspec [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy, in int<2> o, in float clamp) : tex2d_t_dd_o_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy, in int<2> o, in float clamp, out uint_only status) : tex2d_t_dd_o_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<2> o, out uint_only status) : tex2d_t_lod_o_s;
+$classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o, in float clamp) : tex2d_t_bias_o_cl;
+$classT [[]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o, in float clamp, out uint_only status) : tex2d_t_bias_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy, in int<2> o, in float clamp) : tex2d_t_dd_o_cl;
+$classT [[]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy, in int<2> o, in float clamp, out uint_only status) : tex2d_t_dd_o_cl_s;
 $match<0, -1> void<4> [[]] Gather(in sampler s, in float<2> x, in int<2> o, out uint_only status) : tex2d_t_gather_o_s;
 $match<0, -1> void<4> [[]] GatherRed(in sampler s, in float<2> x, in int<2> o, out uint_only status) : tex2d_t_gather_red_o_s;
 $match<0, -1> void<4> [[]] GatherRed(in sampler s, in float<2> x, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_red_o4_s;
@@ -477,9 +481,9 @@ namespace Texture2DMSMethods {
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type2 samples) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type2 samples) : resinfo_o;
 float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
-$unspec [[]] Load(in int<2> x, in int s) : texture2d_ms;
-$unspec [[]] Load(in int<2> x, in int s, in int<2> o) : texture2d_ms_o;
-$unspec [[]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
+$classT [[]] Load(in int<2> x, in int s) : texture2d_ms;
+$classT [[]] Load(in int<2> x, in int s, in int<2> o) : texture2d_ms_o;
+$classT [[]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
 
 } namespace
 
@@ -519,31 +523,31 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 elements, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements) : resinfo_o;
-$unspec [[ro]] Load(in int<4> x) : tex2d_t_load_array;
-$unspec [[ro]] Load(in int<4> x, in int<2> o) : tex2d_t_load_array_o;
-$unspec [[]] Load(in int<4> x, in int<2> o, out uint_only status) : tex2d_t_load_array_o_s;
-$unspec [[ro]] Sample(in sampler s, in float<3> x) : tex2d_t_array;
-$unspec [[ro]] Sample(in sampler s, in float<3> x, in int<2> o) : tex2d_t_array_o;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : tex2d_t_bias_array;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o) : tex2d_t_bias_array_o;
+$classT [[ro]] Load(in int<4> x) : tex2d_t_load_array;
+$classT [[ro]] Load(in int<4> x, in int<2> o) : tex2d_t_load_array_o;
+$classT [[]] Load(in int<4> x, in int<2> o, out uint_only status) : tex2d_t_load_array_o_s;
+$classT [[ro]] Sample(in sampler s, in float<3> x) : tex2d_t_array;
+$classT [[ro]] Sample(in sampler s, in float<3> x, in int<2> o) : tex2d_t_array_o;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : tex2d_t_bias_array;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o) : tex2d_t_bias_array_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue) : tex2d_t_comp_array;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o) : tex2d_t_comp_array_o;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue) : tex2d_t_comp_lz_array;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o) : tex2d_t_comp_lz_array_o;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy) : tex2d_t_dd_array;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o) : tex2d_t_dd_array_o;
-$unspec [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : tex2d_t_lod_array;
-$unspec [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<2> o) : tex2d_t_lod_array_o;
-$unspec [[ro]] Sample(in sampler s, in float<3> x, in int<2> o, in float clamp) : tex2d_t_array_o_cl;
-$unspec [[]] Sample(in sampler s, in float<3> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_array_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy) : tex2d_t_dd_array;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o) : tex2d_t_dd_array_o;
+$classT [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : tex2d_t_lod_array;
+$classT [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<2> o) : tex2d_t_lod_array_o;
+$classT [[ro]] Sample(in sampler s, in float<3> x, in int<2> o, in float clamp) : tex2d_t_array_o_cl;
+$classT [[]] Sample(in sampler s, in float<3> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_array_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o, in float clamp) : tex2d_t_comp_array_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_array_o_cl_s;
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o, out uint_only status) : tex2d_t_comp_array_o_s;
-$unspec [[]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<2> o, out uint_only status) : tex2d_t_lod_array_o_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o, in float clamp) : tex2d_t_bias_array_o_cl;
-$unspec [[]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o, in float clamp, out uint_only status) : tex2d_t_bias_array_o_cl_s;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o, in float clamp) : tex2d_t_dd_array_o_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o, in float clamp, out uint_only status) : tex2d_t_dd_array_o_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<2> o, out uint_only status) : tex2d_t_lod_array_o_s;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o, in float clamp) : tex2d_t_bias_array_o_cl;
+$classT [[]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o, in float clamp, out uint_only status) : tex2d_t_bias_array_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o, in float clamp) : tex2d_t_dd_array_o_cl;
+$classT [[]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy, in int<2> o, in float clamp, out uint_only status) : tex2d_t_dd_array_o_cl_s;
 $match<0, -1> void<4> [[]] Gather(in sampler s, in float<3> x, in int<2> o, out uint_only status) : tex2d_t_gather_array_o_s;
 $match<0, -1> void<4> [[]] GatherRed(in sampler s, in float<3> x, in int<2> o, out uint_only status) : tex2d_t_gather_red_array_o_s;
 $match<0, -1> void<4> [[]] GatherRed(in sampler s, in float<3> x, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_red_array_o4_s;
@@ -569,9 +573,9 @@ namespace Texture2DArrayMSMethods {
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements, out $type1 samples) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements, out $type1 samples) : resinfo_o;
 float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
-$unspec [[ro]] Load(in int<3> x, in int s) : texture2darray_ms;
-$unspec [[ro]] Load(in int<3> x, in int s, in int<2> o) : texture2darray_ms_o;
-$unspec [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
+$classT [[ro]] Load(in int<3> x, in int s) : texture2darray_ms;
+$classT [[ro]] Load(in int<3> x, in int s, in int<2> o) : texture2darray_ms_o;
+$classT [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
 
 } namespace
 
@@ -583,24 +587,24 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 depth) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 depth) : resinfo_o;
-$unspec [[ro]] Load(in int<4> x) : tex3d_t_load;
-$unspec [[ro]] Load(in int<4> x, in int<3> o) : tex3d_t_load_o;
-$unspec [[]] Load(in int<4> x, in int<3> o, out uint_only status) : tex3d_t_load_o_s;
-$unspec [[ro]] Sample(in sampler s, in float<3> x) : tex3d_t;
-$unspec [[ro]] Sample(in sampler s, in float<3> x, in int<3> o) : tex3d_t_o;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : tex3d_t_bias;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o) : tex3d_t_bias_o;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy) : tex3d_t_dd;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o) : tex3d_t_dd_o;
-$unspec [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : tex3d_t_lod;
-$unspec [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<3> o) : tex3d_t_lod_o;
-$unspec [[ro]] Sample(in sampler s, in float<3> x, in int<3> o, in float clamp) : tex3d_t_o_cl;
-$unspec [[]] Sample(in sampler s, in float<3> x, in int<3> o, in float clamp, out uint_only status) : tex3d_t_o_cl_s;
-$unspec [[]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<3> o, out uint_only status) : tex3d_t_lod_o_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o, in float clamp) : tex3d_t_bias_o_cl;
-$unspec [[]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o, in float clamp, out uint_only status) : tex3d_t_bias_o_cl_s;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o, in float clamp) : tex3d_t_dd_o_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o, in float clamp, out uint_only status) : tex3d_t_dd_o_cl_s;
+$classT [[ro]] Load(in int<4> x) : tex3d_t_load;
+$classT [[ro]] Load(in int<4> x, in int<3> o) : tex3d_t_load_o;
+$classT [[]] Load(in int<4> x, in int<3> o, out uint_only status) : tex3d_t_load_o_s;
+$classT [[ro]] Sample(in sampler s, in float<3> x) : tex3d_t;
+$classT [[ro]] Sample(in sampler s, in float<3> x, in int<3> o) : tex3d_t_o;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : tex3d_t_bias;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o) : tex3d_t_bias_o;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy) : tex3d_t_dd;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o) : tex3d_t_dd_o;
+$classT [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : tex3d_t_lod;
+$classT [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<3> o) : tex3d_t_lod_o;
+$classT [[ro]] Sample(in sampler s, in float<3> x, in int<3> o, in float clamp) : tex3d_t_o_cl;
+$classT [[]] Sample(in sampler s, in float<3> x, in int<3> o, in float clamp, out uint_only status) : tex3d_t_o_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<3> o, out uint_only status) : tex3d_t_lod_o_s;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o, in float clamp) : tex3d_t_bias_o_cl;
+$classT [[]] SampleBias(in sampler s, in float<3> x, in float bias, in int<3> o, in float clamp, out uint_only status) : tex3d_t_bias_o_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o, in float clamp) : tex3d_t_dd_o_cl;
+$classT [[]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in int<3> o, in float clamp, out uint_only status) : tex3d_t_dd_o_cl_s;
 } namespace
 
 namespace TextureCUBEMethods {
@@ -621,22 +625,22 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height) : resinfo_o;
-$unspec [[ro]] Sample(in sampler s, in float<3> x) : texcube_t;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : texcube_t_bias;
+$classT [[ro]] Sample(in sampler s, in float<3> x) : texcube_t;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : texcube_t_bias;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float c) : texcube_t_comp;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float c) : texcube_t_comp_lz;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy) : texcube_t_dd;
-$unspec [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : texcube_t_lod;
-$unspec [[ro]] Sample(in sampler s, in float<3> x, in float clamp) : texcube_t_cl;
-$unspec [[]] Sample(in sampler s, in float<3> x, in float clamp, out uint_only status) : texcube_t_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy) : texcube_t_dd;
+$classT [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : texcube_t_lod;
+$classT [[ro]] Sample(in sampler s, in float<3> x, in float clamp) : texcube_t_cl;
+$classT [[]] Sample(in sampler s, in float<3> x, in float clamp, out uint_only status) : texcube_t_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in float clamp) : texcube_t_comp_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_cl_s;
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue, out uint_only status) : texcube_t_comp_s;
-$unspec [[]] SampleLevel(in sampler s, in float<3> x, in float lod, out uint_only status) : texcube_t_lod_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in float clamp) : texcube_t_bias_cl;
-$unspec [[]] SampleBias(in sampler s, in float<3> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_cl_s;
-$unspec [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in float clamp) : texcube_t_dd_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in float clamp, out uint_only status) : texcube_t_dd_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<3> x, in float lod, out uint_only status) : texcube_t_lod_s;
+$classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in float clamp) : texcube_t_bias_cl;
+$classT [[]] SampleBias(in sampler s, in float<3> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in float clamp) : texcube_t_dd_cl;
+$classT [[]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy, in float clamp, out uint_only status) : texcube_t_dd_cl_s;
 $match<0, -1> void<4> [[]] Gather(in sampler s, in float<3> x, out uint_only status) : texcube_t_gather_s;
 $match<0, -1> void<4> [[]] GatherRed(in sampler s, in float<3> x, out uint_only status) : texcube_t_gather_red_s;
 $match<0, -1> void<4> [[]] GatherGreen(in sampler s, in float<3> x, out uint_only status) : texcube_t_gather_green_s;
@@ -667,22 +671,22 @@ void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 elements, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements) : resinfo_o;
-$unspec [[ro]] Sample(in sampler s, in float<4> x) : texcube_t_array;
-$unspec [[ro]] SampleBias(in sampler s, in float<4> x, in float bias) : texcube_t_bias_array;
+$classT [[ro]] Sample(in sampler s, in float<4> x) : texcube_t_array;
+$classT [[ro]] SampleBias(in sampler s, in float<4> x, in float bias) : texcube_t_bias_array;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<4> x, in float c) : texcube_t_comp_array;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<4> x, in float c) : texcube_t_comp_lz_array;
-$unspec [[ro]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy) : texcube_t_dd_array;
-$unspec [[ro]] SampleLevel(in sampler s, in float<4> x, in float lod) : texcube_t_lod_array;
-$unspec [[ro]] Sample(in sampler s, in float<4> x, in float clamp) : texcube_t_array_cl;
-$unspec [[]] Sample(in sampler s, in float<4> x, in float clamp, out uint_only status) : texcube_t_array_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy) : texcube_t_dd_array;
+$classT [[ro]] SampleLevel(in sampler s, in float<4> x, in float lod) : texcube_t_lod_array;
+$classT [[ro]] Sample(in sampler s, in float<4> x, in float clamp) : texcube_t_array_cl;
+$classT [[]] Sample(in sampler s, in float<4> x, in float clamp, out uint_only status) : texcube_t_array_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<4> x, in float compareValue, in float clamp) : texcube_t_comp_array_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<4> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_array_cl_s;
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
-$unspec [[]] SampleLevel(in sampler s, in float<4> x, in float lod, out uint_only status) : texcube_t_lod_array_s;
-$unspec [[ro]] SampleBias(in sampler s, in float<4> x, in float bias, in float clamp) : texcube_t_bias_array_cl;
-$unspec [[]] SampleBias(in sampler s, in float<4> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_array_cl_s;
-$unspec [[ro]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp) : texcube_t_dd_array_cl;
-$unspec [[]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp, out uint_only status) : texcube_t_dd_array_cl_s;
+$classT [[]] SampleLevel(in sampler s, in float<4> x, in float lod, out uint_only status) : texcube_t_lod_array_s;
+$classT [[ro]] SampleBias(in sampler s, in float<4> x, in float bias, in float clamp) : texcube_t_bias_array_cl;
+$classT [[]] SampleBias(in sampler s, in float<4> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_array_cl_s;
+$classT [[ro]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp) : texcube_t_dd_array_cl;
+$classT [[]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp, out uint_only status) : texcube_t_dd_array_cl_s;
 $match<0, -1> void<4> [[]] Gather(in sampler s, in float<4> x, out uint_only status) : texcube_t_gather_array_s;
 $match<0, -1> void<4> [[]] GatherRed(in sampler s, in float<4> x, out uint_only status) : texcube_t_gather_red_array_s;
 $match<0, -1> void<4> [[]] GatherGreen(in sampler s, in float<4> x, out uint_only status) : texcube_t_gather_green_array_s;
@@ -698,8 +702,8 @@ $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<4> x, in fl
 namespace BufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-$unspec [[ro]] Load(in int<1> x) : buffer_load;
-$unspec [[]] Load(in int<1> x, out uint_only status) : buffer_load_s;
+$classT [[ro]] Load(in int<1> x) : buffer_load;
+$classT [[]] Load(in int<1> x, out uint_only status) : buffer_load_s;
 
 } namespace
 
@@ -707,58 +711,58 @@ namespace RWTexture1DMethods {
 
 void [[]] GetDimensions(out uint_only width) : resinfo_o;
 void [[]] GetDimensions(out float_like width) : resinfo_o;
-$unspec [[ro]] Load(in int<1> x) : rwtex1d_load;
-$unspec [[]] Load(in int<1> x, out uint_only status) : rwtex1d_load_s;
+$classT [[ro]] Load(in int<1> x) : rwtex1d_load;
+$classT [[]] Load(in int<1> x, out uint_only status) : rwtex1d_load_s;
 } namespace
 
 namespace RWTexture1DArrayMethods {
 
 void [[]] GetDimensions(out uint_only width, out $type1 elements) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 elements) : resinfo_o;
-$unspec [[ro]] Load(in int<2> x) : rwtex1d_load_array;
-$unspec [[]] Load(in int<2> x, out uint_only status) : rwtex1d_load_array_s;
+$classT [[ro]] Load(in int<2> x) : rwtex1d_load_array;
+$classT [[]] Load(in int<2> x, out uint_only status) : rwtex1d_load_array_s;
 } namespace
 
 namespace RWTexture2DMethods {
 
 void [[]] GetDimensions(out uint_only width, out $type1 height) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height) : resinfo_o;
-$unspec [[ro]] Load(in int<2> x) : rwtex2d_load;
-$unspec [[]] Load(in int<2> x, out uint_only status) : rwtex2d_load_s;
+$classT [[ro]] Load(in int<2> x) : rwtex2d_load;
+$classT [[]] Load(in int<2> x, out uint_only status) : rwtex2d_load_s;
 } namespace
 
 namespace RWTexture2DArrayMethods {
 
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements) : resinfo_o;
-$unspec [[ro]] Load(in int<3> x) : rwtex2d_load_array;
-$unspec [[]] Load(in int<3> x, out uint_only status) : rwtex2d_load_array_s;
+$classT [[ro]] Load(in int<3> x) : rwtex2d_load_array;
+$classT [[]] Load(in int<3> x, out uint_only status) : rwtex2d_load_array_s;
 } namespace
 
 namespace RWTexture3DMethods {
 
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 depth) : resinfo_uint_o;
 void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 depth) : resinfo_o;
-$unspec [[ro]] Load(in int<3> x) : rwtex3d_load;
-$unspec [[]] Load(in int<3> x, out uint_only status) : rwtex3d_load_s;
+$classT [[ro]] Load(in int<3> x) : rwtex3d_load;
+$classT [[]] Load(in int<3> x, out uint_only status) : rwtex3d_load_s;
 } namespace
 
 namespace RWBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-$unspec [[ro]] Load(in int x) : rwbuffer_load;
-$unspec [[]] Load(in int x, out uint_only status) : rwbuffer_load_s;
+$classT [[ro]] Load(in int x) : rwbuffer_load;
+$classT [[]] Load(in int x, out uint_only status) : rwbuffer_load_s;
 
 } namespace
 
 namespace ByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-uint [[ro]] Load(in uint byteOffset) : byteaddress_load;
+$funcT [[ro]] Load(in uint byteOffset) : byteaddress_load;
 uint<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
 uint<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
 uint<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
-uint [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+$funcT [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
@@ -768,16 +772,15 @@ uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_
 namespace RWByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-uint [[ro]] Load(in uint byteOffset) : byteaddress_load;
+$funcT [[ro]] Load(in uint byteOffset) : byteaddress_load;
 uint<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
 uint<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
 uint<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
-uint [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+$funcT [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-void [[]] Store(in uint byteOffset, in numeric value) : byteaddress_store;
-void [[]] Store(in uint byteOffset, in numeric<c> value) : byteaddress_store;
+void [[]] Store(in uint byteOffset, in $funcT value) : byteaddress_store;
 void [[]] Store2(in uint byteOffset, in uint<2> value) : byteaddress_store;
 void [[]] Store3(in uint byteOffset, in uint<3> value) : byteaddress_store;
 void [[]] Store4(in uint byteOffset, in uint<4> value) : byteaddress_store;
@@ -802,8 +805,8 @@ void [[]] InterlockedCompareExchange(in uint byteOffset, in uint compare, in uin
 namespace StructuredBufferMethods {
 
 void [[]] GetDimensions(out uint_only count, out uint_only stride) : bufinfo;
-$unspec [[ro]] Load(in int x) : structured_buffer_load;
-$unspec [[]] Load(in int x, out uint_only status) : structured_buffer_load_s;
+$classT [[ro]] Load(in int x) : structured_buffer_load;
+$classT [[]] Load(in int x, out uint_only status) : structured_buffer_load_s;
 
 } namespace
 
@@ -812,8 +815,8 @@ namespace RWStructuredBufferMethods {
 void [[]] GetDimensions(out uint_only count, out uint_only stride) : bufinfo;
 uint [[]] IncrementCounter() : structuredbuffer_inc;
 uint [[]] DecrementCounter() : structuredbuffer_dec;
-$unspec [[ro]] Load(in int x) : rwstructured_buffer_load;
-$unspec [[]] Load(in int x, out uint_only status) : rwstructured_buffer_load_s;
+$classT [[ro]] Load(in int x) : rwstructured_buffer_load;
+$classT [[]] Load(in int x, out uint_only status) : rwstructured_buffer_load_s;
 
 } namespace
 
@@ -827,18 +830,18 @@ void [[]] Append(in $match<-1,0> void value ) : structuredbuffer_append;
 namespace ConsumeStructuredBufferMethods {
 
 void [[]] GetDimensions(out uint_only count, out uint_only stride) : bufinfo;
-$unspec [[]] Consume() : structuredbuffer_consume;
+$classT [[]] Consume() : structuredbuffer_consume;
 
 } namespace
 
 // SPIRV Change Starts
 
 namespace VkSubpassInputMethods {
-$unspec [[]] SubpassLoad() : subpassinput_load;
+$classT [[]] SubpassLoad() : subpassinput_load;
 } namespace
 
 namespace VkSubpassInputMSMethods {
-$unspec [[]] SubpassLoad(in int sample) : subpassinputms_load;
+$classT [[]] SubpassLoad(in int sample) : subpassinputms_load;
 } namespace
 
 // SPIRV Change Ends
