@@ -79,10 +79,10 @@ if ( LLVM_USE_FOLDERS )
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
 
-option(HLSL_EMBED_VERSION "If set, embeds version information in the binaries." OFF) # HLSL Change
+option(HLSL_EMBED_VERSION "If set, embeds version information in the binaries." ON) # HLSL Change
 # HLSL Change - Directory with version.inc file used for the build (generated or copied from HLSL_FIXED_VERSION_LOCATION)
 set(HLSL_VERSION_LOCATION ${CMAKE_BINARY_DIR}\\utils\\version) 
-option(HLSL_ENABLE_FIXED_VER "Reads version information from a file instead of generating it one for each build." OFF) # HLSL Change
+option(HLSL_ENABLE_FIXED_VER "Reads version information from a file instead of generating one for each build." OFF) # HLSL Change
 
 if (HLSL_ENABLE_FIXED_VER)
   set(HLSL_EMBED_VERSION ON)

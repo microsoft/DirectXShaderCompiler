@@ -1045,7 +1045,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
     const char *compilerName =
-        m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
+      m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
 
     if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
       VerInfo->GetVersion(&compilerMajor, &compilerMinor);
@@ -1061,26 +1061,27 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
     }
 
 #ifdef _WIN32
-    std::string productVersion;
-    if (GetDLLProductVersionInfo(compilerName, productVersion)) {
-      OS << " - " << productVersion;
-    }
-    else {
-      OS << "(dev"
+    unsigned int version[4];
+    if (GetDLLFileVersionInfo(compilerName, version)) {
+      // back-compat - old dev buidls had version 3.7.0.0
+      if (version[0] == 3 && version[1] == 7 && version[2] == 0 && version[3] == 0) {
+#endif
+        OS << "(dev"
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-        << ";" << commitCount << "-"
-        << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
+          << ";" << commitCount << "-"
+          << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
 #endif // SUPPORT_QUERY_GIT_COMMIT_I#else 
-      << ")";
+          << ")";
+#ifdef _WIN32
+      }
+      else {
+        std::string productVersion;
+        if (GetDLLProductVersionInfo(compilerName, productVersion)) {
+          OS << " - " << productVersion;
+        }
+      }
     }
-#else // _WIN32
-    OS << "(dev"
-#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-    << ";" << commitCount << "-"
-    << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
-#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
-    << ")";
-#endif // _WIN32
+#endif
   }
 
   // Print validator if exists

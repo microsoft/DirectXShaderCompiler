@@ -1,9 +1,9 @@
 if(HLSL_EMBED_VERSION)
     string(REPLACE "/" "\\" HLSL_VERSION_LOCATION_mspath ${HLSL_VERSION_LOCATION})
-    string(REPLACE "/" "\\" HLSL_FIXED_VERSION_LOCATION_mspath ${HLSL_FIXED_VERSION_LOCATION})
 
     set(HLSL_VERSION_FILE ${HLSL_VERSION_LOCATION_mspath}\\version.inc)
     if(HLSL_ENABLE_FIXED_VER)
+        string(REPLACE "/" "\\" HLSL_FIXED_VERSION_LOCATION_mspath ${HLSL_FIXED_VERSION_LOCATION})
         message("Using fixed version file ${HLSL_FIXED_VERSION_LOCATION_mspath}\\version.inc")
         add_custom_target(hlsl_version_autogen
             COMMAND echo "Using fixed version file ${HLSL_FIXED_VERSION_LOCATION_mspath}\\version.inc"
