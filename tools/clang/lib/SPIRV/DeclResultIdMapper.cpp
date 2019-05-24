@@ -28,6 +28,15 @@ namespace spirv {
 
 namespace {
 
+uint32_t getVkBindingAttrSet(const VKBindingAttr *attr, uint32_t defaultSet) {
+  // If the [[vk::binding(x)]] attribute is provided without the descriptor set,
+  // we should use the default descriptor set.
+  if (attr->getSet() == INT_MIN) {
+    return defaultSet;
+  }
+  return attr->getSet();
+}
+
 /// Returns the :packoffset() annotation on the given decl. Returns nullptr if
 /// the decl does not have one.
 hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
@@ -1505,7 +1514,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         // Process mX * c1
         uint32_t set = defaultSpace;
         if (const auto *vkBinding = var.getBinding())
-          set = vkBinding->getSet();
+          set = getVkBindingAttrSet(vkBinding, defaultSpace);
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace.getValueOr(defaultSpace);
 
@@ -1514,7 +1523,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     } else {
       if (const auto *vkBinding = var.getBinding()) {
         // Process m1
-        tryToDecorate(var.getSpirvInstr(), vkBinding->getSet(),
+        tryToDecorate(var.getSpirvInstr(),
+                      getVkBindingAttrSet(vkBinding, defaultSpace),
                       vkBinding->getBinding());
       }
     }
@@ -1564,7 +1574,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         // Process mX * c2
         uint32_t set = defaultSpace;
         if (const auto *vkBinding = var.getBinding())
-          set = vkBinding->getSet();
+          set = getVkBindingAttrSet(vkBinding, defaultSpace);
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace.getValueOr(defaultSpace);
 

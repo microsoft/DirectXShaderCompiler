@@ -4,9 +4,10 @@ struct S {
     float4 f;
 };
 
-// Explicit binding assignment is unaffected.
+// Explicit binding assignment is unaffected by the shift, but the default
+// space is used when the descriptor set is not provided in vk::binding.
 
-// CHECK: OpDecorate %cbuffer3 DescriptorSet 0
+// CHECK: OpDecorate %cbuffer3 DescriptorSet 77
 // CHECK: OpDecorate %cbuffer3 Binding 42
 [[vk::binding(42)]]
 ConstantBuffer<S> cbuffer3 : register(b10, space2);
