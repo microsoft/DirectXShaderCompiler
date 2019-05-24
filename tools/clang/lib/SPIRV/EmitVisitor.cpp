@@ -43,6 +43,44 @@ void chopString(llvm::StringRef original,
   }
 }
 
+/// Returns true if an OpLine instruction can be emitted for the given OpCode.
+/// According to the SPIR-V Spec section 2.4 (Logical Layout of a Module), the
+/// first section to allow use of OpLine debug information is after all
+/// annotation instructions.
+bool isOpLineLegalForOp(spv::Op op) {
+  switch (op) {
+    // Preamble binary
+  case spv::Op::OpCapability:
+  case spv::Op::OpExtension:
+  case spv::Op::OpExtInstImport:
+  case spv::Op::OpMemoryModel:
+  case spv::Op::OpEntryPoint:
+  case spv::Op::OpExecutionMode:
+  case spv::Op::OpExecutionModeId:
+    // Debug binary
+  case spv::Op::OpString:
+  case spv::Op::OpSource:
+  case spv::Op::OpSourceExtension:
+  case spv::Op::OpSourceContinued:
+  case spv::Op::OpName:
+  case spv::Op::OpMemberName:
+    // Annotation binary
+  case spv::Op::OpModuleProcessed:
+  case spv::Op::OpDecorate:
+  case spv::Op::OpDecorateId:
+  case spv::Op::OpMemberDecorate:
+  case spv::Op::OpGroupDecorate:
+  case spv::Op::OpGroupMemberDecorate:
+  case spv::Op::OpDecorationGroup:
+  case spv::Op::OpDecorateStringGOOGLE:
+  case spv::Op::OpMemberDecorateStringGOOGLE:
+    // Annotation binary
+    return false;
+  default:
+    return true;
+  }
+}
+
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
@@ -82,6 +120,41 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
   debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
 }
 
+void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
+  if (!isOpLineLegalForOp(op))
+    return;
+
+  if (!spvOptions.debugInfoLine)
+    return;
+
+  if (!debugFileId) {
+    emitError("spvOptions.debugInfoLine is true but no debugFileId was set");
+    return;
+  }
+
+  const auto &sm = astContext.getSourceManager();
+  uint32_t line = sm.getSpellingLineNumber(loc);
+  uint32_t column = sm.getSpellingColumnNumber(loc);
+
+  if (!line || !column)
+    return;
+
+  if (line == debugLine && column == debugColumn)
+    return;
+
+  // We must update these two values to emit the next Opline.
+  debugLine = line;
+  debugColumn = column;
+
+  curInst.clear();
+  curInst.push_back(static_cast<uint32_t>(spv::Op::OpLine));
+  curInst.push_back(debugFileId);
+  curInst.push_back(line);
+  curInst.push_back(column);
+  curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
+  mainBinary.insert(mainBinary.end(), curInst.begin(), curInst.end());
+}
+
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   // Emit the result type if the instruction has a result type.
   if (inst->hasResultType()) {
@@ -105,12 +178,17 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
                                spv::Decoration::NoContraction, {});
   }
 
+  const auto op = inst->getopcode();
+  emitDebugLine(op, inst->getSourceLocation());
+
   // Initialize the current instruction for emitting.
   curInst.clear();
-  curInst.push_back(static_cast<uint32_t>(inst->getopcode()));
+  curInst.push_back(static_cast<uint32_t>(op));
 }
 
-void EmitVisitor::initInstruction(spv::Op op) {
+void EmitVisitor::initInstruction(spv::Op op, const SourceLocation &loc) {
+  emitDebugLine(op, loc);
+
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(op));
 }
@@ -200,7 +278,7 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     const uint32_t functionTypeId = typeHandler.emitType(fn->getFunctionType());
 
     // Emit OpFunction
-    initInstruction(spv::Op::OpFunction);
+    initInstruction(spv::Op::OpFunction, fn->getSourceLocation());
     curInst.push_back(returnTypeId);
     curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
     curInst.push_back(
@@ -218,7 +296,7 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
   // After emitting the function
   else if (phase == Visitor::Phase::Done) {
     // Emit OpFunctionEnd
-    initInstruction(spv::Op::OpFunctionEnd);
+    initInstruction(spv::Op::OpFunctionEnd, /* SourceLocation */ {});
     finalizeInstruction();
   }
 
@@ -231,7 +309,7 @@ bool EmitVisitor::visit(SpirvBasicBlock *bb, Phase phase) {
   // Before emitting the basic block.
   if (phase == Visitor::Phase::Init) {
     // Emit OpLabel
-    initInstruction(spv::Op::OpLabel);
+    initInstruction(spv::Op::OpLabel, /* SourceLocation */ {});
     curInst.push_back(getOrAssignResultId<SpirvBasicBlock>(bb));
     finalizeInstruction();
     emitDebugNameForInstruction(getOrAssignResultId<SpirvBasicBlock>(bb),
@@ -339,7 +417,7 @@ bool EmitVisitor::visit(SpirvSource *inst) {
 
   // Now emit OpSourceContinued for the [second:last] snippet.
   for (uint32_t i = 1; i < choppedSrcCode.size(); ++i) {
-    initInstruction(spv::Op::OpSourceContinued);
+    initInstruction(spv::Op::OpSourceContinued, /* SourceLocation */ {});
     // Note: in order to improve performance and avoid multiple copies, we
     // encode this (potentially large) string directly into the debugBinary.
     const auto &words = string::encodeSPIRVString(choppedSrcCode[i]);
@@ -349,30 +427,14 @@ bool EmitVisitor::visit(SpirvSource *inst) {
     debugBinary.insert(debugBinary.end(), words.begin(), words.end());
   }
 
+  if (spvOptions.debugInfoLine)
+    debugFileId = inst->getFile()->getResultId();
   return true;
 }
 
 bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
   initInstruction(inst);
   encodeString(inst->getProcess());
-  finalizeInstruction();
-  return true;
-}
-
-bool EmitVisitor::visit(SpirvLineInfo *inst) {
-  if (!spvOptions.debugInfoLine)
-    return true;
-
-  SpirvString *file = inst->getSourceFile();
-  uint32_t line = inst->getSourceLine();
-  uint32_t column = inst->getSourceColumn();
-  if (!file || line == 0 || column == 0)
-    return true;
-
-  initInstruction(inst);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(file));
-  curInst.push_back(line);
-  curInst.push_back(column);
   finalizeInstruction();
   return true;
 }

@@ -130,7 +130,7 @@ private:
                                             SourceLocation);
   SpirvInstruction *createInitForMatrixType(QualType matrixType,
                                             SourceLocation);
-  SpirvInstruction *createInitForStructType(QualType type);
+  SpirvInstruction *createInitForStructType(QualType type, SourceLocation);
   SpirvInstruction *createInitForConstantArrayType(QualType type,
                                                    SourceLocation);
   SpirvInstruction *createInitForSamplerImageType(QualType type,
