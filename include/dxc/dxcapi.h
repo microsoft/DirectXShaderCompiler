@@ -13,8 +13,14 @@
 #ifndef __DXC_API__
 #define __DXC_API__
 
+#ifdef _WIN32
 #ifndef DXC_API_IMPORT
 #define DXC_API_IMPORT __declspec(dllimport)
+#endif
+#else
+#ifndef DXC_API_IMPORT
+#define DXC_API_IMPORT __attribute__ ((visibility ("default")))
+#endif
 #endif
 
 #ifdef _WIN32
