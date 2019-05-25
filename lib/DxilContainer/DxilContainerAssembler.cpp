@@ -1476,6 +1476,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   pModule->GetValidatorVersion(ValMajor, ValMinor);
   if (ValMajor == 1 && ValMinor == 0)
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
+  bool bSupportsShaderHash = true;
+  if (ValMajor == 1 && ValMinor < 5)
+    bSupportsShaderHash = false;
 
   DxilContainerWriter_impl writer;
 
@@ -1602,22 +1605,28 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // Serialize debug name if requested.
   CComPtr<AbstractMemoryStream> pHashStream;
   std::string DebugNameStr; // Used if constructing name based on hash
+  DxilShaderHash HashContent;
   if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
-    if (DebugName.empty()) {
-      // If the debug name should be specific to the sources, base the name on the debug
-      // bitcode, which will include the source references, line numbers, etc. Otherwise,
-      // do it exclusively on the target shader bitcode.
-      pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
-                      ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
-                      : CComPtr<AbstractMemoryStream>(pProgramStream);
+    // If the debug name should be specific to the sources, base the name on the debug
+    // bitcode, which will include the source references, line numbers, etc. Otherwise,
+    // do it exclusively on the target shader bitcode.
+    if (Flags & SerializeDxilFlags::DebugNameDependOnSource) {
+      pHashStream = CComPtr<AbstractMemoryStream>(pModuleBitcode);
+      HashContent.Flags = (uint32_t)DxilShaderHashFlags::IncludesSource;
+    } else {
+      pHashStream = CComPtr<AbstractMemoryStream>(pProgramStream);
+      HashContent.Flags = (uint32_t)DxilShaderHashFlags::None;
+    }
 
-      ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(), pHashStream->GetPtrSize());
-      llvm::MD5 md5;
-      llvm::MD5::MD5Result md5Result;
-      SmallString<32> Hash;
-      md5.update(Data);
-      md5.final(md5Result);
-      md5.stringifyResult(md5Result, Hash);
+    ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(),
+                           pHashStream->GetPtrSize());
+    llvm::MD5 md5;
+    SmallString<32> Hash;
+    md5.update(Data);
+    md5.final(HashContent.Digest);
+
+    if (DebugName.empty()) {
+      md5.stringifyResult(HashContent.Digest, Hash);
       DebugNameStr += Hash;
       DebugNameStr += ".lld";
       DebugName = DebugNameStr;
@@ -1643,6 +1652,15 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
       IFT(pStream->Write(Pad, padLen, &cbWritten));
     });
+
+    if (bSupportsShaderHash) {
+      writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
+        [HashContent]
+        (AbstractMemoryStream *pStream)
+      {
+        IFT(WriteStreamValue(pStream, HashContent));
+      });
+    }
   }
 
   // Compute padded bitcode size.

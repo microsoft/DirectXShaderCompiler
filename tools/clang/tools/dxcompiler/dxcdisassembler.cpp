@@ -1511,6 +1511,19 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     }
 
     it = std::find_if(begin(pContainer), end(pContainer),
+      DxilPartIsType(DFCC_ShaderHash));
+    if (it != end(pContainer)) {
+      const DxilShaderHash *pHashContent =
+        reinterpret_cast<const DxilShaderHash *>(GetDxilPartData(*it));
+      Stream << "; shader hash: ";
+      for (int i = 0; i < 16; ++i)
+        Stream << format("%.2x", pHashContent->Digest[i]);
+      if (pHashContent->Flags & (uint32_t)DxilShaderHashFlags::IncludesSource)
+        Stream << " (includes source)";
+      Stream << "\n";
+    }
+
+    it = std::find_if(begin(pContainer), end(pContainer),
                       DxilPartIsType(DFCC_DXIL));
     if (it == end(pContainer)) {
       return DXC_E_CONTAINER_MISSING_DXIL;
