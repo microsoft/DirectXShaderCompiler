@@ -62,7 +62,7 @@ bool FileTest::parseInputFile() {
 
 void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
                            bool runValidation) {
-  if (relaxLogicalPointer)
+  if (relaxLogicalPointer || beforeHLSLLegalization)
     assert(runValidation);
 
   inputFilePath = utils::getAbsPathOfInputDataFile(filename);
@@ -102,9 +102,9 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
     ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
     if (runValidation)
-      EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
-                                             relaxLogicalPointer, glLayout,
-                                             dxLayout, scalarLayout));
+      EXPECT_TRUE(utils::validateSpirvBinary(
+          targetEnv, generatedBinary, relaxLogicalPointer,
+          beforeHLSLLegalization, glLayout, dxLayout, scalarLayout));
   } else if (expect == Expect::Warning) {
     ASSERT_TRUE(compileOk);
 
@@ -128,9 +128,9 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
     ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
     if (runValidation)
-      EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
-                                             relaxLogicalPointer, glLayout,
-                                             dxLayout, scalarLayout));
+      EXPECT_TRUE(utils::validateSpirvBinary(
+          targetEnv, generatedBinary, relaxLogicalPointer,
+          beforeHLSLLegalization, glLayout, dxLayout, scalarLayout));
   } else if (expect == Expect::Failure) {
     ASSERT_FALSE(compileOk);
 
@@ -157,8 +157,8 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
 
     std::string valMessages;
     EXPECT_FALSE(utils::validateSpirvBinary(
-        targetEnv, generatedBinary, relaxLogicalPointer, glLayout, dxLayout,
-        scalarLayout, &valMessages));
+        targetEnv, generatedBinary, relaxLogicalPointer, beforeHLSLLegalization,
+        glLayout, dxLayout, scalarLayout, &valMessages));
     auto options = effcee::Options()
                        .SetChecksName(filename.str())
                        .SetInputName("<val-message>");

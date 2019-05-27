@@ -192,8 +192,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool relaxLogicalPointer, std::vector<uint32_t> *module,
-                        std::string *messages) {
+                        bool beforeHlslLegalization, bool relaxLogicalPointer,
+                        std::vector<uint32_t> *module, std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -202,7 +202,16 @@ bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
                  const char *message) { *messages += message; });
 
   spvtools::ValidatorOptions options;
-  options.SetRelaxLogicalPointer(relaxLogicalPointer);
+  options.SetBeforeHlslLegalization(beforeHlslLegalization);
+  // When beforeHlslLegalization is true and relaxLogicalPointer is false,
+  // options.SetBeforeHlslLegalization() enables --before-hlsl-legalization
+  // and --relax-logical-pointer. If options.SetRelaxLogicalPointer() is
+  // called, it disables --relax-logical-pointer that is not expected
+  // behavior. When beforeHlslLegalization is true, we must enable both
+  // options.
+  if (!beforeHlslLegalization)
+    options.SetRelaxLogicalPointer(relaxLogicalPointer);
+
   // GL: strict block layout rules
   // VK: relaxed block layout rules
   // DX: Skip block layout rules
@@ -486,7 +495,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                    spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
-      mainSourceFile(nullptr) {
+      beforeHlslLegalization(false), mainSourceFile(nullptr) {
 
   // Get ShaderModel from command line hlsl profile option.
   const hlsl::ShaderModel *shaderModel =
@@ -670,7 +679,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(targetEnv, spirvOptions,
+    if (!spirvToolsValidate(targetEnv, spirvOptions, beforeHlslLegalization,
                             declIdMapper.requiresLegalization(), &m,
                             &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
@@ -2033,7 +2042,6 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   bool isNonStaticMemberCall = false;
   QualType objectType = {};             // Type of the object (if exists)
   SpirvInstruction *objInstr = nullptr; // EvalInfo for the object (if exists)
-  bool needsTempVar = false;            // Whether we need temporary variable.
 
   llvm::SmallVector<SpirvInstruction *, 4> vars; // Variables for function call
   llvm::SmallVector<bool, 4> isTempVar;          // Temporary variable or not
@@ -2060,15 +2068,18 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // getObject().objectMethod();
       // Also, any parameter passed to the member function must be of Function
       // storage class.
-      needsTempVar = objInstr->isRValue() ||
-                     objInstr->getStorageClass() != spv::StorageClass::Function;
-
-      if (needsTempVar) {
+      if (objInstr->isRValue()) {
         args.push_back(createTemporaryVar(
             objectType, getAstTypeName(objectType),
             // May need to load to use as initializer
-            loadIfGLValue(object, objInstr), object->getExprLoc()));
+            loadIfGLValue(object, objInstr), object->getLocStart()));
       } else {
+        // Based on SPIR-V spec, function parameter must always be in Function
+        // scope. If we pass a non-function scope argument, we need
+        // the legalization.
+        if (objInstr->getStorageClass() != spv::StorageClass::Function)
+          beforeHlslLegalization = true;
+
         args.push_back(objInstr);
       }
 
@@ -2089,19 +2100,32 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
     // Get the evaluation info if this argument is referencing some variable
     // *as a whole*, in which case we can avoid creating the temporary variable
-    // for it if it is Function scope and can act as out parameter.
+    // for it if it can act as out parameter.
     SpirvInstruction *argInfo = nullptr;
     if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
       argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
                                              arg->getLocStart());
     }
 
-    if (argInfo && argInfo->getStorageClass() == spv::StorageClass::Function &&
+    auto *argInst = doExpr(arg);
+    auto argType = arg->getType();
+
+    // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
+    // pointer to pass to the function. we need a temporary variable in that
+    // case.
+    if ((argInfo || (argInst && !argInst->isRValue())) &&
         canActAsOutParmVar(param) &&
         paramTypeMatchesArgType(param->getType(), arg->getType())) {
-      vars.push_back(argInfo);
+      // Based on SPIR-V spec, function parameter must be always Function
+      // scope. In addition, we must pass memory object declaration argument
+      // to function. If we pass an argument that is not function scope
+      // or not memory object declaration, we need the legalization.
+      if (!argInfo || argInfo->getStorageClass() != spv::StorageClass::Function)
+        beforeHlslLegalization = true;
+
       isTempVar.push_back(false);
-      args.push_back(doExpr(arg));
+      args.push_back(argInst);
+      vars.push_back(argInfo ? argInfo : argInst);
     } else {
       // We need to create variables for holding the values to be used as
       // arguments. The variables themselves are of pointer types.
@@ -2119,7 +2143,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
-      args.push_back(doExpr(arg));
+      args.push_back(argInst);
 
       // Update counter variable associated with function parameters
       tryToAssignCounterVar(param, arg);
@@ -2150,6 +2174,9 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     }
   }
 
+  if (beforeHlslLegalization)
+    needsLegalization = true;
+
   assert(vars.size() == isTempVar.size());
   assert(vars.size() == args.size());
 
@@ -2165,23 +2192,16 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   auto *retVal = spvBuilder.createFunctionCall(
       retType, func, vars, callExpr->getCallee()->getExprLoc());
 
-  // If we created a temporary variable for the lvalue object this method is
-  // invoked upon, we need to copy the contents in the temporary variable back
-  // to the original object's variable in case there are side effects.
-  if (needsTempVar && !objInstr->isRValue()) {
-    auto *value =
-        spvBuilder.createLoad(objectType, vars.front(), callExpr->getLocEnd());
-    storeValue(objInstr, value, objectType, callExpr->getLocEnd());
-  }
-
   // Go through all parameters and write those marked as out/inout
   for (uint32_t i = 0; i < numParams; ++i) {
     const auto *param = callee->getParamDecl(i);
-    if (isTempVar[i] && canActAsOutParmVar(param)) {
+    // If it calls a non-static member function, the object itself is argument
+    // 0, and therefore all other argument positions are shifted by 1.
+    const uint32_t index = i + isNonStaticMemberCall;
+    if (isTempVar[index] && canActAsOutParmVar(param)) {
       const auto *arg = callExpr->getArg(i);
-      const uint32_t index = i + isNonStaticMemberCall;
       SpirvInstruction *value = spvBuilder.createLoad(
-          param->getType(), vars[index], callExpr->getLocEnd());
+          param->getType(), vars[index], arg->getLocStart());
 
       // Now we want to assign 'value' to arg. But first, in rare cases when
       // using 'out' or 'inout' where the parameter and argument have a type

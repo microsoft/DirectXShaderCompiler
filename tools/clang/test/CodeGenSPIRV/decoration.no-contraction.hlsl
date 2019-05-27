@@ -92,7 +92,7 @@ precise float func3(float e, float f, float g, float h) {
 // CHECK-NEXT:                        OpLoad %float %g_1
 // CHECK-NEXT:                        OpLoad %float %h_1
 // CHECK-NEXT:    [[func3_g_mul_h]] = OpFMul %float
-// CHECK-NEXT: [[func3_ef_plus_gh]] = OpFAdd %float %162 %165
+// CHECK-NEXT: [[func3_ef_plus_gh]] = OpFAdd %float [[func3_e_mul_f]] [[func3_g_mul_h]]
   float result = (e*f) + (g*h); // precise because it's the function return value.
   return result;
 }

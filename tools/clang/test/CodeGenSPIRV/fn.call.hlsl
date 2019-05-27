@@ -40,10 +40,10 @@ void main() {
 // CHECK-NEXT: [[call2:%\d+]] = OpFunctionCall %int %fnTwoParm [[twoParam1]] [[twoParam2]]
     fnTwoParm(v, v);  // Pass in variable; ignore return value
 
-// CHECK-NEXT: OpStore [[nestedParam2]] %int_1
-// CHECK-NEXT: [[call3:%\d+]] = OpFunctionCall %int %fnOneParm [[nestedParam2]]
-// CHECK-NEXT: OpStore [[nestedParam1]] [[call3]]
-// CHECK-NEXT: [[call4:%\d+]] = OpFunctionCall %int %fnCallOthers [[nestedParam1]]
+// CHECK-NEXT: OpStore [[nestedParam1]] %int_1
+// CHECK-NEXT: [[call3:%\d+]] = OpFunctionCall %int %fnOneParm [[nestedParam1]]
+// CHECK-NEXT: OpStore [[nestedParam2]] [[call3]]
+// CHECK-NEXT: [[call4:%\d+]] = OpFunctionCall %int %fnCallOthers [[nestedParam2]]
 // CHECK-NEXT: OpReturn
 // CHECK-NEXT: OpFunctionEnd
     fnCallOthers(fnOneParm(1)); // Nested function calls

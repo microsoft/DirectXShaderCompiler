@@ -26,13 +26,8 @@ tbuffer MyTBuffer {
 
 float4 main() : SV_Target {
 // %S vs %S_0: need destruction and construction
-// CHECK:         %temp_var_S = OpVariable %_ptr_Function_S_0 Function
 // CHECK:       [[tb_s:%\d+]] = OpAccessChain %_ptr_Uniform_S %MyTBuffer %int_1
-// CHECK-NEXT:     [[s:%\d+]] = OpLoad %S [[tb_s]]
-// CHECK-NEXT: [[s_val:%\d+]] = OpCompositeExtract %v3float [[s]] 0
-// CHECK-NEXT:   [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[s_val]]
-// CHECK-NEXT:                  OpStore %temp_var_S [[tmp]]
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %v3float %S_get_s_val %temp_var_S
+// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %v3float %S_get_s_val [[tb_s]]
     return get_cb_val() + float4(tb_s.get_s_val(), 0.) * get_tb_val();
 }
 

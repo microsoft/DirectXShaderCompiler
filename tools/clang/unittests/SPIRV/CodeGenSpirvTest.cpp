@@ -88,7 +88,7 @@ TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
 TEST_F(FileTest, StructuredByteBufferArray) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
 }
 TEST_F(FileTest, StructuredByteBufferArrayError) {
@@ -496,10 +496,16 @@ TEST_F(FileTest, FunctionInOutParam) {
   runFileTest("fn.param.inout.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamVector) {
+  setBeforeHLSLLegalization();
   runFileTest("fn.param.inout.vector.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
+  setBeforeHLSLLegalization();
   runFileTest("fn.param.inout.storage-class.hlsl");
+}
+TEST_F(FileTest, FunctionInOutParamIsomorphism) {
+  setBeforeHLSLLegalization();
+  runFileTest("fn.param.isomorphism.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
   // Tests that referencing function scope variables as a whole with out/inout
@@ -517,15 +523,18 @@ TEST_F(FileTest, FunctionInOutParamTypeMismatch) {
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
 }
-TEST_F(FileTest, FunctionInCTBuffer) { runFileTest("fn.ctbuffer.hlsl"); }
+TEST_F(FileTest, FunctionInCTBuffer) {
+  setBeforeHLSLLegalization();
+  runFileTest("fn.ctbuffer.hlsl");
+}
 
 // For OO features
 TEST_F(FileTest, StructMethodCall) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("oo.struct.method.hlsl");
 }
 TEST_F(FileTest, ClassMethodCall) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("oo.class.method.hlsl");
 }
 TEST_F(FileTest, StructStaticMember) {
@@ -538,6 +547,7 @@ TEST_F(FileTest, StaticMemberInitializer) {
   runFileTest("oo.static.member.init.hlsl");
 }
 TEST_F(FileTest, MethodCallOnStaticVar) {
+  setBeforeHLSLLegalization();
   runFileTest("oo.method.on-static-var.hlsl");
 }
 TEST_F(FileTest, Inheritance) { runFileTest("oo.inheritance.hlsl"); }
@@ -1366,34 +1376,34 @@ TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
   runFileTest("spirv.legal.opaque-struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.usage.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferMethods) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.methods.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.counter.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInStruct) {
   // Tests using struct/class having associated counters
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.counter.struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInMethod) {
   // Tests using methods whose enclosing struct/class having associated counters
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.counter.method.hlsl");
 }
 TEST_F(FileTest,
        SpirvLegalizationCounterVarAssignAcrossDifferentNestedStructLevel) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.counter.nested-struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
@@ -1782,6 +1792,18 @@ TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 TEST_F(FileTest, ComputeShaderGroupShared) {
   runFileTest("cs.groupshared.hlsl");
 }
+TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
+  setRelaxLogicalPointer();
+  runFileTest("cs.groupshared.function-param.hlsl");
+}
+TEST_F(FileTest, ComputeShaderGroupSharedFunctionParamOut) {
+  setBeforeHLSLLegalization();
+  runFileTest("cs.groupshared.function-param.out.hlsl");
+}
+TEST_F(FileTest, ComputeShaderGroupSharedStructFunction) {
+  setBeforeHLSLLegalization();
+  runFileTest("cs.groupshared.struct-function.hlsl");
+}
 
 // === Legalization examples ===
 
@@ -1914,6 +1936,7 @@ TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
 
 // For NoContraction decorations
 TEST_F(FileTest, DecorationNoContraction) {
+  setBeforeHLSLLegalization();
   runFileTest("decoration.no-contraction.hlsl");
 }
 TEST_F(FileTest, DecorationNoContractionVariableReuse) {
