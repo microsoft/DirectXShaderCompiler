@@ -68,8 +68,6 @@ using std::string;
 
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
 
-HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
-
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
@@ -240,8 +238,6 @@ public:
     return CustomRootSignature::FOUND;
   }
 };
-
-HRESULT CreatePrivateDxcContainerBuilder(IDxcContainerBuilder **ppBuilder);
 
 class DxcCompiler : public IDxcCompiler2,
                     public IDxcLangExtensions,
