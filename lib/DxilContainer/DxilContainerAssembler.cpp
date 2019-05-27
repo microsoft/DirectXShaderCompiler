@@ -1446,28 +1446,7 @@ static void WriteProgramPart(const ShaderModel *pModel,
 }
 
 namespace {
-#if 0
-class PDBDataWriter : public DxilPartWriter {
-private:
-  SmallVector<char, 0> m_Buffer;
-public:
-  uint32_t size() const { return m_Buffer.size(); }
-  PDBDataWriter(ArrayRef<char> Bitcode, SmallString<32> Hash) {
-    raw_svector_ostream OS(m_Buffer);
-    hlsl::pdb::WriteDxilPDB(DxcGetThreadMallocNoRef(), Bitcode, Hash, OS);
-    {
-      auto f = fopen("F:/test/pdb/data/simple.pdb", "wb");
-      fwrite(m_Buffer.data(), 1, m_Buffer.size(), f);
-      fclose(f);
-    }
-    return;
-  }
-  void write(AbstractMemoryStream *pStream) {
-    ULONG cbWritten;
-    IFT(pStream->Write(m_Buffer.data(), size(), &cbWritten));
-  }
-};
-#endif
+
 class RootSignatureWriter : public DxilPartWriter {
 private:
   std::vector<uint8_t> m_Sig;
@@ -1663,7 +1642,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     if (DebugName.empty()) {
       md5.stringifyResult(HashContent.Digest, Hash);
       DebugNameStr += Hash;
-      DebugNameStr += ".lld";
+      DebugNameStr += ".pdb";
       DebugName = DebugNameStr;
     }
 

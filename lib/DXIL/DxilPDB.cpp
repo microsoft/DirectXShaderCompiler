@@ -225,16 +225,17 @@ struct PdbStreamHeader {
   support::ulittle32_t Version;
   support::ulittle32_t Signature;
   support::ulittle32_t Age;
-  uint32_t UniqueId[4];
+  uint8_t UniqueId[16];
 };
+static_assert(sizeof(PdbStreamHeader) == 28, "PDB Header incorrect.");
 
 static
-SmallVector<char, 0> WritePdbStream(SmallString<32> Hash) {
+SmallVector<char, 0> WritePdbStream(ArrayRef<BYTE> Hash) {
   PdbStreamHeader Header = {};
   Header.Version = (uint32_t)PdbStreamVersion::VC70;
   Header.Age = 1;
   Header.Signature = 0;
-  memcpy(Header.UniqueId, Hash.data(), Hash.size());
+  memcpy(Header.UniqueId, Hash.data(), std::min(Hash.size(), sizeof(Header.UniqueId)));
 
   SmallVector<char, 0> Result;
   raw_svector_ostream OS(Result);
@@ -267,6 +268,25 @@ static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
     return true;
   }
   return false;
+}
+
+static HRESULT FindShaderHash(IDxcBlob *pContainer, BYTE *pDigest, UINT32 uCapacity, UINT32 *pBytesWritten) {
+  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
+    return E_FAIL;
+
+  hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pContainer->GetBufferPointer();
+  for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
+    hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
+    if (PartHeader->PartFourCC == hlsl::DFCC_ShaderHash) {
+      hlsl::DxilShaderHash *HashHeader = (hlsl::DxilShaderHash *)(PartHeader+1);
+      if (sizeof(HashHeader->Digest) > uCapacity)
+        return E_FAIL;
+      memcpy(pDigest, HashHeader->Digest, sizeof(HashHeader->Digest));
+      *pBytesWritten = sizeof(HashHeader->Digest);
+      return S_OK;
+    }
+  }
+  return E_FAIL;
 }
 
 static HRESULT StripContainer(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppNewContaner) {
@@ -319,8 +339,11 @@ static HRESULT StripContainer(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob *
 }
 
 HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppOutBlob) {
-  SmallString<32> Hash;
-  SmallVector<char, 0> PdbStream = WritePdbStream(Hash);
+
+  BYTE HashData[16];
+  UINT32 uHashSize = 0;
+  IFR(FindShaderHash(pContainer, HashData, sizeof(HashData), &uHashSize));
+  SmallVector<char, 0> PdbStream = WritePdbStream({ HashData, HashData+uHashSize });
 
   CComPtr<IDxcBlob> pStrippedContainer;
   IFR(StripContainer(pMalloc, pContainer, &pStrippedContainer));
