@@ -80,10 +80,10 @@ static IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw()
   return pMalloc;
 }
 
-DXC_HIDDEN_LINKAGE DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
+DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
     p = DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, &pPrior);
 }
 
-DXC_HIDDEN_LINKAGE DxcThreadMalloc::~DxcThreadMalloc() {
+DxcThreadMalloc::~DxcThreadMalloc() {
     DxcSwapThreadMalloc(pPrior, nullptr);
 }

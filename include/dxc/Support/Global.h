@@ -54,16 +54,10 @@ void DxcClearThreadMalloc() throw();
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
 
-#if defined(LLVM_ON_UNIX)
-#define DXC_HIDDEN_LINKAGE __attribute__(( visibility("hidden") ))
-#else  // LLVM_ON_UNIX
-#define DXC_HIDDEN_LINKAGE
-#endif  // LLVM_ON_UNIX
-
 class DxcThreadMalloc {
 public:
-  explicit DXC_HIDDEN_LINKAGE DxcThreadMalloc(IMalloc *pMallocOrNull) throw();
-  DXC_HIDDEN_LINKAGE ~DxcThreadMalloc();
+  explicit DxcThreadMalloc(IMalloc *pMallocOrNull) throw();
+  ~DxcThreadMalloc();
 
   IMalloc *GetInstalledAllocator() const { return p; }
 
