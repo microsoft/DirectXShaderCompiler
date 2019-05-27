@@ -1,12 +1,23 @@
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// DxilPDB.cpp                                                               //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Helpers to wrap debug information in a PDB container.                     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Endian.h"
 
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.impl.h"

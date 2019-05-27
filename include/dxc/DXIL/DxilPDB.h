@@ -1,15 +1,19 @@
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallString.h"
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// DxilPDB.h                                                                 //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Helpers to wrap debug information in a PDB container.                     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
-
-namespace llvm {
-  class raw_ostream;
-}
 
 struct IDxcBlob;
 struct IStream;
+struct IMalloc;
 
 namespace hlsl {
 namespace pdb {
