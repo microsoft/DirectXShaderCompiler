@@ -1574,17 +1574,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bModuleStripped = false;
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   if (bHasDebugInfo) {
-
-    SmallString<32> Hash;
-    ArrayRef<char> Bitcode = { (char *)pModuleBitcode->GetPtr(), pModuleBitcode->GetPtrSize() };
-    //pPDBWriter = llvm::make_unique<PDBDataWriter>(Bitcode, Hash);
-#if 0
-    if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      writer.AddPart(DFCC_ShaderDebugInfoDXIL, pPDBWriter->size(), [&](AbstractMemoryStream *pStream) {
-        pPDBWriter->write(pStream);
-      });
-    }
-#else
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
@@ -1592,7 +1581,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
-#endif
 
     llvm::StripDebugInfo(*pModule->GetModule());
     pModule->StripDebugRelatedCode();
