@@ -34,7 +34,6 @@
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include <algorithm>
 #include <functional>
-#include <ctime> 
 
 using namespace llvm;
 using namespace hlsl;
