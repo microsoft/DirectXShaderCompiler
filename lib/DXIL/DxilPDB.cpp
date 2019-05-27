@@ -7,10 +7,12 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilPDB.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/dxcapi.h"
 
 using namespace llvm;
 
+// MSF header
 static const char kMsfMagic[] = {'M',  'i',  'c',    'r', 'o', 's',  'o',  'f',
                              't',  ' ',  'C',    '/', 'C', '+',  '+',  ' ',
                              'M',  'S',  'F',    ' ', '7', '.',  '0',  '0',
@@ -43,6 +45,7 @@ struct MSF_SuperBlock {
 };
 static_assert(sizeof(MSF_SuperBlock) <= kMsfBlockSize, "MSF Block too small.");
 
+// Calculate how many blocks are needed
 static uint32_t CalculateNumBlocks(uint32_t BlockSize, uint32_t Size) {
   return (Size / BlockSize) + 
       ((Size % BlockSize) ? 1 : 0);
@@ -76,9 +79,6 @@ struct MSFWriter {
   }
 
   uint32_t AddEmptyStream() {
-    char Dummy[4] = {};
-    (void)Dummy;
-    //return AddStream({ Dummy, sizeof(Dummy) });
     return AddStream({});
   }
 
@@ -258,8 +258,11 @@ SmallVector<char, 0> WritePdbStream(SmallString<32> Hash) {
   return Result;
 }
 
-void hlsl::pdb::WriteDxilPDB(ArrayRef<char> Data, SmallString<32> Hash, llvm::raw_ostream &OS) {
+HRESULT hlsl::pdb::WriteDxilPDB(ArrayRef<char> Data, SmallString<32> Hash, llvm::raw_ostream &OS) {
   SmallVector<char, 0> PdbStream = WritePdbStream(Hash);
+
+  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)Data.data(), Data.size()))
+    return E_FAIL;
 
   MSFWriter Writer;
   Writer.AddEmptyStream();     // Old Directory
@@ -274,6 +277,8 @@ void hlsl::pdb::WriteDxilPDB(ArrayRef<char> Data, SmallString<32> Hash, llvm::ra
 
   Writer.WriteToStream(OS);
   OS.flush();
+
+  return S_OK;
 }
 
 
@@ -294,12 +299,19 @@ struct PDBReader {
   PDBReader(IMalloc *pMalloc, IStream *pStream) : m_pStream(pStream), m_pMalloc(pMalloc) {
     m_Status = ReadSuperblock(&m_SB);
   }
+
+  // Reset the stream back to its original position, regardless of
+  // we succeeded or failed.
+  ~PDBReader() {
+    SetPostion(0);
+  }
+
   HRESULT GetStatus() { return m_Status; }
 
   HRESULT ReadSuperblock(MSF_SuperBlock *pSB) {
     ULONG SizeRead = 0;
     IFR(m_pStream->Read(pSB, sizeof(*pSB), &SizeRead));
-    if (memcmp(&m_SB, pSB, sizeof(*pSB)) != 0)
+    if (memcmp(pSB->MagicBytes, kMsfMagic, sizeof(kMsfMagic)) != 0)
       return E_FAIL;
 
     return S_OK;
@@ -377,21 +389,12 @@ struct PDBReader {
     UINT32 uOffsets = 0;
     for (unsigned i = 0; i <= kDataStreamIndex-1; i++) {
       UINT32 uNumBlocks = CalculateNumBlocks(m_SB.BlockSize, StreamSizes[i]);
-      //uNumBlocks = uNumBlocks ? uNumBlocks : 1;
       uOffsets += uNumBlocks;
     }
 
     llvm::SmallVector<uint32_t, 12> DataBlocks;
     IFR(ReadU32ListFromBlocks(DirectoryBlocks, 1 + uNumStreams + uOffsets, 
       CalculateNumBlocks(m_SB.BlockSize, StreamSizes[kDataStreamIndex]), DataBlocks));
-
-    bool bIsContiguous = true;
-    for (unsigned i = 0; i+1 < DataBlocks.size(); i++) {
-      if (DataBlocks[i] + 1 != DataBlocks[i + 1]) {
-        bIsContiguous = false;
-        break;
-      }
-    }
 
     if (DataBlocks.size() == 0)
       return E_FAIL;
@@ -419,11 +422,15 @@ struct PDBReader {
 
 HRESULT hlsl::pdb::LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **ppContainer) {
   PDBReader Reader(pMalloc, pIStream);
-  return Reader.ReadContainedData(ppContainer);
-}
 
-static
-HRESULT CreatePDBFromDxilContainer(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **pPdbBlob) {
-}
+  CComPtr<IDxcBlob> pDataBlob;
+  IFR(Reader.ReadContainedData(&pDataBlob));
 
+  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pDataBlob->GetBufferPointer(), pDataBlob->GetBufferSize()))
+    return E_FAIL;
+
+  *ppContainer = pDataBlob.Detach();
+
+  return S_OK;
+}
 
