@@ -73,21 +73,16 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
   }
 
   CComPtr<IStream> pIStream = pInputIStream;
-  CComPtr<IDxcBlob> pDebugPartData;
-  {
-    CComPtr<IDxcBlob> pContainer;
-    if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pInputIStream, &pContainer))) {
-      CComPtr<IDxcContainerReflection> pReflection;
-      IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcContainerReflection, __uuidof(IDxcContainerReflection), (void**)&pReflection));
-      IFR(pReflection->Load(pContainer));
-
-      UINT32 uPartIndex = 0;
-      IFR(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uPartIndex));
-      IFR(pReflection->GetPartContent(uPartIndex, &pDebugPartData));
-
-      pIStream.Release();
-      IFR(hlsl::CreateReadOnlyBlobStream(pDebugPartData, &pIStream));
-    }
+  CComPtr<IDxcBlob> pContainer;
+  if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pInputIStream, &pContainer))) {
+    hlsl::DxilPartHeader *PartHeader =
+      hlsl::GetDxilPartByType((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), hlsl::DFCC_ShaderDebugInfoDXIL);
+    if (!PartHeader)
+      return E_FAIL;
+    CComPtr<IDxcBlobEncoding> pPinnedBlob;
+    IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(PartHeader+1, PartHeader->PartSize, CP_UTF8, &pPinnedBlob));
+    pIStream.Release();
+    IFR(hlsl::CreateReadOnlyBlobStream(pPinnedBlob, &pIStream));
   }
 
   m_context.reset();
