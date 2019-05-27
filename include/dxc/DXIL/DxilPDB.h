@@ -15,7 +15,6 @@ namespace hlsl {
 namespace pdb {
 
   HRESULT LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **pOutContainer);
-  HRESULT WriteDxilPDB(llvm::ArrayRef<char> Data, llvm::SmallString<32> Hash, llvm::raw_ostream &OS);
-
+  HRESULT WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppOutBlob); 
 }
 }

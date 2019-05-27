@@ -1446,7 +1446,7 @@ static void WriteProgramPart(const ShaderModel *pModel,
 }
 
 namespace {
-
+#if 0
 class PDBDataWriter : public DxilPartWriter {
 private:
   SmallVector<char, 0> m_Buffer;
@@ -1454,7 +1454,7 @@ public:
   uint32_t size() const { return m_Buffer.size(); }
   PDBDataWriter(ArrayRef<char> Bitcode, SmallString<32> Hash) {
     raw_svector_ostream OS(m_Buffer);
-    hlsl::pdb::WriteDxilPDB(Bitcode, Hash, OS);
+    hlsl::pdb::WriteDxilPDB(DxcGetThreadMallocNoRef(), Bitcode, Hash, OS);
     {
       auto f = fopen("F:/test/pdb/data/simple.pdb", "wb");
       fwrite(m_Buffer.data(), 1, m_Buffer.size(), f);
@@ -1467,7 +1467,7 @@ public:
     IFT(pStream->Write(m_Buffer.data(), size(), &cbWritten));
   }
 };
-
+#endif
 class RootSignatureWriter : public DxilPartWriter {
 private:
   std::vector<uint8_t> m_Sig;
@@ -1550,7 +1550,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   }
   std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
   std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
-  std::unique_ptr<PDBDataWriter> pPDBWriter = nullptr;
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
   RootSignatureWriter rootSigWriter(std::move(pModule->GetSerializedRootSignature())); // Grab RS here
