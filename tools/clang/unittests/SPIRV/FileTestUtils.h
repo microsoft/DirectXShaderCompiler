@@ -33,8 +33,9 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 /// \brief Runs the SPIR-V Tools validation on the given SPIR-V binary.
 /// Returns true if validation is successful; false otherwise.
 bool validateSpirvBinary(spv_target_env, std::vector<uint32_t> &binary,
-                         bool relaxLogicalPointer, bool glLayout, bool dxLayout,
-                         bool scalarLayout, std::string *message = nullptr);
+                         bool relaxLogicalPointer, bool beforeHlslLegalization,
+                         bool glLayout, bool dxLayout, bool scalarLayout,
+                         std::string *message = nullptr);
 
 /// \brief Parses the Target Profile and Entry Point from the Run command
 /// Returns the target profile, entry point, and the rest via arguments.

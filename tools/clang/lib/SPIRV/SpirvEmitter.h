@@ -1056,6 +1056,10 @@ private:
   /// Note: legalization specific code
   bool needsLegalization;
 
+  /// Whether the translated SPIR-V binary passes --before-hlsl-legalization
+  /// option to spirv-val because of illegal function parameter scope.
+  bool beforeHlslLegalization;
+
   /// Mapping from methods to the decls to represent their implicit object
   /// parameters
   ///

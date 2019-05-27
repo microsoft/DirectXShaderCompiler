@@ -29,10 +29,11 @@ public:
 
   FileTest()
       : targetEnv(SPV_ENV_VULKAN_1_0), relaxLogicalPointer(false),
-        glLayout(false), dxLayout(false) {}
+        beforeHLSLLegalization(false), glLayout(false), dxLayout(false) {}
 
   void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
   void setRelaxLogicalPointer() { relaxLogicalPointer = true; }
+  void setBeforeHLSLLegalization() { beforeHLSLLegalization = true; }
   void setGlLayout() { glLayout = true; }
   void setDxLayout() { dxLayout = true; }
   void setScalarLayout() { scalarLayout = true; }
@@ -54,6 +55,7 @@ private:
   std::string generatedSpirvAsm;         ///< Disassembled binary (SPIR-V code)
   spv_target_env targetEnv;              ///< Environment to validate against
   bool relaxLogicalPointer;
+  bool beforeHLSLLegalization;
   bool glLayout;
   bool dxLayout;
   bool scalarLayout;
