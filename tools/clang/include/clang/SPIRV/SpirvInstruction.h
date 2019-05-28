@@ -455,7 +455,8 @@ public:
     TBuffer = 1,
     PushConstant = 2,
     Globals = 3,
-    None = 4
+    ShaderRecordBufferNV = 4,
+    None = 5
   };
 
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
