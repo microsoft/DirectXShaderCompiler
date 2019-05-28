@@ -344,7 +344,7 @@ struct PDBReader {
 
   HRESULT SetPostion(INT32 sOffset) {
     LARGE_INTEGER Distance = {};
-    Distance.LowPart = m_uOriginalOffset + sOffset;
+    Distance.QuadPart = m_uOriginalOffset + sOffset;
     ULARGE_INTEGER NewLocation = {};
     return m_pStream->Seek(Distance, STREAM_SEEK_SET, &NewLocation);
   }
@@ -385,7 +385,7 @@ struct PDBReader {
   HRESULT OffsetByU32(int sCount) {
     LARGE_INTEGER Offset = {};
     ULARGE_INTEGER BytesMoved = {};
-    Offset.LowPart = sCount * sizeof(UINT32);
+    Offset.QuadPart = sCount * sizeof(UINT32);
 
     return m_pStream->Seek(Offset, STREAM_SEEK_CUR, &BytesMoved);
   }
