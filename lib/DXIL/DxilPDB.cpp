@@ -9,6 +9,18 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+//
+// This file contains code that helps creating our special PDB format. PDB
+// format contains streams at fixed locations. Outside of those fixed
+// locations, unless they are listed in the stream hash table, there is be no
+// way to know what the stream is. As far as normal PDB's are concerned, they
+// dont' really exist.
+// 
+// For our purposes, we always put our data in one stream at a fixed index
+// defined below. The data is an ordinary DXIL container format, with parts
+// that are relevant for debugging.
+//
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallString.h"
@@ -26,9 +38,9 @@ using namespace llvm;
 
 // MSF header
 static const char kMsfMagic[] = {'M',  'i',  'c',    'r', 'o', 's',  'o',  'f',
-                             't',  ' ',  'C',    '/', 'C', '+',  '+',  ' ',
-                             'M',  'S',  'F',    ' ', '7', '.',  '0',  '0',
-                             '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
+                                 't',  ' ',  'C',    '/', 'C', '+',  '+',  ' ',
+                                 'M',  'S',  'F',    ' ', '7', '.',  '0',  '0',
+                                 '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
 
 static const uint32_t kDataStreamIndex = 5; // This is the fixed stream index where we will store our custom data.
 static const uint32_t kMsfBlockSize = 512;
@@ -271,16 +283,6 @@ SmallVector<char, 0> WritePdbStream(ArrayRef<BYTE> Hash) {
   return Result;
 }
 
-static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
-  switch (FourCC) {
-  case hlsl::DFCC_ShaderDebugInfoDXIL:
-  case hlsl::DFCC_ShaderDebugName:
-  case hlsl::DFCC_ShaderHash:
-    return true;
-  }
-  return false;
-}
-
 static HRESULT FindShaderHash(IDxcBlob *pContainer, BYTE *pDigest, UINT32 uCapacity, UINT32 *pBytesWritten) {
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
     return E_FAIL;
@@ -300,64 +302,14 @@ static HRESULT FindShaderHash(IDxcBlob *pContainer, BYTE *pDigest, UINT32 uCapac
   return E_FAIL;
 }
 
-static HRESULT StripContainer(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppNewContaner) {
-  // If the pContainer is not a valid container, give up.
+HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppOutBlob) {
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
     return E_FAIL;
-
-  hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pContainer->GetBufferPointer();
-
-  // Compute offset table.
-  SmallVector<UINT32, 4> OffsetTable;
-  UINT32 uTotalPartsSize = 0;
-  for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
-    hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
-    if (ShouldPartBeIncludedInPDB(PartHeader->PartFourCC)) {
-      OffsetTable.push_back(sizeof(hlsl::DxilContainerHeader) + uTotalPartsSize);
-      uTotalPartsSize += PartHeader->PartSize + sizeof(*PartHeader);
-    }
-  }
-
-  // Offset the offset table by the offset table itself
-  for (unsigned i = 0; i < OffsetTable.size(); i++)
-    OffsetTable[i] += OffsetTable.size() * sizeof(UINT32);
-
-  // Create the new header
-  hlsl::DxilContainerHeader NewDxilHeader = *DxilHeader;
-  NewDxilHeader.PartCount = OffsetTable.size();
-  NewDxilHeader.ContainerSizeInBytes =
-    sizeof(NewDxilHeader) +
-    OffsetTable.size() * sizeof(UINT32) +
-    uTotalPartsSize;
-
-  // Write it to the result stream
-  ULONG uSizeWritten = 0;
-  CComPtr<hlsl::AbstractMemoryStream> pStrippedContainerStream;
-  IFR(hlsl::CreateMemoryStream(pMalloc, &pStrippedContainerStream));
-  IFR(pStrippedContainerStream->Write(&NewDxilHeader, sizeof(NewDxilHeader), &uSizeWritten));
-  IFR(pStrippedContainerStream->Write(OffsetTable.data(), OffsetTable.size() * sizeof(OffsetTable.data()[0]), &uSizeWritten));
-  for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
-    hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
-    if (ShouldPartBeIncludedInPDB(PartHeader->PartFourCC)) {
-      IFR(pStrippedContainerStream->Write(PartHeader, sizeof(*PartHeader), &uSizeWritten));
-      IFR(pStrippedContainerStream->Write(PartHeader+1, PartHeader->PartSize, &uSizeWritten));
-    }
-  }
-
-  IFR(pStrippedContainerStream.QueryInterface(ppNewContaner));
-
-  return S_OK;
-}
-
-HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppOutBlob) {
 
   BYTE HashData[16];
   UINT32 uHashSize = 0;
   IFR(FindShaderHash(pContainer, HashData, sizeof(HashData), &uHashSize));
   SmallVector<char, 0> PdbStream = WritePdbStream({ HashData, HashData+uHashSize });
-
-  CComPtr<IDxcBlob> pStrippedContainer;
-  IFR(StripContainer(pMalloc, pContainer, &pStrippedContainer));
 
   MSFWriter Writer;
   Writer.AddEmptyStream();     // Old Directory
@@ -368,7 +320,7 @@ HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob
   Writer.AddEmptyStream(); // DBI
   Writer.AddEmptyStream(); // IPI
   
-  Writer.AddStream({ (char *)pStrippedContainer->GetBufferPointer(), pStrippedContainer->GetBufferSize() }); // Actual data block
+  Writer.AddStream({ (char *)pContainer->GetBufferPointer(), pContainer->GetBufferSize() }); // Actual data block
   
   CComPtr<hlsl::AbstractMemoryStream> pStream;
   IFR(hlsl::CreateMemoryStream(pMalloc, &pStream));
