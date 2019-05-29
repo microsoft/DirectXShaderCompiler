@@ -1045,7 +1045,6 @@ TEST_F(CompilerTest, CompileDebugPDB) {
   CComPtr<IDxcBlob> pPdbBlob;
   WCHAR *pDebugName = nullptr;
 
-
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
   CreateBlobFromText(hlsl, &pSource);
@@ -1060,6 +1059,14 @@ TEST_F(CompilerTest, CompileDebugPDB) {
   VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pPdbBlob, &pProgramStream));
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
   VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pProgramStream));
+
+  // Test that IDxcContainerReflection can consume a PDB container
+  CComPtr<IDxcContainerReflection> pReflection;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(pPdbBlob));
+
+  UINT32 uDebugInfoIndex = 0;
+  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uDebugInfoIndex));
 }
 
 TEST_F(CompilerTest, CompileDebugLines) {
