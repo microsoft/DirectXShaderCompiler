@@ -11,7 +11,11 @@
 
 #include "dxc/Support/WinIncludes.h"
 
+#ifdef _WIN32
 #define DXC_API_IMPORT __declspec(dllexport)
+#else
+#define DXC_API_IMPORT __attribute__ ((visibility ("default")))
+#endif
 
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
