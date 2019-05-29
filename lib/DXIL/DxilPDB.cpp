@@ -75,6 +75,14 @@ static uint32_t CalculateNumBlocks(uint32_t BlockSize, uint32_t Size) {
       ((Size % BlockSize) ? 1 : 0);
 }
 
+static HRESULT ReadAllBytes(IStream *pStream, void *pDst, size_t uSize) {
+  ULONG uBytesRead = 0;
+  IFR(pStream->Read(pDst, uSize, &uBytesRead));
+  if (uBytesRead != uSize)
+    return E_FAIL;
+  return S_OK;
+}
+
 struct MSFWriter {
 
   struct Stream {
@@ -362,8 +370,7 @@ struct PDBReader {
   HRESULT GetStatus() { return m_Status; }
 
   HRESULT ReadSuperblock(MSF_SuperBlock *pSB) {
-    ULONG SizeRead = 0;
-    IFR(m_pStream->Read(pSB, sizeof(*pSB), &SizeRead));
+    IFR(ReadAllBytes(m_pStream, pSB, sizeof(*pSB)));
     if (memcmp(pSB->MagicBytes, kMsfMagic, sizeof(kMsfMagic)) != 0)
       return E_FAIL;
 
@@ -371,9 +378,8 @@ struct PDBReader {
   }
 
   HRESULT ReadU32(UINT32 *pValue) {
-    ULONG NumBytesRead = 0;
     support::ulittle32_t ValueLE;
-    IFR(m_pStream->Read(&ValueLE, sizeof(ValueLE), &NumBytesRead));
+    IFR(ReadAllBytes(m_pStream, &ValueLE, sizeof(ValueLE)));
     *pValue = ValueLE;
     return S_OK;
   }
@@ -461,9 +467,11 @@ struct PDBReader {
     CopyBuffer.resize(m_SB.BlockSize);
     for (unsigned i = 0; i < DataBlocks.size(); i++) {
       IFR(GoToBeginningOfBlock(DataBlocks[i]));
-      ULONG uSizeRead = 0;
-      IFR(m_pStream->Read(CopyBuffer.data(), m_SB.BlockSize, &uSizeRead));
-      IFR(pResult->Write(CopyBuffer.data(), m_SB.BlockSize, &uSizeRead))
+      IFR(ReadAllBytes(m_pStream, CopyBuffer.data(), m_SB.BlockSize));
+      ULONG uSizeWritten = 0;
+      IFR(pResult->Write(CopyBuffer.data(), m_SB.BlockSize, &uSizeWritten));
+      if (uSizeWritten != m_SB.BlockSize)
+        return E_FAIL;
     }
 
     IFR(pResult.QueryInterface(ppData));

@@ -149,6 +149,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
       PartWriters.push_back(NewPart);
     }
 
+    // Could use any of these. We're mostly after the header version and all that.
     if (PartHeader->PartFourCC == hlsl::DFCC_DXIL ||
       PartHeader->PartFourCC == hlsl::DFCC_ShaderDebugInfoDXIL)
     {
@@ -187,6 +188,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
         IFR(pStream->Write(pDebugBlob->GetBufferPointer(), pDebugBlob->GetBufferSize(), &uBytesWritten));
         if(uPaddingSize) {
           UINT32 uPadding = 0;
+          assert(uPaddingSize <= sizeof(uPadding) && "Padding size calculation is wrong.");
           IFR(pStream->Write(&uPadding, uPaddingSize, &uBytesWritten));
         }
         return S_OK;
