@@ -25,6 +25,7 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilPDB.h"
 
 #include <unordered_set>
 #include "llvm/ADT/SetVector.h"
@@ -223,6 +224,17 @@ public:
 
 _Use_decl_annotations_
 HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
+
+  CComPtr<IDxcBlob> pPDBContainer;
+  {
+    DxcThreadMalloc DxcMalloc(m_pMalloc);
+    CComPtr<IStream> pStream;
+    IFR(hlsl::CreateReadOnlyBlobStream(pContainer, &pStream));
+    if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &pPDBContainer))) {
+      pContainer = pPDBContainer;
+    }
+  }
+
   if (pContainer == nullptr) {
     m_container.Release();
     m_pHeader = nullptr;

@@ -245,10 +245,14 @@ static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompile
 static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash, std::string &output) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcCompiler2> pCompiler2;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pCompiledBlob;
+  CComPtr<IDxcBlob> pCompiledName;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
+  WCHAR *pDebugName = nullptr;
+  CComPtr<IDxcBlob> pPDBBlob;
 
   std::wstring entry =
       Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
@@ -259,8 +263,9 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
   IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  IFT(pCompiler->Compile(pSource, CommandFileName, entry.c_str(), profile.c_str(),
-    flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
+  IFT(pCompiler.QueryInterface(&pCompiler2));
+  IFT(pCompiler2->CompileWithDebug(pSource, CommandFileName, entry.c_str(), profile.c_str(),
+    flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult, &pDebugName, &pPDBBlob));
 
   HRESULT resultStatus = 0;
   IFT(pResult->GetStatus(&resultStatus));
@@ -292,6 +297,15 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
     md5.update(Data);
     md5.final(md5Result);
     md5.stringifyResult(md5Result, Hash);
+
+    // Test that PDB is generated correctly.
+    // This test needs to be done elsewhere later, ideally a fully
+    // customizable test on all our test set with different compile options.
+    if (pPDBBlob) {
+      IFT(pReflection->Load(pPDBBlob));
+      UINT32 uDebugInfoIndex = 0;
+      IFT(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uDebugInfoIndex));
+    }
 
     return S_OK;
   }
