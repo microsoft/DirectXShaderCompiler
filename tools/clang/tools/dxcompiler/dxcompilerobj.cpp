@@ -135,18 +135,18 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
       OffsetTable.push_back(uTotalPartsSize);
       uTotalPartsSize += PartHeader->PartSize + sizeof(*PartHeader);
 
-      UINT32 uFourCC = PartHeader->PartFourCC;
       UINT32 uSize = PartHeader->PartSize;
       const void *pPartData = PartHeader+1;
-      PartWriters.push_back({
+      Part NewPart = {
         PartHeader->PartFourCC,
         uSize,
-        [pPartData, uSize, uFourCC](IStream *pStream) {
+        [pPartData, uSize](IStream *pStream) {
           ULONG uBytesWritten = 0;
           IFR(pStream->Write(pPartData, uSize, &uBytesWritten));
           return S_OK;
         }
-      });
+      };
+      PartWriters.push_back(NewPart);
     }
 
     if (PartHeader->PartFourCC == hlsl::DFCC_DXIL ||
@@ -162,8 +162,8 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   {
     static auto AlignByDword = [](UINT32 uSize, UINT32 *pPaddingBytes) {
       UINT32 uRem = uSize % sizeof(UINT32);
-      UINT32 uResult = uSize + (uRem ? sizeof(UINT32) : 0);
-      *pPaddingBytes = uRem;
+      UINT32 uResult = (uSize/sizeof(UINT32) + (uRem ? 1 : 0)) * sizeof(UINT32);
+      *pPaddingBytes = uRem ? (sizeof(UINT32)-uRem) : 0;
       return uResult;
     };
 
@@ -173,7 +173,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
     OffsetTable.push_back(uTotalPartsSize);
     uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
 
-    PartWriters.push_back({
+    Part NewPart = {
       hlsl::DFCC_ShaderDebugInfoDXIL,
       uPartSize,
       [uPartSize, ProgramHeader, pDebugBlob, uPaddingSize](IStream *pStream) {
@@ -191,7 +191,8 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
         }
         return S_OK;
       }
-    });
+    };
+    PartWriters.push_back(NewPart);
   }
 
   // Offset the offset table by the offset table itself
