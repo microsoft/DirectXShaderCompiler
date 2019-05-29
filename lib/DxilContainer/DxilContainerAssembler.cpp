@@ -1628,7 +1628,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     if (DebugName.empty()) {
       md5.stringifyResult(HashContent.Digest, Hash);
       DebugNameStr += Hash;
-      DebugNameStr += ".lld";
+      DebugNameStr += ".pdb";
       DebugName = DebugNameStr;
     }
 

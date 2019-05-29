@@ -13,6 +13,7 @@
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 
@@ -65,14 +66,29 @@ std::unique_ptr<llvm::MemoryBuffer> getMemBufferFromStream(_In_ IStream *pStream
 }
 }  // namespace dxil_dia
 
-STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pIStream) {
-  DxcThreadMalloc TM(m_pMalloc);
-  if (m_module.get() != nullptr) {
-    return E_FAIL;
-  }
-  m_context.reset();
-  m_finder.reset();
+STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStream) {
   try {
+    DxcThreadMalloc TM(m_pMalloc);
+    if (m_module.get() != nullptr) {
+      return E_FAIL;
+    }
+
+    CComPtr<IStream> pIStream = pInputIStream;
+    CComPtr<IDxcBlob> pContainer;
+    if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pInputIStream, &pContainer))) {
+      hlsl::DxilPartHeader *PartHeader =
+        hlsl::GetDxilPartByType((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), hlsl::DFCC_ShaderDebugInfoDXIL);
+      if (!PartHeader)
+        return E_FAIL;
+      CComPtr<IDxcBlobEncoding> pPinnedBlob;
+      IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(PartHeader+1, PartHeader->PartSize, CP_ACP, &pPinnedBlob));
+      pIStream.Release();
+      IFR(hlsl::CreateReadOnlyBlobStream(pPinnedBlob, &pIStream));
+    }
+
+    m_context.reset();
+    m_finder.reset();
+
     m_context = std::make_shared<llvm::LLVMContext>();
     llvm::MemoryBuffer *pBitcodeBuffer;
     std::unique_ptr<llvm::MemoryBuffer> pEmbeddedBuffer;
