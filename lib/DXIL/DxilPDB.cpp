@@ -342,7 +342,7 @@ struct PDBReader {
   MSF_SuperBlock m_SB = {};
   HRESULT m_Status = S_OK;
 
-  HRESULT SetPostion(INT32 sOffset) {
+  HRESULT SetPosition(INT32 sOffset) {
     LARGE_INTEGER Distance = {};
     Distance.QuadPart = m_uOriginalOffset + sOffset;
     ULARGE_INTEGER NewLocation = {};
@@ -356,7 +356,7 @@ struct PDBReader {
   // Reset the stream back to its original position, regardless of
   // we succeeded or failed.
   ~PDBReader() {
-    SetPostion(0);
+    SetPosition(0);
   }
 
   HRESULT GetStatus() { return m_Status; }
@@ -379,7 +379,7 @@ struct PDBReader {
   }
 
   HRESULT GoToBeginningOfBlock(UINT32 uBlock) {
-    return SetPostion(uBlock * m_SB.BlockSize);
+    return SetPosition(uBlock * m_SB.BlockSize);
   }
 
   HRESULT OffsetByU32(int sCount) {
