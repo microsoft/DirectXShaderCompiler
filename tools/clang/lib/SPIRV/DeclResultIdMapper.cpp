@@ -1472,7 +1472,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       if (const auto *regAttr = var.getRegister()) {
         if (var.isCounter()) {
           emitError("-fvk-bind-register for RW/Append/Consume StructuredBuffer "
-                    "umimplemented",
+                    "unimplemented",
                     var.getSourceLocation());
         } else {
           int setNo = 0, bindNo = 0;

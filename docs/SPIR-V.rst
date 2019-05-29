@@ -1453,12 +1453,12 @@ Explicit binding number assignment
 ``[[vk::binding(X[, Y])]]`` can be attached to global variables to specify the
 descriptor set as ``Y`` and binding number as ``X``. The descriptor set number
 is optional; if missing, it will be zero (If ``-auto-binding-space N`` command
-line option is used, then descriptor set #N will be used instead of descriptor set #0).
-RW/append/consume structured buffers have associated counters, which will occupy
-their own Vulkan descriptors. ``[vk::counter_binding(Z)]`` can be attached to a
-RW/append/consume structured buffers to specify the binding number for the
-associated counter to ``Z``. Note that the set number of the counter is always
-the same as the main buffer.
+line option is used, then descriptor set #N will be used instead of descriptor
+set #0). RW/append/consume structured buffers have associated counters, which
+will occupy their own Vulkan descriptors. ``[vk::counter_binding(Z)]`` can be
+attached to a RW/append/consume structured buffers to specify the binding number
+for the associated counter to ``Z``. Note that the set number of the counter is
+always the same as the main buffer.
 
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1478,8 +1478,8 @@ respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
-set #0 (If ``-auto-binding-space N`` command line option is used, then descriptor set #N
-will be used instead of descriptor set #0).
+set #0 (If ``-auto-binding-space N`` command line option is used, then
+descriptor set #N will be used instead of descriptor set #0).
 
 Summary
 ~~~~~~~
