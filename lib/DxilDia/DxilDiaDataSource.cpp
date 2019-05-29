@@ -80,7 +80,7 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
     if (!PartHeader)
       return E_FAIL;
     CComPtr<IDxcBlobEncoding> pPinnedBlob;
-    IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(PartHeader+1, PartHeader->PartSize, CP_UTF8, &pPinnedBlob));
+    IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(PartHeader+1, PartHeader->PartSize, CP_ACP, &pPinnedBlob));
     pIStream.Release();
     IFR(hlsl::CreateReadOnlyBlobStream(pPinnedBlob, &pIStream));
   }
