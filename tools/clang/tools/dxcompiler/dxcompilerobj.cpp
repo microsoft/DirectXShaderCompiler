@@ -120,9 +120,16 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   hlsl::DxilProgramHeader *ProgramHeader = nullptr;
 
   struct Part {
+    typedef std::function<HRESULT(IStream *)> WriteProc;
     UINT32 uFourCC = 0;
-    UINT32 uSize;
-    std::function<HRESULT(IStream *)> Writer;
+    UINT32 uSize = 0;
+    WriteProc Writer;
+
+    Part(UINT32 uFourCC, UINT32 uSize, WriteProc Writer) :
+      uFourCC(uFourCC),
+      uSize(uSize),
+      Writer(Writer)
+    {}
   };
 
   // Compute offset table.
@@ -137,7 +144,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
 
       UINT32 uSize = PartHeader->PartSize;
       const void *pPartData = PartHeader+1;
-      Part NewPart = {
+      Part NewPart(
         PartHeader->PartFourCC,
         uSize,
         [pPartData, uSize](IStream *pStream) {
@@ -145,7 +152,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
           IFR(pStream->Write(pPartData, uSize, &uBytesWritten));
           return S_OK;
         }
-      };
+      );
       PartWriters.push_back(NewPart);
     }
 
@@ -174,7 +181,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
     OffsetTable.push_back(uTotalPartsSize);
     uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
 
-    Part NewPart = {
+    Part NewPart(
       hlsl::DFCC_ShaderDebugInfoDXIL,
       uPartSize,
       [uPartSize, ProgramHeader, pDebugBlob, uPaddingSize](IStream *pStream) {
@@ -193,7 +200,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
         }
         return S_OK;
       }
-    };
+    );
     PartWriters.push_back(NewPart);
   }
 
