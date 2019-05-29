@@ -48,27 +48,27 @@ if %errorlevel% equ 0 (
   call :cleanup 2>nul
   exit /b 1
 )
-rem del .lld file if exists
-dir %CD%\*.lld 1>nul
+rem del .pdb file if exists
+dir %CD%\*.pdb 1>nul
 if %errorlevel% equ 0 (
-  del %CD%\*.lld
+  del %CD%\*.pdb
 )
-rem /Fd implies /Qstrip_debug ; path with \ produces auto hash-named .lld file
+rem /Fd implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
 dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd .\ /Fo smoke.hlsl.strip 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
   call :cleanup 2>nul
   exit /b 1
 )
-rem .lld file should be produced
-dir %CD%\*.lld 1>nul
+rem .pdb file should be produced
+dir %CD%\*.pdb 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to find some .lld file at %CD%
+  echo Failed to find some .pdb file at %CD%
   call :cleanup 2>nul
   exit /b 1
 )
-rem auto debug name is hex digest + .lld
-dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+rem auto debug name is hex digest + .pdb
+dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find shader debug name.
   call :cleanup 2>nul
@@ -82,10 +82,10 @@ if %errorlevel% equ 0 (
 )
 
 rem Embed debug info
-rem first delete .lld file if exists
-dir %CD%\*.lld 1>nul
+rem first delete .pdb file if exists
+dir %CD%\*.pdb 1>nul
 if %errorlevel% equ 0 (
-  del %CD%\*.lld
+  del %CD%\*.pdb
 )
 dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.hlsl.embedpdb 1>nul
 if %errorlevel% neq 0 (
@@ -93,15 +93,15 @@ if %errorlevel% neq 0 (
   call :cleanup 2>nul
   exit /b 1
 )
-rem .lld file should NOT be produced
-dir %CD%\*.lld 1>nul
+rem .pdb file should NOT be produced
+dir %CD%\*.pdb 1>nul
 if %errorlevel% equ 0 (
-  echo Found unexpected .lld file at %CD%
+  echo Found unexpected .pdb file at %CD%
   call :cleanup 2>nul
   exit /b 1
 )
-rem should have auto debug name, which is hex digest + .lld
-dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+rem should have auto debug name, which is hex digest + .pdb
+dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find shader debug name.
   call :cleanup 2>nul
@@ -116,10 +116,10 @@ if %errorlevel% neq 0 (
 
 del smoke.hlsl.embedpdb
 rem Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
-rem first delete .lld file if exists
-dir %CD%\*.lld 1>nul
+rem first delete .pdb file if exists
+dir %CD%\*.pdb 1>nul
 if %errorlevel% equ 0 (
-  del %CD%\*.lld
+  del %CD%\*.pdb
 )
 dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb /Fe smoke.err.embedpdb 1>nul
 if %errorlevel% neq 0 (
@@ -134,15 +134,15 @@ if %errorlevel% neq 0 (
   call :cleanup 2>nul
   exit /b 1
 )
-rem .lld file should NOT be produced
-dir %CD%\*.lld 1>nul
+rem .pdb file should NOT be produced
+dir %CD%\*.pdb 1>nul
 if %errorlevel% equ 0 (
-  echo Found unexpected .lld file at %CD%
+  echo Found unexpected .pdb file at %CD%
   call :cleanup 2>nul
   exit /b 1
 )
-rem should have auto debug name, which is hex digest + .lld
-dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+rem should have auto debug name, which is hex digest + .pdb
+dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find shader debug name.
   call :cleanup 2>nul
@@ -162,8 +162,8 @@ if %errorlevel% neq 0 (
   call :cleanup 2>nul
   exit /b 1
 )
-rem auto debug name is hex digest + .lld
-dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.lld" 1>nul
+rem auto debug name is hex digest + .pdb
+dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find shader debug name.
   call :cleanup 2>nul
@@ -767,10 +767,10 @@ exit /b 0
 
 :cleanup
 exit /b 0
-rem del .lld file if exists
-dir %CD%\*.lld 1>nul
+rem del .pdb file if exists
+dir %CD%\*.pdb 1>nul
 if %errorlevel% equ 0 (
-  del %CD%\*.lld
+  del %CD%\*.pdb
 )
 del %CD%\NonUniform.cso
 del %CD%\NonUniformNoRootSig.cso
