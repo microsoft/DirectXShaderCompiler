@@ -104,7 +104,6 @@ static void CreateOperationResultFromOutputs(
 
 static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   switch (FourCC) {
-  case hlsl::DFCC_ShaderDebugInfoDXIL:
   case hlsl::DFCC_ShaderDebugName:
   case hlsl::DFCC_ShaderHash:
     return true;
@@ -112,27 +111,92 @@ static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   return false;
 }
 
-static HRESULT StripContainerForPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppNewContaner) {
+static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, IDxcBlob **ppNewContaner) {
   // If the pContainer is not a valid container, give up.
-  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
+  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer(), pOldContainer->GetBufferSize()))
     return E_FAIL;
 
-  hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pContainer->GetBufferPointer();
+  hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer();
+  hlsl::DxilProgramHeader *ProgramHeader = nullptr;
+
+  struct Part {
+    UINT32 uFourCC = 0;
+    UINT32 uSize;
+    std::function<HRESULT(IStream *)> Writer;
+  };
 
   // Compute offset table.
   SmallVector<UINT32, 4> OffsetTable;
+  SmallVector<Part, 4> PartWriters;
   UINT32 uTotalPartsSize = 0;
   for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
     hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
     if (ShouldPartBeIncludedInPDB(PartHeader->PartFourCC)) {
-      OffsetTable.push_back(sizeof(hlsl::DxilContainerHeader) + uTotalPartsSize);
+      OffsetTable.push_back(uTotalPartsSize);
       uTotalPartsSize += PartHeader->PartSize + sizeof(*PartHeader);
+
+      UINT32 uFourCC = PartHeader->PartFourCC;
+      UINT32 uSize = PartHeader->PartSize;
+      const void *pPartData = PartHeader+1;
+      PartWriters.push_back({
+        PartHeader->PartFourCC,
+        uSize,
+        [pPartData, uSize, uFourCC](IStream *pStream) {
+          ULONG uBytesWritten = 0;
+          IFR(pStream->Write(pPartData, uSize, &uBytesWritten));
+          return S_OK;
+        }
+      });
     }
+
+    if (PartHeader->PartFourCC == hlsl::DFCC_DXIL ||
+      PartHeader->PartFourCC == hlsl::DFCC_ShaderDebugInfoDXIL)
+    {
+      ProgramHeader = (hlsl::DxilProgramHeader *)(PartHeader+1);
+    }
+  }
+
+  if (!ProgramHeader)
+    return E_FAIL;
+
+  {
+    static auto AlignByDword = [](UINT32 uSize, UINT32 *pPaddingBytes) {
+      UINT32 uRem = uSize % sizeof(UINT32);
+      UINT32 uResult = uSize + (uRem ? sizeof(UINT32) : 0);
+      *pPaddingBytes = uRem;
+      return uResult;
+    };
+
+    UINT32 uPaddingSize = 0;
+    UINT32 uPartSize = AlignByDword(sizeof(hlsl::DxilProgramHeader) + pDebugBlob->GetBufferSize(), &uPaddingSize);
+
+    OffsetTable.push_back(uTotalPartsSize);
+    uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
+
+    PartWriters.push_back({
+      hlsl::DFCC_ShaderDebugInfoDXIL,
+      uPartSize,
+      [uPartSize, ProgramHeader, pDebugBlob, uPaddingSize](IStream *pStream) {
+        hlsl::DxilProgramHeader Header = *ProgramHeader;
+        Header.BitcodeHeader.BitcodeSize = pDebugBlob->GetBufferSize();
+        Header.BitcodeHeader.BitcodeOffset = sizeof(hlsl::DxilBitcodeHeader);
+        Header.SizeInUint32 = uPartSize / sizeof(UINT32);
+
+        ULONG uBytesWritten = 0;
+        IFR(pStream->Write(&Header, sizeof(Header), &uBytesWritten));
+        IFR(pStream->Write(pDebugBlob->GetBufferPointer(), pDebugBlob->GetBufferSize(), &uBytesWritten));
+        if(uPaddingSize) {
+          UINT32 uPadding = 0;
+          IFR(pStream->Write(&uPadding, uPaddingSize, &uBytesWritten));
+        }
+        return S_OK;
+      }
+    });
   }
 
   // Offset the offset table by the offset table itself
   for (unsigned i = 0; i < OffsetTable.size(); i++)
-    OffsetTable[i] += OffsetTable.size() * sizeof(UINT32);
+    OffsetTable[i] += sizeof(hlsl::DxilContainerHeader) + OffsetTable.size() * sizeof(UINT32);
 
   // Create the new header
   hlsl::DxilContainerHeader NewDxilHeader = *DxilHeader;
@@ -147,13 +211,17 @@ static HRESULT StripContainerForPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxc
   CComPtr<hlsl::AbstractMemoryStream> pStrippedContainerStream;
   IFR(hlsl::CreateMemoryStream(pMalloc, &pStrippedContainerStream));
   IFR(pStrippedContainerStream->Write(&NewDxilHeader, sizeof(NewDxilHeader), &uSizeWritten));
+
+  // Write offset table
   IFR(pStrippedContainerStream->Write(OffsetTable.data(), OffsetTable.size() * sizeof(OffsetTable.data()[0]), &uSizeWritten));
-  for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
-    hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
-    if (ShouldPartBeIncludedInPDB(PartHeader->PartFourCC)) {
-      IFR(pStrippedContainerStream->Write(PartHeader, sizeof(*PartHeader), &uSizeWritten));
-      IFR(pStrippedContainerStream->Write(PartHeader+1, PartHeader->PartSize, &uSizeWritten));
-    }
+
+  for (unsigned i = 0; i < PartWriters.size(); i++) {
+    auto &Writer = PartWriters[i];
+    hlsl::DxilPartHeader PartHeader = {};
+    PartHeader.PartFourCC = Writer.uFourCC;
+    PartHeader.PartSize = Writer.uSize;
+    IFR(pStrippedContainerStream->Write(&PartHeader, sizeof(PartHeader), &uSizeWritten));
+    IFR(Writer.Writer(pStrippedContainerStream));
   }
 
   IFR(pStrippedContainerStream.QueryInterface(ppNewContaner));
@@ -710,7 +778,9 @@ public:
       if (SUCCEEDED(status)) {
         if (opts.IsDebugInfoEnabled() && ppDebugBlob) {
           CComPtr<IDxcBlob> pStrippedContainer;
-          DXVERIFY_NOMSG(SUCCEEDED(StripContainerForPDB(m_pMalloc, pOutputBlob, &pStrippedContainer)));
+          CComPtr<IDxcBlob> pDebugBitcodeBlob;
+          DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(&pDebugBitcodeBlob)));
+          DXVERIFY_NOMSG(SUCCEEDED(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBitcodeBlob, &pStrippedContainer)));
           DXVERIFY_NOMSG(SUCCEEDED((hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ppDebugBlob)))); 
         }
         if (ppDebugBlobName) {
