@@ -189,7 +189,7 @@ if( LLVM_ENABLE_PIC )
       # MinGW warns if -fvisibility-inlines-hidden is used.
     else()
       check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
-      append_if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG "-fvisibility-inlines-hidden" CMAKE_CXX_FLAGS)
+      append_if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG "-fvisibility-inlines-hidden -fvisibility=hidden" CMAKE_CXX_FLAGS)
     endif()
   endif()
 endif()

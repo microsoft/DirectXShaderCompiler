@@ -5,6 +5,8 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   BitWriter
   Core
+  DXIL
+  DxilRootSignature
   IPO
   IRReader
   InstCombine

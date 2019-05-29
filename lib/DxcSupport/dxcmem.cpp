@@ -22,10 +22,6 @@
 static llvm::sys::ThreadLocal<IMalloc> *g_ThreadMallocTls;
 static IMalloc *g_pDefaultMalloc;
 
-#ifndef _WIN32
-#pragma GCC visibility push(hidden)
-#endif
-
 HRESULT DxcInitThreadMalloc() throw() {
   DXASSERT(g_pDefaultMalloc == nullptr, "else InitThreadMalloc already called");
 
@@ -84,14 +80,10 @@ static IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw()
   return pMalloc;
 }
 
-DXC_HIDDEN_LINKAGE DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
+DxcThreadMalloc::DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
     p = DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, &pPrior);
 }
 
-DXC_HIDDEN_LINKAGE DxcThreadMalloc::~DxcThreadMalloc() {
+DxcThreadMalloc::~DxcThreadMalloc() {
     DxcSwapThreadMalloc(pPrior, nullptr);
 }
-
-#ifndef _WIN32
-#pragma GCC visibility pop
-#endif
