@@ -109,7 +109,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
   if (runSpirvValidation) {
     EXPECT_TRUE(utils::validateSpirvBinary(
         targetEnv, generatedBinary,
-        /*relaxLogicalPointer=*/false, /*beforeHlslLegalization=*/false,
+        /*beforeHlslLegalization=*/false,
         /*glLayout=*/false, /*dxLayout=*/false, /*scalarLayout=*/false));
   }
 }
