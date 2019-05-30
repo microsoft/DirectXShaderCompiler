@@ -192,7 +192,7 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool beforeHlslLegalization, bool relaxLogicalPointer,
+                        bool beforeHlslLegalization,
                         std::vector<uint32_t> *module, std::string *messages) {
   spvtools::SpirvTools tools(env);
 
@@ -203,15 +203,6 @@ bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
 
   spvtools::ValidatorOptions options;
   options.SetBeforeHlslLegalization(beforeHlslLegalization);
-  // When beforeHlslLegalization is true and relaxLogicalPointer is false,
-  // options.SetBeforeHlslLegalization() enables --before-hlsl-legalization
-  // and --relax-logical-pointer. If options.SetRelaxLogicalPointer() is
-  // called, it disables --relax-logical-pointer that is not expected
-  // behavior. When beforeHlslLegalization is true, we must enable both
-  // options.
-  if (!beforeHlslLegalization)
-    options.SetRelaxLogicalPointer(relaxLogicalPointer);
-
   // GL: strict block layout rules
   // VK: relaxed block layout rules
   // DX: Skip block layout rules
@@ -679,9 +670,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(targetEnv, spirvOptions, beforeHlslLegalization,
-                            declIdMapper.requiresLegalization(), &m,
-                            &messages)) {
+    if (!spirvToolsValidate(targetEnv, spirvOptions,
+                            beforeHlslLegalization ||
+                                declIdMapper.requiresLegalization(),
+                            &m, &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "
