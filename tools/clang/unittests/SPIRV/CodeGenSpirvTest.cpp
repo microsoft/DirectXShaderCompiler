@@ -1372,7 +1372,7 @@ TEST_F(FileTest, SpirvInterpolationError) {
 }
 
 TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("spirv.legal.opaque-struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
@@ -1793,7 +1793,7 @@ TEST_F(FileTest, ComputeShaderGroupShared) {
   runFileTest("cs.groupshared.hlsl");
 }
 TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
-  setRelaxLogicalPointer();
+  setBeforeHLSLLegalization();
   runFileTest("cs.groupshared.function-param.hlsl");
 }
 TEST_F(FileTest, ComputeShaderGroupSharedFunctionParamOut) {
