@@ -103,6 +103,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_EXT_descriptor_indexing", Extension::EXT_descriptor_indexing)
       .Case("SPV_EXT_fragment_fully_covered",
             Extension::EXT_fragment_fully_covered)
+      .Case("SPV_EXT_fragment_invocation_density",
+            Extension::EXT_fragment_invocation_density)
       .Case("SPV_EXT_shader_stencil_export",
             Extension::EXT_shader_stencil_export)
       .Case("SPV_EXT_shader_viewport_index_layer",
@@ -136,6 +138,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_descriptor_indexing";
   case Extension::EXT_fragment_fully_covered:
     return "SPV_EXT_fragment_fully_covered";
+  case Extension::EXT_fragment_invocation_density:
+    return "SPV_EXT_fragment_invocation_density";
   case Extension::EXT_shader_stencil_export:
     return "SPV_EXT_shader_stencil_export";
   case Extension::EXT_shader_viewport_index_layer:

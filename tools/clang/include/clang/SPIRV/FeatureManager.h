@@ -36,6 +36,7 @@ enum class Extension {
   KHR_post_depth_coverage,
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
+  EXT_fragment_invocation_density,
   EXT_shader_stencil_export,
   EXT_shader_viewport_index_layer,
   AMD_gpu_shader_half_float,
