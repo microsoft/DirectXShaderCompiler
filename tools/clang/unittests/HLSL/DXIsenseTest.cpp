@@ -120,6 +120,8 @@ protected:
   TEST_METHOD(QualifiedNameVariable)
 
   TEST_METHOD(TypeWhenICEThenEval)
+
+  TEST_METHOD(CompletionWhenResultsAvailable)
 };
 
 bool DXIntellisenseTest::DXIntellisenseTestClassSetup() {
@@ -787,4 +789,19 @@ TEST_F(DXIntellisenseTest, TypeWhenICEThenEval)
   CComHeapPtr<char> name;
   VERIFY_SUCCEEDED(typeCursor->GetSpelling(&name));
   VERIFY_ARE_EQUAL_STR("const float [2]", name); // global variables converted to const by default
+}
+
+TEST_F(DXIntellisenseTest, CompletionWhenResultsAvailable)
+{
+  char program[] = "floa";
+  CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
+  VERIFY_ARE_EQUAL(false, result.ParseSucceeded());
+  char* fileName = "filename.hlsl";
+  CComPtr<IDxcUnsavedFile> unsavedFile;
+  IFE(TrivialDxcUnsavedFile::Create(fileName, program, &unsavedFile));
+  CComPtr<IDxcCodeCompleteResults> codeCompleteResults;
+  VERIFY_SUCCEEDED(result.TU->CodeCompleteAt(fileName, 1, 1, &unsavedFile.p, 1, DxcCodeCompleteFlags_None, &codeCompleteResults));
+  unsigned numResults;
+  VERIFY_SUCCEEDED(codeCompleteResults->GetNumResults(&numResults));
+  VERIFY_ARE_EQUAL(1, numResults);
 }

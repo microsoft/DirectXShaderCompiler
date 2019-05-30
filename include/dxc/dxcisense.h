@@ -564,6 +564,39 @@ enum DxcCursorKindFlags
   DxcCursorKind_Unexposed = 0x100,
 };
 
+enum DxcCodeCompleteFlags
+{
+  DxcCodeCompleteFlags_None = 0,
+  DxcCodeCompleteFlags_IncludeMacros = 0x1,
+  DxcCodeCompleteFlags_IncludeCodePatterns = 0x2,
+  DxcCodeCompleteFlags_IncludeBriefComments = 0x4,
+};
+
+enum DxcCompletionChunkKind
+{
+  DxcCompletionChunk_Optional = 0,
+  DxcCompletionChunk_TypedText = 1,
+  DxcCompletionChunk_Text = 2,
+  DxcCompletionChunk_Placeholder = 3,
+  DxcCompletionChunk_Informative = 4,
+  DxcCompletionChunk_CurrentParameter = 5,
+  DxcCompletionChunk_LeftParen = 6,
+  DxcCompletionChunk_RightParen = 7,
+  DxcCompletionChunk_LeftBracket = 8,
+  DxcCompletionChunk_RightBracket = 9,
+  DxcCompletionChunk_LeftBrace = 10,
+  DxcCompletionChunk_RightBrace = 11,
+  DxcCompletionChunk_LeftAngle = 12,
+  DxcCompletionChunk_RightAngle = 13,
+  DxcCompletionChunk_Comma = 14,
+  DxcCompletionChunk_ResultType = 15,
+  DxcCompletionChunk_Colon = 16,
+  DxcCompletionChunk_SemiColon = 17,
+  DxcCompletionChunk_Equal = 18,
+  DxcCompletionChunk_HorizontalSpace = 19,
+  DxcCompletionChunk_VerticalSpace = 20,
+};
+
 struct IDxcCursor;
 struct IDxcDiagnostic;
 struct IDxcFile;
@@ -576,6 +609,9 @@ struct IDxcToken;
 struct IDxcTranslationUnit;
 struct IDxcType;
 struct IDxcUnsavedFile;
+struct IDxcCodeCompleteResults;
+struct IDxcCompletionResult;
+struct IDxcCompletionString;
 
 struct __declspec(uuid("1467b985-288d-4d2a-80c1-ef89c42c40bc"))
 IDxcCursor : public IUnknown
@@ -744,6 +780,11 @@ IDxcTranslationUnit : public IUnknown
     _Out_ unsigned* errorLength,
     _Out_ BSTR* errorMessage) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetInclusionList(_Out_ unsigned* pResultCount, _Outptr_result_buffer_(*pResultCount) IDxcInclusion*** pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE CodeCompleteAt(
+      _In_ char *fileName, unsigned line, unsigned column,
+      _In_ IDxcUnsavedFile** pUnsavedFiles, unsigned numUnsavedFiles,
+      _In_ DxcCodeCompleteFlags options,
+      _Outptr_result_nullonfailure_ IDxcCodeCompleteResults **pResult) = 0;
 };
 
 struct __declspec(uuid("2ec912fd-b144-4a15-ad0d-1c5439c81e46"))
@@ -760,6 +801,28 @@ IDxcUnsavedFile : public IUnknown
   virtual HRESULT STDMETHODCALLTYPE GetFileName(_Outptr_result_z_ LPSTR* pFileName) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetContents(_Outptr_result_z_ LPSTR* pContents) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetLength(_Out_ unsigned* pLength) = 0;
+};
+
+
+struct __declspec(uuid("1E06466A-FD8B-45F3-A78F-8A3F76EBB552"))
+IDxcCodeCompleteResults : public IUnknown
+{
+  virtual HRESULT STDMETHODCALLTYPE GetNumResults(_Out_ unsigned *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetResultAt(unsigned index, _Outptr_result_nullonfailure_ IDxcCompletionResult **pResult) = 0;
+};
+
+struct __declspec(uuid("943C0588-22D0-4784-86FC-701F802AC2B6"))
+IDxcCompletionResult : public IUnknown
+{
+  virtual HRESULT STDMETHODCALLTYPE GetCursorKind(_Out_ DxcCursorKind *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCompletionString(_Outptr_result_nullonfailure_ IDxcCompletionString **pResult) = 0;
+};
+
+struct __declspec(uuid("06B51E0F-A605-4C69-A110-CD6E14B58EEC"))
+IDxcCompletionString : public IUnknown
+{
+  virtual HRESULT STDMETHODCALLTYPE GetNumCompletionChunks(_Out_ unsigned *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCompletionChunkKind(unsigned chunkNumber, _Out_ DxcCompletionChunkKind *pResult) = 0;
 };
 
 // Fun fact: 'extern' is required because const is by default static in C++, so

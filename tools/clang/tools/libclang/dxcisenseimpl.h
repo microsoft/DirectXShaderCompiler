@@ -338,6 +338,12 @@ public:
       _Out_ unsigned* errorLength,
       _Out_ BSTR* errorMessage) override;
     HRESULT STDMETHODCALLTYPE GetInclusionList(_Out_ unsigned* pResultCount, _Outptr_result_buffer_(*pResultCount) IDxcInclusion*** pResult) override;
+    HRESULT STDMETHODCALLTYPE CodeCompleteAt(
+      _In_ char *fileName, unsigned line, unsigned column,
+      _In_ IDxcUnsavedFile** pUnsavedFiles, unsigned numUnsavedFiles,
+      _In_ DxcCodeCompleteFlags options,
+      _Outptr_result_nullonfailure_ IDxcCodeCompleteResults **pResult)
+      override;
 };
 
 class DxcType : public IDxcType
@@ -360,6 +366,66 @@ public:
   HRESULT STDMETHODCALLTYPE GetSpelling(_Outptr_result_maybenull_ LPSTR* pResult) override;
   HRESULT STDMETHODCALLTYPE IsEqualTo(_In_ IDxcType* other, _Out_ BOOL* pResult) override;
   HRESULT STDMETHODCALLTYPE GetKind(_Out_ DxcTypeKind* pResult) override;
+};
+
+class DxcCodeCompleteResults : public IDxcCodeCompleteResults
+{
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  CXCodeCompleteResults m_ccr;
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcCodeCompleteResults>(this, iid, ppvObject);
+  }
+
+  DxcCodeCompleteResults();
+  ~DxcCodeCompleteResults();
+  void Initialize(const CXCodeCompleteResults& ccr);
+
+  HRESULT STDMETHODCALLTYPE GetNumResults(_Out_ unsigned *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetResultAt(unsigned index, _Outptr_result_nullonfailure_ IDxcCompletionResult **pResult) override;
+};
+
+class DxcCompletionResult : public IDxcCompletionResult
+{
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  CXCompletionResult m_cr;
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcCompletionResult>(this, iid, ppvObject);
+  }
+
+  DxcCompletionResult();
+  ~DxcCompletionResult();
+  void Initialize(const CXCompletionResult& cr);
+
+  HRESULT STDMETHODCALLTYPE GetCursorKind(_Out_ DxcCursorKind *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetCompletionString(_Outptr_result_nullonfailure_ IDxcCompletionString **pResult) override;
+};
+
+class DxcCompletionString : public IDxcCompletionString
+{
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  CXCompletionString m_cs;
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcCompletionString>(this, iid, ppvObject);
+  }
+
+  DxcCompletionString();
+  ~DxcCompletionString();
+  void Initialize(const CXCompletionString& cs);
+
+  HRESULT STDMETHODCALLTYPE GetNumCompletionChunks(_Out_ unsigned *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetCompletionChunkKind(unsigned chunkNumber, _Out_ DxcCompletionChunkKind *pResult) override;
 };
 
 HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv) throw();
