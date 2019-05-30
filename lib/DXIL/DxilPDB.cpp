@@ -118,7 +118,7 @@ struct MSFWriter {
     uint32_t DirectorySizeInBytes = 0;
     DirectorySizeInBytes += sizeof(uint32_t);
     DirectorySizeInBytes += m_Streams.size() * 4;
-    for (int i = 0; i < m_Streams.size(); i++) {
+    for (unsigned i = 0; i < m_Streams.size(); i++) {
       DirectorySizeInBytes += m_Streams[i].NumBlocks * 4;
     }
     return DirectorySizeInBytes;
