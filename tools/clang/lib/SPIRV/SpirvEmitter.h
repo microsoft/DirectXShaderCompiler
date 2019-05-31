@@ -34,7 +34,6 @@
 #include "llvm/ADT/STLExtras.h"
 
 #include "DeclResultIdMapper.h"
-#include "SpirvEvalInfo.h"
 
 namespace clang {
 namespace spirv {

@@ -25,7 +25,6 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include "GlPerVertex.h"
-#include "SpirvEvalInfo.h"
 
 namespace clang {
 namespace spirv {
