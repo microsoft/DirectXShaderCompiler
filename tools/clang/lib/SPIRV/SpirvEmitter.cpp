@@ -8736,16 +8736,16 @@ SpirvEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
   const QualType returnType = callExpr->getType();
   auto *glslInstSet = spvBuilder.getGLSLExtInstSet();
 
-  if (argType->isFloatingType()) {
-    auto *floatZero = getValueZero(argType);
-    auto *floatOne = getValueOne(argType);
+  QualType elemType = {};
+  uint32_t vecSize = 0;
+  if (isScalarType(argType, &elemType)) {
+    auto *floatZero = getValueZero(elemType);
+    auto *floatOne = getValueOne(elemType);
     return spvBuilder.createExtInst(returnType, glslInstSet,
                                     GLSLstd450::GLSLstd450FClamp,
                                     {argId, floatZero, floatOne}, loc);
   }
 
-  QualType elemType = {};
-  uint32_t vecSize = 0;
   if (isVectorType(argType, &elemType, &vecSize)) {
     auto *vecZero = getVecValueZero(elemType, vecSize);
     auto *vecOne = getVecValueOne(elemType, vecSize);
