@@ -400,8 +400,6 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
   // The ClipDistance/CullDistance is always an float array. We are accessing
   // it using pointers, which should be of pointer to float type.
   const FloatType *f32Type = spvContext.getFloatType(32);
-  const SpirvPointerType *ptrType =
-      spvContext.getPointerType(f32Type, spv::StorageClass::Input);
 
   if (inArraySize == 0) {
     // The input builtin does not have extra arrayness. Only need one index
@@ -413,7 +411,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
     if (isScalarType(asType)) {
       auto *spirvConstant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                       llvm::APInt(32, offset));
-      auto *ptr = spvBuilder.createAccessChain(ptrType, clipCullVar,
+      auto *ptr = spvBuilder.createAccessChain(astContext.FloatTy, clipCullVar,
                                                {spirvConstant}, loc);
       return spvBuilder.createLoad(astContext.FloatTy, ptr, loc);
     }
@@ -426,8 +424,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
         // Read elements sequentially from the float array
         auto *spirvConstant = spvBuilder.getConstantInt(
             astContext.UnsignedIntTy, llvm::APInt(32, offset + i));
-        auto *ptr = spvBuilder.createAccessChain(ptrType, clipCullVar,
-                                                 {spirvConstant}, loc);
+        auto *ptr = spvBuilder.createAccessChain(
+            astContext.FloatTy, clipCullVar, {spirvConstant}, loc);
         elements.push_back(spvBuilder.createLoad(astContext.FloatTy, ptr, loc));
       }
       return spvBuilder.createCompositeConstruct(
@@ -455,7 +453,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
                                         /*ArrayStride*/ llvm::None);
     for (uint32_t i = 0; i < inArraySize; ++i) {
       auto *ptr = spvBuilder.createAccessChain(
-          ptrType, clipCullVar,
+          astContext.FloatTy, clipCullVar,
           {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                      llvm::APInt(32, i)), // Block array index
            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
@@ -474,7 +472,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
       llvm::SmallVector<SpirvInstruction *, 4> vecElements;
       for (uint32_t j = 0; j < count; ++j) {
         auto *ptr = spvBuilder.createAccessChain(
-            ptrType, clipCullVar,
+            astContext.FloatTy, clipCullVar,
             // Block array index
             {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                        llvm::APInt(32, i)),
@@ -537,8 +535,6 @@ void GlPerVertex::writeClipCullArrayFromType(
   // The ClipDistance/CullDistance is always an float array. We are accessing
   // it using pointers, which should be of pointer to float type.
   const FloatType *f32Type = spvContext.getFloatType(32);
-  const SpirvPointerType *ptrType =
-      spvContext.getPointerType(f32Type, spv::StorageClass::Output);
 
   if (outArraySize == 0) {
     // The output builtin does not have extra arrayness. Only need one index
@@ -550,8 +546,8 @@ void GlPerVertex::writeClipCullArrayFromType(
     if (isScalarType(fromType)) {
       auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                  llvm::APInt(32, offset));
-      auto *ptr =
-          spvBuilder.createAccessChain(ptrType, clipCullVar, {constant}, loc);
+      auto *ptr = spvBuilder.createAccessChain(astContext.FloatTy, clipCullVar,
+                                               {constant}, loc);
       spvBuilder.createStore(ptr, fromValue, loc);
       return;
     }
@@ -563,8 +559,8 @@ void GlPerVertex::writeClipCullArrayFromType(
         // Write elements sequentially into the float array
         auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                    llvm::APInt(32, offset + i));
-        auto *ptr =
-            spvBuilder.createAccessChain(ptrType, clipCullVar, {constant}, loc);
+        auto *ptr = spvBuilder.createAccessChain(astContext.FloatTy,
+                                                 clipCullVar, {constant}, loc);
         auto *subValue = spvBuilder.createCompositeExtract(astContext.FloatTy,
                                                            fromValue, {i}, loc);
         spvBuilder.createStore(ptr, subValue, loc);
@@ -595,7 +591,7 @@ void GlPerVertex::writeClipCullArrayFromType(
 
   if (isScalarType(fromType)) {
     auto *ptr = spvBuilder.createAccessChain(
-        ptrType, clipCullVar,
+        astContext.FloatTy, clipCullVar,
         {arrayIndex, spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                llvm::APInt(32, offset))},
         loc);
@@ -607,7 +603,7 @@ void GlPerVertex::writeClipCullArrayFromType(
     // For each gl_PerVertex block, we need to write a vector into it.
     for (uint32_t i = 0; i < count; ++i) {
       auto *ptr = spvBuilder.createAccessChain(
-          ptrType, clipCullVar,
+          astContext.FloatTy, clipCullVar,
           // Block array index
           {arrayIndex,
            // Write elements sequentially into the float array

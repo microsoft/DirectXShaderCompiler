@@ -91,6 +91,15 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(pointerType);
     break;
   }
+  // Access chains must have a pointer type. The storage class for the pointer
+  // is the same as the storage class of the access base.
+  case spv::Op::OpAccessChain: {
+    const auto *pointerType = spvContext.getPointerType(
+        resultType,
+        cast<SpirvAccessChain>(instr)->getBase()->getStorageClass());
+    instr->setResultType(pointerType);
+    break;
+  }
   // OpImageTexelPointer's result type must be a pointer with image storage
   // class.
   case spv::Op::OpImageTexelPointer: {

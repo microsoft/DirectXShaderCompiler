@@ -520,11 +520,8 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
 
       // Should only have VarDecls in a HLSLBufferDecl.
       QualType valueType = cast<VarDecl>(decl)->getType();
-      const auto *ptrType =
-          spvContext.getPointerType(valueType, info->instr->getStorageClass());
-
       return spvBuilder.createAccessChain(
-          ptrType, info->instr,
+          valueType, info->instr,
           {spvBuilder.getConstantInt(
               astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))},
           loc);
@@ -1929,10 +1926,8 @@ bool DeclResultIdMapper::createStageVars(
           hlsl::GetArraySize(type) != 4) {
         const auto tessFactorSize = hlsl::GetArraySize(type);
         for (uint32_t i = 0; i < tessFactorSize; ++i) {
-          const auto ptrType = spvContext.getPointerType(
-              spvContext.getFloatType(32), spv::StorageClass::Output);
           ptr = spvBuilder.createAccessChain(
-              ptrType, varInstr,
+              astContext.FloatTy, varInstr,
               {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                          llvm::APInt(32, i))},
               thisSemantic.loc);
@@ -1952,9 +1947,7 @@ bool DeclResultIdMapper::createStageVars(
                // Some developers use float[1] instead of a scalar float.
                (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
         ptr = spvBuilder.createAccessChain(
-            spvContext.getPointerType(spvContext.getFloatType(32),
-                                      spv::StorageClass::Output),
-            varInstr,
+            astContext.FloatTy, varInstr,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                       llvm::APInt(32, 0)),
             thisSemantic.loc);
@@ -1966,10 +1959,8 @@ bool DeclResultIdMapper::createStageVars(
       // Special handling of SV_Coverage, which is an unit value. We need to
       // write it to the first element in the SampleMask builtin.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        const auto *ptrType =
-            spvContext.getPointerType(type, spv::StorageClass::Output);
         ptr = spvBuilder.createAccessChain(
-            ptrType, varInstr,
+            type, varInstr,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                       llvm::APInt(32, 0)),
             thisSemantic.loc);
@@ -1985,9 +1976,8 @@ bool DeclResultIdMapper::createStageVars(
         const auto elementType =
             astContext.getAsArrayType(evalType)->getElementType();
         auto index = invocationId.getValue();
-        ptr = spvBuilder.createAccessChain(
-            spvContext.getPointerType(elementType, spv::StorageClass::Output),
-            varInstr, index, thisSemantic.loc);
+        ptr = spvBuilder.createAccessChain(elementType, varInstr, index,
+                                           thisSemantic.loc);
         ptr->setStorageClass(spv::StorageClass::Output);
         spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
