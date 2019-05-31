@@ -1920,6 +1920,7 @@ DxcCodeCompleteResults::DxcCodeCompleteResults()
 
 DxcCodeCompleteResults::~DxcCodeCompleteResults()
 {
+	clang_disposeCodeCompleteResults(&m_ccr);
 }
 
 void DxcCodeCompleteResults::Initialize(const CXCodeCompleteResults& ccr)
@@ -2034,6 +2035,14 @@ HRESULT DxcCompletionString::GetCompletionChunkKind(unsigned chunkNumber, DxcCom
   if (pResult == nullptr) return E_POINTER;
   *pResult = (DxcCompletionChunkKind)clang_getCompletionChunkKind(m_cs, chunkNumber);
   return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCompletionString::GetCompletionChunkText(unsigned chunkNumber, LPSTR* pResult)
+{
+	if (pResult == nullptr) return E_POINTER;
+	DxcThreadMalloc TM(m_pMalloc);
+	return CXStringToAnsiAndDispose(clang_getCompletionChunkText(m_cs, chunkNumber), pResult);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

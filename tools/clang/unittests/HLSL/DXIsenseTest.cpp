@@ -793,15 +793,33 @@ TEST_F(DXIntellisenseTest, TypeWhenICEThenEval)
 
 TEST_F(DXIntellisenseTest, CompletionWhenResultsAvailable)
 {
-  char program[] = "floa";
+  char program[] =
+	"struct MyStruct {};"
+	"MyStr";
   CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
   VERIFY_ARE_EQUAL(false, result.ParseSucceeded());
   char* fileName = "filename.hlsl";
   CComPtr<IDxcUnsavedFile> unsavedFile;
-  IFE(TrivialDxcUnsavedFile::Create(fileName, program, &unsavedFile));
+  VERIFY_SUCCEEDED(TrivialDxcUnsavedFile::Create(fileName, program, &unsavedFile));
   CComPtr<IDxcCodeCompleteResults> codeCompleteResults;
-  VERIFY_SUCCEEDED(result.TU->CodeCompleteAt(fileName, 1, 1, &unsavedFile.p, 1, DxcCodeCompleteFlags_None, &codeCompleteResults));
+  VERIFY_SUCCEEDED(result.TU->CodeCompleteAt(fileName, 2, 1, &unsavedFile.p, 1, DxcCodeCompleteFlags_None, &codeCompleteResults));
   unsigned numResults;
   VERIFY_SUCCEEDED(codeCompleteResults->GetNumResults(&numResults));
-  VERIFY_ARE_EQUAL(1, numResults);
+  VERIFY_ARE_EQUAL(102, numResults);
+  CComPtr<IDxcCompletionResult> completionResult;
+  VERIFY_SUCCEEDED(codeCompleteResults->GetResultAt(0, &completionResult));
+  DxcCursorKind completionResultCursorKind;
+  VERIFY_SUCCEEDED(completionResult->GetCursorKind(&completionResultCursorKind));
+  VERIFY_ARE_EQUAL(DxcCursor_StructDecl, completionResultCursorKind);
+  CComPtr<IDxcCompletionString> completionString;
+  VERIFY_SUCCEEDED(completionResult->GetCompletionString(&completionString));
+  unsigned numCompletionChunks;
+  VERIFY_SUCCEEDED(completionString->GetNumCompletionChunks(&numCompletionChunks));
+  VERIFY_ARE_EQUAL(1, numCompletionChunks);
+  DxcCompletionChunkKind completionChunkKind;
+  VERIFY_SUCCEEDED(completionString->GetCompletionChunkKind(0, &completionChunkKind));
+  VERIFY_ARE_EQUAL(DxcCompletionChunk_TypedText, completionChunkKind);
+  CComHeapPtr<char> completionChunkText;
+  VERIFY_SUCCEEDED(completionString->GetCompletionChunkText(0, &completionChunkText));
+  VERIFY_ARE_EQUAL_STR("MyStruct", completionChunkText);
 }

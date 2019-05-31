@@ -426,6 +426,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE GetNumCompletionChunks(_Out_ unsigned *pResult) override;
   HRESULT STDMETHODCALLTYPE GetCompletionChunkKind(unsigned chunkNumber, _Out_ DxcCompletionChunkKind *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetCompletionChunkText(unsigned chunkNumber, _Out_ LPSTR* pResult) override;
 };
 
 HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv) throw();

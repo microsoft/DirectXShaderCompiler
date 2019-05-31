@@ -807,22 +807,23 @@ IDxcUnsavedFile : public IUnknown
 struct __declspec(uuid("1E06466A-FD8B-45F3-A78F-8A3F76EBB552"))
 IDxcCodeCompleteResults : public IUnknown
 {
-  virtual HRESULT STDMETHODCALLTYPE GetNumResults(_Out_ unsigned *pResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetResultAt(unsigned index, _Outptr_result_nullonfailure_ IDxcCompletionResult **pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetNumResults(_Out_ unsigned* pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetResultAt(unsigned index, _Outptr_result_nullonfailure_ IDxcCompletionResult** pResult) = 0;
 };
 
 struct __declspec(uuid("943C0588-22D0-4784-86FC-701F802AC2B6"))
 IDxcCompletionResult : public IUnknown
 {
-  virtual HRESULT STDMETHODCALLTYPE GetCursorKind(_Out_ DxcCursorKind *pResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetCompletionString(_Outptr_result_nullonfailure_ IDxcCompletionString **pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCursorKind(_Out_ DxcCursorKind* pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCompletionString(_Outptr_result_nullonfailure_ IDxcCompletionString** pResult) = 0;
 };
 
 struct __declspec(uuid("06B51E0F-A605-4C69-A110-CD6E14B58EEC"))
 IDxcCompletionString : public IUnknown
 {
-  virtual HRESULT STDMETHODCALLTYPE GetNumCompletionChunks(_Out_ unsigned *pResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetCompletionChunkKind(unsigned chunkNumber, _Out_ DxcCompletionChunkKind *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetNumCompletionChunks(_Out_ unsigned* pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCompletionChunkKind(unsigned chunkNumber, _Out_ DxcCompletionChunkKind* pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCompletionChunkText(unsigned chunkNumber, _Out_ LPSTR* pResult) = 0;
 };
 
 // Fun fact: 'extern' is required because const is by default static in C++, so
