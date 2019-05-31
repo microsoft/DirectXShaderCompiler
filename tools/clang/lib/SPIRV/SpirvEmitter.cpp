@@ -892,32 +892,23 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
         const auto fromType =
             vecSize == 1 ? uintType
                          : astContext.getExtVectorType(uintType, vecSize);
-        const auto toType =
-            vecSize == 1 ? boolType
-                         : astContext.getExtVectorType(boolType, vecSize);
         loadedInstr =
-            castToBool(loadedInstr, fromType, toType, expr->getLocStart());
+            castToBool(loadedInstr, fromType, exprType, expr->getLocStart());
       } else {
         const bool isMat = isMxNMatrix(exprType, nullptr, &numRows, &numCols);
         assert(isMat);
         (void)isMat;
-        const auto uintRowQualType =
-            astContext.getExtVectorType(uintType, numCols);
-        const auto boolRowQualType =
-            astContext.getExtVectorType(boolType, numCols);
-        const SpirvType *resultType = spvContext.getMatrixType(
-            spvContext.getVectorType(spvContext.getBoolType(), numCols),
-            numRows);
-
-        llvm::SmallVector<SpirvInstruction *, 4> rows;
-        for (uint32_t i = 0; i < numRows; ++i) {
-          auto *row = spvBuilder.createCompositeExtract(
-              uintRowQualType, loadedInstr, {i}, expr->getLocStart());
-          rows.push_back(castToBool(row, uintRowQualType, boolRowQualType,
-                                    expr->getLocStart()));
-        }
-        loadedInstr = spvBuilder.createCompositeConstruct(resultType, rows,
-                                                          expr->getExprLoc());
+        const clang::Type *type = exprType.getCanonicalType().getTypePtr();
+        const RecordType *RT = cast<RecordType>(type);
+        const ClassTemplateSpecializationDecl *templateSpecDecl =
+            cast<ClassTemplateSpecializationDecl>(RT->getDecl());
+        ClassTemplateDecl *templateDecl =
+            templateSpecDecl->getSpecializedTemplate();
+        const auto fromType = getHLSLMatrixType(
+            astContext, theCompilerInstance.getSema(), templateDecl,
+            astContext.UnsignedIntTy, numRows, numCols);
+        loadedInstr =
+            castToBool(loadedInstr, fromType, exprType, expr->getLocStart());
       }
       // Now that it is converted to Bool, it has no layout rule.
       // This result-id should be evaluated as bool from here on out.

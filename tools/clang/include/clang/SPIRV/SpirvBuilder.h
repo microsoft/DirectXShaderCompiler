@@ -114,10 +114,6 @@ public:
   createCompositeConstruct(QualType resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
                            SourceLocation loc);
-  SpirvCompositeConstruct *
-  createCompositeConstruct(const SpirvType *resultType,
-                           llvm::ArrayRef<SpirvInstruction *> constituents,
-                           SourceLocation loc);
 
   /// \brief Creates a composite extract instruction. The given composite is
   /// indexed using the given literal indexes to obtain the resulting element.

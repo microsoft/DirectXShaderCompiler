@@ -120,20 +120,6 @@ SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
   return instruction;
 }
 
-SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
-    const SpirvType *resultType,
-    llvm::ArrayRef<SpirvInstruction *> constituents, SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvCompositeConstruct(/*QualType*/ {}, loc, constituents);
-  instruction->setResultType(resultType);
-  if (!constituents.empty()) {
-    instruction->setLayoutRule(constituents[0]->getLayoutRule());
-  }
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
 SpirvCompositeExtract *SpirvBuilder::createCompositeExtract(
     QualType resultType, SpirvInstruction *composite,
     llvm::ArrayRef<uint32_t> indexes, SourceLocation loc) {
