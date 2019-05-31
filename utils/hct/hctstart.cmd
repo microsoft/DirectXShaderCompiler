@@ -184,7 +184,7 @@ echo Path adjusted to include git.
 goto :eof
 
 :findpython 
-if exist C:\Python27\python.exe set path=%path%;C:\Python27
+if exist C:\Python37\python.exe set path=%path%;C:\Python37
 where python.exe 1>nul 2>nul
 if errorlevel 1 (
   echo Unable to find python.
