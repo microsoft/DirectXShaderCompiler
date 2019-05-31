@@ -67,7 +67,10 @@ def fetch_dxil_version():
     global dxilver_major
     global dxilver_minor
 
-    dxil_const_filename=os.path.join(os.environ['HLSL_SRC_DIR'], "include", "dxc", "DXIL", "DxilConstants.h")
+    # determine location of DxilConstants.h from this script's location
+    hlsl_src_dir=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath( __file__))))
+    dxil_const_filename=os.path.join(hlsl_src_dir, "include", "dxc", "DXIL", "DxilConstants.h")
+
     with open(dxil_const_filename) as f:
         lines = f.readlines()
 
