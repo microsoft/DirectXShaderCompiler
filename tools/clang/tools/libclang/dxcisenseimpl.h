@@ -372,7 +372,7 @@ class DxcCodeCompleteResults : public IDxcCodeCompleteResults
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
-  CXCodeCompleteResults m_ccr;
+  CXCodeCompleteResults* m_ccr;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
@@ -382,7 +382,7 @@ public:
 
   DxcCodeCompleteResults();
   ~DxcCodeCompleteResults();
-  void Initialize(const CXCodeCompleteResults& ccr);
+  void Initialize(CXCodeCompleteResults* ccr);
 
   HRESULT STDMETHODCALLTYPE GetNumResults(_Out_ unsigned *pResult) override;
   HRESULT STDMETHODCALLTYPE GetResultAt(unsigned index, _Outptr_result_nullonfailure_ IDxcCompletionResult **pResult) override;

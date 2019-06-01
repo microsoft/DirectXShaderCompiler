@@ -1847,7 +1847,7 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
       new (std::nothrow) DxcCodeCompleteResults();
   if (newValue == nullptr)
     return E_OUTOFMEMORY;
-  newValue->Initialize(*results);
+  newValue->Initialize(results);
   newValue->AddRef();
   *pResult = newValue;
   return S_OK;
@@ -1920,10 +1920,10 @@ DxcCodeCompleteResults::DxcCodeCompleteResults()
 
 DxcCodeCompleteResults::~DxcCodeCompleteResults()
 {
-	clang_disposeCodeCompleteResults(&m_ccr);
+	clang_disposeCodeCompleteResults(m_ccr);
 }
 
-void DxcCodeCompleteResults::Initialize(const CXCodeCompleteResults& ccr)
+void DxcCodeCompleteResults::Initialize(CXCodeCompleteResults* ccr)
 {
   m_ccr = ccr;
 }
@@ -1936,7 +1936,7 @@ HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult)
 
   DxcThreadMalloc TM(m_pMalloc);
 
-  *pResult = m_ccr.NumResults;
+  *pResult = m_ccr->NumResults;
   return S_OK;
 }
 
@@ -1950,7 +1950,7 @@ HRESULT DxcCodeCompleteResults::GetResultAt(
 
   DxcThreadMalloc TM(m_pMalloc);
 
-  CXCompletionResult result = m_ccr.Results[index];
+  CXCompletionResult result = m_ccr->Results[index];
 
   *pResult = nullptr;
   DxcCompletionResult *newValue = new (std::nothrow) DxcCompletionResult();
