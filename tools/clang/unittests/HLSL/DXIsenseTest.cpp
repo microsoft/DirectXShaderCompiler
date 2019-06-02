@@ -805,7 +805,7 @@ TEST_F(DXIntellisenseTest, CompletionWhenResultsAvailable)
   VERIFY_SUCCEEDED(result.TU->CodeCompleteAt(fileName, 2, 1, &unsavedFile.p, 1, DxcCodeCompleteFlags_None, &codeCompleteResults));
   unsigned numResults;
   VERIFY_SUCCEEDED(codeCompleteResults->GetNumResults(&numResults));
-  VERIFY_ARE_EQUAL(102, numResults);
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(numResults, 1);
   CComPtr<IDxcCompletionResult> completionResult;
   VERIFY_SUCCEEDED(codeCompleteResults->GetResultAt(0, &completionResult));
   DxcCursorKind completionResultCursorKind;
