@@ -449,15 +449,6 @@ private:
 /// \brief OpVariable instruction
 class SpirvVariable : public SpirvInstruction {
 public:
-  /// \brief An enum class for representing what the DeclContext is used for
-  enum class ContextUsageKind {
-    CBuffer = 0,
-    TBuffer = 1,
-    PushConstant = 2,
-    Globals = 3,
-    None = 4
-  };
-
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
                 bool isPrecise, SpirvInstruction *initializerId = 0);
 
@@ -470,12 +461,9 @@ public:
 
   bool hasInitializer() const { return initializer != nullptr; }
   SpirvInstruction *getInitializer() const { return initializer; }
-  void setContextUsageKind(ContextUsageKind k) { contextUsageKind = k; }
-  ContextUsageKind getContextUsageKind() const { return contextUsageKind; }
 
 private:
   SpirvInstruction *initializer;
-  ContextUsageKind contextUsageKind;
 };
 
 class SpirvFunctionParameter : public SpirvInstruction {
