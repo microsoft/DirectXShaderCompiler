@@ -52,6 +52,7 @@ public:
   SpirvBuilder &getSpirvBuilder() { return spvBuilder; }
   DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
+  SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
@@ -946,7 +947,7 @@ private:
                               const clang::FunctionDecl *,
                               bool isEntryFunction);
 
-private:
+public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>

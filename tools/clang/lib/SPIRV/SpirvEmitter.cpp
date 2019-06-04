@@ -14,6 +14,7 @@
 #include "SpirvEmitter.h"
 
 #include "AlignmentSizeCalculator.h"
+#include "RawBufferMethods.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
@@ -3294,15 +3295,30 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
   const Expr *addressExpr = expr->getArg(0);
   auto *byteAddress = doExpr(addressExpr);
   const QualType addressType = addressExpr->getType();
+  // The front-end prevents usage of templated Load2, Load3, Load4, Store2,
+  // Store3, Store4 intrinsic functions.
+  const bool isTemplatedLoadOrStore =
+      (numWords == 1) &&
+      (doStore ? expr->getArg(1)->getType() != astContext.UnsignedIntTy
+               : expr->getType() != astContext.UnsignedIntTy);
 
   // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
   // access). The AST always casts the address to unsinged integer, so shift
   // by unsinged integer 2.
   auto *constUint2 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2));
-  auto *address =
+  SpirvInstruction *address =
       spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, addressType,
                                 byteAddress, constUint2, expr->getExprLoc());
+
+  if (isTemplatedLoadOrStore && !doStore) {
+    // Templated load. Need to (potentially) perform more
+    // loads/casts/composite-constructs.
+    uint32_t bitOffset = 0;
+    RawBufferHandler rawBufferHandler(*this);
+    return rawBufferHandler.processTemplatedLoadFromBuffer(
+        objectInfo, address, expr->getType(), bitOffset);
+  }
 
   // Perform access chain into the RWByteAddressBuffer.
   // First index must be zero (member 0 of the struct is a
