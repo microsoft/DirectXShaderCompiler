@@ -120,6 +120,8 @@ protected:
   TEST_METHOD(QualifiedNameVariable)
 
   TEST_METHOD(TypeWhenICEThenEval)
+
+  TEST_METHOD(CompletionWhenResultsAvailable)
 };
 
 bool DXIntellisenseTest::DXIntellisenseTestClassSetup() {
@@ -787,4 +789,37 @@ TEST_F(DXIntellisenseTest, TypeWhenICEThenEval)
   CComHeapPtr<char> name;
   VERIFY_SUCCEEDED(typeCursor->GetSpelling(&name));
   VERIFY_ARE_EQUAL_STR("const float [2]", name); // global variables converted to const by default
+}
+
+TEST_F(DXIntellisenseTest, CompletionWhenResultsAvailable)
+{
+  char program[] =
+	"struct MyStruct {};"
+	"MyStr";
+  CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
+  VERIFY_ARE_EQUAL(false, result.ParseSucceeded());
+  char* fileName = "filename.hlsl";
+  CComPtr<IDxcUnsavedFile> unsavedFile;
+  VERIFY_SUCCEEDED(TrivialDxcUnsavedFile::Create(fileName, program, &unsavedFile));
+  CComPtr<IDxcCodeCompleteResults> codeCompleteResults;
+  VERIFY_SUCCEEDED(result.TU->CodeCompleteAt(fileName, 2, 1, &unsavedFile.p, 1, DxcCodeCompleteFlags_None, &codeCompleteResults));
+  unsigned numResults;
+  VERIFY_SUCCEEDED(codeCompleteResults->GetNumResults(&numResults));
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(numResults, 1u);
+  CComPtr<IDxcCompletionResult> completionResult;
+  VERIFY_SUCCEEDED(codeCompleteResults->GetResultAt(0, &completionResult));
+  DxcCursorKind completionResultCursorKind;
+  VERIFY_SUCCEEDED(completionResult->GetCursorKind(&completionResultCursorKind));
+  VERIFY_ARE_EQUAL(DxcCursor_StructDecl, completionResultCursorKind);
+  CComPtr<IDxcCompletionString> completionString;
+  VERIFY_SUCCEEDED(completionResult->GetCompletionString(&completionString));
+  unsigned numCompletionChunks;
+  VERIFY_SUCCEEDED(completionString->GetNumCompletionChunks(&numCompletionChunks));
+  VERIFY_ARE_EQUAL(1, numCompletionChunks);
+  DxcCompletionChunkKind completionChunkKind;
+  VERIFY_SUCCEEDED(completionString->GetCompletionChunkKind(0, &completionChunkKind));
+  VERIFY_ARE_EQUAL(DxcCompletionChunk_TypedText, completionChunkKind);
+  CComHeapPtr<char> completionChunkText;
+  VERIFY_SUCCEEDED(completionString->GetCompletionChunkText(0, &completionChunkText));
+  VERIFY_ARE_EQUAL_STR("MyStruct", completionChunkText);
 }

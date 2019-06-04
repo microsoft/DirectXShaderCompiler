@@ -1823,6 +1823,41 @@ HRESULT DxcTranslationUnit::GetInclusionList(unsigned *pResultCount,
   return S_OK;
 }
 
+_Use_decl_annotations_
+HRESULT DxcTranslationUnit::CodeCompleteAt(
+	char *fileName, unsigned line, unsigned column,
+	IDxcUnsavedFile **pUnsavedFiles, unsigned numUnsavedFiles,
+	DxcCodeCompleteFlags options, IDxcCodeCompleteResults **pResult)
+{
+  if (pResult == nullptr) return E_POINTER;
+
+  DxcThreadMalloc TM(m_pMalloc);
+
+  CXUnsavedFile *files;
+  HRESULT hr = SetupUnsavedFiles(pUnsavedFiles, numUnsavedFiles, &files);
+  if (FAILED(hr))
+    return hr;
+
+  CXCodeCompleteResults *results = clang_codeCompleteAt(
+      m_tu, fileName, line, column, files, numUnsavedFiles, options);
+
+  CleanupUnsavedFiles(files, numUnsavedFiles);
+
+  if (results == nullptr) return E_FAIL;
+  *pResult = nullptr;
+  DxcCodeCompleteResults *newValue =
+      new (std::nothrow) DxcCodeCompleteResults();
+  if (newValue == nullptr)
+  {
+	  clang_disposeCodeCompleteResults(results);
+	  return E_OUTOFMEMORY;
+  }
+  newValue->Initialize(results);
+  newValue->AddRef();
+  *pResult = newValue;
+  return S_OK;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcType::DxcType()
@@ -1879,6 +1914,140 @@ HRESULT DxcType::GetKind(DxcTypeKind* pResult)
   if (pResult == nullptr) return E_POINTER;
   *pResult = (DxcTypeKind)m_type.kind;
   return S_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+DxcCodeCompleteResults::DxcCodeCompleteResults()
+{
+  m_pMalloc = DxcGetThreadMallocNoRef();
+}
+
+DxcCodeCompleteResults::~DxcCodeCompleteResults()
+{
+	clang_disposeCodeCompleteResults(m_ccr);
+}
+
+void DxcCodeCompleteResults::Initialize(CXCodeCompleteResults* ccr)
+{
+  m_ccr = ccr;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult)
+{
+  if (pResult == nullptr)
+    return E_POINTER;
+
+  DxcThreadMalloc TM(m_pMalloc);
+
+  *pResult = m_ccr->NumResults;
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCodeCompleteResults::GetResultAt(
+  unsigned index,
+  IDxcCompletionResult **pResult)
+{
+  if (pResult == nullptr)
+    return E_POINTER;
+
+  DxcThreadMalloc TM(m_pMalloc);
+
+  CXCompletionResult result = m_ccr->Results[index];
+
+  *pResult = nullptr;
+  DxcCompletionResult *newValue = new (std::nothrow) DxcCompletionResult();
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
+  newValue->Initialize(result);
+  newValue->AddRef();
+  *pResult = newValue;
+
+  return S_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+DxcCompletionResult::DxcCompletionResult()
+{
+  m_pMalloc = DxcGetThreadMallocNoRef();
+}
+
+DxcCompletionResult::~DxcCompletionResult()
+{
+}
+
+void DxcCompletionResult::Initialize(const CXCompletionResult &cr)
+{
+  m_cr = cr;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCompletionResult::GetCursorKind(DxcCursorKind *pResult)
+{
+  if (pResult == nullptr) return E_POINTER;
+  *pResult = (DxcCursorKind)m_cr.CursorKind;
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult)
+{
+  if (pResult == nullptr) return E_POINTER;
+
+  DxcThreadMalloc TM(m_pMalloc);
+
+  *pResult = nullptr;
+  DxcCompletionString *newValue = new (std::nothrow) DxcCompletionString();
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
+  newValue->Initialize(m_cr.CompletionString);
+  newValue->AddRef();
+  *pResult = newValue;
+
+  return S_OK;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+DxcCompletionString::DxcCompletionString()
+{
+  m_pMalloc = DxcGetThreadMallocNoRef();
+}
+
+DxcCompletionString::~DxcCompletionString()
+{
+}
+
+void DxcCompletionString::Initialize(const CXCompletionString &cs)
+{
+  m_cs = cs;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCompletionString::GetNumCompletionChunks(unsigned *pResult)
+{
+  if (pResult == nullptr) return E_POINTER;
+  *pResult = clang_getNumCompletionChunks(m_cs);
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCompletionString::GetCompletionChunkKind(unsigned chunkNumber, DxcCompletionChunkKind *pResult)
+{
+  if (pResult == nullptr) return E_POINTER;
+  *pResult = (DxcCompletionChunkKind)clang_getCompletionChunkKind(m_cs, chunkNumber);
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCompletionString::GetCompletionChunkText(unsigned chunkNumber, LPSTR* pResult)
+{
+	if (pResult == nullptr) return E_POINTER;
+	DxcThreadMalloc TM(m_pMalloc);
+	return CXStringToAnsiAndDispose(clang_getCompletionChunkText(m_cs, chunkNumber), pResult);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2052,3 +2221,27 @@ C_ASSERT((int)DxcCursor_FirstExtraDecl == (int)CXCursor_FirstExtraDecl);
 C_ASSERT((int)DxcCursor_LastExtraDecl == (int)CXCursor_LastExtraDecl);
 
 C_ASSERT((int)DxcTranslationUnitFlags_UseCallerThread == (int)CXTranslationUnit_UseCallerThread);
+
+C_ASSERT((int)DxcCodeCompleteFlags_IncludeMacros == (int)CXCodeComplete_IncludeMacros);
+C_ASSERT((int)DxcCodeCompleteFlags_IncludeCodePatterns == (int)CXCodeComplete_IncludeCodePatterns);
+C_ASSERT((int)DxcCodeCompleteFlags_IncludeBriefComments == (int)CXCodeComplete_IncludeBriefComments);
+
+C_ASSERT((int)DxcCompletionChunk_Optional == (int)CXCompletionChunk_Optional);
+C_ASSERT((int)DxcCompletionChunk_TypedText == (int)CXCompletionChunk_TypedText);
+C_ASSERT((int)DxcCompletionChunk_Text == (int)CXCompletionChunk_Text);
+C_ASSERT((int)DxcCompletionChunk_Placeholder == (int)CXCompletionChunk_Placeholder);
+C_ASSERT((int)DxcCompletionChunk_Informative == (int)CXCompletionChunk_Informative);
+C_ASSERT((int)DxcCompletionChunk_CurrentParameter == (int)CXCompletionChunk_CurrentParameter);
+C_ASSERT((int)DxcCompletionChunk_LeftParen == (int)CXCompletionChunk_LeftParen);
+C_ASSERT((int)DxcCompletionChunk_RightParen == (int)CXCompletionChunk_RightParen);
+C_ASSERT((int)DxcCompletionChunk_LeftBracket == (int)CXCompletionChunk_LeftBracket);
+C_ASSERT((int)DxcCompletionChunk_RightBracket == (int)CXCompletionChunk_RightBracket);
+C_ASSERT((int)DxcCompletionChunk_LeftBrace == (int)CXCompletionChunk_LeftBrace);
+C_ASSERT((int)DxcCompletionChunk_RightBrace == (int)CXCompletionChunk_RightBrace);
+C_ASSERT((int)DxcCompletionChunk_Comma == (int)CXCompletionChunk_Comma);
+C_ASSERT((int)DxcCompletionChunk_ResultType == (int)CXCompletionChunk_ResultType);
+C_ASSERT((int)DxcCompletionChunk_Colon == (int)CXCompletionChunk_Colon);
+C_ASSERT((int)DxcCompletionChunk_SemiColon == (int)CXCompletionChunk_SemiColon);
+C_ASSERT((int)DxcCompletionChunk_Equal == (int)CXCompletionChunk_Equal);
+C_ASSERT((int)DxcCompletionChunk_HorizontalSpace == (int)CXCompletionChunk_HorizontalSpace);
+C_ASSERT((int)DxcCompletionChunk_VerticalSpace == (int)CXCompletionChunk_VerticalSpace);
