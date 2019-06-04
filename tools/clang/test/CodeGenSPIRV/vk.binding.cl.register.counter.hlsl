@@ -7,4 +7,4 @@ float4 main() : SV_Target {
   return MyBuffer[0].val;
 }
 
-// CHECK: :4:24: error: -fvk-bind-register for RW/Append/Consume StructuredBuffer umimplemented
+// CHECK: :4:24: error: -fvk-bind-register for RW/Append/Consume StructuredBuffer unimplemented

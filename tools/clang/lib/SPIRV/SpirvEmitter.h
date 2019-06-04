@@ -51,6 +51,7 @@ public:
   ASTContext &getASTContext() { return astContext; }
   SpirvBuilder &getSpirvBuilder() { return spvBuilder; }
   DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
+  CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});

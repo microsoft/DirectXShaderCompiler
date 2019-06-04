@@ -1577,6 +1577,23 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
   runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
 }
+
+// For testing the "-auto-binding-space" command line option which specifies the
+// "default space" for resources.
+TEST_F(FileTest, VulkanRegisterBindingDefaultSpaceImplicit) {
+  runFileTest("vk.binding.default-space.implicit.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBindingDefaultSpaceExplicit) {
+  runFileTest("vk.binding.default-space.explicit.hlsl");
+}
+// Testing combinations of "-auto-binding-space" and other options.
+TEST_F(FileTest, VulkanRegisterBindingDefaultSpaceWithShift) {
+  runFileTest("vk.binding.default-space.with-shift.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBindingDefaultSpaceWithShiftAll) {
+  runFileTest("vk.binding.default-space.with-shift-all.hlsl");
+}
+
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
   // and ConsumeStructuredBuffer
