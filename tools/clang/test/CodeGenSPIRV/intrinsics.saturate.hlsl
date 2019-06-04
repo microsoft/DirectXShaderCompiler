@@ -10,6 +10,8 @@ void main() {
   float    a, sata;
   float4   b, satb;
   float2x3 c, satc;
+  float1   d;
+  float1x1 e;
 
 // CHECK:         [[a:%\d+]] = OpLoad %float %a
 // CHECK-NEXT: [[sata:%\d+]] = OpExtInst %float [[glsl]] FClamp [[a]] %float_0 %float_1
@@ -29,4 +31,14 @@ void main() {
 // CHECK-NEXT: [[satc:%\d+]] = OpCompositeConstruct %mat2v3float [[sat0]] [[sat1]]
 // CHECK-NEXT: OpStore %satc [[satc]]
   satc = saturate(c);
+
+// CHECK:      [[d:%\d+]] = OpLoad %float %d
+// CHECK-NEXT: [[a:%\d+]] = OpExtInst %float [[glsl]] FClamp [[d]] %float_0 %float_1
+// CHECK-NEXT:              OpStore %a [[a]]
+  a = saturate(d);
+
+// CHECK:      [[e:%\d+]] = OpLoad %float %e
+// CHECK-NEXT: [[a:%\d+]] = OpExtInst %float [[glsl]] FClamp [[e]] %float_0 %float_1
+// CHECK-NEXT:              OpStore %a [[a]]
+  a = saturate(e);
 }
