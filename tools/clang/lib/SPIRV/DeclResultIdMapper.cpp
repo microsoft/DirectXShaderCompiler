@@ -28,6 +28,15 @@ namespace spirv {
 
 namespace {
 
+uint32_t getVkBindingAttrSet(const VKBindingAttr *attr, uint32_t defaultSet) {
+  // If the [[vk::binding(x)]] attribute is provided without the descriptor set,
+  // we should use the default descriptor set.
+  if (attr->getSet() == INT_MIN) {
+    return defaultSet;
+  }
+  return attr->getSet();
+}
+
 /// Returns the :packoffset() annotation on the given decl. Returns nullptr if
 /// the decl does not have one.
 hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
@@ -1383,11 +1392,11 @@ public:
 
   /// Returns true and set the correct set and binding number if we can find a
   /// descriptor setting for the given register. False otherwise.
-  bool getSetBinding(const hlsl::RegisterAssignment *regAttr, int *setNo,
-                     int *bindNo) const {
+  bool getSetBinding(const hlsl::RegisterAssignment *regAttr,
+                     uint32_t defaultSpace, int *setNo, int *bindNo) const {
     std::ostringstream iss;
-    iss << regAttr->RegisterSpace.getValueOr(0) << regAttr->RegisterType
-        << regAttr->RegisterNumber;
+    iss << regAttr->RegisterSpace.getValueOr(defaultSpace)
+        << regAttr->RegisterType << regAttr->RegisterNumber;
 
     auto found = mapping.find(iss.str());
     if (found != mapping.end()) {
@@ -1424,6 +1433,13 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   // - m2
   // - m3, m4, mX * c2
 
+  // The "-auto-binding-space" command line option can be used to specify a
+  // certain space as default. UINT_MAX means the user has not provided this
+  // option. If not provided, the SPIR-V backend uses space "0" as default.
+  auto defaultSpaceOpt =
+      theEmitter.getCompilerInstance().getCodeGenOpts().HLSLDefaultSpace;
+  uint32_t defaultSpace = (defaultSpaceOpt == UINT_MAX) ? 0 : defaultSpaceOpt;
+
   const bool bindGlobals = !spirvOptions.bindGlobals.empty();
   int32_t globalsBindNo = -1, globalsSetNo = -1;
   if (bindGlobals) {
@@ -1459,11 +1475,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       if (const auto *regAttr = var.getRegister()) {
         if (var.isCounter()) {
           emitError("-fvk-bind-register for RW/Append/Consume StructuredBuffer "
-                    "umimplemented",
+                    "unimplemented",
                     var.getSourceLocation());
         } else {
           int setNo = 0, bindNo = 0;
-          if (!bindingMapper.getSetBinding(regAttr, &setNo, &bindNo)) {
+          if (!bindingMapper.getSetBinding(regAttr, defaultSpace, &setNo,
+                                           &bindNo)) {
             emitError("missing -fvk-bind-register for resource",
                       var.getSourceLocation());
             return false;
@@ -1498,18 +1515,19 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     if (var.isCounter()) {
       if (const auto *vkCBinding = var.getCounterBinding()) {
         // Process mX * c1
-        uint32_t set = 0;
+        uint32_t set = defaultSpace;
         if (const auto *vkBinding = var.getBinding())
-          set = vkBinding->getSet();
+          set = getVkBindingAttrSet(vkBinding, defaultSpace);
         else if (const auto *reg = var.getRegister())
-          set = reg->RegisterSpace.getValueOr(0);
+          set = reg->RegisterSpace.getValueOr(defaultSpace);
 
         tryToDecorate(var.getSpirvInstr(), set, vkCBinding->getBinding());
       }
     } else {
       if (const auto *vkBinding = var.getBinding()) {
         // Process m1
-        tryToDecorate(var.getSpirvInstr(), vkBinding->getSet(),
+        tryToDecorate(var.getSpirvInstr(),
+                      getVkBindingAttrSet(vkBinding, defaultSpace),
                       vkBinding->getBinding());
       }
     }
@@ -1528,7 +1546,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         if (reg->isSpaceOnly())
           continue;
 
-        const uint32_t set = reg->RegisterSpace.getValueOr(0);
+        const uint32_t set = reg->RegisterSpace.getValueOr(defaultSpace);
         uint32_t binding = reg->RegisterNumber;
         switch (reg->RegisterType) {
         case 'b':
@@ -1557,11 +1575,11 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {
         // Process mX * c2
-        uint32_t set = 0;
+        uint32_t set = defaultSpace;
         if (const auto *vkBinding = var.getBinding())
-          set = vkBinding->getSet();
+          set = getVkBindingAttrSet(vkBinding, defaultSpace);
         else if (const auto *reg = var.getRegister())
-          set = reg->RegisterSpace.getValueOr(0);
+          set = reg->RegisterSpace.getValueOr(defaultSpace);
 
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
@@ -1569,7 +1587,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     } else if (!var.getBinding()) {
       const auto *reg = var.getRegister();
       if (reg && reg->isSpaceOnly()) {
-        const uint32_t set = reg->RegisterSpace.getValueOr(0);
+        const uint32_t set = reg->RegisterSpace.getValueOr(defaultSpace);
         spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
                                        bindingSet.useNextBinding(set));
       } else if (!reg) {
@@ -1584,8 +1602,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         }
         // The normal case
         else {
-          spvBuilder.decorateDSetBinding(var.getSpirvInstr(), 0,
-                                         bindingSet.useNextBinding(0));
+          spvBuilder.decorateDSetBinding(
+              var.getSpirvInstr(), defaultSpace,
+              bindingSet.useNextBinding(defaultSpace));
         }
       }
     }
