@@ -16,6 +16,7 @@ add_clang_library(clangSPIRV
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
   PreciseVisitor.cpp
+  RawBufferMethods.cpp
   RelaxedPrecisionVisitor.cpp
   SpirvBasicBlock.cpp
   SpirvBuilder.cpp
