@@ -377,6 +377,7 @@ TEST_F(FileTest, OpTextureMipsAccess) {
 TEST_F(FileTest, OpTextureSampleAccess) {
   runFileTest("op.texture.sample-access.hlsl");
 }
+TEST_F(FileTest, OpSizeOf) { runFileTest("op.sizeof.hlsl"); }
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
