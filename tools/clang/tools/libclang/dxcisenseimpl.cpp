@@ -1841,12 +1841,17 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
   CXCodeCompleteResults *results = clang_codeCompleteAt(
       m_tu, fileName, line, column, files, numUnsavedFiles, options);
 
+  CleanupUnsavedFiles(files, numUnsavedFiles);
+
   if (results == nullptr) return E_FAIL;
   *pResult = nullptr;
   DxcCodeCompleteResults *newValue =
       new (std::nothrow) DxcCodeCompleteResults();
   if (newValue == nullptr)
-    return E_OUTOFMEMORY;
+  {
+	  clang_disposeCodeCompleteResults(results);
+	  return E_OUTOFMEMORY;
+  }
   newValue->Initialize(results);
   newValue->AddRef();
   *pResult = newValue;
