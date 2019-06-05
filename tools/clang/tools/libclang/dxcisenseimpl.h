@@ -243,11 +243,11 @@ public:
     _Out_opt_ unsigned* pLine,
     _Out_opt_ unsigned* pCol,
     _Out_opt_ unsigned* pOffset) override;
+  HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL* pResult) override;
   HRESULT STDMETHODCALLTYPE GetPresumedLocation(
     _Outptr_opt_ LPSTR* pFilename,
     _Out_opt_ unsigned* pLine,
     _Out_opt_ unsigned* pCol) override;
-  HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL* pResult) override;
 };
 
 class DxcSourceRange : public IDxcSourceRange

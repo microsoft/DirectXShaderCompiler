@@ -1341,6 +1341,14 @@ HRESULT DxcSourceLocation::GetSpellingLocation(
   return S_OK;
 }
 
+HRESULT DxcSourceLocation::IsNull(_Out_ BOOL* pResult)
+{
+  if (pResult == nullptr) return E_POINTER;
+  CXSourceLocation nullLocation = clang_getNullLocation();
+  *pResult = 0 !=clang_equalLocations(nullLocation, m_location);
+  return S_OK;
+}
+
 HRESULT DxcSourceLocation::GetPresumedLocation(
   _Outptr_opt_ LPSTR* pFilename,
   _Out_opt_ unsigned* pLine,
@@ -1358,14 +1366,6 @@ HRESULT DxcSourceLocation::GetPresumedLocation(
   }
   if (pLine) *pLine = line;
   if (pCol) *pCol = col;
-  return S_OK;
-}
-
-HRESULT DxcSourceLocation::IsNull(_Out_ BOOL* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
-  CXSourceLocation nullLocation = clang_getNullLocation();
-  *pResult = 0 !=clang_equalLocations(nullLocation, m_location);
   return S_OK;
 }
 

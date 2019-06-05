@@ -723,16 +723,16 @@ struct __declspec(uuid("8e7ddf1c-d7d3-4d69-b286-85fccba1e0cf"))
 IDxcSourceLocation : public IUnknown
 {
   virtual HRESULT STDMETHODCALLTYPE IsEqualTo(_In_ IDxcSourceLocation* other, _Out_ BOOL* pResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetSpellingLocation(
-    _Outptr_opt_ IDxcFile** pFile,
-    _Out_opt_ unsigned* pLine,
-    _Out_opt_ unsigned* pCol,
-    _Out_opt_ unsigned* pOffset) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetPresumedLocation(
     _Outptr_opt_ LPSTR* pFilename,
     _Out_opt_ unsigned* pLine,
     _Out_opt_ unsigned* pCol) = 0;
   virtual HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL* pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetSpellingLocation(
+    _Outptr_opt_ IDxcFile** pFile,
+    _Out_opt_ unsigned* pLine,
+    _Out_opt_ unsigned* pCol,
+    _Out_opt_ unsigned* pOffset) = 0;
 };
 
 struct __declspec(uuid("f1359b36-a53f-4e81-b514-b6b84122a13f"))
