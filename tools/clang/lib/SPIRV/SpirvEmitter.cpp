@@ -671,7 +671,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (!spirvOptions.disableValidation) {
     std::string messages;
     if (!spirvToolsValidate(targetEnv, spirvOptions,
-                            beforeHlslLegalization ||
+                            needsLegalization ||
                                 declIdMapper.requiresLegalization(),
                             &m, &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
