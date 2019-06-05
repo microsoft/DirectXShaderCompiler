@@ -24,7 +24,7 @@ uint foo(my_struct_2 s)
  
 void main(my_struct a[1])
 {
-  uint r = foo((my_struct_2)a[0]);
+  uint r = foo(a[0]);
 }
 
 

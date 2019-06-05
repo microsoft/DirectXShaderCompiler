@@ -3341,14 +3341,15 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
         DXASSERT(0, "Can't handle structs of different layouts");
         return;
       }
+
+      const DataLayout &DL = SrcBCI->getModule()->getDataLayout();
+      unsigned SrcSize = DL.getTypeAllocSize(SrcBCI->getOperand(0)->getType()->getPointerElementType());
+      unsigned MemcpySize = cast<ConstantInt>(MC->getLength())->getZExtValue() * MC->getAlignment();
+      DXASSERT(SrcSize == MemcpySize, "Cannot handle partial memcpy");
+
       if (DestBCI->hasOneUse() && SrcBCI->hasOneUse()) {
-        auto GetBitcastTypeSize = [](BitCastInst *BCI) {
-          const DataLayout &DL = BCI->getModule()->getDataLayout();
-          return DL.getTypeAllocSize(BCI->getOperand(0)->getType()->getPointerElementType());
-        };
         IRBuilder<> Builder(MC);
         StructType *srcStTy = cast<StructType>(SrcBCI->getOperand(0)->getType()->getPointerElementType());
-        assert(GetBitcastTypeSize(SrcBCI) == GetBitcastTypeSize(DestBCI) && "Type size mismatch!");
         std::vector<unsigned> idxlist = { 0 };
         CopyElementsOfStructsWithIdenticalLayout(Builder, DestBCI->getOperand(0), SrcBCI->getOperand(0), srcStTy, idxlist);
       }
