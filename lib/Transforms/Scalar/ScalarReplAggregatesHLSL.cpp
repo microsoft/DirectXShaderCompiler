@@ -3342,8 +3342,13 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
         return;
       }
       if (DestBCI->hasOneUse() && SrcBCI->hasOneUse()) {
+        auto GetBitcastTypeSize = [](BitCastInst *BCI) {
+          const DataLayout &DL = BCI->getModule()->getDataLayout();
+          return DL.getTypeAllocSize(BCI->getOperand(0)->getType()->getPointerElementType());
+        };
         IRBuilder<> Builder(MC);
         StructType *srcStTy = cast<StructType>(SrcBCI->getOperand(0)->getType()->getPointerElementType());
+        assert(GetBitcastTypeSize(SrcBCI) == GetBitcastTypeSize(DestBCI) && "Type size mismatch!");
         std::vector<unsigned> idxlist = { 0 };
         CopyElementsOfStructsWithIdenticalLayout(Builder, DestBCI->getOperand(0), SrcBCI->getOperand(0), srcStTy, idxlist);
       }
