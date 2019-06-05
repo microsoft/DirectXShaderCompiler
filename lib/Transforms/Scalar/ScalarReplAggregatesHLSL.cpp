@@ -3345,7 +3345,10 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
       const DataLayout &DL = SrcBCI->getModule()->getDataLayout();
       unsigned SrcSize = DL.getTypeAllocSize(SrcBCI->getOperand(0)->getType()->getPointerElementType());
       unsigned MemcpySize = cast<ConstantInt>(MC->getLength())->getZExtValue() * MC->getAlignment();
-      DXASSERT(SrcSize == MemcpySize, "Cannot handle partial memcpy");
+      if (SrcSize != MemcpySize) {
+        DXASSERT(0, "Cannot handle partial memcpy");
+        return;
+      }
 
       if (DestBCI->hasOneUse() && SrcBCI->hasOneUse()) {
         IRBuilder<> Builder(MC);
