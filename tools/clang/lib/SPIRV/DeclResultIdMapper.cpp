@@ -2766,7 +2766,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
                                            isPrecise, srcLoc);
     default:
       emitError("semantic ShadingRate currently unsupported in non-PS shader"
-                "stages",
+                " stages",
                 srcLoc);
       break;
     }
