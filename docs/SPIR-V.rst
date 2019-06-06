@@ -278,6 +278,7 @@ Supported extensions
 * SPV_KHR_shader_draw_parameters
 * SPV_EXT_descriptor_indexing
 * SPV_EXT_fragment_fully_covered
+* SPV_EXT_fragment_invocation_density
 * SPV_EXT_shader_stencil_support
 * SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
@@ -1387,6 +1388,8 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 |                           | GSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
 |                           +-------------+--------------------------+-----------------------+-----------------------------+
 |                           | PSIn        | ``ViewIndex``            | N/A                   | ``MultiView``               |
++---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
+| SV_ShadingRate            | PSIn        | ``FragSizeEXT``          | N/A                   | ``FragmentDensityEXT``      |
 +---------------------------+-------------+--------------------------+-----------------------+-----------------------------+
 
 For entities (function parameters, function return values, struct fields) with

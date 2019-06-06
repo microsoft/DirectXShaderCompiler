@@ -1982,5 +1982,11 @@ TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
 }
+TEST_F(FileTest, VulkanShadingRate) {
+  runFileTest("vk.shading-rate.hlsl");
+}
+TEST_F(FileTest, VulkanShadingRateError) {
+  runFileTest("vk.shading-rate.vs-error.hlsl", Expect::Failure);
+}
 
 } // namespace

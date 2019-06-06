@@ -322,6 +322,13 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::BaryCoordPullModelAMD: {
       addExtension(Extension::AMD_shader_explicit_vertex_parameter,
                    "SV_Barycentrics", loc);
+      break;
+    }
+    case spv::BuiltIn::FragSizeEXT: {
+      addExtension(Extension::EXT_fragment_invocation_density,
+                   "SV_ShadingRate", loc);
+      addCapability(spv::Capability::FragmentDensityEXT);
+      break;
     }
     default:
       break;
