@@ -1147,6 +1147,89 @@ def add_test_cases():
                     l.o_dot4 = dot(l.input1.xyzw, l.input2.xyzw);
                     g_buf[GI] = l;
                 };''')
+
+    # Dot2AddHalf
+    add_test_case('Dot2AddHalf', ['Dot2AddHalf'], 'epsilon', 0.008, [[
+        '1,2', '1,-2', '1,2', '-1,2', '1,2', '-1,2', '1,2', '-1,-2',
+        '65504,1', '-65504,1', '1,65504', '1,-65504', 'inf,inf',
+        'denorm,denorm', '-denorm,-denorm', 'nan,nan'
+    ], [
+        '3,4', '-3,4', '3,4', '3,-4', '3,4', '-3,4', '3,4', '-3,-4',
+        '1,65504', '1,-65504', '65504,1', '-65504,1', 'inf,inf',
+        'denorm,denorm', '-denorm,-denorm', 'nan,nan'
+    ], [
+        '0', '0', '10', '10', '-5', '-5', '-30', '-30', '0', '0',
+        '10000000', '-10000000', 'inf', 'denorm', '-denorm'
+        'nan'
+    ]], [
+        [11, -11, 21, -1, 6, 6, -19, -19, 131008, -131008, 10131008,
+         -10131008, p_inf, 0, 0, nan],
+    ], 'cs_6_4', ''' struct SDot2AddHalfOp {
+                   half2 input1;
+                   half2 input2;
+                   float acc;
+                   float result;
+                };
+                RWStructuredBuffer<SDot2AddHalfOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDot2AddHalfOp l = g_buf[GI];
+                    l.result = dot2add(l.input1, l.input2, l.acc);
+                    g_buf[GI] = l;
+                };''', shader_arguments='-enable-16bit-types')
+
+    # Dot4AddI8Packed
+    add_test_case('Dot4AddI8Packed', ['Dot4AddI8Packed'], 'epsilon', 0, [[
+        '0x00000102', '0x00000102', '0x00000102', '0x00000102',
+        '0XFFFFFFFF', '0x80808080', '0x80808080', '0x807F807F',
+        '0x7F7F7F7F', '0x80808080'
+    ], [
+        '0x00000304', '0x00000304', '0x00000304', '0x00000304',
+        '0xFFFFFFFF', '0x01010101', '0x7F7F7F7F', '0x807F807F',
+        '0x7F7F7F7F', '0x80808080'
+    ], [
+        '0', '10', '-5', '30', '0', '0', '0', '0', '0', '0'
+    ]], [
+        [11, 21, 6, -19, 4, -512, -65024, 65026, 64516, 65536],
+    ], 'cs_6_4', ''' struct SDot4AddI8PackedOp {
+                   dword input1;
+                   dword input2;
+                   int acc;
+                   int result;
+                };
+                RWStructuredBuffer<SDot4AddI8PackedOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDot4AddI8PackedOp l = g_buf[GI];
+                    l.result = dot4add_i8packed(l.input1, l.input2, l.acc);
+                    g_buf[GI] = l;
+                };''')
+
+    # Dot4AddU8Packed
+    add_test_case('Dot4AddU8Packed', ['Dot4AddU8Packed'], 'epsilon', 0, [[
+        '0x00000102', '0x00000102', '0x01234567', '0xFFFFFFFF',
+        '0xFFFFFFFF'
+    ], [
+        '0x00000304', '0x00000304', '0x23456789', '0xFFFFFFFF',
+        '0xFFFFFFFF'
+    ], [
+        '0', '10', '10000', '0', '3000000000'
+    ]], [
+        [11, 21, 33668, 260100, 3000260100],
+    ], 'cs_6_4', ''' struct SDot4AddU8PackedOp {
+                   dword input1;
+                   dword input2;
+                   dword acc;
+                   dword result;
+                };
+                RWStructuredBuffer<SDot4AddU8PackedOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDot4AddU8PackedOp l = g_buf[GI];
+                    l.result = dot4add_u8packed(l.input1, l.input2, l.acc);
+                    g_buf[GI] = l;
+                };''')
+
     # Quaternary
     # Msad4 intrinsic calls both Bfi and Msad. Currently this is the only way to call bfi instruction from HLSL
     add_test_case('Bfi', ['Bfi', 'Msad'], 'epsilon', 0,
@@ -1509,6 +1592,18 @@ def generate_table_for_taef():
             ET.SubElement(root, "Table", attrib={
                 "Id": "DotOpTable"
             }), 2, 3)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "Dot2AddHalfOpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "Dot4AddI8PackedOpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "Dot4AddU8PackedOpTable"
+            }), 3, 1)
         generate_parameter_types_msad(
             ET.SubElement(root, "Table", attrib={
                 "Id": "Msad4Table"
@@ -1671,6 +1766,16 @@ def generate_table_for_taef():
                     print(cur_inst.dxil_class)
             elif cur_inst.category == "Dot":
                 generate_row(root.find("./Table[@Id='DotOpTable']"), case)
+            elif cur_inst.category == "Dot product with accumulate":
+                if cur_inst.name == "Dot2AddHalf":
+                    generate_row(root.find("./Table[@Id='Dot2AddHalfOpTable']"), case)
+                elif cur_inst.name == "Dot4AddI8Packed":
+                    generate_row(root.find("./Table[@Id='Dot4AddI8PackedOpTable']"), case)
+                elif cur_inst.name == "Dot4AddU8Packed":
+                    generate_row(root.find("./Table[@Id='Dot4AddU8PackedOpTable']"), case)
+                else:
+                    print("unknown op: " + cur_inst.name)
+                    print(cur_inst.dxil_class)
             elif cur_inst.dxil_class in ["WaveActiveOp", "WaveAllOp","WaveActiveAllEqual","WaveAnyTrue","WaveAllTrue"]:
                 if case.test_name.startswith("WaveActiveU"):
                     generate_row_wave(
