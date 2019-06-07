@@ -261,6 +261,7 @@ void initializeResourceToHandlePass(PassRegistry&);
 void initializeSROA_SSAUp_HLSLPass(PassRegistry&);
 void initializeHoistConstantArrayPass(PassRegistry&);
 void initializeDxilLoopUnrollPass(PassRegistry&);
+void initializeDxilConditionalMem2RegPass(PassRegistry&);
 void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 // HLSL Change Ends
 void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);

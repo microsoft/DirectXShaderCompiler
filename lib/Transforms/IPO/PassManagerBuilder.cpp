@@ -252,10 +252,12 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
-  if (!NoOpt) {
-    // mem2reg
-    MPM.add(createPromoteMemoryToRegisterPass());
+  // mem2reg
+  // Special Mem2Reg pass that only happens if optimization is
+  // enabled or loop unroll is needed.
+  MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
+  if (!NoOpt) {
     MPM.add(createDxilConvergentMarkPass());
   }
 
@@ -269,7 +271,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // Needs to happen before resources are lowered and before HL
   // module is gone.
   MPM.add(createLoopRotatePass());
-  MPM.add(createDxilLoopUnrollPass(/*MaxIterationAttempt*/ 128));
+  MPM.add(createDxilLoopUnrollPass(1024));
 
   // Default unroll pass. This is purely for optimizing loops without
   // attributes.
