@@ -5146,11 +5146,11 @@ TEST_F(ExecutionTest, DotTest) {
             p->input2.y, p->input2.z, p->input2.w, p->o_dot2, dot2, p->o_dot3, dot3,
             p->o_dot4, dot4);
         VerifyOutputWithExpectedValueFloat(p->o_dot2, dot2, Validation_type,
-                                            tolerance);
+                                           tolerance);
         VerifyOutputWithExpectedValueFloat(p->o_dot3, dot3, Validation_type,
-                                            tolerance);
+                                           tolerance);
         VerifyOutputWithExpectedValueFloat(p->o_dot4, dot4, Validation_type,
-                                            tolerance);
+                                           tolerance);
     }
 }
 
