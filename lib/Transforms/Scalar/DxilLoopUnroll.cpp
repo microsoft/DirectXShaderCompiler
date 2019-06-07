@@ -856,7 +856,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     this->MaxIterationAttempt = TripCount;
   }
   else if (HasExplicitLoopCount) {
-    this->MaxIterationAttempt = std::max(this->MaxIterationAttempt, ExplicitUnrollCount);
+    this->MaxIterationAttempt = ExplicitUnrollCount;
   }
 
   for (unsigned IterationI = 0; IterationI < this->MaxIterationAttempt; IterationI++) {
@@ -1110,14 +1110,15 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 // Special Mem2Reg pass
 //
 // In order to figure out loop bounds to unroll, we must first run mem2reg pass
-// on the function first, BUT we don't want to run mem2reg on functions that don't
-// have to be unrolled or don't have loops when /Od is given. This pass runs mem2reg
-// on functions only when needed.
+// on the function, but we don't want to run mem2reg on functions that don't
+// have to be unrolled when /Od is given. This pass considers all these
+// conditions and runs mem2reg on functions only when needed.
 //
 class DxilConditionalMem2Reg : public FunctionPass {
 public:
   static char ID;
 
+  // Function overrides that resolve options when used for DxOpt
   void applyOptions(PassOptions O) {
     GetPassOptionBool(O, "NoOpt", &NoOpt, false);
   }
@@ -1140,6 +1141,7 @@ public:
     AU.setPreservesCFG();
   }
 
+  // Recursively find loops that are marked with [unroll]
   static bool HasLoopsMarkedUnrollRecursive(Loop *L) {
     int Count = 0;
     if (IsMarkedFullUnroll(L) || IsMarkedUnrollCount(L, &Count)) {
