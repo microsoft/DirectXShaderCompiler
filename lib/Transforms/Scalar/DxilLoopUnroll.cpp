@@ -670,17 +670,16 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
-static void RecursivelyRemoveLoopFromQueue(ScalarEvolution *SE, LPPassManager &LPM, Loop *L) {
+static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
   // Copy the sub loops into a separate list because
   // the original list may change.
   SmallVector<Loop *, 4> SubLoops(L->getSubLoops().begin(), L->getSubLoops().end());
 
   // Must remove all child loops first.
   for (Loop *SubL : SubLoops) {
-    RecursivelyRemoveLoopFromQueue(SE, LPM, SubL);
+    RecursivelyRemoveLoopFromQueue(LPM, SubL);
   }
 
-  SE->forgetLoop(L);
   LPM.deleteLoopFromQueue(L);
 }
 
@@ -1043,12 +1042,14 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
+    SE->forgetLoop(L);
+
     // Remove the original blocks that we've cloned from all loops.
     for (BasicBlock *BB : ToBeCloned)
       LI->removeBlock(BB);
 
     // Remove loop and all child loops from queue.
-    RecursivelyRemoveLoopFromQueue(SE, LPM, L);
+    RecursivelyRemoveLoopFromQueue(LPM, L);
 
     // Remove dead blocks.
     for (BasicBlock *BB : ToBeCloned)
