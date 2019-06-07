@@ -5072,171 +5072,171 @@ TEST_F(ExecutionTest, TertiaryUint16OpTest) {
 }
 
 TEST_F(ExecutionTest, DotTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  CComPtr<IStream> pStream;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice)) {
-      return;
-  }
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
 
-  int tableSize = sizeof(DotOpParameters) / sizeof(TableParameter);
-  TableParameterHandler handler(DotOpParameters, tableSize);
+    int tableSize = sizeof(DotOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(DotOpParameters, tableSize);
 
-  CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-  CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+    CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
+    CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
-  std::vector<WEX::Common::String> *Validation_Input1 =
-      &handler.GetTableParamByName(L"Validation.Input1")->m_StringTable;
-  std::vector<WEX::Common::String> *Validation_Input2 =
-      &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
-  std::vector<WEX::Common::String> *Validation_dot2 =
-      &handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable;
-  std::vector<WEX::Common::String> *Validation_dot3 =
-      &handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable;
-  std::vector<WEX::Common::String> *Validation_dot4 =
-      &handler.GetTableParamByName(L"Validation.Expected3")->m_StringTable;
+    std::vector<WEX::Common::String> *Validation_Input1 =
+        &handler.GetTableParamByName(L"Validation.Input1")->m_StringTable;
+    std::vector<WEX::Common::String> *Validation_Input2 =
+        &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
+    std::vector<WEX::Common::String> *Validation_dot2 =
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable;
+    std::vector<WEX::Common::String> *Validation_dot3 =
+        &handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable;
+    std::vector<WEX::Common::String> *Validation_dot4 =
+        &handler.GetTableParamByName(L"Validation.Expected3")->m_StringTable;
 
-  PCWSTR Validation_type = handler.GetTableParamByName(L"Validation.Type")->m_str;
-  double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
-  size_t count = Validation_Input1->size();
+    PCWSTR Validation_type = handler.GetTableParamByName(L"Validation.Type")->m_str;
+    double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+    size_t count = Validation_Input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-      pDevice, m_support, pStream, "DotOp",
-      // this callbacked is called when the test
-      // is creating the resource to run the test
-      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-      VERIFY_IS_TRUE(0 == _stricmp(Name, "SDotOp"));
-      size_t size = sizeof(SDotOp) * count;
-      Data.resize(size);
-      SDotOp *pPrimitives = (SDotOp*)Data.data();
-      for (size_t i = 0; i < count; ++i) {
-          SDotOp *p = &pPrimitives[i];
-          XMFLOAT4 val1,val2;
-          VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input1)[i],
-                                                  (float *)&val1, 4));
-          VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input2)[i],
-                                                  (float *)&val2, 4));
-          p->input1 = val1;
-          p->input2 = val2;
-      }
-      // use shader from data table
-      pShaderOp->Shaders.at(0).Target = Target.m_psz;
-      pShaderOp->Shaders.at(0).Text = Text.m_psz;
-  });
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "DotOp",
+        // this callbacked is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDotOp"));
+        size_t size = sizeof(SDotOp) * count;
+        Data.resize(size);
+        SDotOp *pPrimitives = (SDotOp*)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            SDotOp *p = &pPrimitives[i];
+            XMFLOAT4 val1,val2;
+            VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input1)[i],
+                                                    (float *)&val1, 4));
+            VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input2)[i],
+                                                    (float *)&val2, 4));
+            p->input1 = val1;
+            p->input2 = val2;
+        }
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+    });
 
-  MappedData data;
-  test->Test->GetReadBackData("SDotOp", &data);
+    MappedData data;
+    test->Test->GetReadBackData("SDotOp", &data);
 
-  SDotOp *pPrimitives = (SDotOp*)data.data();
-  WEX::TestExecution::DisableVerifyExceptions dve;
-  for (size_t i = 0; i < count; ++i) {
-      SDotOp *p = &pPrimitives[i];
-      float dot2, dot3, dot4;
-      VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot2)[i], dot2));
-      VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot3)[i], dot3));
-      VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot4)[i], dot4));
-      LogCommentFmt(
-          L"element #%u, input1 = (%f, %f, %f, %f), input2 = (%f, %f, "
-          L"%f, %f), \n dot2 = %f, dot2_expected = %f, dot3 = %f, "
-          L"dot3_expected = %f, dot4 = %f, dot4_expected = %f",
-          i, p->input1.x, p->input1.y, p->input1.z, p->input1.w, p->input2.x,
-          p->input2.y, p->input2.z, p->input2.w, p->o_dot2, dot2, p->o_dot3, dot3,
-          p->o_dot4, dot4);
-      VerifyOutputWithExpectedValueFloat(p->o_dot2, dot2, Validation_type,
-                                          tolerance);
-      VerifyOutputWithExpectedValueFloat(p->o_dot3, dot3, Validation_type,
-                                          tolerance);
-      VerifyOutputWithExpectedValueFloat(p->o_dot4, dot4, Validation_type,
-                                          tolerance);
-  }
+    SDotOp *pPrimitives = (SDotOp*)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (size_t i = 0; i < count; ++i) {
+        SDotOp *p = &pPrimitives[i];
+        float dot2, dot3, dot4;
+        VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot2)[i], dot2));
+        VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot3)[i], dot3));
+        VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot4)[i], dot4));
+        LogCommentFmt(
+            L"element #%u, input1 = (%f, %f, %f, %f), input2 = (%f, %f, "
+            L"%f, %f), \n dot2 = %f, dot2_expected = %f, dot3 = %f, "
+            L"dot3_expected = %f, dot4 = %f, dot4_expected = %f",
+            i, p->input1.x, p->input1.y, p->input1.z, p->input1.w, p->input2.x,
+            p->input2.y, p->input2.z, p->input2.w, p->o_dot2, dot2, p->o_dot3, dot3,
+            p->o_dot4, dot4);
+        VerifyOutputWithExpectedValueFloat(p->o_dot2, dot2, Validation_type,
+                                            tolerance);
+        VerifyOutputWithExpectedValueFloat(p->o_dot3, dot3, Validation_type,
+                                            tolerance);
+        VerifyOutputWithExpectedValueFloat(p->o_dot4, dot4, Validation_type,
+                                            tolerance);
+    }
 }
 
 TEST_F(ExecutionTest, Dot2AddHalfTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  CComPtr<IStream> pStream;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
-  CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4, false)) {
-      return;
-  }
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_4, false)) {
+        return;
+    }
 
-  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
-      WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return;
-  }
+    if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+        WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+        return;
+    }
 
-  int tableSize = sizeof(Dot2AddHalfOpParameters) / sizeof(TableParameter);
-  TableParameterHandler handler(Dot2AddHalfOpParameters, tableSize);
+    int tableSize = sizeof(Dot2AddHalfOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(Dot2AddHalfOpParameters, tableSize);
 
-  CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-  CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-  CW2A Arguments(handler.GetTableParamByName(L"ShaderOp.Arguments")->m_str);
+    CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
+    CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+    CW2A Arguments(handler.GetTableParamByName(L"ShaderOp.Arguments")->m_str);
 
-  std::vector<WEX::Common::String> *validation_input1 =
-      &handler.GetTableParamByName(L"Validation.Input1")->m_StringTable;
-  std::vector<WEX::Common::String> *validation_input2 =
-      &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
-  std::vector<float> *validation_acc = &handler.GetTableParamByName(L"Validation.Input3")->m_floatTable;
-  std::vector<float> *validation_result = &handler.GetTableParamByName(L"Validation.Expected1")->m_floatTable;
+    std::vector<WEX::Common::String> *validation_input1 =
+        &handler.GetTableParamByName(L"Validation.Input1")->m_StringTable;
+    std::vector<WEX::Common::String> *validation_input2 =
+        &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
+    std::vector<float> *validation_acc = &handler.GetTableParamByName(L"Validation.Input3")->m_floatTable;
+    std::vector<float> *validation_result = &handler.GetTableParamByName(L"Validation.Expected1")->m_floatTable;
 
-  PCWSTR Validation_type = handler.GetTableParamByName(L"Validation.Type")->m_str;
-  double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
-  size_t count = validation_input1->size();
+    PCWSTR Validation_type = handler.GetTableParamByName(L"Validation.Type")->m_str;
+    double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+    size_t count = validation_input1->size();
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-      pDevice, m_support, pStream, "Dot2AddHalfOp",
-      // this callback is called when the test
-      // is creating the resource to run the test
-      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-      VERIFY_IS_TRUE(0 == _stricmp(Name, "SDot2AddHalfOp"));
-      size_t size = sizeof(SDot2AddHalfOp) * count;
-      Data.resize(size);
-      SDot2AddHalfOp *pPrimitives = (SDot2AddHalfOp*)Data.data();
-      for (size_t i = 0; i < count; ++i) {
-          SDot2AddHalfOp *p = &pPrimitives[i];
-          Half2 val1,val2;
-          VERIFY_SUCCEEDED(ParseDataToVectorHalf((*validation_input1)[i],
-                                                  (uint16_t *)&val1, 2));
-          VERIFY_SUCCEEDED(ParseDataToVectorHalf((*validation_input2)[i],
-                                                  (uint16_t *)&val2, 2));
-          p->input1 = val1;
-          p->input2 = val2;
-          p->acc = (*validation_acc)[i];
-      }
-      // use shader from data table
-      pShaderOp->Shaders.at(0).Target = Target.m_psz;
-      pShaderOp->Shaders.at(0).Text = Text.m_psz;
-      pShaderOp->Shaders.at(0).Arguments = Arguments.m_psz;
-  });
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "Dot2AddHalfOp",
+        // this callback is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDot2AddHalfOp"));
+        size_t size = sizeof(SDot2AddHalfOp) * count;
+        Data.resize(size);
+        SDot2AddHalfOp *pPrimitives = (SDot2AddHalfOp*)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            SDot2AddHalfOp *p = &pPrimitives[i];
+            Half2 val1,val2;
+            VERIFY_SUCCEEDED(ParseDataToVectorHalf((*validation_input1)[i],
+                                                    (uint16_t *)&val1, 2));
+            VERIFY_SUCCEEDED(ParseDataToVectorHalf((*validation_input2)[i],
+                                                    (uint16_t *)&val2, 2));
+            p->input1 = val1;
+            p->input2 = val2;
+            p->acc = (*validation_acc)[i];
+        }
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+        pShaderOp->Shaders.at(0).Arguments = Arguments.m_psz;
+    });
 
-  MappedData data;
-  test->Test->GetReadBackData("SDot2AddHalfOp", &data);
+    MappedData data;
+    test->Test->GetReadBackData("SDot2AddHalfOp", &data);
 
-  SDot2AddHalfOp *pPrimitives = (SDot2AddHalfOp*)data.data();
-  WEX::TestExecution::DisableVerifyExceptions dve;
-  for (size_t i = 0; i < count; ++i) {
-      SDot2AddHalfOp *p = &pPrimitives[i];
-      float expectedResult = (*validation_result)[i];
-      float input1x = ConvertFloat16ToFloat32(p->input1.x);
-      float input1y = ConvertFloat16ToFloat32(p->input1.y);
-      float input2x = ConvertFloat16ToFloat32(p->input2.x);
-      float input2y = ConvertFloat16ToFloat32(p->input2.y);
-      LogCommentFmt(
-          L"element #%u, input1 = (%f, %f), input2 = (%f, %f), acc = %f\n"
-          L"result = %f, result_expected = %f",
-          i, input1x, input1y, input2x, input2y, p->acc, p->result, expectedResult);
-      VerifyOutputWithExpectedValueFloat(p->result, expectedResult, Validation_type, tolerance);
-  }
+    SDot2AddHalfOp *pPrimitives = (SDot2AddHalfOp*)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (size_t i = 0; i < count; ++i) {
+        SDot2AddHalfOp *p = &pPrimitives[i];
+        float expectedResult = (*validation_result)[i];
+        float input1x = ConvertFloat16ToFloat32(p->input1.x);
+        float input1y = ConvertFloat16ToFloat32(p->input1.y);
+        float input2x = ConvertFloat16ToFloat32(p->input2.x);
+        float input2y = ConvertFloat16ToFloat32(p->input2.y);
+        LogCommentFmt(
+            L"element #%u, input1 = (%f, %f), input2 = (%f, %f), acc = %f\n"
+            L"result = %f, result_expected = %f",
+            i, input1x, input1y, input2x, input2y, p->acc, p->result, expectedResult);
+        VerifyOutputWithExpectedValueFloat(p->result, expectedResult, Validation_type, tolerance);
+    }
 }
 
 TEST_F(ExecutionTest, Dot4AddI8PackedTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
+    WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
     CComPtr<IStream> pStream;
     ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
