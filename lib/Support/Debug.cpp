@@ -85,7 +85,7 @@ namespace llvm {
         // Need a null-terminated string here.
         char chunk[512];
         while (Size > 0) {
-          size_t len = (Size < _countof(chunk) ? Size : _countof(chunk));
+          size_t len = std::min(Size, _countof(chunk) - 1);
           memcpy(chunk, Ptr, len);
           chunk[len] = '\0';
           OutputDebugStringA(chunk);
