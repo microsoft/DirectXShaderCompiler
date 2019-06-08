@@ -1525,6 +1525,9 @@ class db_dxil(object):
             {'n':'force-ssa-updater', 'i':'ForceSSAUpdater', 't':'bool', 'd':'Force the pass to not use DomTree and mem2reg, insteadforming SSA values through the SSAUpdater infrastructure.'},
             {'n':'sroa-random-shuffle-slices', 'i':'SROARandomShuffleSlices', 't':'bool', 'd':'Enable randomly shuffling the slices to help uncover instability in their order.'},
             {'n':'sroa-strict-inbounds', 'i':'SROAStrictInbounds', 't':'bool', 'd':'Experiment with completely strict handling of inbounds GEPs.'}])
+        add_pass("dxil-cond-mem2reg", "DxilConditionalMem2Reg", "Dxil Conditional Mem2Reg", [
+                {'n':'NoOpt', 't':'bool', 'c':1},
+            ])
         add_pass('scalarrepl', 'SROA_DT', 'Scalar Replacement of Aggregates (DT)', [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'StructMemberThreshold', 't':'int', 'c':1},

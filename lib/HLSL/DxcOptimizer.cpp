@@ -87,6 +87,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilAllocateResourcesForLibPass(Registry);
     initializeDxilCleanupAddrSpaceCastPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
+    initializeDxilConditionalMem2RegPass(Registry);
     initializeDxilConvergentClearPass(Registry);
     initializeDxilConvergentMarkPass(Registry);
     initializeDxilDeadFunctionEliminationPass(Registry);
@@ -190,6 +191,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "force-early-z", "add-pixel-cost", "rt-width", "sv-position-index", "num-pixels" };
+  static const LPCSTR DxilConditionalMem2RegArgs[] = { "NoOpt" };
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
@@ -223,6 +225,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
   if (strcmp(passName, "hlsl-dxil-add-pixel-hit-instrmentation") == 0) return ArrayRef<LPCSTR>(DxilAddPixelHitInstrumentationArgs, _countof(DxilAddPixelHitInstrumentationArgs));
+  if (strcmp(passName, "dxil-cond-mem2reg") == 0) return ArrayRef<LPCSTR>(DxilConditionalMem2RegArgs, _countof(DxilConditionalMem2RegArgs));
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
@@ -263,6 +266,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
   static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "None", "None", "None", "None", "None" };
+  static const LPCSTR DxilConditionalMem2RegArgs[] = { "None" };
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
@@ -296,6 +300,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
   if (strcmp(passName, "hlsl-dxil-add-pixel-hit-instrmentation") == 0) return ArrayRef<LPCSTR>(DxilAddPixelHitInstrumentationArgs, _countof(DxilAddPixelHitInstrumentationArgs));
+  if (strcmp(passName, "dxil-cond-mem2reg") == 0) return ArrayRef<LPCSTR>(DxilConditionalMem2RegArgs, _countof(DxilConditionalMem2RegArgs));
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
@@ -340,6 +345,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("InlineThreshold")
     ||  S.equals("InsertLifetime")
     ||  S.equals("MaxHeaderSize")
+    ||  S.equals("NoOpt")
     ||  S.equals("NotOptimized")
     ||  S.equals("Os")
     ||  S.equals("ReplaceAllVectors")

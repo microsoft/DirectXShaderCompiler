@@ -1,7 +1,7 @@
 // RUN: %dxc -Od -E main -T ps_6_0 %s | FileCheck %s
-// CHECK: Could not unroll loop
-// CHECK: To give an explicit unroll bound, use unroll(n)
-// CHECK-NOT: @main
+// CHECK: @main
+
+// Confirm that simple loops should be able to be unrolled
 
 [RootSignature("")]
 float main(float y : Y) : SV_Target {
