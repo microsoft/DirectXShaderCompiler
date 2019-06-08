@@ -132,7 +132,7 @@ public:
 
 char DxilLoopUnroll::ID;
 
-static void FailLoopUnroll(bool WarnOnly, LLVMContext &Ctx, DebugLoc DL, const char *Message) {
+static void FailLoopUnroll(bool WarnOnly, LLVMContext &Ctx, DebugLoc DL, const Twine &Message) {
   if (WarnOnly) {
     if (DL)
       Ctx.emitWarning(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
@@ -1081,9 +1081,16 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
-    FailLoopUnroll(FxcCompatMode /*warn only*/, F->getContext(), LoopLoc,
-      "Could not unroll loop. Loop bound could not be deduced at compile time. "
-      "To give an explicit unroll bound, use unroll(n).");
+    const char *Msg =
+        "Could not unroll loop. Loop bound could not be deduced at compile time. "
+        "Use [unroll(n)] to give an explicit count.";
+    if (FxcCompatMode) {
+      FailLoopUnroll(true /*warn only*/, F->getContext(), LoopLoc, Msg);
+    }
+    else {
+      FailLoopUnroll(false /*warn only*/, F->getContext(), LoopLoc,
+        Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
+    }
 
     // Remove all the cloned blocks
     for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {

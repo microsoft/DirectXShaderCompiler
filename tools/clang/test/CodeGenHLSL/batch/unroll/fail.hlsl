@@ -1,5 +1,6 @@
 // RUN: %dxc -Od -E main -T ps_6_0 %s | FileCheck %s
 // CHECK-DAG: Could not unroll loop.
+// CHECK-DAG: -HV 2016
 // CHECK-NOT: @main
 
 // Check that the compilation fails due to unable to
