@@ -134,6 +134,9 @@ void initializeSROA_Parameter_HLSLPass(PassRegistry&);
 Pass *createDxilFixConstArrayInitializerPass();
 void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 
+Pass *createDxilConditionalMem2RegPass(bool NoOpt);
+void initializeDxilConditionalMem2RegPass(PassRegistry&);
+
 Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
 void initializeDxilLoopUnrollPass(PassRegistry&);
 //===----------------------------------------------------------------------===//

@@ -1,7 +1,9 @@
-// RUN: %dxc -HV 2016 -Od -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc /HV 2016 -Od -E main -T ps_6_0 %s | FileCheck %s
 // CHECK-DAG: warning: Could not unroll loop.
+// CHECK-NOT: -HV 2016
 // CHECK-NOT: @main
 
+// Check that the warning doesn't mention HV 2016
 // Check that the compilation fails due to unable to
 // find the loop bound.
 

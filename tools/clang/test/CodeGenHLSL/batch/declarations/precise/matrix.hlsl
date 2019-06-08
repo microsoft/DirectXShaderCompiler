@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s | XFail GitHub #2080
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // Test that precise modifier on a matrix has an effect.
 
