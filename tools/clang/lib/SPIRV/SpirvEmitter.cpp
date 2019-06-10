@@ -5572,7 +5572,7 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
   if ((scalarVal = tryToEvaluateAsConst(scalarExpr))) {
     scalarVal->setRValue();
   } else {
-    scalarVal = doExpr(scalarExpr);
+    scalarVal = loadIfGLValue(scalarExpr);
   }
 
   if (!scalarVal || size == 1) {
