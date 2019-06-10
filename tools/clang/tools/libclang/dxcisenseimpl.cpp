@@ -1349,6 +1349,26 @@ HRESULT DxcSourceLocation::IsNull(_Out_ BOOL* pResult)
   return S_OK;
 }
 
+HRESULT DxcSourceLocation::GetPresumedLocation(
+  _Outptr_opt_ LPSTR* pFilename,
+  _Out_opt_ unsigned* pLine,
+  _Out_opt_ unsigned* pCol)
+{
+  DxcThreadMalloc TM(m_pMalloc);
+  
+  CXString filename;
+  unsigned line, col;
+  clang_getPresumedLocation(m_location, &filename, &line, &col);
+  if (pFilename != nullptr)
+  {
+    HRESULT hr = CXStringToAnsiAndDispose(filename, pFilename);
+    if (FAILED(hr)) return hr;
+  }
+  if (pLine) *pLine = line;
+  if (pCol) *pCol = col;
+  return S_OK;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcSourceRange::DxcSourceRange()
