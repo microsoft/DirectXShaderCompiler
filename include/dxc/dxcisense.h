@@ -729,6 +729,10 @@ IDxcSourceLocation : public IUnknown
     _Out_opt_ unsigned* pCol,
     _Out_opt_ unsigned* pOffset) = 0;
   virtual HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL* pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetPresumedLocation(
+    _Outptr_opt_ LPSTR* pFilename,
+    _Out_opt_ unsigned* pLine,
+    _Out_opt_ unsigned* pCol) = 0;
 };
 
 struct __declspec(uuid("f1359b36-a53f-4e81-b514-b6b84122a13f"))

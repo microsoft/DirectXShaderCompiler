@@ -85,6 +85,8 @@ protected:
   }
 
   TEST_METHOD(CursorWhenCBufferRefThenFound)
+  TEST_METHOD(CursorWhenPresumedLocationDifferentFromSpellingLocation)
+  TEST_METHOD(CursorWhenPresumedLocationSameAsSpellingLocation)
   TEST_METHOD(CursorWhenFieldRefThenSimpleNames)
   TEST_METHOD(CursorWhenFindAtBodyCallThenMatch)
   TEST_METHOD(CursorWhenFindAtGlobalThenMatch)
@@ -159,6 +161,60 @@ TEST_F(DXIntellisenseTest, CursorWhenCBufferRefThenFound) {
   VERIFY_SUCCEEDED(refs.begin()[0]->GetLocation(&loc));
   VERIFY_SUCCEEDED(loc->GetSpellingLocation(nullptr, &line, nullptr, nullptr));
   VERIFY_ARE_EQUAL(2U, line);
+}
+
+TEST_F(DXIntellisenseTest, CursorWhenPresumedLocationDifferentFromSpellingLocation) {
+  char program[] =
+    "#line 21 \"something.h\"\r\n"
+    "struct MyStruct { };";
+
+  CComPtr<IDxcCursor> varCursor;
+  CComPtr<IDxcSourceLocation> loc;
+  CComPtr<IDxcFile> spellingFile;
+  unsigned spellingLine, spellingCol, spellingOffset;
+  CComHeapPtr<char> presumedFilename;
+  unsigned presumedLine, presumedCol;
+  
+  CompilationResult c(CompilationResult::CreateForProgram(program, strlen(program)));
+  VERIFY_ARE_EQUAL(true, c.ParseSucceeded());
+  ExpectCursorAt(c.TU, 2, 1, DxcCursor_StructDecl, &varCursor);
+  VERIFY_SUCCEEDED(varCursor->GetLocation(&loc));
+
+  VERIFY_SUCCEEDED(loc->GetSpellingLocation(&spellingFile, &spellingLine, &spellingCol, &spellingOffset));
+  VERIFY_ARE_EQUAL(2u, spellingLine);
+  VERIFY_ARE_EQUAL(8u, spellingCol);
+  VERIFY_ARE_EQUAL(31u, spellingOffset);
+
+  VERIFY_SUCCEEDED(loc->GetPresumedLocation(&presumedFilename, &presumedLine, &presumedCol));
+  VERIFY_ARE_EQUAL_STR("something.h", presumedFilename);
+  VERIFY_ARE_EQUAL(21u, presumedLine);
+  VERIFY_ARE_EQUAL(8u, presumedCol);
+}
+
+TEST_F(DXIntellisenseTest, CursorWhenPresumedLocationSameAsSpellingLocation) {
+  char program[] = "struct MyStruct { };";
+
+  CComPtr<IDxcCursor> varCursor;
+  CComPtr<IDxcSourceLocation> loc;
+  CComPtr<IDxcFile> spellingFile;
+  unsigned spellingLine, spellingCol, spellingOffset;
+  CComHeapPtr<char> presumedFilename;
+  unsigned presumedLine, presumedCol;
+  
+  CompilationResult c(CompilationResult::CreateForProgram(program, strlen(program)));
+  VERIFY_ARE_EQUAL(true, c.ParseSucceeded());
+  ExpectCursorAt(c.TU, 1, 1, DxcCursor_StructDecl, &varCursor);
+  VERIFY_SUCCEEDED(varCursor->GetLocation(&loc));
+  
+  VERIFY_SUCCEEDED(loc->GetSpellingLocation(&spellingFile, &spellingLine, &spellingCol, &spellingOffset));
+  VERIFY_ARE_EQUAL(1u, spellingLine);
+  VERIFY_ARE_EQUAL(8u, spellingCol);
+  VERIFY_ARE_EQUAL(7u, spellingOffset);
+  
+  VERIFY_SUCCEEDED(loc->GetPresumedLocation(&presumedFilename, &presumedLine, &presumedCol));
+  VERIFY_ARE_EQUAL_STR(CompilationResult::getDefaultFileName(), presumedFilename);
+  VERIFY_ARE_EQUAL(1u, presumedLine);
+  VERIFY_ARE_EQUAL(8u, presumedCol);
 }
 
 TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
