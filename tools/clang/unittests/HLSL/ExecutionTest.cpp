@@ -474,6 +474,7 @@ public:
     D3D_SHADER_MODEL_6_2 = 0x62,
     D3D_SHADER_MODEL_6_3 = 0x63,
     D3D_SHADER_MODEL_6_4 = 0x64,
+    D3D_SHADER_MODEL_6_5 = 0x65,
 } D3D_SHADER_MODEL;
 
 #if WDK_NTDDI_VERSION == NTDDI_WIN10_RS2
@@ -484,8 +485,10 @@ public:
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_2;
 #elif WDK_NTDDI_VERSION == NTDDI_WIN10_RS5
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_3;
-#else
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_19H1
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_4;
+#else
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
 #endif
 
   dxc::DxcDllSupport m_support;
@@ -6234,7 +6237,7 @@ ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(TableParameter *pParameterList,
 
   CComPtr<ID3D12Device> pDevice;
 
-  if (!CreateDevice(&pDevice)) {
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_5)) {
     return;
   }
 
