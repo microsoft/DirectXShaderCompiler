@@ -1795,8 +1795,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
     llvm::DILocalVariable *LV;
     uint64_t StartOffset;
     uint64_t EndOffset;
-    HRESULT hr;
-    IFR(hr = IsDbgDeclareCall(M, I, &Reg, &RegSize, &LV, &StartOffset, &EndOffset));
+    HRESULT hr = IsDbgDeclareCall(M, I, &Reg, &RegSize, &LV, &StartOffset, &EndOffset);
     if (hr != S_OK) {
       continue;
     }
