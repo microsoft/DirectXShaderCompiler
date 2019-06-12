@@ -283,15 +283,8 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
     CComPtr<IDxcBlob> pBitcodeBlob;
     IFT(GetDxilBitcode(DllSupport, pCompiledBlob, &pBitcodeBlob));
 
-    CComPtr<IDxcBlob> pReassembledBlob;
-    IFT(ReAssembleTo(DllSupport, pBitcodeBlob->GetBufferPointer(), pBitcodeBlob->GetBufferSize(), &pReassembledBlob));
-
-    CComPtr<IDxcBlobEncoding> pDisassembly;
-    IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
-    output = BlobToUtf8(pDisassembly);
-
     // For now, just has the disassembly. Once we fix the bitcode differences, we'll switch to that.
-    llvm::ArrayRef<uint8_t> Data((uint8_t *)pDisassembly->GetBufferPointer(), pDisassembly->GetBufferSize());
+    llvm::ArrayRef<uint8_t> Data((uint8_t *)pBitcodeBlob->GetBufferPointer(), pBitcodeBlob->GetBufferSize());
     llvm::MD5 md5;
     llvm::MD5::MD5Result md5Result;
     md5.update(Data);
