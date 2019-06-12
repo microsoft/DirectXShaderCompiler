@@ -180,7 +180,7 @@ public:
   /// the instruction pointer for the result.
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
-                                SourceLocation loc = {});
+                                SourceLocation loc);
 
   SpirvSpecConstantBinaryOp *
   createSpecConstantBinaryOp(spv::Op op, QualType resultType,
