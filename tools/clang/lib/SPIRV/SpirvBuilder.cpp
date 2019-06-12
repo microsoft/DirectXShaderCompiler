@@ -869,7 +869,7 @@ void SpirvBuilder::decorateIndex(SpirvInstruction *target, uint32_t index,
   module->addDecoration(decor);
 }
 
-void SpirvBuilder::decorateDSetBinding(SpirvInstruction *target,
+void SpirvBuilder::decorateDSetBinding(SpirvVariable *target,
                                        uint32_t setNumber,
                                        uint32_t bindingNumber) {
   const SourceLocation srcLoc = target->getSourceLocation();
@@ -879,6 +879,10 @@ void SpirvBuilder::decorateDSetBinding(SpirvInstruction *target,
 
   auto *binding = new (context) SpirvDecoration(
       srcLoc, target, spv::Decoration::Binding, {bindingNumber});
+
+  target->setDescriptorSetNo(setNumber);
+  target->setBindingNo(bindingNumber);
+
   module->addDecoration(binding);
 }
 

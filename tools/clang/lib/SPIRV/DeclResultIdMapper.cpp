@@ -770,6 +770,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
           : (forTBuffer ? spirvOptions.tBufferLayoutRule
                         : spirvOptions.sBufferLayoutRule);
 
+  var->setHlslUserType(forCBuffer ? "cbuffer" : forTBuffer ? "tbuffer" : "");
   var->setLayoutRule(layoutRule);
   return var;
 }
@@ -1501,7 +1502,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
   // Decorates the given varId of the given category with set number
   // setNo, binding number bindingNo. Ignores overlaps.
-  const auto tryToDecorate = [this, &bindingSet](SpirvInstruction *var,
+  const auto tryToDecorate = [this, &bindingSet](SpirvVariable *var,
                                                  const uint32_t setNo,
                                                  const uint32_t bindingNo) {
     bindingSet.useBinding(bindingNo, setNo);

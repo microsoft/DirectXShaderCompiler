@@ -1977,6 +1977,11 @@ TEST_F(FileTest, DecorationNoContractionStageVars) {
   runFileTest("decoration.no-contraction.stage-vars.hlsl");
 }
 
+// For UserTypeGOOGLE decorations
+TEST_F(FileTest, DecorationUserTypeGOOGLE) {
+  runFileTest("decoration.user-type.hlsl");
+}
+
 // For pragmas
 TEST_F(FileTest, PragmaPackMatrix) { runFileTest("pragma.pack_matrix.hlsl"); }
 

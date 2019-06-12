@@ -206,6 +206,11 @@ bool isSubpassInput(QualType);
 /// \brief Returns true if the given type is SubpassInputMS.
 bool isSubpassInputMS(QualType);
 
+/// \brief If the given QualType is an HLSL resource type (or array of
+/// resources), returns its HLSL type name. e.g. "RWTexture2D". Returns an empty
+/// string otherwise.
+std::string getHlslResourceTypeName(QualType);
+
 /// Returns true if the given type will be translated into a SPIR-V image,
 /// sampler or struct containing images or samplers.
 ///
@@ -220,7 +225,7 @@ bool isOpaqueArrayType(QualType type);
 /// (in a recursive away).
 ///
 /// Note: legalization specific code
-bool isOpaqueStructType(QualType tye);
+bool isOpaqueStructType(QualType type);
 
 /// \brief Returns true if the given type can use relaxed precision
 /// decoration. Integer and float types with lower than 32 bits can be
