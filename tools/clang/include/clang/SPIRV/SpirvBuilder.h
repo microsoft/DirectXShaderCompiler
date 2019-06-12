@@ -279,7 +279,7 @@ public:
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(QualType imageType, SpirvInstruction *image,
                         SpirvInstruction *coord, SpirvInstruction *texel,
-                        SourceLocation loc = {});
+                        SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
@@ -445,7 +445,7 @@ public:
   /// constructed in this method.
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
                                std::string name, bool isPrecise,
-                               SourceLocation loc = {});
+                               SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
@@ -454,7 +454,7 @@ public:
   SpirvVariable *addStageBuiltinVar(QualType type,
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, bool isPrecise,
-                                    SourceLocation loc = {});
+                                    SourceLocation loc);
 
   /// \brief Adds a module variable. This variable should not have the Function
   /// storage class.

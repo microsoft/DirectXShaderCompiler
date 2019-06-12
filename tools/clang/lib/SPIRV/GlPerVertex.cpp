@@ -342,7 +342,7 @@ SpirvVariable *GlPerVertex::createClipCullDistanceVar(bool asInput, bool isClip,
   SpirvVariable *var = spvBuilder.addStageBuiltinVar(
       type, sc,
       isClip ? spv::BuiltIn::ClipDistance : spv::BuiltIn::CullDistance,
-      isPrecise);
+      isPrecise, /*SourceLocation*/ {});
 
   const auto index = isClip ? gClipDistanceIndex : gCullDistanceIndex;
   spvBuilder.decorateHlslSemantic(var, asInput ? inSemanticStrs[index]

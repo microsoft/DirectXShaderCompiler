@@ -2427,7 +2427,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -2472,7 +2472,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::GSVIn:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_InstanceID sneaked in");
     }
@@ -2506,7 +2506,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -2527,7 +2527,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   case hlsl::Semantic::Kind::IsFrontFace: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::GSOut:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing,
@@ -2543,7 +2543,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // An arbitrary semantic is defined by users. Generate normal Vulkan stage
   // input/output variables.
   case hlsl::Semantic::Kind::Arbitrary: {
-    return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+    return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     // TODO: patch constant function in hull shader
   }
   // According to DXIL spec, the DispatchThreadID SV can only be used by CSIn.
@@ -2678,7 +2678,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::GSVIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
@@ -2706,7 +2706,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::GSVIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
