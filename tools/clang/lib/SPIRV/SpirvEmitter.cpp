@@ -2887,7 +2887,7 @@ SpirvEmitter::processSubpassLoad(const CXXMemberCallExpr *expr) {
 
   return processBufferTextureLoad(object, location, /*constOffset*/ 0,
                                   /*varOffset*/ 0, /*lod*/ sample,
-                                  /*residencyCode*/ 0);
+                                  /*residencyCode*/ 0, expr->getExprLoc());
 }
 
 SpirvInstruction *
@@ -3217,7 +3217,8 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
 SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     const Expr *object, SpirvInstruction *location,
     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
-    SpirvInstruction *lod, SpirvInstruction *residencyCode) {
+    SpirvInstruction *lod, SpirvInstruction *residencyCode,
+    SourceLocation loc) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
@@ -3262,16 +3263,14 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   const QualType texelType = astContext.getExtVectorType(elemType, 4u);
   auto *texel = spvBuilder.createImageFetchOrRead(
       doFetch, texelType, type, objectInfo, location, lod, constOffset,
-      varOffset, /*constOffsets*/ nullptr, sampleNumber, residencyCode);
+      varOffset, /*constOffsets*/ nullptr, sampleNumber, residencyCode, loc);
 
   // If the result type is a vec1, vec2, or vec3, some extra processing
   // (extraction) is required.
-  auto *retVal =
-      extractVecFromVec4(texel, elemCount, elemType, object->getLocStart());
+  auto *retVal = extractVecFromVec4(texel, elemCount, elemType, loc);
   if (isTemplateOverStruct) {
     // Convert to the struct so that we are consistent with types in the AST.
-    retVal = convertVectorToStruct(sampledType, elemType, retVal,
-                                   object->getLocStart());
+    retVal = convertVectorToStruct(sampledType, elemType, retVal, loc);
   }
   retVal->setRValue();
   return retVal;
@@ -4052,7 +4051,7 @@ SpirvInstruction *SpirvEmitter::createImageSample(
     return spvBuilder.createImageSample(retType, imageType, image, sampler,
                                         coordinate, compareVal, bias, lod, grad,
                                         constOffset, varOffset, constOffsets,
-                                        sample, minLod, residencyCodeId);
+                                        sample, minLod, residencyCodeId, loc);
   }
 
   // Non-Dref Sample instructions in SPIR-V must always return a vec4.
@@ -4078,7 +4077,7 @@ SpirvInstruction *SpirvEmitter::createImageSample(
   auto *retVal = spvBuilder.createImageSample(
       texelType, imageType, image, sampler, coordinate, compareVal, bias, lod,
       grad, constOffset, varOffset, constOffsets, sample, minLod,
-      residencyCodeId);
+      residencyCodeId, loc);
 
   // Extract smaller vector from the vec4 result if necessary.
   if (texelType != retType) {
@@ -4440,11 +4439,12 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
+  auto loc = expr->getExprLoc();
   if (isBuffer(objectType) || isRWBuffer(objectType) || isRWTexture(objectType))
     return processBufferTextureLoad(object, doExpr(locationArg),
                                     /*constOffset*/ nullptr,
                                     /*varOffset*/ nullptr, /*lod*/ nullptr,
-                                    /*residencyCode*/ status);
+                                    /*residencyCode*/ status, loc);
 
   // Subtract 1 for status (if it exists), and 1 for sampleIndex (if it exists),
   // and 1 for location.
@@ -4477,7 +4477,7 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
     }
 
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
-                                    lod, status);
+                                    lod, status, loc);
   }
   emitError("Load() of the given object type unimplemented",
             object->getExprLoc());
@@ -4519,7 +4519,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
                                       /*constOffset*/ nullptr,
                                       /*varOffset*/ nullptr, lod,
-                                      /*residencyCode*/ nullptr);
+                                      /*residencyCode*/ nullptr,
+                                      expr->getExprLoc());
     }
     // .mips[][] or .sample[][] must use the correct slice.
     if (isTextureMipsSampleIndexing(expr, &baseExpr, &indexExpr, &lodExpr)) {
@@ -4527,7 +4528,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
                                       /*constOffset*/ nullptr,
                                       /*varOffset*/ nullptr, lod,
-                                      /*residencyCode*/ nullptr);
+                                      /*residencyCode*/ nullptr,
+                                      expr->getExprLoc());
     }
   }
 
@@ -5324,8 +5326,8 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
         if (isAcceptedSpecConstantBinaryOp(spvOp)) {
           if (lhsValConstant->isSpecConstant() ||
               rhsValConstant->isSpecConstant()) {
-            auto *val = spvBuilder.createSpecConstantBinaryOp(spvOp, resultType,
-                                                              lhsVal, rhsVal);
+            auto *val = spvBuilder.createSpecConstantBinaryOp(
+                spvOp, resultType, lhsVal, rhsVal, loc);
             val->setRValue();
             return val;
           }
