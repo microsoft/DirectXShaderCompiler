@@ -242,7 +242,7 @@ static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompile
   return S_OK;
 }
 
-static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, llvm::SmallString<32> &Hash, std::string &output) {
+static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileName, dxc::DxcDllSupport &DllSupport, std::vector<LPCWSTR> &flags, IDxcBlob **ppHashBlob, std::string &output) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcCompiler2> pCompiler2;
@@ -280,23 +280,13 @@ static HRESULT CompileForHash(hlsl::options::DxcOpts &opts, LPCWSTR CommandFileN
     if (FAILED(pReflection->Load(pCompiledBlob)))
       return E_FAIL;
 
-    CComPtr<IDxcBlob> pBitcodeBlob;
-    IFT(GetDxilBitcode(DllSupport, pCompiledBlob, &pBitcodeBlob));
-
-    CComPtr<IDxcBlob> pReassembledBlob;
-    IFT(ReAssembleTo(DllSupport, pBitcodeBlob->GetBufferPointer(), pBitcodeBlob->GetBufferSize(), &pReassembledBlob));
-
-    CComPtr<IDxcBlobEncoding> pDisassembly;
-    IFT(pCompiler->Disassemble(pReassembledBlob, &pDisassembly));
-    output = BlobToUtf8(pDisassembly);
-
-    // For now, just has the disassembly. Once we fix the bitcode differences, we'll switch to that.
-    llvm::ArrayRef<uint8_t> Data((uint8_t *)pDisassembly->GetBufferPointer(), pDisassembly->GetBufferSize());
-    llvm::MD5 md5;
-    llvm::MD5::MD5Result md5Result;
-    md5.update(Data);
-    md5.final(md5Result);
-    md5.stringifyResult(md5Result, Hash);
+    *ppHashBlob = nullptr;
+    UINT32 uHashIdx = 0;
+    if (SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderHash, &uHashIdx))) {
+      CComPtr<IDxcBlob> pHashBlob;
+      IFT(pReflection->GetPartContent(uHashIdx, &pHashBlob));
+      *ppHashBlob = pHashBlob.Detach();
+    }
 
     // Test that PDB is generated correctly.
     // This test needs to be done elsewhere later, ideally a fully
@@ -335,23 +325,24 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   }
 
   std::string originalOutput;
-  llvm::SmallString<32> originalHash;
+  CComPtr<IDxcBlob> pOriginalHash;
   // If failed the original compilation, just pass the test. The original test was likely
   // testing for failure.
-  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, original_flags, originalHash, originalOutput)))
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, original_flags, &pOriginalHash, originalOutput)))
     return FileRunCommandResult::Success();
 
   // Results of our compilations
-  llvm::SmallString<32> Hash1;
+  CComPtr<IDxcBlob> pHash1;
   std::string Output0;
-  llvm::SmallString<32> Hash0;
+  CComPtr<IDxcBlob> pHash0;
   std::string Output1;
 
   // Fail if -Qstrip_reflect failed the compilation
   std::vector<LPCWSTR> normal_flags = original_flags;
   normal_flags.push_back(L"-Qstrip_reflect");
+  normal_flags.push_back(L"-Zsb");
   std::string StdErr;
-  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, normal_flags, Hash0, Output0))) {
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, normal_flags, &pHash0, Output0))) {
     StdErr += "Adding Qstrip_reflect failed compilation.";
     StdErr += originalOutput;
     StdErr += Output0;
@@ -362,11 +353,12 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   std::vector<LPCWSTR> dbg_flags = original_flags;
   dbg_flags.push_back(L"/Zi");
   dbg_flags.push_back(L"-Qstrip_reflect");
-  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, Hash1, Output1))) {
+  dbg_flags.push_back(L"-Zsb");
+  if (FAILED(CompileForHash(opts, CommandFileName, DllSupport, dbg_flags, &pHash1, Output1))) {
     return FileRunCommandResult::Error("Adding Qstrip_reflect and Zi failed compilation.");
   }
 
-  if (Hash0 != Hash1) {
+  if (pHash0->GetBufferSize() != pHash1->GetBufferSize() || 0 != memcmp(pHash0->GetBufferPointer(), pHash0->GetBufferPointer(), pHash1->GetBufferSize())) {
     StdErr = "Hashes do not match between normal and debug!!!\n";
     StdErr += Output0;
     StdErr += Output1;
