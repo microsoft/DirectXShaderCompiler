@@ -2019,10 +2019,28 @@ static void WriteValueSymbolTable(const ValueSymbolTable &VST,
   // FIXME: We know if the type names can use 7-bit ascii.
   SmallVector<unsigned, 64> NameVals;
 
+// HLSL Change - Begin
+  // Read the named values from a sorted list instead of the original list
+  // to ensure the binary is the same no matter what values ever existed.
+  SmallVector<const ValueName *, 16> SortedTable;
+
   for (ValueSymbolTable::const_iterator SI = VST.begin(), SE = VST.end();
        SI != SE; ++SI) {
+    SortedTable.push_back(&(*SI));
+  }
+  // The keys are unique, so there shouldn't be stability issues
+  std::sort(SortedTable.begin(), SortedTable.end(), [](const ValueName *A, const ValueName *B) {
+    return (*A).first() < (*B).first();
+  });
 
+  for (const ValueName *SI : SortedTable) {
+    auto &Name = *SI;
+// HLSL Change - End
+#if 0 // HLSL Change
+  for (ValueSymbolTable::const_iterator SI = VST.begin(), SE = VST.end();
+       SI != SE; ++SI) {
     const ValueName &Name = *SI;
+#endif // HLSL Change
 
     // Figure out the encoding to use for the name.
     bool is7Bit = true;
