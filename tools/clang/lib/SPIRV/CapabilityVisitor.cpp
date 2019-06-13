@@ -325,8 +325,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       break;
     }
     case spv::BuiltIn::FragSizeEXT: {
-      addExtension(Extension::EXT_fragment_invocation_density,
-                   "SV_ShadingRate", loc);
+      addExtension(Extension::EXT_fragment_invocation_density, "SV_ShadingRate",
+                   loc);
       addCapability(spv::Capability::FragmentDensityEXT);
       break;
     }
@@ -381,6 +381,7 @@ bool CapabilityVisitor::visit(SpirvImageSparseTexelsResident *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
   addCapability(spv::Capability::ImageGatherExtended);
+  addCapability(spv::Capability::SparseResidency);
   return true;
 }
 
