@@ -831,6 +831,8 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr) {
 
 SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
                                               SpirvInstruction *info) {
+  const auto exprType = expr->getType();
+
   // Do nothing if this is already rvalue
   if (!info || info->isRValue())
     return info;
@@ -839,7 +841,7 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
   // If true, we are likely to copy it as a whole. To assist per-element
   // copying, avoid the load here and return the pointer directly.
   // TODO: consider moving this hack into SPIRV-Tools as a transformation.
-  if (isOpaqueArrayType(expr->getType()))
+  if (isOpaqueArrayType(exprType))
     return info;
 
   // Check whether we are trying to load an externally visible structured/byte
@@ -872,8 +874,7 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
         declIdMapper.getCTBufferPushConstantType(declContext), info,
         expr->getExprLoc());
   } else {
-    loadedInstr =
-        spvBuilder.createLoad(expr->getType(), info, expr->getExprLoc());
+    loadedInstr = spvBuilder.createLoad(exprType, info, expr->getExprLoc());
   }
   assert(loadedInstr);
 
@@ -884,10 +885,8 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
   {
     uint32_t vecSize = 1, numRows = 0, numCols = 0;
     if (info->getLayoutRule() != SpirvLayoutRule::Void &&
-        isBoolOrVecMatOfBoolType(expr->getType())) {
-      const auto exprType = expr->getType();
+        isBoolOrVecMatOfBoolType(exprType)) {
       QualType uintType = astContext.UnsignedIntTy;
-      QualType boolType = astContext.BoolTy;
       if (isScalarType(exprType) || isVectorType(exprType, nullptr, &vecSize)) {
         const auto fromType =
             vecSize == 1 ? uintType
