@@ -120,20 +120,6 @@ SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
   return instruction;
 }
 
-SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
-    const SpirvType *resultType,
-    llvm::ArrayRef<SpirvInstruction *> constituents, SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvCompositeConstruct(/*QualType*/ {}, loc, constituents);
-  instruction->setResultType(resultType);
-  if (!constituents.empty()) {
-    instruction->setLayoutRule(constituents[0]->getLayoutRule());
-  }
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
 SpirvCompositeExtract *SpirvBuilder::createCompositeExtract(
     QualType resultType, SpirvInstruction *composite,
     llvm::ArrayRef<uint32_t> indexes, SourceLocation loc) {
@@ -198,6 +184,17 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   auto *instruction = new (context) SpirvLoad(/*QualType*/ {}, loc, pointer);
   instruction->setResultType(resultType);
   instruction->setStorageClass(pointer->getStorageClass());
+  // Special case for legalization. We could have point-to-pointer types.
+  // For example:
+  //
+  // %var = OpVariable %_ptr_Private__ptr_Uniform_type_X Private
+  // %1 = OpLoad %_ptr_Uniform_type_X %var
+  //
+  // Loading from %var should result in Uniform storage class, not Private.
+  if (const auto *ptrType = dyn_cast<SpirvPointerType>(resultType)) {
+    instruction->setStorageClass(ptrType->getStorageClass());
+  }
+
   instruction->setLayoutRule(pointer->getLayoutRule());
   instruction->setNonUniform(pointer->isNonUniform());
   instruction->setRValue(true);
@@ -243,31 +240,6 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvAccessChain(resultType, loc, base, indexes);
-  instruction->setStorageClass(base->getStorageClass());
-  instruction->setLayoutRule(base->getLayoutRule());
-  bool isNonUniform = base->isNonUniform();
-  for (auto *index : indexes)
-    isNonUniform = isNonUniform || index->isNonUniform();
-  instruction->setNonUniform(isNonUniform);
-  instruction->setContainsAliasComponent(base->containsAliasComponent());
-
-  // If doing an access chain into a structured or byte address buffer, make
-  // sure the layout rule is sBufferLayoutRule.
-  if (base->hasAstResultType() &&
-      isAKindOfStructuredOrByteBuffer(base->getAstResultType()))
-    instruction->setLayoutRule(spirvOptions.sBufferLayoutRule);
-
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
-SpirvAccessChain *SpirvBuilder::createAccessChain(
-    const SpirvType *resultType, SpirvInstruction *base,
-    llvm::ArrayRef<SpirvInstruction *> indexes, SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvAccessChain(/*QualType*/ {}, loc, base, indexes);
-  instruction->setResultType(resultType);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
   bool isNonUniform = base->isNonUniform();

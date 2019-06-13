@@ -114,10 +114,6 @@ public:
   createCompositeConstruct(QualType resultType,
                            llvm::ArrayRef<SpirvInstruction *> constituents,
                            SourceLocation loc);
-  SpirvCompositeConstruct *
-  createCompositeConstruct(const SpirvType *resultType,
-                           llvm::ArrayRef<SpirvInstruction *> constituents,
-                           SourceLocation loc);
 
   /// \brief Creates a composite extract instruction. The given composite is
   /// indexed using the given literal indexes to obtain the resulting element.
@@ -167,12 +163,11 @@ public:
   /// \brief Creates an access chain instruction to retrieve the element from
   /// the given base by walking through the given indexes. Returns the
   /// instruction pointer for the pointer to the element.
+  /// Note: The given 'resultType' should be the underlying value type, not the
+  /// pointer type. The type lowering pass automatically adds pointerness and
+  /// proper storage class (based on the access base) to the result type.
   SpirvAccessChain *
   createAccessChain(QualType resultType, SpirvInstruction *base,
-                    llvm::ArrayRef<SpirvInstruction *> indexes,
-                    SourceLocation loc);
-  SpirvAccessChain *
-  createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
                     SourceLocation loc);
 
