@@ -1066,7 +1066,7 @@ TEST_F(FileTest, IntrinsicsCheckAccessFullyMapped) {
   runFileTest("intrinsics.check-access-fully-mapped.hlsl");
 }
 TEST_F(FileTest, IntrinsicsCheckAccessFullyMappedWithoutSampler) {
-  runFileTest("intrinsics.check-access-fully-mapped-without-sampler.hlsl");
+  runFileTest("intrinsics.check-access-fully-mapped.without-sampler.hlsl");
 }
 TEST_F(FileTest, IntrinsicsGetRenderTargetSampleCount) {
   runFileTest("intrinsics.get-render-target-sample-count.hlsl",
