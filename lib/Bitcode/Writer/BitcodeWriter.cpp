@@ -2028,6 +2028,7 @@ static void WriteValueSymbolTable(const ValueSymbolTable &VST,
        SI != SE; ++SI) {
     SortedTable.push_back(&(*SI));
   }
+  // The keys are unique, so there shouldn't be stability issues
   std::sort(SortedTable.begin(), SortedTable.end(), [](const ValueName *A, const ValueName *B) {
     return (*A).first() < (*B).first();
   });
