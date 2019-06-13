@@ -1065,6 +1065,9 @@ TEST_F(FileTest, IntrinsicsAbort) {
 TEST_F(FileTest, IntrinsicsCheckAccessFullyMapped) {
   runFileTest("intrinsics.check-access-fully-mapped.hlsl");
 }
+TEST_F(FileTest, IntrinsicsCheckAccessFullyMappedWithoutSampler) {
+  runFileTest("intrinsics.check-access-fully-mapped.without-sampler.hlsl");
+}
 TEST_F(FileTest, IntrinsicsGetRenderTargetSampleCount) {
   runFileTest("intrinsics.get-render-target-sample-count.hlsl",
               Expect::Failure);
@@ -1982,9 +1985,7 @@ TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
 }
-TEST_F(FileTest, VulkanShadingRate) {
-  runFileTest("vk.shading-rate.hlsl");
-}
+TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
 TEST_F(FileTest, VulkanShadingRateError) {
   runFileTest("vk.shading-rate.vs-error.hlsl", Expect::Failure);
 }
