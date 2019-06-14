@@ -19,6 +19,7 @@
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/Support/Unicode.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -658,7 +659,7 @@ private:
   template<typename Factory, typename... Args>
   HRESULT AddType(DWORD dwParentID, llvm::DIType *T, DWORD *pNewSymID, Args&&... args) {
       IFR(AddSymbol<Factory>(dwParentID, pNewSymID, std::forward<Args>(args)...));
-      if (!m_TypeToInfo.insert(std::make_pair(T, std::make_unique<TypeInfo>(*pNewSymID))).second) {
+      if (!m_TypeToInfo.insert(std::make_pair(T, llvm::make_unique<TypeInfo>(*pNewSymID))).second) {
           return E_FAIL;
       }
       return S_OK;
