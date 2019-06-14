@@ -1094,7 +1094,6 @@ dxil_dia::hlsl_symbols::SymbolManagerInit::SymbolManagerInit(
 }
 
 void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &TI) {
-  auto LayoutCopy = m_Layout;
   for (const auto &E : TI.GetLayout()) {
     m_Layout.emplace_back(E);
   }
