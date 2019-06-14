@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define _USE_MATH_DEFINES
+#include <array>
 #include <cmath>
 #include <unordered_set>
 #include <functional>
@@ -2515,7 +2516,7 @@ Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, Args);
 }
 
-Value *ScalarizeResRet(Type *RetTy, Value *ResRet, IRBuilder<> &Builder) {
+static Value *ScalarizeResRet(Type *RetTy, Value *ResRet, IRBuilder<> &Builder) {
   // Extract value part.
   Value *retVal = llvm::UndefValue::get(RetTy);
   if (RetTy->isVectorTy()) {
@@ -2529,7 +2530,7 @@ Value *ScalarizeResRet(Type *RetTy, Value *ResRet, IRBuilder<> &Builder) {
   return retVal;
 }
 
-Value *ScalarizeElements(Type *RetTy, ArrayRef<Value*> Elts, IRBuilder<> &Builder) {
+static Value *ScalarizeElements(Type *RetTy, ArrayRef<Value*> Elts, IRBuilder<> &Builder) {
   // Extract value part.
   Value *retVal = llvm::UndefValue::get(RetTy);
   if (RetTy->isVectorTy()) {
@@ -6067,6 +6068,74 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
   return addr;
 }
 
+// Load a value from a typedef buffer with an offset.
+// Typed buffer do not directly support reading at offsets
+// because the whole value (e.g. float4) must be read at once.
+// If we are provided a non-zero offset, we need to simulate it
+// by returning the correct elements.
+using ResRetValueArray = std::array<Value*, 4>;
+static ResRetValueArray GenerateTypedBufferLoad(
+  Value *Handle, Type *BufferElemTy, Value *ElemIdx, Value *StatusPtr,
+  OP* HlslOP, IRBuilder<> &Builder) {
+
+  OP::OpCode OpCode = OP::OpCode::BufferLoad;
+  Value* LoadArgs[] = { HlslOP->GetU32Const((unsigned)OpCode), Handle, ElemIdx, UndefValue::get(Builder.getInt32Ty()) };
+  Function* LoadFunc = HlslOP->GetOpFunc(OpCode, BufferElemTy);
+  Value* Load = Builder.CreateCall(LoadFunc, LoadArgs, OP::GetOpCodeName(OpCode));
+
+  ResRetValueArray ResultValues;
+  for (unsigned i = 0; i < ResultValues.size(); ++i) {
+    ResultValues[i] = cast<ExtractValueInst>(Builder.CreateExtractValue(Load, { i }));
+  }
+
+  UpdateStatus(Load, StatusPtr, Builder, HlslOP);
+  return ResultValues;
+}
+
+static AllocaInst* SpillValuesToArrayAlloca(ArrayRef<Value*> Values, IRBuilder<>& Builder) {
+  DXASSERT_NOMSG(!Values.empty());
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+  AllocaInst* ArrayAlloca = AllocaBuilder.CreateAlloca(ArrayType::get(Values[0]->getType(), Values.size()));
+  for (unsigned i = 0; i < Values.size(); ++i) {
+    Value* ArrayElemPtr = Builder.CreateGEP(ArrayAlloca, { Builder.getInt32(0), Builder.getInt32(i) });
+    Builder.CreateStore(Values[i], ArrayElemPtr);
+  }
+  return ArrayAlloca;
+}
+
+static Value* ExtractFromTypedBufferLoad(const ResRetValueArray& ResRet,
+    Type* ResultTy, Value* Offset, IRBuilder<>& Builder) {
+  unsigned ElemCount = ResultTy->isVectorTy() ? ResultTy->getVectorNumElements() : 1;
+  DXASSERT_NOMSG(ElemCount < ResRet.size());
+  unsigned ElemSizeInBytes = ResRet[0]->getType()->getScalarSizeInBits() / 8;
+
+  SmallVector<Value*, 4> Elems;
+  if (ConstantInt *OffsetAsConstantInt = dyn_cast<ConstantInt>(Offset)) {
+    // Get all elements to be returned
+    uint64_t FirstElemOffset = OffsetAsConstantInt->getLimitedValue();
+    DXASSERT_NOMSG(FirstElemOffset % ElemSizeInBytes == 0);
+    uint64_t FirstElemIdx = FirstElemOffset / ElemSizeInBytes;
+    DXASSERT_NOMSG(FirstElemIdx < ResRet.size() - ElemCount);
+    for (unsigned ElemIdx = 0; ElemIdx < ElemCount; ++ElemIdx) {
+      Elems.emplace_back(ResRet[std::min<size_t>(FirstElemIdx + ElemIdx, ResRet.size() - 1)]);
+    }
+  }
+  else {
+    Value* ArrayAlloca = SpillValuesToArrayAlloca(
+      ArrayRef<Value*>(ResRet.data(), ResRet.size()), Builder);
+
+    // Get all elements to be returned through dynamic indices
+    Value *FirstElemIdx = Builder.CreateUDiv(Offset, Builder.getInt32(ElemSizeInBytes));
+    for (unsigned i = 0; i < ElemCount; ++i) {
+      Value *ElemIdx = Builder.CreateAdd(FirstElemIdx, Builder.getInt32(i));
+      Value* ElemPtr = Builder.CreateGEP(ArrayAlloca, { Builder.getInt32(0), ElemIdx });
+      Elems.emplace_back(Builder.CreateLoad(ElemPtr));
+    }
+  }
+
+  return ScalarizeElements(ResultTy, Elems, Builder);
+}
+
 Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
@@ -6237,9 +6306,10 @@ void TranslateStructBufMatLdSt(CallInst *CI, Value *handle, hlsl::OP *OP,
   CI->eraseFromParent();
 }
 
-void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
-                                     Value *bufIdx, Value *baseOffset,
-                                     Value *status, hlsl::OP *OP, const DataLayout &DL);
+void TranslateStructBufSubscriptUser(Instruction *user,
+  Value *handle, HLResource::Kind ResKind,
+  Value *bufIdx, Value *baseOffset, Value *status, 
+  hlsl::OP *OP, const DataLayout &DL);
 
 // For case like mat[i][j].
 // IdxList is [i][0], [i][1], [i][2],[i][3].
@@ -6277,13 +6347,10 @@ static Value *LowerGEPOnMatIndexListToIndex(
 }
 
 // subscript operator for matrix of struct element.
-void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
-                                    hlsl::OP *hlslOP, Value *bufIdx,
-                                    Value *baseOffset, Value *status,
-                                    const DataLayout &DL) {
-  Value *zeroIdx = hlslOP->GetU32Const(0);
-  if (baseOffset == nullptr)
-    baseOffset = zeroIdx;
+void TranslateStructBufMatSubscript(CallInst *CI,
+  Value *handle, HLResource::Kind ResKind,
+  Value *bufIdx, Value *baseOffset, Value *status,
+  hlsl::OP* hlslOP, const DataLayout &DL) {
   unsigned opcode = GetHLOpcode(CI);
   IRBuilder<> subBuilder(CI);
   HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
@@ -6334,8 +6401,8 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   for (auto U = CI->user_begin(); U != CI->user_end();) {
     Value *subsUser = *(U++);
     if (resultSize == 1) {
-      TranslateStructBufSubscriptUser(cast<Instruction>(subsUser), handle,
-                                      bufIdx, idxList[0], status, hlslOP, DL);
+      TranslateStructBufSubscriptUser(cast<Instruction>(subsUser),
+        handle, ResKind, bufIdx, idxList[0], status, hlslOP, DL);
       continue;
     }
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
@@ -6343,8 +6410,8 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
 
       for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
         Instruction *gepUserInst = cast<Instruction>(*(gepU++));
-        TranslateStructBufSubscriptUser(gepUserInst, handle, bufIdx, GEPOffset,
-                                        status, hlslOP, DL);
+        TranslateStructBufSubscriptUser(gepUserInst,
+          handle, ResKind, bufIdx, GEPOffset, status, hlslOP, DL);
       }
 
       GEP->eraseFromParent();
@@ -6393,9 +6460,10 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   CI->eraseFromParent();
 }
 
-void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
-                                     Value *bufIdx, Value *baseOffset,
-                                     Value *status, hlsl::OP *OP, const DataLayout &DL) {
+void TranslateStructBufSubscriptUser(
+    Instruction *user, Value *handle, HLResource::Kind ResKind,
+    Value *bufIdx, Value *baseOffset, Value *status,
+    hlsl::OP *OP, const DataLayout &DL) {
   IRBuilder<> Builder(user);
   if (CallInst *userCall = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = // user call?
@@ -6485,7 +6553,8 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
       TranslateStructBufMatLdSt(userCall, handle, OP, status, bufIdx,
                                 baseOffset, DL);
     else if (group == HLOpcodeGroup::HLSubscript) {
-      TranslateStructBufMatSubscript(userCall, handle, OP, bufIdx, baseOffset, status, DL);
+      TranslateStructBufMatSubscript(userCall,
+        handle, ResKind, bufIdx, baseOffset, status, OP, DL);
     }
   } else if (isa<LoadInst>(user) || isa<StoreInst>(user)) {
     LoadInst *ldInst = dyn_cast<LoadInst>(user);
@@ -6495,8 +6564,6 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
                                    : stInst->getValueOperand()->getType();
     Type *pOverloadTy = Ty->getScalarType();
     Value *offset = baseOffset;
-    if (baseOffset == nullptr)
-      offset = OP->GetU32Const(0);
     unsigned arraySize = 1;
     Value *eltSize = nullptr;
 
@@ -6509,8 +6576,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     }
 
     if (ldInst) {
-      auto LdElement = [&](Value *offset, IRBuilder<> &Builder) -> Value * {
-        Value *ResultElts[4];
+      auto LdElement = [=, &Builder](Value *offset, IRBuilder<> &Builder) -> Value * {
         unsigned numComponents = 0;
         if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
           numComponents = VTy->getNumElements();
@@ -6520,9 +6586,19 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
         }
         Constant *alignment =
             OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
-        GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
-                            ResultElts, OP, Builder, numComponents, alignment);
-        return ScalarizeElements(Ty, ResultElts, Builder);
+        if (ResKind == HLResource::Kind::TypedBuffer) {
+          // Typed buffer cannot have offsets, they must be loaded all at once
+          ResRetValueArray ResRet = GenerateTypedBufferLoad(
+            handle, pOverloadTy, bufIdx, status, OP, Builder);
+
+          return ExtractFromTypedBufferLoad(ResRet, Ty, offset, Builder);
+        }
+        else {
+          Value* ResultElts[4];
+          GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
+                              ResultElts, OP, Builder, numComponents, alignment);
+          return ScalarizeElements(Ty, ResultElts, Builder);
+        }
       };
 
       Value *newLd = LdElement(offset, Builder);
@@ -6579,8 +6655,8 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     // Recurse users
     for (auto U = BCI->user_begin(); U != BCI->user_end();) {
       Value *BCIUser = *(U++);
-      TranslateStructBufSubscriptUser(cast<Instruction>(BCIUser), handle,
-        bufIdx, baseOffset, status, OP, DL);
+      TranslateStructBufSubscriptUser(cast<Instruction>(BCIUser),
+        handle, ResKind, bufIdx, baseOffset, status, OP, DL);
     }
     BCI->eraseFromParent();
   } else {
@@ -6591,14 +6667,13 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     Value *offset = GEPIdxToOffset(GEP, Builder, OP, DL);
     DXASSERT_LOCALVAR(Ty, offset->getType() == Type::getInt32Ty(Ty->getContext()),
              "else bitness is wrong");
-    if (baseOffset)
-      offset = Builder.CreateAdd(offset, baseOffset);
+    offset = Builder.CreateAdd(offset, baseOffset);
 
     for (auto U = GEP->user_begin(); U != GEP->user_end();) {
       Value *GEPUser = *(U++);
 
-      TranslateStructBufSubscriptUser(cast<Instruction>(GEPUser), handle,
-                                      bufIdx, offset, status, OP, DL);
+      TranslateStructBufSubscriptUser(cast<Instruction>(GEPUser),
+        handle, ResKind, bufIdx, offset, status, OP, DL);
     }
     // delete the inst
     GEP->eraseFromParent();
@@ -6616,13 +6691,14 @@ void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
   else {
     // StructuredBuffer, TypedBuffer, etc.
     bufIdx = subscriptIndex;
+    offset = OP->GetU32Const(0);
   }
 
   for (auto U = CI->user_begin(); U != CI->user_end();) {
     Value *user = *(U++);
 
-    TranslateStructBufSubscriptUser(cast<Instruction>(user), handle, bufIdx,
-                                    offset, status, OP, DL);
+    TranslateStructBufSubscriptUser(cast<Instruction>(user),
+      handle, ResKind, bufIdx, offset, status, OP, DL);
   }
 }
 }
