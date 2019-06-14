@@ -610,7 +610,7 @@ public:
     std::vector<llvm::DIType *> m_Layout;
     DWORD m_dwCurrentSizeInBytes = 0;
   };
-  using TypeToInfoMap = llvm::DenseMap<llvm::DIType *, TypeInfo>;
+  using TypeToInfoMap = llvm::DenseMap<llvm::DIType *, std::unique_ptr<TypeInfo> >;
 
   // Because of the way the VarToID map is constructed, the
   // vector<LocalVarInfo> may need to grow. The Symbol Constructor for local
@@ -658,7 +658,7 @@ private:
   template<typename Factory, typename... Args>
   HRESULT AddType(DWORD dwParentID, llvm::DIType *T, DWORD *pNewSymID, Args&&... args) {
       IFR(AddSymbol<Factory>(dwParentID, pNewSymID, std::forward<Args>(args)...));
-      if (!m_TypeToInfo.insert(std::make_pair(T, TypeInfo(*pNewSymID))).second) {
+      if (!m_TypeToInfo.insert(std::make_pair(T, std::make_unique<TypeInfo>(*pNewSymID))).second) {
           return E_FAIL;
       }
       return S_OK;
@@ -1094,6 +1094,7 @@ dxil_dia::hlsl_symbols::SymbolManagerInit::SymbolManagerInit(
 }
 
 void dxil_dia::hlsl_symbols::SymbolManagerInit::TypeInfo::Embed(const TypeInfo &TI) {
+  auto LayoutCopy = m_Layout;
   for (const auto &E : TI.GetLayout()) {
     m_Layout.emplace_back(E);
   }
@@ -1113,7 +1114,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::GetTypeInfo(llvm::DIType *T, 
     return E_FAIL;
   }
 
-  *TI = &tyInfoIt->second;
+  *TI = tyInfoIt->second.get();
   return S_OK;
 }
 
@@ -1259,7 +1260,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateType(llvm::DIType *Type
 
   auto lsIT = m_TypeToInfo.find(Type);
   if (lsIT != m_TypeToInfo.end()) {
-    *pNewTypeID = lsIT->second.GetTypeID();
+    *pNewTypeID = lsIT->second->GetTypeID();
     return S_OK;
   }
 
