@@ -4372,6 +4372,14 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
   }
   const DataLayout &DL = AI.getModule()->getDataLayout();
 
+  // HLSL Change Begin
+  // This passes only deals with byte-sized types.
+  // We can have i1 allocas for a bool return value when compiling without optimizations
+  // If we let this run, it'll get turned into an i8, which is invalid dxil.
+  if (AI.getAllocatedType()->isIntegerTy(1))
+    return false;
+  // HLSL Change End
+
   // Skip alloca forms that this analysis can't handle.
   if (AI.isArrayAllocation() || !AI.getAllocatedType()->isSized() ||
       hlsl::dxilutil::IsHLSLObjectType(
