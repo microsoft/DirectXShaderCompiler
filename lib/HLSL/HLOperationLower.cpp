@@ -6115,7 +6115,7 @@ static Value* ExtractFromTypedBufferLoad(const ResRetValueArray& ResRet,
     uint64_t FirstElemOffset = OffsetAsConstantInt->getLimitedValue();
     DXASSERT_NOMSG(FirstElemOffset % ElemSizeInBytes == 0);
     uint64_t FirstElemIdx = FirstElemOffset / ElemSizeInBytes;
-    DXASSERT_NOMSG(FirstElemIdx < ResRet.size() - ElemCount);
+    DXASSERT_NOMSG(FirstElemIdx <= ResRet.size() - ElemCount);
     for (unsigned ElemIdx = 0; ElemIdx < ElemCount; ++ElemIdx) {
       Elems.emplace_back(ResRet[std::min<size_t>(FirstElemIdx + ElemIdx, ResRet.size() - 1)]);
     }
