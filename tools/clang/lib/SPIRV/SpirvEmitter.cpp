@@ -1795,7 +1795,7 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   // Create the branch instruction. This will end the current basic block.
   const auto *then = ifStmt->getThen();
   spvBuilder.createConditionalBranch(condition, thenBB, elseBB,
-                                     then->getLocStart(), mergeBB,
+                                     ifStmt->getLocStart(), mergeBB,
                                      /*continue*/ 0, selectionControl);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
@@ -2235,7 +2235,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     auto *value = castToInt(loadIfGLValue(subExpr), subExprType, toType,
-                            subExpr->getExprLoc());
+                            subExpr->getLocStart());
     value->setRValue();
     return value;
   }
@@ -2251,7 +2251,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     auto *value = castToFloat(loadIfGLValue(subExpr), subExprType, toType,
-                              subExpr->getExprLoc());
+                              subExpr->getLocStart());
     value->setRValue();
     return value;
   }
@@ -2822,10 +2822,9 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
       spv::Op::OpShiftRightLogical, astContext.UnsignedIntTy, offset,
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 2)),
       expr->getExprLoc());
-  auto *ptr = spvBuilder.createAccessChain(
-      spvContext.getPointerType(astContext.UnsignedIntTy,
-                                objectInfo->getStorageClass()),
-      objectInfo, {zero, address}, object->getLocStart());
+  auto *ptr =
+      spvBuilder.createAccessChain(astContext.UnsignedIntTy, objectInfo,
+                                   {zero, address}, object->getLocStart());
 
   const bool isCompareExchange =
       opcode == hlsl::IntrinsicOp::MOP_InterlockedCompareExchange;
@@ -5589,8 +5588,8 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
     return value;
   } else {
     llvm::SmallVector<SpirvInstruction *, 4> elements(size_t(size), scalarVal);
-    auto *value = spvBuilder.createCompositeConstruct(vecType, elements,
-                                                      scalarExpr->getLocEnd());
+    auto *value = spvBuilder.createCompositeConstruct(
+        vecType, elements, scalarExpr->getLocStart());
     value->setRValue();
     return value;
   }
@@ -7075,10 +7074,11 @@ SpirvEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
 
 SpirvInstruction *
 SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
+  const auto loc = callExpr->getExprLoc();
   if (!spirvOptions.noWarnEmulatedFeatures)
     emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
                 "instructions due to lack of direct SPIR-V equivalent",
-                callExpr->getExprLoc());
+                loc);
 
   // Compares a 4-byte reference value and an 8-byte source value and
   // accumulates a vector of 4 sums. Each sum corresponds to the masked sum
@@ -7111,7 +7111,6 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   auto *reference = doExpr(callExpr->getArg(0));
   auto *source = doExpr(callExpr->getArg(1));
   auto *accum = doExpr(callExpr->getArg(2));
-  const auto loc = callExpr->getExprLoc();
   const auto uint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   const auto uint8 =
@@ -7243,8 +7242,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
                                                   accums[msadNum], diff, loc);
     }
   }
-  return spvBuilder.createCompositeConstruct(uint4Type, accums,
-                                             callExpr->getLocEnd());
+  return spvBuilder.createCompositeConstruct(uint4Type, accums, loc);
 }
 
 SpirvInstruction *SpirvEmitter::processWaveQuery(const CallExpr *callExpr,
@@ -8798,7 +8796,7 @@ SpirvEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
         argType, glslInstSet, GLSLstd450::GLSLstd450FSign, {argId}, loc);
   }
 
-  return castToInt(floatSign, arg->getType(), returnType, arg->getExprLoc());
+  return castToInt(floatSign, arg->getType(), returnType, arg->getLocStart());
 }
 
 SpirvInstruction *
@@ -10285,8 +10283,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     hullMainOutputPatch =
         spvBuilder.addFnVar(hullMainRetType, locEnd, "temp.var.hullMainRetVal");
     auto *tempLocation = spvBuilder.createAccessChain(
-        spvContext.getPointerType(retType, spv::StorageClass::Function),
-        hullMainOutputPatch, {outputControlPointId}, locEnd);
+        retType, hullMainOutputPatch, {outputControlPointId}, locEnd);
     spvBuilder.createStore(tempLocation, retVal, locEnd);
   }
 
