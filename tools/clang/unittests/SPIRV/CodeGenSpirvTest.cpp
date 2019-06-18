@@ -1447,6 +1447,9 @@ TEST_F(FileTest, SpirvDebugOpLineFunction) {
 TEST_F(FileTest, SpirvDebugOpLineIntrinsics) {
   runFileTest("spirv.debug.opline.intrinsic.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpLineOperators) {
+  runFileTest("spirv.debug.opline.operators.hlsl");
+}
 TEST_F(FileTest, SpirvDebugOpLineVariables) {
   runFileTest("spirv.debug.opline.variables.hlsl");
 }
