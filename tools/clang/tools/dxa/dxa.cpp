@@ -307,22 +307,28 @@ bool DxaContext::ExtractPart(const char *pName) {
 }
 
 void DxaContext::ListParts() {
-  CComPtr<IDxcContainerReflection> pReflection;
   CComPtr<IDxcBlobEncoding> pSource;
-  UINT32 partCount;
-
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
+
+  CComPtr<IDxcContainerReflection> pReflection;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
   IFT(pReflection->Load(pSource));
+
+  UINT32 partCount;
   IFT(pReflection->GetPartCount(&partCount));
   printf("Part count: %u\n", partCount);
+
   for (UINT32 i = 0; i < partCount; ++i) {
     UINT32 partKind;
     IFT(pReflection->GetPartKind(i, &partKind));
     // Part kind is typically four characters.
     char kindText[5];
     hlsl::PartKindToCharArray(partKind, kindText);
-    printf("#%u - %s\n", i, kindText);
+
+    CComPtr<IDxcBlob> partContent;
+    IFT(pReflection->GetPartContent(i, &partContent));
+
+    printf("#%u - %s (%u bytes)\n", i, kindText, (unsigned)partContent->GetBufferSize());
   }
 }
 
