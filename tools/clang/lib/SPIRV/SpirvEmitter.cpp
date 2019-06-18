@@ -1037,7 +1037,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // Remember the parameter for the 'this' object so later we can handle
     // CXXThisExpr correctly.
     curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false,
-                                    /*SourceLocation*/ {}, "param.this");
+                                    decl->getLocStart(), "param.this");
     if (isOrContainsAKindOfStructuredOrByteBuffer(paramTypes[0])) {
       curThis->setContainsAliasComponent(true);
       needsLegalization = true;
@@ -2124,8 +2124,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // do not need to mark the "param.var.*" variables as precise.
       const bool isPrecise = false;
 
-      auto *tempVar = spvBuilder.addFnVar(varType, param->getLocation(),
-                                          varName, isPrecise);
+      auto *tempVar =
+          spvBuilder.addFnVar(varType, arg->getLocStart(), varName, isPrecise);
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
@@ -2725,8 +2725,7 @@ SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   }
 
   // If we can't use OpSelect, we need to create if-else control flow.
-  auto *tempVar =
-      spvBuilder.addFnVar(type, /*SourceLocation*/ {}, "temp.var.ternary");
+  auto *tempVar = spvBuilder.addFnVar(type, loc, "temp.var.ternary");
   auto *thenBB = spvBuilder.createBasicBlock("if.true");
   auto *mergeBB = spvBuilder.createBasicBlock("if.merge");
   auto *elseBB = spvBuilder.createBasicBlock("if.false");
