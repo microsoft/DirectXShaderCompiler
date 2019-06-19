@@ -125,7 +125,7 @@ DXIL 1.1 Changes
 Main two features that were introduced for DXIL1.1 (Shader Model 6.1) are view instancing and barycentric coordinates. Specifically, there are following changes to the DXIL representation.
 
 * New Intrinsics - AttributeAtVertex_, ViewID
-* New Systen Generated Value - SV_Barycentrics
+* New System Generated Value - SV_Barycentrics
 * New Container Part - ILDN
 
 DXIL 1.2 Changes
