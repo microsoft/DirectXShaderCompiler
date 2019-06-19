@@ -1038,6 +1038,10 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // CXXThisExpr correctly.
     curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false,
                                     /*SourceLocation*/ {}, "param.this");
+    if (isOrContainsAKindOfStructuredOrByteBuffer(paramTypes[0])) {
+      curThis->setContainsAliasComponent(true);
+      needsLegalization = true;
+    }
   }
 
   // Create all parameters.
