@@ -481,6 +481,7 @@ public:
     CComPtr<IDxcBlobEncoding> utf8Source;
     CComPtr<AbstractMemoryStream> pOutputStream;
     CComHeapPtr<wchar_t> DebugBlobName;
+    DxilShaderHash ShaderHashContent;
 
     DxcEtw_DXCompilerCompile_Start();
     pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
@@ -743,11 +744,13 @@ public:
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics());
+                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics(),
+                (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) ? &ShaderHashContent : nullptr);
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
-                                                 pOutputBlob, m_pMalloc,
-                                                 SerializeFlags, pOutputStream);
+                                         pOutputBlob, m_pMalloc,
+                                         SerializeFlags, pOutputStream,
+                (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) ? &ShaderHashContent : nullptr);
           }
 
           // Callback after valid DXIL is produced
@@ -791,7 +794,7 @@ public:
           CComPtr<IDxcBlob> pDebugBitcodeBlob;
           DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(&pDebugBitcodeBlob)));
           DXVERIFY_NOMSG(SUCCEEDED(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBitcodeBlob, &pStrippedContainer)));
-          DXVERIFY_NOMSG(SUCCEEDED((hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ppDebugBlob)))); 
+          DXVERIFY_NOMSG(SUCCEEDED((hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, ppDebugBlob))));
         }
         if (ppDebugBlobName) {
           *ppDebugBlobName = DebugBlobName.Detach();

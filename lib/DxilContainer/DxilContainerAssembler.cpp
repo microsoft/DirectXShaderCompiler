@@ -1464,7 +1464,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
                                            llvm::StringRef DebugName,
-                                           SerializeDxilFlags Flags) {
+                                           SerializeDxilFlags Flags,
+                                           DxilShaderHash *pShaderHashOut) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1606,7 +1607,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   CComPtr<AbstractMemoryStream> pHashStream;
   std::string DebugNameStr; // Used if constructing name based on hash
   DxilShaderHash HashContent;
-  if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+  if (pShaderHashOut || Flags & SerializeDxilFlags::IncludeDebugNamePart) {
     // If the debug name should be specific to the sources, base the name on the debug
     // bitcode, which will include the source references, line numbers, etc. Otherwise,
     // do it exclusively on the target shader bitcode.
@@ -1625,33 +1626,35 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     md5.update(Data);
     md5.final(HashContent.Digest);
 
-    if (DebugName.empty()) {
-      md5.stringifyResult(HashContent.Digest, Hash);
-      DebugNameStr += Hash;
-      DebugNameStr += ".pdb";
-      DebugName = DebugNameStr;
+    if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+      if (DebugName.empty()) {
+        md5.stringifyResult(HashContent.Digest, Hash);
+        DebugNameStr += Hash;
+        DebugNameStr += ".pdb";
+        DebugName = DebugNameStr;
+      }
+
+      // Calculate the size of the blob part.
+      const uint32_t DebugInfoContentLen = PSVALIGN4(
+          sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
+
+      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+        [DebugName]
+        (AbstractMemoryStream *pStream)
+      {
+        DxilShaderDebugName NameContent;
+        NameContent.Flags = 0;
+        NameContent.NameLength = DebugName.size();
+        IFT(WriteStreamValue(pStream, NameContent));
+
+        ULONG cbWritten;
+        IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
+        const char Pad[] = { '\0','\0','\0','\0' };
+        // Always writes at least one null to align size
+        unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
+        IFT(pStream->Write(Pad, padLen, &cbWritten));
+      });
     }
-
-    // Calculate the size of the blob part.
-    const uint32_t DebugInfoContentLen = PSVALIGN4(
-        sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
-
-    writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
-      [DebugName]
-      (AbstractMemoryStream *pStream)
-    {
-      DxilShaderDebugName NameContent;
-      NameContent.Flags = 0;
-      NameContent.NameLength = DebugName.size();
-      IFT(WriteStreamValue(pStream, NameContent));
-
-      ULONG cbWritten;
-      IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
-      const char Pad[] = { '\0','\0','\0','\0' };
-      // Always writes at least one null to align size
-      unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
-      IFT(pStream->Write(Pad, padLen, &cbWritten));
-    });
 
     if (bSupportsShaderHash) {
       writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
@@ -1660,6 +1663,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       {
         IFT(WriteStreamValue(pStream, HashContent));
       });
+    }
+
+    if (pShaderHashOut) {
+      memcpy(pShaderHashOut, &HashContent, sizeof(DxilShaderHash));
     }
   }
 

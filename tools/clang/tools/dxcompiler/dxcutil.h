@@ -30,6 +30,7 @@ class Twine;
 
 namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
+struct DxilShaderHash;
 class AbstractMemoryStream;
 namespace options {
 class MainArgs;
@@ -42,13 +43,14 @@ HRESULT ValidateAndAssembleToContainer(
     std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputContainerBlob,
     IMalloc *pMalloc, hlsl::SerializeDxilFlags SerializeFlags,
     CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode, bool bDebugInfo, llvm::StringRef DebugName,
-    clang::DiagnosticsEngine &Diag);
+    clang::DiagnosticsEngine &Diag, hlsl::DxilShaderHash *pShaderHashOut = nullptr);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          CComPtr<IDxcBlob> &pOutputContainerBlob,
                          IMalloc *pMalloc,
                          hlsl::SerializeDxilFlags SerializeFlags,
-                         CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode);
+                         CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
+                         hlsl::DxilShaderHash *pShaderHashOut = nullptr);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          hlsl::options::DxcOpts &opts,

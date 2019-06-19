@@ -74,11 +74,13 @@ public:
   void WrapModuleInDxilContainer(IMalloc *pMalloc,
                                  AbstractMemoryStream *pModuleBitcode,
                                  CComPtr<IDxcBlob> &pDxilContainerBlob,
-                                 SerializeDxilFlags Flags) {
+                                 SerializeDxilFlags Flags,
+                                 DxilShaderHash *pShaderHashOut) {
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
     SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(),
-                                    pModuleBitcode, pContainerStream, m_debugName, Flags);
+                                    pModuleBitcode, pContainerStream, m_debugName, Flags,
+                                    pShaderHashOut);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
@@ -120,12 +122,13 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          CComPtr<IDxcBlob> &pOutputBlob,
                          IMalloc *pMalloc,
                          SerializeDxilFlags SerializeFlags,
-                         CComPtr<AbstractMemoryStream> &pOutputStream) {
+                         CComPtr<AbstractMemoryStream> &pOutputStream,
+                         DxilShaderHash *pShaderHashOut) {
   // Take ownership of the module from the action.
   DxilCompilerLLVMModuleOutput llvmModule(std::move(pM));
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
-                                       SerializeFlags);
+                                       SerializeFlags, pShaderHashOut);
 }
 
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
@@ -157,7 +160,7 @@ HRESULT ValidateAndAssembleToContainer(
     std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputBlob,
     IMalloc *pMalloc, SerializeDxilFlags SerializeFlags,
     CComPtr<AbstractMemoryStream> &pOutputStream, bool bDebugInfo, llvm::StringRef DebugName,
-    clang::DiagnosticsEngine &Diag) {
+    clang::DiagnosticsEngine &Diag, DxilShaderHash *pShaderHashOut) {
   HRESULT valHR = S_OK;
 
   // Take ownership of the module from the action.
@@ -187,7 +190,7 @@ HRESULT ValidateAndAssembleToContainer(
   }
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
-                                       SerializeFlags);
+                                       SerializeFlags, pShaderHashOut);
 
   CComPtr<IDxcOperationResult> pValResult;
   // Important: in-place edit is required so the blob is reused and thus
