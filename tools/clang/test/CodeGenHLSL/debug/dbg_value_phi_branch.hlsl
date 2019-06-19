@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s -Zi -O3 | FileCheck %s
 
-// CHECK-LABEL: if.end
+// CHECK-LABEL: @main()
+
 // CHECK: phi float [
 // CHECK: phi float [
 // CHECK: phi float [
