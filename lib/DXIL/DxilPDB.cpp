@@ -266,6 +266,7 @@ SmallVector<char, 0> WritePdbStream(ArrayRef<BYTE> Hash) {
   Header.Version = (uint32_t)PdbStreamVersion::VC70;
   Header.Age = 1;
   Header.Signature = 0;
+  DXASSERT_NOMSG(Hash.size() == sizeof(Header.UniqueId));
   memcpy(Header.UniqueId, Hash.data(), std::min(Hash.size(), sizeof(Header.UniqueId)));
 
   SmallVector<char, 0> Result;
@@ -291,11 +292,11 @@ SmallVector<char, 0> WritePdbStream(ArrayRef<BYTE> Hash) {
   return Result;
 }
 
-HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, const BYTE HashData[16], IDxcBlob **ppOutBlob) {
+HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, ArrayRef<BYTE> HashData, IDxcBlob **ppOutBlob) {
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
     return E_FAIL;
 
-  SmallVector<char, 0> PdbStream = WritePdbStream({ HashData, HashData + sizeof(HashData) });
+  SmallVector<char, 0> PdbStream = WritePdbStream(HashData);
 
   MSFWriter Writer;
   Writer.AddEmptyStream();     // Old Directory
