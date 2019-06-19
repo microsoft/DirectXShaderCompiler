@@ -121,6 +121,17 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
 }
 
 void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
+  // Based on SPIR-V spec, OpSelectionMerge must immediately precede either an
+  // OpBranchConditional or OpSwitch instruction. Similarly OpLoopMerge must
+  // immediately precede either an OpBranch or OpBranchConditional instruction.
+  if (lastOpWasMergeInst) {
+    lastOpWasMergeInst = false;
+    return;
+  }
+
+  if (op == spv::Op::OpSelectionMerge || op == spv::Op::OpLoopMerge)
+    lastOpWasMergeInst = true;
+
   if (!isOpLineLegalForOp(op))
     return;
 
