@@ -291,33 +291,11 @@ SmallVector<char, 0> WritePdbStream(ArrayRef<BYTE> Hash) {
   return Result;
 }
 
-static HRESULT FindShaderHash(IDxcBlob *pContainer, BYTE *pDigest, UINT32 uCapacity, UINT32 *pBytesWritten) {
+HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, const BYTE HashData[16], IDxcBlob **ppOutBlob) {
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
     return E_FAIL;
 
-  hlsl::DxilContainerHeader *DxilHeader = (hlsl::DxilContainerHeader *)pContainer->GetBufferPointer();
-  for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
-    hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
-    if (PartHeader->PartFourCC == hlsl::DFCC_ShaderHash) {
-      hlsl::DxilShaderHash *HashHeader = (hlsl::DxilShaderHash *)(PartHeader+1);
-      if (sizeof(HashHeader->Digest) > uCapacity)
-        return E_FAIL;
-      memcpy(pDigest, HashHeader->Digest, sizeof(HashHeader->Digest));
-      *pBytesWritten = sizeof(HashHeader->Digest);
-      return S_OK;
-    }
-  }
-  return E_FAIL;
-}
-
-HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, IDxcBlob **ppOutBlob) {
-  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
-    return E_FAIL;
-
-  BYTE HashData[16];
-  UINT32 uHashSize = 0;
-  IFR(FindShaderHash(pContainer, HashData, sizeof(HashData), &uHashSize));
-  SmallVector<char, 0> PdbStream = WritePdbStream({ HashData, HashData+uHashSize });
+  SmallVector<char, 0> PdbStream = WritePdbStream({ HashData, HashData + sizeof(HashData) });
 
   MSFWriter Writer;
   Writer.AddEmptyStream();     // Old Directory

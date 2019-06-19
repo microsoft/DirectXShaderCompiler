@@ -50,7 +50,8 @@ void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,
                                      AbstractMemoryStream *pStream,
                                      llvm::StringRef DebugName,
-                                     SerializeDxilFlags Flags);
+                                     SerializeDxilFlags Flags,
+                                     DxilShaderHash *pShaderHashOut = nullptr);
 void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
                                      AbstractMemoryStream *pStream);
 
