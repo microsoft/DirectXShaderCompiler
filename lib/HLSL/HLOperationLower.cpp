@@ -4034,18 +4034,22 @@ void TranslateSharedMemAtomicBinOp(CallInst *CI, IntrinsicOp IOP, Value *addr) {
         CI->getArgOperand(HLOperandIndex::kInterlockedOriginalValueOpIndex));
 }
 
+static Value* SkipAddrSpaceCast(Value* Ptr) {
+  if (AddrSpaceCastInst *CastInst = dyn_cast<AddrSpaceCastInst>(Ptr))
+    return CastInst->getOperand(0);
+  else if (ConstantExpr *ConstExpr = dyn_cast<ConstantExpr>(Ptr)) {
+    if (ConstExpr->getOpcode() == Instruction::AddrSpaceCast) {
+      return ConstExpr->getOperand(0);
+    }
+  }
+  return Ptr;
+}
+
 Value *TranslateIopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
                                          DXIL::OpCode opcode,
                                          HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *addr = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
-  // Get the original addr from cast.
-  if (CastInst *castInst = dyn_cast<CastInst>(addr))
-    addr = castInst->getOperand(0);
-  else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(addr)) {
-    if (CE->getOpcode() == Instruction::AddrSpaceCast) {
-      addr = CE->getOperand(0);
-    }
-  }
+  addr = SkipAddrSpaceCast(addr);
 
   unsigned addressSpace = addr->getType()->getPointerAddressSpace();
   if (addressSpace == DXIL::kTGSMAddrSpace)
@@ -4081,9 +4085,7 @@ Value *TranslateIopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
                                  DXIL::OpCode opcode,
                                  HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *addr = CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex);
-  // Get the original addr from cast.
-  if (CastInst *castInst = dyn_cast<CastInst>(addr))
-    addr = castInst->getOperand(0);
+  addr = SkipAddrSpaceCast(addr);
 
   unsigned addressSpace = addr->getType()->getPointerAddressSpace();
   if (addressSpace == DXIL::kTGSMAddrSpace)
