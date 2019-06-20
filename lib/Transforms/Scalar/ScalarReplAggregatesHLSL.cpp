@@ -4791,7 +4791,11 @@ void SROA_Parameter_HLSL::flattenArgument(
     // Do not skip unused parameter.
     Value *V = AV.Value;
     DxilFieldAnnotation &annotation = AV.Annotation;
-    const bool bAllowReplace = !bOut;
+
+    // We can never replace memcpy for arguments because they have an implicit
+    // first memcpy that happens from argument passing, and pointer analysis
+    // will not reveal that, especially if we've done a first SROA pass on V.
+    const bool bAllowReplace = false;
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
 
     // Now is safe to create the IRBuilders.
