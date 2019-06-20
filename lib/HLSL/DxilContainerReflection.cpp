@@ -375,7 +375,8 @@ public:
     llvm::Type              *type,
     DxilFieldAnnotation     &typeAnnotation,
     unsigned int            baseOffset,
-    std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
+    std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
+    bool                    isCBuffer);
 
   // ID3D12ShaderReflectionType
   STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC *pDesc);
@@ -753,7 +754,8 @@ HRESULT CShaderReflectionType::Initialize(
   llvm::Type              *inType,
   DxilFieldAnnotation     &typeAnnotation,
   unsigned int            baseOffset,
-  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes)
+  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
+  bool                    isCBuffer)
 {
   DXASSERT_NOMSG(inType);
 
@@ -770,13 +772,17 @@ HRESULT CShaderReflectionType::Initialize(
   unsigned cbCompSize = 4;    // or 8 for 64-bit types.
   unsigned cbRowStride = 16;  // or 32 if 64-bit and cols > 2.
 
-  // Extract offset relative to parent.
-  // Note: the `baseOffset` is used in the case where the type in
-  // question is a field in a constant buffer, since then both the
-  // field and the variable store the same offset information, and
-  // we need to zero out the value in the type to avoid the user
-  // of the reflection interface seeing 2x the correct value.
-  m_Desc.Offset = typeAnnotation.GetCBufferOffset() - baseOffset;
+  if (isCBuffer) {
+    // Extract offset relative to parent.
+    // Note: the `baseOffset` is used in the case where the type in
+    // question is a field in a constant buffer, since then both the
+    // field and the variable store the same offset information, and
+    // we need to zero out the value in the type to avoid the user
+    // of the reflection interface seeing 2x the correct value.
+    m_Desc.Offset = typeAnnotation.GetCBufferOffset() - baseOffset;
+  } else {
+    m_Desc.Offset = baseOffset;
+  }
 
   // Arrays don't seem to be represented directly in the reflection
   // data, but only as the `Elements` field being non-zero.
@@ -944,6 +950,8 @@ HRESULT CShaderReflectionType::Initialize(
     // A struct type might be an ordinary user-defined `struct`,
     // or one of the builtin in HLSL "object" types.
     StructType *structType = cast<StructType>(type);
+    const StructLayout *structLayout = isCBuffer ? nullptr :
+      M.GetModule()->getDataLayout().getStructLayout(structType);
 
     // We use our function to try to detect an object type
     // based on its name.
@@ -984,10 +992,8 @@ HRESULT CShaderReflectionType::Initialize(
         DxilFieldAnnotation& fieldAnnotation = structAnnotation->GetFieldAnnotation(ff);
         llvm::Type* fieldType = structType->getStructElementType(ff);
 
-        // Skip fields with object types, since applications may not expect to see them here.
-        //
-        // TODO: should skipping be context-dependent, since we might not be inside
-        // a constant buffer?
+        // Skip fields with object types, since these are not part of constant buffers,
+        // and are not allowed in other buffer types.
         if( IsObjectType(fieldType) )
         {
           continue;
@@ -996,7 +1002,10 @@ HRESULT CShaderReflectionType::Initialize(
         fieldReflectionType = new CShaderReflectionType();
         allTypes.push_back(std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
 
-        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, 0, allTypes);
+        unsigned int elementOffset = structLayout ?
+          baseOffset + (unsigned int)structLayout->getElementOffset(ff) : 0;
+
+        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, elementOffset, allTypes, isCBuffer);
 
         m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
@@ -1123,7 +1132,7 @@ void CShaderReflectionConstantBuffer::Initialize(
     //Create reflection type.
     CShaderReflectionType *pVarType = new CShaderReflectionType();
     allTypes.push_back(std::unique_ptr<CShaderReflectionType>(pVarType));
-    pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes);
+    pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes, true);
 
     BYTE *pDefaultValue = nullptr;
 
@@ -1215,7 +1224,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
     Type *fieldType = ST->getElementType(0);
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(0);
 
-    pVarType->Initialize(M, fieldType, fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes);
+    pVarType->Initialize(M, fieldType, fieldAnnotation, 0, allTypes, false);
   }
 
   BYTE *pDefaultValue = nullptr;
