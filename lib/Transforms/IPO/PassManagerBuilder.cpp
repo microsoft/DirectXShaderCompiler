@@ -255,6 +255,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // mem2reg
   // Special Mem2Reg pass that only happens if optimization is
   // enabled or loop unroll is needed.
+  MPM.add(createLoopRotatePass()); // Rotate the loops before, mem2reg, since it messes up dbg.value's
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
   if (!NoOpt) {
@@ -270,7 +271,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // struct members.
   // Needs to happen before resources are lowered and before HL
   // module is gone.
-  MPM.add(createLoopRotatePass());
   MPM.add(createDxilLoopUnrollPass(1024));
 
   // Default unroll pass. This is purely for optimizing loops without
