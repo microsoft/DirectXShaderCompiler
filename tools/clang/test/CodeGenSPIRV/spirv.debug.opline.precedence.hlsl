@@ -19,8 +19,7 @@ void main() {
     b = 2;
   }
 
-// TODO: revisit line info for control-flow
-//CHECK:      OpLine [[file]] 26 23
+//CHECK:      OpLine [[file]] 25 23
 //CHECK-NEXT: OpLoopMerge %for_merge %for_continue None
   for (int i = 0; i < 4; i++) {
     b += i;
