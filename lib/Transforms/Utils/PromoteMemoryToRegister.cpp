@@ -664,10 +664,12 @@ void PromoteMem2Reg::run() {
 
   const DataLayout &DL = F.getParent()->getDataLayout();
 
+#if 0 // HLSL Change // Do not remove dbg.declares here.
   // Remove alloca's dbg.declare instrinsics from the function.
   for (unsigned i = 0, e = AllocaDbgDeclares.size(); i != e; ++i)
     if (DbgDeclareInst *DDI = AllocaDbgDeclares[i])
       DDI->eraseFromParent();
+#endif // HLSL Change
 
   // Loop over all of the PHI nodes and see if there are any that we can get
   // rid of because they merge all of the same incoming values.  This can
@@ -758,6 +760,27 @@ void PromoteMem2Reg::run() {
         SomePHI->addIncoming(UndefVal, Preds[pred]);
     }
   }
+
+// HLSL Change - Begin
+  // Create dbg.value instructions for all generated PHI nodes.
+  for (DenseMap<std::pair<unsigned, unsigned>, PHINode *>::iterator
+           I = NewPhiNodes.begin(),
+           E = NewPhiNodes.end();
+       I != E; ++I) {
+    PHINode *PN = I->second;
+    unsigned AllocaNum = I->first.second;
+    DbgDeclareInst *DDI = AllocaDbgDeclares[AllocaNum];
+    if (!DDI) continue;
+
+    DIBuilder DIB(*PN->getModule());
+    DIB.insertDbgValueIntrinsic(PN, 0, DDI->getVariable(), DDI->getExpression(), DDI->getDebugLoc(), PN->getParent()->getFirstNonPHI());
+  }
+
+  // Remove alloca's dbg.declare instrinsics from the function.
+  for (unsigned i = 0, e = AllocaDbgDeclares.size(); i != e; ++i)
+    if (DbgDeclareInst *DDI = AllocaDbgDeclares[i])
+      DDI->eraseFromParent();
+// HLSL Change - End
 
   NewPhiNodes.clear();
 }
