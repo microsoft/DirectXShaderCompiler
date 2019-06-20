@@ -31,8 +31,8 @@ void main() {
 
 // CHECK:       OpLine [[file]] 37 3
 // CHECK-NEXT:  OpBranch %while_check
-// CHECK:       OpLine [[file]] 37 14
-// CHECK:       OpBranchConditional {{%\d+}} %while_body %while_merge
+// CHECK:       OpLine [[file]] 37 3
+// CHECK-NEXT:  OpLoopMerge %while_merge %while_continue None
   while (a < c) {
 // CHECK:       OpLine [[file]] 41 17
 // CHECK-NEXT:  OpSelectionMerge %if_merge_1 None

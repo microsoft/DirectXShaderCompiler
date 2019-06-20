@@ -67,7 +67,7 @@ void main() {
 // CHECK-NEXT:     {{%\d+}} = OpAll %bool [[v2f]]
   if (all(v2f))
 // CHECK:                      OpLine [[file]] 76 5
-// CHECK-NEXT:  [[sin:%\d+]] = OpExtInst %float {{%\d+}} Sin {{%\d+}}
+// CHECK:       [[sin:%\d+]] = OpExtInst %float {{%\d+}} Sin {{%\d+}}
 // CHECK-NEXT:                 OpLine [[file]] 76 19
 // CHECK-NEXT: [[v2fx:%\d+]] = OpAccessChain %_ptr_Function_float %v2f %int_1
 // CHECK-NEXT:                 OpLine [[file]] 76 5

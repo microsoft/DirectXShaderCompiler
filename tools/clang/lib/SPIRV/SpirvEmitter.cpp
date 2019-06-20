@@ -1441,7 +1441,8 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
   // The header block must always branch to the body.
   spvBuilder.setInsertPoint(headerBB);
   const Stmt *body = theDoStmt->getBody();
-  spvBuilder.createBranch(bodyBB, body ? body->getLocStart() : SourceLocation(),
+  spvBuilder.createBranch(bodyBB,
+                          body ? body->getLocStart() : theDoStmt->getLocStart(),
                           mergeBB, continueBB, loopControl);
   spvBuilder.addSuccessor(bodyBB);
   // The current basic block has OpLoopMerge instruction. We need to set its
@@ -1455,8 +1456,8 @@ void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
     doStmt(body);
   }
   if (!spvBuilder.isCurrentBasicBlockTerminated()) {
-    spvBuilder.createBranch(continueBB,
-                            body ? body->getLocEnd() : SourceLocation());
+    spvBuilder.createBranch(continueBB, body ? body->getLocEnd()
+                                             : theDoStmt->getLocStart());
   }
   spvBuilder.addSuccessor(continueBB);
 
@@ -1575,8 +1576,7 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
   }
   spvBuilder.createConditionalBranch(
       condition, bodyBB,
-      /*false branch*/ mergeBB,
-      check ? check->getLocEnd() : whileStmt->getLocStart(),
+      /*false branch*/ mergeBB, whileStmt->getLocStart(),
       /*merge*/ mergeBB, continueBB, spv::SelectionControlMask::MaskNone,
       loopControl);
   spvBuilder.addSuccessor(bodyBB);
@@ -1593,8 +1593,7 @@ void SpirvEmitter::doWhileStmt(const WhileStmt *whileStmt,
     doStmt(body);
   }
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB,
-                            body ? body->getLocEnd() : SourceLocation());
+    spvBuilder.createBranch(continueBB, whileStmt->getLocEnd());
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. While loops do not have an explicit
@@ -1666,8 +1665,8 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
     doStmt(initStmt);
   }
   const Expr *check = forStmt->getCond();
-  spvBuilder.createBranch(checkBB,
-                          check ? check->getLocStart() : SourceLocation());
+  spvBuilder.createBranch(checkBB, check ? check->getLocStart()
+                                         : forStmt->getLocStart());
   spvBuilder.addSuccessor(checkBB);
 
   // Process the <check> block
@@ -1683,7 +1682,7 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
       condition, bodyBB,
       /*false branch*/ mergeBB,
       check ? check->getLocEnd()
-            : (body ? body->getLocStart() : SourceLocation()),
+            : (body ? body->getLocStart() : forStmt->getLocStart()),
       /*merge*/ mergeBB, continueBB, spv::SelectionControlMask::MaskNone,
       loopControl);
   spvBuilder.addSuccessor(bodyBB);
@@ -1699,8 +1698,7 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
     doStmt(body);
   }
   if (!spvBuilder.isCurrentBasicBlockTerminated())
-    spvBuilder.createBranch(continueBB,
-                            body ? body->getLocEnd() : SourceLocation());
+    spvBuilder.createBranch(continueBB, forStmt->getLocEnd());
   spvBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block
@@ -1795,7 +1793,7 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
   // Create the branch instruction. This will end the current basic block.
   const auto *then = ifStmt->getThen();
   spvBuilder.createConditionalBranch(condition, thenBB, elseBB,
-                                     ifStmt->getLocStart(), mergeBB,
+                                     then->getLocStart(), mergeBB,
                                      /*continue*/ 0, selectionControl);
   spvBuilder.addSuccessor(thenBB);
   spvBuilder.addSuccessor(elseBB);
