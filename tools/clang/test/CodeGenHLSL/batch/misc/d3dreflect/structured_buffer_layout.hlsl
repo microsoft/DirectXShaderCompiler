@@ -481,8 +481,8 @@
 #endif
 
 struct S0 {
-  int2 i2;    // CB: 16, SB: 4
-  float f;    // CB: 24, SB: 12
+  int2 i2;    // CB: 0, SB: 0
+  float f;    // CB: 8, SB: 8
 };
 
 struct S1 {
