@@ -169,8 +169,7 @@ public:
   }
 
   void CompareType(ID3D12ShaderReflectionType *pTest,
-                   ID3D12ShaderReflectionType *pBase,
-                   bool shouldSuppressOffsetChecks = false)
+                   ID3D12ShaderReflectionType *pBase)
   {
     D3D12_SHADER_TYPE_DESC testDesc, baseDesc;
     VERIFY_SUCCEEDED(pTest->GetDesc(&testDesc));
@@ -183,10 +182,7 @@ public:
     VERIFY_ARE_EQUAL(testDesc.Elements, baseDesc.Elements);
     VERIFY_ARE_EQUAL(testDesc.Members,  baseDesc.Members);
 
-    if(!shouldSuppressOffsetChecks)
-    {
-      VERIFY_ARE_EQUAL(testDesc.Offset,   baseDesc.Offset);
-    }
+    VERIFY_ARE_EQUAL(testDesc.Offset,   baseDesc.Offset);
 
     VERIFY_ARE_EQUAL(0, strcmp(testDesc.Name, baseDesc.Name));
 
@@ -196,7 +192,7 @@ public:
       VERIFY_IS_NOT_NULL(testMemberType);
       VERIFY_IS_NOT_NULL(baseMemberType);
 
-      CompareType(testMemberType, baseMemberType, shouldSuppressOffsetChecks);
+      CompareType(testMemberType, baseMemberType);
 
       LPCSTR testMemberName = pTest->GetMemberTypeName(i);
       LPCSTR baseMemberName = pBase->GetMemberTypeName(i);
@@ -297,24 +293,7 @@ public:
           VERIFY_ARE_EQUAL(variableTypeMap.count(testConst.Name), 1);
           ID3D12ShaderReflectionType* pBaseType = variableTypeMap[testConst.Name];
 
-          // Note: we suppress comparing offsets for structured buffers, because dxc and fxc don't
-          // seem to agree in that case.
-          //
-          // The information in the `D3D12_SHADER_BUFFER_DESC` doesn't give us enough to
-          // be able to isolate structured buffers, so we do the test negatively: suppress
-          // offset checks *unless* we are looking at a `cbuffer` or `tbuffer`.
-          bool shouldSuppressOffsetChecks = true;
-          switch( baseCB.Type )
-          {
-          default:
-            break;
-
-          case D3D_CT_CBUFFER:
-          case D3D_CT_TBUFFER:
-            shouldSuppressOffsetChecks = false;
-            break;
-          }
-          CompareType(pTestType, pBaseType, shouldSuppressOffsetChecks);
+          CompareType(pTestType, pBaseType);
         }
       }
     }
@@ -531,7 +510,6 @@ public:
     }
     if (FAILED(CompileFromFile(name, false, &pProgram))) {
       WEX::Logging::Log::Comment(L"Failed to compile DXIL blob.");
-      if (ignoreIfDXBCFails) return;
       VERIFY_FAIL();
     }
     
@@ -1490,6 +1468,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\batch\\misc\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
