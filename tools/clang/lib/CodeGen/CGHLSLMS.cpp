@@ -3043,7 +3043,7 @@ static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB,
 
     unsigned size = C->GetRangeSize();
     llvm::Type *Ty = C->GetGlobalSymbol()->getType()->getPointerElementType();
-    auto fieldAnnotation = constVarAnnotationMap[C->GetGlobalSymbol()];
+    auto fieldAnnotation = constVarAnnotationMap.at(C->GetGlobalSymbol());
     bool bRowMajor = HLMatrixType::isa(Ty)
       ? fieldAnnotation.GetMatrixAnnotation().Orientation == MatrixOrientation::RowMajor
       : false;
