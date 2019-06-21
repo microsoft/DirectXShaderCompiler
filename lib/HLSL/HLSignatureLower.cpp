@@ -1159,21 +1159,23 @@ void HLSignatureLower::GenerateDxilCSInputs() {
     }
 
     Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
-    Type *Ty = arg.getType();
-    if (Ty->isPointerTy())
-      Ty = Ty->getPointerElementType();
-    Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
+    Type *NumTy = arg.getType();
+    if (NumTy->isPointerTy())
+      NumTy = NumTy->getPointerElementType();
+
+    // Always use the i32 overload of those intrinsics, and then cast as needed
+    Function *dxilFunc = hlslOP->GetOpFunc(opcode, Builder.getInt32Ty());
     Value *newArg = nullptr;
     if (opcode == OP::OpCode::FlattenedThreadIdInGroup) {
       newArg = Builder.CreateCall(dxilFunc, {OpArg});
     } else {
       unsigned vecSize = 1;
-      if (Ty->isVectorTy())
-        vecSize = Ty->getVectorNumElements();
+      if (NumTy->isVectorTy())
+        vecSize = NumTy->getVectorNumElements();
 
       newArg = Builder.CreateCall(dxilFunc, {OpArg, hlslOP->GetU32Const(0)});
       if (vecSize > 1) {
-        Value *result = UndefValue::get(Ty);
+        Value *result = UndefValue::get(VectorType::get(Builder.getInt32Ty(), vecSize));
         result = Builder.CreateInsertElement(result, newArg, (uint64_t)0);
 
         for (unsigned i = 1; i < vecSize; i++) {
@@ -1184,6 +1186,11 @@ void HLSignatureLower::GenerateDxilCSInputs() {
         newArg = result;
       }
     }
+
+    // If the argument is of non-i32 type, convert here
+    if (newArg->getType() != NumTy)
+      newArg = Builder.CreateZExtOrTrunc(newArg, NumTy);
+
     if (newArg->getType() != arg.getType()) {
       DXASSERT_NOMSG(arg.getType()->isPointerTy());
       for (User *U : arg.users()) {
