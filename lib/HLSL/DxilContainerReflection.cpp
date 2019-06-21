@@ -1002,8 +1002,7 @@ HRESULT CShaderReflectionType::Initialize(
         fieldReflectionType = new CShaderReflectionType();
         allTypes.push_back(std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
 
-        unsigned int elementOffset = structLayout ?
-          baseOffset + (unsigned int)structLayout->getElementOffset(ff) : 0;
+        unsigned int elementOffset = structLayout ? (unsigned int)structLayout->getElementOffset(ff) : 0;
 
         fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, elementOffset, allTypes, isCBuffer);
 
