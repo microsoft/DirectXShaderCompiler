@@ -929,7 +929,7 @@ void finish_quantize_0( inout bool bBadQuantize, inout int2x3 endPoint, uint4 pr
     {
         bool3 bBadComponent = ( endPoint[1] >= 0 ) ? ( ( endPoint[1] >= ( 1 << ( prec.yzw - 1 ) ) ) ? true : false )
             : ( ( -endPoint[1] > ( 1 << ( prec.yzw - 1 ) ) ) ? true : false );
-        bBadQuantize |= any(bBadComponent);
+        bBadQuantize = bBadQuantize || any(bBadComponent);
 
         endPoint[0] = endPoint[0] & ( ( 1 << prec.x ) - 1 );
         endPoint[1] = ( endPoint[1] >= 0 ) ? ( ( endPoint[1] >= ( 1 << ( prec.yzw - 1 ) ) ) ? ( ( 1 << ( prec.yzw - 1 ) ) - 1 ) : endPoint[1] )
@@ -949,7 +949,7 @@ void finish_quantize_1( inout bool bBadQuantize, inout int2x3 endPoint, uint4 pr
             : ( ( -endPoint[0] > ( 1 << ( prec.yzw - 1 ) ) ) ? true : false );
         bBadComponent[1] = ( endPoint[1] >= 0 ) ? ( ( endPoint[1] >= ( 1 << ( prec.yzw - 1 ) ) ) ? true : false )
             : ( ( -endPoint[1] > ( 1 << ( prec.yzw - 1 ) ) ) ? true : false );
-        bBadQuantize |= any(bBadComponent);
+        bBadQuantize = bBadQuantize || any(bBadComponent);
 
         endPoint[0] = ( endPoint[0] >= 0 ) ? ( ( endPoint[0] >= ( 1 << ( prec.yzw - 1 ) ) ) ? ( ( 1 << ( prec.yzw - 1 ) ) - 1 ) : endPoint[0] )
             : ( ( -endPoint[0] > ( 1 << ( prec.yzw - 1 ) ) ) ? ( 1 << ( prec.yzw - 1 ) ) : ( endPoint[0] & ( ( 1 << prec.yzw ) - 1 ) ) );

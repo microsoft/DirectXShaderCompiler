@@ -581,6 +581,8 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
 
     needNewAlign |= !bRowMajor && col > 1;
     needNewAlign |= bRowMajor && row > 1;
+  } else if (Ty->isStructureOrClassType() && ! hlsl::IsHLSLVecType(Ty)) {
+    needNewAlign = true;
   }
 
   unsigned scalarSizeInBytes = 4;
@@ -3000,16 +3002,27 @@ void CGMSHLSLRuntime::SetEntryFunction() {
   m_pHLModule->SetEntryFunction(Entry.Func);
 }
 
-// Here the size is CB size. So don't need check type.
-static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty) {
+// Here the size is CB size.
+// Offset still needs to be aligned based on type since this
+// is the legacy cbuffer global path.
+static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty, bool bRowMajor) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
   bool bNeedNewRow = Ty->isArrayTy();
+  if (!bNeedNewRow && Ty->isStructTy()) {
+    if (HLMatrixType mat = HLMatrixType::dyn_cast(Ty)) {
+      bNeedNewRow |= !bRowMajor && mat.getNumColumns() > 1;
+      bNeedNewRow |= bRowMajor && mat.getNumRows() > 1;
+    } else {
+      bNeedNewRow = true;
+    }
+  }
   unsigned scalarSizeInBytes = Ty->getScalarSizeInBits() / 8;
 
   return AlignBufferOffsetInLegacy(offset, size, scalarSizeInBytes, bNeedNewRow);
 }
 
-static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB) {
+static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB,
+  std::unordered_map<Constant*, DxilFieldAnnotation> &constVarAnnotationMap) {
   unsigned offset = 0;
 
   // Scan user allocated constants first.
@@ -3030,8 +3043,12 @@ static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB) {
 
     unsigned size = C->GetRangeSize();
     llvm::Type *Ty = C->GetGlobalSymbol()->getType()->getPointerElementType();
+    auto fieldAnnotation = constVarAnnotationMap[C->GetGlobalSymbol()];
+    bool bRowMajor = HLMatrixType::isa(Ty)
+      ? fieldAnnotation.GetMatrixAnnotation().Orientation == MatrixOrientation::RowMajor
+      : false;
     // Align offset.
-    offset = AlignCBufferOffset(offset, size, Ty);
+    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor);
     if (C->GetLowerBound() == UINT_MAX) {
       C->SetLowerBound(offset);
     }
@@ -3040,10 +3057,11 @@ static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB) {
   return offset;
 }
 
-static void AllocateDxilConstantBuffers(HLModule *pHLModule) {
+static void AllocateDxilConstantBuffers(HLModule *pHLModule,
+  std::unordered_map<Constant*, DxilFieldAnnotation> &constVarAnnotationMap) {
   for (unsigned i = 0; i < pHLModule->GetCBuffers().size(); i++) {
     HLCBuffer &CB = *static_cast<HLCBuffer*>(&(pHLModule->GetCBuffer(i)));
-    unsigned size = AllocateDxilConstantBuffer(CB);
+    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap);
     CB.SetSize(size);
   }
 }
@@ -4837,7 +4855,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   }
 
   // Allocate constant buffers.
-  AllocateDxilConstantBuffers(m_pHLModule);
+  AllocateDxilConstantBuffers(m_pHLModule, m_ConstVarAnnotationMap);
   // TODO: create temp variable for constant which has store use.
 
   // Create Global variable and type annotation for each CBuffer.
