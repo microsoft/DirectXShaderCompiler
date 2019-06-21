@@ -1431,6 +1431,9 @@ TEST_F(FileTest, SpirvDebugOpLine) { runFileTest("spirv.debug.opline.hlsl"); }
 TEST_F(FileTest, SpirvDebugOpLineBranch) {
   runFileTest("spirv.debug.opline.branch.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpLinePrecendence) {
+  runFileTest("spirv.debug.opline.precedence.hlsl");
+}
 TEST_F(FileTest, SpirvDebugOpLineComposite) {
   runFileTest("spirv.debug.opline.composite.hlsl");
 }
