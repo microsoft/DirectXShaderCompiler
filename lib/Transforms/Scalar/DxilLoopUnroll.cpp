@@ -110,7 +110,7 @@ public:
   static char ID;
 
   std::unordered_set<Function *> CleanedUpAlloca;
-  unsigned MaxIterationAttempt = 0;
+  const unsigned MaxIterationAttempt;
 
   DxilLoopUnroll(unsigned MaxIterationAttempt = 1024) :
     LoopPass(ID),
@@ -849,16 +849,17 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   SmallVector<std::unique_ptr<LoopIteration>, 16> Iterations; // List of cloned iterations
   bool Succeeded = false;
 
+  unsigned MaxAttempt = this->MaxIterationAttempt;
   // If we were able to figure out the definitive trip count,
   // just unroll that many times.
   if (HasTripCount) {
-    this->MaxIterationAttempt = TripCount;
+    MaxAttempt = TripCount;
   }
   else if (HasExplicitLoopCount) {
-    this->MaxIterationAttempt = ExplicitUnrollCount;
+    MaxAttempt = ExplicitUnrollCount;
   }
 
-  for (unsigned IterationI = 0; IterationI < this->MaxIterationAttempt; IterationI++) {
+  for (unsigned IterationI = 0; IterationI < MaxAttempt; IterationI++) {
 
     LoopIteration *PrevIteration = nullptr;
     if (Iterations.size())
