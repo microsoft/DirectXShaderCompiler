@@ -1,14 +1,13 @@
 // RUN: %dxc -Od -E main -T ps_6_0 %s /E main_ps | FileCheck %s
 
 // Regression test for bug #2269
-// The max iteration attempt for loop unroll was initialized once but
-// modified by each loop pass run if an explicit loop bound/trip count
-// is available. So if a loop was unrolled first, the max trip count 
-// would be cached, so if a loop that need iterative unrolling is needed
-// later, it would be bound with the (potentially too low) max attempt.
+// The max iteration attempt for loop unroll was initialized once but modified
+// by each loop pass run if an explicit loop bound/trip count is available.  If
+// a loop was unrolled first, the max trip count would be cached; a subsequent
+// unroll that needs iterative unrolling would end up with a max attempt count
+// bound with a (potentially too low) number from an earlier unroll.
 
 // CHECK: @main_ps
-
 
 #define MM 2
 #define KK 3
