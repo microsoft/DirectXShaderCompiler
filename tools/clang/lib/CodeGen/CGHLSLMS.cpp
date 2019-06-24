@@ -2157,6 +2157,9 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
 
     if (D->hasAttr<HLSLGroupSharedAttr>()) {
       GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
+      DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
+      unsigned arraySize = 0;
+      AddTypeAnnotation(VD->getType(), dxilTypeSys, arraySize);
       m_pHLModule->AddGroupSharedVariable(GV);
       return;
     }
