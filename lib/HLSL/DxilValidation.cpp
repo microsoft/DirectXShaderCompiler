@@ -3735,7 +3735,6 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
         EltAnnotation = typeSys.GetStructAnnotation(EltST);
 
       for (unsigned idx = 0; idx < arrayCount; idx++) {
-        // 16 bytes align except last component.
         arrayBase = (arrayBase + 15) & ~(0xf);
 
         if (arrayBase > (alignedBase + cbSize)) {
