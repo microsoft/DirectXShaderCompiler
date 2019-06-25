@@ -6663,6 +6663,17 @@ static bool AreMatrixArrayOrientationMatching(ASTContext& Context,
   return LhsRowMajor == RhsRowMajor;
 }
 
+static llvm::Value *CreateInBoundsGEPIfNeeded(llvm::Value *Ptr, ArrayRef<Value*> IdxList, CGBuilderTy &Builder) {
+  DXASSERT(IdxList.size() > 0, "Invalid empty GEP index list");
+  // If the GEP list is a single zero, it's a no-op, so save us the trouble.
+  if (IdxList.size() == 1) {
+    if (ConstantInt *FirstIdx = dyn_cast<ConstantInt>(IdxList[0])) {
+      if (FirstIdx->isZero()) return Ptr;
+    }
+  }
+  return Builder.CreateInBoundsGEP(Ptr, IdxList);
+}
+
 // Copy data from SrcPtr to DestPtr.
 // For matrix, use MatLoad/MatStore.
 // For matrix array, EmitHLSLAggregateCopy on each element.
@@ -6683,29 +6694,29 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     idxList.pop_back();
   } else if (HLMatrixType::isa(Ty)) {
     // Use matLd/St for matrix.
-    Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
-    Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-    Value *ldMat = EmitHLSLMatrixLoad(CGF, srcGEP, SrcType);
-    EmitHLSLMatrixStore(CGF, ldMat, dstGEP, DestType);
+    Value *SrcMatPtr = CreateInBoundsGEPIfNeeded(SrcPtr, idxList, CGF.Builder);
+    Value *DestMatPtr = CreateInBoundsGEPIfNeeded(DestPtr, idxList, CGF.Builder);
+    Value *ldMat = EmitHLSLMatrixLoad(CGF, SrcMatPtr, SrcType);
+    EmitHLSLMatrixStore(CGF, ldMat, DestMatPtr, DestType);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       SimpleCopy(DestPtr, SrcPtr, idxList, CGF.Builder);
       return;
     }
-    Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
-    Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+    Value *SrcStructPtr = CreateInBoundsGEPIfNeeded(SrcPtr, idxList, CGF.Builder);
+    Value *DestStructPtr = CreateInBoundsGEPIfNeeded(DestPtr, idxList, CGF.Builder);
     unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(ST);
     // Memcpy struct.
-    CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
+    CGF.Builder.CreateMemCpy(DestStructPtr, SrcStructPtr, size, 1);
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
     if (!HLMatrixType::isMatrixArray(Ty)
       || AreMatrixArrayOrientationMatching(CGF.getContext(), *m_pHLModule, SrcType, DestType)) {
-      Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
-      Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+      Value *SrcArrayPtr = CreateInBoundsGEPIfNeeded(SrcPtr, idxList, CGF.Builder);
+      Value *DestArrayPtr = CreateInBoundsGEPIfNeeded(DestPtr, idxList, CGF.Builder);
       unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(AT);
       // Memcpy non-matrix array.
-      CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
+      CGF.Builder.CreateMemCpy(DestArrayPtr, SrcArrayPtr, size, 1);
     } else {
       // Copy matrix arrays elementwise if orientation changes are needed.
       llvm::Type *ET = AT->getElementType();
