@@ -65,6 +65,11 @@ if "%1"=="-analyze" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=ON
   shift /1
 )
+if "%1"=="-official" (
+  echo Will generate official version for build
+  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=ON
+  shift /1
+)
 if "%1"=="-fv" (
   echo Fixed version flag set for build.
   set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=ON
@@ -257,13 +262,14 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-parallel]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-parallel]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
 echo.
 echo   -alldef        adds optional projects to the default build
 echo   -analyze       adds /analyze option
+echo   -official      will generate official version for build
 echo   -fv            fixes the resource version for release (utils\version\version.inc)
 echo   -fvloc <path>  directory with the version.inc file
 echo   -rel           builds release rather than debug

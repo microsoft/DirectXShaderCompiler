@@ -10,10 +10,17 @@ if(HLSL_EMBED_VERSION)
             COMMAND copy ${HLSL_FIXED_VERSION_LOCATION_mspath}\\version.inc ${HLSL_VERSION_LOCATION_mspath}
             )
     else(HLSL_ENABLE_FIXED_VER)
-        message("Build will generate version from current date and time")
+        if (HLSL_OFFICIAL_BUILD)
+            message("Will generate official build version based on the latest release fork sha and current commit count")
+            set(GEN_VERSION_OFFICIAL_OPTION "--official")
+        else (HLSL_OFFICIAL_BUILD)
+            message("Will generate dev build version based on current commit count")
+            set(GEN_VERSION_OFFICIAL_OPTION "")
+        endif(HLSL_OFFICIAL_BUILD)
+
         add_custom_target(hlsl_version_autogen
-            COMMAND echo "Generating version from current date and time"
-            COMMAND py -3 ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py > ${HLSL_VERSION_FILE}
+            COMMAND echo "Generating version"
+            COMMAND py -3 ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py ${GEN_VERSION_OFFICIAL_OPTION} > ${HLSL_VERSION_FILE}
         )
         set_property(SOURCE ${HLSL_VERSION_FILE} 
             PROPERTY GENERATED True
