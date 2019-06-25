@@ -1506,7 +1506,7 @@ static void EltMemCpy(Type *Ty, Value *Dest, Value *Src,
   Value *DestGEP = CreateMergedGEP(Dest, idxList, Builder);
   Value *SrcGEP = CreateMergedGEP(Src, idxList, Builder);
   unsigned size = DL.getTypeAllocSize(Ty);
-  Builder.CreateMemCpy(DestGEP, SrcGEP, size, size);
+  Builder.CreateMemCpy(DestGEP, SrcGEP, size, /* Align */ 1);
 }
 
 static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
