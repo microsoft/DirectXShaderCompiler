@@ -2974,8 +2974,8 @@ INSTR.OPCONSTRANGE                       Constant values must be in-range for op
 INSTR.OPERANDRANGE                       DXIL intrinsic operand must be within defined range
 INSTR.PTRBITCAST                         Pointer type bitcast must be have same size
 INSTR.RESOURCECLASSFORLOAD               load can only run on UAV/SRV resource
-INSTR.RESOURCECLASSFORSAMPLERGATHER      sample, lod and gather should on srv resource.
-INSTR.RESOURCECLASSFORUAVSTORE           store should on uav resource.
+INSTR.RESOURCECLASSFORSAMPLERGATHER      sample, lod and gather should be on srv resource.
+INSTR.RESOURCECLASSFORUAVSTORE           store should be on uav resource.
 INSTR.RESOURCECOORDINATEMISS             coord uninitialized
 INSTR.RESOURCECOORDINATETOOMANY          out of bound coord must be undef
 INSTR.RESOURCEKINDFORBUFFERLOADSTORE     buffer load/store only works on Raw/Typed/StructuredBuffer
