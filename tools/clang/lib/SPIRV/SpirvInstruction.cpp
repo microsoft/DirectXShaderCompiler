@@ -226,7 +226,8 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
 
 spv::Op SpirvDecoration::getDecorateOpcode(
     spv::Decoration decoration, const llvm::Optional<uint32_t> &memberIndex) {
-  if (decoration == spv::Decoration::HlslSemanticGOOGLE)
+  if (decoration == spv::Decoration::HlslSemanticGOOGLE ||
+      decoration == spv::Decoration::UserTypeGOOGLE)
     return memberIndex.hasValue() ? spv::Op::OpMemberDecorateStringGOOGLE
                                   : spv::Op::OpDecorateStringGOOGLE;
 
@@ -245,7 +246,8 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
-      initializer(initializerInst) {
+      initializer(initializerInst), descriptorSet(-1), binding(-1),
+      hlslUserType("") {
   setStorageClass(sc);
   setPrecise(precise);
 }

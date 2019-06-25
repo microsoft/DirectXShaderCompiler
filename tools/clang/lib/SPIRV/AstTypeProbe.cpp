@@ -893,6 +893,35 @@ bool isOpaqueType(QualType type) {
   return false;
 }
 
+std::string getHlslResourceTypeName(QualType type) {
+  if (type.isNull())
+    return "";
+
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer" ||
+        name == "Texture1D" || name == "Texture2D" || name == "Texture3D" ||
+        name == "TextureCube" || name == "Texture1DArray" ||
+        name == "Texture2DArray" || name == "Texture2DMS" ||
+        name == "Texture2DMSArray" || name == "TextureCubeArray" ||
+        name == "RWTexture1D" || name == "RWTexture2D" ||
+        name == "RWTexture3D" || name == "RWTexture1DArray" ||
+        name == "RWTexture2DArray" || name == "Buffer" || name == "RWBuffer" ||
+        name == "SubpassInput" || name == "SubpassInputMS" ||
+        name == "InputPatch" || name == "OutputPatch") {
+      return name;
+    }
+  }
+
+  return "";
+}
+
 bool isOpaqueStructType(QualType type) {
   if (isOpaqueType(type))
     return false;

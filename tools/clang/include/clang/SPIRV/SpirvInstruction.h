@@ -461,9 +461,18 @@ public:
 
   bool hasInitializer() const { return initializer != nullptr; }
   SpirvInstruction *getInitializer() const { return initializer; }
+  bool hasBinding() const { return descriptorSet >= 0 || binding >= 0; }
+  llvm::StringRef getHlslUserType() const { return hlslUserType; }
+
+  void setDescriptorSetNo(int32_t dset) { descriptorSet = dset; }
+  void setBindingNo(int32_t b) { binding = b; }
+  void setHlslUserType(llvm::StringRef userType) { hlslUserType = userType; }
 
 private:
   SpirvInstruction *initializer;
+  int32_t descriptorSet;
+  int32_t binding;
+  std::string hlslUserType;
 };
 
 class SpirvFunctionParameter : public SpirvInstruction {
