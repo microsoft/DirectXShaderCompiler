@@ -3724,19 +3724,20 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
         arrayCount *= EltTy->getArrayNumElements();
         EltTy = EltTy->getArrayElementType();
       }
-      unsigned arrayBase = base + offset;
+
+      // Base for array must be aligned.
+      unsigned alignedBase = ((base + 15) & ~(0xf));
+
+      unsigned arrayBase = alignedBase + offset;
 
       DxilStructAnnotation *EltAnnotation = nullptr;
       if (StructType *EltST = dyn_cast<StructType>(EltTy))
         EltAnnotation = typeSys.GetStructAnnotation(EltST);
 
       for (unsigned idx = 0; idx < arrayCount; idx++) {
-        // 16 bytes align except last component.
-        if (idx < (arrayCount - 1)) {
-          arrayBase = (arrayBase + 15) & ~(0xf);
-        }
+        arrayBase = (arrayBase + 15) & ~(0xf);
 
-        if (arrayBase > (base + cbSize)) {
+        if (arrayBase > (alignedBase + cbSize)) {
           bOutOfBound = true;
           break;
         }
