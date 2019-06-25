@@ -3346,9 +3346,7 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         const DataLayout &DL = SrcBCI->getModule()->getDataLayout();
         unsigned SrcSize = DL.getTypeAllocSize(
             SrcBCI->getOperand(0)->getType()->getPointerElementType());
-        unsigned MemcpySize =
-            cast<ConstantInt>(MC->getLength())->getZExtValue() *
-            MC->getAlignment();
+        unsigned MemcpySize = cast<ConstantInt>(MC->getLength())->getZExtValue();
         if (SrcSize != MemcpySize) {
           DXASSERT(0, "Cannot handle partial memcpy");
           return;
