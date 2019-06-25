@@ -42,6 +42,7 @@ enum class Extension {
   AMD_gpu_shader_half_float,
   AMD_shader_explicit_vertex_parameter,
   GOOGLE_hlsl_functionality1,
+  GOOGLE_user_type,
   NV_ray_tracing,
   Unknown,
 };

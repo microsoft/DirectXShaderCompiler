@@ -86,6 +86,11 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   // Variables and function parameters must have a pointer type.
   case spv::Op::OpFunctionParameter:
   case spv::Op::OpVariable: {
+    if (auto *var = dyn_cast<SpirvVariable>(instr)) {
+      if (var->hasBinding() && var->getHlslUserType().empty()) {
+        var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
+      }
+    }
     const SpirvType *pointerType =
         spvContext.getPointerType(resultType, instr->getStorageClass());
     instr->setResultType(pointerType);

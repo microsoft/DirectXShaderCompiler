@@ -479,6 +479,13 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
   finalizeInstruction();
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
+  if (spvOptions.enableReflect && inst->hasBinding() &&
+      !inst->getHlslUserType().empty()) {
+    typeHandler.emitDecoration(
+        getOrAssignResultId<SpirvInstruction>(inst),
+        spv::Decoration::UserTypeGOOGLE,
+        string::encodeSPIRVString(inst->getHlslUserType().lower()));
+  }
   return true;
 }
 
@@ -1601,6 +1608,11 @@ void EmitTypeHandler::emitDecoration(uint32_t typeResultId,
 
   spv::Op op =
       memberIndex.hasValue() ? spv::Op::OpMemberDecorate : spv::Op::OpDecorate;
+  if (decoration == spv::Decoration::UserTypeGOOGLE) {
+    op = memberIndex.hasValue() ? spv::Op::OpMemberDecorateString
+                                : spv::Op::OpDecorateString;
+  }
+
   assert(curDecorationInst.empty());
   curDecorationInst.push_back(static_cast<uint32_t>(op));
   curDecorationInst.push_back(typeResultId);

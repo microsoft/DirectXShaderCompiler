@@ -463,6 +463,15 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformQuadSwap:
     addCapability(spv::Capability::GroupNonUniformQuad);
     break;
+  case spv::Op::OpVariable: {
+    if (spvOptions.enableReflect &&
+        !cast<SpirvVariable>(instr)->getHlslUserType().empty()) {
+      addExtension(Extension::GOOGLE_user_type, "HLSL User Type", loc);
+      addExtension(Extension::GOOGLE_hlsl_functionality1, "HLSL User Type",
+                   loc);
+    }
+    break;
+  }
   default:
     break;
   }
