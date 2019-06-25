@@ -1160,8 +1160,8 @@ void HLSignatureLower::GenerateDxilCSInputs() {
 
     Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
     Type *NumTy = arg.getType();
-    if (NumTy->isPointerTy())
-      NumTy = NumTy->getPointerElementType();
+    DXASSERT(!NumTy->isPointerTy(), "Unexpected byref value for CS SV_***ID semantic.");
+    DXASSERT(NumTy->getScalarType()->isIntegerTy(), "Unexpected non-integer value for CS SV_***ID semantic.");
 
     // Always use the i32 overload of those intrinsics, and then cast as needed
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Builder.getInt32Ty());

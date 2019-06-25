@@ -1,9 +1,9 @@
 // RUN: %dxc -E main -T cs_6_2 -enable-16bit-types %s | FileCheck %s
 
-// Check that compute shader SV_***ID parameters can have non-32bit integer types.
+// Check that compute shader SV_***ID parameters can have 16-bit integer types.
 // Regression test for GitHub issue #2268
 
-StructuredBuffer<uint3> buf;
+RWStructuredBuffer<uint3> buf;
 
 [numthreads(1, 1, 1)]
 void main(uint16_t3 tid : SV_DispatchThreadID)
