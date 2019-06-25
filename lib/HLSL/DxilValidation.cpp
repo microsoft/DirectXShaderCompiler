@@ -708,8 +708,15 @@ struct ValidationContext {
     BasicBlock *BB = I->getParent();
     Function *F = BB->getParent();
 
-    DiagPrinter << "at " << I;
-    DiagPrinter << " inside block ";
+    std::string InstrStr;
+    raw_string_ostream InstrStream(InstrStr);
+    I->print(InstrStream);
+    InstrStream.flush();
+    StringRef InstrStrRef = InstrStr;
+    InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
+    DiagPrinter << "at '" << InstrStrRef << "'";
+
+    DiagPrinter << " in block '";
     if (!BB->getName().empty()) {
       DiagPrinter << BB->getName();
     }
@@ -723,7 +730,9 @@ struct ValidationContext {
       }
       DiagPrinter << "#" << idx;
     }
-    DiagPrinter << " of function " << *F << ' ';
+    DiagPrinter << "'";
+
+    DiagPrinter << " of function '" << *F << "': ";
     return true;
   }
 
