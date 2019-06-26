@@ -1634,6 +1634,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         DebugName = DebugNameStr;
       }
 
+      while (DebugName.startswith("\""))
+        DebugName = DebugName.substr(1, DebugName.size()-1);
+      while (DebugName.endswith("\""))
+        DebugName = DebugName.substr(0, DebugName.size()-1);
+
       // Calculate the size of the blob part.
       const uint32_t DebugInfoContentLen = PSVALIGN4(
           sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
