@@ -992,7 +992,7 @@ bool GetDLLFileVersionInfo(const char *dllPath, unsigned int *version) {
   DWORD dwVerHnd = 0;
   DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
   if (size == 0) return false;
-  std::unique_ptr<int[]> VfInfo(new int[size]);
+  std::unique_ptr<BYTE[]> VfInfo(new BYTE[size]);
   if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
       LPVOID versionInfo;
       UINT size;
@@ -1018,7 +1018,7 @@ bool GetDLLProductVersionInfo(const char *dllPath, std::string &productVersion) 
   DWORD dwVerHnd = 0;
   DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
   if (size == 0) return false;
-  std::unique_ptr<int[]> VfInfo(new int[size/sizeof(int)]);
+  std::unique_ptr<BYTE[]> VfInfo(new BYTE[size]);
   if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
     LPVOID pvProductVersion = NULL;
     unsigned int iProductVersionLen = 0;
