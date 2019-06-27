@@ -1,3 +1,29 @@
+# Added generating of new version for each DX Compiler build. 
+
+# There are 3 kinds of version:
+# 1. **Official build**
+# Built by using `hctbuild -official`. The version is based on the current DXIL version, latest official 
+# release and a number of commits since then. The format is `dxil_major.dxil_minor.release_no.commit_count`.
+# For example a current official version would be something like `1.5.1905.42`. The latest release 
+# information is read from `utils\version\latest-release.json`. The `1905` corresponds to `dxil-2019-05-16`
+# release branch and `42` is the number of commits since that release branch was created. For master branch 
+# the `commit_count` will be incremented by 10000 to distinguish it from stabilized official release branch 
+# builds. So the current official version of master would be someting like `1.5.1905.10042`.
+
+# 2. **Dev build**
+# Build by using `hctbuild` with no other version-related option. 
+# The format is `dxil_major.dxil_minor.0.commit_count` where commit_count is the number of total commits 
+# since the beginning of the project.
+
+# 3. **Fixed version build**
+# Build by using `hctbuild -fv`. Enables overriding of the version information. The fixed version is 
+# read from `utils\version\version.inc`. Location of the version file can be overriden by `-fvloc` option
+# on `hctbuild`.
+
+# In addition to the numbered version the product version string on the binaries will also include branch
+# name and last commit sha - `"1.5.1905.10042 (master, 47e31c8a)"`. This product version string is included 
+# in `dxc -?` output.
+
 import argparse
 import json
 import os
@@ -10,13 +36,13 @@ def get_output_of(cmd):
     return output.decode('ASCII').strip()
 
 def get_last_commit_sha():
-    return get_output_of([ "git.exe", "describe", "--always", "--dirty" ])
+    return get_output_of([ "git", "describe", "--always", "--dirty" ])
 
 def get_current_branch():
-    return get_output_of([ "git.exe", "rev-parse", "--abbrev-ref", "HEAD" ])
+    return get_output_of([ "git", "rev-parse", "--abbrev-ref", "HEAD" ])
 
 def get_commit_count(sha):
-    return get_output_of([ "git.exe", "rev-list", "--count", sha ])
+    return get_output_of([ "git", "rev-list", "--count", sha ])
 
 def read_latest_release_info():
     latest_release_file = os.path.join(os.path.dirname(os.path.abspath( __file__)), "latest-release.json")

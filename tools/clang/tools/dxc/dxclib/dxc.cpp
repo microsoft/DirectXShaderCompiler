@@ -1018,10 +1018,11 @@ bool GetDLLProductVersionInfo(const char *dllPath, std::string &productVersion) 
   DWORD dwVerHnd = 0;
   DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
   if (size == 0) return false;
-  std::unique_ptr<int[]> VfInfo(new int[size]);
+  std::unique_ptr<int[]> VfInfo(new int[size/sizeof(int)]);
   if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
     LPVOID pvProductVersion = NULL;
     unsigned int iProductVersionLen = 0;
+    // 040904b0 == code page US English, Unicode
     if (VerQueryValue(VfInfo.get(), "\\StringFileInfo\\040904b0\\ProductVersion", &pvProductVersion, &iProductVersionLen)) {
       productVersion = (LPCSTR)pvProductVersion;
       return true;
