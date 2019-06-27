@@ -20,7 +20,7 @@ if(HLSL_EMBED_VERSION)
 
         add_custom_target(hlsl_version_autogen
             COMMAND echo "Generating version"
-            COMMAND py -3 ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py ${GEN_VERSION_OFFICIAL_OPTION} > ${HLSL_VERSION_FILE}
+            COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py ${GEN_VERSION_OFFICIAL_OPTION} > ${HLSL_VERSION_FILE}
         )
         set_property(SOURCE ${HLSL_VERSION_FILE} 
             PROPERTY GENERATED True
