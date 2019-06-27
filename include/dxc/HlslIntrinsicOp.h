@@ -260,6 +260,7 @@ import hctdb_instrhelp
   MOP_DecrementCounter,
   MOP_IncrementCounter,
   MOP_Consume,
+  MOP_TraceRayInline,
 #ifdef ENABLE_SPIRV_CODEGEN
   MOP_SubpassLoad,
 #endif // ENABLE_SPIRV_CODEGEN

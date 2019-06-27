@@ -5173,7 +5173,7 @@ struct DxilInst_AcceptHitAndEndSearch {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction returns the view index
+/// This instruction initiates raytrace
 struct DxilInst_TraceRay {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -5548,6 +5548,91 @@ struct DxilInst_WaveMultiPrefixBitCount {
   void set_mask2(llvm::Value *val) { Instr->setOperand(4, val); }
   llvm::Value *get_mask3() const { return Instr->getOperand(5); }
   void set_mask3(llvm::Value *val) { Instr->setOperand(5, val); }
+};
+
+/// This instruction allocate space for RayQuery and return handle
+struct DxilInst_AllocateRayQuery {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_AllocateRayQuery(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AllocateRayQuery);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_constRayFlags = 1,
+  };
+  // Accessors
+  llvm::Value *get_constRayFlags() const { return Instr->getOperand(1); }
+  void set_constRayFlags(llvm::Value *val) { Instr->setOperand(1, val); }
+  uint32_t get_constRayFlags_val() const { return (uint32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(1))->getZExtValue()); }
+  void set_constRayFlags_val(uint32_t val) { Instr->setOperand(1, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
+};
+
+/// This instruction initialize RayQuery for raytrace
+struct DxilInst_TraceRayInline {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_TraceRayInline(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::TraceRayInline);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (13 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_rayQueryHandle = 1,
+    arg_accelerationStructure = 2,
+    arg_rayFlags = 3,
+    arg_instanceInclusionMask = 4,
+    arg_origin_X = 5,
+    arg_origin_Y = 6,
+    arg_origin_Z = 7,
+    arg_tMin = 8,
+    arg_direction_X = 9,
+    arg_direction_Y = 10,
+    arg_direction_Z = 11,
+    arg_tMax = 12,
+  };
+  // Accessors
+  llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
+  void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_accelerationStructure() const { return Instr->getOperand(2); }
+  void set_accelerationStructure(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_rayFlags() const { return Instr->getOperand(3); }
+  void set_rayFlags(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_instanceInclusionMask() const { return Instr->getOperand(4); }
+  void set_instanceInclusionMask(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_origin_X() const { return Instr->getOperand(5); }
+  void set_origin_X(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_origin_Y() const { return Instr->getOperand(6); }
+  void set_origin_Y(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_origin_Z() const { return Instr->getOperand(7); }
+  void set_origin_Z(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_tMin() const { return Instr->getOperand(8); }
+  void set_tMin(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_direction_X() const { return Instr->getOperand(9); }
+  void set_direction_X(llvm::Value *val) { Instr->setOperand(9, val); }
+  llvm::Value *get_direction_Y() const { return Instr->getOperand(10); }
+  void set_direction_Y(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_direction_Z() const { return Instr->getOperand(11); }
+  void set_direction_Z(llvm::Value *val) { Instr->setOperand(11, val); }
+  llvm::Value *get_tMax() const { return Instr->getOperand(12); }
+  void set_tMax(llvm::Value *val) { Instr->setOperand(12, val); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl
