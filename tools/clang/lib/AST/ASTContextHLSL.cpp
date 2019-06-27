@@ -38,6 +38,7 @@ static const bool DelayTypeCreationTrue = true;   // delay type creation for a d
 static const SourceLocation NoLoc;                // no source location attribution available
 static const bool InlineFalse = false;            // namespace is not an inline namespace
 static const bool InlineSpecifiedFalse = false;   // function was not specified as inline
+static const bool ExplicitFalse = false;          // constructor was not specified as explicit
 static const bool IsConstexprFalse = false;       // function is not constexpr
 static const bool VirtualFalse = false;           // whether the base class is declares 'virtual'
 static const bool BaseClassFalse = false;         // whether the base class is declared as 'class' (vs. 'struct')
@@ -894,6 +895,28 @@ void AssociateParametersToFunctionPrototype(
   }
 }
 
+static void CreateConstructorDeclaration(
+  ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
+  ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
+  _Out_ CXXConstructorDecl **constructorDecl, _Out_ TypeSourceInfo **tinfo) {
+  DXASSERT_NOMSG(recordDecl != nullptr);
+  DXASSERT_NOMSG(constructorDecl != nullptr);
+
+  FunctionProtoType::ExtProtoInfo functionExtInfo;
+  functionExtInfo.TypeQuals = isConst ? Qualifiers::Const : 0;
+  QualType functionQT = context.getFunctionType(
+    resultType, args, functionExtInfo, ArrayRef<ParameterModifier>());
+  DeclarationNameInfo declNameInfo(declarationName, NoLoc);
+  *tinfo = context.getTrivialTypeSourceInfo(functionQT, NoLoc);
+  DXASSERT_NOMSG(*tinfo != nullptr);
+  *constructorDecl = CXXConstructorDecl::Create(
+    context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo,
+    StorageClass::SC_None, ExplicitFalse, InlineSpecifiedFalse, IsConstexprFalse);
+  DXASSERT_NOMSG(*constructorDecl != nullptr);
+  (*constructorDecl)->setLexicalDeclContext(recordDecl);
+  (*constructorDecl)->setAccess(AccessSpecifier::AS_public);
+}
+
 static void CreateObjectFunctionDeclaration(
     ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
@@ -957,6 +980,85 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
   recordDecl->addDecl(functionDecl);
 
   return functionDecl;
+}
+
+void hlsl::AddRayQueryTemplate(
+  ASTContext& context,
+  _Outptr_ ClassTemplateDecl** typeDecl,
+  _Outptr_ CXXRecordDecl** recordDecl
+)
+{
+  DXASSERT_NOMSG(typeDecl != nullptr);
+  DXASSERT_NOMSG(recordDecl != nullptr);
+
+  DeclContext* currentDeclContext = context.getTranslationUnitDecl();
+
+  // Create a RayQuery template declaration in translation unit scope.
+  // template<uint flags> RayQuery { ... }
+  QualType uintType = context.UnsignedIntTy;
+
+  NonTypeTemplateParmDecl* flagsTemplateParamDecl = nullptr;
+  IdentifierInfo& countParamId = context.Idents.get(StringRef("flags"), tok::TokenKind::identifier);
+  flagsTemplateParamDecl = NonTypeTemplateParmDecl::Create(
+    context, currentDeclContext, NoLoc, NoLoc,
+    FirstTemplateDepth, FirstParamPosition, &countParamId, uintType, ParameterPackFalse, nullptr);
+
+  // Should flags default to zero?
+  Expr *literalIntZero = IntegerLiteral::Create(
+    context, llvm::APInt(context.getIntWidth(uintType), 0), uintType, NoLoc);
+  flagsTemplateParamDecl->setDefaultArgument(literalIntZero);
+
+  NamedDecl* templateParameters[] =
+  {
+    flagsTemplateParamDecl
+  };
+  TemplateParameterList* templateParameterList = TemplateParameterList::Create(
+    context, NoLoc, NoLoc, templateParameters, 1, NoLoc);
+
+  IdentifierInfo& typeId = context.Idents.get(StringRef("RayQuery"), tok::TokenKind::identifier);
+  CXXRecordDecl* templateRecordDecl = CXXRecordDecl::Create(
+    context, TagDecl::TagKind::TTK_Class, currentDeclContext, NoLoc, NoLoc, &typeId,
+    nullptr, DelayTypeCreationTrue);
+  ClassTemplateDecl* classTemplateDecl = ClassTemplateDecl::Create(
+    context, currentDeclContext, NoLoc, DeclarationName(&typeId),
+    templateParameterList, templateRecordDecl, nullptr);
+  templateRecordDecl->setDescribedClassTemplate(classTemplateDecl);
+  templateRecordDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
+
+  // Requesting the class name specialization will fault in required types.
+  QualType T = classTemplateDecl->getInjectedClassNameSpecialization();
+  T = context.getInjectedClassNameType(templateRecordDecl, T);
+  assert(T->isDependentType() && "Class template type is not dependent?");
+  classTemplateDecl->setLexicalDeclContext(currentDeclContext);
+  templateRecordDecl->setLexicalDeclContext(currentDeclContext);
+  templateRecordDecl->startDefinition();
+
+  // TODO: Add constructor that will be lowered to the intrinsic that produces
+  // the RayQuery handle for this object.
+  CanQualType canQualType = templateRecordDecl->getTypeForDecl()->getCanonicalTypeUnqualified();
+  CXXConstructorDecl *pConstructorDecl = nullptr;
+  TypeSourceInfo *pTypeSourceInfo = nullptr;
+  CreateConstructorDeclaration(context, templateRecordDecl, context.VoidTy, {}, context.DeclarationNames.getCXXConstructorName(canQualType), false, &pConstructorDecl, &pTypeSourceInfo);
+  templateRecordDecl->addDecl(pConstructorDecl);
+
+  // Add an 'h' field to hold the handle.
+  AddHLSLHandleField(context, templateRecordDecl, uintType);
+
+  templateRecordDecl->completeDefinition();
+
+  // Both declarations need to be present for correct handling.
+  currentDeclContext->addDecl(classTemplateDecl);
+  currentDeclContext->addDecl(templateRecordDecl);
+
+#ifdef DBG
+  // Verify that we can read the field member from the template record.
+  DeclContext::lookup_result lookupResult = templateRecordDecl->lookup(
+    DeclarationName(&context.Idents.get(StringRef("h"))));
+  DXASSERT(!lookupResult.empty(), "otherwise template object handle cannot be looked up");
+#endif
+
+  *typeDecl = classTemplateDecl;
+  *recordDecl = templateRecordDecl;
 }
 
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {

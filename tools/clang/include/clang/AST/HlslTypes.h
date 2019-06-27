@@ -326,6 +326,11 @@ void AddTemplateTypeWithHandle(
             uint8_t templateArgCount,
   _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
 
+void AddRayQueryTemplate(
+           clang::ASTContext& context,
+  _Outptr_ clang::ClassTemplateDecl** typeDecl,
+  _Outptr_ clang::CXXRecordDecl** recordDecl);
+
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>
 /// <param name="recordDecl">Class in which the function template is declared.</param>

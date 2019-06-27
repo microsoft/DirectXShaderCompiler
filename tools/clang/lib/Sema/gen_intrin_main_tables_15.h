@@ -5788,6 +5788,24 @@ static const HLSL_INTRINSIC g_ConsumeStructuredBufferMethods[] =
 };
 
 //
+// Start of RayQueryMethods
+//
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args0[] =
+{
+    {"TraceRayInline", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"AccelerationStructure", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_ACCELERATION_STRUCT, 1, 1},
+    {"RayFlags", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT, 1, 1},
+    {"InstanceInclusionMask", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_UINT, 1, 1},
+    {"Ray", AR_QUAL_IN, 4, LITEMPLATE_OBJECT, 4, LICOMPTYPE_RAYDESC, 1, 1},
+};
+
+static const HLSL_INTRINSIC g_RayQueryMethods[] =
+{
+    {(UINT)hlsl::IntrinsicOp::MOP_TraceRayInline, false, false, -1, 5, g_RayQueryMethods_Args0},
+};
+
+//
 // Start of VkSubpassInputMethods
 //
 
@@ -5840,6 +5858,7 @@ static const UINT g_uRWTexture1DMethodsCount = 4;
 static const UINT g_uRWTexture2DArrayMethodsCount = 4;
 static const UINT g_uRWTexture2DMethodsCount = 4;
 static const UINT g_uRWTexture3DMethodsCount = 4;
+static const UINT g_uRayQueryMethodsCount = 1;
 static const UINT g_uStreamMethodsCount = 2;
 static const UINT g_uStructuredBufferMethodsCount = 3;
 static const UINT g_uTexture1DArrayMethodsCount = 31;

@@ -834,6 +834,12 @@ $classT [[]] Consume() : structuredbuffer_consume;
 
 } namespace
 
+namespace RayQueryMethods {
+
+void [[]]  TraceRayInline(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in ray_desc Ray);
+
+} namespace
+
 // SPIRV Change Starts
 
 namespace VkSubpassInputMethods {

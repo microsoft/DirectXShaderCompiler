@@ -1182,7 +1182,9 @@ static const char *OpCodeSignatures[] = {
   "(acc,a,b)",  // Dot4AddU8Packed
   "(value)",  // WaveMatch
   "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
-  "(value,mask0,mask1,mask2,mask3)"  // WaveMultiPrefixBitCount
+  "(value,mask0,mask1,mask2,mask3)",  // WaveMultiPrefixBitCount
+  "(constRayFlags)",  // AllocateRayQuery
+  "(rayQueryHandle,accelerationStructure,rayFlags,instanceInclusionMask,origin_X,origin_Y,origin_Z,tMin,direction_X,direction_Y,direction_Z,tMax)"  // TraceRayInline
 };
 // OPCODE-SIGS:END
 

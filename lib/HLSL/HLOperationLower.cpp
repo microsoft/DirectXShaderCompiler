@@ -4637,6 +4637,108 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, Args);
 }
 
+void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
+  // Iterate functions and insert AllocateRayQuery intrinsic to initialize
+  // handle value for every alloca of ray query type
+  hlsl::OP &hlslOP = helper.hlslOP;
+  Constant *i32Zero = hlslOP.GetI32Const(0);
+  DXIL::OpCode opcode = DXIL::OpCode::AllocateRayQuery;
+  llvm::Value *opcodeVal = hlslOP.GetU32Const(static_cast<unsigned>(opcode));
+  for (Function &f : M->functions()) {
+    if (f.isDeclaration() || f.isIntrinsic() ||
+      GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL)
+      continue;
+    // Iterate allocas
+    BasicBlock &BB = f.getEntryBlock();
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&BB));
+    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
+      // Avoid invalidating the iterator.
+      Instruction *I = BI++;
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
+        llvm::Type *allocaTy = AI->getAllocatedType();
+        llvm::Type *elementTy = allocaTy;
+        while (elementTy->isArrayTy())
+          elementTy = elementTy->getArrayElementType();
+        if (dxilutil::IsHLSLRayQueryType(elementTy)) {
+          DxilStructAnnotation *SA = helper.dxilTypeSys.GetStructAnnotation(cast<StructType>(elementTy));
+          DXASSERT(SA, "otherwise, could not find type annoation for RayQuery specialization");
+          DXASSERT(SA->GetNumTemplateArgs() == 1 && SA->GetTemplateArgAnnotation(0).IsIntegral(),
+                   "otherwise, RayQuery has changed, or lacks template args");
+          Builder.SetInsertPoint(AI->getNextNode());
+          DXASSERT(!allocaTy->isArrayTy(), "Array not handled yet");
+          llvm::Function *AllocFn = hlslOP.GetOpFunc(DXIL::OpCode::AllocateRayQuery, Builder.getVoidTy());
+          llvm::Value *rayFlags = ConstantInt::get(helper.i32Ty,
+            APInt(32, SA->GetTemplateArgAnnotation(0).GetIntegral()));
+          llvm::CallInst *CI = Builder.CreateCall(AllocFn, {opcodeVal, rayFlags}, "hRayQuery");
+          llvm::Value *GEP = Builder.CreateGEP(AI, {i32Zero, i32Zero});
+          Builder.CreateStore(CI, GEP);
+        }
+      }
+    }
+  }
+}
+
+Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *rayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx);
+
+  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+
+  Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
+  Args[0] = opArg;
+
+  // Translate RayQuery `this` pointer to i32 handle by-value
+  IRBuilder<> Builder(CI);
+  Value *thisArg = CI->getArgOperand(1);
+  Constant *i32Zero = hlslOP->GetI32Const(0);
+  Value *handleGEP = Builder.CreateGEP(thisArg, {i32Zero, i32Zero});
+  Value *handleValue = Builder.CreateLoad(handleGEP);
+  Args[1] = handleValue;
+
+  for (unsigned i = 2; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
+    Args[i] = CI->getArgOperand(i);
+  }
+  // struct RayDesc
+  //{
+  //    float3 Origin;
+  //    float  TMin;
+  //    float3 Direction;
+  //    float  TMax;
+  //};
+  Value *zeroIdx = hlslOP->GetU32Const(0);
+  Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
+  origin = Builder.CreateLoad(origin);
+  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
+  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
+  Args[index++] = Builder.CreateExtractElement(origin, 1);
+  Args[index++] = Builder.CreateExtractElement(origin, 2);
+
+  Value *tmin = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(1)});
+  tmin = Builder.CreateLoad(tmin);
+  Args[index++] = tmin;
+
+  Value *direction = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(2)});
+  direction = Builder.CreateLoad(direction);
+
+  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
+  Args[index++] = Builder.CreateExtractElement(direction, 1);
+  Args[index++] = Builder.CreateExtractElement(direction, 2);
+
+  Value *tmax = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(3)});
+  tmax = Builder.CreateLoad(tmax);
+  Args[index++] = tmax;
+
+  DXASSERT_NOMSG(index == DXIL::OperandIndex::kTraceRayInlineNumOp);
+
+  Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
+
+  return Builder.CreateCall(F, Args);
+}
+
 Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,
                          HLObjectOperationLowerHelper *pObjHelper,
@@ -5028,6 +5130,8 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_DecrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_IncrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Consume, EmptyLower, DXIL::OpCode::NumOpCodes},
+
+    {IntrinsicOp::MOP_TraceRayInline, TranslateTraceRayInline, DXIL::OpCode::TraceRayInline},
 
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -5769,6 +5873,11 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       }
 
       CI->eraseFromParent();
+    } else if (group == HLOpcodeGroup::HLIntrinsic) {
+      // FIXME: This case is hit when using built-in structures in constant
+      //        buffers passed directly to an intrinsic, such as:
+      //        RayDesc from cbuffer passed to TraceRay.
+      DXASSERT(0, "not implemented yet");
     } else {
       DXASSERT(0, "not implemented yet");
     }
@@ -7317,6 +7426,8 @@ void TranslateBuiltinOperations(
   HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet};
 
   Module *M = HLM.GetModule();
+
+  AllocateRayQueryObjects(M, helper);
 
   SmallVector<Function *, 4> NonUniformResourceIndexIntrinsics;
 

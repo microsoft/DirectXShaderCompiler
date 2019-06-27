@@ -2245,7 +2245,7 @@ ID  Name                          Description
 154 RayTCurrent                   float representing the current parametric ending point for the ray
 155 IgnoreHit                     Used in an any hit shader to reject an intersection and terminate the shader
 156 AcceptHitAndEndSearch         Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
-157 TraceRay                      returns the view index
+157 TraceRay                      initiates raytrace
 158 ReportHit                     returns true if hit was accepted
 159 CallShader                    Call a shader in the callable shader table supplied through the DispatchRays() API
 160 CreateHandleForLib            create resource handle from resource struct for library
@@ -2256,6 +2256,8 @@ ID  Name                          Description
 165 WaveMatch                     returns the bitmask of active lanes that have the same value
 166 WaveMultiPrefixOp             returns the result of the operation on groups of lanes identified by a bitmask
 167 WaveMultiPrefixBitCount       returns the count of bits set to 1 on groups of lanes identified by a bitmask
+168 AllocateRayQuery              allocate space for RayQuery and return handle
+169 TraceRayInline                initialize RayQuery for raytrace
 === ============================= =======================================================================================================================================================================================================================
 
 
