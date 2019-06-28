@@ -992,7 +992,7 @@ bool GetDLLFileVersionInfo(const char *dllPath, unsigned int *version) {
   DWORD dwVerHnd = 0;
   DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
   if (size == 0) return false;
-  std::unique_ptr<int[]> VfInfo(new int[size]);
+  std::unique_ptr<BYTE[]> VfInfo(new BYTE[size]);
   if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
       LPVOID versionInfo;
       UINT size;
@@ -1006,6 +1006,27 @@ bool GetDLLFileVersionInfo(const char *dllPath, unsigned int *version) {
               return true;
           }
       }
+  }
+#endif // _WIN32
+  return false;
+}
+
+bool GetDLLProductVersionInfo(const char *dllPath, std::string &productVersion) {
+  // This function is used to get product version information from the DLL file.
+  // This information in is not available through a Unix interface.
+#ifdef _WIN32
+  DWORD dwVerHnd = 0;
+  DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
+  if (size == 0) return false;
+  std::unique_ptr<BYTE[]> VfInfo(new BYTE[size]);
+  if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
+    LPVOID pvProductVersion = NULL;
+    unsigned int iProductVersionLen = 0;
+    // 040904b0 == code page US English, Unicode
+    if (VerQueryValue(VfInfo.get(), "\\StringFileInfo\\040904b0\\ProductVersion", &pvProductVersion, &iProductVersionLen)) {
+      productVersion = (LPCSTR)pvProductVersion;
+      return true;
+    }
   }
 #endif // _WIN32
   return false;
@@ -1025,7 +1046,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
     const char *compilerName =
-        m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
+      m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
 
     if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
       VerInfo->GetVersion(&compilerMajor, &compilerMinor);
@@ -1043,24 +1064,27 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #ifdef _WIN32
     unsigned int version[4];
     if (GetDLLFileVersionInfo(compilerName, version)) {
-      // unofficial version always have file version 3.7.0.0
-      if (version[0] == 3 && version[1] == 7 && version[2] == 0 &&
-          version[3] == 0) {
-#endif // _WIN32
+      // back-compat - old dev buidls had version 3.7.0.0
+      if (version[0] == 3 && version[1] == 7 && version[2] == 0 && version[3] == 0) {
+#endif
         OS << "(dev"
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-           << ";" << commitCount << "-"
-           << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
-#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
-           << ")";
+          << ";" << commitCount << "-"
+          << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
+#endif // SUPPORT_QUERY_GIT_COMMIT_I#else 
+          << ")";
 #ifdef _WIN32
-      } else {
-        OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
-           << version[3] << ")";
+      }
+      else {
+        std::string productVersion;
+        if (GetDLLProductVersionInfo(compilerName, productVersion)) {
+          OS << " - " << productVersion;
+        }
       }
     }
-#endif // _WIN32
+#endif
   }
+
   // Print validator if exists
   DxcDllSupport DxilSupport;
   DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");

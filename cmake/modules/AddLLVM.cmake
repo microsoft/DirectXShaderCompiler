@@ -954,20 +954,15 @@ endfunction()
 
 # HLSL Change Starts
 function(hlsl_update_product_ver RC_INTERNAL_NAME)
-  if (HLSL_ENABLE_FIXED_VER)
+  if(HLSL_EMBED_VERSION)
     set_property(SOURCE ${windows_resource_file}
                  PROPERTY COMPILE_DEFINITIONS
-                 "RC_COMPANY_NAME=\"Microsoft(r) Corporation\""
-                 "RC_VERSION_FIELD_1=0"
-                 "RC_VERSION_FIELD_2=2019"
-                 "RC_VERSION_FIELD_3=05"
-                 "RC_VERSION_FIELD_4=00"
-                 "RC_FILE_VERSION=\"0.2019.05.00\""
-                 "RC_FILE_DESCRIPTION=\"DirectX Compiler - Out Of Band\""
-                 "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\""
-                 "RC_COPYRIGHT=\"(c) Microsoft Corporation. All rights reserved.\""
-                 "RC_PRODUCT_NAME=\"Microsoft(r) DirectX for Windows(r) - Out Of Band\""
-                 "RC_PRODUCT_VERSION=\"0.2019.05.00\"")
-  endif (HLSL_ENABLE_FIXED_VER)
+                 "INCLUDE_HLSL_VERSION_FILE=1"
+                 "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\"")
+    set_property(SOURCE ${windows_resource_file}
+                 PROPERTY COMPILE_OPTIONS
+                 "/i" "${HLSL_VERSION_LOCATION}")
+    add_dependencies(${RC_INTERNAL_NAME} hlsl_version_autogen)
+  endif(HLSL_EMBED_VERSION)
 endfunction(hlsl_update_product_ver)
 # HLSL Change Ends
