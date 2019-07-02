@@ -57,7 +57,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:          [[word1_ulong:%\d+]] = OpUConvert %ulong [[word1]]
 // CHECK:  [[shifted_word1_ulong:%\d+]] = OpShiftLeftLogical %ulong [[word1_ulong]] %uint_32
 // CHECK:           [[val0_ulong:%\d+]] = OpBitwiseOr %ulong [[word0_ulong]] [[shifted_word1_ulong]]
-// CHECK:                 [[val0:%\d+]] = OpConvertUToF %double [[val0_ulong]]
+// CHECK:                 [[val0:%\d+]] = OpBitcast %double [[val0_ulong]]
 // CHECK:              [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
 // CHECK:                  [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:                [[word0:%\d+]] = OpLoad %uint [[ptr]]
@@ -68,7 +68,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:          [[word1_ulong:%\d+]] = OpUConvert %ulong [[word1]]
 // CHECK:  [[shifted_word1_ulong:%\d+]] = OpShiftLeftLogical %ulong [[word1_ulong]] %uint_32
 // CHECK:           [[val1_ulong:%\d+]] = OpBitwiseOr %ulong [[word0_ulong]] [[shifted_word1_ulong]]
-// CHECK:                 [[val1:%\d+]] = OpConvertUToF %double [[val1_ulong]]
+// CHECK:                 [[val1:%\d+]] = OpBitcast %double [[val1_ulong]]
 // CHECK:                 [[fVec:%\d+]] = OpCompositeConstruct %v2double [[val0]] [[val1]]
 // CHECK:                                 OpStore %f64 [[fVec]]
   float64_t2 f64 = buf.Load<float64_t2>(tid.x);
