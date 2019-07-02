@@ -37,7 +37,7 @@ Before you build, you will need to have some additional software installed. This
 
 * [Git](http://git-scm.com/downloads).
 * [Visual Studio 2017](https://www.visualstudio.com/downloads). Select the following workloads: Universal Windows Platform Development and Desktop Development with C++.
-* [Python](https://www.python.org/downloads/). Version 2.7.x is required, 3.x might work but it's not officially supported. You need not change your PATH variable during installation.
+* [Python](https://www.python.org/downloads/). Version 3.x is required.
 
 After cloning the project, you can set up a build environment shortcut by double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut on your desktop with a default configuration.
 
