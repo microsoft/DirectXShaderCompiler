@@ -37,6 +37,8 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)
+
 add_dependencies(dxc dxclib dxcompiler)
 
 if(UNIX)
@@ -50,6 +52,4 @@ endif()
 
 install(TARGETS dxc
   RUNTIME DESTINATION bin)
-
-add_subdirectory(dxclib)
 
