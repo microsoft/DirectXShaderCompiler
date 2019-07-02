@@ -17,6 +17,20 @@
 namespace clang {
 namespace spirv {
 
+SpirvInstruction *
+RawBufferHandler::bitCastToNumericalOrBool(SpirvInstruction *instr,
+                                           QualType fromType, QualType toType,
+                                           SourceLocation loc) {
+  if (isSameType(astContext, fromType, toType))
+    return instr;
+
+  if (toType->isBooleanType())
+    return theEmitter.castToType(instr, fromType, toType, loc);
+
+  // Perform a bitcast
+  return spvBuilder.createUnaryOp(spv::Op::OpBitcast, toType, instr, loc);
+}
+
 SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset0(
     SpirvInstruction *buffer, SpirvInstruction *&index,
     QualType target16BitType, uint32_t &bitOffset) {
@@ -34,8 +48,8 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset0(
   // OpUConvert can perform truncation in this case.
   result = spvBuilder.createUnaryOp(spv::Op::OpUConvert,
                                     astContext.UnsignedShortTy, result, loc);
-  result = theEmitter.castToType(result, astContext.UnsignedShortTy,
-                                 target16BitType, loc);
+  result = bitCastToNumericalOrBool(result, astContext.UnsignedShortTy,
+                                    target16BitType, loc);
   result->setRValue();
 
   // Now that a 16-bit load at bit-offset 0 has been performed, the next load
@@ -58,8 +72,8 @@ SpirvInstruction *RawBufferHandler::load32BitsAtBitOffset0(
   auto *loadPtr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                                {constUint0, index}, loc);
   result = spvBuilder.createLoad(astContext.UnsignedIntTy, loadPtr, loc);
-  result = theEmitter.castToType(result, astContext.UnsignedIntTy,
-                                 target32BitType, loc);
+  result = bitCastToNumericalOrBool(result, astContext.UnsignedIntTy,
+                                    target32BitType, loc);
   result->setRValue();
   // Now that a 32-bit load at bit-offset 0 has been performed, the next load
   // should be done at *the next base index* at bit-offset 0.
@@ -114,9 +128,8 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset0(
   // BitwiseOr word0 and word1.
   result = spvBuilder.createBinaryOp(
       spv::Op::OpBitwiseOr, astContext.UnsignedLongLongTy, word0, word1, loc);
-
-  result = theEmitter.castToType(result, astContext.UnsignedLongLongTy,
-                                 target64BitType, loc);
+  result = bitCastToNumericalOrBool(result, astContext.UnsignedLongLongTy,
+                                    target64BitType, loc);
   result->setRValue();
   // Now that a 64-bit load at bit-offset 0 has been performed, the next load
   // should be done at *the base index + 2* at bit-offset 0. The index has
@@ -151,8 +164,8 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset16(
                                      constUint16, loc);
   result = spvBuilder.createUnaryOp(spv::Op::OpUConvert,
                                     astContext.UnsignedShortTy, result, loc);
-  result = theEmitter.castToType(result, astContext.UnsignedShortTy,
-                                 target16BitType, loc);
+  result = bitCastToNumericalOrBool(result, astContext.UnsignedShortTy,
+                                    target16BitType, loc);
   result->setRValue();
 
   // Now that a 16-bit load at bit-offset 16 has been performed, the next load
@@ -212,8 +225,8 @@ SpirvInstruction *RawBufferHandler::load32BitsAtBitOffset16(
   result = spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr,
                                      astContext.UnsignedIntTy, lsb, msb, loc);
 
-  result = theEmitter.castToType(result, astContext.UnsignedIntTy,
-                                 target32BitType, loc);
+  result = bitCastToNumericalOrBool(result, astContext.UnsignedIntTy,
+                                    target32BitType, loc);
   result->setRValue();
 
   // Now that a 32-bit load at bit-offset 16 has been performed, the next load
@@ -293,8 +306,8 @@ SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset16(
   result = spvBuilder.createBinaryOp(
       spv::Op::OpBitwiseOr, astContext.UnsignedLongLongTy, result, last16, loc);
 
-  result = theEmitter.castToType(result, astContext.UnsignedLongLongTy,
-                                 target64BitType, loc);
+  result = bitCastToNumericalOrBool(result, astContext.UnsignedLongLongTy,
+                                    target64BitType, loc);
   result->setRValue();
 
   // Now that a 64-bit load at bit-offset 16 has been performed, the next load
