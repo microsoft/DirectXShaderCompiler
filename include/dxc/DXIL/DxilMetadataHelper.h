@@ -370,6 +370,7 @@ public:
   void LoadDxilViewIdState(std::vector<unsigned> &SerializedState);
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
+  static bool HasBranchControlFlowHint(const llvm::Instruction *I);
 
   // Subobjects
   void EmitSubobjects(const DxilSubobjects &Subobjects);

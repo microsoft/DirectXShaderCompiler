@@ -1369,6 +1369,27 @@ MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<D
   return hintsNode;
 }
 
+bool DxilMDHelper::HasBranchControlFlowHint(const Instruction *I) {
+  // Check that there are control hint to use
+  // branch.
+  MDNode *MD = I->getMetadata(hlsl::DxilMDHelper::kDxilControlFlowHintMDName);
+  if (!MD)
+    return false;
+
+  if (MD->getNumOperands() != 3)
+    return false;
+
+  llvm::Metadata *Op = MD->getOperand(2).get();
+  auto ConstOp = cast<ConstantAsMetadata>(Op);
+  unsigned hint = ConstOp->getValue()->getUniqueInteger().getLimitedValue();
+  switch (hint) {
+  case (unsigned)DXIL::ControlFlowHint::Branch:
+    return true;
+  default:
+    return false;
+  }
+}
+
 void DxilMDHelper::EmitSubobjects(const DxilSubobjects &Subobjects) {
   NamedMDNode *pSubobjectsNamedMD = m_pModule->getNamedMetadata(kDxilSubobjectsMDName);
   IFTBOOL(pSubobjectsNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
