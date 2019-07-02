@@ -207,6 +207,9 @@ for /F "tokens=1,2*" %%A in ('%REG_QUERY% /v InstallationFolder') do (
   )
 )
 if ""=="%kit_root%" (
+    set kit_root=%WIN10_SDK_PATH%
+)
+if ""=="%kit_root%" (
   echo Did not find a Windows 10 SDK installation.
   exit /b 1
 )
@@ -227,6 +230,9 @@ for /F "tokens=1-3" %%A in ('%REG_QUERY% /v ProductVersion') do (
       )
     )
   )
+)
+if ""=="%sdk_ver%" (
+  set sdk_ver=%WIN10_SDK_VERSION%
 )
 if ""=="%sdk_ver%" (
   echo Could not detect Windows 10 SDK version.
