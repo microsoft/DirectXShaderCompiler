@@ -861,7 +861,7 @@ TEST_F(ValidationTest, SamplerKindFail) {
       {"Invalid sampler mode",
        "require sampler declared in comparison mode",
        "requires sampler declared in default mode",
-       "should on srv resource"});
+       "should be on srv resource"});
 }
 TEST_F(ValidationTest, SemaOverlapFail) {
   RewriteAssemblyCheckMsg(

@@ -166,8 +166,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrResourceKindForTextureStore: return "texture store only works on Texture1D/1DArray/2D/2DArray/3D";
     case hlsl::ValidationRule::InstrResourceKindForGetDim: return "Invalid resource kind on GetDimensions";
     case hlsl::ValidationRule::InstrResourceKindForTextureLoad: return "texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray";
-    case hlsl::ValidationRule::InstrResourceClassForSamplerGather: return "sample, lod and gather should on srv resource.";
-    case hlsl::ValidationRule::InstrResourceClassForUAVStore: return "store should on uav resource.";
+    case hlsl::ValidationRule::InstrResourceClassForSamplerGather: return "sample, lod and gather should be on srv resource.";
+    case hlsl::ValidationRule::InstrResourceClassForUAVStore: return "store should be on uav resource.";
     case hlsl::ValidationRule::InstrResourceClassForLoad: return "load can only run on UAV/SRV resource";
     case hlsl::ValidationRule::InstrResourceMapToSingleEntry: return "Fail to map resource to resource table";
     case hlsl::ValidationRule::InstrResourceUser: return "Resource should only used by Load/GEP/Call";
@@ -2275,6 +2275,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::TextureLoad:
   case DXIL::OpCode::CBufferLoad:
   case DXIL::OpCode::CBufferLoadLegacy:
+  case DXIL::OpCode::RawBufferLoad:
+  case DXIL::OpCode::RawBufferStore:
     ValidateResourceDxilOp(CI, opcode, ValCtx);
     break;
   // Input output.

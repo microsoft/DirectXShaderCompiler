@@ -102,8 +102,8 @@ enum class ValidationRule : unsigned {
   InstrOperandRange, // DXIL intrinsic operand must be within defined range
   InstrPtrBitCast, // Pointer type bitcast must be have same size
   InstrResourceClassForLoad, // load can only run on UAV/SRV resource
-  InstrResourceClassForSamplerGather, // sample, lod and gather should on srv resource.
-  InstrResourceClassForUAVStore, // store should on uav resource.
+  InstrResourceClassForSamplerGather, // sample, lod and gather should be on srv resource.
+  InstrResourceClassForUAVStore, // store should be on uav resource.
   InstrResourceCoordinateMiss, // coord uninitialized
   InstrResourceCoordinateTooMany, // out of bound coord must be undef
   InstrResourceKindForBufferLoadStore, // buffer load/store only works on Raw/Typed/StructuredBuffer
