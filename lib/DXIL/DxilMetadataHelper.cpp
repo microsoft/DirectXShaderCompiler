@@ -1369,6 +1369,35 @@ MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<D
   return hintsNode;
 }
 
+unsigned DxilMDHelper::GetControlFlowHintMask(const Instruction *I) {
+  // Check that there are control hint to use
+  // branch.
+  MDNode *MD = I->getMetadata(hlsl::DxilMDHelper::kDxilControlFlowHintMDName);
+  if (!MD)
+    return 0;
+
+  if (MD->getNumOperands() < 3)
+    return 0;
+  unsigned mask = 0;
+  for (unsigned i = 2; i < MD->getNumOperands(); i++) {
+    Metadata *Op = MD->getOperand(2).get();
+    auto ConstOp = cast<ConstantAsMetadata>(Op);
+    unsigned hint = ConstOp->getValue()->getUniqueInteger().getLimitedValue();
+    mask |= 1 << hint;
+  }
+  return mask;
+}
+
+bool DxilMDHelper::HasControlFlowHintToPreventFlatten(
+    const llvm::Instruction *I) {
+  unsigned mask = GetControlFlowHintMask(I);
+  const unsigned BranchMask =
+      1 << (unsigned)(DXIL::ControlFlowHint::Branch) |
+      1 << (unsigned)(DXIL::ControlFlowHint::Call) |
+      1 << (unsigned)(DXIL::ControlFlowHint::ForceCase);
+  return mask & BranchMask;
+}
+
 void DxilMDHelper::EmitSubobjects(const DxilSubobjects &Subobjects) {
   NamedMDNode *pSubobjectsNamedMD = m_pModule->getNamedMetadata(kDxilSubobjectsMDName);
   IFTBOOL(pSubobjectsNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
