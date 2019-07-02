@@ -22,7 +22,7 @@ ByteAddressBuffer buf;
   // CHECK:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 {{%\d+}}
   // CHECK:   [[uint:%\d+]] = OpLoad %uint [[ptr]]
   // CHECK: [[ushort:%\d+]] = OpUConvert %ushort [[uint]]
-  // CHECK:   [[half:%\d+]] = OpConvertUToF %half [[ushort]]
+  // CHECK:   [[half:%\d+]] = OpBitcast %half [[ushort]]
   // CHECK:                   OpStore %f16 [[half]]
   float16_t f16 = buf.Load<float16_t>(tid.x);
 
@@ -41,7 +41,7 @@ ByteAddressBuffer buf;
 
   // CHECK:   [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 {{%\d+}}
   // CHECK:  [[uint:%\d+]] = OpLoad %uint [[ptr]]
-  // CHECK: [[float:%\d+]] = OpConvertUToF %float [[uint]]
+  // CHECK: [[float:%\d+]] = OpBitcast %float [[uint]]
   // CHECK:                  OpStore %f [[float]]
   float f = buf.Load<float>(tid.x);
 
@@ -87,7 +87,7 @@ ByteAddressBuffer buf;
 // CHECK:        [[word1Long:%\d+]] = OpUConvert %ulong [[word1]]
 // CHECK: [[shiftedWord1Long:%\d+]] = OpShiftLeftLogical %ulong [[word1Long]] %uint_32
 // CHECK:        [[val_ulong:%\d+]] = OpBitwiseOr %ulong [[word0Long]] [[shiftedWord1Long]]
-// CHECK:       [[val_double:%\d+]] = OpConvertUToF %double [[val_ulong]]
+// CHECK:       [[val_double:%\d+]] = OpBitcast %double [[val_ulong]]
 // CHECK:                             OpStore %f64 [[val_double]]
   double f64 = buf.Load<double>(tid.x);
 
@@ -128,7 +128,7 @@ ByteAddressBuffer buf;
 // CHECK:         [[val0_word1_ulong:%\d+]] = OpUConvert %ulong [[val0_word1_uint]]
 // CHECK: [[shifted_val0_word1_ulong:%\d+]] = OpShiftLeftLogical %ulong [[val0_word1_ulong]] %uint_32
 // CHECK:               [[val0_ulong:%\d+]] = OpBitwiseOr %ulong [[val0_word0_ulong]] [[shifted_val0_word1_ulong]]
-// CHECK:              [[val0_double:%\d+]] = OpConvertUToF %double [[val0_ulong]]
+// CHECK:              [[val0_double:%\d+]] = OpBitcast %double [[val0_ulong]]
 //
 // CHECK:                   [[addr_2:%\d+]] = OpIAdd %uint [[addr_1]] %uint_1
 // CHECK:                      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[addr_2]]
@@ -140,7 +140,7 @@ ByteAddressBuffer buf;
 // CHECK:         [[val1_word1_ulong:%\d+]] = OpUConvert %ulong [[val1_word1_uint]]
 // CHECK: [[shifted_val1_word1_ulong:%\d+]] = OpShiftLeftLogical %ulong [[val1_word1_ulong]] %uint_32
 // CHECK:               [[val1_ulong:%\d+]] = OpBitwiseOr %ulong [[val1_word0_ulong]] [[shifted_val1_word1_ulong]]
-// CHECK:              [[val1_double:%\d+]] = OpConvertUToF %double [[val1_ulong]]
+// CHECK:              [[val1_double:%\d+]] = OpBitcast %double [[val1_ulong]]
 //
 // CHECK:                     [[fArr:%\d+]] = OpCompositeConstruct %_arr_double_uint_2 [[val0_double]] [[val1_double]]
 // CHECK:                                     OpStore %fArr [[fArr]]

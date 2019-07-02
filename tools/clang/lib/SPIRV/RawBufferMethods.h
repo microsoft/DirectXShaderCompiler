@@ -70,6 +70,18 @@ private:
                                             uint32_t &bitOffset);
 
 private:
+  /// \brief Performs an OpBitCast from |fromType| to |toType| on the given
+  /// instruction.
+  ///
+  /// If the |toType| is a boolean type, it performs a regular type cast.
+  ///
+  /// If the |fromType| and |toType| are the same, does not thing and returns
+  /// the given instruction
+  SpirvInstruction *bitCastToNumericalOrBool(SpirvInstruction *instr,
+                                             QualType fromType, QualType toType,
+                                             SourceLocation loc);
+
+private:
   SpirvEmitter &theEmitter;
   const ASTContext &astContext;
   SpirvBuilder &spvBuilder;

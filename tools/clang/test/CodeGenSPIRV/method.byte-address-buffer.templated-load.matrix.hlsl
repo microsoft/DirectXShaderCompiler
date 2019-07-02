@@ -71,7 +71,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:         [[word1_ulong:%\d+]] = OpUConvert %ulong [[word1]]
 // CHECK: [[word1_ulong_shifted:%\d+]] = OpShiftLeftLogical %ulong [[word1_ulong]] %uint_32
 // CHECK:          [[val0_ulong:%\d+]] = OpBitwiseOr %ulong [[word0_ulong]] [[word1_ulong_shifted]]
-// CHECK:                [[val0:%\d+]] = OpConvertUToF %double [[val0_ulong]]
+// CHECK:                [[val0:%\d+]] = OpBitcast %double [[val0_ulong]]
 // CHECK:             [[index_2:%\d+]] = OpIAdd %uint [[index_1]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2]]
 // CHECK:               [[word2:%\d+]] = OpLoad %uint [[ptr]]
@@ -82,7 +82,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:         [[word3_ulong:%\d+]] = OpUConvert %ulong [[word3]]
 // CHECK: [[word3_ulong_shifted:%\d+]] = OpShiftLeftLogical %ulong [[word3_ulong]] %uint_32
 // CHECK:          [[val1_ulong:%\d+]] = OpBitwiseOr %ulong [[word2_ulong]] [[word3_ulong_shifted]]
-// CHECK:                [[val1:%\d+]] = OpConvertUToF %double [[val1_ulong]]
+// CHECK:                [[val1:%\d+]] = OpBitcast %double [[val1_ulong]]
 // CHECK:             [[index_4:%\d+]] = OpIAdd %uint [[index_3]] %uint_1
 // CHECK:                [[row0:%\d+]] = OpCompositeConstruct %v2double [[val0]] [[val1]]
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4]]
@@ -94,7 +94,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:         [[word5_ulong:%\d+]] = OpUConvert %ulong [[word5]]
 // CHECK: [[word5_ulong_shifted:%\d+]] = OpShiftLeftLogical %ulong [[word5_ulong]] %uint_32
 // CHECK:          [[val2_ulong:%\d+]] = OpBitwiseOr %ulong [[word4_ulong]] [[word5_ulong_shifted]]
-// CHECK:                [[val2:%\d+]] = OpConvertUToF %double [[val2_ulong]]
+// CHECK:                [[val2:%\d+]] = OpBitcast %double [[val2_ulong]]
 // CHECK:             [[index_6:%\d+]] = OpIAdd %uint [[index_5]] %uint_1
 // CHECK:                 [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
 // CHECK:               [[word6:%\d+]] = OpLoad %uint [[ptr]]
@@ -105,7 +105,7 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:         [[word7_ulong:%\d+]] = OpUConvert %ulong [[word7]]
 // CHECK: [[word7_ulong_shifted:%\d+]] = OpShiftLeftLogical %ulong [[word7_ulong]] %uint_32
 // CHECK:          [[val3_ulong:%\d+]] = OpBitwiseOr %ulong [[word6_ulong]] [[word7_ulong_shifted]]
-// CHECK:                [[val3:%\d+]] = OpConvertUToF %double [[val3_ulong]]
+// CHECK:                [[val3:%\d+]] = OpBitcast %double [[val3_ulong]]
 // CHECK:                [[row1:%\d+]] = OpCompositeConstruct %v2double [[val2]] [[val3]]
 // CHECK:              [[matrix:%\d+]] = OpCompositeConstruct %mat2v2double [[row0]] [[row1]]
 // CHECK:                                OpStore %f64 [[matrix]]
