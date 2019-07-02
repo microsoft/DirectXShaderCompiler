@@ -1491,7 +1491,7 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
                                    const TargetTransformInfo &TTI) {
   // HLSL Change Begins.
   // Skip block with control flow hint.
-  if (hlsl::DxilMDHelper::HasBranchControlFlowHint(BI)) {
+  if (hlsl::DxilMDHelper::HasControlFlowHintToPreventFlatten(BI)) {
     return false;
   }
   // HLSL Change Ends.
@@ -1914,7 +1914,7 @@ static bool FoldTwoEntryPHINode(PHINode *PN, const TargetTransformInfo &TTI,
   Instruction *InsertPt = DomBlock->getTerminator();
   // HLSL Change Begins.
   // Skip block with control flow hint.
-  if (hlsl::DxilMDHelper::HasBranchControlFlowHint(InsertPt)) {
+  if (hlsl::DxilMDHelper::HasControlFlowHintToPreventFlatten(InsertPt)) {
     return false;
   }
   // HLSL Change Ends.
