@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T vs_6_2 %s | FileCheck %s
 
-// Test assignments to the base class part of an object only.
+// Test assignments to and from the base class part of an object only.
 
 struct Base { int i; };
 struct Derived : Base { int j; };
