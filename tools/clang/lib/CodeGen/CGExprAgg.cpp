@@ -708,6 +708,7 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
     Visit(E->getSubExpr());
     break;
   // HLSL Change Begins.
+  case CK_HLSLDerivedToBase:
   case CK_FlatConversion: {
     QualType Ty = E->getSubExpr()->getType();
 
