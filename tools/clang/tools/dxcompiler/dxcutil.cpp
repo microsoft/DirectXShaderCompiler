@@ -183,10 +183,11 @@ HRESULT ValidateAndAssembleToContainer(
     // module.
     if (bDebugInfo) {
       llvmModule.CloneForDebugInfo();
-      if (DebugName.size()) {
-        llvmModule.SetDebugName(DebugName);
-      }
     }
+  }
+
+  if (bDebugInfo && DebugName.size()) {
+    llvmModule.SetDebugName(DebugName);
   }
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
