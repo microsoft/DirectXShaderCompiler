@@ -37,7 +37,7 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)
+include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)
 
 add_dependencies(dxc dxclib dxcompiler)
 
