@@ -1447,6 +1447,13 @@ TEST_F(FileTest, SpirvDebugOpLineFunction) {
 TEST_F(FileTest, SpirvDebugOpLineIntrinsics) {
   runFileTest("spirv.debug.opline.intrinsic.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpLineIntrinsicsControlBarrier) {
+  runFileTest("spirv.debug.opline.intrinsic.control.barrier.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineIntrinsicsVulkan1_1) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.opline.intrinsic.vulkan1.1.hlsl");
+}
 TEST_F(FileTest, SpirvDebugOpLineOperators) {
   runFileTest("spirv.debug.opline.operators.hlsl");
 }
