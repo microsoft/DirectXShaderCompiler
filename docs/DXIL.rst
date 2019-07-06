@@ -3053,6 +3053,7 @@ META.VALUERANGE                          Metadata value must be within range
 META.WELLFORMED                          TODO - Metadata must be well-formed in operand count and types
 SM.64BITRAWBUFFERLOADSTORE               i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3
 SM.APPENDANDCONSUMEONSAMEUAV             BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
+SM.CBUFFERARRAYOFFSETALIGNMENT           CBuffer array offset must be aligned to 16-bytes
 SM.CBUFFERELEMENTOVERFLOW                CBuffer elements must not overflow
 SM.CBUFFEROFFSETOVERLAP                  CBuffer offsets must not overlap
 SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT       D3D12 constant/texture buffer template element can only be a struct

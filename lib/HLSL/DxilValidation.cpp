@@ -247,6 +247,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
+    case hlsl::ValidationRule::SmCBufferArrayOffsetAlignment: return "CBuffer %0 has unaligned array offset at %1";
     case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only be used in '%1'";
     case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID";
     case hlsl::ValidationRule::Sm64bitRawBufferLoadStore: return "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3";
@@ -3696,6 +3697,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
                      SpanAllocator<unsigned, DxilFieldAnnotation> &constAllocator,
                      unsigned base, DxilTypeSystem &typeSys, StringRef cbName,
                      ValidationContext &ValCtx) {
+  DXASSERT(((base + 15) & ~(0xf)) == base, "otherwise, base for struct is not aligned");
   unsigned cbSize = annotation->GetCBufferSize();
 
   const StructType *ST = annotation->GetStructType();
@@ -3721,47 +3723,63 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
         }
       }
     } else if (isa<ArrayType>(EltTy)) {
+      if (((offset + 15) & ~(0xf)) != offset) {
+        ValCtx.EmitFormatError(
+            ValidationRule::SmCBufferArrayOffsetAlignment,
+            {cbName, std::to_string(offset)});
+        continue;
+      }
       unsigned arrayCount = 1;
       while (isa<ArrayType>(EltTy)) {
         arrayCount *= EltTy->getArrayNumElements();
         EltTy = EltTy->getArrayElementType();
       }
 
-      // Base for array must be aligned.
-      unsigned alignedBase = ((base + 15) & ~(0xf));
-
-      unsigned arrayBase = alignedBase + offset;
-
       DxilStructAnnotation *EltAnnotation = nullptr;
       if (StructType *EltST = dyn_cast<StructType>(EltTy))
         EltAnnotation = typeSys.GetStructAnnotation(EltST);
 
-      for (unsigned idx = 0; idx < arrayCount; idx++) {
-        arrayBase = (arrayBase + 15) & ~(0xf);
+      unsigned alignedEltSize = ((EltSize + 15) & ~(0xf));
+      unsigned arraySize = ((arrayCount - 1) * alignedEltSize) + EltSize;
+      bOutOfBound = (offset + arraySize) > cbSize;
 
-        if (arrayBase > (alignedBase + cbSize)) {
-          bOutOfBound = true;
-          break;
-        }
+      if (!bOutOfBound) {
+        // If we didn't care about gaps where elements could be placed with user offsets,
+        // we could: recurse once if EltAnnotation, then allocate the rest if arrayCount > 1
 
+        unsigned arrayBase = base + offset;
         if (!EltAnnotation) {
-          if (constAllocator.Insert(&fieldAnnotation, arrayBase,
-                                    arrayBase + EltSize - 1)) {
+          if (nullptr != constAllocator.Insert(
+                &fieldAnnotation, arrayBase, arrayBase + arraySize - 1)) {
             ValCtx.EmitFormatError(
                 ValidationRule::SmCBufferOffsetOverlap,
-                {cbName, std::to_string(base + offset)});
+                {cbName, std::to_string(arrayBase)});
           }
-
         } else {
-          CollectCBufferRanges(EltAnnotation,
-              constAllocator, arrayBase, typeSys,
-                               cbName, ValCtx);
+          for (unsigned idx = 0; idx < arrayCount; idx++) {
+            CollectCBufferRanges(EltAnnotation, constAllocator,
+                                 arrayBase, typeSys, cbName, ValCtx);
+            arrayBase += alignedEltSize;
+          }
         }
-        arrayBase += EltSize;
       }
     } else {
-      cast<StructType>(EltTy);
+      StructType *EltST = cast<StructType>(EltTy);
+      unsigned structBase = base + offset;
       bOutOfBound = (offset + EltSize) > cbSize;
+      if (!bOutOfBound) {
+        if (DxilStructAnnotation *EltAnnotation = typeSys.GetStructAnnotation(EltST)) {
+          CollectCBufferRanges(EltAnnotation, constAllocator,
+                               structBase, typeSys, cbName, ValCtx);
+        } else {
+          if (nullptr != constAllocator.Insert(
+                &fieldAnnotation, structBase, structBase + EltSize - 1)) {
+            ValCtx.EmitFormatError(
+                ValidationRule::SmCBufferOffsetOverlap,
+                {cbName, std::to_string(structBase)});
+          }
+        }
+      }
     }
 
     if (bOutOfBound) {
