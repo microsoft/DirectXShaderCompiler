@@ -1521,10 +1521,10 @@ bool DxilLowerCreateHandleForLib::RemovePhiOnResource() {
 // LegacyLayout.
 namespace {
 
-StructType *UpdateStructTypeForLegacyLayout(StructType *ST, bool IsCBuf,
+StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
                                             DxilTypeSystem &TypeSys, Module &M);
 
-Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
+Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
                                      DxilFieldAnnotation &annotation,
                                      DxilTypeSystem &TypeSys, Module &M) {
   DXASSERT(!Ty->isPointerTy(), "struct field should not be a pointer");
@@ -1532,7 +1532,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
   if (Ty->isArrayTy()) {
     Type *EltTy = Ty->getArrayElementType();
     Type *UpdatedTy =
-        UpdateFieldTypeForLegacyLayout(EltTy, IsCBuf, annotation, TypeSys, M);
+        UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
     else
@@ -1554,20 +1554,23 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
-    // CBuffer matrix must 4 * 4 bytes align.
-    if (IsCBuf)
-      cols = 4;
 
     EltTy =
-        UpdateFieldTypeForLegacyLayout(EltTy, IsCBuf, annotation, TypeSys, M);
+        UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     Type *rowTy = VectorType::get(EltTy, cols);
-    return ArrayType::get(rowTy, rows);
+
+    // Matrix should be aligned like array if rows > 1,
+    // otherwise, it's just like a vector.
+    if (rows > 1)
+      return ArrayType::get(rowTy, rows);
+    else
+      return rowTy;
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    return UpdateStructTypeForLegacyLayout(ST, IsCBuf, TypeSys, M);
+    return UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
   } else if (Ty->isVectorTy()) {
     Type *EltTy = Ty->getVectorElementType();
     Type *UpdatedTy =
-        UpdateFieldTypeForLegacyLayout(EltTy, IsCBuf, annotation, TypeSys, M);
+        UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
     else
@@ -1587,7 +1590,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf,
   }
 }
 
-StructType *UpdateStructTypeForLegacyLayout(StructType *ST, bool IsCBuf,
+StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
                                             DxilTypeSystem &TypeSys,
                                             Module &M) {
   bool bUpdated = false;
@@ -1603,7 +1606,7 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST, bool IsCBuf,
   for (unsigned i = 0; i < fieldsCount; i++) {
     Type *EltTy = ST->getElementType(i);
     Type *UpdatedTy = UpdateFieldTypeForLegacyLayout(
-        EltTy, IsCBuf, SA->GetFieldAnnotation(i), TypeSys, M);
+        EltTy, SA->GetFieldAnnotation(i), TypeSys, M);
     fieldTypes[i] = UpdatedTy;
     if (EltTy != UpdatedTy)
       bUpdated = true;
@@ -1646,11 +1649,11 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   }
 
   Type *UpdatedST =
-      UpdateStructTypeForLegacyLayout(ST, IsResourceArray, TypeSys, M);
+      UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
   if (ST != UpdatedST) {
     Type *Ty = Symbol->getType()->getPointerElementType();
     if (IsResourceArray) {
-      // Support Array of struct buffer.
+      // Support Array of ConstantBuffer.
       if (Ty->isArrayTy()) {
         UpdatedST = ArrayType::get(UpdatedST, Ty->getArrayNumElements());
       }
