@@ -1635,15 +1635,9 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
                                      DxilTypeSystem &TypeSys, Module &M) {
   Constant *Symbol = Res.GetGlobalSymbol();
   Type *ElemTy = Symbol->getType()->getPointerElementType();
-  bool IsResourceArray = Res.GetRangeSize() != 1;
-  std::vector<unsigned> arrayDims;
-  if (IsResourceArray) {
-    // Support Array of ConstantBuffer.
-    while (ElemTy->isArrayTy()) {
-      arrayDims.push_back((unsigned)ElemTy->getArrayNumElements());
-      ElemTy = ElemTy->getArrayElementType();
-    }
-  }
+  // Support Array of ConstantBuffer/StructuredBuffer.
+  llvm::SmallVector<unsigned, 4> arrayDims;
+  ElemTy = dxilutil::StripArrayTypes(ElemTy, &arrayDims);
   StructType *ST = cast<StructType>(ElemTy);
   if (ST->isOpaque()) {
     DXASSERT(Res.GetClass() == DxilResourceBase::Class::CBuffer,
@@ -1654,11 +1648,8 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   Type *UpdatedST =
       UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
   if (ST != UpdatedST) {
-    if (IsResourceArray) {
-      // Support Array of ConstantBuffer.
-      for (auto it = arrayDims.rbegin(), E = arrayDims.rend(); it != E; ++it)
-        UpdatedST = ArrayType::get(UpdatedST, *it);
-    }
+    // Support Array of ConstantBuffer/StructuredBuffer.
+    UpdatedST = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
     GlobalVariable *NewGV = cast<GlobalVariable>(
         M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
     Res.SetGlobalSymbol(NewGV);

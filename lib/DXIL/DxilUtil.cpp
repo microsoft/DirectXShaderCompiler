@@ -591,6 +591,24 @@ bool IsSplat(llvm::ConstantDataVector *cdv) {
   return true;
 }
 
+llvm::Type* StripArrayTypes(llvm::Type *Ty, llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths) {
+  DXASSERT_NOMSG(Ty);
+  while (Ty->isArrayTy()) {
+    if (OuterToInnerLengths) {
+      OuterToInnerLengths->push_back(Ty->getArrayNumElements());
+    }
+    Ty = Ty->getArrayElementType();
+  }
+  return Ty;
+}
+llvm::Type* WrapInArrayTypes(llvm::Type *Ty, llvm::ArrayRef<unsigned> OuterToInnerLengths) {
+  DXASSERT_NOMSG(Ty);
+  for (auto it = OuterToInnerLengths.rbegin(), E = OuterToInnerLengths.rend(); it != E; ++it) {
+    Ty = ArrayType::get(Ty, *it);
+  }
+  return Ty;
+}
+
 }
 }
 
