@@ -1621,6 +1621,9 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST, bool IsCBuf,
     DxilStructAnnotation *NewSA = TypeSys.AddStructAnnotation(NewST);
     // Clone annotation.
     *NewSA = *SA;
+    // Make sure we set the struct type back to the new one, since the
+    // clone would have clobbered it with the old one.
+    NewSA->SetStructType(NewST);
     return NewST;
   }
 }
@@ -1631,7 +1634,7 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   Type *ElemTy = Symbol->getType()->getPointerElementType();
   bool IsResourceArray = Res.GetRangeSize() != 1;
   if (IsResourceArray) {
-    // Support Array of struct buffer.
+    // Support Array of ConstantBuffer.
     if (ElemTy->isArrayTy())
       ElemTy = ElemTy->getArrayElementType();
   }

@@ -97,6 +97,10 @@ const DxilFieldAnnotation &DxilStructAnnotation::GetFieldAnnotation(unsigned Fie
 const StructType *DxilStructAnnotation::GetStructType() const {
   return m_pStructType;
 }
+void DxilStructAnnotation::SetStructType(const llvm::StructType *Ty) {
+  m_pStructType = Ty;
+}
+
 
 unsigned DxilStructAnnotation::GetCBufferSize() const { return m_CBufferSize; }
 void DxilStructAnnotation::SetCBufferSize(unsigned size) { m_CBufferSize = size; }
