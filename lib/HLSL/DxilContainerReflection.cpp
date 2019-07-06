@@ -26,6 +26,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilPDB.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include <unordered_set>
 #include "llvm/ADT/SetVector.h"
@@ -1108,14 +1109,10 @@ void CShaderReflectionConstantBuffer::Initialize(
   m_Desc.Size = (m_Desc.Size + 0x0f) & ~(0x0f); // Round up to 16 bytes for reflection.
   m_Desc.Type = D3D_CT_CBUFFER;
   m_Desc.uFlags = 0;
-  Type *Ty = CB.GetGlobalSymbol()->getType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
-  unsigned resArrayDims = 0;
-  while (Ty->isArrayTy()) {
-    Ty = Ty->getArrayElementType();
-    resArrayDims += 1;
-  }
+  Type *Ty = dxilutil::StripArrayTypes(
+    CB.GetGlobalSymbol()->getType()->getPointerElementType());
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -1127,7 +1124,7 @@ void CShaderReflectionConstantBuffer::Initialize(
 
   m_Desc.Variables = ST->getNumContainedTypes();
 
-  if (resArrayDims) {
+  if (CB.GetRangeSize() > 1) {
     DXASSERT(m_Desc.Variables == 1, "otherwise, assumption is wrong");
   }
 
@@ -1144,7 +1141,7 @@ void CShaderReflectionConstantBuffer::Initialize(
     pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes, true);
 
     // Replicate fxc bug, where Elements == 1 for inner struct of CB array, instead of 0.
-    if (resArrayDims) {
+    if (CB.GetRangeSize() > 1) {
       DXASSERT(pVarType->m_Desc.Elements == 0, "otherwise, assumption is wrong");
       pVarType->m_Desc.Elements = 1;
     }
@@ -1192,8 +1189,7 @@ static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
   UNREFERENCED_PARAMETER(M);
   Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
   if (R.IsStructuredBuffer()) {
-    while (Ty->isArrayTy())
-      Ty = Ty->getArrayElementType();
+    Ty = dxilutil::StripArrayTypes(Ty);
   }
   return CalcTypeSize(Ty);
 }
@@ -1222,11 +1218,9 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
 
   // Extract the `struct` that wraps element type of the buffer resource
   Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
-  unsigned resArrayDims = 0;
-  while (Ty->isArrayTy()) {
-    Ty = Ty->getArrayElementType();
-    resArrayDims += 1;
-    // Replicate fxc bug, where Name gets [0] appended for each resource array dimension.
+  SmallVector<unsigned, 4> arrayDims;
+  Ty = dxilutil::StripArrayTypes(Ty, &arrayDims);
+  for (unsigned i = 0; i < arrayDims.size(); ++i) {
     m_ReflectionName += "[0]";
   }
   m_Desc.Name = m_ReflectionName.c_str();
@@ -1426,7 +1420,8 @@ void DxilModuleReflection::CreateReflectionObjectForResource(DxilResourceBase *R
   D3D12_SHADER_INPUT_BIND_DESC inputBind;
   ZeroMemory(&inputBind, sizeof(inputBind));
   inputBind.BindCount = RB->GetRangeSize();
-  if (RB->GetRangeSize() == UINT_MAX)
+  // FXC Bug: For Unbounded range, CBuffers say bind count is UINT_MAX, but all others report 0!
+  if (RB->GetRangeSize() == UINT_MAX && C != DXIL::ResourceClass::CBuffer)
     inputBind.BindCount = 0;
   inputBind.BindPoint = RB->GetLowerBound();
   inputBind.Dimension = ResourceToDimension(RB);
