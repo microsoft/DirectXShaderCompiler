@@ -357,6 +357,7 @@ class CShaderReflection;
 struct D3D11_INTERNALSHADER_RESOURCE_DEF;
 class CShaderReflectionType : public ID3D12ShaderReflectionType
 {
+  friend class CShaderReflectionConstantBuffer;
 protected:
   D3D12_SHADER_TYPE_DESC              m_Desc;
   UINT                                m_SizeInCBuffer;
@@ -429,6 +430,8 @@ class CShaderReflectionConstantBuffer : public ID3D12ShaderReflectionConstantBuf
 protected:
   D3D12_SHADER_BUFFER_DESC                m_Desc;
   std::vector<CShaderReflectionVariable>  m_Variables;
+  // For StructuredBuffer arrays, Name will have [0] appended for each dimension to match fxc behavior.
+  std::string m_ReflectionName;
 
 public:
   CShaderReflectionConstantBuffer() = default;
@@ -1101,15 +1104,18 @@ void CShaderReflectionConstantBuffer::Initialize(
   std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
   m_Desc.Name = CB.GetGlobalName().c_str();
-  m_Desc.Size = CB.GetSize() / CB.GetRangeSize();
+  m_Desc.Size = CB.GetSize();
   m_Desc.Size = (m_Desc.Size + 0x0f) & ~(0x0f); // Round up to 16 bytes for reflection.
   m_Desc.Type = D3D_CT_CBUFFER;
   m_Desc.uFlags = 0;
   Type *Ty = CB.GetGlobalSymbol()->getType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
-  if (Ty->isArrayTy())
+  unsigned resArrayDims = 0;
+  while (Ty->isArrayTy()) {
     Ty = Ty->getArrayElementType();
+    resArrayDims += 1;
+  }
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -1120,6 +1126,10 @@ void CShaderReflectionConstantBuffer::Initialize(
     return;
 
   m_Desc.Variables = ST->getNumContainedTypes();
+
+  if (resArrayDims) {
+    DXASSERT(m_Desc.Variables == 1, "otherwise, assumption is wrong");
+  }
 
   for (unsigned i = 0; i < ST->getNumContainedTypes(); ++i) {
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(i);
@@ -1132,6 +1142,12 @@ void CShaderReflectionConstantBuffer::Initialize(
     CShaderReflectionType *pVarType = new CShaderReflectionType();
     allTypes.push_back(std::unique_ptr<CShaderReflectionType>(pVarType));
     pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes, true);
+
+    // Replicate fxc bug, where Elements == 1 for inner struct of CB array, instead of 0.
+    if (resArrayDims) {
+      DXASSERT(pVarType->m_Desc.Elements == 0, "otherwise, assumption is wrong");
+      pVarType->m_Desc.Elements = 1;
+    }
 
     BYTE *pDefaultValue = nullptr;
 
@@ -1175,6 +1191,10 @@ static unsigned CalcTypeSize(Type *Ty) {
 static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
   UNREFERENCED_PARAMETER(M);
   Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  if (R.IsStructuredBuffer()) {
+    while (Ty->isArrayTy())
+      Ty = Ty->getArrayElementType();
+  }
   return CalcTypeSize(Ty);
 }
 
@@ -1183,8 +1203,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   DxilResource &R,
   std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
-  m_Desc.Name = R.GetGlobalName().c_str();
-  //m_Desc.Size = R.GetSize();
+  m_ReflectionName = R.GetGlobalName();
   m_Desc.Type = D3D11_CT_RESOURCE_BIND_INFO;
   m_Desc.uFlags = 0;
   m_Desc.Variables = 1;
@@ -1192,7 +1211,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   D3D12_SHADER_VARIABLE_DESC VarDesc;
   ZeroMemory(&VarDesc, sizeof(VarDesc));
   VarDesc.Name = "$Element";
-  VarDesc.Size = CalcResTypeSize(M, R); // aligned bytes
+  VarDesc.Size = CalcResTypeSize(M, R);
   VarDesc.StartTexture = UINT_MAX;
   VarDesc.StartSampler = UINT_MAX;
   VarDesc.uFlags |= D3D_SVF_USED; // TODO: not necessarily true
@@ -1203,8 +1222,14 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
 
   // Extract the `struct` that wraps element type of the buffer resource
   Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
-  if(Ty->isArrayTy())
-      Ty = Ty->getArrayElementType();
+  unsigned resArrayDims = 0;
+  while (Ty->isArrayTy()) {
+    Ty = Ty->getArrayElementType();
+    resArrayDims += 1;
+    // Replicate fxc bug, where Name gets [0] appended for each resource array dimension.
+    m_ReflectionName += "[0]";
+  }
+  m_Desc.Name = m_ReflectionName.c_str();
   StructType *ST = cast<StructType>(Ty);
 
   // Look up struct type annotation on the element type

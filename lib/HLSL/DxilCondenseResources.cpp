@@ -1636,10 +1636,13 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   Constant *Symbol = Res.GetGlobalSymbol();
   Type *ElemTy = Symbol->getType()->getPointerElementType();
   bool IsResourceArray = Res.GetRangeSize() != 1;
+  std::vector<unsigned> arrayDims;
   if (IsResourceArray) {
     // Support Array of ConstantBuffer.
-    if (ElemTy->isArrayTy())
+    while (ElemTy->isArrayTy()) {
+      arrayDims.push_back((unsigned)ElemTy->getArrayNumElements());
       ElemTy = ElemTy->getArrayElementType();
+    }
   }
   StructType *ST = cast<StructType>(ElemTy);
   if (ST->isOpaque()) {
@@ -1651,12 +1654,10 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   Type *UpdatedST =
       UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
   if (ST != UpdatedST) {
-    Type *Ty = Symbol->getType()->getPointerElementType();
     if (IsResourceArray) {
       // Support Array of ConstantBuffer.
-      if (Ty->isArrayTy()) {
-        UpdatedST = ArrayType::get(UpdatedST, Ty->getArrayNumElements());
-      }
+      for (auto it = arrayDims.rbegin(), E = arrayDims.rend(); it != E; ++it)
+        UpdatedST = ArrayType::get(UpdatedST, *it);
     }
     GlobalVariable *NewGV = cast<GlobalVariable>(
         M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
