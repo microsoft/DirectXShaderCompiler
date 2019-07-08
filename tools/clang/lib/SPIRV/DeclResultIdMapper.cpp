@@ -815,6 +815,16 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   return var;
 }
 
+void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
+  const auto *varDecl = cast<VarDecl>(decl);
+  const auto enumConstant =
+      spvBuilder.getConstantInt(astContext.IntTy, decl->getInitVal());
+  SpirvVariable *varInstr = spvBuilder.addModuleVar(
+      astContext.IntTy, spv::StorageClass::Private, /*isPrecise*/ false,
+      decl->getName(), enumConstant, decl->getLocation());
+  astDecls[varDecl] = DeclSpirvInfo(varInstr);
+}
+
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
