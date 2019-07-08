@@ -27,4 +27,4 @@ uint UseBuf(int2 idx) {
 // CHECK:         BindPoint: 0
 // CHECK:         ReturnType: D3D_RETURN_TYPE_MIXED
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
-// CHECK:         NumSamples (or stride): 40
+// CHECK:         NumSamples (or stride): 20
