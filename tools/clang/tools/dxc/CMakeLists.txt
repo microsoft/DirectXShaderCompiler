@@ -24,6 +24,7 @@ add_clang_executable(dxc
 target_link_libraries(dxc
   dxclib
   dxcompiler
+  dxclib
   )
 
 if(ENABLE_SPIRV_CODEGEN)
