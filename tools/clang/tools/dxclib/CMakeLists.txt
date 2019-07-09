@@ -6,6 +6,16 @@ if (WIN32)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 endif (WIN32)
 
+set( LLVM_LINK_COMPONENTS
+  ${LLVM_TARGETS_TO_BUILD}
+  dxcsupport
+  DXIL
+  DxilContainer
+  HLSL
+  Option     # option library
+  Support    # just for assert and raw streams
+  )
+
 add_clang_library(dxclib
   dxc.cpp
   )
