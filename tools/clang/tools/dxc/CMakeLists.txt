@@ -24,6 +24,7 @@ add_clang_executable(dxc
 target_link_libraries(dxc
   dxclib
   dxcompiler
+  dxclib
   )
 
 if(ENABLE_SPIRV_CODEGEN)
@@ -36,6 +37,8 @@ hlsl_update_product_ver("dxc")
 if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
+
+include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)
 
 add_dependencies(dxc dxclib dxcompiler)
 
@@ -50,6 +53,4 @@ endif()
 
 install(TARGETS dxc
   RUNTIME DESTINATION bin)
-
-add_subdirectory(dxclib)
 

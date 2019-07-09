@@ -572,7 +572,6 @@ public:
 
 class DxilRuntimeData {
 private:
-  uint32_t m_TableCount;
   StringTableReader m_StringReader;
   IndexTableReader m_IndexTableReader;
   RawBytesReader m_RawBytesReader;

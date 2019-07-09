@@ -24,6 +24,7 @@ add_llvm_external_project(clang-tools-extra extra)
 
 # HLSL Change Starts
 add_subdirectory(dxcompiler)
+add_subdirectory(dxclib)
 add_subdirectory(dxc)
 
 # These targets can currently only be built on Windows.

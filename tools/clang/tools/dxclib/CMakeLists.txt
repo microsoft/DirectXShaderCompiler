@@ -6,6 +6,16 @@ if (WIN32)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 endif (WIN32)
 
+set( LLVM_LINK_COMPONENTS
+  ${LLVM_TARGETS_TO_BUILD}
+  dxcsupport
+  DXIL
+  DxilContainer
+  HLSL
+  Option     # option library
+  Support    # just for assert and raw streams
+  )
+
 add_clang_library(dxclib
   dxc.cpp
   )
@@ -18,4 +28,4 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
-add_dependencies(dxclib TablegenHLSLOptions)
+add_dependencies(dxclib TablegenHLSLOptions dxcompiler)
