@@ -100,6 +100,7 @@ public:
   DxilFieldAnnotation &GetFieldAnnotation(unsigned FieldIdx);
   const DxilFieldAnnotation &GetFieldAnnotation(unsigned FieldIdx) const;
   const llvm::StructType *GetStructType() const;
+  void SetStructType(const llvm::StructType *Ty);
   unsigned GetCBufferSize() const;
   void SetCBufferSize(unsigned size);
   void MarkEmptyStruct();

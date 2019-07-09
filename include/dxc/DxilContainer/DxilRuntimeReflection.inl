@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <cwchar>
 
 namespace hlsl {
 namespace RDAT {
@@ -92,7 +93,7 @@ public:
 DxilRuntimeData::DxilRuntimeData() : DxilRuntimeData(nullptr, 0) {}
 
 DxilRuntimeData::DxilRuntimeData(const void *ptr, size_t size)
-    : m_TableCount(0), m_StringReader(), m_IndexTableReader(), m_RawBytesReader(),
+    : m_StringReader(), m_IndexTableReader(), m_RawBytesReader(),
       m_ResourceTableReader(), m_FunctionTableReader(),
       m_SubobjectTableReader(), m_Context() {
   m_Context = {&m_StringReader, &m_IndexTableReader, &m_RawBytesReader,
@@ -311,13 +312,13 @@ public:
 
 void DxilRuntimeReflection_impl::AddString(const char *ptr) {
   if (m_StringMap.find(ptr) == m_StringMap.end()) {
-    int size = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
-                                     nullptr, 0);
-    if (size != 0) {
-      std::unique_ptr<wchar_t[]> pNew(new wchar_t[size]);
-      ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
-                            pNew.get(), size);
-      m_StringMap[ptr] = std::move(pNew);
+    auto state = std::mbstate_t();
+    size_t size = std::mbsrtowcs(nullptr, &ptr, 0, &state);
+    if (size != static_cast<size_t>(-1)) {
+      std::unique_ptr<wchar_t[]> pNew(new wchar_t[size + 1]);
+      auto pOldPtr = ptr;
+      std::mbsrtowcs(pNew.get(), &ptr, size + 1, &state);
+      m_StringMap[pOldPtr] = std::move(pNew);
     }
   }
 }

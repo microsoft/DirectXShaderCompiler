@@ -305,7 +305,7 @@ int __cdecl main(int argc, char **argv) {
     return 1;
   llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   if (FAILED(DxcInitThreadMalloc())) return 1;
-  DxcSetThreadMallocOrDefault(nullptr);
+  DxcSetThreadMallocToDefault();
   llvm::sys::fs::MSFileSystem* msfPtr;
   if (FAILED(CreateMSFileSystemForDisk(&msfPtr))) return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
