@@ -961,7 +961,7 @@ function(hlsl_update_product_ver RC_INTERNAL_NAME)
                  "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\"")
     set_property(SOURCE ${windows_resource_file}
                  PROPERTY COMPILE_OPTIONS
-                 "/i" "${HLSL_VERSION_LOCATION}")
+                 "/I" "${HLSL_VERSION_LOCATION}")
     add_dependencies(${RC_INTERNAL_NAME} hlsl_version_autogen)
   endif(HLSL_EMBED_VERSION)
 endfunction(hlsl_update_product_ver)
