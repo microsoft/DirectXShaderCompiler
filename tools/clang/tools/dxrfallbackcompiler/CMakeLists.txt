@@ -67,5 +67,3 @@ set_target_properties(dxrfallbackcompiler
   OUTPUT_NAME "dxrfallbackcompiler"
   VERSION ${LIBCLANG_LIBRARY_VERSION}
   DEFINE_SYMBOL _CINDEX_LIB_)
-
-hlsl_update_product_ver("dxrfallbackcompiler")

@@ -130,5 +130,3 @@ set_target_properties(dxcompiler
   OUTPUT_NAME "dxcompiler"
   VERSION ${LIBCLANG_LIBRARY_VERSION}
   DEFINE_SYMBOL _CINDEX_LIB_)
-
-hlsl_update_product_ver("dxcompiler")

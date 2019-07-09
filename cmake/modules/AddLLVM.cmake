@@ -305,6 +305,20 @@ function(set_windows_version_resource_properties name resource_file)
                "RC_INTERNAL_NAME=\"${name}\""
                "RC_PRODUCT_NAME=\"${ARG_PRODUCT_NAME}\""
                "RC_PRODUCT_VERSION=\"${ARG_VERSION_STRING}\"")
+
+  # HLSL change begin - set common version
+  if(${HLSL_EMBED_VERSION})
+    if (DEFINED resource_file)
+      add_dependencies(${name} hlsl_version_autogen)
+      set_property(SOURCE ${resource_file}
+                  PROPERTY COMPILE_DEFINITIONS
+                  "INCLUDE_HLSL_VERSION_FILE=1")
+      set_property(SOURCE ${resource_file}
+                  PROPERTY COMPILE_OPTIONS
+                  "/I" "${HLSL_VERSION_LOCATION}")
+    endif (DEFINED resource_file)
+  endif(${HLSL_EMBED_VERSION})
+  # HLSL change ends
 endfunction(set_windows_version_resource_properties)
 
 # llvm_add_library(name sources...
@@ -951,18 +965,3 @@ function(add_lit_testsuites project directory)
     endforeach()
   endif()
 endfunction()
-
-# HLSL Change Starts
-function(hlsl_update_product_ver RC_INTERNAL_NAME)
-  if(HLSL_EMBED_VERSION)
-    set_property(SOURCE ${windows_resource_file}
-                 PROPERTY COMPILE_DEFINITIONS
-                 "INCLUDE_HLSL_VERSION_FILE=1"
-                 "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\"")
-    set_property(SOURCE ${windows_resource_file}
-                 PROPERTY COMPILE_OPTIONS
-                 "/i" "${HLSL_VERSION_LOCATION}")
-    add_dependencies(${RC_INTERNAL_NAME} hlsl_version_autogen)
-  endif(HLSL_EMBED_VERSION)
-endfunction(hlsl_update_product_ver)
-# HLSL Change Ends
