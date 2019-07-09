@@ -4598,7 +4598,7 @@ SpirvEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
     if (colCount > 1)
       indices.push_back(col);
 
-    if (baseExpr->isGLValue()) {
+    if (!baseInfo->isRValue()) {
       llvm::SmallVector<SpirvInstruction *, 2> indexInstructions(indices.size(),
                                                                  nullptr);
       for (uint32_t i = 0; i < indices.size(); ++i)
