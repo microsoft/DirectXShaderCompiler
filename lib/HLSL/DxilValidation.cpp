@@ -3772,7 +3772,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
           CollectCBufferRanges(EltAnnotation, constAllocator,
                                structBase, typeSys, cbName, ValCtx);
         } else {
-          if (nullptr != constAllocator.Insert(
+          if (EltSize > 0 && nullptr != constAllocator.Insert(
                 &fieldAnnotation, structBase, structBase + EltSize - 1)) {
             ValCtx.EmitFormatError(
                 ValidationRule::SmCBufferOffsetOverlap,
