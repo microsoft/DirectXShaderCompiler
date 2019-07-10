@@ -1737,10 +1737,10 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLocalVariables() {
   llvm::Function *DbgDeclare = llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::dbg_declare);
   for (llvm::Value *U : DbgDeclare->users()) {
     auto *CI = llvm::dyn_cast<llvm::CallInst>(U);
-    auto *LS = llvm::dyn_cast_or_null<llvm::DILocalScope>(CI->getDebugLoc()->getScope());
+    auto *LS = llvm::dyn_cast_or_null<llvm::DILocalScope>(CI->getDebugLoc()->getInlinedAtScope());
     auto SymIt = m_ScopeToSym.find(LS);
     if (SymIt == m_ScopeToSym.end()) {
-      continue;
+      return E_FAIL;
     }
 
     auto *LocalNameMetadata = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1));
