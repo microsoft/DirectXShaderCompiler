@@ -80,6 +80,12 @@ cbuffer MyCBuffer { float x; };
 // CHECK: OpDecorateString %MyTBuffer UserTypeGOOGLE "tbuffer"
 tbuffer MyTBuffer { float y; };
 
+// CHECK: OpDecorateString %bab UserTypeGOOGLE "byteaddressbuffer"
+ByteAddressBuffer bab;
+
+// CHECK: OpDecorateString %rwbab UserTypeGOOGLE "rwbyteaddressbuffer"
+RWByteAddressBuffer rwbab;
+
 float4 main() : SV_Target{
     return 0.0.xxxx;
 }
