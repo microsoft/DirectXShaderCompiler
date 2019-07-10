@@ -32,7 +32,6 @@ if(ENABLE_SPIRV_CODEGEN)
 endif()
 
 set_target_properties(dxc PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
-hlsl_update_product_ver("dxc")
 
 if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
