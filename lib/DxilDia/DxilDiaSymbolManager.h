@@ -60,6 +60,8 @@ public:
 
 
   SymbolManager();
+  SymbolManager(SymbolManager&&) = default;
+  SymbolManager &operator =(SymbolManager &&) = default;
   ~SymbolManager();
 
   void Init(Session *pSes);

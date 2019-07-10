@@ -98,7 +98,11 @@ void dxil_dia::Session::Init(
   }
 
   // Initialize symbols
-  m_symsMgr.Init(this);
+  try {
+      m_symsMgr.Init(this);
+  } catch (const hlsl::Exception &) {
+      m_symsMgr = std::move(dxil_dia::SymbolManager());
+  }
 }
 
 HRESULT dxil_dia::Session::getSourceFileIdByName(
