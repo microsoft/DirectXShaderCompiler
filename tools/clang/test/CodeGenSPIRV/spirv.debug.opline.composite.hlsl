@@ -45,15 +45,15 @@ void main() {
 
   int4 a = {
       float2(1, 0),
-// CHECK:                   OpConvertFToS %int %float_0
-// CHECK-NEXT:              OpLine [[file]] 53 7
-// CHECK-NEXT: [[z:%\d+]] = OpCompositeExtract %float {{%\d+}} 0
-// CHECK-NEXT: [[x:%\d+]] = OpCompositeExtract %float {{%\d+}} 1
+// CHECK: OpLine [[file]] 51 7
+// CHECK: OpFunctionCall %int4_bool_float3_0 %test_struct
       test_struct().c.zx
-// CHECK-NEXT:              OpLine [[file]] 47 12
-// CHECK-NEXT: [[z:%\d+]] = OpConvertFToS %int [[z]]
-// CHECK-NEXT: [[x:%\d+]] = OpConvertFToS %int [[x]]
-// CHECK-NEXT:   {{%\d+}} = OpCompositeConstruct %v4int {{%\d+}} {{%\d+}} [[z]] [[x]]
+// CHECK:      OpLine [[file]] 47 12
+// CHECK:      OpCompositeExtract %float {{%\d+}} 0
+// CHECK-NEXT: OpCompositeExtract %float {{%\d+}} 1
+// CHECK-NEXT: OpConvertFToS %int
+// CHECK-NEXT: OpConvertFToS %int
+// CHECK-NEXT: OpCompositeConstruct %v4int
   };
 
 // CHECK:                        OpFDiv %float {{%\d+}} %float_2

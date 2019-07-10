@@ -1878,9 +1878,8 @@ bool DeclResultIdMapper::createStageVars(
             astContext.UnsignedIntTy, llvm::APInt(32, 1));
         const auto constZero = spvBuilder.getConstantInt(
             astContext.UnsignedIntTy, llvm::APInt(32, 0));
-        *value =
-            spvBuilder.createSelect(astContext.UnsignedIntTy, *value, constOne,
-                                    constZero, /*SourceLocation*/ {});
+        *value = spvBuilder.createSelect(astContext.UnsignedIntTy, *value,
+                                         constOne, constZero, thisSemantic.loc);
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
       // underlying stage input variable is a float2 (only provides the first
@@ -1890,13 +1889,13 @@ bool DeclResultIdMapper::createStageVars(
             astContext.FloatTy, *value, {0}, thisSemantic.loc);
         const auto y = spvBuilder.createCompositeExtract(
             astContext.FloatTy, *value, {1}, thisSemantic.loc);
-        const auto xy = spvBuilder.createBinaryOp(spv::Op::OpFAdd,
-                                                  astContext.FloatTy, x, y);
+        const auto xy = spvBuilder.createBinaryOp(
+            spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
         const auto z = spvBuilder.createBinaryOp(
             spv::Op::OpFSub, astContext.FloatTy,
             spvBuilder.getConstantFloat(astContext.FloatTy,
                                         llvm::APFloat(1.0f)),
-            xy);
+            xy, thisSemantic.loc);
         *value = spvBuilder.createCompositeConstruct(
             astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
             thisSemantic.loc);
@@ -1937,8 +1936,9 @@ bool DeclResultIdMapper::createStageVars(
         *value = spvBuilder.createBinaryOp(
             spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
             spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                      astContext.IntTy, x, constTwo),
-            y, /* SourceLocation */ {});
+                                      astContext.IntTy, x, constTwo,
+                                      thisSemantic.loc),
+            y, thisSemantic.loc);
       }
 
       // Reciprocate SV_Position.w if requested
@@ -2285,7 +2285,7 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
     const auto newW = spvBuilder.createBinaryOp(
         spv::Op::OpFDiv, astContext.FloatTy,
         spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
-        oldW);
+        oldW, loc);
     position = spvBuilder.createCompositeInsert(
         astContext.getExtVectorType(astContext.FloatTy, 4), position, {3}, newW,
         loc);
@@ -2427,7 +2427,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -2472,7 +2472,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::GSVIn:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_InstanceID sneaked in");
     }
@@ -2506,7 +2506,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -2527,7 +2527,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   case hlsl::Semantic::Kind::IsFrontFace: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::GSOut:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing,
@@ -2543,7 +2543,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // An arbitrary semantic is defined by users. Generate normal Vulkan stage
   // input/output variables.
   case hlsl::Semantic::Kind::Arbitrary: {
-    return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+    return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     // TODO: patch constant function in hull shader
   }
   // According to DXIL spec, the DispatchThreadID SV can only be used by CSIn.
@@ -2678,7 +2678,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::GSVIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
@@ -2706,7 +2706,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::GSVIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();

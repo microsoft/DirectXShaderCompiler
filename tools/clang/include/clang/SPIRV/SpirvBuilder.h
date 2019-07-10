@@ -180,12 +180,13 @@ public:
   /// the instruction pointer for the result.
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
-                                SourceLocation loc = {});
+                                SourceLocation loc);
 
-  SpirvSpecConstantBinaryOp *
-  createSpecConstantBinaryOp(spv::Op op, QualType resultType,
-                             SpirvInstruction *lhs, SpirvInstruction *rhs,
-                             SourceLocation loc = {});
+  SpirvSpecConstantBinaryOp *createSpecConstantBinaryOp(spv::Op op,
+                                                        QualType resultType,
+                                                        SpirvInstruction *lhs,
+                                                        SpirvInstruction *rhs,
+                                                        SourceLocation loc);
 
   /// \brief Creates an operation with the given OpGroupNonUniform* SPIR-V
   /// opcode.
@@ -257,7 +258,7 @@ public:
                     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
                     SpirvInstruction *constOffsets, SpirvInstruction *sample,
                     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
-                    SourceLocation loc = {});
+                    SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for reading a texel from an image. If
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
@@ -273,12 +274,12 @@ public:
       SpirvInstruction *lod, SpirvInstruction *constOffset,
       SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
       SpirvInstruction *sample, SpirvInstruction *residencyCode,
-      SourceLocation loc = {});
+      SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(QualType imageType, SpirvInstruction *image,
                         SpirvInstruction *coord, SpirvInstruction *texel,
-                        SourceLocation loc = {});
+                        SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
@@ -444,7 +445,7 @@ public:
   /// constructed in this method.
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
                                std::string name, bool isPrecise,
-                               SourceLocation loc = {});
+                               SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
@@ -453,7 +454,7 @@ public:
   SpirvVariable *addStageBuiltinVar(QualType type,
                                     spv::StorageClass storageClass,
                                     spv::BuiltIn, bool isPrecise,
-                                    SourceLocation loc = {});
+                                    SourceLocation loc);
 
   /// \brief Adds a module variable. This variable should not have the Function
   /// storage class.
