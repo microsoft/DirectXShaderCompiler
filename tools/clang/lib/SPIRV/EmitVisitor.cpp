@@ -74,7 +74,6 @@ bool isOpLineLegalForOp(spv::Op op) {
   case spv::Op::OpDecorationGroup:
   case spv::Op::OpDecorateStringGOOGLE:
   case spv::Op::OpMemberDecorateStringGOOGLE:
-    // Annotation binary
     return false;
   default:
     return true;

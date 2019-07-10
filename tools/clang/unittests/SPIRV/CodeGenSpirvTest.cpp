@@ -1440,11 +1440,22 @@ TEST_F(FileTest, SpirvDebugOpLineComposite) {
 TEST_F(FileTest, SpirvDebugOpLineEntry) {
   runFileTest("spirv.debug.opline.entry.hlsl");
 }
-TEST_F(FileTest, SpirvDebugOpLineFuncDecl) {
-  runFileTest("spirv.debug.opline.func_decl.hlsl");
+TEST_F(FileTest, SpirvDebugOpLineFunction) {
+  setBeforeHLSLLegalization();
+  runFileTest("spirv.debug.opline.function.hlsl");
 }
 TEST_F(FileTest, SpirvDebugOpLineIntrinsics) {
   runFileTest("spirv.debug.opline.intrinsic.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineIntrinsicsControlBarrier) {
+  runFileTest("spirv.debug.opline.intrinsic.control.barrier.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineIntrinsicsVulkan1_1) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.opline.intrinsic.vulkan1.1.hlsl");
+}
+TEST_F(FileTest, SpirvDebugOpLineOperators) {
+  runFileTest("spirv.debug.opline.operators.hlsl");
 }
 TEST_F(FileTest, SpirvDebugOpLineVariables) {
   runFileTest("spirv.debug.opline.variables.hlsl");

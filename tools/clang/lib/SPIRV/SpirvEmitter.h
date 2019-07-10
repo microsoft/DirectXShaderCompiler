@@ -776,12 +776,11 @@ private:
   /// declaration for the Buffer/Texture object.
   /// If residencyCodeId is not zero,  the SPIR-V instruction for storing the
   /// resulting residency code will also be emitted.
-  SpirvInstruction *processBufferTextureLoad(const Expr *object,
-                                             SpirvInstruction *location,
-                                             SpirvInstruction *constOffset,
-                                             SpirvInstruction *varOffset,
-                                             SpirvInstruction *lod,
-                                             SpirvInstruction *residencyCode);
+  SpirvInstruction *
+  processBufferTextureLoad(const Expr *object, SpirvInstruction *location,
+                           SpirvInstruction *constOffset,
+                           SpirvInstruction *varOffset, SpirvInstruction *lod,
+                           SpirvInstruction *residencyCode, SourceLocation loc);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   SpirvInstruction *processTextureSampleGather(const CXXMemberCallExpr *expr,
