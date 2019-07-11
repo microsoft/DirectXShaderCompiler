@@ -856,8 +856,30 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
   // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, TraceRayInline=169
-  if ((165 <= op && op <= 167) || op == 169)
+  // WaveMultiPrefixBitCount=167, AllocateRayQuery=168,
+  // RayQuery_TraceRayInline=169, RayQuery_Proceed=170, RayQuery_Abort=171,
+  // RayQuery_CommitNonOpaqueTriangleHit=172,
+  // RayQuery_CommitProceduralPrimitiveHit=173, RayQuery_CommittedStatus=174,
+  // RayQuery_CandidateType=175, RayQuery_CandidateObjectToWorld3x4=176,
+  // RayQuery_CandidateWorldToObject3x4=177,
+  // RayQuery_CommittedObjectToWorld3x4=178,
+  // RayQuery_CommittedWorldToObject3x4=179,
+  // RayQuery_CandidateProceduralPrimitiveNonOpaque=180,
+  // RayQuery_CandidateTriangleFrontFace=181,
+  // RayQuery_CommittedTriangleFrontFace=182,
+  // RayQuery_CandidateTriangleBarycentrics=183,
+  // RayQuery_CommittedTriangleBarycentrics=184, RayQuery_RayFlags=185,
+  // RayQuery_WorldRayOrigin=186, RayQuery_WorldRayDirection=187,
+  // RayQuery_RayTMin=188, RayQuery_CandidateTriangleRayT=189,
+  // RayQuery_CommittedRayT=190, RayQuery_CandidateInstanceIndex=191,
+  // RayQuery_CandidateInstanceID=192, RayQuery_CandidateGeometryIndex=193,
+  // RayQuery_CandidatePrimitiveIndex=194, RayQuery_CandidateObjectRayOrigin=195,
+  // RayQuery_CandidateObjectRayDirection=196,
+  // RayQuery_CommittedInstanceIndex=197, RayQuery_CommittedInstanceID=198,
+  // RayQuery_CommittedGeometryIndex=199, RayQuery_CommittedPrimitiveIndex=200,
+  // RayQuery_CommittedObjectRayOrigin=201,
+  // RayQuery_CommittedObjectRayDirection=202
+  if ((165 <= op && op <= 202))
     return (major > 6 || (major == 6 && minor >= 5));
   return true;
   // VALOPCODESM-TEXT:END

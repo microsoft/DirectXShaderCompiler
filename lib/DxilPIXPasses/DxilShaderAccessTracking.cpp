@@ -453,7 +453,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
 
     // todo: should "GetDimensions" mean a resource access?
-    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(170), "Please update PIX passes if any resource access opcodes are added");
+    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(203), "Please update PIX passes if any resource access opcodes are added");
     ResourceAccessFunction raFunctions[] = {
       { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read   , false, f32i32f64 },
       { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read   , false, f16f32f64i16i32i64 },

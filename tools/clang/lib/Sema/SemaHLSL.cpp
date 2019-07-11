@@ -4184,6 +4184,8 @@ public:
     AddRayFlags(*m_context);
     AddHitKinds(*m_context);
     AddStateObjectFlags(*m_context);
+    AddCommittedStatus(*m_context);
+    AddCandidateType(*m_context);
 
     return true;
   }

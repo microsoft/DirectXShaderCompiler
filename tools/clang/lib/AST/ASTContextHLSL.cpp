@@ -576,6 +576,35 @@ void hlsl::AddStateObjectFlags(ASTContext& context) {
   AddConstUInt(context, curDC, StringRef("STATE_OBJECT_FLAGS_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
 }
 
+/// <summary> Adds const integers for committed status </summary>
+void hlsl::AddCommittedStatus(ASTContext& context) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  // typedef uint COMMITTED_STATUS;
+  IdentifierInfo &enumId = context.Idents.get(StringRef("COMMITTED_STATUS"), tok::TokenKind::identifier);
+  TypeSourceInfo *uintTypeSource = context.getTrivialTypeSourceInfo(context.UnsignedIntTy, NoLoc);
+  TypedefDecl *enumDecl = TypedefDecl::Create(context, curDC, NoLoc, NoLoc, &enumId, uintTypeSource);
+  curDC->addDecl(enumDecl);
+  enumDecl->setImplicit(true);
+  // static const uint COMMITTED_* = *;
+  AddConstUInt(context, curDC, StringRef("COMMITTED_NOTHING"), (unsigned)DXIL::CommittedStatus::CommittedNothing);
+  AddConstUInt(context, curDC, StringRef("COMMITTED_TRIANGLE_HIT"), (unsigned)DXIL::CommittedStatus::CommittedTriangleHit);
+  AddConstUInt(context, curDC, StringRef("COMMITTED_PROCEDURAL_PRIMITIVE_HIT"), (unsigned)DXIL::CommittedStatus::CommittedProceduralPrimitiveHit);
+}
+
+/// <summary> Adds const integers for candidate type </summary>
+void hlsl::AddCandidateType(ASTContext& context) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  // typedef uint CANDIDATE_TYPE;
+  IdentifierInfo &enumId = context.Idents.get(StringRef("CANDIDATE_TYPE"), tok::TokenKind::identifier);
+  TypeSourceInfo *uintTypeSource = context.getTrivialTypeSourceInfo(context.UnsignedIntTy, NoLoc);
+  TypedefDecl *enumDecl = TypedefDecl::Create(context, curDC, NoLoc, NoLoc, &enumId, uintTypeSource);
+  curDC->addDecl(enumDecl);
+  enumDecl->setImplicit(true);
+  // static const uint CANDIDATE_* = *;
+  AddConstUInt(context, curDC, StringRef("CANDIDATE_NON_OPAQUE_TRIANGLE"), (unsigned)DXIL::CandidateType::CandidateNonOpaqueTriangle);
+  AddConstUInt(context, curDC, StringRef("CANDIDATE_PROCEDURAL_PRIMITIVE"), (unsigned)DXIL::CandidateType::CandidateProceduralPrimitive);
+}
+
 static
 Expr* IntConstantAsBoolExpr(clang::Sema& sema, uint64_t value)
 {

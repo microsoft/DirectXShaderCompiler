@@ -299,9 +299,6 @@ namespace DXIL {
   // OPCODE-ENUM:BEGIN
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
-    // 
-    AllocateRayQuery = 168, // allocate space for RayQuery and return handle
-  
     // AnyHit Terminals
     AcceptHitAndEndSearch = 156, // Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
     IgnoreHit = 155, // Used in an any hit shader to reject an intersection and terminate the shader
@@ -389,7 +386,41 @@ namespace DXIL {
     TraceRay = 157, // initiates raytrace
   
     // Inline Ray Query
-    TraceRayInline = 169, // initialize RayQuery for raytrace
+    AllocateRayQuery = 168, // allocates space for RayQuery and return handle
+    RayQuery_Abort = 171, // aborts a ray query
+    RayQuery_CandidateGeometryIndex = 193, // returns candidate hit geometry index
+    RayQuery_CandidateInstanceID = 192, // returns candidate hit instance ID
+    RayQuery_CandidateInstanceIndex = 191, // returns candidate hit instance index
+    RayQuery_CandidateObjectRayDirection = 196, // returns candidate object ray direction
+    RayQuery_CandidateObjectRayOrigin = 195, // returns candidate hit object ray origin
+    RayQuery_CandidateObjectToWorld3x4 = 176, // returns matrix for transforming from object-space to world-space for a candidate hit.
+    RayQuery_CandidatePrimitiveIndex = 194, // returns candidate hit geometry index
+    RayQuery_CandidateProceduralPrimitiveNonOpaque = 180, // returns if current candidate procedural primitive is non opaque
+    RayQuery_CandidateTriangleBarycentrics = 183, // returns candidate triangle hit barycentrics
+    RayQuery_CandidateTriangleFrontFace = 181, // returns if current candidate triangle is front facing
+    RayQuery_CandidateTriangleRayT = 189, // returns float representing the parametric point on the ray for the current candidate triangle hit.
+    RayQuery_CandidateType = 175, // returns uint candidate type (CANDIDATE_TYPE) of the current hit candidate in a ray query, after Proceed() has returned true
+    RayQuery_CandidateWorldToObject3x4 = 177, // returns matrix for transforming from world-space to object-space for a candidate hit.
+    RayQuery_CommitNonOpaqueTriangleHit = 172, // commits a non opaque triangle hit
+    RayQuery_CommitProceduralPrimitiveHit = 173, // commits a procedural primitive hit
+    RayQuery_CommittedGeometryIndex = 199, // returns committed hit geometry index
+    RayQuery_CommittedInstanceID = 198, // returns committed hit instance ID
+    RayQuery_CommittedInstanceIndex = 197, // returns committed hit instance index
+    RayQuery_CommittedObjectRayDirection = 202, // returns committed object ray direction
+    RayQuery_CommittedObjectRayOrigin = 201, // returns committed hit object ray origin
+    RayQuery_CommittedObjectToWorld3x4 = 178, // returns matrix for transforming from object-space to world-space for a Committed hit.
+    RayQuery_CommittedPrimitiveIndex = 200, // returns committed hit geometry index
+    RayQuery_CommittedRayT = 190, // returns float representing the parametric point on the ray for the current committed hit.
+    RayQuery_CommittedStatus = 174, // returns uint status (COMMITTED_STATUS) of the committed hit in a ray query
+    RayQuery_CommittedTriangleBarycentrics = 184, // returns committed triangle hit barycentrics
+    RayQuery_CommittedTriangleFrontFace = 182, // returns if current committed triangle is front facing
+    RayQuery_CommittedWorldToObject3x4 = 179, // returns matrix for transforming from world-space to object-space for a Committed hit.
+    RayQuery_Proceed = 170, // advances a ray query
+    RayQuery_RayFlags = 185, // returns ray flags
+    RayQuery_RayTMin = 188, // returns float representing the parametric starting point for the ray.
+    RayQuery_TraceRayInline = 169, // initializes RayQuery for raytrace
+    RayQuery_WorldRayDirection = 187, // returns world ray direction
+    RayQuery_WorldRayOrigin = 186, // returns world ray origin
   
     // Legacy floating-point
     LegacyF16ToF32 = 131, // legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
@@ -568,9 +599,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
-    NumOpCodes_Dxil_1_5 = 170,
+    NumOpCodes_Dxil_1_5 = 203,
   
-    NumOpCodes = 170 // exclusive last value of enumeration
+    NumOpCodes = 203 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -578,9 +609,6 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
-    // 
-    AllocateRayQuery,
-  
     // AnyHit Terminals
     AcceptHitAndEndSearch,
     IgnoreHit,
@@ -653,7 +681,15 @@ namespace DXIL {
     TraceRay,
   
     // Inline Ray Query
-    TraceRayInline,
+    AllocateRayQuery,
+    RayQuery_Abort,
+    RayQuery_CommitNonOpaqueTriangleHit,
+    RayQuery_CommitProceduralPrimitiveHit,
+    RayQuery_Proceed,
+    RayQuery_StateMatrix,
+    RayQuery_StateScalar,
+    RayQuery_StateVector,
+    RayQuery_TraceRayInline,
   
     // LLVM Instructions
     LlvmInst,
@@ -790,9 +826,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
-    NumOpClasses_Dxil_1_5 = 125,
+    NumOpClasses_Dxil_1_5 = 132,
   
-    NumOpClasses = 125 // exclusive last value of enumeration
+    NumOpClasses = 132 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1181,8 +1217,10 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
   const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
   const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
+  const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
+  const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
 
-  const unsigned ShaderFeatureInfoCount = 20;
+  const unsigned ShaderFeatureInfoCount = 22;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
@@ -1214,6 +1252,17 @@ namespace DXIL {
     Triangle = 0x0,
     ProceduralPrimitive = 0x1,
     LastEntry,
+  };
+
+  enum class CommittedStatus : uint32_t {
+    CommittedNothing = 0,
+    CommittedTriangleHit = 1,
+    CommittedProceduralPrimitiveHit = 2,
+  };
+
+  enum class CandidateType : uint32_t {
+    CandidateNonOpaqueTriangle = 0,
+    CandidateProceduralPrimitive = 1,
   };
 
   inline bool IsValidHitGroupType(HitGroupType type) {

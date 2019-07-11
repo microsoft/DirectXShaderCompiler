@@ -325,7 +325,9 @@ PCSTR g_pFeatureInfoNames[] = {
     "View Instancing",
     "Barycentrics",
     "Use native low precision",
-    "Shading Rate"
+    "Shading Rate",
+    "Raytracing tier 1.1 features",
+    "Sampler feedback"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -1184,7 +1186,40 @@ static const char *OpCodeSignatures[] = {
   "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
   "(value,mask0,mask1,mask2,mask3)",  // WaveMultiPrefixBitCount
   "(constRayFlags)",  // AllocateRayQuery
-  "(rayQueryHandle,accelerationStructure,rayFlags,instanceInclusionMask,origin_X,origin_Y,origin_Z,tMin,direction_X,direction_Y,direction_Z,tMax)"  // TraceRayInline
+  "(rayQueryHandle,accelerationStructure,rayFlags,instanceInclusionMask,origin_X,origin_Y,origin_Z,tMin,direction_X,direction_Y,direction_Z,tMax)",  // RayQuery_TraceRayInline
+  "(rayQueryHandle)",  // RayQuery_Proceed
+  "(rayQueryHandle)",  // RayQuery_Abort
+  "(rayQueryHandle)",  // RayQuery_CommitNonOpaqueTriangleHit
+  "(rayQueryHandle,t)",  // RayQuery_CommitProceduralPrimitiveHit
+  "(rayQueryHandle)",  // RayQuery_CommittedStatus
+  "(rayQueryHandle)",  // RayQuery_CandidateType
+  "(rayQueryHandle,row,col)",  // RayQuery_CandidateObjectToWorld3x4
+  "(rayQueryHandle,row,col)",  // RayQuery_CandidateWorldToObject3x4
+  "(rayQueryHandle,row,col)",  // RayQuery_CommittedObjectToWorld3x4
+  "(rayQueryHandle,row,col)",  // RayQuery_CommittedWorldToObject3x4
+  "(rayQueryHandle)",  // RayQuery_CandidateProceduralPrimitiveNonOpaque
+  "(rayQueryHandle)",  // RayQuery_CandidateTriangleFrontFace
+  "(rayQueryHandle)",  // RayQuery_CommittedTriangleFrontFace
+  "(rayQueryHandle,component)",  // RayQuery_CandidateTriangleBarycentrics
+  "(rayQueryHandle,component)",  // RayQuery_CommittedTriangleBarycentrics
+  "(rayQueryHandle)",  // RayQuery_RayFlags
+  "(rayQueryHandle,component)",  // RayQuery_WorldRayOrigin
+  "(rayQueryHandle,component)",  // RayQuery_WorldRayDirection
+  "(rayQueryHandle)",  // RayQuery_RayTMin
+  "(rayQueryHandle)",  // RayQuery_CandidateTriangleRayT
+  "(rayQueryHandle)",  // RayQuery_CommittedRayT
+  "(rayQueryHandle)",  // RayQuery_CandidateInstanceIndex
+  "(rayQueryHandle)",  // RayQuery_CandidateInstanceID
+  "(rayQueryHandle)",  // RayQuery_CandidateGeometryIndex
+  "(rayQueryHandle)",  // RayQuery_CandidatePrimitiveIndex
+  "(rayQueryHandle,component)",  // RayQuery_CandidateObjectRayOrigin
+  "(rayQueryHandle,component)",  // RayQuery_CandidateObjectRayDirection
+  "(rayQueryHandle)",  // RayQuery_CommittedInstanceIndex
+  "(rayQueryHandle)",  // RayQuery_CommittedInstanceID
+  "(rayQueryHandle)",  // RayQuery_CommittedGeometryIndex
+  "(rayQueryHandle)",  // RayQuery_CommittedPrimitiveIndex
+  "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayOrigin
+  "(rayQueryHandle,component)"  // RayQuery_CommittedObjectRayDirection
 };
 // OPCODE-SIGS:END
 

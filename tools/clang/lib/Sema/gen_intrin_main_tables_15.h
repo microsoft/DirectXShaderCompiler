@@ -5793,6 +5793,182 @@ static const HLSL_INTRINSIC g_ConsumeStructuredBufferMethods[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args0[] =
 {
+    {"Abort", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args1[] =
+{
+    {"CandidateGeometryIndex", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args2[] =
+{
+    {"CandidateInstanceID", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args3[] =
+{
+    {"CandidateInstanceIndex", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args4[] =
+{
+    {"CandidateObjectRayDirection", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args5[] =
+{
+    {"CandidateObjectRayOrigin", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args6[] =
+{
+    {"CandidateObjectToWorld3x4", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 3, 4},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args7[] =
+{
+    {"CandidateObjectToWorld4x3", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 4, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args8[] =
+{
+    {"CandidatePrimitiveIndex", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args9[] =
+{
+    {"CandidateProceduralPrimitiveNonOpaque", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_BOOL, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args10[] =
+{
+    {"CandidateTriangleBarycentrics", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args11[] =
+{
+    {"CandidateTriangleFrontFace", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_BOOL, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args12[] =
+{
+    {"CandidateTriangleRayT", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args13[] =
+{
+    {"CandidateType", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args14[] =
+{
+    {"CandidateWorldToObject3x4", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 3, 4},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args15[] =
+{
+    {"CandidateWorldToObject4x3", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 4, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args16[] =
+{
+    {"CommitNonOpaqueTriangleHit", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args17[] =
+{
+    {"CommitProceduralPrimitiveHit", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args18[] =
+{
+    {"CommittedGeometryIndex", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args19[] =
+{
+    {"CommittedInstanceID", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args20[] =
+{
+    {"CommittedInstanceIndex", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args21[] =
+{
+    {"CommittedObjectRayDirection", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args22[] =
+{
+    {"CommittedObjectRayOrigin", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args23[] =
+{
+    {"CommittedObjectToWorld3x4", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 3, 4},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args24[] =
+{
+    {"CommittedObjectToWorld4x3", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 4, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args25[] =
+{
+    {"CommittedPrimitiveIndex", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args26[] =
+{
+    {"CommittedRayT", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args27[] =
+{
+    {"CommittedStatus", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args28[] =
+{
+    {"CommittedTriangleBarycentrics", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args29[] =
+{
+    {"CommittedTriangleFrontFace", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_BOOL, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args30[] =
+{
+    {"CommittedWorldToObject3x4", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 3, 4},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args31[] =
+{
+    {"CommittedWorldToObject4x3", AR_QUAL_OUT, 0, LITEMPLATE_MATRIX, 0, LICOMPTYPE_FLOAT, 4, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args32[] =
+{
+    {"Proceed", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_BOOL, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args33[] =
+{
+    {"RayFlags", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args34[] =
+{
+    {"RayTMin", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args35[] =
+{
     {"TraceRayInline", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"AccelerationStructure", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_ACCELERATION_STRUCT, 1, 1},
     {"RayFlags", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT, 1, 1},
@@ -5800,9 +5976,56 @@ static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args0[] =
     {"Ray", AR_QUAL_IN, 4, LITEMPLATE_OBJECT, 4, LICOMPTYPE_RAYDESC, 1, 1},
 };
 
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args36[] =
+{
+    {"WorldRayDirection", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RayQueryMethods_Args37[] =
+{
+    {"WorldRayOrigin", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 3},
+};
+
 static const HLSL_INTRINSIC g_RayQueryMethods[] =
 {
-    {(UINT)hlsl::IntrinsicOp::MOP_TraceRayInline, false, false, -1, 5, g_RayQueryMethods_Args0},
+    {(UINT)hlsl::IntrinsicOp::MOP_Abort, false, false, -1, 1, g_RayQueryMethods_Args0},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateGeometryIndex, true, false, -1, 1, g_RayQueryMethods_Args1},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateInstanceID, true, false, -1, 1, g_RayQueryMethods_Args2},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateInstanceIndex, true, false, -1, 1, g_RayQueryMethods_Args3},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateObjectRayDirection, true, false, -1, 1, g_RayQueryMethods_Args4},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateObjectRayOrigin, true, false, -1, 1, g_RayQueryMethods_Args5},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateObjectToWorld3x4, true, false, -1, 1, g_RayQueryMethods_Args6},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateObjectToWorld4x3, true, false, -1, 1, g_RayQueryMethods_Args7},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidatePrimitiveIndex, true, false, -1, 1, g_RayQueryMethods_Args8},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateProceduralPrimitiveNonOpaque, true, false, -1, 1, g_RayQueryMethods_Args9},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateTriangleBarycentrics, true, false, -1, 1, g_RayQueryMethods_Args10},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateTriangleFrontFace, true, false, -1, 1, g_RayQueryMethods_Args11},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateTriangleRayT, true, false, -1, 1, g_RayQueryMethods_Args12},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateType, true, false, -1, 1, g_RayQueryMethods_Args13},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateWorldToObject3x4, true, false, -1, 1, g_RayQueryMethods_Args14},
+    {(UINT)hlsl::IntrinsicOp::MOP_CandidateWorldToObject4x3, true, false, -1, 1, g_RayQueryMethods_Args15},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommitNonOpaqueTriangleHit, false, false, -1, 1, g_RayQueryMethods_Args16},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommitProceduralPrimitiveHit, false, false, -1, 2, g_RayQueryMethods_Args17},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedGeometryIndex, true, false, -1, 1, g_RayQueryMethods_Args18},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedInstanceID, true, false, -1, 1, g_RayQueryMethods_Args19},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedInstanceIndex, true, false, -1, 1, g_RayQueryMethods_Args20},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedObjectRayDirection, true, false, -1, 1, g_RayQueryMethods_Args21},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedObjectRayOrigin, true, false, -1, 1, g_RayQueryMethods_Args22},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedObjectToWorld3x4, true, false, -1, 1, g_RayQueryMethods_Args23},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedObjectToWorld4x3, true, false, -1, 1, g_RayQueryMethods_Args24},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedPrimitiveIndex, true, false, -1, 1, g_RayQueryMethods_Args25},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedRayT, true, false, -1, 1, g_RayQueryMethods_Args26},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedStatus, true, false, -1, 1, g_RayQueryMethods_Args27},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedTriangleBarycentrics, true, false, -1, 1, g_RayQueryMethods_Args28},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedTriangleFrontFace, true, false, -1, 1, g_RayQueryMethods_Args29},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedWorldToObject3x4, true, false, -1, 1, g_RayQueryMethods_Args30},
+    {(UINT)hlsl::IntrinsicOp::MOP_CommittedWorldToObject4x3, true, false, -1, 1, g_RayQueryMethods_Args31},
+    {(UINT)hlsl::IntrinsicOp::MOP_Proceed, false, false, -1, 1, g_RayQueryMethods_Args32},
+    {(UINT)hlsl::IntrinsicOp::MOP_RayFlags, true, false, -1, 1, g_RayQueryMethods_Args33},
+    {(UINT)hlsl::IntrinsicOp::MOP_RayTMin, true, false, -1, 1, g_RayQueryMethods_Args34},
+    {(UINT)hlsl::IntrinsicOp::MOP_TraceRayInline, false, false, -1, 5, g_RayQueryMethods_Args35},
+    {(UINT)hlsl::IntrinsicOp::MOP_WorldRayDirection, true, false, -1, 1, g_RayQueryMethods_Args36},
+    {(UINT)hlsl::IntrinsicOp::MOP_WorldRayOrigin, true, false, -1, 1, g_RayQueryMethods_Args37},
 };
 
 //
@@ -5858,7 +6081,7 @@ static const UINT g_uRWTexture1DMethodsCount = 4;
 static const UINT g_uRWTexture2DArrayMethodsCount = 4;
 static const UINT g_uRWTexture2DMethodsCount = 4;
 static const UINT g_uRWTexture3DMethodsCount = 4;
-static const UINT g_uRayQueryMethodsCount = 1;
+static const UINT g_uRayQueryMethodsCount = 38;
 static const UINT g_uStreamMethodsCount = 2;
 static const UINT g_uStructuredBufferMethodsCount = 3;
 static const UINT g_uTexture1DArrayMethodsCount = 31;
@@ -5873,7 +6096,7 @@ static const UINT g_uTextureCUBEMethodsCount = 42;
 static const UINT g_uVkSubpassInputMSMethodsCount = 1;
 static const UINT g_uVkSubpassInputMethodsCount = 1;
 
-static const int g_MaxIntrinsicName = 32; // Count of characters for longest intrinsic name - 'DeviceMemoryBarrierWithGroupSync'
+static const int g_MaxIntrinsicName = 37; // Count of characters for longest intrinsic name - 'CandidateProceduralPrimitiveNonOpaque'
 static const int g_MaxIntrinsicParamName = 48; // Count of characters for longest intrinsic parameter name - 'MultiplierForGeometryContributionToHitGroupIndex'
 static const int g_MaxIntrinsicParamCount = 8; // Count of parameters (without return) for longest intrinsic argument list - 'TraceRay'
 // HLSL-INTRINSIC-STATS:END
