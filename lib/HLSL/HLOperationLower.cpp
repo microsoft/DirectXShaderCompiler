@@ -3244,6 +3244,67 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return nullptr;
 }
 
+static Value* TranslateWriteSamplerFeedback(CallInst* CI, IntrinsicOp IOP, OP::OpCode opcode,
+  HLOperationLowerHelper& helper, HLObjectOperationLowerHelper* pObjHelper, bool& Translated) {
+
+  hlsl::OP* hlslOP = &helper.hlslOP;
+
+  IRBuilder<> Builder(CI);
+
+  // Build the DXIL operands
+  SmallVector<Value*, 8> DxilOperands;
+  DxilOperands.emplace_back(Builder.getInt32((unsigned)opcode));
+  DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
+  DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackSampledArgIndex));
+  DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackSamplerArgIndex));
+
+  // Coords operands
+  constexpr unsigned NumDxilCoordsOperands = 3;
+  Value* CoordsVec = CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex);
+  VectorType *CoordsVecTy = cast<VectorType>(CoordsVec->getType());
+  DXASSERT_NOMSG(CoordsVecTy->getNumElements() <= NumDxilCoordsOperands);
+  for (unsigned i = 0; i < NumDxilCoordsOperands; ++i) {
+    Value *Coord = i < CoordsVecTy->getNumElements()
+      ? Builder.CreateExtractElement(CoordsVec, i)
+      : UndefValue::get(CoordsVecTy->getElementType());
+    DxilOperands.emplace_back(Coord);
+  }
+
+  unsigned LastHLOperandRead = HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex;
+
+  // Bias/level/grad operands
+  if (opcode == OP::OpCode::WriteSamplerFeedbackBias
+    || opcode == OP::OpCode::WriteSamplerFeedbackLevel) {
+    DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackBiasOrLodArgIndex));
+    LastHLOperandRead = HLOperandIndex::kWriteSamplerFeedbackBiasOrLodArgIndex;
+  }
+  else if (opcode == OP::OpCode::WriteSamplerFeedbackGrad) {
+    DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackDdxArgIndex));
+    DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackDdyArgIndex));
+    LastHLOperandRead = HLOperandIndex::kWriteSamplerFeedbackDdyArgIndex;
+  }
+
+  // Append the optional clamp argument as needed.
+  bool HasOptionalClampOperand = opcode == OP::OpCode::WriteSamplerFeedback
+    || opcode == OP::OpCode::WriteSamplerFeedbackBias
+    || opcode == OP::OpCode::WriteSamplerFeedbackGrad;
+  if (HasOptionalClampOperand) {
+    if (LastHLOperandRead == CI->getNumArgOperands() - 1)
+      DxilOperands.emplace_back(UndefValue::get(Builder.getFloatTy()));
+    else {
+      LastHLOperandRead++;
+      DxilOperands.emplace_back(CI->getArgOperand(LastHLOperandRead));
+    }
+  }
+
+  DXASSERT(LastHLOperandRead == CI->getNumArgOperands() - 1,
+    "Unexpected trailing hlsl intrinsic arguments.");
+
+  // Call the DXIL operation
+  Function* DxilFunc = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
+  return Builder.CreateCall(DxilFunc, DxilOperands);
+}
+
 // Load/Store intrinsics.
 struct ResLoadHelper {
   ResLoadHelper(CallInst *CI, DxilResource::Kind RK, DxilResourceBase::Class RC,
@@ -4819,7 +4880,7 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 }
 
 // This table has to match IntrinsicOp orders
-IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] = {
+IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_AcceptHitAndEndSearch, TranslateNoArgNoReturnPreserveOutput, DXIL::OpCode::AcceptHitAndEndSearch},
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -5062,6 +5123,10 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_DecrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_IncrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Consume, EmptyLower, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_WriteSamplerFeedback, TranslateWriteSamplerFeedback, DXIL::OpCode::WriteSamplerFeedback},
+    {IntrinsicOp::MOP_WriteSamplerFeedbackBias, TranslateWriteSamplerFeedback, DXIL::OpCode::WriteSamplerFeedbackBias},
+    {IntrinsicOp::MOP_WriteSamplerFeedbackGrad, TranslateWriteSamplerFeedback, DXIL::OpCode::WriteSamplerFeedbackGrad},
+    {IntrinsicOp::MOP_WriteSamplerFeedbackLevel, TranslateWriteSamplerFeedback, DXIL::OpCode::WriteSamplerFeedbackLevel},
 
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -5092,6 +5157,8 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     { IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
 };
 }
+static_assert(sizeof(gLowerTable) / sizeof(gLowerTable[0]) == static_cast<size_t>(IntrinsicOp::Num_Intrinsics),
+  "Intrinsic lowering table must be updated to account for new intrinsics.");
 
 static void TranslateBuiltinIntrinsic(CallInst *CI,
                                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {

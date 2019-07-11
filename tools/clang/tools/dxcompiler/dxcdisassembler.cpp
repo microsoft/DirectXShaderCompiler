@@ -1192,6 +1192,10 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // WaveMatch
   "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
   "(value,mask0,mask1,mask2,mask3)",  // WaveMultiPrefixBitCount
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,clamp)",  // WriteSamplerFeedback
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,bias,clamp)",  // WriteSamplerFeedbackBias
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,lod)",  // WriteSamplerFeedbackLevel
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,ddx,ddy,clamp)",  // WriteSamplerFeedbackGrad
   "(numVertices,numPrimitives)",  // SetMeshOutputCounts
   "(PrimitiveIndex,VertexIndex0,VertexIndex1,VertexIndex2)",  // EmitIndices
   "()",  // GetMeshPayload

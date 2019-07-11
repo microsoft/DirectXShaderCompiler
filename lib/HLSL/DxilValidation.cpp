@@ -874,16 +874,21 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
   // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167
-  if ((165 <= op && op <= 167))
+  // WaveMultiPrefixBitCount=167, WriteSamplerFeedbackLevel=170,
+  // WriteSamplerFeedbackGrad=171
+  if ((165 <= op && op <= 167) || (170 <= op && op <= 171))
     return (major > 6 || (major == 6 && minor >= 5));
-  // Instructions: DispatchMesh=173
-  if (op == 173)
+  // Instructions: DispatchMesh=177
+  if (op == 177)
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Amplification);
-  // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
-  // StoreVertexOutput=171, StorePrimitiveOutput=172
-  if ((168 <= op && op <= 172))
+  // Instructions: WriteSamplerFeedback=168, WriteSamplerFeedbackBias=169
+  if ((168 <= op && op <= 169))
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel);
+  // Instructions: SetMeshOutputCounts=172, EmitIndices=173, GetMeshPayload=174,
+  // StoreVertexOutput=175, StorePrimitiveOutput=176
+  if ((172 <= op && op <= 176))
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Mesh);
   return true;
@@ -3879,6 +3884,11 @@ static void ValidateResource(hlsl::DxilResource &res,
     break;
   case DXIL::ResourceKind::RTAccelerationStructure:
     // TODO: check profile.
+    break;
+  case DXIL::ResourceKind::FeedbackTexture2DMinLOD:
+  case DXIL::ResourceKind::FeedbackTexture2DTiled:
+  case DXIL::ResourceKind::FeedbackTexture2DArrayMinLOD:
+  case DXIL::ResourceKind::FeedbackTexture2DArrayTiled:
     break;
   default:
     ValCtx.EmitResourceError(&res, ValidationRule::SmInvalidResourceKind);

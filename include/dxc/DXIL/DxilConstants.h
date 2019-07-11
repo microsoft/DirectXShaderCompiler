@@ -314,6 +314,10 @@ namespace DXIL {
     Sampler,
     TBuffer,
     RTAccelerationStructure,
+    FeedbackTexture2DMinLOD,
+    FeedbackTexture2DTiled,
+    FeedbackTexture2DArrayMinLOD,
+    FeedbackTexture2DArrayTiled,
     NumEntries,
   };
 
@@ -323,7 +327,7 @@ namespace DXIL {
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
     // Amplification shader instructions
-    DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
+    DispatchMesh = 177, // Amplification shader intrinsic DispatchMesh
   
     // AnyHit Terminals
     AcceptHitAndEndSearch = 156, // Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
@@ -419,11 +423,11 @@ namespace DXIL {
     CreateHandleForLib = 160, // create resource handle from resource struct for library
   
     // Mesh shader instructions
-    EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
-    GetMeshPayload = 170, // get the mesh payload which is from amplification shader
-    SetMeshOutputCounts = 168, // Mesh shader intrinsic SetMeshOutputCounts
-    StorePrimitiveOutput = 172, // stores the value to mesh shader primitive output
-    StoreVertexOutput = 171, // stores the value to mesh shader vertex output
+    EmitIndices = 173, // emit a primitive's vertex indices in a mesh shader
+    GetMeshPayload = 174, // get the mesh payload which is from amplification shader
+    SetMeshOutputCounts = 172, // Mesh shader intrinsic SetMeshOutputCounts
+    StorePrimitiveOutput = 176, // stores the value to mesh shader primitive output
+    StoreVertexOutput = 175, // stores the value to mesh shader vertex output
   
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
@@ -505,6 +509,12 @@ namespace DXIL {
     RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
     TextureLoad = 66, // reads texel data without any filtering or sampling
     TextureStore = 67, // reads texel data without any filtering or sampling
+  
+    // Sampler Feedback
+    WriteSamplerFeedback = 168, // updates a feedback texture for a sampling operation
+    WriteSamplerFeedbackBias = 169, // updates a feedback texture for a sampling operation with a bias on the mipmap level
+    WriteSamplerFeedbackGrad = 171, // updates a feedback texture for a sampling operation with explicit gradients
+    WriteSamplerFeedbackLevel = 170, // updates a feedback texture for a sampling operation with a mipmap-level offset
   
     // Synchronization
     AtomicBinOp = 78, // performs an atomic operation on two operands
@@ -595,9 +605,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
-    NumOpCodes_Dxil_1_5 = 174,
+    NumOpCodes_Dxil_1_5 = 178,
   
-    NumOpCodes = 174 // exclusive last value of enumeration
+    NumOpCodes = 178 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -774,6 +784,12 @@ namespace DXIL {
     TextureLoad,
     TextureStore,
   
+    // Sampler Feedback
+    WriteSamplerFeedback,
+    WriteSamplerFeedbackBias,
+    WriteSamplerFeedbackGrad,
+    WriteSamplerFeedbackLevel,
+  
     // Synchronization
     AtomicBinOp,
     AtomicCompareExchange,
@@ -821,9 +837,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
-    NumOpClasses_Dxil_1_5 = 129,
+    NumOpClasses_Dxil_1_5 = 133,
   
-    NumOpClasses = 129 // exclusive last value of enumeration
+    NumOpClasses = 133 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

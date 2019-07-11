@@ -262,6 +262,10 @@ import hctdb_instrhelp
   MOP_DecrementCounter,
   MOP_IncrementCounter,
   MOP_Consume,
+  MOP_WriteSamplerFeedback,
+  MOP_WriteSamplerFeedbackBias,
+  MOP_WriteSamplerFeedbackGrad,
+  MOP_WriteSamplerFeedbackLevel,
 #ifdef ENABLE_SPIRV_CODEGEN
   MOP_SubpassLoad,
 #endif // ENABLE_SPIRV_CODEGEN

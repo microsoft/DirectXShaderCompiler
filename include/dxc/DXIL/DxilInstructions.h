@@ -5550,6 +5550,187 @@ struct DxilInst_WaveMultiPrefixBitCount {
   void set_mask3(llvm::Value *val) { Instr->setOperand(5, val); }
 };
 
+/// This instruction updates a feedback texture for a sampling operation
+struct DxilInst_WriteSamplerFeedback {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WriteSamplerFeedback(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WriteSamplerFeedback);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (8 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_feedbackTex = 1,
+    arg_sampledTex = 2,
+    arg_sampler = 3,
+    arg_c0 = 4,
+    arg_c1 = 5,
+    arg_c2 = 6,
+    arg_clamp = 7,
+  };
+  // Accessors
+  llvm::Value *get_feedbackTex() const { return Instr->getOperand(1); }
+  void set_feedbackTex(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampledTex() const { return Instr->getOperand(2); }
+  void set_sampledTex(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(3); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_c0() const { return Instr->getOperand(4); }
+  void set_c0(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_c1() const { return Instr->getOperand(5); }
+  void set_c1(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_c2() const { return Instr->getOperand(6); }
+  void set_c2(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_clamp() const { return Instr->getOperand(7); }
+  void set_clamp(llvm::Value *val) { Instr->setOperand(7, val); }
+};
+
+/// This instruction updates a feedback texture for a sampling operation with a bias on the mipmap level
+struct DxilInst_WriteSamplerFeedbackBias {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WriteSamplerFeedbackBias(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WriteSamplerFeedbackBias);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_feedbackTex = 1,
+    arg_sampledTex = 2,
+    arg_sampler = 3,
+    arg_c0 = 4,
+    arg_c1 = 5,
+    arg_c2 = 6,
+    arg_bias = 7,
+    arg_clamp = 8,
+  };
+  // Accessors
+  llvm::Value *get_feedbackTex() const { return Instr->getOperand(1); }
+  void set_feedbackTex(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampledTex() const { return Instr->getOperand(2); }
+  void set_sampledTex(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(3); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_c0() const { return Instr->getOperand(4); }
+  void set_c0(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_c1() const { return Instr->getOperand(5); }
+  void set_c1(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_c2() const { return Instr->getOperand(6); }
+  void set_c2(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_bias() const { return Instr->getOperand(7); }
+  void set_bias(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_clamp() const { return Instr->getOperand(8); }
+  void set_clamp(llvm::Value *val) { Instr->setOperand(8, val); }
+};
+
+/// This instruction updates a feedback texture for a sampling operation with a mipmap-level offset
+struct DxilInst_WriteSamplerFeedbackLevel {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WriteSamplerFeedbackLevel(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WriteSamplerFeedbackLevel);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (8 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_feedbackTex = 1,
+    arg_sampledTex = 2,
+    arg_sampler = 3,
+    arg_c0 = 4,
+    arg_c1 = 5,
+    arg_c2 = 6,
+    arg_lod = 7,
+  };
+  // Accessors
+  llvm::Value *get_feedbackTex() const { return Instr->getOperand(1); }
+  void set_feedbackTex(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampledTex() const { return Instr->getOperand(2); }
+  void set_sampledTex(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(3); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_c0() const { return Instr->getOperand(4); }
+  void set_c0(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_c1() const { return Instr->getOperand(5); }
+  void set_c1(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_c2() const { return Instr->getOperand(6); }
+  void set_c2(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_lod() const { return Instr->getOperand(7); }
+  void set_lod(llvm::Value *val) { Instr->setOperand(7, val); }
+};
+
+/// This instruction updates a feedback texture for a sampling operation with explicit gradients
+struct DxilInst_WriteSamplerFeedbackGrad {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_WriteSamplerFeedbackGrad(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::WriteSamplerFeedbackGrad);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (10 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_feedbackTex = 1,
+    arg_sampledTex = 2,
+    arg_sampler = 3,
+    arg_c0 = 4,
+    arg_c1 = 5,
+    arg_c2 = 6,
+    arg_ddx = 7,
+    arg_ddy = 8,
+    arg_clamp = 9,
+  };
+  // Accessors
+  llvm::Value *get_feedbackTex() const { return Instr->getOperand(1); }
+  void set_feedbackTex(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampledTex() const { return Instr->getOperand(2); }
+  void set_sampledTex(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(3); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_c0() const { return Instr->getOperand(4); }
+  void set_c0(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_c1() const { return Instr->getOperand(5); }
+  void set_c1(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_c2() const { return Instr->getOperand(6); }
+  void set_c2(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_ddx() const { return Instr->getOperand(7); }
+  void set_ddx(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_ddy() const { return Instr->getOperand(8); }
+  void set_ddy(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_clamp() const { return Instr->getOperand(9); }
+  void set_clamp(llvm::Value *val) { Instr->setOperand(9, val); }
+};
+
 /// This instruction Mesh shader intrinsic SetMeshOutputCounts
 struct DxilInst_SetMeshOutputCounts {
   llvm::Instruction *Instr;

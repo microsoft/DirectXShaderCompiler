@@ -5806,6 +5806,168 @@ static const HLSL_INTRINSIC g_ConsumeStructuredBufferMethods[] =
 };
 
 //
+// Start of FeedbackTexture2DMethods
+//
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args0[] =
+{
+    {"WriteSamplerFeedback", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args1[] =
+{
+    {"WriteSamplerFeedback", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+    {"clamp", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args2[] =
+{
+    {"WriteSamplerFeedbackBias", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+    {"bias", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args3[] =
+{
+    {"WriteSamplerFeedbackBias", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+    {"bias", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+    {"clamp", AR_QUAL_IN, 5, LITEMPLATE_SCALAR, 5, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args4[] =
+{
+    {"WriteSamplerFeedbackGrad", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+    {"ddx", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+    {"ddy", AR_QUAL_IN, 5, LITEMPLATE_SCALAR, 5, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args5[] =
+{
+    {"WriteSamplerFeedbackGrad", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+    {"ddx", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+    {"ddy", AR_QUAL_IN, 5, LITEMPLATE_SCALAR, 5, LICOMPTYPE_FLOAT, 1, 1},
+    {"clamp", AR_QUAL_IN, 6, LITEMPLATE_SCALAR, 6, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DMethods_Args6[] =
+{
+    {"WriteSamplerFeedbackLevel", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2D, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 2},
+    {"lod", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC g_FeedbackTexture2DMethods[] =
+{
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedback, false, false, -1, 4, g_FeedbackTexture2DMethods_Args0},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedback, false, false, -1, 5, g_FeedbackTexture2DMethods_Args1},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackBias, false, false, -1, 5, g_FeedbackTexture2DMethods_Args2},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackBias, false, false, -1, 6, g_FeedbackTexture2DMethods_Args3},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackGrad, false, false, -1, 6, g_FeedbackTexture2DMethods_Args4},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackGrad, false, false, -1, 7, g_FeedbackTexture2DMethods_Args5},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackLevel, false, false, -1, 5, g_FeedbackTexture2DMethods_Args6},
+};
+
+//
+// Start of FeedbackTexture2DArrayMethods
+//
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args0[] =
+{
+    {"WriteSamplerFeedback", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args1[] =
+{
+    {"WriteSamplerFeedback", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+    {"clamp", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args2[] =
+{
+    {"WriteSamplerFeedbackBias", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+    {"bias", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args3[] =
+{
+    {"WriteSamplerFeedbackBias", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+    {"bias", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+    {"clamp", AR_QUAL_IN, 5, LITEMPLATE_SCALAR, 5, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args4[] =
+{
+    {"WriteSamplerFeedbackGrad", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+    {"ddx", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+    {"ddy", AR_QUAL_IN, 5, LITEMPLATE_SCALAR, 5, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args5[] =
+{
+    {"WriteSamplerFeedbackGrad", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+    {"ddx", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+    {"ddy", AR_QUAL_IN, 5, LITEMPLATE_SCALAR, 5, LICOMPTYPE_FLOAT, 1, 1},
+    {"clamp", AR_QUAL_IN, 6, LITEMPLATE_SCALAR, 6, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_FeedbackTexture2DArrayMethods_Args6[] =
+{
+    {"WriteSamplerFeedbackLevel", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"t", AR_QUAL_IN, 1, LITEMPLATE_OBJECT, 1, LICOMPTYPE_TEXTURE2DARRAY, 1, 1},
+    {"s", AR_QUAL_IN, 2, LITEMPLATE_OBJECT, 2, LICOMPTYPE_SAMPLER, 1, 1},
+    {"x", AR_QUAL_IN, 3, LITEMPLATE_VECTOR, 3, LICOMPTYPE_FLOAT, 1, 3},
+    {"lod", AR_QUAL_IN, 4, LITEMPLATE_SCALAR, 4, LICOMPTYPE_FLOAT, 1, 1},
+};
+
+static const HLSL_INTRINSIC g_FeedbackTexture2DArrayMethods[] =
+{
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedback, false, false, -1, 4, g_FeedbackTexture2DArrayMethods_Args0},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedback, false, false, -1, 5, g_FeedbackTexture2DArrayMethods_Args1},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackBias, false, false, -1, 5, g_FeedbackTexture2DArrayMethods_Args2},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackBias, false, false, -1, 6, g_FeedbackTexture2DArrayMethods_Args3},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackGrad, false, false, -1, 6, g_FeedbackTexture2DArrayMethods_Args4},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackGrad, false, false, -1, 7, g_FeedbackTexture2DArrayMethods_Args5},
+    {(UINT)hlsl::IntrinsicOp::MOP_WriteSamplerFeedbackLevel, false, false, -1, 5, g_FeedbackTexture2DArrayMethods_Args6},
+};
+
+//
 // Start of VkSubpassInputMethods
 //
 
@@ -5849,6 +6011,8 @@ static const UINT g_uAppendStructuredBufferMethodsCount = 2;
 static const UINT g_uBufferMethodsCount = 3;
 static const UINT g_uByteAddressBufferMethodsCount = 9;
 static const UINT g_uConsumeStructuredBufferMethodsCount = 2;
+static const UINT g_uFeedbackTexture2DArrayMethodsCount = 7;
+static const UINT g_uFeedbackTexture2DMethodsCount = 7;
 static const UINT g_uIntrinsicsCount = 218;
 static const UINT g_uRWBufferMethodsCount = 3;
 static const UINT g_uRWByteAddressBufferMethodsCount = 28;

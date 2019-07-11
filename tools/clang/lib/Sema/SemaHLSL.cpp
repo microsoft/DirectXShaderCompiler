@@ -171,6 +171,11 @@ enum ArBasicKind {
   AR_OBJECT_ROVTEXTURE2D_ARRAY,
   AR_OBJECT_ROVTEXTURE3D,
 
+  AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_TILED,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED,
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
@@ -276,7 +281,8 @@ enum ArBasicKind {
 #define BPROP_PRIMITIVE         0x00100000  // Whether the type is a primitive scalar type.
 #define BPROP_MIN_PRECISION     0x00200000  // Whether the type is qualified with a minimum precision.
 #define BPROP_ROVBUFFER         0x00400000  // Whether the type is a ROV object.
-#define BPROP_ENUM              0x00800000  // Whether the type is a enum
+#define BPROP_FEEDBACKTEXTURE   0x00800000  // Whether the type is a feedback texture.
+#define BPROP_ENUM              0x01000000  // Whether the type is a enum
 
 #define GET_BPROP_PRIM_KIND(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
@@ -447,6 +453,11 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE2D
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE2D_ARRAY
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE3D
+
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_TILED
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED
 
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1092,6 +1103,18 @@ static const ArBasicKind g_SamplerCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Texture2DCT[] =
+{
+  AR_OBJECT_TEXTURE2D,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Texture2DArrayCT[] =
+{
+  AR_OBJECT_TEXTURE2D_ARRAY,
+  AR_BASIC_UNKNOWN
+};
+
 static const ArBasicKind g_RayDescCT[] =
 {
   AR_OBJECT_RAY_DESC,
@@ -1203,8 +1226,11 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_RayDescCT,          // LICOMPTYPE_RAYDESC
   g_AccelerationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
   g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
+  g_Texture2DCT,        // LICOMPTYPE_TEXTURE2D
+  g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
 };
-C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
+static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
+  "Intrinsic comp type table must be updated when new enumerants are added.");
 
 // Decls.cpp constants ends here - these should be refactored or, better, replaced with clang::Type-based constructs.
 
@@ -1263,6 +1289,11 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_ROVTEXTURE2D,
   AR_OBJECT_ROVTEXTURE2D_ARRAY,
   AR_OBJECT_ROVTEXTURE3D,
+
+  AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_TILED,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED,
 
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1344,6 +1375,11 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_ROVTEXTURE2D
   1, // AR_OBJECT_ROVTEXTURE2D_ARRAY
   1, // AR_OBJECT_ROVTEXTURE3D
+
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_TILED
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED
 
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1433,6 +1469,11 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 2, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE2D (ROVTexture2D)
   { 3, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE2D_ARRAY (ROVTexture2DArray)
   { 3, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE3D (ROVTexture3D)
+
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_TILED
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED
 
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1543,6 +1584,11 @@ const char* g_ArBasicTypeNames[] =
   "RasterizerOrderedTexture2D",
   "RasterizerOrderedTexture2DArray",
   "RasterizerOrderedTexture3D",
+
+  "FeedbackTexture2DMinLOD",
+  "FeedbackTexture2DTiled",
+  "FeedbackTexture2DArrayMinLOD",
+  "FeedbackTexture2DArrayTiled",
 
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -2088,6 +2134,16 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
   case AR_OBJECT_ROVTEXTURE3D:
     *intrinsics = g_RWTexture3DMethods;
     *intrinsicCount = _countof(g_RWTexture3DMethods);
+    break;
+  case AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_TILED:
+    *intrinsics = g_FeedbackTexture2DMethods;
+    *intrinsicCount = _countof(g_FeedbackTexture2DMethods);
+    break;
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED:
+    *intrinsics = g_FeedbackTexture2DArrayMethods;
+    *intrinsicCount = _countof(g_FeedbackTexture2DArrayMethods);
     break;
   case AR_OBJECT_RWBUFFER:
   case AR_OBJECT_ROVBUFFER:
@@ -5603,7 +5659,12 @@ bool HLSLExternalSource::MatchArguments(
         return false;
       }
       pNewType = objectElement;
-    } else {
+    }
+    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2D
+      || pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2DARRAY) {
+      pNewType = Args[i - 1]->getType().getNonReferenceType();
+    }
+    else {
       ArBasicKind pEltType;
 
       // ComponentType, if the Id is special then it gets the
@@ -9655,6 +9716,10 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_ROVTEXTURE2D:
   case AR_OBJECT_ROVTEXTURE2D_ARRAY:
   case AR_OBJECT_ROVTEXTURE3D:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_TILED:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED:
     expected = "'u'";
     isValid = registerType == 'u';
     break;

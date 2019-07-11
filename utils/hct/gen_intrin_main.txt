@@ -840,6 +840,30 @@ $classT [[]] Consume() : structuredbuffer_consume;
 
 } namespace
 
+namespace FeedbackTexture2DMethods {
+
+void [[]] WriteSamplerFeedback(in Texture2D t, in sampler s, in float<2> x);
+void [[]] WriteSamplerFeedback(in Texture2D t, in sampler s, in float<2> x, in float clamp);
+void [[]] WriteSamplerFeedbackBias(in Texture2D t, in sampler s, in float<2> x, in float bias);
+void [[]] WriteSamplerFeedbackBias(in Texture2D t, in sampler s, in float<2> x, in float bias, in float clamp);
+void [[]] WriteSamplerFeedbackGrad(in Texture2D t, in sampler s, in float<2> x, in float ddx, in float ddy);
+void [[]] WriteSamplerFeedbackGrad(in Texture2D t, in sampler s, in float<2> x, in float ddx, in float ddy, in float clamp);
+void [[]] WriteSamplerFeedbackLevel(in Texture2D t, in sampler s, in float<2> x, in float lod);
+
+} namespace
+
+namespace FeedbackTexture2DArrayMethods {
+
+void [[]] WriteSamplerFeedback(in Texture2DArray t, in sampler s, in float<3> x);
+void [[]] WriteSamplerFeedback(in Texture2DArray t, in sampler s, in float<3> x, in float clamp);
+void [[]] WriteSamplerFeedbackBias(in Texture2DArray t, in sampler s, in float<3> x, in float bias);
+void [[]] WriteSamplerFeedbackBias(in Texture2DArray t, in sampler s, in float<3> x, in float bias, in float clamp);
+void [[]] WriteSamplerFeedbackGrad(in Texture2DArray t, in sampler s, in float<3> x, in float ddx, in float ddy);
+void [[]] WriteSamplerFeedbackGrad(in Texture2DArray t, in sampler s, in float<3> x, in float ddx, in float ddy, in float clamp);
+void [[]] WriteSamplerFeedbackLevel(in Texture2DArray t, in sampler s, in float<3> x, in float lod);
+
+} namespace
+
 // SPIRV Change Starts
 
 namespace VkSubpassInputMethods {

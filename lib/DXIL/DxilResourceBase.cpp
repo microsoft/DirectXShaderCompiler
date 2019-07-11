@@ -56,36 +56,44 @@ void DxilResourceBase::SetGlobalSymbol(llvm::Constant *pGV)       { m_pSymbol = 
 void DxilResourceBase::SetGlobalName(const std::string &Name)     { m_Name = Name; }
 void DxilResourceBase::SetHandle(llvm::Value *pHandle)            { m_pHandle = pHandle; }
 
-static const char *s_ResourceClassNames[(unsigned)DxilResourceBase::Class::Invalid] = {
+static const char *s_ResourceClassNames[] = {
     "texture", "UAV", "cbuffer", "sampler"
 };
+static_assert(_countof(s_ResourceClassNames) == (unsigned)DxilResourceBase::Class::Invalid,
+  "Resource class names array must be updated when new resource class enums are added.");
 
 const char *DxilResourceBase::GetResClassName() const {
   return s_ResourceClassNames[(unsigned)m_Class];
 }
 
-static const char *s_ResourceIDPrefixs[(unsigned)DxilResourceBase::Class::Invalid] = {
+static const char *s_ResourceIDPrefixes[] = {
     "T", "U", "CB", "S"
 };
+static_assert(_countof(s_ResourceIDPrefixes) == (unsigned)DxilResourceBase::Class::Invalid,
+  "Resource id prefixes array must be updated when new resource class enums are added.");
 
 const char *DxilResourceBase::GetResIDPrefix() const {
-  return s_ResourceIDPrefixs[(unsigned)m_Class];
+  return s_ResourceIDPrefixes[(unsigned)m_Class];
 }
 
-static const char *s_ResourceBindPrefixs[(unsigned)DxilResourceBase::Class::Invalid] = {
+static const char *s_ResourceBindPrefixes[] = {
     "t", "u", "cb", "s"
 };
+static_assert(_countof(s_ResourceBindPrefixes) == (unsigned)DxilResourceBase::Class::Invalid,
+  "Resource bind prefixes array must be updated when new resource class enums are added.");
 
 const char *DxilResourceBase::GetResBindPrefix() const {
-  return s_ResourceBindPrefixs[(unsigned)m_Class];
+  return s_ResourceBindPrefixes[(unsigned)m_Class];
 }
 
-static const char *s_ResourceDimNames[(unsigned)DxilResourceBase::Kind::NumEntries] = {
+static const char *s_ResourceDimNames[] = {
         "invalid", "1d",        "2d",      "2dMS",      "3d",
         "cube",    "1darray",   "2darray", "2darrayMS", "cubearray",
         "buf",     "rawbuf",    "structbuf", "cbuffer", "sampler",
-        "tbuffer", "ras",
+        "tbuffer", "ras", "fbtex2dML", "fbtex2dT", "fbtex2darrayML", "fbtex2darrayT"
 };
+static_assert(_countof(s_ResourceDimNames) == (unsigned)DxilResourceBase::Kind::NumEntries,
+  "Resource dim names array must be updated when new resource kind enums are added.");
 
 const char *DxilResourceBase::GetResDimName() const {
   return s_ResourceDimNames[(unsigned)m_Kind];
