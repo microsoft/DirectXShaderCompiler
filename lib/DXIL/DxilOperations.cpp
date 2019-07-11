@@ -322,11 +322,42 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveMultiPrefixOp,       "WaveMultiPrefixOp",        OCC::WaveMultiPrefixOp,        "waveMultiPrefixOp",         { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveMultiPrefixBitCount, "WaveMultiPrefixBitCount",  OCC::WaveMultiPrefixBitCount,  "waveMultiPrefixBitCount",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
 
-  //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::AllocateRayQuery,        "AllocateRayQuery",         OCC::AllocateRayQuery,         "allocateRayQuery",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
-
   // Inline Ray Query                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::TraceRayInline,          "TraceRayInline",           OCC::TraceRayInline,           "traceRayInline",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::AllocateRayQuery,        "AllocateRayQuery",         OCC::AllocateRayQuery,         "allocateRayQuery",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_TraceRayInline, "RayQuery_TraceRayInline",  OCC::RayQuery_TraceRayInline,  "rayQuery_TraceRayInline",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_Proceed,        "RayQuery_Proceed",         OCC::RayQuery_Proceed,         "rayQuery_Proceed",          { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_Abort,          "RayQuery_Abort",           OCC::RayQuery_Abort,           "rayQuery_Abort",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_CommitNonOpaqueTriangleHit, "RayQuery_CommitNonOpaqueTriangleHit", OCC::RayQuery_CommitNonOpaqueTriangleHit, "rayQuery_CommitNonOpaqueTriangleHit", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_CommitProceduralPrimitiveHit, "RayQuery_CommitProceduralPrimitiveHit", OCC::RayQuery_CommitProceduralPrimitiveHit, "rayQuery_CommitProceduralPrimitiveHit", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_CommittedStatus, "RayQuery_CommittedStatus", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateType,  "RayQuery_CandidateType",   OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateObjectToWorld3x4, "RayQuery_CandidateObjectToWorld3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateWorldToObject3x4, "RayQuery_CandidateWorldToObject3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedObjectToWorld3x4, "RayQuery_CommittedObjectToWorld3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedWorldToObject3x4, "RayQuery_CommittedWorldToObject3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateProceduralPrimitiveNonOpaque, "RayQuery_CandidateProceduralPrimitiveNonOpaque", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateTriangleFrontFace, "RayQuery_CandidateTriangleFrontFace", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedTriangleFrontFace, "RayQuery_CommittedTriangleFrontFace", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateTriangleBarycentrics, "RayQuery_CandidateTriangleBarycentrics", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedTriangleBarycentrics, "RayQuery_CommittedTriangleBarycentrics", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_RayFlags,       "RayQuery_RayFlags",        OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_WorldRayOrigin, "RayQuery_WorldRayOrigin",  OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_WorldRayDirection, "RayQuery_WorldRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_RayTMin,        "RayQuery_RayTMin",         OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateTriangleRayT, "RayQuery_CandidateTriangleRayT", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedRayT,  "RayQuery_CommittedRayT",   OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateInstanceIndex, "RayQuery_CandidateInstanceIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateInstanceID, "RayQuery_CandidateInstanceID", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateGeometryIndex, "RayQuery_CandidateGeometryIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidatePrimitiveIndex, "RayQuery_CandidatePrimitiveIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateObjectRayOrigin, "RayQuery_CandidateObjectRayOrigin", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateObjectRayDirection, "RayQuery_CandidateObjectRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedInstanceIndex, "RayQuery_CommittedInstanceIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedInstanceID, "RayQuery_CommittedInstanceID", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedGeometryIndex, "RayQuery_CommittedGeometryIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedPrimitiveIndex, "RayQuery_CommittedPrimitiveIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedObjectRayOrigin, "RayQuery_CommittedObjectRayOrigin", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedObjectRayDirection, "RayQuery_CommittedObjectRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -663,8 +694,30 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, TraceRayInline=169
-  if ((165 <= op && op <= 167) || op == 169) {
+  // WaveMultiPrefixBitCount=167, AllocateRayQuery=168,
+  // RayQuery_TraceRayInline=169, RayQuery_Proceed=170, RayQuery_Abort=171,
+  // RayQuery_CommitNonOpaqueTriangleHit=172,
+  // RayQuery_CommitProceduralPrimitiveHit=173, RayQuery_CommittedStatus=174,
+  // RayQuery_CandidateType=175, RayQuery_CandidateObjectToWorld3x4=176,
+  // RayQuery_CandidateWorldToObject3x4=177,
+  // RayQuery_CommittedObjectToWorld3x4=178,
+  // RayQuery_CommittedWorldToObject3x4=179,
+  // RayQuery_CandidateProceduralPrimitiveNonOpaque=180,
+  // RayQuery_CandidateTriangleFrontFace=181,
+  // RayQuery_CommittedTriangleFrontFace=182,
+  // RayQuery_CandidateTriangleBarycentrics=183,
+  // RayQuery_CommittedTriangleBarycentrics=184, RayQuery_RayFlags=185,
+  // RayQuery_WorldRayOrigin=186, RayQuery_WorldRayDirection=187,
+  // RayQuery_RayTMin=188, RayQuery_CandidateTriangleRayT=189,
+  // RayQuery_CommittedRayT=190, RayQuery_CandidateInstanceIndex=191,
+  // RayQuery_CandidateInstanceID=192, RayQuery_CandidateGeometryIndex=193,
+  // RayQuery_CandidatePrimitiveIndex=194, RayQuery_CandidateObjectRayOrigin=195,
+  // RayQuery_CandidateObjectRayDirection=196,
+  // RayQuery_CommittedInstanceIndex=197, RayQuery_CommittedInstanceID=198,
+  // RayQuery_CommittedGeometryIndex=199, RayQuery_CommittedPrimitiveIndex=200,
+  // RayQuery_CommittedObjectRayOrigin=201,
+  // RayQuery_CommittedObjectRayDirection=202
+  if ((165 <= op && op <= 202)) {
     major = 6;  minor = 5;
     return;
   }
@@ -1069,11 +1122,42 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::WaveMultiPrefixOp:      A(pETy);     A(pI32); A(pETy); A(pI32); A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
   case OpCode::WaveMultiPrefixBitCount:A(pI32);     A(pI32); A(pI1);  A(pI32); A(pI32); A(pI32); A(pI32); break;
 
-    // 
-  case OpCode::AllocateRayQuery:       A(pI32);     A(pI32); A(pI32); break;
-
     // Inline Ray Query
-  case OpCode::TraceRayInline:         A(pV);       A(pI32); A(pI32); A(pRes); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::AllocateRayQuery:       A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_TraceRayInline:A(pV);       A(pI32); A(pI32); A(pRes); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::RayQuery_Proceed:       A(pI1);      A(pI32); A(pI32); break;
+  case OpCode::RayQuery_Abort:         A(pV);       A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommitNonOpaqueTriangleHit:A(pV);       A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommitProceduralPrimitiveHit:A(pV);       A(pI32); A(pI32); A(pF32); break;
+  case OpCode::RayQuery_CommittedStatus:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateType: A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateObjectToWorld3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CandidateWorldToObject3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CommittedObjectToWorld3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CommittedWorldToObject3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:A(pI1);      A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateTriangleFrontFace:A(pI1);      A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommittedTriangleFrontFace:A(pI1);      A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateTriangleBarycentrics:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CommittedTriangleBarycentrics:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_RayFlags:      A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_WorldRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_WorldRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_RayTMin:       A(pF32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateTriangleRayT:A(pF32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommittedRayT: A(pF32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateInstanceIndex:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateInstanceID:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateGeometryIndex:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidatePrimitiveIndex:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CandidateObjectRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CandidateObjectRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CommittedInstanceIndex:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommittedInstanceID:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommittedGeometryIndex:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommittedPrimitiveIndex:A(pI32);     A(pI32); A(pI32); break;
+  case OpCode::RayQuery_CommittedObjectRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RayQuery_CommittedObjectRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1228,7 +1312,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AcceptHitAndEndSearch:
   case OpCode::WaveMultiPrefixBitCount:
   case OpCode::AllocateRayQuery:
-  case OpCode::TraceRayInline:
+  case OpCode::RayQuery_TraceRayInline:
+  case OpCode::RayQuery_Abort:
+  case OpCode::RayQuery_CommitNonOpaqueTriangleHit:
+  case OpCode::RayQuery_CommitProceduralPrimitiveHit:
     return Type::getVoidTy(m_Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:
@@ -1253,6 +1340,17 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::PrimitiveIndex:
   case OpCode::Dot4AddI8Packed:
   case OpCode::Dot4AddU8Packed:
+  case OpCode::RayQuery_CommittedStatus:
+  case OpCode::RayQuery_CandidateType:
+  case OpCode::RayQuery_RayFlags:
+  case OpCode::RayQuery_CandidateInstanceIndex:
+  case OpCode::RayQuery_CandidateInstanceID:
+  case OpCode::RayQuery_CandidateGeometryIndex:
+  case OpCode::RayQuery_CandidatePrimitiveIndex:
+  case OpCode::RayQuery_CommittedInstanceIndex:
+  case OpCode::RayQuery_CommittedInstanceID:
+  case OpCode::RayQuery_CommittedGeometryIndex:
+  case OpCode::RayQuery_CommittedPrimitiveIndex:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
@@ -1264,10 +1362,30 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WorldToObject:
   case OpCode::RayTMin:
   case OpCode::RayTCurrent:
+  case OpCode::RayQuery_CandidateObjectToWorld3x4:
+  case OpCode::RayQuery_CandidateWorldToObject3x4:
+  case OpCode::RayQuery_CommittedObjectToWorld3x4:
+  case OpCode::RayQuery_CommittedWorldToObject3x4:
+  case OpCode::RayQuery_CandidateTriangleBarycentrics:
+  case OpCode::RayQuery_CommittedTriangleBarycentrics:
+  case OpCode::RayQuery_WorldRayOrigin:
+  case OpCode::RayQuery_WorldRayDirection:
+  case OpCode::RayQuery_RayTMin:
+  case OpCode::RayQuery_CandidateTriangleRayT:
+  case OpCode::RayQuery_CommittedRayT:
+  case OpCode::RayQuery_CandidateObjectRayOrigin:
+  case OpCode::RayQuery_CandidateObjectRayDirection:
+  case OpCode::RayQuery_CommittedObjectRayOrigin:
+  case OpCode::RayQuery_CommittedObjectRayDirection:
     return Type::getFloatTy(m_Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
     return Type::getDoubleTy(m_Ctx);
+  case OpCode::RayQuery_Proceed:
+  case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
+  case OpCode::RayQuery_CandidateTriangleFrontFace:
+  case OpCode::RayQuery_CommittedTriangleFrontFace:
+    return IntegerType::get(m_Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
   case OpCode::SampleBias:

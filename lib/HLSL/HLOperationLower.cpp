@@ -4678,6 +4678,16 @@ void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
   }
 }
 
+static Value* TranslateThisPointerToi32Handle(CallInst*CI, hlsl::OP *hlslOP)
+{
+  IRBuilder<> Builder(CI);
+  Value *thisArg = CI->getArgOperand(1);
+  Constant *i32Zero = hlslOP->GetI32Const(0);
+  Value *handleGEP = Builder.CreateGEP(thisArg, {i32Zero, i32Zero});
+  Value *handleValue = Builder.CreateLoad(handleGEP);
+  return handleValue;
+  }
+
 Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,
                          HLObjectOperationLowerHelper *pObjHelper,
@@ -4691,13 +4701,8 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
   Args[0] = opArg;
 
-  // Translate RayQuery `this` pointer to i32 handle by-value
-  IRBuilder<> Builder(CI);
-  Value *thisArg = CI->getArgOperand(1);
-  Constant *i32Zero = hlslOP->GetI32Const(0);
-  Value *handleGEP = Builder.CreateGEP(thisArg, {i32Zero, i32Zero});
-  Value *handleValue = Builder.CreateLoad(handleGEP);
-  Args[1] = handleValue;
+  // Translate this pointer to i32 handle value
+  Args[1] = TranslateThisPointerToi32Handle(CI, hlslOP);
 
   for (unsigned i = 2; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
     Args[i] = CI->getArgOperand(i);
@@ -4709,6 +4714,7 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   //    float3 Direction;
   //    float  TMax;
   //};
+  IRBuilder<> Builder(CI);
   Value *zeroIdx = hlslOP->GetU32Const(0);
   Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
   origin = Builder.CreateLoad(origin);
@@ -4737,6 +4743,98 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
 
   return Builder.CreateCall(F, Args);
+}
+
+Value *TranslateCommitProceduralPrimitiveHit(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *THit = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+
+  Value *Args[] = {opArg,TranslateThisPointerToi32Handle(CI, hlslOP),THit};
+
+  IRBuilder<> Builder(CI);
+  Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
+
+  return Builder.CreateCall(F, Args);
+}
+
+Value *TranslateGenericRayQueryMethod(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+
+  Value *Args[] = {opArg,TranslateThisPointerToi32Handle(CI, hlslOP)};
+
+  IRBuilder<> Builder(CI);
+  Function *F = hlslOP->GetOpFunc(opcode, CI->getType());
+
+  return Builder.CreateCall(F, Args);
+}
+
+Value *TranslateRayQueryMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  uint32_t rVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
+  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
+  uint8_t cVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
+  Value *retVal =
+      TrivialDxilOperation(opcode, {nullptr, handle, rows, cols}, Ty, CI, hlslOP);
+  return retVal;
+}
+
+Value *TranslateRayQueryTransposedMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                                                  HLOperationLowerHelper &helper,
+                                                  HLObjectOperationLowerHelper *pObjHelper,
+                                                  bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP; 
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  uint32_t rVals[] = { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2 };
+  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
+  uint8_t cVals[] = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3 };
+  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
+  Value *retVal =
+      TrivialDxilOperation(opcode, {nullptr, handle, rows, cols}, Ty, CI, hlslOP);
+  return retVal;
+}
+
+Value *TranslateRayQueryFloat2Getter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  uint8_t elementVals[] = {0, 1};
+  Constant *element = ConstantDataVector::get(CI->getContext(), elementVals);
+  Value *retVal =
+      TrivialDxilOperation(opcode, {nullptr, handle, element}, Ty, CI, hlslOP);
+  return retVal;
+}
+
+Value *TranslateRayQueryFloat3Getter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  uint8_t elementVals[] = {0, 1, 2};
+  Constant *element = ConstantDataVector::get(CI->getContext(), elementVals);
+  Value *retVal =
+      TrivialDxilOperation(opcode, {nullptr, handle, element}, Ty, CI, hlslOP);
+  return retVal;
 }
 
 Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -5131,7 +5229,44 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_IncrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Consume, EmptyLower, DXIL::OpCode::NumOpCodes},
 
-    {IntrinsicOp::MOP_TraceRayInline, TranslateTraceRayInline, DXIL::OpCode::TraceRayInline},
+    {IntrinsicOp::MOP_Abort, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_Abort},
+    {IntrinsicOp::MOP_CandidateGeometryIndex, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateGeometryIndex},
+    {IntrinsicOp::MOP_CandidateInstanceID, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateInstanceID},
+    {IntrinsicOp::MOP_CandidateInstanceIndex, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateInstanceIndex},
+    {IntrinsicOp::MOP_CandidateObjectRayDirection, TranslateRayQueryFloat3Getter, DXIL::OpCode::RayQuery_CandidateObjectRayDirection},
+    {IntrinsicOp::MOP_CandidateObjectRayOrigin, TranslateRayQueryFloat3Getter, DXIL::OpCode::RayQuery_CandidateObjectRayOrigin},
+    {IntrinsicOp::MOP_CandidateObjectToWorld3x4, TranslateRayQueryMatrix3x4Operation, DXIL::OpCode::RayQuery_CandidateObjectToWorld3x4},
+    {IntrinsicOp::MOP_CandidateObjectToWorld4x3, TranslateRayQueryTransposedMatrix3x4Operation, DXIL::OpCode::RayQuery_CandidateObjectToWorld3x4},
+    {IntrinsicOp::MOP_CandidatePrimitiveIndex, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidatePrimitiveIndex},
+    {IntrinsicOp::MOP_CandidateProceduralPrimitiveNonOpaque, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque},
+    {IntrinsicOp::MOP_CandidateTriangleBarycentrics, TranslateRayQueryFloat2Getter, DXIL::OpCode::RayQuery_CandidateTriangleBarycentrics},
+    {IntrinsicOp::MOP_CandidateTriangleFrontFace, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateTriangleFrontFace},
+    {IntrinsicOp::MOP_CandidateTriangleRayT, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateTriangleRayT},
+    {IntrinsicOp::MOP_CandidateType, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CandidateType},
+    {IntrinsicOp::MOP_CandidateWorldToObject3x4, TranslateRayQueryMatrix3x4Operation, DXIL::OpCode::RayQuery_CandidateWorldToObject3x4},
+    {IntrinsicOp::MOP_CandidateWorldToObject4x3, TranslateRayQueryTransposedMatrix3x4Operation, DXIL::OpCode::RayQuery_CandidateWorldToObject3x4},
+    {IntrinsicOp::MOP_CommitNonOpaqueTriangleHit, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommitNonOpaqueTriangleHit},
+    {IntrinsicOp::MOP_CommitProceduralPrimitiveHit, TranslateCommitProceduralPrimitiveHit, DXIL::OpCode::RayQuery_CommitProceduralPrimitiveHit},
+    {IntrinsicOp::MOP_CommittedGeometryIndex, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedGeometryIndex},
+    {IntrinsicOp::MOP_CommittedInstanceID, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedInstanceID},
+    {IntrinsicOp::MOP_CommittedInstanceIndex, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedInstanceIndex},
+    {IntrinsicOp::MOP_CommittedObjectRayDirection, TranslateRayQueryFloat3Getter, DXIL::OpCode::RayQuery_CommittedObjectRayDirection},
+    {IntrinsicOp::MOP_CommittedObjectRayOrigin, TranslateRayQueryFloat3Getter, DXIL::OpCode::RayQuery_CommittedObjectRayOrigin},
+    {IntrinsicOp::MOP_CommittedObjectToWorld3x4, TranslateRayQueryMatrix3x4Operation, DXIL::OpCode::RayQuery_CommittedObjectToWorld3x4},
+    {IntrinsicOp::MOP_CommittedObjectToWorld4x3, TranslateRayQueryTransposedMatrix3x4Operation, DXIL::OpCode::RayQuery_CommittedObjectToWorld3x4},
+    {IntrinsicOp::MOP_CommittedPrimitiveIndex, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedPrimitiveIndex},
+    {IntrinsicOp::MOP_CommittedRayT, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedRayT},
+    {IntrinsicOp::MOP_CommittedStatus, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedStatus},
+    {IntrinsicOp::MOP_CommittedTriangleBarycentrics, TranslateRayQueryFloat2Getter, DXIL::OpCode::RayQuery_CommittedTriangleBarycentrics},
+    {IntrinsicOp::MOP_CommittedTriangleFrontFace, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_CommittedTriangleFrontFace},
+    {IntrinsicOp::MOP_CommittedWorldToObject3x4, TranslateRayQueryMatrix3x4Operation, DXIL::OpCode::RayQuery_CommittedWorldToObject3x4},
+    {IntrinsicOp::MOP_CommittedWorldToObject4x3, TranslateRayQueryTransposedMatrix3x4Operation, DXIL::OpCode::RayQuery_CommittedWorldToObject3x4},
+    {IntrinsicOp::MOP_Proceed, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_Proceed},
+    {IntrinsicOp::MOP_RayFlags, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_RayFlags},
+    {IntrinsicOp::MOP_RayTMin, TranslateGenericRayQueryMethod, DXIL::OpCode::RayQuery_RayTMin},
+    {IntrinsicOp::MOP_TraceRayInline,  TranslateTraceRayInline,  DXIL::OpCode::RayQuery_TraceRayInline},
+    {IntrinsicOp::MOP_WorldRayDirection, TranslateRayQueryFloat3Getter, DXIL::OpCode::RayQuery_WorldRayDirection},
+    {IntrinsicOp::MOP_WorldRayOrigin, TranslateRayQueryFloat3Getter, DXIL::OpCode::RayQuery_WorldRayOrigin},
 
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -6367,7 +6502,7 @@ void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
   for (unsigned i = 0; i < matSize; i++)
     elts[i] = Builder.CreateExtractElement(val, i);
 
-  for (unsigned i = 0; i < matSize; i += 4) {
+  for (unsigned i = 0; i < matSize; i += 4) { 
     uint8_t mask = 0;
     for (unsigned j = 0; j < 4 && (i+j) < matSize; j++) {
       if (elts[i+j] != undefElt)

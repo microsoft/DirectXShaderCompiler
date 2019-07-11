@@ -836,7 +836,44 @@ $classT [[]] Consume() : structuredbuffer_consume;
 
 namespace RayQueryMethods {
 
-void [[]]  TraceRayInline(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in ray_desc Ray);
+void [[]] TraceRayInline(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in ray_desc Ray);
+bool [[]] Proceed();
+void [[]] Abort();
+void [[]] CommitNonOpaqueTriangleHit();
+void [[]] CommitProceduralPrimitiveHit(in float t);
+uint [[ro]] CommittedStatus();
+uint [[ro]] CandidateType();
+float<3,4> [[ro]] CandidateObjectToWorld3x4();
+float<4,3> [[ro]] CandidateObjectToWorld4x3();
+float<3,4> [[ro]] CandidateWorldToObject3x4();
+float<4,3> [[ro]] CandidateWorldToObject4x3();
+float<3,4> [[ro]] CommittedObjectToWorld3x4();
+float<4,3> [[ro]] CommittedObjectToWorld4x3();
+float<3,4> [[ro]] CommittedWorldToObject3x4();
+float<4,3> [[ro]] CommittedWorldToObject4x3();
+bool [[ro]] CandidateProceduralPrimitiveNonOpaque();
+bool [[ro]] CandidateTriangleFrontFace();
+bool [[ro]] CommittedTriangleFrontFace();
+float<2> [[ro]] CandidateTriangleBarycentrics();
+float<2> [[ro]] CommittedTriangleBarycentrics();
+uint [[ro]] RayFlags();
+float<3> [[ro]] WorldRayOrigin();
+float<3> [[ro]] WorldRayDirection();
+float [[ro]] RayTMin();
+float [[ro]] CandidateTriangleRayT();
+float [[ro]] CommittedRayT();
+uint [[ro]] CandidateInstanceIndex();
+uint [[ro]] CandidateInstanceID();
+uint [[ro]] CandidateGeometryIndex();
+uint [[ro]] CandidatePrimitiveIndex();
+float<3> [[ro]] CandidateObjectRayOrigin();
+float<3> [[ro]] CandidateObjectRayDirection();
+uint [[ro]] CommittedInstanceIndex();
+uint [[ro]] CommittedInstanceID();
+uint [[ro]] CommittedGeometryIndex();
+uint [[ro]] CommittedPrimitiveIndex();
+float<3> [[ro]] CommittedObjectRayOrigin();
+float<3> [[ro]] CommittedObjectRayDirection();
 
 } namespace
 

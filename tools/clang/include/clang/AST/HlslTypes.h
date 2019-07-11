@@ -305,6 +305,8 @@ void AddRecordTypeWithHandle(
 void AddRayFlags(clang::ASTContext& context);
 void AddHitKinds(clang::ASTContext& context);
 void AddStateObjectFlags(clang::ASTContext& context);
+void AddCommittedStatus(clang::ASTContext& context);
+void AddCandidateType(clang::ASTContext& context);
 
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
