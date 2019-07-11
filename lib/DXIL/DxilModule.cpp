@@ -627,6 +627,74 @@ void DxilModule::SetMaxTessellationFactor(float MaxTessellationFactor) {
   props.ShaderProps.HS.maxTessFactor = MaxTessellationFactor;
 }
 
+unsigned DxilModule::GetMaxOutputVertices() const {
+  if (!m_pSM->IsMS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  return props.ShaderProps.MS.maxVertexCount;
+}
+
+void DxilModule::SetMaxOutputVertices(unsigned NumOVs) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsMS(),
+           "only works for MS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  props.ShaderProps.MS.maxVertexCount = NumOVs;
+}
+
+unsigned DxilModule::GetMaxOutputPrimitives() const {
+  if (!m_pSM->IsMS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  return props.ShaderProps.MS.maxPrimitiveCount;
+}
+
+void DxilModule::SetMaxOutputPrimitives(unsigned NumOPs) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsMS(),
+           "only works for MS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  props.ShaderProps.MS.maxPrimitiveCount = NumOPs;
+}
+
+DXIL::MeshOutputTopology DxilModule::GetMeshOutputTopology() const {
+  if (!m_pSM->IsMS())
+    return DXIL::MeshOutputTopology::Undefined;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  return props.ShaderProps.MS.outputTopology;
+}
+
+void DxilModule::SetMeshOutputTopology(DXIL::MeshOutputTopology MeshOutputTopology) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsMS(),
+           "only works for MS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  props.ShaderProps.MS.outputTopology = MeshOutputTopology;
+}
+
+unsigned DxilModule::GetPayloadByteSize() const {
+  if (!m_pSM->IsMS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  return props.ShaderProps.MS.payloadByteSize;
+}
+
+void DxilModule::SetPayloadByteSize(unsigned Size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsMS(),
+           "only works for MS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsMS(), "Must be MS profile");
+  props.ShaderProps.MS.payloadByteSize = Size;
+}
+
 void DxilModule::SetAutoBindingSpace(uint32_t Space) {
   m_AutoBindingSpace = Space;
 }
@@ -651,6 +719,8 @@ void DxilModule::SetShaderProperties(DxilFunctionProps *props) {
   case DXIL::ShaderKind::Domain:
   case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Vertex:
+  case DXIL::ShaderKind::Mesh:
+  case DXIL::ShaderKind::Amplification:
     break;
   default: {
     DXASSERT(props->shaderKind == DXIL::ShaderKind::Geometry,
@@ -929,16 +999,16 @@ const DxilSignature &DxilModule::GetOutputSignature() const {
   return m_DxilEntryPropsMap.begin()->second->sig.OutputSignature;
 }
 
-DxilSignature &DxilModule::GetPatchConstantSignature() {
+DxilSignature &DxilModule::GetPatchConstOrPrimSignature() {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
            "only works for non-lib profile");
-  return m_DxilEntryPropsMap.begin()->second->sig.PatchConstantSignature;
+  return m_DxilEntryPropsMap.begin()->second->sig.PatchConstOrPrimSignature;
 }
 
-const DxilSignature &DxilModule::GetPatchConstantSignature() const {
+const DxilSignature &DxilModule::GetPatchConstOrPrimSignature() const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
            "only works for non-lib profile");
-  return m_DxilEntryPropsMap.begin()->second->sig.PatchConstantSignature;
+  return m_DxilEntryPropsMap.begin()->second->sig.PatchConstOrPrimSignature;
 }
 
 const std::vector<uint8_t> &DxilModule::GetSerializedRootSignature() const {

@@ -2368,6 +2368,36 @@ Value *TranslateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   Value *faceforward = Builder.CreateSelect(dotLtZero, n, negN);
   return faceforward;
 }
+
+Value *TrivialSetMeshOutputCounts(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+  HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *src0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *src1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  IRBuilder<> Builder(CI);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)op);
+  Value *args[] = { opArg, src0, src1 };
+  Function *dxilFunc = hlslOP->GetOpFunc(op, Type::getVoidTy(CI->getContext()));
+
+  Builder.CreateCall(dxilFunc, args);
+  return nullptr;
+}
+
+Value *TrivialDispatchMesh(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+  HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *src0 = CI->getArgOperand(HLOperandIndex::kDispatchMeshOpThreadX);
+  Value *src1 = CI->getArgOperand(HLOperandIndex::kDispatchMeshOpThreadY);
+  Value *src2 = CI->getArgOperand(HLOperandIndex::kDispatchMeshOpThreadZ);
+  Value *src3 = CI->getArgOperand(HLOperandIndex::kDispatchMeshOpPayload);
+  IRBuilder<> Builder(CI);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)op);
+  Value *args[] = { opArg, src0, src1, src2, src3 };
+  Function *dxilFunc = hlslOP->GetOpFunc(op, src3->getType());
+
+  Builder.CreateCall(dxilFunc, args);
+  return nullptr;
+}
 }
 
 // MOP intrinsics
@@ -4799,6 +4829,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_DeviceMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
+    {IntrinsicOp::IOP_DispatchMesh, TrivialDispatchMesh, DXIL::OpCode::DispatchMesh },
     {IntrinsicOp::IOP_DispatchRaysDimensions, TranslateNoArgVectorOperation, DXIL::OpCode::DispatchRaysDimensions},
     {IntrinsicOp::IOP_DispatchRaysIndex, TranslateNoArgVectorOperation, DXIL::OpCode::DispatchRaysIndex},
     {IntrinsicOp::IOP_EvaluateAttributeAtSample, TranslateEvalSample, DXIL::OpCode::NumOpCodes},
@@ -4847,6 +4878,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_RayTCurrent, TrivialNoArgWithRetOperation, DXIL::OpCode::RayTCurrent},
     {IntrinsicOp::IOP_RayTMin, TrivialNoArgWithRetOperation, DXIL::OpCode::RayTMin},
     {IntrinsicOp::IOP_ReportHit, TranslateReportIntersection, DXIL::OpCode::ReportHit},
+    {IntrinsicOp::IOP_SetMeshOutputCounts, TrivialSetMeshOutputCounts, DXIL::OpCode::SetMeshOutputCounts},
     {IntrinsicOp::IOP_TraceRay, TranslateTraceRay, DXIL::OpCode::TraceRay},
     {IntrinsicOp::IOP_WaveActiveAllEqual, TranslateWaveAllEqual, DXIL::OpCode::WaveActiveAllEqual},
     {IntrinsicOp::IOP_WaveActiveAllTrue, TranslateWaveA2B, DXIL::OpCode::WaveAllTrue},

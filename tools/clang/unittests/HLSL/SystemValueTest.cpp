@@ -110,6 +110,8 @@ public:
       case DXIL::ShaderKind::Hull:      entry = L"HSMain"; profile = L"hs_6_1"; break;
       case DXIL::ShaderKind::Domain:    entry = L"DSMain"; profile = L"ds_6_1"; break;
       case DXIL::ShaderKind::Compute:   entry = L"CSMain"; profile = L"cs_6_1"; break;
+      case DXIL::ShaderKind::Mesh:      entry = L"MSMain"; profile = L"ms_6_5"; break;
+      case DXIL::ShaderKind::Amplification: entry = L"ASMain"; profile = L"as_6_5"; break;
       case DXIL::ShaderKind::Library:
       case DXIL::ShaderKind::Invalid:
         assert(!"invalid shaderKind");
@@ -197,6 +199,8 @@ static bool ArbAllowed(DXIL::SigPointKind sp) {
   case DXIL::SigPointKind::DSIn:
   case DXIL::SigPointKind::DSOut:
   case DXIL::SigPointKind::PSIn:
+  case DXIL::SigPointKind::MSOut:
+  case DXIL::SigPointKind::MSPOut:
     return true;
   default:
     return false;
@@ -207,6 +211,10 @@ static bool ArbAllowed(DXIL::SigPointKind sp) {
 TEST_F(SystemValueTest, VerifyArbitrarySupport) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     CComPtr<IDxcOperationResult> pResult;
     CompileHLSLTemplate(pResult, sp, DXIL::SemanticKind::Invalid, true);
     HRESULT result;
@@ -233,7 +241,15 @@ TEST_F(SystemValueTest, VerifyArbitrarySupport) {
 TEST_F(SystemValueTest, VerifyNotAvailableFail) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
+      if (sv == DXIL::SemanticKind::CullPrimitive) {
+        // TODO: add tests for CullPrimitive
+        continue;
+      }
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NA) {
         CComPtr<IDxcOperationResult> pResult;
@@ -479,6 +495,10 @@ TEST_F(SystemValueTest, VerifyVersionedSemantics) {
 TEST_F(SystemValueTest, VerifyMissingSemanticFailure) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     std::wstring sigDefValue(L"Def_Arb_NoSem(uint, arb0)");
     CComPtr<IDxcOperationResult> pResult;
     CompileHLSLTemplate(pResult, sp, sigDefValue);

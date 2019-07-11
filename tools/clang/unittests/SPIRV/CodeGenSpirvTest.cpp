@@ -2013,4 +2013,72 @@ TEST_F(FileTest, VulkanShadingRateError) {
   runFileTest("vk.shading-rate.vs-error.hlsl", Expect::Failure);
 }
 
+// === MeshShading NV examples ===
+TEST_F(FileTest, MeshShadingNVMeshTriangle) {
+  runFileTest("meshshading.nv.triangle.mesh.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVMeshLine) {
+  runFileTest("meshshading.nv.line.mesh.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVMeshPoint) {
+  runFileTest("meshshading.nv.point.mesh.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVMeshError1) {
+  runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError2) {
+  runFileTest("meshshading.nv.error2.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError3) {
+  runFileTest("meshshading.nv.error3.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError4) {
+  runFileTest("meshshading.nv.error4.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError5) {
+  runFileTest("meshshading.nv.error5.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError6) {
+  runFileTest("meshshading.nv.error6.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError7) {
+  runFileTest("meshshading.nv.error7.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError8) {
+  runFileTest("meshshading.nv.error8.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError9) {
+  runFileTest("meshshading.nv.error9.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError10) {
+  runFileTest("meshshading.nv.error10.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError11) {
+  runFileTest("meshshading.nv.error11.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError12) {
+  runFileTest("meshshading.nv.error12.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError13) {
+  runFileTest("meshshading.nv.error13.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVMeshError14) {
+  runFileTest("meshshading.nv.error14.mesh.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVAmplification) {
+  runFileTest("meshshading.nv.amplification.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVAmplificationError1) {
+  runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVAmplificationError2) {
+  runFileTest("meshshading.nv.error2.amplification.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVAmplificationError3) {
+  runFileTest("meshshading.nv.error4.amplification.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, MeshShadingNVAmplificationError4) {
+  runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
+}
+
 } // namespace

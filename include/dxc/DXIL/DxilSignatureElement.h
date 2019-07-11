@@ -50,7 +50,7 @@ public:
 
   bool IsInput() const;
   bool IsOutput() const;
-  bool IsPatchConstant() const;
+  bool IsPatchConstOrPrim() const;
   const char *GetName() const;
   unsigned GetRows() const;
   void SetRows(unsigned Rows);

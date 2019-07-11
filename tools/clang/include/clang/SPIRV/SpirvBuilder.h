@@ -518,6 +518,13 @@ public:
   /// \brief Decorates the given target with NoContraction
   void decorateNoContraction(SpirvInstruction *target, SourceLocation);
 
+  /// \brief Decorates the given target with PerPrimitiveNV
+  void decoratePerPrimitiveNV(SpirvInstruction *target, SourceLocation);
+
+  /// \brief Decorates the given target with PerTaskNV
+  void decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
+                         SourceLocation);
+
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.

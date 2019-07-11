@@ -123,6 +123,10 @@ enum class DxilParamInputQual {
   OutStream2,
   OutStream3,
   InputPrimitive,
+  OutIndices,
+  OutVertices,
+  OutPrimitives,
+  InPayload,
 };
 
 /// Use this class to represent type annotation for function parameter.

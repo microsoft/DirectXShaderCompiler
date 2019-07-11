@@ -314,6 +314,12 @@ $type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint b);
 $type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int b);
 $type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float b);
 
+// Mesh shader intrinsics:
+void [[]] SetMeshOutputCounts(in uint numVertices, in uint numPrimitives);
+
+// Amplification shader intrinsics:
+void [[]] DispatchMesh(in uint threadGroupCountX, in uint threadGroupCountY, in uint threadGroupCountZ, in udt meshPayload);
+
 } namespace
 
 namespace StreamMethods {

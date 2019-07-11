@@ -84,7 +84,7 @@ public:
                    uint32_t semanticIndex,
                    llvm::Optional<SpirvInstruction *> invocation,
                    SpirvInstruction **value, bool noWriteBack,
-                   SourceLocation loc);
+                   SpirvInstruction *vecComponent, SourceLocation loc);
 
 private:
   template <unsigned N>
@@ -114,13 +114,14 @@ private:
   /// generated to make sure type correctness.
   void
   writeClipCullArrayFromType(llvm::Optional<SpirvInstruction *> invocationId,
-                             bool isClip, uint32_t offset, QualType fromType,
-                             SpirvInstruction *fromValue,
+                             bool isClip, SpirvInstruction *offset,
+                             QualType fromType, SpirvInstruction *fromValue,
                              SourceLocation loc) const;
   /// Creates SPIR-V instructions to write a field in gl_PerVertex.
   bool writeField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
                   llvm::Optional<SpirvInstruction *> invocationId,
-                  SpirvInstruction **value, SourceLocation loc);
+                  SpirvInstruction **value, SpirvInstruction *vecComponent,
+                  SourceLocation loc);
 
   /// Internal implementation for recordClipCullDistanceDecl().
   bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,

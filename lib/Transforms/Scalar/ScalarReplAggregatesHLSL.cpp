@@ -1053,7 +1053,8 @@ void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
         IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
         if (IntrinsicOp::IOP_TraceRay == opcode ||
             IntrinsicOp::IOP_ReportHit == opcode ||
-            IntrinsicOp::IOP_CallShader == opcode) {
+            IntrinsicOp::IOP_CallShader == opcode ||
+            IntrinsicOp::IOP_DispatchMesh == opcode) {
           return MarkUnsafe(Info, User);
         }
       }
@@ -4826,9 +4827,12 @@ void SROA_Parameter_HLSL::flattenArgument(
     std::vector<Value *> Elts;
 
     // Not flat vector for entry function currently.
-    bool SROAed = SROA_Helper::DoScalarReplacement(
+    bool SROAed = false;
+    if (inputQual != DxilParamInputQual::InPayload) {
+      SROAed = SROA_Helper::DoScalarReplacement(
         V, Elts, Builder, /*bFlatVector*/ false, annotation.IsPrecise(),
         dxilTypeSys, DL, DeadInsts);
+    }
 
     if (SROAed) {
       Type *Ty = V->getType()->getPointerElementType();

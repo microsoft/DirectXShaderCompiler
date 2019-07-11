@@ -68,17 +68,33 @@ namespace DXIL {
   const float kHSMaxTessFactorUpperBound = 64.0f;
   const unsigned kHSDefaultInputControlPointCount = 1;
   const unsigned kMaxCSThreadsPerGroup = 1024;
-  const unsigned kMaxCSThreadGroupX	= 1024;
-  const unsigned kMaxCSThreadGroupY	= 1024;
+  const unsigned kMaxCSThreadGroupX = 1024;
+  const unsigned kMaxCSThreadGroupY = 1024;
   const unsigned kMaxCSThreadGroupZ = 64;
   const unsigned kMinCSThreadGroupX = 1;
   const unsigned kMinCSThreadGroupY = 1;
   const unsigned kMinCSThreadGroupZ = 1;
   const unsigned kMaxCS4XThreadsPerGroup = 768;
-  const unsigned kMaxCS4XThreadGroupX	= 768;
-  const unsigned kMaxCS4XThreadGroupY	= 768;
+  const unsigned kMaxCS4XThreadGroupX = 768;
+  const unsigned kMaxCS4XThreadGroupY = 768;
   const unsigned kMaxTGSMSize = 8192*4;
   const unsigned kMaxGSOutputTotalScalars = 1024;
+  const unsigned kMaxMSASThreadsPerGroup = 128;
+  const unsigned kMaxMSASThreadGroupX = 128;
+  const unsigned kMaxMSASThreadGroupY = 128;
+  const unsigned kMaxMSASThreadGroupZ = 128;
+  const unsigned kMinMSASThreadGroupX = 1;
+  const unsigned kMinMSASThreadGroupY = 1;
+  const unsigned kMinMSASThreadGroupZ = 1;
+  const unsigned kMaxMSASPayloadSize = 16384;
+  const unsigned kMaxMSOutputPrimitiveCount = 256;
+  const unsigned kMaxMSOutputVertexCount = 256;
+  const unsigned kMaxMSOutputTotalScalars = 32768;
+  const unsigned kMaxMSInputOutputTotalScalars = 41984;
+  const unsigned kMaxMSVSigRows = 32;
+  const unsigned kMaxMSPSigRows = 32;
+  const unsigned kMaxMSTotalSigRows = 32;
+  const unsigned kMaxMSSMSize = 1024 * 28;
 
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
@@ -116,7 +132,7 @@ namespace DXIL {
     Invalid = 0,
     Input,
     Output,
-    PatchConstant,
+    PatchConstOrPrim,
   };
 
   // Must match D3D11_SHADER_VERSION_TYPE
@@ -134,6 +150,8 @@ namespace DXIL {
     ClosestHit,
     Miss,
     Callable,
+    Mesh,
+    Amplification,
     Invalid,
   };
 
@@ -171,6 +189,7 @@ namespace DXIL {
     ViewID,
     Barycentrics,
     ShadingRate,
+    CullPrimitive,
     Invalid,
   };
   // SemanticKind-ENUM:END
@@ -195,6 +214,10 @@ namespace DXIL {
     PSIn, // Pixel Shader input
     PSOut, // Pixel Shader output
     CSIn, // Compute Shader input
+    MSIn, // Mesh Shader input
+    MSOut, // Mesh Shader vertices output
+    MSPOut, // Mesh Shader primitives output
+    ASIn, // Amplification Shader input
     Invalid,
   };
   // SigPointKind-ENUM:END
@@ -299,6 +322,9 @@ namespace DXIL {
   // OPCODE-ENUM:BEGIN
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
+    // Amplification shader instructions
+    DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
+  
     // AnyHit Terminals
     AcceptHitAndEndSearch = 156, // Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
     IgnoreHit = 155, // Used in an any hit shader to reject an intersection and terminate the shader
@@ -334,7 +360,7 @@ namespace DXIL {
     BitcastI32toF32 = 126, // bitcast between different sizes
     BitcastI64toF64 = 128, // bitcast between different sizes
   
-    // Compute shader
+    // Compute/Mesh/Amplification shader
     FlattenedThreadIdInGroup = 96, // provides a flattened index for a given thread within a given group (SV_GroupIndex)
     GroupId = 94, // reads the group ID (SV_GroupID)
     ThreadId = 93, // reads the thread ID
@@ -391,6 +417,13 @@ namespace DXIL {
   
     // Library create handle from resource struct (like HL intrinsic)
     CreateHandleForLib = 160, // create resource handle from resource struct for library
+  
+    // Mesh shader instructions
+    EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
+    GetMeshPayload = 170, // get the mesh payload which is from amplification shader
+    SetMeshOutputCounts = 168, // Mesh shader intrinsic SetMeshOutputCounts
+    StorePrimitiveOutput = 172, // stores the value to mesh shader primitive output
+    StoreVertexOutput = 171, // stores the value to mesh shader vertex output
   
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
@@ -562,9 +595,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
-    NumOpCodes_Dxil_1_5 = 168,
+    NumOpCodes_Dxil_1_5 = 174,
   
-    NumOpCodes = 168 // exclusive last value of enumeration
+    NumOpCodes = 174 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -572,6 +605,9 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
+    // Amplification shader instructions
+    DispatchMesh,
+  
     // AnyHit Terminals
     AcceptHitAndEndSearch,
     IgnoreHit,
@@ -593,7 +629,7 @@ namespace DXIL {
     BitcastI32toF32,
     BitcastI64toF64,
   
-    // Compute shader
+    // Compute/Mesh/Amplification shader
     FlattenedThreadIdInGroup,
     GroupId,
     ThreadId,
@@ -652,6 +688,13 @@ namespace DXIL {
   
     // Library create handle from resource struct (like HL intrinsic)
     CreateHandleForLib,
+  
+    // Mesh shader instructions
+    EmitIndices,
+    GetMeshPayload,
+    SetMeshOutputCounts,
+    StorePrimitiveOutput,
+    StoreVertexOutput,
   
     // Other
     CycleCounterLegacy,
@@ -778,9 +821,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
-    NumOpClasses_Dxil_1_5 = 123,
+    NumOpClasses_Dxil_1_5 = 129,
   
-    NumOpClasses = 123 // exclusive last value of enumeration
+    NumOpClasses = 129 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -807,11 +850,12 @@ namespace DXIL {
     const unsigned kLoadInputColOpIdx = 3;
     const unsigned kLoadInputVertexIDOpIdx = 4;
 
-    // StoreOutput.
+    // StoreOutput, StoreVertexOutput, StorePrimitiveOutput
     const unsigned kStoreOutputIDOpIdx = 1;
     const unsigned kStoreOutputRowOpIdx = 2;
     const unsigned kStoreOutputColOpIdx = 3;
     const unsigned kStoreOutputValOpIdx = 4;
+    const unsigned kStoreOutputVPIDOpIdx = 5;
 
     // DomainLocation.
     const unsigned kDomainLocationColOpIdx = 1;
@@ -913,6 +957,14 @@ namespace DXIL {
 
     // Emit/Cut
     const unsigned kStreamEmitCutIDOpIdx = 1;
+
+    // StoreVectorOutput/StorePrimitiveOutput.
+    const unsigned kMSStoreOutputIDOpIdx = 1;
+    const unsigned kMSStoreOutputRowOpIdx = 2;
+    const unsigned kMSStoreOutputColOpIdx = 3;
+    const unsigned kMSStoreOutputVIdxOpIdx = 4;
+    const unsigned kMSStoreOutputValOpIdx = 5;
+
     // TODO: add operand index for all the OpCodeClass.
   }
 
@@ -1023,6 +1075,15 @@ namespace DXIL {
     Line = 2,
     TriangleCW = 3,
     TriangleCCW = 4,
+
+    LastEntry,
+  };
+
+  enum class MeshOutputTopology
+  {
+    Undefined = 0,
+    Line = 1,
+    Triangle = 2,
 
     LastEntry,
   };

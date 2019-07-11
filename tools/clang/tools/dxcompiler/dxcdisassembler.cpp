@@ -531,6 +531,8 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
   }
   if (pSM->IsHS() || pSM->IsDS()) {
     OS << ", patchconst: " << VID.getNumPCSigScalars();
+  } else if (pSM->IsMS()) {
+    OS << ", primitive outputs: " << VID.getNumPCSigScalars();
   }
   OS << "\n";
 
@@ -553,6 +555,10 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
     PrintOutputsDependentOnViewId(OS, comment, "PCOutputs",
                                   VID.getNumPCSigScalars(),
                                   VID.getPCOutputsDependentOnViewId());
+  } else if (pSM->IsMS()) {
+    PrintOutputsDependentOnViewId(OS, comment, "Primitive Outputs",
+                                  VID.getNumPCSigScalars(),
+                                  VID.getPCOutputsDependentOnViewId());
   }
 
   if (!pSM->IsGS()) {
@@ -570,6 +576,9 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
   }
   if (pSM->IsHS()) {
     PrintInputsContributingToOutputs(OS, comment, "Inputs", "PCOutputs",
+                                     VID.getInputsContributingToPCOutputs());
+  } else if (pSM->IsMS()) {
+    PrintInputsContributingToOutputs(OS, comment, "Inputs", "Primitive Outputs",
                                      VID.getInputsContributingToPCOutputs());
   } else if (pSM->IsDS()) {
     PrintInputsContributingToOutputs(OS, comment, "PCInputs", "Outputs",
@@ -1182,7 +1191,13 @@ static const char *OpCodeSignatures[] = {
   "(acc,a,b)",  // Dot4AddU8Packed
   "(value)",  // WaveMatch
   "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
-  "(value,mask0,mask1,mask2,mask3)"  // WaveMultiPrefixBitCount
+  "(value,mask0,mask1,mask2,mask3)",  // WaveMultiPrefixBitCount
+  "(numVertices,numPrimitives)",  // SetMeshOutputCounts
+  "(PrimitiveIndex,VertexIndex0,VertexIndex1,VertexIndex2)",  // EmitIndices
+  "()",  // GetMeshPayload
+  "(outputSigId,rowIndex,colIndex,value,vertexIndex)",  // StoreVertexOutput
+  "(outputSigId,rowIndex,colIndex,value,primitiveIndex)",  // StorePrimitiveOutput
+  "(threadGroupCountX,threadGroupCountY,threadGroupCountZ,payload)"  // DispatchMesh
 };
 // OPCODE-SIGS:END
 
@@ -1581,11 +1596,19 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     if (!dxilModule.GetShaderModel()->IsLib()) {
       PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
                          /*comment*/ ";");
-      PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
-                         /*comment*/ ";");
-      PrintDxilSignature("Patch Constant signature",
-                         dxilModule.GetPatchConstantSignature(), Stream,
-                         /*comment*/ ";");
+      if (dxilModule.GetShaderModel()->IsMS()) {
+        PrintDxilSignature("Vertex Output", dxilModule.GetOutputSignature(), Stream,
+                           /*comment*/ ";");
+        PrintDxilSignature("Primitive Output",
+                           dxilModule.GetPatchConstOrPrimSignature(), Stream,
+                           /*comment*/ ";");
+      } else {
+        PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
+                           /*comment*/ ";");
+        PrintDxilSignature("Patch Constant",
+                           dxilModule.GetPatchConstOrPrimSignature(), Stream,
+                           /*comment*/ ";");
+      }
     }
     PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
     PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");

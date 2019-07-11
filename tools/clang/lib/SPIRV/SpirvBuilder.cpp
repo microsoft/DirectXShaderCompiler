@@ -965,6 +965,23 @@ void SpirvBuilder::decorateNoContraction(SpirvInstruction *target,
   module->addDecoration(decor);
 }
 
+void SpirvBuilder::decoratePerPrimitiveNV(SpirvInstruction *target,
+                                          SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::PerPrimitiveNV);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
+                                     SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::PerTaskNV);
+  module->addDecoration(decor);
+  decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::Offset, {offset});
+  module->addDecoration(decor);
+}
+
 SpirvConstant *SpirvBuilder::getConstantInt(QualType type, llvm::APInt value,
                                             bool specConst) {
   // We do not reuse existing constant integers. Just create a new one.

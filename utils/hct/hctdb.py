@@ -19,6 +19,8 @@ all_stages = (
     'closesthit',
     'miss',
     'callable',
+    'mesh',
+    'amplification',
     )
 
 class db_dxil_enum_value(object):
@@ -285,8 +287,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
-            self.name_idx[i].category = "Compute shader"
-            self.name_idx[i].shader_stages = ("compute",)
+            self.name_idx[i].category = "Compute/Mesh/Amplification shader"
+            self.name_idx[i].shader_stages = ("compute", "mesh", "amplification")
         for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
             self.name_idx[i].category = "Geometry shader"
             self.name_idx[i].shader_stages = ("geometry",)
@@ -304,7 +306,7 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("geometry", "domain", "hull")
         for i in "ViewID".split(","):
             self.name_idx[i].category = "Graphics shader"
-            self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel")
+            self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel", "mesh")
         for i in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(","):
             self.name_idx[i].category = "Double precision"
         for i in "CycleCounterLegacy".split(","):
@@ -379,6 +381,14 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,4
         for i in "WaveMatch,WaveMultiPrefixOp,WaveMultiPrefixBitCount".split(","):
             self.name_idx[i].category = "Wave"
+            self.name_idx[i].shader_model = 6,5
+        for i in "SetMeshOutputCounts,EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(","):
+            self.name_idx[i].category = "Mesh shader instructions"
+            self.name_idx[i].shader_stages = ("mesh",)
+            self.name_idx[i].shader_model = 6,5
+        for i in "DispatchMesh".split(","):
+            self.name_idx[i].category = "Amplification shader instructions"
+            self.name_idx[i].shader_stages = ("amplification",)
             self.name_idx[i].shader_model = 6,5
 
     def populate_llvm_instructions(self):
@@ -1373,9 +1383,48 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "mask3", "mask 3")])
         next_op_idx += 1
 
+        self.add_dxil_op("SetMeshOutputCounts", next_op_idx, "SetMeshOutputCounts", "Mesh shader intrinsic SetMeshOutputCounts", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "i32", "numVertices", "number of output vertices"),
+            db_dxil_param(3, "i32", "numPrimitives", "number of output primitives")])
+        next_op_idx += 1
+        self.add_dxil_op("EmitIndices", next_op_idx, "EmitIndices", "emit a primitive's vertex indices in a mesh shader", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "u32", "PrimitiveIndex", "a primitive's index"),
+            db_dxil_param(3, "u32", "VertexIndex0", "a primitive's first vertex index"),
+            db_dxil_param(4, "u32", "VertexIndex1", "a primitive's second vertex index"),
+            db_dxil_param(5, "u32", "VertexIndex2", "a primitive's third vertex index")])
+        next_op_idx += 1
+        self.add_dxil_op("GetMeshPayload", next_op_idx, "GetMeshPayload", "get the mesh payload which is from amplification shader", "u", "ro", [
+            db_dxil_param(0, "$o", "", "mesh payload result")])
+        next_op_idx += 1
+        self.add_dxil_op("StoreVertexOutput", next_op_idx, "StoreVertexOutput", "stores the value to mesh shader vertex output", "hfwi", "", [
+            retvoid_param,
+            db_dxil_param(2, "u32", "outputSigId", "vertex output signature element ID"),
+            db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
+            db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
+            db_dxil_param(5, "$o", "value", "value to store"),
+            db_dxil_param(6, "u32", "vertexIndex", "vertex index")])
+        next_op_idx += 1
+        self.add_dxil_op("StorePrimitiveOutput", next_op_idx, "StorePrimitiveOutput", "stores the value to mesh shader primitive output", "hfwi", "", [
+            retvoid_param,
+            db_dxil_param(2, "u32", "outputSigId", "primitive output signature element ID"),
+            db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
+            db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
+            db_dxil_param(5, "$o", "value", "value to store"),
+            db_dxil_param(6, "u32", "primitiveIndex", "primitive index")])
+        next_op_idx += 1
+        self.add_dxil_op("DispatchMesh", next_op_idx, "DispatchMesh", "Amplification shader intrinsic DispatchMesh", "u", "", [
+            retvoid_param,
+            db_dxil_param(2, "i32", "threadGroupCountX", "thread group count x"),
+            db_dxil_param(3, "i32", "threadGroupCountY", "thread group count y"),
+            db_dxil_param(4, "i32", "threadGroupCountZ", "thread group count z"),
+            db_dxil_param(5, "$o", "payload", "payload")])
+        next_op_idx += 1
+
         # End of DXIL 1.5 opcodes.
         self.set_op_count_for_version(1, 5, next_op_idx)
-        assert next_op_idx == 168, "next operation index is %d rather than 168 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 174, "next operation index is %d rather than 174 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1749,7 +1798,8 @@ class db_dxil(object):
             (27, "ViewID", ""),
             (28, "Barycentrics", ""),
             (29, "ShadingRate", ""),
-            (30, "Invalid", ""),
+            (30, "CullPrimitive", ""),
+            (31, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -1769,7 +1819,11 @@ class db_dxil(object):
             (13, "PSIn", "Pixel Shader input"),
             (14, "PSOut", "Pixel Shader output"),
             (15, "CSIn", "Compute Shader input"),
-            (16, "Invalid", ""),
+            (16, "MSIn", "Mesh Shader input"),
+            (17, "MSOut", "Mesh Shader vertices output"),
+            (18, "MSPOut", "Mesh Shader primitives output"),
+            (19, "ASIn", "Amplification Shader input"),
+            (21, "Invalid", ""),
             ])
         self.enums.append(SigPointKind)
         PackingKind = db_dxil_enum("PackingKind", "Kind of signature point", [
@@ -1795,24 +1849,28 @@ class db_dxil(object):
 
 
         SigPointCSV = """
-            SigPoint, Related, ShaderKind, PackingKind,    SignatureKind
-            VSIn,     Invalid, Vertex,     InputAssembler, Input
-            VSOut,    Invalid, Vertex,     Vertex,         Output
-            PCIn,     HSCPIn,  Hull,       None,           Invalid
-            HSIn,     HSCPIn,  Hull,       None,           Invalid
-            HSCPIn,   Invalid, Hull,       Vertex,         Input
-            HSCPOut,  Invalid, Hull,       Vertex,         Output
-            PCOut,    Invalid, Hull,       PatchConstant,  PatchConstant
-            DSIn,     Invalid, Domain,     PatchConstant,  PatchConstant
-            DSCPIn,   Invalid, Domain,     Vertex,         Input
-            DSOut,    Invalid, Domain,     Vertex,         Output
-            GSVIn,    Invalid, Geometry,   Vertex,         Input
-            GSIn,     GSVIn,   Geometry,   None,           Invalid
-            GSOut,    Invalid, Geometry,   Vertex,         Output
-            PSIn,     Invalid, Pixel,      Vertex,         Input
-            PSOut,    Invalid, Pixel,      Target,         Output
-            CSIn,     Invalid, Compute,    None,           Invalid
-            Invalid,  Invalid, Invalid,    Invalid,        Invalid
+            SigPoint, Related, ShaderKind,    PackingKind,    SignatureKind
+            VSIn,     Invalid, Vertex,        InputAssembler, Input
+            VSOut,    Invalid, Vertex,        Vertex,         Output
+            PCIn,     HSCPIn,  Hull,          None,           Invalid
+            HSIn,     HSCPIn,  Hull,          None,           Invalid
+            HSCPIn,   Invalid, Hull,          Vertex,         Input
+            HSCPOut,  Invalid, Hull,          Vertex,         Output
+            PCOut,    Invalid, Hull,          PatchConstant,  PatchConstOrPrim
+            DSIn,     Invalid, Domain,        PatchConstant,  PatchConstOrPrim
+            DSCPIn,   Invalid, Domain,        Vertex,         Input
+            DSOut,    Invalid, Domain,        Vertex,         Output
+            GSVIn,    Invalid, Geometry,      Vertex,         Input
+            GSIn,     GSVIn,   Geometry,      None,           Invalid
+            GSOut,    Invalid, Geometry,      Vertex,         Output
+            PSIn,     Invalid, Pixel,         Vertex,         Input
+            PSOut,    Invalid, Pixel,         Target,         Output
+            CSIn,     Invalid, Compute,       None,           Invalid
+            MSIn,     Invalid, Mesh,          None,           Invalid
+            MSOut,    Invalid, Mesh,          Vertex,         Output
+            MSPOut,   Invalid, Mesh,          Vertex,         PatchConstOrPrim
+            ASIn,     Invalid, Amplification, None,           Invalid
+            Invalid,  Invalid, Invalid,       Invalid,        Invalid
         """
         table = [list(map(str.strip, line.split(','))) for line in SigPointCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -1839,37 +1897,38 @@ class db_dxil(object):
 
         # The following has SampleIndex, Coverage, and InnerCoverage as loaded with instructions rather than from the signature
         SemanticInterpretationCSV = """
-            Semantic,VSIn,VSOut,PCIn,HSIn,HSCPIn,HSCPOut,PCOut,DSIn,DSCPIn,DSOut,GSVIn,GSIn,GSOut,PSIn,PSOut,CSIn
-            Arbitrary,Arb,Arb,NA,NA,Arb,Arb,Arb,Arb,Arb,Arb,Arb,NA,Arb,Arb,NA,NA
-            VertexID,SV,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-            InstanceID,SV,Arb,NA,NA,Arb,Arb,NA,NA,Arb,Arb,Arb,NA,Arb,Arb,NA,NA
-            Position,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            RenderTargetArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            ViewPortArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            ClipDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
-            CullDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
-            OutputControlPointID,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-            DomainLocation,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA
-            PrimitiveID,NA,NA,NotInSig,NotInSig,NA,NA,NA,NotInSig,NA,NA,NA,Shadow,SGV,SGV,NA,NA
-            GSInstanceID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA
-            SampleIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Shadow _41,NA,NA
-            IsFrontFace,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SGV,SGV,NA,NA
-            Coverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NotPacked _41,NA
-            InnerCoverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NA,NA
-            Target,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Target,NA
-            Depth,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked,NA
-            DepthLessEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA
-            DepthGreaterEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA
-            StencilRef,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA
-            DispatchThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            GroupID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            GroupIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            GroupThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
-            InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
-            ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
-            Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
-            ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA
+            Semantic,VSIn,VSOut,PCIn,HSIn,HSCPIn,HSCPOut,PCOut,DSIn,DSCPIn,DSOut,GSVIn,GSIn,GSOut,PSIn,PSOut,CSIn,MSIn,MSOut,MSPOut,ASIn
+            Arbitrary,Arb,Arb,NA,NA,Arb,Arb,Arb,Arb,Arb,Arb,Arb,NA,Arb,Arb,NA,NA,NA,Arb _65,Arb _65,NA
+            VertexID,SV,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            InstanceID,SV,Arb,NA,NA,Arb,Arb,NA,NA,Arb,Arb,Arb,NA,Arb,Arb,NA,NA,NA,NA,NA,NA
+            Position,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA,NA,SV _65,NA,NA
+            RenderTargetArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA,NA,NA,SV _65,NA
+            ViewPortArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA,NA,NA,SV _65,NA
+            ClipDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA,NA,ClipCull _65,NA,NA
+            CullDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA,NA,ClipCull _65,NA,NA
+            OutputControlPointID,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            DomainLocation,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            PrimitiveID,NA,NA,NotInSig,NotInSig,NA,NA,NA,NotInSig,NA,NA,NA,Shadow,SGV,SGV,NA,NA,NA,NA,SV _65,NA
+            GSInstanceID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA
+            SampleIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Shadow _41,NA,NA,NA,NA,NA,NA
+            IsFrontFace,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SGV,SGV,NA,NA,NA,NA,NA,NA
+            Coverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NotPacked _41,NA,NA,NA,NA,NA
+            InnerCoverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NA,NA,NA,NA,NA,NA
+            Target,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Target,NA,NA,NA,NA,NA
+            Depth,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked,NA,NA,NA,NA,NA
+            DepthLessEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA,NA,NA,NA,NA
+            DepthGreaterEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA,NA,NA,NA,NA
+            StencilRef,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA,NA,NA,NA,NA
+            DispatchThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            GroupID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            GroupIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            GroupThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA,NotInSig _65,NA,NA,NA
+            Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA,NA,NA,NA,NA
+            ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA,NA,NA,NA,NA
+            CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SV _65,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -2022,6 +2081,12 @@ class db_dxil(object):
         self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
         self.add_valrule("Instr.CreateHandleImmRangeID", "Local resource must map to global resource.")
         self.add_valrule("Instr.SignatureOperationNotInEntry", "Dxil operation for input output signature must be in entryPoints.")
+        self.add_valrule("Instr.MultipleSetMeshOutputCounts", "SetMeshOUtputCounts cannot be called multiple times.")
+        self.add_valrule("Instr.MissingSetMeshOutputCounts", "Missing SetMeshOutputCounts call.")
+        self.add_valrule("Instr.NonDominatingSetMeshOutputCounts", "Non-Dominating SetMeshOutputCounts call.")
+        self.add_valrule("Instr.MultipleGetMeshPayload", "GetMeshPayload cannot be called multiple times.")
+        self.add_valrule("Instr.NotOnceDispatchMesh", "DispatchMesh must be called exactly once in an Amplification shader.")
+        self.add_valrule("Instr.NonDominatingDispatchMesh", "Non-Dominating DispatchMesh call.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -2042,6 +2107,7 @@ class db_dxil(object):
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2")
         self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined")
+        self.add_valrule_msg("Sm.ConstantInterpMode", "Interpolation mode must be constant for MS primitive output.", "Interpolation mode for '%0' should be constant")
         self.add_valrule("Sm.NoPSOutputIdx", "Pixel shader output registers are not indexable.")# TODO restrict to PS
         self.add_valrule("Sm.PSConsistentInterp", "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)")
         self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3]")
@@ -2093,6 +2159,16 @@ class db_dxil(object):
         self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
         self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures")
         self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size")
+        self.add_valrule("Sm.MeshShaderMaxVertexCount", "MS max vertex output count must be [0..%0].  %1 specified")
+        self.add_valrule("Sm.MeshShaderMaxPrimitiveCount", "MS max primitive output count must be [0..%0].  %1 specified")
+        self.add_valrule("Sm.MeshShaderPayloadSize", "For shader '%0', payload size is greater than %1")
+        self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1")
+        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', input plus output size is greater than %1")
+        self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows")
+        self.add_valrule("Sm.MeshPSigRowCount", "For shader '%0', primitive output signatures are taking up more than %1 rows")
+        self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows")
+        self.add_valrule("Sm.MaxMSSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1")
+        self.add_valrule("Sm.AmplificationShaderPayloadSize", "For shader '%0', payload size is greater than %1")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")

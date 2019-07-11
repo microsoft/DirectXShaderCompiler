@@ -794,9 +794,15 @@ HLSLReservedKeyword:
   case tok::kw_sample:
   case tok::kw_globallycoherent:
   case tok::kw_center:
+  case tok::kw_indices:
+  case tok::kw_vertices:
+  case tok::kw_primitives:
+  case tok::kw_payload:
     // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation 
     // modifiers, but in FXC they can also be used an identifiers. No interpolation modifiers are expected here
     // so we need to change the token type to tok::identifier and fall through to the next case.
+    // Similarly 'indices', 'vertices', 'primitives' and 'payload' are keywords when used
+    // as a type qualifer in mesh shader, but may still be used as a variable name.
     Tok.setKind(tok::identifier);
     __fallthrough;
     // HLSL Change Ends
@@ -1722,6 +1728,10 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         case tok::kw_globallycoherent:
         case tok::kw_precise:
         case tok::kw_sample:
+        case tok::kw_indices:
+        case tok::kw_vertices:
+        case tok::kw_primitives:
+        case tok::kw_payload:
           Tok.setKind(tok::identifier);
           Tok.setIdentifierInfo(PP.getIdentifierInfo(getKeywordSpelling(tk)));
           break;

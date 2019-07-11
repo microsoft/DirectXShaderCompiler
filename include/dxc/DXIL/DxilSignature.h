@@ -52,6 +52,8 @@ public:
 
   static bool ShouldBeAllocated(DXIL::SemanticInterpretationKind);
 
+  unsigned GetRowCount() const;
+
 private:
   DXIL::SigPointKind m_sigPointKind;
   std::vector<std::unique_ptr<DxilSignatureElement> > m_Elements;
@@ -62,12 +64,12 @@ struct DxilEntrySignature {
   DxilEntrySignature(DXIL::ShaderKind shaderKind, bool useMinPrecision)
       : InputSignature(shaderKind, DxilSignature::Kind::Input, useMinPrecision),
         OutputSignature(shaderKind, DxilSignature::Kind::Output, useMinPrecision),
-        PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant, useMinPrecision) {
+        PatchConstOrPrimSignature(shaderKind, DxilSignature::Kind::PatchConstOrPrim, useMinPrecision) {
   }
   DxilEntrySignature(const DxilEntrySignature &src);
   DxilSignature InputSignature;
   DxilSignature OutputSignature;
-  DxilSignature PatchConstantSignature;
+  DxilSignature PatchConstOrPrimSignature;
 };
 
 } // namespace hlsl

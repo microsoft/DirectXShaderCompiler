@@ -7323,6 +7323,29 @@ VectorMemberAccessError TryParseVectorMemberAccess(_In_z_ const char* memberText
   return VectorMemberAccessError_None;
 }
 
+static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
+  switch(BaseExpr->getStmtClass()) {
+  case Stmt::ArraySubscriptExprClass: {
+    ArraySubscriptExpr* ase = cast<ArraySubscriptExpr>(BaseExpr);
+    return IsExprAccessingOutIndicesArray(ase->getBase());
+  }
+  case Stmt::ImplicitCastExprClass: {
+    ImplicitCastExpr* ice = cast<ImplicitCastExpr>(BaseExpr);
+    return IsExprAccessingOutIndicesArray(ice->getSubExpr());
+  }
+  case Stmt::DeclRefExprClass: {
+    DeclRefExpr* dre = cast<DeclRefExpr>(BaseExpr);
+    ValueDecl* vd = dre->getDecl();
+    if (vd->getAttr<HLSLIndicesAttr>() && vd->getAttr<HLSLOutAttr>()) {
+      return true;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
 bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
@@ -7395,6 +7418,14 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
   }
 
   DXASSERT(positions.IsValid, "otherwise an error should have been returned");
+
+  // Disallow component access for out indices for DXIL path. We still allow
+  // this in SPIR-V path.
+  if (!getSema()->getLangOpts().SPIRV &&
+      IsExprAccessingOutIndicesArray(&BaseExpr) && positions.Count < colCount) {
+    m_sema->Diag(MemberLoc, diag::err_hlsl_out_indices_array_incorrect_access);
+    return false;
+  }
 
   // Consume elements
   QualType resultType;
@@ -9713,8 +9744,9 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     if (shaderModel->IsGS()) {
       // Validate that GS has the maxvertexcount attribute
       if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(),
-                   diag::err_hlsl_missing_maxvertexcount_attr);
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "GS"
+            << "maxvertexcount";
         return;
       }
     } else if (shaderModel->IsHS()) {
@@ -9731,8 +9763,32 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
         pPatchFnDecl = NL.Found;
       } else {
-        self->Diag(pEntryPointDecl->getLocation(),
-                   diag::err_hlsl_missing_patchconstantfunc_attr);
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "HS"
+            << "patchconstantfunc";
+        return;
+      }
+    } else if (shaderModel->IsMS()) {
+      // Validate that MS has the numthreads attribute
+      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "MS"
+            << "numthreads";
+        return;
+      }
+      // Validate that MS has the outputtopology attribute
+      if (!pEntryPointDecl->hasAttr<HLSLOutputTopologyAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "MS"
+            << "outputtopology";
+        return;
+      }
+    } else if (shaderModel->IsAS()) {
+      // Validate that AS has the numthreads attribute
+      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "AS"
+            << "numthreads";
         return;
       }
     }
@@ -10892,6 +10948,22 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLIndices:
+    declAttr = ::new (S.Context) HLSLIndicesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLVertices:
+    declAttr = ::new (S.Context) HLSLVerticesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLPrimitives:
+    declAttr = ::new (S.Context) HLSLPrimitivesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLPayload:
+    declAttr = ::new (S.Context) HLSLPayloadAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
 
   default:
     Handled = false;
@@ -10975,8 +11047,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLShader:
     declAttr = ::new (S.Context) HLSLShaderAttr(
         A.getRange(), S.Context,
-        ValidateAttributeStringArg(S, A,
-                                   "compute,vertex,pixel,hull,domain,geometry,raygeneration,intersection,anyhit,closesthit,miss,callable"),
+        ValidateAttributeStringArg(
+            S, A,
+            "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
+            "intersection,anyhit,closesthit,miss,callable,mesh,amplification"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
@@ -11017,7 +11091,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   {
   case AttributeList::AT_VKBuiltIn:
     declAttr = ::new (S.Context) VKBuiltInAttr(A.getRange(), S.Context,
-      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation,BaseVertex,BaseInstance,DrawIndex,DeviceIndex"),
+      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation,BaseVertex,BaseInstance,DrawIndex,DeviceIndex,ViewportMaskNV"),
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKLocation:
@@ -11549,7 +11623,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     *pCentroid = nullptr,
     *pCenter = nullptr,
     *pAnyLinear = nullptr,                   // first linear attribute found
-    *pTopology = nullptr;
+    *pTopology = nullptr,
+    *pMeshModifier = nullptr;
   bool usageIn = false;
   bool usageOut = false;
 
@@ -11733,6 +11808,29 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
 
+    case AttributeList::AT_HLSLIndices:
+    case AttributeList::AT_HLSLVertices:
+    case AttributeList::AT_HLSLPrimitives:
+    case AttributeList::AT_HLSLPayload:
+      if (!(isParameter)) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+          << pAttr->getName() << declarationType << pAttr->getRange();
+        result = false;
+      }
+      if (pMeshModifier) {
+        if (pMeshModifier->getKind() == pAttr->getKind()) {
+          Diag(pAttr->getLoc(), diag::warn_hlsl_duplicate_specifier)
+            << pAttr->getName() << pAttr->getRange();
+        } else {
+          Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+            << pAttr->getName() << pMeshModifier->getName()
+            << declarationType << pAttr->getRange();
+          result = false;
+        }
+      }
+      pMeshModifier = pAttr;
+      break;
+
     default:
       break;
     }
@@ -11782,6 +11880,21 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           << pUsage->getName() << pUniform->getName() << declarationType
           << pUniform->getRange();
       result = false;
+    }
+  }
+  if (pMeshModifier) {
+    if (pMeshModifier->getKind() == AttributeList::Kind::AT_HLSLPayload) {
+      if (!usageIn) {
+        Diag(D.getLocStart(), diag::err_hlsl_missing_in_attr)
+            << pMeshModifier->getName();
+        result = false;
+      }
+    } else {
+      if (!usageOut) {
+        Diag(D.getLocStart(), diag::err_hlsl_missing_out_attr)
+            << pMeshModifier->getName();
+        result = false;
+      }
     }
   }
 
@@ -12313,6 +12426,22 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "globallycoherent ";
     break;
 
+  case clang::attr::HLSLIndices:
+    Out << "indices ";
+    break;
+
+  case clang::attr::HLSLVertices:
+    Out << "vertices ";
+    break;
+
+  case clang::attr::HLSLPrimitives:
+    Out << "primitives ";
+    break;
+
+  case clang::attr::HLSLPayload:
+    Out << "payload ";
+    break;
+
   default:
     A->printPretty(Out, Policy);
     break;
@@ -12365,6 +12494,10 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
+  case clang::attr::HLSLIndices:
+  case clang::attr::HLSLVertices:
+  case clang::attr::HLSLPrimitives:
+  case clang::attr::HLSLPayload:
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
   case clang::attr::VKBinding:

@@ -336,6 +336,12 @@ const unsigned kTraceRayPayLoadOpIdx = 8;
 // ReportIntersection.
 const unsigned kReportIntersectionAttributeOpIdx = 3;
 
+// DispatchMesh
+const unsigned kDispatchMeshOpThreadX = 1;
+const unsigned kDispatchMeshOpThreadY = 2;
+const unsigned kDispatchMeshOpThreadZ = 3;
+const unsigned kDispatchMeshOpPayload = 4;
+
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,

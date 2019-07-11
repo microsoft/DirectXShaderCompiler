@@ -273,8 +273,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       break;
     }
     case spv::BuiltIn::PrimitiveId: {
-      // PrimitiveID can be used as PSIn
-      if (shaderModel == spv::ExecutionModel::Fragment)
+      // PrimitiveID can be used as PSIn or MSPOut.
+      if (shaderModel == spv::ExecutionModel::Fragment ||
+          shaderModel == spv::ExecutionModel::MeshNV)
         addCapability(spv::Capability::Geometry);
       break;
     }
@@ -285,8 +286,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
         addExtension(Extension::EXT_shader_viewport_index_layer,
                      "SV_RenderTargetArrayIndex", loc);
         addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
-      } else if (shaderModel == spv::ExecutionModel::Fragment) {
-        // SV_RenderTargetArrayIndex can be used as PSIn.
+      } else if (shaderModel == spv::ExecutionModel::Fragment ||
+                 shaderModel == spv::ExecutionModel::MeshNV) {
+        // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
       }
       break;
@@ -299,8 +301,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                      "SV_ViewPortArrayIndex", loc);
         addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::Geometry) {
-        // SV_ViewportArrayIndex can be used as PSIn.
+                 shaderModel == spv::ExecutionModel::Geometry ||
+                 shaderModel == spv::ExecutionModel::MeshNV) {
+        // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
       }
       break;
@@ -502,6 +505,11 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::CallableNV:
     addCapability(spv::Capability::RayTracingNV);
     addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    break;
+  case spv::ExecutionModel::MeshNV:
+  case spv::ExecutionModel::TaskNV:
+    addCapability(spv::Capability::MeshShadingNV);
+    addExtension(Extension::NV_mesh_shader, "SPV_NV_mesh_shader", {});
     break;
   default:
     llvm_unreachable("found unknown shader model");

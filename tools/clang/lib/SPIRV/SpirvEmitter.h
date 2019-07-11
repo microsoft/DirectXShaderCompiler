@@ -260,6 +260,24 @@ private:
   SpirvInstruction *tryToAssignToRWBufferRWTexture(const Expr *lhs,
                                                    SpirvInstruction *rhs);
 
+  /// Tries to emit instructions for assigning to the given mesh out attribute
+  /// or indices object. Returns 0 if the trial fails and no instructions are
+  /// generated.
+  SpirvInstruction *
+  tryToAssignToMSOutAttrsOrIndices(const Expr *lhs, SpirvInstruction *rhs,
+                                   SpirvInstruction *vecComponent = nullptr,
+                                   bool noWriteBack = false);
+
+  /// Emit instructions for assigning to the given mesh out attribute.
+  void assignToMSOutAttribute(
+      const DeclaratorDecl *decl, SpirvInstruction *value,
+      const llvm::SmallVector<SpirvInstruction *, 4> &indices);
+
+  /// Emit instructions for assigning to the given mesh out indices object.
+  void
+  assignToMSOutIndices(const DeclaratorDecl *decl, SpirvInstruction *value,
+                       const llvm::SmallVector<SpirvInstruction *, 4> &indices);
+
   /// Processes each vector within the given matrix by calling actOnEachVector.
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
   /// three parameters for the current vector: the index, the <type-id>, and
@@ -294,7 +312,8 @@ private:
   const Expr *
   collectArrayStructIndices(const Expr *expr, bool rawIndex,
                             llvm::SmallVectorImpl<uint32_t> *rawIndices,
-                            llvm::SmallVectorImpl<SpirvInstruction *> *indices);
+                            llvm::SmallVectorImpl<SpirvInstruction *> *indices,
+                            bool *isMSOutAttribute = nullptr);
 
   /// Creates an access chain to index into the given SPIR-V evaluation result
   /// and returns the new SPIR-V evaluation result.
@@ -521,6 +540,12 @@ private:
   void processCallShader(const CallExpr *callExpr);
   void processTraceRay(const CallExpr *callExpr);
 
+  /// Process amplification shader intrinsics.
+  void processDispatchMesh(const CallExpr *callExpr);
+
+  /// Process mesh shader intrinsics.
+  void processMeshOutputCounts(const CallExpr *callExpr);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);
@@ -624,6 +649,12 @@ private:
   /// \brief Adds necessary execution modes for the compute shader based on the
   /// HLSL attributes of the entry point function.
   void processComputeShaderAttributes(const FunctionDecl *entryFunction);
+
+  /// \brief Adds necessary execution modes for the mesh/amplification shader
+  /// based on the HLSL attributes of the entry point function.
+  bool
+  processMeshOrAmplificationShaderAttributes(const FunctionDecl *decl,
+                                             uint32_t *outVerticesArraySize);
 
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.
@@ -1105,7 +1136,7 @@ private:
   /// HitAttributeNV.
   llvm::SmallDenseMap<QualType,
                       std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
-      payloadMap;
+      rayPayloadMap;
   llvm::SmallDenseMap<QualType, SpirvInstruction *, 4> hitAttributeMap;
   llvm::SmallDenseMap<QualType,
                       std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
