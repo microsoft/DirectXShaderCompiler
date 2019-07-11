@@ -467,11 +467,17 @@ llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
   return SkipAllocas(FindAllocaInsertionPt(F));
 }
 
+static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
+  if (!Str.startswith(Prefix)) return false;
+  Str = Str.substr(Prefix.size());
+  return true;
+}
+
 bool IsHLSLResourceType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     StringRef name = ST->getName();
-    name = name.ltrim("class.");
-    name = name.ltrim("struct.");
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
       return true;
@@ -489,8 +495,13 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
     if (name == "RaytracingAccelerationStructure")
       return true;
 
-    name = name.ltrim("RasterizerOrdered");
-    name = name.ltrim("RW");
+    if (ConsumePrefix(name, "FeedbackTexture2D")) {
+      ConsumePrefix(name, "Array");
+      return name == "MinLOD" || name == "Tiled";
+    }
+
+    ConsumePrefix(name, "RasterizerOrdered");
+    ConsumePrefix(name, "RW");
     if (name == "ByteAddressBuffer")
       return true;
 
@@ -499,8 +510,7 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
     if (name.startswith("StructuredBuffer<"))
       return true;
 
-    if (name.startswith("Texture")) {
-      name = name.ltrim("Texture");
+    if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
         return true;
       if (name.startswith("1DArray<"))
@@ -519,6 +529,7 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
         return true;
       if (name.startswith("2DMSArray<"))
         return true;
+      return false;
     }
   }
   return false;
@@ -537,8 +548,8 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     if (IsHLSLResourceType(Ty))
       return true;
 
-    name = name.ltrim("class.");
-    name = name.ltrim("struct.");
+    ConsumePrefix(name, "class.");
+    ConsumePrefix(name, "struct.");
 
     if (name.startswith("TriangleStream<"))
       return true;

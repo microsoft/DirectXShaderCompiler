@@ -439,41 +439,44 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
     {
       DXIL::OpCode opcode;
       ShaderAccessFlags readWrite;
-      bool functionUsesSamplerAtIndex2;
-      std::vector<Type*> overloads;
+      ArrayRef<Type*> overloads;
     };
 
-    std::vector<Type*> voidType = { Type::getVoidTy(Ctx) };
-    std::vector<Type*> i32 = { Type::getInt32Ty(Ctx) };
-    std::vector<Type*> f16f32 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx) };
-    std::vector<Type*> f32i32 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx) };
-    std::vector<Type*> f32i32f64 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx), Type::getDoubleTy(Ctx) };
-    std::vector<Type*> f16f32i16i32 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
-    std::vector<Type*> f16f32f64i16i32i64 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getDoubleTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx), Type::getInt64Ty(Ctx) };
+    Type* voidType[] = { Type::getVoidTy(Ctx) };
+    Type* i32[] = { Type::getInt32Ty(Ctx) };
+    Type* f16f32[] = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx) };
+    Type* f32i32[] = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx) };
+    Type* f32i32f64[] = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx), Type::getDoubleTy(Ctx) };
+    Type* f16f32i16i32[] = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
+    Type* f16f32f64i16i32i64[] = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getDoubleTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx), Type::getInt64Ty(Ctx) };
 
 
     // todo: should "GetDimensions" mean a resource access?
-    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(174), "Please update PIX passes if any resource access opcodes are added");
+    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(178), "Please update PIX passes if any resource access opcodes are added");
     ResourceAccessFunction raFunctions[] = {
-      { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read   , false, f32i32f64 },
-      { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read   , false, f16f32f64i16i32i64 },
-      { DXIL::OpCode::Sample                , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleBias            , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleLevel           , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleGrad            , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleCmp             , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleCmpLevelZero    , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::TextureLoad           , ShaderAccessFlags::Read   , false, f16f32i16i32 },
-      { DXIL::OpCode::TextureStore          , ShaderAccessFlags::Write  , false, f16f32i16i32 },
-      { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read   , true , f16f32i16i32 },
-      { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f16f32i16i32 },
-      { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read   , false, f32i32 },
-      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f16f32i16i32 },
-      { DXIL::OpCode::RawBufferStore        , ShaderAccessFlags::Write  , false, f16f32i16i32 },
-      { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write  , false, f32i32 },
-      { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, false, voidType },
-      { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write  , false, i32 },
-      { DXIL::OpCode::AtomicCompareExchange , ShaderAccessFlags::Write  , false, i32 },
+      { DXIL::OpCode::CBufferLoadLegacy             , ShaderAccessFlags::Read   , f32i32f64 },
+      { DXIL::OpCode::CBufferLoad                   , ShaderAccessFlags::Read   , f16f32f64i16i32i64 },
+      { DXIL::OpCode::Sample                        , ShaderAccessFlags::Read   , f16f32 },
+      { DXIL::OpCode::SampleBias                    , ShaderAccessFlags::Read   , f16f32 },
+      { DXIL::OpCode::SampleLevel                   , ShaderAccessFlags::Read   , f16f32 },
+      { DXIL::OpCode::SampleGrad                    , ShaderAccessFlags::Read   , f16f32 },
+      { DXIL::OpCode::SampleCmp                     , ShaderAccessFlags::Read   , f16f32 },
+      { DXIL::OpCode::SampleCmpLevelZero            , ShaderAccessFlags::Read   , f16f32 },
+      { DXIL::OpCode::TextureLoad                   , ShaderAccessFlags::Read   , f16f32i16i32 },
+      { DXIL::OpCode::TextureStore                  , ShaderAccessFlags::Write  , f16f32i16i32 },
+      { DXIL::OpCode::TextureGather                 , ShaderAccessFlags::Read   , f16f32i16i32 },
+      { DXIL::OpCode::TextureGatherCmp              , ShaderAccessFlags::Read   , f16f32i16i32 },
+      { DXIL::OpCode::BufferLoad                    , ShaderAccessFlags::Read   , f32i32 },
+      { DXIL::OpCode::RawBufferLoad                 , ShaderAccessFlags::Read   , f16f32i16i32 },
+      { DXIL::OpCode::RawBufferStore                , ShaderAccessFlags::Write  , f16f32i16i32 },
+      { DXIL::OpCode::BufferStore                   , ShaderAccessFlags::Write  , f32i32 },
+      { DXIL::OpCode::BufferUpdateCounter           , ShaderAccessFlags::Counter, voidType },
+      { DXIL::OpCode::AtomicBinOp                   , ShaderAccessFlags::Write  , i32 },
+      { DXIL::OpCode::AtomicCompareExchange         , ShaderAccessFlags::Write  , i32 },
+      { DXIL::OpCode::WriteSamplerFeedback          , ShaderAccessFlags::Write  , voidType },
+      { DXIL::OpCode::WriteSamplerFeedbackBias      , ShaderAccessFlags::Write  , voidType },
+      { DXIL::OpCode::WriteSamplerFeedbackGrad      , ShaderAccessFlags::Write  , voidType },
+      { DXIL::OpCode::WriteSamplerFeedbackLevel     , ShaderAccessFlags::Write  , voidType },
     };
 
     for (const auto & raFunction : raFunctions) {
@@ -483,23 +486,27 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
         for (auto FI = TexLoadFunctionUses.begin(); FI != TexLoadFunctionUses.end(); ) {
           auto & FunctionUse = *FI++;
           auto FunctionUser = FunctionUse.getUser();
-          auto instruction = cast<Instruction>(FunctionUser);
+          auto Call = cast<CallInst>(FunctionUser);
 
-          auto res = GetResourceFromHandle(instruction->getOperand(1), DM);
+          auto res = GetResourceFromHandle(Call->getArgOperand(1), DM);
 
           // Don't instrument the accesses to the UAV that we just added
           if (res.resource->GetSpaceID() == (unsigned)-2) {
             continue;
           }
 
-          if (EmitResourceAccess(res, instruction, HlslOP, Ctx, raFunction.readWrite)) {
+          if (EmitResourceAccess(res, Call, HlslOP, Ctx, raFunction.readWrite)) {
             Modified = true;
           }
 
-          if (raFunction.functionUsesSamplerAtIndex2) {
-            auto sampler = GetResourceFromHandle(instruction->getOperand(2), DM);
-            if (EmitResourceAccess(sampler, instruction, HlslOP, Ctx, ShaderAccessFlags::Read)) {
-              Modified = true;
+          // Find any secondary resource operand, typically a sampler, and mark it as read.
+          for (unsigned i = 2; i < Call->getNumArgOperands(); ++i) {
+            Value *Arg = Call->getOperand(i);
+            if (Arg->getType() == HlslOP->GetHandleType()) {
+              DxilResourceAndClass SecondaryResource = GetResourceFromHandle(Arg, DM);
+              if (EmitResourceAccess(SecondaryResource, Call, HlslOP, Ctx, ShaderAccessFlags::Read)) {
+                Modified = true;
+              }
             }
           }
         }

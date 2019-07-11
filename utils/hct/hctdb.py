@@ -390,6 +390,13 @@ class db_dxil(object):
             self.name_idx[i].category = "Amplification shader instructions"
             self.name_idx[i].shader_stages = ("amplification",)
             self.name_idx[i].shader_model = 6,5
+        for i in "WriteSamplerFeedback,WriteSamplerFeedbackBias".split(","):
+            self.name_idx[i].category = "Sampler Feedback"
+            self.name_idx[i].shader_model = 6,5
+            self.name_idx[i].shader_stages = ("library", "pixel",)
+        for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
+            self.name_idx[i].category = "Sampler Feedback"
+            self.name_idx[i].shader_model = 6,5
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1383,6 +1390,7 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "mask3", "mask 3")])
         next_op_idx += 1
 
+        # Mesh Shader
         self.add_dxil_op("SetMeshOutputCounts", next_op_idx, "SetMeshOutputCounts", "Mesh shader intrinsic SetMeshOutputCounts", "v", "", [
             retvoid_param,
             db_dxil_param(2, "i32", "numVertices", "number of output vertices"),
@@ -1414,6 +1422,8 @@ class db_dxil(object):
             db_dxil_param(5, "$o", "value", "value to store"),
             db_dxil_param(6, "u32", "primitiveIndex", "primitive index")])
         next_op_idx += 1
+
+        # Amplification Shader
         self.add_dxil_op("DispatchMesh", next_op_idx, "DispatchMesh", "Amplification shader intrinsic DispatchMesh", "u", "", [
             retvoid_param,
             db_dxil_param(2, "i32", "threadGroupCountX", "thread group count x"),
@@ -1422,9 +1432,54 @@ class db_dxil(object):
             db_dxil_param(5, "$o", "payload", "payload")])
         next_op_idx += 1
 
+        # Sampler feedback
+        self.add_dxil_op("WriteSamplerFeedback", next_op_idx, "WriteSamplerFeedback", "updates a feedback texture for a sampling operation", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "clamp", "clamp")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteSamplerFeedbackBias", next_op_idx, "WriteSamplerFeedbackBias", "updates a feedback texture for a sampling operation with a bias on the mipmap level", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "bias", "bias in [-16.f,15.99f]"),
+            db_dxil_param(9, "f", "clamp", "clamp")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteSamplerFeedbackLevel", next_op_idx, "WriteSamplerFeedbackLevel", "updates a feedback texture for a sampling operation with a mipmap-level offset", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "lod", "LOD")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteSamplerFeedbackGrad", next_op_idx, "WriteSamplerFeedbackGrad", "updates a feedback texture for a sampling operation with explicit gradients", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "ddx", "ddx"),
+            db_dxil_param(9, "f", "ddy", "ddy"),
+            db_dxil_param(10, "f", "clamp", "clamp")])
+        next_op_idx += 1
+
         # End of DXIL 1.5 opcodes.
         self.set_op_count_for_version(1, 5, next_op_idx)
-        assert next_op_idx == 174, "next operation index is %d rather than 174 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 178, "next operation index is %d rather than 178 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -2356,6 +2411,8 @@ class db_hlsl(object):
             "udt" : "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
+            "Texture2D": "LICOMPTYPE_TEXTURE2D",
+            "Texture2DArray": "LICOMPTYPE_TEXTURE2DARRAY",
             "wave": "LICOMPTYPE_WAVE"}
         self.trans_rowcol = {
             "r": "IA_R",
@@ -2484,7 +2541,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"

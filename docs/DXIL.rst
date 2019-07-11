@@ -2263,12 +2263,16 @@ ID  Name                          Description
 165 WaveMatch                     returns the bitmask of active lanes that have the same value
 166 WaveMultiPrefixOp             returns the result of the operation on groups of lanes identified by a bitmask
 167 WaveMultiPrefixBitCount       returns the count of bits set to 1 on groups of lanes identified by a bitmask
-168 SetMeshOutputCounts           Mesh shader intrinsic SetMeshOutputCounts
-169 EmitIndices                   emit a primitive's vertex indices in a mesh shader
-170 GetMeshPayload                get the mesh payload which is from amplification shader
-171 StoreVertexOutput             stores the value to mesh shader vertex output
-172 StorePrimitiveOutput          stores the value to mesh shader primitive output
-173 DispatchMesh                  Amplification shader intrinsic DispatchMesh
+168 WriteSamplerFeedback          updates a feedback texture for a sampling operation
+169 WriteSamplerFeedbackBias      updates a feedback texture for a sampling operation with a bias on the mipmap level
+170 WriteSamplerFeedbackLevel     updates a feedback texture for a sampling operation with a mipmap-level offset
+171 WriteSamplerFeedbackGrad      updates a feedback texture for a sampling operation with explicit gradients
+172 SetMeshOutputCounts           Mesh shader intrinsic SetMeshOutputCounts
+173 EmitIndices                   emit a primitive's vertex indices in a mesh shader
+174 GetMeshPayload                get the mesh payload which is from amplification shader
+175 StoreVertexOutput             stores the value to mesh shader vertex output
+176 StorePrimitiveOutput          stores the value to mesh shader primitive output
+177 DispatchMesh                  Amplification shader intrinsic DispatchMesh
 === ============================= =======================================================================================================================================================================================================================
 
 
