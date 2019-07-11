@@ -1,0 +1,18 @@
+// Run: %dxc -T as_6_5 -E main
+
+// CHECK:  16:19: error: invalid usage of semantic 'USER_OUT' in shader profile as
+
+struct MeshPayload {
+    float4 pos;
+};
+
+groupshared MeshPayload pld;
+
+#define NUM_THREADS 128
+
+[numthreads(NUM_THREADS, 1, 1)]
+void main(
+        in uint tig : SV_GroupIndex,
+        in float3 userAttrOut : USER_OUT)
+{
+}

@@ -90,17 +90,19 @@ The shader model is specified as a named metadata in DXIL::
 
 The following values of <shaderModelName>_<major>_<minor> are supported:
 
-==================== ===================================== ===========
-Target               Legacy Models                         DXIL Models
-==================== ===================================== ===========
-Vertex shader (VS)   vs_4_0, vs_4_1, vs_5_0, vs_5_1        vs_6_0
-Hull shader (HS)     hs_5_0, hs_5_1                        hs_6_0
-Domain shader (DS)   ds_5_0, ds_5_1                        ds_6_0
-Geometry shader (GS) gs_4_0, gs_4_1, gs_5_0, gs_5_1        gs_6_0
-Pixel shader (PS)    ps_4_0, ps_4_1, ps_5_0, ps_5_1        ps_6_0
-Compute shader (CS)  cs_5_0 (cs_4_0 is mapped onto cs_5_0) cs_6_0
-Shader library       no support                            lib_6_1
-==================== ===================================== ===========
+====================      ===================================== ===========
+Target                    Legacy Models                         DXIL Models
+====================      ===================================== ===========
+Vertex shader (VS)        vs_4_0, vs_4_1, vs_5_0, vs_5_1        vs_6_0
+Hull shader (HS)          hs_5_0, hs_5_1                        hs_6_0
+Domain shader (DS)        ds_5_0, ds_5_1                        ds_6_0
+Geometry shader (GS)      gs_4_0, gs_4_1, gs_5_0, gs_5_1        gs_6_0
+Pixel shader (PS)         ps_4_0, ps_4_1, ps_5_0, ps_5_1        ps_6_0
+Compute shader (CS)       cs_5_0 (cs_4_0 is mapped onto cs_5_0) cs_6_0
+Shader library            no support                            lib_6_1
+Mesh shader (MS)          no support                            ms_6_5
+Amplification shader (AS) no support                            as_6_5
+========================= ===================================== ===========
 
 The DXIL verifier ensures that DXIL conforms to the specified shader model.
 
@@ -609,26 +611,30 @@ Signature Points are enumerated as follows in the SigPointKind
 .. <py::lines('SIGPOINT-RST')>hctdb_instrhelp.get_sigpoint_rst()</py>
 .. SIGPOINT-RST:BEGIN
 
-== ======== ======= ========== ============== ============= ============================================================================
-ID SigPoint Related ShaderKind PackingKind    SignatureKind Description
-== ======== ======= ========== ============== ============= ============================================================================
-0  VSIn     Invalid Vertex     InputAssembler Input         Ordinary Vertex Shader input from Input Assembler
-1  VSOut    Invalid Vertex     Vertex         Output        Ordinary Vertex Shader output that may feed Rasterizer
-2  PCIn     HSCPIn  Hull       None           Invalid       Patch Constant function non-patch inputs
-3  HSIn     HSCPIn  Hull       None           Invalid       Hull Shader function non-patch inputs
-4  HSCPIn   Invalid Hull       Vertex         Input         Hull Shader patch inputs - Control Points
-5  HSCPOut  Invalid Hull       Vertex         Output        Hull Shader function output - Control Point
-6  PCOut    Invalid Hull       PatchConstant  PatchConstant Patch Constant function output - Patch Constant data passed to Domain Shader
-7  DSIn     Invalid Domain     PatchConstant  PatchConstant Domain Shader regular input - Patch Constant data plus system values
-8  DSCPIn   Invalid Domain     Vertex         Input         Domain Shader patch input - Control Points
-9  DSOut    Invalid Domain     Vertex         Output        Domain Shader output - vertex data that may feed Rasterizer
-10 GSVIn    Invalid Geometry   Vertex         Input         Geometry Shader vertex input - qualified with primitive type
-11 GSIn     GSVIn   Geometry   None           Invalid       Geometry Shader non-vertex inputs (system values)
-12 GSOut    Invalid Geometry   Vertex         Output        Geometry Shader output - vertex data that may feed Rasterizer
-13 PSIn     Invalid Pixel      Vertex         Input         Pixel Shader input
-14 PSOut    Invalid Pixel      Target         Output        Pixel Shader output
-15 CSIn     Invalid Compute    None           Invalid       Compute Shader input
-== ======== ======= ========== ============== ============= ============================================================================
+== ======== ======= ============= ============== ================ ============================================================================
+ID SigPoint Related ShaderKind    PackingKind    SignatureKind    Description
+== ======== ======= ============= ============== ================ ============================================================================
+0  VSIn     Invalid Vertex        InputAssembler Input            Ordinary Vertex Shader input from Input Assembler
+1  VSOut    Invalid Vertex        Vertex         Output           Ordinary Vertex Shader output that may feed Rasterizer
+2  PCIn     HSCPIn  Hull          None           Invalid          Patch Constant function non-patch inputs
+3  HSIn     HSCPIn  Hull          None           Invalid          Hull Shader function non-patch inputs
+4  HSCPIn   Invalid Hull          Vertex         Input            Hull Shader patch inputs - Control Points
+5  HSCPOut  Invalid Hull          Vertex         Output           Hull Shader function output - Control Point
+6  PCOut    Invalid Hull          PatchConstant  PatchConstOrPrim Patch Constant function output - Patch Constant data passed to Domain Shader
+7  DSIn     Invalid Domain        PatchConstant  PatchConstOrPrim Domain Shader regular input - Patch Constant data plus system values
+8  DSCPIn   Invalid Domain        Vertex         Input            Domain Shader patch input - Control Points
+9  DSOut    Invalid Domain        Vertex         Output           Domain Shader output - vertex data that may feed Rasterizer
+10 GSVIn    Invalid Geometry      Vertex         Input            Geometry Shader vertex input - qualified with primitive type
+11 GSIn     GSVIn   Geometry      None           Invalid          Geometry Shader non-vertex inputs (system values)
+12 GSOut    Invalid Geometry      Vertex         Output           Geometry Shader output - vertex data that may feed Rasterizer
+13 PSIn     Invalid Pixel         Vertex         Input            Pixel Shader input
+14 PSOut    Invalid Pixel         Target         Output           Pixel Shader output
+15 CSIn     Invalid Compute       None           Invalid          Compute Shader input
+16 MSIn     Invalid Mesh          None           Invalid          Mesh Shader input
+17 MSOut    Invalid Mesh          Vertex         Output           Mesh Shader vertices output
+18 MSPOut   Invalid Mesh          Vertex         PatchConstOrPrim Mesh Shader primitives output
+19 ASIn     Invalid Amplification None           Invalid          Amplification Shader input
+== ======== ======= ============= ============== ================ ============================================================================
 
 .. SIGPOINT-RST:END
 
@@ -663,40 +669,41 @@ Semantic Interpretations for each SemanticKind at each SigPointKind are as follo
 .. <py::lines('SEMINT-TABLE-RST')>hctdb_instrhelp.get_sem_interpretation_table_rst()</py>
 .. SEMINT-TABLE-RST:BEGIN
 
-====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ========
-Semantic               VSIn         VSOut    PCIn         HSIn         HSCPIn   HSCPOut  PCOut      DSIn         DSCPIn   DSOut    GSVIn    GSIn         GSOut    PSIn          PSOut         CSIn
-====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ========
-Arbitrary              Arb          Arb      NA           NA           Arb      Arb      Arb        Arb          Arb      Arb      Arb      NA           Arb      Arb           NA            NA
-VertexID               SV           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA
-InstanceID             SV           Arb      NA           NA           Arb      Arb      NA         NA           Arb      Arb      Arb      NA           Arb      Arb           NA            NA
-Position               Arb          SV       NA           NA           SV       SV       Arb        Arb          SV       SV       SV       NA           SV       SV            NA            NA
-RenderTargetArrayIndex Arb          SV       NA           NA           SV       SV       Arb        Arb          SV       SV       SV       NA           SV       SV            NA            NA
-ViewPortArrayIndex     Arb          SV       NA           NA           SV       SV       Arb        Arb          SV       SV       SV       NA           SV       SV            NA            NA
-ClipDistance           Arb          ClipCull NA           NA           ClipCull ClipCull Arb        Arb          ClipCull ClipCull ClipCull NA           ClipCull ClipCull      NA            NA
-CullDistance           Arb          ClipCull NA           NA           ClipCull ClipCull Arb        Arb          ClipCull ClipCull ClipCull NA           ClipCull ClipCull      NA            NA
-OutputControlPointID   NA           NA       NA           NotInSig     NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA
-DomainLocation         NA           NA       NA           NA           NA       NA       NA         NotInSig     NA       NA       NA       NA           NA       NA            NA            NA
-PrimitiveID            NA           NA       NotInSig     NotInSig     NA       NA       NA         NotInSig     NA       NA       NA       Shadow       SGV      SGV           NA            NA
-GSInstanceID           NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NotInSig     NA       NA            NA            NA
-SampleIndex            NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       Shadow _41    NA            NA
-IsFrontFace            NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           SGV      SGV           NA            NA
-Coverage               NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig _50  NotPacked _41 NA
-InnerCoverage          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig _50  NA            NA
-Target                 NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            Target        NA
-Depth                  NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked     NA
-DepthLessEqual         NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked _50 NA
-DepthGreaterEqual      NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked _50 NA
-StencilRef             NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked _50 NA
-DispatchThreadID       NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig
-GroupID                NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig
-GroupIndex             NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig
-GroupThreadID          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig
-TessFactor             NA           NA       NA           NA           NA       NA       TessFactor TessFactor   NA       NA       NA       NA           NA       NA            NA            NA
-InsideTessFactor       NA           NA       NA           NA           NA       NA       TessFactor TessFactor   NA       NA       NA       NA           NA       NA            NA            NA
-ViewID                 NotInSig _61 NA       NotInSig _61 NotInSig _61 NA       NA       NA         NotInSig _61 NA       NA       NA       NotInSig _61 NA       NotInSig _61  NA            NA
-Barycentrics           NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotPacked _61 NA            NA
-ShadingRate            NA           SV _64   NA           NA           SV _64   SV _64   NA         NA           SV _64   SV _64   SV _64   NA           SV _64   SV _64        NA            NA
-====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ========
+====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ======== ============ ============ ======= ============
+Semantic               VSIn         VSOut    PCIn         HSIn         HSCPIn   HSCPOut  PCOut      DSIn         DSCPIn   DSOut    GSVIn    GSIn         GSOut    PSIn          PSOut         CSIn     MSIn         MSOut        MSPOut  ASIn
+====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ======== ============ ============ ======= ============
+Arbitrary              Arb          Arb      NA           NA           Arb      Arb      Arb        Arb          Arb      Arb      Arb      NA           Arb      Arb           NA            NA       NA           Arb _65      Arb _65 NA
+VertexID               SV           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA           NA           NA      NA
+InstanceID             SV           Arb      NA           NA           Arb      Arb      NA         NA           Arb      Arb      Arb      NA           Arb      Arb           NA            NA       NA           NA           NA      NA
+Position               Arb          SV       NA           NA           SV       SV       Arb        Arb          SV       SV       SV       NA           SV       SV            NA            NA       NA           SV _65       NA      NA
+RenderTargetArrayIndex Arb          SV       NA           NA           SV       SV       Arb        Arb          SV       SV       SV       NA           SV       SV            NA            NA       NA           NA           SV _65  NA
+ViewPortArrayIndex     Arb          SV       NA           NA           SV       SV       Arb        Arb          SV       SV       SV       NA           SV       SV            NA            NA       NA           NA           SV _65  NA
+ClipDistance           Arb          ClipCull NA           NA           ClipCull ClipCull Arb        Arb          ClipCull ClipCull ClipCull NA           ClipCull ClipCull      NA            NA       NA           ClipCull _65 NA      NA
+CullDistance           Arb          ClipCull NA           NA           ClipCull ClipCull Arb        Arb          ClipCull ClipCull ClipCull NA           ClipCull ClipCull      NA            NA       NA           ClipCull _65 NA      NA
+OutputControlPointID   NA           NA       NA           NotInSig     NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA           NA           NA      NA
+DomainLocation         NA           NA       NA           NA           NA       NA       NA         NotInSig     NA       NA       NA       NA           NA       NA            NA            NA       NA           NA           NA      NA
+PrimitiveID            NA           NA       NotInSig     NotInSig     NA       NA       NA         NotInSig     NA       NA       NA       Shadow       SGV      SGV           NA            NA       NA           NA           SV _65  NA
+GSInstanceID           NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NotInSig     NA       NA            NA            NA       NA           NA           NA      NA
+SampleIndex            NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       Shadow _41    NA            NA       NA           NA           NA      NA
+IsFrontFace            NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           SGV      SGV           NA            NA       NA           NA           NA      NA
+Coverage               NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig _50  NotPacked _41 NA       NA           NA           NA      NA
+InnerCoverage          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig _50  NA            NA       NA           NA           NA      NA
+Target                 NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            Target        NA       NA           NA           NA      NA
+Depth                  NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked     NA       NA           NA           NA      NA
+DepthLessEqual         NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked _50 NA       NA           NA           NA      NA
+DepthGreaterEqual      NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked _50 NA       NA           NA           NA      NA
+StencilRef             NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NotPacked _50 NA       NA           NA           NA      NA
+DispatchThreadID       NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig NotInSig _65 NA           NA      NotInSig _65
+GroupID                NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig NotInSig _65 NA           NA      NotInSig _65
+GroupIndex             NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig NotInSig _65 NA           NA      NotInSig _65
+GroupThreadID          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NotInSig NotInSig _65 NA           NA      NotInSig _65
+TessFactor             NA           NA       NA           NA           NA       NA       TessFactor TessFactor   NA       NA       NA       NA           NA       NA            NA            NA       NA           NA           NA      NA
+InsideTessFactor       NA           NA       NA           NA           NA       NA       TessFactor TessFactor   NA       NA       NA       NA           NA       NA            NA            NA       NA           NA           NA      NA
+ViewID                 NotInSig _61 NA       NotInSig _61 NotInSig _61 NA       NA       NA         NotInSig _61 NA       NA       NA       NotInSig _61 NA       NotInSig _61  NA            NA       NotInSig _65 NA           NA      NA
+Barycentrics           NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotPacked _61 NA            NA       NA           NA           NA      NA
+ShadingRate            NA           SV _64   NA           NA           SV _64   SV _64   NA         NA           SV _64   SV _64   SV _64   NA           SV _64   SV _64        NA            NA       NA           NA           NA      NA
+CullPrimitive          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA           NA           SV _65  NA
+====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ======== ============ ============ ======= ============
 
 .. SEMINT-TABLE-RST:END
 
@@ -2256,6 +2263,12 @@ ID  Name                          Description
 165 WaveMatch                     returns the bitmask of active lanes that have the same value
 166 WaveMultiPrefixOp             returns the result of the operation on groups of lanes identified by a bitmask
 167 WaveMultiPrefixBitCount       returns the count of bits set to 1 on groups of lanes identified by a bitmask
+168 SetMeshOutputCounts           Mesh shader intrinsic SetMeshOutputCounts
+169 EmitIndices                   emit a primitive's vertex indices in a mesh shader
+170 GetMeshPayload                get the mesh payload which is from amplification shader
+171 StoreVertexOutput             stores the value to mesh shader vertex output
+172 StorePrimitiveOutput          stores the value to mesh shader primitive output
+173 DispatchMesh                  Amplification shader intrinsic DispatchMesh
 === ============================= =======================================================================================================================================================================================================================
 
 
@@ -2957,13 +2970,19 @@ INSTR.MINPRECISIONNOTPRECISE             Instructions marked precise may not ref
 INSTR.MINPRECISONBITCAST                 Bitcast on minprecison types is not allowed
 INSTR.MIPLEVELFORGETDIMENSION            Use mip level on buffer when GetDimensions
 INSTR.MIPONUAVLOAD                       uav load don't support mipLevel/sampleIndex
+INSTR.MISSINGSETMESHOUTPUTCOUNTS         Missing SetMeshOutputCounts call.
+INSTR.MULTIPLEGETMESHPAYLOAD             GetMeshPayload cannot be called multiple times.
+INSTR.MULTIPLESETMESHOUTPUTCOUNTS        SetMeshOUtputCounts cannot be called multiple times.
 INSTR.NOGENERICPTRADDRSPACECAST          Address space cast between pointer types must have one part to be generic address space
 INSTR.NOIDIVBYZERO                       No signed integer division by zero
 INSTR.NOINDEFINITEACOS                   No indefinite arccosine
 INSTR.NOINDEFINITEASIN                   No indefinite arcsine
 INSTR.NOINDEFINITEDSXY                   No indefinite derivative calculation
 INSTR.NOINDEFINITELOG                    No indefinite logarithm
+INSTR.NONDOMINATINGDISPATCHMESH          Non-Dominating DispatchMesh call.
+INSTR.NONDOMINATINGSETMESHOUTPUTCOUNTS   Non-Dominating SetMeshOutputCounts call.
 INSTR.NOREADINGUNINITIALIZED             Instructions should not read uninitialized value
+INSTR.NOTONCEDISPATCHMESH                DispatchMesh must be called exactly once in an Amplification shader.
 INSTR.NOUDIVBYZERO                       No unsigned integer division by zero
 INSTR.OFFSETONUAVLOAD                    uav load don't support offset
 INSTR.OLOAD                              DXIL intrinsic overload must be valid
@@ -3052,12 +3071,14 @@ META.VALIDSAMPLERMODE                    Invalid sampler mode on sampler
 META.VALUERANGE                          Metadata value must be within range
 META.WELLFORMED                          TODO - Metadata must be well-formed in operand count and types
 SM.64BITRAWBUFFERLOADSTORE               i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3
+SM.AMPLIFICATIONSHADERPAYLOADSIZE        For shader '%0', payload size is greater than %1
 SM.APPENDANDCONSUMEONSAMEUAV             BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
 SM.CBUFFERARRAYOFFSETALIGNMENT           CBuffer array offset must be aligned to 16-bytes
 SM.CBUFFERELEMENTOVERFLOW                CBuffer elements must not overflow
 SM.CBUFFEROFFSETOVERLAP                  CBuffer offsets must not overlap
 SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT       D3D12 constant/texture buffer template element can only be a struct
 SM.COMPLETEPOSITION                      Not all elements of SV_Position were written
+SM.CONSTANTINTERPMODE                    Interpolation mode must be constant for MS primitive output.
 SM.COUNTERONLYONSTRUCTBUF                BufferUpdateCounter valid only on structured buffers
 SM.CSNOSIGNATURES                        Compute shaders must not have shader signatures.
 SM.DOMAINLOCATIONIDXOOB                  DomainLocation component index out of bounds for the domain.
@@ -3075,8 +3096,17 @@ SM.INVALIDRESOURCECOMPTYPE               Invalid resource return type
 SM.INVALIDRESOURCEKIND                   Invalid resources kind
 SM.INVALIDTEXTUREKINDONUAV               Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH        Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.MAXMSSMSIZE                           Total Thread Group Shared Memory storage is %0, exceeded %1
 SM.MAXTGSMSIZE                           Total Thread Group Shared Memory storage is %0, exceeded %1
 SM.MAXTHEADGROUP                         Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
+SM.MESHPSIGROWCOUNT                      For shader '%0', primitive output signatures are taking up more than %1 rows
+SM.MESHSHADERINOUTSIZE                   For shader '%0', input plus output size is greater than %1
+SM.MESHSHADERMAXPRIMITIVECOUNT           MS max primitive output count must be [0..%0].  %1 specified
+SM.MESHSHADERMAXVERTEXCOUNT              MS max vertex output count must be [0..%0].  %1 specified
+SM.MESHSHADEROUTPUTSIZE                  For shader '%0', vertex plus primitive output size is greater than %1
+SM.MESHSHADERPAYLOADSIZE                 For shader '%0', payload size is greater than %1
+SM.MESHTOTALSIGROWCOUNT                  For shader '%0', vertex and primitive output signatures are taking up more than %1 rows
+SM.MESHVSIGROWCOUNT                      For shader '%0', vertex output signatures are taking up more than %1 rows
 SM.MULTISTREAMMUSTBEPOINT                When multiple GS output streams are used they must be pointlists
 SM.NAME                                  Target shader model name must be known
 SM.NOINTERPMODE                          Interpolation mode must be undefined for VS input/PS output/patch constant.

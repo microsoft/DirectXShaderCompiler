@@ -1854,7 +1854,7 @@ HRESULT DxilShaderReflection::Load(IDxcBlob *pBlob,
     // Populate input/output/patch constant signatures.
     CreateReflectionObjectsForSignature(m_pDxilModule->GetInputSignature(), m_InputSignature);
     CreateReflectionObjectsForSignature(m_pDxilModule->GetOutputSignature(), m_OutputSignature);
-    CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstantSignature(), m_PatchConstantSignature);
+    CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstOrPrimSignature(), m_PatchConstantSignature);
     MarkUsedSignatureElements();
     return S_OK;
   }
@@ -1969,14 +1969,14 @@ void DxilShaderReflection::MarkUsedSignatureElements() {
       if (!GetUnsignedVal(SPC.get_col(), &col)) continue;
       if (!GetUnsignedVal(SPC.get_row(), &row)) continue;
       pDescs = &m_PatchConstantSignature;
-      pSig = &m_pDxilModule->GetPatchConstantSignature();
+      pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
     }
     else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(LPC.get_col(), &col)) continue;
       if (!GetUnsignedVal(LPC.get_row(), &row)) continue;
       pDescs = &m_PatchConstantSignature;
-      pSig = &m_pDxilModule->GetPatchConstantSignature();
+      pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
     }
     else {
       continue;

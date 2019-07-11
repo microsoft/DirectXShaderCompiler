@@ -40,6 +40,8 @@ public:
   bool IsCS() const     { return m_Kind == Kind::Compute; }
   bool IsLib() const    { return m_Kind == Kind::Library; }
   bool IsRay() const    { return m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable; }
+  bool IsMS() const     { return m_Kind == Kind::Mesh; }
+  bool IsAS() const     { return m_Kind == Kind::Amplification; }
   bool IsValid() const;
   bool IsValidForDxil() const;
   bool IsValidForModule() const;
@@ -96,7 +98,7 @@ private:
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
 
-  static const unsigned kNumShaderModels = 63;
+  static const unsigned kNumShaderModels = 65;
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();

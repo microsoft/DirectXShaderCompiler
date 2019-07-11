@@ -297,6 +297,13 @@ public:
   SpirvVariable *createRayTracingNVStageVar(spv::StorageClass sc,
                                             const VarDecl *decl);
 
+  bool createPayloadStageVars(const hlsl::SigPoint *sigPoint,
+                              spv::StorageClass sc, const NamedDecl *decl,
+                              bool asInput, QualType type,
+                              const llvm::StringRef namePrefix,
+                              SpirvInstruction **value,
+                              uint32_t payloadMemOffset = 0);
+
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its instruction.
   SpirvFunctionParameter *createFnParam(const ParmVarDecl *param);
@@ -479,6 +486,16 @@ public:
   bool decorateResourceBindings();
 
   bool requiresLegalization() const { return needsLegalization; }
+ 
+  /// \brief Returns the given decl's HLSL semantic information.
+  static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
+
+  /// \brief Returns SPIR-V instruction for given stage var decl.
+  SpirvInstruction *getStageVarInstruction(const DeclaratorDecl *decl) {
+    auto *value = stageVarInstructions.lookup(decl);
+    assert(value);
+    return value;
+  }
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -556,9 +573,6 @@ private:
   SpirvVariable *createStructOrStructArrayVarOfExplicitLayout(
       const DeclContext *decl, int arraySize, ContextUsageKind usageKind,
       llvm::StringRef typeName, llvm::StringRef varName);
-
-  /// Returns the given decl's HLSL semantic information.
-  static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
   /// Returns true on sucess.
@@ -774,8 +788,9 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
-  if (spvContext.isRay()) {
-    // No location assignment for any raytracing stage variables
+  if (spvContext.isRay() || spvContext.isAS()) {
+    // No location assignment for any raytracing stage variables or
+    // amplification shader variables
     return true;
   }
   // Try both input and output even if input location assignment failed

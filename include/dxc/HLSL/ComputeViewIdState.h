@@ -55,15 +55,15 @@ struct DxilViewIdStateData {
 
   unsigned m_NumInputSigScalars  = 0;
   unsigned m_NumOutputSigScalars[kNumStreams] = {0,0,0,0};
-  unsigned m_NumPCSigScalars     = 0;
+  unsigned m_NumPCOrPrimSigScalars     = 0;
 
   // Set of scalar outputs dependent on ViewID.
   OutputsDependentOnViewIdType m_OutputsDependentOnViewId[kNumStreams];
-  OutputsDependentOnViewIdType m_PCOutputsDependentOnViewId;
+  OutputsDependentOnViewIdType m_PCOrPrimOutputsDependentOnViewId;
 
   // Set of scalar inputs contributing to computation of scalar outputs.
   InputsContributingToOutputType m_InputsContributingToOutputs[kNumStreams];
-  InputsContributingToOutputType m_InputsContributingToPCOutputs; // HS PC only.
+  InputsContributingToOutputType m_InputsContributingToPCOrPrimOutputs; // HS PC and MS Prim only.
   InputsContributingToOutputType m_PCInputsContributingToOutputs; // DS only.
 
   bool m_bUsesViewId = false;

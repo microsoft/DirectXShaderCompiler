@@ -187,7 +187,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::Coverage,                "Coverage",                 OCC::Coverage,                 "coverage",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::InnerCoverage,           "InnerCoverage",            OCC::InnerCoverage,            "innerCoverage",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
 
-  // Compute shader                                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  // Compute/Mesh/Amplification shader                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::ThreadId,                "ThreadId",                 OCC::ThreadId,                 "threadId",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::GroupId,                 "GroupId",                  OCC::GroupId,                  "groupId",                   { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
   {  OC::ThreadIdInGroup,         "ThreadIdInGroup",          OCC::ThreadIdInGroup,          "threadIdInGroup",           { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
@@ -321,6 +321,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveMatch,               "WaveMatch",                OCC::WaveMatch,                "waveMatch",                 { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveMultiPrefixOp,       "WaveMultiPrefixOp",        OCC::WaveMultiPrefixOp,        "waveMultiPrefixOp",         { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveMultiPrefixBitCount, "WaveMultiPrefixBitCount",  OCC::WaveMultiPrefixBitCount,  "waveMultiPrefixBitCount",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Mesh shader instructions                                                                                                void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::SetMeshOutputCounts,     "SetMeshOutputCounts",      OCC::SetMeshOutputCounts,      "setMeshOutputCounts",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::EmitIndices,             "EmitIndices",              OCC::EmitIndices,              "emitIndices",               {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::GetMeshPayload,          "GetMeshPayload",           OCC::GetMeshPayload,           "getMeshPayload",            { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::ReadOnly, },
+  {  OC::StoreVertexOutput,       "StoreVertexOutput",        OCC::StoreVertexOutput,        "storeVertexOutput",         { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  {  OC::StorePrimitiveOutput,    "StorePrimitiveOutput",     OCC::StorePrimitiveOutput,     "storePrimitiveOutput",      { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+
+  // Amplification shader instructions                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::DispatchMesh,            "DispatchMesh",             OCC::DispatchMesh,             "dispatchMesh",              { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 
@@ -533,7 +543,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
   if ((93 <= op && op <= 96)) {
-    mask = SFLAG(Compute);
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
     return;
   }
   // Instructions: DomainLocation=105
@@ -585,7 +595,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: ViewID=138
   if (op == 138) {
     major = 6;  minor = 1;
-    mask = SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(Pixel);
+    mask = SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(Pixel) | SFLAG(Mesh);
     return;
   }
   // Instructions: RawBufferLoad=139, RawBufferStore=140
@@ -660,6 +670,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveMultiPrefixBitCount=167
   if ((165 <= op && op <= 167)) {
     major = 6;  minor = 5;
+    return;
+  }
+  // Instructions: DispatchMesh=173
+  if (op == 173) {
+    major = 6;  minor = 5;
+    mask = SFLAG(Amplification);
+    return;
+  }
+  // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
+  // StoreVertexOutput=171, StorePrimitiveOutput=172
+  if ((168 <= op && op <= 172)) {
+    major = 6;  minor = 5;
+    mask = SFLAG(Mesh);
     return;
   }
   // OPCODE-SMMASK:END
@@ -928,7 +951,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::Coverage:               A(pI32);     A(pI32); break;
   case OpCode::InnerCoverage:          A(pI32);     A(pI32); break;
 
-    // Compute shader
+    // Compute/Mesh/Amplification shader
   case OpCode::ThreadId:               A(pI32);     A(pI32); A(pI32); break;
   case OpCode::GroupId:                A(pI32);     A(pI32); A(pI32); break;
   case OpCode::ThreadIdInGroup:        A(pI32);     A(pI32); A(pI32); break;
@@ -1062,6 +1085,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::WaveMatch:              A(pI4S);     A(pI32); A(pETy); break;
   case OpCode::WaveMultiPrefixOp:      A(pETy);     A(pI32); A(pETy); A(pI32); A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
   case OpCode::WaveMultiPrefixBitCount:A(pI32);     A(pI32); A(pI1);  A(pI32); A(pI32); A(pI32); A(pI32); break;
+
+    // Mesh shader instructions
+  case OpCode::SetMeshOutputCounts:    A(pV);       A(pI32); A(pI32); A(pI32); break;
+  case OpCode::EmitIndices:            A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); break;
+  case OpCode::GetMeshPayload:         A(pETy);     A(pI32); break;
+  case OpCode::StoreVertexOutput:      A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); A(pI32); break;
+  case OpCode::StorePrimitiveOutput:   A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); A(pI32); break;
+
+    // Amplification shader instructions
+  case OpCode::DispatchMesh:           A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); A(pETy); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1152,6 +1185,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::BufferStore:
   case OpCode::StorePatchConstant:
   case OpCode::RawBufferStore:
+  case OpCode::StoreVertexOutput:
+  case OpCode::StorePrimitiveOutput:
+  case OpCode::DispatchMesh:
     DXASSERT_NOMSG(FT->getNumParams() > 4);
     return FT->getParamType(4);
   case OpCode::IsNaN:
@@ -1215,6 +1251,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::IgnoreHit:
   case OpCode::AcceptHitAndEndSearch:
   case OpCode::WaveMultiPrefixBitCount:
+  case OpCode::SetMeshOutputCounts:
+  case OpCode::EmitIndices:
     return Type::getVoidTy(m_Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:

@@ -42,11 +42,11 @@ DxilViewIdState::DxilViewIdState(DxilModule *pDxilModule)
     : m_pModule(pDxilModule) {}
 unsigned DxilViewIdState::getNumInputSigScalars() const                   { return m_NumInputSigScalars; }
 unsigned DxilViewIdState::getNumOutputSigScalars(unsigned StreamId) const { return m_NumOutputSigScalars[StreamId]; }
-unsigned DxilViewIdState::getNumPCSigScalars() const                      { return m_NumPCSigScalars; }
+unsigned DxilViewIdState::getNumPCSigScalars() const                      { return m_NumPCOrPrimSigScalars; }
 const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getOutputsDependentOnViewId(unsigned StreamId) const    { return m_OutputsDependentOnViewId[StreamId]; }
-const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getPCOutputsDependentOnViewId() const                   { return m_PCOutputsDependentOnViewId; }
+const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getPCOutputsDependentOnViewId() const                   { return m_PCOrPrimOutputsDependentOnViewId; }
 const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToOutputs(unsigned StreamId) const { return m_InputsContributingToOutputs[StreamId]; }
-const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToPCOutputs() const                { return m_InputsContributingToPCOutputs; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToPCOutputs() const                { return m_InputsContributingToPCOrPrimOutputs; }
 const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getPCInputsContributingToOutputs() const                { return m_PCInputsContributingToOutputs; }
 
 namespace {
@@ -95,39 +95,52 @@ void DxilViewIdState::PrintSets(llvm::raw_ostream &OS) {
   const ShaderModel *pSM = m_pModule->GetShaderModel();
   OS << "ViewId state: \n";
 
-  if (!pSM->IsGS()) {
-    OS << "Number of inputs: " << m_NumInputSigScalars     << 
-                 ", outputs: " << m_NumOutputSigScalars[0] << 
-              ", patchconst: " << m_NumPCSigScalars        << "\n";
-  } else {
+  if (pSM->IsGS()) {
     OS << "Number of inputs: "   << m_NumInputSigScalars     << 
                  ", outputs: { " << m_NumOutputSigScalars[0] << ", " << m_NumOutputSigScalars[1] << ", " <<
                                     m_NumOutputSigScalars[2] << ", " << m_NumOutputSigScalars[3] << " }" <<
-              ", patchconst: "   << m_NumPCSigScalars        << "\n";
+              ", patchconst: "   << m_NumPCOrPrimSigScalars        << "\n";
+  } else if (pSM->IsMS()) {
+    OS << "Number of inputs: " << m_NumInputSigScalars <<
+      ", vertex outputs: " << m_NumOutputSigScalars[0] <<
+      ", primitive outputs: " << m_NumPCOrPrimSigScalars << "\n";
+  } else {
+    OS << "Number of inputs: " << m_NumInputSigScalars <<
+      ", outputs: " << m_NumOutputSigScalars[0] <<
+      ", patchconst: " << m_NumPCOrPrimSigScalars << "\n";
   }
 
-  if (!pSM->IsGS()) {
-    PrintOutputsDependentOnViewId(OS, "Outputs", m_NumOutputSigScalars[0], m_OutputsDependentOnViewId[0]);
-  } else {
+  if (pSM->IsGS()) {
     PrintOutputsDependentOnViewId(OS, "Outputs for Stream0", m_NumOutputSigScalars[0], m_OutputsDependentOnViewId[0]);
     PrintOutputsDependentOnViewId(OS, "Outputs for Stream1", m_NumOutputSigScalars[1], m_OutputsDependentOnViewId[1]);
     PrintOutputsDependentOnViewId(OS, "Outputs for Stream2", m_NumOutputSigScalars[2], m_OutputsDependentOnViewId[2]);
     PrintOutputsDependentOnViewId(OS, "Outputs for Stream3", m_NumOutputSigScalars[3], m_OutputsDependentOnViewId[3]);
-  }
-  if (pSM->IsHS()) {
-    PrintOutputsDependentOnViewId(OS, "PCOutputs", m_NumPCSigScalars, m_PCOutputsDependentOnViewId);
+  } else if (pSM->IsMS()) {
+    PrintOutputsDependentOnViewId(OS, "Vertex Outputs", m_NumOutputSigScalars[0], m_OutputsDependentOnViewId[0]);
+  } else {
+    PrintOutputsDependentOnViewId(OS, "Outputs", m_NumOutputSigScalars[0], m_OutputsDependentOnViewId[0]);
   }
 
-  if (!pSM->IsGS()) {
-    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs", m_InputsContributingToOutputs[0]);
-  } else {
+  if (pSM->IsHS()) {
+    PrintOutputsDependentOnViewId(OS, "PCOutputs", m_NumPCOrPrimSigScalars, m_PCOrPrimOutputsDependentOnViewId);
+  } else if (pSM->IsMS()) {
+    PrintOutputsDependentOnViewId(OS, "Primitive Outputs", m_NumPCOrPrimSigScalars, m_PCOrPrimOutputsDependentOnViewId);
+  }
+
+  if (pSM->IsGS()) {
     PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream0", m_InputsContributingToOutputs[0]);
     PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream1", m_InputsContributingToOutputs[1]);
     PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream2", m_InputsContributingToOutputs[2]);
     PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream3", m_InputsContributingToOutputs[3]);
+  } else if (pSM->IsMS()) {
+    PrintInputsContributingToOutputs(OS, "Inputs", "Vertex Outputs", m_InputsContributingToOutputs[0]);
+  } else {
+    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs", m_InputsContributingToOutputs[0]);
   }
   if (pSM->IsHS()) {
-    PrintInputsContributingToOutputs(OS, "Inputs", "PCOutputs", m_InputsContributingToPCOutputs);
+    PrintInputsContributingToOutputs(OS, "Inputs", "PCOutputs", m_InputsContributingToPCOrPrimOutputs);
+  } else if (pSM->IsMS()) {
+    PrintInputsContributingToOutputs(OS, "Inputs", "Primitive Outputs", m_InputsContributingToPCOrPrimOutputs);
   } else if (pSM->IsDS()) {
     PrintInputsContributingToOutputs(OS, "PCInputs", "Outputs", m_PCInputsContributingToOutputs);
   }
@@ -141,9 +154,9 @@ void DxilViewIdState::Clear() {
     m_OutputsDependentOnViewId[i].reset();
     m_InputsContributingToOutputs[i].clear();
   }
-  m_NumPCSigScalars     = 0;
-  m_PCOutputsDependentOnViewId.reset();
-  m_InputsContributingToPCOutputs.clear();
+  m_NumPCOrPrimSigScalars     = 0;
+  m_PCOrPrimOutputsDependentOnViewId.reset();
+  m_InputsContributingToPCOrPrimOutputs.clear();
   m_PCInputsContributingToOutputs.clear();
   m_SerializedState.clear();
 }
@@ -212,15 +225,15 @@ void DxilViewIdState::Serialize() {
     }
     Size += NumInputs * NumOutUINTs; // m_InputsContributingToOutputs[StreamId]
   }
-  if (pSM->IsHS() || pSM->IsDS()) {
+  if (pSM->IsHS() || pSM->IsDS() || pSM->IsMS()) {
     Size += 1; // #PatchConstant.
     unsigned NumPCs = getNumPCSigScalars();
     unsigned NumPCUINTs = RoundUpToUINT(NumPCs);
-    if (pSM->IsHS()) {
+    if (pSM->IsHS() || pSM->IsMS()) {
       if (m_bUsesViewId) {
-        Size += NumPCUINTs; // m_PCOutputsDependentOnViewId
+        Size += NumPCUINTs; // m_PCOrPrimOutputsDependentOnViewId
       }
-      Size += NumInputs * NumPCUINTs; // m_InputsContributingToPCOutputs
+      Size += NumInputs * NumPCUINTs; // m_InputsContributingToPCOrPrimOutputs
     } else {
       unsigned NumOutputs = getNumOutputSigScalars(0);
       unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
@@ -244,16 +257,16 @@ void DxilViewIdState::Serialize() {
     SerializeInputsContributingToOutput(
         NumInputs, NumOutputs, m_InputsContributingToOutputs[StreamId], pData);
   }
-  if (pSM->IsHS() || pSM->IsDS()) {
+  if (pSM->IsHS() || pSM->IsDS() || pSM->IsMS()) {
     unsigned NumPCs = getNumPCSigScalars();
     *pData++ = NumPCs;
-    if (pSM->IsHS()) {
+    if (pSM->IsHS() || pSM->IsMS()) {
       if (m_bUsesViewId) {
-        SerializeOutputsDependentOnViewId(NumPCs, m_PCOutputsDependentOnViewId,
+        SerializeOutputsDependentOnViewId(NumPCs, m_PCOrPrimOutputsDependentOnViewId,
                                           pData);
       }
       SerializeInputsContributingToOutput(
-          NumInputs, NumPCs, m_InputsContributingToPCOutputs, pData);
+          NumInputs, NumPCs, m_InputsContributingToPCOrPrimOutputs, pData);
     } else {
       unsigned NumOutputs = getNumOutputSigScalars(0);
       SerializeInputsContributingToOutput(
@@ -348,18 +361,18 @@ void DxilViewIdState::Deserialize(const unsigned *pData,
         &pData[ConsumedUINTs], DataSizeInUINTs - ConsumedUINTs);
   }
 
-  if (pSM->IsHS() || pSM->IsDS()) {
+  if (pSM->IsHS() || pSM->IsDS() || pSM->IsMS()) {
     IFTBOOL(DataSizeInUINTs - ConsumedUINTs >= 1, DXC_E_GENERAL_INTERNAL_ERROR);
     unsigned NumPCs = pData[ConsumedUINTs++];
-    m_NumPCSigScalars = NumPCs;
-    if (pSM->IsHS()) {
+    m_NumPCOrPrimSigScalars = NumPCs;
+    if (pSM->IsHS() || pSM->IsMS()) {
       if (m_bUsesViewId) {
         ConsumedUINTs += DeserializeOutputsDependentOnViewId(
-            NumPCs, m_PCOutputsDependentOnViewId, &pData[ConsumedUINTs],
+            NumPCs, m_PCOrPrimOutputsDependentOnViewId, &pData[ConsumedUINTs],
             DataSizeInUINTs - ConsumedUINTs);
       }
       ConsumedUINTs += DeserializeInputsContributingToOutput(
-          NumInputs, NumPCs, m_InputsContributingToPCOutputs,
+          NumInputs, NumPCs, m_InputsContributingToPCOrPrimOutputs,
           &pData[ConsumedUINTs], DataSizeInUINTs - ConsumedUINTs);
     } else {
       unsigned NumOutputs = getNumOutputSigScalars(0);

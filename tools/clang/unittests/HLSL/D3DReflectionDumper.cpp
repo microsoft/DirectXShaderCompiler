@@ -308,6 +308,8 @@ void D3DReflectionDumper::DumpShaderVersion(UINT Version) {
   case (UINT)hlsl::DXIL::ShaderKind::ClosestHit: szType = "ClosestHit"; break;
   case (UINT)hlsl::DXIL::ShaderKind::Miss: szType = "Miss"; break;
   case (UINT)hlsl::DXIL::ShaderKind::Callable: szType = "Callable"; break;
+  case (UINT)hlsl::DXIL::ShaderKind::Mesh: szType = "Mesh"; break;
+  case (UINT)hlsl::DXIL::ShaderKind::Amplification: szType = "Amplification"; break;
   case (UINT)hlsl::DXIL::ShaderKind::Invalid: szType = "Invalid"; break;
   }
   UINT Major = D3D12_SHVER_GET_MAJOR(Version);

@@ -43,7 +43,7 @@ bool ShaderModel::operator==(const ShaderModel &other) const {
 
 bool ShaderModel::IsValid() const {
   DXASSERT(IsPS() || IsVS() || IsGS() || IsHS() || IsDS() || IsCS() ||
-               IsLib() || m_Kind == Kind::Invalid,
+               IsLib() || IsMS() || IsAS() || m_Kind == Kind::Invalid,
            "invalid shader model");
   return m_Kind != Kind::Invalid;
 }
@@ -103,7 +103,7 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
 }
 
 const ShaderModel *ShaderModel::GetByName(const char *pszName) {
-  // [ps|vs|gs|hs|ds|cs]_[major]_[minor]
+  // [ps|vs|gs|hs|ds|cs|ms|as]_[major]_[minor]
   Kind kind;
   switch (pszName[0]) {
   case 'p':   kind = Kind::Pixel;     break;
@@ -113,6 +113,8 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   case 'd':   kind = Kind::Domain;    break;
   case 'c':   kind = Kind::Compute;   break;
   case 'l':   kind = Kind::Library;   break;
+  case 'm':   kind = Kind::Mesh;      break;
+  case 'a':   kind = Kind::Amplification; break;
   default:    return GetInvalid();
   }
   unsigned Idx = 3;
@@ -241,7 +243,7 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
 static const char *ShaderModelKindNames[] = {
     "ps", "vs", "gs", "hs", "ds", "cs", "lib",
     "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable",
-    "invalid",
+    "ms", "as", "invalid",
 };
 
 const char * ShaderModel::GetKindName() const {
@@ -330,6 +332,9 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
 
   // lib_6_x is for offline linking only, and relaxes restrictions
   SM(Kind::Library,  6, kOfflineMinor, "lib_6_x",  32, 32,  true,  true,  UINT_MAX),
+
+  SM(Kind::Mesh,     6, 5, "ms_6_5",    0,  0,  true,  true,  UINT_MAX),
+  SM(Kind::Amplification, 6, 5, "as_6_5", 0, 0, true,  true,  UINT_MAX),
 
   // Values before Invalid must remain sorted by Kind, then Major, then Minor.
 

@@ -410,6 +410,28 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       break;
     }
     break;
+  case DXIL::ShaderKind::Mesh:
+    switch (Q) {
+    case DxilParamInputQual::In:
+    case DxilParamInputQual::InPayload:
+      return DXIL::SigPointKind::MSIn;
+    case DxilParamInputQual::OutIndices:
+    case DxilParamInputQual::OutVertices:
+      return DXIL::SigPointKind::MSOut;
+    case DxilParamInputQual::OutPrimitives:
+      return DXIL::SigPointKind::MSPOut;
+    default:
+      break;
+    }
+    break;
+  case DXIL::ShaderKind::Amplification:
+    switch (Q) {
+    case DxilParamInputQual::In:
+      return DXIL::SigPointKind::ASIn;
+    default:
+      break;
+    }
+    break;
   default:
     break;
   }

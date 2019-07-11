@@ -88,8 +88,8 @@ bool DxilSignatureElement::IsOutput() const {
   return SigPoint::GetSigPoint(m_sigPointKind)->IsOutput();
 }
 
-bool DxilSignatureElement::IsPatchConstant() const {
-  return SigPoint::GetSigPoint(m_sigPointKind)->IsPatchConstant();
+bool DxilSignatureElement::IsPatchConstOrPrim() const {
+  return SigPoint::GetSigPoint(m_sigPointKind)->IsPatchConstOrPrim();
 }
 
 const char *DxilSignatureElement::GetName() const {

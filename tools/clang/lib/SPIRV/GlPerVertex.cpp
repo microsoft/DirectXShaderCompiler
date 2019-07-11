@@ -117,6 +117,12 @@ bool GlPerVertex::recordGlPerVertexDeclFacts(const DeclaratorDecl *decl,
   if (type->isVoidType())
     return true;
 
+  // Indices or payload mesh shader param objects don't contain any
+  // builtin variables or semantic strings. So early return.
+  if (decl->hasAttr<HLSLIndicesAttr>() || decl->hasAttr<HLSLPayloadAttr>()) {
+    return true;
+  }
+
   return doGlPerVertexFacts(decl, type, asInput);
 }
 
@@ -146,18 +152,16 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
       return doGlPerVertexFacts(
           decl, hlsl::GetHLSLInputPatchElementType(baseType), asInput);
     }
-    if (hlsl::IsHLSLOutputPatchType(baseType)) {
+    if (hlsl::IsHLSLOutputPatchType(baseType) ||
+        hlsl::IsHLSLStreamOutputType(baseType)) {
       return doGlPerVertexFacts(
           decl, hlsl::GetHLSLOutputPatchElementType(baseType), asInput);
     }
-
-    if (hlsl::IsHLSLStreamOutputType(baseType)) {
-      return doGlPerVertexFacts(
-          decl, hlsl::GetHLSLOutputPatchElementType(baseType), asInput);
-    }
-    if (hasGSPrimitiveTypeQualifier(decl)) {
-      // GS inputs have an additional arrayness that we should remove to check
-      // the underlying type instead.
+    if (hasGSPrimitiveTypeQualifier(decl) ||
+        decl->hasAttr<HLSLVerticesAttr>() ||
+        decl->hasAttr<HLSLPrimitivesAttr>()) {
+      // GS inputs and MS output attribute have an additional arrayness that we
+      // should remove to check the underlying type instead.
       baseType = astContext.getAsConstantArrayType(baseType)->getElementType();
       return doGlPerVertexFacts(decl, baseType, asInput);
     }
@@ -169,7 +173,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
     return false;
   }
 
-  // Semantic string is attched to this decl directly
+  // Semantic string is attached to this decl directly
 
   // Select the corresponding data member to update
   SemanticIndexToTypeMap *typeMap = nullptr;
@@ -235,7 +239,8 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   }
 
   if (baseType->isConstantArrayType()) {
-    if (spvContext.isHS() || spvContext.isDS() || spvContext.isGS()) {
+    if (spvContext.isHS() || spvContext.isDS() || spvContext.isGS() ||
+        spvContext.isMS()) {
       // Ignore the outermost arrayness and check the inner type to be
       // (vector of) floats
 
@@ -355,11 +360,14 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
                               uint32_t semanticIndex,
                               llvm::Optional<SpirvInstruction *> invocationId,
                               SpirvInstruction **value, bool noWriteBack,
+                              SpirvInstruction *vecComponent,
                               SourceLocation loc) {
   assert(value);
   // invocationId should only be used for HSPCOut.
-  assert(invocationId.hasValue() ? sigPointKind == hlsl::SigPoint::Kind::HSCPOut
-                                 : true);
+  assert(invocationId.hasValue()
+             ? (sigPointKind == hlsl::SigPoint::Kind::HSCPOut ||
+                sigPointKind == hlsl::SigPoint::Kind::MSOut)
+             : true);
 
   switch (semanticKind) {
   case hlsl::Semantic::Kind::ClipDistance:
@@ -381,10 +389,12 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   case hlsl::SigPoint::Kind::VSOut:
   case hlsl::SigPoint::Kind::HSCPOut:
   case hlsl::SigPoint::Kind::DSOut:
+  case hlsl::SigPoint::Kind::MSOut:
     if (noWriteBack)
       return true;
 
-    return writeField(semanticKind, semanticIndex, invocationId, value, loc);
+    return writeField(semanticKind, semanticIndex, invocationId, value,
+                      vecComponent, loc);
   default:
     // Only interfaces that involve gl_PerVertex are needed.
     break;
@@ -526,7 +536,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
 
 void GlPerVertex::writeClipCullArrayFromType(
     llvm::Optional<SpirvInstruction *> invocationId, bool isClip,
-    uint32_t offset, QualType fromType, SpirvInstruction *fromValue,
+    SpirvInstruction *offset, QualType fromType, SpirvInstruction *fromValue,
     SourceLocation loc) const {
   auto *clipCullVar = isClip ? outClipVar : outCullVar;
 
@@ -542,10 +552,8 @@ void GlPerVertex::writeClipCullArrayFromType(
     uint32_t count = {};
 
     if (isScalarType(fromType)) {
-      auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                 llvm::APInt(32, offset));
       auto *ptr =
-          spvBuilder.createAccessChain(f32Type, clipCullVar, {constant}, loc);
+          spvBuilder.createAccessChain(f32Type, clipCullVar, {offset}, loc);
       spvBuilder.createStore(ptr, fromValue, loc);
       return;
     }
@@ -556,9 +564,12 @@ void GlPerVertex::writeClipCullArrayFromType(
       for (uint32_t i = 0; i < count; ++i) {
         // Write elements sequentially into the float array
         auto *constant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                   llvm::APInt(32, offset + i));
-        auto *ptr =
-            spvBuilder.createAccessChain(f32Type, clipCullVar, {constant}, loc);
+                                                   llvm::APInt(32, i));
+        auto *ptr = spvBuilder.createAccessChain(
+            f32Type, clipCullVar,
+            {spvBuilder.createBinaryOp(
+                spv::Op::OpIAdd, astContext.UnsignedIntTy, offset, constant)},
+            loc);
         auto *subValue =
             spvBuilder.createCompositeExtract(f32Type, fromValue, {i}, loc);
         spvBuilder.createStore(ptr, subValue, loc);
@@ -571,8 +582,8 @@ void GlPerVertex::writeClipCullArrayFromType(
     return;
   }
 
-  // Writing to an array only happens in HSCPOut.
-  assert(spvContext.isHS());
+  // Writing to an array only happens in HSCPOut or MSOut.
+  assert(spvContext.isHS() || spvContext.isMS());
   // And we are only writing to the array element with InvocationId as index.
   assert(invocationId.hasValue());
 
@@ -588,11 +599,8 @@ void GlPerVertex::writeClipCullArrayFromType(
   uint32_t count = {};
 
   if (isScalarType(fromType)) {
-    auto *ptr = spvBuilder.createAccessChain(
-        f32Type, clipCullVar,
-        {arrayIndex, spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                               llvm::APInt(32, offset))},
-        loc);
+    auto *ptr = spvBuilder.createAccessChain(f32Type, clipCullVar,
+                                             {arrayIndex, offset}, loc);
     spvBuilder.createStore(ptr, fromValue, loc);
     return;
   }
@@ -605,8 +613,10 @@ void GlPerVertex::writeClipCullArrayFromType(
           // Block array index
           {arrayIndex,
            // Write elements sequentially into the float array
-           spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                     llvm::APInt(32, offset + i))},
+           spvBuilder.createBinaryOp(
+               spv::Op::OpIAdd, astContext.UnsignedIntTy, offset,
+               spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                         llvm::APInt(32, i)))},
           loc);
 
       auto *subValue =
@@ -623,7 +633,9 @@ void GlPerVertex::writeClipCullArrayFromType(
 bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                              uint32_t semanticIndex,
                              llvm::Optional<SpirvInstruction *> invocationId,
-                             SpirvInstruction **value, SourceLocation loc) {
+                             SpirvInstruction **value,
+                             SpirvInstruction *vecComponent,
+                             SourceLocation loc) {
   // Similar to the writing logic in DeclResultIdMapper::createStageVars():
   //
   // Unlike reading, which may require us to read stand-alone builtins and
@@ -636,9 +648,13 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
   //       but we only write to the struct at the InvocationID index
   // * DS: output is a single struct, without extra arrayness
   // * GS: output is controlled by OpEmitVertex, one vertex per time
+  // * MS: output is an array of structs, with extra arrayness
   //
   // The interesting shader stage is HS. We need the InvocationID to write
   // out the value to the correct array element.
+  SpirvInstruction *offset = nullptr;
+  QualType type;
+  bool isClip = false;
   switch (semanticKind) {
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = outClipOffset.find(semanticIndex);
@@ -646,10 +662,11 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     // We should have recorded all these semantics before.
     assert(offsetIter != outClipOffset.end());
     assert(typeIter != outClipType.end());
-    writeClipCullArrayFromType(invocationId, /*isClip=*/true,
-                               offsetIter->second, typeIter->second, *value,
-                               loc);
-    return true;
+    offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                       llvm::APInt(32, offsetIter->second));
+    type = typeIter->second;
+    isClip = true;
+    break;
   }
   case hlsl::Semantic::Kind::CullDistance: {
     const auto offsetIter = outCullOffset.find(semanticIndex);
@@ -657,16 +674,26 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     // We should have recorded all these semantics before.
     assert(offsetIter != outCullOffset.end());
     assert(typeIter != outCullType.end());
-    writeClipCullArrayFromType(invocationId, /*isClip=*/false,
-                               offsetIter->second, typeIter->second, *value,
-                               loc);
-    return true;
+    offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                       llvm::APInt(32, offsetIter->second));
+    type = typeIter->second;
+    break;
   }
   default:
     // Only Cull or Clip apply.
-    break;
+    return false;
   }
-  return false;
+  if (vecComponent) {
+    QualType elemType;
+    if (!isVectorType(type, &elemType)) {
+      assert(false && "expected vector type");
+    }
+    type = elemType;
+    offset = spvBuilder.createBinaryOp(
+        spv::Op::OpIAdd, astContext.UnsignedIntTy, vecComponent, offset);
+  }
+  writeClipCullArrayFromType(invocationId, isClip, offset, type, *value, loc);
+  return true;
 }
 
 } // end namespace spirv

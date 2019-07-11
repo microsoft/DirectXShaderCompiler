@@ -118,8 +118,8 @@ public:
   const DxilSignature &GetInputSignature() const;
   DxilSignature &GetOutputSignature();
   const DxilSignature &GetOutputSignature() const;
-  DxilSignature &GetPatchConstantSignature();
-  const DxilSignature &GetPatchConstantSignature() const;
+  DxilSignature &GetPatchConstOrPrimSignature();
+  const DxilSignature &GetPatchConstOrPrimSignature() const;
   const std::vector<uint8_t> &GetSerializedRootSignature() const;
   std::vector<uint8_t> &GetSerializedRootSignature();
 
@@ -272,6 +272,16 @@ public:
   void SetTessellatorOutputPrimitive(DXIL::TessellatorOutputPrimitive TessOutputPrimitive);
   float GetMaxTessellationFactor() const;
   void SetMaxTessellationFactor(float MaxTessellationFactor);
+
+  // Mesh shader
+  unsigned GetMaxOutputVertices() const;
+  void SetMaxOutputVertices(unsigned NumOVs);
+  unsigned GetMaxOutputPrimitives() const;
+  void SetMaxOutputPrimitives(unsigned NumOPs);
+  DXIL::MeshOutputTopology GetMeshOutputTopology() const;
+  void SetMeshOutputTopology(DXIL::MeshOutputTopology MeshOutputTopology);
+  unsigned GetPayloadByteSize() const;
+  void SetPayloadByteSize(unsigned Size);
 
   // AutoBindingSpace also enables automatic binding for libraries if set.
   // UINT_MAX == unset

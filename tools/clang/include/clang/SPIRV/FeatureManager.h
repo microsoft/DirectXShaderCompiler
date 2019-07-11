@@ -44,6 +44,7 @@ enum class Extension {
   GOOGLE_hlsl_functionality1,
   GOOGLE_user_type,
   NV_ray_tracing,
+  NV_mesh_shader,
   Unknown,
 };
 

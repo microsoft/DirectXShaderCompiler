@@ -5549,5 +5549,193 @@ struct DxilInst_WaveMultiPrefixBitCount {
   llvm::Value *get_mask3() const { return Instr->getOperand(5); }
   void set_mask3(llvm::Value *val) { Instr->setOperand(5, val); }
 };
+
+/// This instruction Mesh shader intrinsic SetMeshOutputCounts
+struct DxilInst_SetMeshOutputCounts {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_SetMeshOutputCounts(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SetMeshOutputCounts);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_numVertices = 1,
+    arg_numPrimitives = 2,
+  };
+  // Accessors
+  llvm::Value *get_numVertices() const { return Instr->getOperand(1); }
+  void set_numVertices(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_numPrimitives() const { return Instr->getOperand(2); }
+  void set_numPrimitives(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
+/// This instruction emit a primitive's vertex indices in a mesh shader
+struct DxilInst_EmitIndices {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_EmitIndices(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::EmitIndices);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_PrimitiveIndex = 1,
+    arg_VertexIndex0 = 2,
+    arg_VertexIndex1 = 3,
+    arg_VertexIndex2 = 4,
+  };
+  // Accessors
+  llvm::Value *get_PrimitiveIndex() const { return Instr->getOperand(1); }
+  void set_PrimitiveIndex(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_VertexIndex0() const { return Instr->getOperand(2); }
+  void set_VertexIndex0(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_VertexIndex1() const { return Instr->getOperand(3); }
+  void set_VertexIndex1(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_VertexIndex2() const { return Instr->getOperand(4); }
+  void set_VertexIndex2(llvm::Value *val) { Instr->setOperand(4, val); }
+};
+
+/// This instruction get the mesh payload which is from amplification shader
+struct DxilInst_GetMeshPayload {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_GetMeshPayload(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GetMeshPayload);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction stores the value to mesh shader vertex output
+struct DxilInst_StoreVertexOutput {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_StoreVertexOutput(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::StoreVertexOutput);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_outputSigId = 1,
+    arg_rowIndex = 2,
+    arg_colIndex = 3,
+    arg_value = 4,
+    arg_vertexIndex = 5,
+  };
+  // Accessors
+  llvm::Value *get_outputSigId() const { return Instr->getOperand(1); }
+  void set_outputSigId(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_rowIndex() const { return Instr->getOperand(2); }
+  void set_rowIndex(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_colIndex() const { return Instr->getOperand(3); }
+  void set_colIndex(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_value() const { return Instr->getOperand(4); }
+  void set_value(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_vertexIndex() const { return Instr->getOperand(5); }
+  void set_vertexIndex(llvm::Value *val) { Instr->setOperand(5, val); }
+};
+
+/// This instruction stores the value to mesh shader primitive output
+struct DxilInst_StorePrimitiveOutput {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_StorePrimitiveOutput(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::StorePrimitiveOutput);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_outputSigId = 1,
+    arg_rowIndex = 2,
+    arg_colIndex = 3,
+    arg_value = 4,
+    arg_primitiveIndex = 5,
+  };
+  // Accessors
+  llvm::Value *get_outputSigId() const { return Instr->getOperand(1); }
+  void set_outputSigId(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_rowIndex() const { return Instr->getOperand(2); }
+  void set_rowIndex(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_colIndex() const { return Instr->getOperand(3); }
+  void set_colIndex(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_value() const { return Instr->getOperand(4); }
+  void set_value(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_primitiveIndex() const { return Instr->getOperand(5); }
+  void set_primitiveIndex(llvm::Value *val) { Instr->setOperand(5, val); }
+};
+
+/// This instruction Amplification shader intrinsic DispatchMesh
+struct DxilInst_DispatchMesh {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_DispatchMesh(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::DispatchMesh);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_threadGroupCountX = 1,
+    arg_threadGroupCountY = 2,
+    arg_threadGroupCountZ = 3,
+    arg_payload = 4,
+  };
+  // Accessors
+  llvm::Value *get_threadGroupCountX() const { return Instr->getOperand(1); }
+  void set_threadGroupCountX(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_threadGroupCountY() const { return Instr->getOperand(2); }
+  void set_threadGroupCountY(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_threadGroupCountZ() const { return Instr->getOperand(3); }
+  void set_threadGroupCountZ(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_payload() const { return Instr->getOperand(4); }
+  void set_payload(llvm::Value *val) { Instr->setOperand(4, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
