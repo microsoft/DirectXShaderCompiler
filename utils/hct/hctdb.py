@@ -397,6 +397,14 @@ class db_dxil(object):
         for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
             self.name_idx[i].category = "Sampler Feedback"
             self.name_idx[i].shader_model = 6,5
+        for i in ("AllocateRayQuery,RayQuery_TraceRayInline,RayQuery_Proceed,RayQuery_Abort,RayQuery_CommitNonOpaqueTriangleHit,RayQuery_CommitProceduralPrimitiveHit,RayQuery_RayFlags,RayQuery_WorldRayOrigin,RayQuery_WorldRayDirection,RayQuery_RayTMin,"+
+                 "RayQuery_CandidateTriangleRayT,RayQuery_CommittedRayT,RayQuery_CandidateInstanceIndex,RayQuery_CandidateInstanceID,RayQuery_CandidateGeometryIndex,RayQuery_CandidatePrimitiveIndex,"+
+                 "RayQuery_CandidateObjectRayOrigin,RayQuery_CandidateObjectRayDirection,RayQuery_CommittedInstanceIndex,RayQuery_CommittedInstanceID,RayQuery_CommittedGeometryIndex,RayQuery_CommittedPrimitiveIndex,"+
+                 "RayQuery_CommittedObjectRayOrigin,RayQuery_CommittedObjectRayDirection,RayQuery_CandidateProceduralPrimitiveNonOpaque,RayQuery_CandidateTriangleFrontFace,RayQuery_CommittedTriangleFrontFace,"+
+                 "RayQuery_CandidateTriangleBarycentrics,RayQuery_CommittedTriangleBarycentrics,RayQuery_CommittedStatus,RayQuery_CandidateType,RayQuery_CandidateObjectToWorld3x4,"+
+                 "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4").split(","):
+            self.name_idx[i].category = "Inline Ray Query"
+            self.name_idx[i].shader_model = 6,5
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1286,7 +1294,7 @@ class db_dxil(object):
             db_dxil_param(0, "v", "", "")])
         next_op_idx += 1
 
-        self.add_dxil_op("TraceRay", next_op_idx, "TraceRay", "returns the view index", "u", "", [
+        self.add_dxil_op("TraceRay", next_op_idx, "TraceRay", "initiates raytrace", "u", "", [
             db_dxil_param(0, "v", "", ""),
             db_dxil_param(2, "res", "AccelerationStructure", "Top-level acceleration structure to use"),
             db_dxil_param(3, "i32", "RayFlags", "Valid combination of Ray_flags"),
@@ -1477,9 +1485,213 @@ class db_dxil(object):
             db_dxil_param(10, "f", "clamp", "clamp")])
         next_op_idx += 1
 
+        # RayQuery
+        self.add_dxil_op("AllocateRayQuery", next_op_idx, "AllocateRayQuery", "allocates space for RayQuery and return handle", "v", "", [
+            db_dxil_param(0, "i32", "", "handle to RayQuery state"),
+            db_dxil_param(2, "u32", "constRayFlags", "Valid combination of RAY_FLAGS", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_TraceRayInline", next_op_idx, "RayQuery_TraceRayInline", "initializes RayQuery for raytrace", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "res", "accelerationStructure", "Top-level acceleration structure to use"),
+            db_dxil_param(4, "i32", "rayFlags", "Valid combination of RAY_FLAGS, combined with constRayFlags provided to AllocateRayQuery"),
+            db_dxil_param(5, "i32", "instanceInclusionMask", "Bottom 8 bits of InstanceInclusionMask are used to include/rejectgeometry instances based on the InstanceMask in each instance: if(!((InstanceInclusionMask & InstanceMask) & 0xff)) { ignore intersection }"),
+            db_dxil_param(6, "f", "origin_X", "Origin x of the ray"),
+            db_dxil_param(7, "f", "origin_Y", "Origin y of the ray"),
+            db_dxil_param(8, "f", "origin_Z", "Origin z of the ray"),
+            db_dxil_param(9, "f", "tMin", "Tmin of the ray"),
+            db_dxil_param(10, "f", "direction_X", "Direction x of the ray"),
+            db_dxil_param(11, "f", "direction_Y", "Direction y of the ray"),
+            db_dxil_param(12, "f", "direction_Z", "Direction z of the ray"),
+            db_dxil_param(13, "f", "tMax", "Tmax of the ray")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_Proceed", next_op_idx, "RayQuery_Proceed", "advances a ray query", "1", "", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_Abort", next_op_idx, "RayQuery_Abort", "aborts a ray query", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommitNonOpaqueTriangleHit", next_op_idx, "RayQuery_CommitNonOpaqueTriangleHit", "commits a non opaque triangle hit", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommitProceduralPrimitiveHit", next_op_idx, "RayQuery_CommitProceduralPrimitiveHit", "commits a procedural primitive hit", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "f", "t", "Procedural primitive hit distance (t) to commit.")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedStatus", next_op_idx, "RayQuery_StateScalar", "returns uint status (COMMITTED_STATUS) of the committed hit in a ray query", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateType", next_op_idx, "RayQuery_StateScalar", "returns uint candidate type (CANDIDATE_TYPE) of the current hit candidate in a ray query, after Proceed() has returned true", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateObjectToWorld3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from object-space to world-space for a candidate hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateWorldToObject3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from world-space to object-space for a candidate hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedObjectToWorld3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from object-space to world-space for a Committed hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedWorldToObject3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from world-space to object-space for a Committed hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateProceduralPrimitiveNonOpaque", next_op_idx, "RayQuery_StateScalar", "returns if current candidate procedural primitive is non opaque", "1", "ro", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateTriangleFrontFace", next_op_idx, "RayQuery_StateScalar", "returns if current candidate triangle is front facing", "1", "ro", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedTriangleFrontFace", next_op_idx, "RayQuery_StateScalar", "returns if current committed triangle is front facing", "1", "ro", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateTriangleBarycentrics", next_op_idx, "RayQuery_StateVector", "returns candidate triangle hit barycentrics", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedTriangleBarycentrics", next_op_idx, "RayQuery_StateVector", "returns committed triangle hit barycentrics", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_RayFlags", next_op_idx, "RayQuery_StateScalar", "returns ray flags", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_WorldRayOrigin", next_op_idx, "RayQuery_StateVector", "returns world ray origin", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_WorldRayDirection", next_op_idx, "RayQuery_StateVector", "returns world ray direction", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_RayTMin", next_op_idx, "RayQuery_StateScalar", "returns float representing the parametric starting point for the ray.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateTriangleRayT", next_op_idx, "RayQuery_StateScalar", "returns float representing the parametric point on the ray for the current candidate triangle hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedRayT", next_op_idx, "RayQuery_StateScalar", "returns float representing the parametric point on the ray for the current committed hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateInstanceIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit instance index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateInstanceID", next_op_idx, "RayQuery_StateScalar", "returns candidate hit instance ID", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateGeometryIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidatePrimitiveIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateObjectRayOrigin", next_op_idx, "RayQuery_StateVector", "returns candidate hit object ray origin", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateObjectRayDirection", next_op_idx, "RayQuery_StateVector", "returns candidate object ray direction", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedInstanceIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit instance index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedInstanceID", next_op_idx, "RayQuery_StateScalar", "returns committed hit instance ID", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedGeometryIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedPrimitiveIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedObjectRayOrigin", next_op_idx, "RayQuery_StateVector", "returns committed hit object ray origin", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedObjectRayDirection", next_op_idx, "RayQuery_StateVector", "returns committed object ray direction", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
         # End of DXIL 1.5 opcodes.
         self.set_op_count_for_version(1, 5, next_op_idx)
-        assert next_op_idx == 178, "next operation index is %d rather than 178 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 213, "213 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

@@ -774,11 +774,60 @@ void DxilMDHelper::LoadDxilTypeSystem(DxilTypeSystem &TypeSystem) {
   }
 }
 
+Metadata *DxilMDHelper::EmitDxilTemplateArgAnnotation(const DxilTemplateArgAnnotation &annotation) {
+  SmallVector<Metadata *, 2> MDVals;
+  if (annotation.IsType()) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilTemplateArgTypeTag));
+    MDVals.emplace_back(ValueAsMetadata::get(UndefValue::get(const_cast<Type*>(annotation.GetType()))));
+  } else if (annotation.IsIntegral()) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilTemplateArgIntegralTag));
+    MDVals.emplace_back(Uint64ToConstMD((uint64_t)annotation.GetIntegral()));
+  }
+  return MDNode::get(m_Ctx, MDVals);
+}
+void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, DxilTemplateArgAnnotation &annotation) {
+  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pTupleMD->getNumOperands() >= 1, DXC_E_INCORRECT_DXIL_METADATA);
+  unsigned Tag = ConstMDToUint32(pTupleMD->getOperand(0));
+  switch (Tag) {
+  case kDxilTemplateArgTypeTag:
+    IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
+    annotation.SetType(MetadataAsValue::get(m_Ctx,
+      pTupleMD->getOperand(kDxilTemplateArgType))->getType());
+    break;
+  case kDxilTemplateArgIntegralTag:
+    IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
+    annotation.SetIntegral((int64_t)ConstMDToUint64(pTupleMD->getOperand(kDxilTemplateArgType)));
+    break;
+  }
+}
+
 Metadata *DxilMDHelper::EmitDxilStructAnnotation(const DxilStructAnnotation &SA) {
-  vector<Metadata *> MDVals(SA.GetNumFields() + 1);
+  unsigned valMajor, valMinor;
+  m_pSM->GetMinValidatorVersion(valMajor, valMinor);
+  bool bSupportExtended = !(valMajor == 1 && valMinor < 5);
+
+  vector<Metadata *> MDVals;
+  MDVals.reserve(SA.GetNumFields() + 2);  // In case of extended 1.5 property list
+  MDVals.resize(SA.GetNumFields() + 1);
+
   MDVals[0] = Uint32ToConstMD(SA.GetCBufferSize());
   for (unsigned i = 0; i < SA.GetNumFields(); i++) {
     MDVals[i+1] = EmitDxilFieldAnnotation(SA.GetFieldAnnotation(i));
+  }
+
+  // Only add template args if shader target requires validator version that supports them.
+  if (bSupportExtended && SA.GetNumTemplateArgs()) {
+    vector<Metadata *> MDTemplateArgs(SA.GetNumTemplateArgs());
+    for (unsigned i = 0; i < SA.GetNumTemplateArgs(); ++i) {
+      MDTemplateArgs[i] = EmitDxilTemplateArgAnnotation(SA.GetTemplateArgAnnotation(i));
+    }
+    SmallVector<Metadata *, 2> MDExtraVals;
+    MDExtraVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilTemplateArgumentsTag));
+    MDExtraVals.emplace_back(MDNode::get(m_Ctx, MDTemplateArgs));
+    MDVals.emplace_back(MDNode::get(m_Ctx, MDExtraVals));
   }
 
   return MDNode::get(m_Ctx, MDVals);
@@ -791,7 +840,27 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   if (pTupleMD->getNumOperands() == 1) {
     SA.MarkEmptyStruct();
   }
-  IFTBOOL(pTupleMD->getNumOperands() == SA.GetNumFields()+1, DXC_E_INCORRECT_DXIL_METADATA);
+  unsigned valMajor, valMinor;
+  m_pSM->GetMinValidatorVersion(valMajor, valMinor);
+  if (!(valMajor == 1 && valMinor < 5) &&
+      (pTupleMD->getNumOperands() == SA.GetNumFields()+2)) {
+    // Load template args from extended operand
+    const MDOperand &MDOExtra = pTupleMD->getOperand(SA.GetNumFields()+1);
+    const MDTuple *pTupleMDExtra = dyn_cast_or_null<MDTuple>(MDOExtra.get());
+    if(pTupleMDExtra) {
+      IFTBOOL(pTupleMDExtra->getNumOperands() % 2 == 0, DXC_E_INCORRECT_DXIL_METADATA);
+      unsigned Tag = ConstMDToUint32(pTupleMDExtra->getOperand(0));
+      IFTBOOL(Tag == kDxilTemplateArgumentsTag, DXC_E_INCORRECT_DXIL_METADATA); // Only one allowed at this point
+      const MDTuple *pTupleTemplateArgs = dyn_cast_or_null<MDTuple>(pTupleMDExtra->getOperand(1).get());
+      IFTBOOL(pTupleTemplateArgs, DXC_E_INCORRECT_DXIL_METADATA);
+      SA.SetNumTemplateArgs(pTupleTemplateArgs->getNumOperands());
+      for (unsigned i = 0; i < pTupleTemplateArgs->getNumOperands(); ++i) {
+        LoadDxilTemplateArgAnnotation(pTupleTemplateArgs->getOperand(i), SA.GetTemplateArgAnnotation(i));
+      }
+    }
+  } else {
+    IFTBOOL(pTupleMD->getNumOperands() == SA.GetNumFields()+1, DXC_E_INCORRECT_DXIL_METADATA);
+  }
 
   SA.SetCBufferSize(ConstMDToUint32(pTupleMD->getOperand(0)));
   for (unsigned i = 0; i < SA.GetNumFields(); i++) {

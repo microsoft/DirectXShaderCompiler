@@ -327,7 +327,7 @@ namespace DXIL {
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
     // Amplification shader instructions
-    DispatchMesh = 177, // Amplification shader intrinsic DispatchMesh
+    DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
   
     // AnyHit Terminals
     AcceptHitAndEndSearch = 156, // Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
@@ -413,7 +413,44 @@ namespace DXIL {
     // Indirect Shader Invocation
     CallShader = 159, // Call a shader in the callable shader table supplied through the DispatchRays() API
     ReportHit = 158, // returns true if hit was accepted
-    TraceRay = 157, // returns the view index
+    TraceRay = 157, // initiates raytrace
+  
+    // Inline Ray Query
+    AllocateRayQuery = 178, // allocates space for RayQuery and return handle
+    RayQuery_Abort = 181, // aborts a ray query
+    RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
+    RayQuery_CandidateInstanceID = 202, // returns candidate hit instance ID
+    RayQuery_CandidateInstanceIndex = 201, // returns candidate hit instance index
+    RayQuery_CandidateObjectRayDirection = 206, // returns candidate object ray direction
+    RayQuery_CandidateObjectRayOrigin = 205, // returns candidate hit object ray origin
+    RayQuery_CandidateObjectToWorld3x4 = 186, // returns matrix for transforming from object-space to world-space for a candidate hit.
+    RayQuery_CandidatePrimitiveIndex = 204, // returns candidate hit geometry index
+    RayQuery_CandidateProceduralPrimitiveNonOpaque = 190, // returns if current candidate procedural primitive is non opaque
+    RayQuery_CandidateTriangleBarycentrics = 193, // returns candidate triangle hit barycentrics
+    RayQuery_CandidateTriangleFrontFace = 191, // returns if current candidate triangle is front facing
+    RayQuery_CandidateTriangleRayT = 199, // returns float representing the parametric point on the ray for the current candidate triangle hit.
+    RayQuery_CandidateType = 185, // returns uint candidate type (CANDIDATE_TYPE) of the current hit candidate in a ray query, after Proceed() has returned true
+    RayQuery_CandidateWorldToObject3x4 = 187, // returns matrix for transforming from world-space to object-space for a candidate hit.
+    RayQuery_CommitNonOpaqueTriangleHit = 182, // commits a non opaque triangle hit
+    RayQuery_CommitProceduralPrimitiveHit = 183, // commits a procedural primitive hit
+    RayQuery_CommittedGeometryIndex = 209, // returns committed hit geometry index
+    RayQuery_CommittedInstanceID = 208, // returns committed hit instance ID
+    RayQuery_CommittedInstanceIndex = 207, // returns committed hit instance index
+    RayQuery_CommittedObjectRayDirection = 212, // returns committed object ray direction
+    RayQuery_CommittedObjectRayOrigin = 211, // returns committed hit object ray origin
+    RayQuery_CommittedObjectToWorld3x4 = 188, // returns matrix for transforming from object-space to world-space for a Committed hit.
+    RayQuery_CommittedPrimitiveIndex = 210, // returns committed hit geometry index
+    RayQuery_CommittedRayT = 200, // returns float representing the parametric point on the ray for the current committed hit.
+    RayQuery_CommittedStatus = 184, // returns uint status (COMMITTED_STATUS) of the committed hit in a ray query
+    RayQuery_CommittedTriangleBarycentrics = 194, // returns committed triangle hit barycentrics
+    RayQuery_CommittedTriangleFrontFace = 192, // returns if current committed triangle is front facing
+    RayQuery_CommittedWorldToObject3x4 = 189, // returns matrix for transforming from world-space to object-space for a Committed hit.
+    RayQuery_Proceed = 180, // advances a ray query
+    RayQuery_RayFlags = 195, // returns ray flags
+    RayQuery_RayTMin = 198, // returns float representing the parametric starting point for the ray.
+    RayQuery_TraceRayInline = 179, // initializes RayQuery for raytrace
+    RayQuery_WorldRayDirection = 197, // returns world ray direction
+    RayQuery_WorldRayOrigin = 196, // returns world ray origin
   
     // Legacy floating-point
     LegacyF16ToF32 = 131, // legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
@@ -423,11 +460,11 @@ namespace DXIL {
     CreateHandleForLib = 160, // create resource handle from resource struct for library
   
     // Mesh shader instructions
-    EmitIndices = 173, // emit a primitive's vertex indices in a mesh shader
-    GetMeshPayload = 174, // get the mesh payload which is from amplification shader
-    SetMeshOutputCounts = 172, // Mesh shader intrinsic SetMeshOutputCounts
-    StorePrimitiveOutput = 176, // stores the value to mesh shader primitive output
-    StoreVertexOutput = 175, // stores the value to mesh shader vertex output
+    EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
+    GetMeshPayload = 170, // get the mesh payload which is from amplification shader
+    SetMeshOutputCounts = 168, // Mesh shader intrinsic SetMeshOutputCounts
+    StorePrimitiveOutput = 172, // stores the value to mesh shader primitive output
+    StoreVertexOutput = 171, // stores the value to mesh shader vertex output
   
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
@@ -511,10 +548,10 @@ namespace DXIL {
     TextureStore = 67, // reads texel data without any filtering or sampling
   
     // Sampler Feedback
-    WriteSamplerFeedback = 168, // updates a feedback texture for a sampling operation
-    WriteSamplerFeedbackBias = 169, // updates a feedback texture for a sampling operation with a bias on the mipmap level
-    WriteSamplerFeedbackGrad = 171, // updates a feedback texture for a sampling operation with explicit gradients
-    WriteSamplerFeedbackLevel = 170, // updates a feedback texture for a sampling operation with a mipmap-level offset
+    WriteSamplerFeedback = 174, // updates a feedback texture for a sampling operation
+    WriteSamplerFeedbackBias = 175, // updates a feedback texture for a sampling operation with a bias on the mipmap level
+    WriteSamplerFeedbackGrad = 177, // updates a feedback texture for a sampling operation with explicit gradients
+    WriteSamplerFeedbackLevel = 176, // updates a feedback texture for a sampling operation with a mipmap-level offset
   
     // Synchronization
     AtomicBinOp = 78, // performs an atomic operation on two operands
@@ -605,9 +642,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
-    NumOpCodes_Dxil_1_5 = 178,
+    NumOpCodes_Dxil_1_5 = 213,
   
-    NumOpCodes = 178 // exclusive last value of enumeration
+    NumOpCodes = 213 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -688,6 +725,17 @@ namespace DXIL {
     CallShader,
     ReportHit,
     TraceRay,
+  
+    // Inline Ray Query
+    AllocateRayQuery,
+    RayQuery_Abort,
+    RayQuery_CommitNonOpaqueTriangleHit,
+    RayQuery_CommitProceduralPrimitiveHit,
+    RayQuery_Proceed,
+    RayQuery_StateMatrix,
+    RayQuery_StateScalar,
+    RayQuery_StateVector,
+    RayQuery_TraceRayInline,
   
     // LLVM Instructions
     LlvmInst,
@@ -837,9 +885,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
-    NumOpClasses_Dxil_1_5 = 133,
+    NumOpClasses_Dxil_1_5 = 142,
   
-    NumOpClasses = 133 // exclusive last value of enumeration
+    NumOpClasses = 142 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -970,6 +1018,9 @@ namespace DXIL {
     const unsigned kTraceRayPayloadOpIdx = 15;
     const unsigned kTraceRayNumOp = 16;
 
+    // TraceRayInline
+    const unsigned kTraceRayInlineRayDescOpIdx = 5;
+    const unsigned kTraceRayInlineNumOp = 13;
 
     // Emit/Cut
     const unsigned kStreamEmitCutIDOpIdx = 1;
@@ -1243,8 +1294,10 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
   const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
   const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
+  const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
+  const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
 
-  const unsigned ShaderFeatureInfoCount = 20;
+  const unsigned ShaderFeatureInfoCount = 22;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
@@ -1276,6 +1329,17 @@ namespace DXIL {
     Triangle = 0x0,
     ProceduralPrimitive = 0x1,
     LastEntry,
+  };
+
+  enum class CommittedStatus : uint32_t {
+    CommittedNothing = 0,
+    CommittedTriangleHit = 1,
+    CommittedProceduralPrimitiveHit = 2,
+  };
+
+  enum class CandidateType : uint32_t {
+    CandidateNonOpaqueTriangle = 0,
+    CandidateProceduralPrimitive = 1,
   };
 
   inline bool IsValidHitGroupType(HitGroupType type) {

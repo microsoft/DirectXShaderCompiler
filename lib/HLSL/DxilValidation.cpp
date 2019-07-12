@@ -874,21 +874,43 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
   // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, WriteSamplerFeedbackLevel=170,
-  // WriteSamplerFeedbackGrad=171
-  if ((165 <= op && op <= 167) || (170 <= op && op <= 171))
+  // WaveMultiPrefixBitCount=167, WriteSamplerFeedbackLevel=176,
+  // WriteSamplerFeedbackGrad=177, AllocateRayQuery=178,
+  // RayQuery_TraceRayInline=179, RayQuery_Proceed=180, RayQuery_Abort=181,
+  // RayQuery_CommitNonOpaqueTriangleHit=182,
+  // RayQuery_CommitProceduralPrimitiveHit=183, RayQuery_CommittedStatus=184,
+  // RayQuery_CandidateType=185, RayQuery_CandidateObjectToWorld3x4=186,
+  // RayQuery_CandidateWorldToObject3x4=187,
+  // RayQuery_CommittedObjectToWorld3x4=188,
+  // RayQuery_CommittedWorldToObject3x4=189,
+  // RayQuery_CandidateProceduralPrimitiveNonOpaque=190,
+  // RayQuery_CandidateTriangleFrontFace=191,
+  // RayQuery_CommittedTriangleFrontFace=192,
+  // RayQuery_CandidateTriangleBarycentrics=193,
+  // RayQuery_CommittedTriangleBarycentrics=194, RayQuery_RayFlags=195,
+  // RayQuery_WorldRayOrigin=196, RayQuery_WorldRayDirection=197,
+  // RayQuery_RayTMin=198, RayQuery_CandidateTriangleRayT=199,
+  // RayQuery_CommittedRayT=200, RayQuery_CandidateInstanceIndex=201,
+  // RayQuery_CandidateInstanceID=202, RayQuery_CandidateGeometryIndex=203,
+  // RayQuery_CandidatePrimitiveIndex=204, RayQuery_CandidateObjectRayOrigin=205,
+  // RayQuery_CandidateObjectRayDirection=206,
+  // RayQuery_CommittedInstanceIndex=207, RayQuery_CommittedInstanceID=208,
+  // RayQuery_CommittedGeometryIndex=209, RayQuery_CommittedPrimitiveIndex=210,
+  // RayQuery_CommittedObjectRayOrigin=211,
+  // RayQuery_CommittedObjectRayDirection=212
+  if ((165 <= op && op <= 167) || (176 <= op && op <= 212))
     return (major > 6 || (major == 6 && minor >= 5));
-  // Instructions: DispatchMesh=177
-  if (op == 177)
+  // Instructions: DispatchMesh=173
+  if (op == 173)
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Amplification);
-  // Instructions: WriteSamplerFeedback=168, WriteSamplerFeedbackBias=169
-  if ((168 <= op && op <= 169))
+  // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  if ((174 <= op && op <= 175))
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel);
-  // Instructions: SetMeshOutputCounts=172, EmitIndices=173, GetMeshPayload=174,
-  // StoreVertexOutput=175, StorePrimitiveOutput=176
-  if ((172 <= op && op <= 176))
+  // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
+  // StoreVertexOutput=171, StorePrimitiveOutput=172
+  if ((168 <= op && op <= 172))
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Mesh);
   return true;
