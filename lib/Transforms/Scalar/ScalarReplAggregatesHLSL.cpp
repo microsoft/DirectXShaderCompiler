@@ -1587,9 +1587,9 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
       SimpleCopy(Dest, Src, idxList, Builder);
       return;
     }
+    // Built-in structs have no type annotation
     DxilStructAnnotation *STA = typeSys.GetStructAnnotation(ST);
-    DXASSERT(STA, "require annotation here");
-    if (STA->IsEmptyStruct())
+    if (STA && STA->IsEmptyStruct())
       return;
     for (uint32_t i = 0; i < ST->getNumElements(); i++) {
       llvm::Type *ET = ST->getElementType(i);
@@ -1599,8 +1599,8 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
       if (bEltMemCpy && IsMemCpyTy(ET, typeSys)) {
         EltMemCpy(ET, Dest, Src, idxList, Builder, DL);
       } else {
-        DxilFieldAnnotation &EltAnnotation = STA->GetFieldAnnotation(i);
-        SplitCpy(ET, Dest, Src, idxList, Builder, DL, typeSys, &EltAnnotation,
+        DxilFieldAnnotation *EltAnnotation = STA ? &STA->GetFieldAnnotation(i) : nullptr;
+        SplitCpy(ET, Dest, Src, idxList, Builder, DL, typeSys, EltAnnotation,
                  bEltMemCpy);
       }
 
@@ -2413,6 +2413,12 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Value *OldV) {
 }
 
 void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
+  // Unused bitcast may be leftover from temporary memcpy
+  if (BCI->use_empty()) {
+    BCI->eraseFromParent();
+    return;
+  }
+
   Type *DstTy = BCI->getType();
   Value *Val = BCI->getOperand(0);
   Type *SrcTy = Val->getType();
@@ -2565,6 +2571,13 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::IOP_CallShader: {
         RewriteCallArg(CI, HLOperandIndex::kBinaryOpSrc1Idx,
                        /*bIn*/ true, /*bOut*/ true);
+      } break;
+      case IntrinsicOp::MOP_TraceRayInline: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
+          RewriteCallArg(CI, HLOperandIndex::kTraceRayInlineRayDescOpIdx,
+                         /*bIn*/ true, /*bOut*/ false);
+        }
       } break;
       default:
         DXASSERT(0, "cannot flatten hlsl intrinsic.");

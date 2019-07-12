@@ -557,6 +557,20 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
     if (name.startswith("LineStream<"))
       return true;
+
+    if (name.startswith("RayQuery<"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLRayQueryType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    StringRef name = ST->getName();
+    // TODO: don't check names.
+    name = name.ltrim("class.");
+    if (name.startswith("RayQuery<"))
+      return true;
   }
   return false;
 }

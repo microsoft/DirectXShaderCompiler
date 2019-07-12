@@ -47,6 +47,8 @@ ShaderFlags::ShaderFlags():
 , m_bBarycentrics(false)
 , m_bUseNativeLowPrecision(false)
 , m_bShadingRate(false)
+, m_bSamplerFeedback(false)
+, m_bRaytracingTier1_1(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -93,6 +95,8 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bViewID ? hlsl::DXIL::ShaderFeatureInfo_ViewID : 0;
   Flags |= m_bBarycentrics ? hlsl::DXIL::ShaderFeatureInfo_Barycentrics : 0;
   Flags |= m_bShadingRate ? hlsl::DXIL::ShaderFeatureInfo_ShadingRate : 0;
+  Flags |= m_bRaytracingTier1_1 ? hlsl::DXIL::ShaderFeatureInfo_Raytracing_Tier_1_1 : 0;
+  Flags |= m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
 
   return Flags;
 }
@@ -145,6 +149,8 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetViewID(true);
   Flags.SetBarycentrics(true);
   Flags.SetShadingRate(true);
+  Flags.SetRaytracingTier1_1(true);
+  Flags.SetSamplerFeedback(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -247,6 +253,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasMulticomponentUAVLoads = false;
   bool hasViewportOrRTArrayIndex = false;
   bool hasShadingRate = false;
+  bool hasSamplerFeedback = false;
+  bool hasRaytracingTier1_1 = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
@@ -381,6 +389,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::ViewID:
           hasViewID = true;
           break;
+        case DXIL::OpCode::AllocateRayQuery:
+          hasRaytracingTier1_1 = true;
+          break;
         default:
           // Normal opcodes.
           break;
@@ -460,6 +471,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetViewID(hasViewID);
   flag.SetViewportAndRTArrayIndex(hasViewportOrRTArrayIndex);
   flag.SetShadingRate(hasShadingRate);
+  flag.SetSamplerFeedback(hasSamplerFeedback);
+  flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
 
   return flag;
 }

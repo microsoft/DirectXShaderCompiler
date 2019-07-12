@@ -82,6 +82,22 @@ void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldNa
 //
 // DxilStructAnnotation class methods.
 //
+DxilTemplateArgAnnotation::DxilTemplateArgAnnotation()
+    : DxilFieldAnnotation(), m_Type(nullptr), m_Integral(0)
+{}
+
+bool DxilTemplateArgAnnotation::IsType() const { return m_Type != nullptr; }
+const llvm::Type *DxilTemplateArgAnnotation::GetType() const { return m_Type; }
+void DxilTemplateArgAnnotation::SetType(const llvm::Type *pType) { m_Type = pType; }
+
+bool DxilTemplateArgAnnotation::IsIntegral() const { return m_Type == nullptr; }
+int64_t DxilTemplateArgAnnotation::GetIntegral() const { return m_Integral; }
+void DxilTemplateArgAnnotation::SetIntegral(int64_t i64) { m_Type = nullptr; m_Integral = i64; }
+
+//------------------------------------------------------------------------------
+//
+// DxilStructAnnotation class methods.
+//
 unsigned DxilStructAnnotation::GetNumFields() const {
   return (unsigned)m_FieldAnnotations.size();
 }
@@ -106,6 +122,22 @@ unsigned DxilStructAnnotation::GetCBufferSize() const { return m_CBufferSize; }
 void DxilStructAnnotation::SetCBufferSize(unsigned size) { m_CBufferSize = size; }
 void DxilStructAnnotation::MarkEmptyStruct() { m_FieldAnnotations.clear(); }
 bool DxilStructAnnotation::IsEmptyStruct() { return m_FieldAnnotations.empty(); }
+
+// For template args, GetNumTemplateArgs() will return 0 if not a template
+unsigned DxilStructAnnotation::GetNumTemplateArgs() const {
+  return (unsigned)m_TemplateAnnotations.size();
+}
+void DxilStructAnnotation::SetNumTemplateArgs(unsigned count) {
+  DXASSERT(m_TemplateAnnotations.empty(), "template args already initialized");
+  m_TemplateAnnotations.resize(count);
+}
+DxilTemplateArgAnnotation &DxilStructAnnotation::GetTemplateArgAnnotation(unsigned argIdx) {
+  return m_TemplateAnnotations[argIdx];
+}
+const DxilTemplateArgAnnotation &DxilStructAnnotation::GetTemplateArgAnnotation(unsigned argIdx) const {
+  return m_TemplateAnnotations[argIdx];
+}
+
 
 //------------------------------------------------------------------------------
 //
@@ -170,12 +202,13 @@ DxilTypeSystem::DxilTypeSystem(Module *pModule)
     : m_pModule(pModule),
       m_LowPrecisionMode(DXIL::LowPrecisionMode::Undefined) {}
 
-DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStructType) {
+DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStructType, unsigned numTemplateArgs) {
   DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) == m_StructAnnotations.end());
   DxilStructAnnotation *pA = new DxilStructAnnotation();
   m_StructAnnotations[pStructType] = unique_ptr<DxilStructAnnotation>(pA);
   pA->m_pStructType = pStructType;
   pA->m_FieldAnnotations.resize(pStructType->getNumElements());
+  pA->SetNumTemplateArgs(numTemplateArgs);
   return pA;
 }
 

@@ -204,6 +204,9 @@ enum ArBasicKind {
   AR_OBJECT_TRIANGLE_HIT_GROUP,
   AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
 
+  // RayQuery
+  AR_OBJECT_RAY_QUERY,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -486,6 +489,8 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   0,      //AR_OBJECT_TRIANGLE_HIT_GROUP,
   0,      //AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  0,      //AR_OBJECT_RAY_QUERY,
 
   // AR_BASIC_MAXIMUM_COUNT
 };
@@ -1317,7 +1322,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   AR_OBJECT_TRIANGLE_HIT_GROUP,
-  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP
+  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  AR_OBJECT_RAY_QUERY
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1402,6 +1409,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   0, // AR_OBJECT_TRIANGLE_HIT_GROUP,
   0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  1, // AR_OBJECT_RAY_QUERY,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1497,6 +1506,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_HIT_GROUP,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
 
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1614,7 +1624,9 @@ const char* g_ArBasicTypeNames[] =
   "RaytracingShaderConfig",
   "RaytracingPipelineConfig",
   "TriangleHitGroup",
-  "ProceduralPrimitiveHitGroup"
+  "ProceduralPrimitiveHitGroup",
+
+  "RayQuery"
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -2176,7 +2188,11 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
     *intrinsics = g_ConsumeStructuredBufferMethods;
     *intrinsicCount = _countof(g_ConsumeStructuredBufferMethods);
     break;
-  // SPIRV change starts
+  case AR_OBJECT_RAY_QUERY:
+    *intrinsics = g_RayQueryMethods;
+    *intrinsicCount = _countof(g_RayQueryMethods);
+    break;
+    // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   case AR_OBJECT_VK_SUBPASS_INPUT:
     *intrinsics = g_VkSubpassInputMethods;
@@ -3275,6 +3291,12 @@ private:
           recordDecl = CreateSubobjectProceduralPrimitiveHitGroup(*m_context);
           break;
         }
+      } else if (kind == AR_OBJECT_RAY_QUERY) {
+        ClassTemplateDecl* typeDecl = nullptr;
+        AddRayQueryTemplate(*m_context, &typeDecl, &recordDecl);
+        DXASSERT(typeDecl != nullptr, "AddRayQueryTemplate failed to return the object declaration");
+        typeDecl->setImplicit(true);
+        recordDecl->setImplicit(true);
       }
       else if (templateArgCount == 0)
       {
@@ -3473,6 +3495,13 @@ public:
 
   bool IsSubobjectType(QualType type) {
     return IsSubobjectBasicKind(GetTypeElementKind(type));
+  }
+
+  bool IsRayQueryBasicKind(ArBasicKind kind) {
+    return kind == AR_OBJECT_RAY_QUERY;
+  }
+  bool IsRayQueryType(QualType type) {
+    return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
 
   void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
@@ -4211,6 +4240,8 @@ public:
     AddRayFlags(*m_context);
     AddHitKinds(*m_context);
     AddStateObjectFlags(*m_context);
+    AddCommittedStatus(*m_context);
+    AddCandidateType(*m_context);
 
     return true;
   }
@@ -4938,7 +4969,8 @@ QualType GetFirstElementTypeFromDecl(const Decl* decl)
   if (specialization) {
     const TemplateArgumentList& list = specialization->getTemplateArgs();
     if (list.size()) {
-      return list[0].getAsType();
+      if (list[0].getKind() == TemplateArgument::ArgKind::Type)
+        return list[0].getAsType();
     }
   }
 
@@ -6805,6 +6837,14 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
 
   // In HLSL there are no default initializers, eg float4x4 m();
   if (Kind.getKind() == InitializationKind::IK_Default) {
+    // Except for RayQuery.
+    if (GetTypeElementKind(Entity.getType()) == AR_OBJECT_RAY_QUERY) {
+      // RayQuery handle initialization
+      // TODO: Try generating an intrinsic method call for AllocateRayQuery
+      // - pass the flags from the intrinsic argument.
+      // Lower to intrinsic that takes flags and returns i32 value,
+      // which is then stored in the RayQuery alloca as the handle.
+    }
     return;
   }
 
