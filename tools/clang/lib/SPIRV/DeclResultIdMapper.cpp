@@ -2254,7 +2254,7 @@ bool DeclResultIdMapper::createPayloadStageVars(
                       getLocationCount(astContext, type));
     const auto name = namePrefix.str() + "." + decl->getNameAsString();
     SpirvVariable *varInstr =
-        spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false);
+        spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false, loc);
 
     if (!varInstr)
       return false;
