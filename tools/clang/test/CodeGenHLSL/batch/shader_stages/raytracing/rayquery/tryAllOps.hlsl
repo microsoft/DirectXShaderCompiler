@@ -1,12 +1,11 @@
-// RUN: %dxc -T cs_6_5 -E CS %s
-// TODO: Eliminate ray query handle alloca and phis, then add: | FileCheck %s
+// RUN: %dxc -T cs_6_5 -E CS %s | FileCheck %s
 
 // CHECK: define void @CS()
 
 // RayQuery alloca should have been dead-code eliminated
 // CHECK-NOT: alloca
 
-// %[[hAccelerationStructure:[^ ]+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
+// CHECK: %[[hAccelerationStructure:[^ ]+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
 // CHECK: %[[hRayQuery:[^ ]+]] = call i32 @dx.op.allocateRayQuery(i32 178, i32 5)
 // CHECK: call void @dx.op.rayQuery_TraceRayInline(i32 179, i32 %[[hRayQuery]], %dx.types.Handle %[[hAccelerationStructure]], i32 0, i32 255, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 9.999000e+03)
 // CHECK: call i1 @dx.op.rayQuery_Proceed.i1(i32 180, i32 %[[hRayQuery]])

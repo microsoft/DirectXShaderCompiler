@@ -557,9 +557,6 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
       return true;
     if (name.startswith("LineStream<"))
       return true;
-
-    if (name.startswith("RayQuery<"))
-      return true;
   }
   return false;
 }
