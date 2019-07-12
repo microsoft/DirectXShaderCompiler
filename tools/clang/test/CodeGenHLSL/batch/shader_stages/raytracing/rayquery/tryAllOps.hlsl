@@ -1,6 +1,49 @@
-// RUN: %dxc -T cs_6_5 -E CS %s | FileCheck %s
+// RUN: %dxc -T cs_6_5 -E CS %s
+// TODO: Eliminate ray query handle alloca and phis, then add: | FileCheck %s
 
-//  CHECK: define void @CS()
+// CHECK: define void @CS()
+
+// RayQuery alloca should have been dead-code eliminated
+// CHECK-NOT: alloca
+
+// %[[hAccelerationStructure:[^ ]+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
+// CHECK: %[[hRayQuery:[^ ]+]] = call i32 @dx.op.allocateRayQuery(i32 178, i32 5)
+// CHECK: call void @dx.op.rayQuery_TraceRayInline(i32 179, i32 %[[hRayQuery]], %dx.types.Handle %[[hAccelerationStructure]], i32 0, i32 255, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 9.999000e+03)
+// CHECK: call i1 @dx.op.rayQuery_Proceed.i1(i32 180, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 185, i32 %[[hRayQuery]])
+// CHECK: call void @dx.op.rayQuery_Abort(i32 181, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateMatrix.f32(i32 186, i32 %[[hRayQuery]], i32 0, i8 0)
+// CHECK: call void @dx.op.rayQuery_CommitNonOpaqueTriangleHit(i32 182, i32 %[[hRayQuery]])
+// CHECK: call i1 @dx.op.rayQuery_StateScalar.i1(i32 191, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 193, i32 %[[hRayQuery]], i8 0)
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 203, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 202, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 201, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 206, i32 %[[hRayQuery]], i8 0)
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 205, i32 %[[hRayQuery]], i8 1)
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 204, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateScalar.f32(i32 199, i32 %[[hRayQuery]])
+// CHECK: call i1 @dx.op.rayQuery_Proceed.i1(i32 180, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateMatrix.f32(i32 187, i32 %[[hRayQuery]], i32 0, i8 0)
+// CHECK: call i1 @dx.op.rayQuery_StateScalar.i1(i32 190, i32 %[[hRayQuery]])
+// CHECK: call void @dx.op.rayQuery_CommitProceduralPrimitiveHit(i32 183, i32 %[[hRayQuery]], float 5.000000e-01)
+// CHECK: call void @dx.op.rayQuery_Abort(i32 181, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 184, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateMatrix.f32(i32 188, i32 %[[hRayQuery]], i32 0, i8 0)
+// CHECK: call float @dx.op.rayQuery_StateMatrix.f32(i32 189, i32 %[[hRayQuery]], i32 0, i8 0)
+// CHECK: call i1 @dx.op.rayQuery_StateScalar.i1(i32 192, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 194, i32 %[[hRayQuery]], i8 1)
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 209, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 208, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 207, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 212, i32 %[[hRayQuery]], i8 2)
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 211, i32 %[[hRayQuery]], i8 0)
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 210, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateScalar.f32(i32 200, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 195, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateScalar.f32(i32 198, i32 %[[hRayQuery]])
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 197, i32 %[[hRayQuery]], i8 0)
+// CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 196, i32 %[[hRayQuery]], i8 2)
 
 RaytracingAccelerationStructure AccelerationStructure : register(t0);
 RWByteAddressBuffer log : register(u0);

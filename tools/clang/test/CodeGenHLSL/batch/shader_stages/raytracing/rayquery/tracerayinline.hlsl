@@ -1,9 +1,9 @@
 // RUN: %dxc -T vs_6_5 -E main %s | FileCheck %s
 
 // CHECK: %[[RTAS:[^ ]+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
-// CHECK: %[[RQ:[^ ]+]] = call i32 @dx.op.allocateRayQuery(i32 168, i32 1)
-// CHECK: call void @dx.op.rayQuery_TraceRayInline(i32 169, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 0, i32 1,
-// CHECK: call void @dx.op.rayQuery_TraceRayInline(i32 169, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 1, i32 2,
+// CHECK: %[[RQ:[^ ]+]] = call i32 @dx.op.allocateRayQuery(i32 178, i32 1)
+// CHECK: call void @dx.op.rayQuery_TraceRayInline(i32 179, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 0, i32 1,
+// CHECK: call void @dx.op.rayQuery_TraceRayInline(i32 179, i32 %[[RQ]], %dx.types.Handle %[[RTAS]], i32 1, i32 2,
 
 RaytracingAccelerationStructure RTAS;
 
