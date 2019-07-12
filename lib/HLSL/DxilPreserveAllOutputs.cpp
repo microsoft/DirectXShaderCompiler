@@ -44,7 +44,7 @@ public:
 
   DxilSignatureElement &GetSignatureElement(DxilModule &DM) const {
     if (DxilInst_StorePatchConstant(m_Call) || DxilInst_StorePrimitiveOutput(m_Call))
-      return DM.GetPatchConstantSignature().GetElement(GetSignatureID());
+      return DM.GetPatchConstOrPrimSignature().GetElement(GetSignatureID());
     else
       return DM.GetOutputSignature().GetElement(GetSignatureID());
   }

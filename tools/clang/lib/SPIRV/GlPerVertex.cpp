@@ -567,8 +567,9 @@ void GlPerVertex::writeClipCullArrayFromType(
                                                    llvm::APInt(32, i));
         auto *ptr = spvBuilder.createAccessChain(
             f32Type, clipCullVar,
-            {spvBuilder.createBinaryOp(
-                spv::Op::OpIAdd, astContext.UnsignedIntTy, offset, constant)},
+            {spvBuilder.createBinaryOp(spv::Op::OpIAdd,
+                                       astContext.UnsignedIntTy, offset,
+                                       constant, loc)},
             loc);
         auto *subValue =
             spvBuilder.createCompositeExtract(f32Type, fromValue, {i}, loc);
@@ -616,7 +617,8 @@ void GlPerVertex::writeClipCullArrayFromType(
            spvBuilder.createBinaryOp(
                spv::Op::OpIAdd, astContext.UnsignedIntTy, offset,
                spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, i)))},
+                                         llvm::APInt(32, i)),
+               loc)},
           loc);
 
       auto *subValue =
@@ -690,7 +692,7 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     }
     type = elemType;
     offset = spvBuilder.createBinaryOp(
-        spv::Op::OpIAdd, astContext.UnsignedIntTy, vecComponent, offset);
+        spv::Op::OpIAdd, astContext.UnsignedIntTy, vecComponent, offset, loc);
   }
   writeClipCullArrayFromType(invocationId, isClip, offset, type, *value, loc);
   return true;
