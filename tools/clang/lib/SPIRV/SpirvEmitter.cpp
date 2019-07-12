@@ -6141,7 +6141,7 @@ void SpirvEmitter::assignToMSOutIndices(
     assert(numValues == 1);
     // create accesschain for PrimitiveIndicesNV[vertIndex].
     auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, var,
-                                             vertIndex, loc);
+                                             {vertIndex}, loc);
     // finally create store for PrimitiveIndicesNV[vertIndex] = value.
     spvBuilder.createStore(ptr, value, loc);
   } else {
@@ -6151,16 +6151,18 @@ void SpirvEmitter::assignToMSOutIndices(
     auto *baseOffset = spvBuilder.createBinaryOp(
         spv::Op::OpIMul, astContext.UnsignedIntTy, vertIndex,
         spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                  llvm::APInt(32, numVertices)));
+                                  llvm::APInt(32, numVertices)),
+        loc);
     if (vecComponent) {
       // write an individual vector component of uint2 or uint3.
       assert(numValues == 1);
       // set baseOffset = baseOffset + vecComponent.
-      baseOffset = spvBuilder.createBinaryOp(
-          spv::Op::OpIAdd, astContext.UnsignedIntTy, baseOffset, vecComponent);
+      baseOffset =
+          spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
+                                    baseOffset, vecComponent, loc);
       // create accesschain for PrimitiveIndicesNV[baseOffset].
       auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, var,
-                                               baseOffset, loc);
+                                               {baseOffset}, loc);
       // finally create store for PrimitiveIndicesNV[baseOffset] = value.
       spvBuilder.createStore(ptr, value, loc);
     } else {
@@ -6173,11 +6175,12 @@ void SpirvEmitter::assignToMSOutIndices(
           curOffset = spvBuilder.createBinaryOp(
               spv::Op::OpIAdd, astContext.UnsignedIntTy, baseOffset,
               spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                        llvm::APInt(32, i)));
+                                        llvm::APInt(32, i)),
+              loc);
         }
         // create accesschain for PrimitiveIndicesNV[curOffset].
         auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, var,
-                                                 curOffset, loc);
+                                                 {curOffset}, loc);
         // finally create store for PrimitiveIndicesNV[curOffset] = value[i].
         spvBuilder.createStore(ptr,
                                spvBuilder.createCompositeExtract(
@@ -9615,7 +9618,8 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
   auto *taskCount = spvBuilder.createBinaryOp(
       spv::Op::OpIMul, astContext.UnsignedIntTy, threadX,
       spvBuilder.createBinaryOp(spv::Op::OpIMul, astContext.UnsignedIntTy,
-                                threadY, threadZ));
+                                threadY, threadZ, loc),
+      loc);
   spvBuilder.createStore(var, taskCount, loc);
 
   // 3) create PerTaskNV out attribute block and store MeshPayload info.
