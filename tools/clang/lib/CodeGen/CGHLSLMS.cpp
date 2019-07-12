@@ -6321,11 +6321,31 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixSubscript(CodeGenFunction &CGF,
       llvm::PointerType::get(RetType->getPointerElementType(),
                              matBase->getType()->getPointerAddressSpace());
 
+  unsigned row, col;
+  hlsl::GetHLSLMatRowColCount(Ty, row, col);
+  if (CallInst *Mat = dyn_cast<CallInst>(Ptr)) {
+    HLOpcodeGroup OpcodeGroup =
+        GetHLOpcodeGroupByName(Mat->getCalledFunction());
+    if (OpcodeGroup == HLOpcodeGroup::HLCast) {
+      HLCastOpcode castOpcode = static_cast<HLCastOpcode>(GetHLOpcode(Mat));
+      if (castOpcode == HLCastOpcode::DefaultCast) {
+        // For case like ((float3xfloat3)mat4x4)[1], just treat it like mat4x4[1].
+        Ptr = Mat->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+        // Remove the cast which is useless now.
+        Mat->eraseFromParent();
+        // Update row and col.
+        HLMatrixType matTy = HLMatrixType::cast(Ptr->getType()->getPointerElementType());
+        row = matTy.getNumRows();
+        col = matTy.getNumColumns();
+        // Don't update RetTy and DxilGeneration pass will do the right thing.
+      }
+    }
+  }
+
   // Lower mat[Idx] into real idx.
   SmallVector<Value *, 8> args;
   args.emplace_back(Ptr);
-  unsigned row, col;
-  hlsl::GetHLSLMatRowColCount(Ty, row, col);
+
   if (isRowMajor) {
     Value *cCol = ConstantInt::get(Idx->getType(), col);
     Value *Base = CGF.Builder.CreateMul(cCol, Idx);
@@ -6375,6 +6395,30 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixElement(CodeGenFunction &CGF,
   // -1 to avoid opcode param which is added in EmitHLSLMatrixOperationCallImp.
   Value *args[] = {paramList[HLOperandIndex::kMatSubscriptMatOpIdx - 1],
                    paramList[HLOperandIndex::kMatSubscriptSubOpIdx - 1]};
+
+  unsigned row, col;
+  hlsl::GetHLSLMatRowColCount(Ty, row, col);
+  Value *Ptr = paramList[0];
+  if (CallInst *Mat = dyn_cast<CallInst>(Ptr)) {
+    HLOpcodeGroup OpcodeGroup =
+        GetHLOpcodeGroupByName(Mat->getCalledFunction());
+    if (OpcodeGroup == HLOpcodeGroup::HLCast) {
+      HLCastOpcode castOpcode = static_cast<HLCastOpcode>(GetHLOpcode(Mat));
+      if (castOpcode == HLCastOpcode::DefaultCast) {
+        // For case like ((float3xfloat3)mat4x4).m21, just treat it like mat4x4.m21.
+        Ptr = Mat->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+        // Remove the cast which is useless now.
+        Mat->eraseFromParent();
+        // Update row and col.
+        HLMatrixType matTy = HLMatrixType::cast(Ptr->getType()->getPointerElementType());
+        row = matTy.getNumRows();
+        col = matTy.getNumColumns();
+        args[0] = Ptr;
+        // Don't update RetTy and DxilGeneration pass will do the right thing.
+      }
+    }
+  }
+
   // For all zero idx. Still all zero idx.
   if (ConstantAggregateZero *zeros = dyn_cast<ConstantAggregateZero>(idx)) {
     Constant *zero = zeros->getAggregateElement((unsigned)0);
@@ -6383,8 +6427,6 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixElement(CodeGenFunction &CGF,
   } else {
     ConstantDataSequential *elts = cast<ConstantDataSequential>(idx);
     unsigned count = elts->getNumElements();
-    unsigned row, col;
-    hlsl::GetHLSLMatRowColCount(Ty, row, col);
     std::vector<Constant *> idxs(count >> 1);
     for (unsigned i = 0; i < count; i += 2) {
       unsigned rowIdx = elts->getElementAsInteger(i);
