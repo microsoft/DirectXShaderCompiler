@@ -2721,8 +2721,8 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    // Skip HLSL object types.
-    if (dxilutil::IsHLSLObjectType(ST)) {
+    // Skip HLSL object types and RayQuery.
+    if (dxilutil::IsHLSLObjectType(ST) || dxilutil::IsHLSLRayQueryType(ST)) {
       return false;
     }
 
