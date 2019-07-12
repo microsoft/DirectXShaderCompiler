@@ -342,7 +342,13 @@ void DxilViewIdStateBuilder::AnalyzeFunctions(EntryInfo &Entry) {
           GetUnsignedVal(SO.get_rowIndex(), (uint32_t*)&row);
           IFTBOOL(GetUnsignedVal(SO.get_colIndex(), &col), DXC_E_GENERAL_INTERNAL_ERROR);
           Entry.Outputs.emplace(CI);
-        } else if (DxilInst_StorePOutput SPO = DxilInst_StorePOutput(CI)) {
+        } else if (DxilInst_StoreVertexOutput SVO = DxilInst_StoreVertexOutput(CI)) {
+          pDynIdxElems = &m_OutSigDynIdxElems;
+          IFTBOOL(GetUnsignedVal(SVO.get_outputSigId(), &id), DXC_E_GENERAL_INTERNAL_ERROR);
+          GetUnsignedVal(SVO.get_rowIndex(), (uint32_t*)&row);
+          IFTBOOL(GetUnsignedVal(SVO.get_colIndex(), &col), DXC_E_GENERAL_INTERNAL_ERROR);
+          Entry.Outputs.emplace(CI);
+        } else if (DxilInst_StorePrimitiveOutput SPO = DxilInst_StorePrimitiveOutput(CI)) {
           pDynIdxElems = &m_PCSigDynIdxElems;
           IFTBOOL(GetUnsignedVal(SPO.get_outputSigId(), &id), DXC_E_GENERAL_INTERNAL_ERROR);
           GetUnsignedVal(SPO.get_rowIndex(), (uint32_t*)&row);
@@ -420,7 +426,13 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(EntryInfo &Entry
       GetUnsignedVal(SO.get_outputSigId(), &id);
       GetUnsignedVal(SO.get_colIndex(), &col);
       GetUnsignedVal(SO.get_rowIndex(), (uint32_t*)&startRow);
-    } else if (DxilInst_StorePOutput SPO = DxilInst_StorePOutput(CI)) {
+    } else if (DxilInst_StoreVertexOutput SVO = DxilInst_StoreVertexOutput(CI)) {
+      pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
+      pContributingValue = SVO.get_value();
+      GetUnsignedVal(SVO.get_outputSigId(), &id);
+      GetUnsignedVal(SVO.get_colIndex(), &col);
+      GetUnsignedVal(SVO.get_rowIndex(), (uint32_t*)&startRow);
+    } else if (DxilInst_StorePrimitiveOutput SPO = DxilInst_StorePrimitiveOutput(CI)) {
       pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
       pContributingValue = SPO.get_value();
       GetUnsignedVal(SPO.get_outputSigId(), &id);
