@@ -299,6 +299,7 @@ float [[rn]] RayTCurrent();
 uint [[rn]] PrimitiveIndex();
 uint [[rn]] InstanceID();
 uint [[rn]] InstanceIndex();
+uint [[rn]] GeometryIndex();
 uint [[rn]] HitKind();
 uint [[rn]] RayFlags();
 // group: Ray Transforms

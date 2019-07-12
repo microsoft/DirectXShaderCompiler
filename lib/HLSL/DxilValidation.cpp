@@ -881,6 +881,10 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // RayQuery_CommittedObjectRayDirection=202
   if ((165 <= op && op <= 202))
     return (major > 6 || (major == 6 && minor >= 5));
+  // Instructions: GeometryIndex=203
+  if (op == 203)
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit);
   return true;
   // VALOPCODESM-TEXT:END
 }
