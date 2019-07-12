@@ -36,6 +36,7 @@ import hctdb_instrhelp
   IOP_EvaluateAttributeAtSample,
   IOP_EvaluateAttributeCentroid,
   IOP_EvaluateAttributeSnapped,
+  IOP_GeometryIndex,
   IOP_GetAttributeAtVertex,
   IOP_GetRenderTargetSampleCount,
   IOP_GetRenderTargetSamplePosition,

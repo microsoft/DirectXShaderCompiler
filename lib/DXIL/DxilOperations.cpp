@@ -374,6 +374,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::RayQuery_CommittedPrimitiveIndex, "RayQuery_CommittedPrimitiveIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
   {  OC::RayQuery_CommittedObjectRayOrigin, "RayQuery_CommittedObjectRayOrigin", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::RayQuery_CommittedObjectRayDirection, "RayQuery_CommittedObjectRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Raytracing object space uint System Values, raytracing tier 1.1                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::GeometryIndex,           "GeometryIndex",            OCC::GeometryIndex,            "geometryIndex",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -742,6 +745,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if (op == 173) {
     major = 6;  minor = 5;
     mask = SFLAG(Amplification);
+    return;
+  }
+  // Instructions: GeometryIndex=213
+  if (op == 213) {
+    major = 6;  minor = 5;
+    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit);
     return;
   }
   // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
@@ -1210,6 +1219,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::RayQuery_CommittedPrimitiveIndex:A(pI32);     A(pI32); A(pI32); break;
   case OpCode::RayQuery_CommittedObjectRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
   case OpCode::RayQuery_CommittedObjectRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+
+    // Raytracing object space uint System Values, raytracing tier 1.1
+  case OpCode::GeometryIndex:          A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1412,6 +1424,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedInstanceID:
   case OpCode::RayQuery_CommittedGeometryIndex:
   case OpCode::RayQuery_CommittedPrimitiveIndex:
+  case OpCode::GeometryIndex:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

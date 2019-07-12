@@ -390,6 +390,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           hasViewID = true;
           break;
         case DXIL::OpCode::AllocateRayQuery:
+        case DXIL::OpCode::GeometryIndex:
           hasRaytracingTier1_1 = true;
           break;
         default:

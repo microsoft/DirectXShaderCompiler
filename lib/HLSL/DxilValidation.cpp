@@ -904,6 +904,10 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if (op == 173)
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Amplification);
+  // Instructions: GeometryIndex=213
+  if (op == 213)
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit);
   // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
   if ((174 <= op && op <= 175))
     return (major > 6 || (major == 6 && minor >= 5))
