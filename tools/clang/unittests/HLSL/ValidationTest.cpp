@@ -3250,16 +3250,16 @@ TEST_F(ValidationTest, LibFunctionResInSig) {
     "float fnStreamInArg(float f, inout PointStream<Data> S1) : SV_Target {\n"
     "  S1.Append((Data)f); return 1.0; }\n"
     , "lib_6_x",
-    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}" },
-    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!1002}\n!1002 = !{i32 1, i32 3}" },
-    {  "Function '\\01?fnResInReturn@@YA?AUResStructInStruct@@M@Z' uses resource in function signature"
-      ,"Function '\\01?fnResInArg@@YAMUResStructInStruct@@@Z' uses resource in function signature"
-      ,"Function '\\01?fnStreamInArg@@YAMMV?$PointStream@UData@@@@@Z' uses resource in function signature"
+    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!([0-9]+)}", "= !{i32 20, !([0-9]+), !([0-9]+), !([0-9]+)}" },
+    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!100\\1}\n!1002 = !{i32 1, i32 3}", "= !{i32 20, !\\1, !\\2}" },
+    {  "Function '\\\\01\\?fnResInReturn@@YA\\?AUResStructInStruct@@M@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?fnResInArg@@YAMUResStructInStruct@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?fnStreamInArg@@YAMMV\\?\\$PointStream@UData@@@@@Z' uses resource in function signature"
       // TODO: Unable to lower stream append, since it's used in a non-GS function.
       // Should we fail to compile earlier (even on lib_6_x), or add lowering to linker?
-      ,"Function 'dx.hl.op..void (i32, %\"class.PointStream<Data>\"*, float*)' uses resource in function signature"
+      ,"Function 'dx\\.hl\\.op\\.\\.void \\(i32, %\"class\\.PointStream<Data>\"\\*, float\\*\\)' uses resource in function signature"
     },
-    false);
+    /*bRegex*/ true);
 }
 
 TEST_F(ValidationTest, RayPayloadIsStruct) {
@@ -3394,32 +3394,32 @@ TEST_F(ValidationTest, ResInShaderStruct) {
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
     "export void BadCallable(inout ResStructInStruct p) { p.f += 1.0; }\n"
     , "lib_6_x",
-    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}",
-      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
-        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
-      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
-        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
-      "!{void (%struct.Payload*)* @\"\\01?MissProto@@YAXUPayload@@@Z\", "
-        "!\"\\01?MissProto@@YAXUPayload@@@Z\",",
-      "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
-        "!\"\\01?CallableProto@@YAXUParam@@@Z\","
+    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!([0-9]+)}", "= !{i32 20, !([0-9]+), !([0-9]+), !([0-9]+)}",
+      "!{void \\(%struct\\.Payload\\*, %struct\\.Attributes\\*\\)\\* @\"\\\\01\\?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\\\01\\?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void \\(%struct\\.Payload\\*, %struct\\.Attributes\\*\\)\\* @\"\\\\01\\?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\\\01\\?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void \\(%struct\\.Payload\\*\\)\\* @\"\\\\01\\?MissProto@@YAXUPayload@@@Z\", "
+        "!\"\\\\01\\?MissProto@@YAXUPayload@@@Z\",",
+      "!{void \\(%struct\\.Param\\*\\)\\* @\"\\\\01\\?CallableProto@@YAXUParam@@@Z\", "
+        "!\"\\\\01\\?CallableProto@@YAXUParam@@@Z\","
     },
-    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!1002}\n!1002 = !{i32 1, i32 3}",
-      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
-        "!\"\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
-      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
-        "!\"\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
-      "!{void (%struct.ResStructInStruct*)* @\"\\01?BadMiss@@YAXUResStructInStruct@@@Z\", "
-        "!\"\\01?BadMiss@@YAXUResStructInStruct@@@Z\",",
-      "!{void (%struct.ResStructInStruct*)* @\"\\01?BadCallable@@YAXUResStructInStruct@@@Z\", "
-        "!\"\\01?BadCallable@@YAXUResStructInStruct@@@Z\",",
+    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!100\\1}\n!1002 = !{i32 1, i32 3}", "= !{i32 20, !\\1, !\\2}",
+      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
+        "!\"\\\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
+      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
+        "!\"\\\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
+      "!{void (%struct.ResStructInStruct*)* @\"\\\\01?BadMiss@@YAXUResStructInStruct@@@Z\", "
+        "!\"\\\\01?BadMiss@@YAXUResStructInStruct@@@Z\",",
+      "!{void (%struct.ResStructInStruct*)* @\"\\\\01?BadCallable@@YAXUResStructInStruct@@@Z\", "
+        "!\"\\\\01?BadCallable@@YAXUResStructInStruct@@@Z\",",
     },
-    {  "Function '\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
-      ,"Function '\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
-      ,"Function '\\01?BadMiss@@YAXUResStructInStruct@@@Z' uses resource in function signature"
-      ,"Function '\\01?BadCallable@@YAXUResStructInStruct@@@Z' uses resource in function signature"
+    {  "Function '\\\\01\\?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?BadMiss@@YAXUResStructInStruct@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?BadCallable@@YAXUResStructInStruct@@@Z' uses resource in function signature"
     },
-    false);
+    /*bRegex*/ true);
 }
 
 TEST_F(ValidationTest, WhenPayloadSizeTooSmallThenFail) {

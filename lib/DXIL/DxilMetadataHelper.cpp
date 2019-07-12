@@ -805,8 +805,9 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
 }
 
 Metadata *DxilMDHelper::EmitDxilStructAnnotation(const DxilStructAnnotation &SA) {
-  unsigned valMajor, valMinor;
-  m_pSM->GetMinValidatorVersion(valMajor, valMinor);
+  unsigned valMajor = 0, valMinor = 0;
+  if (m_pSM)
+    m_pSM->GetMinValidatorVersion(valMajor, valMinor);
   bool bSupportExtended = !(valMajor == 1 && valMinor < 5);
 
   vector<Metadata *> MDVals;
@@ -840,8 +841,9 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   if (pTupleMD->getNumOperands() == 1) {
     SA.MarkEmptyStruct();
   }
-  unsigned valMajor, valMinor;
-  m_pSM->GetMinValidatorVersion(valMajor, valMinor);
+  unsigned valMajor = 0, valMinor = 0;
+  if (m_pSM)
+    m_pSM->GetMinValidatorVersion(valMajor, valMinor);
   if (!(valMajor == 1 && valMinor < 5) &&
       (pTupleMD->getNumOperands() == SA.GetNumFields()+2)) {
     // Load template args from extended operand
