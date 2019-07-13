@@ -89,6 +89,7 @@ public:
   static const char *GetAtomicOpName(DXIL::AtomicBinOpCode OpCode);
   static OpCodeClass GetOpCodeClass(OpCode OpCode);
   static const char *GetOpCodeClassName(OpCode OpCode);
+  static llvm::Attribute::AttrKind GetMemAccessAttr(OpCode opCode);
   static bool IsOverloadLegal(OpCode OpCode, llvm::Type *pType);
   static bool CheckOpCodeTable();
   static bool IsDxilOpFuncName(llvm::StringRef name);
