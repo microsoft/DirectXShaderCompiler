@@ -795,11 +795,11 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
   case kDxilTemplateArgTypeTag:
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
     annotation.SetType(MetadataAsValue::get(m_Ctx,
-      pTupleMD->getOperand(kDxilTemplateArgType))->getType());
+      pTupleMD->getOperand(kDxilTemplateArgValue))->getType());
     break;
   case kDxilTemplateArgIntegralTag:
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
-    annotation.SetIntegral((int64_t)ConstMDToUint64(pTupleMD->getOperand(kDxilTemplateArgType)));
+    annotation.SetIntegral((int64_t)ConstMDToUint64(pTupleMD->getOperand(kDxilTemplateArgValue)));
     break;
   }
 }

@@ -197,10 +197,7 @@ public:
   // TemplateArgument tags
   static const unsigned kDxilTemplateArgTypeTag                   = 0;  // Type template argument, followed by undef of type
   static const unsigned kDxilTemplateArgIntegralTag               = 1;  // Integral template argument, followed by i64 value
-  // TemplateArgType
-  static const unsigned kDxilTemplateArgType                      = 1;  // Position of type for template arg that is type
-  static const unsigned kDxilTemplateArgIntegral                  = 1;  // Position of i64 for template arg that is integral
-
+  static const unsigned kDxilTemplateArgValue                     = 1;  // Position of template arg value (type or int)
 
   // Control flow hint.
   static const char kDxilControlFlowHintMDName[];

@@ -565,7 +565,7 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     StringRef name = ST->getName();
     // TODO: don't check names.
-    name = name.ltrim("class.");
+    ConsumePrefix(name, "class.");
     if (name.startswith("RayQuery<"))
       return true;
   }
