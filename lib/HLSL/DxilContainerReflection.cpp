@@ -2171,7 +2171,15 @@ UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *
 }
 
 UINT64 DxilShaderReflection::GetRequiresFlags() {
-  return m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
+  UINT64 result = m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
+  // FeatureInfo flags are identical, with the exception of a collision between:
+  // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
+  // and D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL
+  // We keep track of the flag elsewhere, so use that instead.
+  result &= ~(UINT64)D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
+  if (m_pDxilModule->m_ShaderFlags.GetForceEarlyDepthStencil())
+    result |= D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
+  return result;
 }
 
 
