@@ -3568,7 +3568,7 @@ TEST_F(ValidationTest, MeshMultipleGetMeshPayload) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
                           "%([0-9]+) = call %struct.MeshPayload\\* @dx.op.getMeshPayload.struct.MeshPayload\\(i32 170\\)  ; GetMeshPayload\\(\\)",
                           "%\\1 = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()\n"
-                          "  %.\\1 = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()",
+                          "  %.extra.unused.payload. = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()",
                           "GetMeshPayload cannot be called multiple times.",
                           true);
 }
