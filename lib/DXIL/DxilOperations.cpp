@@ -474,6 +474,11 @@ const char *OP::GetOpCodeClassName(OpCode opCode) {
   return m_OpCodeProps[(unsigned)opCode].pOpCodeClassName;
 }
 
+llvm::Attribute::AttrKind OP::GetMemAccessAttr(OpCode opCode) {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
+  return m_OpCodeProps[(unsigned)opCode].FuncAttr;
+}
+
 bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
   DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
   unsigned TypeSlot = GetTypeSlot(pType);
