@@ -238,9 +238,6 @@ private:
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
 
-  // Insert AllocateRayQuery to initialize each RayQuery alloca
-  void AllocateRayQueryObjects();
-
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
 
