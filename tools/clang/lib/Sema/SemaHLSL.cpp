@@ -6837,14 +6837,6 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
 
   // In HLSL there are no default initializers, eg float4x4 m();
   if (Kind.getKind() == InitializationKind::IK_Default) {
-    // Except for RayQuery.
-    if (GetTypeElementKind(Entity.getType()) == AR_OBJECT_RAY_QUERY) {
-      // RayQuery handle initialization
-      // TODO: Try generating an intrinsic method call for AllocateRayQuery
-      // - pass the flags from the intrinsic argument.
-      // Lower to intrinsic that takes flags and returns i32 value,
-      // which is then stored in the RayQuery alloca as the handle.
-    }
     return;
   }
 

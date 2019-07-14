@@ -914,7 +914,7 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
           if (ColIdx->getType()->getBitWidth() != 8) {
             ColIdx = Builder.getInt8(ColIdx->getValue().getLimitedValue());
           }
-          SmallVector<Value *, 4> args = {OpArg, ID, idxVal, ColIdx, V};
+          SmallVector<Value *, 6> args = {OpArg, ID, idxVal, ColIdx, V};
           if (vertexOrPrimID)
             args.emplace_back(vertexOrPrimID);
           GenerateStOutput(ldStFunc, args, Builder, bI1Cast);
@@ -937,7 +937,7 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
 
             ConstantInt *CaseIdx = SwitchBuilder.getInt8(i);
 
-            SmallVector<Value *, 4> args = {OpArg, ID, idxVal, CaseIdx, V};
+            SmallVector<Value *, 6> args = {OpArg, ID, idxVal, CaseIdx, V};
             if (vertexOrPrimID)
               args.emplace_back(vertexOrPrimID);
             GenerateStOutput(ldStFunc, args, CaseBuilder, bI1Cast);
