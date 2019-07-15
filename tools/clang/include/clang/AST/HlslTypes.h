@@ -22,7 +22,9 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinAdapter.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
   class ASTContext;
@@ -297,16 +299,11 @@ void AddHLSLVectorTemplate(
   clang::ASTContext& context, 
   _Outptr_ clang::ClassTemplateDecl** vectorTemplateDecl);
 
-void AddRecordTypeWithHandle(
-            clang::ASTContext& context,
-  _Outptr_  clang::CXXRecordDecl** typeDecl, 
-  _In_z_    const char* typeName);
+clang::CXXRecordDecl* DeclareRecordTypeWithHandle(
+  clang::ASTContext& context, llvm::StringRef name);
 
-void AddRayFlags(clang::ASTContext& context);
-void AddHitKinds(clang::ASTContext& context);
-void AddStateObjectFlags(clang::ASTContext& context);
-void AddCommittedStatus(clang::ASTContext& context);
-void AddCandidateType(clang::ASTContext& context);
+void AddRayTracingConstants(clang::ASTContext& context);
+void AddSamplerFeedbackConstants(clang::ASTContext& context);
 
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
@@ -315,23 +312,16 @@ void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
 /// Adds a new template type in the specified context with the given name. The record type will have a handle field.
 /// </summary>
 /// <parm name="context">AST context to which template will be added.</param>
-/// <parm name="typeDecl">After execution, template declaration.</param>
-/// <parm name="recordDecl">After execution, record declaration for template.</param>
-/// <parm name="typeName">Name of template to create.</param>
 /// <parm name="templateArgCount">Number of template arguments (one or two).</param>
 /// <parm name="defaultTypeArgValue">If assigned, the default argument for the element template.</param>
-void AddTemplateTypeWithHandle(
+clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
             clang::ASTContext& context,
-  _Outptr_  clang::ClassTemplateDecl** typeDecl,
-  _Outptr_  clang::CXXRecordDecl** recordDecl,
-  _In_z_    const char* typeName,
+            llvm::StringRef name,
             uint8_t templateArgCount,
   _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
 
-void AddRayQueryTemplate(
-           clang::ASTContext& context,
-  _Outptr_ clang::ClassTemplateDecl** typeDecl,
-  _Outptr_ clang::CXXRecordDecl** recordDecl);
+clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
+  clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>
