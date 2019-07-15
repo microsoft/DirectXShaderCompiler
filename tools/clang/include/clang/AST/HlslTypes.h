@@ -303,7 +303,6 @@ clang::CXXRecordDecl* DeclareRecordTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef name);
 
 void AddRayTracingConstants(clang::ASTContext& context);
-void AddSamplerFeedbackConstants(clang::ASTContext& context);
 
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
