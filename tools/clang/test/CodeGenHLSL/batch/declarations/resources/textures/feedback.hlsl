@@ -2,10 +2,10 @@
 
 // Test FeedbackTexture2D*** and their WriteSamplerFeedback methods
 
-FeedbackTexture2DMinLOD feedbackMinLOD;
-FeedbackTexture2DTiled feedbackTiled;
-FeedbackTexture2DArrayMinLOD feedbackMinLODArray;
-FeedbackTexture2DArrayTiled feebackTiledArray;
+FeedbackTexture2D<SAMPLER_FEEDBACK_MIN_MIP> feedbackMinMip;
+FeedbackTexture2D<SAMPLER_FEEDBACK_MIP_REGION_USED> feedbackMipRegionUsed;
+FeedbackTexture2DArray<SAMPLER_FEEDBACK_MIN_MIP> feedbackMinMipArray;
+FeedbackTexture2DArray<SAMPLER_FEEDBACK_MIP_REGION_USED> feebackMipRegionUsedArray;
 Texture2D<float> texture2D;
 Texture2D<float4> texture2D_float4;
 Texture2DArray<float> texture2DArray;
@@ -24,43 +24,43 @@ float main() : SV_Target
     // Test every dxil intrinsic
     // CHECK: call void @dx.op.writeSamplerFeedback(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float 4.000000e+00)
-    feedbackMinLOD.WriteSamplerFeedback(texture2D, samp, coords2D, clamp);
+    feedbackMinMip.WriteSamplerFeedback(texture2D, samp, coords2D, clamp);
     // CHECK: call void @dx.op.writeSamplerFeedbackBias(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float 5.000000e+00, float 4.000000e+00)
-    feedbackMinLOD.WriteSamplerFeedbackBias(texture2D, samp, coords2D, bias, clamp);
+    feedbackMinMip.WriteSamplerFeedbackBias(texture2D, samp, coords2D, bias, clamp);
     // CHECK: call void @dx.op.writeSamplerFeedbackLevel(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float 6.000000e+00)
-    feedbackMinLOD.WriteSamplerFeedbackLevel(texture2D, samp, coords2D, lod);
+    feedbackMinMip.WriteSamplerFeedbackLevel(texture2D, samp, coords2D, lod);
     // CHECK: call void @dx.op.writeSamplerFeedbackGrad(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float 7.000000e+00, float 8.000000e+00, float 4.000000e+00)
-    feedbackMinLOD.WriteSamplerFeedbackGrad(texture2D, samp, coords2D, ddx, ddy, clamp);
+    feedbackMinMip.WriteSamplerFeedbackGrad(texture2D, samp, coords2D, ddx, ddy, clamp);
     
     // Test with undef clamp
     // CHECK: call void @dx.op.writeSamplerFeedback(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float undef)
-    feedbackMinLOD.WriteSamplerFeedback(texture2D, samp, coords2D);
+    feedbackMinMip.WriteSamplerFeedback(texture2D, samp, coords2D);
     // CHECK: call void @dx.op.writeSamplerFeedbackBias(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float 5.000000e+00, float undef)
-    feedbackMinLOD.WriteSamplerFeedbackBias(texture2D, samp, coords2D, bias);
+    feedbackMinMip.WriteSamplerFeedbackBias(texture2D, samp, coords2D, bias);
     // CHECK: call void @dx.op.writeSamplerFeedbackGrad(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float 7.000000e+00, float 8.000000e+00, float undef)
-    feedbackMinLOD.WriteSamplerFeedbackGrad(texture2D, samp, coords2D, ddx, ddy);
+    feedbackMinMip.WriteSamplerFeedbackGrad(texture2D, samp, coords2D, ddx, ddy);
 
     // Test on every FeedbackTexture variant
     // CHECK: call void @dx.op.writeSamplerFeedback(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float undef)
-    feedbackTiled.WriteSamplerFeedback(texture2D, samp, coords2D);
+    feedbackMipRegionUsed.WriteSamplerFeedback(texture2D, samp, coords2D);
     // CHECK: call void @dx.op.writeSamplerFeedback(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float undef)
-    feedbackMinLODArray.WriteSamplerFeedback(texture2DArray, samp, coords2DArray);
+    feedbackMinMipArray.WriteSamplerFeedback(texture2DArray, samp, coords2DArray);
     // CHECK: call void @dx.op.writeSamplerFeedback(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float undef)
-    feebackTiledArray.WriteSamplerFeedback(texture2DArray, samp, coords2DArray);
+    feebackMipRegionUsedArray.WriteSamplerFeedback(texture2DArray, samp, coords2DArray);
 
     // Test with overloaded texture type
     // CHECK: call void @dx.op.writeSamplerFeedback(
     // CHECK: float 1.000000e+00, float 2.000000e+00, float undef, float undef)
-    feedbackMinLOD.WriteSamplerFeedback(texture2D_float4, samp, coords2D);
+    feedbackMinMip.WriteSamplerFeedback(texture2D_float4, samp, coords2D);
 
     return 0;
 }

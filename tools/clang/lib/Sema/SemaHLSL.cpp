@@ -1380,8 +1380,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_ROVTEXTURE2D_ARRAY
   1, // AR_OBJECT_ROVTEXTURE3D
 
-  0, // AR_OBJECT_FEEDBACKTEXTURE2D
-  0, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
+  1, // AR_OBJECT_FEEDBACKTEXTURE2D
+  1, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -2963,7 +2963,7 @@ private:
     size_t templateParamNamedDeclsCount = 0;
     QualType argsQTs[g_MaxIntrinsicParamCount];
     StringRef argNames[g_MaxIntrinsicParamCount];
-    QualType functionResultQT;
+    QualType functionResultQT = recordDecl->getASTContext().VoidTy;
 
     DXASSERT(
       _countof(templateParamNamedDecls) >= numParams + 1,
@@ -2975,7 +2975,7 @@ private:
     // Workaround for template parameter argument count mismatch.
     // Create template parameter for return type always
     // TODO: reenable the check and skip template argument.
-    functionResultQT = AddTemplateParamToArray(
+      functionResultQT = AddTemplateParamToArray(
         "TResult", recordDecl, templateDepth, templateParamNamedDecls,
         &templateParamNamedDeclsCount);
     // }
