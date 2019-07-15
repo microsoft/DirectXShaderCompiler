@@ -581,6 +581,7 @@ void hlsl::AddStateObjectFlags(ASTContext& context) {
 void hlsl::AddRaytracingPipelineFlags(ASTContext& context) {
   DeclContext *curDC = context.getTranslationUnitDecl();
  
+  AddConstUInt(context, curDC, StringRef("RAYTRACING_PIPELINE_FLAG_NONE"), (unsigned)DXIL::RaytracingPipelineFlags::None);
   AddConstUInt(context, curDC, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipTriangles);
   AddConstUInt(context, curDC, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives);
 }

@@ -615,6 +615,8 @@ static const char *FlagToString(DXIL::StateObjectFlags Flag) {
 
 static const char *FlagToString(DXIL::RaytracingPipelineFlags Flag) {
   switch (Flag) {
+  case DXIL::RaytracingPipelineFlags::None:
+    return "RAYTRACING_PIPELINE_FLAG_NONE";
   case DXIL::RaytracingPipelineFlags::SkipTriangles:
     return "RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES";
   case DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives:

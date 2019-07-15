@@ -9,6 +9,7 @@
 // CHECK: ; RaytracingShaderConfig rsc = { MaxPayloadSizeInBytes = 128, MaxAttributeSizeInBytes = 64 };
 // CHECK: ; RaytracingPipelineConfig1 rpc = { MaxTraceRecursionDepth = 32, Flags = RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES };
 // CHECK: ; SubobjectToExportsAssociation sea4 = { "rpc", { }  };
+// CHECK: ; RaytracingPipelineConfig1 rpc2 = { MaxTraceRecursionDepth = 32, Flags = 0 };
 // CHECK: ; HitGroup trHitGt = { HitGroupType = Triangle, Anyhit = "a", Closesthit = "b", Intersection = "" };
 // CHECK: ; HitGroup ppHitGt = { HitGroupType = ProceduralPrimitive, Anyhit = "a", Closesthit = "b", Intersection = "c" };
 
@@ -22,6 +23,7 @@ SubobjectToExportsAssociation sea3 = { "grs", "" };
 RaytracingShaderConfig rsc = { 128, 64 };
 RaytracingPipelineConfig1 rpc = { 32, RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES };
 SubobjectToExportsAssociation sea4 = {"rpc", ";"};
+RaytracingPipelineConfig1 rpc2 = {32, RAYTRACING_PIPELINE_FLAG_NONE };
 TriangleHitGroup trHitGt = {"a", "b"};
 ProceduralPrimitiveHitGroup ppHitGt = { "a", "b", "c"};
 

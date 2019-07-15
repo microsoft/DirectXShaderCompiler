@@ -1341,6 +1341,7 @@ namespace DXIL {
   };
   
   enum class RaytracingPipelineFlags : uint32_t {
+    None = 0x0,
     SkipTriangles = 0x100,
     SkipProceduralPrimitives = 0x200,
     ValidMask = 0x300,
