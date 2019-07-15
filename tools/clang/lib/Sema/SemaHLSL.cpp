@@ -171,6 +171,11 @@ enum ArBasicKind {
   AR_OBJECT_ROVTEXTURE2D_ARRAY,
   AR_OBJECT_ROVTEXTURE3D,
 
+  AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_TILED,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED,
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
@@ -198,6 +203,9 @@ enum ArBasicKind {
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   AR_OBJECT_TRIANGLE_HIT_GROUP,
   AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  // RayQuery
+  AR_OBJECT_RAY_QUERY,
 
   AR_BASIC_MAXIMUM_COUNT
 };
@@ -276,7 +284,8 @@ enum ArBasicKind {
 #define BPROP_PRIMITIVE         0x00100000  // Whether the type is a primitive scalar type.
 #define BPROP_MIN_PRECISION     0x00200000  // Whether the type is qualified with a minimum precision.
 #define BPROP_ROVBUFFER         0x00400000  // Whether the type is a ROV object.
-#define BPROP_ENUM              0x00800000  // Whether the type is a enum
+#define BPROP_FEEDBACKTEXTURE   0x00800000  // Whether the type is a feedback texture.
+#define BPROP_ENUM              0x01000000  // Whether the type is a enum
 
 #define GET_BPROP_PRIM_KIND(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
@@ -448,6 +457,11 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE2D_ARRAY
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE3D
 
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_TILED
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD
+  BPROP_OBJECT | BPROP_TEXTURE | BPROP_FEEDBACKTEXTURE, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
@@ -475,6 +489,8 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   0,      //AR_OBJECT_TRIANGLE_HIT_GROUP,
   0,      //AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  0,      //AR_OBJECT_RAY_QUERY,
 
   // AR_BASIC_MAXIMUM_COUNT
 };
@@ -1092,6 +1108,18 @@ static const ArBasicKind g_SamplerCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Texture2DCT[] =
+{
+  AR_OBJECT_TEXTURE2D,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Texture2DArrayCT[] =
+{
+  AR_OBJECT_TEXTURE2D_ARRAY,
+  AR_BASIC_UNKNOWN
+};
+
 static const ArBasicKind g_RayDescCT[] =
 {
   AR_OBJECT_RAY_DESC,
@@ -1203,8 +1231,11 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_RayDescCT,          // LICOMPTYPE_RAYDESC
   g_AccelerationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
   g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
+  g_Texture2DCT,        // LICOMPTYPE_TEXTURE2D
+  g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
 };
-C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
+static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
+  "Intrinsic comp type table must be updated when new enumerants are added.");
 
 // Decls.cpp constants ends here - these should be refactored or, better, replaced with clang::Type-based constructs.
 
@@ -1264,6 +1295,11 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_ROVTEXTURE2D_ARRAY,
   AR_OBJECT_ROVTEXTURE3D,
 
+  AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_TILED,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD,
+  AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED,
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
@@ -1286,7 +1322,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAYTRACING_SHADER_CONFIG,
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   AR_OBJECT_TRIANGLE_HIT_GROUP,
-  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP
+  AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  AR_OBJECT_RAY_QUERY
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1345,6 +1383,11 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_ROVTEXTURE2D_ARRAY
   1, // AR_OBJECT_ROVTEXTURE3D
 
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_TILED
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD
+  0, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   1, // AR_OBJECT_VK_SUBPASS_INPUT
@@ -1366,6 +1409,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   0, // AR_OBJECT_TRIANGLE_HIT_GROUP,
   0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+
+  1, // AR_OBJECT_RAY_QUERY,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1434,6 +1479,11 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 3, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE2D_ARRAY (ROVTexture2DArray)
   { 3, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE3D (ROVTexture3D)
 
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_TILED
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
@@ -1456,6 +1506,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_HIT_GROUP,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
 
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1544,6 +1595,11 @@ const char* g_ArBasicTypeNames[] =
   "RasterizerOrderedTexture2DArray",
   "RasterizerOrderedTexture3D",
 
+  "FeedbackTexture2DMinLOD",
+  "FeedbackTexture2DTiled",
+  "FeedbackTexture2DArrayMinLOD",
+  "FeedbackTexture2DArrayTiled",
+
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   "SubpassInput",
@@ -1568,7 +1624,9 @@ const char* g_ArBasicTypeNames[] =
   "RaytracingShaderConfig",
   "RaytracingPipelineConfig",
   "TriangleHitGroup",
-  "ProceduralPrimitiveHitGroup"
+  "ProceduralPrimitiveHitGroup",
+
+  "RayQuery"
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -2089,6 +2147,16 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
     *intrinsics = g_RWTexture3DMethods;
     *intrinsicCount = _countof(g_RWTexture3DMethods);
     break;
+  case AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_TILED:
+    *intrinsics = g_FeedbackTexture2DMethods;
+    *intrinsicCount = _countof(g_FeedbackTexture2DMethods);
+    break;
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED:
+    *intrinsics = g_FeedbackTexture2DArrayMethods;
+    *intrinsicCount = _countof(g_FeedbackTexture2DArrayMethods);
+    break;
   case AR_OBJECT_RWBUFFER:
   case AR_OBJECT_ROVBUFFER:
     *intrinsics = g_RWBufferMethods;
@@ -2120,7 +2188,11 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
     *intrinsics = g_ConsumeStructuredBufferMethods;
     *intrinsicCount = _countof(g_ConsumeStructuredBufferMethods);
     break;
-  // SPIRV change starts
+  case AR_OBJECT_RAY_QUERY:
+    *intrinsics = g_RayQueryMethods;
+    *intrinsicCount = _countof(g_RayQueryMethods);
+    break;
+    // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   case AR_OBJECT_VK_SUBPASS_INPUT:
     *intrinsics = g_VkSubpassInputMethods;
@@ -3219,6 +3291,12 @@ private:
           recordDecl = CreateSubobjectProceduralPrimitiveHitGroup(*m_context);
           break;
         }
+      } else if (kind == AR_OBJECT_RAY_QUERY) {
+        ClassTemplateDecl* typeDecl = nullptr;
+        AddRayQueryTemplate(*m_context, &typeDecl, &recordDecl);
+        DXASSERT(typeDecl != nullptr, "AddRayQueryTemplate failed to return the object declaration");
+        typeDecl->setImplicit(true);
+        recordDecl->setImplicit(true);
       }
       else if (templateArgCount == 0)
       {
@@ -3417,6 +3495,13 @@ public:
 
   bool IsSubobjectType(QualType type) {
     return IsSubobjectBasicKind(GetTypeElementKind(type));
+  }
+
+  bool IsRayQueryBasicKind(ArBasicKind kind) {
+    return kind == AR_OBJECT_RAY_QUERY;
+  }
+  bool IsRayQueryType(QualType type) {
+    return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
 
   void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
@@ -4155,6 +4240,8 @@ public:
     AddRayFlags(*m_context);
     AddHitKinds(*m_context);
     AddStateObjectFlags(*m_context);
+    AddCommittedStatus(*m_context);
+    AddCandidateType(*m_context);
 
     return true;
   }
@@ -4882,7 +4969,8 @@ QualType GetFirstElementTypeFromDecl(const Decl* decl)
   if (specialization) {
     const TemplateArgumentList& list = specialization->getTemplateArgs();
     if (list.size()) {
-      return list[0].getAsType();
+      if (list[0].getKind() == TemplateArgument::ArgKind::Type)
+        return list[0].getAsType();
     }
   }
 
@@ -5603,7 +5691,12 @@ bool HLSLExternalSource::MatchArguments(
         return false;
       }
       pNewType = objectElement;
-    } else {
+    }
+    else if (pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2D
+      || pArgument->uLegalComponentTypes == LICOMPTYPE_TEXTURE2DARRAY) {
+      pNewType = Args[i - 1]->getType().getNonReferenceType();
+    }
+    else {
       ArBasicKind pEltType;
 
       // ComponentType, if the Id is special then it gets the
@@ -7323,6 +7416,29 @@ VectorMemberAccessError TryParseVectorMemberAccess(_In_z_ const char* memberText
   return VectorMemberAccessError_None;
 }
 
+static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
+  switch(BaseExpr->getStmtClass()) {
+  case Stmt::ArraySubscriptExprClass: {
+    ArraySubscriptExpr* ase = cast<ArraySubscriptExpr>(BaseExpr);
+    return IsExprAccessingOutIndicesArray(ase->getBase());
+  }
+  case Stmt::ImplicitCastExprClass: {
+    ImplicitCastExpr* ice = cast<ImplicitCastExpr>(BaseExpr);
+    return IsExprAccessingOutIndicesArray(ice->getSubExpr());
+  }
+  case Stmt::DeclRefExprClass: {
+    DeclRefExpr* dre = cast<DeclRefExpr>(BaseExpr);
+    ValueDecl* vd = dre->getDecl();
+    if (vd->getAttr<HLSLIndicesAttr>() && vd->getAttr<HLSLOutAttr>()) {
+      return true;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
 bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
@@ -7395,6 +7511,14 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
   }
 
   DXASSERT(positions.IsValid, "otherwise an error should have been returned");
+
+  // Disallow component access for out indices for DXIL path. We still allow
+  // this in SPIR-V path.
+  if (!getSema()->getLangOpts().SPIRV &&
+      IsExprAccessingOutIndicesArray(&BaseExpr) && positions.Count < colCount) {
+    m_sema->Diag(MemberLoc, diag::err_hlsl_out_indices_array_incorrect_access);
+    return false;
+  }
 
   // Consume elements
   QualType resultType;
@@ -9624,6 +9748,10 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_ROVTEXTURE2D:
   case AR_OBJECT_ROVTEXTURE2D_ARRAY:
   case AR_OBJECT_ROVTEXTURE3D:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_TILED:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_MINLOD:
+  case AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY_TILED:
     expected = "'u'";
     isValid = registerType == 'u';
     break;
@@ -9713,8 +9841,9 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     if (shaderModel->IsGS()) {
       // Validate that GS has the maxvertexcount attribute
       if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(),
-                   diag::err_hlsl_missing_maxvertexcount_attr);
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "GS"
+            << "maxvertexcount";
         return;
       }
     } else if (shaderModel->IsHS()) {
@@ -9731,8 +9860,32 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
         pPatchFnDecl = NL.Found;
       } else {
-        self->Diag(pEntryPointDecl->getLocation(),
-                   diag::err_hlsl_missing_patchconstantfunc_attr);
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "HS"
+            << "patchconstantfunc";
+        return;
+      }
+    } else if (shaderModel->IsMS()) {
+      // Validate that MS has the numthreads attribute
+      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "MS"
+            << "numthreads";
+        return;
+      }
+      // Validate that MS has the outputtopology attribute
+      if (!pEntryPointDecl->hasAttr<HLSLOutputTopologyAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "MS"
+            << "outputtopology";
+        return;
+      }
+    } else if (shaderModel->IsAS()) {
+      // Validate that AS has the numthreads attribute
+      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
+            << "AS"
+            << "numthreads";
         return;
       }
     }
@@ -10892,6 +11045,22 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLIndices:
+    declAttr = ::new (S.Context) HLSLIndicesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLVertices:
+    declAttr = ::new (S.Context) HLSLVerticesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLPrimitives:
+    declAttr = ::new (S.Context) HLSLPrimitivesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLPayload:
+    declAttr = ::new (S.Context) HLSLPayloadAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
 
   default:
     Handled = false;
@@ -10975,8 +11144,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLShader:
     declAttr = ::new (S.Context) HLSLShaderAttr(
         A.getRange(), S.Context,
-        ValidateAttributeStringArg(S, A,
-                                   "compute,vertex,pixel,hull,domain,geometry,raygeneration,intersection,anyhit,closesthit,miss,callable"),
+        ValidateAttributeStringArg(
+            S, A,
+            "compute,vertex,pixel,hull,domain,geometry,raygeneration,"
+            "intersection,anyhit,closesthit,miss,callable,mesh,amplification"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
@@ -11017,7 +11188,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   {
   case AttributeList::AT_VKBuiltIn:
     declAttr = ::new (S.Context) VKBuiltInAttr(A.getRange(), S.Context,
-      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation,BaseVertex,BaseInstance,DrawIndex,DeviceIndex"),
+      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation,BaseVertex,BaseInstance,DrawIndex,DeviceIndex,ViewportMaskNV"),
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKLocation:
@@ -11549,7 +11720,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     *pCentroid = nullptr,
     *pCenter = nullptr,
     *pAnyLinear = nullptr,                   // first linear attribute found
-    *pTopology = nullptr;
+    *pTopology = nullptr,
+    *pMeshModifier = nullptr;
   bool usageIn = false;
   bool usageOut = false;
 
@@ -11733,6 +11905,29 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
 
+    case AttributeList::AT_HLSLIndices:
+    case AttributeList::AT_HLSLVertices:
+    case AttributeList::AT_HLSLPrimitives:
+    case AttributeList::AT_HLSLPayload:
+      if (!(isParameter)) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+          << pAttr->getName() << declarationType << pAttr->getRange();
+        result = false;
+      }
+      if (pMeshModifier) {
+        if (pMeshModifier->getKind() == pAttr->getKind()) {
+          Diag(pAttr->getLoc(), diag::warn_hlsl_duplicate_specifier)
+            << pAttr->getName() << pAttr->getRange();
+        } else {
+          Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+            << pAttr->getName() << pMeshModifier->getName()
+            << declarationType << pAttr->getRange();
+          result = false;
+        }
+      }
+      pMeshModifier = pAttr;
+      break;
+
     default:
       break;
     }
@@ -11782,6 +11977,21 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
           << pUsage->getName() << pUniform->getName() << declarationType
           << pUniform->getRange();
       result = false;
+    }
+  }
+  if (pMeshModifier) {
+    if (pMeshModifier->getKind() == AttributeList::Kind::AT_HLSLPayload) {
+      if (!usageIn) {
+        Diag(D.getLocStart(), diag::err_hlsl_missing_in_attr)
+            << pMeshModifier->getName();
+        result = false;
+      }
+    } else {
+      if (!usageOut) {
+        Diag(D.getLocStart(), diag::err_hlsl_missing_out_attr)
+            << pMeshModifier->getName();
+        result = false;
+      }
     }
   }
 
@@ -12313,6 +12523,22 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "globallycoherent ";
     break;
 
+  case clang::attr::HLSLIndices:
+    Out << "indices ";
+    break;
+
+  case clang::attr::HLSLVertices:
+    Out << "vertices ";
+    break;
+
+  case clang::attr::HLSLPrimitives:
+    Out << "primitives ";
+    break;
+
+  case clang::attr::HLSLPayload:
+    Out << "payload ";
+    break;
+
   default:
     A->printPretty(Out, Policy);
     break;
@@ -12365,6 +12591,10 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
+  case clang::attr::HLSLIndices:
+  case clang::attr::HLSLVertices:
+  case clang::attr::HLSLPrimitives:
+  case clang::attr::HLSLPayload:
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
   case clang::attr::VKBinding:

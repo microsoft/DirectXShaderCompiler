@@ -34,7 +34,7 @@ public:
 
   bool IsInput() const { return m_SignatureKind == DXIL::SignatureKind::Input; }
   bool IsOutput() const { return m_SignatureKind == DXIL::SignatureKind::Output; }
-  bool IsPatchConstant() const { return m_SignatureKind == DXIL::SignatureKind::PatchConstant; }
+  bool IsPatchConstOrPrim() const { return m_SignatureKind == DXIL::SignatureKind::PatchConstOrPrim; }
 
   Kind GetKind() const { return m_Kind; }
   const char *GetName() const { return m_pszName; }

@@ -351,10 +351,12 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 
 // Decompose Inner2PerVertexOut and write out DsOut.s.s.cull3 (SV_CullDistance3) at offset 0
 // CHECK-NEXT:        [[cull3:%\d+]] = OpCompositeExtract %v2float [[outIn2PV]] 1
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 %uint_0
+// CHECK-NEXT:        [[ind00:%\d+]] = OpIAdd %uint %uint_0 %uint_0
+// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind00]]
 // CHECK-NEXT:         [[val0:%\d+]] = OpCompositeExtract %float [[cull3]] 0
 // CHECK-NEXT:                         OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 %uint_1
+// CHECK-NEXT:        [[ind01:%\d+]] = OpIAdd %uint %uint_0 %uint_1
+// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind01]]
 // CHECK-NEXT:         [[val1:%\d+]] = OpCompositeExtract %float [[cull3]] 1
 // CHECK-NEXT:                         OpStore [[ptr1]] [[val1]]
 
@@ -365,10 +367,12 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 
 // Decompose InnerPerVertexOut and write out DsOut.s.cull4 (SV_CullDistance4) at offset 2
 // CHECK-NEXT:        [[cull4:%\d+]] = OpCompositeExtract %v2float [[outInPV]] 1
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 %uint_2
+// CHECK-NEXT:        [[ind20:%\d+]] = OpIAdd %uint %uint_2 %uint_0
+// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind20]]
 // CHECK-NEXT:         [[val0:%\d+]] = OpCompositeExtract %float [[cull4]] 0
 // CHECK-NEXT:                         OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 %uint_3
+// CHECK-NEXT:        [[ind21:%\d+]] = OpIAdd %uint %uint_2 %uint_1
+// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind21]]
 // CHECK-NEXT:         [[val1:%\d+]] = OpCompositeExtract %float [[cull4]] 1
 // CHECK-NEXT:                         OpStore [[ptr1]] [[val1]]
 
@@ -382,13 +386,16 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 
 // Write out clip5 (SV_ClipDistance5) at offset 1
 // CHECK-NEXT: [[clip5:%\d+]] = OpLoad %v3float %param_var_clip5
-// CHECK-NEXT:  [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_1
+// CHECK-NEXT: [[ind10:%\d+]] = OpIAdd %uint %uint_1 %uint_0
+// CHECK-NEXT:  [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind10]]
 // CHECK-NEXT:  [[val0:%\d+]] = OpCompositeExtract %float [[clip5]] 0
 // CHECK-NEXT:                  OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:  [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_2
+// CHECK-NEXT: [[ind11:%\d+]] = OpIAdd %uint %uint_1 %uint_1
+// CHECK-NEXT:  [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind11]]
 // CHECK-NEXT:  [[val1:%\d+]] = OpCompositeExtract %float [[clip5]] 1
 // CHECK-NEXT:                  OpStore [[ptr1]] [[val1]]
-// CHECK-NEXT:  [[ptr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_3
+// CHECK-NEXT: [[ind12:%\d+]] = OpIAdd %uint %uint_1 %uint_2
+// CHECK-NEXT:  [[ptr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind12]]
 // CHECK-NEXT:  [[val2:%\d+]] = OpCompositeExtract %float [[clip5]] 2
 // CHECK-NEXT:                  OpStore [[ptr2]] [[val2]]
 }

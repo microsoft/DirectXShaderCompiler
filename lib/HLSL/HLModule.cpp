@@ -831,6 +831,8 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
   bool skipOneLevelArray = inputQual == DxilParamInputQual::InputPatch;
   skipOneLevelArray |= inputQual == DxilParamInputQual::OutputPatch;
   skipOneLevelArray |= inputQual == DxilParamInputQual::InputPrimitive;
+  skipOneLevelArray |= inputQual == DxilParamInputQual::OutVertices;
+  skipOneLevelArray |= inputQual == DxilParamInputQual::OutPrimitives;
 
   if (skipOneLevelArray) {
     if (Ty->isArrayTy())

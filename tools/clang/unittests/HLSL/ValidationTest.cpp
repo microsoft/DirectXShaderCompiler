@@ -258,6 +258,36 @@ public:
 
   TEST_METHOD(WhenDisassembleInvalidBlobThenFail)
 
+  TEST_METHOD(MeshMultipleSetMeshOutputCounts)
+  TEST_METHOD(MeshMissingSetMeshOutputCounts)
+  TEST_METHOD(MeshNonDominatingSetMeshOutputCounts)
+  TEST_METHOD(MeshOversizePayload)
+  TEST_METHOD(MeshMultipleGetMeshPayload)
+  TEST_METHOD(MeshOutofRangeMaxVertexCount)
+  TEST_METHOD(MeshOutofRangeMaxPrimitiveCount)
+  TEST_METHOD(MeshLessThanMinX)
+  TEST_METHOD(MeshGreaterThanMaxX)
+  TEST_METHOD(MeshLessThanMinY)
+  TEST_METHOD(MeshGreaterThanMaxY)
+  TEST_METHOD(MeshLessThanMinZ)
+  TEST_METHOD(MeshGreaterThanMaxZ)
+  TEST_METHOD(MeshGreaterThanMaxXYZ)
+  TEST_METHOD(MeshGreaterThanMaxVSigRowCount)
+  TEST_METHOD(MeshGreaterThanMaxPSigRowCount)
+  TEST_METHOD(MeshGreaterThanMaxTotalSigRowCount)
+  TEST_METHOD(MeshOversizeSM)
+  TEST_METHOD(AmplificationMultipleDispatchMesh)
+  TEST_METHOD(AmplificationMissingDispatchMesh)
+  TEST_METHOD(AmplificationNonDominatingDispatchMesh)
+  TEST_METHOD(AmplificationOversizePayload)
+  TEST_METHOD(AmplificationLessThanMinX)
+  TEST_METHOD(AmplificationGreaterThanMaxX)
+  TEST_METHOD(AmplificationLessThanMinY)
+  TEST_METHOD(AmplificationGreaterThanMaxY)
+  TEST_METHOD(AmplificationLessThanMinZ)
+  TEST_METHOD(AmplificationGreaterThanMaxZ)
+  TEST_METHOD(AmplificationGreaterThanMaxXYZ)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -2832,7 +2862,7 @@ TEST_F(ValidationTest, WhenProgramSigMismatchThenFail) {
     {
       "Container part 'Program Input Signature' does not match expected for module.",
       "Container part 'Program Output Signature' does not match expected for module.",
-      "Container part 'Program Patch Constant Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant or Primitive Signature' does not match expected for module.",
       "Validation failed."
     }
   );
@@ -2878,7 +2908,7 @@ TEST_F(ValidationTest, WhenProgramSigMismatchThenFail2) {
     {
       "Container part 'Program Input Signature' does not match expected for module.",
       "Container part 'Program Output Signature' does not match expected for module.",
-      "Container part 'Program Patch Constant Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant or Primitive Signature' does not match expected for module.",
       "Validation failed."
     }
   );
@@ -3220,16 +3250,16 @@ TEST_F(ValidationTest, LibFunctionResInSig) {
     "float fnStreamInArg(float f, inout PointStream<Data> S1) : SV_Target {\n"
     "  S1.Append((Data)f); return 1.0; }\n"
     , "lib_6_x",
-    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}" },
-    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!1002}\n!1002 = !{i32 1, i32 3}" },
-    {  "Function '\\01?fnResInReturn@@YA?AUResStructInStruct@@M@Z' uses resource in function signature"
-      ,"Function '\\01?fnResInArg@@YAMUResStructInStruct@@@Z' uses resource in function signature"
-      ,"Function '\\01?fnStreamInArg@@YAMMV?$PointStream@UData@@@@@Z' uses resource in function signature"
+    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!([0-9]+)}", "= !{i32 20, !([0-9]+), !([0-9]+), !([0-9]+)}" },
+    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!100\\1}\n!1002 = !{i32 1, i32 3}", "= !{i32 20, !\\1, !\\2}" },
+    {  "Function '\\\\01\\?fnResInReturn@@YA\\?AUResStructInStruct@@M@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?fnResInArg@@YAMUResStructInStruct@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?fnStreamInArg@@YAMMV\\?\\$PointStream@UData@@@@@Z' uses resource in function signature"
       // TODO: Unable to lower stream append, since it's used in a non-GS function.
       // Should we fail to compile earlier (even on lib_6_x), or add lowering to linker?
-      ,"Function 'dx.hl.op..void (i32, %\"class.PointStream<Data>\"*, float*)' uses resource in function signature"
+      ,"Function 'dx\\.hl\\.op\\.\\.void \\(i32, %\"class\\.PointStream<Data>\"\\*, float\\*\\)' uses resource in function signature"
     },
-    false);
+    /*bRegex*/ true);
 }
 
 TEST_F(ValidationTest, RayPayloadIsStruct) {
@@ -3364,32 +3394,32 @@ TEST_F(ValidationTest, ResInShaderStruct) {
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
     "export void BadCallable(inout ResStructInStruct p) { p.f += 1.0; }\n"
     , "lib_6_x",
-    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}",
-      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
-        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
-      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
-        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
-      "!{void (%struct.Payload*)* @\"\\01?MissProto@@YAXUPayload@@@Z\", "
-        "!\"\\01?MissProto@@YAXUPayload@@@Z\",",
-      "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
-        "!\"\\01?CallableProto@@YAXUParam@@@Z\","
+    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!([0-9]+)}", "= !{i32 20, !([0-9]+), !([0-9]+), !([0-9]+)}",
+      "!{void \\(%struct\\.Payload\\*, %struct\\.Attributes\\*\\)\\* @\"\\\\01\\?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\\\01\\?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void \\(%struct\\.Payload\\*, %struct\\.Attributes\\*\\)\\* @\"\\\\01\\?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\\\01\\?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void \\(%struct\\.Payload\\*\\)\\* @\"\\\\01\\?MissProto@@YAXUPayload@@@Z\", "
+        "!\"\\\\01\\?MissProto@@YAXUPayload@@@Z\",",
+      "!{void \\(%struct\\.Param\\*\\)\\* @\"\\\\01\\?CallableProto@@YAXUParam@@@Z\", "
+        "!\"\\\\01\\?CallableProto@@YAXUParam@@@Z\","
     },
-    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!1002}\n!1002 = !{i32 1, i32 3}",
-      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
-        "!\"\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
-      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
-        "!\"\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
-      "!{void (%struct.ResStructInStruct*)* @\"\\01?BadMiss@@YAXUResStructInStruct@@@Z\", "
-        "!\"\\01?BadMiss@@YAXUResStructInStruct@@@Z\",",
-      "!{void (%struct.ResStructInStruct*)* @\"\\01?BadCallable@@YAXUResStructInStruct@@@Z\", "
-        "!\"\\01?BadCallable@@YAXUResStructInStruct@@@Z\",",
+    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!100\\1}\n!1002 = !{i32 1, i32 3}", "= !{i32 20, !\\1, !\\2}",
+      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
+        "!\"\\\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
+      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
+        "!\"\\\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
+      "!{void (%struct.ResStructInStruct*)* @\"\\\\01?BadMiss@@YAXUResStructInStruct@@@Z\", "
+        "!\"\\\\01?BadMiss@@YAXUResStructInStruct@@@Z\",",
+      "!{void (%struct.ResStructInStruct*)* @\"\\\\01?BadCallable@@YAXUResStructInStruct@@@Z\", "
+        "!\"\\\\01?BadCallable@@YAXUResStructInStruct@@@Z\",",
     },
-    {  "Function '\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
-      ,"Function '\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
-      ,"Function '\\01?BadMiss@@YAXUResStructInStruct@@@Z' uses resource in function signature"
-      ,"Function '\\01?BadCallable@@YAXUResStructInStruct@@@Z' uses resource in function signature"
+    {  "Function '\\\\01\\?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?BadMiss@@YAXUResStructInStruct@@@Z' uses resource in function signature"
+      ,"Function '\\\\01\\?BadCallable@@YAXUResStructInStruct@@@Z' uses resource in function signature"
     },
-    false);
+    /*bRegex*/ true);
 }
 
 TEST_F(ValidationTest, WhenPayloadSizeTooSmallThenFail) {
@@ -3516,4 +3546,204 @@ TEST_F(ValidationTest, ShaderFunctionReturnTypeVoid) {
       ,"Shader function '\\01?BadCallable@@YAMUParam@@@Z' must have void return type"
     },
     false);
+}
+
+TEST_F(ValidationTest, MeshMultipleSetMeshOutputCounts) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\multipleSetMeshOutputCounts.hlsl");
+}
+
+TEST_F(ValidationTest, MeshMissingSetMeshOutputCounts) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\missingSetMeshOutputCounts.hlsl");
+}
+
+TEST_F(ValidationTest, MeshNonDominatingSetMeshOutputCounts) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\nonDominatingSetMeshOutputCounts.hlsl");
+}
+
+TEST_F(ValidationTest, MeshOversizePayload) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizePayload.hlsl");
+}
+
+TEST_F(ValidationTest, MeshMultipleGetMeshPayload) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "%([0-9]+) = call %struct.MeshPayload\\* @dx.op.getMeshPayload.struct.MeshPayload\\(i32 170\\)  ; GetMeshPayload\\(\\)",
+                          "%\\1 = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()\n"
+                          "  %.extra.unused.payload. = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()",
+                          "GetMeshPayload cannot be called multiple times.",
+                          true);
+}
+
+TEST_F(ValidationTest, MeshOutofRangeMaxVertexCount) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{!([0-9]+), i32 32, i32 16, i32 2}",
+                          "= !{!\\1, i32 257, i32 16, i32 2}",
+                          "MS max vertex output count must be \\[0..256\\].  257 specified",
+                          true);
+}
+
+TEST_F(ValidationTest, MeshOutofRangeMaxPrimitiveCount) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{!([0-9]+), i32 32, i32 16, i32 2}",
+                          "= !{!\\1, i32 32, i32 257, i32 2}",
+                          "MS max primitive output count must be \\[0..256\\].  257 specified",
+                          true);
+}
+
+TEST_F(ValidationTest, MeshLessThanMinX) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 0, i32 1, i32 1}",
+                          "Declared Thread Group X size 0 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxX) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 129, i32 1, i32 1}",
+                          "Declared Thread Group X size 129 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, MeshLessThanMinY) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 32, i32 0, i32 1}",
+                          "Declared Thread Group Y size 0 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxY) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 1, i32 129, i32 1}",
+                          "Declared Thread Group Y size 129 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, MeshLessThanMinZ) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 32, i32 1, i32 0}",
+                          "Declared Thread Group Z size 0 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxZ) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 1, i32 1, i32 129}",
+                          "Declared Thread Group Z size 129 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxXYZ) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 32, i32 2, i32 4}",
+                          "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxVSigRowCount) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, null}\n"
+                          "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3}",
+                          "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 32, i8 1, i32 1, i8 0, null}\n"
+                          "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                          "i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20,"
+                          "i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}",
+                          "For shader 'main', vertex output signatures are taking up more than 32 rows",
+                          true);
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxPSigRowCount) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, null}\n"
+                          "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}",
+                          "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 32, i8 1, i32 1, i8 0, null}\n"
+                          "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                          "i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20,"
+                          "i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}",
+                          "For shader 'main', primitive output signatures are taking up more than 32 rows",
+                          true);
+}
+
+TEST_F(ValidationTest, MeshGreaterThanMaxTotalSigRowCount) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+                          { "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, null}\n"
+                            "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3}",
+                            "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, null}\n"
+                            "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}" },
+                          { "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 16, i8 1, i32 1, i8 0, null}\n"
+                            "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                            "i32 11, i32 12, i32 13, i32 14, i32 15}",
+                            "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 16, i8 1, i32 1, i8 0, null}\n"
+                            "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                            "i32 11, i32 12, i32 13, i32 14, i32 15}",
+                          },
+                          "For shader 'main', vertex and primitive output signatures are taking up more than 32 rows",
+                          true);
+}
+
+TEST_F(ValidationTest, MeshOversizeSM) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\oversizeSM.hlsl");
+}
+
+TEST_F(ValidationTest, AmplificationMultipleDispatchMesh) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\multipleDispatchMesh.hlsl");
+}
+
+TEST_F(ValidationTest, AmplificationMissingDispatchMesh) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\missingDispatchMesh.hlsl");
+}
+
+TEST_F(ValidationTest, AmplificationNonDominatingDispatchMesh) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\nonDominatingDispatchMesh.hlsl");
+}
+
+TEST_F(ValidationTest, AmplificationOversizePayload) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\asOversizePayload.hlsl");
+}
+
+TEST_F(ValidationTest, AmplificationLessThanMinX) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 0, i32 1, i32 1}",
+                          "Declared Thread Group X size 0 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, AmplificationGreaterThanMaxX) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 129, i32 1, i32 1}",
+                          "Declared Thread Group X size 129 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, AmplificationLessThanMinY) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 32, i32 0, i32 1}",
+                          "Declared Thread Group Y size 0 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, AmplificationGreaterThanMaxY) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 1, i32 129, i32 1}",
+                          "Declared Thread Group Y size 129 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, AmplificationLessThanMinZ) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 32, i32 1, i32 0}",
+                          "Declared Thread Group Z size 0 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, AmplificationGreaterThanMaxZ) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 1, i32 1, i32 129}",
+                          "Declared Thread Group Z size 129 outside valid range [1..128]");
+}
+
+TEST_F(ValidationTest, AmplificationGreaterThanMaxXYZ) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+                          "= !{i32 32, i32 1, i32 1}",
+                          "= !{i32 32, i32 2, i32 4}",
+                          "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
 }

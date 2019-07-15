@@ -266,13 +266,16 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputContro
 
 // Write out HsCpOut::cull9 into gl_CullDistance[]
 // CHECK-NEXT:      [[cull9:%\d+]] = OpCompositeExtract %v3float [[ret]] 0
-// CHECK-NEXT:       [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] %uint_2
+// CHECK-NEXT:      [[ind20:%\d+]] = OpIAdd %uint %uint_2 %uint_0
+// CHECK-NEXT:       [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] [[ind20]]
 // CHECK-NEXT:       [[val0:%\d+]] = OpCompositeExtract %float [[cull9]] 0
 // CHECK-NEXT:                       OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:       [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] %uint_3
+// CHECK-NEXT:      [[ind21:%\d+]] = OpIAdd %uint %uint_2 %uint_1
+// CHECK-NEXT:       [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] [[ind21]]
 // CHECK-NEXT:       [[val1:%\d+]] = OpCompositeExtract %float [[cull9]] 1
 // CHECK-NEXT:                       OpStore [[ptr1]] [[val1]]
-// CHECK-NEXT:       [[ptr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] %uint_4
+// CHECK-NEXT:      [[ind22:%\d+]] = OpIAdd %uint %uint_2 %uint_2
+// CHECK-NEXT:       [[ptr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] [[ind22]]
 // CHECK-NEXT:       [[val2:%\d+]] = OpCompositeExtract %float [[cull9]] 2
 // CHECK-NEXT:                       OpStore [[ptr2]] [[val2]]
 
@@ -291,10 +294,12 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputContro
 
 // Write out HsCpOut::CpInner1::CpInner2::cull6 to gl_CullDistance
 // CHECK-NEXT:   [[outCull6:%\d+]] = OpCompositeExtract %v2float [[outInner2]] 1
-// CHECK-NEXT:       [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] %uint_0
+// CHECK-NEXT:      [[ind00:%\d+]] = OpIAdd %uint %uint_0 %uint_0
+// CHECK-NEXT:       [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] [[ind00]]
 // CHECK-NEXT:       [[val0:%\d+]] = OpCompositeExtract %float [[outCull6]] 0
 // CHECK-NEXT:                       OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:       [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] %uint_1
+// CHECK-NEXT:      [[ind01:%\d+]] = OpIAdd %uint %uint_0 %uint_1
+// CHECK-NEXT:       [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[invoId]] [[ind01]]
 // CHECK-NEXT:       [[val1:%\d+]] = OpCompositeExtract %float [[outCull6]] 1
 // CHECK-NEXT:                       OpStore [[ptr1]] [[val1]]
 

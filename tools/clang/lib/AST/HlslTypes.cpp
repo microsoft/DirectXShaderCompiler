@@ -511,6 +511,11 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
       return true;
 
+    if (name == "FeedbackTexture2DMinLOD" || name == "FeedbackTexture2DTiled")
+      return true;
+    if (name == "FeedbackTexture2DArrayMinLOD" || name == "FeedbackTexture2DArrayTiled")
+      return true;
+
     if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer")
       return true;
 

@@ -941,6 +941,8 @@ shader_stage_to_ShaderKind = {
     'closesthit': 'ClosestHit',
     'miss': 'Miss',
     'callable': 'Callable',
+    'mesh' : 'Mesh',
+    'amplification' : 'Amplification',
 }
 
 def get_min_sm_and_mask_text():
@@ -1002,6 +1004,8 @@ check_pSM_for_shader_stage = {
     'closesthit': 'SK == DXIL::ShaderKind::ClosestHit',
     'miss': 'SK == DXIL::ShaderKind::Miss',
     'callable': 'SK == DXIL::ShaderKind::Callable',
+    'mesh': 'SK == DXIL::ShaderKind::Mesh',
+    'amplification': 'SK == DXIL::ShaderKind::Amplification',
 }
 
 def get_valopcode_sm_text():

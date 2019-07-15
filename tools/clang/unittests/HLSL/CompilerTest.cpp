@@ -286,6 +286,7 @@ public:
   BEGIN_TEST_METHOD(CodeGenHashStability)
       TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
+  TEST_METHOD(Mesh)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -2876,4 +2877,8 @@ TEST_F(CompilerTest, CodeGenHashStability) {
 
 TEST_F(CompilerTest, CodeGenBatch) {
   CodeGenTestCheckBatchDir(L"batch");
+}
+
+TEST_F(CompilerTest, Mesh) {
+  CodeGenTestCheckBatchDir(L"mesh");
 }

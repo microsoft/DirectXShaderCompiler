@@ -7680,14 +7680,20 @@ def err_hlsl_no_struct_user_defined_type: Error<
    "User defined type intrinsic arg must be struct">;
 def err_hlsl_ray_desc_required: Error<
    "Argument type must be struct RayDesc.">;
-def err_hlsl_missing_maxvertexcount_attr: Error<
-   "GS entry point must have the maxvertexcount attribute">;
-def err_hlsl_missing_patchconstantfunc_attr: Error<
-   "HS entry point must have the patchconstantfunc attribute">;
+def err_hlsl_missing_attr: Error<
+   "%0 entry point must have the %1 attribute">;
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
    "%select{array|parameter|return value}0 of type string is not supported">;
+def err_hlsl_missing_out_attr: Error<
+   "%0 object must be an out parameter">;
+def err_hlsl_missing_in_attr: Error<
+   "%0 object must be an in parameter">;
+def err_hlsl_load_from_mesh_out_arrays: Error<
+   "output arrays of a mesh shader can not be read from">;
+def err_hlsl_out_indices_array_incorrect_access: Error<
+   "a vector in out indices array must be accessed as a whole">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

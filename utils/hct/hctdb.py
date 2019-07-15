@@ -19,6 +19,8 @@ all_stages = (
     'closesthit',
     'miss',
     'callable',
+    'mesh',
+    'amplification',
     )
 
 class db_dxil_enum_value(object):
@@ -285,8 +287,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
-            self.name_idx[i].category = "Compute shader"
-            self.name_idx[i].shader_stages = ("compute",)
+            self.name_idx[i].category = "Compute/Mesh/Amplification shader"
+            self.name_idx[i].shader_stages = ("compute", "mesh", "amplification")
         for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
             self.name_idx[i].category = "Geometry shader"
             self.name_idx[i].shader_stages = ("geometry",)
@@ -304,7 +306,7 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("geometry", "domain", "hull")
         for i in "ViewID".split(","):
             self.name_idx[i].category = "Graphics shader"
-            self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel")
+            self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel", "mesh")
         for i in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(","):
             self.name_idx[i].category = "Double precision"
         for i in "CycleCounterLegacy".split(","):
@@ -329,6 +331,10 @@ class db_dxil(object):
         for i in "InstanceID,InstanceIndex,PrimitiveIndex".split(","):
             self.name_idx[i].category = "Raytracing object space uint System Values"
             self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
+        for i in "GeometryIndex".split(","):
+            self.name_idx[i].category = "Raytracing object space uint System Values, raytracing tier 1.1"
+            self.name_idx[i].shader_model = 6,5
             self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
         for i in "HitKind".split(","):
             self.name_idx[i].category = "Raytracing hit uint System Values"
@@ -379,6 +385,29 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,4
         for i in "WaveMatch,WaveMultiPrefixOp,WaveMultiPrefixBitCount".split(","):
             self.name_idx[i].category = "Wave"
+            self.name_idx[i].shader_model = 6,5
+        for i in "SetMeshOutputCounts,EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(","):
+            self.name_idx[i].category = "Mesh shader instructions"
+            self.name_idx[i].shader_stages = ("mesh",)
+            self.name_idx[i].shader_model = 6,5
+        for i in "DispatchMesh".split(","):
+            self.name_idx[i].category = "Amplification shader instructions"
+            self.name_idx[i].shader_stages = ("amplification",)
+            self.name_idx[i].shader_model = 6,5
+        for i in "WriteSamplerFeedback,WriteSamplerFeedbackBias".split(","):
+            self.name_idx[i].category = "Sampler Feedback"
+            self.name_idx[i].shader_model = 6,5
+            self.name_idx[i].shader_stages = ("library", "pixel",)
+        for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
+            self.name_idx[i].category = "Sampler Feedback"
+            self.name_idx[i].shader_model = 6,5
+        for i in ("AllocateRayQuery,RayQuery_TraceRayInline,RayQuery_Proceed,RayQuery_Abort,RayQuery_CommitNonOpaqueTriangleHit,RayQuery_CommitProceduralPrimitiveHit,RayQuery_RayFlags,RayQuery_WorldRayOrigin,RayQuery_WorldRayDirection,RayQuery_RayTMin,"+
+                 "RayQuery_CandidateTriangleRayT,RayQuery_CommittedRayT,RayQuery_CandidateInstanceIndex,RayQuery_CandidateInstanceID,RayQuery_CandidateGeometryIndex,RayQuery_CandidatePrimitiveIndex,"+
+                 "RayQuery_CandidateObjectRayOrigin,RayQuery_CandidateObjectRayDirection,RayQuery_CommittedInstanceIndex,RayQuery_CommittedInstanceID,RayQuery_CommittedGeometryIndex,RayQuery_CommittedPrimitiveIndex,"+
+                 "RayQuery_CommittedObjectRayOrigin,RayQuery_CommittedObjectRayDirection,RayQuery_CandidateProceduralPrimitiveNonOpaque,RayQuery_CandidateTriangleFrontFace,RayQuery_CommittedTriangleFrontFace,"+
+                 "RayQuery_CandidateTriangleBarycentrics,RayQuery_CommittedTriangleBarycentrics,RayQuery_CommittedStatus,RayQuery_CandidateType,RayQuery_CandidateObjectToWorld3x4,"+
+                 "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4").split(","):
+            self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6,5
 
     def populate_llvm_instructions(self):
@@ -1269,7 +1298,7 @@ class db_dxil(object):
             db_dxil_param(0, "v", "", "")])
         next_op_idx += 1
 
-        self.add_dxil_op("TraceRay", next_op_idx, "TraceRay", "returns the view index", "u", "", [
+        self.add_dxil_op("TraceRay", next_op_idx, "TraceRay", "initiates raytrace", "u", "", [
             db_dxil_param(0, "v", "", ""),
             db_dxil_param(2, "res", "AccelerationStructure", "Top-level acceleration structure to use"),
             db_dxil_param(3, "i32", "RayFlags", "Valid combination of Ray_flags"),
@@ -1373,9 +1402,304 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "mask3", "mask 3")])
         next_op_idx += 1
 
+        # Mesh Shader
+        self.add_dxil_op("SetMeshOutputCounts", next_op_idx, "SetMeshOutputCounts", "Mesh shader intrinsic SetMeshOutputCounts", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "i32", "numVertices", "number of output vertices"),
+            db_dxil_param(3, "i32", "numPrimitives", "number of output primitives")])
+        next_op_idx += 1
+        self.add_dxil_op("EmitIndices", next_op_idx, "EmitIndices", "emit a primitive's vertex indices in a mesh shader", "v", "", [
+            retvoid_param,
+            db_dxil_param(2, "u32", "PrimitiveIndex", "a primitive's index"),
+            db_dxil_param(3, "u32", "VertexIndex0", "a primitive's first vertex index"),
+            db_dxil_param(4, "u32", "VertexIndex1", "a primitive's second vertex index"),
+            db_dxil_param(5, "u32", "VertexIndex2", "a primitive's third vertex index")])
+        next_op_idx += 1
+        self.add_dxil_op("GetMeshPayload", next_op_idx, "GetMeshPayload", "get the mesh payload which is from amplification shader", "u", "ro", [
+            db_dxil_param(0, "$o", "", "mesh payload result")])
+        next_op_idx += 1
+        self.add_dxil_op("StoreVertexOutput", next_op_idx, "StoreVertexOutput", "stores the value to mesh shader vertex output", "hfwi", "", [
+            retvoid_param,
+            db_dxil_param(2, "u32", "outputSigId", "vertex output signature element ID"),
+            db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
+            db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
+            db_dxil_param(5, "$o", "value", "value to store"),
+            db_dxil_param(6, "u32", "vertexIndex", "vertex index")])
+        next_op_idx += 1
+        self.add_dxil_op("StorePrimitiveOutput", next_op_idx, "StorePrimitiveOutput", "stores the value to mesh shader primitive output", "hfwi", "", [
+            retvoid_param,
+            db_dxil_param(2, "u32", "outputSigId", "primitive output signature element ID"),
+            db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
+            db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
+            db_dxil_param(5, "$o", "value", "value to store"),
+            db_dxil_param(6, "u32", "primitiveIndex", "primitive index")])
+        next_op_idx += 1
+
+        # Amplification Shader
+        self.add_dxil_op("DispatchMesh", next_op_idx, "DispatchMesh", "Amplification shader intrinsic DispatchMesh", "u", "", [
+            retvoid_param,
+            db_dxil_param(2, "i32", "threadGroupCountX", "thread group count x"),
+            db_dxil_param(3, "i32", "threadGroupCountY", "thread group count y"),
+            db_dxil_param(4, "i32", "threadGroupCountZ", "thread group count z"),
+            db_dxil_param(5, "$o", "payload", "payload")])
+        next_op_idx += 1
+
+        # Sampler feedback
+        self.add_dxil_op("WriteSamplerFeedback", next_op_idx, "WriteSamplerFeedback", "updates a feedback texture for a sampling operation", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "clamp", "clamp")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteSamplerFeedbackBias", next_op_idx, "WriteSamplerFeedbackBias", "updates a feedback texture for a sampling operation with a bias on the mipmap level", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "bias", "bias in [-16.f,15.99f]"),
+            db_dxil_param(9, "f", "clamp", "clamp")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteSamplerFeedbackLevel", next_op_idx, "WriteSamplerFeedbackLevel", "updates a feedback texture for a sampling operation with a mipmap-level offset", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "lod", "LOD")])
+        next_op_idx += 1
+        self.add_dxil_op("WriteSamplerFeedbackGrad", next_op_idx, "WriteSamplerFeedbackGrad", "updates a feedback texture for a sampling operation with explicit gradients", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "feedbackTex", "handle of feedback texture UAV"),
+            db_dxil_param(3, "res", "sampledTex", "handled of sampled texture SRV"),
+            db_dxil_param(4, "res", "sampler", "handle of sampler"),
+            db_dxil_param(5, "f", "c0", "coordinate c0"),
+            db_dxil_param(6, "f", "c1", "coordinate c1"),
+            db_dxil_param(7, "f", "c2", "coordinate c2"),
+            db_dxil_param(8, "f", "ddx", "ddx"),
+            db_dxil_param(9, "f", "ddy", "ddy"),
+            db_dxil_param(10, "f", "clamp", "clamp")])
+        next_op_idx += 1
+
+        # RayQuery
+        self.add_dxil_op("AllocateRayQuery", next_op_idx, "AllocateRayQuery", "allocates space for RayQuery and return handle", "v", "rn", [
+            db_dxil_param(0, "i32", "", "handle to RayQuery state"),
+            db_dxil_param(2, "u32", "constRayFlags", "Valid combination of RAY_FLAGS", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_TraceRayInline", next_op_idx, "RayQuery_TraceRayInline", "initializes RayQuery for raytrace", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "res", "accelerationStructure", "Top-level acceleration structure to use"),
+            db_dxil_param(4, "i32", "rayFlags", "Valid combination of RAY_FLAGS, combined with constRayFlags provided to AllocateRayQuery"),
+            db_dxil_param(5, "i32", "instanceInclusionMask", "Bottom 8 bits of InstanceInclusionMask are used to include/rejectgeometry instances based on the InstanceMask in each instance: if(!((InstanceInclusionMask & InstanceMask) & 0xff)) { ignore intersection }"),
+            db_dxil_param(6, "f", "origin_X", "Origin x of the ray"),
+            db_dxil_param(7, "f", "origin_Y", "Origin y of the ray"),
+            db_dxil_param(8, "f", "origin_Z", "Origin z of the ray"),
+            db_dxil_param(9, "f", "tMin", "Tmin of the ray"),
+            db_dxil_param(10, "f", "direction_X", "Direction x of the ray"),
+            db_dxil_param(11, "f", "direction_Y", "Direction y of the ray"),
+            db_dxil_param(12, "f", "direction_Z", "Direction z of the ray"),
+            db_dxil_param(13, "f", "tMax", "Tmax of the ray")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_Proceed", next_op_idx, "RayQuery_Proceed", "advances a ray query", "1", "", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_Abort", next_op_idx, "RayQuery_Abort", "aborts a ray query", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommitNonOpaqueTriangleHit", next_op_idx, "RayQuery_CommitNonOpaqueTriangleHit", "commits a non opaque triangle hit", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommitProceduralPrimitiveHit", next_op_idx, "RayQuery_CommitProceduralPrimitiveHit", "commits a procedural primitive hit", "v", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "f", "t", "Procedural primitive hit distance (t) to commit.")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedStatus", next_op_idx, "RayQuery_StateScalar", "returns uint status (COMMITTED_STATUS) of the committed hit in a ray query", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateType", next_op_idx, "RayQuery_StateScalar", "returns uint candidate type (CANDIDATE_TYPE) of the current hit candidate in a ray query, after Proceed() has returned true", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateObjectToWorld3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from object-space to world-space for a candidate hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateWorldToObject3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from world-space to object-space for a candidate hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedObjectToWorld3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from object-space to world-space for a Committed hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedWorldToObject3x4", next_op_idx, "RayQuery_StateMatrix", "returns matrix for transforming from world-space to object-space for a Committed hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i32", "row", "row [0..2], relative to the element"),
+            db_dxil_param(4, "i8", "col", "column [0..3], relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateProceduralPrimitiveNonOpaque", next_op_idx, "RayQuery_StateScalar", "returns if current candidate procedural primitive is non opaque", "1", "ro", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateTriangleFrontFace", next_op_idx, "RayQuery_StateScalar", "returns if current candidate triangle is front facing", "1", "ro", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedTriangleFrontFace", next_op_idx, "RayQuery_StateScalar", "returns if current committed triangle is front facing", "1", "ro", [
+            db_dxil_param(0, "i1", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateTriangleBarycentrics", next_op_idx, "RayQuery_StateVector", "returns candidate triangle hit barycentrics", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedTriangleBarycentrics", next_op_idx, "RayQuery_StateVector", "returns committed triangle hit barycentrics", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_RayFlags", next_op_idx, "RayQuery_StateScalar", "returns ray flags", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_WorldRayOrigin", next_op_idx, "RayQuery_StateVector", "returns world ray origin", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_WorldRayDirection", next_op_idx, "RayQuery_StateVector", "returns world ray direction", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_RayTMin", next_op_idx, "RayQuery_StateScalar", "returns float representing the parametric starting point for the ray.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateTriangleRayT", next_op_idx, "RayQuery_StateScalar", "returns float representing the parametric point on the ray for the current candidate triangle hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedRayT", next_op_idx, "RayQuery_StateScalar", "returns float representing the parametric point on the ray for the current committed hit.", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateInstanceIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit instance index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateInstanceID", next_op_idx, "RayQuery_StateScalar", "returns candidate hit instance ID", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateGeometryIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidatePrimitiveIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateObjectRayOrigin", next_op_idx, "RayQuery_StateVector", "returns candidate hit object ray origin", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CandidateObjectRayDirection", next_op_idx, "RayQuery_StateVector", "returns candidate object ray direction", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedInstanceIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit instance index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedInstanceID", next_op_idx, "RayQuery_StateScalar", "returns committed hit instance ID", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedGeometryIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedPrimitiveIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit geometry index", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedObjectRayOrigin", next_op_idx, "RayQuery_StateVector", "returns committed hit object ray origin", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedObjectRayDirection", next_op_idx, "RayQuery_StateVector", "returns committed object ray direction", "f", "ro", [
+            db_dxil_param(0, "f", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
+            db_dxil_param(3, "i8", "component", "component [0..2]",is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("GeometryIndex", next_op_idx, "GeometryIndex", "The autogenerated index of the current geometry in the bottom-level structure", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
         # End of DXIL 1.5 opcodes.
         self.set_op_count_for_version(1, 5, next_op_idx)
-        assert next_op_idx == 168, "next operation index is %d rather than 168 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 214, "214 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1749,7 +2073,8 @@ class db_dxil(object):
             (27, "ViewID", ""),
             (28, "Barycentrics", ""),
             (29, "ShadingRate", ""),
-            (30, "Invalid", ""),
+            (30, "CullPrimitive", ""),
+            (31, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -1769,7 +2094,11 @@ class db_dxil(object):
             (13, "PSIn", "Pixel Shader input"),
             (14, "PSOut", "Pixel Shader output"),
             (15, "CSIn", "Compute Shader input"),
-            (16, "Invalid", ""),
+            (16, "MSIn", "Mesh Shader input"),
+            (17, "MSOut", "Mesh Shader vertices output"),
+            (18, "MSPOut", "Mesh Shader primitives output"),
+            (19, "ASIn", "Amplification Shader input"),
+            (21, "Invalid", ""),
             ])
         self.enums.append(SigPointKind)
         PackingKind = db_dxil_enum("PackingKind", "Kind of signature point", [
@@ -1795,24 +2124,28 @@ class db_dxil(object):
 
 
         SigPointCSV = """
-            SigPoint, Related, ShaderKind, PackingKind,    SignatureKind
-            VSIn,     Invalid, Vertex,     InputAssembler, Input
-            VSOut,    Invalid, Vertex,     Vertex,         Output
-            PCIn,     HSCPIn,  Hull,       None,           Invalid
-            HSIn,     HSCPIn,  Hull,       None,           Invalid
-            HSCPIn,   Invalid, Hull,       Vertex,         Input
-            HSCPOut,  Invalid, Hull,       Vertex,         Output
-            PCOut,    Invalid, Hull,       PatchConstant,  PatchConstant
-            DSIn,     Invalid, Domain,     PatchConstant,  PatchConstant
-            DSCPIn,   Invalid, Domain,     Vertex,         Input
-            DSOut,    Invalid, Domain,     Vertex,         Output
-            GSVIn,    Invalid, Geometry,   Vertex,         Input
-            GSIn,     GSVIn,   Geometry,   None,           Invalid
-            GSOut,    Invalid, Geometry,   Vertex,         Output
-            PSIn,     Invalid, Pixel,      Vertex,         Input
-            PSOut,    Invalid, Pixel,      Target,         Output
-            CSIn,     Invalid, Compute,    None,           Invalid
-            Invalid,  Invalid, Invalid,    Invalid,        Invalid
+            SigPoint, Related, ShaderKind,    PackingKind,    SignatureKind
+            VSIn,     Invalid, Vertex,        InputAssembler, Input
+            VSOut,    Invalid, Vertex,        Vertex,         Output
+            PCIn,     HSCPIn,  Hull,          None,           Invalid
+            HSIn,     HSCPIn,  Hull,          None,           Invalid
+            HSCPIn,   Invalid, Hull,          Vertex,         Input
+            HSCPOut,  Invalid, Hull,          Vertex,         Output
+            PCOut,    Invalid, Hull,          PatchConstant,  PatchConstOrPrim
+            DSIn,     Invalid, Domain,        PatchConstant,  PatchConstOrPrim
+            DSCPIn,   Invalid, Domain,        Vertex,         Input
+            DSOut,    Invalid, Domain,        Vertex,         Output
+            GSVIn,    Invalid, Geometry,      Vertex,         Input
+            GSIn,     GSVIn,   Geometry,      None,           Invalid
+            GSOut,    Invalid, Geometry,      Vertex,         Output
+            PSIn,     Invalid, Pixel,         Vertex,         Input
+            PSOut,    Invalid, Pixel,         Target,         Output
+            CSIn,     Invalid, Compute,       None,           Invalid
+            MSIn,     Invalid, Mesh,          None,           Invalid
+            MSOut,    Invalid, Mesh,          Vertex,         Output
+            MSPOut,   Invalid, Mesh,          Vertex,         PatchConstOrPrim
+            ASIn,     Invalid, Amplification, None,           Invalid
+            Invalid,  Invalid, Invalid,       Invalid,        Invalid
         """
         table = [list(map(str.strip, line.split(','))) for line in SigPointCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -1839,37 +2172,38 @@ class db_dxil(object):
 
         # The following has SampleIndex, Coverage, and InnerCoverage as loaded with instructions rather than from the signature
         SemanticInterpretationCSV = """
-            Semantic,VSIn,VSOut,PCIn,HSIn,HSCPIn,HSCPOut,PCOut,DSIn,DSCPIn,DSOut,GSVIn,GSIn,GSOut,PSIn,PSOut,CSIn
-            Arbitrary,Arb,Arb,NA,NA,Arb,Arb,Arb,Arb,Arb,Arb,Arb,NA,Arb,Arb,NA,NA
-            VertexID,SV,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-            InstanceID,SV,Arb,NA,NA,Arb,Arb,NA,NA,Arb,Arb,Arb,NA,Arb,Arb,NA,NA
-            Position,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            RenderTargetArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            ViewPortArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA
-            ClipDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
-            CullDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA
-            OutputControlPointID,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-            DomainLocation,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA
-            PrimitiveID,NA,NA,NotInSig,NotInSig,NA,NA,NA,NotInSig,NA,NA,NA,Shadow,SGV,SGV,NA,NA
-            GSInstanceID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA
-            SampleIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Shadow _41,NA,NA
-            IsFrontFace,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SGV,SGV,NA,NA
-            Coverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NotPacked _41,NA
-            InnerCoverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NA,NA
-            Target,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Target,NA
-            Depth,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked,NA
-            DepthLessEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA
-            DepthGreaterEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA
-            StencilRef,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA
-            DispatchThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            GroupID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            GroupIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            GroupThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
-            TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
-            InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
-            ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
-            Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
-            ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA
+            Semantic,VSIn,VSOut,PCIn,HSIn,HSCPIn,HSCPOut,PCOut,DSIn,DSCPIn,DSOut,GSVIn,GSIn,GSOut,PSIn,PSOut,CSIn,MSIn,MSOut,MSPOut,ASIn
+            Arbitrary,Arb,Arb,NA,NA,Arb,Arb,Arb,Arb,Arb,Arb,Arb,NA,Arb,Arb,NA,NA,NA,Arb _65,Arb _65,NA
+            VertexID,SV,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            InstanceID,SV,Arb,NA,NA,Arb,Arb,NA,NA,Arb,Arb,Arb,NA,Arb,Arb,NA,NA,NA,NA,NA,NA
+            Position,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA,NA,SV _65,NA,NA
+            RenderTargetArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA,NA,NA,SV _65,NA
+            ViewPortArrayIndex,Arb,SV,NA,NA,SV,SV,Arb,Arb,SV,SV,SV,NA,SV,SV,NA,NA,NA,NA,SV _65,NA
+            ClipDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA,NA,ClipCull _65,NA,NA
+            CullDistance,Arb,ClipCull,NA,NA,ClipCull,ClipCull,Arb,Arb,ClipCull,ClipCull,ClipCull,NA,ClipCull,ClipCull,NA,NA,NA,ClipCull _65,NA,NA
+            OutputControlPointID,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            DomainLocation,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            PrimitiveID,NA,NA,NotInSig,NotInSig,NA,NA,NA,NotInSig,NA,NA,NA,Shadow,SGV,SGV,NA,NA,NA,NA,SV _65,NA
+            GSInstanceID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NA,NA,NA,NA
+            SampleIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Shadow _41,NA,NA,NA,NA,NA,NA
+            IsFrontFace,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SGV,SGV,NA,NA,NA,NA,NA,NA
+            Coverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NotPacked _41,NA,NA,NA,NA,NA
+            InnerCoverage,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig _50,NA,NA,NA,NA,NA,NA
+            Target,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,Target,NA,NA,NA,NA,NA
+            Depth,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked,NA,NA,NA,NA,NA
+            DepthLessEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA,NA,NA,NA,NA
+            DepthGreaterEqual,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA,NA,NA,NA,NA
+            StencilRef,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _50,NA,NA,NA,NA,NA
+            DispatchThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            GroupID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            GroupIndex,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            GroupThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NotInSig _65,NA,NA,NotInSig _65
+            TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA,NotInSig _65,NA,NA,NA
+            Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA,NA,NA,NA,NA
+            ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA,NA,NA,NA,NA
+            CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SV _65,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -2022,6 +2356,12 @@ class db_dxil(object):
         self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
         self.add_valrule("Instr.CreateHandleImmRangeID", "Local resource must map to global resource.")
         self.add_valrule("Instr.SignatureOperationNotInEntry", "Dxil operation for input output signature must be in entryPoints.")
+        self.add_valrule("Instr.MultipleSetMeshOutputCounts", "SetMeshOUtputCounts cannot be called multiple times.")
+        self.add_valrule("Instr.MissingSetMeshOutputCounts", "Missing SetMeshOutputCounts call.")
+        self.add_valrule("Instr.NonDominatingSetMeshOutputCounts", "Non-Dominating SetMeshOutputCounts call.")
+        self.add_valrule("Instr.MultipleGetMeshPayload", "GetMeshPayload cannot be called multiple times.")
+        self.add_valrule("Instr.NotOnceDispatchMesh", "DispatchMesh must be called exactly once in an Amplification shader.")
+        self.add_valrule("Instr.NonDominatingDispatchMesh", "Non-Dominating DispatchMesh call.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -2042,6 +2382,7 @@ class db_dxil(object):
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2")
         self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined")
+        self.add_valrule_msg("Sm.ConstantInterpMode", "Interpolation mode must be constant for MS primitive output.", "Interpolation mode for '%0' should be constant")
         self.add_valrule("Sm.NoPSOutputIdx", "Pixel shader output registers are not indexable.")# TODO restrict to PS
         self.add_valrule("Sm.PSConsistentInterp", "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)")
         self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3]")
@@ -2093,6 +2434,16 @@ class db_dxil(object):
         self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
         self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures")
         self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size")
+        self.add_valrule("Sm.MeshShaderMaxVertexCount", "MS max vertex output count must be [0..%0].  %1 specified")
+        self.add_valrule("Sm.MeshShaderMaxPrimitiveCount", "MS max primitive output count must be [0..%0].  %1 specified")
+        self.add_valrule("Sm.MeshShaderPayloadSize", "For shader '%0', payload size is greater than %1")
+        self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1")
+        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', input plus output size is greater than %1")
+        self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows")
+        self.add_valrule("Sm.MeshPSigRowCount", "For shader '%0', primitive output signatures are taking up more than %1 rows")
+        self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows")
+        self.add_valrule("Sm.MaxMSSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1")
+        self.add_valrule("Sm.AmplificationShaderPayloadSize", "For shader '%0', payload size is greater than %1")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
@@ -2280,6 +2631,8 @@ class db_hlsl(object):
             "udt" : "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
+            "Texture2D": "LICOMPTYPE_TEXTURE2D",
+            "Texture2DArray": "LICOMPTYPE_TEXTURE2DARRAY",
             "wave": "LICOMPTYPE_WAVE"}
         self.trans_rowcol = {
             "r": "IA_R",
@@ -2408,7 +2761,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("Texture") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"

@@ -48,7 +48,12 @@ enum class ShaderAccessFlags : uint32_t
 
   // "Counter" access is only applicable to UAVs; it means the counter buffer attached to the UAV
   // was accessed, but not necessarily the UAV resource.
-  Counter = 1 << 2
+  Counter = 1 << 2,
+
+  // Descriptor-only read (if any), but not the resource contents (if any).
+  // Used for GetDimensions, samplers, and secondary texture for sampler feedback.
+  // TODO: Make this a unique value if supported in PIX, then enable GetDimensions
+  DescriptorRead = 1 << 0,
 };
 
 // This enum doesn't have to match PIX's version, because the values are received from PIX encoded in ASCII.
@@ -435,73 +440,61 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
       DM.ReEmitDxilResources();
     }
 
-    struct ResourceAccessFunction
-    {
-      DXIL::OpCode opcode;
-      ShaderAccessFlags readWrite;
-      bool functionUsesSamplerAtIndex2;
-      std::vector<Type*> overloads;
-    };
+    for (llvm::Function & F : M.functions()) {
+      // Only used DXIL intrinsics:
+      if (!F.isDeclaration() || F.isIntrinsic() || F.use_empty() || !OP::IsDxilOpFunc(&F))
+        continue;
 
-    std::vector<Type*> voidType = { Type::getVoidTy(Ctx) };
-    std::vector<Type*> i32 = { Type::getInt32Ty(Ctx) };
-    std::vector<Type*> f16f32 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx) };
-    std::vector<Type*> f32i32 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx) };
-    std::vector<Type*> f32i32f64 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx), Type::getDoubleTy(Ctx) };
-    std::vector<Type*> f16f32i16i32 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
-    std::vector<Type*> f16f32f64i16i32i64 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getDoubleTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx), Type::getInt64Ty(Ctx) };
+      // Gather handle parameter indices, if any
+      FunctionType *fnTy = cast<FunctionType>(F.getType()->getPointerElementType());
+      SmallVector<unsigned, 4> handleParams;
+      for (unsigned iParam = 1; iParam < fnTy->getFunctionNumParams(); ++iParam) {
+        if (fnTy->getParamType(iParam) == HlslOP->GetHandleType())
+          handleParams.push_back(iParam);
+      }
+      if (handleParams.empty())
+        continue;
 
+      auto FunctionUses = F.uses();
+      for (auto FI = FunctionUses.begin(); FI != FunctionUses.end(); ) {
+        auto & FunctionUse = *FI++;
+        auto FunctionUser = FunctionUse.getUser();
+        auto Call = cast<CallInst>(FunctionUser);
+        auto opCode = OP::GetDxilOpFuncCallInst(Call);
 
-    // todo: should "GetDimensions" mean a resource access?
-    static_assert(DXIL::OpCode::NumOpCodes == static_cast<DXIL::OpCode>(168), "Please update PIX passes if any resource access opcodes are added");
-    ResourceAccessFunction raFunctions[] = {
-      { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read   , false, f32i32f64 },
-      { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read   , false, f16f32f64i16i32i64 },
-      { DXIL::OpCode::Sample                , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleBias            , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleLevel           , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleGrad            , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleCmp             , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::SampleCmpLevelZero    , ShaderAccessFlags::Read   , true , f16f32 },
-      { DXIL::OpCode::TextureLoad           , ShaderAccessFlags::Read   , false, f16f32i16i32 },
-      { DXIL::OpCode::TextureStore          , ShaderAccessFlags::Write  , false, f16f32i16i32 },
-      { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read   , true , f16f32i16i32 },
-      { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f16f32i16i32 },
-      { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read   , false, f32i32 },
-      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f16f32i16i32 },
-      { DXIL::OpCode::RawBufferStore        , ShaderAccessFlags::Write  , false, f16f32i16i32 },
-      { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write  , false, f32i32 },
-      { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, false, voidType },
-      { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write  , false, i32 },
-      { DXIL::OpCode::AtomicCompareExchange , ShaderAccessFlags::Write  , false, i32 },
-    };
+        // Base Read/Write on function attribute - should match for all normal resource operations
+        ShaderAccessFlags readWrite = ShaderAccessFlags::Write;
+        if (OP::GetMemAccessAttr(opCode) == llvm::Attribute::AttrKind::ReadOnly)
+          readWrite = ShaderAccessFlags::Read;
 
-    for (const auto & raFunction : raFunctions) {
-      for (const auto & Overload : raFunction.overloads) {
-        Function * TheFunction = HlslOP->GetOpFunc(raFunction.opcode, Overload);
-        auto TexLoadFunctionUses = TheFunction->uses();
-        for (auto FI = TexLoadFunctionUses.begin(); FI != TexLoadFunctionUses.end(); ) {
-          auto & FunctionUse = *FI++;
-          auto FunctionUser = FunctionUse.getUser();
-          auto instruction = cast<Instruction>(FunctionUser);
+        // Special cases
+        switch (opCode) {
+        case DXIL::OpCode::GetDimensions:
+          // readWrite = ShaderAccessFlags::DescriptorRead;  // TODO: Support GetDimensions
+          continue;
+        case DXIL::OpCode::BufferUpdateCounter:
+          readWrite = ShaderAccessFlags::Counter;
+          break;
+        case DXIL::OpCode::TraceRay:
+        case DXIL::OpCode::RayQuery_TraceRayInline:
+          // Read of AccelerationStructure; doesn't match function attribute
+          // readWrite = ShaderAccessFlags::Read;  // TODO: Support TraceRay[Inline]
+          continue;
+        default:
+          break;
+        }
 
-          auto res = GetResourceFromHandle(instruction->getOperand(1), DM);
-
+        for (unsigned iParam : handleParams) {
+          auto res = GetResourceFromHandle(Call->getArgOperand(iParam), DM);
           // Don't instrument the accesses to the UAV that we just added
-          if (res.resource->GetSpaceID() == (unsigned)-2) {
-            continue;
+          if (res.resClass == DXIL::ResourceClass::UAV && res.resource->GetSpaceID() == (unsigned)-2) {
+            break;
           }
-
-          if (EmitResourceAccess(res, instruction, HlslOP, Ctx, raFunction.readWrite)) {
+          if (EmitResourceAccess(res, Call, HlslOP, Ctx, readWrite)) {
             Modified = true;
           }
-
-          if (raFunction.functionUsesSamplerAtIndex2) {
-            auto sampler = GetResourceFromHandle(instruction->getOperand(2), DM);
-            if (EmitResourceAccess(sampler, instruction, HlslOP, Ctx, ShaderAccessFlags::Read)) {
-              Modified = true;
-            }
-          }
+          // Remaining resources are DescriptorRead.
+          readWrite = ShaderAccessFlags::DescriptorRead;
         }
       }
     }

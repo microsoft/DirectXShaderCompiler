@@ -117,10 +117,12 @@ float main(out VSOut  vsOut,
 
 // Write out SV_ClipDistance1
 // CHECK-NEXT:    [[clip1:%\d+]] = OpCompositeExtract %v2float [[innerS]] 0
-// CHECK-NEXT: [[clipArr3:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_3
+// CHECK-NEXT:    [[ind10:%\d+]] = OpIAdd %uint %uint_3 %uint_0
+// CHECK-NEXT: [[clipArr3:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind10]]
 // CHECK-NEXT:   [[clip10:%\d+]] = OpCompositeExtract %float [[clip1]] 0
 // CHECK-NEXT:                     OpStore [[clipArr3]] [[clip10]]
-// CHECK-NEXT: [[clipArr4:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_4
+// CHECK-NEXT:    [[ind11:%\d+]] = OpIAdd %uint %uint_3 %uint_1
+// CHECK-NEXT: [[clipArr4:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind11]]
 // CHECK-NEXT:   [[clip11:%\d+]] = OpCompositeExtract %float [[clip1]] 1
 // CHECK-NEXT:                     OpStore [[clipArr4]] [[clip11]]
 
@@ -132,13 +134,16 @@ float main(out VSOut  vsOut,
 
 // Write out SV_ClipDistance0
 // CHECK-NEXT:    [[clip0:%\d+]] = OpLoad %v3float %param_var_clipdis0
-// CHECK-NEXT: [[clipArr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_0
+// CHECK-NEXT:    [[ind00:%\d+]] = OpIAdd %uint %uint_0 %uint_0
+// CHECK-NEXT: [[clipArr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind00]]
 // CHECK-NEXT:   [[clip00:%\d+]] = OpCompositeExtract %float [[clip0]] 0
 // CHECK-NEXT:                     OpStore [[clipArr0]] [[clip00]]
-// CHECK-NEXT: [[clipArr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_1
+// CHECK-NEXT:    [[ind01:%\d+]] = OpIAdd %uint %uint_0 %uint_1
+// CHECK-NEXT: [[clipArr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind01]]
 // CHECK-NEXT:   [[clip01:%\d+]] = OpCompositeExtract %float [[clip0]] 1
 // CHECK-NEXT:                     OpStore [[clipArr1]] [[clip01]]
-// CHECK-NEXT: [[clipArr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_2
+// CHECK-NEXT:    [[ind02:%\d+]] = OpIAdd %uint %uint_0 %uint_2
+// CHECK-NEXT: [[clipArr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind02]]
 // CHECK-NEXT:   [[clip02:%\d+]] = OpCompositeExtract %float [[clip0]] 2
 // CHECK-NEXT:                     OpStore [[clipArr2]] [[clip02]]
 

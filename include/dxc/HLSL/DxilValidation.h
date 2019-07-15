@@ -85,6 +85,9 @@ enum class ValidationRule : unsigned {
   InstrMinPrecisonBitCast, // Bitcast on minprecison types is not allowed
   InstrMipLevelForGetDimension, // Use mip level on buffer when GetDimensions
   InstrMipOnUAVLoad, // uav load don't support mipLevel/sampleIndex
+  InstrMissingSetMeshOutputCounts, // Missing SetMeshOutputCounts call.
+  InstrMultipleGetMeshPayload, // GetMeshPayload cannot be called multiple times.
+  InstrMultipleSetMeshOutputCounts, // SetMeshOUtputCounts cannot be called multiple times.
   InstrNoGenericPtrAddrSpaceCast, // Address space cast between pointer types must have one part to be generic address space
   InstrNoIDivByZero, // No signed integer division by zero
   InstrNoIndefiniteAcos, // No indefinite arccosine
@@ -93,6 +96,9 @@ enum class ValidationRule : unsigned {
   InstrNoIndefiniteLog, // No indefinite logarithm
   InstrNoReadingUninitialized, // Instructions should not read uninitialized value
   InstrNoUDivByZero, // No unsigned integer division by zero
+  InstrNonDominatingDispatchMesh, // Non-Dominating DispatchMesh call.
+  InstrNonDominatingSetMeshOutputCounts, // Non-Dominating SetMeshOutputCounts call.
+  InstrNotOnceDispatchMesh, // DispatchMesh must be called exactly once in an Amplification shader.
   InstrOffsetOnUAVLoad, // uav load don't support offset
   InstrOload, // DXIL intrinsic overload must be valid
   InstrOnlyOneAllocConsume, // RWStructuredBuffers may increment or decrement their counters, but not both.
@@ -190,6 +196,7 @@ enum class ValidationRule : unsigned {
 
   // Shader model
   Sm64bitRawBufferLoadStore, // i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3
+  SmAmplificationShaderPayloadSize, // For shader '%0', payload size is greater than %1
   SmAppendAndConsumeOnSameUAV, // BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
   SmCBufferArrayOffsetAlignment, // CBuffer array offset must be aligned to 16-bytes
   SmCBufferElementOverflow, // CBuffer elements must not overflow
@@ -197,6 +204,7 @@ enum class ValidationRule : unsigned {
   SmCBufferTemplateTypeMustBeStruct, // D3D12 constant/texture buffer template element can only be a struct
   SmCSNoSignatures, // Compute shaders must not have shader signatures.
   SmCompletePosition, // Not all elements of SV_Position were written
+  SmConstantInterpMode, // Interpolation mode must be constant for MS primitive output.
   SmCounterOnlyOnStructBuf, // BufferUpdateCounter valid only on structured buffers
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
@@ -213,8 +221,17 @@ enum class ValidationRule : unsigned {
   SmInvalidResourceKind, // Invalid resources kind
   SmInvalidTextureKindOnUAV, // Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
   SmIsoLineOutputPrimitiveMismatch, // Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+  SmMaxMSSMSize, // Total Thread Group Shared Memory storage is %0, exceeded %1
   SmMaxTGSMSize, // Total Thread Group Shared Memory storage is %0, exceeded %1
   SmMaxTheadGroup, // Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
+  SmMeshPSigRowCount, // For shader '%0', primitive output signatures are taking up more than %1 rows
+  SmMeshShaderInOutSize, // For shader '%0', input plus output size is greater than %1
+  SmMeshShaderMaxPrimitiveCount, // MS max primitive output count must be [0..%0].  %1 specified
+  SmMeshShaderMaxVertexCount, // MS max vertex output count must be [0..%0].  %1 specified
+  SmMeshShaderOutputSize, // For shader '%0', vertex plus primitive output size is greater than %1
+  SmMeshShaderPayloadSize, // For shader '%0', payload size is greater than %1
+  SmMeshTotalSigRowCount, // For shader '%0', vertex and primitive output signatures are taking up more than %1 rows
+  SmMeshVSigRowCount, // For shader '%0', vertex output signatures are taking up more than %1 rows
   SmMultiStreamMustBePoint, // When multiple GS output streams are used they must be pointlists
   SmName, // Target shader model name must be known
   SmNoInterpMode, // Interpolation mode must be undefined for VS input/PS output/patch constant.

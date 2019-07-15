@@ -191,6 +191,12 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrAttributeAtVertexNoInterpolation: return "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.";
     case hlsl::ValidationRule::InstrCreateHandleImmRangeID: return "Local resource must map to global resource.";
     case hlsl::ValidationRule::InstrSignatureOperationNotInEntry: return "Dxil operation for input output signature must be in entryPoints.";
+    case hlsl::ValidationRule::InstrMultipleSetMeshOutputCounts: return "SetMeshOUtputCounts cannot be called multiple times.";
+    case hlsl::ValidationRule::InstrMissingSetMeshOutputCounts: return "Missing SetMeshOutputCounts call.";
+    case hlsl::ValidationRule::InstrNonDominatingSetMeshOutputCounts: return "Non-Dominating SetMeshOutputCounts call.";
+    case hlsl::ValidationRule::InstrMultipleGetMeshPayload: return "GetMeshPayload cannot be called multiple times.";
+    case hlsl::ValidationRule::InstrNotOnceDispatchMesh: return "DispatchMesh must be called exactly once in an Amplification shader.";
+    case hlsl::ValidationRule::InstrNonDominatingDispatchMesh: return "Non-Dominating DispatchMesh call.";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
@@ -202,6 +208,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
     case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2";
     case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined";
+    case hlsl::ValidationRule::SmConstantInterpMode: return "Interpolation mode for '%0' should be constant";
     case hlsl::ValidationRule::SmNoPSOutputIdx: return "Pixel shader output registers are not indexable.";
     case hlsl::ValidationRule::SmPSConsistentInterp: return "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)";
     case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3]";
@@ -253,6 +260,16 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::Sm64bitRawBufferLoadStore: return "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3";
     case hlsl::ValidationRule::SmRayShaderSignatures: return "Ray tracing shader '%0' should not have any shader signatures";
     case hlsl::ValidationRule::SmRayShaderPayloadSize: return "For shader '%0', %1 size is smaller than argument's allocation size";
+    case hlsl::ValidationRule::SmMeshShaderMaxVertexCount: return "MS max vertex output count must be [0..%0].  %1 specified";
+    case hlsl::ValidationRule::SmMeshShaderMaxPrimitiveCount: return "MS max primitive output count must be [0..%0].  %1 specified";
+    case hlsl::ValidationRule::SmMeshShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
+    case hlsl::ValidationRule::SmMeshShaderOutputSize: return "For shader '%0', vertex plus primitive output size is greater than %1";
+    case hlsl::ValidationRule::SmMeshShaderInOutSize: return "For shader '%0', input plus output size is greater than %1";
+    case hlsl::ValidationRule::SmMeshVSigRowCount: return "For shader '%0', vertex output signatures are taking up more than %1 rows";
+    case hlsl::ValidationRule::SmMeshPSigRowCount: return "For shader '%0', primitive output signatures are taking up more than %1 rows";
+    case hlsl::ValidationRule::SmMeshTotalSigRowCount: return "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows";
+    case hlsl::ValidationRule::SmMaxMSSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
+    case hlsl::ValidationRule::SmAmplificationShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
@@ -356,7 +373,7 @@ struct EntryStatus {
   bool hasOutputPosition[DXIL::kNumOutputStreams];
   unsigned OutputPositionMask[DXIL::kNumOutputStreams];
   std::vector<unsigned> outputCols;
-  std::vector<unsigned> patchConstCols;
+  std::vector<unsigned> patchConstOrPrimCols;
   bool m_bCoverageIn, m_bInnerCoverageIn;
   bool hasViewID;
   unsigned domainLocSize;
@@ -368,8 +385,8 @@ struct EntryStatus {
     }
 
     outputCols.resize(entryProps.sig.OutputSignature.GetElements().size(), 0);
-    patchConstCols.resize(
-        entryProps.sig.PatchConstantSignature.GetElements().size(), 0);
+    patchConstOrPrimCols.resize(
+        entryProps.sig.PatchConstOrPrimSignature.GetElements().size(), 0);
   }
 };
 
@@ -781,7 +798,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
   if ((93 <= op && op <= 96))
-    return (SK == DXIL::ShaderKind::Compute);
+    return (SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Mesh || SK == DXIL::ShaderKind::Amplification);
   // Instructions: DomainLocation=105
   if (op == 105)
     return (SK == DXIL::ShaderKind::Domain);
@@ -815,7 +832,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: ViewID=138
   if (op == 138)
     return (major > 6 || (major == 6 && minor >= 1))
-        && (SK == DXIL::ShaderKind::Vertex || SK == DXIL::ShaderKind::Hull || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Geometry || SK == DXIL::ShaderKind::Pixel);
+        && (SK == DXIL::ShaderKind::Vertex || SK == DXIL::ShaderKind::Hull || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Geometry || SK == DXIL::ShaderKind::Pixel || SK == DXIL::ShaderKind::Mesh);
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if ((139 <= op && op <= 140))
     return (major > 6 || (major == 6 && minor >= 2));
@@ -857,9 +874,49 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
   // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167
-  if ((165 <= op && op <= 167))
+  // WaveMultiPrefixBitCount=167, WriteSamplerFeedbackLevel=176,
+  // WriteSamplerFeedbackGrad=177, AllocateRayQuery=178,
+  // RayQuery_TraceRayInline=179, RayQuery_Proceed=180, RayQuery_Abort=181,
+  // RayQuery_CommitNonOpaqueTriangleHit=182,
+  // RayQuery_CommitProceduralPrimitiveHit=183, RayQuery_CommittedStatus=184,
+  // RayQuery_CandidateType=185, RayQuery_CandidateObjectToWorld3x4=186,
+  // RayQuery_CandidateWorldToObject3x4=187,
+  // RayQuery_CommittedObjectToWorld3x4=188,
+  // RayQuery_CommittedWorldToObject3x4=189,
+  // RayQuery_CandidateProceduralPrimitiveNonOpaque=190,
+  // RayQuery_CandidateTriangleFrontFace=191,
+  // RayQuery_CommittedTriangleFrontFace=192,
+  // RayQuery_CandidateTriangleBarycentrics=193,
+  // RayQuery_CommittedTriangleBarycentrics=194, RayQuery_RayFlags=195,
+  // RayQuery_WorldRayOrigin=196, RayQuery_WorldRayDirection=197,
+  // RayQuery_RayTMin=198, RayQuery_CandidateTriangleRayT=199,
+  // RayQuery_CommittedRayT=200, RayQuery_CandidateInstanceIndex=201,
+  // RayQuery_CandidateInstanceID=202, RayQuery_CandidateGeometryIndex=203,
+  // RayQuery_CandidatePrimitiveIndex=204, RayQuery_CandidateObjectRayOrigin=205,
+  // RayQuery_CandidateObjectRayDirection=206,
+  // RayQuery_CommittedInstanceIndex=207, RayQuery_CommittedInstanceID=208,
+  // RayQuery_CommittedGeometryIndex=209, RayQuery_CommittedPrimitiveIndex=210,
+  // RayQuery_CommittedObjectRayOrigin=211,
+  // RayQuery_CommittedObjectRayDirection=212
+  if ((165 <= op && op <= 167) || (176 <= op && op <= 212))
     return (major > 6 || (major == 6 && minor >= 5));
+  // Instructions: DispatchMesh=173
+  if (op == 173)
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Amplification);
+  // Instructions: GeometryIndex=213
+  if (op == 213)
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit);
+  // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  if ((174 <= op && op <= 175))
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel);
+  // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
+  // StoreVertexOutput=171, StorePrimitiveOutput=172
+  if ((168 <= op && op <= 172))
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Mesh);
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -889,8 +946,8 @@ static unsigned ValidateSignatureRowCol(Instruction *I,
   } else {
     if (SE.IsOutput())
       Status.outputCols[SE.GetID()] |= 1 << col;
-    if (SE.IsPatchConstant())
-      Status.patchConstCols[SE.GetID()] |= 1 << col;
+    if (SE.IsPatchConstOrPrim())
+      Status.patchConstOrPrimCols[SE.GetID()] |= 1 << col;
   }
 
   return col;
@@ -1463,10 +1520,13 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
       }
     }
   } break;
-  case DXIL::OpCode::StoreOutput: {
+  case DXIL::OpCode::StoreOutput:
+  case DXIL::OpCode::StoreVertexOutput: 
+  case DXIL::OpCode::StorePrimitiveOutput: {
     Value *outputID =
         CI->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
-    DxilSignature &outputSig = S.OutputSignature;
+    DxilSignature &outputSig = opcode == DXIL::OpCode::StorePrimitiveOutput ?
+      S.PatchConstOrPrimSignature : S.OutputSignature;
     Value *row = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputRowOpIdx);
     Value *col = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputColOpIdx);
     ValidateSignatureAccess(CI, outputSig, outputID, row, col, Status, ValCtx);
@@ -1509,7 +1569,7 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
         DxilEntrySignature &S = EntryProps.sig;
         Value *outputID =
             CI->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
-        DxilSignature &outputSig = S.PatchConstantSignature;
+        DxilSignature &outputSig = S.PatchConstOrPrimSignature;
         Value *row =
             CI->getArgOperand(DXIL::OperandIndex::kStoreOutputRowOpIdx);
         Value *col =
@@ -1613,6 +1673,30 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     } else {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"Emit/CutStream", "Geometry shader"});
+    }
+  } break;
+  case DXIL::OpCode::EmitIndices: {
+    if (!props.IsMS()) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"EmitIndices", "Mesh shader"});
+    }
+  } break;
+  case DXIL::OpCode::SetMeshOutputCounts: {
+    if (!props.IsMS()) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"SetMeshOutputCounts", "Mesh shader"});
+    }
+  } break;
+  case DXIL::OpCode::GetMeshPayload: {
+    if (!props.IsMS()) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"GetMeshPayload", "Mesh shader"});
+    }
+  } break;
+  case DXIL::OpCode::DispatchMesh: {
+    if (!props.IsAS()) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"DispatchMesh", "Amplification shader"});
     }
   } break;
   default:
@@ -2284,6 +2368,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::LoadInput:
   case DXIL::OpCode::DomainLocation:
   case DXIL::OpCode::StoreOutput:
+  case DXIL::OpCode::StoreVertexOutput:
+  case DXIL::OpCode::StorePrimitiveOutput:
   case DXIL::OpCode::OutputControlPointID:
   case DXIL::OpCode::LoadOutputControlPoint:
   case DXIL::OpCode::StorePatchConstant:
@@ -2700,6 +2786,110 @@ static void ValidateGradientOps(Function *F, ArrayRef<CallInst *> ops, ArrayRef<
   }
 }
 
+static void ValidateMsIntrinsics(Function *F,
+                                 ValidationContext &ValCtx,
+                                 CallInst *setMeshOutputCounts,
+                                 CallInst *getMeshPayload) {
+  if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
+    DXIL::ShaderKind shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
+    if (shaderKind != DXIL::ShaderKind::Mesh)
+      return;
+  } else {
+    return;
+  }
+
+  DominatorTreeAnalysis DTA;
+  DominatorTree DT = DTA.run(*F);
+
+  for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
+    bool foundSetMeshOutputCountsInCurrentBB = false;
+    for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
+      llvm::Instruction &I = *i;
+
+      // Calls to external functions.
+      CallInst *CI = dyn_cast<CallInst>(&I);
+      if (CI) {
+        Function *FCalled = CI->getCalledFunction();
+        if (FCalled->isDeclaration()) {
+          // External function validation will diagnose.
+          if (!IsDxilFunction(FCalled)) {
+            continue;
+          }
+
+          if (CI == setMeshOutputCounts) {
+            foundSetMeshOutputCountsInCurrentBB = true;
+          }
+          Value *opcodeVal = CI->getOperand(0);
+          ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
+          unsigned opcode = OpcodeConst->getLimitedValue();
+          DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+
+          if (dxilOpcode == DXIL::OpCode::StoreVertexOutput ||
+              dxilOpcode == DXIL::OpCode::StorePrimitiveOutput ||
+              dxilOpcode == DXIL::OpCode::EmitIndices) {
+            if (setMeshOutputCounts == nullptr) {
+              ValCtx.EmitInstrError(&I, ValidationRule::InstrMissingSetMeshOutputCounts);
+            } else if (!foundSetMeshOutputCountsInCurrentBB &&
+                       !DT.dominates(setMeshOutputCounts->getParent(), I.getParent())) {
+              ValCtx.EmitInstrError(&I, ValidationRule::InstrNonDominatingSetMeshOutputCounts);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (getMeshPayload) {
+    PointerType *payloadPTy = cast<PointerType>(getMeshPayload->getType());
+    StructType *payloadTy = cast<StructType>(payloadPTy->getPointerElementType());
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
+
+    if (payloadSize > DXIL::kMaxMSASPayloadSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSize,
+        { F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize) });
+    }
+
+    DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
+    prop.ShaderProps.MS.payloadByteSize = payloadSize;
+  }
+}
+
+static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallInst *dispatchMesh) {
+  if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
+    DXIL::ShaderKind shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
+    if (shaderKind != DXIL::ShaderKind::Amplification)
+      return;
+  }
+  else {
+    return;
+  }
+
+  if (dispatchMesh == nullptr) {
+    ValCtx.EmitError(ValidationRule::InstrNotOnceDispatchMesh);
+    return;
+  }
+
+  PostDominatorTree PDT;
+  PDT.runOnFunction(*F);
+
+  if (!PDT.dominates(dispatchMesh->getParent(), &F->getEntryBlock())) {
+    ValCtx.EmitInstrError(dispatchMesh, ValidationRule::InstrNonDominatingDispatchMesh);
+  }
+
+  Function *dispatchMeshFunc = dispatchMesh->getCalledFunction();
+  FunctionType *dispatchMeshFuncTy = dispatchMeshFunc->getFunctionType();
+  PointerType *payloadPTy = cast<PointerType>(dispatchMeshFuncTy->getParamType(4));
+  StructType *payloadTy = cast<StructType>(payloadPTy->getPointerElementType());
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
+
+  if (payloadSize > DXIL::kMaxMSASPayloadSize) {
+    ValCtx.EmitFormatError(ValidationRule::SmAmplificationShaderPayloadSize,
+      { F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize) });
+  }
+}
+
 static void ValidateControlFlowHint(BasicBlock &bb, ValidationContext &ValCtx) {
   // Validate controlflow hint.
   TerminatorInst *TI = bb.getTerminator();
@@ -2957,11 +3147,49 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I, ValidationContext &Va
   }
 }
 
+static bool IsFromMeshPayload(Instruction *I) {
+  unsigned opcode = I->getOpcode();
+  switch (opcode) {
+  case Instruction::Alloca: {
+    break;
+  }
+  case Instruction::GetElementPtr: {
+    Value *src0 = I->getOperand(0);
+    if (I = dyn_cast<Instruction>(src0)) {
+      return IsFromMeshPayload(I);
+    }
+    return false;
+  }
+  case Instruction::Store: {
+    Value *src1 = I->getOperand(1);
+    if (I = dyn_cast<Instruction>(src1)) {
+      return IsFromMeshPayload(I);
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+
+  for (auto user : I->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(user)) {
+      Function *func = CI->getCalledFunction();
+      StringRef funcName = func->getName();
+      if (funcName.startswith("dx.op.dispatchMesh"))
+        return true;
+    }
+  }
+  return false;
+}
+
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
   SmallVector<CallInst *, 16> gradientOps;
   SmallVector<CallInst *, 16> barriers;
+  CallInst *setMeshOutputCounts = nullptr;
+  CallInst *getMeshPayload = nullptr;
+  CallInst *dispatchMesh = nullptr;
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
     for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
       llvm::Instruction &I = *i;
@@ -3023,6 +3251,30 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           // External function validation will check the parameter
           // list. This function will check that the call does not
           // violate any rules.
+
+          if (dxilOpcode == DXIL::OpCode::SetMeshOutputCounts) {
+            // validate the call count of SetMeshOutputCounts
+            if (setMeshOutputCounts != nullptr) {
+              ValCtx.EmitInstrError(&I, ValidationRule::InstrMultipleSetMeshOutputCounts);
+            }
+            setMeshOutputCounts = CI;
+          }
+
+          if (dxilOpcode == DXIL::OpCode::GetMeshPayload) {
+            // validate the call count of GetMeshPayload
+            if (getMeshPayload != nullptr) {
+              ValCtx.EmitInstrError(&I, ValidationRule::InstrMultipleGetMeshPayload);
+            }
+            getMeshPayload = CI;
+          }
+
+          if (dxilOpcode == DXIL::OpCode::DispatchMesh) {
+            // validate the call count of DispatchMesh
+            if (dispatchMesh != nullptr) {
+              ValCtx.EmitInstrError(&I, ValidationRule::InstrNotOnceDispatchMesh);
+            }
+            dispatchMesh = CI;
+          }
         }
         continue;
       }
@@ -3069,11 +3321,13 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       unsigned opcode = I.getOpcode();
       switch (opcode) {
       case Instruction::Alloca: {
-        AllocaInst *AI = cast<AllocaInst>(&I);
-        // TODO: validate address space and alignment
-        Type *Ty = AI->getAllocatedType();
-        if (!ValidateType(Ty, ValCtx)) {
-          continue;
+        if (!IsFromMeshPayload(&I)) {
+          AllocaInst *AI = cast<AllocaInst>(&I);
+          // TODO: validate address space and alignment
+          Type *Ty = AI->getAllocatedType();
+          if (!ValidateType(Ty, ValCtx)) {
+            continue;
+          }
         }
       } break;
       case Instruction::ExtractValue: {
@@ -3096,16 +3350,20 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         }
       } break;
       case Instruction::Store: {
-        StoreInst *SI = cast<StoreInst>(&I);
-        Type *Ty = SI->getValueOperand()->getType();
-        if (!ValidateType(Ty, ValCtx)) {
-          continue;
+        if (!IsFromMeshPayload(&I)) {
+          StoreInst *SI = cast<StoreInst>(&I);
+          Type *Ty = SI->getValueOperand()->getType();
+          if (!ValidateType(Ty, ValCtx)) {
+            continue;
+          }
         }
       } break;
       case Instruction::GetElementPtr: {
-        Type *Ty = I.getType()->getPointerElementType();
-        if (!ValidateType(Ty, ValCtx)) {
-          continue;
+        if (!IsFromMeshPayload(&I)) {
+          Type *Ty = I.getType()->getPointerElementType();
+          if (!ValidateType(Ty, ValCtx)) {
+            continue;
+          }
         }
         GetElementPtrInst *GEP = cast<GetElementPtrInst>(&I);
         bool allImmIndex = true;
@@ -3220,6 +3478,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   if (!gradientOps.empty()) {
     ValidateGradientOps(F, gradientOps, barriers, ValCtx);
   }
+
+  ValidateMsIntrinsics(F, ValCtx, setMeshOutputCounts, getMeshPayload);
+
+  ValidateAsIntrinsics(F, ValCtx, dispatchMesh);
 }
 
 static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
@@ -3458,10 +3720,16 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     }
   }
 
-  if (TGSMSize > DXIL::kMaxTGSMSize) {
+  if (M.GetShaderModel()->IsMS()) {
+    if (TGSMSize > DXIL::kMaxMSSMSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmMaxMSSMSize,
+                             { std::to_string(TGSMSize),
+                               std::to_string(DXIL::kMaxMSSMSize) });
+    }
+  } else if (TGSMSize > DXIL::kMaxTGSMSize) {
     ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
-                           {std::to_string(TGSMSize),
-                            std::to_string(DXIL::kMaxTGSMSize)});
+                           { std::to_string(TGSMSize),
+                             std::to_string(DXIL::kMaxTGSMSize) });
   }
   if (!fixAddrTGSMList.empty()) {
     ValidateTGSMRaceCondition(fixAddrTGSMList, ValCtx);
@@ -3642,6 +3910,11 @@ static void ValidateResource(hlsl::DxilResource &res,
     break;
   case DXIL::ResourceKind::RTAccelerationStructure:
     // TODO: check profile.
+    break;
+  case DXIL::ResourceKind::FeedbackTexture2DMinLOD:
+  case DXIL::ResourceKind::FeedbackTexture2DTiled:
+  case DXIL::ResourceKind::FeedbackTexture2DArrayMinLOD:
+  case DXIL::ResourceKind::FeedbackTexture2DArrayTiled:
     break;
   default:
     ValCtx.EmitResourceError(&res, ValidationRule::SmInvalidResourceKind);
@@ -4408,6 +4681,14 @@ static void ValidateNoInterpModeSignature(ValidationContext &ValCtx, const DxilS
   }
 }
 
+static void ValidateConstantInterpModeSignature(ValidationContext &ValCtx, const DxilSignature &S) {
+  for (auto &E : S.GetElements()) {
+    if (!E->GetInterpolationMode()->IsConstant()) {
+      ValCtx.EmitSignatureError(E.get(), ValidationRule::SmConstantInterpMode);
+    }
+  }
+}
+
 static void ValidateEntrySignatures(ValidationContext &ValCtx,
                                     const DxilEntryProps &entryProps,
                                     EntryStatus &Status,
@@ -4419,7 +4700,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     // No signatures allowed
     if (!S.InputSignature.GetElements().empty() ||
         !S.OutputSignature.GetElements().empty() ||
-        !S.PatchConstantSignature.GetElements().empty()) {
+        !S.PatchConstOrPrimSignature.GetElements().empty()) {
       ValCtx.EmitFormatError(ValidationRule::SmRayShaderSignatures, { F.getName() });
     }
 
@@ -4465,6 +4746,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
   bool isVS = props.IsVS();
   bool isGS = props.IsGS();
   bool isCS = props.IsCS();
+  bool isMS = props.IsMS();
 
   if (isPS) {
     // PS output no interp mode.
@@ -4473,8 +4755,14 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     // VS input no interp mode.
     ValidateNoInterpModeSignature(ValCtx, S.InputSignature);
   }
-  // patch constant no interp mode.
-  ValidateNoInterpModeSignature(ValCtx, S.PatchConstantSignature);
+
+  if (isMS) {
+    // primitive output constant interp mode.
+    ValidateConstantInterpModeSignature(ValCtx, S.PatchConstOrPrimSignature);
+  } else {
+    // patch constant no interp mode.
+    ValidateNoInterpModeSignature(ValCtx, S.PatchConstOrPrimSignature);
+  }
 
   unsigned maxInputScalars = DXIL::kMaxInputTotalScalars;
   unsigned maxOutputScalars = 0;
@@ -4493,13 +4781,18 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       maxOutputScalars = DXIL::kMaxOutputTotalScalars;
       maxPatchConstantScalars = DXIL::kMaxHSOutputPatchConstantTotalScalars;
     break;
+  case DXIL::ShaderKind::Mesh:
+    maxOutputScalars = DXIL::kMaxOutputTotalScalars;
+    maxPatchConstantScalars = DXIL::kMaxOutputTotalScalars;
+    break;
+  case DXIL::ShaderKind::Amplification:
   default:
     break;
   }
 
   ValidateSignature(ValCtx, S.InputSignature, Status, maxInputScalars);
   ValidateSignature(ValCtx, S.OutputSignature, Status, maxOutputScalars);
-  ValidateSignature(ValCtx, S.PatchConstantSignature, Status,
+  ValidateSignature(ValCtx, S.PatchConstOrPrimSignature, Status,
                     maxPatchConstantScalars);
 
   if (isPS) {
@@ -4579,9 +4872,52 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
   if (isCS) {
       if (!S.InputSignature.GetElements().empty() ||
           !S.OutputSignature.GetElements().empty() ||
-          !S.PatchConstantSignature.GetElements().empty()) {
+          !S.PatchConstOrPrimSignature.GetElements().empty()) {
         ValCtx.EmitError(ValidationRule::SmCSNoSignatures);
       }
+  }
+
+  if (isMS) {
+    unsigned VertexSignatureRows = S.OutputSignature.GetRowCount();
+    if (VertexSignatureRows > DXIL::kMaxMSVSigRows) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshVSigRowCount,
+        { F.getName(), std::to_string(DXIL::kMaxMSVSigRows) });
+    }
+    unsigned PrimitiveSignatureRows = S.PatchConstOrPrimSignature.GetRowCount();
+    if (PrimitiveSignatureRows > DXIL::kMaxMSPSigRows) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshPSigRowCount,
+        { F.getName(), std::to_string(DXIL::kMaxMSPSigRows) });
+    }
+    if (VertexSignatureRows + PrimitiveSignatureRows > DXIL::kMaxMSTotalSigRows) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshTotalSigRowCount,
+        { F.getName(), std::to_string(DXIL::kMaxMSTotalSigRows) });
+    }
+
+    unsigned maxVertexCount = props.ShaderProps.MS.maxVertexCount;
+    unsigned maxPrimitiveCount = props.ShaderProps.MS.maxPrimitiveCount;
+    unsigned totalOutputScalars = 0;
+    for (auto &SE : S.OutputSignature.GetElements()) {
+      totalOutputScalars += SE->GetRows() * SE->GetCols() * maxVertexCount;
+    }
+    for (auto &SE : S.PatchConstOrPrimSignature.GetElements()) {
+      totalOutputScalars += SE->GetRows() * SE->GetCols() * maxPrimitiveCount;
+    }
+
+    if (totalOutputScalars > DXIL::kMaxMSOutputTotalScalars) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshShaderOutputSize,
+        { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalScalars) });
+    }
+
+    unsigned totalInputOutputScalars = totalOutputScalars + props.ShaderProps.MS.payloadByteSize;
+    if (totalInputOutputScalars > DXIL::kMaxMSInputOutputTotalScalars) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshShaderInOutSize,
+        { F.getName(), std::to_string(DXIL::kMaxMSInputOutputTotalScalars) });
+    }
   }
 }
 
@@ -4617,7 +4953,7 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx,
   DXIL::TessellatorDomain domain =
       isHS ? props.ShaderProps.HS.domain : props.ShaderProps.DS.domain;
 
-  const DxilSignature &patchConstantSig = EntryProps.sig.PatchConstantSignature;
+  const DxilSignature &patchConstantSig = EntryProps.sig.PatchConstOrPrimSignature;
 
   const unsigned kQuadEdgeSize = 4;
   const unsigned kQuadInsideSize = 2;
@@ -4763,6 +5099,92 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
       ValCtx.EmitFormatError(ValidationRule::SmMaxTheadGroup,
                              {std::to_string(threadsInGroup),
                               std::to_string(DXIL::kMaxCSThreadsPerGroup)});
+    }
+
+    // type of threadID, thread group ID take care by DXIL operation overload
+    // check.
+  } else if (ShaderType == DXIL::ShaderKind::Mesh) {
+    const auto &MS = props.ShaderProps.MS;
+    unsigned x = MS.numThreads[0];
+    unsigned y = MS.numThreads[1];
+    unsigned z = MS.numThreads[2];
+
+    unsigned threadsInGroup = x * y * z;
+
+    if ((x < DXIL::kMinMSASThreadGroupX) || (x > DXIL::kMaxMSASThreadGroupX)) {
+      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+                             {"X", std::to_string(x),
+                              std::to_string(DXIL::kMinMSASThreadGroupX),
+                              std::to_string(DXIL::kMaxMSASThreadGroupX)});
+    }
+    if ((y < DXIL::kMinMSASThreadGroupY) || (y > DXIL::kMaxMSASThreadGroupY)) {
+      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+                             {"Y", std::to_string(y),
+                              std::to_string(DXIL::kMinMSASThreadGroupY),
+                              std::to_string(DXIL::kMaxMSASThreadGroupY)});
+    }
+    if ((z < DXIL::kMinMSASThreadGroupZ) || (z > DXIL::kMaxMSASThreadGroupZ)) {
+      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+                             {"Z", std::to_string(z),
+                              std::to_string(DXIL::kMinMSASThreadGroupZ),
+                              std::to_string(DXIL::kMaxMSASThreadGroupZ)});
+    }
+
+    if (threadsInGroup > DXIL::kMaxMSASThreadsPerGroup) {
+      ValCtx.EmitFormatError(ValidationRule::SmMaxTheadGroup,
+                             {std::to_string(threadsInGroup),
+                              std::to_string(DXIL::kMaxMSASThreadsPerGroup)});
+    }
+
+    // type of threadID, thread group ID take care by DXIL operation overload
+    // check.
+
+    unsigned maxVertexCount = MS.maxVertexCount;
+    if (maxVertexCount > DXIL::kMaxMSOutputVertexCount) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshShaderMaxVertexCount,
+          { std::to_string(DXIL::kMaxMSOutputVertexCount),
+            std::to_string(maxVertexCount) });
+    }
+
+    unsigned maxPrimitiveCount = MS.maxPrimitiveCount;
+    if (maxPrimitiveCount > DXIL::kMaxMSOutputPrimitiveCount) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmMeshShaderMaxPrimitiveCount,
+          { std::to_string(DXIL::kMaxMSOutputPrimitiveCount),
+            std::to_string(maxPrimitiveCount) });
+    }
+  } else if (ShaderType == DXIL::ShaderKind::Amplification) {
+    const auto &AS = props.ShaderProps.AS;
+    unsigned x = AS.numThreads[0];
+    unsigned y = AS.numThreads[1];
+    unsigned z = AS.numThreads[2];
+
+    unsigned threadsInGroup = x * y * z;
+
+    if ((x < DXIL::kMinMSASThreadGroupX) || (x > DXIL::kMaxMSASThreadGroupX)) {
+      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+                             {"X", std::to_string(x),
+                              std::to_string(DXIL::kMinMSASThreadGroupX),
+                              std::to_string(DXIL::kMaxMSASThreadGroupX)});
+    }
+    if ((y < DXIL::kMinMSASThreadGroupY) || (y > DXIL::kMaxMSASThreadGroupY)) {
+      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+                             {"Y", std::to_string(y),
+                              std::to_string(DXIL::kMinMSASThreadGroupY),
+                              std::to_string(DXIL::kMaxMSASThreadGroupY)});
+    }
+    if ((z < DXIL::kMinMSASThreadGroupZ) || (z > DXIL::kMaxMSASThreadGroupZ)) {
+      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+                             {"Z", std::to_string(z),
+                              std::to_string(DXIL::kMinMSASThreadGroupZ),
+                              std::to_string(DXIL::kMaxMSASThreadGroupZ)});
+    }
+
+    if (threadsInGroup > DXIL::kMaxMSASThreadsPerGroup) {
+      ValCtx.EmitFormatError(ValidationRule::SmMaxTheadGroup,
+                             {std::to_string(threadsInGroup),
+                              std::to_string(DXIL::kMaxMSASThreadsPerGroup)});
     }
 
     // type of threadID, thread group ID take care by DXIL operation overload
@@ -5023,10 +5445,10 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx,
   const DxilFunctionProps &props = entryProps.props;
   // For HS only need to check Tessfactor which is in patch constant sig.
   if (props.IsHS()) {
-    std::vector<unsigned> &patchConstCols = Status.patchConstCols;
-    const DxilSignature &patchConstSig = entryProps.sig.PatchConstantSignature;
+    std::vector<unsigned> &patchConstOrPrimCols = Status.patchConstOrPrimCols;
+    const DxilSignature &patchConstSig = entryProps.sig.PatchConstOrPrimSignature;
     for (auto &E : patchConstSig.GetElements()) {
-      unsigned mask = patchConstCols[E->GetID()];
+      unsigned mask = patchConstOrPrimCols[E->GetID()];
       unsigned requireMask = (1 << E->GetCols()) - 1;
       // TODO: check other case uninitialized output is allowed.
       if (mask != requireMask && !E->GetSemantic()->IsArbitrary()) {
@@ -5214,8 +5636,8 @@ static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
   case hlsl::DXIL::SignatureKind::Output:
     pName = "Program Output Signature";
     break;
-  case hlsl::DXIL::SignatureKind::PatchConstant:
-    pName = "Program Patch Constant Signature";
+  case hlsl::DXIL::SignatureKind::PatchConstOrPrim:
+    pName = "Program Patch Constant or Primitive Signature";
     break;
   default:
     break;
@@ -5360,7 +5782,9 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
 
   DXIL::ShaderKind ShaderKind = pDxilModule->GetShaderModel()->GetKind();
-  bool bTess = ShaderKind == DXIL::ShaderKind::Hull || ShaderKind == DXIL::ShaderKind::Domain;
+  bool bTessOrMesh = ShaderKind == DXIL::ShaderKind::Hull ||
+                     ShaderKind == DXIL::ShaderKind::Domain ||
+                     ShaderKind == DXIL::ShaderKind::Mesh;
 
   std::unordered_set<uint32_t> FourCCFound;
   const DxilPartHeader *pRootSignaturePart = nullptr;
@@ -5398,8 +5822,8 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       if (ValCtx.isLibProfile) {
         ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
       } else {
-        if (bTess) {
-          VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, GetDxilPartData(pPart), pPart->PartSize);
+        if (bTessOrMesh) {
+          VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstOrPrim, GetDxilPartData(pPart), pPart->PartSize);
         } else {
           ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, {"Program Patch Constant Signature"});
         }
@@ -5466,8 +5890,8 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end()) {
       VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, nullptr, 0);
     }
-    if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&
-        pDxilModule->GetPatchConstantSignature().GetElements().size())
+    if (bTessOrMesh && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&
+        pDxilModule->GetPatchConstOrPrimSignature().GetElements().size())
     {
       ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, { "Program Patch Constant Signature" });
     }

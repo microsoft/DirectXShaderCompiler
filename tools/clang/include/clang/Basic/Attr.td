@@ -871,6 +871,30 @@ def HLSLExport : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLIndices : InheritableAttr {
+  let Spellings = [CXX11<"", "indices", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLVertices : InheritableAttr {
+  let Spellings = [CXX11<"", "vertices", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLPrimitives : InheritableAttr {
+  let Spellings = [CXX11<"", "primitives", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLPayload : InheritableAttr {
+  let Spellings = [CXX11<"", "payload", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
