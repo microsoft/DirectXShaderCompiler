@@ -3292,28 +3292,17 @@ private:
           break;
         }
       } else if (kind == AR_OBJECT_RAY_QUERY) {
-        ClassTemplateDecl* typeDecl = nullptr;
-        AddRayQueryTemplate(*m_context, &typeDecl, &recordDecl);
-        DXASSERT(typeDecl != nullptr, "AddRayQueryTemplate failed to return the object declaration");
-        typeDecl->setImplicit(true);
-        recordDecl->setImplicit(true);
+        recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "RayQuery", "flags");
       }
-      else if (templateArgCount == 0)
-      {
-        AddRecordTypeWithHandle(*m_context, &recordDecl, typeName);
-        DXASSERT(recordDecl != nullptr, "AddRecordTypeWithHandle failed to return the object declaration");
-        recordDecl->setImplicit(true);
+      else if (templateArgCount == 0) {
+        recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName);
       }
       else
       {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2, "otherwise a new case has been added");
 
-        ClassTemplateDecl* typeDecl = nullptr;
         TypeSourceInfo* typeDefault = TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
-        AddTemplateTypeWithHandle(*m_context, &typeDecl, &recordDecl, typeName, templateArgCount, typeDefault);
-        DXASSERT(typeDecl != nullptr, "AddTemplateTypeWithHandle failed to return the object declaration");
-        typeDecl->setImplicit(true);
-        recordDecl->setImplicit(true);
+        recordDecl = DeclareTemplateTypeWithHandle(*m_context, typeName, templateArgCount, typeDefault);
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
@@ -4237,11 +4226,7 @@ public:
     DXASSERT(m_matrixTemplateDecl != nullptr, "AddHLSLMatrixTypes failed to return the matrix template declaration");
 
     // Initializing built in integers for ray tracing
-    AddRayFlags(*m_context);
-    AddHitKinds(*m_context);
-    AddStateObjectFlags(*m_context);
-    AddCommittedStatus(*m_context);
-    AddCandidateType(*m_context);
+    AddRayTracingConstants(*m_context);
 
     return true;
   }
