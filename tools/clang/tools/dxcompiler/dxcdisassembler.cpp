@@ -756,6 +756,7 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
         break;
       }
       OS << "MaxTraceRecursionDepth = " << MaxTraceRecursionDepth;
+      OS << ", Flags = ";
       PrintFlags<DXIL::RaytracingPipelineFlags>(OS, Flags);
       break;
     }
