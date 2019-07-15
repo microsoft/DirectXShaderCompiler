@@ -17,6 +17,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
+#include "clang/AST/HlslBuiltinTypeDeclBuilder.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/Sema.h"
@@ -229,141 +230,6 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
     }
   }
   return HLSLScalarType_unknown;
-}
-
-namespace {
-// Helper to declare a builtin HLSL type in the clang AST with minimal boilerplate.
-class BuiltinTypeDeclBuilder final {
-public:
-  BuiltinTypeDeclBuilder(DeclContext* declContext, StringRef name, TagDecl::TagKind tagKind = TagDecl::TagKind::TTK_Class);
-
-  TemplateTypeParmDecl* addTypeTemplateParam(StringRef name, TypeSourceInfo* defaultValue = nullptr);
-  TemplateTypeParmDecl* addTypeTemplateParam(StringRef name, QualType defaultValue);
-  NonTypeTemplateParmDecl* addIntegerTemplateParam(StringRef name, QualType type, Optional<int64_t> defaultValue = None);
-
-  void startDefinition();
-
-  FieldDecl* addField(StringRef name, QualType type, AccessSpecifier access = AccessSpecifier::AS_private);
-
-  CXXRecordDecl* completeDefinition();
-
-  CXXRecordDecl* getRecordDecl() const { return m_recordDecl; }
-  ClassTemplateDecl* getTemplateDecl() const;
-
-private:
-  CXXRecordDecl* m_recordDecl = nullptr;
-  ClassTemplateDecl* m_templateDecl = nullptr;
-  SmallVector<NamedDecl*, 2> m_templateParams;
-};
-}
-
-BuiltinTypeDeclBuilder::BuiltinTypeDeclBuilder(DeclContext* declContext, StringRef name, TagDecl::TagKind tagKind) {
-  ASTContext& astContext = declContext->getParentASTContext();
-  IdentifierInfo& nameId = astContext.Idents.get(name, tok::TokenKind::identifier);
-  m_recordDecl = CXXRecordDecl::Create(astContext, tagKind, declContext, NoLoc, NoLoc, &nameId, nullptr, DelayTypeCreationTrue);
-  m_recordDecl->setImplicit(true);
-  declContext->addDecl(m_recordDecl);
-}
-
-TemplateTypeParmDecl* BuiltinTypeDeclBuilder::addTypeTemplateParam(StringRef name, TypeSourceInfo* defaultValue) {
-  DXASSERT_NOMSG(!m_recordDecl->isBeingDefined() && !m_recordDecl->isCompleteDefinition());
-
-  ASTContext& astContext = m_recordDecl->getASTContext();
-  IdentifierInfo& nameId = astContext.Idents.get(name, tok::TokenKind::identifier);
-  unsigned index = (unsigned)m_templateParams.size();
-  TemplateTypeParmDecl* decl = TemplateTypeParmDecl::Create(
-    astContext, m_recordDecl->getDeclContext(), NoLoc, NoLoc, FirstTemplateDepth, index, &nameId, TypenameFalse, ParameterPackFalse);
-  if (defaultValue!= nullptr) decl->setDefaultArgument(defaultValue);
-  m_templateParams.emplace_back(decl);
-  return decl;
-}
-
-TemplateTypeParmDecl* BuiltinTypeDeclBuilder::addTypeTemplateParam(StringRef name, QualType defaultValue) {
-  TypeSourceInfo* defaultValueSourceInfo = nullptr;
-  if (!defaultValue.isNull()) defaultValueSourceInfo = m_recordDecl->getASTContext().getTrivialTypeSourceInfo(defaultValue);
-  return addTypeTemplateParam(name, defaultValueSourceInfo);
-}
-
-NonTypeTemplateParmDecl* BuiltinTypeDeclBuilder::addIntegerTemplateParam(StringRef name, QualType type, Optional<int64_t> defaultValue) {
-  DXASSERT_NOMSG(!m_recordDecl->isBeingDefined() && !m_recordDecl->isCompleteDefinition());
-
-  ASTContext& astContext = m_recordDecl->getASTContext();
-  IdentifierInfo& nameId = astContext.Idents.get(name, tok::TokenKind::identifier);
-  unsigned index = (unsigned)m_templateParams.size();
-  NonTypeTemplateParmDecl* decl = NonTypeTemplateParmDecl::Create(
-    astContext, m_recordDecl->getDeclContext(), NoLoc, NoLoc,
-    FirstTemplateDepth, index, &nameId, type, ParameterPackFalse, astContext.getTrivialTypeSourceInfo(type));
-  if (defaultValue.hasValue()) {
-    Expr* defaultValueLiteral = IntegerLiteral::Create(
-      astContext, llvm::APInt(astContext.getIntWidth(type), defaultValue.getValue()), type, NoLoc);
-    decl->setDefaultArgument(defaultValueLiteral);
-  }
-  m_templateParams.emplace_back(decl);
-  return decl;
-}
-
-void BuiltinTypeDeclBuilder::startDefinition() {
-  DXASSERT_NOMSG(!m_recordDecl->isBeingDefined() && !m_recordDecl->isCompleteDefinition());
-
-  ASTContext& astContext = m_recordDecl->getASTContext();
-  DeclContext* declContext = m_recordDecl->getDeclContext();
-
-  if (!m_templateParams.empty()) {
-    TemplateParameterList* templateParameterList = TemplateParameterList::Create(
-      astContext, NoLoc, NoLoc, m_templateParams.data(), m_templateParams.size(), NoLoc);
-    m_templateDecl = ClassTemplateDecl::Create(
-      astContext, declContext, NoLoc, DeclarationName(m_recordDecl->getIdentifier()),
-      templateParameterList, m_recordDecl, nullptr);
-    m_recordDecl->setDescribedClassTemplate(m_templateDecl);
-    m_templateDecl->setImplicit(true);
-    m_templateDecl->setLexicalDeclContext(declContext);
-    declContext->addDecl(m_templateDecl);
-
-    // Requesting the class name specialization will fault in required types.
-    QualType T = m_templateDecl->getInjectedClassNameSpecialization();
-    T = astContext.getInjectedClassNameType(m_recordDecl, T);
-    assert(T->isDependentType() && "Class template type is not dependent?");
-  }
-
-  m_recordDecl->setLexicalDeclContext(declContext);
-  m_recordDecl->addAttr(FinalAttr::CreateImplicit(astContext, FinalAttr::Keyword_final));
-  m_recordDecl->startDefinition();
-}
-
-FieldDecl* BuiltinTypeDeclBuilder::addField(StringRef name, QualType type, AccessSpecifier access) {
-  DXASSERT_NOMSG(m_recordDecl->isBeingDefined());
-
-  ASTContext& astContext = m_recordDecl->getASTContext();
-
-  IdentifierInfo& nameId = astContext.Idents.get(name, tok::TokenKind::identifier);
-  TypeSourceInfo* fieldTypeSource = astContext.getTrivialTypeSourceInfo(type, NoLoc);
-  const bool MutableFalse = false;
-  const InClassInitStyle initStyle = InClassInitStyle::ICIS_NoInit;
-  FieldDecl* fieldDecl = FieldDecl::Create(
-    astContext, m_recordDecl, NoLoc, NoLoc, &nameId, type, fieldTypeSource, nullptr, MutableFalse, initStyle);
-  fieldDecl->setAccess(access);
-  fieldDecl->setImplicit(true);
-  m_recordDecl->addDecl(fieldDecl);
-
-#ifdef DBG
-  // Verify that we can read the field member from the record.
-  DeclContext::lookup_result lookupResult = m_recordDecl->lookup(DeclarationName(nameId));
-  DXASSERT(!lookupResult.empty(), "Field cannot be looked up");
-#endif
-
-  return fieldDecl;
-}
-
-CXXRecordDecl* BuiltinTypeDeclBuilder::completeDefinition() {
-  DXASSERT_NOMSG(!m_recordDecl->isCompleteDefinition());
-  if (!m_recordDecl->isBeingDefined()) startDefinition();
-  m_recordDecl->completeDefinition();
-  return m_recordDecl;
-}
-
-ClassTemplateDecl* BuiltinTypeDeclBuilder::getTemplateDecl() const {
-  DXASSERT_NOMSG(m_recordDecl->isBeingDefined() || m_recordDecl->isCompleteDefinition());
-  return m_templateDecl;
 }
 
 /// <summary>Provides the primitive type for lowering matrix types to IR.</summary>
