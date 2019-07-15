@@ -556,6 +556,8 @@ void hlsl::AddRayFlags(ASTContext& context) {
   AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_FRONT_FACING_TRIANGLES"), (unsigned)DXIL::RayFlag::CullFrontFacingTriangles);
   AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_OPAQUE"), (unsigned)DXIL::RayFlag::CullOpaque);
   AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_NON_OPAQUE"), (unsigned)DXIL::RayFlag::CullNonOpaque);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_SKIP_TRIANGLES"), (unsigned)DXIL::RayFlag::SkipTriangles);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES"), (unsigned)DXIL::RayFlag::SkipProceduralPrimitives);
 }
 
 /// <summary> Adds a constant integers for hit kinds </summary>
@@ -573,6 +575,14 @@ void hlsl::AddStateObjectFlags(ASTContext& context) {
  
   AddConstUInt(context, curDC, StringRef("STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS"), (unsigned)DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions);
   AddConstUInt(context, curDC, StringRef("STATE_OBJECT_FLAGS_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
+}
+
+/// <summary> Adds a constant integers for raytracing pipeline flags </summary>
+void hlsl::AddRaytracingPipelineFlags(ASTContext& context) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+ 
+  AddConstUInt(context, curDC, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipTriangles);
+  AddConstUInt(context, curDC, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives);
 }
 
 /// <summary> Adds const integers for committed status </summary>

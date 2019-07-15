@@ -76,6 +76,10 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     HitGroup.ClosestHit = other.HitGroup.ClosestHit;
     HitGroup.Intersection = other.HitGroup.Intersection;
     break;
+  case Kind::RaytracingPipelineConfig1:
+    RaytracingPipelineConfig1.MaxTraceRecursionDepth = other.RaytracingPipelineConfig1.MaxTraceRecursionDepth;
+    RaytracingPipelineConfig1.Flags = other.RaytracingPipelineConfig1.Flags;
+    break;
   default:
     DXASSERT(0, "invalid kind");
     break;
@@ -178,7 +182,17 @@ bool DxilSubobject::GetHitGroup(DXIL::HitGroupType &hitGroupType,
   return false;
 }
 
-
+// RaytracingPipelineConfig1
+bool DxilSubobject::GetRaytracingPipelineConfig1(
+    uint32_t &MaxTraceRecursionDepth, uint32_t &Flags) const {
+  if (m_Kind == Kind::RaytracingPipelineConfig1) {
+    MaxTraceRecursionDepth = RaytracingPipelineConfig1.MaxTraceRecursionDepth;
+    Flags = RaytracingPipelineConfig1.Flags;
+    return true;
+  }
+  return false;
+}
+ 
 DxilSubobjects::DxilSubobjects()
   : m_BytesStorage()
   , m_Subobjects()
@@ -304,6 +318,16 @@ DxilSubobject &DxilSubobjects::CreateHitGroup(llvm::StringRef Name,
   obj.HitGroup.AnyHit = AnyHit.data();
   obj.HitGroup.ClosestHit = ClosestHit.data();
   obj.HitGroup.Intersection = Intersection.data();
+  return obj;
+}
+
+DxilSubobject &DxilSubobjects::CreateRaytracingPipelineConfig1(
+    llvm::StringRef Name, uint32_t MaxTraceRecursionDepth, uint32_t Flags) {
+  auto &obj = CreateSubobject(Kind::RaytracingPipelineConfig1, Name);
+  obj.RaytracingPipelineConfig1.MaxTraceRecursionDepth = MaxTraceRecursionDepth;
+  DXASSERT_NOMSG(
+      0 == ((~(uint32_t)DXIL::RaytracingPipelineFlags::ValidMask) & Flags));
+  obj.RaytracingPipelineConfig1.Flags = Flags;
   return obj;
 }
 

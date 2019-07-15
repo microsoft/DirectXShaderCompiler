@@ -2753,6 +2753,7 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
     { "SubobjectToExportsAssociation sea;", "1:1: error: subobject needs to be initialized" },
     { "RaytracingShaderConfig rsc;",        "1:1: error: subobject needs to be initialized" },
     { "RaytracingPipelineConfig rpc;",      "1:1: error: subobject needs to be initialized" },
+    { "RaytracingPipelineConfig1 rpc1;",    "1:1: error: subobject needs to be initialized" },
     { "TriangleHitGroup hitGt;",            "1:1: error: subobject needs to be initialized" },
     { "ProceduralPrimitiveHitGroup hitGt;", "1:1: error: subobject needs to be initialized" },
     { "GlobalRootSignature grs2 = {\"\"};", "1:29: error: empty string not expected here" },

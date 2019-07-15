@@ -219,6 +219,10 @@ struct RuntimeDataSubobjectInfo {
     uint32_t ClosestHit;
     uint32_t Intersection;
   };
+  struct RaytracingPipelineConfig1_t {
+    uint32_t MaxTraceRecursionDepth;
+    uint32_t Flags;
+  };
 
   union {
     StateObjectConfig_t StateObjectConfig;
@@ -227,6 +231,7 @@ struct RuntimeDataSubobjectInfo {
     RaytracingShaderConfig_t RaytracingShaderConfig;
     RaytracingPipelineConfig_t RaytracingPipelineConfig;
     HitGroup_t HitGroup;
+    RaytracingPipelineConfig1_t RaytracingPipelineConfig1;
   };
 };
 
@@ -532,6 +537,17 @@ public:
       m_SubobjectInfo->RaytracingPipelineConfig.MaxTraceRecursionDepth : 0;
   }
 
+  // RaytracingPipelineConfig1
+  uint32_t GetRaytracingPipelineConfig1_MaxTraceRecursionDepth() const {
+    return (GetKind() == DXIL::SubobjectKind::RaytracingPipelineConfig1) ?
+      m_SubobjectInfo->RaytracingPipelineConfig1.MaxTraceRecursionDepth : 0;
+  }
+
+  uint32_t GetRaytracingPipelineConfig1_Flags() const {
+    return (GetKind() == DXIL::SubobjectKind::RaytracingPipelineConfig1) ?
+      m_SubobjectInfo->RaytracingPipelineConfig1.Flags : (uint32_t)0;
+  }
+
   // HitGroup
   DXIL::HitGroupType GetHitGroup_Type() const {
     return (GetKind() == DXIL::SubobjectKind::HitGroup) ?
@@ -653,6 +669,11 @@ struct DxilSubobjectDesc {
     LPCWSTR Intersection;
   };
 
+  struct RaytracingPipelineConfig1_t {
+    uint32_t MaxTraceRecursionDepth;
+    uint32_t Flags; // DXIL::RaytracingPipelineFlags / D3D12_RAYTRACING_PIPELINE_FLAGS
+  };
+
   union {
     StateObjectConfig_t StateObjectConfig;
     RootSignature_t RootSignature;    // GlobalRootSignature or LocalRootSignature
@@ -660,6 +681,7 @@ struct DxilSubobjectDesc {
     RaytracingShaderConfig_t RaytracingShaderConfig;
     RaytracingPipelineConfig_t RaytracingPipelineConfig;
     HitGroup_t HitGroup;
+    RaytracingPipelineConfig1_t RaytracingPipelineConfig1;
   };
 };
 

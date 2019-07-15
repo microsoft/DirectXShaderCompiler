@@ -598,6 +598,7 @@ static const char *SubobjectKindToString(DXIL::SubobjectKind kind) {
   case DXIL::SubobjectKind::RaytracingShaderConfig: return "RaytracingShaderConfig";
   case DXIL::SubobjectKind::RaytracingPipelineConfig: return "RaytracingPipelineConfig";
   case DXIL::SubobjectKind::HitGroup: return "HitGroup";
+  case DXIL::SubobjectKind::RaytracingPipelineConfig1: return "RaytracingPipelineConfig1";
   }
   return "<invalid kind>";
 }
@@ -610,6 +611,16 @@ static const char *FlagToString(DXIL::StateObjectFlags Flag) {
     return "STATE_OBJECT_FLAG_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS";
   }
   return "<invalid StateObjectFlag>";
+}
+
+static const char *FlagToString(DXIL::RaytracingPipelineFlags Flag) {
+  switch (Flag) {
+  case DXIL::RaytracingPipelineFlags::SkipTriangles:
+    return "RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES";
+  case DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives:
+    return "RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES";
+  }
+  return "<invalid RaytracingPipelineFlags>";
 }
 
 static const char *HitGroupTypeToString(DXIL::HitGroupType type) {
@@ -735,6 +746,17 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
          << ", Anyhit = \"" << AnyHit
          << "\", Closesthit = \"" << ClosestHit
          << "\", Intersection = \"" << Intersection << "\"";
+      break;
+    }
+    case DXIL::SubobjectKind::RaytracingPipelineConfig1: {
+      uint32_t MaxTraceRecursionDepth;
+      uint32_t Flags;
+      if (!obj.GetRaytracingPipelineConfig1(MaxTraceRecursionDepth, Flags)) {
+        OS << "<error getting subobject>";
+        break;
+      }
+      OS << "MaxTraceRecursionDepth = " << MaxTraceRecursionDepth;
+      PrintFlags<DXIL::RaytracingPipelineFlags>(OS, Flags);
       break;
     }
     }

@@ -564,6 +564,8 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
       return name == "RaytracingShaderConfig" ? (subobjectKind = DXIL::SubobjectKind::RaytracingShaderConfig, true) : false;
     case 24:
       return name == "RaytracingPipelineConfig" ? (subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig, true) : false;
+    case 25:
+      return name == "RaytracingPipelineConfig1" ? (subobjectKind = DXIL::SubobjectKind::RaytracingPipelineConfig1, true) : false;
     case 16:
       if (name == "TriangleHitGroup") {
         subobjectKind = DXIL::SubobjectKind::HitGroup;

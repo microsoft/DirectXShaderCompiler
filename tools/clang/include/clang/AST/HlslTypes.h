@@ -305,6 +305,7 @@ void AddRecordTypeWithHandle(
 void AddRayFlags(clang::ASTContext& context);
 void AddHitKinds(clang::ASTContext& context);
 void AddStateObjectFlags(clang::ASTContext& context);
+void AddRaytracingPipelineFlags(clang::ASTContext &context);
 void AddCommittedStatus(clang::ASTContext& context);
 void AddCandidateType(clang::ASTContext& context);
 
