@@ -10,6 +10,7 @@
 // CHECK: ; RaytracingPipelineConfig rpc = { MaxTraceRecursionDepth = 512 };
 // CHECK: ; HitGroup trHitGt = { HitGroupType = Triangle, Anyhit = "a", Closesthit = "b", Intersection = "" };
 // CHECK: ; HitGroup ppHitGt = { HitGroupType = ProceduralPrimitive, Anyhit = "a", Closesthit = "b", Intersection = "c" };
+// CHECK: ; StateObjectConfig soc2 = { STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS };
 
 GlobalRootSignature grs = {"CBV(b0)"};
 StateObjectConfig soc = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS };
@@ -22,6 +23,7 @@ RaytracingShaderConfig rsc = { 128, 64 };
 RaytracingPipelineConfig rpc = { 512 };
 TriangleHitGroup trHitGt = { "a", "b" };
 ProceduralPrimitiveHitGroup ppHitGt = { "a", "b", "c"};
+StateObjectConfig soc2 = {STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS};
 
 int main(int i : INDEX) : SV_Target {
   return 1;
