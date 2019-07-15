@@ -13,6 +13,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/ADT/STLExtras.h"
@@ -312,9 +313,9 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), domain, false,
         M.GetUseMinPrecision());
-  case DXIL::SignatureKind::PatchConstant:
+  case DXIL::SignatureKind::PatchConstOrPrim:
     return new DxilProgramSignatureWriter(
-        M.GetPatchConstantSignature(), domain,
+        M.GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision());
   case DXIL::SignatureKind::Invalid:
@@ -372,7 +373,7 @@ private:
   SmallVector<uint32_t, 8> m_SemanticIndexBuffer;
   std::vector<PSVSignatureElement0> m_SigInputElements;
   std::vector<PSVSignatureElement0> m_SigOutputElements;
-  std::vector<PSVSignatureElement0> m_SigPatchConstantElements;
+  std::vector<PSVSignatureElement0> m_SigPatchConstOrPrimElements;
 
   void SetPSVSigElement(PSVSignatureElement0 &E, const DxilSignatureElement &SE) {
     memset(&E, 0, sizeof(PSVSignatureElement0));
@@ -468,8 +469,8 @@ public:
       m_SigInputElements.resize(m_PSVInitInfo.SigInputElements);
       m_PSVInitInfo.SigOutputElements = m_Module.GetOutputSignature().GetElements().size();
       m_SigOutputElements.resize(m_PSVInitInfo.SigOutputElements);
-      m_PSVInitInfo.SigPatchConstantElements = m_Module.GetPatchConstantSignature().GetElements().size();
-      m_SigPatchConstantElements.resize(m_PSVInitInfo.SigPatchConstantElements);
+      m_PSVInitInfo.SigPatchConstOrPrimElements = m_Module.GetPatchConstOrPrimSignature().GetElements().size();
+      m_SigPatchConstOrPrimElements.resize(m_PSVInitInfo.SigPatchConstOrPrimElements);
       uint32_t i = 0;
       for (auto &SE : m_Module.GetInputSignature().GetElements()) {
         SetPSVSigElement(m_SigInputElements[i++], *(SE.get()));
@@ -479,8 +480,8 @@ public:
         SetPSVSigElement(m_SigOutputElements[i++], *(SE.get()));
       }
       i = 0;
-      for (auto &SE : m_Module.GetPatchConstantSignature().GetElements()) {
-        SetPSVSigElement(m_SigPatchConstantElements[i++], *(SE.get()));
+      for (auto &SE : m_Module.GetPatchConstOrPrimSignature().GetElements()) {
+        SetPSVSigElement(m_SigPatchConstOrPrimElements[i++], *(SE.get()));
       }
       // Set String and SemanticInput Tables
       m_PSVInitInfo.StringTable.Table = m_StringBuffer.data();
@@ -493,12 +494,9 @@ public:
       for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
         m_PSVInitInfo.SigOutputVectors[streamIndex] = m_Module.GetOutputSignature().NumVectorsUsed(streamIndex);
       }
-      m_PSVInitInfo.SigPatchConstantVectors = 0;
-      if (SM->IsHS()) {
-        m_PSVInitInfo.SigPatchConstantVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed(0);
-      }
-      if (SM->IsDS()) {
-        m_PSVInitInfo.SigPatchConstantVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed(0);
+      m_PSVInitInfo.SigPatchConstOrPrimVectors = 0;
+      if (SM->IsHS() || SM->IsDS() || SM->IsMS()) {
+        m_PSVInitInfo.SigPatchConstOrPrimVectors = m_Module.GetPatchConstOrPrimSignature().NumVectorsUsed(0);
       }
     }
     if (!m_PSV.InitNew(m_PSVInitInfo, nullptr, &m_PSVBufferSize)) {
@@ -603,10 +601,58 @@ public:
         }
         break;
       }
+    case ShaderModel::Kind::Amplification:
     case ShaderModel::Kind::Compute:
     case ShaderModel::Kind::Library:
     case ShaderModel::Kind::Invalid:
-      // Compute, Library, and Invalide not relevant to PSVRuntimeInfo0
+      // Amplification, Compute, Library, and Invalide not relevant to PSVRuntimeInfo0
+      break;
+    case ShaderModel::Kind::Mesh:
+      pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
+      pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
+      pInfo1->MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
+      Module *mod = m_Module.GetModule();
+      const DataLayout &DL = mod->getDataLayout();
+      unsigned totalByteSize = 0;
+      for (GlobalVariable &GV : mod->globals()) {
+        PointerType *gvPtrType = cast<PointerType>(GV.getType());
+        if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
+          Type *gvType = gvPtrType->getPointerElementType();
+          unsigned byteSize = DL.getTypeAllocSize(gvType);
+          totalByteSize += byteSize;
+        }
+      }
+      pInfo->MS.GroupSharedBytesUsed = totalByteSize;
+
+      const Function *entryFunc = m_Module.GetEntryFunction();
+      unsigned payloadByteSize = 0;
+      for (auto b = entryFunc->begin(), bend = entryFunc->end(); b != bend; ++b) {
+        auto i = b->begin(), iend = b->end();
+        for (; i != iend; ++i) {
+          const Instruction &I = *i;
+
+          // Calls to external functions.
+          const CallInst *CI = dyn_cast<CallInst>(&I);
+          if (CI) {
+            Function *FCalled = CI->getCalledFunction();
+            if (FCalled->isDeclaration()) {
+              Value *opcodeVal = CI->getOperand(0);
+              ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
+              unsigned opcode = OpcodeConst->getLimitedValue();
+              DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+              if (dxilOpcode == DXIL::OpCode::GetMeshPayload) {
+                PointerType *payloadPTy = cast<PointerType>(CI->getType());
+                Type *payloadTy = payloadPTy->getPointerElementType();
+                payloadByteSize = DL.getTypeAllocSize(payloadTy);
+                break;
+              }
+            }
+          }
+        }
+        if (i != iend)
+          break;
+      }
+      pInfo->MS.PayloadSizeInBytes = payloadByteSize;
       break;
     }
 
@@ -689,10 +735,10 @@ public:
         DXASSERT_NOMSG(pOutputElement);
         memcpy(pOutputElement, &m_SigOutputElements[i], sizeof(PSVSignatureElement0));
       }
-      for (unsigned i = 0; i < m_PSV.GetSigPatchConstantElements(); i++) {
-        PSVSignatureElement0 *pPatchConstantElement = m_PSV.GetPatchConstantElement0(i);
-        DXASSERT_NOMSG(pPatchConstantElement);
-        memcpy(pPatchConstantElement, &m_SigPatchConstantElements[i], sizeof(PSVSignatureElement0));
+      for (unsigned i = 0; i < m_PSV.GetSigPatchConstOrPrimElements(); i++) {
+        PSVSignatureElement0 *pPatchConstOrPrimElement = m_PSV.GetPatchConstOrPrimElement0(i);
+        DXASSERT_NOMSG(pPatchConstOrPrimElement);
+        memcpy(pPatchConstOrPrimElement, &m_SigPatchConstOrPrimElements[i], sizeof(PSVSignatureElement0));
       }
 
       // Gather ViewID dependency information
@@ -707,7 +753,7 @@ public:
           if (!SM->IsGS())
             break;
         }
-        if (SM->IsHS()) {
+        if (SM->IsHS() || SM->IsMS()) {
           const uint32_t PCScalars = *(pSrc++);
           pSrc = CopyViewIDState(pSrc, InputScalars, PCScalars, m_PSV.GetViewIDPCOutputMask(), m_PSV.GetInputToPCOutputTable());
         } else if (SM->IsDS()) {
@@ -1491,7 +1537,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   std::unique_ptr<DxilProgramSignatureWriter> pInputSigWriter = nullptr;
   std::unique_ptr<DxilProgramSignatureWriter> pOutputSigWriter = nullptr;
-  std::unique_ptr<DxilProgramSignatureWriter> pPatchConstantSigWriter = nullptr;
+  std::unique_ptr<DxilProgramSignatureWriter> pPatchConstOrPrimSigWriter = nullptr;
   if (!pModule->GetShaderModel()->IsLib()) {
     DXIL::TessellatorDomain domain = DXIL::TessellatorDomain::Undefined;
     if (pModule->GetShaderModel()->IsHS() || pModule->GetShaderModel()->IsDS())
@@ -1514,15 +1560,15 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                      pOutputSigWriter->write(pStream);
                    });
 
-    pPatchConstantSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
-        pModule->GetPatchConstantSignature(), domain,
+    pPatchConstOrPrimSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+        pModule->GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
         /*UseMinPrecision*/ pModule->GetUseMinPrecision());
-    if (pModule->GetPatchConstantSignature().GetElements().size()) {
+    if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
       writer.AddPart(DFCC_PatchConstantSignature,
-                     pPatchConstantSigWriter->size(),
+                     pPatchConstOrPrimSigWriter->size(),
                      [&](AbstractMemoryStream *pStream) {
-                       pPatchConstantSigWriter->write(pStream);
+                       pPatchConstOrPrimSigWriter->write(pStream);
                      });
     }
   }

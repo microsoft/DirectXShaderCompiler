@@ -305,6 +305,8 @@ void AddRecordTypeWithHandle(
 void AddRayFlags(clang::ASTContext& context);
 void AddHitKinds(clang::ASTContext& context);
 void AddStateObjectFlags(clang::ASTContext& context);
+void AddCommittedStatus(clang::ASTContext& context);
+void AddCandidateType(clang::ASTContext& context);
 
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
@@ -325,6 +327,11 @@ void AddTemplateTypeWithHandle(
   _In_z_    const char* typeName,
             uint8_t templateArgCount,
   _In_opt_  clang::TypeSourceInfo* defaultTypeArgValue);
+
+void AddRayQueryTemplate(
+           clang::ASTContext& context,
+  _Outptr_ clang::ClassTemplateDecl** typeDecl,
+  _Outptr_ clang::CXXRecordDecl** recordDecl);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>

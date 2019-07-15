@@ -306,9 +306,9 @@ public:
         [&](unsigned i) -> PSVSignatureElement {
         return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
       });
-      CopyElements(pcSig, DXIL::SigPointKind::PCOut, PSV.GetSigPatchConstantElements(), 0,
+      CopyElements(pcSig, DXIL::SigPointKind::PCOut, PSV.GetSigPatchConstOrPrimElements(), 0,
         [&](unsigned i) -> PSVSignatureElement {
-        return PSV.GetSignatureElement(PSV.GetPatchConstantElement0(i));
+        return PSV.GetSignatureElement(PSV.GetPatchConstOrPrimElement0(i));
       });
 
       // Propagate prior mask through input-output dependencies
@@ -345,9 +345,9 @@ public:
                     [&](unsigned i) -> PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
                     });
-      CopyElements( pcSig, DXIL::SigPointKind::DSIn, PSV.GetSigPatchConstantElements(), 0,
+      CopyElements( pcSig, DXIL::SigPointKind::DSIn, PSV.GetSigPatchConstOrPrimElements(), 0,
                     [&](unsigned i) -> PSVSignatureElement {
-                      return PSV.GetSignatureElement(PSV.GetPatchConstantElement0(i));
+                      return PSV.GetSignatureElement(PSV.GetPatchConstOrPrimElement0(i));
                     });
 
       // Merge prior and input signatures, update prior mask size if necessary

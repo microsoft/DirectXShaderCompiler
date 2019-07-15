@@ -325,7 +325,9 @@ PCSTR g_pFeatureInfoNames[] = {
     "View Instancing",
     "Barycentrics",
     "Use native low precision",
-    "Shading Rate"
+    "Shading Rate",
+    "Raytracing tier 1.1 features",
+    "Sampler feedback"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -531,6 +533,8 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
   }
   if (pSM->IsHS() || pSM->IsDS()) {
     OS << ", patchconst: " << VID.getNumPCSigScalars();
+  } else if (pSM->IsMS()) {
+    OS << ", primitive outputs: " << VID.getNumPCSigScalars();
   }
   OS << "\n";
 
@@ -553,6 +557,10 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
     PrintOutputsDependentOnViewId(OS, comment, "PCOutputs",
                                   VID.getNumPCSigScalars(),
                                   VID.getPCOutputsDependentOnViewId());
+  } else if (pSM->IsMS()) {
+    PrintOutputsDependentOnViewId(OS, comment, "Primitive Outputs",
+                                  VID.getNumPCSigScalars(),
+                                  VID.getPCOutputsDependentOnViewId());
   }
 
   if (!pSM->IsGS()) {
@@ -570,6 +578,9 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
   }
   if (pSM->IsHS()) {
     PrintInputsContributingToOutputs(OS, comment, "Inputs", "PCOutputs",
+                                     VID.getInputsContributingToPCOutputs());
+  } else if (pSM->IsMS()) {
+    PrintInputsContributingToOutputs(OS, comment, "Inputs", "Primitive Outputs",
                                      VID.getInputsContributingToPCOutputs());
   } else if (pSM->IsDS()) {
     PrintInputsContributingToOutputs(OS, comment, "PCInputs", "Outputs",
@@ -1182,7 +1193,53 @@ static const char *OpCodeSignatures[] = {
   "(acc,a,b)",  // Dot4AddU8Packed
   "(value)",  // WaveMatch
   "(value,mask0,mask1,mask2,mask3,op,sop)",  // WaveMultiPrefixOp
-  "(value,mask0,mask1,mask2,mask3)"  // WaveMultiPrefixBitCount
+  "(value,mask0,mask1,mask2,mask3)",  // WaveMultiPrefixBitCount
+  "(numVertices,numPrimitives)",  // SetMeshOutputCounts
+  "(PrimitiveIndex,VertexIndex0,VertexIndex1,VertexIndex2)",  // EmitIndices
+  "()",  // GetMeshPayload
+  "(outputSigId,rowIndex,colIndex,value,vertexIndex)",  // StoreVertexOutput
+  "(outputSigId,rowIndex,colIndex,value,primitiveIndex)",  // StorePrimitiveOutput
+  "(threadGroupCountX,threadGroupCountY,threadGroupCountZ,payload)",  // DispatchMesh
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,clamp)",  // WriteSamplerFeedback
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,bias,clamp)",  // WriteSamplerFeedbackBias
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,lod)",  // WriteSamplerFeedbackLevel
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,ddx,ddy,clamp)",  // WriteSamplerFeedbackGrad
+  "(constRayFlags)",  // AllocateRayQuery
+  "(rayQueryHandle,accelerationStructure,rayFlags,instanceInclusionMask,origin_X,origin_Y,origin_Z,tMin,direction_X,direction_Y,direction_Z,tMax)",  // RayQuery_TraceRayInline
+  "(rayQueryHandle)",  // RayQuery_Proceed
+  "(rayQueryHandle)",  // RayQuery_Abort
+  "(rayQueryHandle)",  // RayQuery_CommitNonOpaqueTriangleHit
+  "(rayQueryHandle,t)",  // RayQuery_CommitProceduralPrimitiveHit
+  "(rayQueryHandle)",  // RayQuery_CommittedStatus
+  "(rayQueryHandle)",  // RayQuery_CandidateType
+  "(rayQueryHandle,row,col)",  // RayQuery_CandidateObjectToWorld3x4
+  "(rayQueryHandle,row,col)",  // RayQuery_CandidateWorldToObject3x4
+  "(rayQueryHandle,row,col)",  // RayQuery_CommittedObjectToWorld3x4
+  "(rayQueryHandle,row,col)",  // RayQuery_CommittedWorldToObject3x4
+  "(rayQueryHandle)",  // RayQuery_CandidateProceduralPrimitiveNonOpaque
+  "(rayQueryHandle)",  // RayQuery_CandidateTriangleFrontFace
+  "(rayQueryHandle)",  // RayQuery_CommittedTriangleFrontFace
+  "(rayQueryHandle,component)",  // RayQuery_CandidateTriangleBarycentrics
+  "(rayQueryHandle,component)",  // RayQuery_CommittedTriangleBarycentrics
+  "(rayQueryHandle)",  // RayQuery_RayFlags
+  "(rayQueryHandle,component)",  // RayQuery_WorldRayOrigin
+  "(rayQueryHandle,component)",  // RayQuery_WorldRayDirection
+  "(rayQueryHandle)",  // RayQuery_RayTMin
+  "(rayQueryHandle)",  // RayQuery_CandidateTriangleRayT
+  "(rayQueryHandle)",  // RayQuery_CommittedRayT
+  "(rayQueryHandle)",  // RayQuery_CandidateInstanceIndex
+  "(rayQueryHandle)",  // RayQuery_CandidateInstanceID
+  "(rayQueryHandle)",  // RayQuery_CandidateGeometryIndex
+  "(rayQueryHandle)",  // RayQuery_CandidatePrimitiveIndex
+  "(rayQueryHandle,component)",  // RayQuery_CandidateObjectRayOrigin
+  "(rayQueryHandle,component)",  // RayQuery_CandidateObjectRayDirection
+  "(rayQueryHandle)",  // RayQuery_CommittedInstanceIndex
+  "(rayQueryHandle)",  // RayQuery_CommittedInstanceID
+  "(rayQueryHandle)",  // RayQuery_CommittedGeometryIndex
+  "(rayQueryHandle)",  // RayQuery_CommittedPrimitiveIndex
+  "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayOrigin
+  "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayDirection
+  "()"  // GeometryIndex
 };
 // OPCODE-SIGS:END
 
@@ -1581,11 +1638,19 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     if (!dxilModule.GetShaderModel()->IsLib()) {
       PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
                          /*comment*/ ";");
-      PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
-                         /*comment*/ ";");
-      PrintDxilSignature("Patch Constant signature",
-                         dxilModule.GetPatchConstantSignature(), Stream,
-                         /*comment*/ ";");
+      if (dxilModule.GetShaderModel()->IsMS()) {
+        PrintDxilSignature("Vertex Output", dxilModule.GetOutputSignature(), Stream,
+                           /*comment*/ ";");
+        PrintDxilSignature("Primitive Output",
+                           dxilModule.GetPatchConstOrPrimSignature(), Stream,
+                           /*comment*/ ";");
+      } else {
+        PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
+                           /*comment*/ ";");
+        PrintDxilSignature("Patch Constant",
+                           dxilModule.GetPatchConstOrPrimSignature(), Stream,
+                           /*comment*/ ";");
+      }
     }
     PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
     PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");

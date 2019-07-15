@@ -7,4 +7,4 @@ float4 main(
 }
 
 // CHECK: :4:7: error: BaseVertex builtin must be of 32-bit scalar integer type
-// CHECK: :4:7: error: BaseVertex builtin can only be used in vertex shader input
+// CHECK: :4:7: error: BaseVertex builtin cannot be used as PSIn

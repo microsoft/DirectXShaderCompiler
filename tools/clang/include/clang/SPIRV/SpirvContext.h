@@ -228,6 +228,10 @@ public:
     return curShaderModelKind >= ShaderModelKind::RayGeneration &&
            curShaderModelKind <= ShaderModelKind::Callable;
   }
+  bool isMS() const { return curShaderModelKind == ShaderModelKind::Mesh; }
+  bool isAS() const {
+    return curShaderModelKind == ShaderModelKind::Amplification;
+  }
 
 private:
   /// \brief The allocator used to create SPIR-V entity objects.

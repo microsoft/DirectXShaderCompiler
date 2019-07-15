@@ -1854,7 +1854,7 @@ HRESULT DxilShaderReflection::Load(IDxcBlob *pBlob,
     // Populate input/output/patch constant signatures.
     CreateReflectionObjectsForSignature(m_pDxilModule->GetInputSignature(), m_InputSignature);
     CreateReflectionObjectsForSignature(m_pDxilModule->GetOutputSignature(), m_OutputSignature);
-    CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstantSignature(), m_PatchConstantSignature);
+    CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstOrPrimSignature(), m_PatchConstantSignature);
     MarkUsedSignatureElements();
     return S_OK;
   }
@@ -1969,14 +1969,14 @@ void DxilShaderReflection::MarkUsedSignatureElements() {
       if (!GetUnsignedVal(SPC.get_col(), &col)) continue;
       if (!GetUnsignedVal(SPC.get_row(), &row)) continue;
       pDescs = &m_PatchConstantSignature;
-      pSig = &m_pDxilModule->GetPatchConstantSignature();
+      pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
     }
     else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(LPC.get_col(), &col)) continue;
       if (!GetUnsignedVal(LPC.get_row(), &row)) continue;
       pDescs = &m_PatchConstantSignature;
-      pSig = &m_pDxilModule->GetPatchConstantSignature();
+      pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
     }
     else {
       continue;
@@ -2171,21 +2171,14 @@ UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *
 }
 
 UINT64 DxilShaderReflection::GetRequiresFlags() {
-  UINT64 result = 0;
-  uint64_t features = m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
-  if (features & ShaderFeatureInfo_Doubles) result |= D3D_SHADER_REQUIRES_DOUBLES;
-  if (features & ShaderFeatureInfo_UAVsAtEveryStage) result |= D3D_SHADER_REQUIRES_UAVS_AT_EVERY_STAGE;
-  if (features & ShaderFeatureInfo_64UAVs) result |= D3D_SHADER_REQUIRES_64_UAVS;
-  if (features & ShaderFeatureInfo_MinimumPrecision) result |= D3D_SHADER_REQUIRES_MINIMUM_PRECISION;
-  if (features & ShaderFeatureInfo_11_1_DoubleExtensions) result |= D3D_SHADER_REQUIRES_11_1_DOUBLE_EXTENSIONS;
-  if (features & ShaderFeatureInfo_11_1_ShaderExtensions) result |= D3D_SHADER_REQUIRES_11_1_SHADER_EXTENSIONS;
-  if (features & ShaderFeatureInfo_LEVEL9ComparisonFiltering) result |= D3D_SHADER_REQUIRES_LEVEL_9_COMPARISON_FILTERING;
-  if (features & ShaderFeatureInfo_TiledResources) result |= D3D_SHADER_REQUIRES_TILED_RESOURCES;
-  if (features & ShaderFeatureInfo_StencilRef) result |= D3D_SHADER_REQUIRES_STENCIL_REF;
-  if (features & ShaderFeatureInfo_InnerCoverage) result |= D3D_SHADER_REQUIRES_INNER_COVERAGE;
-  if (features & ShaderFeatureInfo_TypedUAVLoadAdditionalFormats) result |= D3D_SHADER_REQUIRES_TYPED_UAV_LOAD_ADDITIONAL_FORMATS;
-  if (features & ShaderFeatureInfo_ROVs) result |= D3D_SHADER_REQUIRES_ROVS;
-  if (features & ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer) result |= D3D_SHADER_REQUIRES_VIEWPORT_AND_RT_ARRAY_INDEX_FROM_ANY_SHADER_FEEDING_RASTERIZER;
+  UINT64 result = m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
+  // FeatureInfo flags are identical, with the exception of a collision between:
+  // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
+  // and D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL
+  // We keep track of the flag elsewhere, so use that instead.
+  result &= ~(UINT64)D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
+  if (m_pDxilModule->m_ShaderFlags.GetForceEarlyDepthStencil())
+    result |= D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
   return result;
 }
 

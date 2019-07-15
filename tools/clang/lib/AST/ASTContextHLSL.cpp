@@ -575,6 +575,35 @@ void hlsl::AddStateObjectFlags(ASTContext& context) {
   AddConstUInt(context, curDC, StringRef("STATE_OBJECT_FLAGS_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
 }
 
+/// <summary> Adds const integers for committed status </summary>
+void hlsl::AddCommittedStatus(ASTContext& context) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  // typedef uint COMMITTED_STATUS;
+  IdentifierInfo &enumId = context.Idents.get(StringRef("COMMITTED_STATUS"), tok::TokenKind::identifier);
+  TypeSourceInfo *uintTypeSource = context.getTrivialTypeSourceInfo(context.UnsignedIntTy, NoLoc);
+  TypedefDecl *enumDecl = TypedefDecl::Create(context, curDC, NoLoc, NoLoc, &enumId, uintTypeSource);
+  curDC->addDecl(enumDecl);
+  enumDecl->setImplicit(true);
+  // static const uint COMMITTED_* = *;
+  AddConstUInt(context, curDC, StringRef("COMMITTED_NOTHING"), (unsigned)DXIL::CommittedStatus::CommittedNothing);
+  AddConstUInt(context, curDC, StringRef("COMMITTED_TRIANGLE_HIT"), (unsigned)DXIL::CommittedStatus::CommittedTriangleHit);
+  AddConstUInt(context, curDC, StringRef("COMMITTED_PROCEDURAL_PRIMITIVE_HIT"), (unsigned)DXIL::CommittedStatus::CommittedProceduralPrimitiveHit);
+}
+
+/// <summary> Adds const integers for candidate type </summary>
+void hlsl::AddCandidateType(ASTContext& context) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  // typedef uint CANDIDATE_TYPE;
+  IdentifierInfo &enumId = context.Idents.get(StringRef("CANDIDATE_TYPE"), tok::TokenKind::identifier);
+  TypeSourceInfo *uintTypeSource = context.getTrivialTypeSourceInfo(context.UnsignedIntTy, NoLoc);
+  TypedefDecl *enumDecl = TypedefDecl::Create(context, curDC, NoLoc, NoLoc, &enumId, uintTypeSource);
+  curDC->addDecl(enumDecl);
+  enumDecl->setImplicit(true);
+  // static const uint CANDIDATE_* = *;
+  AddConstUInt(context, curDC, StringRef("CANDIDATE_NON_OPAQUE_TRIANGLE"), (unsigned)DXIL::CandidateType::CandidateNonOpaqueTriangle);
+  AddConstUInt(context, curDC, StringRef("CANDIDATE_PROCEDURAL_PRIMITIVE"), (unsigned)DXIL::CandidateType::CandidateProceduralPrimitive);
+}
+
 static
 Expr* IntConstantAsBoolExpr(clang::Sema& sema, uint64_t value)
 {
@@ -957,6 +986,77 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
   recordDecl->addDecl(functionDecl);
 
   return functionDecl;
+}
+
+void hlsl::AddRayQueryTemplate(
+  ASTContext& context,
+  _Outptr_ ClassTemplateDecl** typeDecl,
+  _Outptr_ CXXRecordDecl** recordDecl
+)
+{
+  DXASSERT_NOMSG(typeDecl != nullptr);
+  DXASSERT_NOMSG(recordDecl != nullptr);
+
+  DeclContext* currentDeclContext = context.getTranslationUnitDecl();
+
+  // Create a RayQuery template declaration in translation unit scope.
+  // template<uint flags> RayQuery { ... }
+  QualType uintType = context.UnsignedIntTy;
+
+  NonTypeTemplateParmDecl* flagsTemplateParamDecl = nullptr;
+  IdentifierInfo& countParamId = context.Idents.get(StringRef("flags"), tok::TokenKind::identifier);
+  flagsTemplateParamDecl = NonTypeTemplateParmDecl::Create(
+    context, currentDeclContext, NoLoc, NoLoc,
+    FirstTemplateDepth, FirstParamPosition, &countParamId, uintType, ParameterPackFalse, nullptr);
+
+  // Should flags default to zero?
+  Expr *literalIntZero = IntegerLiteral::Create(
+    context, llvm::APInt(context.getIntWidth(uintType), 0), uintType, NoLoc);
+  flagsTemplateParamDecl->setDefaultArgument(literalIntZero);
+
+  NamedDecl* templateParameters[] =
+  {
+    flagsTemplateParamDecl
+  };
+  TemplateParameterList* templateParameterList = TemplateParameterList::Create(
+    context, NoLoc, NoLoc, templateParameters, 1, NoLoc);
+
+  IdentifierInfo& typeId = context.Idents.get(StringRef("RayQuery"), tok::TokenKind::identifier);
+  CXXRecordDecl* templateRecordDecl = CXXRecordDecl::Create(
+    context, TagDecl::TagKind::TTK_Class, currentDeclContext, NoLoc, NoLoc, &typeId,
+    nullptr, DelayTypeCreationTrue);
+  ClassTemplateDecl* classTemplateDecl = ClassTemplateDecl::Create(
+    context, currentDeclContext, NoLoc, DeclarationName(&typeId),
+    templateParameterList, templateRecordDecl, nullptr);
+  templateRecordDecl->setDescribedClassTemplate(classTemplateDecl);
+  templateRecordDecl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
+
+  // Requesting the class name specialization will fault in required types.
+  QualType T = classTemplateDecl->getInjectedClassNameSpecialization();
+  T = context.getInjectedClassNameType(templateRecordDecl, T);
+  assert(T->isDependentType() && "Class template type is not dependent?");
+  classTemplateDecl->setLexicalDeclContext(currentDeclContext);
+  templateRecordDecl->setLexicalDeclContext(currentDeclContext);
+  templateRecordDecl->startDefinition();
+
+  // Add an 'h' field to hold the handle.
+  AddHLSLHandleField(context, templateRecordDecl, uintType);
+
+  templateRecordDecl->completeDefinition();
+
+  // Both declarations need to be present for correct handling.
+  currentDeclContext->addDecl(classTemplateDecl);
+  currentDeclContext->addDecl(templateRecordDecl);
+
+#ifdef DBG
+  // Verify that we can read the field member from the template record.
+  DeclContext::lookup_result lookupResult = templateRecordDecl->lookup(
+    DeclarationName(&context.Idents.get(StringRef("h"))));
+  DXASSERT(!lookupResult.empty(), "otherwise template object handle cannot be looked up");
+#endif
+
+  *typeDecl = classTemplateDecl;
+  *recordDecl = templateRecordDecl;
 }
 
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {

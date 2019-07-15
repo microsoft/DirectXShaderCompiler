@@ -763,6 +763,10 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     //case AttributeList::AT_HLSLLineAdj:
     //case AttributeList::AT_HLSLTriangle:
     //case AttributeList::AT_HLSLTriangleAdj:
+    //case AttributeList::AT_HLSLIndices:
+    //case AttributeList::AT_HLSLVertices:
+    //case AttributeList::AT_HLSLPrimitives:
+    //case AttributeList::AT_HLSLPayload:
       goto GenericAttributeParse;
     default:
       Diag(AttrNameLoc, diag::err_hlsl_unsupported_construct) << AttrName;
@@ -3786,9 +3790,15 @@ HLSLReservedKeyword:
     case tok::kw_sample:
     case tok::kw_globallycoherent:
     case tok::kw_center:
+    case tok::kw_indices:
+    case tok::kw_vertices:
+    case tok::kw_primitives:
+    case tok::kw_payload:
       // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation
       // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
       // we need to update the token to be handled as an identifier.
+      // Similarly 'indices', 'vertices', 'primitives' and 'payload' are keywords
+      // when used as a type qualifer in mesh shader, but may still be used as a variable name.
       if (getLangOpts().HLSL) {
         if (DS.getTypeSpecType() != DeclSpec::TST_unspecified) {
           Tok.setKind(tok::identifier);
@@ -5236,6 +5246,10 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_triangle:
   case tok::kw_triangleadj:
   case tok::kw_export:
+  case tok::kw_indices:
+  case tok::kw_vertices:
+  case tok::kw_primitives:
+  case tok::kw_payload:
     return true;
   // HLSL Change Ends
 
@@ -6006,6 +6020,9 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
     // FXC they can also be used an identifiers. If the next token is a
     // punctuator, then we are using them as identifers. Need to change
     // the token type to tok::identifier and fall through to the next case.
+    // Similarly 'indices', 'vertices', 'primitives' and 'payload' are keywords
+    // when used as a type qualifer in mesh shader, but may still be used as a
+    // variable name.
     // E.g., <type> left, center, right;
     if (getLangOpts().HLSL) {
       switch (Tok.getKind()) {
@@ -6013,6 +6030,10 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       case tok::kw_globallycoherent:
       case tok::kw_precise:
       case tok::kw_sample:
+      case tok::kw_indices:
+      case tok::kw_vertices:
+      case tok::kw_primitives:
+      case tok::kw_payload:
         if (tok::isPunctuator(NextToken().getKind()))
           Tok.setKind(tok::identifier);
         break;

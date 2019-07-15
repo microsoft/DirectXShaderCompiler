@@ -46,6 +46,7 @@ class DxilSampler;
 class DxilTypeSystem;
 class DxilStructAnnotation;
 class DxilFieldAnnotation;
+class DxilTemplateArgAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
@@ -191,6 +192,13 @@ public:
   static const unsigned kDxilFieldAnnotationCompTypeTag           = 7;
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
 
+  // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
+  static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties
+  // TemplateArgument tags
+  static const unsigned kDxilTemplateArgTypeTag                   = 0;  // Type template argument, followed by undef of type
+  static const unsigned kDxilTemplateArgIntegralTag               = 1;  // Integral template argument, followed by i64 value
+  static const unsigned kDxilTemplateArgValue                     = 1;  // Position of template arg value (type or int)
+
   // Control flow hint.
   static const char kDxilControlFlowHintMDName[];
 
@@ -220,6 +228,8 @@ public:
   static const unsigned kDxilRayPayloadSizeTag  = 6;
   static const unsigned kDxilRayAttribSizeTag   = 7;
   static const unsigned kDxilShaderKindTag      = 8;
+  static const unsigned kDxilMSStateTag         = 9;
+  static const unsigned kDxilASStateTag         = 10;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -243,6 +253,17 @@ public:
   static const unsigned kDxilHSStateTessellatorPartitioning   = 4;
   static const unsigned kDxilHSStateTessellatorOutputPrimitive= 5;
   static const unsigned kDxilHSStateMaxTessellationFactor     = 6;
+
+  // MSState.
+  static const unsigned kDxilMSStateNumFields = 4;
+  static const unsigned kDxilMSStateNumThreads = 0;
+  static const unsigned kDxilMSStateMaxVertexCount = 1;
+  static const unsigned kDxilMSStateMaxPrimitiveCount = 2;
+  static const unsigned kDxilMSStateOutputTopology = 3;
+
+  // ASState.
+  static const unsigned kDxilASStateNumFields = 1;
+  static const unsigned kDxilASStateNumThreads = 0;
 
 public:
   /// Use this class to manipulate metadata of DXIL or high-level DX IR specific fields in the record.
@@ -351,6 +372,8 @@ public:
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
   llvm::Metadata *EmitDxilParamAnnotations(const DxilFunctionAnnotation &FA);
   void LoadDxilParamAnnotations(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
+  llvm::Metadata *EmitDxilTemplateArgAnnotation(const DxilTemplateArgAnnotation &annotation);
+  void LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, DxilTemplateArgAnnotation &annotation);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
@@ -406,6 +429,19 @@ private:
                        DXIL::TessellatorPartitioning &TessPartitioning,
                        DXIL::TessellatorOutputPrimitive &TessOutputPrimitive,
                        float &MaxTessFactor);
+
+  llvm::MDTuple *EmitDxilMSState(const unsigned *NumThreads,
+                                 unsigned MaxVertexCount,
+                                 unsigned MaxPrimitiveCount,
+                                 DXIL::MeshOutputTopology OutputTopology);
+  void LoadDxilMSState(const llvm::MDOperand &MDO,
+                       unsigned *NumThreads,
+                       unsigned &MaxVertexCount,
+                       unsigned &MaxPrimitiveCount,
+                       DXIL::MeshOutputTopology &OutputTopology);
+
+  llvm::MDTuple *EmitDxilASState(const unsigned *NumThreads);
+  void LoadDxilASState(const llvm::MDOperand &MDO, unsigned *NumThreads);
 public:
   // Utility functions.
   static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);

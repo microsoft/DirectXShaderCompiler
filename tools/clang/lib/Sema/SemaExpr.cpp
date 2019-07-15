@@ -608,6 +608,32 @@ static void DiagnoseDirectIsaAccess(Sema &S, const ObjCIvarRefExpr *OIRE,
     }
 }
 
+static bool IsExprAccessingMeshOutArray(Expr* BaseExpr) {
+  switch (BaseExpr->getStmtClass()) {
+  case Stmt::ArraySubscriptExprClass: {
+    ArraySubscriptExpr* ase = cast<ArraySubscriptExpr>(BaseExpr);
+    return IsExprAccessingMeshOutArray(ase->getBase());
+  }
+  case Stmt::ImplicitCastExprClass: {
+    ImplicitCastExpr* ice = cast<ImplicitCastExpr>(BaseExpr);
+    return IsExprAccessingMeshOutArray(ice->getSubExpr());
+  }
+  case Stmt::DeclRefExprClass: {
+    DeclRefExpr* dre = cast<DeclRefExpr>(BaseExpr);
+    ValueDecl* vd = dre->getDecl();
+    if (vd->getAttr<HLSLOutAttr>() &&
+        (vd->getAttr<HLSLIndicesAttr>() ||
+         vd->getAttr<HLSLVerticesAttr>() ||
+         vd->getAttr<HLSLPrimitivesAttr>())) {
+      return true;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
 ExprResult Sema::DefaultLvalueConversion(Expr *E) {
   // Handle any placeholder expressions which made it here.
   if (E->getType()->isPlaceholderType()) {
@@ -665,6 +691,12 @@ ExprResult Sema::DefaultLvalueConversion(Expr *E) {
   else if (const ObjCIvarRefExpr *OIRE =
             dyn_cast<ObjCIvarRefExpr>(E->IgnoreParenCasts()))
     DiagnoseDirectIsaAccess(*this, OIRE, SourceLocation(), /* Expr*/nullptr);
+
+  // check the access to mesh shader output arrays
+  if (isa<ArraySubscriptExpr>(E) && IsExprAccessingMeshOutArray(E)) {
+    Diag(E->getExprLoc(), diag::err_hlsl_load_from_mesh_out_arrays);
+    return ExprError();
+  }
 
   // C++ [conv.lval]p1:
   //   [...] If T is a non-class type, the type of the prvalue is the

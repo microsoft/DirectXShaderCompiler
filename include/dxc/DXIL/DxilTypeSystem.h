@@ -90,6 +90,22 @@ private:
   std::string m_FieldName;
 };
 
+class DxilTemplateArgAnnotation : DxilFieldAnnotation {
+public:
+  DxilTemplateArgAnnotation();
+
+  bool IsType() const;
+  const llvm::Type *GetType() const;
+  void SetType(const llvm::Type *pType);
+
+  bool IsIntegral() const;
+  int64_t GetIntegral() const;
+  void SetIntegral(int64_t i64);
+
+private:
+  const llvm::Type *m_Type;
+  int64_t m_Integral;
+};
 
 /// Use this class to represent LLVM structure annotation.
 class DxilStructAnnotation {
@@ -105,10 +121,18 @@ public:
   void SetCBufferSize(unsigned size);
   void MarkEmptyStruct();
   bool IsEmptyStruct();
+
+  // For template args, GetNumTemplateArgs() will return 0 if not a template
+  unsigned GetNumTemplateArgs() const;
+  void SetNumTemplateArgs(unsigned count);
+  DxilTemplateArgAnnotation &GetTemplateArgAnnotation(unsigned argIdx);
+  const DxilTemplateArgAnnotation &GetTemplateArgAnnotation(unsigned argIdx) const;
+
 private:
   const llvm::StructType *m_pStructType;
   std::vector<DxilFieldAnnotation> m_FieldAnnotations;
   unsigned m_CBufferSize;  // The size of struct if inside constant buffer.
+  std::vector<DxilTemplateArgAnnotation> m_TemplateAnnotations;
 };
 
 
@@ -123,6 +147,10 @@ enum class DxilParamInputQual {
   OutStream2,
   OutStream3,
   InputPrimitive,
+  OutIndices,
+  OutVertices,
+  OutPrimitives,
+  InPayload,
 };
 
 /// Use this class to represent type annotation for function parameter.
@@ -164,7 +192,7 @@ public:
 
   DxilTypeSystem(llvm::Module *pModule);
 
-  DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType);
+  DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType, unsigned numTemplateArgs = 0);
   DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType);
   const DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType) const;
   void EraseStructAnnotation(const llvm::StructType *pStructType);
