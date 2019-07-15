@@ -146,10 +146,8 @@ unsigned DxilResource::GetNumCoords(Kind ResourceKind) {
       0, // Sampler,
       1, // TBuffer,
       0, // RaytracingAccelerationStructure,
-      2, // FeedbackTexture2DMinLOD,
-      2, // FeedbackTexture2DTiled,
-      3, // FeedbackTexture2DArrayMinLOD,
-      3, // FeedbackTexture2DArrayTiled,
+      2, // FeedbackTexture2D,
+      3, // FeedbackTexture2DArray,
   };
   static_assert(_countof(CoordSizeTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");
@@ -175,10 +173,8 @@ unsigned DxilResource::GetNumDimensions(Kind ResourceKind) {
       0, // Sampler,
       1, // TBuffer,
       0, // RaytracingAccelerationStructure,
-      2, // FeedbackTexture2DMinLOD,
-      2, // FeedbackTexture2DTiled,
-      2, // FeedbackTexture2DArrayMinLOD,
-      2, // FeedbackTexture2DArrayTiled,
+      2, // FeedbackTexture2D,
+      2, // FeedbackTexture2DArray,
   };
   static_assert(_countof(NumDimTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");
@@ -204,10 +200,8 @@ unsigned DxilResource::GetNumDimensionsForCalcLOD(Kind ResourceKind) {
       0, // Sampler,
       1, // TBuffer,
       0, // RaytracingAccelerationStructure,
-      2, // FeedbackTexture2DMinLOD,
-      2, // FeedbackTexture2DTiled,
-      2, // FeedbackTexture2DArrayMinLOD,
-      2, // FeedbackTexture2DArrayTiled,
+      2, // FeedbackTexture2D,
+      2, // FeedbackTexture2DArray,
   };
   static_assert(_countof(NumDimTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");
@@ -233,10 +227,8 @@ unsigned DxilResource::GetNumOffsets(Kind ResourceKind) {
       0, // Sampler,
       1, // TBuffer,
       0, // RaytracingAccelerationStructure,
-      2, // FeedbackTexture2DMinLOD,
-      2, // FeedbackTexture2DTiled,
-      2, // FeedbackTexture2DArrayMinLOD,
-      2, // FeedbackTexture2DArrayTiled,
+      2, // FeedbackTexture2D,
+      2, // FeedbackTexture2DArray,
   };
   static_assert(_countof(OffsetSizeTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");

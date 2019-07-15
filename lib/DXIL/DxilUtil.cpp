@@ -496,8 +496,7 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
       return true;
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
-      ConsumePrefix(name, "Array");
-      return name == "MinLOD" || name == "Tiled";
+      return name == "" || name == "Array";
     }
 
     ConsumePrefix(name, "RasterizerOrdered");

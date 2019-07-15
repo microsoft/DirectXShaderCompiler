@@ -3911,10 +3911,8 @@ static void ValidateResource(hlsl::DxilResource &res,
   case DXIL::ResourceKind::RTAccelerationStructure:
     // TODO: check profile.
     break;
-  case DXIL::ResourceKind::FeedbackTexture2DMinLOD:
-  case DXIL::ResourceKind::FeedbackTexture2DTiled:
-  case DXIL::ResourceKind::FeedbackTexture2DArrayMinLOD:
-  case DXIL::ResourceKind::FeedbackTexture2DArrayTiled:
+  case DXIL::ResourceKind::FeedbackTexture2D:
+  case DXIL::ResourceKind::FeedbackTexture2DArray:
     break;
   default:
     ValCtx.EmitResourceError(&res, ValidationRule::SmInvalidResourceKind);
