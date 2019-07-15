@@ -111,7 +111,7 @@ FieldDecl* BuiltinTypeDeclBuilder::addField(StringRef name, QualType type, Acces
 
 #ifdef DBG
   // Verify that we can read the field member from the record.
-  DeclContext::lookup_result lookupResult = m_recordDecl->lookup(DeclarationName(nameId));
+  DeclContext::lookup_result lookupResult = m_recordDecl->lookup(DeclarationName(&nameId));
   DXASSERT(!lookupResult.empty(), "Field cannot be looked up");
 #endif
 
