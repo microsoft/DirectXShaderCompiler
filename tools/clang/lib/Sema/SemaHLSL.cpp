@@ -4244,6 +4244,7 @@ public:
 
     // Initializing built in integers for ray tracing
     AddRaytracingConstants(*m_context);
+    AddSamplerFeedbackConstants(*m_context);
 
     return true;
   }
