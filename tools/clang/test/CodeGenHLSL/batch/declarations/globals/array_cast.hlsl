@@ -5,9 +5,6 @@
 // Test that no variable initializers are emitted, especially for cbuffers globals.
 // CHECK-NOT: {{.*}} = constant
 
-// Check the offset calculate.
-// CHECK: add {{.+}}, 2
-
 
 float4 cb[4*4];
 
