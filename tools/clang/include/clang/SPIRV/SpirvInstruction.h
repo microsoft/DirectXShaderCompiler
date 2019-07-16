@@ -361,7 +361,7 @@ private:
 class SpirvSource : public SpirvInstruction {
 public:
   SpirvSource(SourceLocation loc, spv::SourceLanguage language, uint32_t ver,
-              SpirvString *file, llvm::StringRef src);
+              const std::vector<SpirvString *> &files, llvm::StringRef src);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -372,14 +372,14 @@ public:
 
   spv::SourceLanguage getSourceLanguage() const { return lang; }
   uint32_t getVersion() const { return version; }
-  bool hasFile() const { return file != nullptr; }
-  SpirvString *getFile() const { return file; }
+  bool hasFiles() const { return !files.empty(); }
+  const std::vector<SpirvString *> &getFiles() const { return files; }
   llvm::StringRef getSource() const { return source; }
 
 private:
   spv::SourceLanguage lang;
   uint32_t version;
-  SpirvString *file;
+  std::vector<SpirvString *> files;
   std::string source;
 };
 

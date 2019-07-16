@@ -116,7 +116,8 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
   curInst.push_back(resultId);
   encodeString(debugName);
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
-  debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
+  debugVariableBinary.insert(debugVariableBinary.end(), curInst.begin(),
+                             curInst.end());
 }
 
 void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
@@ -137,14 +138,28 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
   if (!spvOptions.debugInfoLine)
     return;
 
-  if (!debugFileId) {
-    emitError("spvOptions.debugInfoLine is true but no debugFileId was set");
+  auto fileId = debugMainFileId;
+  const auto &sm = astContext.getSourceManager();
+  const char *fileName = sm.getPresumedLoc(loc).getFilename();
+  if (fileName) {
+    auto it = debugFileIdMap.find(fileName);
+    if (it == debugFileIdMap.end()) {
+      // Emit the OpString for this new fileName.
+      SpirvString *inst =
+          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
+      visit(inst);
+      it = debugFileIdMap.find(fileName);
+    }
+    fileId = it->second;
+  }
+
+  if (!fileId) {
+    emitError("spvOptions.debugInfoLine is true but no fileId was set");
     return;
   }
 
-  const auto &sm = astContext.getSourceManager();
-  uint32_t line = sm.getSpellingLineNumber(loc);
-  uint32_t column = sm.getSpellingColumnNumber(loc);
+  uint32_t line = sm.getPresumedLineNumber(loc);
+  uint32_t column = sm.getPresumedColumnNumber(loc);
 
   if (!line || !column)
     return;
@@ -158,7 +173,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
 
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(spv::Op::OpLine));
-  curInst.push_back(debugFileId);
+  curInst.push_back(fileId);
   curInst.push_back(line);
   curInst.push_back(column);
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
@@ -220,9 +235,13 @@ void EmitVisitor::finalizeInstruction() {
   case spv::Op::OpSource:
   case spv::Op::OpSourceExtension:
   case spv::Op::OpSourceContinued:
+    debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                           curInst.end());
+    break;
   case spv::Op::OpName:
   case spv::Op::OpMemberName:
-    debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
+    debugVariableBinary.insert(debugVariableBinary.end(), curInst.begin(),
+                               curInst.end());
     break;
   case spv::Op::OpModuleProcessed:
   case spv::Op::OpDecorate:
@@ -260,7 +279,9 @@ std::vector<uint32_t> EmitVisitor::takeBinary() {
   auto headerBinary = header.takeBinary();
   result.insert(result.end(), headerBinary.begin(), headerBinary.end());
   result.insert(result.end(), preambleBinary.begin(), preambleBinary.end());
-  result.insert(result.end(), debugBinary.begin(), debugBinary.end());
+  result.insert(result.end(), debugFileBinary.begin(), debugFileBinary.end());
+  result.insert(result.end(), debugVariableBinary.begin(),
+                debugVariableBinary.end());
   result.insert(result.end(), annotationsBinary.begin(),
                 annotationsBinary.end());
   result.insert(result.end(), typeConstantBinary.begin(),
@@ -388,13 +409,24 @@ bool EmitVisitor::visit(SpirvString *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   encodeString(inst->getString());
   finalizeInstruction();
+
+  if (spvOptions.debugInfoLine) {
+    if (debugFileIdMap.find(inst->getString()) != debugFileIdMap.end())
+      return true;
+    debugFileIdMap[inst->getString()] = inst->getResultId();
+  }
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSource *inst) {
   // Emit the OpString for the file name.
-  if (inst->hasFile())
-    visit(inst->getFile());
+  if (inst->hasFiles()) {
+    for (auto *file : inst->getFiles())
+      visit(file);
+
+    if (spvOptions.debugInfoLine)
+      debugMainFileId = debugFileIdMap[inst->getFiles().front()->getString()];
+  }
 
   // Chop up the source into multiple segments if it is too long.
   llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;
@@ -409,36 +441,38 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
-  if (inst->hasFile()) {
-    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getFile()));
+  if (inst->hasFiles()) {
+    for (auto *file : inst->getFiles())
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(file));
   }
   if (firstSnippet.hasValue()) {
     // Note: in order to improve performance and avoid multiple copies, we
-    // encode this (potentially large) string directly into the debugBinary.
+    // encode this (potentially large) string directly into the debugFileBinary.
     const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
     const auto numWordsInInstr = curInst.size() + words.size();
     curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
-    debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
-    debugBinary.insert(debugBinary.end(), words.begin(), words.end());
+    debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                           curInst.end());
+    debugFileBinary.insert(debugFileBinary.end(), words.begin(), words.end());
   } else {
     curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
-    debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
+    debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                           curInst.end());
   }
 
   // Now emit OpSourceContinued for the [second:last] snippet.
   for (uint32_t i = 1; i < choppedSrcCode.size(); ++i) {
     initInstruction(spv::Op::OpSourceContinued, /* SourceLocation */ {});
     // Note: in order to improve performance and avoid multiple copies, we
-    // encode this (potentially large) string directly into the debugBinary.
+    // encode this (potentially large) string directly into the debugFileBinary.
     const auto &words = string::encodeSPIRVString(choppedSrcCode[i]);
     const auto numWordsInInstr = curInst.size() + words.size();
     curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
-    debugBinary.insert(debugBinary.end(), curInst.begin(), curInst.end());
-    debugBinary.insert(debugBinary.end(), words.begin(), words.end());
+    debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                           curInst.end());
+    debugFileBinary.insert(debugFileBinary.end(), words.begin(), words.end());
   }
 
-  if (spvOptions.debugInfoLine)
-    debugFileId = inst->getFile()->getResultId();
   return true;
 }
 
@@ -1642,7 +1676,8 @@ void EmitTypeHandler::emitNameForType(llvm::StringRef name,
   const auto &words = string::encodeSPIRVString(name);
   nameInstr.insert(nameInstr.end(), words.begin(), words.end());
   nameInstr[0] |= static_cast<uint32_t>(nameInstr.size()) << 16;
-  debugBinary->insert(debugBinary->end(), nameInstr.begin(), nameInstr.end());
+  debugVariableBinary->insert(debugVariableBinary->end(), nameInstr.begin(),
+                              nameInstr.end());
 }
 
 } // end namespace spirv

@@ -182,10 +182,11 @@ SpirvString::SpirvString(SourceLocation loc, llvm::StringRef stringLiteral)
       str(stringLiteral) {}
 
 SpirvSource::SpirvSource(SourceLocation loc, spv::SourceLanguage language,
-                         uint32_t ver, SpirvString *fileString,
+                         uint32_t ver,
+                         const std::vector<SpirvString *> &fileStrings,
                          llvm::StringRef src)
     : SpirvInstruction(IK_Source, spv::Op::OpSource, QualType(), loc),
-      lang(language), version(ver), file(fileString), source(src) {}
+      lang(language), version(ver), files(fileStrings), source(src) {}
 
 SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
                                            llvm::StringRef processStr)
