@@ -2811,6 +2811,19 @@ void CGMSHLSLRuntime::CreateSubobject(DXIL::SubobjectKind kind, const StringRef 
       }
       break;
     }
+    case DXIL::SubobjectKind::RaytracingPipelineConfig1: {
+      DXASSERT_NOMSG(argCount == 2);
+      uint32_t maxTraceRecursionDepth;
+      uint32_t raytracingPipelineFlags;
+      if (!GetAsConstantUInt32(args[0], &maxTraceRecursionDepth))
+        return;
+
+      if (!GetAsConstantUInt32(args[1], &raytracingPipelineFlags))
+        return;
+
+      subobjects->CreateRaytracingPipelineConfig1(name, maxTraceRecursionDepth, raytracingPipelineFlags);
+      break;
+    }
     default:
       llvm_unreachable("unknown SubobjectKind");
       break;

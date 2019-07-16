@@ -515,6 +515,10 @@ DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const SubobjectReade
     subobject.HitGroup.AnyHit = GetWideString(subobjectReader.GetHitGroup_AnyHit());
     subobject.HitGroup.ClosestHit = GetWideString(subobjectReader.GetHitGroup_ClosestHit());
     break;
+  case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+    subobject.RaytracingPipelineConfig1.MaxTraceRecursionDepth = subobjectReader.GetRaytracingPipelineConfig1_MaxTraceRecursionDepth();
+    subobject.RaytracingPipelineConfig1.Flags = subobjectReader.GetRaytracingPipelineConfig1_Flags();
+    break;
   default:
     // Ignore contents of unrecognized subobject type (forward-compat)
     break;

@@ -1621,6 +1621,15 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
     Args.emplace_back(MDString::get(m_Ctx, ClosestHit));
     break;
   }
+  case DXIL::SubobjectKind::RaytracingPipelineConfig1: {
+    uint32_t MaxTraceRecursionDepth;
+    uint32_t Flags;
+    IFTBOOL(obj.GetRaytracingPipelineConfig1(MaxTraceRecursionDepth, Flags),
+            DXC_E_INCORRECT_DXIL_METADATA);
+    Args.emplace_back(Uint32ToConstMD(MaxTraceRecursionDepth));
+    Args.emplace_back(Uint32ToConstMD(Flags));
+    break;
+  }
   default:
     DXASSERT(false, "otherwise, we didn't handle a valid subobject kind");
     break;
@@ -1688,6 +1697,16 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
     StringRef AnyHit(StringMDToStringRef(MD.getOperand(i++)));
     StringRef ClosestHit(StringMDToStringRef(MD.getOperand(i++)));
     Subobjects.CreateHitGroup(name, (DXIL::HitGroupType)hgType, AnyHit, ClosestHit, Intersection);
+    break;
+  }
+  case DXIL::SubobjectKind::RaytracingPipelineConfig1: {
+    uint32_t MaxTraceRecursionDepth = ConstMDToUint32(MD.getOperand(i++));
+    uint32_t Flags = ConstMDToUint32(MD.getOperand(i++));
+    IFTBOOL(0 ==
+                ((~(uint32_t)DXIL::RaytracingPipelineFlags::ValidMask) & Flags),
+            DXC_E_INCORRECT_DXIL_METADATA);
+    Subobjects.CreateRaytracingPipelineConfig1(name, MaxTraceRecursionDepth,
+                                               Flags);
     break;
   }
   default:
