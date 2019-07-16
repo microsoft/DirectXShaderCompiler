@@ -1,4 +1,4 @@
-// RUN: %dxc -HV 2016 -E main -T vs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // Test the following:
 // 1) Input i to D3DCOLORtoUBYTE4() is swizzled to i.zyxw
