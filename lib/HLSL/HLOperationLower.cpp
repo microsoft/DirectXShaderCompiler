@@ -604,18 +604,15 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = val->getType();
 
-  bool isFXCCompatMode = CI->getModule()->GetHLModule().GetHLOptions().bFXCCompatMode;
-  // Use literal 255.001953 for scaling when FXC compat mode is enabled as
-  // FXC uses this value instead of 255 for some uknown reason.
-  static const float scalingVal = isFXCCompatMode ? 255.001953 : 255.0;
-  Constant *toByteConst = ConstantFP::get(Ty->getScalarType(), scalingVal);
+  // Use the same scaling factor used by FXC (i.e., 255.001953)
+  Constant *toByteConst = ConstantFP::get(Ty->getScalarType(), 255.001953);
 
   if (Ty->isVectorTy()) {
     static constexpr int supportedVecElemCount = 4;
     if (Ty->getVectorNumElements() == supportedVecElemCount) {
       toByteConst = ConstantVector::getSplat(supportedVecElemCount, toByteConst);
       // Swizzle the input val -> val.zyxw
-      ArrayRef<int> mask = { 2, 1, 0, 3 };
+      std::vector<int> mask { 2, 1, 0, 3 };
       val = Builder.CreateShuffleVector(val, val, mask);
     } else {
       CI->getContext().emitError(CI, "Unsupported input type for intrinsic D3DColorToUByte4");

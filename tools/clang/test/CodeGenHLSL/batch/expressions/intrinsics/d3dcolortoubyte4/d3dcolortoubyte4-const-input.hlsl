@@ -2,7 +2,7 @@
 
 // Test the following:
 // 1) Input i to D3DCOLORtoUBYTE4() is swizzled to i.zyxw
-// 2) Swizzled value is multiplied with constant 255.001953 in FXC compat mode
+// 2) Swizzled value is multiplied with constant 255.001953
 
 // CHECK: 7650058
 // CHECK: 5100039
