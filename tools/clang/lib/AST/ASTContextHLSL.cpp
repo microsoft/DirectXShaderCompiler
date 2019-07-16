@@ -413,6 +413,7 @@ static void AddConstUInt(clang::ASTContext& context, StringRef name, unsigned va
 
 // Adds a top-level enum with the given enumerants.
 struct Enumerant { StringRef name; unsigned value; };
+
 static void AddTypedefPseudoEnum(ASTContext& context, StringRef name, ArrayRef<Enumerant> enumerants) {
   DeclContext* curDC = context.getTranslationUnitDecl();
   // typedef uint <name>;
@@ -428,7 +429,7 @@ static void AddTypedefPseudoEnum(ASTContext& context, StringRef name, ArrayRef<E
 }
 
 /// <summary> Adds all constants and enums for ray tracing </summary>
-void hlsl::AddRayTracingConstants(ASTContext& context) {
+void hlsl::AddRaytracingConstants(ASTContext& context) {
   AddTypedefPseudoEnum(context, "RAY_FLAG", {
     { "RAY_FLAG_NONE", (unsigned)DXIL::RayFlag::None },
     { "RAY_FLAG_FORCE_OPAQUE", (unsigned)DXIL::RayFlag::ForceOpaque },
@@ -459,6 +460,13 @@ void hlsl::AddRayTracingConstants(ASTContext& context) {
 
   AddConstUInt(context, StringRef("STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS"), (unsigned)DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions);
   AddConstUInt(context, StringRef("STATE_OBJECT_FLAGS_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
+  // The above "_FLAGS_" was a typo, leaving in to avoid breaking anyone.  Supposed to be _FLAG_ below.  
+  AddConstUInt(context, StringRef("STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS"), (unsigned)DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions);
+  AddConstUInt(context, StringRef("STATE_OBJECT_FLAG_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
+
+  AddConstUInt(context, StringRef("RAYTRACING_PIPELINE_FLAG_NONE"), (unsigned)DXIL::RaytracingPipelineFlags::None);
+  AddConstUInt(context, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipTriangles);
+  AddConstUInt(context, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives);
 }
 
 static

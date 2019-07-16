@@ -203,6 +203,7 @@ enum ArBasicKind {
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   AR_OBJECT_TRIANGLE_HIT_GROUP,
   AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+  AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   // RayQuery
   AR_OBJECT_RAY_QUERY,
@@ -489,6 +490,7 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   0,      //AR_OBJECT_TRIANGLE_HIT_GROUP,
   0,      //AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+  0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   0,      //AR_OBJECT_RAY_QUERY,
 
@@ -1323,6 +1325,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   AR_OBJECT_TRIANGLE_HIT_GROUP,
   AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+  AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   AR_OBJECT_RAY_QUERY
 };
@@ -1409,6 +1412,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   0, // AR_OBJECT_TRIANGLE_HIT_GROUP,
   0, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+  0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   1, // AR_OBJECT_RAY_QUERY,
 };
@@ -1505,6 +1509,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_HIT_GROUP,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
 };
@@ -1625,6 +1630,7 @@ const char* g_ArBasicTypeNames[] =
   "RaytracingPipelineConfig",
   "TriangleHitGroup",
   "ProceduralPrimitiveHitGroup",
+  "RaytracingPipelineConfig1",
 
   "RayQuery"
 };
@@ -2613,6 +2619,23 @@ static CXXRecordDecl *CreateSubobjectRaytracingPipelineConfig(ASTContext& contex
   return decl;
 }
 
+// struct RaytracingPipelineConfig1
+// {
+//   uint32_t MaxTraceRecursionDepth;
+//   uint32_t Flags;
+// };
+static CXXRecordDecl *
+CreateSubobjectRaytracingPipelineConfig1(ASTContext &context) {
+  CXXRecordDecl *decl =
+      StartSubobjectDecl(context, "RaytracingPipelineConfig1");
+  CreateSimpleField(context, decl, "MaxTraceRecursionDepth",
+                    context.UnsignedIntTy, AccessSpecifier::AS_private);
+  CreateSimpleField(context, decl, "Flags", context.UnsignedIntTy,
+                    AccessSpecifier::AS_private);
+  FinishSubobjectDecl(context, decl);
+  return decl;
+}
+
 // struct TriangleHitGroup
 // {
 //   string AnyHit;
@@ -3290,6 +3313,9 @@ private:
         case AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP:
           recordDecl = CreateSubobjectProceduralPrimitiveHitGroup(*m_context);
           break;
+        case AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1:
+          recordDecl = CreateSubobjectRaytracingPipelineConfig1(*m_context);
+          break;
         }
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "RayQuery", "flags");
@@ -3479,7 +3505,7 @@ public:
   }
 
   static bool IsSubobjectBasicKind(ArBasicKind kind) {
-    return kind >= AR_OBJECT_STATE_OBJECT_CONFIG && kind <= AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP;
+    return kind >= AR_OBJECT_STATE_OBJECT_CONFIG && kind <= AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1;
   }
 
   bool IsSubobjectType(QualType type) {
@@ -4226,7 +4252,7 @@ public:
     DXASSERT(m_matrixTemplateDecl != nullptr, "AddHLSLMatrixTypes failed to return the matrix template declaration");
 
     // Initializing built in integers for ray tracing
-    AddRayTracingConstants(*m_context);
+    AddRaytracingConstants(*m_context);
 
     return true;
   }

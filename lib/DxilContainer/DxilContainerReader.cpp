@@ -72,6 +72,12 @@ bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableRead
           reader.GetHitGroup_ClosestHit(),
           reader.GetHitGroup_Intersection());
           break;
+      case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+        subobjects.CreateRaytracingPipelineConfig1(
+            reader.GetName(),
+            reader.GetRaytracingPipelineConfig1_MaxTraceRecursionDepth(),
+            reader.GetRaytracingPipelineConfig1_Flags());
+        break;
       }
     } catch (hlsl::Exception &) {
       result = false;
