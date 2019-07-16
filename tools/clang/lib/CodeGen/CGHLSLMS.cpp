@@ -7078,6 +7078,17 @@ static bool IsStructWithSameElementType(llvm::StructType *ST, llvm::Type *Ty) {
     if (StructType *EltSt = dyn_cast<StructType>(EltTy)) {
       if (!IsStructWithSameElementType(EltSt, Ty))
         return false;
+    } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(EltTy)) {
+      llvm::Type *ArrayEltTy = dxilutil::GetArrayEltTy(AT);
+      if (ArrayEltTy == Ty) {
+        continue;
+      } else if (StructType *EltSt = dyn_cast<StructType>(EltTy)) {
+        if (!IsStructWithSameElementType(EltSt, Ty))
+          return false;
+      } else {
+        return false;
+      }
+
     } else if (EltTy != Ty)
       return false;
   }
