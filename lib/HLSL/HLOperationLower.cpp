@@ -605,6 +605,8 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
   Type *Ty = val->getType();
 
   // Use the same scaling factor used by FXC (i.e., 255.001953)
+  // Excerpt from stackoverflow discussion:
+  // "Built-in rounding, necessary because of truncation. 0.001953 * 256 = 0.5"
   Constant *toByteConst = ConstantFP::get(Ty->getScalarType(), 255.001953);
 
   if (Ty->isVectorTy()) {
