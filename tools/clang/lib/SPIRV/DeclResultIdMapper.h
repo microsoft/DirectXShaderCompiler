@@ -111,12 +111,24 @@ private:
 
 class ResourceVar {
 public:
-  ResourceVar(SpirvVariable *var, SourceLocation loc,
+  ResourceVar(SpirvVariable *var, const Decl *decl, SourceLocation loc,
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
       : variable(var), srcLoc(loc), reg(r), binding(b), counterBinding(cb),
-        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer) {}
+        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer), arraySize(1) {
+    if (decl) {
+      if (const ValueDecl *valueDecl = dyn_cast<ValueDecl>(decl)) {
+        const QualType type = valueDecl->getType();
+        if (!type.isNull() && type->isConstantArrayType()) {
+          if (auto constArrayType = dyn_cast<ConstantArrayType>(type)) {
+            arraySize =
+                static_cast<uint32_t>(constArrayType->getSize().getZExtValue());
+          }
+        }
+      }
+    }
+  }
 
   SpirvVariable *getSpirvInstr() const { return variable; }
   SourceLocation getSourceLocation() const { return srcLoc; }
@@ -127,6 +139,7 @@ public:
   const VKCounterBindingAttr *getCounterBinding() const {
     return counterBinding;
   }
+  uint32_t getArraySize() const { return arraySize; }
 
 private:
   SpirvVariable *variable;                    ///< The variable
@@ -136,6 +149,7 @@ private:
   const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding
   bool isCounterVar;                          ///< Couter variable or not
   bool isGlobalsCBuffer;                      ///< $Globals cbuffer or not
+  uint32_t arraySize;                         ///< Size if resource is an array
 };
 
 /// A (instruction-pointer, is-alias-or-not) pair for counter variables

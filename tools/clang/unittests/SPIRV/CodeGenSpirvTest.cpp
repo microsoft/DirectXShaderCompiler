@@ -1620,6 +1620,17 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
   runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
 }
 
+// For flattening array of resources
+TEST_F(FileTest, FlattenResourceArrayBindings1) {
+  runFileTest("vk.binding.cl.flatten-arrays.example1.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings2) {
+  runFileTest("vk.binding.cl.flatten-arrays.example2.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindingsOverlapError) {
+  runFileTest("vk.binding.cl.flatten-arrays.error.hlsl", Expect::Failure);
+}
+
 // For testing the "-auto-binding-space" command line option which specifies the
 // "default space" for resources.
 TEST_F(FileTest, VulkanRegisterBindingDefaultSpaceImplicit) {
