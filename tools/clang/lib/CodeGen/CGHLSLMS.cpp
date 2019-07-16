@@ -2881,7 +2881,6 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
 
   hlslRes->SetKind(kind);
   
-  QualType resultTy = hlsl::GetHLSLResourceResultType(QualTy);
   // Type annotation for result type of resource.
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
@@ -2911,7 +2910,8 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     }
   }
 
-  if (kind != hlsl::DxilResource::Kind::StructuredBuffer) {
+  QualType resultTy = hlsl::GetHLSLResourceResultType(QualTy);
+  if (kind != hlsl::DxilResource::Kind::StructuredBuffer && !resultTy.isNull()) {
     QualType Ty = resultTy;
     QualType EltTy = Ty;
     if (hlsl::IsHLSLVecType(Ty)) {
@@ -2968,6 +2968,11 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     } else {
       DXASSERT(!bHasNormAttribute, "snorm/unorm on invalid type");
     }
+  }
+
+  if (hlslRes->IsFeedbackTexture()) {
+    hlslRes->SetSamplerFeedbackType(
+      static_cast<DXIL::SamplerFeedbackType>(hlsl::GetHLSLResourceTemplateUInt(QualTy)));
   }
 
   hlslRes->SetROV(RD->getName().startswith("RasterizerOrdered"));

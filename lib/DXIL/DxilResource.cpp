@@ -25,6 +25,7 @@ DxilResource::DxilResource()
 : DxilResourceBase(DxilResourceBase::Class::Invalid)
 , m_SampleCount(0)
 , m_ElementStride(0)
+, m_SamplerFeedbackType((DXIL::SamplerFeedbackType)0)
 , m_bGloballyCoherent(false)
 , m_bHasCounter(false)
 , m_bROV(false) {
@@ -64,6 +65,14 @@ unsigned DxilResource::GetElementStride() const {
 
 void DxilResource::SetElementStride(unsigned ElemStride) {
   m_ElementStride = ElemStride;
+}
+
+DXIL::SamplerFeedbackType DxilResource::GetSamplerFeedbackType() const {
+  return m_SamplerFeedbackType;
+}
+
+void DxilResource::SetSamplerFeedbackType(DXIL::SamplerFeedbackType Value) {
+  m_SamplerFeedbackType = Value;
 }
 
 bool DxilResource::IsGloballyCoherent() const {
@@ -125,6 +134,10 @@ bool DxilResource::IsRawBuffer() const {
 
 bool DxilResource::IsTBuffer() const {
   return GetKind() == Kind::TBuffer;
+}
+
+bool DxilResource::IsFeedbackTexture() const {
+  return GetKind() == Kind::FeedbackTexture2D || GetKind() == Kind::FeedbackTexture2DArray;
 }
 
 unsigned DxilResource::GetNumCoords(Kind ResourceKind) {

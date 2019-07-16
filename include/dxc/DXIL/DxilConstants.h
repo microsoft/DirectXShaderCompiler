@@ -1271,7 +1271,8 @@ namespace DXIL {
 
   enum class SamplerFeedbackType : uint8_t {
     MinMip = 0,
-    MipRegionUsed = 1
+    MipRegionUsed = 1,
+    LastEntry = 2
   };
 
   // Constant for Container.

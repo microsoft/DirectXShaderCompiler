@@ -590,9 +590,16 @@ QualType GetHLSLResourceResultType(QualType type) {
 
   if (const ClassTemplateSpecializationDecl *templateDecl =
     dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+    
+    if (RD->getName().startswith("FeedbackTexture")) {
+      // Feedback textures are write-only and the data is opaque,
+      // so there is no result type per se.
+      return {};
+    }
+    
     // Type-templated resource types
 
-    // First attempt to get the template argument from the TemplateSpecializationType sugar,
+    // Prefer getting the template argument from the TemplateSpecializationType sugar,
     // since this preserves 'snorm' from 'Buffer<snorm float>' which is lost on the
     // ClassTemplateSpecializationDecl since it's considered type sugar.
     const TemplateArgument* templateArg = &templateDecl->getTemplateArgs()[0];
@@ -611,6 +618,12 @@ QualType GetHLSLResourceResultType(QualType type) {
   FieldDecl* HandleFieldDecl = *(RD->field_begin());
   DXASSERT(HandleFieldDecl->getName() == "h", "Resource must have a handle field");
   return HandleFieldDecl->getType();
+}
+
+unsigned GetHLSLResourceTemplateUInt(clang::QualType type) {
+  const ClassTemplateSpecializationDecl* templateDecl = cast<ClassTemplateSpecializationDecl>(
+    type->castAs<RecordType>()->getDecl());
+  return (unsigned)templateDecl->getTemplateArgs()[0].getAsIntegral().getZExtValue();
 }
 
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
