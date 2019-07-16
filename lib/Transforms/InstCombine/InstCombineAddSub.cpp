@@ -1160,8 +1160,14 @@ Instruction *InstCombiner::visitAdd(BinaryOperator &I) {
     return ReplaceInstUsesWith(I, V);
 
   // A+B --> A|B iff A and B have no bits set in common.
-  if (haveNoCommonBitsSet(LHS, RHS, DL, AC, &I, DT))
+  // HLSL Change Begin - disable A+B -> A|B for i32.
+  bool bIsI32 = false;
+  if (IntegerType *IT = dyn_cast<IntegerType>(I.getType())) {
+    bIsI32 = IT->getBitWidth() == 32;
+  }
+  if (haveNoCommonBitsSet(LHS, RHS, DL, AC, &I, DT) && !bIsI32)
     return BinaryOperator::CreateOr(LHS, RHS);
+  // HLSL Change End.
 
   if (Constant *CRHS = dyn_cast<Constant>(RHS)) {
     Value *X;
