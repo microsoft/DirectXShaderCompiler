@@ -157,7 +157,10 @@ TEST_F(FileTest, VarInitTbuffer) {
 TEST_F(FileTest, VarInitWarningIngored) {
   runFileTest("var.init.warning.ignored.hlsl", Expect::Warning);
 }
-TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
+TEST_F(FileTest, VarInitOpaque) {
+  setBeforeHLSLLegalization();
+  runFileTest("var.init.opaque.hlsl");
+}
 TEST_F(FileTest, VarInitCrossStorageClass) {
   runFileTest("var.init.cross-storage-class.hlsl");
 }
@@ -216,6 +219,7 @@ TEST_F(FileTest, BinaryOpAssignComposite) {
 TEST_F(FileTest, BinaryOpAssignOpaqueArray) {
   // Test that for copying opaque arrays, we load each element via access chain
   // separately, create an composite, and then write out once
+  setBeforeHLSLLegalization();
   runFileTest("binary-op.assign.opaque.array.hlsl");
 }
 
