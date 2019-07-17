@@ -1,9 +1,7 @@
 // RUN: %dxc -Emain -Tps_6_0 %s | %FileCheck %s
-// CHECK: alloca [3 x i32]
+// CHECK-NOT: alloca [3 x i32]
 
-// We could get hoist the arrays individually but the two allocas are
-// merged by inlining and that prevents hoisting. It becomes a good
-// negative test because different constants are written to the alloca.
+// We disabled alloca merge when inline, now the allocas will be removed.
 
 int foo(int i) {
     int A[] = {1,2,3};
