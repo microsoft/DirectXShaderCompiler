@@ -153,6 +153,12 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
 
   AdjustCallerSSPLevel(Caller, Callee);
 
+  // HLSL Change Begin- not merge allocas.
+  // Merge alloca will make alloca which has one def become multi def.
+  // SROA will fail to remove the merged allocas.
+  return true;
+  // HLSL Change End.
+#if 0 // HLSL Change - disable unused code.
   // Look at all of the allocas that we inlined through this call site.  If we
   // have already inlined other allocas through other calls into this function,
   // then we know that they have disjoint lifetimes and that we can merge them.
@@ -269,6 +275,7 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
   }
   
   return true;
+#endif
 }
 
 unsigned Inliner::getInlineThreshold(CallSite CS) const {
