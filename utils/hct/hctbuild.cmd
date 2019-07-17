@@ -123,6 +123,11 @@ if "%1"=="-vs2015" (
   set BUILD_VS_VER=2015
   shift /1
 )
+if "%1"=="-vs2019" (
+  set BUILD_GENERATOR=Visual Studio 16 2019
+  set BUILD_VS_VER=2019
+  shift /1
+)
 
 if "%1"=="-tblgen" (
   if "%2" == "" (
@@ -171,6 +176,10 @@ set BUILD_ARM_CROSSCOMPILING=0
 
 if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
+  if "%BUILD_VS_VER%"=="2019" (
+    set BUILD_GENERATOR=%BUILD_GENERATOR%
+    set VS2019ARCH=-Ax64
+  )
 )
 
 if /i "%BUILD_ARCH%"=="arm" (
@@ -247,7 +256,7 @@ if /i "%BUILD_ARCH%"=="Win32" (
   set BUILD_TOOLS=amd64_arm64
 )
 
-call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
+call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%" "%VS2019ARCH%"
 if errorlevel 1 exit /b 1
 
 if "%BUILD_GENERATOR%"=="Ninja" (
@@ -322,8 +331,13 @@ if "%DO_SETUP%"=="1" (
     cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    if "%BUILD_VS_VER%"=="2019" (
+      echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    ) else (
+      echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    )
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.
