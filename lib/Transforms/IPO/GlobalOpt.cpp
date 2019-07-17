@@ -42,6 +42,8 @@
 #include "llvm/Transforms/Utils/CtorUtils.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "dxc/HLSL/HLModule.h" // HLSL Change - Entrypoint testing
+#include "dxc/DXIL/DxilModule.h" // HLSL Change - Entrypoint testing
 #include <algorithm>
 #include <deque>
 using namespace llvm;
@@ -1722,6 +1724,14 @@ bool GlobalOpt::ProcessGlobal(GlobalVariable *GV,
   return ProcessInternalGlobal(GV, GVI, GS);
 }
 
+// HLSL Change Begin
+static bool isEntryPoint(const Function* Func) {
+  const Module& Mod = *Func->getParent();
+  return (Mod.HasHLModule() && Func == Mod.GetHLModule().GetEntryFunction())
+    || (Mod.HasDxilModule() && Func == Mod.GetDxilModule().GetEntryFunction());
+}
+// HLSL Change End
+
 /// ProcessInternalGlobal - Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
@@ -1729,7 +1739,7 @@ bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
                                       const GlobalStatus &GS) {
   auto &DL = GV->getParent()->getDataLayout();
 
-#if 0 // HLSL Change - Don't special case for the name "main"
+
   // If this is a first class global and has only one accessing function
   // and this function is main (which we know is not recursive), we replace
   // the global with a local alloca in this function.
@@ -1741,7 +1751,7 @@ bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
   if (!GS.HasMultipleAccessingFunctions &&
       GS.AccessingFunction && !GS.HasNonInstructionUser &&
       GV->getType()->getElementType()->isSingleValueType() &&
-      GS.AccessingFunction->getName() == "main" &&
+      isEntryPoint(GS.AccessingFunction) && // HLSL Change - Don't special case for the name "main"
       GS.AccessingFunction->hasExternalLinkage() &&
       GV->getType()->getAddressSpace() == 0) {
     DEBUG(dbgs() << "LOCALIZING GLOBAL: " << *GV);
@@ -1759,7 +1769,6 @@ bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
     ++NumLocalized;
     return true;
   }
-#endif // HLSL Change
 
   // If the global is never loaded (but may be stored to), it is dead.
   // Delete it now.

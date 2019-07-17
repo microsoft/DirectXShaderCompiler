@@ -698,7 +698,7 @@ public:
   }
   bool HasHLModule() const { return TheHLModule != nullptr; }
   void SetHLModule(hlsl::HLModule *pValue) { TheHLModule = pValue; }
-  hlsl::HLModule &GetHLModule() { return *TheHLModule; }
+  hlsl::HLModule &GetHLModule() const { return *TheHLModule; }
   hlsl::HLModule &GetOrCreateHLModule(bool skipInit = false);
   ResetModuleCallback pfnResetHLModule = nullptr;
   void ResetHLModule() { if (pfnResetHLModule) (*pfnResetHLModule)(this); }
