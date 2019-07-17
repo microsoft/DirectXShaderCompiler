@@ -79,6 +79,7 @@ public:
   llvm::Function *GetPatchConstantFunction();
   const llvm::Function *GetPatchConstantFunction() const;
   void SetPatchConstantFunction(llvm::Function *pFunc);
+  bool IsEntryOrPatchConstantFunction(const llvm::Function* pFunc) const;
 
   // Flags.
   unsigned GetGlobalFlags() const;

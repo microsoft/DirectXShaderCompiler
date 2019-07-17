@@ -42,7 +42,6 @@
 #include "llvm/Transforms/Utils/CtorUtils.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "dxc/HLSL/HLModule.h" // HLSL Change - Entrypoint testing
 #include "dxc/DXIL/DxilModule.h" // HLSL Change - Entrypoint testing
 #include <algorithm>
 #include <deque>
@@ -1725,10 +1724,11 @@ bool GlobalOpt::ProcessGlobal(GlobalVariable *GV,
 }
 
 // HLSL Change Begin
-static bool isEntryPoint(const Function* Func) {
-  const Module& Mod = *Func->getParent();
-  return (Mod.HasHLModule() && Func == Mod.GetHLModule().GetEntryFunction())
-    || (Mod.HasDxilModule() && Func == Mod.GetDxilModule().GetEntryFunction());
+static bool isEntryPoint(const llvm::Function* Func) {
+  const llvm::Module* Mod = Func->getParent();
+  return Mod->HasDxilModule()
+    ? Mod->GetDxilModule().IsEntryOrPatchConstantFunction(Func)
+    : Func->getName() == "main"; // Original logic for non-HLSL
 }
 // HLSL Change End
 
@@ -1751,7 +1751,7 @@ bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
   if (!GS.HasMultipleAccessingFunctions &&
       GS.AccessingFunction && !GS.HasNonInstructionUser &&
       GV->getType()->getElementType()->isSingleValueType() &&
-      isEntryPoint(GS.AccessingFunction) && // HLSL Change - Don't special case for the name "main"
+      isEntryPoint(GS.AccessingFunction) && // HLSL Change - Generalize entrypoint testing
       GS.AccessingFunction->hasExternalLinkage() &&
       GV->getType()->getAddressSpace() == 0) {
     DEBUG(dbgs() << "LOCALIZING GLOBAL: " << *GV);
