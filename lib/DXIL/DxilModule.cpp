@@ -275,6 +275,10 @@ void DxilModule::SetPatchConstantFunction(llvm::Function *patchConstantFunc) {
   }
 }
 
+bool DxilModule::IsEntryOrPatchConstantFunction(const llvm::Function* pFunc) const {
+  return pFunc == GetEntryFunction() || pFunc == GetPatchConstantFunction();
+}
+
 unsigned DxilModule::GetGlobalFlags() const {
   unsigned Flags = m_ShaderFlags.GetGlobalFlags();
   return Flags;
