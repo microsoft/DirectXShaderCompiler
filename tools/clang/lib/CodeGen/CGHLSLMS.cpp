@@ -2402,6 +2402,10 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
           staticConstGlobalInitMap[InitExp] = GV;
         }
       }
+      // Add type annotation for static global variable.
+      DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+      unsigned arrayEltSize = 0;
+      AddTypeAnnotation(VD->getType(), typeSys, arrayEltSize);
       return;
     }
 
@@ -7067,6 +7071,30 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *S
     SmallVector<Value *, 4> idxList;
     EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Ty, Ty, SrcPtr->getType());
 }
+
+// Make sure all element type of struct is same type.
+static bool IsStructWithSameElementType(llvm::StructType *ST, llvm::Type *Ty) {
+  for (llvm::Type *EltTy : ST->elements()) {
+    if (StructType *EltSt = dyn_cast<StructType>(EltTy)) {
+      if (!IsStructWithSameElementType(EltSt, Ty))
+        return false;
+    } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(EltTy)) {
+      llvm::Type *ArrayEltTy = dxilutil::GetArrayEltTy(AT);
+      if (ArrayEltTy == Ty) {
+        continue;
+      } else if (StructType *EltSt = dyn_cast<StructType>(EltTy)) {
+        if (!IsStructWithSameElementType(EltSt, Ty))
+          return false;
+      } else {
+        return false;
+      }
+
+    } else if (EltTy != Ty)
+      return false;
+  }
+  return true;
+}
+
 // To memcpy, need element type match.
 // For struct type, the layout should match in cbuffer layout.
 // struct { float2 x; float3 y; } will not match struct { float3 x; float2 y; }.
@@ -7097,11 +7125,8 @@ static bool IsTypeMatchForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy) {
       return false;
     if (Ty->getVectorNumElements() != 4)
       return false;
-    for (llvm::Type *EltTy : ST->elements()) {
-      if (EltTy != Ty)
-        return false;
-    }
-    return true;
+
+    return IsStructWithSameElementType(ST, Ty);
   }
 }
 
