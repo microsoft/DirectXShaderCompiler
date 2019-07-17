@@ -1728,6 +1728,8 @@ bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
                                       Module::global_iterator &GVI,
                                       const GlobalStatus &GS) {
   auto &DL = GV->getParent()->getDataLayout();
+
+#if 0 // HLSL Change - Don't special case for the name "main"
   // If this is a first class global and has only one accessing function
   // and this function is main (which we know is not recursive), we replace
   // the global with a local alloca in this function.
@@ -1757,6 +1759,7 @@ bool GlobalOpt::ProcessInternalGlobal(GlobalVariable *GV,
     ++NumLocalized;
     return true;
   }
+#endif // HLSL Change
 
   // If the global is never loaded (but may be stored to), it is dead.
   // Delete it now.
