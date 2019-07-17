@@ -1,5 +1,7 @@
 // Run: %dxc -T cs_6_2 -E main -enable-16bit-types
 
+void foo(float16_t2x3 param[3]) {}
+
 ByteAddressBuffer buf;
 
 [numthreads(64, 1, 1)]
@@ -35,7 +37,6 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:        [[matrix:%\d+]] = OpCompositeConstruct %_arr_v3ushort_uint_2 [[row0]] [[row1]]
 // CHECK:                          OpStore %u16 [[matrix]]
   uint16_t2x3 u16 = buf.Load<uint16_t2x3>(tid.x);
-
 
 // ********* 32-bit matrix ********************
 
@@ -151,5 +152,31 @@ void main(uint3 tid : SV_DispatchThreadId)
 // CHECK:        [[matrix_array:%\d+]] = OpCompositeConstruct %_arr_mat2v3half_uint_3 [[matrix_1]] [[matrix_2]] [[matrix_3]]
 // CHECK:                                OpStore %matVec [[matrix_array]]
   float16_t2x3 matVec[3] = buf.Load<float16_t2x3[3]>(tid.x);
-}
 
+//
+// Chceck that the rvalue resulting from the templated load is accessed correctly
+// A temporary LValue has to be constructed and accessed in order to do this.
+//
+// CHECK: OpCompositeConstruct %_arr_mat2v3half_uint_3
+// CHECK: OpStore %temp_var_
+// CHECK: OpAccessChain %_ptr_Function_mat2v3half %temp_var_ %int_0
+// CHECK: OpLoad %mat2v3half
+// CHECK: OpCompositeExtract %half {{%\d+}} 0 1
+// CHECK: OpCompositeExtract %half {{%\d+}} 0 2
+// CHECK: OpCompositeConstruct %v2half
+// CHECK: OpStore %customMatrix {{%\d+}}
+  float16_t2 customMatrix = (buf.Load<float16_t2x3[3]>(tid.x))[0]._m01_m02;
+
+// CHECK: OpCompositeConstruct %_arr_mat2v3half_uint_3
+// CHECK: OpStore %temp_var_vector
+// CHECK: OpAccessChain %_ptr_Function_half %temp_var_vector %int_1 %uint_0 %uint_1
+// CHECK: OpLoad %half
+// CHECK: OpCompositeConstruct %_arr_half_uint_3
+// CHECK: OpStore %a {{%\d+}}
+  half a[3] = {1, (buf.Load<float16_t2x3[3]>(tid.x))[1][0][1], 0};
+
+// CHECK: OpCompositeConstruct %_arr_mat2v3half_uint_3
+// CHECK: OpStore %param_var_param {{%\d+}}
+// CHECK: OpFunctionCall %void %foo %param_var_param
+  foo(buf.Load<float16_t2x3[3]>(tid.x));
+}
