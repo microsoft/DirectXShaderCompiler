@@ -609,6 +609,8 @@ static const char *FlagToString(DXIL::StateObjectFlags Flag) {
     return "STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS";
   case DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions:
     return "STATE_OBJECT_FLAG_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS";
+  case DXIL::StateObjectFlags::AllowStateObjectAdditions:
+    return "STATE_OBJECT_FLAG_ALLOW_STATE_OBJECT_ADDITIONS";
   }
   return "<invalid StateObjectFlag>";
 }

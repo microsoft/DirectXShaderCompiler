@@ -440,6 +440,8 @@ void hlsl::AddRaytracingConstants(ASTContext& context) {
     { "RAY_FLAG_CULL_FRONT_FACING_TRIANGLES", (unsigned)DXIL::RayFlag::CullFrontFacingTriangles },
     { "RAY_FLAG_CULL_OPAQUE", (unsigned)DXIL::RayFlag::CullOpaque },
     { "RAY_FLAG_CULL_NON_OPAQUE", (unsigned)DXIL::RayFlag::CullNonOpaque },
+    { "RAY_FLAG_SKIP_TRIANGLES", (unsigned)DXIL::RayFlag::SkipTriangles },
+    { "RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES", (unsigned)DXIL::RayFlag::SkipProceduralPrimitives },
   });
 
   AddTypedefPseudoEnum(context, "COMMITTED_STATUS", {
@@ -463,6 +465,7 @@ void hlsl::AddRaytracingConstants(ASTContext& context) {
   // The above "_FLAGS_" was a typo, leaving in to avoid breaking anyone.  Supposed to be _FLAG_ below.  
   AddConstUInt(context, StringRef("STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS"), (unsigned)DXIL::StateObjectFlags::AllowLocalDependenciesOnExternalDefinitions);
   AddConstUInt(context, StringRef("STATE_OBJECT_FLAG_ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS"), (unsigned)DXIL::StateObjectFlags::AllowExternalDependenciesOnLocalDefinitions);
+  AddConstUInt(context, StringRef("STATE_OBJECT_FLAG_ALLOW_STATE_OBJECT_ADDITIONS"), (unsigned)DXIL::StateObjectFlags::AllowStateObjectAdditions);
 
   AddConstUInt(context, StringRef("RAYTRACING_PIPELINE_FLAG_NONE"), (unsigned)DXIL::RaytracingPipelineFlags::None);
   AddConstUInt(context, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipTriangles);
