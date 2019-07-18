@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: ; GlobalRootSignature grs = { <48 bytes> };
-// CHECK: ; StateObjectConfig soc = { STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS };
+// CHECK: ; StateObjectConfig soc = { STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS | STATE_OBJECT_FLAG_ALLOW_STATE_OBJECT_ADDITIONS };
 // CHECK: ; LocalRootSignature lrs = { <48 bytes> };
 // CHECK: ; SubobjectToExportsAssociation sea = { "grs", { "a", "b", "foo", "c" }  };
 // CHECK: ; SubobjectToExportsAssociation sea2 = { "grs", { }  };
@@ -14,7 +14,7 @@
 // CHECK: ; HitGroup ppHitGt = { HitGroupType = ProceduralPrimitive, Anyhit = "a", Closesthit = "b", Intersection = "c" };
 
 GlobalRootSignature grs = {"CBV(b0)"};
-StateObjectConfig soc = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS };
+StateObjectConfig soc = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS | STATE_OBJECT_FLAG_ALLOW_STATE_OBJECT_ADDITIONS };
 LocalRootSignature lrs = {"UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY), RootFlags(LOCAL_ROOT_SIGNATURE)"};
 SubobjectToExportsAssociation sea = { "grs", "a;b;foo;c" };
 // Empty association is well-defined: it creates a default association

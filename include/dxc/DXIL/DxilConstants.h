@@ -1331,7 +1331,8 @@ namespace DXIL {
   enum class StateObjectFlags : uint32_t {
     AllowLocalDependenciesOnExternalDefinitions = 0x1,
     AllowExternalDependenciesOnLocalDefinitions = 0x2,
-    ValidMask = 0x3,
+    AllowStateObjectAdditions                   = 0x4,
+    ValidMask                                   = 0x7,
   };
 
   enum class HitGroupType : uint32_t {
