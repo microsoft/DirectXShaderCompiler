@@ -618,21 +618,28 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
                              const std::vector<llvm::StringRef> &fileNames,
                              llvm::StringRef content) {
   uint32_t version = 100 * major + 10 * minor;
-
-  std::vector<SpirvString *> fileStrings;
+  SpirvSource *mainSource = nullptr;
   for (const auto &name : fileNames) {
-    fileStrings.push_back(
+    SpirvString *fileString =
         name.empty() ? nullptr
-                     : new (context) SpirvString(/*SourceLocation*/ {}, name));
+                     : new (context) SpirvString(/*SourceLocation*/ {}, name);
+    SpirvSource *debugSource = new (context)
+        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
+                    fileString, content);
+    module->addDebugSource(debugSource);
+    if (!mainSource)
+      mainSource = debugSource;
   }
 
-  SpirvSource *debugSource = new (context)
-      SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
-                  fileStrings, content);
-
-  module->addDebugSource(debugSource);
-
-  return fileStrings.empty() ? nullptr : fileStrings.front();
+  // If mainSource is nullptr, fileNames is empty and no input file is
+  // specified. We must create a SpirvSource for OpSource HLSL <version>.
+  if (!mainSource) {
+    mainSource = new (context)
+        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
+                    nullptr, content);
+    module->addDebugSource(mainSource);
+  }
+  return mainSource->getFile();
 }
 
 void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,

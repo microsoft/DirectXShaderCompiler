@@ -11,9 +11,9 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringMap.h"
 
 #include <functional>
-#include <map>
 
 namespace clang {
 namespace spirv {

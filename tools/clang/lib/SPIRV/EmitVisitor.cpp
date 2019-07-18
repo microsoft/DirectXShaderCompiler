@@ -413,19 +413,19 @@ bool EmitVisitor::visit(SpirvString *inst) {
   if (spvOptions.debugInfoLine) {
     if (debugFileIdMap.find(inst->getString()) != debugFileIdMap.end())
       return true;
-    debugFileIdMap[inst->getString()] = inst->getResultId();
+    debugFileIdMap[inst->getString()] =
+        getOrAssignResultId<SpirvInstruction>(inst);
   }
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSource *inst) {
   // Emit the OpString for the file name.
-  if (inst->hasFiles()) {
-    for (auto *file : inst->getFiles())
-      visit(file);
+  if (inst->hasFile()) {
+    visit(inst->getFile());
 
-    if (spvOptions.debugInfoLine)
-      debugMainFileId = debugFileIdMap[inst->getFiles().front()->getString()];
+    if (spvOptions.debugInfoLine && !debugMainFileId)
+      debugMainFileId = debugFileIdMap[inst->getFile()->getString()];
   }
 
   // Chop up the source into multiple segments if it is too long.
@@ -441,9 +441,8 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
-  if (inst->hasFiles()) {
-    for (auto *file : inst->getFiles())
-      curInst.push_back(getOrAssignResultId<SpirvInstruction>(file));
+  if (inst->hasFile()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getFile()));
   }
   if (firstSnippet.hasValue()) {
     // Note: in order to improve performance and avoid multiple copies, we
