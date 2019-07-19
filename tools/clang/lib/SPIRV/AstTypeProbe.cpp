@@ -97,7 +97,7 @@ bool isScalarType(QualType type, QualType *scalarType) {
   bool isScalar = false;
   QualType ty = {};
 
-  if (type->isBuiltinType()) {
+  if (type->isBuiltinType() || isEnumType(type)) {
     isScalar = true;
     ty = type;
   } else if (hlsl::IsHLSLVecType(type) && hlsl::GetHLSLVecSize(type) == 1) {

@@ -5049,8 +5049,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
   const bool lhsIsFloatMat = lhsIsMat && matElemType->isFloatingType();
   const bool lhsIsNonFpMat = lhsIsMat && !matElemType->isFloatingType();
 
-  if (isScalarType(lhsValType) || isVectorType(lhsValType) || lhsIsFloatMat ||
-      isEnumType(lhsValType)) {
+  if (isScalarType(lhsValType) || isVectorType(lhsValType) || lhsIsFloatMat) {
     // Special-case: According to the SPIR-V Spec: There is no physical size
     // or bit pattern defined for boolean type. Therefore an unsigned integer
     // is used to represent booleans when layout is required. In such cases,

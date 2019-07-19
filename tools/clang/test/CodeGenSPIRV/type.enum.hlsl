@@ -38,6 +38,11 @@ void main() {
 //CHECK-NEXT:                  OpStore [[c]] [[third]]
   c.Append(Third);
 
+//CHECK:          [[c:%\d+]] = OpAccessChain %_ptr_Uniform_int %c %uint_0 %57
+//CHECK-NEXT: [[third:%\d+]] = OpLoad %int %Third
+//CHECK-NEXT:                  OpStore [[c]] [[third]]
+  c.Append(Number::Third);
+
   Number d;
 //CHECK:      [[d:%\d+]] = OpLoad %int %d
 //CHECK-NEXT:              OpSelectionMerge %switch_merge None
