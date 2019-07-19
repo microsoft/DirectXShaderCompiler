@@ -427,7 +427,7 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(EntryInfo &Entry
       GetUnsignedVal(SO.get_colIndex(), &col);
       GetUnsignedVal(SO.get_rowIndex(), (uint32_t*)&startRow);
     } else if (DxilInst_StoreVertexOutput SVO = DxilInst_StoreVertexOutput(CI)) {
-      pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
+      pDxilSig = &m_pModule->GetOutputSignature();
       pContributingValue = SVO.get_value();
       GetUnsignedVal(SVO.get_outputSigId(), &id);
       GetUnsignedVal(SVO.get_colIndex(), &col);
