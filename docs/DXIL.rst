@@ -3134,6 +3134,7 @@ SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH    For pass thru hull shader, input contro
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN       InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE               Invalid resource return type
 SM.INVALIDRESOURCEKIND                   Invalid resources kind
+SM.INVALIDSAMPLERFEEDBACKTYPE            Invalid sampler feedback type
 SM.INVALIDTEXTUREKINDONUAV               Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH        Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
 SM.MAXMSSMSIZE                           Total Thread Group Shared Memory storage is %0, exceeded %1

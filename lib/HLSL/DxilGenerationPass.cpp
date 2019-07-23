@@ -88,6 +88,7 @@ void InitResourceBase(const DxilResourceBase *pSource,
 
 void InitResource(const DxilResource *pSource, DxilResource *pDest) {
   pDest->SetCompType(pSource->GetCompType());
+  pDest->SetSamplerFeedbackType(pSource->GetSamplerFeedbackType());
   pDest->SetSampleCount(pSource->GetSampleCount());
   pDest->SetElementStride(pSource->GetElementStride());
   pDest->SetGloballyCoherent(pSource->IsGloballyCoherent());
