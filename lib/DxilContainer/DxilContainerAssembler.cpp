@@ -601,13 +601,12 @@ public:
         }
         break;
       }
-    case ShaderModel::Kind::Amplification:
     case ShaderModel::Kind::Compute:
     case ShaderModel::Kind::Library:
     case ShaderModel::Kind::Invalid:
-      // Amplification, Compute, Library, and Invalide not relevant to PSVRuntimeInfo0
+      // Compute, Library, and Invalid not relevant to PSVRuntimeInfo0
       break;
-    case ShaderModel::Kind::Mesh:
+    case ShaderModel::Kind::Mesh: {
       pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
       pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
       pInfo1->MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
@@ -654,6 +653,42 @@ public:
       }
       pInfo->MS.PayloadSizeInBytes = payloadByteSize;
       break;
+    }
+    case ShaderModel::Kind::Amplification: {
+      const Function *entryFunc = m_Module.GetEntryFunction();
+      unsigned payloadByteSize = 0;
+      Module *mod = m_Module.GetModule();
+      const DataLayout &DL = mod->getDataLayout();
+      for (auto b = entryFunc->begin(), bend = entryFunc->end(); b != bend;
+           ++b) {
+        auto i = b->begin(), iend = b->end();
+        for (; i != iend; ++i) {
+          const Instruction &I = *i;
+
+          // Calls to external functions.
+          const CallInst *CI = dyn_cast<CallInst>(&I);
+          if (CI) {
+            Function *FCalled = CI->getCalledFunction();
+            if (FCalled->isDeclaration()) {
+              Value *opcodeVal = CI->getOperand(0);
+              ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
+              unsigned opcode = OpcodeConst->getLimitedValue();
+              DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+              if (dxilOpcode == DXIL::OpCode::DispatchMesh) {
+                Value *operandVal = CI->getOperand(5);
+                Type *payloadTy = operandVal->getType();
+                payloadByteSize = DL.getTypeAllocSize(payloadTy);
+                break;
+              }
+            }
+          }
+        }
+        if (i != iend)
+          break;
+      }
+      pInfo->AS.PayloadSizeInBytes = payloadByteSize;
+      break;
+    }
     }
 
     // Set resource binding information
