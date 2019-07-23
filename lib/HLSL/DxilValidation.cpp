@@ -243,6 +243,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmInvalidTextureKindOnUAV: return "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs";
     case hlsl::ValidationRule::SmInvalidResourceKind: return "Invalid resources kind";
     case hlsl::ValidationRule::SmInvalidResourceCompType: return "Invalid resource return type";
+    case hlsl::ValidationRule::SmInvalidSamplerFeedbackType: return "Invalid sampler feedback type";
     case hlsl::ValidationRule::SmSampleCountOnlyOn2DMS: return "Only Texture2DMS/2DMSArray could has sample count";
     case hlsl::ValidationRule::SmCounterOnlyOnStructBuf: return "BufferUpdateCounter valid only on structured buffers";
     case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
@@ -3911,10 +3912,10 @@ static void ValidateResource(hlsl::DxilResource &res,
   case DXIL::ResourceKind::RTAccelerationStructure:
     // TODO: check profile.
     break;
-  case DXIL::ResourceKind::FeedbackTexture2DMinLOD:
-  case DXIL::ResourceKind::FeedbackTexture2DTiled:
-  case DXIL::ResourceKind::FeedbackTexture2DArrayMinLOD:
-  case DXIL::ResourceKind::FeedbackTexture2DArrayTiled:
+  case DXIL::ResourceKind::FeedbackTexture2D:
+  case DXIL::ResourceKind::FeedbackTexture2DArray:
+    if (res.GetSamplerFeedbackType() >= DXIL::SamplerFeedbackType::LastEntry)
+      ValCtx.EmitResourceError(&res, ValidationRule::SmInvalidSamplerFeedbackType);
     break;
   default:
     ValCtx.EmitResourceError(&res, ValidationRule::SmInvalidResourceKind);
@@ -3935,7 +3936,7 @@ static void ValidateResource(hlsl::DxilResource &res,
   case DXIL::ComponentType::U16:
     break;
   default:
-    if (!res.IsStructuredBuffer() && !res.IsRawBuffer())
+    if (!res.IsStructuredBuffer() && !res.IsRawBuffer() && !res.IsFeedbackTexture())
       ValCtx.EmitResourceError(&res, ValidationRule::SmInvalidResourceCompType);
     break;
   }

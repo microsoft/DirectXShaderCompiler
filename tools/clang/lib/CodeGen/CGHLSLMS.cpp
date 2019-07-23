@@ -1107,10 +1107,8 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
     return DxilResource::Kind::Texture2D;
   if (keyword == "Texture2DMS" || keyword == "RWTexture2DMS")
     return DxilResource::Kind::Texture2DMS;
-  if (keyword == "FeedbackTexture2DMinLOD")
-    return DxilResource::Kind::FeedbackTexture2DMinLOD;
-  if (keyword == "FeedbackTexture2DTiled")
-    return DxilResource::Kind::FeedbackTexture2DTiled;
+  if (keyword == "FeedbackTexture2D")
+    return DxilResource::Kind::FeedbackTexture2D;
   if (keyword == "Texture3D" || keyword == "RWTexture3D" || keyword == "RasterizerOrderedTexture3D")
     return DxilResource::Kind::Texture3D;
   if (keyword == "TextureCube" || keyword == "RWTextureCube")
@@ -1120,10 +1118,8 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
     return DxilResource::Kind::Texture1DArray;
   if (keyword == "Texture2DArray" || keyword == "RWTexture2DArray" || keyword == "RasterizerOrderedTexture2DArray")
     return DxilResource::Kind::Texture2DArray;
-  if (keyword == "FeedbackTexture2DArrayMinLOD")
-    return DxilResource::Kind::FeedbackTexture2DArrayMinLOD;
-  if (keyword == "FeedbackTexture2DArrayTiled")
-    return DxilResource::Kind::FeedbackTexture2DArrayTiled;
+  if (keyword == "FeedbackTexture2DArray")
+    return DxilResource::Kind::FeedbackTexture2DArray;
   if (keyword == "Texture2DMSArray" || keyword == "RWTexture2DMSArray")
     return DxilResource::Kind::Texture2DMSArray;
   if (keyword == "TextureCubeArray" || keyword == "RWTextureCubeArray")
@@ -2540,10 +2536,8 @@ static DxilResourceBase::Class KeywordToClass(const std::string &keyword) {
   isUAV |= keyword == "RasterizerOrderedTexture2D";
   isUAV |= keyword == "RasterizerOrderedTexture2DArray";
   isUAV |= keyword == "RasterizerOrderedTexture3D";
-  isUAV |= keyword == "FeedbackTexture2DMinLOD";
-  isUAV |= keyword == "FeedbackTexture2DTiled";
-  isUAV |= keyword == "FeedbackTexture2DArrayMinLOD";
-  isUAV |= keyword == "FeedbackTexture2DArrayTiled";
+  isUAV |= keyword == "FeedbackTexture2D";
+  isUAV |= keyword == "FeedbackTexture2DArray";
   if (isUAV)
     return DxilResourceBase::Class::UAV;
 
@@ -2891,7 +2885,6 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
 
   hlslRes->SetKind(kind);
   
-  QualType resultTy = hlsl::GetHLSLResourceResultType(QualTy);
   // Type annotation for result type of resource.
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
@@ -2921,7 +2914,8 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     }
   }
 
-  if (kind != hlsl::DxilResource::Kind::StructuredBuffer) {
+  QualType resultTy = hlsl::GetHLSLResourceResultType(QualTy);
+  if (kind != hlsl::DxilResource::Kind::StructuredBuffer && !resultTy.isNull()) {
     QualType Ty = resultTy;
     QualType EltTy = Ty;
     if (hlsl::IsHLSLVecType(Ty)) {
@@ -2978,6 +2972,11 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     } else {
       DXASSERT(!bHasNormAttribute, "snorm/unorm on invalid type");
     }
+  }
+
+  if (hlslRes->IsFeedbackTexture()) {
+    hlslRes->SetSamplerFeedbackType(
+      static_cast<DXIL::SamplerFeedbackType>(hlsl::GetHLSLResourceTemplateUInt(QualTy)));
   }
 
   hlslRes->SetROV(RD->getName().startswith("RasterizerOrdered"));

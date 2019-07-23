@@ -219,6 +219,7 @@ enum class ValidationRule : unsigned {
   SmInsideTessFactorSizeMatchDomain, // InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmInvalidResourceCompType, // Invalid resource return type
   SmInvalidResourceKind, // Invalid resources kind
+  SmInvalidSamplerFeedbackType, // Invalid sampler feedback type
   SmInvalidTextureKindOnUAV, // Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
   SmIsoLineOutputPrimitiveMismatch, // Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
   SmMaxMSSMSize, // Total Thread Group Shared Memory storage is %0, exceeded %1

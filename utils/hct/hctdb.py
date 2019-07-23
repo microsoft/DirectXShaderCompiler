@@ -2417,6 +2417,7 @@ class db_dxil(object):
         self.add_valrule("Sm.InvalidTextureKindOnUAV", "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs")
         self.add_valrule("Sm.InvalidResourceKind", "Invalid resources kind")
         self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type")
+        self.add_valrule("Sm.InvalidSamplerFeedbackType","Invalid sampler feedback type")
         self.add_valrule("Sm.SampleCountOnlyOn2DMS","Only Texture2DMS/2DMSArray could has sample count")
         self.add_valrule("Sm.CounterOnlyOnStructBuf", "BufferUpdateCounter valid only on structured buffers")
         self.add_valrule("Sm.GSTotalOutputVertexDataRange", "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3")

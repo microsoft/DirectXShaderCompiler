@@ -176,6 +176,7 @@ public:
   // Resource extended property tags.
   static const unsigned kDxilTypedBufferElementTypeTag            = 0;
   static const unsigned kDxilStructuredBufferElementStrideTag     = 1;
+  static const unsigned kDxilSamplerFeedbackKindTag               = 2;
 
   // Type system.
   static const char kDxilTypeSystemMDName[];

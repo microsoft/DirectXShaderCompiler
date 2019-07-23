@@ -2039,7 +2039,7 @@ void DxilExtraPropertyHelper::LoadSRVProperties(const MDOperand &MDO, DxilResour
 
 void DxilExtraPropertyHelper::EmitUAVProperties(const DxilResource &UAV, std::vector<Metadata *> &MDVals) {
   // Element type for typed RW resource.
-  if (!UAV.IsStructuredBuffer() && !UAV.IsRawBuffer()) {
+  if (!UAV.IsStructuredBuffer() && !UAV.IsRawBuffer() && !UAV.GetCompType().IsInvalid()) {
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilTypedBufferElementTypeTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD((unsigned)UAV.GetCompType().GetKind(), m_Ctx));
   }
@@ -2047,6 +2047,11 @@ void DxilExtraPropertyHelper::EmitUAVProperties(const DxilResource &UAV, std::ve
   if (UAV.IsStructuredBuffer()) {
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilStructuredBufferElementStrideTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(UAV.GetElementStride(), m_Ctx));
+  }
+  // Sampler feedback kind
+  if (UAV.IsFeedbackTexture()) {
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSamplerFeedbackKindTag, m_Ctx));
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD((unsigned)UAV.GetSamplerFeedbackType(), m_Ctx));
   }
 }
 
@@ -2074,6 +2079,10 @@ void DxilExtraPropertyHelper::LoadUAVProperties(const MDOperand &MDO, DxilResour
     case DxilMDHelper::kDxilStructuredBufferElementStrideTag:
       DXASSERT_NOMSG(UAV.IsStructuredBuffer());
       UAV.SetElementStride(DxilMDHelper::ConstMDToUint32(MDO));
+      break;
+    case DxilMDHelper::kDxilSamplerFeedbackKindTag:
+      DXASSERT_NOMSG(UAV.IsFeedbackTexture());
+      UAV.SetSamplerFeedbackType((DXIL::SamplerFeedbackType)DxilMDHelper::ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown resource record tag");

@@ -472,6 +472,12 @@ void hlsl::AddRaytracingConstants(ASTContext& context) {
   AddConstUInt(context, StringRef("RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES"), (unsigned)DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives);
 }
 
+/// <summary> Adds all constants and enums for sampler feedback </summary>
+void hlsl::AddSamplerFeedbackConstants(ASTContext& context) {
+  AddConstUInt(context, StringRef("SAMPLER_FEEDBACK_MIN_MIP"), (unsigned)DXIL::SamplerFeedbackType::MinMip);
+  AddConstUInt(context, StringRef("SAMPLER_FEEDBACK_MIP_REGION_USED"), (unsigned)DXIL::SamplerFeedbackType::MipRegionUsed);
+}
+
 static
 Expr* IntConstantAsBoolExpr(clang::Sema& sema, uint64_t value)
 {

@@ -314,10 +314,8 @@ namespace DXIL {
     Sampler,
     TBuffer,
     RTAccelerationStructure,
-    FeedbackTexture2DMinLOD,
-    FeedbackTexture2DTiled,
-    FeedbackTexture2DArrayMinLOD,
-    FeedbackTexture2DArrayTiled,
+    FeedbackTexture2D,
+    FeedbackTexture2DArray,
     NumEntries,
   };
 
@@ -1269,6 +1267,12 @@ namespace DXIL {
     None = 0x00,
     TriangleFrontFace = 0xFE,
     TriangleBackFace = 0xFF,
+  };
+
+  enum class SamplerFeedbackType : uint8_t {
+    MinMip = 0,
+    MipRegionUsed = 1,
+    LastEntry = 2
   };
 
   // Constant for Container.
