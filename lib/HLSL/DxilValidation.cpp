@@ -2862,7 +2862,8 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
       return;
 
     if (dispatchMesh) {
-      Value *operandVal = dispatchMesh->getOperand(5);
+      DxilInst_DispatchMesh dispatchMeshCall(dispatchMesh);
+      Value *operandVal = dispatchMeshCall.get_payload();
       Type *payloadTy = operandVal->getType();
       const DataLayout &DL = F->getParent()->getDataLayout();
       unsigned payloadSize = DL.getTypeAllocSize(payloadTy);

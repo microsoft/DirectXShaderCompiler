@@ -25,6 +25,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
@@ -633,18 +634,11 @@ public:
           // Calls to external functions.
           const CallInst *CI = dyn_cast<CallInst>(&I);
           if (CI) {
-            Function *FCalled = CI->getCalledFunction();
-            if (FCalled->isDeclaration()) {
-              Value *opcodeVal = CI->getOperand(0);
-              ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
-              unsigned opcode = OpcodeConst->getLimitedValue();
-              DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
-              if (dxilOpcode == DXIL::OpCode::GetMeshPayload) {
-                PointerType *payloadPTy = cast<PointerType>(CI->getType());
-                Type *payloadTy = payloadPTy->getPointerElementType();
-                payloadByteSize = DL.getTypeAllocSize(payloadTy);
-                break;
-              }
+            if (hlsl::OP::IsDxilOpFuncCallInst(CI,DXIL::OpCode::GetMeshPayload)) {
+              PointerType *payloadPTy = cast<PointerType>(CI->getType());
+              Type *payloadTy = payloadPTy->getPointerElementType();
+              payloadByteSize = DL.getTypeAllocSize(payloadTy);
+              break;
             }
           }
         }
@@ -668,18 +662,12 @@ public:
           // Calls to external functions.
           const CallInst *CI = dyn_cast<CallInst>(&I);
           if (CI) {
-            Function *FCalled = CI->getCalledFunction();
-            if (FCalled->isDeclaration()) {
-              Value *opcodeVal = CI->getOperand(0);
-              ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
-              unsigned opcode = OpcodeConst->getLimitedValue();
-              DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
-              if (dxilOpcode == DXIL::OpCode::DispatchMesh) {
-                Value *operandVal = CI->getOperand(5);
-                Type *payloadTy = operandVal->getType();
-                payloadByteSize = DL.getTypeAllocSize(payloadTy);
-                break;
-              }
+            if (hlsl::OP::IsDxilOpFuncCallInst(CI,DXIL::OpCode::DispatchMesh)) {
+              DxilInst_DispatchMesh dispatchMeshCall(const_cast<CallInst*>(CI));
+              Value *operandVal = dispatchMeshCall.get_payload();
+              Type *payloadTy = operandVal->getType();
+              payloadByteSize = DL.getTypeAllocSize(payloadTy);
+              break;
             }
           }
         }
