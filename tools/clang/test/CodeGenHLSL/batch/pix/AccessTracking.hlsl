@@ -7,11 +7,12 @@
 // CHECK: CompareWithSlotLimit = icmp uge i32
 // CHECK: CompareWithSlotLimitAsUint = zext i1 %CompareWithSlotLimit to i32
 // CHECK: IsInBounds = sub i32 1, %CompareWithSlotLimitAsUint
-// CHECK: SlotOffset = add i32
+// CHECK: SlotDwordOffset = add i32
+// CHECK: SlotByteOffset = mul i32
 // CHECK: slotIndex = mul i32
 
 // Check for udpate of UAV:
-// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_CountUAV_Handle, i32 2, i32
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
 
 
 ByteAddressBuffer inBuffer : register(t0);
