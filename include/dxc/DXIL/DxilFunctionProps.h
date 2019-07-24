@@ -79,6 +79,8 @@ struct DxilFunctionProps {
     // Amplification shader.
     struct {
       unsigned numThreads[3];
+      // The following doesn't go into metadata
+      unsigned payloadByteSize;
     } AS;
   } ShaderProps;
   DXIL::ShaderKind shaderKind;

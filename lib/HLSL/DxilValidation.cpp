@@ -2861,6 +2861,24 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
     DXIL::ShaderKind shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
     if (shaderKind != DXIL::ShaderKind::Amplification)
       return;
+
+    if (dispatchMesh) {
+      DxilInst_DispatchMesh dispatchMeshCall(dispatchMesh);
+      Value *operandVal = dispatchMeshCall.get_payload();
+      Type *payloadTy = operandVal->getType();
+      const DataLayout &DL = F->getParent()->getDataLayout();
+      unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
+
+      if (payloadSize > DXIL::kMaxMSASPayloadSize) {
+        ValCtx.EmitFormatError(
+            ValidationRule::SmAmplificationShaderPayloadSize,
+            {F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize)});
+      }
+
+      DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
+      prop.ShaderProps.AS.payloadByteSize = payloadSize;
+    }
+
   }
   else {
     return;

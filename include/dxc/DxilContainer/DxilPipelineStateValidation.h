@@ -56,6 +56,9 @@ struct MSInfo {
   uint16_t MaxOutputVertices;
   uint16_t MaxOutputPrimitives;
 };
+struct ASInfo {
+  uint32_t PayloadSizeInBytes;
+};
 
 // Versioning is additive and based on size
 struct PSVRuntimeInfo0
@@ -67,6 +70,7 @@ struct PSVRuntimeInfo0
     GSInfo GS;
     PSInfo PS;
     MSInfo MS;
+    ASInfo AS;
   };
   uint32_t MinimumExpectedWaveLaneCount;  // minimum lane count required, 0 if unused
   uint32_t MaximumExpectedWaveLaneCount;  // maximum lane count required, 0xffffffff if unused

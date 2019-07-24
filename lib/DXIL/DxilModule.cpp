@@ -683,20 +683,41 @@ void DxilModule::SetMeshOutputTopology(DXIL::MeshOutputTopology MeshOutputTopolo
 }
 
 unsigned DxilModule::GetPayloadByteSize() const {
-  if (!m_pSM->IsMS())
+  if (m_pSM->IsMS())
+  {
+    DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+    DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+    DXASSERT(props.IsMS(), "Must be MS profile");
+    return props.ShaderProps.MS.payloadByteSize;      
+  }
+  else if(m_pSM->IsAS())
+  {
+    DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+    DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+    DXASSERT(props.IsAS(), "Must be AS profile");
+    return props.ShaderProps.AS.payloadByteSize;
+  }
+  else
+  {
     return 0;
-  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
-  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT(props.IsMS(), "Must be MS profile");
-  return props.ShaderProps.MS.payloadByteSize;
+  }
 }
 
 void DxilModule::SetPayloadByteSize(unsigned Size) {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsMS(),
-           "only works for MS profile");
-  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT(props.IsMS(), "Must be MS profile");
-  props.ShaderProps.MS.payloadByteSize = Size;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && (m_pSM->IsMS() || m_pSM->IsAS()),
+           "only works for MS or AS profile");
+  if (m_pSM->IsMS())
+  {
+    DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+    DXASSERT(props.IsMS(), "Must be MS profile");
+    props.ShaderProps.MS.payloadByteSize = Size;
+  } 
+  else if (m_pSM->IsAS())
+  {
+    DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+    DXASSERT(props.IsAS(), "Must be AS profile");
+    props.ShaderProps.AS.payloadByteSize = Size;
+  }
 }
 
 void DxilModule::SetAutoBindingSpace(uint32_t Space) {
