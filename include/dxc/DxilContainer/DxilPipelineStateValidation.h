@@ -59,6 +59,10 @@ struct MSInfo {
 struct ASInfo {
   uint32_t PayloadSizeInBytes;
 };
+struct MSInfo1 {
+  uint8_t SigPrimVectors;     // Primitive output for MS
+  uint8_t MeshOutputTopology;
+};
 
 // Versioning is additive and based on size
 struct PSVRuntimeInfo0
@@ -102,7 +106,8 @@ struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
   uint8_t UsesViewID;
   union {
     uint16_t MaxVertexCount;          // MaxVertexCount for GS only (max 1024)
-    uint8_t SigPatchConstOrPrimVectors;  // Output for HS; Input for DS; Primitive output for MS
+    uint8_t SigPatchConstOrPrimVectors;  // Output for HS; Input for DS; Primitive output for MS (overlaps MS1::SigPrimVectors)
+    struct MSInfo1 MS1;
   };
 
   // PSVSignatureElement counts
@@ -111,10 +116,7 @@ struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
   uint8_t SigPatchConstOrPrimElements;
 
   // Number of packed vectors per signature
-  union {
-    uint8_t SigInputVectors;
-    uint8_t MeshOutputTopology;
-  };
+  uint8_t SigInputVectors;
   uint8_t SigOutputVectors[4];      // Array for GS Stream Out Index
 };
 
@@ -325,6 +327,8 @@ public:
   uint32_t GetOutputStream() const { return !m_pElement0 ? 0 : (uint32_t)(m_pElement0->DynamicMaskAndStream >> 4) & 0x3; }
   uint32_t GetDynamicIndexMask() const { return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF; }
 };
+
+#define MAX_PSV_VERSION 1
 
 struct PSVInitInfo
 {
@@ -564,7 +568,7 @@ public:
 
   bool InitNew(const PSVInitInfo &initInfo, void *pBuffer, uint32_t *pSize) {
     if(!(pSize)) return false;
-    if (initInfo.PSVVersion > 1) return false;
+    if (initInfo.PSVVersion > MAX_PSV_VERSION) return false;
 
     // Versioned structure sizes
     m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo0);
@@ -600,9 +604,9 @@ public:
         if (initInfo.ShaderStage == PSVShaderKind::Hull || initInfo.ShaderStage == PSVShaderKind::Mesh)
           size += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(initInfo.SigPatchConstOrPrimVectors);
       }
-      if (initInfo.ShaderStage != PSVShaderKind::Mesh && initInfo.ShaderStage != PSVShaderKind::Amplification) {
+      if (initInfo.SigInputVectors > 0) {
         for (unsigned i = 0; i < 4; i++) {
-          if (initInfo.SigOutputVectors[i] > 0 && initInfo.SigInputVectors > 0) {
+          if (initInfo.SigOutputVectors[i] > 0) {
             size += PSVComputeInputOutputTableSize(initInfo.SigInputVectors, initInfo.SigOutputVectors[i]);
             if (initInfo.ShaderStage != PSVShaderKind::Geometry)
               break;
@@ -611,9 +615,9 @@ public:
         if (initInfo.ShaderStage == PSVShaderKind::Hull && initInfo.SigPatchConstOrPrimVectors > 0 && initInfo.SigInputVectors > 0) {
           size += PSVComputeInputOutputTableSize(initInfo.SigInputVectors, initInfo.SigPatchConstOrPrimVectors);
         }
-        if (initInfo.ShaderStage == PSVShaderKind::Domain && initInfo.SigOutputVectors[0] > 0 && initInfo.SigPatchConstOrPrimVectors > 0) {
-          size += PSVComputeInputOutputTableSize(initInfo.SigPatchConstOrPrimVectors, initInfo.SigOutputVectors[0]);
-        }
+      }
+      if (initInfo.ShaderStage == PSVShaderKind::Domain && initInfo.SigOutputVectors[0] > 0 && initInfo.SigPatchConstOrPrimVectors > 0) {
+        size += PSVComputeInputOutputTableSize(initInfo.SigPatchConstOrPrimVectors, initInfo.SigOutputVectors[0]);
       }
     }
 
@@ -710,17 +714,19 @@ public:
       }
 
       // Input to Output dependencies
-      for (unsigned i = 0; i < 4; i++) {
-        if (m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-          m_pInputToOutputTable = (uint32_t*)pCurBits;
-          pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i]);
+      if (m_pPSVRuntimeInfo1->SigInputVectors > 0) {
+        for (unsigned i = 0; i < 4; i++) {
+          if (m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0) {
+            m_pInputToOutputTable = (uint32_t*)pCurBits;
+            pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i]);
+          }
+          if (!IsGS())
+            break;
         }
-        if (!IsGS())
-          break;
-      }
-      if ((IsHS() || IsMS()) && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-        m_pInputToPCOutputTable = (uint32_t*)pCurBits;
-        pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
+        if (IsHS() && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
+          m_pInputToPCOutputTable = (uint32_t*)pCurBits;
+          pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
+        }
       }
       if (IsDS() && m_pPSVRuntimeInfo1->SigOutputVectors[0] > 0 && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0) {
         m_pPCInputToOutputTable = (uint32_t*)pCurBits;
