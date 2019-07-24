@@ -155,7 +155,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrSampleCompType: return "sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.";
     case hlsl::ValidationRule::InstrBarrierModeUselessUGroup: return "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.";
     case hlsl::ValidationRule::InstrBarrierModeNoMemory: return "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. ";
-    case hlsl::ValidationRule::InstrBarrierModeForNonCS: return "sync in a non-Compute Shader must only sync UAV (sync_uglobal)";
+    case hlsl::ValidationRule::InstrBarrierModeForNonCS: return "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)";
     case hlsl::ValidationRule::InstrWriteMaskForTypedUAVStore: return "store on typed uav must write to all four components of the UAV";
     case hlsl::ValidationRule::InstrResourceKindForCalcLOD: return "lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray";
     case hlsl::ValidationRule::InstrResourceKindForSample: return "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray";
@@ -264,6 +264,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmMeshShaderMaxVertexCount: return "MS max vertex output count must be [0..%0].  %1 specified";
     case hlsl::ValidationRule::SmMeshShaderMaxPrimitiveCount: return "MS max primitive output count must be [0..%0].  %1 specified";
     case hlsl::ValidationRule::SmMeshShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
+    case hlsl::ValidationRule::SmMeshShaderPayloadSizeDeclared: return "For shader '%0', payload size %1 is greater than declared size of %2 bytes";
     case hlsl::ValidationRule::SmMeshShaderOutputSize: return "For shader '%0', vertex plus primitive output size is greater than %1";
     case hlsl::ValidationRule::SmMeshShaderInOutSize: return "For shader '%0', input plus output size is greater than %1";
     case hlsl::ValidationRule::SmMeshVSigRowCount: return "For shader '%0', vertex output signatures are taking up more than %1 rows";
@@ -271,6 +272,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmMeshTotalSigRowCount: return "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows";
     case hlsl::ValidationRule::SmMaxMSSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
     case hlsl::ValidationRule::SmAmplificationShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
+    case hlsl::ValidationRule::SmAmplificationShaderPayloadSizeDeclared: return "For shader '%0', payload size %1 is greater than declared size of %2 bytes";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
@@ -816,6 +818,16 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if ((106 <= op && op <= 107))
     return (SK == DXIL::ShaderKind::Hull);
+  // Instructions: QuadReadLaneAt=122, QuadOp=123
+  if ((122 <= op && op <= 123))
+    return (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Amplification || SK == DXIL::ShaderKind::Mesh || SK == DXIL::ShaderKind::Pixel);
+  // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
+  // WaveGetLaneCount=112, WaveAnyTrue=113, WaveAllTrue=114,
+  // WaveActiveAllEqual=115, WaveActiveBallot=116, WaveReadLaneAt=117,
+  // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
+  // WavePrefixOp=121, WaveAllBitCount=135, WavePrefixBitCount=136
+  if ((110 <= op && op <= 121) || (135 <= op && op <= 136))
+    return (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Amplification || SK == DXIL::ShaderKind::Mesh || SK == DXIL::ShaderKind::Pixel || SK == DXIL::ShaderKind::Vertex || SK == DXIL::ShaderKind::Hull || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Geometry);
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
   if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86))
@@ -874,11 +886,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
   if ((162 <= op && op <= 164))
     return (major > 6 || (major == 6 && minor >= 4));
-  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, WriteSamplerFeedbackLevel=176,
-  // WriteSamplerFeedbackGrad=177, AllocateRayQuery=178,
-  // RayQuery_TraceRayInline=179, RayQuery_Proceed=180, RayQuery_Abort=181,
-  // RayQuery_CommitNonOpaqueTriangleHit=182,
+  // Instructions: WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177,
+  // AllocateRayQuery=178, RayQuery_TraceRayInline=179, RayQuery_Proceed=180,
+  // RayQuery_Abort=181, RayQuery_CommitNonOpaqueTriangleHit=182,
   // RayQuery_CommitProceduralPrimitiveHit=183, RayQuery_CommittedStatus=184,
   // RayQuery_CandidateType=185, RayQuery_CandidateObjectToWorld3x4=186,
   // RayQuery_CandidateWorldToObject3x4=187,
@@ -899,12 +909,17 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // RayQuery_CommittedGeometryIndex=209, RayQuery_CommittedPrimitiveIndex=210,
   // RayQuery_CommittedObjectRayOrigin=211,
   // RayQuery_CommittedObjectRayDirection=212
-  if ((165 <= op && op <= 167) || (176 <= op && op <= 212))
+  if ((176 <= op && op <= 212))
     return (major > 6 || (major == 6 && minor >= 5));
   // Instructions: DispatchMesh=173
   if (op == 173)
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Amplification);
+  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
+  // WaveMultiPrefixBitCount=167
+  if ((165 <= op && op <= 167))
+    return (major > 6 || (major == 6 && minor >= 5))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Amplification || SK == DXIL::ShaderKind::Mesh || SK == DXIL::ShaderKind::Pixel || SK == DXIL::ShaderKind::Vertex || SK == DXIL::ShaderKind::Hull || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Geometry);
   // Instructions: GeometryIndex=213
   if (op == 213)
     return (major > 6 || (major == 6 && minor >= 5))
@@ -2332,6 +2347,22 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                                DXIL::OpCode opcode,
                                                const ShaderModel *pSM,
                                                ValidationContext &ValCtx) {
+  DXIL::ShaderKind shaderKind = pSM ? pSM->GetKind() : DXIL::ShaderKind::Invalid;
+  llvm::Function *F = CI->getParent()->getParent();
+  if (DXIL::ShaderKind::Library == shaderKind) {
+    if (ValCtx.DxilMod.HasDxilFunctionProps(F))
+      shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
+    else if (ValCtx.DxilMod.IsPatchConstantShader(F))
+      shaderKind = DXIL::ShaderKind::Hull;
+  }
+
+  // These shader models are treted like compute
+  bool isCSLike = shaderKind == DXIL::ShaderKind::Compute ||
+                  shaderKind == DXIL::ShaderKind::Mesh ||
+                  shaderKind == DXIL::ShaderKind::Amplification;
+  // Is called from a library function
+  bool isLibFunc = shaderKind == DXIL::ShaderKind::Library;
+
   switch (opcode) {
   // Imm input value validation.
   case DXIL::OpCode::Asin:
@@ -2448,7 +2479,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
         static_cast<unsigned>(DXIL::BarrierMode::UAVFenceThreadGroup);
     unsigned barrierMode = cMode->getLimitedValue();
 
-    if (ValCtx.DxilMod.GetShaderModel()->IsCS()) {
+    if (isCSLike || isLibFunc) {
       bool bHasUGlobal = barrierMode & uglobal;
       bool bHasGroup = barrierMode & g;
       bool bHasUGroup = barrierMode & ut;
@@ -2460,22 +2491,12 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       if (!bHasUGlobal && !bHasGroup && !bHasUGroup) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeNoMemory);
       }
-    } else if (!ValCtx.isLibProfile) {
+    } else {
       if (uglobal != barrierMode) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
       }
     }
   } break;
-  case DXIL::OpCode::QuadOp:
-    if (!pSM->IsPS() && !ValCtx.isLibProfile)
-      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                             {"QuadReadAcross", "Pixel Shader"});
-    break;
-  case DXIL::OpCode::QuadReadLaneAt:
-    if (!pSM->IsPS() && !ValCtx.isLibProfile)
-      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                             {"QuadReadLaneAt", "Pixel Shader"});
-    break;
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {
       ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
@@ -2846,13 +2867,19 @@ static void ValidateMsIntrinsics(Function *F,
     const DataLayout &DL = F->getParent()->getDataLayout();
     unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
 
-    if (payloadSize > DXIL::kMaxMSASPayloadSize) {
+    DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
+
+    if (payloadSize > DXIL::kMaxMSASPayloadSize ||
+        prop.ShaderProps.MS.payloadSizeInBytes > DXIL::kMaxMSASPayloadSize) {
       ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSize,
         { F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize) });
     }
 
-    DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
-    prop.ShaderProps.MS.payloadByteSize = payloadSize;
+    if (prop.ShaderProps.MS.payloadSizeInBytes < payloadSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSizeDeclared,
+        { F->getName(), std::to_string(payloadSize),
+          std::to_string(prop.ShaderProps.MS.payloadSizeInBytes) });
+    }
   }
 }
 
@@ -2869,14 +2896,20 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
       const DataLayout &DL = F->getParent()->getDataLayout();
       unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
 
-      if (payloadSize > DXIL::kMaxMSASPayloadSize) {
+      DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
+
+      if (payloadSize > DXIL::kMaxMSASPayloadSize ||
+          prop.ShaderProps.AS.payloadSizeInBytes > DXIL::kMaxMSASPayloadSize) {
         ValCtx.EmitFormatError(
             ValidationRule::SmAmplificationShaderPayloadSize,
             {F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize)});
       }
 
-      DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
-      prop.ShaderProps.AS.payloadByteSize = payloadSize;
+      if (prop.ShaderProps.AS.payloadSizeInBytes < payloadSize) {
+        ValCtx.EmitFormatError(ValidationRule::SmAmplificationShaderPayloadSizeDeclared,
+          { F->getName(), std::to_string(payloadSize),
+            std::to_string(prop.ShaderProps.AS.payloadSizeInBytes) });
+      }
     }
 
   }
@@ -4931,7 +4964,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalScalars) });
     }
 
-    unsigned totalInputOutputScalars = totalOutputScalars + props.ShaderProps.MS.payloadByteSize;
+    unsigned totalInputOutputScalars = totalOutputScalars + props.ShaderProps.MS.payloadSizeInBytes;
     if (totalInputOutputScalars > DXIL::kMaxMSInputOutputTotalScalars) {
       ValCtx.EmitFormatError(
         ValidationRule::SmMeshShaderInOutSize,
@@ -5555,6 +5588,8 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // 1.5 adds:
   // - WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount
   // - HASH container part support
+  // - Mesh and Amplification shaders
+  // - DXR 1.1 & RayQuery support
   *pMajor = 1;
   *pMinor = 5;
 }

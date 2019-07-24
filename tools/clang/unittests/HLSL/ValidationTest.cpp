@@ -186,7 +186,7 @@ public:
   TEST_METHOD(InvalidSigCompTyFail)
   TEST_METHOD(MultiStream2Fail)
   TEST_METHOD(PhiTGSMFail)
-  TEST_METHOD(QuadOpInCS)
+  TEST_METHOD(QuadOpInVS)
   TEST_METHOD(ReducibleFail)
   TEST_METHOD(SampleBiasFail)
   TEST_METHOD(SamplerKindFail)
@@ -836,17 +836,16 @@ TEST_F(ValidationTest, PhiTGSMFail) {
       "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
 
-TEST_F(ValidationTest, QuadOpInCS) {
-  if (m_ver.SkipDxilVersion(1, 3)) return;
+TEST_F(ValidationTest, QuadOpInVS) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   RewriteAssemblyCheckMsg(
       "struct PerThreadData { int "
       "input; int output; }; RWStructuredBuffer<PerThreadData> g_sb; "
-      "[numthreads(8, 12, 1)] void main(uint GI : SV_GroupIndex) "
-      "{ PerThreadData pts = g_sb[GI]; pts.output = "
-      "WaveActiveSum(pts.input); g_sb[GI] = pts; }; ",
-      "cs_6_0", {"@dx.op.waveActiveOp.i32(i32 119", "declare i32 @dx.op.waveActiveOp.i32(i32, i32, i8, i8)"},
+      "void main(uint vid : SV_VertexID)"
+      "{ g_sb[vid].output = WaveActiveSum(g_sb[vid].input); }",
+      "vs_6_0", {"@dx.op.waveActiveOp.i32(i32 119", "declare i32 @dx.op.waveActiveOp.i32(i32, i32, i8, i8)"},
       {"@dx.op.quadOp.i32(i32 123", "declare i32 @dx.op.quadOp.i32(i32, i32, i8, i8)"},
-      "'QuadReadAcross' should only be used in 'Pixel Shader'"
+      "QuadOp not valid in shader model vs_6_0"
       );
 }
 
@@ -1015,7 +1014,7 @@ TEST_F(ValidationTest, UavBarrierFail) {
       {"uav load don't support offset",
        "uav load don't support mipLevel/sampleIndex",
        "store on typed uav must write to all four components of the UAV",
-       "sync in a non-Compute Shader must only sync UAV (sync_uglobal)"});
+       "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)"});
 }
 TEST_F(ValidationTest, UndefValueFail) {
   TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
@@ -3575,16 +3574,16 @@ TEST_F(ValidationTest, MeshMultipleGetMeshPayload) {
 
 TEST_F(ValidationTest, MeshOutofRangeMaxVertexCount) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
-                          "= !{!([0-9]+), i32 32, i32 16, i32 2}",
-                          "= !{!\\1, i32 257, i32 16, i32 2}",
+                          "= !{!([0-9]+), i32 32, i32 16, i32 2, i32 40}",
+                          "= !{!\\1, i32 257, i32 16, i32 2, i32 40}",
                           "MS max vertex output count must be \\[0..256\\].  257 specified",
                           true);
 }
 
 TEST_F(ValidationTest, MeshOutofRangeMaxPrimitiveCount) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
-                          "= !{!([0-9]+), i32 32, i32 16, i32 2}",
-                          "= !{!\\1, i32 32, i32 257, i32 2}",
+                          "= !{!([0-9]+), i32 32, i32 16, i32 2, i32 40}",
+                          "= !{!\\1, i32 32, i32 257, i32 2, i32 40}",
                           "MS max primitive output count must be \\[0..256\\].  257 specified",
                           true);
 }

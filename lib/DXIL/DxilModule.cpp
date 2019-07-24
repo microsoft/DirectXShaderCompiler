@@ -17,6 +17,7 @@
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilSubobject.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -335,6 +336,27 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
 
 void DxilModule::CollectShaderFlagsForModule() {
   CollectShaderFlagsForModule(m_ShaderFlags);
+
+  // This is also where we record the size of the mesh payload for amplification shader output
+  for (Function &F : GetModule()->functions()) {
+    if (HasDxilEntryProps(&F)) {
+      DxilFunctionProps &props = GetDxilFunctionProps(&F);
+      if (props.shaderKind == DXIL::ShaderKind::Amplification) {
+        if (props.ShaderProps.AS.payloadSizeInBytes != 0)
+          continue;
+        for (const BasicBlock &BB : F.getBasicBlockList()) {
+          for (const Instruction &I : BB.getInstList()) {
+            const DxilInst_DispatchMesh dispatch(const_cast<Instruction*>(&I));
+            if (dispatch) {
+              Type *payloadTy = dispatch.get_payload()->getType();
+              const DataLayout &DL = m_pModule->getDataLayout();
+              props.ShaderProps.AS.payloadSizeInBytes = DL.getTypeAllocSize(payloadTy);
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 void DxilModule::SetNumThreads(unsigned x, unsigned y, unsigned z) {
@@ -682,20 +704,20 @@ void DxilModule::SetMeshOutputTopology(DXIL::MeshOutputTopology MeshOutputTopolo
   props.ShaderProps.MS.outputTopology = MeshOutputTopology;
 }
 
-unsigned DxilModule::GetPayloadByteSize() const {
+unsigned DxilModule::GetPayloadSizeInBytes() const {
   if (m_pSM->IsMS())
   {
     DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
     DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
     DXASSERT(props.IsMS(), "Must be MS profile");
-    return props.ShaderProps.MS.payloadByteSize;      
+    return props.ShaderProps.MS.payloadSizeInBytes;
   }
   else if(m_pSM->IsAS())
   {
     DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
     DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
     DXASSERT(props.IsAS(), "Must be AS profile");
-    return props.ShaderProps.AS.payloadByteSize;
+    return props.ShaderProps.AS.payloadSizeInBytes;
   }
   else
   {
@@ -703,20 +725,20 @@ unsigned DxilModule::GetPayloadByteSize() const {
   }
 }
 
-void DxilModule::SetPayloadByteSize(unsigned Size) {
+void DxilModule::SetPayloadSizeInBytes(unsigned Size) {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && (m_pSM->IsMS() || m_pSM->IsAS()),
            "only works for MS or AS profile");
   if (m_pSM->IsMS())
   {
     DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
     DXASSERT(props.IsMS(), "Must be MS profile");
-    props.ShaderProps.MS.payloadByteSize = Size;
+    props.ShaderProps.MS.payloadSizeInBytes = Size;
   } 
   else if (m_pSM->IsAS())
   {
     DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
     DXASSERT(props.IsAS(), "Must be AS profile");
-    props.ShaderProps.AS.payloadByteSize = Size;
+    props.ShaderProps.AS.payloadSizeInBytes = Size;
   }
 }
 

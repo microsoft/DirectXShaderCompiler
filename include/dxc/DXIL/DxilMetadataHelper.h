@@ -256,15 +256,17 @@ public:
   static const unsigned kDxilHSStateMaxTessellationFactor     = 6;
 
   // MSState.
-  static const unsigned kDxilMSStateNumFields = 4;
+  static const unsigned kDxilMSStateNumFields = 5;
   static const unsigned kDxilMSStateNumThreads = 0;
   static const unsigned kDxilMSStateMaxVertexCount = 1;
   static const unsigned kDxilMSStateMaxPrimitiveCount = 2;
   static const unsigned kDxilMSStateOutputTopology = 3;
+  static const unsigned kDxilMSStatePayloadSizeInBytes = 4;
 
   // ASState.
-  static const unsigned kDxilASStateNumFields = 1;
+  static const unsigned kDxilASStateNumFields = 2;
   static const unsigned kDxilASStateNumThreads = 0;
+  static const unsigned kDxilASStatePayloadSizeInBytes = 1;
 
 public:
   /// Use this class to manipulate metadata of DXIL or high-level DX IR specific fields in the record.
@@ -434,15 +436,17 @@ private:
   llvm::MDTuple *EmitDxilMSState(const unsigned *NumThreads,
                                  unsigned MaxVertexCount,
                                  unsigned MaxPrimitiveCount,
-                                 DXIL::MeshOutputTopology OutputTopology);
+                                 DXIL::MeshOutputTopology OutputTopology,
+                                 unsigned payloadSizeInBytes);
   void LoadDxilMSState(const llvm::MDOperand &MDO,
                        unsigned *NumThreads,
                        unsigned &MaxVertexCount,
                        unsigned &MaxPrimitiveCount,
-                       DXIL::MeshOutputTopology &OutputTopology);
+                       DXIL::MeshOutputTopology &OutputTopology,
+                       unsigned &payloadSizeInBytes);
 
-  llvm::MDTuple *EmitDxilASState(const unsigned *NumThreads);
-  void LoadDxilASState(const llvm::MDOperand &MDO, unsigned *NumThreads);
+  llvm::MDTuple *EmitDxilASState(const unsigned *NumThreads, unsigned payloadSizeInBytes);
+  void LoadDxilASState(const llvm::MDOperand &MDO, unsigned *NumThreads, unsigned &payloadSizeInBytes);
 public:
   // Utility functions.
   static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);

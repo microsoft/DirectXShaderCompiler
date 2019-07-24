@@ -623,58 +623,11 @@ public:
         }
       }
       pInfo->MS.GroupSharedBytesUsed = totalByteSize;
-
-      const Function *entryFunc = m_Module.GetEntryFunction();
-      unsigned payloadByteSize = 0;
-      for (auto b = entryFunc->begin(), bend = entryFunc->end(); b != bend; ++b) {
-        auto i = b->begin(), iend = b->end();
-        for (; i != iend; ++i) {
-          const Instruction &I = *i;
-
-          // Calls to external functions.
-          const CallInst *CI = dyn_cast<CallInst>(&I);
-          if (CI) {
-            if (hlsl::OP::IsDxilOpFuncCallInst(CI,DXIL::OpCode::GetMeshPayload)) {
-              PointerType *payloadPTy = cast<PointerType>(CI->getType());
-              Type *payloadTy = payloadPTy->getPointerElementType();
-              payloadByteSize = DL.getTypeAllocSize(payloadTy);
-              break;
-            }
-          }
-        }
-        if (i != iend)
-          break;
-      }
-      pInfo->MS.PayloadSizeInBytes = payloadByteSize;
+      pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
       break;
     }
     case ShaderModel::Kind::Amplification: {
-      const Function *entryFunc = m_Module.GetEntryFunction();
-      unsigned payloadByteSize = 0;
-      Module *mod = m_Module.GetModule();
-      const DataLayout &DL = mod->getDataLayout();
-      for (auto b = entryFunc->begin(), bend = entryFunc->end(); b != bend;
-           ++b) {
-        auto i = b->begin(), iend = b->end();
-        for (; i != iend; ++i) {
-          const Instruction &I = *i;
-
-          // Calls to external functions.
-          const CallInst *CI = dyn_cast<CallInst>(&I);
-          if (CI) {
-            if (hlsl::OP::IsDxilOpFuncCallInst(CI,DXIL::OpCode::DispatchMesh)) {
-              DxilInst_DispatchMesh dispatchMeshCall(const_cast<CallInst*>(CI));
-              Value *operandVal = dispatchMeshCall.get_payload();
-              Type *payloadTy = operandVal->getType();
-              payloadByteSize = DL.getTypeAllocSize(payloadTy);
-              break;
-            }
-          }
-        }
-        if (i != iend)
-          break;
-      }
-      pInfo->AS.PayloadSizeInBytes = payloadByteSize;
+      pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
       break;
     }
     }
@@ -1060,19 +1013,18 @@ private:
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
     for (const auto &user : dxilFunc->users()) {
-      if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(user)) {
+      if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
-        const llvm::Function *F = cast<const llvm::Function>(I->getParent()->getParent());
+        const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
         // Insert or lookup info
         ShaderCompatInfo &info = m_FuncToShaderCompat[F];
-        OpCode opcode = OP::GetDxilOpFuncCallInst(I);
         unsigned major, minor, mask;
         // bWithTranslation = true for library modules
-        OP::GetMinShaderModelAndMask(opcode, /*bWithTranslation*/true, major, minor, mask);
+        OP::GetMinShaderModelAndMask(CI, /*bWithTranslation*/true, major, minor, mask);
         if (major > info.minMajor) {
           info.minMajor = major;
           info.minMinor = minor;
-        } else if (minor > info.minMinor) {
+        } else if (major == info.minMajor && minor > info.minMinor) {
           info.minMinor = minor;
         }
         info.mask &= mask;
