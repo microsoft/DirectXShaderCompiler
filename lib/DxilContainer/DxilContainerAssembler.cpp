@@ -452,8 +452,12 @@ public:
     unsigned ValMajor, ValMinor;
     m_Module.GetValidatorVersion(ValMajor, ValMinor);
     // Allow PSVVersion to be upgraded
-    if (m_PSVInitInfo.PSVVersion < 1 && (ValMajor > 1 || (ValMajor == 1 && ValMinor >= 1)))
+    if (ValMajor == 0 && ValMinor == 0) {
+      // Validation disabled upgrades to maximum PSVVersion
+      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
+    } else if (m_PSVInitInfo.PSVVersion < 1 && (ValMajor > 1 || (ValMajor == 1 && ValMinor >= 1))) {
       m_PSVInitInfo.PSVVersion = 1;
+    }
 
     const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();
@@ -610,7 +614,7 @@ public:
     case ShaderModel::Kind::Mesh: {
       pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
       pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
-      pInfo1->MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
+      pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
       Module *mod = m_Module.GetModule();
       const DataLayout &DL = mod->getDataLayout();
       unsigned totalByteSize = 0;
