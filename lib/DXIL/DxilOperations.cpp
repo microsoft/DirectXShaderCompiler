@@ -12,6 +12,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -233,6 +234,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveActiveOp,            "WaveActiveOp",             OCC::WaveActiveOp,             "waveActiveOp",              { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",             { false, false, false, false, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",              { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+
+  // Quad Wave Ops                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::QuadReadLaneAt,          "QuadReadLaneAt",           OCC::QuadReadLaneAt,           "quadReadLaneAt",            { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::QuadOp,                  "QuadOp",                   OCC::QuadOp,                   "quadOp",                    { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
 
@@ -581,6 +584,7 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:END
 }
 
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
 void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                   unsigned &major, unsigned &minor,
                                   unsigned &mask) {
@@ -588,7 +592,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Default is 6.0, all stages
   major = 6;  minor = 0;
   mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
-#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
   /* <py::lines('OPCODE-SMMASK')>hctdb_instrhelp.get_min_sm_and_mask_text()</py>*/
   // OPCODE-SMMASK:BEGIN
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
@@ -621,6 +624,20 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if ((106 <= op && op <= 107)) {
     mask = SFLAG(Hull);
+    return;
+  }
+  // Instructions: QuadReadLaneAt=122, QuadOp=123
+  if ((122 <= op && op <= 123)) {
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
+    return;
+  }
+  // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
+  // WaveGetLaneCount=112, WaveAnyTrue=113, WaveAllTrue=114,
+  // WaveActiveAllEqual=115, WaveActiveBallot=116, WaveReadLaneAt=117,
+  // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
+  // WavePrefixOp=121, WaveAllBitCount=135, WavePrefixBitCount=136
+  if ((110 <= op && op <= 121) || (135 <= op && op <= 136)) {
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry);
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
@@ -717,11 +734,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;  minor = 4;
     return;
   }
-  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, WriteSamplerFeedbackLevel=176,
-  // WriteSamplerFeedbackGrad=177, AllocateRayQuery=178,
-  // RayQuery_TraceRayInline=179, RayQuery_Proceed=180, RayQuery_Abort=181,
-  // RayQuery_CommitNonOpaqueTriangleHit=182,
+  // Instructions: WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177,
+  // AllocateRayQuery=178, RayQuery_TraceRayInline=179, RayQuery_Proceed=180,
+  // RayQuery_Abort=181, RayQuery_CommitNonOpaqueTriangleHit=182,
   // RayQuery_CommitProceduralPrimitiveHit=183, RayQuery_CommittedStatus=184,
   // RayQuery_CandidateType=185, RayQuery_CandidateObjectToWorld3x4=186,
   // RayQuery_CandidateWorldToObject3x4=187,
@@ -742,7 +757,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // RayQuery_CommittedGeometryIndex=209, RayQuery_CommittedPrimitiveIndex=210,
   // RayQuery_CommittedObjectRayOrigin=211,
   // RayQuery_CommittedObjectRayDirection=212
-  if ((165 <= op && op <= 167) || (176 <= op && op <= 212)) {
+  if ((176 <= op && op <= 212)) {
     major = 6;  minor = 5;
     return;
   }
@@ -750,6 +765,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if (op == 173) {
     major = 6;  minor = 5;
     mask = SFLAG(Amplification);
+    return;
+  }
+  // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
+  // WaveMultiPrefixBitCount=167
+  if ((165 <= op && op <= 167)) {
+    major = 6;  minor = 5;
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry);
     return;
   }
   // Instructions: GeometryIndex=213
@@ -772,8 +794,29 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // OPCODE-SMMASK:END
-#undef SFLAG
 }
+
+void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslation,
+                                  unsigned &major, unsigned &minor,
+                                  unsigned &mask) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  GetMinShaderModelAndMask(opcode, bWithTranslation, major, minor, mask);
+
+  // Additional rules are applied manually here.
+
+  // Barrier with mode != UAVFenceGlobal requires compute, amplification, or mesh
+  // Instructions: Barrier=80
+  if (opcode == DXIL::OpCode::Barrier) {
+    DxilInst_Barrier barrier(const_cast<CallInst*>(CI));
+    unsigned mode = barrier.get_barrierMode_val();
+    if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
+      mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
+    }
+    return;
+  }
+}
+#undef SFLAG
+
 
 static Type *GetOrCreateStructType(LLVMContext &Ctx, ArrayRef<Type*> types, StringRef Name, Module *pModule) {
   if (StructType *ST = pModule->getTypeByName(Name)) {
@@ -1083,6 +1126,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::WaveActiveOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
   case OpCode::WaveActiveBit:          A(pETy);     A(pI32); A(pETy); A(pI8);  break;
   case OpCode::WavePrefixOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
+
+    // Quad Wave Ops
   case OpCode::QuadReadLaneAt:         A(pETy);     A(pI32); A(pETy); A(pI32); break;
   case OpCode::QuadOp:                 A(pETy);     A(pI32); A(pETy); A(pI8);  break;
 

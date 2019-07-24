@@ -60,7 +60,7 @@ enum class ValidationRule : unsigned {
   // Instruction
   InstrAllowed, // Instructions must be of an allowed type
   InstrAttributeAtVertexNoInterpolation, // Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
-  InstrBarrierModeForNonCS, // sync in a non-Compute Shader must only sync UAV (sync_uglobal)
+  InstrBarrierModeForNonCS, // sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)
   InstrBarrierModeNoMemory, // sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. 
   InstrBarrierModeUselessUGroup, // sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
   InstrBufferUpdateCounterOnResHasCounter, // BufferUpdateCounter valid only when HasCounter is true
@@ -197,6 +197,7 @@ enum class ValidationRule : unsigned {
   // Shader model
   Sm64bitRawBufferLoadStore, // i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3
   SmAmplificationShaderPayloadSize, // For shader '%0', payload size is greater than %1
+  SmAmplificationShaderPayloadSizeDeclared, // For shader '%0', payload size %1 is greater than declared size of %2 bytes
   SmAppendAndConsumeOnSameUAV, // BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
   SmCBufferArrayOffsetAlignment, // CBuffer array offset must be aligned to 16-bytes
   SmCBufferElementOverflow, // CBuffer elements must not overflow
@@ -231,6 +232,7 @@ enum class ValidationRule : unsigned {
   SmMeshShaderMaxVertexCount, // MS max vertex output count must be [0..%0].  %1 specified
   SmMeshShaderOutputSize, // For shader '%0', vertex plus primitive output size is greater than %1
   SmMeshShaderPayloadSize, // For shader '%0', payload size is greater than %1
+  SmMeshShaderPayloadSizeDeclared, // For shader '%0', payload size %1 is greater than declared size of %2 bytes
   SmMeshTotalSigRowCount, // For shader '%0', vertex and primitive output signatures are taking up more than %1 rows
   SmMeshVSigRowCount, // For shader '%0', vertex output signatures are taking up more than %1 rows
   SmMultiStreamMustBePoint, // When multiple GS output streams are used they must be pointlists

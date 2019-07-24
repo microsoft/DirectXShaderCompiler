@@ -20,6 +20,7 @@ class Function;
 class Constant;
 class Value;
 class Instruction;
+class CallInst;
 }
 #include "llvm/IR/Attributes.h"
 #include "llvm/ADT/StringRef.h"
@@ -104,6 +105,9 @@ public:
   static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
                                                  llvm::Module &M);
   static void GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
+                                       unsigned &major, unsigned &minor,
+                                       unsigned &mask);
+  static void GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslation,
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
 

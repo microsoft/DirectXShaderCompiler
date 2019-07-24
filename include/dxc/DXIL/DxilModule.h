@@ -281,8 +281,8 @@ public:
   void SetMaxOutputPrimitives(unsigned NumOPs);
   DXIL::MeshOutputTopology GetMeshOutputTopology() const;
   void SetMeshOutputTopology(DXIL::MeshOutputTopology MeshOutputTopology);
-  unsigned GetPayloadByteSize() const;
-  void SetPayloadByteSize(unsigned Size);
+  unsigned GetPayloadSizeInBytes() const;
+  void SetPayloadSizeInBytes(unsigned Size);
 
   // AutoBindingSpace also enables automatic binding for libraries if set.
   // UINT_MAX == unset
