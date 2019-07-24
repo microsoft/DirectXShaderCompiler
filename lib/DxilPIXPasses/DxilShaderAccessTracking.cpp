@@ -56,6 +56,22 @@ enum class ShaderAccessFlags : uint32_t
   DescriptorRead = 1 << 0,
 };
 
+constexpr uint32_t DWORDsPerResource = 3;
+constexpr uint32_t BytesPerDWORD = 4;
+
+static uint32_t OffsetFromAccess(ShaderAccessFlags access) {
+  switch (access) {
+  case ShaderAccessFlags::Read:
+    return 0;
+  case ShaderAccessFlags::Write:
+    return 1;
+  case ShaderAccessFlags::Counter:
+    return 2;
+  default:
+    throw ::hlsl::Exception(E_INVALIDARG);
+  }
+}
+
 // This enum doesn't have to match PIX's version, because the values are received from PIX encoded in ASCII.
 // However, for ease of comparing this code with PIX, and to be less confusing to future maintainers, this
 // enum does indeed match the same-named enum in PIX.
@@ -233,29 +249,30 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
   }
 }
 
-void DxilShaderAccessTracking::EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuilder<> & Builder, Value * slot, ShaderAccessFlags access)
-{
-  // Slots are four bytes each:
-  auto ByteIndex = Builder.CreateMul(slot, HlslOP->GetU32Const(4));
+void DxilShaderAccessTracking::EmitAccess(LLVMContext &Ctx, OP *HlslOP,
+                                          IRBuilder<> &Builder,
+                                          Value *ByteIndex,
+                                          ShaderAccessFlags access) {
+  
+  auto OffsetByteIndex = Builder.CreateAdd(ByteIndex, HlslOP->GetU32Const(static_cast<unsigned>(OffsetFromAccess(access))), "OffsetByteIndex");
 
-  // Insert the UAV increment instruction:
+  UndefValue* UndefIntArg = UndefValue::get(Type::getInt32Ty(Ctx));
+  Constant* LiteralOne = HlslOP->GetU32Const(1);
+  Constant* ElementMask = HlslOP->GetI8Const(1);
 
-  Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
-  Constant* AtomicBinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-  Constant* AtomicOr = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Or);
-
-  Constant* AccessValue = HlslOP->GetU32Const(static_cast<unsigned>(access));
-  UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
-
-  (void)Builder.CreateCall(AtomicOpFunc, {
-      AtomicBinOpcode,// i32, ; opcode
+  Function* StoreFunc = HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
+  Constant* StoreOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
+  (void)Builder.CreateCall(StoreFunc, {
+      StoreOpcode,       // i32, ; opcode
       m_FunctionToUAVHandle.at(Builder.GetInsertBlock()->getParent()), // %dx.types.Handle, ; resource handle
-      AtomicOr,       // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-      ByteIndex,      // i32, ; coordinate c0: byte offset
-      UndefArg,       // i32, ; coordinate c1 (unused)
-      UndefArg,       // i32, ; coordinate c2 (unused)
-      AccessValue     // i32) ; OR value
-  }, "UAVOrResult");
+      OffsetByteIndex,   // i32, ; coordinate c0: byte offset
+      UndefIntArg,       // i32, ; coordinate c1 (unused)
+      LiteralOne,        // i32, ; value v0
+      UndefIntArg,       // i32, ; value v1
+      UndefIntArg,       // i32, ; value v2
+      UndefIntArg,       // i32, ; value v3
+      ElementMask        // i8 ; just the first value is used
+  });
 }
 
 bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res, Instruction * instruction, OP * HlslOP, LLVMContext & Ctx, ShaderAccessFlags readWrite) {
@@ -276,7 +293,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res, Ins
         slotIndex = HlslOP->GetU32Const(0);
       }
       else {
-        slotIndex = HlslOP->GetU32Const(slot->second.startSlot + index);
+        slotIndex = HlslOP->GetU32Const((slot->second.startSlot + index) * DWORDsPerResource * BytesPerDWORD);
       }
     }
     else {
@@ -292,10 +309,11 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res, Ins
       // IsInBounds will therefore contain 0 if the access is out-of-bounds, and 1 otherwise.
       auto IsInBounds = Builder.CreateSub(HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
 
-      auto SlotOffset = Builder.CreateAdd(res.index, HlslOP->GetU32Const(slot->second.startSlot), "SlotOffset");
+      auto SlotDwordOffset = Builder.CreateAdd(res.index, HlslOP->GetU32Const(slot->second.startSlot), "SlotDwordOffset");
+      auto SlotByteOffset = Builder.CreateMul(SlotDwordOffset, HlslOP->GetU32Const(DWORDsPerResource * BytesPerDWORD),"SlotByteOffset");
 
       // This will drive an out-of-bounds access slot down to 0
-      slotIndex = Builder.CreateMul(SlotOffset, IsInBounds, "slotIndex");
+      slotIndex = Builder.CreateMul(SlotByteOffset, IsInBounds, "slotIndex");
     }
 
     EmitAccess(Ctx, HlslOP, Builder, slotIndex, readWrite);
