@@ -6616,8 +6616,11 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixSubscript(CodeGenFunction &CGF,
 
   unsigned row, col;
   hlsl::GetHLSLMatRowColCount(Ty, row, col);
+  unsigned resultCol = col;
   if (Value *OriginPtr = GetOriginMatrixOperandAndUpdateMatSize(Ptr, row, col)) {
     Ptr = OriginPtr;
+    // Update col to result col to get correct result size.
+    col = resultCol;
   }
 
   // Lower mat[Idx] into real idx.
