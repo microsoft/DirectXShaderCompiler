@@ -98,9 +98,9 @@ public:
 
 private:
   static const unsigned kMinVisType = (unsigned)DxilShaderVisibility::All;
-  static const unsigned kMaxVisType = (unsigned)DxilShaderVisibility::Pixel;
+  static const unsigned kMaxVisType = (unsigned)DxilShaderVisibility::MaxValue;
   static const unsigned kMinDescType = (unsigned)DxilDescriptorRangeType::SRV;
-  static const unsigned kMaxDescType = (unsigned)DxilDescriptorRangeType::Sampler;
+  static const unsigned kMaxDescType = (unsigned)DxilDescriptorRangeType::MaxValue;
 
   struct RegisterRange {
     NODE_TYPE nt;
@@ -171,6 +171,8 @@ void DescriptorTableVerifier::Verify(const DxilDescriptorRange1 *pRanges,
       bHasSamplers = true;
       break;
     default:
+      static_assert(DxilDescriptorRangeType::Sampler == DxilDescriptorRangeType::MaxValue,
+                    "otherwise, need to update cases here");
       EAT(DiagPrinter << "Unsupported RangeType value " << (uint32_t)pRange->RangeType
                       << " (descriptor table slot [" << iDTS << "], root parameter [" << iRP << "]).\n");
     }
@@ -240,19 +242,24 @@ void RootSignatureVerifier::AllowReservedRegisterSpace(bool bAllow) {
 const char* RangeTypeString(DxilDescriptorRangeType rt)
 {
   static const char *RangeType[] = {"SRV", "UAV", "CBV", "SAMPLER"};
-  return (rt <= DxilDescriptorRangeType::Sampler) ? RangeType[(unsigned)rt]
-                                                  : "unknown";
+  static_assert(_countof(RangeType) == ((unsigned)DxilDescriptorRangeType::MaxValue + 1),
+                "otherwise, need to update name array");
+  return (rt <= DxilDescriptorRangeType::MaxValue) ? RangeType[(unsigned)rt]
+                                                   : "unknown";
 }
 
 const char *VisTypeString(DxilShaderVisibility vis) {
   static const char *Vis[] = {"ALL",    "VERTEX",   "HULL",
-                              "DOMAIN", "GEOMETRY", "PIXEL"};
+                              "DOMAIN", "GEOMETRY", "PIXEL",
+                              "AMPLIFICATION", "MESH"};
+  static_assert(_countof(Vis) == ((unsigned)DxilShaderVisibility::MaxValue + 1),
+                "otherwise, need to update name array");
   unsigned idx = (unsigned)vis;
-  return vis <= DxilShaderVisibility::Pixel ? Vis[idx] : "unknown";
+  return vis <= DxilShaderVisibility::MaxValue ? Vis[idx] : "unknown";
 }
 
 static bool IsDxilShaderVisibility(DxilShaderVisibility v) {
-  return v <= DxilShaderVisibility::Pixel;
+  return v <= DxilShaderVisibility::MaxValue;
 }
 
 void RootSignatureVerifier::AddRegisterRange(unsigned iRP,
@@ -390,6 +397,8 @@ static DxilDescriptorRangeType GetRangeType(DxilRootParameterType RPT) {
   case DxilRootParameterType::SRV: return DxilDescriptorRangeType::SRV;
   case DxilRootParameterType::UAV: return DxilDescriptorRangeType::UAV;
   default:
+    static_assert(DxilRootParameterType::UAV == DxilRootParameterType::MaxValue,
+                  "otherwise, need to add cases here.");
     break;
   }
 
@@ -535,6 +544,8 @@ void RootSignatureVerifier::VerifyRootSignature(
     }
 
     default:
+      static_assert(DxilRootParameterType::UAV == DxilRootParameterType::MaxValue,
+                    "otherwise, need to add cases here.");
       EAT(DiagPrinter << "Unsupported ParameterType value " << (uint32_t)ParameterType
                       << " (root parameter " << iRP << ")\n");
     }
@@ -588,6 +599,16 @@ void RootSignatureVerifier::VerifyShader(DxilShaderVisibility VisType,
     break;
   case DxilShaderVisibility::Pixel:
     if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyPixelShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Amplification:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyAmplificationShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Mesh:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyMeshShaderRootAccess) != DxilRootSignatureFlags::None) {
       bShaderDeniedByRootSig = true;
     }
     break;
@@ -800,12 +821,14 @@ void StaticSamplerVerifier::Verify(const DxilStaticSamplerDesc* pDesc,
 
 static DxilShaderVisibility GetVisibilityType(DXIL::ShaderKind ShaderKind) {
   switch(ShaderKind) {
-  case DXIL::ShaderKind::Pixel:       return DxilShaderVisibility::Pixel;
-  case DXIL::ShaderKind::Vertex:      return DxilShaderVisibility::Vertex;
-  case DXIL::ShaderKind::Geometry:    return DxilShaderVisibility::Geometry;
-  case DXIL::ShaderKind::Hull:        return DxilShaderVisibility::Hull;
-  case DXIL::ShaderKind::Domain:      return DxilShaderVisibility::Domain;
-  default:                            return DxilShaderVisibility::All;
+  case DXIL::ShaderKind::Pixel:         return DxilShaderVisibility::Pixel;
+  case DXIL::ShaderKind::Vertex:        return DxilShaderVisibility::Vertex;
+  case DXIL::ShaderKind::Geometry:      return DxilShaderVisibility::Geometry;
+  case DXIL::ShaderKind::Hull:          return DxilShaderVisibility::Hull;
+  case DXIL::ShaderKind::Domain:        return DxilShaderVisibility::Domain;
+  case DXIL::ShaderKind::Amplification: return DxilShaderVisibility::Amplification;
+  case DXIL::ShaderKind::Mesh:          return DxilShaderVisibility::Mesh;
+  default:                              return DxilShaderVisibility::All;
   }
 }
 

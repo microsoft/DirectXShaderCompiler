@@ -69,6 +69,8 @@ public:
             SHADER_VISIBILITY_DOMAIN,
             SHADER_VISIBILITY_GEOMETRY,
             SHADER_VISIBILITY_PIXEL,
+            SHADER_VISIBILITY_AMPLIFICATION,
+            SHADER_VISIBILITY_MESH,
 
             // Root signature flags
             RootFlags,
@@ -78,6 +80,8 @@ public:
             DENY_DOMAIN_SHADER_ROOT_ACCESS,
             DENY_GEOMETRY_SHADER_ROOT_ACCESS,
             DENY_PIXEL_SHADER_ROOT_ACCESS,
+            DENY_AMPLIFICATION_SHADER_ROOT_ACCESS,
+            DENY_MESH_SHADER_ROOT_ACCESS,
             ALLOW_STREAM_OUTPUT,
             LOCAL_ROOT_SIGNATURE,
 

@@ -77,7 +77,8 @@ enum class DxilDescriptorRangeType : unsigned {
   SRV = 0,
   UAV = 1,
   CBV = 2,
-  Sampler = 3
+  Sampler = 3,
+  MaxValue = 3
 };
 enum class DxilRootDescriptorFlags : unsigned {
   None = 0,
@@ -106,15 +107,18 @@ enum class DxilRootSignatureFlags : uint32_t {
   DenyPixelShaderRootAccess = 0x20,
   AllowStreamOutput = 0x40,
   LocalRootSignature = 0x80,
+  DenyAmplificationShaderRootAccess = 0x100,
+  DenyMeshShaderRootAccess = 0x200,
   AllowLowTierReservedHwCbLimit = 0x80000000,
-  ValidFlags = 0x800000ff
+  ValidFlags = 0x800003ff
 };
 enum class DxilRootParameterType {
   DescriptorTable = 0,
   Constants32Bit = 1,
   CBV = 2,
   SRV = 3,
-  UAV = 4
+  UAV = 4,
+  MaxValue = 4
 };
 enum class DxilFilter {
   // TODO: make these names consistent with code convention
@@ -161,7 +165,10 @@ enum class DxilShaderVisibility {
   Hull = 2,
   Domain = 3,
   Geometry = 4,
-  Pixel = 5
+  Pixel = 5,
+  Amplification = 6,
+  Mesh = 7,
+  MaxValue = 7
 };
 enum class DxilStaticBorderColor {
   TransparentBlack = 0,
