@@ -1834,6 +1834,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         continue;
       }
       dxilInputQ = DxilParamInputQual::InPayload;
+      DataLayout DL(&this->TheModule);
+      funcProps->ShaderProps.MS.payloadSizeInBytes = DL.getTypeAllocSize(
+        F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
       hasInPayload = true;
     }
 

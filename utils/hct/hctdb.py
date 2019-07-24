@@ -314,9 +314,14 @@ class db_dxil(object):
         for i in "LegacyF32ToF16,LegacyF16ToF32".split(","):
             self.name_idx[i].category = "Legacy floating-point"
         for i in self.instr:
-            if i.name.startswith("Wave") or i.name.startswith("Quad") or i.name == "GlobalOrderedCountInc":
+            if i.name.startswith("Wave"):
                 i.category = "Wave"
                 i.is_wave = True
+                i.shader_stages = ("library", "compute", "amplification", "mesh", "pixel", "vertex", "hull", "domain", "geometry")
+            elif i.name.startswith("Quad"):
+                i.category = "Quad Wave Ops"
+                i.is_wave = True
+                i.shader_stages = ("library", "compute", "amplification", "mesh", "pixel")
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
         for i in "ViewID,AttributeAtVertex".split(","):
@@ -2320,7 +2325,7 @@ class db_dxil(object):
         self.add_valrule("Instr.SampleCompType", "sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.")
         self.add_valrule("Instr.BarrierModeUselessUGroup", "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.")
         self.add_valrule("Instr.BarrierModeNoMemory", "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. ")
-        self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute Shader must only sync UAV (sync_uglobal)")
+        self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)")
         self.add_valrule("Instr.WriteMaskForTypedUAVStore", "store on typed uav must write to all four components of the UAV")
         self.add_valrule("Instr.ResourceKindForCalcLOD","lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray")
         self.add_valrule("Instr.ResourceKindForSample", "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray")
@@ -2438,6 +2443,7 @@ class db_dxil(object):
         self.add_valrule("Sm.MeshShaderMaxVertexCount", "MS max vertex output count must be [0..%0].  %1 specified")
         self.add_valrule("Sm.MeshShaderMaxPrimitiveCount", "MS max primitive output count must be [0..%0].  %1 specified")
         self.add_valrule("Sm.MeshShaderPayloadSize", "For shader '%0', payload size is greater than %1")
+        self.add_valrule("Sm.MeshShaderPayloadSizeDeclared", "For shader '%0', payload size %1 is greater than declared size of %2 bytes")
         self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1")
         self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', input plus output size is greater than %1")
         self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows")
@@ -2445,6 +2451,7 @@ class db_dxil(object):
         self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows")
         self.add_valrule("Sm.MaxMSSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1")
         self.add_valrule("Sm.AmplificationShaderPayloadSize", "For shader '%0', payload size is greater than %1")
+        self.add_valrule("Sm.AmplificationShaderPayloadSizeDeclared", "For shader '%0', payload size %1 is greater than declared size of %2 bytes")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")

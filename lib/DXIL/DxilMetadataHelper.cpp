@@ -1108,6 +1108,8 @@ const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
       ConstMDToUint32(pProps->getOperand(idx++));
     props->ShaderProps.MS.outputTopology =
       (DXIL::MeshOutputTopology)ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.MS.payloadSizeInBytes =
+      ConstMDToUint32(pProps->getOperand(idx++));
     break;
   case DXIL::ShaderKind::Amplification:
     props->ShaderProps.AS.numThreads[0] =
@@ -1115,6 +1117,8 @@ const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
     props->ShaderProps.AS.numThreads[1] =
       ConstMDToUint32(pProps->getOperand(idx++));
     props->ShaderProps.AS.numThreads[2] =
+      ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.AS.payloadSizeInBytes =
       ConstMDToUint32(pProps->getOperand(idx++));
     break;
   default:
@@ -1222,13 +1226,14 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     MDTuple *pMDTuple = EmitDxilMSState(MS.numThreads,
                                         MS.maxVertexCount,
                                         MS.maxPrimitiveCount,
-                                        MS.outputTopology);
+                                        MS.outputTopology,
+                                        MS.payloadSizeInBytes);
     MDVals.emplace_back(pMDTuple);
   } break;
   case DXIL::ShaderKind::Amplification: {
     auto &AS = props.ShaderProps.AS;
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilASStateTag));
-    MDTuple *pMDTuple = EmitDxilASState(AS.numThreads);
+    MDTuple *pMDTuple = EmitDxilASState(AS.numThreads, AS.payloadSizeInBytes);
     MDVals.emplace_back(pMDTuple);
   } break;
   default:
@@ -1351,12 +1356,13 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       DXASSERT(props.IsMS(), "else invalid shader kind");
       auto &MS = props.ShaderProps.MS;
       LoadDxilMSState(MDO, MS.numThreads, MS.maxVertexCount,
-                      MS.maxPrimitiveCount, MS.outputTopology);
+                      MS.maxPrimitiveCount, MS.outputTopology,
+                      MS.payloadSizeInBytes);
     } break;
     case DxilMDHelper::kDxilASStateTag: {
       DXASSERT(props.IsAS(), "else invalid shader kind");
       auto &AS = props.ShaderProps.AS;
-      LoadDxilASState(MDO, AS.numThreads);
+      LoadDxilASState(MDO, AS.numThreads, AS.payloadSizeInBytes);
     } break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
@@ -1432,13 +1438,14 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.numThreads[2]);
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.maxVertexCount);
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.maxPrimitiveCount);
-    MDVals[valIdx++] =
-        Uint8ToConstMD((uint8_t)props->ShaderProps.MS.outputTopology);
+    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.MS.outputTopology);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.MS.payloadSizeInBytes);
     break;
   case DXIL::ShaderKind::Amplification:
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.numThreads[0]);
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.numThreads[1]);
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.numThreads[2]);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AS.payloadSizeInBytes);
     break;
   default:
     break;
@@ -1923,7 +1930,8 @@ void DxilMDHelper::LoadDxilHSState(const MDOperand &MDO,
 MDTuple *DxilMDHelper::EmitDxilMSState(const unsigned *NumThreads,
                                        unsigned MaxVertexCount,
                                        unsigned MaxPrimitiveCount,
-                                       DXIL::MeshOutputTopology OutputTopology) {
+                                       DXIL::MeshOutputTopology OutputTopology,
+                                       unsigned payloadSizeInBytes) {
   Metadata *MDVals[kDxilMSStateNumFields];
   vector<Metadata *> NumThreadVals;
 
@@ -1934,6 +1942,7 @@ MDTuple *DxilMDHelper::EmitDxilMSState(const unsigned *NumThreads,
   MDVals[kDxilMSStateMaxVertexCount] = Uint32ToConstMD(MaxVertexCount);
   MDVals[kDxilMSStateMaxPrimitiveCount] = Uint32ToConstMD(MaxPrimitiveCount);
   MDVals[kDxilMSStateOutputTopology] = Uint32ToConstMD((unsigned)OutputTopology);
+  MDVals[kDxilMSStatePayloadSizeInBytes] = Uint32ToConstMD(payloadSizeInBytes);
 
   return MDNode::get(m_Ctx, MDVals);
 }
@@ -1942,7 +1951,8 @@ void DxilMDHelper::LoadDxilMSState(const MDOperand &MDO,
                                    unsigned *NumThreads,
                                    unsigned &MaxVertexCount,
                                    unsigned &MaxPrimitiveCount,
-                                   DXIL::MeshOutputTopology &OutputTopology) {
+                                   DXIL::MeshOutputTopology &OutputTopology,
+                                   unsigned &payloadSizeInBytes) {
   IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -1955,9 +1965,10 @@ void DxilMDHelper::LoadDxilMSState(const MDOperand &MDO,
   MaxVertexCount = ConstMDToUint32(pTupleMD->getOperand(kDxilMSStateMaxVertexCount));
   MaxPrimitiveCount = ConstMDToUint32(pTupleMD->getOperand(kDxilMSStateMaxPrimitiveCount));
   OutputTopology = (DXIL::MeshOutputTopology)ConstMDToUint32(pTupleMD->getOperand(kDxilMSStateOutputTopology));
+  payloadSizeInBytes = ConstMDToUint32(pTupleMD->getOperand(kDxilMSStatePayloadSizeInBytes));
 }
 
-MDTuple *DxilMDHelper::EmitDxilASState(const unsigned *NumThreads) {
+MDTuple *DxilMDHelper::EmitDxilASState(const unsigned *NumThreads, unsigned payloadSizeInBytes) {
   Metadata *MDVals[kDxilASStateNumFields];
   vector<Metadata *> NumThreadVals;
 
@@ -1965,11 +1976,12 @@ MDTuple *DxilMDHelper::EmitDxilASState(const unsigned *NumThreads) {
   NumThreadVals.emplace_back(Uint32ToConstMD(NumThreads[1]));
   NumThreadVals.emplace_back(Uint32ToConstMD(NumThreads[2]));
   MDVals[kDxilASStateNumThreads] = MDNode::get(m_Ctx, NumThreadVals);
+  MDVals[kDxilASStatePayloadSizeInBytes] = Uint32ToConstMD(payloadSizeInBytes);
 
   return MDNode::get(m_Ctx, MDVals);
 }
 
-void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads) {
+void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads, unsigned &payloadSizeInBytes) {
   IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -1979,6 +1991,7 @@ void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads) {
   NumThreads[0] = ConstMDToUint32(pNode->getOperand(0));
   NumThreads[1] = ConstMDToUint32(pNode->getOperand(1));
   NumThreads[2] = ConstMDToUint32(pNode->getOperand(2));
+  payloadSizeInBytes = ConstMDToUint32(pTupleMD->getOperand(kDxilASStatePayloadSizeInBytes));
 }
 
 //
