@@ -700,14 +700,12 @@ struct ValidationContext {
       }
       LastRuleEmit = Rule;
       LastDebugLocEmit = L;
-
-      L.print(DiagStream());
-      DiagPrinter << ' ';
-      return true;
     }
+
     BasicBlock *BB = I->getParent();
     Function *F = BB->getParent();
 
+    // Print instruction
     std::string InstrStr;
     raw_string_ostream InstrStream(InstrStr);
     I->print(InstrStream);
@@ -716,6 +714,7 @@ struct ValidationContext {
     InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
     DiagPrinter << "at '" << InstrStrRef << "'";
 
+    // ... parent block name
     DiagPrinter << " in block '";
     if (!BB->getName().empty()) {
       DiagPrinter << BB->getName();
@@ -727,12 +726,22 @@ struct ValidationContext {
         if (BB == &(*i)) {
           break;
         }
+        idx++;
       }
       DiagPrinter << "#" << idx;
     }
     DiagPrinter << "'";
 
-    DiagPrinter << " of function '" << *F << "': ";
+    // ... function name
+    DiagPrinter << " of function '" << F->getName() << "'";
+    
+    if (L) {
+      DiagPrinter << " (";
+      L.print(DiagStream());
+      DiagPrinter << ')';
+    }
+
+    DiagPrinter << ": ";
     return true;
   }
 
