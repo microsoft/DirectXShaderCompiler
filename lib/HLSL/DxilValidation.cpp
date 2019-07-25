@@ -702,10 +702,19 @@ struct ValidationContext {
       LastDebugLocEmit = L;
     }
 
+    // Print the error header matched by IDE regexes
+    DiagPrinter << "error: ";
+
+    // Print the debug location, if any, as matched by IDE regexes
+    if (L) {
+      L.print(DiagStream());
+      DiagPrinter << ": ";
+    }
+
     BasicBlock *BB = I->getParent();
     Function *F = BB->getParent();
 
-    // Print instruction
+    // Printthe instruction
     std::string InstrStr;
     raw_string_ostream InstrStream(InstrStr);
     I->print(InstrStream);
@@ -714,7 +723,7 @@ struct ValidationContext {
     InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
     DiagPrinter << "at '" << InstrStrRef << "'";
 
-    // ... parent block name
+    // Print the parent block name
     DiagPrinter << " in block '";
     if (!BB->getName().empty()) {
       DiagPrinter << BB->getName();
@@ -732,16 +741,10 @@ struct ValidationContext {
     }
     DiagPrinter << "'";
 
-    // ... function name
-    DiagPrinter << " of function '" << F->getName() << "'";
-    
-    if (L) {
-      DiagPrinter << " (";
-      L.print(DiagStream());
-      DiagPrinter << ')';
-    }
+    // Print the function name
+    DiagPrinter << " of function '" << F->getName() << "': ";
 
-    DiagPrinter << ": ";
+    // Parent will print the message
     return true;
   }
 
