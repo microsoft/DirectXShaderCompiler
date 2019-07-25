@@ -6933,7 +6933,7 @@ void TranslateStructBufSubscriptUser(
     }
 
     if (ldInst) {
-      auto LdElement = [=, &Builder](Value *offset, IRBuilder<> &Builder) -> Value * {
+      auto LdElement = [=](Value *offset, IRBuilder<> &Builder) -> Value * {
         unsigned numComponents = 0;
         if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
           numComponents = VTy->getNumElements();
