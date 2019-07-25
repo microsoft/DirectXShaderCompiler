@@ -274,8 +274,6 @@ public:
 
   TEST_METHOD(CodeGenSamples)
   TEST_METHOD(SubobjectCodeGenErrors)
-  TEST_METHOD(DebugInfo)
-  TEST_METHOD(QuickTest)
   TEST_METHOD(SanitizePDBName)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
@@ -2779,10 +2777,6 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
   }
 }
 
-TEST_F(CompilerTest, DebugInfo) {
-  CodeGenTestCheckBatchDir(L"debug");
-}
-
 // Check that pdb name doesn't contain any preceding or trailing quotations
 TEST_F(CompilerTest, SanitizePDBName) {
   const char *hlsl = R"(
@@ -2830,10 +2824,6 @@ TEST_F(CompilerTest, SanitizePDBName) {
   auto pName = (hlsl::DxilShaderDebugName *)pNameBlob->GetBufferPointer();
   const char *Name = (char *)&pName[1];
   VERIFY_IS_TRUE(0 == strcmp(Name, "my_pdb.pdb"));
-}
-
-TEST_F(CompilerTest, QuickTest) {
-  CodeGenTestCheckBatchDir(L"quick-test");
 }
 
 #ifdef _WIN32
