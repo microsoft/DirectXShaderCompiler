@@ -38,6 +38,10 @@
 #include "d3d12shader.h" // for compatibility
 #include "d3d11shader.h" // for compatibility
 
+// These will be defined in a future version of the Windows SDK, locally defining for now:
+#define D3D_NAME_CULL_SHADINGRATE 24
+#define D3D_NAME_CULL_PRIMITIVE 25
+
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
     0x3960,
@@ -1722,10 +1726,8 @@ D3D_NAME SemanticToSystemValueType(const Semantic *S, DXIL::TessellatorDomain do
     return D3D_NAME_UNDEFINED;
     }
   case Semantic::Kind::ShadingRate:
-#define D3D_NAME_CULL_SHADINGRATE 24
     return (D3D_NAME)D3D_NAME_SHADINGRATE;
   case Semantic::Kind::CullPrimitive:
-#define D3D_NAME_CULL_PRIMITIVE 25
     return (D3D_NAME)D3D_NAME_CULL_PRIMITIVE;
   }
   case Semantic::Kind::InsideTessFactor:
