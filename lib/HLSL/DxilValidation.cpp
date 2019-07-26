@@ -4407,6 +4407,12 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
                              {SE.GetSemantic()->GetName(), "uint"});
     }
     break;
+  case DXIL::SemanticKind::CullPrimitive: {
+    if (!(compBool && compWidth == 1) || SE.GetCols() != 1) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
+                             {SE.GetSemantic()->GetName(), "bool"});
+    }
+  } break;
   case DXIL::SemanticKind::TessFactor:
   case DXIL::SemanticKind::InsideTessFactor:
     // NOTE: the size check is at CheckPatchConstantSemantic.
