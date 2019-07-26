@@ -2709,22 +2709,32 @@ namespace hlsl {
 
     bool VisitDeclRefExpr(DeclRefExpr *ref) {
       ValueDecl *valueDecl = ref->getDecl();
-      FunctionDecl *fnDecl = dyn_cast_or_null<FunctionDecl>(valueDecl);
-      fnDecl = getFunctionWithBody(fnDecl);
-      if (fnDecl) {
+      RecordFunctionDecl(dyn_cast_or_null<FunctionDecl>(valueDecl));
+      return true;
+    }
+
+    bool VisitCXXMemberCallExpr(CXXMemberCallExpr* callExpr)
+    {
+      RecordFunctionDecl(callExpr->getMethodDecl());
+      return true;
+    }
+
+    void RecordFunctionDecl(FunctionDecl* funcDecl)
+    {
+      funcDecl = getFunctionWithBody(funcDecl);
+      if (funcDecl) {
         if (m_sourceIt == m_callNodes.end()) {
           auto result = m_callNodes.insert(
-            std::pair<FunctionDecl *, CallNode>(m_source, CallNode{ m_source }));
+            std::pair<FunctionDecl*, CallNode>(m_source, CallNode{ m_source }));
           DXASSERT(result.second == true,
             "else setSourceFn didn't assign m_sourceIt");
           m_sourceIt = result.first;
         }
-        m_sourceIt->second.CalleeFns.insert(fnDecl);
-        if (!m_visitedFunctions.count(fnDecl)) {
-          m_pendingFunctions.push_back(fnDecl);
+        m_sourceIt->second.CalleeFns.insert(funcDecl);
+        if (!m_visitedFunctions.count(funcDecl)) {
+          m_pendingFunctions.push_back(funcDecl);
         }
       }
-      return true;
     }
   };
 
