@@ -13,6 +13,7 @@
 
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
@@ -38,7 +39,7 @@ void dxil_dia::Session::Init(
   m_module = module;
   m_context = context;
   m_finder = finder;
-  m_dxilModule = std::make_unique<hlsl::DxilModule>(module.get());
+  m_dxilModule = llvm::make_unique<hlsl::DxilModule>(module.get());
 
   llvm::legacy::PassManager PM;
   llvm::initializeDxilAnnotateWithVirtualRegisterPass(*llvm::PassRegistry::getPassRegistry());

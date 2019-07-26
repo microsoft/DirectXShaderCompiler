@@ -9,6 +9,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/InstIterator.h"
@@ -1797,7 +1798,7 @@ LPCSTR DxilShaderReflection::CreateUpperCase(LPCSTR pValue) {
   if (*pCursor == '\0')
     return pValue;
 
-  std::unique_ptr<char[]> pUpperStr = std::make_unique<char[]>(strlen(pValue) + 1);
+  std::unique_ptr<char[]> pUpperStr = llvm::make_unique<char[]>(strlen(pValue) + 1);
   char *pWrite = pUpperStr.get();
   pCursor = pValue;
   for (;;) {
