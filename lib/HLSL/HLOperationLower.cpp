@@ -535,17 +535,29 @@ Value *TrivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TrivialDxilOperation(opcode, args, Ty, RetTy, hlslOP, Builder);
 }
 
+bool IsResourceGEP(GetElementPtrInst *I) {
+  Type *Ty = I->getType()->getPointerElementType();
+  Ty = dxilutil::GetArrayEltTy(Ty);
+  // Only mark on GEP which point to resource.
+  return dxilutil::IsHLSLResourceType(Ty);
+}
+
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   CI->replaceAllUsesWith(V);
+
   for (User *U : V->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
-      DxilMDHelper::MarkNonUniform(I);
+      // Only mark on GEP which point to resource.
+      if (IsResourceGEP(I))
+        DxilMDHelper::MarkNonUniform(I);
     } else if (CastInst *castI = dyn_cast<CastInst>(U)) {
       for (User *castU : castI->users()) {
         if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(castU)) {
-          DxilMDHelper::MarkNonUniform(I);
+          // Only mark on GEP which point to resource.
+          if (IsResourceGEP(I))
+            DxilMDHelper::MarkNonUniform(I);
         }
       }
     }
@@ -5496,7 +5508,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
                     const DataLayout &DL, DxilTypeSystem &dxilTypeSys);
 
 Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
-                             IRBuilder<> &Builder) {
+                             IRBuilder<> &Builder, bool bInsertLdNextToGEP) {
   DXASSERT(GEP->getNumIndices() == 2, "must have 2 level");
   Value *baseIdx = (GEP->idx_begin())->get();
   Value *zeroIdx = Builder.getInt32(0);
@@ -5523,8 +5535,10 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
       Builder.CreateStore(Elt, Ptr);
     }
     // Load from temp array.
-    // Insert the new GEP just before the old and to-be-deleted GEP
-    Builder.SetInsertPoint(GEP);
+    if (bInsertLdNextToGEP) {
+      // Insert the new GEP just before the old and to-be-deleted GEP
+      Builder.SetInsertPoint(GEP);
+    }
     Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
     return Builder.CreateLoad(EltGEP);
   }
@@ -5609,7 +5623,8 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       for (auto U = CI->user_begin(); U != CI->user_end();) {
         Value *subsUser = *(U++);
         if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
-          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder);
+          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder,
+                                                 /*bInsertLdNextToGEP*/ true);
 
           for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
             Value *gepUser = *(gepU++);
@@ -6103,7 +6118,8 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       for (auto U = CI->user_begin(); U != CI->user_end();) {
         Value *subsUser = *(U++);
         if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
-          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder);
+          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder,
+                                                 /*bInsertLdNextToGEP*/ true);
           for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
             Value *gepUser = *(gepU++);
             // Must be load here;
@@ -7179,7 +7195,8 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
             hlslOP, helper.dataLayout);
 
           // get the single element
-          ldVal = LdBuilder.CreateExtractElement(ldVal, EltIdx);
+          ldVal = GenerateVecEltFromGEP(ldVal, GEP, LdBuilder,
+                                        /*bInsertLdNextToGEP*/ false);
 
           LI->replaceAllUsesWith(ldVal);
           LI->eraseFromParent();
