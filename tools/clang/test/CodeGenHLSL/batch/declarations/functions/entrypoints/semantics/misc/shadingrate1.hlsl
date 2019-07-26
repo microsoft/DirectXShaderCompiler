@@ -3,7 +3,7 @@
 // CHECK:       ; Note: shader requires additional functionality:
 // CHECK-NEXT:  ;       Shading Rate
 // CHECK:       ; Input signature:
-// CHECK:       ; SV_ShadingRate           0   x           1     NONE    uint
+// CHECK:       ; SV_ShadingRate           0   x           1SHDINGRATE    uint
 // CHECK:       ; Output signature:
 // CHECK:       ; Input signature:
 // CHECK:       ; SV_ShadingRate           0        nointerpolation
