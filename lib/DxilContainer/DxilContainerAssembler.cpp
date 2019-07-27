@@ -57,6 +57,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   case Semantic::Kind::CullDistance: return DxilProgramSigSemantic::CullDistance;
   case Semantic::Kind::Barycentrics: return DxilProgramSigSemantic::Barycentrics;
   case Semantic::Kind::ShadingRate: return DxilProgramSigSemantic::ShadingRate;
+  case Semantic::Kind::CullPrimitive: return DxilProgramSigSemantic::CullPrimitive;
   case Semantic::Kind::TessFactor: {
     switch (domain) {
     case DXIL::TessellatorDomain::IsoLine:

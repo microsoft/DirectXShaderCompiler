@@ -1721,6 +1721,10 @@ D3D_NAME SemanticToSystemValueType(const Semantic *S, DXIL::TessellatorDomain do
     default:
     return D3D_NAME_UNDEFINED;
     }
+  case Semantic::Kind::ShadingRate:
+    return (D3D_NAME)DxilProgramSigSemantic::ShadingRate;
+  case Semantic::Kind::CullPrimitive:
+    return (D3D_NAME)DxilProgramSigSemantic::CullPrimitive;
   }
   case Semantic::Kind::InsideTessFactor:
     switch (domain) {
