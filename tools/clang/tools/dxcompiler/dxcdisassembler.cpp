@@ -192,6 +192,12 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
     case DxilProgramSigSemantic::Barycentrics:
       pSysValue = "BARYCEN";
       break;
+    case DxilProgramSigSemantic::ShadingRate:
+      pSysValue = "SHDINGRATE";
+      break;
+    case DxilProgramSigSemantic::CullPrimitive:
+      pSysValue = "CULLPRIM";
+      break;
     case DxilProgramSigSemantic::Undefined:
       break;
     }

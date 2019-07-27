@@ -5,6 +5,7 @@
 // CHECK: dx.op.emitIndices
 // CHECK: dx.op.storeVertexOutput
 // CHECK: dx.op.storePrimitiveOutput
+// CHECK: !"cullPrimitive", i32 3, i32 100, i32 4, !"SV_CullPrimitive", i32 7, i32 1}
 
 #define MAX_VERT 32
 #define MAX_PRIM 16
@@ -20,6 +21,7 @@ struct MeshPerPrimitive {
     float alnorm : ALNORM;
     float ormaln : ORMALN;
     int layer[6] : LAYER;
+    bool cullPrimitive : SV_CullPrimitive;
 };
 
 struct MeshPayload {
@@ -71,6 +73,7 @@ void main(
       op.layer[3] = mpl.layer[3];
       op.layer[4] = mpl.layer[4];
       op.layer[5] = mpl.layer[5];
+      op.cullPrimitive = false;
       gsMem[tig / 3] = op.normal;
       prims[tig / 3] = op;
     }

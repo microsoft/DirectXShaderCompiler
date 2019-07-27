@@ -4,7 +4,7 @@
 // CHECK-NEXT:  ;       Shading Rate
 // CHECK:       ; Input signature:
 // CHECK:       ; Output signature:
-// CHECK:       ; SV_ShadingRate           0   x           1     NONE    uint
+// CHECK:       ; SV_ShadingRate           0   x           1SHDINGRATE    uint
 // CHECK:       ; Input signature:
 // CHECK:       ; Output signature:
 // CHECK:       ; SV_ShadingRate           0        nointerpolation
