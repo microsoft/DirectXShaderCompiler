@@ -16,9 +16,8 @@ namespace spirv {
 
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
-      entryPoints({}), executionModes({}), debugSource(nullptr),
-      moduleProcesses({}), decorations({}), constants({}), variables({}),
-      functions({}) {}
+      entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
+      constants({}), variables({}), functions({}) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   // Note: It is debatable whether reverse order of visiting the module should
@@ -68,9 +67,13 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    if (debugSource)
-      if (!debugSource->invokeVisitor(visitor))
-        return false;
+    if (!debugSources.empty())
+      for (auto iter = debugSources.rbegin(); iter != debugSources.rend();
+           ++iter) {
+        auto *source = *iter;
+        if (!source->invokeVisitor(visitor))
+          return false;
+      }
 
     for (auto iter = executionModes.rbegin(); iter != executionModes.rend();
          ++iter) {
@@ -135,9 +138,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!execMode->invokeVisitor(visitor))
         return false;
 
-    if (debugSource)
-      if (!debugSource->invokeVisitor(visitor))
-        return false;
+    if (!debugSources.empty())
+      for (auto *source : debugSources)
+        if (!source->invokeVisitor(visitor))
+          return false;
 
     for (auto moduleProcess : moduleProcesses)
       if (!moduleProcess->invokeVisitor(visitor))
@@ -233,7 +237,7 @@ void SpirvModule::addConstant(SpirvConstant *constant) {
 
 void SpirvModule::addDebugSource(SpirvSource *src) {
   assert(src);
-  debugSource = src;
+  debugSources.push_back(src);
 }
 
 void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {

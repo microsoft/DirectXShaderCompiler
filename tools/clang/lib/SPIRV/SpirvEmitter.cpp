@@ -533,11 +533,13 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   // Set shader module version, source file name, and source file content (if
   // needed).
   llvm::StringRef source = "";
-  llvm::StringRef fileName = "";
+  std::vector<llvm::StringRef> fileNames;
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   // File name
   if (spirvOptions.debugInfoFile && !inputFiles.empty()) {
-    fileName = inputFiles.front().getFile();
+    for (const auto &inputFile : inputFiles) {
+      fileNames.push_back(inputFile.getFile());
+    }
   }
   // Source code
   if (spirvOptions.debugInfoSource) {
@@ -546,9 +548,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
         sm.getBuffer(sm.getMainFileID(), SourceLocation());
     source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
   }
-  mainSourceFile =
-      spvBuilder.setDebugSource(spvContext.getMajorVersion(),
-                                spvContext.getMinorVersion(), fileName, source);
+  mainSourceFile = spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                                             spvContext.getMinorVersion(),
+                                             fileNames, source);
 
   if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
     // Emit OpModuleProcessed to indicate the commit information.
