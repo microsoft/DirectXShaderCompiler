@@ -11,6 +11,7 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringMap.h"
 
 #include <functional>
 
@@ -48,7 +49,7 @@ public:
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), context(spvContext), debugBinary(debugVec),
+      : astContext(astCtx), context(spvContext), debugVariableBinary(debugVec),
         annotationsBinary(decVec), typeConstantBinary(typesVec),
         takeNextIdFunction(takeNextIdFn), emittedConstantInts({}),
         emittedConstantFloats({}), emittedConstantComposites({}),
@@ -144,7 +145,7 @@ private:
   SpirvContext &context;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
-  std::vector<uint32_t> *debugBinary;
+  std::vector<uint32_t> *debugVariableBinary;
   std::vector<uint32_t> *annotationsBinary;
   std::vector<uint32_t> *typeConstantBinary;
   std::function<uint32_t()> takeNextIdFunction;
@@ -188,10 +189,10 @@ public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), id(0),
-        typeHandler(astCtx, spvCtx, &debugBinary, &annotationsBinary,
+        typeHandler(astCtx, spvCtx, &debugVariableBinary, &annotationsBinary,
                     &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
-        debugFileId(0), debugLine(0), debugColumn(0),
+        debugMainFileId(0), debugLine(0), debugColumn(0),
         lastOpWasMergeInst(false) {}
 
   // Visit different SPIR-V constructs for emitting.
@@ -319,10 +320,12 @@ private:
   // OpCapability, OpExtension, OpExtInstImport, OpMemoryModel, OpEntryPoint,
   // OpExecutionMode(Id)
   std::vector<uint32_t> preambleBinary;
-  // All debug instructions *except* OpLine. Includes:
-  // OpString, OpSourceExtension, OpSource, OpSourceContinued, OpName,
-  // OpMemberName, OpModuleProcessed
-  std::vector<uint32_t> debugBinary;
+  // Debug instructions related to file. Includes:
+  // OpString, OpSourceExtension, OpSource, OpSourceContinued
+  std::vector<uint32_t> debugFileBinary;
+  // All debug instructions related to variable name. Includes:
+  // OpName, OpMemberName, OpModuleProcessed
+  std::vector<uint32_t> debugVariableBinary;
   // All annotation instructions: OpDecorate, OpMemberDecorate, OpGroupDecorate,
   // OpGroupMemberDecorate, and OpDecorationGroup.
   std::vector<uint32_t> annotationsBinary;
@@ -331,7 +334,9 @@ private:
   // All other instructions
   std::vector<uint32_t> mainBinary;
   // File information for debugging that will be used by OpLine.
-  uint32_t debugFileId;
+  llvm::StringMap<uint32_t> debugFileIdMap;
+  // Main file information for debugging that will be used by OpLine.
+  uint32_t debugMainFileId;
   // One HLSL source line may result in several SPIR-V instructions. In order to
   // avoid emitting many OpLine instructions with identical line and column
   // numbers, we record the last line and column number that was used by OpLine,

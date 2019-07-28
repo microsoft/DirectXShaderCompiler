@@ -1476,6 +1476,9 @@ TEST_F(FileTest, SpirvDebugOpLineOperators) {
 TEST_F(FileTest, SpirvDebugOpLineVariables) {
   runFileTest("spirv.debug.opline.variables.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpLineInclude) {
+  runFileTest("spirv.debug.opline.include.hlsl");
+}
 
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
   useVulkan1p1();

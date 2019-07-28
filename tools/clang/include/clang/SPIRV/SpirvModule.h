@@ -150,7 +150,7 @@ private:
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
-  SpirvSource *debugSource;
+  std::vector<SpirvSource *> debugSources;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
 
   // Use a set for storing decoration. This will ensure that we don't apply the
