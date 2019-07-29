@@ -6437,7 +6437,7 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
                                             QualType DstType) {
   auto &Builder = CGF.Builder;
   llvm::Type *DstTy = CGF.ConvertType(DstType);
-  bool bDstSigned = DstType->isSignedIntegerType();
+  bool bSrcSigned = SrcType->isSignedIntegerType();
 
   if (ConstantInt *CI = dyn_cast<ConstantInt>(Src)) {
     APInt v = CI->getValue();
@@ -6465,7 +6465,7 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
       else if (DstTy->isFloatTy())
         return ConstantFP::get(DstTy, (float)val);
       else {
-        if (bDstSigned)
+        if (bSrcSigned)
           return Builder.CreateSIToFP(Src, DstTy);
         else
           return Builder.CreateUIToFP(Src, DstTy);
@@ -6560,7 +6560,7 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
               return Builder.CreateZExtOrTrunc(CastResult, DstTy);
           }
         } else {
-          if (bDstSigned)
+          if (bSrcSigned)
             return Builder.CreateSIToFP(CastResult, DstTy);
           else
             return Builder.CreateUIToFP(CastResult, DstTy);
