@@ -20,8 +20,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 
 namespace llvm {
 class Function;
@@ -34,7 +33,7 @@ namespace dxilutil {
   public:
     typedef std::unordered_set<std::string> StringStore;
     typedef std::set<llvm::StringRef> NameSet;
-    typedef llvm::DenseMap< llvm::Function*, NameSet > RenameMap;
+    typedef llvm::MapVector< llvm::Function*, NameSet > RenameMap;
     typedef llvm::StringMap< llvm::StringSet<> > ExportMapByString;
     typedef ExportMapByString::iterator iterator;
     typedef ExportMapByString::const_iterator const_iterator;
