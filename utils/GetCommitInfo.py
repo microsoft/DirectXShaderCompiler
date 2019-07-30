@@ -5,13 +5,19 @@ import subprocess
 
 
 def git_get_commit_hash():
-    return subprocess.check_output(
-        ['git', 'rev-parse', '--short=8', 'HEAD']).decode('ascii').strip()
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--short=8', 'HEAD']).decode('ascii').strip()
+    except subprocess.CalledProcessError:
+        return "00000000"
 
 
 def git_get_commit_count():
-    return subprocess.check_output(
-        ['git', 'rev-list', '--count', 'HEAD']).decode('ascii').strip()
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-list', '--count', 'HEAD']).decode('ascii').strip()
+    except subprocess.CalledProcessError:
+        return 0
 
 
 def compose_commit_namespace(git_count, git_hash):
