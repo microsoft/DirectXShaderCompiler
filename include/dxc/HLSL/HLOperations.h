@@ -303,6 +303,9 @@ const unsigned kWriteSamplerFeedbackCoordArgIndex = 4;
 const unsigned kWriteSamplerFeedbackBiasOrLodArgIndex = 5;
 const unsigned kWriteSamplerFeedbackDdxArgIndex = 5;
 const unsigned kWriteSamplerFeedbackDdyArgIndex = 6;
+const unsigned kWriteSamplerFeedbackClampArgIndex = 5;
+const unsigned kWriteSamplerFeedbackBiasClampArgIndex = 6;
+const unsigned kWriteSamplerFeedbackGradClampArgIndex = 7;
 
 // StreamAppend.
 const unsigned kStreamAppendStreamOpIndex = 1;

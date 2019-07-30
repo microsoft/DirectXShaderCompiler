@@ -584,6 +584,16 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:END
 }
 
+bool OP::IsDxilOpFeedback(OpCode C) {
+  unsigned op = (unsigned)C;
+  /* <py::lines('OPCODE-FEEDBACK')>hctdb_instrhelp.get_instrs_pred("op", "is_feedback")</py>*/
+  // OPCODE-FEEDBACK:BEGIN
+  // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175,
+  // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177
+  return (174 <= op && op <= 177);
+  // OPCODE-FEEDBACK:END
+}
+
 #define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
 void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                   unsigned &major, unsigned &minor,
@@ -1228,10 +1238,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::DispatchMesh:           A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); A(pETy); break;
 
     // Sampler Feedback
-  case OpCode::WriteSamplerFeedback:   A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); break;
-  case OpCode::WriteSamplerFeedbackBias:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
-  case OpCode::WriteSamplerFeedbackLevel:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); break;
-  case OpCode::WriteSamplerFeedbackGrad:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::WriteSamplerFeedback:   A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::WriteSamplerFeedbackBias:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::WriteSamplerFeedbackLevel:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+  case OpCode::WriteSamplerFeedbackGrad:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
 
     // Inline Ray Query
   case OpCode::AllocateRayQuery:       A(pI32);     A(pI32); A(pI32); break;
