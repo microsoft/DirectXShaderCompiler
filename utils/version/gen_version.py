@@ -36,14 +36,23 @@ def get_output_of(cmd):
     return output.decode('ASCII').strip()
 
 def get_last_commit_sha():
-    return get_output_of([ "git", "describe", "--always", "--dirty" ])
+    try:
+        return get_output_of([ "git", "describe", "--always", "--dirty" ])
+    except subprocess.CalledProcessError:
+        return "00000000"
 
 def get_current_branch():
-    return get_output_of([ "git", "rev-parse", "--abbrev-ref", "HEAD" ])
+    try:
+        return get_output_of([ "git", "rev-parse", "--abbrev-ref", "HEAD" ])
+    except subprocess.CalledProcessError:
+        return "private"
 
 def get_commit_count(sha):
-    return get_output_of([ "git", "rev-list", "--count", sha ])
-
+    try:
+        return get_output_of([ "git", "rev-list", "--count", sha ])
+    except subprocess.CalledProcessError:
+        return 0
+    
 def read_latest_release_info():
     latest_release_file = os.path.join(os.path.dirname(os.path.abspath( __file__)), "latest-release.json")
     with open(latest_release_file, 'r') as f:
