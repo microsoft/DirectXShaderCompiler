@@ -2845,19 +2845,19 @@ SampleHelper::SampleHelper(
     // Only need coord for LOD calculation.
     break;
   case OP::OpCode::WriteSamplerFeedback:
-    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackClampArgIndex);
+    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedback_ClampArgIndex);
     break;
   case OP::OpCode::WriteSamplerFeedbackBias:
-    SetBias(CI, HLOperandIndex::kWriteSamplerFeedbackBiasOrLodArgIndex);
-    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackBiasClampArgIndex);
+    SetBias(CI, HLOperandIndex::kWriteSamplerFeedbackBias_BiasArgIndex);
+    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackBias_ClampArgIndex);
     break;
   case OP::OpCode::WriteSamplerFeedbackGrad:
-    SetDDX(CI, HLOperandIndex::kWriteSamplerFeedbackDdxArgIndex);
-    SetDDY(CI, HLOperandIndex::kWriteSamplerFeedbackDdyArgIndex);
-    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackGradClampArgIndex);
+    SetDDX(CI, HLOperandIndex::kWriteSamplerFeedbackGrad_DdxArgIndex);
+    SetDDY(CI, HLOperandIndex::kWriteSamplerFeedbackGrad_DdyArgIndex);
+    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackGrad_ClampArgIndex);
     break;
   case OP::OpCode::WriteSamplerFeedbackLevel:
-    SetLOD(CI, HLOperandIndex::kWriteSamplerFeedbackBiasOrLodArgIndex);
+    SetLOD(CI, HLOperandIndex::kWriteSamplerFeedbackLevel_LodArgIndex);
     break;
   default:
     DXASSERT(0, "invalid opcode for Sample");
