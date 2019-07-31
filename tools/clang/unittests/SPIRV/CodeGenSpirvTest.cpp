@@ -2042,6 +2042,9 @@ TEST_F(FileTest, MeshShadingNVMeshLine) {
 TEST_F(FileTest, MeshShadingNVMeshPoint) {
   runFileTest("meshshading.nv.point.mesh.hlsl");
 }
+TEST_F(FileTest, MeshShadingNVMeshBuffer) {
+  runFileTest("meshshading.nv.buffer.mesh.hlsl");
+}
 TEST_F(FileTest, MeshShadingNVMeshError1) {
   runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
 }
@@ -2086,6 +2089,10 @@ TEST_F(FileTest, MeshShadingNVMeshError14) {
 }
 TEST_F(FileTest, MeshShadingNVAmplification) {
   runFileTest("meshshading.nv.amplification.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
+  useVulkan1p1();
+  runFileTest("meshshading.nv.fncall.amplification.hlsl");
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError1) {
   runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);
