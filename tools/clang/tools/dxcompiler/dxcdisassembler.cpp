@@ -1233,10 +1233,10 @@ static const char *OpCodeSignatures[] = {
   "(outputSigId,rowIndex,colIndex,value,vertexIndex)",  // StoreVertexOutput
   "(outputSigId,rowIndex,colIndex,value,primitiveIndex)",  // StorePrimitiveOutput
   "(threadGroupCountX,threadGroupCountY,threadGroupCountZ,payload)",  // DispatchMesh
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,clamp)",  // WriteSamplerFeedback
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,bias,clamp)",  // WriteSamplerFeedbackBias
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,lod)",  // WriteSamplerFeedbackLevel
-  "(feedbackTex,sampledTex,sampler,c0,c1,c2,ddx,ddy,clamp)",  // WriteSamplerFeedbackGrad
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,clamp)",  // WriteSamplerFeedback
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,bias,clamp)",  // WriteSamplerFeedbackBias
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,lod)",  // WriteSamplerFeedbackLevel
+  "(feedbackTex,sampledTex,sampler,c0,c1,c2,c3,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)",  // WriteSamplerFeedbackGrad
   "(constRayFlags)",  // AllocateRayQuery
   "(rayQueryHandle,accelerationStructure,rayFlags,instanceInclusionMask,origin_X,origin_Y,origin_Z,tMin,direction_X,direction_Y,direction_Z,tMax)",  // RayQuery_TraceRayInline
   "(rayQueryHandle)",  // RayQuery_Proceed
