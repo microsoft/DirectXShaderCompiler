@@ -300,9 +300,13 @@ const unsigned kGatherCmpStatusWithSampleOffsetArgIndex = 9;
 const unsigned kWriteSamplerFeedbackSampledArgIndex = 2;
 const unsigned kWriteSamplerFeedbackSamplerArgIndex = 3;
 const unsigned kWriteSamplerFeedbackCoordArgIndex = 4;
-const unsigned kWriteSamplerFeedbackBiasOrLodArgIndex = 5;
-const unsigned kWriteSamplerFeedbackDdxArgIndex = 5;
-const unsigned kWriteSamplerFeedbackDdyArgIndex = 6;
+const unsigned kWriteSamplerFeedbackBias_BiasArgIndex = 5;
+const unsigned kWriteSamplerFeedbackLevel_LodArgIndex = 5;
+const unsigned kWriteSamplerFeedbackGrad_DdxArgIndex = 5;
+const unsigned kWriteSamplerFeedbackGrad_DdyArgIndex = 6;
+const unsigned kWriteSamplerFeedback_ClampArgIndex = 5;
+const unsigned kWriteSamplerFeedbackBias_ClampArgIndex = 6;
+const unsigned kWriteSamplerFeedbackGrad_ClampArgIndex = 7;
 
 // StreamAppend.
 const unsigned kStreamAppendStreamOpIndex = 1;
