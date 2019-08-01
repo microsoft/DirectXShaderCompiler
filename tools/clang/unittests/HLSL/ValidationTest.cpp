@@ -262,6 +262,8 @@ public:
   TEST_METHOD(MeshMissingSetMeshOutputCounts)
   TEST_METHOD(MeshNonDominatingSetMeshOutputCounts)
   TEST_METHOD(MeshOversizePayload)
+  TEST_METHOD(MeshOversizeOutput)
+  TEST_METHOD(MeshOversizePayloadOutput)
   TEST_METHOD(MeshMultipleGetMeshPayload)
   TEST_METHOD(MeshOutofRangeMaxVertexCount)
   TEST_METHOD(MeshOutofRangeMaxPrimitiveCount)
@@ -3561,6 +3563,14 @@ TEST_F(ValidationTest, MeshNonDominatingSetMeshOutputCounts) {
 
 TEST_F(ValidationTest, MeshOversizePayload) {
   TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizePayload.hlsl");
+}
+
+TEST_F(ValidationTest, MeshOversizeOutput) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizeOutput.hlsl");
+}
+
+TEST_F(ValidationTest, MeshOversizePayloadOutput) {
+  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizePayloadOutput.hlsl");
 }
 
 TEST_F(ValidationTest, MeshMultipleGetMeshPayload) {

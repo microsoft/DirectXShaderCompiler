@@ -227,7 +227,7 @@ enum class ValidationRule : unsigned {
   SmMaxTGSMSize, // Total Thread Group Shared Memory storage is %0, exceeded %1
   SmMaxTheadGroup, // Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
   SmMeshPSigRowCount, // For shader '%0', primitive output signatures are taking up more than %1 rows
-  SmMeshShaderInOutSize, // For shader '%0', input plus output size is greater than %1
+  SmMeshShaderInOutSize, // For shader '%0', payload plus output size is greater than %1
   SmMeshShaderMaxPrimitiveCount, // MS max primitive output count must be [0..%0].  %1 specified
   SmMeshShaderMaxVertexCount, // MS max vertex output count must be [0..%0].  %1 specified
   SmMeshShaderOutputSize, // For shader '%0', vertex plus primitive output size is greater than %1
