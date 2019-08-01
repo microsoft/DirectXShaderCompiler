@@ -444,6 +444,11 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     return lowerType(ptrType->getPointeeType(), rule, isRowMajor, srcLoc);
   }
 
+  // Enum types
+  if (isEnumType(type)) {
+    return spvContext.getSIntType(32);
+  }
+
   emitError("lower type %0 unimplemented", srcLoc) << type->getTypeClassName();
   type->dump();
   return 0;

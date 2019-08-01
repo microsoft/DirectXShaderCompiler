@@ -143,6 +143,9 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     return result;
   }
 
+  if (isEnumType(type))
+    type = astContext.IntTy;
+
   { // Rule 1
     QualType ty = {};
     if (isScalarType(type, &ty))
