@@ -86,11 +86,11 @@ namespace DXIL {
   const unsigned kMinMSASThreadGroupX = 1;
   const unsigned kMinMSASThreadGroupY = 1;
   const unsigned kMinMSASThreadGroupZ = 1;
-  const unsigned kMaxMSASPayloadSize = 16384;
+  const unsigned kMaxMSASPayloadBytes = 1024 * 16;
   const unsigned kMaxMSOutputPrimitiveCount = 256;
   const unsigned kMaxMSOutputVertexCount = 256;
-  const unsigned kMaxMSOutputTotalScalars = 32768;
-  const unsigned kMaxMSInputOutputTotalScalars = 41984;
+  const unsigned kMaxMSOutputTotalBytes = 1024 * 32;
+  const unsigned kMaxMSInputOutputTotalBytes = 1024 * 47;
   const unsigned kMaxMSVSigRows = 32;
   const unsigned kMaxMSPSigRows = 32;
   const unsigned kMaxMSTotalSigRows = 32;

@@ -2456,7 +2456,7 @@ class db_dxil(object):
         self.add_valrule("Sm.MeshShaderPayloadSize", "For shader '%0', payload size is greater than %1")
         self.add_valrule("Sm.MeshShaderPayloadSizeDeclared", "For shader '%0', payload size %1 is greater than declared size of %2 bytes")
         self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1")
-        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', input plus output size is greater than %1")
+        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', payload plus output size is greater than %1")
         self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows")
         self.add_valrule("Sm.MeshPSigRowCount", "For shader '%0', primitive output signatures are taking up more than %1 rows")
         self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows")
