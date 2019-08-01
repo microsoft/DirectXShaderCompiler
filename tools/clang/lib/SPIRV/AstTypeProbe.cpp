@@ -97,7 +97,7 @@ bool isScalarType(QualType type, QualType *scalarType) {
   bool isScalar = false;
   QualType ty = {};
 
-  if (type->isBuiltinType()) {
+  if (type->isBuiltinType() || isEnumType(type)) {
     isScalar = true;
     ty = type;
   } else if (hlsl::IsHLSLVecType(type) && hlsl::GetHLSLVecSize(type) == 1) {
@@ -150,6 +150,17 @@ bool isVectorType(QualType type, QualType *elemType, uint32_t *elemCount) {
       *elemCount = count;
   }
   return isVec;
+}
+
+bool isEnumType(QualType type) {
+  if (isa<EnumType>(type.getTypePtr()))
+    return true;
+
+  if (const auto *elaboratedType = type->getAs<ElaboratedType>())
+    if (isa<EnumType>(elaboratedType->desugar().getTypePtr()))
+      return true;
+
+  return false;
 }
 
 bool is1x1Matrix(QualType type, QualType *elemType) {
@@ -384,6 +395,10 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
   if (const auto *ptrType = type->getAs<PointerType>())
     return getElementSpirvBitwidth(astContext, ptrType->getPointeeType(),
                                    is16BitTypeEnabled);
+
+  // Enum types
+  if (isEnumType(type))
+    return 32;
 
   // Scalar types
   QualType ty = {};
@@ -1007,6 +1022,9 @@ bool isBoolOrVecOfBoolType(QualType type) {
 /// Returns true if the given type is a signed integer or vector of signed
 /// integer type.
 bool isSintOrVecOfSintType(QualType type) {
+  if (isEnumType(type))
+    return true;
+
   QualType elemType = {};
   return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
          elemType->isSignedIntegerType();

@@ -82,6 +82,7 @@ TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
@@ -1942,6 +1943,7 @@ TEST_F(FileTest, PreprocessorError) {
 TEST_F(FileTest, RayTracingNVRaygen) {
   runFileTest("raytracing.nv.raygen.hlsl");
 }
+TEST_F(FileTest, RayTracingNVEnum) { runFileTest("raytracing.nv.enum.hlsl"); }
 TEST_F(FileTest, RayTracingNVIntersection) {
   runFileTest("raytracing.nv.intersection.hlsl");
 }

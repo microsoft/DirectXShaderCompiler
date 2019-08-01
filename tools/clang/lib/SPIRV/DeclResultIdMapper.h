@@ -327,6 +327,9 @@ public:
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
 
+  /// \brief Creates an Enum constant.
+  void createEnumConstant(const EnumConstantDecl *decl);
+
   /// \brief Creates a cbuffer/tbuffer from the given decl.
   ///
   /// In the AST, cbuffer/tbuffer is represented as a HLSLBufferDecl, which is
