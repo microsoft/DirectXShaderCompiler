@@ -1981,7 +1981,7 @@ Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   // bool ne = val != 0;
   Value *notZero = Builder.CreateFCmpUNE(val, zeroVal);
-  notZero = Builder.CreateZExt(notZero, dstTy);
+  notZero = Builder.CreateSExt(notZero, dstTy);
 
   Value *intVal = Builder.CreateBitCast(val, dstTy);
   // temp = intVal & exponentMask;
