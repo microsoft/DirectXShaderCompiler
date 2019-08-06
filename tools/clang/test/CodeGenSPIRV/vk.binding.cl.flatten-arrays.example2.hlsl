@@ -21,6 +21,7 @@ float4 main(float2 TexCoord : TexCoord) : SV_Target0
     MyTextures[2].Sample(MySampler, TexCoord) +
     MyTextures[3].Sample(MySampler, TexCoord) +
     MyTextures[4].Sample(MySampler, TexCoord) +
+    MyTextures2[0].Sample(MySampler2, TexCoord) +
     MyTextures2[1].Sample(MySampler2, TexCoord) +
     AnotherTexture.Sample(MySampler, TexCoord);
   return result;
