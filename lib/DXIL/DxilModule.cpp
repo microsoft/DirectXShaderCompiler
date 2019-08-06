@@ -360,24 +360,30 @@ void DxilModule::CollectShaderFlagsForModule() {
 }
 
 void DxilModule::SetNumThreads(unsigned x, unsigned y, unsigned z) {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
-           "only works for CS profile");
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
+           (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
+           "only works for CS/MS/AS profiles");
   DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT(props.IsCS(), "Must be CS profile");
-  unsigned *numThreads = props.ShaderProps.CS.numThreads;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
+    props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   numThreads[0] = x;
   numThreads[1] = y;
   numThreads[2] = z;
 }
 unsigned DxilModule::GetNumThreads(unsigned idx) const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
+           (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
+           "only works for CS/MS/AS profiles");
   DXASSERT(idx < 3, "Thread dimension index must be 0-2");
-  if (!m_pSM->IsCS())
-    return 0;
-  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
   __analysis_assume(idx < 3);
+  if (!(m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()))
+    return 0;
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT(props.IsCS(), "Must be CS profile");
-  return props.ShaderProps.CS.numThreads[idx];
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
+    props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
+  return numThreads[idx];
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
