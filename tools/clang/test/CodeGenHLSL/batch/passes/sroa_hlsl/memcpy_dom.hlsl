@@ -3,6 +3,8 @@
 // Regression test for a validation error, where parameter SROA
 // would generate GEPs before the indices it uses
 
+// CHECK: @main
+
 Texture2D tex0[10] : register(t0);
 
 float4 f(Texture2D textures[], unsigned int idx) {
