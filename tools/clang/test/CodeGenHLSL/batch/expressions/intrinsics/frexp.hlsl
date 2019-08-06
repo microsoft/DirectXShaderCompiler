@@ -2,7 +2,7 @@
 
 // Make sure frexp generate code pattern.
 // CHECK:bitcast float {{.*}} to i32
-// CHECK:and i32 %2, 2139095040
+// CHECK:and i32 {{.*}}, 2139095040
 // CHECK:add {{.*}}, -1056964608
 // CHECK:ashr {{.*}}, 23
 // CHECK:sitofp
