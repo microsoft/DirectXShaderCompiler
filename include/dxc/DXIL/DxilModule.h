@@ -225,7 +225,7 @@ public:
   // This funciton must be called after unused resources are removed from DxilModule
   bool ModuleHasMulticomponentUAVLoads();
 
-  // Compute shader.
+  // Compute/Mesh/Amplification shader.
   void SetNumThreads(unsigned x, unsigned y, unsigned z);
   unsigned GetNumThreads(unsigned idx) const;
 
