@@ -1241,14 +1241,14 @@ public:
     if (existingBindings.empty())
       return 0;
 
+    // Check whether the chunk of |n| binding numbers can be fitted at the
+    // very beginning of the list (start at binding 0 in the current set).
+    if ((*existingBindings.begin()) >= n)
+      return 0;
+
     auto iter = existingBindings.begin();
     while (iter != existingBindings.end()) {
       uint32_t curBinding = *iter;
-
-      // Check whether the chunk of |n| binding numbers can be fitted at the
-      // very beginning of the list (start at binding 0 in the current set).
-      if (iter == existingBindings.begin() && curBinding >= n)
-        return 0;
 
       // Peek at the next binding that has already been used (if any).
       ++iter;
