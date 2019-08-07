@@ -297,6 +297,11 @@ public:
   SpirvVariable *createRayTracingNVStageVar(spv::StorageClass sc,
                                             const VarDecl *decl);
 
+  /// \brief Creates the taskNV stage variables for payload struct variable
+  /// and returns true on success. SPIR-V instructions will also be generated
+  /// to load/store the contents from/to *value. payloadMemOffset is incremented
+  /// based on payload struct member size, alignment and offset, and SPIR-V
+  /// decorations PerTaskNV and Offset are assigned to each member.
   bool createPayloadStageVars(const hlsl::SigPoint *sigPoint,
                               spv::StorageClass sc, const NamedDecl *decl,
                               bool asInput, QualType type,
