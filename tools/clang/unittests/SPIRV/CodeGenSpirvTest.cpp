@@ -1624,8 +1624,14 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
 TEST_F(FileTest, FlattenResourceArrayBindings1) {
   runFileTest("vk.binding.cl.flatten-arrays.example1.hlsl");
 }
+TEST_F(FileTest, FlattenResourceArrayBindings1Optimized) {
+  runFileTest("vk.binding.cl.flatten-arrays.example1-optimized.hlsl");
+}
 TEST_F(FileTest, FlattenResourceArrayBindings2) {
   runFileTest("vk.binding.cl.flatten-arrays.example2.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
+  runFileTest("vk.binding.cl.flatten-arrays.example2-optimized.hlsl");
 }
 TEST_F(FileTest, FlattenResourceArrayBindingsOverlapError) {
   runFileTest("vk.binding.cl.flatten-arrays.error.hlsl", Expect::Failure);
