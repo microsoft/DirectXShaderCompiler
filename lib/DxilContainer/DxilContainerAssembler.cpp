@@ -1023,6 +1023,8 @@ private:
   FunctionIndexMap m_FuncToResNameOffset; // list of resources used
   FunctionIndexMap m_FuncToDependencies;  // list of unresolved functions used
 
+  unsigned m_ValMajor, m_ValMinor;
+
   struct ShaderCompatInfo {
     ShaderCompatInfo()
       : minMajor(6), minMinor(0),
@@ -1042,7 +1044,9 @@ private:
         ShaderCompatInfo &info = m_FuncToShaderCompat[F];
         unsigned major, minor, mask;
         // bWithTranslation = true for library modules
-        OP::GetMinShaderModelAndMask(CI, /*bWithTranslation*/true, major, minor, mask);
+        OP::GetMinShaderModelAndMask(CI, /*bWithTranslation*/true,
+                                     m_ValMajor, m_ValMinor,
+                                     major, minor, mask);
         if (major > info.minMajor) {
           info.minMajor = major;
           info.minMinor = minor;
@@ -1145,6 +1149,12 @@ private:
   }
 
   void UpdateFunctionInfo(const DxilModule &DM) {
+    // We must select the appropriate shader mask for the validator version,
+    // so we don't set any bits the validator doesn't recognize.
+    unsigned ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
+    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
+      ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
+    }
     for (auto &function : DM.GetModule()->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic()) {
         if (OP::IsDxilOpFunc(&function)) {
@@ -1213,7 +1223,7 @@ private:
         }
         if ((DXIL::ShaderKind)shaderKind == DXIL::ShaderKind::Library) {
           // Init mask to all kinds for library functions
-          info.ShaderStageFlag = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+          info.ShaderStageFlag = ValidShaderMask;
         } else {
           // Init mask to current kind for shader functions
           info.ShaderStageFlag = (unsigned)1 << shaderKind;
@@ -1330,6 +1340,9 @@ private:
 public:
   DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
       : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
+    // Keep track of validator version so we can make a compatible RDAT
+    module.GetValidatorVersion(m_ValMajor, m_ValMinor);
+
     CreateParts();
     UpdateResourceInfo(module);
     UpdateFunctionInfo(module);
