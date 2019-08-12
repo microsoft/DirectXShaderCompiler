@@ -5718,7 +5718,10 @@ static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
     pName = "Program Output Signature";
     break;
   case hlsl::DXIL::SignatureKind::PatchConstOrPrim:
-    pName = "Program Patch Constant or Primitive Signature";
+    if (ValCtx.DxilMod.GetShaderModel()->GetKind() == DXIL::ShaderKind::Mesh)
+      pName = "Program Primitive Signature";
+    else
+      pName = "Program Patch Constant Signature";
     break;
   default:
     break;

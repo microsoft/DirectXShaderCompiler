@@ -2863,7 +2863,7 @@ TEST_F(ValidationTest, WhenProgramSigMismatchThenFail) {
     {
       "Container part 'Program Input Signature' does not match expected for module.",
       "Container part 'Program Output Signature' does not match expected for module.",
-      "Container part 'Program Patch Constant or Primitive Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant Signature' does not match expected for module.",
       "Validation failed."
     }
   );
@@ -2909,7 +2909,7 @@ TEST_F(ValidationTest, WhenProgramSigMismatchThenFail2) {
     {
       "Container part 'Program Input Signature' does not match expected for module.",
       "Container part 'Program Output Signature' does not match expected for module.",
-      "Container part 'Program Patch Constant or Primitive Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant Signature' does not match expected for module.",
       "Validation failed."
     }
   );
