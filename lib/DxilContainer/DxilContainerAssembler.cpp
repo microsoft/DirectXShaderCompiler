@@ -101,10 +101,15 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   // TODO: Final_* values need mappings
 }
 
-static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value) {
+static DxilProgramSigCompType CompTypeToSigCompType(hlsl::CompType value, bool i1ToUnknownCompat) {
   switch (value.GetKind()) {
   case CompType::Kind::I32: return DxilProgramSigCompType::SInt32;
-  case CompType::Kind::I1: __fallthrough;
+
+  case CompType::Kind::I1:
+    // Validator 1.4 and below returned Unknown for i1
+    if (i1ToUnknownCompat)  return DxilProgramSigCompType::Unknown;
+    else                    return DxilProgramSigCompType::UInt32;
+
   case CompType::Kind::U32: return DxilProgramSigCompType::UInt32;
   case CompType::Kind::F32: return DxilProgramSigCompType::Float32;
   case CompType::Kind::I16: return DxilProgramSigCompType::SInt16;
@@ -161,6 +166,7 @@ private:
   DXIL::TessellatorDomain m_domain;
   bool   m_isInput;
   bool   m_useMinPrecision;
+  bool m_bCompat_1_4;
   size_t m_fixedSize;
   typedef std::pair<const char *, uint32_t> NameOffsetPair;
   typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap;
@@ -203,7 +209,7 @@ private:
     sig.Stream = pElement->GetOutputStream();
     sig.SemanticName = GetSemanticOffset(pElement);
     sig.SystemValue = KindToSystemValue(pElement->GetKind(), m_domain);
-    sig.CompType = CompTypeToSigCompType(pElement->GetCompType());
+    sig.CompType = CompTypeToSigCompType(pElement->GetCompType(), m_bCompat_1_4);
     sig.Register = pElement->GetStartRow();
 
     sig.Mask = pElement->GetColsAsMask();
@@ -252,8 +258,12 @@ private:
 
 public:
   DxilProgramSignatureWriter(const DxilSignature &signature,
-                             DXIL::TessellatorDomain domain, bool isInput, bool UseMinPrecision)
-      : m_signature(signature), m_domain(domain), m_isInput(isInput), m_useMinPrecision(UseMinPrecision) {
+                             DXIL::TessellatorDomain domain,
+                             bool isInput, bool UseMinPrecision,
+                             bool bCompat_1_4)
+      : m_signature(signature), m_domain(domain),
+        m_isInput(isInput), m_useMinPrecision(UseMinPrecision),
+        m_bCompat_1_4(bCompat_1_4) {
     calcSizes();
   }
 
@@ -306,20 +316,26 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
   DXIL::TessellatorDomain domain = DXIL::TessellatorDomain::Undefined;
   if (M.GetShaderModel()->IsHS() || M.GetShaderModel()->IsDS())
     domain = M.GetTessellatorDomain();
+  unsigned ValMajor, ValMinor;
+  M.GetValidatorVersion(ValMajor, ValMinor);
+  bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
   switch (Kind) {
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
         M.GetInputSignature(), domain, true,
-        M.GetUseMinPrecision());
+        M.GetUseMinPrecision(),
+        bCompat_1_4);
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), domain, false,
-        M.GetUseMinPrecision());
+        M.GetUseMinPrecision(),
+        bCompat_1_4);
   case DXIL::SignatureKind::PatchConstOrPrim:
     return new DxilProgramSignatureWriter(
         M.GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
-        /*UseMinPrecision*/M.GetUseMinPrecision());
+        /*UseMinPrecision*/M.GetUseMinPrecision(),
+        bCompat_1_4);
   case DXIL::SignatureKind::Invalid:
     return nullptr;
   }
@@ -367,6 +383,7 @@ DxilPartWriter *hlsl::NewFeatureInfoWriter(const DxilModule &M) {
 class DxilPSVWriter : public DxilPartWriter  {
 private:
   const DxilModule &m_Module;
+  unsigned m_ValMajor, m_ValMinor;
   PSVInitInfo m_PSVInitInfo;
   DxilPipelineStateValidation m_PSV;
   uint32_t m_PSVBufferSize;
@@ -422,7 +439,8 @@ private:
       E.StartRow = (uint8_t)SE.GetStartRow();
     }
     E.SemanticKind = (uint8_t)SE.GetKind();
-    E.ComponentType = (uint8_t)CompTypeToSigCompType(SE.GetCompType());
+    E.ComponentType = (uint8_t)CompTypeToSigCompType(SE.GetCompType(),
+      /*i1ToUnknownCompat*/DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0);
     E.InterpolationMode = (uint8_t)SE.GetInterpolationMode()->GetKind();
     DXASSERT_NOMSG(SE.GetOutputStream() < 4);
     E.DynamicMaskAndStream = (uint8_t)((SE.GetOutputStream() & 0x3) << 4);
@@ -450,13 +468,12 @@ public:
   : m_Module(module),
     m_PSVInitInfo(PSVVersion)
   {
-    unsigned ValMajor, ValMinor;
-    m_Module.GetValidatorVersion(ValMajor, ValMinor);
+    m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
     // Allow PSVVersion to be upgraded
-    if (ValMajor == 0 && ValMinor == 0) {
+    if (m_ValMajor == 0 && m_ValMinor == 0) {
       // Validation disabled upgrades to maximum PSVVersion
       m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
-    } else if (m_PSVInitInfo.PSVVersion < 1 && (ValMajor > 1 || (ValMajor == 1 && ValMinor >= 1))) {
+    } else if (m_PSVInitInfo.PSVVersion < 1 && (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
       m_PSVInitInfo.PSVVersion = 1;
     }
 
@@ -1508,11 +1525,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   unsigned ValMajor, ValMinor;
   pModule->GetValidatorVersion(ValMajor, ValMinor);
-  if (ValMajor == 1 && ValMinor == 0)
+  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0)
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
-  bool bSupportsShaderHash = true;
-  if (ValMajor == 1 && ValMinor < 5)
-    bSupportsShaderHash = false;
+  bool bSupportsShaderHash = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
+  bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
 
   DxilContainerWriter_impl writer;
 
@@ -1532,11 +1548,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     pInputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
         pModule->GetInputSignature(), domain,
         /*IsInput*/ true,
-        /*UseMinPrecision*/ pModule->GetUseMinPrecision());
+        /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
+        bCompat_1_4);
     pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
         pModule->GetOutputSignature(), domain,
         /*IsInput*/ false,
-        /*UseMinPrecision*/ pModule->GetUseMinPrecision());
+        /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
+        bCompat_1_4);
     // Write the input and output signature parts.
     writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
@@ -1550,7 +1568,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     pPatchConstOrPrimSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
         pModule->GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
-        /*UseMinPrecision*/ pModule->GetUseMinPrecision());
+        /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
+        bCompat_1_4);
     if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
       writer.AddPart(DFCC_PatchConstantSignature,
                      pPatchConstOrPrimSigWriter->size(),
