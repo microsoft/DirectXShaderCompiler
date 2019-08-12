@@ -359,11 +359,11 @@ IDxcVersionInfo2 : public IDxcVersionInfo {
 
 // Note: __declspec(selectany) requires 'extern'
 // On Linux __declspec(selectany) is removed and using 'extern' results in link error.
-#ifdef __EMULATE_UUID
-#define EXTERN
-#else // __EMULATE_UUID
+#ifdef _MSC_VER
 #define EXTERN extern
-#endif // __EMULATE_UUID
+#else
+#define EXTERN
+#endif
 
 // {73e22d93-e6ce-47f3-b5bf-f0664f39c1b0}
 __declspec(selectany) EXTERN const CLSID CLSID_DxcCompiler = {

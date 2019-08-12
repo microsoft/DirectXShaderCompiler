@@ -50,11 +50,11 @@ IDxcRewriter : public IUnknown {
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
 };
 
-#ifdef __EMULATE_UUID
-#define EXTERN
-#else // __EMULATE_UUID
+#ifdef _MSC_VER
 #define EXTERN extern
-#endif // __EMULATE_UUID
+#else
+#define EXTERN
+#endif
 
 __declspec(selectany)
 EXTERN const CLSID CLSID_DxcRewriter = { /* b489b951-e07f-40b3-968d-93e124734da4 */
