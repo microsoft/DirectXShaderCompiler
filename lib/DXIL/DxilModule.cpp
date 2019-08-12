@@ -197,7 +197,13 @@ bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) 
   if (!m_pSM)
     return false;
   m_pSM->GetMinValidatorVersion(ValMajor, ValMinor);
-  if (ValMajor == 1 && ValMinor == 0 &&
+  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0 &&
+      m_ShaderFlags.GetRaytracingTier1_1())
+    ValMinor = 5;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 4) < 0 &&
+           GetSubobjects() && !GetSubobjects()->GetSubobjects().empty())
+    ValMinor = 4;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0 &&
       (m_ShaderFlags.GetFeatureInfo() & hlsl::DXIL::ShaderFeatureInfo_ViewID))
     ValMinor = 1;
   return true;
