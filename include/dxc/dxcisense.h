@@ -834,11 +834,11 @@ IDxcCompletionString : public IUnknown
 // CLSID_DxcIntelliSense is not visible externally (this is OK in C, since const is
 // not by default static in C)
 
-#ifdef _MSC_VER
-#define EXTERN extern
-#else
+#ifdef __EMULATE_UUID
 #define EXTERN
-#endif
+#else // __EMULATE_UUID
+#define EXTERN extern
+#endif // __EMULATE_UUID
 
 __declspec(selectany)
 EXTERN const CLSID CLSID_DxcIntelliSense = { /* 3047833c-d1c0-4b8e-9d40-102878605985 */

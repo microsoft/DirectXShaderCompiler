@@ -52,10 +52,22 @@
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
 
+// If it is GCC, there is no UUID support and we must emulate it.
+#ifdef __GNUC__
+#ifndef __clang__
+#define __EMULATE_UUID 1
+#endif
+#endif
+
+#ifdef __EMULATE_UUID
 #define __declspec(x)
+#endif // __EMULATE_UUID
+
 #define DECLSPEC_SELECTANY
 
+#ifdef __EMULATE_UUID
 #define uuid(id)
+#endif // __EMULATE_UUID
 
 #define STDMETHODCALLTYPE
 #define STDAPI extern "C" HRESULT STDAPICALLTYPE
@@ -413,19 +425,55 @@ typedef void *HMODULE;
 
 //===--------------------- ID Types and Macros for COM --------------------===//
 
-struct GUID {
+#ifdef __EMULATE_UUID
+struct GUID
+#else  // __EMULATE_UUID
+// These specific definitions are required by clang -fms-extensions.
+typedef struct _GUID
+#endif // __EMULATE_UUID
+{
   uint32_t Data1;
   uint16_t Data2;
   uint16_t Data3;
   uint8_t Data4[8];
-};
+}
+#ifdef __EMULATE_UUID
+;
+#else  // __EMULATE_UUID
+GUID;
+#endif // __EMULATE_UUID
 typedef GUID CLSID;
 typedef const GUID &REFGUID;
-typedef const void *REFIID;
 typedef const GUID &REFCLSID;
 
+#ifdef __EMULATE_UUID
+typedef const void *REFIID;
 #define IsEqualIID(a, b) a == b
 #define IsEqualCLSID(a, b) !memcmp(&a, &b, sizeof(GUID))
+#else  // __EMULATE_UUID
+typedef GUID IID;
+typedef IID *LPIID;
+typedef const IID &REFIID;
+inline bool IsEqualGUID(REFGUID rguid1, REFGUID rguid2) {
+  return !memcmp(&rguid1, &rguid2, sizeof(GUID));
+}
+
+inline bool operator==(REFGUID guidOne, REFGUID guidOther) {
+  return !!IsEqualGUID(guidOne, guidOther);
+}
+
+inline bool operator!=(REFGUID guidOne, REFGUID guidOther) {
+  return !(guidOne == guidOther);
+}
+
+inline bool IsEqualIID(REFIID riid1, REFIID riid2) {
+  return IsEqualGUID(riid1, riid2);
+}
+
+inline bool IsEqualCLSID(REFCLSID rclsid1, REFCLSID rclsid2) {
+  return IsEqualGUID(rclsid1, rclsid2);
+}
+#endif // __EMULATE_UUID
 
 //===--------------------- Struct Types -----------------------------------===//
 
@@ -503,6 +551,8 @@ enum tagSTATFLAG {
 
 //===--------------------- UUID Related Macros ----------------------------===//
 
+#ifdef __EMULATE_UUID
+
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
 public:                                                                        \
@@ -516,9 +566,21 @@ private:                                                                       \
 #define IID_PPV_ARGS(ppType)                                                   \
   (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)
 
+#else // __EMULATE_UUID
+
+#define DECLARE_CROSS_PLATFORM_UUIDOF(T)
+#define DEFINE_CROSS_PLATFORM_UUIDOF(T)
+
+template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
+  return reinterpret_cast<void **>(pp);
+}
+#define IID_PPV_ARGS(ppType) __uuidof(**(ppType)), IID_PPV_ARGS_Helper(ppType)
+
+#endif // __EMULATE_UUID
+
 //===--------------------- COM Interfaces ---------------------------------===//
 
-struct IUnknown {
+struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown {
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef();
   virtual ULONG Release();
@@ -533,25 +595,29 @@ private:
   DECLARE_CROSS_PLATFORM_UUIDOF(IUnknown)
 };
 
-struct INoMarshal : public IUnknown {
+struct __declspec(uuid("ECC8691B-C1DB-4DC0-855E-65F6C551AF49")) INoMarshal
+    : public IUnknown {
   DECLARE_CROSS_PLATFORM_UUIDOF(INoMarshal)
 };
 
-struct IMalloc : public IUnknown {
+struct __declspec(uuid("00000002-0000-0000-C000-000000000046")) IMalloc
+    : public IUnknown {
   virtual void *Alloc(size_t size);
   virtual void *Realloc(void *ptr, size_t size);
   virtual void Free(void *ptr);
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject);
 };
 
-struct ISequentialStream : public IUnknown {
+struct __declspec(uuid("0C733A30-2A1C-11CE-ADE5-00AA0044773D"))
+    ISequentialStream : public IUnknown {
   virtual HRESULT Read(void *pv, ULONG cb, ULONG *pcbRead) = 0;
   virtual HRESULT Write(const void *pv, ULONG cb, ULONG *pcbWritten) = 0;
 
   DECLARE_CROSS_PLATFORM_UUIDOF(ISequentialStream)
 };
 
-struct IStream : public ISequentialStream {
+struct __declspec(uuid("0000000c-0000-0000-C000-000000000046")) IStream
+    : public ISequentialStream {
   virtual HRESULT Seek(LARGE_INTEGER dlibMove, DWORD dwOrigin,
                        ULARGE_INTEGER *plibNewPosition) = 0;
   virtual HRESULT SetSize(ULARGE_INTEGER libNewSize) = 0;

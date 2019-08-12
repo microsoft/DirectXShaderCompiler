@@ -531,6 +531,13 @@ if (UNIX AND
   append("-fcolor-diagnostics" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 endif()
 
+# HLSL Change Starts
+# Enable -fms-extensions for clang to use MS uuid extensions for COM.
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  append("-fms-extensions -Wno-language-extension-token" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+endif()
+# HLSL Change Ends
+
 # Add flags for add_dead_strip().
 # FIXME: With MSVS, consider compiling with /Gy and linking with /OPT:REF?
 # But MinSizeRel seems to add that automatically, so maybe disable these
