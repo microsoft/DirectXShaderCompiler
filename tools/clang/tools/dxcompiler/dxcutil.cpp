@@ -27,6 +27,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/DXIL/DxilModule.h"
 
 #include "llvm/Support/Path.h"
 
@@ -188,6 +189,24 @@ HRESULT ValidateAndAssembleToContainer(
 
   if (bDebugInfo && DebugName.size()) {
     llvmModule.SetDebugName(DebugName);
+  }
+
+  // Verify validator version can validate this module
+  CComPtr<IDxcVersionInfo> pValidatorVersion;
+  IFT(pValidator->QueryInterface(&pValidatorVersion));
+  UINT32 ValMajor, ValMinor;
+  IFT(pValidatorVersion->GetVersion(&ValMajor, &ValMinor));
+  DxilModule &DM = llvmModule.get()->GetDxilModule();
+  unsigned ReqValMajor, ReqValMinor;
+  DM.GetValidatorVersion(ReqValMajor, ReqValMinor);
+  if (DXIL::CompareVersions(ValMajor, ValMinor, ReqValMajor, ReqValMinor) < 0) {
+    // Module is expecting to be validated by a newer validator.
+    unsigned diagID =
+      Diag.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+        "The module cannot be validated by the version of the validator "
+        "currently attached.");
+    Diag.Report(diagID);
+    return E_FAIL;
   }
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
