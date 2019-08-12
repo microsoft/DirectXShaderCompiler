@@ -38,6 +38,8 @@
 #include "d3d12shader.h" // for compatibility
 #include "d3d11shader.h" // for compatibility
 
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
     0x3960,
@@ -86,6 +88,7 @@ public:
   LLVMContext Context;
   std::unique_ptr<Module> m_pModule; // Must come after LLVMContext, otherwise unique_ptr will over-delete.
   DxilModule *m_pDxilModule = nullptr;
+  bool m_bUsageInMetadata = false;
   std::vector<std::unique_ptr<CShaderReflectionConstantBuffer>>    m_CBs;
   std::vector<D3D12_SHADER_INPUT_BIND_DESC>       m_Resources;
   std::vector<std::unique_ptr<CShaderReflectionType>> m_Types;
@@ -205,7 +208,6 @@ private:
   // Enable indexing into functions in deterministic order:
   std::vector<CFunctionReflection*> m_FunctionVector;
 
-  void AddResourceUseToFunctions(DxilResourceBase &resource, unsigned resIndex);
   void AddResourceDependencies();
   void SetCBufferUsage();
 
@@ -444,7 +446,8 @@ public:
 
   void Initialize(DxilModule &M,
                   DxilCBuffer &CB,
-                  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
+                  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
+                  bool bUsageInMetadata);
   void InitializeStructuredBuffer(DxilModule &M,
                                   DxilResource &R,
                                   std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
@@ -1103,7 +1106,8 @@ HRESULT CShaderReflectionType::Initialize(
 void CShaderReflectionConstantBuffer::Initialize(
   DxilModule &M,
   DxilCBuffer &CB,
-  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes) {
+  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
+  bool bUsageInMetadata) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
   m_Desc.Name = CB.GetGlobalName().c_str();
   m_Desc.Size = CB.GetSize();
@@ -1129,12 +1133,16 @@ void CShaderReflectionConstantBuffer::Initialize(
     DXASSERT(m_Desc.Variables == 1, "otherwise, assumption is wrong");
   }
 
+  // If only one member, it's used if it's here.
+  bool bAllUsed = ST->getNumContainedTypes() < 2;
+  bAllUsed |= !bUsageInMetadata;  // Will update in SetCBufferUsage.
+
   for (unsigned i = 0; i < ST->getNumContainedTypes(); ++i) {
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(i);
 
     D3D12_SHADER_VARIABLE_DESC VarDesc;
     ZeroMemory(&VarDesc, sizeof(VarDesc));
-    VarDesc.uFlags |= D3D_SVF_USED; // Will update in SetCBufferUsage.
+    VarDesc.uFlags = (bAllUsed || fieldAnnotation.IsCBVarUsed()) ? D3D_SVF_USED : 0;
     CShaderReflectionVariable Var;
     //Create reflection type.
     CShaderReflectionType *pVarType = new CShaderReflectionType();
@@ -1211,7 +1219,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   VarDesc.Size = CalcResTypeSize(M, R);
   VarDesc.StartTexture = UINT_MAX;
   VarDesc.StartSampler = UINT_MAX;
-  VarDesc.uFlags |= D3D_SVF_USED; // TODO: not necessarily true
+  VarDesc.uFlags |= D3D_SVF_USED;
   CShaderReflectionVariable Var;
   CShaderReflectionType *pVarType = nullptr;
 
@@ -1476,26 +1484,37 @@ static unsigned GetCBOffset(Value *V) {
   }
 }
 
-void CollectInPhiChain(PHINode *cbUser, std::vector<unsigned> &cbufUsage,
-                  unsigned offset, std::unordered_set<Value *> &userSet) {
+static unsigned GetOffsetForCBExtractValue(ExtractValueInst *EV, bool bMinPrecision) {
+  DXASSERT(EV->getNumIndices() == 1, "otherwise, unexpected indices/type for extractvalue");
+  unsigned typeSize = 4;
+  unsigned bits = EV->getType()->getScalarSizeInBits();
+  if (bits == 64)
+    typeSize = 8;
+  else if (bits == 16 && bMinPrecision)
+    typeSize = 2;
+  return (EV->getIndices().front() * typeSize);
+}
+
+static void CollectInPhiChain(PHINode *cbUser, std::vector<unsigned> &cbufUsage,
+                              unsigned offset, std::unordered_set<Value *> &userSet,
+                              bool bMinPrecision) {
   if (userSet.count(cbUser) > 0)
     return;
 
   userSet.insert(cbUser);
   for (User *cbU : cbUser->users()) {
     if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(cbU)) {
-      for (unsigned idx : EV->getIndices()) {
-        cbufUsage.emplace_back(offset + idx * 4);
-      }
+      cbufUsage.emplace_back(offset + GetOffsetForCBExtractValue(EV, bMinPrecision));
     } else {
       PHINode *phi = cast<PHINode>(cbU);
-      CollectInPhiChain(phi, cbufUsage, offset, userSet);
+      CollectInPhiChain(phi, cbufUsage, offset, userSet, bMinPrecision);
     }
   }
 }
 
 static void CollectCBufUsage(Value *cbHandle,
-                             std::vector<unsigned> &cbufUsage) {
+                             std::vector<unsigned> &cbufUsage,
+                             bool bMinPrecision) {
   for (User *U : cbHandle->users()) {
     CallInst *CI = cast<CallInst>(U);
     ConstantInt *opcodeV =
@@ -1509,13 +1528,11 @@ static void CollectCBufUsage(Value *cbHandle,
       offset <<= 4;
       for (User *cbU : U->users()) {
         if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(cbU)) {
-          for (unsigned idx : EV->getIndices()) {
-            cbufUsage.emplace_back(offset + idx * 4);
-          }
+          cbufUsage.emplace_back(offset + GetOffsetForCBExtractValue(EV, bMinPrecision));
         } else {
           PHINode *phi = cast<PHINode>(cbU);
           std::unordered_set<Value *> userSet;
-          CollectInPhiChain(phi, cbufUsage, offset, userSet);
+          CollectInPhiChain(phi, cbufUsage, offset, userSet, bMinPrecision);
         }
       }
     } else if (opcode == DXIL::OpCode::CBufferLoad) {
@@ -1531,7 +1548,7 @@ static void CollectCBufUsage(Value *cbHandle,
 }
 
 static void SetCBufVarUsage(CShaderReflectionConstantBuffer &cb,
-                            std::vector<unsigned> usage) {
+                            std::vector<unsigned> &usage) {
   D3D12_SHADER_BUFFER_DESC Desc;
   if (FAILED(cb.GetDesc(&Desc)))
     return;
@@ -1590,7 +1607,7 @@ void DxilShaderReflection::SetCBufferUsage() {
     ConstantInt *immResClass = cast<ConstantInt>(resClass);
     if (immResClass->getLimitedValue() == (unsigned)DXIL::ResourceClass::CBuffer) {
       ConstantInt *cbID = cast<ConstantInt>(handle.get_rangeId());
-      CollectCBufUsage(U, cbufUsage[cbID->getLimitedValue()]);
+      CollectCBufUsage(U, cbufUsage[cbID->getLimitedValue()], m_pDxilModule->GetUseMinPrecision());
     }
   }
 
@@ -1605,7 +1622,7 @@ void DxilModuleReflection::CreateReflectionObjects() {
   // Create constant buffers, resources and signatures.
   for (auto && cb : m_pDxilModule->GetCBuffers()) {
     std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
-    rcb->Initialize(*m_pDxilModule, *(cb.get()), m_Types);
+    rcb->Initialize(*m_pDxilModule, *(cb.get()), m_Types, m_bUsageInMetadata);
     m_CBs.emplace_back(std::move(rcb));
   }
 
@@ -1771,7 +1788,14 @@ void DxilShaderReflection::CreateReflectionObjectsForSignature(
     // D3D11_43 does not have MinPrecison.
     if (m_PublicAPI != PublicAPI::D3D11_43)
       Desc.MinPrecision = CompTypeToMinPrecision(SigElem->GetCompType());
-    Desc.ReadWriteMask = Sig.IsInput() ? 0 : Desc.Mask; // Start with output-never-written/input-never-read.
+    if (m_bUsageInMetadata) {
+      unsigned UsageMask = SigElem->GetUsageMask();
+      if (SigElem->IsAllocated())
+        UsageMask <<= SigElem->GetStartCol();
+      Desc.ReadWriteMask = Sig.IsInput() ? UsageMask : NegMask(UsageMask);
+    } else {
+      Desc.ReadWriteMask = Sig.IsInput() ? 0 : Desc.Mask; // Start with output-never-written/input-never-read.
+    }
     Desc.Register = SigElem->GetStartRow();
     Desc.Stream = SigElem->GetOutputStream();
     Desc.SystemValueType = SemanticToSystemValueType(SigElem->GetSemantic(), m_pDxilModule->GetTessellatorDomain());
@@ -1842,6 +1866,11 @@ HRESULT DxilModuleReflection::LoadModule(IDxcBlob *pBlob,
     }
     std::swap(m_pModule, module.get());
     m_pDxilModule = &m_pModule->GetOrCreateDxilModule();
+
+    unsigned ValMajor, ValMinor;
+    m_pDxilModule->GetValidatorVersion(ValMajor, ValMinor);
+    m_bUsageInMetadata = hlsl::DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
+
     CreateReflectionObjects();
     return S_OK;
   }
@@ -1854,13 +1883,15 @@ HRESULT DxilShaderReflection::Load(IDxcBlob *pBlob,
 
   try {
     // Set cbuf usage.
-    SetCBufferUsage();
+    if (!m_bUsageInMetadata)
+      SetCBufferUsage();
 
     // Populate input/output/patch constant signatures.
     CreateReflectionObjectsForSignature(m_pDxilModule->GetInputSignature(), m_InputSignature);
     CreateReflectionObjectsForSignature(m_pDxilModule->GetOutputSignature(), m_OutputSignature);
     CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstOrPrimSignature(), m_PatchConstantSignature);
-    MarkUsedSignatureElements();
+    if (!m_bUsageInMetadata)
+      MarkUsedSignatureElements();
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -2328,94 +2359,82 @@ HRESULT CFunctionReflection::GetResourceBindingDescByName(LPCSTR Name,
 
 // DxilLibraryReflection
 
-// From DxilContainerAssembler:
-static llvm::Function *FindUsingFunction(llvm::Value *User) {
-  if (llvm::Instruction *I = dyn_cast<llvm::Instruction>(User)) {
-    // Instruction should be inside a basic block, which is in a function
-    return cast<llvm::Function>(I->getParent()->getParent());
-  }
-  // User can be either instruction, constant, or operator. But User is an
-  // operator only if constant is a scalar value, not resource pointer.
-  llvm::Constant *CU = cast<llvm::Constant>(User);
-  if (!CU->user_empty())
-    return FindUsingFunction(*CU->user_begin());
-  else
-    return nullptr;
-}
+void DxilLibraryReflection::AddResourceDependencies() {
+  const DxilContainerHeader *pHeader =
+    IsDxilContainerLike(m_pContainer->GetBufferPointer(),
+                        m_pContainer->GetBufferSize());
+  IFTBOOL(pHeader, DXC_E_MALFORMED_CONTAINER);
 
-void DxilLibraryReflection::AddResourceUseToFunctions(DxilResourceBase &resource, unsigned resIndex) {
-  Constant *var = resource.GetGlobalSymbol();
-  if (var) {
-    for (auto user : var->users()) {
-      // Find the function.
-      if (llvm::Function *F = FindUsingFunction(user)) {
-        auto funcReflector = m_FunctionsByPtr[F];
-        funcReflector->AddResourceReference(resIndex);
-        if (resource.GetClass() == DXIL::ResourceClass::CBuffer) {
-          funcReflector->AddCBReference(resource.GetID());
-        }
+  const DxilPartHeader *pPart = nullptr;
+  for (uint32_t idx = 0; idx < pHeader->PartCount; ++idx) {
+    const DxilPartHeader *pPartTest = GetDxilContainerPart(pHeader, idx);
+    if (pPartTest->PartFourCC == DFCC_RuntimeData) {
+      pPart = pPartTest;
+      break;
+    }
+  }
+  IFTBOOL(pPart, DXC_E_MISSING_PART);
+
+  RDAT::DxilRuntimeData RDAT(GetDxilPartData(pPart), pPart->PartSize);
+  RDAT::FunctionTableReader *functionTable = RDAT.GetFunctionTableReader();
+  m_FunctionVector.clear();
+  m_FunctionVector.reserve(functionTable->GetNumFunctions());
+  std::map<StringRef, CFunctionReflection*> orderedMap;
+
+  RDAT::ResourceTableReader *resourceTable = RDAT.GetResourceTableReader();
+  unsigned SamplersStart = resourceTable->GetNumCBuffers();
+  unsigned SRVsStart = SamplersStart + resourceTable->GetNumSamplers();
+  unsigned UAVsStart = SRVsStart + resourceTable->GetNumSRVs();
+  IFTBOOL(UAVsStart + resourceTable->GetNumUAVs() == m_Resources.size(), DXC_E_INCORRECT_DXIL_METADATA);
+
+  for (unsigned iFunc = 0; iFunc < functionTable->GetNumFunctions(); ++iFunc) {
+    RDAT::FunctionReader FR = functionTable->GetItem(iFunc);
+    auto &func = m_FunctionMap[FR.GetName()];
+    DXASSERT(!func.get(), "otherwise duplicate named functions");
+    Function *F = m_pModule->getFunction(FR.GetName());
+    func.reset(new CFunctionReflection());
+    func->Initialize(this, F);
+    m_FunctionsByPtr[F] = func.get();
+    orderedMap[FR.GetName()] = func.get();
+
+    for (unsigned iRes = 0; iRes < FR.GetNumResources(); ++iRes) {
+      RDAT::ResourceReader RR = FR.GetResource(iRes);
+      unsigned id = RR.GetID();
+      switch (RR.GetResourceClass()) {
+      case DXIL::ResourceClass::CBuffer:
+        func->AddResourceReference(id);
+        func->AddCBReference(id);
+        break;
+      case DXIL::ResourceClass::Sampler:
+        func->AddResourceReference(SamplersStart + id);
+        break;
+      case DXIL::ResourceClass::SRV:
+        func->AddResourceReference(SRVsStart + id);
+        break;
+      case DXIL::ResourceClass::UAV:
+        func->AddResourceReference(UAVsStart + id);
+        break;
+      default:
+        DXASSERT(false, "Unrecognized ResourceClass in RDAT");
       }
     }
   }
-}
 
-void DxilLibraryReflection::AddResourceDependencies() {
-  std::map<StringRef, CFunctionReflection*> orderedMap;
-  for (auto &F : m_pModule->functions()) {
-    if (F.isDeclaration())
-      continue;
-    auto &func = m_FunctionMap[F.getName()];
-    DXASSERT(!func.get(), "otherwise duplicate named functions");
-    func.reset(new CFunctionReflection());
-    func->Initialize(this, &F);
-    m_FunctionsByPtr[&F] = func.get();
-    orderedMap[F.getName()] = func.get();
-  }
-  // Fill in function vector sorted by name
-  m_FunctionVector.clear();
-  m_FunctionVector.reserve(orderedMap.size());
   for (auto &it : orderedMap) {
     m_FunctionVector.push_back(it.second);
   }
-  UINT resIndex = 0;
-  for (auto &resource : m_Resources) {
-    switch ((UINT32)resource.Type) {
-    case D3D_SIT_CBUFFER:
-      AddResourceUseToFunctions(m_pDxilModule->GetCBuffer(resource.uID), resIndex);
-      break;
-    case D3D_SIT_TBUFFER:   // TODO: Handle when TBuffers are added to CB list
-    case D3D_SIT_TEXTURE:
-    case D3D_SIT_STRUCTURED:
-    case D3D_SIT_BYTEADDRESS:
-    case D3D_SIT_RTACCELERATIONSTRUCTURE:
-      AddResourceUseToFunctions(m_pDxilModule->GetSRV(resource.uID), resIndex);
-      break;
-    case D3D_SIT_UAV_RWTYPED:
-    case D3D_SIT_UAV_RWSTRUCTURED:
-    case D3D_SIT_UAV_RWBYTEADDRESS:
-    case D3D_SIT_UAV_APPEND_STRUCTURED:
-    case D3D_SIT_UAV_CONSUME_STRUCTURED:
-    case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
-      AddResourceUseToFunctions(m_pDxilModule->GetUAV(resource.uID), resIndex);
-      break;
-    case D3D_SIT_SAMPLER:
-      AddResourceUseToFunctions(m_pDxilModule->GetSampler(resource.uID), resIndex);
-      break;
-    }
-    resIndex++;
-  }
 }
 
-static void CollectCBufUsageForLib(Value *V, std::vector<unsigned> &cbufUsage) {
+static void CollectCBufUsageForLib(Value *V, std::vector<unsigned> &cbufUsage, bool bMinPrecision) {
   for (auto user : V->users()) {
     Value *V = user;
     if (auto *CI = dyn_cast<CallInst>(V)) {
       if (hlsl::OP::IsDxilOpFuncCallInst(CI, hlsl::OP::OpCode::CreateHandleForLib)) {
-        CollectCBufUsage(CI, cbufUsage);
+        CollectCBufUsage(CI, cbufUsage, bMinPrecision);
       }
     } else if (isa<GEPOperator>(V) ||
                isa<LoadInst>(V)) {
-      CollectCBufUsageForLib(user, cbufUsage);
+      CollectCBufUsageForLib(user, cbufUsage, bMinPrecision);
     }
   }
 }
@@ -2425,7 +2444,7 @@ void DxilLibraryReflection::SetCBufferUsage() {
 
   for (unsigned i=0;i<cbSize;i++) {
     std::vector<unsigned> cbufUsage;
-    CollectCBufUsageForLib(m_pDxilModule->GetCBuffer(i).GetGlobalSymbol(), cbufUsage);
+    CollectCBufUsageForLib(m_pDxilModule->GetCBuffer(i).GetGlobalSymbol(), cbufUsage, m_pDxilModule->GetUseMinPrecision());
     SetCBufVarUsage(*m_CBs[i], cbufUsage);
   }
 }
@@ -2439,7 +2458,8 @@ HRESULT DxilLibraryReflection::Load(IDxcBlob *pBlob,
 
   try {
     AddResourceDependencies();
-    SetCBufferUsage();
+    if (!m_bUsageInMetadata)
+      SetCBufferUsage();
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
