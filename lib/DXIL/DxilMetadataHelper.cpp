@@ -2175,6 +2175,12 @@ void DxilExtraPropertyHelper::EmitSignatureElementProperties(const DxilSignature
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementDynIdxCompMaskTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetDynIdxCompMask(), m_Ctx));
   }
+
+  if (SE.GetUsageMask() != 0 &&
+      DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementUsageCompMaskTag, m_Ctx));
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetUsageMask(), m_Ctx));
+  }
 }
 
 void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MDO, DxilSignatureElement &SE) {
@@ -2198,6 +2204,9 @@ void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MD
       break;
     case DxilMDHelper::kDxilSignatureElementDynIdxCompMaskTag:
       SE.SetDynIdxCompMask(DxilMDHelper::ConstMDToUint32(MDO));
+      break;
+    case DxilMDHelper::kDxilSignatureElementUsageCompMaskTag:
+      SE.SetUsageMask(DxilMDHelper::ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown signature element tag");
