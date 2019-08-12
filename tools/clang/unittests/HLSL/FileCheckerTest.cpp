@@ -368,6 +368,35 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
   return FileRunCommandResult::Success();
 }
 
+static FileRunCommandResult CheckDxilVer(dxc::DxcDllSupport& DllSupport,
+                                         unsigned RequiredDxilMajor,
+                                         unsigned RequiredDxilMinor,
+                                         bool bCheckValidator = true) {
+  bool Supported = true;
+
+  // If the following fails, we have Dxil 1.0 compiler
+  unsigned DxilMajor = 1, DxilMinor = 0;
+  GetVersion(DllSupport, CLSID_DxcCompiler, DxilMajor, DxilMinor);
+  Supported &= hlsl::DXIL::CompareVersions(DxilMajor, DxilMinor, RequiredDxilMajor, RequiredDxilMinor) >= 0;
+
+  if (bCheckValidator) {
+    // If the following fails, we have validator 1.0
+    unsigned ValMajor = 1, ValMinor = 0;
+    GetVersion(DllSupport, CLSID_DxcValidator, ValMajor, ValMinor);
+    Supported &= hlsl::DXIL::CompareVersions(ValMajor, ValMinor, RequiredDxilMajor, RequiredDxilMinor) >= 0;
+  }
+
+  if (!Supported) {
+    FileRunCommandResult result {};
+    result.StdErr = "Skipping test due to unsupported dxil version";
+    result.ExitCode = 0; // Succeed the test
+    result.AbortPipeline = true;
+    return result;
+  }
+
+  return FileRunCommandResult::Success();
+}
+
 FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
   UNREFERENCED_PARAMETER(Prior);
@@ -383,6 +412,23 @@ FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, 
   std::vector<LPCWSTR> flags;
   if (opts.CodeGenHighLevel) {
     flags.push_back(L"-fcgl");
+  }
+
+  // Skip targets that require a newer compiler or validator.
+  // Some features may require newer compiler/validator than indicated by the
+  // shader model, but these should use %dxilver explicitly.
+  {
+    unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
+    llvm::StringRef stage;
+    IFTBOOL(ParseTargetProfile(opts.TargetProfile, stage, RequiredDxilMajor, RequiredDxilMinor), E_INVALIDARG);
+    if (RequiredDxilMinor != 0xF && stage.compare("rootsig") != 0) {
+      // Convert stage to minimum dxil/validator version:
+      RequiredDxilMajor = std::max(RequiredDxilMajor, (unsigned)6) - 5;
+      FileRunCommandResult result = CheckDxilVer(DllSupport, RequiredDxilMajor, RequiredDxilMinor, !opts.DisableValidation);
+      if (result.AbortPipeline) {
+        return result;
+      }
+    }
   }
 
   std::vector<std::wstring> argWStrings;
@@ -643,38 +689,8 @@ FileRunCommandResult FileRunCommandPart::RunDxilVer(dxc::DxcDllSupport& DllSuppo
 
   unsigned RequiredDxilMajor = Arguments[0] - '0';
   unsigned RequiredDxilMinor = Arguments[2] - '0';
-  bool Supported = RequiredDxilMajor >= 1;
-  CComPtr<IDxcCompiler> pCompiler;
 
-  // If the following fails, we have Dxil 1.0 compiler
-  if (SUCCEEDED(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler))) {
-    CComPtr<IDxcVersionInfo> pVersionInfo;
-    IFT(pCompiler.QueryInterface(&pVersionInfo));
-    unsigned DxilMajor, DxilMinor;
-    IFT(pVersionInfo->GetVersion(&DxilMajor, &DxilMinor));
-    if (DxilMajor < RequiredDxilMajor || (DxilMajor == RequiredDxilMajor && DxilMinor < RequiredDxilMinor))
-      Supported = false;
-  }
-
-  CComPtr<IDxcValidator> pValidator;
-  if (SUCCEEDED(DllSupport.CreateInstance(CLSID_DxcValidator, &pValidator))) {
-    CComPtr<IDxcVersionInfo> pVersionInfo;
-    IFT(pValidator.QueryInterface(&pVersionInfo));
-    unsigned DxilMajor, DxilMinor;
-    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&DxilMajor, &DxilMinor));
-    if (DxilMajor < RequiredDxilMajor || (DxilMajor == RequiredDxilMajor && DxilMinor < RequiredDxilMinor))
-      Supported = false;
-  }
-
-  if (!Supported) {
-    FileRunCommandResult result {};
-    result.StdErr = "Skipping test due to unsupported dxil version";
-    result.ExitCode = 0; // Succeed the test
-    result.AbortPipeline = true;
-    return result;
-  }
-
-  return FileRunCommandResult::Success();
+  return CheckDxilVer(DllSupport, RequiredDxilMajor, RequiredDxilMinor);
 }
 
 class FileRunTestResultImpl : public FileRunTestResult {
