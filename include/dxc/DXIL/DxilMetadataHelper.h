@@ -128,6 +128,7 @@ public:
   static const unsigned kDxilSignatureElementOutputStreamTag    = 0;
   static const unsigned kHLSignatureElementGlobalSymbolTag      = 1;
   static const unsigned kDxilSignatureElementDynIdxCompMaskTag  = 2;
+  static const unsigned kDxilSignatureElementUsageCompMaskTag   = 3;
 
   // Resources.
   static const char kDxilResourcesMDName[];

@@ -159,6 +159,10 @@ struct sort_sig {
   }
 };
 
+static uint8_t NegMask(uint8_t V) {
+  V ^= 0xF;
+  return V & 0xF;
+}
 
 class DxilProgramSignatureWriter : public DxilPartWriter {
 private:
@@ -213,12 +217,23 @@ private:
     sig.Register = pElement->GetStartRow();
 
     sig.Mask = pElement->GetColsAsMask();
-    // Only mark exist channel write for output.
-    // All channel not used for input.
-    if (!m_isInput)
-      sig.NeverWrites_Mask = ~(sig.Mask);
-    else
-      sig.AlwaysReads_Mask = 0;
+    if (m_bCompat_1_4) {
+      // Match what validator 1.4 and below expects
+      // Only mark exist channel write for output.
+      // All channel not used for input.
+      if (!m_isInput)
+        sig.NeverWrites_Mask = ~sig.Mask;
+      else
+        sig.AlwaysReads_Mask = 0;
+    } else {
+      unsigned UsageMask = pElement->GetUsageMask();
+      if (pElement->IsAllocated())
+        UsageMask <<= pElement->GetStartCol();
+      if (!m_isInput)
+        sig.NeverWrites_Mask = NegMask(UsageMask);
+      else
+        sig.AlwaysReads_Mask = UsageMask;
+    }
 
     sig.MinPrecision = m_useMinPrecision
                            ? CompTypeToSigMinPrecision(pElement->GetCompType())
