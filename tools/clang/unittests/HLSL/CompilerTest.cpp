@@ -2871,5 +2871,7 @@ TEST_F(CompilerTest, CodeGenBatch) {
 }
 
 TEST_F(CompilerTest, Mesh) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
   CodeGenTestCheckBatchDir(L"mesh");
 }
