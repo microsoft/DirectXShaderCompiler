@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 
 // CHECK: cbuffer $Globals
