@@ -8,6 +8,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#define NOMINMAX
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -331,7 +333,7 @@ public:
     CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex);
   }
 
-  void CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+  bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
                      LPCWSTR *pArguments, UINT32 argCount, const DxcDefine *pDefines,
                      UINT32 defineCount, IDxcBlob **pResultBlob) {
     CComPtr<IDxcCompiler> pCompiler;
@@ -341,8 +343,18 @@ public:
     CA2W shWide(pShaderModel, CP_UTF8);
 
     wchar_t *pEntryName = L"main";
-    if (llvm::StringRef(pShaderModel).startswith("lib_"))
-      pEntryName = L"";
+
+    llvm::StringRef stage;
+    unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
+    if (ParseTargetProfile(pShaderModel, stage, RequiredDxilMajor, RequiredDxilMinor)) {
+      if (stage.compare("lib") == 0)
+        pEntryName = L"";
+      if (stage.compare("rootsig") != 0) {
+        RequiredDxilMajor = std::max(RequiredDxilMajor, (unsigned)6) - 5;
+        if (m_ver.SkipDxilVersion(RequiredDxilMajor, RequiredDxilMinor))
+          return false;
+      }
+    }
 
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
@@ -351,25 +363,26 @@ public:
                                         defineCount, nullptr, &pResult));
     CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
+    return true;
   }
 
-  void CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+  bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
                      IDxcBlob **pResultBlob) {
-    CompileSource(pSource, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
+    return CompileSource(pSource, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
   }
 
-  void CompileSource(LPCSTR pSource, LPCSTR pShaderModel,
+  bool CompileSource(LPCSTR pSource, LPCSTR pShaderModel,
                      IDxcBlob **pResultBlob) {
     CComPtr<IDxcBlobEncoding> pSourceBlob;
     Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
-    CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
+    return CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
   }
 
   void DisassembleProgram(IDxcBlob *pProgram, std::string *text) {
     *text = ::DisassembleProgram(m_dllSupport, pProgram);
   }
 
-  void RewriteAssemblyCheckMsg(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+  bool RewriteAssemblyCheckMsg(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
     LPCWSTR *pArguments, UINT32 argCount,
     const DxcDefine *pDefines, UINT32 defineCount,
     llvm::ArrayRef<LPCSTR> pLookFors,
@@ -377,7 +390,8 @@ public:
     llvm::ArrayRef<LPCSTR> pErrorMsgs,
     bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
-    RewriteAssemblyToText(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, pLookFors, pReplacements, &pText, bRegex);
+    if (!RewriteAssemblyToText(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, pLookFors, pReplacements, &pText, bRegex))
+      return false;
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
     VERIFY_SUCCEEDED(
@@ -390,6 +404,7 @@ public:
       VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
       CheckValidationMsgs(pBlob, pErrorMsgs, bRegex);
     }
+    return true;
   }
 
   void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
@@ -439,7 +454,7 @@ public:
       pLookFors, pReplacements, pErrorMsgs, bRegex);
   }
 
-  void RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+  bool RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
                              LPCWSTR *pArguments, UINT32 argCount,
                              const DxcDefine *pDefines, UINT32 defineCount,
                              llvm::ArrayRef<LPCSTR> pLookFors,
@@ -447,7 +462,8 @@ public:
                              IDxcBlob **pBlob, bool bRegex = false) {
     CComPtr<IDxcBlob> pProgram;
     std::string disassembly;
-    CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram);
+    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram))
+      return false;
     DisassembleProgram(pProgram, &disassembly);
     for (unsigned i = 0; i < pLookFors.size(); ++i) {
       LPCSTR pLookFor = pLookFors[i];
@@ -488,18 +504,21 @@ public:
       }
     }
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
+    return true;
   }
 
 
   // compile one or two sources, validate module from 1 with container parts from 2, check messages
-  void ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2, LPCSTR pShaderModel,
+  bool ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2, LPCSTR pShaderModel,
                                      llvm::ArrayRef<DxilFourCC> PartsToReplace,
                                      llvm::ArrayRef<LPCSTR> pErrorMsgs) {
     CComPtr<IDxcBlob> pProgram1, pProgram2;
-    CompileSource(pSource1, pShaderModel, &pProgram1);
+    if (!CompileSource(pSource1, pShaderModel, &pProgram1))
+      return false;
     VERIFY_IS_NOT_NULL(pProgram1);
     if (pSource2) {
-      CompileSource(pSource2, pShaderModel, &pProgram2);
+      if (!CompileSource(pSource2, pShaderModel, &pProgram2))
+        return false;
       VERIFY_IS_NOT_NULL(pProgram2);
     } else {
       pProgram2 = pProgram1;
@@ -551,6 +570,7 @@ public:
     pContainerWriter->write(pOutputStream);
 
     CheckValidationMsgs((const char *)pOutputStream->GetPtr(), pOutputStream->GetPtrSize(), pErrorMsgs, /*bRegex*/false);
+    return true;
   }
 };
 
@@ -798,9 +818,9 @@ TEST_F(ValidationTest, InnerCoverageFail) {
 TEST_F(ValidationTest, InterpChangeFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\interpChange.hlsl", "ps_6_0",
-      { "i32 1, i8 0, null}",
+      { "i32 1, i8 0, (.*)}",
         "?!dx.viewIdState ="},
-      { "i32 0, i8 2, null}",
+      { "i32 0, i8 2, \\1}",
         "!1012 ="},
       "interpolation mode that differs from another element packed",
       /*bRegex*/true);
@@ -892,18 +912,17 @@ TEST_F(ValidationTest, SamplerKindFail) {
       {"Invalid sampler mode",
        "require sampler declared in comparison mode",
        "requires sampler declared in default mode",
-       "should be on srv resource"});
+       // 1.4: "should", 1.5: "should be "
+       "on srv resource"});
 }
 TEST_F(ValidationTest, SemaOverlapFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
-      {"!([0-9]+) = !\\{i32 0, !\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4, i32 0, i8 0, null\\}\n"
-      "!([0-9]+) = !\\{i32 0\\}\n"
-      "!([0-9]+) = !\\{i32 1, !\"A\", i8 9, i8 0, !([0-9]+)",
+      {"!\\{i32 0, !\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4, i32 0, i8 0, (.*)"
+      "!\\{i32 1, !\"A\", i8 9, i8 0, !([0-9]+)",
       },
-      {"!\\1 = !\\{i32 0, !\"A\", i8 9, i8 0, !\\2, i8 2, i32 1, i8 4, i32 0, i8 0, null\\}\n"
-      "!\\3 = !\\{i32 0\\}\n"
-      "!\\4 = !\\{i32 1, !\"A\", i8 9, i8 0, !\\2",
+      {"!\\{i32 0, !\"A\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 4, i32 0, i8 0, \\2"
+      "!\\{i32 1, !\"A\", i8 9, i8 0, !\\1",
       },
       {"Semantic 'A' overlap at 0"},
       /*bRegex*/true);
@@ -921,9 +940,9 @@ TEST_F(ValidationTest, SigOutOfRangeFail) {
 TEST_F(ValidationTest, SigOverlapFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
-      { "i32 1, i8 0, null}",
+      { "i8 2, i32 1, i8 4, i32 1, i8 0,",
         "?!dx.viewIdState =" },
-      { "i32 0, i8 0, null}",
+      { "i8 2, i32 1, i8 4, i32 0, i8 0,",
         "!1012 =" },
       {"signature element A at location (0,0) size (1,4) overlaps another signature element"});
 }
@@ -1016,7 +1035,8 @@ TEST_F(ValidationTest, UavBarrierFail) {
       {"uav load don't support offset",
        "uav load don't support mipLevel/sampleIndex",
        "store on typed uav must write to all four components of the UAV",
-       "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)"});
+       "sync in a non-",    // 1.4: "Compute" 1.5: "Compute/Amplification/Mesh"
+       " Shader must only sync UAV (sync_uglobal)"});
 }
 TEST_F(ValidationTest, UndefValueFail) {
   TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
@@ -1106,11 +1126,12 @@ TEST_F(ValidationTest, SignatureDataWidth) {
 TEST_F(ValidationTest, SignatureStreamIDForNonGS) {
   RewriteAssemblyCheckMsg(
     L"..\\CodeGenHLSL\\validation\\abs1.hlsl", "ps_6_0",
-    { ", i8 0, i32 1, i8 4, i32 0, i8 0, null}",
+    { ", i8 0, i32 1, i8 4, i32 0, i8 0, [^,]+}",
       "?!dx.viewIdState ="},
-    { ", i8 0, i32 1, i8 4, i32 0, i8 0, !19}\n!19 = !{i32 0, i32 1}",
+    { ", i8 0, i32 1, i8 4, i32 0, i8 0, !1019}\n!1019 = !{i32 0, i32 1}",
       "!1012 =" },
-    "Stream index (1) must between 0 and 0");
+    "Stream index \\(1\\) must between 0 and 0",
+    true);
 }
 
 TEST_F(ValidationTest, TypedUAVStoreFullMask0) {
@@ -1377,8 +1398,8 @@ TEST_F(ValidationTest, PsOutputSemantic) {
 TEST_F(ValidationTest, ArrayOfSVTarget) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
-      "i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, null}",
-      "i32 2, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 2, i8 4, i32 0, i8 0, null}\n!101 = !{i32 5, i32 6}",
+      "i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, (.*)}",
+      "i32 2, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 2, i8 4, i32 0, i8 0, \\2}\n!101 = !{i32 5, i32 6}",
       "Pixel shader output registers are not indexable.",
       /*bRegex*/true);
 }
@@ -1830,9 +1851,9 @@ TEST_F(ValidationTest, SemTargetMax) {
 float4 main(float4 col : COLOR) : SV_Target7 { return col; } \
     ",
     "ps_6_0", 
-    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, ![0-9]+, i8 0, i32 1, i8 4, i32 7, i8 0, null}",
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, ![0-9]+, i8 0, i32 1, i8 4, i32 7, i8 0, (.*)}",
       "?!dx.viewIdState ="},
-    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 1, i8 4, i32 8, i8 0, null}\n!101 = !{i32 8}",
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 1, i8 4, i32 8, i8 0, \\1}\n!101 = !{i32 8}",
       "!1012 ="},
     "SV_Target semantic index exceeds maximum \\(7\\)",
     /*bRegex*/true);
@@ -1843,9 +1864,9 @@ TEST_F(ValidationTest, SemTargetIndexMatchesRow) {
 float4 main(float4 col : COLOR) : SV_Target7 { return col; } \
     ",
     "ps_6_0", 
-    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 7, i8 0, null}",
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 7, i8 0, (.*)}",
       "?!dx.viewIdState ="},
-    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 1, i8 4, i32 6, i8 0, null}",
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 1, i8 4, i32 6, i8 0, \\2}",
       "!1012 ="},
     "SV_Target semantic index must match packed row location",
     /*bRegex*/true);
@@ -1856,8 +1877,8 @@ TEST_F(ValidationTest, SemTargetCol0) {
 float3 main(float4 col : COLOR) : SV_Target7 { return col.xyz; } \
     ",
     "ps_6_0", 
-    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 3, i32 7, i8 0, null}",
-    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 1, i8 3, i32 7, i8 1, null}",
+    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 3, i32 7, i8 0, (.*)}",
+    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 1, i8 3, i32 7, i8 1, \\2}",
     "SV_Target packed location must start at column 0",
     /*bRegex*/true);
 }
@@ -1869,8 +1890,8 @@ float4 main(uint vid : SV_VertexID, uint iid : SV_InstanceID) : SV_Position { \
 } \
     ",
     "vs_6_0", 
-    "!{i32 0, !\"SV_VertexID\", i8 5, i8 1, ![0-9]+, i8 0, i32 1, i8 1, i32 0, i8 0, null}",
-    "!{i32 0, !\"SV_VertexID\", i8 5, i8 1, !101, i8 0, i32 1, i8 1, i32 0, i8 0, null}\n!101 = !{i32 1}",
+    "!{i32 0, !\"SV_VertexID\", i8 5, i8 1, ![0-9]+, i8 0, i32 1, i8 1, i32 0, i8 0, (.*)}",
+    "!{i32 0, !\"SV_VertexID\", i8 5, i8 1, !101, i8 0, i32 1, i8 1, i32 0, i8 0, \\1}\n!101 = !{i32 1}",
     "SV_VertexID semantic index exceeds maximum \\(0\\)",
     /*bRegex*/true);
 }
@@ -1902,8 +1923,8 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 3 > patch) { 
 } \
     ",
     "hs_6_0",
-    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, ![0-9]+, i8 0, i32 3, i8 1, i32 0, i8 3, null}",
-    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, !101, i8 0, i32 2, i8 1, i32 0, i8 3, null}\n!101 = !{i32 0, i32 1}",
+    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, ![0-9]+, i8 0, i32 3, i8 1, i32 0, i8 3, (.*)}",
+    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, !101, i8 0, i32 2, i8 1, i32 0, i8 3, \\1}\n!101 = !{i32 0, i32 1}",
     "TessFactor rows, columns \\(2, 1\\) invalid for domain Tri.  Expected 3 rows and 1 column.",
     /*bRegex*/true);
 }
@@ -1935,9 +1956,9 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 3 > patch) { 
 } \
     ",
     "hs_6_0",
-    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 1, i8 1, i32 3, i8 0, null}",
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 1, i8 1, i32 3, i8 0, (.*)}",
       "?!dx.viewIdState =" },
-    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !101, i8 0, i32 2, i8 1, i32 3, i8 0, null}\n!101 = !{i32 0, i32 1}",
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !101, i8 0, i32 2, i8 1, i32 3, i8 0, \\2}\n!101 = !{i32 0, i32 1}",
       "!1012 =" },
     "InsideTessFactor rows, columns \\(2, 1\\) invalid for domain Tri.  Expected 1 rows and 1 column.",
     /*bRegex*/true);
@@ -1970,8 +1991,8 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 3 > patch) { 
 } \
     ",
     "hs_6_0",
-    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 3, null}",
-    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, !\\1, i8 0, i32 3, i8 1, i32 -1, i8 -1, null}",
+    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 3, (.*)}",
+    "!{i32 0, !\"SV_TessFactor\", i8 9, i8 25, !\\1, i8 0, i32 3, i8 1, i32 -1, i8 -1, \\2}",
     "PatchConstant Semantic 'SV_TessFactor' should have a valid packing location",
     /*bRegex*/true);
 }
@@ -1981,8 +2002,8 @@ TEST_F(ValidationTest, SemShouldNotBeAllocated) {
 float4 main(float4 col : COLOR, out uint coverage : SV_Coverage) : SV_Target7 { coverage = 7; return col; } \
     ",
     "ps_6_0",
-    "!\"SV_Coverage\", i8 5, i8 14, !([0-9]+), i8 0, i32 1, i8 1, i32 -1, i8 -1, null}",
-    "!\"SV_Coverage\", i8 5, i8 14, !\\1, i8 0, i32 1, i8 1, i32 2, i8 0, null}",
+    "!\"SV_Coverage\", i8 5, i8 14, !([0-9]+), i8 0, i32 1, i8 1, i32 -1, i8 -1, (.*)}",
+    "!\"SV_Coverage\", i8 5, i8 14, !\\1, i8 0, i32 1, i8 1, i32 2, i8 0, \\2}",
     "Output Semantic 'SV_Coverage' should have a packing location of -1",
     /*bRegex*/true);
 }
@@ -2007,16 +2028,16 @@ void main( \
     ",
     "vs_6_0",
 
-    { "= !{i32 1, !\"f2out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 2, i32 1, i8 0, null}\n"
-      "!([0-9]+) = !{i32 2, !\"f3out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 3, i32 2, i8 0, null}\n"
-      "!([0-9]+) = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !([0-9]+), i8 2, i32 1, i8 2, i32 3, i8 0, null}\n"
-      "!([0-9]+) = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !([0-9]+), i8 2, i32 1, i8 1, i32 3, i8 2, null}\n",
+    { "= !{i32 1, !\"f2out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 2, i32 1, i8 0, (.*)}\n"
+      "!([0-9]+) = !{i32 2, !\"f3out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 3, i32 2, i8 0, (.*)}\n"
+      "!([0-9]+) = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !([0-9]+), i8 2, i32 1, i8 2, i32 3, i8 0, (.*)}\n"
+      "!([0-9]+) = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !([0-9]+), i8 2, i32 1, i8 1, i32 3, i8 2, (.*)}\n",
       "?!dx.viewIdState =" },
 
-    { "= !{i32 1, !\"f2out\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 2, i32 1, i8 2, null}\n"
-      "!\\2 = !{i32 2, !\"f3out\", i8 9, i8 0, !\\3, i8 2, i32 1, i8 3, i32 2, i8 1, null}\n"
-      "!\\4 = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !\\5, i8 2, i32 1, i8 2, i32 2, i8 0, null}\n"
-      "!\\6 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\7, i8 2, i32 1, i8 1, i32 1, i8 0, null}\n",
+    { "= !{i32 1, !\"f2out\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 2, i32 1, i8 2, \\2}\n"
+      "!\\3 = !{i32 2, !\"f3out\", i8 9, i8 0, !\\4, i8 2, i32 1, i8 3, i32 2, i8 1, \\5}\n"
+      "!\\6 = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !\\7, i8 2, i32 1, i8 2, i32 2, i8 0, \\8}\n"
+      "!\\9 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\10, i8 2, i32 1, i8 1, i32 1, i8 0, \\11}\n",
       "!1012 =" },
 
     "signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
@@ -2102,8 +2123,8 @@ void main( \
     ",
     "vs_6_0",
 
-    "!{i32 2, !\"SV_ViewportArrayIndex\", i8 5, i8 5, !([0-9]+), i8 1, i32 1, i8 1, i32 3, i8 0, null}",
-    "!{i32 2, !\"SV_ViewportArrayIndex\", i8 5, i8 5, !\\1, i8 1, i32 1, i8 1, i32 1, i8 3, null}",
+    "!{i32 2, !\"SV_ViewportArrayIndex\", i8 5, i8 5, !([0-9]+), i8 1, i32 1, i8 1, i32 3, i8 0, (.*)}",
+    "!{i32 2, !\"SV_ViewportArrayIndex\", i8 5, i8 5, !\\1, i8 1, i32 1, i8 1, i32 1, i8 3, \\2}",
 
     "signature element SV_ViewportArrayIndex at location \\(1,3\\) size \\(1,1\\) has an indexing conflict with another signature element packed into the same row.",
     /*bRegex*/true);
@@ -2137,9 +2158,9 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
     ",
     "hs_6_0",
     //!{i32 0, !"SV_TessFactor", i8 9, i8 25, !23, i8 0, i32 4, i8 1, i32 0, i8 3, null}
-    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 2, i8 1, i32 4, i8 3, null}",
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 2, i8 1, i32 4, i8 3, (.*)}",
       "?!dx.viewIdState =" },
-    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !\\1, i8 0, i32 2, i8 1, i32 0, i8 2, null}",
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !\\1, i8 0, i32 2, i8 1, i32 0, i8 2, \\2}",
       "!1012 =" },
     "signature element SV_InsideTessFactor at location \\(0,2\\) size \\(2,1\\) has an indexing conflict with another signature element packed into the same row.",
     /*bRegex*/true);
@@ -2174,8 +2195,8 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
 } \
     ",
     "hs_6_0",
-    "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, null}",
-    "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 2, i8 0, null}",
+    "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, (.*)}",
+    "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 2, i8 0, \\2}",
     "signature element Arb at location \\(2,0\\) size \\(3,1\\) has an indexing conflict with another signature element packed into the same row.",
     /*bRegex*/true);
 }
@@ -2209,9 +2230,9 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
 } \
     ",
     "hs_6_0",
-    { "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, null}",
+    { "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, (.*)}",
       "?!dx.viewIdState =" },
-    { "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 31, i8 0, null}",
+    { "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 31, i8 0, \\2}",
       "!1012 =" },
     "signature element Arb at location \\(31,0\\) size \\(3,1\\) is out of range.",
     /*bRegex*/true);
@@ -2246,8 +2267,8 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
 } \
     ",
     "hs_6_0",
-    "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, null}",
-    "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 1, i8 3, null}",
+    "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, (.*)}",
+    "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 1, i8 3, \\2}",
     "signature element Arb at location \\(1,3\\) size \\(3,1\\) overlaps another signature element.",
     /*bRegex*/true);
 }
@@ -2273,13 +2294,13 @@ void main( \
     ",
     "vs_6_0",
 
-    {"!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, null}(.*)"
+    {"!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, (.*)}(.*)"
     "!\\1 = !{i32 0, i32 1}\n",
-    "= !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, null}"},
+    "= !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, (.*)}"},
 
-    {"!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, null}\\2"
+    {"!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, \\2}\\3"
     "!\\1 = !{i32 0, i32 1}\n",
-    "= !{i32 2, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 3, i32 2, i8 0, null}"},
+    "= !{i32 2, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 3, i32 2, i8 0, \\2}"},
 
     "signature element Value at location \\(2,0\\) size \\(1,3\\) overlaps another signature element.",
     /*bRegex*/true);
@@ -2291,8 +2312,8 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
 { d0 = f4.z; d1 = f4.w; return f4; } \
     ",
     "ps_6_0",
-    {"!{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 0, i8 0, null}"},
-    {"!{i32 2, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\1, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}"},
+    {"!{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 0, i8 0, (.*)}"},
+    {"!{i32 2, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\1, i8 0, i32 1, i8 1, i32 -1, i8 -1, \\2}"},
     "Pixel Shader only allows one type of depth semantic to be declared",
     /*bRegex*/true);
 }
