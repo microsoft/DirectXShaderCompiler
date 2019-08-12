@@ -160,8 +160,12 @@ public:
     VERIFY_ARE_EQUAL(pTestDesc->ComponentType, pBaseDesc->ComponentType);
     VERIFY_ARE_EQUAL(MaskCount(pTestDesc->Mask), MaskCount(pBaseDesc->Mask));
     VERIFY_ARE_EQUAL(pTestDesc->MinPrecision, pBaseDesc->MinPrecision);
-    if (!isInput)
-      VERIFY_ARE_EQUAL(pTestDesc->ReadWriteMask != 0, pBaseDesc->ReadWriteMask != 0); // VERIFY_ARE_EQUAL(pTestDesc->ReadWriteMask, pBaseDesc->ReadWriteMask);
+    if (!isInput) {
+      if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) < 0)
+        VERIFY_ARE_EQUAL(pTestDesc->ReadWriteMask != 0, pBaseDesc->ReadWriteMask != 0);
+      else
+        VERIFY_ARE_EQUAL(MaskCount(pTestDesc->ReadWriteMask), MaskCount(pBaseDesc->ReadWriteMask));
+    }
     // VERIFY_ARE_EQUAL(pTestDesc->Register, pBaseDesc->Register);
     //VERIFY_ARE_EQUAL(pTestDesc->SemanticIndex, pBaseDesc->SemanticIndex);
     VERIFY_ARE_EQUAL(pTestDesc->Stream, pBaseDesc->Stream);
@@ -608,8 +612,8 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
 
   {
     std::string s = DisassembleProgram(program, L"VSMain", L"vs_6_0");
-    // NOTE: this will change when proper packing is done, and when 'always-writes' is accurately implemented.
-    const char expected[] =
+    // NOTE: this will change when proper packing is done, and when 'always-reads' is accurately implemented.
+    const char expected_1_4[] =
       ";\n"
       "; Input signature:\n"
       ";\n"
@@ -625,14 +629,35 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
       "; SV_Position              0   xyzw        0      POS   float   xyzw\n"  // could read SV_POSITION
       "; COLOR                    0   xyzw        1     NONE   float   xyzw\n"; // should read '1' in register
-    std::string start(s.c_str(), strlen(expected));
-    VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+    const char expected[] =
+      ";\n"
+      "; Input signature:\n"
+      ";\n"
+      "; Name                 Index   Mask Register SysValue  Format   Used\n"
+      "; -------------------- ----- ------ -------- -------- ------- ------\n"
+      "; POSITION                 0   xyzw        0     NONE   float   xyzw\n" // should read 'xyzw' in Used
+      "; COLOR                    0   xyzw        1     NONE   float   xyzw\n" // should read '1' in register
+      ";\n"
+      ";\n"
+      "; Output signature:\n"
+      ";\n"
+      "; Name                 Index   Mask Register SysValue  Format   Used\n"
+      "; -------------------- ----- ------ -------- -------- ------- ------\n"
+      "; SV_Position              0   xyzw        0      POS   float   xyzw\n"  // could read SV_POSITION
+      "; COLOR                    0   xyzw        1     NONE   float   xyzw\n"; // should read '1' in register
+    if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) < 0) {
+      std::string start(s.c_str(), strlen(expected_1_4));
+      VERIFY_ARE_EQUAL_STR(expected_1_4, start.c_str());
+    } else {
+      std::string start(s.c_str(), strlen(expected));
+      VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+    }
   }
 
   {
     std::string s = DisassembleProgram(program, L"PSMain", L"ps_6_0");
-    // NOTE: this will change when proper packing is done, and when 'always-writes' is accurately implemented.
-    const char expected[] =
+    // NOTE: this will change when proper packing is done, and when 'always-reads' is accurately implemented.
+    const char expected_1_4[] =
       ";\n"
       "; Input signature:\n"
       ";\n"
@@ -647,8 +672,28 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       "; Name                 Index   Mask Register SysValue  Format   Used\n"
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
       "; SV_Target                0   xyzw        0   TARGET   float   xyzw\n";// could read SV_TARGET
-    std::string start(s.c_str(), strlen(expected));
-    VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+    const char expected[] =
+      ";\n"
+      "; Input signature:\n"
+      ";\n"
+      "; Name                 Index   Mask Register SysValue  Format   Used\n"
+      "; -------------------- ----- ------ -------- -------- ------- ------\n"
+      "; SV_Position              0   xyzw        0      POS   float       \n" // could read SV_POSITION
+      "; COLOR                    0   xyzw        1     NONE   float   xyzw\n" // should read '1' in register, xyzw in Used
+      ";\n"
+      ";\n"
+      "; Output signature:\n"
+      ";\n"
+      "; Name                 Index   Mask Register SysValue  Format   Used\n"
+      "; -------------------- ----- ------ -------- -------- ------- ------\n"
+      "; SV_Target                0   xyzw        0   TARGET   float   xyzw\n";// could read SV_TARGET
+    if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) < 0) {
+      std::string start(s.c_str(), strlen(expected_1_4));
+      VERIFY_ARE_EQUAL_STR(expected_1_4, start.c_str());
+    } else {
+      std::string start(s.c_str(), strlen(expected));
+      VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+    }
   }
 }
 
