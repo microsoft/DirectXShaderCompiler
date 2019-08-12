@@ -193,6 +193,7 @@ public:
   static const unsigned kDxilFieldAnnotationFieldNameTag          = 6;
   static const unsigned kDxilFieldAnnotationCompTypeTag           = 7;
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
+  static const unsigned kDxilFieldAnnotationCBUsedTag             = 9;
 
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
   static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties

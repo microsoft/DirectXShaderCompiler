@@ -986,6 +986,11 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCompTypeTag));
     MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetCompType().GetKind()));
   }
+  if (FA.IsCBVarUsed() &&
+      DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCBUsedTag));
+    MDVals.emplace_back(BoolToConstMD(true));
+  }
 
   return MDNode::get(m_Ctx, MDVals);
 }
@@ -1029,6 +1034,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       break;
     case kDxilFieldAnnotationCompTypeTag:
       FA.SetCompType((CompType::Kind)ConstMDToUint32(MDO));
+      break;
+    case kDxilFieldAnnotationCBUsedTag:
+      FA.SetCBVarUsed(ConstMDToBool(MDO));
       break;
     default:
       // TODO:  I don't think we should be failing unrecognized extended tags.
