@@ -814,11 +814,12 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
   IFTBOOL(pTupleMD->getNumOperands() >= 1, DXC_E_INCORRECT_DXIL_METADATA);
   unsigned Tag = ConstMDToUint32(pTupleMD->getOperand(0));
   switch (Tag) {
-  case kDxilTemplateArgTypeTag:
+  case kDxilTemplateArgTypeTag: {
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
-    annotation.SetType(MetadataAsValue::get(m_Ctx,
-      pTupleMD->getOperand(kDxilTemplateArgValue))->getType());
-    break;
+    Constant *C = dyn_cast<Constant>(ValueMDToValue(pTupleMD->getOperand(kDxilTemplateArgValue)));
+    IFTBOOL(C != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    annotation.SetType(C->getType());
+  } break;
   case kDxilTemplateArgIntegralTag:
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
     annotation.SetIntegral((int64_t)ConstMDToUint64(pTupleMD->getOperand(kDxilTemplateArgValue)));
