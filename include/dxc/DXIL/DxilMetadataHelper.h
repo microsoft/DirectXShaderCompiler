@@ -293,6 +293,10 @@ public:
   protected:
     llvm::LLVMContext &m_Ctx;
     llvm::Module *m_pModule;
+
+  public:
+    unsigned m_ValMajor, m_ValMinor;        // Reported validation version in DXIL
+    unsigned m_MinValMajor, m_MinValMinor;  // Minimum validation version dictated by shader model
   };
 
 public:
@@ -484,6 +488,8 @@ private:
   llvm::Module *m_pModule;
   const ShaderModel *m_pSM;
   std::unique_ptr<ExtraPropertyHelper> m_ExtraPropertyHelper;
+  unsigned m_ValMajor, m_ValMinor;        // Reported validation version in DXIL
+  unsigned m_MinValMajor, m_MinValMinor;  // Minimum validation version dictated by shader model
 };
 
 

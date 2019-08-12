@@ -77,7 +77,12 @@ DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper>
 : m_Ctx(pModule->getContext())
 , m_pModule(pModule)
 , m_pSM(nullptr)
-, m_ExtraPropertyHelper(std::move(EPH)) {
+, m_ExtraPropertyHelper(std::move(EPH))
+, m_ValMajor(1)
+, m_ValMinor(0)
+, m_MinValMajor(1)
+, m_MinValMinor(0)
+{
 }
 
 DxilMDHelper::~DxilMDHelper() {
@@ -85,6 +90,17 @@ DxilMDHelper::~DxilMDHelper() {
 
 void DxilMDHelper::SetShaderModel(const ShaderModel *pSM) {
   m_pSM = pSM;
+  m_pSM->GetMinValidatorVersion(m_MinValMajor, m_MinValMinor);
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, m_MinValMajor, m_MinValMinor) < 0) {
+    m_ValMajor = m_MinValMajor;
+    m_ValMinor = m_MinValMinor;
+  }
+  if (m_ExtraPropertyHelper) {
+    m_ExtraPropertyHelper->m_ValMajor = m_ValMajor;
+    m_ExtraPropertyHelper->m_ValMinor = m_ValMinor;
+    m_ExtraPropertyHelper->m_MinValMajor = m_MinValMajor;
+    m_ExtraPropertyHelper->m_MinValMinor = m_MinValMinor;
+  }
 }
 
 const ShaderModel *DxilMDHelper::GetShaderModel() const {
@@ -135,6 +151,8 @@ void DxilMDHelper::EmitValidatorVersion(unsigned Major, unsigned Minor) {
   MDVals[kDxilVersionMinorIdx] = Uint32ToConstMD(Minor);
 
   pDxilValidatorVersionMD->addOperand(MDNode::get(m_Ctx, MDVals));
+
+  m_ValMajor = Major; m_ValMinor = Minor; // Keep these for later use
 }
 
 void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
@@ -144,6 +162,7 @@ void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
     // If no validator version metadata, assume 1.0
     Major = 1;
     Minor = 0;
+    m_ValMajor = Major; m_ValMinor = Minor; // Keep these for later use
     return;
   }
 
@@ -154,6 +173,7 @@ void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
 
   Major = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMajorIdx));
   Minor = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMinorIdx));
+  m_ValMajor = Major; m_ValMinor = Minor; // Keep these for later use
 }
 
 //
@@ -170,6 +190,8 @@ void DxilMDHelper::EmitDxilShaderModel(const ShaderModel *pSM) {
   MDVals[kDxilShaderModelMinorIdx] = Uint32ToConstMD(pSM->GetMinor());
 
   pShaderModelNamedMD->addOperand(MDNode::get(m_Ctx, MDVals));
+
+  SetShaderModel(pSM);
 }
 
 void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
@@ -805,10 +827,7 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
 }
 
 Metadata *DxilMDHelper::EmitDxilStructAnnotation(const DxilStructAnnotation &SA) {
-  unsigned valMajor = 0, valMinor = 0;
-  if (m_pSM)
-    m_pSM->GetMinValidatorVersion(valMajor, valMinor);
-  bool bSupportExtended = !(valMajor == 1 && valMinor < 5);
+  bool bSupportExtended = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
 
   vector<Metadata *> MDVals;
   MDVals.reserve(SA.GetNumFields() + 2);  // In case of extended 1.5 property list
@@ -841,10 +860,7 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   if (pTupleMD->getNumOperands() == 1) {
     SA.MarkEmptyStruct();
   }
-  unsigned valMajor = 0, valMinor = 0;
-  if (m_pSM)
-    m_pSM->GetMinValidatorVersion(valMajor, valMinor);
-  if (!(valMajor == 1 && valMinor < 5) &&
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0 &&
       (pTupleMD->getNumOperands() == SA.GetNumFields()+2)) {
     // Load template args from extended operand
     const MDOperand &MDOExtra = pTupleMD->getOperand(SA.GetNumFields()+1);
