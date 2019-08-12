@@ -616,19 +616,16 @@ public:
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
-
       bool needsValidation = produceFullContainer && !opts.DisableValidation;
-      // Disable validation for lib_6_1 and lib_6_2.
-      if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_1" ||
-          compiler.getCodeGenOpts().HLSLProfile == "lib_6_2") {
-        needsValidation = false;
-      }
 
-      if (needsValidation || (opts.CodeGenHighLevel && !opts.DisableValidation)) {
-        UINT32 majorVer, minorVer;
-        dxcutil::GetValidatorVersion(&majorVer, &minorVer);
-        compiler.getCodeGenOpts().HLSLValidatorMajorVer = majorVer;
-        compiler.getCodeGenOpts().HLSLValidatorMinorVer = minorVer;
+      if (opts.ValVerMajor > 0) {
+        // user-specified validator version override
+        compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
+        compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
+      } else {
+        // Version from dxil.dll, or internal validator if unavailable
+        dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
+                                     &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
       }
 
       if (opts.AstDump) {
