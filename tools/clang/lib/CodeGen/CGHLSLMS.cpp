@@ -2443,15 +2443,6 @@ void CGMSHLSLRuntime::addSubobject(Decl *D) {
   VarDecl *VD = dyn_cast<VarDecl>(D);
   DXASSERT(VD != nullptr, "must be a global variable");
 
-  if (CGM.getCodeGenOpts().HLSLValidatorMajorVer == 1 &&
-      CGM.getCodeGenOpts().HLSLValidatorMinorVer < 4) {
-    // subobjects unsupported with this validator
-    DiagnosticsEngine &Diags = CGM.getDiags();
-    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "subobjects are not supported by current validator version");
-    Diags.Report(D->getLocStart(), DiagID);
-    return;
-  }
- 
   DXIL::SubobjectKind subobjKind;
   DXIL::HitGroupType hgType;
   if (!hlsl::GetHLSLSubobjectKind(VD->getType(), subobjKind, hgType)) {
