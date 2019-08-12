@@ -1531,37 +1531,48 @@ void DxilModule::ReEmitDxilResources() {
 }
 
 template <typename TResource>
-static void
+static bool
 StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
+  bool bChanged = false;
   for (auto &p : vec) {
     p->SetGlobalName("");
     // Cannot remove global symbol which used by validation.
+    bChanged = true;
   }
+  return bChanged;
 }
 
-void DxilModule::StripReflection() {
+bool DxilModule::StripReflection() {
+  bool bChanged = false;
+
   // Remove names.
   for (Function &F : m_pModule->functions()) {
     for (BasicBlock &BB : F) {
-      if (BB.hasName())
+      if (BB.hasName()) {
         BB.setName("");
+        bChanged = true;
+      }
       for (Instruction &I : BB) {
-        if (I.hasName())
+        if (I.hasName()) {
           I.setName("");
+          bChanged = true;
+        }
       }
     }
   }
   // Remove struct annotation.
   // FunctionAnnotation is used later, so keep it.
-  m_pTypeSystem->GetStructAnnotationMap().clear();
-
+  if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {
+    m_pTypeSystem->GetStructAnnotationMap().clear();
+    bChanged = true;
+  }
 
   // Resource
   if (!GetShaderModel()->IsLib()) {
-    StripResourcesReflection(m_CBuffers);
-    StripResourcesReflection(m_UAVs);
-    StripResourcesReflection(m_SRVs);
-    StripResourcesReflection(m_Samplers);
+    bChanged |= StripResourcesReflection(m_CBuffers);
+    bChanged |= StripResourcesReflection(m_UAVs);
+    bChanged |= StripResourcesReflection(m_SRVs);
+    bChanged |= StripResourcesReflection(m_Samplers);
   }
 
   // Unused global.
@@ -1570,13 +1581,17 @@ void DxilModule::StripReflection() {
     if (GV.use_empty())
       UnusedGlobals.emplace_back(&GV);
   }
+  bChanged |= !UnusedGlobals.empty();
 
   for (GlobalVariable *GV : UnusedGlobals) {
     GV->eraseFromParent();
   }
 
   // ReEmit meta.
-  ReEmitDxilResources();
+  if (bChanged)
+    ReEmitDxilResources();
+
+  return bChanged;
 }
 
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
