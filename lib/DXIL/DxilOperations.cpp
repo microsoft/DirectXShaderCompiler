@@ -807,10 +807,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
 }
 
 void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslation,
+                                  unsigned valMajor, unsigned valMinor,
                                   unsigned &major, unsigned &minor,
                                   unsigned &mask) {
   OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
   GetMinShaderModelAndMask(opcode, bWithTranslation, major, minor, mask);
+
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) < 0) {
+    // validator 1.4 didn't exclude wave ops in mask
+    if (IsDxilOpWave(opcode))
+      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+    // validator 1.4 didn't have any additional rules applied:
+    return;
+  }
 
   // Additional rules are applied manually here.
 
