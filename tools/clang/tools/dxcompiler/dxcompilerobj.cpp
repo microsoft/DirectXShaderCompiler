@@ -729,7 +729,7 @@ public:
           // Implies name part
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
-        if (opts.StripReflectionFromDxil) {
+        if (opts.StripReflection || opts.StripReflectionFromDxil) {
           SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
         }
         if (!opts.StripReflection) {
