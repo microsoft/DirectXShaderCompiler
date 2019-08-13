@@ -17,6 +17,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
@@ -1543,7 +1544,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pFinalStream,
                                            llvm::StringRef DebugName,
                                            SerializeDxilFlags Flags,
-                                           DxilShaderHash *pShaderHashOut) {
+                                           DxilShaderHash *pShaderHashOut,
+                                           AbstractMemoryStream *pReflectionStreamOut) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1557,6 +1559,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
   bool bSupportsShaderHash = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0)
+    Flags &= ~SerializeDxilFlags::IncludeReflectionPart;
+  bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
+                         pReflectionStreamOut;
 
   DxilContainerWriter_impl writer;
 
@@ -1670,9 +1676,43 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
   }
 
+  // Clone module for reflection, strip function defs
+  std::unique_ptr<Module> reflectionModule;
+  if (bEmitReflection) {
+    reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
+    for (Function &F : reflectionModule->functions()) {
+      if (!F.isDeclaration()) {
+        F.deleteBody();
+      }
+    }
+    // Just make sure this doesn't crash/assert on debug build:
+    DXASSERT_NOMSG(&reflectionModule->GetOrCreateDxilModule());
+  }
+
+  CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
+  if (bEmitReflection)
+  {
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
+    raw_stream_ostream outStream(pReflectionBitcodeStream.p);
+    WriteBitcodeToFile(reflectionModule.get(), outStream, false);
+    outStream.flush();
+  }
+
+  if (pReflectionStreamOut) {
+    WriteProgramPart(pModule->GetShaderModel(), pReflectionBitcodeStream, pReflectionStreamOut);
+  }
+
+  if (Flags & SerializeDxilFlags::IncludeReflectionPart) {
+    uint32_t reflectInUInt32, reflectPaddingBytes;
+    GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
+    writer.AddPart(DFCC_ShaderStatistics, reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader),
+      [pModule, pReflectionBitcodeStream](AbstractMemoryStream *pStream) {
+        WriteProgramPart(pModule->GetShaderModel(), pReflectionBitcodeStream, pStream);
+      });
+  }
+
   if (Flags & SerializeDxilFlags::StripReflectionFromDxilPart) {
-    pModule->StripReflection();
-    bModuleStripped = true;
+    bModuleStripped |= pModule->StripReflection();
   }
 
   // If debug info or reflection was stripped, re-serialize the module.

@@ -553,6 +553,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
+  opts.StripReflectionFromDxil = Args.hasFlag(OPT_Qstrip_reflect_from_dxil, OPT_INVALID, false);
   opts.ExtractRootSignature = Args.hasFlag(OPT_extractrootsignature, OPT_INVALID, false);
   opts.DisassembleColorCoded = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
   opts.DisassembleInstNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);

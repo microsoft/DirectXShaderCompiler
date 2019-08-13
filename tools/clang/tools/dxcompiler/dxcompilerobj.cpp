@@ -729,8 +729,11 @@ public:
           // Implies name part
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
-        if (opts.StripReflection) {
+        if (opts.StripReflectionFromDxil) {
           SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
+        }
+        if (!opts.StripReflection) {
+          SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
         }
 
         // Don't do work to put in a container if an error has occurred

@@ -20,6 +20,7 @@ set( LLVM_LINK_COMPONENTS
   analysis
   ipa
   irreader
+  transformutils  # for CloneModule
   )
 
 if(WIN32)
