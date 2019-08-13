@@ -154,6 +154,7 @@ public:
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
   bool StripPrivate = false; // OPT_Qstrip_priv
   bool StripReflection = false; // OPT_Qstrip_reflect
+  bool StripReflectionFromDxil = false; // OPT_Qstrip_reflect_from_dxil
   bool ExtractRootSignature = false; // OPT_extractrootsignature
   bool DisassembleColorCoded = false; // OPT_Cc
   bool DisassembleInstNumbers = false; //OPT_Ni
