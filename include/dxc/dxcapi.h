@@ -359,10 +359,10 @@ IDxcVersionInfo2 : public IDxcVersionInfo {
 
 // Note: __declspec(selectany) requires 'extern'
 // On Linux __declspec(selectany) is removed and using 'extern' results in link error.
-#ifdef _MSC_VER
-#define EXTERN extern
-#else
+#if __APPLE__ || __linux__
 #define EXTERN
+#else
+#define EXTERN extern
 #endif
 
 // {73e22d93-e6ce-47f3-b5bf-f0664f39c1b0}

@@ -834,10 +834,10 @@ IDxcCompletionString : public IUnknown
 // CLSID_DxcIntelliSense is not visible externally (this is OK in C, since const is
 // not by default static in C)
 
-#ifdef _MSC_VER
-#define EXTERN extern
-#else
+#if __APPLE__ || __linux__
 #define EXTERN
+#else
+#define EXTERN extern
 #endif
 
 __declspec(selectany)
