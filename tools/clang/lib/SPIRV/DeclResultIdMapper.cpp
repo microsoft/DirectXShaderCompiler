@@ -1243,31 +1243,28 @@ public:
 
     // Check whether the chunk of |n| binding numbers can be fitted at the
     // very beginning of the list (start at binding 0 in the current set).
-    if ((*existingBindings.begin()) >= n)
+    uint32_t curBinding = *existingBindings.begin();
+    if (curBinding >= n)
       return 0;
 
-    auto iter = existingBindings.begin();
+    auto iter = std::next(existingBindings.begin());
     while (iter != existingBindings.end()) {
-      uint32_t curBinding = *iter;
+      // There exists a next binding number that is used. Check to see if the
+      // gap between current binding number and next binding number is large
+      // enough to accommodate |n|.
+      uint32_t nextBinding = *iter;
+      if (n <= nextBinding - curBinding - 1)
+        return curBinding + 1;
+
+      curBinding = nextBinding;
 
       // Peek at the next binding that has already been used (if any).
       ++iter;
-
-      if (iter != existingBindings.end()) {
-        // There exists a next binding number that is used. Check to see if the
-        // gap between current binding number and next binding number is large
-        // enough to accommodate |n|.
-        uint32_t nextBinding = *iter;
-        if (n <= nextBinding - curBinding - 1)
-          return curBinding + 1;
-      } else {
-        // |curBinding| was the last binding that was used in this set. The next
-        // chunk of |n| bindings can start at |curBinding|+1.
-        return curBinding + 1;
-      }
     }
 
-    llvm_unreachable("was not able to find slots for binding numbers");
+    // |curBinding| was the last binding that was used in this set. The next
+    // chunk of |n| bindings can start at |curBinding|+1.
+    return curBinding + 1;
   }
 
 private:
