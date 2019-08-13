@@ -46,18 +46,23 @@
 #define CoTaskMemFree free
 
 #define SysFreeString free
-#define SysAllocStringLen(ptr, size) (wchar_t*)realloc(ptr, (size + 1)*sizeof(wchar_t))
+#define SysAllocStringLen(ptr, size)                                           \
+  (wchar_t *)realloc(ptr, (size + 1) * sizeof(wchar_t))
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 // If it is GCC, there is no UUID support and we must emulate it.
+#ifdef __APPLE__
+#define __EMULATE_UUID 1
+#else // __APPLE__
 #ifdef __GNUC__
 #ifndef __clang__
 #define __EMULATE_UUID 1
-#endif
-#endif
+#endif // __GNUC__
+#endif // __clang__
+#endif // __APPLE__
 
 #ifdef __EMULATE_UUID
 #define __declspec(x)
@@ -200,7 +205,8 @@
 #define OutputDebugStringA(msg) fputs(msg, stderr)
 #define OutputDebugFormatA(...) fprintf(stderr, __VA_ARGS__)
 
-#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace, BackTraceHash)\
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace,        \
+                              BackTraceHash)                                   \
   backtrace(BackTrace, FramesToCapture)
 
 // Event Tracing for Windows (ETW) provides application programmers the ability
@@ -559,9 +565,10 @@ public:                                                                        \
   static REFIID uuidof() { return static_cast<REFIID>(&T##_ID); }              \
                                                                                \
 private:                                                                       \
-   __attribute__ ((visibility ("default"))) static const char T##_ID;
+  __attribute__((visibility("default"))) static const char T##_ID;
 
-#define DEFINE_CROSS_PLATFORM_UUIDOF(T) __attribute__ ((visibility ("default"))) const char T::T##_ID = '\0';
+#define DEFINE_CROSS_PLATFORM_UUIDOF(T)                                        \
+  __attribute__((visibility("default"))) const char T::T##_ID = '\0';
 #define __uuidof(T) T::uuidof()
 #define IID_PPV_ARGS(ppType)                                                   \
   (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)

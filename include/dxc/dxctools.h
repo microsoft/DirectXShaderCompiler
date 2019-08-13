@@ -50,10 +50,10 @@ IDxcRewriter : public IUnknown {
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
 };
 
-#if __APPLE__ || __linux__
-#define EXTERN
-#else
+#ifdef _MSC_VER
 #define EXTERN extern
+#else
+#define EXTERN
 #endif
 
 __declspec(selectany)
