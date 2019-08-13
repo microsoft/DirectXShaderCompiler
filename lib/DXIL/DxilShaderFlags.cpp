@@ -472,6 +472,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
               ((Flags & ~(unsigned)DXIL::StateObjectFlags::ValidMask_1_4) != 0))
             hasRaytracingTier1_1 = true;
         } break;
+        default:
+          break;
         }
         if (hasRaytracingTier1_1)
           break;
