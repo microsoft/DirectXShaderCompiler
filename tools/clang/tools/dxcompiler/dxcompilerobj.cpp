@@ -561,8 +561,6 @@ public:
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
                      utf8Source->GetBufferSize());
-      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-          llvm::MemoryBuffer::getMemBufferCopy(Data, pUtf8SourceName));
 
       // Not very efficient but also not very important.
       std::vector<std::string> defines;
@@ -886,8 +884,6 @@ public:
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
         utf8Source->GetBufferSize());
-      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-        llvm::MemoryBuffer::getMemBufferCopy(Data, pUtf8SourceName));
 
       // Not very efficient but also not very important.
       std::vector<std::string> defines;
