@@ -279,6 +279,8 @@ def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Fl
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
+def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Flatten arrays of resources so each array element takes one binding number">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
 def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
