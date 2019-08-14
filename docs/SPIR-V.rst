@@ -3403,6 +3403,13 @@ codegen for Vulkan:
 - ``-fspv-target-env=<env>``: Specifies the target environment for this compilation.
   The current valid options are ``vulkan1.0`` and ``vulkan1.1``. If no target
   environment is provided, ``vulkan1.0`` is used as default.
+- ``-fspv-flatten-resource-arrays``: Flattens arrays of textures and samplers
+  into individual resources, each taking one binding number. For example, an
+  array of 3 textures will become 3 texture resources taking 3 binding numbers.
+  This makes the behavior similar to DX. Without this option, you would get 1
+  array object taking 1 binding number. Note that arrays of
+  {RW|Append|Consume}StructuredBuffers are currently not supported in the
+  SPIR-V backend.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 
