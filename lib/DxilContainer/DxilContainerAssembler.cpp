@@ -1690,22 +1690,38 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   }
 
   CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
+
+  uint32_t reflectPartSizeInBytes = 0;
   if (bEmitReflection)
   {
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
     raw_stream_ostream outStream(pReflectionBitcodeStream.p);
     WriteBitcodeToFile(reflectionModule.get(), outStream, false);
     outStream.flush();
+    uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
+    GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
+    reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
   }
 
   if (pReflectionStreamOut) {
+    DxilPartHeader partSTAT;
+    partSTAT.PartFourCC = DFCC_ShaderStatistics;
+    partSTAT.PartSize = reflectPartSizeInBytes;
+    IFT(WriteStreamValue(pReflectionStreamOut, partSTAT));
     WriteProgramPart(pModule->GetShaderModel(), pReflectionBitcodeStream, pReflectionStreamOut);
+
+    // If library, we need RDAT part as well.  For now, we just append it
+    if (pModule->GetShaderModel()->IsLib()) {
+      DxilPartHeader partRDAT;
+      partRDAT.PartFourCC = DFCC_RuntimeData;
+      partRDAT.PartSize = pRDATWriter->size();
+      IFT(WriteStreamValue(pReflectionStreamOut, partRDAT));
+      pRDATWriter->write(pReflectionStreamOut);
+    }
   }
 
   if (Flags & SerializeDxilFlags::IncludeReflectionPart) {
-    uint32_t reflectInUInt32, reflectPaddingBytes;
-    GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
-    writer.AddPart(DFCC_ShaderStatistics, reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader),
+    writer.AddPart(DFCC_ShaderStatistics, reflectPartSizeInBytes,
       [pModule, pReflectionBitcodeStream](AbstractMemoryStream *pStream) {
         WriteProgramPart(pModule->GetShaderModel(), pReflectionBitcodeStream, pStream);
       });
