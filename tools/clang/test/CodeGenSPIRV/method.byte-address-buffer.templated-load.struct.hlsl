@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_2 -E main -enable-16bit-types
+// Run: %dxc -T cs_6_2 -E main -enable-16bit-types -fvk-use-dx-layout
 
 ByteAddressBuffer buf;
 RWByteAddressBuffer buf2;
