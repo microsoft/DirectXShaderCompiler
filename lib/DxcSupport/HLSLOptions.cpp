@@ -669,7 +669,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   if (opts.IsLibraryProfile() && Minor == 0xF) {
-    if (opts.ValVerMajor != 0) {
+    if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
       errors << "Offline library profile cannot be used with non-zero -validator-version.";
       return 1;
     }
@@ -690,7 +690,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                 "targets.";
       return 1;
     }
-    if (opts.ValVerMajor != 0) {
+    if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
       errors << "non-zero -validator-version cannot be used with library profiles lib_6_1 or lib_6_2.";
       return 1;
     }

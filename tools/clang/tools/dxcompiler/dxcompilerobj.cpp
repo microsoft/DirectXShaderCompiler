@@ -616,7 +616,15 @@ public:
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
       bool needsValidation = produceFullContainer && !opts.DisableValidation;
 
-      if (opts.ValVerMajor > 0) {
+      // Disable validation for lib_6_1 and lib_6_2.
+      // This is needed for this API because the profile is provided separately,
+      // so the option parsing will not have verified that /Vd was provided.
+      if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_1" ||
+          compiler.getCodeGenOpts().HLSLProfile == "lib_6_2") {
+        needsValidation = false;
+      }
+
+      if (opts.ValVerMajor != UINT_MAX) {
         // user-specified validator version override
         compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
         compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
