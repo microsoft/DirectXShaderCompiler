@@ -366,6 +366,22 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     Diags.Report(DiagID) << CGM.getCodeGenOpts().HLSLProfile;
     return;
   }
+  if (CGM.getCodeGenOpts().HLSLValidatorMajorVer != 0) {
+    // Check validator version against minimum for target profile:
+    unsigned MinMajor, MinMinor;
+    SM->GetMinValidatorVersion(MinMajor, MinMinor);
+    if (DXIL::CompareVersions(CGM.getCodeGenOpts().HLSLValidatorMajorVer,
+                              CGM.getCodeGenOpts().HLSLValidatorMinorVer,
+                              MinMajor, MinMinor) < 0) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID =
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "validator version %0,%1 does not support target profile.");
+      Diags.Report(DiagID) << CGM.getCodeGenOpts().HLSLValidatorMajorVer
+                           << CGM.getCodeGenOpts().HLSLValidatorMinorVer;
+      return;
+    }
+  }
   m_bIsLib = SM->IsLib();
   // TODO: add AllResourceBound.
   if (CGM.getCodeGenOpts().HLSLAvoidControlFlow && !CGM.getCodeGenOpts().HLSLAllResourcesBound) {
