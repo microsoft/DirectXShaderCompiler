@@ -1937,10 +1937,12 @@ bool DeclResultIdMapper::createStageVars(
     }
 
     // Decorate with interpolation modes for pixel shader input variables
-    if (spvContext.isPS() && sigPoint->IsInput() &&
+    // or vertex shader output variables.
+    if (((spvContext.isPS() && sigPoint->IsInput()) ||
+         (spvContext.isVS() && sigPoint->IsOutput())) &&
         // BaryCoord*AMD buitins already encode the interpolation mode.
         semanticKind != hlsl::Semantic::Kind::Barycentrics)
-      decoratePSInterpolationMode(decl, type, varInstr);
+      decorateInterpolationMode(decl, type, varInstr);
 
     if (asInput) {
       *value = spvBuilder.createLoad(evalType, varInstr, loc);
@@ -2520,20 +2522,20 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
   return position;
 }
 
-void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
-                                                     QualType type,
-                                                     SpirvVariable *varInstr) {
-  const QualType elemType = getElementType(astContext, type);
+void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
+                                                   QualType type,
+                                                   SpirvVariable *varInstr) {
   const auto loc = decl->getLocation();
 
-  if (elemType->isBooleanType() || elemType->isIntegerType()) {
+  if (isUintOrVecMatOfUintType(type) || isSintOrVecMatOfSintType(type) ||
+      isBoolOrVecMatOfBoolType(type)) {
     // TODO: Probably we can call hlsl::ValidateSignatureElement() for the
     // following check.
     if (decl->getAttr<HLSLLinearAttr>() || decl->getAttr<HLSLCentroidAttr>() ||
         decl->getAttr<HLSLNoPerspectiveAttr>() ||
         decl->getAttr<HLSLSampleAttr>()) {
       emitError("only nointerpolation mode allowed for integer input "
-                "parameters in pixel shader",
+                "parameters in pixel shader or integer output in vertex shader",
                 decl->getLocation());
     } else {
       spvBuilder.decorateFlat(varInstr, loc);
