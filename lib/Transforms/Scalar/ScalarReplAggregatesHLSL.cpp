@@ -2945,7 +2945,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
   Ty = Ty->getPointerElementType();
   // Skip none aggregate types.
-  if (!Ty->isAggregateType() && !bFlatVector)
+  if (!(Ty->isAggregateType() || bFlatVector))
     return false;
   // Skip basic types.
   if (Ty->isSingleValueType() && !Ty->isVectorTy())

@@ -75,10 +75,7 @@ namespace {
         ArrayElementThreshold = 8;
       else
         ArrayElementThreshold = AT;
-      if (SLT == -1)
         // Do not limit the scalar integer load size if no threshold is given.
-        ScalarLoadThreshold = -1;
-      else
         ScalarLoadThreshold = SLT;
     }
 
