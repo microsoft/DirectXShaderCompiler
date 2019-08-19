@@ -646,6 +646,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
+    // In order to flatten resource arrays, we must also unroll loops. Therefore
+    // we should run legalization before optimization.
+    needsLegalization = needsLegalization || spirvOptions.flattenResourceArrays;
+
     // Run legalization passes
     if (needsLegalization || declIdMapper.requiresLegalization()) {
       std::string messages;

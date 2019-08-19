@@ -1633,6 +1633,9 @@ TEST_F(FileTest, FlattenResourceArrayBindings2) {
 TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
   runFileTest("vk.binding.cl.flatten-arrays.example2-optimized.hlsl");
 }
+TEST_F(FileTest, FlattenResourceArrayBindings3) {
+  runFileTest("vk.binding.cl.flatten-arrays.example3.hlsl");
+}
 TEST_F(FileTest, FlattenResourceArrayBindingsOverlapError) {
   runFileTest("vk.binding.cl.flatten-arrays.error.hlsl", Expect::Failure);
 }

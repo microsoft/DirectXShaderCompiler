@@ -3409,7 +3409,9 @@ codegen for Vulkan:
   This makes the behavior similar to DX. Without this option, you would get 1
   array object taking 1 binding number. Note that arrays of
   {RW|Append|Consume}StructuredBuffers are currently not supported in the
-  SPIR-V backend.
+  SPIR-V backend. Also note that this requires the optimizer to be able to
+  resolve all array accesses with constant indeces. Therefore, all loops using
+  the resource arrays must be marked with ``[unroll]``.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 
