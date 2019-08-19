@@ -363,7 +363,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
                               SpirvInstruction *vecComponent,
                               SourceLocation loc) {
   assert(value);
-  // invocationId should only be used for HSPCOut.
+  // invocationId should only be used for HSPCOut or MSOut.
   assert(invocationId.hasValue()
              ? (sigPointKind == hlsl::SigPoint::Kind::HSCPOut ||
                 sigPointKind == hlsl::SigPoint::Kind::MSOut)
@@ -655,7 +655,7 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
   // The interesting shader stage is HS. We need the InvocationID to write
   // out the value to the correct array element.
   SpirvInstruction *offset = nullptr;
-  QualType type;
+  QualType type = {};
   bool isClip = false;
   switch (semanticKind) {
   case hlsl::Semantic::Kind::ClipDistance: {
@@ -686,7 +686,7 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     return false;
   }
   if (vecComponent) {
-    QualType elemType;
+    QualType elemType = {};
     if (!isVectorType(type, &elemType)) {
       assert(false && "expected vector type");
     }

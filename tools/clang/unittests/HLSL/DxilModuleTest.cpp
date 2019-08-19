@@ -62,6 +62,10 @@ public:
   TEST_METHOD(Precise6)
   TEST_METHOD(Precise7)
 
+  TEST_METHOD(CSGetNumThreads)
+  TEST_METHOD(MSGetNumThreads)
+  TEST_METHOD(ASGetNumThreads)
+
   TEST_METHOD(SetValidatorVersion)
 
   void VerifyValidatorVersionFails(
@@ -433,6 +437,64 @@ TEST_F(DxilModuleTest, Precise7) {
     }
   }
   VERIFY_ARE_EQUAL(numChecks, 4);
+}
+
+TEST_F(DxilModuleTest, CSGetNumThreads) {
+  Compiler c(m_dllSupport);
+  c.Compile(
+    "[numthreads(8, 4, 2)]\n"
+    "void main() {\n"
+    "}\n"
+    ,
+    L"cs_6_0"
+  );
+
+  DxilModule &DM = c.GetDxilModule();
+  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+}
+
+TEST_F(DxilModuleTest, MSGetNumThreads) {
+  Compiler c(m_dllSupport);
+  if (c.SkipDxil_Test(1,5)) return;
+  c.Compile(
+    "struct MeshPerVertex { float4 pos : SV_Position; };\n"
+    "[numthreads(8, 4, 2)]\n"
+    "[outputtopology(\"triangle\")]\n"
+    "void main(\n"
+    "          out indices uint3 primIndices[1]\n"
+    ") {\n"
+    "    SetMeshOutputCounts(0, 0);\n"
+    "}\n"
+    ,
+    L"ms_6_5"
+  );
+
+  DxilModule &DM = c.GetDxilModule();
+  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+}
+
+TEST_F(DxilModuleTest, ASGetNumThreads) {
+  Compiler c(m_dllSupport);
+  if (c.SkipDxil_Test(1,5)) return;
+  c.Compile(
+    "struct Payload { uint i; };\n"
+    "[numthreads(8, 4, 2)]\n"
+    "void main() {\n"
+    "  Payload pld = {0};\n"
+    "    DispatchMesh(1, 1, 1, pld);\n"
+    "}\n"
+    ,
+    L"as_6_5"
+  );
+
+  DxilModule &DM = c.GetDxilModule();
+  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
 }
 
 void DxilModuleTest::VerifyValidatorVersionFails(
