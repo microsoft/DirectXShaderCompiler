@@ -356,10 +356,15 @@ public:
       }
     }
 
+    std::vector<LPCWSTR> args;
+    args.reserve(argCount + 1);
+    args.insert(args.begin(), pArguments, pArguments + argCount);
+    args.emplace_back(L"-Qkeep_reflect_in_dxil");
+
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", pEntryName, shWide,
-                                        pArguments, argCount, pDefines,
+                                        args.data(), (UINT32)args.size(), pDefines,
                                         defineCount, nullptr, &pResult));
     CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));

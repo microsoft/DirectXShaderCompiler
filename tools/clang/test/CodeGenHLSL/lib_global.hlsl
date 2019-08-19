@@ -4,7 +4,10 @@ Texture2D    g_txDiffuse;
 SamplerState    g_samLinear;
 
 cbuffer X {
-float f;
+  // Use min-precision type to force conversion of constant buffer type for legacy.
+  // This has to happen at link time at the moment, so this will break unless type
+  // annotations are retained for library.
+  min16float f;
 }
 
 static float g[2] = { 1, f };

@@ -871,6 +871,7 @@ HRESULT CShaderReflectionType::Initialize(
   //
   // Note that DXIL supports some types that don't currently have equivalents
   // in the reflection interface, so we try to muddle through here.
+  bool bMinPrec = M.GetUseMinPrecision();
   D3D_SHADER_VARIABLE_TYPE componentType = D3D_SVT_VOID;
   switch(typeAnnotation.GetCompType().GetKind())
   {
@@ -884,12 +885,22 @@ HRESULT CShaderReflectionType::Initialize(
 
   case hlsl::DXIL::ComponentType::I16:
     componentType = D3D_SVT_MIN16INT;
-    m_Name = "min16int";
+    if (bMinPrec) {
+      m_Name = "min16int";
+    } else {
+      m_Name = "int16_t";
+      cbCompSize = 2;
+    }
     break;
 
   case hlsl::DXIL::ComponentType::U16:
     componentType = D3D_SVT_MIN16UINT;
-    m_Name = "min16uint";
+    if (bMinPrec) {
+      m_Name = "min16uint";
+    } else {
+      m_Name = "uint16_t";
+      cbCompSize = 2;
+    }
     break;
 
   case hlsl::DXIL::ComponentType::I64:
@@ -916,7 +927,12 @@ HRESULT CShaderReflectionType::Initialize(
   case hlsl::DXIL::ComponentType::SNormF16:
   case hlsl::DXIL::ComponentType::UNormF16:
     componentType = D3D_SVT_MIN16FLOAT;
-    m_Name = "min16float";
+    if (bMinPrec) {
+      m_Name = "min16float";
+    } else {
+      m_Name = "float16_t";
+      cbCompSize = 2;
+    }
     break;
 
   case hlsl::DXIL::ComponentType::F32:
@@ -1529,7 +1545,7 @@ static unsigned GetOffsetForCBExtractValue(ExtractValueInst *EV, bool bMinPrecis
   unsigned bits = EV->getType()->getScalarSizeInBits();
   if (bits == 64)
     typeSize = 8;
-  else if (bits == 16 && bMinPrecision)
+  else if (bits == 16 && !bMinPrecision)
     typeSize = 2;
   return (EV->getIndices().front() * typeSize);
 }

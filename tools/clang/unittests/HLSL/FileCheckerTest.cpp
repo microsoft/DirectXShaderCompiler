@@ -431,6 +431,14 @@ FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, 
     }
   }
 
+  // For now, too many tests are sensitive to stripping the refleciton info
+  // from the main module, so use this flag to prevent this until tests
+  // can be updated.
+  // That is, unless the test explicitly requests -Qstrip_reflect_from_dxil or -Qstrip_reflect
+  if (!opts.StripReflectionFromDxil && !opts.StripReflection) {
+    flags.push_back(L"-Qkeep_reflect_in_dxil");
+  }
+
   std::vector<std::wstring> argWStrings;
   CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
   for (const std::wstring &a : argWStrings)

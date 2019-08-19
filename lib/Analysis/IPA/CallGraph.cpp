@@ -159,7 +159,7 @@ Function *CallGraph::removeFunctionFromModule(CallGraphNode *CGN) {
   delete CGN;                       // Delete the call graph node for this func
   FunctionMap.erase(F);             // Remove the call graph node from the map
 
-  if (M.HasHLModule()) M.GetHLModule().RemoveFunction(F); // HLSL Change
+  M.CallRemoveGlobalHook(F); // HLSL Change
 
   M.getFunctionList().remove(F);
   return F;

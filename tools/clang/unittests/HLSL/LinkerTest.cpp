@@ -72,7 +72,8 @@ public:
   }
 
   void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob,
-                  llvm::ArrayRef<LPCWSTR> pArguments = {}) {
+                  llvm::ArrayRef<LPCWSTR> pArguments = {},
+                  LPCWSTR pShaderTarget = L"lib_6_x") {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(filename);
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcLibrary> pLibrary;
@@ -85,10 +86,9 @@ public:
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlob> pProgram;
 
-    CA2W shWide("lib_6_x", CP_UTF8);
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", shWide,
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", pShaderTarget,
                                         const_cast<LPCWSTR*>(pArguments.data()), pArguments.size(),
                                         nullptr, 0,
                                         nullptr, &pResult));
@@ -218,7 +218,7 @@ TEST_F(LinkerTest, RunLinkFailReDefine) {
 
 TEST_F(LinkerTest, RunLinkGlobalInit) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global.hlsl", &pEntryLib, {}, L"lib_6_3");
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
 

@@ -352,13 +352,13 @@ public:
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
+      unsigned ValMajor = 0;
+      unsigned ValMinor = 0;
+      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
 
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
       if (!IsLib) {
-        unsigned ValMajor = 0;
-        unsigned ValMinor = 0;
-        M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
         if (ValMajor == 1 && ValMinor <= 1) {
           patchValidation_1_1(M);
         }
@@ -392,6 +392,11 @@ public:
 
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
+
+      if (IsLib && DXIL::CompareVersions(ValMajor, ValMinor, 1, 4) <= 0) {
+        // 1.4 validator requires function annotations for all functions
+        AddFunctionAnnotationForInitializers(M, DM);
+      }
 
       return true;
     }
@@ -539,6 +544,22 @@ private:
       for (Function *OldEntry : entries) {
         Function *NewEntry = StripFunctionParameter(OldEntry, DM, FunctionDIs);
         if (NewEntry) OldEntry->eraseFromParent();
+      }
+    }
+  }
+
+  void AddFunctionAnnotationForInitializers(Module &M, DxilModule &DM) {
+    if (GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors")) {
+      ConstantArray *init = cast<ConstantArray>(GV->getInitializer());
+      for (auto V : init->operand_values()) {
+        if (isa<ConstantAggregateZero>(V))
+          continue;
+        ConstantStruct *CS = cast<ConstantStruct>(V);
+        if (isa<ConstantPointerNull>(CS->getOperand(1)))
+          continue;
+        Function *F = cast<Function>(CS->getOperand(1));
+        if (DM.GetTypeSystem().GetFunctionAnnotation(F) == nullptr)
+          DM.GetTypeSystem().AddFunctionAnnotation(F);
       }
     }
   }
