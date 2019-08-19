@@ -3104,14 +3104,14 @@ Callable Stage
 Mesh and Amplification Shaders
 ------------------------------
 
-DirectX adds 2 new shader stages for using MeshShading pipeline namely Mesh and Amplification.
-Amplification shaders corresponds to Task Shaders in Vulkan.
-
+| DirectX adds 2 new shader stages for using MeshShading pipeline namely Mesh and Amplification.
+| Amplification shaders corresponds to Task Shaders in Vulkan.
+|
 | Refer to following HLSL and SPIR-V specs for details:
 | https://docs.microsoft.com/<TBD>
 | https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_mesh_shader.asciidoc
-
-This section describes how Mesh and Amplification shaders are translated to SPIR-V for Vulkan.
+|
+| This section describes how Mesh and Amplification shaders are translated to SPIR-V for Vulkan.
 
 Entry Point Attributes
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -3120,18 +3120,19 @@ shaders and are translated to SPIR-V execution modes according to the table belo
 
 .. table:: Mapping from HLSL attribute to SPIR-V execution mode
 
-+--------------------+----------------+-------------------------+
-|  HLSL Attribute    |   Value        | SPIR-V Execution Mode   |
-+====================+================+=========================+
-|                    | ``point``      | ``OutputPoints``        |
-|                    +----------------+-------------------------+
-| ``outputtopology`` | ``line``       | ``OutputLinesNV``       |
-|   (Mesh shader)    +----------------+-------------------------+
-|                    | ``triangle``   | ``OutputTrianglesNV``   |
-+--------------------+----------------+-------------------------+
-| ``numthreads``     | ``X, Y, Z``    | ``LocalSize X, Y, Z``   |
-|                    | (X*Y*Z <= 128) |                         |
-+--------------------+----------------+-------------------------+
++-------------------+--------------------+-------------------------+
+|  HLSL Attribute   |   Value            | SPIR-V Execution Mode   |
++===================+====================+=========================+
+|``outputtopology`` | ``point``          | ``OutputPoints``        |
+|                   +--------------------+-------------------------+
+|``(Mesh shader)``  | ``line``           | ``OutputLinesNV``       |
+|                   +--------------------+-------------------------+
+|                   | ``triangle``       | ``OutputTrianglesNV``   |
++-------------------+--------------------+-------------------------+
+| ``numthreads``    | ``X, Y, Z``        | ``LocalSize X, Y, Z``   |
+|                   |                    |                         |
+|                   | ``(X*Y*Z <= 128)`` |                         |
++-------------------+--------------------+-------------------------+
 
 Intrinsics
 ~~~~~~~~~~
@@ -3140,24 +3141,29 @@ and are translated to SPIR-V intrinsics according to the table below:
 
 .. table:: Mapping from HLSL intrinsics to SPIR-V intrinsics
 
-+-------------------------+--------------------+-----------------------------------------+
-|  HLSL Intrinsic         |  Parameters        | SPIR-V Intrinsic                        |
-+=========================+====================+=========================================+
-| ``SetMeshOutputCounts`` | ``numVertices``    | ``PrimitiveCountNV numPrimitives``      |
-|     (Mesh shader)       | ``numPrimitives``  |                                         |
-+-------------------------+--------------------+-----------------------------------------+
-|                         | ``ThreadX``        |                                         |
-| ``DispatchMesh``        | ``ThreadY``        |  ``OpControlBarrier``                   |
-| (Amplification shader)  | ``ThreadZ``        | ``TaskCountNV ThreadX*ThreadY*ThreadZ`` |
-|                         | ``MeshPayload``    |                                         |
-+-------------------------+--------------------+-----------------------------------------+
++---------------------------+--------------------+-----------------------------------------+
+|  HLSL Intrinsic           |  Parameters        | SPIR-V Intrinsic                        |
++===========================+====================+=========================================+
+| ``SetMeshOutputCounts``   | ``numVertices``    | ``PrimitiveCountNV numPrimitives``      |
+|                           |                    |                                         |
+| ``(Mesh shader)``         | ``numPrimitives``  |                                         |
++---------------------------+--------------------+-----------------------------------------+
+| ``DispatchMesh``          | ``ThreadX``        | ``OpControlBarrier``                    |
+|                           |                    |                                         |
+| ``(Amplification shader)``| ``ThreadY``        | ``TaskCountNV ThreadX*ThreadY*ThreadZ`` |
+|                           |                    |                                         |
+|                           | ``ThreadZ``        |                                         |
+|                           |                    |                                         |
+|                           | ``MeshPayload``    |                                         |
++---------------------------+--------------------+-----------------------------------------+
 
-| *For DispatchMesh intrinsic, we also emit MeshPayload as output block with PerTaskNV decoration
+| Note : For ``DispatchMesh`` intrinsic, we also emit ``MeshPayload`` as output block with ``PerTaskNV`` decoration
 
 Mesh Interface Variables
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Interface variables are defined for Mesh shaders using HLSL modifiers.
-Following table gives high level overview of the mapping:
+| Interface variables are defined for Mesh shaders using HLSL modifiers.
+| Following table gives high level overview of the mapping:
+|
 
 .. table:: Mapping from HLSL modifiers to SPIR-V definitions
 
@@ -3165,9 +3171,11 @@ Following table gives high level overview of the mapping:
 |  HLSL modifier  | SPIR-V definition                                                       |
 +=================+=========================================================================+
 | ``indices``     | Maps to SPIR-V intrinsic ``PrimitiveIndicesNV``                         |  
+|                 |                                                                         |
 |                 | Defines SPIR-V Execution Mode ``OutputPrimitivesNV <array-size>``       |
 +-----------------+-------------------------------------------------------------------------+
 | ``vertices``    | Maps to per-vertex out attributes                                       |
+|                 |                                                                         |
 |                 | Defines existing SPIR-V Execution Mode ``OutputVertices <array-size>``  |
 +-----------------+-------------------------------------------------------------------------+
 | ``primitives``  | Maps to per-primitive out attributes with ``PerPrimitiveNV`` decoration |
@@ -3395,6 +3403,13 @@ codegen for Vulkan:
 - ``-fspv-target-env=<env>``: Specifies the target environment for this compilation.
   The current valid options are ``vulkan1.0`` and ``vulkan1.1``. If no target
   environment is provided, ``vulkan1.0`` is used as default.
+- ``-fspv-flatten-resource-arrays``: Flattens arrays of textures and samplers
+  into individual resources, each taking one binding number. For example, an
+  array of 3 textures will become 3 texture resources taking 3 binding numbers.
+  This makes the behavior similar to DX. Without this option, you would get 1
+  array object taking 1 binding number. Note that arrays of
+  {RW|Append|Consume}StructuredBuffers are currently not supported in the
+  SPIR-V backend.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

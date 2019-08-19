@@ -1620,6 +1620,23 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
   runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
 }
 
+// For flattening array of resources
+TEST_F(FileTest, FlattenResourceArrayBindings1) {
+  runFileTest("vk.binding.cl.flatten-arrays.example1.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings1Optimized) {
+  runFileTest("vk.binding.cl.flatten-arrays.example1-optimized.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings2) {
+  runFileTest("vk.binding.cl.flatten-arrays.example2.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
+  runFileTest("vk.binding.cl.flatten-arrays.example2-optimized.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindingsOverlapError) {
+  runFileTest("vk.binding.cl.flatten-arrays.error.hlsl", Expect::Failure);
+}
+
 // For testing the "-auto-binding-space" command line option which specifies the
 // "default space" for resources.
 TEST_F(FileTest, VulkanRegisterBindingDefaultSpaceImplicit) {
@@ -2044,6 +2061,9 @@ TEST_F(FileTest, MeshShadingNVMeshLine) {
 TEST_F(FileTest, MeshShadingNVMeshPoint) {
   runFileTest("meshshading.nv.point.mesh.hlsl");
 }
+TEST_F(FileTest, MeshShadingNVMeshBuffer) {
+  runFileTest("meshshading.nv.buffer.mesh.hlsl");
+}
 TEST_F(FileTest, MeshShadingNVMeshError1) {
   runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
 }
@@ -2088,6 +2108,10 @@ TEST_F(FileTest, MeshShadingNVMeshError14) {
 }
 TEST_F(FileTest, MeshShadingNVAmplification) {
   runFileTest("meshshading.nv.amplification.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
+  useVulkan1p1();
+  runFileTest("meshshading.nv.fncall.amplification.hlsl");
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError1) {
   runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);

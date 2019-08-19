@@ -3246,11 +3246,14 @@ static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder)
   C->removeDeadConstantUsers();
 }
 
-static void ReplaceUnboundedArrayUses(Value *V, Value *Src, IRBuilder<> &Builder) {
+static void ReplaceUnboundedArrayUses(Value *V, Value *Src) {
   for (auto it = V->user_begin(); it != V->user_end(); ) {
     User *U = *(it++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
+      // Must set the insert point to the GEP itself (instead of the memcpy),
+      // because the indices might not dominate the memcpy.
+      IRBuilder<> Builder(GEP);
       Value *NewGEP = Builder.CreateGEP(Src, idxList);
       GEP->replaceAllUsesWith(NewGEP);
     } else if (BitCastInst *BC = dyn_cast<BitCastInst>(U)) {
@@ -3392,8 +3395,7 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
       }
     } else {
       DXASSERT(IsUnboundedArrayMemcpy(TyV, TySrc), "otherwise mismatched types in memcpy are not unbounded array");
-      IRBuilder<> Builder(MC);
-      ReplaceUnboundedArrayUses(V, Src, Builder);
+      ReplaceUnboundedArrayUses(V, Src);
     }
   }
 

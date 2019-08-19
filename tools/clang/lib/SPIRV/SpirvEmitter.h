@@ -309,8 +309,10 @@ private:
                                     SpirvInstruction *initValue,
                                     SourceLocation loc);
 
-  /// Collects all indices from consecutive MemberExprs
-  /// TODO: Update method description here.
+  /// Collects all indices from consecutive MemberExprs, ArraySubscriptExprs and
+  /// CXXOperatorCallExprs. Also special handles all mesh shader out attributes
+  /// to return the entire expression in order for caller to extract the member
+  /// expression.
   const Expr *
   collectArrayStructIndices(const Expr *expr, bool rawIndex,
                             llvm::SmallVectorImpl<uint32_t> *rawIndices,

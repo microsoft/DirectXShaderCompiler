@@ -39,6 +39,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -3870,6 +3871,12 @@ static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
   }
 }
 
+static void ValidateBitcode(ValidationContext &ValCtx) {
+  if (llvm::verifyModule(ValCtx.M, &ValCtx.DiagStream())) {
+    ValCtx.EmitError(ValidationRule::BitcodeValid);
+  }
+}
+
 static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
@@ -5625,6 +5632,8 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   }
 
   ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
+
+  ValidateBitcode(ValCtx);
 
   ValidateMetadata(ValCtx);
 
