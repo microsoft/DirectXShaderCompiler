@@ -1542,8 +1542,28 @@ StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
   return bChanged;
 }
 
+static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
+  if (Ty->getName().startswith("class.matrix."))
+    return true;
+  for (auto eTy : Ty->elements()) {
+    if (StructType *structTy = dyn_cast<StructType>(eTy)) {
+      if (ResourceTypeRequiresTranslation(structTy))
+        return true;
+    }
+    SequentialType *seqTy;
+    while (seqTy = dyn_cast<SequentialType>(eTy)) {
+      eTy = seqTy->getElementType();
+    }
+    if (eTy->getScalarSizeInBits() < 32) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool DxilModule::StripReflection() {
   bool bChanged = false;
+  bool bIsLib = GetShaderModel()->IsLib();
 
   // Remove names.
   for (Function &F : m_pModule->functions()) {
@@ -1560,15 +1580,36 @@ bool DxilModule::StripReflection() {
       }
     }
   }
-  // Remove struct annotation.
-  // FunctionAnnotation is used later, so keep it.
-  if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {
-    m_pTypeSystem->GetStructAnnotationMap().clear();
-    bChanged = true;
+
+  if (bIsLib && GetUseMinPrecision())
+  {
+    // We must preserve struct annotations for resources containing min-precision types,
+    // since they have not yet been converted for legacy layout.
+    SmallVector<const StructType*, 4> structsToRemove;
+    for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
+      if (!ResourceTypeRequiresTranslation(item.first))
+        structsToRemove.emplace_back(item.first);
+    }
+    for (auto Ty : structsToRemove) {
+      m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
+    }
+  } else {
+    // Remove struct annotations.
+    if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {
+      m_pTypeSystem->GetStructAnnotationMap().clear();
+      bChanged = true;
+    }
+    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+      // Remove function annotations.
+      if (!m_pTypeSystem->GetFunctionAnnotationMap().empty()) {
+        m_pTypeSystem->GetFunctionAnnotationMap().clear();
+        bChanged = true;
+      }
+    }
   }
 
   // Resource
-  if (!GetShaderModel()->IsLib()) {
+  if (!bIsLib) {
     bChanged |= StripResourcesReflection(m_CBuffers);
     bChanged |= StripResourcesReflection(m_UAVs);
     bChanged |= StripResourcesReflection(m_SRVs);
@@ -1578,8 +1619,12 @@ bool DxilModule::StripReflection() {
   // Unused global.
   SmallVector<GlobalVariable *,2> UnusedGlobals;
   for (GlobalVariable &GV : m_pModule->globals()) {
-    if (GV.use_empty())
-      UnusedGlobals.emplace_back(&GV);
+    if (GV.use_empty()) {
+      // Need to preserve this global, otherwise we drop constructors
+      // for static globals.
+      if (!bIsLib || GV.getName().compare("llvm.global_ctors") != 0)
+        UnusedGlobals.emplace_back(&GV);
+    }
   }
   bChanged |= !UnusedGlobals.empty();
 

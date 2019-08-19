@@ -336,8 +336,12 @@ public:
     std::vector<FileRunCommandPart> parts;
     ParseCommandPartsFromFile(path, parts);
     VERIFY_IS_TRUE(parts.size() > 0);
-    VERIFY_ARE_EQUAL_STR(parts[0].Command.c_str(), "%dxc");
-    FileRunCommandPart &dxc = parts[0];
+    unsigned partIdx = 0;
+    if (parts[0].Command.compare("%dxilver") == 0) {
+      partIdx = 1;
+    }
+    FileRunCommandPart &dxc = parts[partIdx];
+    VERIFY_ARE_EQUAL_STR(dxc.Command.c_str(), "%dxc");
     m_dllSupport.Initialize();
 
     hlsl::options::MainArgs args;
@@ -504,6 +508,18 @@ public:
 
   void ReflectionTest(LPCWSTR name, bool ignoreIfDXBCFails) {
     WEX::Logging::Log::Comment(WEX::Common::String().Format(L"Reflection comparison for %s", name));
+
+    // Skip if unsupported.
+    std::vector<FileRunCommandPart> parts;
+    ParseCommandPartsFromFile(name, parts);
+    VERIFY_IS_TRUE(parts.size() > 0);
+    if (parts[0].Command.compare("%dxilver") == 0) {
+      VERIFY_IS_TRUE(parts.size() > 1);
+      auto result = parts[0].Run(m_dllSupport, nullptr);
+      if (result.ExitCode != 0)
+        return;
+    }
+
     CComPtr<IDxcBlob> pProgram;
     CComPtr<IDxcBlob> pProgramDXBC;
     HRESULT hrDXBC = CompileFromFile(name, true, &pProgramDXBC);

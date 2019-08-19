@@ -497,8 +497,14 @@ public:
 
     GenerateDxilResourceHandles();
 
+    // TODO: Update types earlier for libraries and replace users, to
+    //       avoid having to preserve HL struct annotation.
+    // Note 1: Needs to happen after legalize
+    // Note 2: Cannot do this easily/trivially if any functions have
+    //         resource arguments (in offline linking target).
     if (DM.GetOP()->UseMinPrecision())
       UpdateStructTypeForLegacyLayout();
+
     // Change resource symbol into undef.
     UpdateResourceSymbols();
 
@@ -1601,7 +1607,11 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   unsigned fieldsCount = ST->getNumElements();
   std::vector<Type *> fieldTypes(fieldsCount);
   DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
-  DXASSERT(SA, "must have annotation for struct type");
+
+  // After reflection is stripped from library, this will be null if no update is required.
+  if (!SA) {
+    return ST;
+  }
 
   if (SA->IsEmptyStruct()) {
     return ST;
@@ -2139,7 +2149,7 @@ static unsigned GetOffsetForCBExtractValue(ExtractValueInst *EV, bool bMinPrecis
   unsigned bits = EV->getType()->getScalarSizeInBits();
   if (bits == 64)
     typeSize = 8;
-  else if (bits == 16 && bMinPrecision)
+  else if (bits == 16 && !bMinPrecision)
     typeSize = 2;
   return (EV->getIndices().front() * typeSize);
 }

@@ -553,6 +553,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
+  opts.KeepReflectionInDxil = Args.hasFlag(OPT_Qkeep_reflect_in_dxil, OPT_INVALID, false);
   opts.StripReflectionFromDxil = Args.hasFlag(OPT_Qstrip_reflect_from_dxil, OPT_INVALID, false);
   opts.ExtractRootSignature = Args.hasFlag(OPT_extractrootsignature, OPT_INVALID, false);
   opts.DisassembleColorCoded = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
@@ -698,6 +699,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     // ValVerMajor == 0 means that the module is not meant to ever be validated.
     opts.ValVerMajor = 0;
     opts.ValVerMinor = 0;
+  }
+
+  if (opts.KeepReflectionInDxil && opts.StripReflectionFromDxil) {
+    errors << "-Qstrip_reflect_from_dxil mutually exclusive with -Qkeep_reflect_in_dxil.";
+    return 1;
   }
 
     // SPIRV Change Starts

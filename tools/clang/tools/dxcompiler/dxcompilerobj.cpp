@@ -624,6 +624,11 @@ public:
         needsValidation = false;
       }
 
+      if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
+        // Currently do not support stripping reflection from offline linking target.
+        opts.KeepReflectionInDxil = true;
+      }
+
       if (opts.ValVerMajor != UINT_MAX) {
         // user-specified validator version override
         compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
@@ -735,7 +740,7 @@ public:
           // Implies name part
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
-        if (opts.StripReflection || opts.StripReflectionFromDxil) {
+        if (!opts.KeepReflectionInDxil) {
           SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
         }
         if (!opts.StripReflection) {

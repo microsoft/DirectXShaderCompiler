@@ -103,7 +103,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaTessellatorOutputPrimitive: return "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.";
     case hlsl::ValidationRule::MetaMaxTessFactor: return "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified";
     case hlsl::ValidationRule::MetaValidSamplerMode: return "Invalid sampler mode on sampler ";
-    case hlsl::ValidationRule::MetaFunctionAnnotation: return "Cannot find function annotation for %0";
     case hlsl::ValidationRule::MetaGlcNotOnAppendConsume: return "globallycoherent cannot be used with append/consume buffers";
     case hlsl::ValidationRule::MetaStructBufAlignment: return "structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)";
     case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)";
@@ -3591,13 +3590,6 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     // Shader functions should return void.
     if (isShader && !F.getReturnType()->isVoidTy())
       ValCtx.EmitFormatError(ValidationRule::DeclShaderReturnVoid, { F.getName() });
-
-    DxilFunctionAnnotation *funcAnnotation =
-        ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
-    if (!funcAnnotation) {
-      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation, { F.getName() });
-      return;
-    }
 
     auto ArgFormatError = [&](Argument &arg, ValidationRule rule) {
       if (arg.hasName())
