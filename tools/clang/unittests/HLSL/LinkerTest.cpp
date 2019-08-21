@@ -61,6 +61,7 @@ public:
   TEST_METHOD(RunLinkToLibWithUnusedExport);
   TEST_METHOD(RunLinkToLibWithNoExports);
   TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
+  TEST_METHOD(RunLinkWithValidatorVersion);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -635,4 +636,29 @@ TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
   }, { });
+}
+
+TEST_F(LinkerTest, RunLinkWithValidatorVersion) {
+  if (m_ver.SkipDxilVersion(1, 4)) return;
+
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
+             &pEntryLib, {});
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(
+      L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
+      &pLib, {});
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
+       {"!dx.valver = !{(![0-9]+)}.*\n\\1 = !{i32 1, i32 3}"},
+       {}, {L"-validator-version", L"1.3"}, /*regex*/ true);
 }

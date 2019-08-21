@@ -647,15 +647,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   llvm::StringRef valVersionStr = Args.getLastArgValue(OPT_validator_version);
   if (!valVersionStr.empty()) {
-    // Parse "major,minor" version string
-    auto verPair = valVersionStr.split(",");
+    // Parse "major.minor" version string
+    auto verPair = valVersionStr.split(".");
     llvm::APInt major, minor;
     if (verPair.first.getAsInteger(0, major) || verPair.second.getAsInteger(0, minor)) {
-      errors << "Format of validator version is \"<major>,<minor>\" (ex: \"1,4\").";
+      errors << "Format of validator version is \"<major>.<minor>\" (ex: \"1.4\").";
       return 1;
     }
-    uint16_t major64 = major.getLimitedValue();
-    uint16_t minor64 = minor.getLimitedValue();
+    uint64_t major64 = major.getLimitedValue();
+    uint64_t minor64 = minor.getLimitedValue();
     if (major64 > DXIL::kDxilMajor ||
         (major64 == DXIL::kDxilMajor && minor64 > DXIL::kDxilMinor)) {
       errors << "Validator version must be less than or equal to current internal version.";

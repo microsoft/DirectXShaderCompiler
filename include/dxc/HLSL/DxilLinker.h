@@ -37,6 +37,7 @@ public:
   virtual ~DxilLinker() {}
   static DxilLinker *CreateLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor);
 
+  void SetValidatorVersion(unsigned valMajor, unsigned valMinor) { m_valMajor = valMajor, m_valMinor = valMinor; }
   virtual bool HasLibNameRegistered(llvm::StringRef name) = 0;
   virtual bool RegisterLib(llvm::StringRef name,
                            std::unique_ptr<llvm::Module> pModule,

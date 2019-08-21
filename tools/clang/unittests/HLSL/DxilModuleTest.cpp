@@ -489,30 +489,30 @@ TEST_F(DxilModuleTest, SetValidatorVersion) {
   VerifyValidatorVersionMatches(L"lib_6_3", {L"-Vd"});
 
   // Override validator version
-  VerifyValidatorVersionMatches(L"ps_6_2", {L"-validator-version", L"1,2"}, 1,2);
-  VerifyValidatorVersionMatches(L"lib_6_3", {L"-validator-version", L"1,3"}, 1,3);
+  VerifyValidatorVersionMatches(L"ps_6_2", {L"-validator-version", L"1.2"}, 1,2);
+  VerifyValidatorVersionMatches(L"lib_6_3", {L"-validator-version", L"1.3"}, 1,3);
 
   // Override validator version, with validation disabled
-  VerifyValidatorVersionMatches(L"ps_6_2", {L"-Vd", L"-validator-version", L"1,2"}, 1,2);
-  VerifyValidatorVersionMatches(L"lib_6_3", {L"-Vd", L"-validator-version", L"1,3"}, 1,3);
+  VerifyValidatorVersionMatches(L"ps_6_2", {L"-Vd", L"-validator-version", L"1.2"}, 1,2);
+  VerifyValidatorVersionMatches(L"lib_6_3", {L"-Vd", L"-validator-version", L"1.3"}, 1,3);
 
   // Never can validate (version 0,0):
   VerifyValidatorVersionMatches(L"lib_6_1", {L"-Vd"}, 0, 0);
   VerifyValidatorVersionMatches(L"lib_6_2", {L"-Vd"}, 0, 0);
-  VerifyValidatorVersionMatches(L"lib_6_2", {L"-Vd", L"-validator-version", L"0,0"}, 0, 0);
+  VerifyValidatorVersionMatches(L"lib_6_2", {L"-Vd", L"-validator-version", L"0.0"}, 0, 0);
   VerifyValidatorVersionMatches(L"lib_6_x", {}, 0, 0);
-  VerifyValidatorVersionMatches(L"lib_6_x", {L"-validator-version", L"0,0"}, 0, 0);
+  VerifyValidatorVersionMatches(L"lib_6_x", {L"-validator-version", L"0.0"}, 0, 0);
 
   // Failure cases:
-  VerifyValidatorVersionFails(L"ps_6_2", {L"-validator-version", L"1,1"}, {
+  VerifyValidatorVersionFails(L"ps_6_2", {L"-validator-version", L"1.1"}, {
     "validator version 1,1 does not support target profile."});
 
   VerifyValidatorVersionFails(L"lib_6_2", {L"-Tlib_6_2"}, {
     "Must disable validation for unsupported lib_6_1 or lib_6_2 targets"});
 
-  VerifyValidatorVersionFails(L"lib_6_2", {L"-Vd", L"-validator-version", L"1,2"}, {
+  VerifyValidatorVersionFails(L"lib_6_2", {L"-Vd", L"-validator-version", L"1.2"}, {
     "-validator-version cannot be used with library profiles lib_6_1 or lib_6_2."});
 
-  VerifyValidatorVersionFails(L"lib_6_x", {L"-validator-version", L"1,3"}, {
+  VerifyValidatorVersionFails(L"lib_6_x", {L"-validator-version", L"1.3"}, {
     "Offline library profile cannot be used with non-zero -validator-version."});
 }
