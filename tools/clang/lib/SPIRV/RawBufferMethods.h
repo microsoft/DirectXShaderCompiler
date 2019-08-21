@@ -59,16 +59,6 @@ private:
                                             QualType target16BitType,
                                             uint32_t &bitOffset);
 
-  SpirvInstruction *load32BitsAtBitOffset16(SpirvInstruction *buffer,
-                                            SpirvInstruction *&index,
-                                            QualType target32BitType,
-                                            uint32_t &bitOffset);
-
-  SpirvInstruction *load64BitsAtBitOffset16(SpirvInstruction *buffer,
-                                            SpirvInstruction *&index,
-                                            QualType target64BitType,
-                                            uint32_t &bitOffset);
-
 private:
   /// \brief Performs an OpBitCast from |fromType| to |toType| on the given
   /// instruction.

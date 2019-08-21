@@ -185,148 +185,6 @@ SpirvInstruction *RawBufferHandler::load16BitsAtBitOffset16(
   return result;
 }
 
-SpirvInstruction *RawBufferHandler::load32BitsAtBitOffset16(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    QualType target32BitType, uint32_t &bitOffset) {
-  assert(bitOffset == 16);
-  const auto loc = buffer->getSourceLocation();
-  SpirvInstruction *result = nullptr;
-  SpirvInstruction *ptr = nullptr;
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
-  auto *constUint16 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
-
-  // The underlying element type of the ByteAddressBuffer is uint. Since the
-  // bitOffset is not zero, we need to perform two load operations.
-
-  // Load the first 32-bit uint. Only its 16 MSBs matter.
-  // The 16 MSBs of the loaded value becomes the 16 LSBs of the result.
-  ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                     {constUint0, index}, loc);
-  SpirvInstruction *lsb =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc);
-
-  // Right shift by 16 bits leaves the upper 16 bits as 0.
-  lsb = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
-                                  astContext.UnsignedIntTy, lsb, constUint16,
-                                  loc);
-
-  // Increment the base index
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc);
-
-  // Load the second 32-bit uint. Only its 16 LSBs matter.
-  // The 16 LSBs of the loaded value becomes the 16 MSBs of the result.
-  ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                     {constUint0, index}, loc);
-  SpirvInstruction *msb =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc);
-
-  // Left shift by 16 bits leaves the lower 16 bits as 0.
-  msb = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                  astContext.UnsignedIntTy, msb, constUint16,
-                                  loc);
-
-  // Bitwise Or the MSBs and LSBs to get the resulting 32-bit value.
-  result = spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr,
-                                     astContext.UnsignedIntTy, lsb, msb, loc);
-
-  result = bitCastToNumericalOrBool(result, astContext.UnsignedIntTy,
-                                    target32BitType, loc);
-  result->setRValue();
-
-  // Now that a 32-bit load at bit-offset 16 has been performed, the next load
-  // should be done at *the next base index* at bit-offset 16.
-  // The base index has already been incremented.
-  bitOffset = (bitOffset + 32) % 32;
-
-  return result;
-}
-
-SpirvInstruction *RawBufferHandler::load64BitsAtBitOffset16(
-    SpirvInstruction *buffer, SpirvInstruction *&index,
-    QualType target64BitType, uint32_t &bitOffset) {
-  assert(bitOffset == 16);
-  const auto loc = buffer->getSourceLocation();
-  SpirvInstruction *result = nullptr;
-  SpirvInstruction *ptr = nullptr;
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
-  auto *constUint16 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 16));
-  auto *constUint48 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 48));
-
-  // The underlying element type of the ByteAddressBuffer is uint. Since the
-  // bitOffset is 16, we need to perform three load operations.
-  // Use 16 bits from the first load, all the 32 bits from the second load, and
-  // 16 bits from the third load.
-
-  // Load the first 32-bit uint. Only its 16 MSBs matter.
-  // Right shift by 16 bits leaves the upper 16 bits as 0.
-  ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                     {constUint0, index}, loc);
-  SpirvInstruction *first16 =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc);
-
-  // Incremenet the index and load a 32-bit uint.
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc);
-  ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                     {constUint0, index}, loc);
-  SpirvInstruction *middle32 =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc);
-
-  // Incremenet the index and load a 32-bit uint. Only its 16 LSBs matter.
-  index = spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
-                                    index, constUint1, loc);
-  ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
-                                     {constUint0, index}, loc);
-  SpirvInstruction *last16 =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc);
-
-  // Convert all parts to 64 bits
-  first16 = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedLongLongTy, first16, loc);
-  middle32 = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedLongLongTy, middle32, loc);
-  last16 = spvBuilder.createUnaryOp(spv::Op::OpUConvert,
-                                    astContext.UnsignedLongLongTy, last16, loc);
-
-  // Perform: (first16 >> 16) | (middle32 << 16) | (last16 << 48)
-  first16 = spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
-                                      astContext.UnsignedLongLongTy, first16,
-                                      constUint16, loc);
-  middle32 = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                       astContext.UnsignedLongLongTy, middle32,
-                                       constUint16, loc);
-  last16 = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                     astContext.UnsignedLongLongTy, last16,
-                                     constUint48, loc);
-
-  result = spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr,
-                                     astContext.UnsignedLongLongTy, first16,
-                                     middle32, loc);
-  result = spvBuilder.createBinaryOp(
-      spv::Op::OpBitwiseOr, astContext.UnsignedLongLongTy, result, last16, loc);
-
-  result = bitCastToNumericalOrBool(result, astContext.UnsignedLongLongTy,
-                                    target64BitType, loc);
-  result->setRValue();
-
-  // Now that a 64-bit load at bit-offset 16 has been performed, the next load
-  // should be done at *the base index + 2* at bit-offset 16.
-  // The base index has already been incremented twice.
-  bitOffset = (bitOffset + 64) % 32;
-
-  return result;
-}
-
 SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     SpirvInstruction *buffer, SpirvInstruction *&index,
     const QualType targetType, uint32_t &bitOffset) {
@@ -372,11 +230,12 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
         return load16BitsAtBitOffset16(buffer, index, targetType, bitOffset);
         break;
       case 32:
-        return load32BitsAtBitOffset16(buffer, index, targetType, bitOffset);
-        break;
       case 64:
-        return load64BitsAtBitOffset16(buffer, index, targetType, bitOffset);
-        break;
+        theEmitter.emitError(
+            "templated buffer load should not result in loading "
+            "32-bit or 64-bit values at bit offset 16",
+            loc);
+        return nullptr;
       default:
         theEmitter.emitError(
             "templated load of ByteAddressBuffer is only implemented for "
