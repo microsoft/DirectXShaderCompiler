@@ -114,6 +114,8 @@ HRESULT
 DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
                            _In_ IDxcBlob *pBlob       // Library to add.
 ) {
+  if (!pLibName || !pBlob)
+    return E_INVALIDARG;
   DXASSERT(m_pLinker.get(), "else Initialize() not called or failed silently");
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
@@ -163,6 +165,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     _COM_Outptr_ IDxcOperationResult *
         *ppResult // Linker output status, buffer, and errors
 ) {
+  if (!pTargetProfile || !pLibNames || libCount == 0 || !ppResult)
+    return E_INVALIDARG;
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
   CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
@@ -208,6 +212,10 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     PrintDiagnosticContext DiagContext(DiagPrinter);
     m_Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
                                &DiagContext, true);
+
+    if (opts.ValVerMajor != UINT32_MAX) {
+      m_pLinker->SetValidatorVersion(opts.ValVerMajor, opts.ValVerMinor);
+    }
 
     // Attach libraries.
     bool bSuccess = true;
