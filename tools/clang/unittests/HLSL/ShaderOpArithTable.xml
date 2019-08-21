@@ -6130,10 +6130,10 @@
                     data.laneId = WaveGetLaneIndex();
                     if (data.mask != 0) {
                         uint4 mask = WaveMatch(data.key);
-                        data.result = WaveMultiPrefixCountBits(data.value, mask);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
                     } else {
                         uint4 mask = WaveMatch(data.key);
-                        data.result = WaveMultiPrefixCountBits(data.value, mask);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
                     }
                     g_buffer[id] = data;
                 }</Parameter>
@@ -6618,10 +6618,10 @@
                     data.laneId = WaveGetLaneIndex();
                     if (data.mask != 0) {
                         uint4 mask = WaveMatch(data.key);
-                        data.result = WaveMultiPrefixCountBits(data.value, mask);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
                     } else {
                         uint4 mask = WaveMatch(data.key);
-                        data.result = WaveMultiPrefixCountBits(data.value, mask);
+                        data.result = WaveMultiPrefixCountBits(data.value > 10, mask);
                     }
                     g_buffer[id] = data;
                 }</Parameter>
