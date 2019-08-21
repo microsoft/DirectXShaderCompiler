@@ -51,18 +51,17 @@ IDxcRewriter : public IUnknown {
 };
 
 #ifdef _MSC_VER
-#define EXTERN extern
+#define CLSID_SCOPE __declspec(selectany) extern
 #else
-#define EXTERN
+#define CLSID_SCOPE
 #endif
 
-__declspec(selectany)
-EXTERN const CLSID CLSID_DxcRewriter = { /* b489b951-e07f-40b3-968d-93e124734da4 */
-  0xb489b951,
-  0xe07f,
-  0x40b3,
-  { 0x96, 0x8d, 0x93, 0xe1, 0x24, 0x73, 0x4d, 0xa4 }
-};
+CLSID_SCOPE const CLSID
+    CLSID_DxcRewriter = {/* b489b951-e07f-40b3-968d-93e124734da4 */
+                         0xb489b951,
+                         0xe07f,
+                         0x40b3,
+                         {0x96, 0x8d, 0x93, 0xe1, 0x24, 0x73, 0x4d, 0xa4}};
 
 struct __declspec(uuid("261afca1-0609-4ec6-a77f-d98c7035194e"))
 IDxcRewriter2 : public IDxcRewriter {

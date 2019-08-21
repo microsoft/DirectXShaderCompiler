@@ -835,17 +835,16 @@ IDxcCompletionString : public IUnknown
 // not by default static in C)
 
 #ifdef _MSC_VER
-#define EXTERN extern
+#define CLSID_SCOPE __declspec(selectany) extern
 #else
-#define EXTERN
+#define CLSID_SCOPE
 #endif
 
-__declspec(selectany)
-EXTERN const CLSID CLSID_DxcIntelliSense = { /* 3047833c-d1c0-4b8e-9d40-102878605985 */
-    0x3047833c,
-    0xd1c0,
-    0x4b8e,
-    {0x9d, 0x40, 0x10, 0x28, 0x78, 0x60, 0x59, 0x85}
-  };
+CLSID_SCOPE const CLSID
+    CLSID_DxcIntelliSense = {/* 3047833c-d1c0-4b8e-9d40-102878605985 */
+                             0x3047833c,
+                             0xd1c0,
+                             0x4b8e,
+                             {0x9d, 0x40, 0x10, 0x28, 0x78, 0x60, 0x59, 0x85}};
 
 #endif
