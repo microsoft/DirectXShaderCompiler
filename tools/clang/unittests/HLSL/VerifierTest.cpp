@@ -87,6 +87,7 @@ public:
   TEST_METHOD(RunBadInclude)
   TEST_METHOD(RunWave)
   TEST_METHOD(RunBinopDims)
+  TEST_METHOD(RunUninitWarnings)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -352,4 +353,8 @@ TEST_F(VerifierTest, RunWave) {
 
 TEST_F(VerifierTest, RunBinopDims) {
   CheckVerifiesHLSL(L"binop-dims.hlsl");
+}
+
+TEST_F(VerifierTest, RunUninitWarnings) {
+    CheckVerifiesHLSL(L"uninitialized-warnings.hlsl");
 }

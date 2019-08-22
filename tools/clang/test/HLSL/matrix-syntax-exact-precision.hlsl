@@ -7,17 +7,17 @@
 matrix m;
 
 void abs_without_using_result() {
-    matrix<float, 4, 4> mymatrix;
-    abs(mymatrix);            /* expected-warning {{ignoring return value of function declared with const attribute}} fxc-pass {{}} */
+    matrix<float, 4, 4> mymatrix; /* expected-note {{variable 'mymatrix' is declared here}} fxc-pass {{}} */
+    abs(mymatrix);            /* expected-warning {{ignoring return value of function declared with const attribute}} expected-warning {{variable 'mymatrix' is uninitialized when used here}} fxc-pass {{}} */
 
-    matrix<float, 1, 4> mymatrix2;
-    abs(mymatrix2);           /* expected-warning {{ignoring return value of function declared with const attribute}} fxc-pass {{}} */
+    matrix<float, 1, 4> mymatrix2;/* expected-note {{variable 'mymatrix2' is declared here}} fxc-pass {{}} */
+    abs(mymatrix2);           /* expected-warning {{ignoring return value of function declared with const attribute}} expected-warning{{variable 'mymatrix2' is uninitialized when used here}} fxc-pass {{}} */
 }
 
 void abs_with_assignment() {
-    matrix<float, 4, 4> mymatrix;
+    matrix<float, 4, 4> mymatrix;/* expected-note {{variable 'mymatrix' is declared here}} fxc-pass {{}} */
     matrix<float, 4, 4> absMatrix;
-    absMatrix = abs(mymatrix);
+    absMatrix = abs(mymatrix); /* expected-warning{{variable 'mymatrix' is uninitialized when used here}} fxc-pass{{}} */
 }
 
 matrix<float, 4, 4> abs_for_result(matrix<float, 4, 4> value) {
@@ -27,8 +27,8 @@ matrix<float, 4, 4> abs_for_result(matrix<float, 4, 4> value) {
 void fn_use_matrix(matrix<float, 4, 4> value) { }
 
 void abs_in_argument() {
-    matrix<float, 4, 4> mymatrix;
-    fn_use_matrix(abs(mymatrix));
+    matrix<float, 4, 4> mymatrix;/* expected-note {{variable 'mymatrix' is declared here}} fxc-pass {{}} */
+    fn_use_matrix(abs(mymatrix)); /* expected-warning{{variable 'mymatrix' is uninitialized when used here}} fxc-pass{{}} */
     /*verify-ast
       CallExpr <col:5, col:32> 'void'
       |-ImplicitCastExpr <col:5> 'void (*)(matrix<float, 4, 4>)' <FunctionToPointerDecay>
@@ -49,8 +49,8 @@ void matrix_on_demand() {
 }
 
 void abs_on_demand() {
-   float1x2 f12;
-   float1x2 result = abs(f12);
+   float1x2 f12;/* expected-note {{variable 'f12' is declared here}} fxc-pass {{}} */
+   float1x2 result = abs(f12); /* expected-warning{{variable 'f12' is uninitialized when used here}} fxc-pass{{}} */
 }
 
 void matrix_out_of_bounds() {
