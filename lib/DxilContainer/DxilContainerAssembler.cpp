@@ -698,7 +698,7 @@ public:
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         pBindInfo->ResType = (UINT)PSVResourceType::SRVStructured;
-      } else if (R->IsRawBuffer()) {
+      } else if (R->IsRawBuffer() || (R->GetKind() == DxilResourceBase::Kind::RTAccelerationStructure)) {
         pBindInfo->ResType = (UINT)PSVResourceType::SRVRaw;
       } else {
         pBindInfo->ResType = (UINT)PSVResourceType::SRVTyped;
