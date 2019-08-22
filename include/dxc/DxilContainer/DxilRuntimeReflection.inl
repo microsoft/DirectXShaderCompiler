@@ -112,8 +112,7 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
       CheckedReader Reader(pRDAT, size);
       RuntimeDataHeader RDATHeader = Reader.Read<RuntimeDataHeader>();
       if (RDATHeader.Version < RDAT_Version_10) {
-        // Prerelease version, fallback to that Init
-        return InitFromRDAT_Prerelease(pRDAT, size);
+        return false;
       }
       const uint32_t *offsets = Reader.ReadArray<uint32_t>(RDATHeader.PartCount);
       for (uint32_t i = 0; i < RDATHeader.PartCount; ++i) {
@@ -160,67 +159,6 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
         }
         default:
           continue; // Skip unrecognized parts
-        }
-      }
-      return true;
-    } catch(CheckedReader::exception e) {
-      // TODO: error handling
-      //throw hlsl::Exception(DXC_E_MALFORMED_CONTAINER, e.what());
-      return false;
-    }
-  }
-  return false;
-}
-
-bool DxilRuntimeData::InitFromRDAT_Prerelease(const void *pRDAT, size_t size) {
-  enum class RuntimeDataPartType_Prerelease : uint32_t {
-    Invalid = 0,
-    String,
-    Function,
-    Resource,
-    Index
-  };
-  struct RuntimeDataTableHeader_Prerelease {
-    uint32_t tableType; // RuntimeDataPartType
-    uint32_t size;
-    uint32_t offset;
-  };
-  if (pRDAT) {
-    try {
-      CheckedReader Reader(pRDAT, size);
-      uint32_t partCount = Reader.Read<uint32_t>();
-      const RuntimeDataTableHeader_Prerelease *tableHeaders =
-        Reader.ReadArray<RuntimeDataTableHeader_Prerelease>(partCount);
-      for (uint32_t i = 0; i < partCount; ++i) {
-        uint32_t partSize = tableHeaders[i].size;
-        Reader.Advance(tableHeaders[i].offset);
-        CheckedReader PR(Reader.ReadArray<char>(partSize), partSize);
-        switch ((RuntimeDataPartType_Prerelease)(tableHeaders[i].tableType)) {
-        case RuntimeDataPartType_Prerelease::String: {
-          m_StringReader = StringTableReader(
-            PR.ReadArray<char>(partSize), partSize);
-          break;
-        }
-        case RuntimeDataPartType_Prerelease::Index: {
-          uint32_t count = partSize / sizeof(uint32_t);
-          m_IndexTableReader = IndexTableReader(
-            PR.ReadArray<uint32_t>(count), count);
-          break;
-        }
-        case RuntimeDataPartType_Prerelease::Resource: {
-          uint32_t count = partSize / sizeof(RuntimeDataResourceInfo);
-          m_ResourceTableReader.SetResourceInfo(PR.ReadArray<char>(partSize),
-            count, sizeof(RuntimeDataResourceInfo));
-          break;
-        }
-        case RuntimeDataPartType_Prerelease::Function: {
-          uint32_t count = partSize / sizeof(RuntimeDataFunctionInfo);
-          m_FunctionTableReader.SetFunctionInfo(PR.ReadArray<char>(partSize),
-            count, sizeof(RuntimeDataFunctionInfo));
-          break;
-        }
-        default:
-          return false; // There should be no unrecognized parts
         }
       }
       return true;

@@ -423,7 +423,7 @@ public:
   /// \brief Sets the shader model version, source file name, and source file
   /// content. Returns the SpirvString instruction of the file name.
   inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
-                                     llvm::StringRef name,
+                                     const std::vector<llvm::StringRef> &name,
                                      llvm::StringRef content);
 
   /// \brief Adds an execution mode to the module under construction.
@@ -613,22 +613,33 @@ void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
       target->getSourceLocation(), em, target, targetName, interfaces));
 }
 
-SpirvString *SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
-                                          llvm::StringRef name,
-                                          llvm::StringRef content) {
+SpirvString *
+SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
+                             const std::vector<llvm::StringRef> &fileNames,
+                             llvm::StringRef content) {
   uint32_t version = 100 * major + 10 * minor;
+  SpirvSource *mainSource = nullptr;
+  for (const auto &name : fileNames) {
+    SpirvString *fileString =
+        name.empty() ? nullptr
+                     : new (context) SpirvString(/*SourceLocation*/ {}, name);
+    SpirvSource *debugSource = new (context)
+        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
+                    fileString, content);
+    module->addDebugSource(debugSource);
+    if (!mainSource)
+      mainSource = debugSource;
+  }
 
-  SpirvString *fileString =
-      name.empty() ? nullptr
-                   : new (context) SpirvString(/*SourceLocation*/ {}, name);
-
-  SpirvSource *debugSource = new (context)
-      SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
-                  fileString, content);
-
-  module->addDebugSource(debugSource);
-
-  return fileString;
+  // If mainSource is nullptr, fileNames is empty and no input file is
+  // specified. We must create a SpirvSource for OpSource HLSL <version>.
+  if (!mainSource) {
+    mainSource = new (context)
+        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
+                    nullptr, content);
+    module->addDebugSource(mainSource);
+  }
+  return mainSource->getFile();
 }
 
 void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,

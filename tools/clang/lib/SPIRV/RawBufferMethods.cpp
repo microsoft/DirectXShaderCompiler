@@ -7,12 +7,21 @@
 //===----------------------------------------------------------------------===//
 
 #include "RawBufferMethods.h"
+#include "AlignmentSizeCalculator.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvInstruction.h"
+
+namespace {
+/// Rounds the given value up to the given power of 2.
+inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
+  assert(pow2 != 0);
+  return (val + pow2 - 1) & ~(pow2 - 1);
+}
+} // anonymous namespace
 
 namespace clang {
 namespace spirv {
@@ -454,24 +463,25 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
   if (const auto *structType = targetType->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
     assert(bitOffset == 0);
-    const auto &layout = astContext.getASTRecordLayout(decl);
     SpirvInstruction *originalIndex = index;
     uint32_t originalBitOffset = bitOffset;
     llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
-    uint32_t structAlignment = 0;
-    uint32_t structSize = static_cast<uint32_t>(layout.getSize().getQuantity());
-    uint32_t fieldIndex = 0;
+    uint32_t fieldOffsetInBytes = 0;
+    uint32_t structAlignment = 0, structSize = 0, stride = 0;
+    std::tie(structAlignment, structSize) =
+        AlignmentSizeCalculator(astContext, theEmitter.getSpirvOptions())
+            .getAlignmentAndSize(targetType,
+                                 theEmitter.getSpirvOptions().sBufferLayoutRule,
+                                 llvm::None, &stride);
     for (const auto *field : decl->fields()) {
-      CharUnits alignment;
-      std::tie(std::ignore, alignment) = astContext.getTypeInfoInChars(
-          field->getType()->getUnqualifiedDesugaredType());
-      structAlignment = std::max(
-          structAlignment, static_cast<uint32_t>(alignment.getQuantity()));
+      AlignmentSizeCalculator alignmentCalc(astContext,
+                                            theEmitter.getSpirvOptions());
+      uint32_t fieldSize = 0, fieldAlignment = 0;
+      std::tie(fieldAlignment, fieldSize) = alignmentCalc.getAlignmentAndSize(
+          field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
+          /*isRowMajor*/ llvm::None, &stride);
+      fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
 
-      assert(fieldIndex < layout.getFieldCount());
-      uint32_t fieldOffsetInBytes = static_cast<uint32_t>(
-          astContext.toCharUnitsFromBits(layout.getFieldOffset(fieldIndex++))
-              .getQuantity());
       if (fieldOffsetInBytes != 0) {
         // Divide the fieldOffset by 4 to figure out how much to increment the
         // index into the buffer (increment occurs by 32-bit words since the
@@ -488,6 +498,8 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
       }
       loadedElems.push_back(processTemplatedLoadFromBuffer(
           buffer, index, field->getType(), bitOffset));
+
+      fieldOffsetInBytes += fieldSize;
     }
 
     // After we're done with loading the entire struct, we need to update the
@@ -499,9 +511,7 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     // So the starting byte offset after loading the entire struct is:
     // 8 * (4 + 1) = 40
     assert(structAlignment != 0);
-    uint32_t newByteOffset =
-        structAlignment * ((structSize / structAlignment) +
-                           (structSize % structAlignment > 0 ? 1 : 0));
+    uint32_t newByteOffset = roundToPow2(structSize, structAlignment);
     uint32_t newWordOffset = newByteOffset / 4;
     index = spvBuilder.createBinaryOp(
         spv::Op::OpIAdd, astContext.UnsignedIntTy, originalIndex,

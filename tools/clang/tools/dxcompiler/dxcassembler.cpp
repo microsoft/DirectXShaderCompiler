@@ -141,7 +141,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     outStream.flush();
 
     CComPtr<IDxcBlob> pResultBlob;
-    hlsl::SerializeDxilFlags flags = hlsl::SerializeDxilFlags::None;
+    hlsl::SerializeDxilFlags flags = hlsl::SerializeDxilFlags::IncludeReflectionPart;
     if (HasDebugInfo(*M)) {
       flags |= SerializeDxilFlags::IncludeDebugInfoPart;
       flags |= SerializeDxilFlags::IncludeDebugNamePart;

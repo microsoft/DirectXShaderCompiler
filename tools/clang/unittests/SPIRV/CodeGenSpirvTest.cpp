@@ -82,6 +82,7 @@ TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
@@ -894,6 +895,9 @@ TEST_F(FileTest, ByteAddressBufferTemplatedLoadMatrix) {
 TEST_F(FileTest, ByteAddressBufferTemplatedLoadStruct) {
   runFileTest("method.byte-address-buffer.templated-load.struct.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferTemplatedLoadStruct2) {
+  runFileTest("method.byte-address-buffer.templated-load.struct2.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferStore) {
   runFileTest("method.byte-address-buffer.store.hlsl");
 }
@@ -1476,6 +1480,9 @@ TEST_F(FileTest, SpirvDebugOpLineOperators) {
 TEST_F(FileTest, SpirvDebugOpLineVariables) {
   runFileTest("spirv.debug.opline.variables.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpLineInclude) {
+  runFileTest("spirv.debug.opline.include.hlsl");
+}
 
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
   useVulkan1p1();
@@ -1614,6 +1621,26 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
 }
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
   runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
+}
+
+// For flattening array of resources
+TEST_F(FileTest, FlattenResourceArrayBindings1) {
+  runFileTest("vk.binding.cl.flatten-arrays.example1.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings1Optimized) {
+  runFileTest("vk.binding.cl.flatten-arrays.example1-optimized.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings2) {
+  runFileTest("vk.binding.cl.flatten-arrays.example2.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
+  runFileTest("vk.binding.cl.flatten-arrays.example2-optimized.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindings3) {
+  runFileTest("vk.binding.cl.flatten-arrays.example3.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayBindingsOverlapError) {
+  runFileTest("vk.binding.cl.flatten-arrays.error.hlsl", Expect::Failure);
 }
 
 // For testing the "-auto-binding-space" command line option which specifies the
@@ -1939,6 +1966,7 @@ TEST_F(FileTest, PreprocessorError) {
 TEST_F(FileTest, RayTracingNVRaygen) {
   runFileTest("raytracing.nv.raygen.hlsl");
 }
+TEST_F(FileTest, RayTracingNVEnum) { runFileTest("raytracing.nv.enum.hlsl"); }
 TEST_F(FileTest, RayTracingNVIntersection) {
   runFileTest("raytracing.nv.intersection.hlsl");
 }
@@ -2039,6 +2067,9 @@ TEST_F(FileTest, MeshShadingNVMeshLine) {
 TEST_F(FileTest, MeshShadingNVMeshPoint) {
   runFileTest("meshshading.nv.point.mesh.hlsl");
 }
+TEST_F(FileTest, MeshShadingNVMeshBuffer) {
+  runFileTest("meshshading.nv.buffer.mesh.hlsl");
+}
 TEST_F(FileTest, MeshShadingNVMeshError1) {
   runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
 }
@@ -2083,6 +2114,10 @@ TEST_F(FileTest, MeshShadingNVMeshError14) {
 }
 TEST_F(FileTest, MeshShadingNVAmplification) {
   runFileTest("meshshading.nv.amplification.hlsl");
+}
+TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
+  useVulkan1p1();
+  runFileTest("meshshading.nv.fncall.amplification.hlsl");
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError1) {
   runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);

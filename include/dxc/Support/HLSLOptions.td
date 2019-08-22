@@ -242,6 +242,8 @@ def export_shaders_only : Flag<["-", "/"], "export-shaders-only">, Group<hlslcom
   HelpText<"Only export shaders when compiling a library">;
 def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
+def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
 
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -279,6 +281,8 @@ def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Fl
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
+def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Flatten arrays of resources so each array element takes one binding number">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
 def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
@@ -326,12 +330,12 @@ def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[Cor
 
 def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
-def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
+def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 // def Fl : JoinedOrSeparate<["-", "/"], "Fl">, MetaVarName<"<file>">, HelpText<"Output a library">;
 def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Output assembly code listing file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
 def Fh : JoinedOrSeparate<["-", "/"], "Fh">, MetaVarName<"<file>">, HelpText<"Output header file containing object code">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
-def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Output warnings and errors to the given file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
+def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Output warnings and errors to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">,
   HelpText<"Write debug information to the given file, or automatically named file in directory when ending in '\\'">,
   Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
@@ -342,27 +346,35 @@ def No : Flag<["-", "/"], "No">, HelpText<"Output instruction byte offsets in as
 def Lx : Flag<["-", "/"], "Lx">, HelpText<"Output hexadecimal literals">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
 
 // In place of 'E' for clang; fxc uses 'E' for entry point.
-def P : Separate<["-", "/"], "P">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+def P : Separate<["-", "/"], "P">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Preprocess to file (must be used alone)">;
 
 // @<file> - options response file
 
 def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Load a binary file rather than compiling">;
-def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[CoreOption]>, Group<hlslutil_Group>,
+def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
-def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
+def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip debug information from 4_0+ shader bytecode  (must be used with /Fo <file>)">;
 def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Embed PDB in shader container (must be used with /Zi)">;
 def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 
-def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
-def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
+def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
+def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
 def extractrootsignature : Flag<["-", "/"], "extractrootsignature">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Extract root signature from shader bytecode (must be used with /Fo <file>)">;
 def verifyrootsignature  : JoinedOrSeparate<["-", "/"], "verifyrootsignature">,  MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Verify shader bytecode with root signature">;
 def force_rootsig_ver    : JoinedOrSeparate<["-", "/"], "force_rootsig_ver">,    Flags<[CoreOption]>, MetaVarName<"<profile>">, Group<hlslcomp_Group>, HelpText<"force root signature version (rootsig_1_1 if omitted)">;
+
+// Temporary TEST options, until reflection inside DXIL part can always be stripped
+def Qkeep_reflect_in_dxil : Flag<["-", "/"], "Qkeep_reflect_in_dxil">,
+  Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Keep reflection data in shader bytecode">;
+def Qstrip_reflect_from_dxil : Flag<["-", "/"], "Qstrip_reflect_from_dxil">,
+  Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
 
 /*
 def shtemplate : JoinedOrSeparate<["-", "/"], "shtemplate">, MetaVarName<"<file>">, Group<hlslcomp_Group>,

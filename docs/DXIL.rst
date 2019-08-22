@@ -3075,7 +3075,6 @@ META.DUPLICATESYSVALUE                    System value may only appear once in s
 META.ENTRYFUNCTION                        entrypoint not found
 META.FLAGSUSAGE                           Flags must match usage
 META.FORCECASEONSWITCH                    Attribute forcecase only works for switch
-META.FUNCTIONANNOTATION                   Cannot find function annotation for %0
 META.GLCNOTONAPPENDCONSUME                globallycoherent cannot be used with append/consume buffers
 META.INTEGERINTERPMODE                    Interpolation mode on integer must be Constant
 META.INTERPMODEINONEROW                   Interpolation mode must be identical for all elements packed into the same row.
@@ -3142,7 +3141,7 @@ SM.MAXMSSMSIZE                            Total Thread Group Shared Memory stora
 SM.MAXTGSMSIZE                            Total Thread Group Shared Memory storage is %0, exceeded %1
 SM.MAXTHEADGROUP                          Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
 SM.MESHPSIGROWCOUNT                       For shader '%0', primitive output signatures are taking up more than %1 rows
-SM.MESHSHADERINOUTSIZE                    For shader '%0', input plus output size is greater than %1
+SM.MESHSHADERINOUTSIZE                    For shader '%0', payload plus output size is greater than %1
 SM.MESHSHADERMAXPRIMITIVECOUNT            MS max primitive output count must be [0..%0].  %1 specified
 SM.MESHSHADERMAXVERTEXCOUNT               MS max vertex output count must be [0..%0].  %1 specified
 SM.MESHSHADEROUTPUTSIZE                   For shader '%0', vertex plus primitive output size is greater than %1

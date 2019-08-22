@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types -HV 2018 -Qstrip_reflect %s  | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_2 -enable-16bit-types -HV 2018 -Qstrip_reflect %s  | FileCheck %s
 
 
 struct MyStruct1
@@ -76,6 +76,5 @@ float4 main() : SV_Target {
     return 1;
 }
 
-// Make sure only function annotation, no struct annotation.
-// CHECK:!dx.typeAnnotations = !{[[FuncAnnot:[^,]+]]}
-// CHECK:[[FuncAnnot]] = !{i32 1, void ()* @main,
+// Make sure there are no type annotations
+// CHECK-NOT: !dx.typeAnnotations

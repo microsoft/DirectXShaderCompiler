@@ -164,7 +164,7 @@ bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
 }
 
 bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
-                        const llvm::SmallVector<llvm::StringRef, 4> &flags,
+                        clang::spirv::SpirvCodeGenOptions &spirvOptions,
                         std::string *messages) {
   spvtools::Optimizer optimizer(env);
 
@@ -176,14 +176,16 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
 
-  if (flags.empty()) {
+  if (spirvOptions.optConfig.empty()) {
     optimizer.RegisterPerformancePasses();
+    if (spirvOptions.flattenResourceArrays)
+      optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
     optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   } else {
     // Command line options use llvm::SmallVector and llvm::StringRef, whereas
     // SPIR-V optimizer uses std::vector and std::string.
     std::vector<std::string> stdFlags;
-    for (const auto &f : flags)
+    for (const auto &f : spirvOptions.optConfig)
       stdFlags.push_back(f.str());
     if (!optimizer.RegisterPassesFromFlags(stdFlags))
       return false;
@@ -533,11 +535,13 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   // Set shader module version, source file name, and source file content (if
   // needed).
   llvm::StringRef source = "";
-  llvm::StringRef fileName = "";
+  std::vector<llvm::StringRef> fileNames;
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   // File name
   if (spirvOptions.debugInfoFile && !inputFiles.empty()) {
-    fileName = inputFiles.front().getFile();
+    for (const auto &inputFile : inputFiles) {
+      fileNames.push_back(inputFile.getFile());
+    }
   }
   // Source code
   if (spirvOptions.debugInfoSource) {
@@ -546,9 +550,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
         sm.getBuffer(sm.getMainFileID(), SourceLocation());
     source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
   }
-  mainSourceFile =
-      spvBuilder.setDebugSource(spvContext.getMajorVersion(),
-                                spvContext.getMinorVersion(), fileName, source);
+  mainSourceFile = spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                                             spvContext.getMinorVersion(),
+                                             fileNames, source);
 
   if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
     // Emit OpModuleProcessed to indicate the commit information.
@@ -642,6 +646,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
+    // In order to flatten resource arrays, we must also unroll loops. Therefore
+    // we should run legalization before optimization.
+    needsLegalization = needsLegalization || spirvOptions.flattenResourceArrays;
+
     // Run legalization passes
     if (needsLegalization || declIdMapper.requiresLegalization()) {
       std::string messages;
@@ -660,8 +668,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
-      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions.optConfig,
-                              &messages)) {
+      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -723,6 +730,8 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doHLSLBufferDecl(bufferDecl);
   } else if (const auto *recordDecl = dyn_cast<RecordDecl>(decl)) {
     doRecordDecl(recordDecl);
+  } else if (const auto *enumDecl = dyn_cast<EnumDecl>(decl)) {
+    doEnumDecl(enumDecl);
   } else {
     emitError("decl type %0 unimplemented", decl->getLocation())
         << decl->getDeclKindName();
@@ -1247,6 +1256,11 @@ void SpirvEmitter::doRecordDecl(const RecordDecl *recordDecl) {
     if (auto *varDecl = dyn_cast<VarDecl>(subDecl))
       if (varDecl->isStaticDataMember() && varDecl->hasInit())
         doVarDecl(varDecl);
+}
+
+void SpirvEmitter::doEnumDecl(const EnumDecl *decl) {
+  for (auto it = decl->enumerator_begin(); it != decl->enumerator_end(); ++it)
+    declIdMapper.createEnumConstant(*it);
 }
 
 void SpirvEmitter::doVarDecl(const VarDecl *decl) {
@@ -5427,7 +5441,7 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
     var->setStorageClass(spv::StorageClass::Private);
     storeValue(
         // Static function variable are of private storage class
-        var, doExpr(varInit), varInit->getType(), varInit->getLocEnd());
+        var, loadIfGLValue(varInit), varInit->getType(), varInit->getLocEnd());
   } else {
     spvBuilder.createStore(var, spvBuilder.getConstantNull(varType), loc);
   }
@@ -6563,6 +6577,9 @@ SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
 SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
                                           QualType fromType, QualType toIntType,
                                           SourceLocation srcLoc) {
+  if (isEnumType(fromType))
+    fromType = astContext.IntTy;
+
   if (isSameType(astContext, fromType, toIntType))
     return fromVal;
 
@@ -10251,7 +10268,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     const auto varInfo =
         declIdMapper.getDeclEvalInfo(varDecl, varDecl->getLocation());
     if (const auto *init = varDecl->getInit()) {
-      storeValue(varInfo, doExpr(init), varDecl->getType(),
+      storeValue(varInfo, loadIfGLValue(init), varDecl->getType(),
                  init->getLocStart());
 
       // Update counter variable associated with global variables
@@ -10621,7 +10638,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     const auto varInfo =
         declIdMapper.getDeclEvalInfo(varDecl, varDecl->getLocation());
     if (const auto *init = varDecl->getInit()) {
-      storeValue(varInfo, doExpr(init), varDecl->getType(),
+      storeValue(varInfo, loadIfGLValue(init), varDecl->getType(),
                  init->getLocStart());
 
       // Update counter variable associated with global variables

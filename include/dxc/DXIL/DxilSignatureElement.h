@@ -89,6 +89,9 @@ public:
   unsigned GetDynIdxCompMask() const;
   void SetDynIdxCompMask(unsigned DynIdxCompMask);
 
+  uint8_t GetUsageMask() const;
+  void SetUsageMask(unsigned UsageMask);
+
 protected:
   DXIL::SigPointKind m_sigPointKind;
   const Semantic *m_pSemantic;
@@ -105,6 +108,9 @@ protected:
   int m_StartCol;
   unsigned m_OutputStream;
   unsigned m_DynIdxCompMask;
+  // UsageMask is meant to match the signature usage mask, used for validation:
+  // for output: may-write, for input: always-reads
+  unsigned m_UsageMask;
 };
 
 } // namespace hlsl

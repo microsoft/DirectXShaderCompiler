@@ -128,6 +128,7 @@ public:
   static const unsigned kDxilSignatureElementOutputStreamTag    = 0;
   static const unsigned kHLSignatureElementGlobalSymbolTag      = 1;
   static const unsigned kDxilSignatureElementDynIdxCompMaskTag  = 2;
+  static const unsigned kDxilSignatureElementUsageCompMaskTag   = 3;
 
   // Resources.
   static const char kDxilResourcesMDName[];
@@ -192,6 +193,7 @@ public:
   static const unsigned kDxilFieldAnnotationFieldNameTag          = 6;
   static const unsigned kDxilFieldAnnotationCompTypeTag           = 7;
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
+  static const unsigned kDxilFieldAnnotationCBUsedTag             = 9;
 
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
   static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties
@@ -293,6 +295,10 @@ public:
   protected:
     llvm::LLVMContext &m_Ctx;
     llvm::Module *m_pModule;
+
+  public:
+    unsigned m_ValMajor, m_ValMinor;        // Reported validation version in DXIL
+    unsigned m_MinValMajor, m_MinValMinor;  // Minimum validation version dictated by shader model
   };
 
 public:
@@ -484,6 +490,8 @@ private:
   llvm::Module *m_pModule;
   const ShaderModel *m_pSM;
   std::unique_ptr<ExtraPropertyHelper> m_ExtraPropertyHelper;
+  unsigned m_ValMajor, m_ValMinor;        // Reported validation version in DXIL
+  unsigned m_MinValMajor, m_MinValMinor;  // Minimum validation version dictated by shader model
 };
 
 

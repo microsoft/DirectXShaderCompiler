@@ -61,6 +61,19 @@ public:
   TEST_METHOD(Precise5)
   TEST_METHOD(Precise6)
   TEST_METHOD(Precise7)
+
+  TEST_METHOD(CSGetNumThreads)
+  TEST_METHOD(MSGetNumThreads)
+  TEST_METHOD(ASGetNumThreads)
+
+  TEST_METHOD(SetValidatorVersion)
+
+  void VerifyValidatorVersionFails(
+    LPCWSTR shaderModel, const std::vector<LPCWSTR> &arguments,
+    const std::vector<LPCSTR> &expectedErrors);
+  void VerifyValidatorVersionMatches(
+    LPCWSTR shaderModel, const std::vector<LPCWSTR> &arguments,
+    unsigned expectedMajor = UINT_MAX, unsigned expectedMinor = UINT_MAX);
 };
 
 bool DxilModuleTest::InitSupport() {
@@ -150,7 +163,7 @@ public:
     return *DM;
   }
 
-private:
+public:
   static ::llvm::sys::fs::MSFileSystem *CreateMSFileSystem() {
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -424,4 +437,144 @@ TEST_F(DxilModuleTest, Precise7) {
     }
   }
   VERIFY_ARE_EQUAL(numChecks, 4);
+}
+
+TEST_F(DxilModuleTest, CSGetNumThreads) {
+  Compiler c(m_dllSupport);
+  c.Compile(
+    "[numthreads(8, 4, 2)]\n"
+    "void main() {\n"
+    "}\n"
+    ,
+    L"cs_6_0"
+  );
+
+  DxilModule &DM = c.GetDxilModule();
+  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+}
+
+TEST_F(DxilModuleTest, MSGetNumThreads) {
+  Compiler c(m_dllSupport);
+  if (c.SkipDxil_Test(1,5)) return;
+  c.Compile(
+    "struct MeshPerVertex { float4 pos : SV_Position; };\n"
+    "[numthreads(8, 4, 2)]\n"
+    "[outputtopology(\"triangle\")]\n"
+    "void main(\n"
+    "          out indices uint3 primIndices[1]\n"
+    ") {\n"
+    "    SetMeshOutputCounts(0, 0);\n"
+    "}\n"
+    ,
+    L"ms_6_5"
+  );
+
+  DxilModule &DM = c.GetDxilModule();
+  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+}
+
+TEST_F(DxilModuleTest, ASGetNumThreads) {
+  Compiler c(m_dllSupport);
+  if (c.SkipDxil_Test(1,5)) return;
+  c.Compile(
+    "struct Payload { uint i; };\n"
+    "[numthreads(8, 4, 2)]\n"
+    "void main() {\n"
+    "  Payload pld = {0};\n"
+    "    DispatchMesh(1, 1, 1, pld);\n"
+    "}\n"
+    ,
+    L"as_6_5"
+  );
+
+  DxilModule &DM = c.GetDxilModule();
+  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+}
+
+void DxilModuleTest::VerifyValidatorVersionFails(
+    LPCWSTR shaderModel, const std::vector<LPCWSTR> &arguments,
+    const std::vector<LPCSTR> &expectedErrors) {
+
+  LPCSTR shader =
+    "[shader(\"pixel\")]"
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n";
+
+  Compiler c(m_dllSupport);
+  c.Compile(shader, shaderModel, arguments, {});
+  CheckOperationResultMsgs(c.pCompileResult, expectedErrors, false, false);
+}
+
+void DxilModuleTest::VerifyValidatorVersionMatches(
+    LPCWSTR shaderModel, const std::vector<LPCWSTR> &arguments,
+    unsigned expectedMajor, unsigned expectedMinor) {
+
+  LPCSTR shader =
+    "[shader(\"pixel\")]"
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n";
+
+  Compiler c(m_dllSupport);
+  c.Compile(shader, shaderModel, arguments, {});
+  DxilModule &DM = c.GetDxilModule();
+  unsigned vMajor, vMinor;
+  DM.GetValidatorVersion(vMajor, vMinor);
+
+  if (expectedMajor == UINT_MAX) {
+    // Expect current version
+    VERIFY_ARE_EQUAL(vMajor, c.m_ver.m_ValMajor);
+    VERIFY_ARE_EQUAL(vMinor, c.m_ver.m_ValMinor);
+  } else {
+    VERIFY_ARE_EQUAL(vMajor, expectedMajor);
+    VERIFY_ARE_EQUAL(vMinor, expectedMinor);
+  }
+}
+
+TEST_F(DxilModuleTest, SetValidatorVersion) {
+  Compiler c(m_dllSupport);
+  if (c.SkipDxil_Test(1, 4)) return;
+
+  // Current version
+  VerifyValidatorVersionMatches(L"ps_6_2", {});
+  VerifyValidatorVersionMatches(L"lib_6_3", {});
+
+  // Current version, with validation disabled
+  VerifyValidatorVersionMatches(L"ps_6_2", {L"-Vd"});
+  VerifyValidatorVersionMatches(L"lib_6_3", {L"-Vd"});
+
+  // Override validator version
+  VerifyValidatorVersionMatches(L"ps_6_2", {L"-validator-version", L"1.2"}, 1,2);
+  VerifyValidatorVersionMatches(L"lib_6_3", {L"-validator-version", L"1.3"}, 1,3);
+
+  // Override validator version, with validation disabled
+  VerifyValidatorVersionMatches(L"ps_6_2", {L"-Vd", L"-validator-version", L"1.2"}, 1,2);
+  VerifyValidatorVersionMatches(L"lib_6_3", {L"-Vd", L"-validator-version", L"1.3"}, 1,3);
+
+  // Never can validate (version 0,0):
+  VerifyValidatorVersionMatches(L"lib_6_1", {L"-Vd"}, 0, 0);
+  VerifyValidatorVersionMatches(L"lib_6_2", {L"-Vd"}, 0, 0);
+  VerifyValidatorVersionMatches(L"lib_6_2", {L"-Vd", L"-validator-version", L"0.0"}, 0, 0);
+  VerifyValidatorVersionMatches(L"lib_6_x", {}, 0, 0);
+  VerifyValidatorVersionMatches(L"lib_6_x", {L"-validator-version", L"0.0"}, 0, 0);
+
+  // Failure cases:
+  VerifyValidatorVersionFails(L"ps_6_2", {L"-validator-version", L"1.1"}, {
+    "validator version 1,1 does not support target profile."});
+
+  VerifyValidatorVersionFails(L"lib_6_2", {L"-Tlib_6_2"}, {
+    "Must disable validation for unsupported lib_6_1 or lib_6_2 targets"});
+
+  VerifyValidatorVersionFails(L"lib_6_2", {L"-Vd", L"-validator-version", L"1.2"}, {
+    "-validator-version cannot be used with library profiles lib_6_1 or lib_6_2."});
+
+  VerifyValidatorVersionFails(L"lib_6_x", {L"-validator-version", L"1.3"}, {
+    "Offline library profile cannot be used with non-zero -validator-version."});
 }

@@ -197,7 +197,13 @@ bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) 
   if (!m_pSM)
     return false;
   m_pSM->GetMinValidatorVersion(ValMajor, ValMinor);
-  if (ValMajor == 1 && ValMinor == 0 &&
+  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0 &&
+      m_ShaderFlags.GetRaytracingTier1_1())
+    ValMinor = 5;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 4) < 0 &&
+           GetSubobjects() && !GetSubobjects()->GetSubobjects().empty())
+    ValMinor = 4;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0 &&
       (m_ShaderFlags.GetFeatureInfo() & hlsl::DXIL::ShaderFeatureInfo_ViewID))
     ValMinor = 1;
   return true;
@@ -360,24 +366,30 @@ void DxilModule::CollectShaderFlagsForModule() {
 }
 
 void DxilModule::SetNumThreads(unsigned x, unsigned y, unsigned z) {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
-           "only works for CS profile");
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
+           (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
+           "only works for CS/MS/AS profiles");
   DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT(props.IsCS(), "Must be CS profile");
-  unsigned *numThreads = props.ShaderProps.CS.numThreads;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
+    props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   numThreads[0] = x;
   numThreads[1] = y;
   numThreads[2] = z;
 }
 unsigned DxilModule::GetNumThreads(unsigned idx) const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
+           (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
+           "only works for CS/MS/AS profiles");
   DXASSERT(idx < 3, "Thread dimension index must be 0-2");
-  if (!m_pSM->IsCS())
-    return 0;
-  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
   __analysis_assume(idx < 3);
+  if (!(m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()))
+    return 0;
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT(props.IsCS(), "Must be CS profile");
-  return props.ShaderProps.CS.numThreads[idx];
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
+    props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
+  return numThreads[idx];
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
@@ -1525,52 +1537,112 @@ void DxilModule::ReEmitDxilResources() {
 }
 
 template <typename TResource>
-static void
+static bool
 StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
+  bool bChanged = false;
   for (auto &p : vec) {
     p->SetGlobalName("");
     // Cannot remove global symbol which used by validation.
+    bChanged = true;
   }
+  return bChanged;
 }
 
-void DxilModule::StripReflection() {
+static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
+  if (Ty->getName().startswith("class.matrix."))
+    return true;
+  for (auto eTy : Ty->elements()) {
+    if (StructType *structTy = dyn_cast<StructType>(eTy)) {
+      if (ResourceTypeRequiresTranslation(structTy))
+        return true;
+    }
+    SequentialType *seqTy;
+    while (seqTy = dyn_cast<SequentialType>(eTy)) {
+      eTy = seqTy->getElementType();
+    }
+    if (eTy->getScalarSizeInBits() < 32) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DxilModule::StripReflection() {
+  bool bChanged = false;
+  bool bIsLib = GetShaderModel()->IsLib();
+
   // Remove names.
   for (Function &F : m_pModule->functions()) {
     for (BasicBlock &BB : F) {
-      if (BB.hasName())
+      if (BB.hasName()) {
         BB.setName("");
+        bChanged = true;
+      }
       for (Instruction &I : BB) {
-        if (I.hasName())
+        if (I.hasName()) {
           I.setName("");
+          bChanged = true;
+        }
       }
     }
   }
-  // Remove struct annotation.
-  // FunctionAnnotation is used later, so keep it.
-  m_pTypeSystem->GetStructAnnotationMap().clear();
 
+  if (bIsLib && GetUseMinPrecision())
+  {
+    // We must preserve struct annotations for resources containing min-precision types,
+    // since they have not yet been converted for legacy layout.
+    SmallVector<const StructType*, 4> structsToRemove;
+    for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
+      if (!ResourceTypeRequiresTranslation(item.first))
+        structsToRemove.emplace_back(item.first);
+    }
+    for (auto Ty : structsToRemove) {
+      m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
+    }
+  } else {
+    // Remove struct annotations.
+    if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {
+      m_pTypeSystem->GetStructAnnotationMap().clear();
+      bChanged = true;
+    }
+    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+      // Remove function annotations.
+      if (!m_pTypeSystem->GetFunctionAnnotationMap().empty()) {
+        m_pTypeSystem->GetFunctionAnnotationMap().clear();
+        bChanged = true;
+      }
+    }
+  }
 
   // Resource
-  if (!GetShaderModel()->IsLib()) {
-    StripResourcesReflection(m_CBuffers);
-    StripResourcesReflection(m_UAVs);
-    StripResourcesReflection(m_SRVs);
-    StripResourcesReflection(m_Samplers);
+  if (!bIsLib) {
+    bChanged |= StripResourcesReflection(m_CBuffers);
+    bChanged |= StripResourcesReflection(m_UAVs);
+    bChanged |= StripResourcesReflection(m_SRVs);
+    bChanged |= StripResourcesReflection(m_Samplers);
   }
 
   // Unused global.
   SmallVector<GlobalVariable *,2> UnusedGlobals;
   for (GlobalVariable &GV : m_pModule->globals()) {
-    if (GV.use_empty())
-      UnusedGlobals.emplace_back(&GV);
+    if (GV.use_empty()) {
+      // Need to preserve this global, otherwise we drop constructors
+      // for static globals.
+      if (!bIsLib || GV.getName().compare("llvm.global_ctors") != 0)
+        UnusedGlobals.emplace_back(&GV);
+    }
   }
+  bChanged |= !UnusedGlobals.empty();
 
   for (GlobalVariable *GV : UnusedGlobals) {
     GV->eraseFromParent();
   }
 
   // ReEmit meta.
-  ReEmitDxilResources();
+  if (bChanged)
+    ReEmitDxilResources();
+
+  return bChanged;
 }
 
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {

@@ -179,12 +179,14 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWS
   highLevelArgs.insert(highLevelArgs.end(), args.begin(), args.end());
 
   // Create the target program with a single invocation.
+  highLevelArgs.emplace_back(L"/Qkeep_reflect_in_dxil");
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", pTarget,
     highLevelArgs.data(), static_cast<UINT32>(highLevelArgs.size()), nullptr, 0, nullptr, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   pResult.Release();
   std::string originalAssembly = DisassembleProgram(m_dllSupport, pProgram);
+  highLevelArgs.pop_back(); // Remove /keep_reflect_in_dxil
 
   // Get a list of passes for this configuration.
   highLevelArgs.emplace_back(L"/Odump");

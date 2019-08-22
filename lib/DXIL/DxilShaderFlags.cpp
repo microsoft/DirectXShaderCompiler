@@ -459,6 +459,28 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     }
   }
 
+  if (!hasRaytracingTier1_1) {
+    if (const DxilSubobjects *pSubobjects = M->GetSubobjects()) {
+      for (const auto &it : pSubobjects->GetSubobjects()) {
+        switch (it.second->GetKind()) {
+        case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+          hasRaytracingTier1_1 = true;
+          break;
+        case DXIL::SubobjectKind::StateObjectConfig: {
+          uint32_t Flags;
+          if (it.second->GetStateObjectConfig(Flags) &&
+              ((Flags & ~(unsigned)DXIL::StateObjectFlags::ValidMask_1_4) != 0))
+            hasRaytracingTier1_1 = true;
+        } break;
+        default:
+          break;
+        }
+        if (hasRaytracingTier1_1)
+          break;
+      }
+    }
+  }
+
   flag.SetEnableDoublePrecision(hasDouble);
   flag.SetStencilRef(hasStencilRef);
   flag.SetInnerCoverage(hasInnerCoverage);

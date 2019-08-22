@@ -234,7 +234,13 @@ public:
 
 #if _ITERATOR_DEBUG_LEVEL==0 
   // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
-  TEST_METHOD(CompileWhenNoMemThenOOM)
+  BEGIN_TEST_METHOD(CompileWhenNoMemThenOOM)
+    // Disabled because there are problems where we try to allocate memory in destructors,
+    // which causes more bad_alloc() throws while unwinding bad_alloc(), which asserts
+    // If only failing one allocation, there are allocations where failing them is lost,
+    // such as in ~raw_string_ostream(), where it flushes, then eats bad_alloc(), if thrown.
+    TEST_METHOD_PROPERTY(L"Ignore", L"true")
+  END_TEST_METHOD()
 #endif
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
@@ -274,8 +280,6 @@ public:
 
   TEST_METHOD(CodeGenSamples)
   TEST_METHOD(SubobjectCodeGenErrors)
-  TEST_METHOD(DebugInfo)
-  TEST_METHOD(QuickTest)
   TEST_METHOD(SanitizePDBName)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
@@ -2779,10 +2783,6 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
   }
 }
 
-TEST_F(CompilerTest, DebugInfo) {
-  CodeGenTestCheckBatchDir(L"debug");
-}
-
 // Check that pdb name doesn't contain any preceding or trailing quotations
 TEST_F(CompilerTest, SanitizePDBName) {
   const char *hlsl = R"(
@@ -2832,10 +2832,6 @@ TEST_F(CompilerTest, SanitizePDBName) {
   VERIFY_IS_TRUE(0 == strcmp(Name, "my_pdb.pdb"));
 }
 
-TEST_F(CompilerTest, QuickTest) {
-  CodeGenTestCheckBatchDir(L"quick-test");
-}
-
 #ifdef _WIN32
 TEST_F(CompilerTest, ManualFileCheckTest) {
 #else
@@ -2881,5 +2877,7 @@ TEST_F(CompilerTest, CodeGenBatch) {
 }
 
 TEST_F(CompilerTest, Mesh) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
   CodeGenTestCheckBatchDir(L"mesh");
 }

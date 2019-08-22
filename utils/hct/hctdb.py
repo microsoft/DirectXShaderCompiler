@@ -65,6 +65,7 @@ class db_dxil_inst(object):
         self.fn_attr = ""               # attribute shorthands: rn=does not access memory,ro=only reads from memory,
         self.is_deriv = False           # whether this is some kind of derivative
         self.is_gradient = False        # whether this requires a gradient calculation
+        self.is_feedback = False        # whether this is a sampler feedback op
         self.is_wave = False            # whether this requires in-wave, cross-lane functionality
         self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
         self.shader_stages = ()         # shader stages to which this applies, empty for all.
@@ -401,10 +402,12 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,5
         for i in "WriteSamplerFeedback,WriteSamplerFeedbackBias".split(","):
             self.name_idx[i].category = "Sampler Feedback"
+            self.name_idx[i].is_feedback = True
             self.name_idx[i].shader_model = 6,5
             self.name_idx[i].shader_stages = ("library", "pixel",)
         for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
             self.name_idx[i].category = "Sampler Feedback"
+            self.name_idx[i].is_feedback = True
             self.name_idx[i].shader_model = 6,5
         for i in ("AllocateRayQuery,RayQuery_TraceRayInline,RayQuery_Proceed,RayQuery_Abort,RayQuery_CommitNonOpaqueTriangleHit,RayQuery_CommitProceduralPrimitiveHit,RayQuery_RayFlags,RayQuery_WorldRayOrigin,RayQuery_WorldRayDirection,RayQuery_RayTMin,"+
                  "RayQuery_CandidateTriangleRayT,RayQuery_CommittedRayT,RayQuery_CandidateInstanceIndex,RayQuery_CandidateInstanceID,RayQuery_CandidateGeometryIndex,RayQuery_CandidatePrimitiveIndex,"+
@@ -1458,7 +1461,8 @@ class db_dxil(object):
             db_dxil_param(5, "f", "c0", "coordinate c0"),
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
-            db_dxil_param(8, "f", "clamp", "clamp")])
+            db_dxil_param(8, "f", "c3", "coordinate c3"),
+            db_dxil_param(9, "f", "clamp", "clamp")])
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackBias", next_op_idx, "WriteSamplerFeedbackBias", "updates a feedback texture for a sampling operation with a bias on the mipmap level", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1468,8 +1472,9 @@ class db_dxil(object):
             db_dxil_param(5, "f", "c0", "coordinate c0"),
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
-            db_dxil_param(8, "f", "bias", "bias in [-16.f,15.99f]"),
-            db_dxil_param(9, "f", "clamp", "clamp")])
+            db_dxil_param(8, "f", "c3", "coordinate c3"),
+            db_dxil_param(9, "f", "bias", "bias in [-16.f,15.99f]"),
+            db_dxil_param(10, "f", "clamp", "clamp")])
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackLevel", next_op_idx, "WriteSamplerFeedbackLevel", "updates a feedback texture for a sampling operation with a mipmap-level offset", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1479,7 +1484,8 @@ class db_dxil(object):
             db_dxil_param(5, "f", "c0", "coordinate c0"),
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
-            db_dxil_param(8, "f", "lod", "LOD")])
+            db_dxil_param(8, "f", "c3", "coordinate c3"),
+            db_dxil_param(9, "f", "lod", "LOD")])
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackGrad", next_op_idx, "WriteSamplerFeedbackGrad", "updates a feedback texture for a sampling operation with explicit gradients", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1489,9 +1495,14 @@ class db_dxil(object):
             db_dxil_param(5, "f", "c0", "coordinate c0"),
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
-            db_dxil_param(8, "f", "ddx", "ddx"),
-            db_dxil_param(9, "f", "ddy", "ddy"),
-            db_dxil_param(10, "f", "clamp", "clamp")])
+            db_dxil_param(8, "f", "c3", "coordinate c3"),
+            db_dxil_param(9, "f", "ddx0", "rate of change of coordinate c0 in the x direction"),
+            db_dxil_param(10, "f", "ddx1", "rate of change of coordinate c1 in the x direction"),
+            db_dxil_param(11, "f", "ddx2", "rate of change of coordinate c2 in the x direction"),
+            db_dxil_param(12, "f", "ddy0", "rate of change of coordinate c0 in the y direction"),
+            db_dxil_param(13, "f", "ddy1", "rate of change of coordinate c1 in the y direction"),
+            db_dxil_param(14, "f", "ddy2", "rate of change of coordinate c2 in the y direction"),
+            db_dxil_param(15, "f", "clamp", "clamp")])
         next_op_idx += 1
 
         # RayQuery
@@ -2260,7 +2271,6 @@ class db_dxil(object):
         self.add_valrule("Meta.TessellatorOutputPrimitive", "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.")
         self.add_valrule("Meta.MaxTessFactor", "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified")
         self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler ")
-        self.add_valrule("Meta.FunctionAnnotation", "Cannot find function annotation for %0")
         self.add_valrule("Meta.GlcNotOnAppendConsume", "globallycoherent cannot be used with append/consume buffers")
         self.add_valrule_msg("Meta.StructBufAlignment", "StructuredBuffer stride not aligned","structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)")
         self.add_valrule_msg("Meta.StructBufAlignmentOutOfBound", "StructuredBuffer stride out of bounds","structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)")
@@ -2445,7 +2455,7 @@ class db_dxil(object):
         self.add_valrule("Sm.MeshShaderPayloadSize", "For shader '%0', payload size is greater than %1")
         self.add_valrule("Sm.MeshShaderPayloadSizeDeclared", "For shader '%0', payload size %1 is greater than declared size of %2 bytes")
         self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1")
-        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', input plus output size is greater than %1")
+        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', payload plus output size is greater than %1")
         self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows")
         self.add_valrule("Sm.MeshPSigRowCount", "For shader '%0', primitive output signatures are taking up more than %1 rows")
         self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows")

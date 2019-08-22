@@ -601,8 +601,6 @@ public:
   DxilRuntimeData(const void *ptr, size_t size);
   // initializing reader from RDAT. return true if no error has occured.
   bool InitFromRDAT(const void *pRDAT, size_t size);
-  // read prerelease data:
-  bool InitFromRDAT_Prerelease(const void *pRDAT, size_t size);
   FunctionTableReader *GetFunctionTableReader();
   ResourceTableReader *GetResourceTableReader();
   SubobjectTableReader *GetSubobjectTableReader();

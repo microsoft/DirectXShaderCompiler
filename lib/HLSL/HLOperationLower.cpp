@@ -535,17 +535,29 @@ Value *TrivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TrivialDxilOperation(opcode, args, Ty, RetTy, hlslOP, Builder);
 }
 
+bool IsResourceGEP(GetElementPtrInst *I) {
+  Type *Ty = I->getType()->getPointerElementType();
+  Ty = dxilutil::GetArrayEltTy(Ty);
+  // Only mark on GEP which point to resource.
+  return dxilutil::IsHLSLResourceType(Ty);
+}
+
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   CI->replaceAllUsesWith(V);
+
   for (User *U : V->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
-      DxilMDHelper::MarkNonUniform(I);
+      // Only mark on GEP which point to resource.
+      if (IsResourceGEP(I))
+        DxilMDHelper::MarkNonUniform(I);
     } else if (CastInst *castI = dyn_cast<CastInst>(U)) {
       for (User *castU : castI->users()) {
         if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(castU)) {
-          DxilMDHelper::MarkNonUniform(I);
+          // Only mark on GEP which point to resource.
+          if (IsResourceGEP(I))
+            DxilMDHelper::MarkNonUniform(I);
         }
       }
     }
@@ -1969,7 +1981,7 @@ Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   // bool ne = val != 0;
   Value *notZero = Builder.CreateFCmpUNE(val, zeroVal);
-  notZero = Builder.CreateZExt(notZero, dstTy);
+  notZero = Builder.CreateSExt(notZero, dstTy);
 
   Value *intVal = Builder.CreateBitCast(val, dstTy);
   // temp = intVal & exponentMask;
@@ -2658,24 +2670,40 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 struct SampleHelper {
   SampleHelper(CallInst *CI, OP::OpCode op, HLObjectOperationLowerHelper *pObjHelper);
 
-  OP::OpCode opcode;
-  Value *texHandle;
-  Value *samplerHandle;
+  OP::OpCode opcode = OP::OpCode::NumOpCodes;
+  DXIL::ResourceKind resourceKind = DXIL::ResourceKind::Invalid;
+  Value *sampledTexHandle = nullptr;
+  Value *texHandle = nullptr;
+  Value *samplerHandle = nullptr;
   static const unsigned kMaxCoordDimensions = 4;
+  unsigned coordDimensions = 0;
   Value *coord[kMaxCoordDimensions];
-  Value *special; // For CompareValue, Bias, LOD.
+  Value *compareValue = nullptr;
+  Value *bias = nullptr;
+  Value *lod = nullptr;
   // SampleGrad only.
   static const unsigned kMaxDDXYDimensions = 3;
   Value *ddx[kMaxDDXYDimensions];
   Value *ddy[kMaxDDXYDimensions];
   // Optional.
   static const unsigned kMaxOffsetDimensions = 3;
+  unsigned offsetDimensions = 0;
   Value *offset[kMaxOffsetDimensions];
-  Value *clamp;
-  Value *status;
-  void TranslateCoord(CallInst *CI, unsigned coordIdx,
-                      unsigned coordDimensions) {
-    Value *coordArg = CI->getArgOperand(coordIdx);
+  Value *clamp = nullptr;
+  Value *status = nullptr;
+  unsigned maxHLOperandRead = 0;
+  Value *ReadHLOperand(CallInst *CI, unsigned opIdx) {
+    if (CI->getNumArgOperands() > opIdx) {
+      maxHLOperandRead = std::max(maxHLOperandRead, opIdx);
+      return CI->getArgOperand(opIdx);
+    }
+    return nullptr;
+  }
+  void TranslateCoord(CallInst *CI, unsigned coordIdx) {
+    Value *coordArg = ReadHLOperand(CI, coordIdx);
+    DXASSERT_NOMSG(coordArg);
+    DXASSERT(coordArg->getType()->getVectorNumElements() == coordDimensions,
+             "otherwise, HL coordinate dimensions mismatch");
     IRBuilder<> Builder(CI);
     for (unsigned i = 0; i < coordDimensions; i++)
       coord[i] = Builder.CreateExtractElement(coordArg, i);
@@ -2683,24 +2711,47 @@ struct SampleHelper {
     for (unsigned i = coordDimensions; i < kMaxCoordDimensions; i++)
       coord[i] = undefF;
   }
-  void TranslateOffset(CallInst *CI, unsigned offsetIdx,
-                       unsigned offsetDimensions) {
-    Value *undefI = UndefValue::get(Type::getInt32Ty(CI->getContext()));
-    if (CI->getNumArgOperands() > offsetIdx) {
-      Value *offsetArg = CI->getArgOperand(offsetIdx);
+  void TranslateOffset(CallInst *CI, unsigned offsetIdx) {
+    IntegerType *i32Ty = Type::getInt32Ty(CI->getContext());
+    if (Value *offsetArg = ReadHLOperand(CI, offsetIdx)) {
+      DXASSERT(offsetArg->getType()->getVectorNumElements() == offsetDimensions,
+               "otherwise, HL coordinate dimensions mismatch");
       IRBuilder<> Builder(CI);
       for (unsigned i = 0; i < offsetDimensions; i++)
         offset[i] = Builder.CreateExtractElement(offsetArg, i);
-      for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
-        offset[i] = undefI;
     } else {
-      for (unsigned i = 0; i < kMaxOffsetDimensions; i++)
-        offset[i] = undefI;
+      // Use zeros for offsets when not specified, not undef.
+      Value *zero = ConstantInt::get(i32Ty, (uint64_t)0);
+      for (unsigned i = 0; i < offsetDimensions; i++)
+        offset[i] = zero;
+    }
+    // Use undef for components that should not be used for this resource dim.
+    Value *undefI = UndefValue::get(i32Ty);
+    for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
+      offset[i] = undefI;
+  }
+  void SetBias(CallInst *CI, unsigned biasIdx) {
+    // Clamp bias for immediate.
+    bias = ReadHLOperand(CI, biasIdx);
+    DXASSERT_NOMSG(bias);
+    if (ConstantFP *FP = dyn_cast<ConstantFP>(bias)) {
+      float v = FP->getValueAPF().convertToFloat();
+      if (v > DXIL::kMaxMipLodBias)
+        bias = ConstantFP::get(FP->getType(), DXIL::kMaxMipLodBias);
+      if (v < DXIL::kMinMipLodBias)
+        bias = ConstantFP::get(FP->getType(), DXIL::kMinMipLodBias);
     }
   }
+  void SetLOD(CallInst *CI, unsigned lodIdx) {
+    lod = ReadHLOperand(CI, lodIdx);
+    DXASSERT_NOMSG(lod);
+  }
+  void SetCompareValue(CallInst *CI, unsigned cmpIdx) {
+    compareValue = ReadHLOperand(CI, cmpIdx);
+    DXASSERT_NOMSG(compareValue);
+  }
   void SetClamp(CallInst *CI, unsigned clampIdx) {
-    if (CI->getNumArgOperands() > clampIdx) {
-      clamp = CI->getArgOperand(clampIdx);
+    if (clamp = ReadHLOperand(CI, clampIdx)) {
       if (clamp->getType()->isVectorTy()) {
         IRBuilder<> Builder(CI);
         clamp = Builder.CreateExtractElement(clamp, (uint64_t)0);
@@ -2709,14 +2760,18 @@ struct SampleHelper {
       clamp = UndefValue::get(Type::getFloatTy(CI->getContext()));
   }
   void SetStatus(CallInst *CI, unsigned statusIdx) {
-    if (CI->getNumArgOperands() == (statusIdx + 1))
-      status = CI->getArgOperand(statusIdx);
-    else
-      status = nullptr;
+    status = ReadHLOperand(CI, statusIdx);
   }
-  void SetDDXY(CallInst *CI, MutableArrayRef<Value *> ddxy, Value *ddxyArg,
-               unsigned ddxySize) {
+  void SetDDX(CallInst *CI, unsigned ddxIdx) {
+    SetDDXY(CI, ddx, ReadHLOperand(CI, ddxIdx));
+  }
+  void SetDDY(CallInst *CI, unsigned ddyIdx) {
+    SetDDXY(CI, ddy, ReadHLOperand(CI, ddyIdx));
+  }
+  void SetDDXY(CallInst *CI, MutableArrayRef<Value *> ddxy, Value *ddxyArg) {
+    DXASSERT_NOMSG(ddxyArg);
     IRBuilder<> Builder(CI);
+    unsigned ddxySize = ddxyArg->getType()->getVectorNumElements();
     for (unsigned i = 0; i < ddxySize; i++)
       ddxy[i] = Builder.CreateExtractElement(ddxyArg, i);
     Value *undefF = UndefValue::get(Type::getFloatTy(CI->getContext()));
@@ -2728,77 +2783,88 @@ struct SampleHelper {
 SampleHelper::SampleHelper(
     CallInst *CI, OP::OpCode op, HLObjectOperationLowerHelper *pObjHelper)
     : opcode(op) {
-  const unsigned thisIdx =
-      HLOperandIndex::kHandleOpIdx; // opcode takes arg0, this pointer is arg1.
-  const unsigned kSamplerArgIndex = HLOperandIndex::kSampleSamplerArgIndex;
 
-  IRBuilder<> Builder(CI);
-  texHandle = CI->getArgOperand(thisIdx);
-  samplerHandle = CI->getArgOperand(kSamplerArgIndex);
-
-  DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
-  if (RK == DXIL::ResourceKind::Invalid) {
+  texHandle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+  resourceKind = pObjHelper->GetRK(texHandle);
+  if (resourceKind == DXIL::ResourceKind::Invalid) {
     opcode = DXIL::OpCode::NumOpCodes;
     return;
   }
-  unsigned coordDimensions = DxilResource::GetNumCoords(RK);
-  unsigned offsetDimensions = DxilResource::GetNumOffsets(RK);
 
-  const unsigned kCoordArgIdx = HLOperandIndex::kSampleCoordArgIndex;
-  TranslateCoord(CI, kCoordArgIdx, coordDimensions);
+  coordDimensions = opcode == DXIL::OpCode::CalculateLOD ? DxilResource::GetNumDimensionsForCalcLOD(resourceKind)
+                                                         : DxilResource::GetNumCoords(resourceKind);
+  offsetDimensions = DxilResource::GetNumOffsets(resourceKind);
 
-  special = nullptr;
+  const bool bFeedbackOp = hlsl::OP::IsDxilOpFeedback(op);
+  sampledTexHandle = bFeedbackOp ? CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackSampledArgIndex)
+                                 : nullptr;
+  const unsigned kSamplerArgIndex = bFeedbackOp ? HLOperandIndex::kWriteSamplerFeedbackSamplerArgIndex
+                                                : HLOperandIndex::kSampleSamplerArgIndex;
+  samplerHandle = CI->getArgOperand(kSamplerArgIndex);
+
+  const unsigned kCoordArgIdx = bFeedbackOp ? HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex
+                                            : HLOperandIndex::kSampleCoordArgIndex;
+  TranslateCoord(CI, kCoordArgIdx);
 
   switch (op) {
   case OP::OpCode::Sample:
-    TranslateOffset(CI, HLOperandIndex::kSampleOffsetArgIndex,
-                    offsetDimensions);
+    TranslateOffset(CI, HLOperandIndex::kSampleOffsetArgIndex);
     SetClamp(CI, HLOperandIndex::kSampleClampArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleStatusArgIndex);
     break;
   case OP::OpCode::SampleLevel:
-    special = CI->getArgOperand(HLOperandIndex::kSampleLLevelArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleLOffsetArgIndex,
-                    offsetDimensions);
+    SetLOD(CI, HLOperandIndex::kSampleLLevelArgIndex);
+    TranslateOffset(CI, HLOperandIndex::kSampleLOffsetArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex);
     break;
   case OP::OpCode::SampleBias:
-    special = CI->getArgOperand(HLOperandIndex::kSampleBBiasArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleBOffsetArgIndex,
-                    offsetDimensions);
+    SetBias(CI, HLOperandIndex::kSampleBBiasArgIndex);
+    TranslateOffset(CI, HLOperandIndex::kSampleBOffsetArgIndex);
     SetClamp(CI, HLOperandIndex::kSampleBClampArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleBStatusArgIndex);
     break;
   case OP::OpCode::SampleCmp:
-    special = CI->getArgOperand(HLOperandIndex::kSampleCmpCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleCmpOffsetArgIndex,
-                    offsetDimensions);
+    SetCompareValue(CI, HLOperandIndex::kSampleCmpCmpValArgIndex);
+    TranslateOffset(CI, HLOperandIndex::kSampleCmpOffsetArgIndex);
     SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex);
     break;
   case OP::OpCode::SampleCmpLevelZero:
-    special = CI->getArgOperand(HLOperandIndex::kSampleCmpLZCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleCmpLZOffsetArgIndex,
-                    offsetDimensions);
+    SetCompareValue(CI, HLOperandIndex::kSampleCmpLZCmpValArgIndex);
+    TranslateOffset(CI, HLOperandIndex::kSampleCmpLZOffsetArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleCmpLZStatusArgIndex);
     break;
   case OP::OpCode::SampleGrad:
-    SetDDXY(CI, ddx, CI->getArgOperand(HLOperandIndex::kSampleGDDXArgIndex),
-            offsetDimensions);
-    SetDDXY(CI, ddy, CI->getArgOperand(HLOperandIndex::kSampleGDDYArgIndex),
-            offsetDimensions);
-    TranslateOffset(CI, HLOperandIndex::kSampleGOffsetArgIndex,
-                    offsetDimensions);
+    SetDDX(CI, HLOperandIndex::kSampleGDDXArgIndex);
+    SetDDY(CI, HLOperandIndex::kSampleGDDYArgIndex);
+    TranslateOffset(CI, HLOperandIndex::kSampleGOffsetArgIndex);
     SetClamp(CI, HLOperandIndex::kSampleGClampArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleGStatusArgIndex);
     break;
   case OP::OpCode::CalculateLOD:
     // Only need coord for LOD calculation.
     break;
+  case OP::OpCode::WriteSamplerFeedback:
+    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedback_ClampArgIndex);
+    break;
+  case OP::OpCode::WriteSamplerFeedbackBias:
+    SetBias(CI, HLOperandIndex::kWriteSamplerFeedbackBias_BiasArgIndex);
+    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackBias_ClampArgIndex);
+    break;
+  case OP::OpCode::WriteSamplerFeedbackGrad:
+    SetDDX(CI, HLOperandIndex::kWriteSamplerFeedbackGrad_DdxArgIndex);
+    SetDDY(CI, HLOperandIndex::kWriteSamplerFeedbackGrad_DdyArgIndex);
+    SetClamp(CI, HLOperandIndex::kWriteSamplerFeedbackGrad_ClampArgIndex);
+    break;
+  case OP::OpCode::WriteSamplerFeedbackLevel:
+    SetLOD(CI, HLOperandIndex::kWriteSamplerFeedbackLevel_LodArgIndex);
+    break;
   default:
     DXASSERT(0, "invalid opcode for Sample");
     break;
   }
+  DXASSERT(maxHLOperandRead == CI->getNumArgOperands() - 1,
+           "otherwise, unused HL arguments for Sample op");
 }
 
 Value *TranslateCalculateLOD(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -2897,7 +2963,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         // Offset.
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // LOD.
-        sampleHelper.special};
+        sampleHelper.lod};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleGrad: {
@@ -2917,15 +2983,6 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleBias: {
-    // Clamp bias for immediate.
-    Value *bias = sampleHelper.special;
-    if (ConstantFP *FP = dyn_cast<ConstantFP>(bias)) {
-      float v = FP->getValueAPF().convertToFloat();
-      if (v > DXIL::kMaxMipLodBias)
-        bias = ConstantFP::get(FP->getType(), DXIL::kMaxMipLodBias);
-      if (v < DXIL::kMinMipLodBias)
-        bias = ConstantFP::get(FP->getType(), DXIL::kMinMipLodBias);
-    }
     Value *sampleArgs[] = {
         opArg, sampleHelper.texHandle, sampleHelper.samplerHandle,
         // Coord.
@@ -2934,7 +2991,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         // Offset.
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // Bias.
-        bias,
+        sampleHelper.bias,
         // Clamp.
         sampleHelper.clamp};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
@@ -2948,7 +3005,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         // Offset.
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // CmpVal.
-        sampleHelper.special,
+        sampleHelper.compareValue,
         // Clamp.
         sampleHelper.clamp};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
@@ -2964,7 +3021,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         // Offset.
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // CmpVal.
-        sampleHelper.special};
+        sampleHelper.compareValue};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   }
@@ -3064,9 +3121,6 @@ GatherHelper::GatherHelper(
     CallInst *CI, OP::OpCode op, HLObjectOperationLowerHelper *pObjHelper,
     GatherHelper::GatherChannel ch)
     : opcode(op), special(nullptr), hasSampleOffsets(false) {
-  const unsigned thisIdx =
-      HLOperandIndex::kHandleOpIdx; // opcode takes arg0, this pointer is arg1.
-  const unsigned kSamplerArgIndex = HLOperandIndex::kSampleSamplerArgIndex;
 
   switch (ch) {
   case GatherChannel::GatherAll:
@@ -3087,8 +3141,8 @@ GatherHelper::GatherHelper(
   }
 
   IRBuilder<> Builder(CI);
-  texHandle = CI->getArgOperand(thisIdx);
-  samplerHandle = CI->getArgOperand(kSamplerArgIndex);
+  texHandle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+  samplerHandle = CI->getArgOperand(HLOperandIndex::kSampleSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
   if (RK == DXIL::ResourceKind::Invalid) {
@@ -3256,64 +3310,76 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 }
 
 static Value* TranslateWriteSamplerFeedback(CallInst* CI, IntrinsicOp IOP, OP::OpCode opcode,
-  HLOperationLowerHelper& helper, HLObjectOperationLowerHelper* pObjHelper, bool& Translated) {
+                                            HLOperationLowerHelper& helper,
+                                            HLObjectOperationLowerHelper* pObjHelper,
+                                            bool& Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  SampleHelper sampleHelper(CI, opcode, pObjHelper);
 
-  hlsl::OP* hlslOP = &helper.hlslOP;
+  if (sampleHelper.opcode == DXIL::OpCode::NumOpCodes) {
+    Translated = false;
+    return nullptr;
+  }
+  Type *Ty = CI->getType();
+
+  Function *F = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
+
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
 
   IRBuilder<> Builder(CI);
 
-  // Build the DXIL operands
-  SmallVector<Value*, 8> DxilOperands;
-  DxilOperands.emplace_back(Builder.getInt32((unsigned)opcode));
-  DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackSampledArgIndex));
-  DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackSamplerArgIndex));
-
-  // Coords operands
-  constexpr unsigned NumDxilCoordsOperands = 3;
-  Value* CoordsVec = CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex);
-  VectorType *CoordsVecTy = cast<VectorType>(CoordsVec->getType());
-  DXASSERT_NOMSG(CoordsVecTy->getNumElements() <= NumDxilCoordsOperands);
-  for (unsigned i = 0; i < NumDxilCoordsOperands; ++i) {
-    Value *Coord = i < CoordsVecTy->getNumElements()
-      ? Builder.CreateExtractElement(CoordsVec, i)
-      : UndefValue::get(CoordsVecTy->getElementType());
-    DxilOperands.emplace_back(Coord);
+  switch (opcode) {
+  case OP::OpCode::WriteSamplerFeedback: {
+    Value *samplerFeedbackArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.sampledTexHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Clamp.
+        sampleHelper.clamp};
+    return Builder.CreateCall(F, samplerFeedbackArgs);
+  } break;
+  case OP::OpCode::WriteSamplerFeedbackBias: {
+    Value *samplerFeedbackArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.sampledTexHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Bias.
+        sampleHelper.bias,
+        // Clamp.
+        sampleHelper.clamp};
+    return Builder.CreateCall(F, samplerFeedbackArgs);
+  } break;
+  case OP::OpCode::WriteSamplerFeedbackGrad: {
+    Value *samplerFeedbackArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.sampledTexHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Ddx.
+        sampleHelper.ddx[0], sampleHelper.ddx[1], sampleHelper.ddx[2],
+        // Ddy.
+        sampleHelper.ddy[0], sampleHelper.ddy[1], sampleHelper.ddy[2],
+        // Clamp.
+        sampleHelper.clamp};
+    return Builder.CreateCall(F, samplerFeedbackArgs);
+  } break;
+  case OP::OpCode::WriteSamplerFeedbackLevel: {
+    Value *samplerFeedbackArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.sampledTexHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // LOD.
+        sampleHelper.lod};
+    return Builder.CreateCall(F, samplerFeedbackArgs);
+  } break;
+  default:
+    DXASSERT(false, "otherwise, unknown SamplerFeedback Op");
+    break;
   }
-
-  unsigned LastHLOperandRead = HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex;
-
-  // Bias/level/grad operands
-  if (opcode == OP::OpCode::WriteSamplerFeedbackBias
-    || opcode == OP::OpCode::WriteSamplerFeedbackLevel) {
-    DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackBiasOrLodArgIndex));
-    LastHLOperandRead = HLOperandIndex::kWriteSamplerFeedbackBiasOrLodArgIndex;
-  }
-  else if (opcode == OP::OpCode::WriteSamplerFeedbackGrad) {
-    DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackDdxArgIndex));
-    DxilOperands.emplace_back(CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackDdyArgIndex));
-    LastHLOperandRead = HLOperandIndex::kWriteSamplerFeedbackDdyArgIndex;
-  }
-
-  // Append the optional clamp argument as needed.
-  bool HasOptionalClampOperand = opcode == OP::OpCode::WriteSamplerFeedback
-    || opcode == OP::OpCode::WriteSamplerFeedbackBias
-    || opcode == OP::OpCode::WriteSamplerFeedbackGrad;
-  if (HasOptionalClampOperand) {
-    if (LastHLOperandRead == CI->getNumArgOperands() - 1)
-      DxilOperands.emplace_back(UndefValue::get(Builder.getFloatTy()));
-    else {
-      LastHLOperandRead++;
-      DxilOperands.emplace_back(CI->getArgOperand(LastHLOperandRead));
-    }
-  }
-
-  DXASSERT(LastHLOperandRead == CI->getNumArgOperands() - 1,
-    "Unexpected trailing hlsl intrinsic arguments.");
-
-  // Call the DXIL operation
-  Function* DxilFunc = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
-  return Builder.CreateCall(DxilFunc, DxilOperands);
+  return nullptr;
 }
 
 // Load/Store intrinsics.
@@ -5496,7 +5562,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
                     const DataLayout &DL, DxilTypeSystem &dxilTypeSys);
 
 Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
-                             IRBuilder<> &Builder) {
+                             IRBuilder<> &Builder, bool bInsertLdNextToGEP) {
   DXASSERT(GEP->getNumIndices() == 2, "must have 2 level");
   Value *baseIdx = (GEP->idx_begin())->get();
   Value *zeroIdx = Builder.getInt32(0);
@@ -5523,8 +5589,10 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
       Builder.CreateStore(Elt, Ptr);
     }
     // Load from temp array.
-    // Insert the new GEP just before the old and to-be-deleted GEP
-    Builder.SetInsertPoint(GEP);
+    if (bInsertLdNextToGEP) {
+      // Insert the new GEP just before the old and to-be-deleted GEP
+      Builder.SetInsertPoint(GEP);
+    }
     Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
     return Builder.CreateLoad(EltGEP);
   }
@@ -5609,7 +5677,8 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       for (auto U = CI->user_begin(); U != CI->user_end();) {
         Value *subsUser = *(U++);
         if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
-          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder);
+          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder,
+                                                 /*bInsertLdNextToGEP*/ true);
 
           for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
             Value *gepUser = *(gepU++);
@@ -6103,7 +6172,8 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       for (auto U = CI->user_begin(); U != CI->user_end();) {
         Value *subsUser = *(U++);
         if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
-          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder);
+          Value *subData = GenerateVecEltFromGEP(ldData, GEP, Builder,
+                                                 /*bInsertLdNextToGEP*/ true);
           for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
             Value *gepUser = *(gepU++);
             // Must be load here;
@@ -7179,7 +7249,8 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
             hlslOP, helper.dataLayout);
 
           // get the single element
-          ldVal = LdBuilder.CreateExtractElement(ldVal, EltIdx);
+          ldVal = GenerateVecEltFromGEP(ldVal, GEP, LdBuilder,
+                                        /*bInsertLdNextToGEP*/ false);
 
           LI->replaceAllUsesWith(ldVal);
           LI->eraseFromParent();

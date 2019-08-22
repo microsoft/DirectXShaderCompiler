@@ -16,6 +16,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace hlsl {
 namespace options {
@@ -161,6 +162,9 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      _Outptr_ IDxcBlob **ppResult);
+
+HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor);
+bool ParseTargetProfile(llvm::StringRef targetProfile, llvm::StringRef &outStage, unsigned &outMajor, unsigned &outMinor);
 
 class VersionSupportInfo {
 private:

@@ -7,7 +7,7 @@ void main() {
   int a;
   int b;
 
-//CHECK:      OpLine [[file]] 13 3
+//CHECK:      OpLine [[file]] 12 3
 //CHECK-NEXT: OpSelectionMerge %switch_merge None
   switch (a) {
   default:
@@ -19,7 +19,7 @@ void main() {
     b = 2;
   }
 
-//CHECK:      OpLine [[file]] 25 23
+//CHECK:      OpLine [[file]] 24 23
 //CHECK-NEXT: OpLoopMerge %for_merge %for_continue None
   for (int i = 0; i < 4; i++) {
     b += i;

@@ -716,7 +716,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
   const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
 
-  resourceVars.emplace_back(varInstr, loc, regAttr, bindingAttr,
+  resourceVars.emplace_back(varInstr, var, loc, regAttr, bindingAttr,
                             counterBindingAttr);
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
@@ -815,6 +815,16 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   return var;
 }
 
+void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
+  const auto *valueDecl = dyn_cast<ValueDecl>(decl);
+  const auto enumConstant =
+      spvBuilder.getConstantInt(astContext.IntTy, decl->getInitVal());
+  SpirvVariable *varInstr = spvBuilder.addModuleVar(
+      astContext.IntTy, spv::StorageClass::Private, /*isPrecise*/ false,
+      decl->getName(), enumConstant, decl->getLocation());
+  astDecls[valueDecl] = DeclSpirvInfo(varInstr);
+}
+
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
@@ -836,7 +846,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
   }
   resourceVars.emplace_back(
-      bufferVar, decl->getLocation(), getResourceBinding(decl),
+      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
@@ -880,7 +890,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   // We register the VarDecl here.
   astDecls[decl] = DeclSpirvInfo(bufferVar);
   resourceVars.emplace_back(
-      bufferVar, decl->getLocation(), getResourceBinding(context),
+      bufferVar, decl, decl->getLocation(), getResourceBinding(context),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
@@ -960,8 +970,8 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
-  resourceVars.emplace_back(globals, SourceLocation(), nullptr, nullptr,
-                            nullptr, /*isCounterVar*/ false,
+  resourceVars.emplace_back(globals, /*decl*/ nullptr, SourceLocation(),
+                            nullptr, nullptr, nullptr, /*isCounterVar*/ false,
                             /*isGlobalsCBuffer*/ true);
 
   uint32_t index = 0;
@@ -1079,7 +1089,7 @@ void DeclResultIdMapper::createCounterVar(
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
-    resourceVars.emplace_back(counterInstr, decl->getLocation(),
+    resourceVars.emplace_back(counterInstr, decl, decl->getLocation(),
                               getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
@@ -1203,26 +1213,63 @@ private:
 /// set and binding number.
 class BindingSet {
 public:
-  /// Uses the given set and binding number.
-  void useBinding(uint32_t binding, uint32_t set) {
-    usedBindings[set].insert(binding);
+  /// Uses the given set and binding number. Returns false if the binding number
+  /// was already occupied in the set, and returns true otherwise.
+  bool useBinding(uint32_t binding, uint32_t set) {
+    bool inserted = false;
+    std::tie(std::ignore, inserted) = usedBindings[set].insert(binding);
+    return inserted;
   }
 
-  /// Uses the next avaiable binding number in set 0.
-  uint32_t useNextBinding(uint32_t set) {
+  /// Uses the next avaiable binding number in |set|. If more than one binding
+  /// number is to be occupied, it finds the next available chunk that can fit
+  /// |numBindingsToUse| in the |set|.
+  uint32_t useNextBinding(uint32_t set, uint32_t numBindingsToUse = 1) {
+    uint32_t bindingNoStart = getNextBindingChunk(set, numBindingsToUse);
     auto &binding = usedBindings[set];
-    auto &next = nextBindings[set];
-    while (binding.count(next))
-      ++next;
-    binding.insert(next);
-    return next++;
+    for (uint32_t i = 0; i < numBindingsToUse; ++i)
+      binding.insert(bindingNoStart + i);
+    return bindingNoStart;
+  }
+
+  /// Returns the first available binding number in the |set| for which |n|
+  /// consecutive binding numbers are unused.
+  uint32_t getNextBindingChunk(uint32_t set, uint32_t n) {
+    auto &existingBindings = usedBindings[set];
+
+    // There were no bindings in this set. Can start at binding zero.
+    if (existingBindings.empty())
+      return 0;
+
+    // Check whether the chunk of |n| binding numbers can be fitted at the
+    // very beginning of the list (start at binding 0 in the current set).
+    uint32_t curBinding = *existingBindings.begin();
+    if (curBinding >= n)
+      return 0;
+
+    auto iter = std::next(existingBindings.begin());
+    while (iter != existingBindings.end()) {
+      // There exists a next binding number that is used. Check to see if the
+      // gap between current binding number and next binding number is large
+      // enough to accommodate |n|.
+      uint32_t nextBinding = *iter;
+      if (n <= nextBinding - curBinding - 1)
+        return curBinding + 1;
+
+      curBinding = nextBinding;
+
+      // Peek at the next binding that has already been used (if any).
+      ++iter;
+    }
+
+    // |curBinding| was the last binding that was used in this set. The next
+    // chunk of |n| bindings can start at |curBinding|+1.
+    return curBinding + 1;
   }
 
 private:
   ///< set number -> set of used binding number
-  llvm::DenseMap<uint32_t, llvm::DenseSet<uint32_t>> usedBindings;
-  ///< set number -> next available binding number
-  llvm::DenseMap<uint32_t, uint32_t> nextBindings;
+  llvm::DenseMap<uint32_t, std::set<uint32_t>> usedBindings;
 };
 } // namespace
 
@@ -1543,11 +1590,30 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
   // Decorates the given varId of the given category with set number
   // setNo, binding number bindingNo. Ignores overlaps.
-  const auto tryToDecorate = [this, &bindingSet](SpirvVariable *var,
+  const auto tryToDecorate = [this, &bindingSet](const ResourceVar &var,
                                                  const uint32_t setNo,
                                                  const uint32_t bindingNo) {
-    bindingSet.useBinding(bindingNo, setNo);
-    spvBuilder.decorateDSetBinding(var, setNo, bindingNo);
+    // By default we use one binding number per resource, and an array of
+    // resources also gets only one binding number. However, for array of
+    // resources (e.g. array of textures), DX uses one binding number per array
+    // element. We can match this behavior via a command line option.
+    uint32_t numBindingsToUse = 1;
+    if (spirvOptions.flattenResourceArrays)
+      numBindingsToUse = var.getArraySize();
+
+    for (uint32_t i = 0; i < numBindingsToUse; ++i) {
+      bool success = bindingSet.useBinding(bindingNo + i, setNo);
+      if (!success && spirvOptions.flattenResourceArrays) {
+        emitError("ran into binding number conflict when assigning binding "
+                  "number %0 in set %1",
+                  {})
+            << bindingNo << setNo;
+      }
+    }
+
+    // No need to decorate multiple binding numbers for arrays. It will be done
+    // by legalization/optimization.
+    spvBuilder.decorateDSetBinding(var.getSpirvInstr(), setNo, bindingNo);
   };
 
   for (const auto &var : resourceVars) {
@@ -1560,13 +1626,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace.getValueOr(defaultSpace);
 
-        tryToDecorate(var.getSpirvInstr(), set, vkCBinding->getBinding());
+        tryToDecorate(var, set, vkCBinding->getBinding());
       }
     } else {
       if (const auto *vkBinding = var.getBinding()) {
         // Process m1
-        tryToDecorate(var.getSpirvInstr(),
-                      getVkBindingAttrSet(vkBinding, defaultSpace),
+        tryToDecorate(var, getVkBindingAttrSet(vkBinding, defaultSpace),
                       vkBinding->getBinding());
       }
     }
@@ -1607,10 +1672,18 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           llvm_unreachable("unknown register type found");
         }
 
-        tryToDecorate(var.getSpirvInstr(), set, binding);
+        tryToDecorate(var, set, binding);
       }
 
   for (const auto &var : resourceVars) {
+    // By default we use one binding number per resource, and an array of
+    // resources also gets only one binding number. However, for array of
+    // resources (e.g. array of textures), DX uses one binding number per array
+    // element. We can match this behavior via a command line option.
+    uint32_t numBindingsToUse = 1;
+    if (spirvOptions.flattenResourceArrays)
+      numBindingsToUse = var.getArraySize();
+
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {
         // Process mX * c2
@@ -1620,15 +1693,17 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace.getValueOr(defaultSpace);
 
-        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
-                                       bindingSet.useNextBinding(set));
+        spvBuilder.decorateDSetBinding(
+            var.getSpirvInstr(), set,
+            bindingSet.useNextBinding(set, numBindingsToUse));
       }
     } else if (!var.getBinding()) {
       const auto *reg = var.getRegister();
       if (reg && reg->isSpaceOnly()) {
         const uint32_t set = reg->RegisterSpace.getValueOr(defaultSpace);
-        spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set,
-                                       bindingSet.useNextBinding(set));
+        spvBuilder.decorateDSetBinding(
+            var.getSpirvInstr(), set,
+            bindingSet.useNextBinding(set, numBindingsToUse));
       } else if (!reg) {
         // Process m3 (no 'vk::binding' and no ':register' assignment)
 
@@ -1643,7 +1718,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else {
           spvBuilder.decorateDSetBinding(
               var.getSpirvInstr(), defaultSpace,
-              bindingSet.useNextBinding(defaultSpace));
+              bindingSet.useNextBinding(defaultSpace, numBindingsToUse));
         }
       }
     }

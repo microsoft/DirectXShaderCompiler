@@ -38,6 +38,9 @@ bool isScalarType(QualType type, QualType *scalarType = nullptr);
 bool isVectorType(QualType type, QualType *elemType = nullptr,
                   uint32_t *elemCount = nullptr);
 
+/// Returns true if the given type is enum type based on AST parse.
+bool isEnumType(QualType type);
+
 /// Returns true if the given type is a 1x1 matrix type.
 ///
 /// If elemType is not nullptr, writes the element type to *elemType.

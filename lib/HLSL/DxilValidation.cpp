@@ -39,6 +39,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -103,7 +104,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaTessellatorOutputPrimitive: return "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.";
     case hlsl::ValidationRule::MetaMaxTessFactor: return "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified";
     case hlsl::ValidationRule::MetaValidSamplerMode: return "Invalid sampler mode on sampler ";
-    case hlsl::ValidationRule::MetaFunctionAnnotation: return "Cannot find function annotation for %0";
     case hlsl::ValidationRule::MetaGlcNotOnAppendConsume: return "globallycoherent cannot be used with append/consume buffers";
     case hlsl::ValidationRule::MetaStructBufAlignment: return "structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)";
     case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)";
@@ -266,7 +266,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmMeshShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
     case hlsl::ValidationRule::SmMeshShaderPayloadSizeDeclared: return "For shader '%0', payload size %1 is greater than declared size of %2 bytes";
     case hlsl::ValidationRule::SmMeshShaderOutputSize: return "For shader '%0', vertex plus primitive output size is greater than %1";
-    case hlsl::ValidationRule::SmMeshShaderInOutSize: return "For shader '%0', input plus output size is greater than %1";
+    case hlsl::ValidationRule::SmMeshShaderInOutSize: return "For shader '%0', payload plus output size is greater than %1";
     case hlsl::ValidationRule::SmMeshVSigRowCount: return "For shader '%0', vertex output signatures are taking up more than %1 rows";
     case hlsl::ValidationRule::SmMeshPSigRowCount: return "For shader '%0', primitive output signatures are taking up more than %1 rows";
     case hlsl::ValidationRule::SmMeshTotalSigRowCount: return "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows";
@@ -2890,10 +2890,10 @@ static void ValidateMsIntrinsics(Function *F,
 
     DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
 
-    if (payloadSize > DXIL::kMaxMSASPayloadSize ||
-        prop.ShaderProps.MS.payloadSizeInBytes > DXIL::kMaxMSASPayloadSize) {
+    if (payloadSize > DXIL::kMaxMSASPayloadBytes ||
+        prop.ShaderProps.MS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
       ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSize,
-        { F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize) });
+        { F->getName(), std::to_string(DXIL::kMaxMSASPayloadBytes) });
     }
 
     if (prop.ShaderProps.MS.payloadSizeInBytes < payloadSize) {
@@ -2919,11 +2919,11 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
 
       DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
 
-      if (payloadSize > DXIL::kMaxMSASPayloadSize ||
-          prop.ShaderProps.AS.payloadSizeInBytes > DXIL::kMaxMSASPayloadSize) {
+      if (payloadSize > DXIL::kMaxMSASPayloadBytes ||
+          prop.ShaderProps.AS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
         ValCtx.EmitFormatError(
             ValidationRule::SmAmplificationShaderPayloadSize,
-            {F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize)});
+            {F->getName(), std::to_string(DXIL::kMaxMSASPayloadBytes)});
       }
 
       if (prop.ShaderProps.AS.payloadSizeInBytes < payloadSize) {
@@ -2957,9 +2957,9 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
   const DataLayout &DL = F->getParent()->getDataLayout();
   unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
 
-  if (payloadSize > DXIL::kMaxMSASPayloadSize) {
+  if (payloadSize > DXIL::kMaxMSASPayloadBytes) {
     ValCtx.EmitFormatError(ValidationRule::SmAmplificationShaderPayloadSize,
-      { F->getName(), std::to_string(DXIL::kMaxMSASPayloadSize) });
+      { F->getName(), std::to_string(DXIL::kMaxMSASPayloadBytes) });
   }
 }
 
@@ -3592,13 +3592,6 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     if (isShader && !F.getReturnType()->isVoidTy())
       ValCtx.EmitFormatError(ValidationRule::DeclShaderReturnVoid, { F.getName() });
 
-    DxilFunctionAnnotation *funcAnnotation =
-        ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
-    if (!funcAnnotation) {
-      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation, { F.getName() });
-      return;
-    }
-
     auto ArgFormatError = [&](Argument &arg, ValidationRule rule) {
       if (arg.hasName())
         ValCtx.EmitFormatError(rule, { arg.getName().str(), F.getName() });
@@ -3875,6 +3868,12 @@ static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
           return;
       }
     }
+  }
+}
+
+static void ValidateBitcode(ValidationContext &ValCtx) {
+  if (llvm::verifyModule(ValCtx.M, &ValCtx.DiagStream())) {
+    ValCtx.EmitError(ValidationRule::BitcodeValid);
   }
 }
 
@@ -4985,17 +4984,17 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       totalOutputScalars += SE->GetRows() * SE->GetCols() * maxPrimitiveCount;
     }
 
-    if (totalOutputScalars > DXIL::kMaxMSOutputTotalScalars) {
+    if (totalOutputScalars * 4 > DXIL::kMaxMSOutputTotalBytes) {
       ValCtx.EmitFormatError(
         ValidationRule::SmMeshShaderOutputSize,
-        { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalScalars) });
+        { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalBytes) });
     }
 
     unsigned totalInputOutputScalars = totalOutputScalars + props.ShaderProps.MS.payloadSizeInBytes;
-    if (totalInputOutputScalars > DXIL::kMaxMSInputOutputTotalScalars) {
+    if (totalInputOutputScalars * 4 > DXIL::kMaxMSInputOutputTotalBytes) {
       ValCtx.EmitFormatError(
         ValidationRule::SmMeshShaderInOutSize,
-        { F.getName(), std::to_string(DXIL::kMaxMSInputOutputTotalScalars) });
+        { F.getName(), std::to_string(DXIL::kMaxMSInputOutputTotalBytes) });
     }
   }
 }
@@ -5634,6 +5633,8 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
 
   ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
 
+  ValidateBitcode(ValCtx);
+
   ValidateMetadata(ValCtx);
 
   ValidateShaderState(ValCtx);
@@ -5718,7 +5719,10 @@ static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
     pName = "Program Output Signature";
     break;
   case hlsl::DXIL::SignatureKind::PatchConstOrPrim:
-    pName = "Program Patch Constant or Primitive Signature";
+    if (ValCtx.DxilMod.GetShaderModel()->GetKind() == DXIL::ShaderKind::Mesh)
+      pName = "Program Primitive Signature";
+    else
+      pName = "Program Patch Constant Signature";
     break;
   default:
     break;

@@ -123,7 +123,8 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
     IFTBOOL(fourCC == DxilFourCC::DFCC_ShaderDebugInfoDXIL ||
                 fourCC == DxilFourCC::DFCC_ShaderDebugName ||
                 fourCC == DxilFourCC::DFCC_RootSignature ||
-                fourCC == DxilFourCC::DFCC_PrivateData,
+                fourCC == DxilFourCC::DFCC_PrivateData ||
+                fourCC == DxilFourCC::DFCC_ShaderStatistics,
             E_INVALIDARG); // You can only remove debug info, debug info name, rootsignature, or private data blob
     PartList::iterator it =
       std::find_if(m_parts.begin(), m_parts.end(),

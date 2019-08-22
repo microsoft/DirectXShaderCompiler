@@ -77,7 +77,12 @@ DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper>
 : m_Ctx(pModule->getContext())
 , m_pModule(pModule)
 , m_pSM(nullptr)
-, m_ExtraPropertyHelper(std::move(EPH)) {
+, m_ExtraPropertyHelper(std::move(EPH))
+, m_ValMajor(1)
+, m_ValMinor(0)
+, m_MinValMajor(1)
+, m_MinValMinor(0)
+{
 }
 
 DxilMDHelper::~DxilMDHelper() {
@@ -85,6 +90,17 @@ DxilMDHelper::~DxilMDHelper() {
 
 void DxilMDHelper::SetShaderModel(const ShaderModel *pSM) {
   m_pSM = pSM;
+  m_pSM->GetMinValidatorVersion(m_MinValMajor, m_MinValMinor);
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, m_MinValMajor, m_MinValMinor) < 0) {
+    m_ValMajor = m_MinValMajor;
+    m_ValMinor = m_MinValMinor;
+  }
+  if (m_ExtraPropertyHelper) {
+    m_ExtraPropertyHelper->m_ValMajor = m_ValMajor;
+    m_ExtraPropertyHelper->m_ValMinor = m_ValMinor;
+    m_ExtraPropertyHelper->m_MinValMajor = m_MinValMajor;
+    m_ExtraPropertyHelper->m_MinValMinor = m_MinValMinor;
+  }
 }
 
 const ShaderModel *DxilMDHelper::GetShaderModel() const {
@@ -135,6 +151,8 @@ void DxilMDHelper::EmitValidatorVersion(unsigned Major, unsigned Minor) {
   MDVals[kDxilVersionMinorIdx] = Uint32ToConstMD(Minor);
 
   pDxilValidatorVersionMD->addOperand(MDNode::get(m_Ctx, MDVals));
+
+  m_ValMajor = Major; m_ValMinor = Minor; // Keep these for later use
 }
 
 void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
@@ -144,6 +162,7 @@ void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
     // If no validator version metadata, assume 1.0
     Major = 1;
     Minor = 0;
+    m_ValMajor = Major; m_ValMinor = Minor; // Keep these for later use
     return;
   }
 
@@ -154,6 +173,7 @@ void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
 
   Major = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMajorIdx));
   Minor = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMinorIdx));
+  m_ValMajor = Major; m_ValMinor = Minor; // Keep these for later use
 }
 
 //
@@ -170,6 +190,8 @@ void DxilMDHelper::EmitDxilShaderModel(const ShaderModel *pSM) {
   MDVals[kDxilShaderModelMinorIdx] = Uint32ToConstMD(pSM->GetMinor());
 
   pShaderModelNamedMD->addOperand(MDNode::get(m_Ctx, MDVals));
+
+  SetShaderModel(pSM);
 }
 
 void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
@@ -792,11 +814,12 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
   IFTBOOL(pTupleMD->getNumOperands() >= 1, DXC_E_INCORRECT_DXIL_METADATA);
   unsigned Tag = ConstMDToUint32(pTupleMD->getOperand(0));
   switch (Tag) {
-  case kDxilTemplateArgTypeTag:
+  case kDxilTemplateArgTypeTag: {
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
-    annotation.SetType(MetadataAsValue::get(m_Ctx,
-      pTupleMD->getOperand(kDxilTemplateArgValue))->getType());
-    break;
+    Constant *C = dyn_cast<Constant>(ValueMDToValue(pTupleMD->getOperand(kDxilTemplateArgValue)));
+    IFTBOOL(C != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    annotation.SetType(C->getType());
+  } break;
   case kDxilTemplateArgIntegralTag:
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
     annotation.SetIntegral((int64_t)ConstMDToUint64(pTupleMD->getOperand(kDxilTemplateArgValue)));
@@ -805,10 +828,7 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
 }
 
 Metadata *DxilMDHelper::EmitDxilStructAnnotation(const DxilStructAnnotation &SA) {
-  unsigned valMajor = 0, valMinor = 0;
-  if (m_pSM)
-    m_pSM->GetMinValidatorVersion(valMajor, valMinor);
-  bool bSupportExtended = !(valMajor == 1 && valMinor < 5);
+  bool bSupportExtended = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
 
   vector<Metadata *> MDVals;
   MDVals.reserve(SA.GetNumFields() + 2);  // In case of extended 1.5 property list
@@ -841,10 +861,7 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   if (pTupleMD->getNumOperands() == 1) {
     SA.MarkEmptyStruct();
   }
-  unsigned valMajor = 0, valMinor = 0;
-  if (m_pSM)
-    m_pSM->GetMinValidatorVersion(valMajor, valMinor);
-  if (!(valMajor == 1 && valMinor < 5) &&
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0 &&
       (pTupleMD->getNumOperands() == SA.GetNumFields()+2)) {
     // Load template args from extended operand
     const MDOperand &MDOExtra = pTupleMD->getOperand(SA.GetNumFields()+1);
@@ -969,6 +986,11 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCompTypeTag));
     MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetCompType().GetKind()));
   }
+  if (FA.IsCBVarUsed() &&
+      DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCBUsedTag));
+    MDVals.emplace_back(BoolToConstMD(true));
+  }
 
   return MDNode::get(m_Ctx, MDVals);
 }
@@ -1012,6 +1034,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       break;
     case kDxilFieldAnnotationCompTypeTag:
       FA.SetCompType((CompType::Kind)ConstMDToUint32(MDO));
+      break;
+    case kDxilFieldAnnotationCBUsedTag:
+      FA.SetCBVarUsed(ConstMDToBool(MDO));
       break;
     default:
       // TODO:  I don't think we should be failing unrecognized extended tags.
@@ -2158,6 +2183,12 @@ void DxilExtraPropertyHelper::EmitSignatureElementProperties(const DxilSignature
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementDynIdxCompMaskTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetDynIdxCompMask(), m_Ctx));
   }
+
+  if (SE.GetUsageMask() != 0 &&
+      DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementUsageCompMaskTag, m_Ctx));
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetUsageMask(), m_Ctx));
+  }
 }
 
 void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MDO, DxilSignatureElement &SE) {
@@ -2181,6 +2212,9 @@ void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MD
       break;
     case DxilMDHelper::kDxilSignatureElementDynIdxCompMaskTag:
       SE.SetDynIdxCompMask(DxilMDHelper::ConstMDToUint32(MDO));
+      break;
+    case DxilMDHelper::kDxilSignatureElementUsageCompMaskTag:
+      SE.SetUsageMask(DxilMDHelper::ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown signature element tag");
