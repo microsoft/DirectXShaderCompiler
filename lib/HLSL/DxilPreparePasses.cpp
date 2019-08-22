@@ -270,6 +270,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
     DxilInst_StoreOutput SO(&*I);
     DxilInst_LoadPatchConstant LPC(&*I);
     DxilInst_StorePatchConstant SPC(&*I);
+    DxilInst_StoreVertexOutput SVO(&*I);
+    DxilInst_StorePrimitiveOutput SPO(&*I);
     DxilSignature *pSig;
     uint32_t col, row, sigId;
     bool bDynIdx = false;
@@ -295,6 +297,18 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(LPC.get_col(), &col)) continue;
       if (!GetUnsignedVal(LPC.get_row(), &row)) bDynIdx = true;
+      pSig = &DM.GetPatchConstOrPrimSignature();
+    }
+    else if (SVO) {
+      if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SVO.get_colIndex(), &col)) continue;
+      if (!GetUnsignedVal(SVO.get_rowIndex(), &row)) bDynIdx = true;
+      pSig = &DM.GetOutputSignature();
+    }
+    else if (SPO) {
+      if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SPO.get_colIndex(), &col)) continue;
+      if (!GetUnsignedVal(SPO.get_rowIndex(), &row)) bDynIdx = true;
       pSig = &DM.GetPatchConstOrPrimSignature();
     }
     else {
