@@ -15,6 +15,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/FileSystem.h"
@@ -316,6 +317,35 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
   VERIFY_SUCCEEDED(hrCompile);
   VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+}
+
+HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor) {
+  CComPtr<IUnknown> pUnk;
+  if (SUCCEEDED(DllSupport.CreateInstance(clsid, &pUnk))) {
+    CComPtr<IDxcVersionInfo> pVersionInfo;
+    IFR(pUnk.QueryInterface(&pVersionInfo));
+    IFR(pVersionInfo->GetVersion(&Major, &Minor));
+  }
+  return S_OK;
+}
+
+bool ParseTargetProfile(llvm::StringRef targetProfile, llvm::StringRef &outStage, unsigned &outMajor, unsigned &outMinor) {
+  auto stage_model = targetProfile.split("_");
+  auto major_minor = stage_model.second.split("_");
+  llvm::APInt major;
+  if (major_minor.first.getAsInteger(16, major))
+    return false;
+  if (major_minor.second.compare("x") == 0) {
+    outMinor = 0xF;   // indicates offline target
+  } else {
+    llvm::APInt minor;
+    if (major_minor.second.getAsInteger(16, minor))
+      return false;
+    outMinor = (unsigned)minor.getLimitedValue();
+  }
+  outStage = stage_model.first;
+  outMajor = (unsigned)major.getLimitedValue();
+  return true;
 }
 
 // VersionSupportInfo Implementation

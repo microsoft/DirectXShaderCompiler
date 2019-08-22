@@ -13,6 +13,7 @@
 #include "llvm/Option/Option.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
+#include "llvm/ADT/APInt.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -552,6 +553,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
+  opts.KeepReflectionInDxil = Args.hasFlag(OPT_Qkeep_reflect_in_dxil, OPT_INVALID, false);
+  opts.StripReflectionFromDxil = Args.hasFlag(OPT_Qstrip_reflect_from_dxil, OPT_INVALID, false);
   opts.ExtractRootSignature = Args.hasFlag(OPT_extractrootsignature, OPT_INVALID, false);
   opts.DisassembleColorCoded = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
   opts.DisassembleInstNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
@@ -642,11 +645,45 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.IsLibraryProfile() && Minor == 0xF) {
-    // Disable validation for offline link only target
-    opts.DisableValidation = true;
+  llvm::StringRef valVersionStr = Args.getLastArgValue(OPT_validator_version);
+  if (!valVersionStr.empty()) {
+    // Parse "major.minor" version string
+    auto verPair = valVersionStr.split(".");
+    llvm::APInt major, minor;
+    if (verPair.first.getAsInteger(0, major) || verPair.second.getAsInteger(0, minor)) {
+      errors << "Format of validator version is \"<major>.<minor>\" (ex: \"1.4\").";
+      return 1;
+    }
+    uint64_t major64 = major.getLimitedValue();
+    uint64_t minor64 = minor.getLimitedValue();
+    if (major64 > DXIL::kDxilMajor ||
+        (major64 == DXIL::kDxilMajor && minor64 > DXIL::kDxilMinor)) {
+      errors << "Validator version must be less than or equal to current internal version.";
+      return 1;
+    }
+    if (major64 == 0 && minor64 != 0) {
+      errors << "If validator major version is 0, minor version must also be 0.";
+      return 1;
+    }
+    opts.ValVerMajor = (unsigned long)major64;
+    opts.ValVerMinor = (unsigned long)minor64;
   }
 
+  if (opts.IsLibraryProfile() && Minor == 0xF) {
+    if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
+      errors << "Offline library profile cannot be used with non-zero -validator-version.";
+      return 1;
+    }
+    // Disable validation for offline link only target
+    opts.DisableValidation = true;
+
+    // ValVerMajor == 0 means that the module is not meant to ever be validated.
+    opts.ValVerMajor = 0;
+    opts.ValVerMinor = 0;
+  }
+
+  // These targets are only useful as an intermediate step towards linking to matching
+  // shader targets without going through target downgrading at link time.
   // Disable lib_6_1 and lib_6_2 if /Vd is not present
   if (opts.IsLibraryProfile() && (Major < 6 || (Major == 6 && Minor < 3))) {
     if (!opts.DisableValidation) {
@@ -654,6 +691,19 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                 "targets.";
       return 1;
     }
+    if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
+      errors << "non-zero -validator-version cannot be used with library profiles lib_6_1 or lib_6_2.";
+      return 1;
+    }
+
+    // ValVerMajor == 0 means that the module is not meant to ever be validated.
+    opts.ValVerMajor = 0;
+    opts.ValVerMinor = 0;
+  }
+
+  if (opts.KeepReflectionInDxil && opts.StripReflectionFromDxil) {
+    errors << "-Qstrip_reflect_from_dxil mutually exclusive with -Qkeep_reflect_in_dxil.";
+    return 1;
   }
 
     // SPIRV Change Starts

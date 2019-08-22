@@ -3075,7 +3075,6 @@ META.DUPLICATESYSVALUE                    System value may only appear once in s
 META.ENTRYFUNCTION                        entrypoint not found
 META.FLAGSUSAGE                           Flags must match usage
 META.FORCECASEONSWITCH                    Attribute forcecase only works for switch
-META.FUNCTIONANNOTATION                   Cannot find function annotation for %0
 META.GLCNOTONAPPENDCONSUME                globallycoherent cannot be used with append/consume buffers
 META.INTEGERINTERPMODE                    Interpolation mode on integer must be Constant
 META.INTERPMODEINONEROW                   Interpolation mode must be identical for all elements packed into the same row.

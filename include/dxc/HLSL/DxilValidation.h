@@ -152,7 +152,6 @@ enum class ValidationRule : unsigned {
   MetaEntryFunction, // entrypoint not found
   MetaFlagsUsage, // Flags must match usage
   MetaForceCaseOnSwitch, // Attribute forcecase only works for switch
-  MetaFunctionAnnotation, // Cannot find function annotation for %0
   MetaGlcNotOnAppendConsume, // globallycoherent cannot be used with append/consume buffers
   MetaIntegerInterpMode, // Interpolation mode on integer must be Constant
   MetaInterpModeInOneRow, // Interpolation mode must be identical for all elements packed into the same row.

@@ -35,6 +35,17 @@ namespace DXIL {
   inline unsigned GetCurrentDxilVersion() { return MakeDxilVersion(kDxilMajor, kDxilMinor); }
   inline unsigned GetDxilVersionMajor(unsigned DxilVersion) { return (DxilVersion >> 8) & 0xFF; }
   inline unsigned GetDxilVersionMinor(unsigned DxilVersion) { return DxilVersion & 0xFF; }
+  // Return positive if v1 > v2, negative if v1 < v2, zero if equal
+  inline int CompareVersions(unsigned Major1, unsigned Minor1, unsigned Major2, unsigned Minor2) {
+    if (Major1 != Major2) {
+      // Special case for Major == 0 (latest/unbound)
+      if (Major1 == 0 || Major2 == 0) return Major1 > 0 ? -1 : 1;
+      return Major1 < Major2 ? -1 : 1;
+    }
+    if (Minor1 < Minor2) return -1;
+    if (Minor1 > Minor2) return 1;
+    return 0;
+  }
 
   // Shader flags.
   const unsigned kDisableOptimizations          = 0x00000001; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
@@ -1340,6 +1351,7 @@ namespace DXIL {
     AllowLocalDependenciesOnExternalDefinitions = 0x1,
     AllowExternalDependenciesOnLocalDefinitions = 0x2,
     AllowStateObjectAdditions                   = 0x4,
+    ValidMask_1_4                               = 0x3,
     ValidMask                                   = 0x7,
   };
 

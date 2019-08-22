@@ -189,7 +189,7 @@ public:
   void ResetOP(hlsl::OP *hlslOP);
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
-  void StripReflection();
+  bool StripReflection();
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 

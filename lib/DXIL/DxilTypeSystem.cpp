@@ -43,8 +43,9 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
 , m_ResourceAttribute(nullptr)
-, m_CBufferOffset(UINT_MAX) {
-}
+, m_CBufferOffset(UINT_MAX)
+, m_bCBufferVarUsed(false)
+{}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
 void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
@@ -76,6 +77,9 @@ void DxilFieldAnnotation::SetInterpolationMode(const InterpolationMode &IM) { m_
 bool DxilFieldAnnotation::HasFieldName() const { return !m_FieldName.empty(); }
 const std::string &DxilFieldAnnotation::GetFieldName() const { return m_FieldName; }
 void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
+bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
+void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
+
 
 
 //------------------------------------------------------------------------------
