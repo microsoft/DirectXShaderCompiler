@@ -2043,35 +2043,49 @@ void DxilShaderReflection::MarkUsedSignatureElements() {
     DxilInst_StoreOutput SO(&*I);
     DxilInst_LoadPatchConstant LPC(&*I);
     DxilInst_StorePatchConstant SPC(&*I);
+    DxilInst_StoreVertexOutput SVO(&*I);
+    DxilInst_StorePrimitiveOutput SPO(&*I);
     std::vector<D3D12_SIGNATURE_PARAMETER_DESC> *pDescs;
     const DxilSignature *pSig;
     uint32_t col, row, sigId;
     if (LI) {
       if (!GetUnsignedVal(LI.get_inputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(LI.get_colIndex(), &col)) continue;
-      if (!GetUnsignedVal(LI.get_rowIndex(), &row)) continue;
+      GetUnsignedVal(LI.get_rowIndex(), &row);
       pDescs = &m_InputSignature;
       pSig = &m_pDxilModule->GetInputSignature();
     }
     else if (SO) {
       if (!GetUnsignedVal(SO.get_outputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(SO.get_colIndex(), &col)) continue;
-      if (!GetUnsignedVal(SO.get_rowIndex(), &row)) continue;
+      GetUnsignedVal(SO.get_rowIndex(), &row);
       pDescs = &m_OutputSignature;
       pSig = &m_pDxilModule->GetOutputSignature();
     }
     else if (SPC) {
       if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId)) continue;
       if (!GetUnsignedVal(SPC.get_col(), &col)) continue;
-      if (!GetUnsignedVal(SPC.get_row(), &row)) continue;
+      GetUnsignedVal(SPC.get_row(), &row);
       pDescs = &m_PatchConstantSignature;
       pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
     }
     else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(LPC.get_col(), &col)) continue;
-      if (!GetUnsignedVal(LPC.get_row(), &row)) continue;
+      GetUnsignedVal(LPC.get_row(), &row);
       pDescs = &m_PatchConstantSignature;
+      pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
+    }
+    else if (SVO) {
+      if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SVO.get_colIndex(), &col)) continue;
+      GetUnsignedVal(SVO.get_rowIndex(), &row);
+      pSig = &m_pDxilModule->GetOutputSignature();
+    }
+    else if (SPO) {
+      if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SPO.get_colIndex(), &col)) continue;
+      GetUnsignedVal(SPO.get_rowIndex(), &row);
       pSig = &m_pDxilModule->GetPatchConstOrPrimSignature();
     }
     else {

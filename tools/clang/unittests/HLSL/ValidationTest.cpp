@@ -3675,10 +3675,10 @@ TEST_F(ValidationTest, MeshGreaterThanMaxXYZ) {
 
 TEST_F(ValidationTest, MeshGreaterThanMaxVSigRowCount) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
-                          "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, null}\n"
-                          "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3}",
-                          "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 32, i8 1, i32 1, i8 0, null}\n"
-                          "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                          "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, (.*)"
+                          "!\\2 = !{i32 0, i32 1, i32 2, i32 3}",
+                          "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 32, i8 1, i32 1, i8 0, \\3"
+                          "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
                           "i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20,"
                           "i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}",
                           "For shader 'main', vertex output signatures are taking up more than 32 rows",
@@ -3687,10 +3687,10 @@ TEST_F(ValidationTest, MeshGreaterThanMaxVSigRowCount) {
 
 TEST_F(ValidationTest, MeshGreaterThanMaxPSigRowCount) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
-                          "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, null}\n"
-                          "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}",
-                          "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 32, i8 1, i32 1, i8 0, null}\n"
-                          "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                          "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, (.*)"
+                          "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}",
+                          "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 32, i8 1, i32 1, i8 0, \\3"
+                          "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
                           "i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20,"
                           "i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}",
                           "For shader 'main', primitive output signatures are taking up more than 32 rows",
@@ -3699,15 +3699,15 @@ TEST_F(ValidationTest, MeshGreaterThanMaxPSigRowCount) {
 
 TEST_F(ValidationTest, MeshGreaterThanMaxTotalSigRowCount) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
-                          { "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, null}\n"
-                            "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3}",
-                            "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, null}\n"
-                            "!([0-9]+) = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}" },
-                          { "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 16, i8 1, i32 1, i8 0, null}\n"
-                            "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                          { "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, (.*)"
+                            "!\\2 = !{i32 0, i32 1, i32 2, i32 3}",
+                            "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, (.*)"
+                            "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}" },
+                          { "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 16, i8 1, i32 1, i8 0, \\3"
+                            "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
                             "i32 11, i32 12, i32 13, i32 14, i32 15}",
-                            "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 16, i8 1, i32 1, i8 0, null}\n"
-                            "!\\3 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
+                            "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 16, i8 1, i32 1, i8 0, \\3"
+                            "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10,"
                             "i32 11, i32 12, i32 13, i32 14, i32 15}",
                           },
                           "For shader 'main', vertex and primitive output signatures are taking up more than 32 rows",
