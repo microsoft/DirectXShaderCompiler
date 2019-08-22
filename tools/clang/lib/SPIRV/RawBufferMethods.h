@@ -83,7 +83,7 @@ private:
 
 private:
   SpirvEmitter &theEmitter;
-  const ASTContext &astContext;
+  ASTContext &astContext;
   SpirvBuilder &spvBuilder;
 };
 
