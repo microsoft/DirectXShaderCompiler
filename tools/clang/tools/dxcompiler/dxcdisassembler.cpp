@@ -1549,6 +1549,8 @@ namespace dxcutil {
 HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   const char *pIL = (const char *)pProgram->GetBufferPointer();
   uint32_t pILLength = pProgram->GetBufferSize();
+  const char *pReflectionIL = nullptr;
+  uint32_t pReflectionILLength = 0;
   const DxilPartHeader *pRDATPart = nullptr;
   if (const DxilContainerHeader *pContainer =
           IsDxilContainerLike(pIL, pILLength)) {
@@ -1649,6 +1651,18 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     }
 
     GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
+
+    it = std::find_if(begin(pContainer), end(pContainer),
+                      DxilPartIsType(DFCC_ShaderStatistics));
+    if (it != end(pContainer)) {
+      // If this part exists, use it for reflection data, probably stripped from DXIL part.
+      const DxilProgramHeader *pReflectionProgramHeader =
+          reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
+      if (IsValidDxilProgramHeader(pReflectionProgramHeader, (*it)->PartSize)) {
+        GetDxilProgramBitcode(pReflectionProgramHeader, &pReflectionIL, &pReflectionILLength);
+      }
+    }
+
   } else {
     const DxilProgramHeader *pProgramHeader =
         reinterpret_cast<const DxilProgramHeader *>(pIL);
@@ -1665,8 +1679,20 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
+  std::unique_ptr<llvm::Module> pReflectionModule;
+  if (pReflectionIL && pReflectionILLength) {
+    pReflectionModule = dxilutil::LoadModuleFromBitcode(
+      llvm::StringRef(pReflectionIL, pReflectionILLength), llvmContext, DiagStr);
+    if (pReflectionModule.get() == nullptr) {
+      return DXC_E_IR_VERIFICATION_FAILED;
+    }
+  }
+
   if (pModule->getNamedMetadata("dx.version")) {
     DxilModule &dxilModule = pModule->GetOrCreateDxilModule();
+    DxilModule &dxilReflectionModule = pReflectionModule.get()
+      ? pReflectionModule->GetOrCreateDxilModule()
+      : dxilModule;
 
     if (!dxilModule.GetShaderModel()->IsLib()) {
       PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
@@ -1685,9 +1711,9 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
                            /*comment*/ ";");
       }
     }
-    PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
-    PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");
-    PrintViewIdState(dxilModule, Stream, /*comment*/ ";");
+    PrintBufferDefinitions(dxilReflectionModule, Stream, /*comment*/ ";");
+    PrintResourceBindings(dxilReflectionModule, Stream, /*comment*/ ";");
+    PrintViewIdState(dxilReflectionModule, Stream, /*comment*/ ";");
 
     if (pRDATPart) {
       RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart), pRDATPart->PartSize);
@@ -1706,6 +1732,10 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   }
   DxcAssemblyAnnotationWriter w;
   pModule->print(Stream, &w);
+  //if (pReflectionModule) {
+  //  Stream << "\n========== Reflection Module from STAT part ==========\n";
+  //  pReflectionModule->print(Stream, &w);
+  //}
   Stream.flush();
   return S_OK;
 }

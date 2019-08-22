@@ -1,8 +1,7 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Qstrip_reflect | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_0 %s -Qstrip_reflect | FileCheck %s
 
-// Make sure only function annotation, no struct annotation.
-// CHECK:!dx.typeAnnotations = !{[[FuncAnnot:[^,]+]]}
-// CHECK:[[FuncAnnot]] = !{i32 1, void ()* @main,
+// Make sure there are no type annotations
+// CHECK-NOT: !dx.typeAnnotations
 
 //--------------------------------------------------------------------------------------
 // File: BasicHLSL11_PS.hlsl

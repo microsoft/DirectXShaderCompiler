@@ -154,6 +154,8 @@ public:
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
   bool StripPrivate = false; // OPT_Qstrip_priv
   bool StripReflection = false; // OPT_Qstrip_reflect
+  bool KeepReflectionInDxil = false; // OPT_Qkeep_reflect_in_dxil
+  bool StripReflectionFromDxil = false; // OPT_Qstrip_reflect_from_dxil
   bool ExtractRootSignature = false; // OPT_extractrootsignature
   bool DisassembleColorCoded = false; // OPT_Cc
   bool DisassembleInstNumbers = false; //OPT_Ni
@@ -164,6 +166,7 @@ public:
   unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
   bool ExportShadersOnly = false; // OPT_export_shaders_only
   bool ResMayAlias = false; // OPT_res_may_alias
+  unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();

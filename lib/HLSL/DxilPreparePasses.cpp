@@ -17,6 +17,7 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -246,6 +247,88 @@ void CheckInBoundForTGSM(GlobalVariable &GV, const DataLayout &DL) {
   }
 }
 
+static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
+  ConstantInt *CI = dyn_cast<ConstantInt>(V);
+  if (!CI) return false;
+  uint64_t u = CI->getZExtValue();
+  if (u > UINT32_MAX) return false;
+  *pValue = (uint32_t)u;
+  return true;
+}
+
+static uint8_t NegMask(uint8_t V) {
+  V ^= 0xF;
+  return V & 0xF;
+}
+
+static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
+  DXASSERT_NOMSG(F != nullptr);
+  // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
+  // F is a pointer to a Function instance
+  for (llvm::inst_iterator I = llvm::inst_begin(F), E = llvm::inst_end(F); I != E; ++I) {
+    DxilInst_LoadInput LI(&*I);
+    DxilInst_StoreOutput SO(&*I);
+    DxilInst_LoadPatchConstant LPC(&*I);
+    DxilInst_StorePatchConstant SPC(&*I);
+    DxilInst_StoreVertexOutput SVO(&*I);
+    DxilInst_StorePrimitiveOutput SPO(&*I);
+    DxilSignature *pSig;
+    uint32_t col, row, sigId;
+    bool bDynIdx = false;
+    if (LI) {
+      if (!GetUnsignedVal(LI.get_inputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(LI.get_colIndex(), &col)) continue;
+      if (!GetUnsignedVal(LI.get_rowIndex(), &row)) bDynIdx = true;
+      pSig = &DM.GetInputSignature();
+    }
+    else if (SO) {
+      if (!GetUnsignedVal(SO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SO.get_colIndex(), &col)) continue;
+      if (!GetUnsignedVal(SO.get_rowIndex(), &row)) bDynIdx = true;
+      pSig = &DM.GetOutputSignature();
+    }
+    else if (SPC) {
+      if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId)) continue;
+      if (!GetUnsignedVal(SPC.get_col(), &col)) continue;
+      if (!GetUnsignedVal(SPC.get_row(), &row)) bDynIdx = true;
+      pSig = &DM.GetPatchConstOrPrimSignature();
+    }
+    else if (LPC) {
+      if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(LPC.get_col(), &col)) continue;
+      if (!GetUnsignedVal(LPC.get_row(), &row)) bDynIdx = true;
+      pSig = &DM.GetPatchConstOrPrimSignature();
+    }
+    else if (SVO) {
+      if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SVO.get_colIndex(), &col)) continue;
+      if (!GetUnsignedVal(SVO.get_rowIndex(), &row)) bDynIdx = true;
+      pSig = &DM.GetOutputSignature();
+    }
+    else if (SPO) {
+      if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SPO.get_colIndex(), &col)) continue;
+      if (!GetUnsignedVal(SPO.get_rowIndex(), &row)) bDynIdx = true;
+      pSig = &DM.GetPatchConstOrPrimSignature();
+    }
+    else {
+      continue;
+    }
+
+    // Consider being more fine-grained about masks.
+    // We report sometimes-read on input as always-read.
+    auto &El = pSig->GetElement(sigId);
+    unsigned UsageMask = El.GetUsageMask();
+    unsigned colBit = 1 << col;
+    if (!(colBit & UsageMask)) {
+      El.SetUsageMask(UsageMask | colBit);
+    }
+    if (bDynIdx && (El.GetDynIdxCompMask() & colBit) == 0) {
+      El.SetDynIdxCompMask(El.GetDynIdxCompMask() | colBit);
+    }
+  }
+}
+
 class DxilFinalizeModule : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -283,16 +366,21 @@ public:
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
+      unsigned ValMajor = 0;
+      unsigned ValMinor = 0;
+      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
 
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
       if (!IsLib) {
-        unsigned ValMajor = 0;
-        unsigned ValMinor = 0;
-        M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
         if (ValMajor == 1 && ValMinor <= 1) {
           patchValidation_1_1(M);
         }
+
+        // Set used masks for signature elements
+        MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
+        if (DM.GetShaderModel()->IsHS())
+          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
 
       // Remove store undef output.
@@ -318,6 +406,11 @@ public:
 
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
+
+      if (IsLib && DXIL::CompareVersions(ValMajor, ValMinor, 1, 4) <= 0) {
+        // 1.4 validator requires function annotations for all functions
+        AddFunctionAnnotationForInitializers(M, DM);
+      }
 
       return true;
     }
@@ -465,6 +558,22 @@ private:
       for (Function *OldEntry : entries) {
         Function *NewEntry = StripFunctionParameter(OldEntry, DM, FunctionDIs);
         if (NewEntry) OldEntry->eraseFromParent();
+      }
+    }
+  }
+
+  void AddFunctionAnnotationForInitializers(Module &M, DxilModule &DM) {
+    if (GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors")) {
+      ConstantArray *init = cast<ConstantArray>(GV->getInitializer());
+      for (auto V : init->operand_values()) {
+        if (isa<ConstantAggregateZero>(V))
+          continue;
+        ConstantStruct *CS = cast<ConstantStruct>(V);
+        if (isa<ConstantPointerNull>(CS->getOperand(1)))
+          continue;
+        Function *F = cast<Function>(CS->getOperand(1));
+        if (DM.GetTypeSystem().GetFunctionAnnotation(F) == nullptr)
+          DM.GetTypeSystem().AddFunctionAnnotation(F);
       }
     }
   }

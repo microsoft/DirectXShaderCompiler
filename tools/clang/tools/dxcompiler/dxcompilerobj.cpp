@@ -561,8 +561,6 @@ public:
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
                      utf8Source->GetBufferSize());
-      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-          llvm::MemoryBuffer::getMemBufferCopy(Data, pUtf8SourceName));
 
       // Not very efficient but also not very important.
       std::vector<std::string> defines;
@@ -616,19 +614,29 @@ public:
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
-
       bool needsValidation = produceFullContainer && !opts.DisableValidation;
+
       // Disable validation for lib_6_1 and lib_6_2.
+      // This is needed for this API because the profile is provided separately,
+      // so the option parsing will not have verified that /Vd was provided.
       if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_1" ||
           compiler.getCodeGenOpts().HLSLProfile == "lib_6_2") {
         needsValidation = false;
       }
 
-      if (needsValidation || (opts.CodeGenHighLevel && !opts.DisableValidation)) {
-        UINT32 majorVer, minorVer;
-        dxcutil::GetValidatorVersion(&majorVer, &minorVer);
-        compiler.getCodeGenOpts().HLSLValidatorMajorVer = majorVer;
-        compiler.getCodeGenOpts().HLSLValidatorMinorVer = minorVer;
+      if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
+        // Currently do not support stripping reflection from offline linking target.
+        opts.KeepReflectionInDxil = true;
+      }
+
+      if (opts.ValVerMajor != UINT_MAX) {
+        // user-specified validator version override
+        compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
+        compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
+      } else {
+        // Version from dxil.dll, or internal validator if unavailable
+        dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
+                                     &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
       }
 
       if (opts.AstDump) {
@@ -732,8 +740,11 @@ public:
           // Implies name part
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
-        if (opts.StripReflection) {
+        if (!opts.KeepReflectionInDxil) {
           SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
+        }
+        if (!opts.StripReflection) {
+          SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
         }
 
         // Don't do work to put in a container if an error has occurred
@@ -886,8 +897,6 @@ public:
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
         utf8Source->GetBufferSize());
-      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-        llvm::MemoryBuffer::getMemBufferCopy(Data, pUtf8SourceName));
 
       // Not very efficient but also not very important.
       std::vector<std::string> defines;

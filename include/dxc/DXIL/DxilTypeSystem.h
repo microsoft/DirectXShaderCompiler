@@ -79,6 +79,9 @@ public:
   const std::string &GetFieldName() const;
   void SetFieldName(const std::string &FieldName);
 
+  bool IsCBVarUsed() const;
+  void SetCBVarUsed(bool used);
+
 private:
   bool m_bPrecise;
   CompType m_CompType;
@@ -88,6 +91,7 @@ private:
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
+  bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
 };
 
 class DxilTemplateArgAnnotation : DxilFieldAnnotation {

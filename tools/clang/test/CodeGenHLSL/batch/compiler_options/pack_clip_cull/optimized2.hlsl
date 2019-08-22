@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 -pack_optimized %s | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -E main -T vs_6_0 -pack_optimized %s | FileCheck %s
 
 // CHECK:      ; Output signature:
 // CHECK:      ; Name                 Index   Mask Register SysValue  Format   Used

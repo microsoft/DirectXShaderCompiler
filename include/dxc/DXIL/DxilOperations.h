@@ -109,6 +109,7 @@ public:
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
   static void GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslation,
+                                       unsigned valMajor, unsigned valMinor,
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
 

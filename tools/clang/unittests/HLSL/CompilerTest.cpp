@@ -234,7 +234,13 @@ public:
 
 #if _ITERATOR_DEBUG_LEVEL==0 
   // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
-  TEST_METHOD(CompileWhenNoMemThenOOM)
+  BEGIN_TEST_METHOD(CompileWhenNoMemThenOOM)
+    // Disabled because there are problems where we try to allocate memory in destructors,
+    // which causes more bad_alloc() throws while unwinding bad_alloc(), which asserts
+    // If only failing one allocation, there are allocations where failing them is lost,
+    // such as in ~raw_string_ostream(), where it flushes, then eats bad_alloc(), if thrown.
+    TEST_METHOD_PROPERTY(L"Ignore", L"true")
+  END_TEST_METHOD()
 #endif
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
@@ -2871,5 +2877,7 @@ TEST_F(CompilerTest, CodeGenBatch) {
 }
 
 TEST_F(CompilerTest, Mesh) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
   CodeGenTestCheckBatchDir(L"mesh");
 }

@@ -2271,7 +2271,6 @@ class db_dxil(object):
         self.add_valrule("Meta.TessellatorOutputPrimitive", "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.")
         self.add_valrule("Meta.MaxTessFactor", "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified")
         self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler ")
-        self.add_valrule("Meta.FunctionAnnotation", "Cannot find function annotation for %0")
         self.add_valrule("Meta.GlcNotOnAppendConsume", "globallycoherent cannot be used with append/consume buffers")
         self.add_valrule_msg("Meta.StructBufAlignment", "StructuredBuffer stride not aligned","structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)")
         self.add_valrule_msg("Meta.StructBufAlignmentOutOfBound", "StructuredBuffer stride out of bounds","structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)")

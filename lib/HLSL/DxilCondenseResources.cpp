@@ -477,6 +477,9 @@ public:
 
     bChanged |= ResourceRegisterAllocator.AllocateRegisters(DM);
 
+    // Fill in top-level CBuffer variable usage bit
+    UpdateCBufferUsage();
+
     if (m_bIsLib && DM.GetShaderModel()->GetMinor() == ShaderModel::kOfflineMinor)
       return bChanged;
 
@@ -494,8 +497,14 @@ public:
 
     GenerateDxilResourceHandles();
 
+    // TODO: Update types earlier for libraries and replace users, to
+    //       avoid having to preserve HL struct annotation.
+    // Note 1: Needs to happen after legalize
+    // Note 2: Cannot do this easily/trivially if any functions have
+    //         resource arguments (in offline linking target).
     if (DM.GetOP()->UseMinPrecision())
       UpdateStructTypeForLegacyLayout();
+
     // Change resource symbol into undef.
     UpdateResourceSymbols();
 
@@ -516,6 +525,7 @@ private:
   // Switch CBuffer for SRV for TBuffers.
   bool PatchTBuffers(DxilModule &DM);
   void PatchTBufferUse(Value *V, DxilModule &DM);
+  void UpdateCBufferUsage();
 };
 
 } // namespace
@@ -1597,7 +1607,11 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   unsigned fieldsCount = ST->getNumElements();
   std::vector<Type *> fieldTypes(fieldsCount);
   DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
-  DXASSERT(SA, "must have annotation for struct type");
+
+  // After reflection is stripped from library, this will be null if no update is required.
+  if (!SA) {
+    return ST;
+  }
 
   if (SA->IsEmptyStruct()) {
     return ST;
@@ -2093,6 +2107,145 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
   return bChanged;
 }
 
+// Find the imm offset part from a value.
+// It must exist unless offset is 0.
+static unsigned GetCBOffset(Value *V) {
+  if (ConstantInt *Imm = dyn_cast<ConstantInt>(V))
+    return Imm->getLimitedValue();
+  else if (UnaryInstruction *UI = dyn_cast<UnaryInstruction>(V)) {
+    return 0;
+  } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V)) {
+    switch (BO->getOpcode()) {
+    case Instruction::Add: {
+      unsigned left = GetCBOffset(BO->getOperand(0));
+      unsigned right = GetCBOffset(BO->getOperand(1));
+      return left + right;
+    } break;
+    case Instruction::Or: {
+      unsigned left = GetCBOffset(BO->getOperand(0));
+      unsigned right = GetCBOffset(BO->getOperand(1));
+      return left | right;
+    } break;
+    default:
+      return 0;
+    }
+  } else {
+    return 0;
+  }
+}
+
+typedef std::map<unsigned, DxilFieldAnnotation*> FieldAnnotationByOffsetMap;
+
+static void MarkCBUse(unsigned offset, FieldAnnotationByOffsetMap &fieldMap) {
+  auto it = fieldMap.upper_bound(offset);
+  it--;
+  if (it != fieldMap.end())
+    it->second->SetCBVarUsed(true);
+}
+
+static unsigned GetOffsetForCBExtractValue(ExtractValueInst *EV, bool bMinPrecision) {
+  DXASSERT(EV->getNumIndices() == 1, "otherwise, unexpected indices/type for extractvalue");
+  unsigned typeSize = 4;
+  unsigned bits = EV->getType()->getScalarSizeInBits();
+  if (bits == 64)
+    typeSize = 8;
+  else if (bits == 16 && !bMinPrecision)
+    typeSize = 2;
+  return (EV->getIndices().front() * typeSize);
+}
+
+static void CollectInPhiChain(PHINode *cbUser, unsigned offset,
+                              std::unordered_set<Value *> &userSet,
+                              FieldAnnotationByOffsetMap &fieldMap,
+                              bool bMinPrecision) {
+  if (userSet.count(cbUser) > 0)
+    return;
+
+  userSet.insert(cbUser);
+  for (User *cbU : cbUser->users()) {
+    if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(cbU)) {
+      MarkCBUse(offset + GetOffsetForCBExtractValue(EV, bMinPrecision), fieldMap);
+    } else {
+      PHINode *phi = cast<PHINode>(cbU);
+      CollectInPhiChain(phi, offset, userSet, fieldMap, bMinPrecision);
+    }
+  }
+}
+
+static void CollectCBufferMemberUsage(Value *V,
+                                      FieldAnnotationByOffsetMap &legacyFieldMap,
+                                      FieldAnnotationByOffsetMap &newFieldMap,
+                                      hlsl::OP *hlslOP, bool bMinPrecision) {
+  for (auto U : V->users()) {
+    if (Constant *C = dyn_cast<Constant>(U)) {
+      CollectCBufferMemberUsage(C, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      if (hlslOP->IsDxilOpFuncCallInst(CI)) {
+        hlsl::OP::OpCode op = hlslOP->GetDxilOpFuncCallInst(CI);
+        if (op == DXIL::OpCode::CreateHandleForLib) {
+          CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+        } else if (op == DXIL::OpCode::CBufferLoadLegacy) {
+          DxilInst_CBufferLoadLegacy cbload(CI);
+          Value *resIndex = cbload.get_regIndex();
+          unsigned offset = GetCBOffset(resIndex);
+          offset <<= 4; // translate 16-byte vector index to byte offset
+          for (User *cbU : U->users()) {
+            if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(cbU)) {
+              MarkCBUse(offset + GetOffsetForCBExtractValue(EV, bMinPrecision), legacyFieldMap);
+            } else {
+              PHINode *phi = cast<PHINode>(cbU);
+              std::unordered_set<Value *> userSet;
+              CollectInPhiChain(phi, offset, userSet, legacyFieldMap, bMinPrecision);
+            }
+          }
+        } else if (op == DXIL::OpCode::CBufferLoad) {
+          DxilInst_CBufferLoad cbload(CI);
+          Value *byteOffset = cbload.get_byteOffset();
+          unsigned offset = GetCBOffset(byteOffset);
+          MarkCBUse(offset, newFieldMap);
+        }
+      }
+    }
+  }
+}
+
+void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
+  DxilTypeSystem &TypeSys = m_DM->GetTypeSystem();
+  hlsl::OP *hlslOP = m_DM->GetOP();
+  const DataLayout &DL = m_DM->GetModule()->getDataLayout();
+  const auto &CBuffers = m_DM->GetCBuffers();
+  for (auto it = CBuffers.begin(); it != CBuffers.end(); it++) {
+    DxilCBuffer *CB = it->get();
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
+    if (GV == nullptr)
+      continue;
+    Type *ElemTy = GV->getType()->getPointerElementType();
+    ElemTy = dxilutil::StripArrayTypes(ElemTy, nullptr);
+    StructType *ST = cast<StructType>(ElemTy);
+    DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
+    if (SA == nullptr)
+      continue;
+    // If elements < 2, it's used if it exists.
+    // Only old-style cbuffer { ... } will have more than one member, and
+    // old-style cbuffers are the only ones that report usage per member.
+    if (ST->getStructNumElements() < 2) {
+      continue;
+    }
+
+    // Create offset maps for legacy layout and new compact layout, while resetting usage flags
+    const StructLayout *SL = DL.getStructLayout(ST);
+    FieldAnnotationByOffsetMap legacyFieldMap, newFieldMap;
+    for (unsigned i = 0; i < SA->GetNumFields(); ++i) {
+      DxilFieldAnnotation &FA = SA->GetFieldAnnotation(i);
+      FA.SetCBVarUsed(false);
+      legacyFieldMap[FA.GetCBufferOffset()] = &FA;
+      newFieldMap[(unsigned)SL->getElementOffset(i)] = &FA;
+    }
+    CollectCBufferMemberUsage(GV, legacyFieldMap, newFieldMap, hlslOP, m_DM->GetUseMinPrecision());
+ }
+}
 
 
 char DxilLowerCreateHandleForLib::ID = 0;
