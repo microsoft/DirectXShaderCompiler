@@ -2007,7 +2007,7 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
   }
 
   // HLSL changes begin
-  // Enable diagnostics related ti uninitialized variables
+  // Enable diagnostics related to uninitialized variables
   if (S.getLangOpts().HLSL) {
     Diags.setSeverity(diag::warn_uninit_var, diag::Severity::Warning,
                       D->getLocStart());
