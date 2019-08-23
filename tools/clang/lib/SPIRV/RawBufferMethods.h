@@ -38,6 +38,25 @@ public:
                                                    const QualType targetType,
                                                    uint32_t &bitOffset);
 
+  /// \brief Performs RWByteAddressBuffer.Store<T>(address, value).
+  /// RWByteAddressBuffers are represented in SPIR-V as structs with only one
+  /// member which is a runtime array of uints. This method works by decomposing
+  /// the given |value| to reach numeric/bool types. Then performs necessary
+  /// casts to uints and stores them in the underlying runtime array. The
+  /// |bitOffset| parameter can be used for finer grained store of bitwidths
+  /// smaller than 32-bits.
+  ///
+  /// Example:
+  /// valueType = uint16_t, address=0, offset=0
+  ///                 --> Store the 16-bit value at LSB of uint at address 0.
+  /// valueType = uint16_t, address=0, offset=16
+  ///                 --> Store the 16-bit value at MSB of uint at address 0.
+  void processTemplatedStoreToBuffer(SpirvInstruction *value,
+                                     SpirvInstruction *buffer,
+                                     SpirvInstruction *&index,
+                                     const QualType valueType,
+                                     uint32_t &bitOffset);
+
 private:
   SpirvInstruction *load16BitsAtBitOffset0(SpirvInstruction *buffer,
                                            SpirvInstruction *&index,
@@ -58,6 +77,31 @@ private:
                                             SpirvInstruction *&index,
                                             QualType target16BitType,
                                             uint32_t &bitOffset);
+
+private:
+  void store16BitsAtBitOffset0(SpirvInstruction *value,
+                               SpirvInstruction *buffer,
+                               SpirvInstruction *&index,
+                               const QualType valueType);
+
+  void store32BitsAtBitOffset0(SpirvInstruction *value,
+                               SpirvInstruction *buffer,
+                               SpirvInstruction *&index,
+                               const QualType valueType);
+
+  void store64BitsAtBitOffset0(SpirvInstruction *value,
+                               SpirvInstruction *buffer,
+                               SpirvInstruction *&index,
+                               const QualType valueType);
+
+  void storeArrayOfScalars(std::deque<SpirvInstruction *> values,
+                           SpirvInstruction *buffer, SpirvInstruction *&index,
+                           const QualType valueType, SourceLocation);
+
+  /// \brief Serializes the given values into their components until a scalar or
+  /// a struct has been reached. Returns the most basic type it reaches.
+  QualType serializeToScalarsOrStruct(std::deque<SpirvInstruction *> *values,
+                                      QualType valueType, SourceLocation);
 
 private:
   /// \brief Performs an OpBitCast from |fromType| to |toType| on the given

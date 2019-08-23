@@ -38,6 +38,9 @@ bool isScalarType(QualType type, QualType *scalarType = nullptr);
 bool isVectorType(QualType type, QualType *elemType = nullptr,
                   uint32_t *elemCount = nullptr);
 
+/// Returns true if the given type is an array with constant known size.
+bool isConstantArrayType(const ASTContext &, QualType);
+
 /// Returns true if the given type is enum type based on AST parse.
 bool isEnumType(QualType type);
 
