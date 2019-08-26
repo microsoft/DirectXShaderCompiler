@@ -1392,8 +1392,11 @@ TEST_F(FileTest, SpirvStageIO16bitTypes) {
   runFileTest("spirv.stage-io.16bit.hlsl");
 }
 
-TEST_F(FileTest, SpirvInterpolation) {
-  runFileTest("spirv.interpolation.hlsl");
+TEST_F(FileTest, SpirvInterpolationPS) {
+  runFileTest("spirv.interpolation.ps.hlsl");
+}
+TEST_F(FileTest, SpirvInterpolationVS) {
+  runFileTest("spirv.interpolation.vs.hlsl");
 }
 TEST_F(FileTest, SpirvInterpolationError) {
   runFileTest("spirv.interpolation.error.hlsl", Expect::Failure);
