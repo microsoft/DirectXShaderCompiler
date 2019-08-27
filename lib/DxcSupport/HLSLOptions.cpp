@@ -155,7 +155,7 @@ bool DxcOpts::DebugFileIsDirectory() {
 }
 
 llvm::StringRef DxcOpts::GetPDBName() {
-  if (!DebugFileIsDirectory())
+  if (!DebugFileIsDirectory() && DebugDir.empty())
     return DebugFile;
   return llvm::StringRef();
 }
@@ -283,7 +283,7 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
     return false;
   }
   return true;
-};
+}
 #endif
 // SPIRV Change Ends
 
@@ -420,8 +420,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
+  if (Arg *A = Args.getLastArg(OPT_Fd, OPT_Fdd)) {
+      opts.DebugFile = A->getValue();
+      if (A->getOption().matches(OPT_Fdd))
+          opts.DebugDir = A->getValue();
+  } else {
+    opts.DebugFile =  "";
+  }
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
-  opts.DebugFile = Args.getLastArgValue(OPT_Fd);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);

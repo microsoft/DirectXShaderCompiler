@@ -83,10 +83,12 @@ The most common use cases are as follows.
 
 * Build debug information and extract it to an auto-generated external
   file. In this case, /Zi and /Fd should both be used, and the /Fd value
-  should end in a trailing backslash when using dxc, naming the target
-  directory in which to place the file. /Zss is the default, but /Zsb can be
-  used to deduplicate files. When using /Fd with a directory name,
-  /Qstrip_debug is implied.
+  should end in a trailing directory separator (backslash on Windows) when
+  using dxc, naming the target directory in which to place the file.
+  Alternately, /Fdd can be used to name the target directory omitting the
+  trailing separator. /Zss is the default, but /Zsb can be used to
+  deduplicate files. When using /Fd with a directory name, /Qstrip_debug is
+  implied.
 
 A less common use case is to specify an explicit name for the external
 file. In this case, the command-line should include /Zi, /Fd with a specific

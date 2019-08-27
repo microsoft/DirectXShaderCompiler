@@ -93,6 +93,7 @@ public:
 
   llvm::StringRef AssemblyCode; // OPT_Fc
   llvm::StringRef DebugFile;    // OPT_Fd
+  llvm::StringRef DebugDir;     // OPT_Fdd
   llvm::StringRef EntryPoint;   // OPT_entrypoint
   llvm::StringRef ExternalFn;   // OPT_external_fn
   llvm::StringRef ExternalLib;  // OPT_external_lib

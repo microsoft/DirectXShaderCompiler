@@ -59,6 +59,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #ifdef _WIN32
 #include <dia2.h>
 #include <comdef.h>
@@ -706,8 +707,14 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
         StringRefUtf16(TargetProfile), ConcatArgs.data(), ConcatArgs.size(),
         ConcatDefines.data(), ConcatDefines.size(), pIncludeHandler, &pResult,
         &pDebugName, &pDebugBlob));
-    if (pDebugName.m_pData && m_Opts.DebugFileIsDirectory()) {
-      outputPDBPath += pDebugName.m_pData;
+    if (pDebugName.m_pData) {
+      if (m_Opts.DebugFileIsDirectory()) {
+        outputPDBPath += pDebugName.m_pData;
+      } else if (!m_Opts.DebugDir.empty()) {
+        std::wstring separator;
+        Unicode::UTF8ToUTF16String(llvm::sys::path::get_separator().str().c_str(), &separator);
+        outputPDBPath += separator + pDebugName.m_pData;
+      }
     }
   } else {
     IFT(pCompiler->Compile(pCompileSource, pMainFileName,
@@ -778,8 +785,14 @@ int DxcContext::Compile() {
             args.data(), args.size(), m_Opts.Defines.data(),
             m_Opts.Defines.size(), pIncludeHandler, &pCompileResult,
             &pDebugName, &pDebugBlob));
-        if (pDebugName.m_pData && m_Opts.DebugFileIsDirectory()) {
-          outputPDBPath += pDebugName.m_pData;
+        if (pDebugName.m_pData) {
+          if (m_Opts.DebugFileIsDirectory()) {
+            outputPDBPath += pDebugName.m_pData;
+          } else if (!m_Opts.DebugDir.empty()) {
+            std::wstring separator;
+            Unicode::UTF8ToUTF16String(llvm::sys::path::get_separator().str().c_str(), &separator);
+            outputPDBPath += separator + pDebugName.m_pData;
+          }
         }
       } else {
         IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
