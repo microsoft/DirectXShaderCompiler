@@ -42,20 +42,11 @@ public:
   /// RWByteAddressBuffers are represented in SPIR-V as structs with only one
   /// member which is a runtime array of uints. This method works by decomposing
   /// the given |value| to reach numeric/bool types. Then performs necessary
-  /// casts to uints and stores them in the underlying runtime array. The
-  /// |bitOffset| parameter can be used for finer grained store of bitwidths
-  /// smaller than 32-bits.
-  ///
-  /// Example:
-  /// valueType = uint16_t, address=0, offset=0
-  ///                 --> Store the 16-bit value at LSB of uint at address 0.
-  /// valueType = uint16_t, address=0, offset=16
-  ///                 --> Store the 16-bit value at MSB of uint at address 0.
+  /// casts to uints and stores them in the underlying runtime array.
   void processTemplatedStoreToBuffer(SpirvInstruction *value,
                                      SpirvInstruction *buffer,
                                      SpirvInstruction *&index,
-                                     const QualType valueType,
-                                     uint32_t &bitOffset);
+                                     const QualType valueType);
 
 private:
   SpirvInstruction *load16BitsAtBitOffset0(SpirvInstruction *buffer,

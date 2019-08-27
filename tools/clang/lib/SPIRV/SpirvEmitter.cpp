@@ -3335,10 +3335,8 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
     // loads/casts/composite-constructs.
     if (doStore) {
       auto *values = doExpr(expr->getArg(1));
-      uint32_t bitOffset = 0;
-      RawBufferHandler rawBufferHandler(*this);
-      rawBufferHandler.processTemplatedStoreToBuffer(
-          values, objectInfo, address, expr->getArg(1)->getType(), bitOffset);
+      RawBufferHandler(*this).processTemplatedStoreToBuffer(
+          values, objectInfo, address, expr->getArg(1)->getType());
       return nullptr;
     } else {
       uint32_t bitOffset = 0;

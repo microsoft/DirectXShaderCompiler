@@ -520,12 +520,8 @@ void RawBufferHandler::storeArrayOfScalars(
           spv::Op::OpIAdd, astContext.UnsignedIntTy, index, constUint1, loc);
     }
   } else if (storeWidth == 32u || storeWidth == 64u) {
-    // TODO(ehsan): remove bitoffset.
-    uint32_t bitOffset = 0;
-    for (uint32_t i = 0; i < elemCount; ++i) {
-      processTemplatedStoreToBuffer(values[i], buffer, index, valueType,
-                                    bitOffset);
-    }
+    for (uint32_t i = 0; i < elemCount; ++i)
+      processTemplatedStoreToBuffer(values[i], buffer, index, valueType);
   }
 }
 
@@ -600,16 +596,12 @@ QualType RawBufferHandler::serializeToScalarsOrStruct(
 void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
                                                      SpirvInstruction *buffer,
                                                      SpirvInstruction *&index,
-                                                     const QualType valueType,
-                                                     uint32_t &bitOffset) {
+                                                     const QualType valueType) {
   const auto loc = buffer->getSourceLocation();
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   auto *constUint1 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
-
-  // This function only stores at bit-offset zero by design.
-  assert(bitOffset == 0);
 
   // Scalar types
   if (isScalarType(valueType)) {
@@ -643,10 +635,8 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
     if (isScalarType(serializedType)) {
       storeArrayOfScalars(elems, buffer, index, serializedType, loc);
     } else if (const auto *structType = serializedType->getAs<RecordType>()) {
-      for (auto elem : elems) {
-        processTemplatedStoreToBuffer(elem, buffer, index, serializedType,
-                                      bitOffset);
-      }
+      for (auto elem : elems)
+        processTemplatedStoreToBuffer(elem, buffer, index, serializedType);
     }
     return;
   }
@@ -692,14 +682,14 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
       processTemplatedStoreToBuffer(
           spvBuilder.createCompositeExtract(field->getType(), value,
                                             {fieldIndex}, loc),
-          buffer, index, field->getType(), bitOffset);
+          buffer, index, field->getType());
 
       fieldOffsetInBytes += fieldSize;
       ++fieldIndex;
     }
 
     // After we're done with loading the entire struct, we need to update the
-    // index and bitOffset (in case we are loading an array of structs).
+    // index (in case we are loading an array of structs).
     //
     // Example: struct alignment = 8. struct size = 34 bytes
     // (34 / 8) = 4 full words
