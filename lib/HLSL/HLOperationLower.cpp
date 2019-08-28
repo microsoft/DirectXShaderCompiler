@@ -5511,7 +5511,7 @@ bool IsLocalVariablePtr(Value *Ptr) {
 
 // Constant buffer.
 namespace {
-unsigned GetEltTypeByteSizeForConstBuf(Type *EltType, const DataLayout &DL) {
+unsigned GetEltTypeByteSizeForConstBufLegacy(Type *EltType, const DataLayout &DL) {
   DXASSERT(EltType->isIntegerTy() || EltType->isFloatingPointTy(),
            "not an element type");
   // TODO: Use real size after change constant buffer into linear layout.
@@ -5522,16 +5522,19 @@ unsigned GetEltTypeByteSizeForConstBuf(Type *EltType, const DataLayout &DL) {
     return 8;
 }
 
-Value *GenerateCBLoad(Value *handle, Value *offset, Type *EltTy, OP *hlslOP,
+unsigned GetEltTypeByteSizeForConstBuf(Type *EltType, const DataLayout &DL) {
+  DXASSERT(EltType->isIntegerTy() || EltType->isFloatingPointTy(), "not an element type");
+  if (EltType->isIntegerTy(1))
+    return 4;
+  return DL.getTypeSizeInBits(EltType) / 8;
+}
+
+Value *GenerateCBLoad(Value *handle, Value *offset, Type *EltTy, OP *hlslOP, Value* readAlignment,
                       IRBuilder<> &Builder) {
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoad);
-
   DXASSERT(!EltTy->isIntegerTy(1), "Bools should not be loaded as their register representation.");
-
-  // Align to 8 bytes for now.
-  Constant *align = hlslOP->GetU32Const(8);
   Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoad, EltTy);
-  return Builder.CreateCall(CBLoad, {OpArg, handle, offset, align});
+  return Builder.CreateCall(CBLoad, {OpArg, handle, offset, readAlignment });
 }
 
 Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
@@ -5541,13 +5544,11 @@ Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
   Type *EltTy = MatTy.getElementTypeForMem();
   unsigned matSize = MatTy.getNumElements();
   std::vector<Value *> elts(matSize);
-  Value *EltByteSize = ConstantInt::get(
-      offset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
+  Value *EltByteSize = ConstantInt::get(offset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
 
-  // TODO: use real size after change constant buffer into linear layout.
   Value *baseOffset = offset;
   for (unsigned i = 0; i < matSize; i++) {
-    elts[i] = GenerateCBLoad(handle, baseOffset, EltTy, OP, Builder);
+    elts[i] = GenerateCBLoad(handle, baseOffset, EltTy, OP, EltByteSize, Builder);
     baseOffset = Builder.CreateAdd(baseOffset, EltByteSize);
   }
 
@@ -5667,11 +5668,11 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       if (resultType->isVectorTy()) {
         for (unsigned i = 0; i < resultSize; i++) {
           Value *eltData =
-              GenerateCBLoad(handle, idxList[i], EltTy, hlslOP, Builder);
+              GenerateCBLoad(handle, idxList[i], EltTy, hlslOP, EltByteSize, Builder);
           ldData = Builder.CreateInsertElement(ldData, eltData, i);
         }
       } else {
-        ldData = GenerateCBLoad(handle, idxList[0], EltTy, hlslOP, Builder);
+        ldData = GenerateCBLoad(handle, idxList[0], EltTy, hlslOP, EltByteSize, Builder);
       }
 
       for (auto U = CI->user_begin(); U != CI->user_end();) {
@@ -5706,19 +5707,16 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
 
     unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
-
-    Value *newLd = GenerateCBLoad(handle, baseOffset, EltTy, hlslOP, Builder);
+    Value* EltByteSizeVal = hlslOP->GetU32Const(EltByteSize);
+    Value *newLd = GenerateCBLoad(handle, baseOffset, EltTy, hlslOP, EltByteSizeVal, Builder);
     if (Ty->isVectorTy()) {
       Value *result = UndefValue::get(Ty);
       result = Builder.CreateInsertElement(result, newLd, (uint64_t)0);
-      // Update offset by 4 bytes.
-      Value *offset =
-          Builder.CreateAdd(baseOffset, hlslOP->GetU32Const(EltByteSize));
+      Value *offset = Builder.CreateAdd(baseOffset, EltByteSizeVal);
       for (unsigned i = 1; i < Ty->getVectorNumElements(); i++) {
-        Value *elt = GenerateCBLoad(handle, offset, EltTy, hlslOP, Builder);
+        Value *elt = GenerateCBLoad(handle, offset, EltTy, hlslOP, EltByteSizeVal, Builder);
         result = Builder.CreateInsertElement(result, elt, i);
-        // Update offset by 4 bytes.
-        offset = Builder.CreateAdd(offset, hlslOP->GetU32Const(EltByteSize));
+        offset = Builder.CreateAdd(offset, EltByteSizeVal);
       }
       newLd = result;
     }
@@ -5728,8 +5726,7 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
   } else {
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
-    TranslateCBGep(GEP, handle, baseOffset, hlslOP, Builder,
-                   prevFieldAnnotation, DL, dxilTypeSys);
+    TranslateCBGep(GEP, handle, baseOffset, hlslOP, Builder, prevFieldAnnotation, DL, dxilTypeSys);
     GEP->eraseFromParent();
   }
 }
@@ -5764,8 +5761,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
       } else {
         DXASSERT(fieldAnnotation, "must be a field");
         if (ArrayType *AT = dyn_cast<ArrayType>(EltTy)) {
-          unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-              *fieldAnnotation, EltTy, dxilTypeSys);
+          unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(*fieldAnnotation, EltTy, dxilTypeSys);
 
           // Decide the nested array size.
           unsigned nestedArraySize = 1;
@@ -5778,14 +5774,15 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
             EltTy = EltAT->getElementType();
           }
           // Align to 4 * 4 bytes.
-          unsigned alignedSize = (EltSize + 15) & 0xfffffff0;
-          size = nestedArraySize * alignedSize;
+          //unsigned alignedSize = (EltSize + 15) & 0xfffffff0;
+          // unsigned alignedSize = EltSize;
+          size = nestedArraySize * EltSize;
         } else {
           size = DL.getTypeAllocSize(EltTy);
         }
       }
       // Align to 4 * 4 bytes.
-      size = (size + 15) & 0xfffffff0;
+      //size = (size + 15) & 0xfffffff0;
       if (bImmIdx) {
         unsigned tempOffset = size * immIdx;
         offset = Builder.CreateAdd(offset, hlslOP->GetU32Const(tempOffset));
@@ -5814,8 +5811,9 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
         EltTy = EltAT->getElementType();
       }
       // Align to 4 * 4 bytes.
-      unsigned alignedSize = (EltSize + 15) & 0xfffffff0;
-      unsigned size = nestedArraySize * alignedSize;
+      //unsigned alignedSize = (EltSize + 15) & 0xfffffff0;
+      //unsigned alignedSize = EltSize;
+      unsigned size = nestedArraySize * EltSize;
       if (bImmIdx) {
         unsigned tempOffset = size * immIdx;
         offset = Builder.CreateAdd(offset, hlslOP->GetU32Const(tempOffset));
@@ -5958,7 +5956,7 @@ Value *TranslateConstBufMatLdLegacy(HLMatrixType MatTy, Value *handle,
 
   unsigned matSize = MatTy.getNumElements();
   std::vector<Value *> elts(matSize);
-  unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
+  unsigned EltByteSize = GetEltTypeByteSizeForConstBufLegacy(EltTy, DL);
   if (colMajor) {
     unsigned colByteSize = 4 * EltByteSize;
     unsigned colRegSize = (colByteSize + 15) >> 4;

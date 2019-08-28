@@ -915,15 +915,15 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
 
         // Align offset.
-        offset = AlignBaseOffset(parentTy, offset, bDefaultRowMajor, CGM,
+        if (!CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad)
+          offset = AlignBaseOffset(parentTy, offset, bDefaultRowMajor, CGM,
                                  dataLayout);
 
         unsigned CBufferOffset = offset;
 
         unsigned arrayEltSize = 0;
         // Process field to make sure the size of field is ready.
-        unsigned size =
-            AddTypeAnnotation(parentTy, dxilTypeSys, arrayEltSize);
+        unsigned size = AddTypeAnnotation(parentTy, dxilTypeSys, arrayEltSize);
 
         // Update offset.
         offset += size;
@@ -946,7 +946,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     DXASSERT(!fieldDecl->isBitField(), "We should have already ensured we have no bitfields.");
     
     // Align offset.
-    offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, dataLayout);
+    if (!CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad)
+      offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, dataLayout);
 
     unsigned CBufferOffset = offset;
 
@@ -1107,6 +1108,11 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     // Only set arrayEltSize once.
     if (arrayEltSize == 0)
       arrayEltSize = elementSize;
+
+    // Skip aligning to 4 * 4 bytes when not using cbufferloadlegacy
+    if(CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad)
+      return elementSize * (arraySize - 1) + elementSize;
+
     // Align to 4 * 4bytes.
     unsigned alignedSize = (elementSize + 15) & 0xfffffff0;
     return alignedSize * (arraySize - 1) + elementSize;
@@ -3307,7 +3313,7 @@ static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *T
 }
 
 static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB,
-  std::unordered_map<Constant*, DxilFieldAnnotation> &constVarAnnotationMap) {
+  std::unordered_map<Constant*, DxilFieldAnnotation> &constVarAnnotationMap, bool alignOffset) {
   unsigned offset = 0;
 
   // Scan user allocated constants first.
@@ -3332,8 +3338,10 @@ static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB,
     bool bRowMajor = HLMatrixType::isa(Ty)
       ? fieldAnnotation.GetMatrixAnnotation().Orientation == MatrixOrientation::RowMajor
       : false;
+
     // Align offset.
-    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor);
+    if (alignOffset)
+      offset = AlignCBufferOffset(offset, size, Ty, bRowMajor);
     if (C->GetLowerBound() == UINT_MAX) {
       C->SetLowerBound(offset);
     }
@@ -3346,7 +3354,8 @@ static void AllocateDxilConstantBuffers(HLModule *pHLModule,
   std::unordered_map<Constant*, DxilFieldAnnotation> &constVarAnnotationMap) {
   for (unsigned i = 0; i < pHLModule->GetCBuffers().size(); i++) {
     HLCBuffer &CB = *static_cast<HLCBuffer*>(&(pHLModule->GetCBuffer(i)));
-    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap);
+    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap,
+        pHLModule->GetHLOptions().bLegacyCBufferLoad);
     CB.SetSize(size);
   }
 }
