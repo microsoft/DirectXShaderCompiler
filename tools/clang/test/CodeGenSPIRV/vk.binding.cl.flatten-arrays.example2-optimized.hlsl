@@ -3,21 +3,21 @@
 // CHECK: OpDecorate %AnotherTexture Binding 3
 // CHECK: OpDecorate %MySampler Binding 2
 // CHECK: OpDecorate %MySampler2 Binding 9
-// CHECK: OpDecorate [[MyTextures0:%\d+]] Binding 4
-// CHECK: OpDecorate [[MyTextures1:%\d+]] Binding 5
-// CHECK: OpDecorate [[MyTextures2:%\d+]] Binding 6
-// CHECK: OpDecorate [[MyTextures3:%\d+]] Binding 7
-// CHECK: OpDecorate [[MyTextures4:%\d+]] Binding 8
-// CHECK: OpDecorate [[MyTextures20:%\d+]] Binding 0
-// CHECK: OpDecorate [[MyTextures21:%\d+]] Binding 1
+// CHECK: OpDecorate %MyTextures_0_ Binding 4
+// CHECK: OpDecorate %MyTextures_1_ Binding 5
+// CHECK: OpDecorate %MyTextures_2_ Binding 6
+// CHECK: OpDecorate %MyTextures_3_ Binding 7
+// CHECK: OpDecorate %MyTextures_4_ Binding 8
+// CHECK: OpDecorate %MyTextures2_0_ Binding 0
+// CHECK: OpDecorate %MyTextures2_1_ Binding 1
 
-// CHECK:  [[MyTextures0:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK:  [[MyTextures1:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK:  [[MyTextures2:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK:  [[MyTextures3:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK:  [[MyTextures4:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MyTextures20:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MyTextures21:%\d+]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK:  %MyTextures_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK:  %MyTextures_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK:  %MyTextures_2_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK:  %MyTextures_3_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK:  %MyTextures_4_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MyTextures2_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MyTextures2_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
 
 Texture2D    MyTextures[5]; // five array elements cannot fit in [0-2] binding slots, so it should take slot [4-8].
 Texture2D    AnotherTexture : register(t3); // force binding number 3.

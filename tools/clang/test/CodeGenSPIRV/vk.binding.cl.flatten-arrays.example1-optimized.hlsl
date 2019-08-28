@@ -2,21 +2,21 @@
 
 // CHECK: OpDecorate %AnotherTexture Binding 5
 // CHECK: OpDecorate %NextTexture Binding 6
-// CHECK: OpDecorate [[MyTextures0:%\d+]] Binding 0
-// CHECK: OpDecorate [[MyTextures1:%\d+]] Binding 1
-// CHECK: OpDecorate [[MyTextures2:%\d+]] Binding 2
-// CHECK: OpDecorate [[MyTextures3:%\d+]] Binding 3
-// CHECK: OpDecorate [[MyTextures4:%\d+]] Binding 4
-// CHECK: OpDecorate [[MySamplers0:%\d+]] Binding 7
-// CHECK: OpDecorate [[MySamplers1:%\d+]] Binding 8
+// CHECK: OpDecorate %MyTextures_0_ Binding 0
+// CHECK: OpDecorate %MyTextures_1_ Binding 1
+// CHECK: OpDecorate %MyTextures_2_ Binding 2
+// CHECK: OpDecorate %MyTextures_3_ Binding 3
+// CHECK: OpDecorate %MyTextures_4_ Binding 4
+// CHECK: OpDecorate %MySamplers_0_ Binding 7
+// CHECK: OpDecorate %MySamplers_1_ Binding 8
 
-// CHECK: [[MyTextures0]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MyTextures1]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MyTextures2]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MyTextures3]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MyTextures4]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[MySamplers0]] = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: [[MySamplers1]] = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+// CHECK: %MyTextures_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MyTextures_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MyTextures_2_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MyTextures_3_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MyTextures_4_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %MySamplers_0_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+// CHECK: %MySamplers_1_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
 Texture2D    MyTextures[5] : register(t0);
 Texture2D    NextTexture;  // This is suppose to be t6.
 Texture2D    AnotherTexture : register(t5);

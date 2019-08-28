@@ -12,15 +12,15 @@ struct PS_OUTPUT {
 
 SamplerState		S;
 
-// CHECK: OpDecorate [[elem1:%\d+]] Binding 1
-// CHECK: OpDecorate [[elem2:%\d+]] Binding 2
-// CHECK: OpDecorate [[elem3:%\d+]] Binding 3
-// CHECK: OpDecorate [[elem4:%\d+]] Binding 4
+// CHECK: OpDecorate %T_0_ Binding 1
+// CHECK: OpDecorate %T_1_ Binding 2
+// CHECK: OpDecorate %T_2_ Binding 3
+// CHECK: OpDecorate %T_3_ Binding 4
 
-// CHECK: [[elem1]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[elem2]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[elem3]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: [[elem4]] = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %T_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %T_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %T_2_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %T_3_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
 
 Texture2D<float>	T[4];
 
