@@ -1393,7 +1393,7 @@ def add_test_cases():
          [['0', '3', '1', '5', '4'], ['10', '42', '1', '64', '11', '76', '90', '111', '9', '6', '79', '34']], [],
         'cs_6_5', get_shader_text("wave op multi prefix int", "WaveMultiPrefixProduct"))
     add_test_case('WaveMultiPrefixCountBits', ['WaveMultiPrefixOp'], 'Epsilon', 0,
-         [['0', '3', '1', '5', '4'], ['10', '42', '1', '64', '11', '76', '90', '111', '9', '6', '79', '34']], [],
+         [['0', '3', '1', '5', '4'], ['0', '42', '0', '64', '11', '76', '90', '111', '0', '0', '79', '34']], [],
         'cs_6_5', get_shader_text("wave op multi prefix int", "WaveMultiPrefixCountBits"))
 
     add_test_case('WaveMultiPrefixUBitAnd', ['WaveMultiPrefixOp'], 'Epsilon', 0,
@@ -1412,7 +1412,7 @@ def add_test_cases():
          [['0', '3', '1', '5', '4'], ['10', '42', '1', '64', '11', '76', '90', '111', '9', '6', '79', '34']], [],
         'cs_6_5', get_shader_text("wave op multi prefix uint", "WaveMultiPrefixProduct"))
     add_test_case('WaveMultiPrefixUCountBits', ['WaveMultiPrefixOp'], 'Epsilon', 0,
-         [['0', '3', '1', '5', '4'], ['10', '42', '1', '64', '11', '76', '90', '111', '9', '6', '79', '34']], [],
+         [['0', '3', '1', '5', '4'], ['0', '42', '0', '64', '11', '76', '90', '111', '0', '0', '79', '34']], [],
         'cs_6_5', get_shader_text("wave op multi prefix uint", "WaveMultiPrefixCountBits"))
 
 
