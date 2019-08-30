@@ -6145,16 +6145,16 @@
                 <Value>4</Value>
             </Parameter>
             <Parameter Name="Validation.Values">
-                <Value>10</Value>
+                <Value>0</Value>
                 <Value>42</Value>
-                <Value>1</Value>
+                <Value>0</Value>
                 <Value>64</Value>
                 <Value>11</Value>
                 <Value>76</Value>
                 <Value>90</Value>
                 <Value>111</Value>
-                <Value>9</Value>
-                <Value>6</Value>
+                <Value>0</Value>
+                <Value>0</Value>
                 <Value>79</Value>
                 <Value>34</Value>
             </Parameter>
@@ -6633,16 +6633,16 @@
                 <Value>4</Value>
             </Parameter>
             <Parameter Name="Validation.Values">
-                <Value>10</Value>
+                <Value>0</Value>
                 <Value>42</Value>
-                <Value>1</Value>
+                <Value>0</Value>
                 <Value>64</Value>
                 <Value>11</Value>
                 <Value>76</Value>
                 <Value>90</Value>
                 <Value>111</Value>
-                <Value>9</Value>
-                <Value>6</Value>
+                <Value>0</Value>
+                <Value>0</Value>
                 <Value>79</Value>
                 <Value>34</Value>
             </Parameter>
