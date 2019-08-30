@@ -5773,16 +5773,11 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
             nestedArraySize *= EltAT->getNumElements();
             EltTy = EltAT->getElementType();
           }
-          // Align to 4 * 4 bytes.
-          //unsigned alignedSize = (EltSize + 15) & 0xfffffff0;
-          // unsigned alignedSize = EltSize;
           size = nestedArraySize * EltSize;
         } else {
           size = DL.getTypeAllocSize(EltTy);
         }
       }
-      // Align to 4 * 4 bytes.
-      //size = (size + 15) & 0xfffffff0;
       if (bImmIdx) {
         unsigned tempOffset = size * immIdx;
         offset = Builder.CreateAdd(offset, hlslOP->GetU32Const(tempOffset));
@@ -5810,9 +5805,6 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
         nestedArraySize *= EltAT->getNumElements();
         EltTy = EltAT->getElementType();
       }
-      // Align to 4 * 4 bytes.
-      //unsigned alignedSize = (EltSize + 15) & 0xfffffff0;
-      //unsigned alignedSize = EltSize;
       unsigned size = nestedArraySize * EltSize;
       if (bImmIdx) {
         unsigned tempOffset = size * immIdx;
