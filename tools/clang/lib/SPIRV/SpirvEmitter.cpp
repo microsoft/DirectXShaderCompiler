@@ -175,6 +175,7 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
 
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
 
   if (spirvOptions.optConfig.empty()) {
     optimizer.RegisterPerformancePasses();
