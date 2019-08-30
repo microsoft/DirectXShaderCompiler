@@ -64,6 +64,7 @@ namespace dxilutil {
   llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F);
 
   bool IsStaticGlobal(llvm::GlobalVariable *GV);
+  bool UsesCbufferLoadLegacy(const llvm::Module &DM);
   bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
   bool RemoveUnusedFunctions(llvm::Module &M, llvm::Function *EntryFunc,
                              llvm::Function *PatchConstantFunc, bool IsLib);

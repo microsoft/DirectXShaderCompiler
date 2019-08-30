@@ -61,6 +61,15 @@ bool HasDynamicIndexing(Value *V) {
   return false;
 }
 
+bool UsesCbufferLoadLegacy(const llvm::Module &M) {
+  for (const Function &F : M.getFunctionList()) {
+    if (F.isDeclaration() && F.getName().startswith("dx.op.cbufferLoadLegacy."))
+      return true;
+  }
+
+  return false;
+}
+
 unsigned
 GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                            llvm::Type *Ty,

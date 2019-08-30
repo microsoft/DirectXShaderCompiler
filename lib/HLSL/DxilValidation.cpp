@@ -4216,9 +4216,13 @@ static void ValidateResources(ValidationContext &ValCtx) {
   }
 
   SpacesAllocator<unsigned, DxilResourceBase> cbufferAllocator;
+  bool usesCbufferLoadLegacy = !ValCtx.DxilMod.GetCBuffers().empty() &&
+                               hlsl::dxilutil::UsesCbufferLoadLegacy(ValCtx.M);
   for (auto &cbuffer : ValCtx.DxilMod.GetCBuffers()) {
-    ValidateCBuffer(*cbuffer, ValCtx);
-    ValidateResourceOverlap(*cbuffer, cbufferAllocator, ValCtx);
+    if (usesCbufferLoadLegacy) {
+      ValidateCBuffer(*cbuffer, ValCtx);
+      ValidateResourceOverlap(*cbuffer, cbufferAllocator, ValCtx);
+    }
   }
 }
 
