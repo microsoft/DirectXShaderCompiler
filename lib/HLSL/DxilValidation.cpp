@@ -4041,8 +4041,8 @@ static void
 CollectCBufferRanges(DxilStructAnnotation *annotation,
                      SpanAllocator<unsigned, DxilFieldAnnotation> &constAllocator,
                      unsigned base, DxilTypeSystem &typeSys, StringRef cbName,
-                     ValidationContext &ValCtx) {
-  DXASSERT(((base + 15) & ~(0xf)) == base, "otherwise, base for struct is not aligned");
+                     ValidationContext &ValCtx, bool isLegacyCbuffer) {
+  DXASSERT(!isLegacyCbuffer || ((base + 15) & ~(0xf)) == base, "otherwise, base for struct is not aligned");
   unsigned cbSize = annotation->GetCBufferSize();
 
   const StructType *ST = annotation->GetStructType();
@@ -4068,7 +4068,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
         }
       }
     } else if (isa<ArrayType>(EltTy)) {
-      if (((offset + 15) & ~(0xf)) != offset) {
+      if (isLegacyCbuffer && ((offset + 15) & ~(0xf)) != offset) {
         ValCtx.EmitFormatError(
             ValidationRule::SmCBufferArrayOffsetAlignment,
             {cbName, std::to_string(offset)});
@@ -4085,7 +4085,9 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
         EltAnnotation = typeSys.GetStructAnnotation(EltST);
 
       unsigned alignedEltSize = ((EltSize + 15) & ~(0xf));
-      unsigned arraySize = ((arrayCount - 1) * alignedEltSize) + EltSize;
+      unsigned arraySize = isLegacyCbuffer
+                               ? ((arrayCount - 1) * alignedEltSize) + EltSize
+                               : arrayCount * EltSize;
       bOutOfBound = (offset + arraySize) > cbSize;
 
       if (!bOutOfBound) {
@@ -4103,7 +4105,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
         } else {
           for (unsigned idx = 0; idx < arrayCount; idx++) {
             CollectCBufferRanges(EltAnnotation, constAllocator,
-                                 arrayBase, typeSys, cbName, ValCtx);
+                                 arrayBase, typeSys, cbName, ValCtx, isLegacyCbuffer);
             arrayBase += alignedEltSize;
           }
         }
@@ -4115,7 +4117,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
       if (!bOutOfBound) {
         if (DxilStructAnnotation *EltAnnotation = typeSys.GetStructAnnotation(EltST)) {
           CollectCBufferRanges(EltAnnotation, constAllocator,
-                               structBase, typeSys, cbName, ValCtx);
+                               structBase, typeSys, cbName, ValCtx, isLegacyCbuffer);
         } else {
           if (EltSize > 0 && nullptr != constAllocator.Insert(
                 &fieldAnnotation, structBase, structBase + EltSize - 1)) {
@@ -4134,7 +4136,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
   }
 }
 
-static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
+static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx, bool isLegacyCbuffer) {
   Type *Ty = cb.GetGlobalSymbol()->getType()->getPointerElementType();
   if (cb.GetRangeSize() != 1) {
     Ty = Ty->getArrayElementType();
@@ -4157,7 +4159,7 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
       DXIL::kMaxCBufferSize << 4);
   CollectCBufferRanges(annotation, constAllocator,
                        0, typeSys,
-                       cb.GetGlobalName(), ValCtx);
+                       cb.GetGlobalName(), ValCtx, isLegacyCbuffer);
 }
 
 static void ValidateResources(ValidationContext &ValCtx) {
@@ -4219,10 +4221,8 @@ static void ValidateResources(ValidationContext &ValCtx) {
   bool usesCbufferLoadLegacy = !ValCtx.DxilMod.GetCBuffers().empty() &&
                                hlsl::dxilutil::UsesCbufferLoadLegacy(ValCtx.M);
   for (auto &cbuffer : ValCtx.DxilMod.GetCBuffers()) {
-    if (usesCbufferLoadLegacy) {
-      ValidateCBuffer(*cbuffer, ValCtx);
-      ValidateResourceOverlap(*cbuffer, cbufferAllocator, ValCtx);
-    }
+    ValidateCBuffer(*cbuffer, ValCtx, usesCbufferLoadLegacy);
+    ValidateResourceOverlap(*cbuffer, cbufferAllocator, ValCtx);
   }
 }
 
