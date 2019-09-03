@@ -4974,6 +4974,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         { F.getName(), std::to_string(DXIL::kMaxMSTotalSigRows) });
     }
 
+    #define kScalarSizeForMSAttributes = 4;
     #define ALIGN32(n) (((n) + 31) & ~31)
     unsigned maxAlign32VertexCount = ALIGN32(props.ShaderProps.MS.maxVertexCount);
     unsigned maxAlign32PrimitiveCount = ALIGN32(props.ShaderProps.MS.maxPrimitiveCount);
@@ -4985,13 +4986,13 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       totalOutputScalars += SE->GetRows() * SE->GetCols() * maxAlign32PrimitiveCount;
     }
 
-    if (totalOutputScalars * 4 > DXIL::kMaxMSOutputTotalBytes) {
+    if (totalOutputScalars*kScalarSizeForMSAttributes > DXIL::kMaxMSOutputTotalBytes) {
       ValCtx.EmitFormatError(
         ValidationRule::SmMeshShaderOutputSize,
         { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalBytes) });
     }
 
-    unsigned totalInputOutputBytes = totalOutputScalars*4 + props.ShaderProps.MS.payloadSizeInBytes;
+    unsigned totalInputOutputBytes = totalOutputScalars*kScalarSizeForMSAttributes + props.ShaderProps.MS.payloadSizeInBytes;
     if (totalInputOutputBytes > DXIL::kMaxMSInputOutputTotalBytes) {
       ValCtx.EmitFormatError(
         ValidationRule::SmMeshShaderInOutSize,
