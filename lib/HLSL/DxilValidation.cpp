@@ -4974,7 +4974,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         { F.getName(), std::to_string(DXIL::kMaxMSTotalSigRows) });
     }
 
-    unsigned kScalarSizeForMSAttributes = 4;
+    const unsigned kScalarSizeForMSAttributes = 4;
     #define ALIGN32(n) (((n) + 31) & ~31)
     unsigned maxAlign32VertexCount = ALIGN32(props.ShaderProps.MS.maxVertexCount);
     unsigned maxAlign32PrimitiveCount = ALIGN32(props.ShaderProps.MS.maxPrimitiveCount);
