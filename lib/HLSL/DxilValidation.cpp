@@ -4990,8 +4990,8 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalBytes) });
     }
 
-    unsigned totalInputOutputScalars = totalOutputScalars + props.ShaderProps.MS.payloadSizeInBytes;
-    if (totalInputOutputScalars * 4 > DXIL::kMaxMSInputOutputTotalBytes) {
+    unsigned totalInputOutputBytes = totalOutputScalars*4 + props.ShaderProps.MS.payloadSizeInBytes;
+    if (totalInputOutputBytes > DXIL::kMaxMSInputOutputTotalBytes) {
       ValCtx.EmitFormatError(
         ValidationRule::SmMeshShaderInOutSize,
         { F.getName(), std::to_string(DXIL::kMaxMSInputOutputTotalBytes) });
