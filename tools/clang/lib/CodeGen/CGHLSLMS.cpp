@@ -1111,7 +1111,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
 
     // Skip aligning to 4 * 4 bytes when not using cbufferloadlegacy
     if(CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad)
-      return elementSize * (arraySize - 1) + elementSize;
+      return elementSize * arraySize;
 
     // Align to 4 * 4bytes.
     unsigned alignedSize = (elementSize + 15) & 0xfffffff0;
