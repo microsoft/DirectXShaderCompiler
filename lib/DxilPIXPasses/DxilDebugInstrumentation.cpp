@@ -201,8 +201,6 @@ private:
 
   Constant * m_OffsetMask = nullptr;
 
-  std::map<uint32_t, Value *> m_IncrementInstructionBySize;
-
   struct BuilderContext {
     Module &M;
     DxilModule &DM;
@@ -524,15 +522,8 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC, uint32
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
   // so inc will be zero for uninteresting invocations:
-  Value * IncrementForThisInvocation;
-  auto findIncrementInstruction = m_IncrementInstructionBySize.find(SpaceInBytes);
-  if (findIncrementInstruction == m_IncrementInstructionBySize.end()) {
-    Constant* Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
-    auto it = m_IncrementInstructionBySize.emplace(
-      SpaceInBytes, BC.Builder.CreateMul(Increment, m_OffsetMultiplicand, "IncrementForThisInvocation"));
-    findIncrementInstruction = it.first;
-  }
-  IncrementForThisInvocation = findIncrementInstruction->second;
+  Constant* Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
+  Value* IncrementForThisInvocation = BC.Builder.CreateMul(Increment, m_OffsetMultiplicand, "IncrementForThisInvocation");
 
   auto PreviousValue = BC.Builder.CreateCall(AtomicOpFunc, {
     AtomicBinOpcode,// i32, ; opcode
