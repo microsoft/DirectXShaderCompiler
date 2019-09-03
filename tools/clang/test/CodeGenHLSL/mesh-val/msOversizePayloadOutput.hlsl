@@ -2,8 +2,8 @@
 
 // CHECK: payload plus output size is greater than 48128
 
-#define MAX_VERT 32
-#define MAX_PRIM 110
+#define MAX_VERT 230
+#define MAX_PRIM 93
 #define NUM_THREADS 32
 struct MeshPerVertex {
     float4 position : SV_Position;
@@ -12,13 +12,13 @@ struct MeshPerVertex {
 
 struct MeshPerPrimitive {
     float normal : NORMAL;
-    float4 malnor[16] : MALNOR;
-    int layer[4] : LAYER;
+    float4 malnor[14] : MALNOR;
+    int layer[6] : LAYER;
 };
 
 struct MeshPayload {
     float normal;
-    float malnor[4182];
+    float malnor[4091];
     int layer[4];
 };
 
@@ -57,6 +57,8 @@ void main(
       op.layer[1] = mpl.layer[1];
       op.layer[2] = mpl.layer[2];
       op.layer[3] = mpl.layer[3];
+      op.layer[4] = mpl.layer[3];
+      op.layer[5] = mpl.layer[3];
       prims[tig / 3] = op;
     }
     verts[tig] = ov;

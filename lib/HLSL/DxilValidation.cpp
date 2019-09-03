@@ -4974,14 +4974,15 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         { F.getName(), std::to_string(DXIL::kMaxMSTotalSigRows) });
     }
 
-    unsigned maxVertexCount = props.ShaderProps.MS.maxVertexCount;
-    unsigned maxPrimitiveCount = props.ShaderProps.MS.maxPrimitiveCount;
+    #define ALIGN32(n) (((n) + 31) & ~31)
+    unsigned maxAlign32VertexCount = ALIGN32(props.ShaderProps.MS.maxVertexCount);
+    unsigned maxAlign32PrimitiveCount = ALIGN32(props.ShaderProps.MS.maxPrimitiveCount);
     unsigned totalOutputScalars = 0;
     for (auto &SE : S.OutputSignature.GetElements()) {
-      totalOutputScalars += SE->GetRows() * SE->GetCols() * maxVertexCount;
+      totalOutputScalars += SE->GetRows() * SE->GetCols() * maxAlign32VertexCount;
     }
     for (auto &SE : S.PatchConstOrPrimSignature.GetElements()) {
-      totalOutputScalars += SE->GetRows() * SE->GetCols() * maxPrimitiveCount;
+      totalOutputScalars += SE->GetRows() * SE->GetCols() * maxAlign32PrimitiveCount;
     }
 
     if (totalOutputScalars * 4 > DXIL::kMaxMSOutputTotalBytes) {
