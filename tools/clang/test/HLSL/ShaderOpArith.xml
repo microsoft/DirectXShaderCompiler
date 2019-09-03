@@ -360,11 +360,11 @@
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="Dot2AddOp" CS="CS" DispatchX="8" DispatchY="8">
+  <ShaderOp Name="Dot2AddHalfOp" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="SDot2AddOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="SDot2AddHalfOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>
-      <RootValue Index="0" ResName="SDot2AddOp" />
+      <RootValue Index="0" ResName="SDot2AddHalfOp" />
     </RootValues>
     <Shader Name="CS" Target="cs_6_4">
       <![CDATA[
