@@ -18,7 +18,7 @@ struct MeshPerPrimitive {
 
 struct MeshPayload {
     float normal;
-    float malnor[4000];
+    float malnor[4182];
     int layer[4];
 };
 
