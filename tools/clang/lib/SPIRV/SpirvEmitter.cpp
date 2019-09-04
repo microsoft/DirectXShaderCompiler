@@ -3333,13 +3333,13 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
   if (isTemplatedLoadOrStore) {
     // Templated load. Need to (potentially) perform more
     // loads/casts/composite-constructs.
+    uint32_t bitOffset = 0;
     if (doStore) {
       auto *values = doExpr(expr->getArg(1));
       RawBufferHandler(*this).processTemplatedStoreToBuffer(
-          values, objectInfo, address, expr->getArg(1)->getType());
+          values, objectInfo, address, expr->getArg(1)->getType(), bitOffset);
       return nullptr;
     } else {
-      uint32_t bitOffset = 0;
       RawBufferHandler rawBufferHandler(*this);
       return rawBufferHandler.processTemplatedLoadFromBuffer(
           objectInfo, address, expr->getType(), bitOffset);

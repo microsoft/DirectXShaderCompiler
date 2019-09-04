@@ -28,8 +28,10 @@ public:
   /// which is a runtime array in SPIR-V. This method works by loading one or
   /// more uints, and performing necessary casts and composite constructions
   /// to build the 'targetType'. The 'offset' parameter can be used for finer
-  /// grained load of bitwidths smaller than 32-bits. Example: targetType =
-  /// uint16_t, address=0, offset=0
+  /// grained load of bitwidths smaller than 32-bits.
+  ///
+  /// Example:
+  /// targetType = uint16_t, address=0, offset=0
   ///                 --> Load the first 16-bit uint starting at address 0.
   /// targetType = uint16_t, address=0, offset=16
   ///                 --> Load the second 16-bit uint starting at address 0.
@@ -43,10 +45,19 @@ public:
   /// member which is a runtime array of uints. This method works by decomposing
   /// the given |value| to reach numeric/bool types. Then performs necessary
   /// casts to uints and stores them in the underlying runtime array.
+  /// The |bitOffset| parameter can be used for finer-grained bit-offset
+  /// control.
+  ///
+  /// Example:
+  /// targetType = uint16_t, address=0, offset=0
+  ///                 --> Store to the first 16-bit uint starting at address 0.
+  /// targetType = uint16_t, address=0, offset=16
+  ///                 --> Store to the second 16-bit uint starting at address 0.
   void processTemplatedStoreToBuffer(SpirvInstruction *value,
                                      SpirvInstruction *buffer,
                                      SpirvInstruction *&index,
-                                     const QualType valueType);
+                                     const QualType valueType,
+                                     uint32_t &bitOffset);
 
 private:
   SpirvInstruction *load16BitsAtBitOffset0(SpirvInstruction *buffer,
@@ -85,9 +96,15 @@ private:
                                SpirvInstruction *&index,
                                const QualType valueType);
 
+  void store16BitsAtBitOffset16(SpirvInstruction *value,
+                                SpirvInstruction *buffer,
+                                SpirvInstruction *&index,
+                                const QualType valueType);
+
   void storeArrayOfScalars(std::deque<SpirvInstruction *> values,
                            SpirvInstruction *buffer, SpirvInstruction *&index,
-                           const QualType valueType, SourceLocation);
+                           const QualType valueType, uint32_t &bitOffset,
+                           SourceLocation);
 
   /// \brief Serializes the given values into their components until a scalar or
   /// a struct has been reached. Returns the most basic type it reaches.
