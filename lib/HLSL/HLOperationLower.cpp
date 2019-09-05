@@ -2814,8 +2814,14 @@ SampleHelper::SampleHelper(
     break;
   case OP::OpCode::SampleLevel:
     SetLOD(CI, HLOperandIndex::kSampleLLevelArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleLOffsetArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex);
+    if (resourceKind == DXIL::ResourceKind::TextureCube ||
+        resourceKind == DXIL::ResourceKind::TextureCubeArray) {
+      TranslateOffset(CI, HLOperandIndex::kInvalidIdx); // Initialize offsets to zero
+      SetStatus(CI, HLOperandIndex::kSampleLCubeStatusArgIndex);
+    } else {
+      TranslateOffset(CI, HLOperandIndex::kSampleLOffsetArgIndex);
+      SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex);
+    }
     break;
   case OP::OpCode::SampleBias:
     SetBias(CI, HLOperandIndex::kSampleBBiasArgIndex);
