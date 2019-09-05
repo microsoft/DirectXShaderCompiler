@@ -135,6 +135,9 @@ namespace HLOperandIndex {
 // Opcode parameter.
 const unsigned kOpcodeIdx = 0;
 
+// Used to initialize values that have no valid index in the HL overload.
+const unsigned kInvalidIdx = UINT32_MAX;
+
 // Matrix store.
 const unsigned kMatStoreDstPtrOpIdx = 1;
 const unsigned kMatStoreValOpIdx = 2;
@@ -275,6 +278,7 @@ const unsigned kSampleBStatusArgIndex = 7;
 const unsigned kSampleLLevelArgIndex = 4;
 const unsigned kSampleLOffsetArgIndex = 5;
 const unsigned kSampleLStatusArgIndex = 6;
+const unsigned kSampleLCubeStatusArgIndex = 5;  // Cube/CubeArray has no offset arg
 
 // SampleCmpLevelZero.
 const unsigned kSampleCmpLZCmpValArgIndex = 4;
