@@ -217,6 +217,15 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       m_pLinker->SetValidatorVersion(opts.ValVerMajor, opts.ValVerMinor);
     }
 
+    bool needsValidation = !opts.DisableValidation;
+    // Disable validation if ValVerMajor is 0 (offline target, never validate),
+    // or pre-release library targets lib_6_1/lib_6_2.
+    if (opts.ValVerMajor == 0 ||
+        opts.TargetProfile == "lib_6_1" ||
+        opts.TargetProfile == "lib_6_2") {
+      needsValidation = false;
+    }
+
     // Attach libraries.
     bool bSuccess = true;
     for (unsigned i = 0; i < libCount; i++) {
@@ -260,7 +269,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         // Validation.
         HRESULT valHR = S_OK;
         // Skip validation on lib for now.
-        if (!opts.TargetProfile.startswith("lib_")) {
+        if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(
               std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
               pOutputStream,
