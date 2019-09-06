@@ -1420,7 +1420,23 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     };
 
     IFR(AddType<symbol_factory::Type>(dwParentID, CT, pNewTypeID, SymTagArrayType, CT, LazyName));
-
+    TypeInfo *ctTI;
+    IFR(GetTypeInfo(CT, &ctTI));
+    TypeInfo *baseTI;
+    IFR(GetTypeInfo(BaseType, &baseTI));
+    unsigned embedCount = 1;
+    for (llvm::DINode *N : CT->getElements()) {
+      if (N != nullptr) {
+        if (auto *SubRange = llvm::dyn_cast<llvm::DISubrange>(N)) {
+          embedCount *= SubRange->getCount();
+        } else {
+          return E_FAIL;
+        }
+      }
+    }
+    for (unsigned i = 0; i < embedCount; ++i) {
+      ctTI->Embed(*baseTI);
+    }
     return S_OK;
   }
   case llvm::dwarf::DW_TAG_class_type: {
