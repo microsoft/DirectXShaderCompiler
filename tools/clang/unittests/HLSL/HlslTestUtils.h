@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cmath>
 #include <vector>
+#include <algorithm>
 #ifdef _WIN32
 #include <dxgiformat.h>
 #include "WexTestClass.h"
@@ -203,14 +204,14 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
 
   std::vector<std::string> runlines;
   std::string line;
-  constexpr unsigned runlinesize = 300;
+  constexpr size_t runlinesize = 300;
   while (std::getline(infile, line)) {
     auto lineelems = strtok(line);
     if (!HasRunLine(line))
       continue;
     char runline[runlinesize];
     memset(runline, 0, runlinesize);
-    memcpy(runline, line.c_str(), runlinesize);
+    memcpy(runline, line.c_str(), min(runlinesize, line.size()));
     runlines.emplace_back(runline);
   }
   return runlines;
