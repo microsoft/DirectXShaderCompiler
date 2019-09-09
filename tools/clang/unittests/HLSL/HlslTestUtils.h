@@ -206,7 +206,6 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
   std::string line;
   constexpr size_t runlinesize = 300;
   while (std::getline(infile, line)) {
-    auto lineelems = strtok(line);
     if (!HasRunLine(line))
       continue;
     char runline[runlinesize];
