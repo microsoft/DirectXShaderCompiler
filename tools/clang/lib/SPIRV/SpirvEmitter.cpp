@@ -3317,8 +3317,9 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
   // Store3, Store4 intrinsic functions.
   const bool isTemplatedLoadOrStore =
       (numWords == 1) &&
-      (doStore ? expr->getArg(1)->getType() != astContext.UnsignedIntTy
-               : expr->getType() != astContext.UnsignedIntTy);
+      (doStore ? !expr->getArg(1)->getType()->isSpecificBuiltinType(
+                     BuiltinType::UInt)
+               : !expr->getType()->isSpecificBuiltinType(BuiltinType::UInt));
 
   // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
   // access). The AST always casts the address to unsinged integer, so shift
@@ -3329,13 +3330,20 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
       spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, addressType,
                                 byteAddress, constUint2, expr->getExprLoc());
 
-  if (isTemplatedLoadOrStore && !doStore) {
+  if (isTemplatedLoadOrStore) {
     // Templated load. Need to (potentially) perform more
     // loads/casts/composite-constructs.
     uint32_t bitOffset = 0;
-    RawBufferHandler rawBufferHandler(*this);
-    return rawBufferHandler.processTemplatedLoadFromBuffer(
-        objectInfo, address, expr->getType(), bitOffset);
+    if (doStore) {
+      auto *values = doExpr(expr->getArg(1));
+      RawBufferHandler(*this).processTemplatedStoreToBuffer(
+          values, objectInfo, address, expr->getArg(1)->getType(), bitOffset);
+      return nullptr;
+    } else {
+      RawBufferHandler rawBufferHandler(*this);
+      return rawBufferHandler.processTemplatedLoadFromBuffer(
+          objectInfo, address, expr->getType(), bitOffset);
+    }
   }
 
   // Perform access chain into the RWByteAddressBuffer.
