@@ -898,8 +898,17 @@ TEST_F(FileTest, ByteAddressBufferTemplatedLoadStruct) {
 TEST_F(FileTest, ByteAddressBufferTemplatedLoadStruct2) {
   runFileTest("method.byte-address-buffer.templated-load.struct2.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferTemplatedLoadStruct3) {
+  runFileTest("method.byte-address-buffer.templated-load.struct3.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferStore) {
   runFileTest("method.byte-address-buffer.store.hlsl");
+}
+TEST_F(FileTest, ByteAddressBufferTemplatedStoreStruct) {
+  runFileTest("method.byte-address-buffer.templated-store.struct.hlsl");
+}
+TEST_F(FileTest, ByteAddressBufferTemplatedStoreStruct2) {
+  runFileTest("method.byte-address-buffer.templated-store.struct.hlsl");
 }
 TEST_F(FileTest, ByteAddressBufferGetDimensions) {
   runFileTest("method.byte-address-buffer.get-dimensions.hlsl");

@@ -152,6 +152,10 @@ bool isVectorType(QualType type, QualType *elemType, uint32_t *elemCount) {
   return isVec;
 }
 
+bool isConstantArrayType(const ASTContext &astContext, QualType type) {
+  return astContext.getAsConstantArrayType(type) != nullptr;
+}
+
 bool isEnumType(QualType type) {
   if (isa<EnumType>(type.getTypePtr()))
     return true;
