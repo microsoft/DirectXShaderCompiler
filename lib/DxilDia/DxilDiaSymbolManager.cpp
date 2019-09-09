@@ -1142,6 +1142,8 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionBlockForLocalSc
     }
   } else if (auto *Block = llvm::dyn_cast<llvm::DILexicalBlock>(LS)) {
     ParentLS = Block->getScope();
+  } else if (auto *BlockFile = llvm::dyn_cast<llvm::DILexicalBlockFile>(LS)) {
+    ParentLS = BlockFile->getScope();
   }
 
   if (ParentLS == nullptr) {
