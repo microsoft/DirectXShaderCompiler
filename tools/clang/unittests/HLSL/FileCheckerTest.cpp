@@ -43,43 +43,6 @@
 using namespace std;
 using namespace hlsl_test;
 
-static constexpr char whitespaceChars[] = " \t\r\n";
-
-static std::string strltrim(const std::string &value) {
-  size_t first = value.find_first_not_of(whitespaceChars);
-  return first == string::npos ? value : value.substr(first);
-}
-
-static std::string strrtrim(const std::string &value) {
-  size_t last = value.find_last_not_of(whitespaceChars);
-  return last == string::npos ? value : value.substr(0, last + 1);
-}
-
-static std::string strtrim(const std::string &value) {
-  return strltrim(strrtrim(value));
-}
-
-static bool strstartswith(const std::string& value, const char* pattern) {
-  for (size_t i = 0; ; ++i) {
-    if (pattern[i] == '\0') return true;
-    if (i == value.size() || value[i] != pattern[i]) return false;
-  }
-}
-
-static std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars) {
-  size_t searchOffset = 0;
-  std::vector<std::string> tokens;
-  while (searchOffset != value.size()) {
-    size_t tokenStartIndex = value.find_first_not_of(delimiters, searchOffset);
-    if (tokenStartIndex == std::string::npos) break;
-    size_t tokenEndIndex = value.find_first_of(delimiters, tokenStartIndex);
-    if (tokenEndIndex == std::string::npos) tokenEndIndex = value.size();
-    tokens.emplace_back(value.substr(tokenStartIndex, tokenEndIndex - tokenStartIndex));
-    searchOffset = tokenEndIndex;
-  }
-  return tokens;
-}
-
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
 
@@ -149,12 +112,18 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
 
   // Parse command arguments
   static constexpr char checkPrefixStr[] = "-check-prefix=";
+  static constexpr char checkPrefixesStr[] = "-check-prefixes=";
   bool hasInputFilename = false;
   for (const std::string& arg : strtok(Arguments)) {
     if (arg == "%s") hasInputFilename = true;
     else if (arg == "-input=stderr") t.InputForStdin = Prior->StdErr;
     else if (strstartswith(arg, checkPrefixStr))
       t.CheckPrefixes.emplace_back(arg.substr(sizeof(checkPrefixStr) - 1));
+    else if (strstartswith(arg, checkPrefixesStr)) {
+      auto prefixes = strtok(arg.substr(sizeof(checkPrefixesStr) - 1), ", ");
+      for (auto &prefix : prefixes)
+        t.CheckPrefixes.emplace_back(prefix);
+    }
     else return FileRunCommandResult::Error("Invalid argument");
   }
   if (!hasInputFilename) return FileRunCommandResult::Error("Missing input filename");
@@ -749,8 +718,11 @@ public:
   FileRunTestResultImpl(dxc::DxcDllSupport &support) : m_support(support) {}
   void RunFileCheckFromFileCommands(LPCWSTR fileName) {
     // Assume UTF-8 files.
-    std::string commands(GetFirstLine(fileName));
-    return RunFileCheckFromCommands(commands.c_str(), fileName);
+    auto cmds = GetRunLines(fileName);
+    // Iterate over all RUN lines
+    for (auto &cmd : cmds) {
+      RunFileCheckFromCommands(cmd.c_str(), fileName);
+    }
   }
 
   void RunHashTestFromFileCommands(LPCWSTR fileName) {
