@@ -3,7 +3,7 @@
 This folder contains unit tests covering [HLSL intrinsics](https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-intrinsic-functions).
 
 ## Test Coverage Gap
-Current we have missing/minmal test coverage for below HLSL intrinsics:
+Current we have missing/minimal test coverage for below HLSL intrinsics:
 - abort
 - abs
 - AllMemoryBarrierWithGroupSync
@@ -50,12 +50,3 @@ Current we have missing/minmal test coverage for below HLSL intrinsics:
 - sincos
 - tex* intrinsics
 - trunc
-
-
-
-
-
-
-
-
-
