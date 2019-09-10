@@ -664,7 +664,7 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
 
 TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
 	RewriteAssemblyCheckMsg(
-		L"..\\CodeGenHLSL\\validation\\SimpleHs1.hlsl", "hs_6_0",
+		L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs1.hlsl", "hs_6_0",
 		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z\", i32 3, i32 3",
 		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z\", i32 0, i32 3",
 		"When HS input control point count is 0, no input signature should exist");
@@ -672,7 +672,7 @@ TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
 
 TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\abs2.hlsl", "ps_6_0",
       {
           "target triple = \"dxil-ms-dx\"",
           "ret void",
@@ -693,7 +693,7 @@ TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
 }
 
 TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\IntegerDepth2.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\semantics\\IntegerDepth2.hlsl", "ps_6_0",
                           {
                               "!\"SV_Depth\", i8 9",
                           },
@@ -708,7 +708,7 @@ TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
 TEST_F(ValidationTest, BarrierFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\AllMemoryBarrier\\barrier.hlsl", "cs_6_0",
       {"dx.op.barrier(i32 80, i32 8)",
         "dx.op.barrier(i32 80, i32 9)",
         "dx.op.barrier(i32 80, i32 11)",
@@ -734,7 +734,7 @@ TEST_F(ValidationTest, BarrierFail) {
 }
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\cbuffer1.50.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\CbufferLegacy\\cbuffer1.50.hlsl", "ps_6_0",
       "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_cbuffer, i32 0)",
       "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_cbuffer, i32 6)",
       "Cbuffer access out of bound");
@@ -742,7 +742,7 @@ TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
 
 TEST_F(ValidationTest, CsThreadSizeFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\share_mem1.hlsl", "cs_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\GroupMemoryBarrierWithGroupSync\\share_mem1.hlsl", "cs_6_0",
       {"!{i32 8, i32 8, i32 1",
        "[256 x float]"},
       {"!{i32 1025, i32 1025, i32 1025",
@@ -757,7 +757,7 @@ TEST_F(ValidationTest, CsThreadSizeFail) {
 TEST_F(ValidationTest, DeadLoopFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\loop1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\control_flow\\loops\\loop1.hlsl", "ps_6_0",
       {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
        "?%add(\\.lcssa)? = phi float \\[ %add, %for.body \\]",
        "!dx.entryPoints = !\\{!([0-9]+)\\}",
@@ -775,7 +775,7 @@ TEST_F(ValidationTest, DeadLoopFail) {
 }
 TEST_F(ValidationTest, EvalFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\eval.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\EvaluateAttributeAtCentroid\\eval.hlsl", "ps_6_0",
       "!\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4",
       "!\"A\", i8 9, i8 0, !\\1, i8 0, i32 1, i8 4",
       "Interpolation mode on A used with eval_\\* instruction must be ",
@@ -783,7 +783,7 @@ TEST_F(ValidationTest, EvalFail) {
 }
 TEST_F(ValidationTest, GetDimCalcLODFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\GetDimCalcLOD.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Texture\\GetDimCalcLOD.hlsl", "ps_6_0",
       {"extractvalue %dx.types.Dimensions %([0-9]+), 1",
        "float 1.000000e\\+00, i1 true"
       },
@@ -796,7 +796,7 @@ TEST_F(ValidationTest, GetDimCalcLODFail) {
 }
 TEST_F(ValidationTest, HsAttributeFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\hsAttribute.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\hsAttribute.hlsl", "hs_6_0",
       {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01"
       },
       {"i32 36, i32 36, i32 0, i32 0, i32 0, float 6.500000e+01"
@@ -810,7 +810,7 @@ TEST_F(ValidationTest, HsAttributeFail) {
 }
 TEST_F(ValidationTest, InnerCoverageFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\InnerCoverage2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\InnerCoverage2.hlsl", "ps_6_0",
       {"dx.op.coverage.i32(i32 91)",
        "declare i32 @dx.op.coverage.i32(i32)"
       },
@@ -822,7 +822,7 @@ TEST_F(ValidationTest, InnerCoverageFail) {
 }
 TEST_F(ValidationTest, InterpChangeFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\interpChange.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\interpChange.hlsl", "ps_6_0",
       { "i32 1, i8 0, (.*)}",
         "?!dx.viewIdState ="},
       { "i32 0, i8 2, \\1}",
@@ -832,7 +832,7 @@ TEST_F(ValidationTest, InterpChangeFail) {
 }
 TEST_F(ValidationTest, InterpOnIntFail) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\interpOnInt2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\interpOnInt2.hlsl", "ps_6_0",
       "!\"A\", i8 5, i8 0, !([0-9]+), i8 1",
       "!\"A\", i8 5, i8 0, !\\1, i8 2",
       "signature element A specifies invalid interpolation mode for integer component type",
@@ -840,14 +840,14 @@ TEST_F(ValidationTest, InterpOnIntFail) {
 }
 TEST_F(ValidationTest, InvalidSigCompTyFail) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\abs\\abs2.hlsl", "ps_6_0",
       "!\"A\", i8 4",
       "!\"A\", i8 0",
       "A specifies unrecognized or invalid component type");
 }
 TEST_F(ValidationTest, MultiStream2Fail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\multiStreamGS.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\shader_stage_tests\\geometry\\multiStreamGS.hlsl", "gs_6_0",
       "i32 1, i32 12, i32 7, i32 1, i32 1",
       "i32 1, i32 12, i32 7, i32 2, i32 1",
       "Multiple GS output streams are used but 'XXX' is not pointlist");
@@ -855,7 +855,7 @@ TEST_F(ValidationTest, MultiStream2Fail) {
 TEST_F(ValidationTest, PhiTGSMFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\phiTGSM.hlsl", "cs_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\phiTGSM.hlsl", "cs_6_0",
       "ret void",
       "%arrayPhi = phi i32 addrspace(3)* [ %arrayidx, %if.then ], [ %arrayidx2, %if.else ]\n"
       "%phiAtom = atomicrmw add i32 addrspace(3)* %arrayPhi, i32 1 seq_cst\n"
@@ -879,7 +879,7 @@ TEST_F(ValidationTest, QuadOpInVS) {
 TEST_F(ValidationTest, ReducibleFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\reducible.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\control_flow\\loops\\reducible.hlsl", "ps_6_0",
       {"%conv\n"
        "  br label %if.end",
        "to float\n"
@@ -894,7 +894,7 @@ TEST_F(ValidationTest, ReducibleFail) {
 }
 TEST_F(ValidationTest, SampleBiasFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\sampleBias.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Texture\\sampleBias.hlsl", "ps_6_0",
       {"float -1.600000e+01"
       },
       {"float 1.800000e+01"
@@ -903,7 +903,7 @@ TEST_F(ValidationTest, SampleBiasFail) {
 }
 TEST_F(ValidationTest, SamplerKindFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SamplerKind.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SamplerKind.hlsl", "ps_6_0",
       {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1",
        "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0",
        "\"g_samLinear\", i32 0, i32 0, i32 1, i32 0",
@@ -922,7 +922,7 @@ TEST_F(ValidationTest, SamplerKindFail) {
 }
 TEST_F(ValidationTest, SemaOverlapFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\semaOverlap1.hlsl", "ps_6_0",
       {"!\\{i32 0, !\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4, i32 0, i8 0, (.*)"
       "!\\{i32 1, !\"A\", i8 9, i8 0, !([0-9]+)",
       },
@@ -935,7 +935,7 @@ TEST_F(ValidationTest, SemaOverlapFail) {
 TEST_F(ValidationTest, SigOutOfRangeFail) {
   return;   // Skip for now since this fails AssembleToContainer in PSV creation due to out of range start row
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\semaOverlap1.hlsl", "ps_6_0",
       {"i32 1, i8 0, null}",
       },
       {"i32 8000, i8 0, null}",
@@ -944,7 +944,7 @@ TEST_F(ValidationTest, SigOutOfRangeFail) {
 }
 TEST_F(ValidationTest, SigOverlapFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\semaOverlap1.hlsl", "ps_6_0",
       { "i8 2, i32 1, i8 4, i32 1, i8 0,",
         "?!dx.viewIdState =" },
       { "i8 2, i32 1, i8 4, i32 0, i8 0,",
@@ -953,7 +953,7 @@ TEST_F(ValidationTest, SigOverlapFail) {
 }
 TEST_F(ValidationTest, SimpleHs1Fail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleHs1.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs1.hlsl", "hs_6_0",
       {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01}",
        "\"SV_TessFactor\", i8 9, i8 25",
        "\"SV_InsideTessFactor\", i8 9, i8 26",
@@ -971,7 +971,7 @@ TEST_F(ValidationTest, SimpleHs1Fail) {
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleHs3.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs3.hlsl", "hs_6_0",
       {
           "i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01}",
       },
@@ -984,7 +984,7 @@ TEST_F(ValidationTest, SimpleHs3Fail) {
 }
 TEST_F(ValidationTest, SimpleHs4Fail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleHs4.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs4.hlsl", "hs_6_0",
       {
           "i32 2, i32 2, i32 1, i32 3, i32 2, float 6.400000e+01}",
       },
@@ -997,7 +997,7 @@ TEST_F(ValidationTest, SimpleHs4Fail) {
 }
 TEST_F(ValidationTest, SimpleDs1Fail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleDs1.hlsl", "ds_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleDs1.hlsl", "ds_6_0",
       {"!{i32 2, i32 3}"
       },
       {"!{i32 4, i32 36}"
@@ -1009,7 +1009,7 @@ TEST_F(ValidationTest, SimpleDs1Fail) {
 TEST_F(ValidationTest, SimpleGs1Fail) {
   return;   // Skip for now since this fails AssembleToContainer in PSV creation due to out of range stream index
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleGS1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleGS1.hlsl", "gs_6_0",
       {"!{i32 1, i32 3, i32 1, i32 5, i32 1}",
        "i8 4, i32 1, i8 4, i32 2, i8 0, null}"
       },
@@ -1026,7 +1026,7 @@ TEST_F(ValidationTest, SimpleGs1Fail) {
 TEST_F(ValidationTest, UavBarrierFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\uavBarrier.hlsl", "ps_6_0",
       {"dx.op.barrier(i32 80, i32 2)",
        "textureLoad.f32(i32 66, %dx.types.Handle %uav1_UAV_2d, i32 undef",
        "i32 undef, i32 undef, i32 undef, i32 undef)",
@@ -1044,12 +1044,12 @@ TEST_F(ValidationTest, UavBarrierFail) {
        " Shader must only sync UAV (sync_uglobal)"});
 }
 TEST_F(ValidationTest, UndefValueFail) {
-  TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\validation\\UndefValue.hlsl");
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\updateCounter2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\updateCounter2.hlsl", "ps_6_0",
       {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
        "%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)"
       },
@@ -1065,18 +1065,18 @@ TEST_F(ValidationTest, UpdateCounterFail) {
 
 TEST_F(ValidationTest, LocalResCopy) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\resCopy.hlsl", "cs_6_0", {"ret void"},
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Buffer\\resCopy.hlsl", "cs_6_0", {"ret void"},
       {"%H = alloca %dx.types.ResRet.i32\n"
        "ret void"},
       {"Dxil struct types should only used by ExtractValue"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
-  TestCheck(L"..\\CodeGenHLSL\\val-failures.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\validation\\val-failures.hlsl");
 }
 
 TEST_F(ValidationTest, WhenIncorrectPSThenFail) {
-  TestCheck(L"..\\CodeGenHLSL\\val-failures-ps.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\validation\\val-failures-ps.hlsl");
 }
 
 TEST_F(ValidationTest, WhenSmUnknownThenFail) {
@@ -1101,7 +1101,7 @@ TEST_F(ValidationTest, WhenMetaFlagsUsageDeclThenOK) {
 
 TEST_F(ValidationTest, GsVertexIDOutOfBound) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleGS1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleGS1.hlsl", "gs_6_0",
       "dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 0)",
       "dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 1)", 
       "expect VertexID between 0~1, got 1");
@@ -1109,7 +1109,7 @@ TEST_F(ValidationTest, GsVertexIDOutOfBound) {
 
 TEST_F(ValidationTest, StreamIDOutOfBound) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleGS1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleGS1.hlsl", "gs_6_0",
       "dx.op.emitStream(i32 97, i8 0)",
       "dx.op.emitStream(i32 97, i8 1)", 
       "expect StreamID between 0 , got 1");
@@ -1119,7 +1119,7 @@ TEST_F(ValidationTest, SignatureDataWidth) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
   std::vector<LPCWSTR> pArguments = { L"-enable-16bit-types", L"-HV", L"2018" };
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\signature_packing_by_width.hlsl", "ps_6_2",
+      L"..\\CodeGenHLSL\\unit_tests\\signature\\signature_packing_by_width.hlsl", "ps_6_2",
       pArguments.data(), 3, nullptr, 0,
       {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       {"i8 9, i8 0, \\1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
@@ -1130,7 +1130,7 @@ TEST_F(ValidationTest, SignatureDataWidth) {
 
 TEST_F(ValidationTest, SignatureStreamIDForNonGS) {
   RewriteAssemblyCheckMsg(
-    L"..\\CodeGenHLSL\\validation\\abs1.hlsl", "ps_6_0",
+    L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\abs\\abs1.hlsl", "ps_6_0",
     { ", i8 0, i32 1, i8 4, i32 0, i8 0, [^,]+}",
       "?!dx.viewIdState ="},
     { ", i8 0, i32 1, i8 4, i32 0, i8 0, !1019}\n!1019 = !{i32 0, i32 1}",
@@ -1141,7 +1141,7 @@ TEST_F(ValidationTest, SignatureStreamIDForNonGS) {
 
 TEST_F(ValidationTest, TypedUAVStoreFullMask0) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\uav_typed_store.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Texture\\uav_typed_store.hlsl", "ps_6_0",
       "float 2.000000e+00, i8 15)",
       "float 2.000000e+00, i8 undef)",
       "Mask of TextureStore must be an immediate constant");
@@ -1149,7 +1149,7 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask0) {
 
 TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\uav_typed_store.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Texture\\uav_typed_store.hlsl", "ps_6_0",
       "float 3.000000e+00, i8 15)",
       "float 3.000000e+00, i8 undef)",
       "Mask of BufferStore must be an immediate constant");
@@ -1157,20 +1157,20 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
 
 TEST_F(ValidationTest, Recursive) {
   // Includes coverage for user-defined functions.
-  TestCheck(L"..\\CodeGenHLSL\\recursive.ll");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\functions\\recursion\\recursive.ll");
 }
 
 TEST_F(ValidationTest, Recursive2) {
-    TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
+    TestCheck(L"..\\CodeGenHLSL\\unit_tests\\functions\\recursion\\recursive2.hlsl");
 }
 
 TEST_F(ValidationTest, Recursive3) {
-    TestCheck(L"..\\CodeGenHLSL\\recursive3.hlsl");
+    TestCheck(L"..\\CodeGenHLSL\\unit_tests\\functions\\recursion\\recursive3.hlsl");
 }
 
 TEST_F(ValidationTest, ResourceRangeOverlap0) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\resource_overlap.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\resource_binding\\resource_overlap.hlsl", "ps_6_0",
       "!\"B\", i32 0, i32 1",
       "!\"B\", i32 0, i32 0",
       "Resource B with base 0 size 1 overlap");
@@ -1178,7 +1178,7 @@ TEST_F(ValidationTest, ResourceRangeOverlap0) {
 
 TEST_F(ValidationTest, ResourceRangeOverlap1) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\resource_overlap.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\resource_binding\\resource_overlap.hlsl", "ps_6_0",
       "!\"s1\", i32 0, i32 1",
       "!\"s1\", i32 0, i32 0",
       "Resource s1 with base 0 size 1 overlap");
@@ -1186,7 +1186,7 @@ TEST_F(ValidationTest, ResourceRangeOverlap1) {
 
 TEST_F(ValidationTest, ResourceRangeOverlap2) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\resource_overlap.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\resource_binding\\resource_overlap.hlsl", "ps_6_0",
       "!\"uav2\", i32 0, i32 0",
       "!\"uav2\", i32 0, i32 3",
       "Resource uav2 with base 3 size 1 overlap");
@@ -1194,7 +1194,7 @@ TEST_F(ValidationTest, ResourceRangeOverlap2) {
 
 TEST_F(ValidationTest, ResourceRangeOverlap3) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\resource_overlap.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\resource_binding\\resource_overlap.hlsl", "ps_6_0",
       "!\"srv2\", i32 0, i32 1",
       "!\"srv2\", i32 0, i32 0",
       "Resource srv2 with base 0 size 1 overlap");
@@ -1202,7 +1202,7 @@ TEST_F(ValidationTest, ResourceRangeOverlap3) {
 
 TEST_F(ValidationTest, CBufferOverlap0) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\cbufferOffset.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\CbufferLegacy\\cbufferOffset.hlsl", "ps_6_0",
       "i32 6, !\"g2\", i32 3, i32 0",
       "i32 6, !\"g2\", i32 3, i32 8",
       "CBuffer Foo1 has offset overlaps at 16");
@@ -1210,7 +1210,7 @@ TEST_F(ValidationTest, CBufferOverlap0) {
 
 TEST_F(ValidationTest, CBufferOverlap1) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\cbufferOffset.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\CbufferLegacy\\cbufferOffset.hlsl", "ps_6_0",
       " = !{i32 32, !",
       " = !{i32 16, !",
       "CBuffer Foo1 size insufficient for element at offset 16");
@@ -1218,7 +1218,7 @@ TEST_F(ValidationTest, CBufferOverlap1) {
 
 TEST_F(ValidationTest, ControlFlowHint) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\if1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\control_flow\\if_else\\if1.hlsl", "ps_6_0",
       "!\"dx.controlflow.hints\", i32 1",
       "!\"dx.controlflow.hints\", i32 5",
       "Attribute forcecase only works for switch");
@@ -1226,7 +1226,7 @@ TEST_F(ValidationTest, ControlFlowHint) {
 
 TEST_F(ValidationTest, ControlFlowHint1) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\if1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\control_flow\\if_else\\if1.hlsl", "ps_6_0",
       "!\"dx.controlflow.hints\", i32 1",
       "!\"dx.controlflow.hints\", i32 1, i32 2",
       "Can't use branch and flatten attributes together");
@@ -1234,7 +1234,7 @@ TEST_F(ValidationTest, ControlFlowHint1) {
 
 TEST_F(ValidationTest, ControlFlowHint2) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\if1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\control_flow\\if_else\\if1.hlsl", "ps_6_0",
       "!\"dx.controlflow.hints\", i32 1",
       "!\"dx.controlflow.hints\", i32 3",
       "Invalid control flow hint");
@@ -1242,7 +1242,7 @@ TEST_F(ValidationTest, ControlFlowHint2) {
 
 TEST_F(ValidationTest, SemanticLength1) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\binary1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\operators\\binary\\binary1.hlsl", "ps_6_0",
       "!\"C\"",
       "!\"\"",
       "Semantic length must be at least 1 and at most 64");
@@ -1250,7 +1250,7 @@ TEST_F(ValidationTest, SemanticLength1) {
 
 TEST_F(ValidationTest, SemanticLength64) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\binary1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\operators\\binary\\binary1.hlsl", "ps_6_0",
       "!\"C\"",
       "!\"CSESESESESESESESESESESESESESESESESESESESESESESESESESESESESESESESE\"",
       "Semantic length must be at least 1 and at most 64");
@@ -1258,7 +1258,7 @@ TEST_F(ValidationTest, SemanticLength64) {
 
 TEST_F(ValidationTest, PullModelPosition) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\eval.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\EvaluateAttributeAtCentroid\\eval.hlsl", "ps_6_0",
       "!\"A\", i8 9, i8 0",
       "!\"SV_Position\", i8 9, i8 3",
       "does not support pull-model evaluation of position");
@@ -1266,7 +1266,7 @@ TEST_F(ValidationTest, PullModelPosition) {
 
 TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\StructuredBuffer\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
       "globallycoherent cannot be used with append/consume buffers'buf2'");
@@ -1274,7 +1274,7 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
 
 TEST_F(ValidationTest, StructBufStrideAlign) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\StructuredBuffer\\struct_buf1.hlsl", "ps_6_0",
       "= !{i32 1, i32 52}",
       "= !{i32 1, i32 50}",
       "structured buffer element size must be a multiple of 4 bytes (actual size 50 bytes)");
@@ -1282,7 +1282,7 @@ TEST_F(ValidationTest, StructBufStrideAlign) {
 
 TEST_F(ValidationTest, StructBufStrideOutOfBound) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\StructuredBuffer\\struct_buf1.hlsl", "ps_6_0",
       "= !{i32 1, i32 52}",
       "= !{i32 1, i32 2052}",
       "structured buffer elements cannot be larger than 2048 bytes (actual size 2052 bytes)");
@@ -1290,7 +1290,7 @@ TEST_F(ValidationTest, StructBufStrideOutOfBound) {
 
 TEST_F(ValidationTest, StructBufLoadCoordinates) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\StructuredBuffer\\struct_buf1.hlsl", "ps_6_0",
       "bufferLoad.f32(i32 68, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
       "bufferLoad.f32(i32 68, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
       "structured buffer require 2 coordinates");
@@ -1298,7 +1298,7 @@ TEST_F(ValidationTest, StructBufLoadCoordinates) {
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\struct_buf1.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\StructuredBuffer\\struct_buf1.hlsl", "ps_6_0",
       "bufferStore.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
       "bufferStore.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
       "structured buffer require 2 coordinates");
@@ -1306,7 +1306,7 @@ TEST_F(ValidationTest, StructBufStoreCoordinates) {
 
 TEST_F(ValidationTest, TypedBufRetType) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\sample5.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Texture\\sample5.hlsl", "ps_6_0",
       " = type { <4 x float>",
       " = type { <4 x double>",
       "elements of typed buffers and textures must fit in four 32-bit quantities");
@@ -1314,7 +1314,7 @@ TEST_F(ValidationTest, TypedBufRetType) {
 
 TEST_F(ValidationTest, VsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\clip_planes.hlsl", "vs_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\semantics\\sv_clipdistance\\clip_planes.hlsl", "vs_6_0",
       "!\"POSITION\", i8 9, i8 0",
       "!\"SV_Target\", i8 9, i8 16",
       "Semantic 'SV_Target' is invalid as vs Input");
@@ -1322,7 +1322,7 @@ TEST_F(ValidationTest, VsInputSemantic) {
 
 TEST_F(ValidationTest, VsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\clip_planes.hlsl", "vs_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\semantics\\sv_clipdistance\\clip_planes.hlsl", "vs_6_0",
       "!\"NORMAL\", i8 9, i8 0",
       "!\"SV_Target\", i8 9, i8 16",
       "Semantic 'SV_Target' is invalid as vs Output");
@@ -1330,7 +1330,7 @@ TEST_F(ValidationTest, VsOutputSemantic) {
 
 TEST_F(ValidationTest, HsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleHs1.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs1.hlsl", "hs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as hs Input");
@@ -1338,7 +1338,7 @@ TEST_F(ValidationTest, HsInputSemantic) {
 
 TEST_F(ValidationTest, HsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleHs1.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs1.hlsl", "hs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as hs Output");
@@ -1346,7 +1346,7 @@ TEST_F(ValidationTest, HsOutputSemantic) {
 
 TEST_F(ValidationTest, PatchConstSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleHs1.hlsl", "hs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleHs1.hlsl", "hs_6_0",
       "!\"SV_TessFactor\", i8 9, i8 25",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as hs PatchConstant");
@@ -1354,7 +1354,7 @@ TEST_F(ValidationTest, PatchConstSemantic) {
 
 TEST_F(ValidationTest, DsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleDs1.hlsl", "ds_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleDs1.hlsl", "ds_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ds Input");
@@ -1362,7 +1362,7 @@ TEST_F(ValidationTest, DsInputSemantic) {
 
 TEST_F(ValidationTest, DsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleDs1.hlsl", "ds_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleDs1.hlsl", "ds_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ds Output");
@@ -1370,7 +1370,7 @@ TEST_F(ValidationTest, DsOutputSemantic) {
 
 TEST_F(ValidationTest, GsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleGS1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleGS1.hlsl", "gs_6_0",
       "!\"POSSIZE\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as gs Input");
@@ -1378,7 +1378,7 @@ TEST_F(ValidationTest, GsInputSemantic) {
 
 TEST_F(ValidationTest, GsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\SimpleGS1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleGS1.hlsl", "gs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as gs Output");
@@ -1386,7 +1386,7 @@ TEST_F(ValidationTest, GsOutputSemantic) {
 
 TEST_F(ValidationTest, PsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\abs\\abs2.hlsl", "ps_6_0",
       "!\"A\", i8 4, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ps Input");
@@ -1394,7 +1394,7 @@ TEST_F(ValidationTest, PsInputSemantic) {
 
 TEST_F(ValidationTest, PsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\abs\\abs2.hlsl", "ps_6_0",
       "!\"SV_Target\", i8 9, i8 16",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ps Output");
@@ -1402,7 +1402,7 @@ TEST_F(ValidationTest, PsOutputSemantic) {
 
 TEST_F(ValidationTest, ArrayOfSVTarget) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\types\\array\\targetArray.hlsl", "ps_6_0",
       "i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, (.*)}",
       "i32 2, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 2, i8 4, i32 0, i8 0, \\2}\n!101 = !{i32 5, i32 6}",
       "Pixel shader output registers are not indexable.",
@@ -1411,7 +1411,7 @@ TEST_F(ValidationTest, ArrayOfSVTarget) {
 
 TEST_F(ValidationTest, InfiniteLog) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32\\(i32 23, float %[0-9+]\\)",
       "op.unary.f32(i32 23, float 0x7FF0000000000000)",
       "No indefinite logarithm",
@@ -1420,7 +1420,7 @@ TEST_F(ValidationTest, InfiniteLog) {
 
 TEST_F(ValidationTest, InfiniteAsin) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32\\(i32 16, float %[0-9]+\\)",
       "op.unary.f32(i32 16, float 0x7FF0000000000000)",
       "No indefinite arcsine",
@@ -1429,7 +1429,7 @@ TEST_F(ValidationTest, InfiniteAsin) {
 
 TEST_F(ValidationTest, InfiniteAcos) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32\\(i32 15, float %[0-9]+\\)",
       "op.unary.f32(i32 15, float 0x7FF0000000000000)",
       "No indefinite arccosine",
@@ -1438,7 +1438,7 @@ TEST_F(ValidationTest, InfiniteAcos) {
 
 TEST_F(ValidationTest, InfiniteDdxDdy) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32\\(i32 85, float %[0-9]+\\)",
       "op.unary.f32(i32 85, float 0x7FF0000000000000)",
       "No indefinite derivative calculation",
@@ -1447,7 +1447,7 @@ TEST_F(ValidationTest, InfiniteDdxDdy) {
 
 TEST_F(ValidationTest, IDivByZero) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\unit_tests\\validation\\intrinsic_val_imm.hlsl", "ps_6_0",
       "sdiv i32 %([0-9]+), %[0-9]+",
       "sdiv i32 %\\1, 0",
       "No signed integer division by zero",
@@ -1456,7 +1456,7 @@ TEST_F(ValidationTest, IDivByZero) {
 
 TEST_F(ValidationTest, UDivByZero) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
+      L"..\\CodeGenHLS\\unit_tests\\validation\\intrinsic_val_imm.hlsl", "ps_6_0",
       "udiv i32 %([0-9]+), %[0-9]+",
       "udiv i32 %\\1, 0",
       "No unsigned integer division by zero",
@@ -1464,45 +1464,45 @@ TEST_F(ValidationTest, UDivByZero) {
 }
 
 TEST_F(ValidationTest, UnusedMetadata) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\loop2.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\control_flow\\loops\\loop2.hlsl", "ps_6_0",
                           ", !llvm.loop ",
                           ", !llvm.loop2 ",
                           "All metadata must be used by dxil");
 }
 
 TEST_F(ValidationTest, MemoryOutOfBound) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\array\\targetArray.hlsl", "ps_6_0",
                           "getelementptr [4 x float], [4 x float]* %7, i32 0, i32 3",
                           "getelementptr [4 x float], [4 x float]* %7, i32 0, i32 10",
                           "Access to out-of-bounds memory is disallowed");
 }
 
 TEST_F(ValidationTest, LocalRes2) {
-  TestCheck(L"..\\CodeGenHLSL\\local_resource2.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\local_resource2.hlsl");
 }
 
 TEST_F(ValidationTest, LocalRes3) {
-  TestCheck(L"..\\CodeGenHLSL\\local_resource3.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\local_resource3.hlsl");
 }
 
 TEST_F(ValidationTest, LocalRes5) {
-  TestCheck(L"..\\CodeGenHLSL\\local_resource5.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\local_resource5.hlsl");
 }
 
 TEST_F(ValidationTest, LocalRes5Dbg) {
-  TestCheck(L"..\\CodeGenHLSL\\local_resource5_dbg.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\local_resource5_dbg.hlsl");
 }
 
 TEST_F(ValidationTest, LocalRes6) {
-  TestCheck(L"..\\CodeGenHLSL\\local_resource6.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\local_resource6.hlsl");
 }
 
 TEST_F(ValidationTest, LocalRes6Dbg) {
-  TestCheck(L"..\\CodeGenHLSL\\local_resource6_dbg.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\local_resource6_dbg.hlsl");
 }
 
 TEST_F(ValidationTest, AddrSpaceCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\modifiers\\static\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
                           "  store i32 %([0-9]+), i32\\* %\\1, align 4",
                           "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
@@ -1513,7 +1513,7 @@ TEST_F(ValidationTest, AddrSpaceCast) {
 }
 
 TEST_F(ValidationTest, PtrBitCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\modifiers\\static\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
                           "  store i32 %([0-9]+), i32\\* %\\1, align 4",
                           "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
@@ -1525,7 +1525,7 @@ TEST_F(ValidationTest, PtrBitCast) {
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\modifiers\\static\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
                           "  store i32 %([0-9]+), i32\\* %\\1, align 4",
                           "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
@@ -1536,7 +1536,7 @@ TEST_F(ValidationTest, MinPrecisionBitCast) {
 }
 
 TEST_F(ValidationTest, StructBitCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\modifiers\\static\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
                           "  store i32 %([0-9]+), i32\\* %\\1, align 4",
                           "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
@@ -1547,7 +1547,7 @@ TEST_F(ValidationTest, StructBitCast) {
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\modifiers\\static\\staticGlobals.hlsl", "ps_6_0",
                           "= alloca [4 x i32]",
                           "= alloca [4 x i32]\n"
                           "  %md = alloca [2 x [4 x float]]",
@@ -1555,27 +1555,27 @@ TEST_F(ValidationTest, MultiDimArray) {
 }
 
 TEST_F(ValidationTest, SimpleGs8) {
-  TestCheck(L"..\\CodeGenHLSL\\SimpleGS8.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\SimpleGS8.hlsl");
 }
 
 TEST_F(ValidationTest, SimpleGs9) {
-  TestCheck(L"..\\CodeGenHLSL\\SimpleGS9.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\SimpleGS9.hlsl");
 }
 
 TEST_F(ValidationTest, SimpleGs10) {
-  TestCheck(L"..\\CodeGenHLSL\\SimpleGS10.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\SimpleGS10.hlsl");
 }
 
 TEST_F(ValidationTest, IllegalSampleOffset3) {
-  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt3.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\optForNoOpt3.hlsl");
 }
 
 TEST_F(ValidationTest, IllegalSampleOffset4) {
-  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt4.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\optForNoOpt4.hlsl");
 }
 
 TEST_F(ValidationTest, NoFunctionParam) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\abs2.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\intrinsics\\abs\\abs2.hlsl", "ps_6_0",
     {"define void @main\\(\\)",               "void \\(\\)\\* @main, !([0-9]+)\\}(.*)!\\1 = !\\{!([0-9]+)\\}",  "void \\(\\)\\* @main"},
     {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main, !\\1}\\2!\\1 = !{!\\3, !\\3}",          "void (<4 x i32>)* @main"},
     "with parameter is not permitted",
@@ -1583,7 +1583,7 @@ TEST_F(ValidationTest, NoFunctionParam) {
 }
 
 TEST_F(ValidationTest, I8Type) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\validation\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\unit_tests\\types\\modifiers\\static\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = alloca \\[4 x i32\\]",
                           "%\\1 = alloca [4 x i32]\n"
                           "  %m8 = alloca i8",
@@ -1592,19 +1592,19 @@ TEST_F(ValidationTest, I8Type) {
 }
 
 TEST_F(ValidationTest, EmptyStructInBuffer) {
-  TestCheck(L"..\\CodeGenHLSL\\EmptyStructInBuffer.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\types\\objects\\Buffer\\EmptyStructInBuffer.hlsl");
 }
 
 TEST_F(ValidationTest, BigStructInBuffer) {
-  TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\validation\\BigStructInBuffer.hlsl");
 }
 
 TEST_F(ValidationTest, GloballyCoherent2) {
-  TestCheck(L"..\\CodeGenHLSL\\globallycoherent2.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\types\\modifiers\\globallycoherent\\globallycoherent2.hlsl");
 }
 
 TEST_F(ValidationTest, GloballyCoherent3) {
-  TestCheck(L"..\\CodeGenHLSL\\globallycoherent3.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\types\\modifiers\\globallycoherent\\globallycoherent3.hlsl");
 }
 
 // TODO: enable this.
@@ -1622,11 +1622,11 @@ TEST_F(ValidationTest, GloballyCoherent3) {
 //}
 
 TEST_F(ValidationTest, AddUint64Odd) {
-  TestCheck(L"..\\CodeGenHLSL\\AddUint64Odd.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\AddUint64Odd.hlsl");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
-  TestCheck(L"..\\CodeGenHLSL\\val-wave-failures-ps.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\validation\\val-wave-failures-ps.hlsl");
 }
 
 TEST_F(ValidationTest, WhenMetaFlagsUsageThenFail) {
@@ -3127,19 +3127,19 @@ TEST_F(ValidationTest, WhenDisassembleInvalidBlobThenFail) {
 }
 
 TEST_F(ValidationTest, GSMainMissingAttributeFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-main.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\attributes-gs-no-inout-main.hlsl");
 }
 
 TEST_F(ValidationTest, GSOtherMissingAttributeFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-other.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\attributes-gs-no-inout-other.hlsl");
 }
 
 TEST_F(ValidationTest, GSMissingMaxVertexCountFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-maxvertexcount.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\attributes-gs-no-maxvertexcount.hlsl");
 }
 
 TEST_F(ValidationTest, HSMissingPCFFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-hs-no-pcf.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\unit_tests\\diagnostics\\errors\\attributes-hs-no-pcf.hlsl");
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
@@ -3576,31 +3576,31 @@ TEST_F(ValidationTest, ShaderFunctionReturnTypeVoid) {
 }
 
 TEST_F(ValidationTest, MeshMultipleSetMeshOutputCounts) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\multipleSetMeshOutputCounts.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\multipleSetMeshOutputCounts.hlsl");
 }
 
 TEST_F(ValidationTest, MeshMissingSetMeshOutputCounts) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\missingSetMeshOutputCounts.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\missingSetMeshOutputCounts.hlsl");
 }
 
 TEST_F(ValidationTest, MeshNonDominatingSetMeshOutputCounts) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\nonDominatingSetMeshOutputCounts.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\nonDominatingSetMeshOutputCounts.hlsl");
 }
 
 TEST_F(ValidationTest, MeshOversizePayload) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizePayload.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\msOversizePayload.hlsl");
 }
 
 TEST_F(ValidationTest, MeshOversizeOutput) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizeOutput.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\msOversizeOutput.hlsl");
 }
 
 TEST_F(ValidationTest, MeshOversizePayloadOutput) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\msOversizePayloadOutput.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\msOversizePayloadOutput.hlsl");
 }
 
 TEST_F(ValidationTest, MeshMultipleGetMeshPayload) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "%([0-9]+) = call %struct.MeshPayload\\* @dx.op.getMeshPayload.struct.MeshPayload\\(i32 170\\)  ; GetMeshPayload\\(\\)",
                           "%\\1 = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()\n"
                           "  %.extra.unused.payload. = call %struct.MeshPayload* @dx.op.getMeshPayload.struct.MeshPayload(i32 170)  ; GetMeshPayload()",
@@ -3609,7 +3609,7 @@ TEST_F(ValidationTest, MeshMultipleGetMeshPayload) {
 }
 
 TEST_F(ValidationTest, MeshOutofRangeMaxVertexCount) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{!([0-9]+), i32 32, i32 16, i32 2, i32 40}",
                           "= !{!\\1, i32 257, i32 16, i32 2, i32 40}",
                           "MS max vertex output count must be \\[0..256\\].  257 specified",
@@ -3617,7 +3617,7 @@ TEST_F(ValidationTest, MeshOutofRangeMaxVertexCount) {
 }
 
 TEST_F(ValidationTest, MeshOutofRangeMaxPrimitiveCount) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{!([0-9]+), i32 32, i32 16, i32 2, i32 40}",
                           "= !{!\\1, i32 32, i32 257, i32 2, i32 40}",
                           "MS max primitive output count must be \\[0..256\\].  257 specified",
@@ -3625,56 +3625,56 @@ TEST_F(ValidationTest, MeshOutofRangeMaxPrimitiveCount) {
 }
 
 TEST_F(ValidationTest, MeshLessThanMinX) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 0, i32 1, i32 1}",
                           "Declared Thread Group X size 0 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxX) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 129, i32 1, i32 1}",
                           "Declared Thread Group X size 129 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, MeshLessThanMinY) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 0, i32 1}",
                           "Declared Thread Group Y size 0 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxY) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 1, i32 129, i32 1}",
                           "Declared Thread Group Y size 129 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, MeshLessThanMinZ) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 1, i32 0}",
                           "Declared Thread Group Z size 0 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxZ) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 1, i32 1, i32 129}",
                           "Declared Thread Group Z size 129 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxXYZ) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 2, i32 4}",
                           "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxVSigRowCount) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, (.*)"
                           "!\\2 = !{i32 0, i32 1, i32 2, i32 3}",
                           "!\\1 = !{i32 1, !\"COLOR\", i8 9, i8 0, !\\2, i8 2, i32 32, i8 1, i32 1, i8 0, \\3"
@@ -3686,7 +3686,7 @@ TEST_F(ValidationTest, MeshGreaterThanMaxVSigRowCount) {
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxPSigRowCount) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, (.*)"
                           "!\\2 = !{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5}",
                           "!\\1 = !{i32 4, !\"LAYER\", i8 4, i8 0, !\\2, i8 1, i32 32, i8 1, i32 1, i8 0, \\3"
@@ -3698,7 +3698,7 @@ TEST_F(ValidationTest, MeshGreaterThanMaxPSigRowCount) {
 }
 
 TEST_F(ValidationTest, MeshGreaterThanMaxTotalSigRowCount) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\mesh.hlsl", "ms_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\mesh.hlsl", "ms_6_5",
                           { "!([0-9]+) = !{i32 1, !\"COLOR\", i8 9, i8 0, !([0-9]+), i8 2, i32 4, i8 1, i32 1, i8 0, (.*)"
                             "!\\2 = !{i32 0, i32 1, i32 2, i32 3}",
                             "!([0-9]+) = !{i32 4, !\"LAYER\", i8 4, i8 0, !([0-9]+), i8 1, i32 6, i8 1, i32 1, i8 0, (.*)"
@@ -3715,69 +3715,69 @@ TEST_F(ValidationTest, MeshGreaterThanMaxTotalSigRowCount) {
 }
 
 TEST_F(ValidationTest, MeshOversizeSM) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\oversizeSM.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\oversizeSM.hlsl");
 }
 
 TEST_F(ValidationTest, AmplificationMultipleDispatchMesh) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\multipleDispatchMesh.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\multipleDispatchMesh.hlsl");
 }
 
 TEST_F(ValidationTest, AmplificationMissingDispatchMesh) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\missingDispatchMesh.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\missingDispatchMesh.hlsl");
 }
 
 TEST_F(ValidationTest, AmplificationNonDominatingDispatchMesh) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\nonDominatingDispatchMesh.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\nonDominatingDispatchMesh.hlsl");
 }
 
 TEST_F(ValidationTest, AmplificationOversizePayload) {
-  TestCheck(L"..\\CodeGenHLSL\\mesh-val\\asOversizePayload.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\asOversizePayload.hlsl");
 }
 
 TEST_F(ValidationTest, AmplificationLessThanMinX) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 0, i32 1, i32 1}",
                           "Declared Thread Group X size 0 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, AmplificationGreaterThanMaxX) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 129, i32 1, i32 1}",
                           "Declared Thread Group X size 129 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, AmplificationLessThanMinY) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 0, i32 1}",
                           "Declared Thread Group Y size 0 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, AmplificationGreaterThanMaxY) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 1, i32 129, i32 1}",
                           "Declared Thread Group Y size 129 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, AmplificationLessThanMinZ) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 1, i32 0}",
                           "Declared Thread Group Z size 0 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, AmplificationGreaterThanMaxZ) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 1, i32 1, i32 129}",
                           "Declared Thread Group Z size 129 outside valid range [1..128]");
 }
 
 TEST_F(ValidationTest, AmplificationGreaterThanMaxXYZ) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\mesh-val\\amplification.hlsl", "as_6_5",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\shader_stage_tests\\mesh\\val\\amplification.hlsl", "as_6_5",
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 2, i32 4}",
                           "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");

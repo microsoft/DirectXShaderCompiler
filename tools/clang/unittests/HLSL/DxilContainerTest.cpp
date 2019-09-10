@@ -1527,14 +1527,14 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
 #ifdef _WIN32 // Reflection unsupported
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\batch\\misc\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SimpleBezier11DS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\SubD11_SmoothPS.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\scenario_based_tests\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  std::wstring codeGenPath = hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples");
+  std::wstring codeGenPath = hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\scenario_based_tests\\samples");
   // This test was running at about three minutes; that can be enabled with TestAll=True,
   // otherwise the much shorter list is used.
   const bool TestAll = false;
@@ -1581,7 +1581,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 #endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\container\\abs2_m.ll");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\scenario_based_tests\\samples\\abs2_m.ll");
 }
 
 TEST_F(DxilContainerTest, DxilContainerUnitTest) {
