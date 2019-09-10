@@ -703,7 +703,7 @@ public:
     using namespace llvm;
     using namespace WEX::TestExecution;
 
-    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+    if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -769,7 +769,7 @@ public:
     using namespace llvm;
     using namespace WEX::TestExecution;
 
-    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+    if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -2869,11 +2869,11 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 
 
 TEST_F(CompilerTest, CodeGenHashStability) {
-  CodeGenTestCheckBatchHash(L"batch");
+  CodeGenTestCheckBatchHash(L"");
 }
 
 TEST_F(CompilerTest, CodeGenBatch) {
-  CodeGenTestCheckBatchDir(L"batch");
+  CodeGenTestCheckBatchDir(L"");
 }
 
 TEST_F(CompilerTest, Mesh) {
