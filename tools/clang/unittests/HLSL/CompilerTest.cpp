@@ -756,13 +756,10 @@ public:
     }
   }
 
-  void CodeGenTestCheck(LPCWSTR name, bool implicitDir = true, std::wstring customDir = L"") {
+  void CodeGenTestCheck(LPCWSTR name, bool implicitDir = true) {
     std::wstring path = name;
     if (implicitDir) {
       path.insert(0, L"..\\CodeGenHLSL\\");
-      path = hlsl_test::GetPathToHlslDataFile(path.c_str());
-    } else if (!customDir.empty()) {
-      path.insert(0, customDir);
       path = hlsl_test::GetPathToHlslDataFile(path.c_str());
     }
     CodeGenTestCheckFullPath(path.c_str());
@@ -2493,39 +2490,39 @@ TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
 #endif  // _WIN32
 
 TEST_F(CompilerTest, CodeGenInclude) {
-  CodeGenTestCheck(L"Include.hlsl", false, L"..\\CodeGenHLSL\\unit_tests\\include_handler\\");
+  CodeGenTestCheck(L"Include.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
-  CodeGenTestCheck(L"lib_cs_entry.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_cs_entry.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry2) {
-  CodeGenTestCheck(L"lib_cs_entry2.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_cs_entry2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry3) {
-  CodeGenTestCheck(L"lib_cs_entry3.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_cs_entry3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibEntries) {
-  CodeGenTestCheck(L"lib_entries.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_entries.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibEntries2) {
-  CodeGenTestCheck(L"lib_entries2.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_entries2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibNoAlias) {
-  CodeGenTestCheck(L"lib_no_alias.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_no_alias.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibResource) {
-  CodeGenTestCheck(L"lib_resource.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_resource.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibUnusedFunc) {
-  CodeGenTestCheck(L"lib_unused_func.hlsl", false, L"..\\CodeGenHLSL\\shader_stage_tests\\library\\");
+  CodeGenTestCheck(L"lib_unused_func.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile) {
@@ -2542,7 +2539,7 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
 }
 
 TEST_F(CompilerTest, CodeGenSamples){
-  CodeGenTestCheckBatchDir(L"scenario_based_tests\\samples");
+  CodeGenTestCheckBatchDir(L"Samples");
 }
 
 TEST_F(CompilerTest, LibGVStore) {
@@ -2872,15 +2869,15 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 
 
 TEST_F(CompilerTest, CodeGenHashStability) {
-  CodeGenTestCheckBatchHash(L"unit_tests");
+  CodeGenTestCheckBatchHash(L"batch");
 }
 
 TEST_F(CompilerTest, CodeGenBatch) {
-  CodeGenTestCheckBatchDir(L"unit_tests");
+  CodeGenTestCheckBatchDir(L"batch");
 }
 
 TEST_F(CompilerTest, Mesh) {
   if (m_ver.SkipDxilVersion(1, 5))
     return;
-  CodeGenTestCheckBatchDir(L"shader_stage_tests\\mesh");
+  CodeGenTestCheckBatchDir(L"mesh");
 }
