@@ -765,11 +765,12 @@ public:
     CodeGenTestCheckFullPath(path.c_str());
   }
 
-  void CodeGenTestCheckBatchDir(std::wstring suitePath, bool implicitDir = true) {
+  void CodeGenTestCheckBatchDir(std::wstring suitePath, bool implicitDir = true, std::wstring customDir = L"") {
     using namespace llvm;
     using namespace WEX::TestExecution;
 
     if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
+    else if (!customDir.empty()) suitePath.insert(0, customDir);
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -2539,7 +2540,7 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
 }
 
 TEST_F(CompilerTest, CodeGenSamples){
-  CodeGenTestCheckBatchDir(L"Samples");
+  CodeGenTestCheckBatchDir(L"samples", false, L"..\\HLSLFileCheck\\scenarios\\");
 }
 
 TEST_F(CompilerTest, LibGVStore) {
@@ -2879,5 +2880,5 @@ TEST_F(CompilerTest, CodeGenBatch) {
 TEST_F(CompilerTest, Mesh) {
   if (m_ver.SkipDxilVersion(1, 5))
     return;
-  CodeGenTestCheckBatchDir(L"mesh");
+  CodeGenTestCheckBatchDir(L"mesh", false, L"..\\HLSLFileCheck\\shader_targets\\");
 }
