@@ -279,6 +279,14 @@ public:
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   TEST_METHOD(CodeGenSamples)
+  TEST_METHOD(CodeGenD3DReflect)
+  TEST_METHOD(CodeGenDxil)
+  TEST_METHOD(CodeGenHLSL)
+  TEST_METHOD(CodeGenInfra)
+  TEST_METHOD(CodeGenPasses)
+  TEST_METHOD(CodeGenShaderTargets)
+  TEST_METHOD(CodeGenValidation)
+
   TEST_METHOD(SubobjectCodeGenErrors)
   TEST_METHOD(SanitizePDBName)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
@@ -286,11 +294,9 @@ public:
   END_TEST_METHOD()
 
   // Batch directories
-  TEST_METHOD(CodeGenBatch)
   BEGIN_TEST_METHOD(CodeGenHashStability)
       TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
-  TEST_METHOD(Mesh)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -765,12 +771,11 @@ public:
     CodeGenTestCheckFullPath(path.c_str());
   }
 
-  void CodeGenTestCheckBatchDir(std::wstring suitePath, bool implicitDir = true, std::wstring customDir = L"") {
+  void CodeGenTestCheckBatchDir(std::wstring suitePath, bool implicitDir = true) {
     using namespace llvm;
     using namespace WEX::TestExecution;
 
     if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
-    else if (!customDir.empty()) suitePath.insert(0, customDir);
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -2539,10 +2544,6 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
   CodeGenTest(L"rootSigProfile5.hlsl");
 }
 
-TEST_F(CompilerTest, CodeGenSamples){
-  CodeGenTestCheckBatchDir(L"samples", false, L"..\\HLSLFileCheck\\scenarios\\");
-}
-
 TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -2873,12 +2874,34 @@ TEST_F(CompilerTest, CodeGenHashStability) {
   CodeGenTestCheckBatchHash(L"");
 }
 
-TEST_F(CompilerTest, CodeGenBatch) {
-  CodeGenTestCheckBatchDir(L"");
+TEST_F(CompilerTest, CodeGenD3DReflect) {
+  CodeGenTestCheckBatchDir(L"d3dreflect");
 }
 
-TEST_F(CompilerTest, Mesh) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-  CodeGenTestCheckBatchDir(L"mesh", false, L"..\\HLSLFileCheck\\shader_targets\\");
+TEST_F(CompilerTest, CodeGenDxil) {
+  CodeGenTestCheckBatchDir(L"dxil");
+}
+
+TEST_F(CompilerTest, CodeGenHLSL) {
+  CodeGenTestCheckBatchDir(L"hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInfra) {
+  CodeGenTestCheckBatchDir(L"infra");
+}
+
+TEST_F(CompilerTest, CodeGenPasses) {
+  CodeGenTestCheckBatchDir(L"passes");
+}
+
+TEST_F(CompilerTest, CodeGenShaderTargets) {
+  CodeGenTestCheckBatchDir(L"shader_targets");
+}
+
+TEST_F(CompilerTest, CodeGenValidation) {
+  CodeGenTestCheckBatchDir(L"validation");
+}
+
+TEST_F(CompilerTest, CodeGenSamples) {
+  CodeGenTestCheckBatchDir(L"samples");
 }
