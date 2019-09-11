@@ -1529,7 +1529,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\batch\\misc\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {

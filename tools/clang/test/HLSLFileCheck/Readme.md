@@ -1,0 +1,1 @@
+Files in this directory are executed using FileCheck in a batch mode.
