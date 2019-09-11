@@ -104,6 +104,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvImageSparseTexelsResident)
   DEFINE_VISIT_METHOD(SpirvImageTexelPointer)
   DEFINE_VISIT_METHOD(SpirvLoad)
+  DEFINE_VISIT_METHOD(SpirvCopyObject)
   DEFINE_VISIT_METHOD(SpirvSampledImage)
   DEFINE_VISIT_METHOD(SpirvSelect)
   DEFINE_VISIT_METHOD(SpirvSpecConstantBinaryOp)

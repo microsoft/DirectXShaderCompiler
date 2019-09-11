@@ -165,6 +165,10 @@ public:
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
                         SourceLocation loc);
 
+  /// \brief Creates an OpCopyObject instruction from the given pointer.
+  SpirvCopyObject *createCopyObject(QualType resultType,
+                                    SpirvInstruction *pointer, SourceLocation);
+
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
   void createStore(SpirvInstruction *address, SpirvInstruction *value,

@@ -180,6 +180,19 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   return instruction;
 }
 
+SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
+                                                SpirvInstruction *pointer,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context) SpirvCopyObject(resultType, loc, pointer);
+  instruction->setStorageClass(pointer->getStorageClass());
+  instruction->setLayoutRule(pointer->getLayoutRule());
+  // The result of OpCopyObject is always an rvalue.
+  instruction->setRValue(true);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
                                     SpirvInstruction *pointer,
                                     SourceLocation loc) {

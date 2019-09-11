@@ -7511,8 +7511,10 @@ SpirvEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   // image instructions) and the resource descriptor being accessed is not
   // dynamically uniform, then the operand corresponding to that resource (e.g.
   // the pointer or sampled image operand) must be decorated with NonUniformEXT.
-  index->setNonUniform();
-  return index;
+  auto *copyInstr =
+      spvBuilder.createCopyObject(expr->getType(), index, expr->getExprLoc());
+  copyInstr->setNonUniform();
+  return copyInstr;
 }
 
 SpirvInstruction *
