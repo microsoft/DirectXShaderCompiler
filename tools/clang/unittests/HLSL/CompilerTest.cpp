@@ -278,7 +278,15 @@ public:
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
-  TEST_METHOD(CodeGenSamples)
+  TEST_METHOD(BatchSamples)
+  TEST_METHOD(BatchD3DReflect)
+  TEST_METHOD(BatchDxil)
+  TEST_METHOD(BatchHLSL)
+  TEST_METHOD(BatchInfra)
+  TEST_METHOD(BatchPasses)
+  TEST_METHOD(BatchShaderTargets)
+  TEST_METHOD(BatchValidation)
+
   TEST_METHOD(SubobjectCodeGenErrors)
   TEST_METHOD(SanitizePDBName)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
@@ -286,11 +294,9 @@ public:
   END_TEST_METHOD()
 
   // Batch directories
-  TEST_METHOD(CodeGenBatch)
   BEGIN_TEST_METHOD(CodeGenHashStability)
       TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
-  TEST_METHOD(Mesh)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -703,7 +709,7 @@ public:
     using namespace llvm;
     using namespace WEX::TestExecution;
 
-    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+    if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -769,7 +775,7 @@ public:
     using namespace llvm;
     using namespace WEX::TestExecution;
 
-    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+    if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -2538,10 +2544,6 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
   CodeGenTest(L"rootSigProfile5.hlsl");
 }
 
-TEST_F(CompilerTest, CodeGenSamples){
-  CodeGenTestCheckBatchDir(L"Samples");
-}
-
 TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -2869,15 +2871,37 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 
 
 TEST_F(CompilerTest, CodeGenHashStability) {
-  CodeGenTestCheckBatchHash(L"batch");
+  CodeGenTestCheckBatchHash(L"");
 }
 
-TEST_F(CompilerTest, CodeGenBatch) {
-  CodeGenTestCheckBatchDir(L"batch");
+TEST_F(CompilerTest, BatchD3DReflect) {
+  CodeGenTestCheckBatchDir(L"d3dreflect");
 }
 
-TEST_F(CompilerTest, Mesh) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-  CodeGenTestCheckBatchDir(L"mesh");
+TEST_F(CompilerTest, BatchDxil) {
+  CodeGenTestCheckBatchDir(L"dxil");
+}
+
+TEST_F(CompilerTest, BatchHLSL) {
+  CodeGenTestCheckBatchDir(L"hlsl");
+}
+
+TEST_F(CompilerTest, BatchInfra) {
+  CodeGenTestCheckBatchDir(L"infra");
+}
+
+TEST_F(CompilerTest, BatchPasses) {
+  CodeGenTestCheckBatchDir(L"passes");
+}
+
+TEST_F(CompilerTest, BatchShaderTargets) {
+  CodeGenTestCheckBatchDir(L"shader_targets");
+}
+
+TEST_F(CompilerTest, BatchValidation) {
+  CodeGenTestCheckBatchDir(L"validation");
+}
+
+TEST_F(CompilerTest, BatchSamples) {
+  CodeGenTestCheckBatchDir(L"samples");
 }
