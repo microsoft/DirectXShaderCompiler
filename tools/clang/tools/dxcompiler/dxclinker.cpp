@@ -268,7 +268,6 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         }
         // Validation.
         HRESULT valHR = S_OK;
-        // Skip validation on lib for now.
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(
               std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
