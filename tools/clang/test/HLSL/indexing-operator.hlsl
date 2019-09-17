@@ -519,11 +519,12 @@ void my_subscripts()
   int2x2 i22;
 
   // fxc error X3059: array dimension must be between 1 and 65536
-  int ai0[0]; // expected-error {{array dimension must be between 1 and 65536}} fxc-error {{X3059: array dimension must be between 1 and 65536}}
+  // dxc no longer produces this error - it doesn't have the limitation, and other limits should be enforced elsewhere.
+  int ai0[0]; // fxc-error {{X3059: array dimension must be between 1 and 65536}}
+  int ai65537[65537]; // fxc-error {{X3059: array dimension must be between 1 and 65536}}
+
   int ai1[1];
   int ai65536[65536];
-  // fxc error X3059: array dimension must be between 1 and 65536
-  int ai65537[65537]; // expected-error {{array dimension must be between 1 and 65536}} fxc-error {{X3059: array dimension must be between 1 and 65536}}
 
   // fxc error X3121: array, matrix, vector, or indexable object type expected in index expression
   i[0] = 1; // expected-error {{subscripted value is not an array, matrix, or vector}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
