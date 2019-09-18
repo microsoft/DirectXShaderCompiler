@@ -7265,13 +7265,45 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     spvBuilder.createStore(doExpr(outputArg), toWrite, callExpr->getExprLoc());
   };
 
+  // If a vector swizzling of a texture is done as an argument of an
+  // interlocked method, we need to handle the access to the texture
+  // buffer element correctly. For example:
+  //
+  //  InterlockedAdd(myRWTexture[index].r, 1);
+  //
+  // `-CallExpr
+  //  |-ImplicitCastExpr
+  //  | `-DeclRefExpr Function 'InterlockedAdd'
+  //  |                        'void (unsigned int &, unsigned int)'
+  //  |-HLSLVectorElementExpr 'unsigned int' lvalue vectorcomponent r
+  //  | `-ImplicitCastExpr 'vector<uint, 1>':'vector<unsigned int, 1>'
+  //  |                                       <HLSLVectorSplat>
+  //  |   `-CXXOperatorCallExpr 'unsigned int' lvalue
+  const auto *cxxOpCall = dyn_cast<CXXOperatorCallExpr>(dest);
+  if (const auto *vector = dyn_cast<HLSLVectorElementExpr>(dest)) {
+    const Expr *base = vector->getBase();
+    cxxOpCall = dyn_cast<CXXOperatorCallExpr>(base);
+    if (const auto *cast = dyn_cast<CastExpr>(base)) {
+      cxxOpCall = dyn_cast<CXXOperatorCallExpr>(cast->getSubExpr());
+    }
+  }
+
   // If the argument is indexing into a texture/buffer, we need to create an
   // OpImageTexelPointer instruction.
   SpirvInstruction *ptr = nullptr;
-  if (const auto *callExpr = dyn_cast<CXXOperatorCallExpr>(dest)) {
+  if (cxxOpCall) {
     const Expr *base = nullptr;
     const Expr *index = nullptr;
-    if (isBufferTextureIndexing(callExpr, &base, &index)) {
+    if (isBufferTextureIndexing(cxxOpCall, &base, &index)) {
+      if (hlsl::IsHLSLResourceType(base->getType())) {
+        const auto resultTy = hlsl::GetHLSLResourceResultType(base->getType());
+        if (!isScalarType(resultTy, nullptr)) {
+          emitError("Interlocked operation for texture buffer whose result "
+                    "type is non-scalar type is not allowed",
+                    dest->getExprLoc());
+          return nullptr;
+        }
+      }
       auto *baseInstr = doExpr(base);
       if (baseInstr->isRValue()) {
         // OpImageTexelPointer's Image argument must have a type of
