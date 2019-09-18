@@ -111,6 +111,7 @@ namespace dxilutil {
   bool IsHLSLObjectType(llvm::Type *Ty);
   bool IsHLSLRayQueryType(llvm::Type *Ty);
   bool IsSplat(llvm::ConstantDataVector *cdv);
+  bool IsScalarTy(llvm::Type *Ty);
 
   llvm::Type* StripArrayTypes(llvm::Type *Ty, llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths = nullptr);
   llvm::Type* WrapInArrayTypes(llvm::Type *Ty, llvm::ArrayRef<unsigned> OuterToInnerLengths);
