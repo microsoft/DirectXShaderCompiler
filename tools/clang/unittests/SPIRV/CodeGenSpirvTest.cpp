@@ -1033,6 +1033,13 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsStaticError) {
   runFileTest("intrinsics.interlocked-methods.static-error.hlsl",
               Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzling) {
+  runFileTest("intrinsics.interlocked-methods.texture.swizzling.hlsl");
+}
+TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzlingError) {
+  runFileTest("intrinsics.interlocked-methods.texture.swizzling.error.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
