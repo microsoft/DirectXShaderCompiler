@@ -2093,12 +2093,6 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
           << ArraySize->getSourceRange();
       return QualType();
     }
-    // HLSL Change Starts
-    // Always report zero-sized arrays as errors as well as > 65536
-    if (getLangOpts().HLSL && (ConstVal == 0 || ConstVal.getLimitedValue() > 65536)) {
-      Diag(ArraySize->getLocStart(), diag::err_hlsl_unsupported_array_size);
-    } else
-    // HLSL Change Ends
     if (ConstVal == 0) {
       // GCC accepts zero sized static arrays. We allow them when
       // we're not in a SFINAE context.
