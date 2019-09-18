@@ -88,6 +88,9 @@ TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
+TEST_F(FileTest, StructuredBufferTypeWithVector) {
+  runFileTest("type.structured-buffer.vector.hlsl");
+}
 TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");

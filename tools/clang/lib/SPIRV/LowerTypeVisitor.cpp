@@ -547,8 +547,10 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
     // Calculate memory alignment for the resource.
     uint32_t size = 0, stride = 0;
+    QualType sArray = astContext.getConstantArrayType(
+        s, llvm::APInt(32, 1), clang::ArrayType::Normal, 0);
     std::tie(std::ignore, size) =
-        alignmentCalc.getAlignmentAndSize(s, rule, isRowMajor, &stride);
+        alignmentCalc.getAlignmentAndSize(sArray, rule, isRowMajor, &stride);
 
     // We have a runtime array of structures. So:
     // The stride of the runtime array is the size of the struct.
