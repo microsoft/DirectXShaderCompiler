@@ -4429,6 +4429,41 @@ static Value * EvalBinaryIntrinsic(CallInst *CI,
   return Result;
 }
 
+// Modeled after DXIL ConstantFoldBinaryIntIntrinsic
+static Constant *EvalBinaryIntIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
+  Value *V0 = CI->getArgOperand(0);
+  Value *V1 = CI->getArgOperand(1);
+  ConstantInt *iV0 = cast<ConstantInt>(V0);
+  ConstantInt *iV1 = cast<ConstantInt>(V1);
+  APInt C0 = iV0->getValue();
+  APInt C1 = iV1->getValue();
+
+  llvm::Type *Ty = CI->getType();
+
+  switch (intriOp) {
+  default:
+    break;
+  case IntrinsicOp::IOP_min: {
+    APInt minVal = C0.slt(C1) ? C0 : C1;
+    return ConstantInt::get(Ty, minVal);
+  }
+  case IntrinsicOp::IOP_max: {
+    APInt maxVal = C0.sgt(C1) ? C0 : C1;
+    return ConstantInt::get(Ty, maxVal);
+  }
+  case IntrinsicOp::IOP_umin: {
+    APInt minVal = C0.ult(C1) ? C0 : C1;
+    return ConstantInt::get(Ty, minVal);
+  }
+  case IntrinsicOp::IOP_umax: {
+    APInt maxVal = C0.ugt(C1) ? C0 : C1;
+    return ConstantInt::get(Ty, maxVal);
+  }
+  }
+
+  return nullptr;
+}
+
 static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
@@ -4514,18 +4549,22 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   case IntrinsicOp::IOP_max: {
     auto maxF = [](float a, float b) -> float { return a > b ? a:b; };
     auto maxD = [](double a, double b) -> double { return a > b ? a:b; };
-    // Handled in DXIL constant folding
     if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
-      return nullptr;
+      return EvalBinaryIntIntrinsic(CI, intriOp);
     return EvalBinaryIntrinsic(CI, maxF, maxD);
   } break;
   case IntrinsicOp::IOP_min: {
     auto minF = [](float a, float b) -> float { return a < b ? a:b; };
     auto minD = [](double a, double b) -> double { return a < b ? a:b; };
-    // Handled in DXIL constant folding
     if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
-      return nullptr;
+      return EvalBinaryIntIntrinsic(CI, intriOp);
     return EvalBinaryIntrinsic(CI, minF, minD);
+  } break;
+  case IntrinsicOp::IOP_umax:
+  case IntrinsicOp::IOP_umin: {
+    DXASSERT_NOMSG(
+        CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy());
+    return EvalBinaryIntIntrinsic(CI, intriOp);
   } break;
   case IntrinsicOp::IOP_rcp: {
     auto rcpF = [](float v) -> float { return 1.0 / v; };
