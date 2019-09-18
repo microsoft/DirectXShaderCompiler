@@ -4333,6 +4333,7 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
 typedef float(__cdecl *FloatUnaryEvalFuncType)(float);
 typedef double(__cdecl *DoubleUnaryEvalFuncType)(double);
 
+typedef APInt(__cdecl *IntBinaryEvalFuncType)(const APInt&, const APInt&);
 typedef float(__cdecl *FloatBinaryEvalFuncType)(float, float);
 typedef double(__cdecl *DoubleBinaryEvalFuncType)(double, double);
 
@@ -4354,21 +4355,33 @@ static Value * EvalUnaryIntrinsic(ConstantFP *fpV,
   return Result;
 }
 
-static Value * EvalBinaryIntrinsic(ConstantFP *fpV0, ConstantFP *fpV1,
+static Value * EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
                                FloatBinaryEvalFuncType floatEvalFunc,
-                               DoubleBinaryEvalFuncType doubleEvalFunc) {
-  llvm::Type *Ty = fpV0->getType();
+                               DoubleBinaryEvalFuncType doubleEvalFunc,
+                               IntBinaryEvalFuncType intEvalFunc) {
+  llvm::Type *Ty = cV0->getType();
   Value *Result = nullptr;
   if (Ty->isDoubleTy()) {
+    ConstantFP *fpV0 = cast<ConstantFP>(cV0);
+    ConstantFP *fpV1 = cast<ConstantFP>(cV1);
     double dV0 = fpV0->getValueAPF().convertToDouble();
     double dV1 = fpV1->getValueAPF().convertToDouble();
     Value *dResult = ConstantFP::get(Ty, doubleEvalFunc(dV0, dV1));
     Result = dResult;
-  } else {
-    DXASSERT_NOMSG(Ty->isFloatTy());
+  } else if (Ty->isFloatTy() || !intEvalFunc) { // maintain previous behavior if no int function is given
+    ConstantFP *fpV0 = cast<ConstantFP>(cV0);
+    ConstantFP *fpV1 = cast<ConstantFP>(cV1);
     float fV0 = fpV0->getValueAPF().convertToFloat();
     float fV1 = fpV1->getValueAPF().convertToFloat();
     Value *dResult = ConstantFP::get(Ty, floatEvalFunc(fV0, fV1));
+    Result = dResult;
+  } else {
+    DXASSERT_NOMSG(Ty->isIntegerTy());
+    ConstantInt *ciV0 = cast<ConstantInt>(cV0);
+    ConstantInt *ciV1 = cast<ConstantInt>(cV1);
+    const APInt& iV0 = ciV0->getValue();
+    const APInt& iV1 = ciV1->getValue();
+    Value *dResult = ConstantInt::get(Ty, intEvalFunc(iV0, iV1));
     Result = dResult;
   }
   return Result;
@@ -4400,7 +4413,8 @@ static Value * EvalUnaryIntrinsic(CallInst *CI,
 
 static Value * EvalBinaryIntrinsic(CallInst *CI,
                                FloatBinaryEvalFuncType floatEvalFunc,
-                               DoubleBinaryEvalFuncType doubleEvalFunc) {
+                               DoubleBinaryEvalFuncType doubleEvalFunc,
+                               IntBinaryEvalFuncType intEvalFunc = nullptr) {
   Value *V0 = CI->getArgOperand(0);
   Value *V1 = CI->getArgOperand(1);
   llvm::Type *Ty = CI->getType();
@@ -4411,15 +4425,15 @@ static Value * EvalBinaryIntrinsic(CallInst *CI,
     Constant *CV1 = cast<Constant>(V1);
     IRBuilder<> Builder(CI);
     for (unsigned i=0;i<VT->getNumElements();i++) {
-      ConstantFP *fpV0 = cast<ConstantFP>(CV0->getAggregateElement(i));
-      ConstantFP *fpV1 = cast<ConstantFP>(CV1->getAggregateElement(i));
-      Value *EltResult = EvalBinaryIntrinsic(fpV0, fpV1, floatEvalFunc, doubleEvalFunc);
+      Constant *cV0 = cast<Constant>(CV0->getAggregateElement(i));
+      Constant *cV1 = cast<Constant>(CV1->getAggregateElement(i));
+      Value *EltResult = EvalBinaryIntrinsic(cV0, cV1, floatEvalFunc, doubleEvalFunc, intEvalFunc);
       Result = Builder.CreateInsertElement(Result, EltResult, i);
     }
   } else {
-    ConstantFP *fpV0 = cast<ConstantFP>(V0);
-    ConstantFP *fpV1 = cast<ConstantFP>(V1);
-    Result = EvalBinaryIntrinsic(fpV0, fpV1, floatEvalFunc, doubleEvalFunc);
+    Constant *cV0 = cast<Constant>(V0);
+    Constant *cV1 = cast<Constant>(V1);
+    Result = EvalBinaryIntrinsic(cV0, cV1, floatEvalFunc, doubleEvalFunc, intEvalFunc);
   }
   CI->replaceAllUsesWith(Result);
   CI->eraseFromParent();
@@ -4427,41 +4441,6 @@ static Value * EvalBinaryIntrinsic(CallInst *CI,
 
   CI->eraseFromParent();
   return Result;
-}
-
-// Modeled after DXIL ConstantFoldBinaryIntIntrinsic
-static Constant *EvalBinaryIntIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
-  Value *V0 = CI->getArgOperand(0);
-  Value *V1 = CI->getArgOperand(1);
-  ConstantInt *iV0 = cast<ConstantInt>(V0);
-  ConstantInt *iV1 = cast<ConstantInt>(V1);
-  APInt C0 = iV0->getValue();
-  APInt C1 = iV1->getValue();
-
-  llvm::Type *Ty = CI->getType();
-
-  switch (intriOp) {
-  default:
-    break;
-  case IntrinsicOp::IOP_min: {
-    APInt minVal = C0.slt(C1) ? C0 : C1;
-    return ConstantInt::get(Ty, minVal);
-  }
-  case IntrinsicOp::IOP_max: {
-    APInt maxVal = C0.sgt(C1) ? C0 : C1;
-    return ConstantInt::get(Ty, maxVal);
-  }
-  case IntrinsicOp::IOP_umin: {
-    APInt minVal = C0.ult(C1) ? C0 : C1;
-    return ConstantInt::get(Ty, minVal);
-  }
-  case IntrinsicOp::IOP_umax: {
-    APInt maxVal = C0.ugt(C1) ? C0 : C1;
-    return ConstantInt::get(Ty, maxVal);
-  }
-  }
-
-  return nullptr;
 }
 
 static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
@@ -4549,22 +4528,24 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   case IntrinsicOp::IOP_max: {
     auto maxF = [](float a, float b) -> float { return a > b ? a:b; };
     auto maxD = [](double a, double b) -> double { return a > b ? a:b; };
-    if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
-      return EvalBinaryIntIntrinsic(CI, intriOp);
-    return EvalBinaryIntrinsic(CI, maxF, maxD);
+    auto imaxI = [](const APInt &a, const APInt &b) -> APInt { return a.sgt(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, maxF, maxD, imaxI);
   } break;
   case IntrinsicOp::IOP_min: {
     auto minF = [](float a, float b) -> float { return a < b ? a:b; };
     auto minD = [](double a, double b) -> double { return a < b ? a:b; };
-    if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
-      return EvalBinaryIntIntrinsic(CI, intriOp);
-    return EvalBinaryIntrinsic(CI, minF, minD);
+    auto iminI = [](const APInt &a, const APInt &b) -> APInt { return a.slt(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, minF, minD, iminI);
   } break;
-  case IntrinsicOp::IOP_umax:
+  case IntrinsicOp::IOP_umax: {
+    DXASSERT_NOMSG(CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy());
+    auto umaxI = [](const APInt &a, const APInt &b) -> APInt { return a.ugt(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, nullptr, nullptr, umaxI);
+  } break;
   case IntrinsicOp::IOP_umin: {
-    DXASSERT_NOMSG(
-        CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy());
-    return EvalBinaryIntIntrinsic(CI, intriOp);
+    DXASSERT_NOMSG(CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy());
+    auto uminI = [](const APInt &a, const APInt &b) -> APInt { return a.ult(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, nullptr, nullptr, uminI);
   } break;
   case IntrinsicOp::IOP_rcp: {
     auto rcpF = [](float v) -> float { return 1.0 / v; };
