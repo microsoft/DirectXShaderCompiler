@@ -7265,8 +7265,20 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     spvBuilder.createStore(doExpr(outputArg), toWrite, callExpr->getExprLoc());
   };
 
-  // Set up cxxOpCall if dest is CXXOperatorCallExpr or vector swizzling
-  // of CXXOperatorCallExpr to handle texture buffer correctly.
+  // If a vector swizzling of a texture is done as an argument of an
+  // interlocked method, we need to handle the access to the texture
+  // buffer element correctly. For example:
+  //
+  //  InterlockedAdd(myRWTexture[index].r, 1);
+  //
+  // `-CallExpr
+  //  |-ImplicitCastExpr
+  //  | `-DeclRefExpr Function 'InterlockedAdd'
+  //  |                        'void (unsigned int &, unsigned int)'
+  //  |-HLSLVectorElementExpr 'unsigned int' lvalue vectorcomponent r
+  //  | `-ImplicitCastExpr 'vector<uint, 1>':'vector<unsigned int, 1>'
+  //  |                                       <HLSLVectorSplat>
+  //  |   `-CXXOperatorCallExpr 'unsigned int' lvalue
   const auto *cxxOpCall = dyn_cast<CXXOperatorCallExpr>(dest);
   if (const auto *vector = dyn_cast<HLSLVectorElementExpr>(dest)) {
     const Expr *base = vector->getBase();
