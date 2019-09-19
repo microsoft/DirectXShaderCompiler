@@ -1781,8 +1781,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       DebugNameStr += HashStr;
       DebugNameStr += ".pdb";
       DebugName = DebugNameStr;
-    } else {
-      DebugName = DebugName.trim("\"");
     }
 
     // Calculate the size of the blob part.

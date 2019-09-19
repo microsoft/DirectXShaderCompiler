@@ -288,7 +288,6 @@ public:
   TEST_METHOD(BatchValidation)
 
   TEST_METHOD(SubobjectCodeGenErrors)
-  TEST_METHOD(SanitizePDBName)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
@@ -2783,55 +2782,6 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
     std::string failLog(VerifyOperationFailed(pResult));
     VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find(testCases[i].expectedError));
   }
-}
-
-// Check that pdb name doesn't contain any preceding or trailing quotations
-TEST_F(CompilerTest, SanitizePDBName) {
-  const char *hlsl = R"(
-    [RootSignature("")]
-    float main(float pos : A) : SV_Target {
-      float x = abs(pos);
-      float y = sin(pos);
-      float z = x + y;
-      return z;
-    }
-  )";
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcCompiler2> pCompiler2;
-
-  CComPtr<IDxcOperationResult> pResult;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
-
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
-  CreateBlobFromText(hlsl, &pSource);
-  LPCWSTR args[] = { L"/Zi", L"/Fd",
-    L"\"my_pdb.pdb\"" // With Added Quotations
-  };
-  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(pSource, L"source.hlsl", L"main",
-    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  VERIFY_IS_TRUE(pDebugName && 0 == wcscmp(pDebugName, L"my_pdb.pdb"));
-
-  CComPtr<IDxcContainerReflection> pReflection;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(pProgram));
-
-  CComPtr<IDxcBlob> pNameBlob;
-  UINT32 uDebugNameIndex = 0;
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugName, &uDebugNameIndex));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(uDebugNameIndex, &pNameBlob));
-
-  auto pName = (hlsl::DxilShaderDebugName *)pNameBlob->GetBufferPointer();
-  const char *Name = (char *)&pName[1];
-  VERIFY_IS_TRUE(0 == strcmp(Name, "my_pdb.pdb"));
 }
 
 #ifdef _WIN32
