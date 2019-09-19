@@ -4368,7 +4368,7 @@ static Value * EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
     double dV1 = fpV1->getValueAPF().convertToDouble();
     Value *dResult = ConstantFP::get(Ty, doubleEvalFunc(dV0, dV1));
     Result = dResult;
-  } else if (Ty->isFloatTy() || !intEvalFunc) { // maintain previous behavior if no int function is given
+  } else if (Ty->isFloatTy()) {
     ConstantFP *fpV0 = cast<ConstantFP>(cV0);
     ConstantFP *fpV1 = cast<ConstantFP>(cV1);
     float fV0 = fpV0->getValueAPF().convertToFloat();
@@ -4377,6 +4377,7 @@ static Value * EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
     Result = dResult;
   } else {
     DXASSERT_NOMSG(Ty->isIntegerTy());
+    DXASSERT_NOMSG(intEvalFunc);
     ConstantInt *ciV0 = cast<ConstantInt>(cV0);
     ConstantInt *ciV1 = cast<ConstantInt>(cV1);
     const APInt& iV0 = ciV0->getValue();
