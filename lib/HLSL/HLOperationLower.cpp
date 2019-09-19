@@ -4813,6 +4813,29 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, Args);
 }
 
+static void AllocateRayQueryArray(AllocaInst *AI,
+                                  llvm::Function *AllocFn,
+                                  ArrayRef<Value*> callArgs,
+                                  IRBuilder<> &Builder,
+                                  ArrayRef<unsigned> OuterToInnerDims,
+                                  SmallVectorImpl<Value*> &curIndices,
+                                  Twine curName,
+                                  unsigned curDepth = 0) {
+  if (OuterToInnerDims.size() == curDepth) {
+    llvm::CallInst *CI = Builder.CreateCall(AllocFn, callArgs, curName);
+    llvm::Value *GEP = Builder.CreateInBoundsGEP(AI, curIndices);
+    Builder.CreateStore(CI, GEP);
+  } else {
+    unsigned arraySize = OuterToInnerDims[curDepth];
+    for (unsigned idx = 0; idx < arraySize; ++idx) {
+      // Skip leading zero in curIndices
+      curIndices[curDepth + 1] = Builder.getInt32(idx);
+      AllocateRayQueryArray(AI, AllocFn, callArgs, Builder, OuterToInnerDims, curIndices,
+                            curName + "." + Twine(idx), curDepth + 1);
+    }
+  }
+}
+
 void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
   // Iterate functions and insert AllocateRayQuery intrinsic to initialize
   // handle value for every alloca of ray query type
@@ -4820,6 +4843,7 @@ void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
   Constant *i32Zero = hlslOP.GetI32Const(0);
   DXIL::OpCode opcode = DXIL::OpCode::AllocateRayQuery;
   llvm::Value *opcodeVal = hlslOP.GetU32Const(static_cast<unsigned>(opcode));
+  llvm::Function *AllocFn = nullptr;  // We only get it if we need it
   for (Function &f : M->functions()) {
     if (f.isDeclaration() || f.isIntrinsic() ||
       GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL)
@@ -4832,22 +4856,29 @@ void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
       Instruction *I = BI++;
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
         llvm::Type *allocaTy = AI->getAllocatedType();
-        llvm::Type *elementTy = allocaTy;
-        while (elementTy->isArrayTy())
-          elementTy = elementTy->getArrayElementType();
+        SmallVector<unsigned, 4> arrayDims;
+        llvm::Type *elementTy = dxilutil::StripArrayTypes(allocaTy, &arrayDims);
         if (dxilutil::IsHLSLRayQueryType(elementTy)) {
           DxilStructAnnotation *SA = helper.dxilTypeSys.GetStructAnnotation(cast<StructType>(elementTy));
           DXASSERT(SA, "otherwise, could not find type annoation for RayQuery specialization");
           DXASSERT(SA->GetNumTemplateArgs() == 1 && SA->GetTemplateArgAnnotation(0).IsIntegral(),
                    "otherwise, RayQuery has changed, or lacks template args");
+          if (AllocFn == nullptr)
+            AllocFn = hlslOP.GetOpFunc(DXIL::OpCode::AllocateRayQuery, Builder.getVoidTy());
           Builder.SetInsertPoint(AI->getNextNode());
-          DXASSERT(!allocaTy->isArrayTy(), "Array not handled yet");
-          llvm::Function *AllocFn = hlslOP.GetOpFunc(DXIL::OpCode::AllocateRayQuery, Builder.getVoidTy());
-          llvm::Value *rayFlags = ConstantInt::get(helper.i32Ty,
-            APInt(32, SA->GetTemplateArgAnnotation(0).GetIntegral()));
-          llvm::CallInst *CI = Builder.CreateCall(AllocFn, {opcodeVal, rayFlags}, "hRayQuery");
-          llvm::Value *GEP = Builder.CreateGEP(AI, {i32Zero, i32Zero});
-          Builder.CreateStore(CI, GEP);
+          llvm::Value *rayFlags = Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
+          // Ultimately, this will replace the alloca, so name it after the alloca
+          Twine baseName = AI->hasName() ? AI->getName() : "hRayQuery";
+          if (allocaTy->isArrayTy()) {
+            DXASSERT_NOMSG(arrayDims.size());
+            // curIndices has extra leading zero and extra trailing zero for handle member
+            SmallVector<Value*, 6> curIndices(arrayDims.size() + 2, i32Zero);
+            AllocateRayQueryArray(AI, AllocFn, {opcodeVal, rayFlags}, Builder, arrayDims, curIndices, baseName);
+          } else {
+            llvm::CallInst *CI = Builder.CreateCall(AllocFn, {opcodeVal, rayFlags}, baseName);
+            llvm::Value *GEP = Builder.CreateInBoundsGEP(AI, {i32Zero, i32Zero});
+            Builder.CreateStore(CI, GEP);
+          }
         }
       }
     }

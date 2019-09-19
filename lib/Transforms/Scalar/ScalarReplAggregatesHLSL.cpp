@@ -2763,7 +2763,8 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
         !HLMatrixType::isa(ElTy)) {
-      if (!dxilutil::IsHLSLObjectType(ElTy)) {
+      if (!(dxilutil::IsHLSLObjectType(ElTy) ||
+            dxilutil::IsHLSLRayQueryType(ElTy))) {
         // for array of struct
         // split into arrays of struct elements
         StructType *ElST = cast<StructType>(ElTy);

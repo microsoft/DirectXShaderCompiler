@@ -1506,7 +1506,7 @@ class db_dxil(object):
         next_op_idx += 1
 
         # RayQuery
-        self.add_dxil_op("AllocateRayQuery", next_op_idx, "AllocateRayQuery", "allocates space for RayQuery and return handle", "v", "rn", [
+        self.add_dxil_op("AllocateRayQuery", next_op_idx, "AllocateRayQuery", "allocates space for RayQuery and return handle", "v", "", [
             db_dxil_param(0, "i32", "", "handle to RayQuery state"),
             db_dxil_param(2, "u32", "constRayFlags", "Valid combination of RAY_FLAGS", is_const=True)])
         next_op_idx += 1

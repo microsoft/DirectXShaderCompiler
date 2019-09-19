@@ -366,11 +366,19 @@ public:
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
+      bool IsLib = DM.GetShaderModel()->IsLib();
+
       unsigned ValMajor = 0;
       unsigned ValMinor = 0;
       M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
 
-      bool IsLib = DM.GetShaderModel()->IsLib();
+      // Remove unused AllocateRayQuery calls
+      RemoveUnusedRayQuery(M);
+
+      // Remove store undef output.
+      hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      RemoveStoreUndefOutput(M, hlslOP);
+
       // Skip validation patch for lib.
       if (!IsLib) {
         if (ValMajor == 1 && ValMinor <= 1) {
@@ -382,10 +390,6 @@ public:
         if (DM.GetShaderModel()->IsHS())
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
-
-      // Remove store undef output.
-      hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
-      RemoveStoreUndefOutput(M, hlslOP);
 
       RemoveUnusedStaticGlobal(M);
 
@@ -575,6 +579,26 @@ private:
         if (DM.GetTypeSystem().GetFunctionAnnotation(F) == nullptr)
           DM.GetTypeSystem().AddFunctionAnnotation(F);
       }
+    }
+  }
+
+  void RemoveUnusedRayQuery(Module &M) {
+    hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+    llvm::Function *AllocFn = hlslOP->GetOpFunc(
+      DXIL::OpCode::AllocateRayQuery, Type::getVoidTy(M.getContext()));
+    SmallVector<CallInst*, 4> DeadInsts;
+    for (auto U : AllocFn->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        if (CI->user_empty()) {
+          DeadInsts.emplace_back(CI);
+        }
+      }
+    }
+    for (auto CI : DeadInsts) {
+      CI->eraseFromParent();
+    }
+    if (AllocFn->user_empty()) {
+      AllocFn->eraseFromParent();
     }
   }
 };
