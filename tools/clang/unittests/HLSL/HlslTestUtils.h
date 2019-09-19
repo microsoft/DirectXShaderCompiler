@@ -13,6 +13,8 @@
 #include <fstream>
 #include <atomic>
 #include <cmath>
+#include <vector>
+#include <algorithm>
 #ifdef _WIN32
 #include <dxgiformat.h>
 #include "WexTestClass.h"
@@ -21,6 +23,8 @@
 #endif
 #include "dxc/Support/Unicode.h"
 #include "dxc/DXIL/DxilConstants.h" // DenormMode
+
+using namespace std;
 
 #ifndef HLSLDATAFILEPARAM
 #define HLSLDATAFILEPARAM L"HlslDataDir"
@@ -73,6 +77,43 @@
 #define EXPECT_EQ(expected, actual) VERIFY_ARE_EQUAL(expected, actual)
 #endif 
 #endif // VERIFY_ARE_EQUAL
+
+static constexpr char whitespaceChars[] = " \t\r\n";
+
+static std::string strltrim(const std::string &value) {
+  size_t first = value.find_first_not_of(whitespaceChars);
+  return first == string::npos ? value : value.substr(first);
+}
+
+static std::string strrtrim(const std::string &value) {
+  size_t last = value.find_last_not_of(whitespaceChars);
+  return last == string::npos ? value : value.substr(0, last + 1);
+}
+
+static std::string strtrim(const std::string &value) {
+  return strltrim(strrtrim(value));
+}
+
+static bool strstartswith(const std::string& value, const char* pattern) {
+  for (size_t i = 0; ; ++i) {
+    if (pattern[i] == '\0') return true;
+    if (i == value.size() || value[i] != pattern[i]) return false;
+  }
+}
+
+static std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars) {
+  size_t searchOffset = 0;
+  std::vector<std::string> tokens;
+  while (searchOffset != value.size()) {
+    size_t tokenStartIndex = value.find_first_not_of(delimiters, searchOffset);
+    if (tokenStartIndex == std::string::npos) break;
+    size_t tokenEndIndex = value.find_first_of(delimiters, tokenStartIndex);
+    if (tokenEndIndex == std::string::npos) tokenEndIndex = value.size();
+    tokens.emplace_back(value.substr(tokenStartIndex, tokenEndIndex - tokenStartIndex));
+    searchOffset = tokenEndIndex;
+  }
+  return tokens;
+}
 
 namespace hlsl_test {
 
@@ -136,6 +177,43 @@ inline bool PathLooksAbsolute(LPCWSTR name) {
 #else
   return name && *name && (*name == L'/');
 #endif
+}
+
+static bool HasRunLine(std::string &line) {
+  const char *delimiters = " ;/";
+  auto lineelems = strtok(line, delimiters);
+  return !lineelems.empty() &&
+    lineelems.front().compare("RUN:") == 0;
+}
+
+inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
+  const std::wstring path = PathLooksAbsolute(name)
+    ? std::wstring(name)
+    : hlsl_test::GetPathToHlslDataFile(name);
+#ifdef _WIN32
+  std::ifstream infile(path);
+#else
+  std::ifstream infile((CW2A(path.c_str())));
+#endif
+  if (infile.bad()) {
+    std::wstring errMsg(L"Unable to read file ");
+    errMsg += path;
+    WEX::Logging::Log::Error(errMsg.c_str());
+    VERIFY_FAIL();
+  }
+
+  std::vector<std::string> runlines;
+  std::string line;
+  constexpr size_t runlinesize = 300;
+  while (std::getline(infile, line)) {
+    if (!HasRunLine(line))
+      continue;
+    char runline[runlinesize];
+    memset(runline, 0, runlinesize);
+    memcpy(runline, line.c_str(), min(runlinesize, line.size()));
+    runlines.emplace_back(runline);
+  }
+  return runlines;
 }
 
 inline std::string GetFirstLine(LPCWSTR name) {

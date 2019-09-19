@@ -11666,6 +11666,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       // Add methods if not ready.
       hlslSource->AddHLSLObjectMethodsIfNotReady(eltQt);
+      bIsObject = true;
     }
   }
 

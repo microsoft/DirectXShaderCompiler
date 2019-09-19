@@ -644,7 +644,9 @@ int;
 // expected-warning@321 {{declaration does not declare anything}}
 
 float4 plain(float4 param4 /* : FOO */) /*: FOO */{
-  int i[0]; // expected-error {{array dimension must be between 1 and 65536}}
+  // fxc error X3059: array dimension must be between 1 and 65536
+  // dxc no longer produces this error - it doesn't have the limitation, and other limits should be enforced elsewhere.
+  int i[0]; // fxc-error {{X3059: array dimension must be between 1 and 65536}}
   const j; // expected-error {{HLSL requires a type specifier for all declarations}}
   long long ll; // expected-error {{'long' is a reserved keyword in HLSL}} expected-error {{'long' is a reserved keyword in HLSL}} expected-error {{HLSL requires a type specifier for all declarations}}
   return is_supported();
