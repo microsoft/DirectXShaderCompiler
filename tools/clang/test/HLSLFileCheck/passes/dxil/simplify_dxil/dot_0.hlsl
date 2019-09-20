@@ -2,6 +2,10 @@
 
 // Make sure dot4 is transformed into dot3.
 // CHECK:call float @dx.op.dot3.f32(i32 55
+// CHECK:call float @dx.op.dot2.f32(i32 54
+// CHECK:fmul
+// CHECK:dx.op.bufferStore.f32(i32 69, {{.*}}, i32 0, float 0.000000e+00
+
 
 cbuffer B
 {
@@ -17,4 +21,7 @@ void main(uint3 id : SV_DispatchThreadID)
 {    
     float4 plane = planes[id.x];
     output[id.x] = dot(float4(thing.xyz, 0), plane);
+    output[id.y] = dot(float4(0, thing.zw, 0), plane);
+    output[id.z] = dot(float4(0, 0, thing.y, 0), plane);
+    output[id.x+1] = dot(0, plane);
 }
