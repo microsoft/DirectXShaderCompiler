@@ -1857,6 +1857,9 @@ TEST_F(FileTest, VulkanSubpassInputError) {
 TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
+  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl", Expect::Failure);
+}
 
 TEST_F(FileTest, NamespaceFunctions) {
   runFileTest("namespace.functions.hlsl");
