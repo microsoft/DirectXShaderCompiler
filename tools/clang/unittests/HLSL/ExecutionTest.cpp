@@ -6212,7 +6212,7 @@ std::function<T(T, T)> GetWaveMultiPrefixReferenceFunction(LPCWSTR testName) {
     // condition is true, thus we contribute one to the bit count.
     return [] (T lhs, T rhs) -> T { return lhs + (rhs ? 1 : 0); };
   } else {
-    return [] (T lhs, T rhs) -> T { return 0; };
+    return [] (T lhs, T rhs) -> T { UNREFERENCED_PARAMETER(lhs); UNREFERENCED_PARAMETER(rhs); return 0; };
   }
 }
 
@@ -6271,6 +6271,7 @@ ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(TableParameter *pParameterList,
     std::shared_ptr<ShaderOpTestResult> test =
       RunShaderOpTestAfterParse(pDevice, m_support, "WaveIntrinsicsOp",
       [&] (LPCSTR name, std::vector<BYTE> &data, st::ShaderOp *pShaderOp) {
+        UNREFERENCED_PARAMETER(name);
 
         const size_t dataSize = sizeof(PerThreadData) * ThreadCount;
 
