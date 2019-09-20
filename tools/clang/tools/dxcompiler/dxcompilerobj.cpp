@@ -756,12 +756,12 @@ public:
             valHR = dxcutil::ValidateAndAssembleToContainer(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
                 pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics(),
-                (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) ? &ShaderHashContent : nullptr);
+                &ShaderHashContent);
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
                                          pOutputBlob, m_pMalloc,
                                          SerializeFlags, pOutputStream,
-                (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) ? &ShaderHashContent : nullptr);
+                                         &ShaderHashContent);
           }
 
           // Callback after valid DXIL is produced

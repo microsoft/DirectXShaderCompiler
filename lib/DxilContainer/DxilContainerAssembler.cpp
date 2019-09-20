@@ -1752,73 +1752,72 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteBitcodeToFile(pModule->GetModule(), outStream, false);
   }
 
-  // Serialize debug name if requested.
-  CComPtr<AbstractMemoryStream> pHashStream;
-  std::string DebugNameStr; // Used if constructing name based on hash
+  // Compute hash if needed.
   DxilShaderHash HashContent;
-  if (pShaderHashOut || Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+  SmallString<32> HashStr;
+  if (bSupportsShaderHash || pShaderHashOut ||
+      (Flags & SerializeDxilFlags::IncludeDebugNamePart &&
+        DebugName.empty()))
+  {
     // If the debug name should be specific to the sources, base the name on the debug
     // bitcode, which will include the source references, line numbers, etc. Otherwise,
     // do it exclusively on the target shader bitcode.
+    llvm::MD5 md5;
     if (Flags & SerializeDxilFlags::DebugNameDependOnSource) {
-      pHashStream = CComPtr<AbstractMemoryStream>(pModuleBitcode);
+      md5.update(ArrayRef<uint8_t>(pModuleBitcode->GetPtr(), pModuleBitcode->GetPtrSize()));
       HashContent.Flags = (uint32_t)DxilShaderHashFlags::IncludesSource;
     } else {
-      pHashStream = CComPtr<AbstractMemoryStream>(pProgramStream);
+      md5.update(ArrayRef<uint8_t>(pProgramStream->GetPtr(), pProgramStream->GetPtrSize()));
       HashContent.Flags = (uint32_t)DxilShaderHashFlags::None;
     }
-
-    ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(),
-                           pHashStream->GetPtrSize());
-    llvm::MD5 md5;
-    SmallString<32> Hash;
-    md5.update(Data);
     md5.final(HashContent.Digest);
+    md5.stringifyResult(HashContent.Digest, HashStr);
+  }
 
-    if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
-      if (DebugName.empty()) {
-        md5.stringifyResult(HashContent.Digest, Hash);
-        DebugNameStr += Hash;
-        DebugNameStr += ".pdb";
-        DebugName = DebugNameStr;
-      }
-
-      DebugName = DebugName.trim("\"");
-
-      // Calculate the size of the blob part.
-      const uint32_t DebugInfoContentLen = PSVALIGN4(
-          sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
-
-      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
-        [DebugName]
-        (AbstractMemoryStream *pStream)
-      {
-        DxilShaderDebugName NameContent;
-        NameContent.Flags = 0;
-        NameContent.NameLength = DebugName.size();
-        IFT(WriteStreamValue(pStream, NameContent));
-
-        ULONG cbWritten;
-        IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
-        const char Pad[] = { '\0','\0','\0','\0' };
-        // Always writes at least one null to align size
-        unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
-        IFT(pStream->Write(Pad, padLen, &cbWritten));
-      });
+  // Serialize debug name if requested.
+  std::string DebugNameStr; // Used if constructing name based on hash
+  if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+    if (DebugName.empty()) {
+      DebugNameStr += HashStr;
+      DebugNameStr += ".pdb";
+      DebugName = DebugNameStr;
     }
 
-    if (bSupportsShaderHash) {
-      writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
-        [HashContent]
-        (AbstractMemoryStream *pStream)
-      {
-        IFT(WriteStreamValue(pStream, HashContent));
-      });
-    }
+    // Calculate the size of the blob part.
+    const uint32_t DebugInfoContentLen = PSVALIGN4(
+        sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
 
-    if (pShaderHashOut) {
-      memcpy(pShaderHashOut, &HashContent, sizeof(DxilShaderHash));
-    }
+    writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+      [DebugName]
+      (AbstractMemoryStream *pStream)
+    {
+      DxilShaderDebugName NameContent;
+      NameContent.Flags = 0;
+      NameContent.NameLength = DebugName.size();
+      IFT(WriteStreamValue(pStream, NameContent));
+
+      ULONG cbWritten;
+      IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
+      const char Pad[] = { '\0','\0','\0','\0' };
+      // Always writes at least one null to align size
+      unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
+      IFT(pStream->Write(Pad, padLen, &cbWritten));
+    });
+  }
+
+  // Add hash to container if supported by validator version.
+  if (bSupportsShaderHash) {
+    writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
+      [HashContent]
+      (AbstractMemoryStream *pStream)
+    {
+      IFT(WriteStreamValue(pStream, HashContent));
+    });
+  }
+
+  // Write hash to separate output if requested.
+  if (pShaderHashOut) {
+    memcpy(pShaderHashOut, &HashContent, sizeof(DxilShaderHash));
   }
 
   // Compute padded bitcode size.
