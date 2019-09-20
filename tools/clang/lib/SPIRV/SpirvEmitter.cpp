@@ -210,7 +210,7 @@ bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
   // VK: relaxed block layout rules
   // DX: Skip block layout rules
   if (opts.useScalarLayout || opts.useDxLayout) {
-    options.SetSkipBlockLayout(true);
+    options.SetScalarBlockLayout(true);
   } else if (opts.useGlLayout) {
     // spirv-val by default checks this.
   } else {
