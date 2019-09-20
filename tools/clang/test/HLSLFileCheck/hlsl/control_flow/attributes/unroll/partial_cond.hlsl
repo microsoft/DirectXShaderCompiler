@@ -3,7 +3,6 @@
 // CHECK: call float @dx.op.dot3
 // CHECK: call float @dx.op.dot3
 // CHECK: call float @dx.op.dot3
-// CHECK: call float @dx.op.dot3
 
 // CHECK-NOT: call float @dx.op.dot3
 
