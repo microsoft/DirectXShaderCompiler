@@ -546,21 +546,23 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     const auto *structType = lowerType(s, rule, isRowMajor, srcLoc);
 
     // Calculate memory alignment for the resource.
-    uint32_t size = 0, stride = 0;
+    uint32_t arrayStride = 0;
     QualType sArray = astContext.getConstantArrayType(
         s, llvm::APInt(32, 1), clang::ArrayType::Normal, 0);
-    std::tie(std::ignore, size) =
-        alignmentCalc.getAlignmentAndSize(sArray, rule, isRowMajor, &stride);
+    alignmentCalc.getAlignmentAndSize(sArray, rule, isRowMajor, &arrayStride);
 
     // We have a runtime array of structures. So:
     // The stride of the runtime array is the size of the struct.
-    const auto *raType = spvContext.getRuntimeArrayType(structType, size);
+    const auto *raType = spvContext.getRuntimeArrayType(structType, arrayStride);
     const bool isReadOnly = (name == "StructuredBuffer");
 
     // Attach matrix stride decorations if this is a *StructuredBuffer<matrix>.
     llvm::Optional<uint32_t> matrixStride = llvm::None;
-    if (isMxNMatrix(s))
+    if (isMxNMatrix(s)) {
+      uint32_t stride = 0;
+      alignmentCalc.getAlignmentAndSize(s, rule, isRowMajor, &stride);
       matrixStride = stride;
+    }
 
     const std::string typeName = "type." + name.str() + "." + getAstTypeName(s);
     const auto *valType = spvContext.getStructType(
