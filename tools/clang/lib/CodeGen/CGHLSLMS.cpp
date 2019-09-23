@@ -4547,12 +4547,10 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   } break;
   case IntrinsicOp::IOP_frac: {
     auto fracF = [](float v) -> float {
-      int exp = 0;
-      return frexpf(v, &exp);
+      return v - floor(v);
     };
     auto fracD = [](double v) -> double {
-      int exp = 0;
-      return frexp(v, &exp);
+      return v - floor(v);
     };
 
     return EvalUnaryIntrinsic(CI, fracF, fracD);
