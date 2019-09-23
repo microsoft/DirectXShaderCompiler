@@ -91,6 +91,20 @@ TEST_F(FileTest, StructuredBufferType) {
 TEST_F(FileTest, StructuredBufferTypeWithVector) {
   runFileTest("type.structured-buffer.vector.hlsl");
 }
+TEST_F(FileTest, StructuredBufferTypeWithVectorDX) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("type.structured-buffer.vector.dx.hlsl");
+}
+TEST_F(FileTest, StructuredBufferTypeWithVectorGL) {
+  setGlLayout();
+  runFileTest("type.structured-buffer.vector.gl.hlsl");
+}
+TEST_F(FileTest, StructuredBufferTypeWithVectorScalar) {
+  // VK_EXT_scalar_block_layout
+  setScalarLayout();
+  runFileTest("type.structured-buffer.vector.scalar.hlsl");
+}
 TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
