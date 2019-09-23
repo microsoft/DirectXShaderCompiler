@@ -2064,30 +2064,17 @@ Value *TrivialDotOperation(OP::OpCode opcode, Value *src0,
   return dotOP;
 }
 
-Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP, IRBuilder<> &Builder) {
+Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP, IRBuilder<> &Builder, bool Unsigned = false) {
+  auto madOpCode = Unsigned ? DXIL::OpCode::UMad : DXIL::OpCode::IMad;
   Value *Elt0 = Builder.CreateExtractElement(arg0, (uint64_t)0);
   Value *Elt1 = Builder.CreateExtractElement(arg1, (uint64_t)0);
   Value *Result = Builder.CreateMul(Elt0, Elt1);
-  switch (vecSize) {
-  case 4:
-    Elt0 = Builder.CreateExtractElement(arg0, 3);
-    Elt1 = Builder.CreateExtractElement(arg1, 3);
-    Result = TrivialDxilTrinaryOperation(DXIL::OpCode::IMad, Elt0, Elt1, Result, hlslOP, Builder);
-    // Pass thru.
-  case 3:
-    Elt0 = Builder.CreateExtractElement(arg0, 2);
-    Elt1 = Builder.CreateExtractElement(arg1, 2);
-    Result = TrivialDxilTrinaryOperation(DXIL::OpCode::IMad, Elt0, Elt1, Result, hlslOP, Builder);
-    // Pass thru.
-  case 2:
-    Elt0 = Builder.CreateExtractElement(arg0, 1);
-    Elt1 = Builder.CreateExtractElement(arg1, 1);
-    Result = TrivialDxilTrinaryOperation(DXIL::OpCode::IMad, Elt0, Elt1, Result, hlslOP, Builder);
-    break;
-  default:
-  case 1:
-    DXASSERT(vecSize == 1, "invalid vector size.");
+  for (unsigned iVecElt = 1; iVecElt < vecSize; ++iVecElt) {
+    Elt0 = Builder.CreateExtractElement(arg0, iVecElt);
+    Elt1 = Builder.CreateExtractElement(arg1, iVecElt);
+    Result = TrivialDxilTrinaryOperation(madOpCode, Elt0, Elt1, Result, hlslOP, Builder);
   }
+
   return Result;
 }
 
@@ -2641,7 +2628,7 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
       }
       else {
-        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder);
+        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder, IOP == IntrinsicOp::IOP_umul);
       }
     }
     else {
@@ -5474,7 +5461,7 @@ IntrinsicLower gLowerTable[] = {
     { IntrinsicOp::IOP_umad, TranslateFUITrinary, DXIL::OpCode::UMad},
     { IntrinsicOp::IOP_umax, TranslateFUIBinary, DXIL::OpCode::UMax},
     { IntrinsicOp::IOP_umin, TranslateFUIBinary, DXIL::OpCode::UMin },
-    { IntrinsicOp::IOP_umul, TranslateFUIBinary, DXIL::OpCode::UMul },
+    { IntrinsicOp::IOP_umul, TranslateMul, DXIL::OpCode::UMul },
     { IntrinsicOp::IOP_usign, TranslateUSign, DXIL::OpCode::UMax },
     { IntrinsicOp::MOP_InterlockedUMax, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
