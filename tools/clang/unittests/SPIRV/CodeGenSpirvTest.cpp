@@ -1033,6 +1033,13 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsStaticError) {
   runFileTest("intrinsics.interlocked-methods.static-error.hlsl",
               Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzling) {
+  runFileTest("intrinsics.interlocked-methods.texture.swizzling.hlsl");
+}
+TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzlingError) {
+  runFileTest("intrinsics.interlocked-methods.texture.swizzling.error.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
@@ -1849,6 +1856,9 @@ TEST_F(FileTest, VulkanSubpassInputError) {
 
 TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
+  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, NamespaceFunctions) {
