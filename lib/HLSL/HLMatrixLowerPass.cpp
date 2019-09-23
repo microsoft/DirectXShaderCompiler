@@ -14,7 +14,6 @@
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -883,7 +882,7 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
 
   DXASSERT(LoweredLhs->getType()->getScalarType() == LoweredRhs->getType()->getScalarType(),
     "Unexpected element type mismatch in mul intrinsic.");
-  DXASSERT(cast<VectorType>(LoweredLhs->getType()) && cast<VectorType>(LoweredLhs->getType()),
+  DXASSERT(cast<VectorType>(LoweredLhs->getType()) && cast<VectorType>(LoweredRhs->getType()),
     "Unexpected scalar in lowered matrix mul intrinsic operands.");
 
   Type* ElemTy = LoweredLhs->getType()->getScalarType();
