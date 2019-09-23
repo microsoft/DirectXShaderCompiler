@@ -2064,31 +2064,17 @@ Value *TrivialDotOperation(OP::OpCode opcode, Value *src0,
   return dotOP;
 }
 
-Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP, IRBuilder<> &Builder, bool isSigned = true) {
-  auto madOpCode = isSigned ? DXIL::OpCode::IMad : DXIL::OpCode::UMad;
+Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP, IRBuilder<> &Builder, bool Unsigned = false) {
+  auto madOpCode = Unsigned ? DXIL::OpCode::UMad : DXIL::OpCode::IMad;
   Value *Elt0 = Builder.CreateExtractElement(arg0, (uint64_t)0);
   Value *Elt1 = Builder.CreateExtractElement(arg1, (uint64_t)0);
   Value *Result = Builder.CreateMul(Elt0, Elt1);
-  switch (vecSize) {
-  case 4:
-    Elt0 = Builder.CreateExtractElement(arg0, 3);
-    Elt1 = Builder.CreateExtractElement(arg1, 3);
+  for (unsigned iVecElt = 1; iVecElt < vecSize; ++iVecElt) {
+    Elt0 = Builder.CreateExtractElement(arg0, iVecElt);
+    Elt1 = Builder.CreateExtractElement(arg1, iVecElt);
     Result = TrivialDxilTrinaryOperation(madOpCode, Elt0, Elt1, Result, hlslOP, Builder);
-    // Pass thru.
-  case 3:
-    Elt0 = Builder.CreateExtractElement(arg0, 2);
-    Elt1 = Builder.CreateExtractElement(arg1, 2);
-    Result = TrivialDxilTrinaryOperation(madOpCode, Elt0, Elt1, Result, hlslOP, Builder);
-    // Pass thru.
-  case 2:
-    Elt0 = Builder.CreateExtractElement(arg0, 1);
-    Elt1 = Builder.CreateExtractElement(arg1, 1);
-    Result = TrivialDxilTrinaryOperation(madOpCode, Elt0, Elt1, Result, hlslOP, Builder);
-    break;
-  default:
-  case 1:
-    DXASSERT(vecSize == 1, "invalid vector size.");
   }
+
   return Result;
 }
 
@@ -2642,8 +2628,7 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
       }
       else {
-        bool isSigned = (IOP == IntrinsicOp::IOP_mul);
-        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder, isSigned);
+        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder, IOP == IntrinsicOp::IOP_umul);
       }
     }
     else {

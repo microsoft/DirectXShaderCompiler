@@ -49,11 +49,6 @@ Type *GetArrayEltTy(Type *Ty) {
   return Ty;
 }
 
-bool IsScalarTy(llvm::Type *Ty) {
-  if (!Ty) return false;
-  return Ty->isFloatingPointTy() || Ty->isIntegerTy();
-}
-
 bool HasDynamicIndexing(Value *V) {
   for (auto User : V->users()) {
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {

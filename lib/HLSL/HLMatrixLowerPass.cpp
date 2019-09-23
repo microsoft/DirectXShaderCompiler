@@ -842,33 +842,26 @@ Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
 Value *HLMatrixLowerPass::translateScalarMatMul(Value *Lhs, Value *Rhs, IRBuilder<> &Builder, bool isLhsScalar) {
   Value *Mat = isLhsScalar ? Rhs : Lhs;
   Value *Scalar = isLhsScalar ? Lhs : Rhs;
-  HLMatrixType MatTy = HLMatrixType::cast(Mat->getType());
-  auto NumRows = MatTy.getNumRows();
-  auto NumCols = MatTy.getNumColumns();
   Value* LoweredMat = getLoweredByValOperand(Mat, Builder);
   Type *ScalarTy = Scalar->getType();
 
   // Perform the scalar-matrix multiplication!
   Type *ElemTy = LoweredMat->getType()->getVectorElementType();
   bool isIntMulOp = ScalarTy->isIntegerTy() && ElemTy->isIntegerTy();
-  bool isFloatMulOp = ScalarTy->isFloatingPointTy() || ElemTy->isFloatingPointTy();
-  Value *Result = UndefValue::get(VectorType::get(ElemTy, NumRows * NumCols));
-  for (unsigned ResultRowIdx = 0; ResultRowIdx < MatTy.getNumRows(); ++ResultRowIdx) {
-    for (unsigned ResultColIdx = 0; ResultColIdx < MatTy.getNumColumns(); ++ResultColIdx) {
-      unsigned ResultElemIdx = MatTy.getRowMajorIndex(ResultRowIdx, ResultColIdx);
-      Value* ResultElem = Builder.CreateExtractElement(LoweredMat, static_cast<uint64_t>(ResultElemIdx));
-      if (isFloatMulOp) {
-        // Preserve the order of operation for floats
-        ResultElem = isLhsScalar ? Builder.CreateFMul(Scalar, ResultElem) : Builder.CreateFMul(ResultElem, Scalar);
-      } else if (isIntMulOp) {
-        // Doesn't matter for integer but still preserve the order of operation for floats
-        ResultElem = isLhsScalar ? Builder.CreateMul(Scalar, ResultElem) : Builder.CreateMul(ResultElem, Scalar);
-      } else {
-        DXASSERT(0, "Encountered unsupported type in scalar-matrix multiplication.");
-      }
+  bool isFloatMulOp = ScalarTy->isFloatingPointTy() && ElemTy->isFloatingPointTy();
+  DXASSERT(ScalarTy == ElemTy, "Scalar type must match the matrix component type.");
+  Value *Result = Builder.CreateVectorSplat(LoweredMat->getType()->getVectorNumElements(), Scalar);
 
-      Result = Builder.CreateInsertElement(Result, ResultElem, static_cast<uint64_t>(ResultElemIdx));
-    }
+  if (isFloatMulOp) {
+    // Preserve the order of operation for floats
+    Result = isLhsScalar ? Builder.CreateFMul(Result, LoweredMat) : Builder.CreateFMul(LoweredMat, Result);
+  }
+  else if (isIntMulOp) {
+    // Doesn't matter for integers but still preserve the order of operation
+    Result = isLhsScalar ? Builder.CreateMul(Result, LoweredMat) : Builder.CreateMul(LoweredMat, Result);
+  }
+  else {
+    DXASSERT(0, "Unknown type encountered when doing scalar-matrix multiplication.");
   }
 
   return Result;
@@ -882,8 +875,8 @@ Value *HLMatrixLowerPass::lowerHLMulIntrinsic(Value* Lhs, Value *Rhs,
   Value* LoweredRhs = getLoweredByValOperand(Rhs, Builder);
 
   // Translate multiplication of scalar with matrix
-  bool isLhsScalar = dxilutil::IsScalarTy(Lhs->getType());
-  bool isRhsScalar = dxilutil::IsScalarTy(Rhs->getType());
+  bool isLhsScalar = !LoweredLhs->getType()->isVectorTy();
+  bool isRhsScalar = !LoweredRhs->getType()->isVectorTy();
   bool isScalar = isLhsScalar || isRhsScalar;
   if (isScalar)
     return translateScalarMatMul(Lhs, Rhs, Builder, isLhsScalar);
