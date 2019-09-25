@@ -27,6 +27,7 @@ class LLVMContext;
 class DiagnosticInfo;
 class Value;
 class Instruction;
+class CallInst;
 class BasicBlock;
 class raw_ostream;
 class ModulePass;
@@ -41,6 +42,7 @@ namespace hlsl {
 
 class DxilFieldAnnotation;
 class DxilTypeSystem;
+class OP;
 
 namespace dxilutil {
   extern const char ManglingPrefix[];
@@ -114,6 +116,17 @@ namespace dxilutil {
 
   llvm::Type* StripArrayTypes(llvm::Type *Ty, llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths = nullptr);
   llvm::Type* WrapInArrayTypes(llvm::Type *Ty, llvm::ArrayRef<unsigned> OuterToInnerLengths);
+
+  llvm::CallInst *TranslateCallRawBufferLoadToBufferLoad(
+    llvm::CallInst *CI, llvm::Function *newFunction, hlsl::OP *op);
+  void ReplaceRawBufferLoadWithBufferLoad(llvm::Function *F, hlsl::OP *op);
+
+  llvm::CallInst *TranslateCallRawBufferStoreToBufferStore(
+    llvm::CallInst *CI, llvm::Function *newFunction, hlsl::OP *op);
+  void ReplaceRawBufferStoreWithBufferStore(llvm::Function *F, hlsl::OP *op);
+
+  void ReplaceRawBufferLoad64Bit(llvm::Function *F, llvm::Type *EltTy, hlsl::OP *hlslOP);
+  void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP);
 }
 
 }

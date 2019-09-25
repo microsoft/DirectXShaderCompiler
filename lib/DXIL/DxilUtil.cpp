@@ -13,6 +13,7 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -629,6 +630,324 @@ llvm::Type* WrapInArrayTypes(llvm::Type *Ty, llvm::ArrayRef<unsigned> OuterToInn
     Ty = ArrayType::get(Ty, *it);
   }
   return Ty;
+}
+
+namespace {
+// Create { v0, v1 } from { v0.lo, v0.hi, v1.lo, v1.hi }
+void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
+                            unsigned size, MutableArrayRef<Value *> resultElts,
+                            hlsl::OP *hlslOP, IRBuilder<> &Builder) {
+  Type *i64Ty = Builder.getInt64Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  if (EltTy == doubleTy) {
+    Function *makeDouble =
+        hlslOP->GetOpFunc(DXIL::OpCode::MakeDouble, doubleTy);
+    Value *makeDoubleOpArg =
+        Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
+    for (unsigned i = 0; i < size; i++) {
+      Value *lo = resultElts32[2 * i];
+      Value *hi = resultElts32[2 * i + 1];
+      Value *V = Builder.CreateCall(makeDouble, {makeDoubleOpArg, lo, hi});
+      resultElts[i] = V;
+    }
+  } else {
+    for (unsigned i = 0; i < size; i++) {
+      Value *lo = resultElts32[2 * i];
+      Value *hi = resultElts32[2 * i + 1];
+      lo = Builder.CreateZExt(lo, i64Ty);
+      hi = Builder.CreateZExt(hi, i64Ty);
+      hi = Builder.CreateShl(hi, 32);
+      resultElts[i] = Builder.CreateOr(lo, hi);
+    }
+  }
+}
+
+// Split { v0, v1 } to { v0.lo, v0.hi, v1.lo, v1.hi }
+void Split64bitValForStore(Type *EltTy, ArrayRef<Value *> vals, unsigned size,
+                           MutableArrayRef<Value *> vals32, hlsl::OP *hlslOP,
+                           IRBuilder<> &Builder) {
+  Type *i32Ty = Builder.getInt32Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  Value *undefI32 = UndefValue::get(i32Ty);
+
+  if (EltTy == doubleTy) {
+    Function *dToU = hlslOP->GetOpFunc(DXIL::OpCode::SplitDouble, doubleTy);
+    Value *dToUOpArg = Builder.getInt32((unsigned)DXIL::OpCode::SplitDouble);
+    for (unsigned i = 0; i < size; i++) {
+      if (isa<UndefValue>(vals[i])) {
+        vals32[2 * i] = undefI32;
+        vals32[2 * i + 1] = undefI32;
+      } else {
+        Value *retVal = Builder.CreateCall(dToU, {dToUOpArg, vals[i]});
+        Value *lo = Builder.CreateExtractValue(retVal, 0);
+        Value *hi = Builder.CreateExtractValue(retVal, 1);
+        vals32[2 * i] = lo;
+        vals32[2 * i + 1] = hi;
+      }
+    }
+  } else {
+    for (unsigned i = 0; i < size; i++) {
+      if (isa<UndefValue>(vals[i])) {
+        vals32[2 * i] = undefI32;
+        vals32[2 * i + 1] = undefI32;
+      } else {
+        Value *lo = Builder.CreateTrunc(vals[i], i32Ty);
+        Value *hi = Builder.CreateLShr(vals[i], 32);
+        hi = Builder.CreateTrunc(hi, i32Ty);
+        vals32[2 * i] = lo;
+        vals32[2 * i + 1] = hi;
+      }
+    }
+  }
+}
+}
+
+llvm::CallInst *TranslateCallRawBufferLoadToBufferLoad(
+    llvm::CallInst *CI, llvm::Function *newFunction, hlsl::OP *op) {
+  IRBuilder<> Builder(CI);
+  SmallVector<Value *, 4> args;
+  args.emplace_back(op->GetI32Const((unsigned)DXIL::OpCode::BufferLoad));
+  for (unsigned i = 1; i < 4; ++i) {
+    args.emplace_back(CI->getArgOperand(i));
+  }
+  CallInst *newCall = Builder.CreateCall(newFunction, args);
+  return newCall;
+}
+
+void ReplaceRawBufferLoadWithBufferLoad(
+    llvm::Function *F, hlsl::OP *op) {
+  Type *RTy = F->getReturnType();
+  if (StructType *STy = dyn_cast<StructType>(RTy)) {
+    Type *ETy = STy->getElementType(0);
+    Function *newFunction = op->GetOpFunc(hlsl::DXIL::OpCode::BufferLoad, ETy);
+    for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+      User *user = *(U++);
+      if (CallInst *CI = dyn_cast<CallInst>(user)) {
+        CallInst *newCall = TranslateCallRawBufferLoadToBufferLoad(CI, newFunction, op);
+        CI->replaceAllUsesWith(newCall);
+        CI->eraseFromParent();
+      } else {
+        DXASSERT(false, "function can only be used with call instructions.");
+      }
+    }
+  } else {
+    DXASSERT(false, "RawBufferLoad should return struct type.");
+  }
+}
+
+
+llvm::CallInst *TranslateCallRawBufferStoreToBufferStore(
+    llvm::CallInst *CI, llvm::Function *newFunction, hlsl::OP *op) {
+  IRBuilder<> Builder(CI);
+  SmallVector<Value *, 4> args;
+  args.emplace_back(op->GetI32Const((unsigned)DXIL::OpCode::BufferStore));
+  for (unsigned i = 1; i < 9; ++i) {
+    args.emplace_back(CI->getArgOperand(i));
+  }
+  CallInst *newCall = Builder.CreateCall(newFunction, args);
+  return newCall;
+}
+
+void ReplaceRawBufferStoreWithBufferStore(llvm::Function *F, hlsl::OP *op) {
+  DXASSERT(F->getReturnType()->isVoidTy(), "rawBufferStore should return a void type.");
+  Type *ETy = F->getFunctionType()->getParamType(4); // value
+  Function *newFunction = op->GetOpFunc(hlsl::DXIL::OpCode::BufferStore, ETy);
+  for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+    User *user = *(U++);
+    if (CallInst *CI = dyn_cast<CallInst>(user)) {
+      TranslateCallRawBufferStoreToBufferStore(CI, newFunction, op);
+      CI->eraseFromParent();
+    }
+    else {
+      DXASSERT(false, "function can only be used with call instructions.");
+    }
+  }
+}
+
+
+void ReplaceRawBufferLoad64Bit(llvm::Function *F, llvm::Type *EltTy, hlsl::OP *hlslOP) {
+  Function *bufLd = hlslOP->GetOpFunc(DXIL::OpCode::RawBufferLoad,
+                                      Type::getInt32Ty(hlslOP->GetCtx()));
+  for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+    User *user = *(U++);
+    if (CallInst *CI = dyn_cast<CallInst>(user)) {
+      IRBuilder<> Builder(CI);
+      SmallVector<Value *, 4> args(CI->arg_operands());
+
+      Value *offset = CI->getArgOperand(
+          DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx);
+
+      unsigned size = 0;
+      bool bNeedStatus = false;
+      for (User *U : CI->users()) {
+        ExtractValueInst *Elt = cast<ExtractValueInst>(U);
+        DXASSERT(Elt->getNumIndices() == 1, "else invalid use for resRet");
+        unsigned idx = Elt->getIndices()[0];
+        if (idx == 4) {
+          bNeedStatus = true;
+        } else {
+          size = std::max(size, idx+1);
+        }
+      }
+      unsigned maskHi = 0;
+      unsigned maskLo = 0;
+      switch (size) {
+      case 1:
+        maskLo = 3;
+        break;
+      case 2:
+        maskLo = 0xf;
+        break;
+      case 3:
+        maskLo = 0xf;
+        maskHi = 3;
+        break;
+      case 4:
+        maskLo = 0xf;
+        maskHi = 0xf;
+        break;
+      }
+
+      args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
+          Builder.getInt8(maskLo);
+      Value *resultElts[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
+      CallInst *newLd = Builder.CreateCall(bufLd, args);
+
+      Value *resultElts32[8];
+      unsigned eltBase = 0;
+      for (unsigned i = 0; i < size; i++) {
+        if (i == 2) {
+          // Update offset 4 by 4 bytes.
+          if (isa<UndefValue>(offset)) {
+            // [RW]ByteAddressBuffer has undef element offset -> update index
+            Value *index = CI->getArgOperand(DXIL::OperandIndex::kRawBufferLoadIndexOpIdx);
+            args[DXIL::OperandIndex::kRawBufferLoadIndexOpIdx] =
+              Builder.CreateAdd(index, Builder.getInt32(4 * 4));
+          }
+          else {
+            // [RW]StructuredBuffer -> update element offset
+            args[DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx] =
+              Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+          }
+          args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
+              Builder.getInt8(maskHi);
+          newLd = Builder.CreateCall(bufLd, args);
+          eltBase = 4;
+        }
+        unsigned resBase = 2 * i;
+        resultElts32[resBase] =
+            Builder.CreateExtractValue(newLd, resBase - eltBase);
+        resultElts32[resBase + 1] =
+            Builder.CreateExtractValue(newLd, resBase + 1 - eltBase);
+      }
+
+      Make64bitResultForLoad(EltTy, resultElts32, size, resultElts, hlslOP, Builder);
+      if (bNeedStatus) {
+        resultElts[4] = Builder.CreateExtractValue(newLd, 4);
+      }
+      for (auto it = CI->user_begin(); it != CI->user_end(); ) {
+        ExtractValueInst *Elt = cast<ExtractValueInst>(*(it++));
+        DXASSERT(Elt->getNumIndices() == 1, "else invalid use for resRet");
+        unsigned idx = Elt->getIndices()[0];
+        if (!Elt->user_empty()) {
+          Value *newElt = resultElts[idx];
+          Elt->replaceAllUsesWith(newElt);
+        }
+        Elt->eraseFromParent();
+      }
+
+      CI->eraseFromParent();
+    } else {
+      DXASSERT(false, "function can only be used with call instructions.");
+    }
+  }
+}
+
+void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP) {
+  Function *newFunction = hlslOP->GetOpFunc(hlsl::DXIL::OpCode::RawBufferStore,
+                                            Type::getInt32Ty(hlslOP->GetCtx()));
+  for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+    User *user = *(U++);
+    if (CallInst *CI = dyn_cast<CallInst>(user)) {
+      IRBuilder<> Builder(CI);
+      SmallVector<Value *, 4> args(CI->arg_operands());
+      Value *vals[4] = {
+          CI->getArgOperand(DXIL::OperandIndex::kRawBufferStoreVal0OpIdx),
+          CI->getArgOperand(DXIL::OperandIndex::kRawBufferStoreVal1OpIdx),
+          CI->getArgOperand(DXIL::OperandIndex::kRawBufferStoreVal2OpIdx),
+          CI->getArgOperand(DXIL::OperandIndex::kRawBufferStoreVal3OpIdx)};
+      ConstantInt *cMask = cast<ConstantInt>(
+          CI->getArgOperand(DXIL::OperandIndex::kRawBufferStoreMaskOpIdx));
+      Value *undefI32 = UndefValue::get(Builder.getInt32Ty());
+      Value *vals32[8] = {undefI32, undefI32, undefI32, undefI32,
+                          undefI32, undefI32, undefI32, undefI32};
+
+      unsigned maskLo = 0;
+      unsigned maskHi = 0;
+      unsigned size = 0;
+      unsigned mask = cMask->getLimitedValue();
+      switch (mask) {
+      case 1:
+        maskLo = 3;
+        size = 1;
+        break;
+      case 3:
+        maskLo = 15;
+        size = 2;
+        break;
+      case 7:
+        maskLo = 15;
+        maskHi = 3;
+        size = 3;
+        break;
+      case 15:
+        maskLo = 15;
+        maskHi = 15;
+        size = 4;
+        break;
+      default:
+        DXASSERT(0, "invalid mask");
+      }
+
+      Split64bitValForStore(ETy, vals, size, vals32, hlslOP, Builder);
+      args[DXIL::OperandIndex::kRawBufferStoreMaskOpIdx] =
+          Builder.getInt8(maskLo);
+      args[DXIL::OperandIndex::kRawBufferStoreVal0OpIdx] = vals32[0];
+      args[DXIL::OperandIndex::kRawBufferStoreVal1OpIdx] = vals32[1];
+      args[DXIL::OperandIndex::kRawBufferStoreVal2OpIdx] = vals32[2];
+      args[DXIL::OperandIndex::kRawBufferStoreVal3OpIdx] = vals32[3];
+
+      Builder.CreateCall(newFunction, args);
+
+      if (maskHi) {
+        // Update offset 4 by 4 bytes.
+        Value *offset = args[DXIL::OperandIndex::kBufferStoreCoord1OpIdx];
+        if (isa<UndefValue>(offset)) {
+          // [RW]ByteAddressBuffer has element offset == undef -> update index instead
+          Value *index = args[DXIL::OperandIndex::kBufferStoreCoord0OpIdx];
+          index = Builder.CreateAdd(index, Builder.getInt32(4 * 4));
+          args[DXIL::OperandIndex::kRawBufferStoreIndexOpIdx] = index;
+        }
+        else {
+          // [RW]StructuredBuffer -> update element offset
+          offset = Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+          args[DXIL::OperandIndex::kRawBufferStoreElementOffsetOpIdx] = offset;
+        }
+
+        args[DXIL::OperandIndex::kRawBufferStoreMaskOpIdx] =
+            Builder.getInt8(maskHi);
+        args[DXIL::OperandIndex::kRawBufferStoreVal0OpIdx] = vals32[4];
+        args[DXIL::OperandIndex::kRawBufferStoreVal1OpIdx] = vals32[5];
+        args[DXIL::OperandIndex::kRawBufferStoreVal2OpIdx] = vals32[6];
+        args[DXIL::OperandIndex::kRawBufferStoreVal3OpIdx] = vals32[7];
+
+        Builder.CreateCall(newFunction, args);
+      }
+      CI->eraseFromParent();
+    } else {
+      DXASSERT(false, "function can only be used with call instructions.");
+    }
+  }
 }
 
 }
