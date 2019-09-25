@@ -1426,7 +1426,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     IFR(GetTypeInfo(CT, &ctTI));
     TypeInfo *baseTI;
     IFR(GetTypeInfo(BaseType, &baseTI));
-    unsigned embedCount = 1;
+    int64_t embedCount = 1;
     for (llvm::DINode *N : CT->getElements()) {
       if (N != nullptr) {
         if (auto *SubRange = llvm::dyn_cast<llvm::DISubrange>(N)) {
@@ -1436,7 +1436,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
         }
       }
     }
-    for (unsigned i = 0; i < embedCount; ++i) {
+    for (int64_t i = 0; i < embedCount; ++i) {
       ctTI->Embed(*baseTI);
     }
     return S_OK;
