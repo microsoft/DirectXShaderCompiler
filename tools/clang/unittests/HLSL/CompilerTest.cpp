@@ -258,6 +258,7 @@ public:
   TEST_METHOD(DiaLoadBadBitcodeThenFail)
   TEST_METHOD(DiaLoadDebugThenOK)
   TEST_METHOD(DiaTableIndexThenOK)
+  TEST_METHOD(DiaLoadDebugSubrangeNegativeThenOK)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenInclude)
@@ -2349,7 +2350,7 @@ TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
   VERIFY_FAILED(pDiaSource->loadDataFromIStream(pStream));
 }
 
-static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource **ppDataSource) {
+static void CompileTestAndLoadDiaSource(dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDiaDataSource **ppDataSource) {
   CComPtr<IDxcBlob> pContainer;
   CComPtr<IDxcBlob> pDebugContent;
   CComPtr<IDiaDataSource> pDiaSource;
@@ -2361,7 +2362,7 @@ static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource
   args.push_back(L"/Zi");
   args.push_back(L"/Qembed_debug");
 
-  VerifyCompileOK(dllSupport, EmptyCompute, L"cs_6_0", args, &pContainer);
+  VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
   VERIFY_SUCCEEDED(pReflection->Load(pContainer));
@@ -2374,6 +2375,36 @@ static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource
     *ppDataSource = pDiaSource.Detach();
   }
 }
+
+static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource **ppDataSource) {
+  CompileTestAndLoadDiaSource(dllSupport, EmptyCompute, L"cs_6_0", ppDataSource);
+}
+
+TEST_F(CompilerTest, DiaLoadDebugSubrangeNegativeThenOK) {
+  static const char source[] = R"(
+    SamplerState  samp0 : register(s0);
+    Texture2DArray tex0 : register(t0);
+
+    float4 foo(Texture2DArray textures[], int idx, SamplerState samplerState, float3 uvw) {
+      return textures[NonUniformResourceIndex(idx)].Sample(samplerState, uvw);
+    }
+
+    [RootSignature( "DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0)) " )]
+    float4 main(int index : INDEX, float3 uvw : TEXCOORD) : SV_Target {
+      Texture2DArray textures[] = {
+        tex0,
+      };
+      return foo(textures, index, samp0, uvw);
+    }
+  )";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileTestAndLoadDiaSource(m_dllSupport, source, L"ps_6_0", &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
 
 TEST_F(CompilerTest, DiaLoadDebugThenOK) {
   CompileTestAndLoadDia(m_dllSupport, nullptr);
