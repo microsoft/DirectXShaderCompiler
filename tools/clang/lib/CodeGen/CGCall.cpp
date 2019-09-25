@@ -2966,12 +2966,28 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     if (E->getObjectKind() == OK_VectorComponent) {
       if (const HLSLVectorElementExpr *VecElt = dyn_cast<HLSLVectorElementExpr>(E)) {
         LValue LV = EmitHLSLVectorElementExpr(VecElt);
-        llvm::Value *V = LV.getExtVectorAddr();
-        llvm::Constant *Elts = LV.getExtVectorElts();
-        // Only support scalar for atomic operations.
-        assert(Elts->getType()->getVectorNumElements() == 1);
-        llvm::Value *ch = Builder.CreateExtractElement(Elts, (uint64_t)0);
-        llvm::Value *Ptr = Builder.CreateGEP(V, {Builder.getInt32(0), ch});
+        llvm::Value *Ptr = nullptr;
+        if (LV.isSimple()) {
+          // Handle the special case when the vector component access
+          // is done on a scalar using .x or .r.
+          //
+          // Example 1:
+          // groupshared uint g;
+          // InterlockedAdd(g.x, 1);
+          //
+          // Example 2:
+          // RWBuffer<uint> buf;
+          // InterlockedAdd(buf[0].r, 1);
+          llvm::Value *V = LV.getAddress();
+          Ptr = Builder.CreateGEP(V, { Builder.getInt32(0) });
+        } else {
+          llvm::Value *V = LV.getExtVectorAddr();
+          llvm::Constant *Elts = LV.getExtVectorElts();
+          // Only support scalar for atomic operations.
+          assert(Elts->getType()->getVectorNumElements() == 1);
+          llvm::Value *ch = Builder.CreateExtractElement(Elts, (uint64_t)0);
+          Ptr = Builder.CreateGEP(V, { Builder.getInt32(0), ch });
+        }
         RValue RV = RValue::get(Ptr);
         return args.add(RV, type);
       } else {

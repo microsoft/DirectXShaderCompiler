@@ -17,6 +17,7 @@
 // CHECK: atomicCompareExchange
 // CHECK: AtomicAdd
 
+
 RWByteAddressBuffer rawBuf0 : register( u0 );
 
 struct Foo
@@ -25,6 +26,7 @@ struct Foo
   float3 b;
   uint   u;
   int2 c[4];
+  int d[4];
 };
 RWStructuredBuffer<Foo> structBuf1 : register( u1 );
 RWTexture2D<uint> rwTex2: register( u2 );
@@ -61,4 +63,20 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
     rawBuf0.InterlockedCompareStore( GI * 4, shareMem[GI], v );
     rawBuf0.InterlockedCompareExchange( GI * 4, shareMem[GI], 2, v );
     rawBuf0.InterlockedAdd( GI * 4, v );
+
+	// Special case: vector component access operation on scalars; Github issue# 2434
+	// CHECK: atomicBinOp
+	InterlockedAdd(structBuf1[DTid.z].u.x, 1);
+
+	// CHECK: atomicBinOp
+	InterlockedAdd(structBuf1[DTid.z].d[1].r, 1);
+
+	// CHECK: atomicBinOp
+	InterlockedAdd(structBuf1[DTid.z].d[1].r, 1);
+
+	// CHECK: atomicBinOp
+	InterlockedAdd(rwTex2[DTid.xy].x, 1);
+
+	// CHECK: atomicrmw
+	InterlockedAdd(shareMem[DTid.z].r, 1);
 }
