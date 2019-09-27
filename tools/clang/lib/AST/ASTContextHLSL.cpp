@@ -39,6 +39,7 @@ static const bool DelayTypeCreationTrue = true;   // delay type creation for a d
 static const SourceLocation NoLoc;                // no source location attribution available
 static const bool InlineFalse = false;            // namespace is not an inline namespace
 static const bool InlineSpecifiedFalse = false;   // function was not specified as inline
+static const bool ExplicitFalse = false;          // constructor was not specified as explicit
 static const bool IsConstexprFalse = false;       // function is not constexpr
 static const bool VirtualFalse = false;           // whether the base class is declares 'virtual'
 static const bool BaseClassFalse = false;         // whether the base class is declared as 'class' (vs. 'struct')
@@ -733,6 +734,28 @@ void AssociateParametersToFunctionPrototype(
   }
 }
 
+static void CreateConstructorDeclaration(
+  ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
+  ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
+  _Out_ CXXConstructorDecl **constructorDecl, _Out_ TypeSourceInfo **tinfo) {
+  DXASSERT_NOMSG(recordDecl != nullptr);
+  DXASSERT_NOMSG(constructorDecl != nullptr);
+
+  FunctionProtoType::ExtProtoInfo functionExtInfo;
+  functionExtInfo.TypeQuals = isConst ? Qualifiers::Const : 0;
+  QualType functionQT = context.getFunctionType(
+    resultType, args, functionExtInfo, ArrayRef<ParameterModifier>());
+  DeclarationNameInfo declNameInfo(declarationName, NoLoc);
+  *tinfo = context.getTrivialTypeSourceInfo(functionQT, NoLoc);
+  DXASSERT_NOMSG(*tinfo != nullptr);
+  *constructorDecl = CXXConstructorDecl::Create(
+    context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo,
+    StorageClass::SC_None, ExplicitFalse, InlineSpecifiedFalse, IsConstexprFalse);
+  DXASSERT_NOMSG(*constructorDecl != nullptr);
+  (*constructorDecl)->setLexicalDeclContext(recordDecl);
+  (*constructorDecl)->setAccess(AccessSpecifier::AS_public);
+}
+
 static void CreateObjectFunctionDeclaration(
     ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
@@ -800,11 +823,29 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
 
 CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
   ASTContext& context, StringRef typeName, StringRef templateParamName) {
-  // template<uint kind> RayQuery/FeedbackTexture2D[Array] { ... }
+  // template<uint kind> FeedbackTexture2D[Array] { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), typeName);
   typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+  return typeDeclBuilder.completeDefinition();
+}
+
+CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
+  // template<uint kind> RayQuery { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), "RayQuery");
+  typeDeclBuilder.addIntegerTemplateParam("flags", context.UnsignedIntTy);
+  typeDeclBuilder.startDefinition();
+  typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+
+  // Add constructor that will be lowered to the intrinsic that produces
+  // the RayQuery handle for this object.
+  CanQualType canQualType = typeDeclBuilder.getRecordDecl()->getTypeForDecl()->getCanonicalTypeUnqualified();
+  CXXConstructorDecl *pConstructorDecl = nullptr;
+  TypeSourceInfo *pTypeSourceInfo = nullptr;
+  CreateConstructorDeclaration(context, typeDeclBuilder.getRecordDecl(), context.VoidTy, {}, context.DeclarationNames.getCXXConstructorName(canQualType), false, &pConstructorDecl, &pTypeSourceInfo);
+  typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
+
   return typeDeclBuilder.completeDefinition();
 }
 
