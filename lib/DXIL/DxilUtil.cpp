@@ -441,7 +441,7 @@ Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
 
 llvm::Instruction *SkipAllocas(llvm::Instruction *I) {
   // Step past any allocas:
-  while (I && isa<AllocaInst>(I))
+  while (I && (isa<AllocaInst>(I) || isa<DbgInfoIntrinsic>(I)))
     I = I->getNextNode();
   return I;
 }
