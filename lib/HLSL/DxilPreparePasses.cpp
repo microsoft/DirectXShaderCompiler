@@ -366,15 +366,11 @@ public:
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
-      bool IsLib = DM.GetShaderModel()->IsLib();
-
       unsigned ValMajor = 0;
       unsigned ValMinor = 0;
       M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
 
-      // Remove unused AllocateRayQuery calls
-      RemoveUnusedRayQuery(M);
-
+      bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
       if (!IsLib) {
         if (ValMajor == 1 && ValMinor <= 1) {
@@ -410,6 +406,9 @@ public:
 
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
+
+      // Remove unused AllocateRayQuery calls
+      RemoveUnusedRayQuery(M);
 
       if (IsLib && DXIL::CompareVersions(ValMajor, ValMinor, 1, 4) <= 0) {
         // 1.4 validator requires function annotations for all functions

@@ -1725,10 +1725,11 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
     EmitBlock(loopBB);
   }
 
-  // HLSL Change: Loop on index instead of ptr
-  // Find the end of the array.
+  // HLSL Change Begin: Loop on index instead of ptr
+  //// Find the end of the array.
   //llvm::Value *arrayEnd = Builder.CreateInBoundsGEP(arrayBegin, numElements,
   //                                                  "arrayctor.end");
+  // HLSL Change End
 
   // Enter the loop, setting up a phi for the current location to initialize.
   llvm::BasicBlock *entryBB = Builder.GetInsertBlock();
@@ -1789,7 +1790,6 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
   // HLSL Change End
 
   // Check whether that's the end of the loop.
-
   // HLSL Change Begin: Loop on index instead of ptr
   //llvm::Value *done = Builder.CreateICmpEQ(next, arrayEnd, "arrayctor.done");
   llvm::Value *done = Builder.CreateICmpEQ(next, numElements, "arrayctor.done");

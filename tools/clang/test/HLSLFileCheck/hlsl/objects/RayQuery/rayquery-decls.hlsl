@@ -9,6 +9,9 @@ RaytracingAccelerationStructure RTAS;
 // CHECK: call i32 @dx.op.allocateRayQuery(i32 178, i32 0)
 static RayQuery<0> g_rayQueryArray[4];
 
+// g_rayQueryUnused should be optimized away
+static RayQuery<0> g_rayQueryUnused;
+
 void main(uint i : IDX, RayDesc rayDesc : RAYDESC) {
   // CHECK: %[[rayQuery0a:[^ ]+]] = call i32 @dx.op.allocateRayQuery(i32 178, i32 0)
   RayQuery<0> rayQuery0a;
