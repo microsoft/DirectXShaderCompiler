@@ -2,7 +2,6 @@
 // as documented here: https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-mul
 
 // TODO: While testing overloads of mul() intrinsics, found some incorrect codegen for bool type.
-// TODO: Matrix-matrix multiplication of unsigned ints uses IMad instead of UMad. Update the correct opcode once issue #2482 is fixed.
 // Add coverage for bool type once the issue #2467 is fixed.
 
 // *****************************
@@ -521,58 +520,58 @@
 
 // matrix
 // RUN: %dxc -T vs_6_0 -E main -DELEM_TY1=uint2x4 -DELEM_TY2=uint4x3 -DRET_TY=uint2x3 %s  | FileCheck %s -check-prefix=UINMAT1_OVRLD
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD: mul i32
 
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD: mul i32
 
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD: mul i32
 
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD: mul i32
 
 // RUN: %dxc -T vs_6_0 -E main -DELEM_TY1=uint1x4 -DELEM_TY2=uint4x1 -DRET_TY=uint1x1 %s  | FileCheck %s -check-prefix=UINMAT2_OVRLD
 // UINMAT2_OVRLD: mul i32
-// UINMAT2_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT2_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT2_OVRLD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT2_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT2_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT2_OVRLD: call i32 @dx.op.tertiary.i32(i32 49
 
 // RUN: %dxc -T vs_6_0 -E main -Od -DELEM_TY1=uint2x4 -DELEM_TY2=uint4x3 -DRET_TY=uint2x3 %s  | FileCheck %s -check-prefix=UINMAT1_OVRLD_OD
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD_OD: mul i32
 
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD_OD: mul i32
 
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD_OD: mul i32
 
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT1_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
 // UINMAT1_OVRLD_OD: mul i32
 
 // RUN: %dxc -T vs_6_0 -E main -Od -DELEM_TY1=uint1x4 -DELEM_TY2=uint4x1 -DRET_TY=uint1x1 %s  | FileCheck %s -check-prefix=UINMAT2_OVRLD_OD
 // UINMAT2_OVRLD_OD: mul i32
-// UINMAT2_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT2_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
-// UINMAT2_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 48
+// UINMAT2_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT2_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
+// UINMAT2_OVRLD_OD: call i32 @dx.op.tertiary.i32(i32 49
 
 // mixed: scalar and vector
 // RUN: %dxc -T vs_6_0 -E main -DELEM_TY1=uint -DELEM_TY2=uint4 -DRET_TY=uint4 %s  | FileCheck %s -check-prefix=UIN1_4_OVRLD

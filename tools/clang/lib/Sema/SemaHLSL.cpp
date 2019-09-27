@@ -1734,7 +1734,12 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     if (const ExtVectorType *VecTy = hlsl::ConvertHLSLVecMatTypeToExtVectorType(context, Ty)) {
       Ty = VecTy->getElementType();
     }
-    if (Ty->isUnsignedIntegerType()) {
+
+    // Make sure to use unsigned op when return type is 'unsigned' matrix
+    bool isUnsignedMatOp =
+        IsHLSLMatType(Ty) && GetHLSLMatElementType(Ty)->isUnsignedIntegerType();
+
+    if (Ty->isUnsignedIntegerType() || isUnsignedMatOp) {
       opcode = hlsl::GetUnsignedOpcode(opcode);
     }
   }
