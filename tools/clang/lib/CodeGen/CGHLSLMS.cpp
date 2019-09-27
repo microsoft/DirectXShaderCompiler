@@ -5067,6 +5067,57 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
   }
 }
 
+// Translate RayQuery constructor.  From:
+//  %call = call %"RayQuery<flags>" @<constructor>(%"RayQuery<flags>" %ptr)
+// To:
+//  i32 %handle = AllocateRayQuery(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32 %flags)
+//  %gep = GEP %"RayQuery<flags>" %ptr, 0, 0
+//  store i32* %gep, i32 %handle
+//  ; and replace uses of %call with %ptr
+void TranslateRayQueryConstructor(llvm::Module &M) {
+  SmallVector<Function*, 4> Constructors;
+  for (auto &F : M.functions()) {
+    // Match templated RayQuery constructor instantiation by prefix and signature.
+    // It should be impossible to achieve the same signature from HLSL.
+    if (!F.getName().startswith("\01??0?$RayQuery@$"))
+      continue;
+    llvm::Type *Ty = F.getReturnType();
+    if (!Ty->isPointerTy() || !dxilutil::IsHLSLRayQueryType(Ty->getPointerElementType()))
+      continue;
+    if (F.arg_size() != 1 || Ty != F.arg_begin()->getType())
+      continue;
+    Constructors.emplace_back(&F);
+  }
+
+  for (auto pConstructorFunc : Constructors) {
+    llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
+    llvm::ConstantInt *i32Zero = llvm::ConstantInt::get(i32Ty, (uint64_t)0, false);
+    llvm::FunctionType *funcTy = llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty}, false);
+    unsigned opcode = (unsigned)IntrinsicOp::IOP_AllocateRayQuery;
+    llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, opcode, false);
+    Function *opFunc = GetOrCreateHLFunction(M, funcTy, HLOpcodeGroup::HLIntrinsic, opcode);
+
+    while (!pConstructorFunc->user_empty()) {
+      Value *V = *pConstructorFunc->user_begin();
+      llvm::CallInst *CI = cast<CallInst>(V); // Must be call
+      llvm::Value *pThis = CI->getArgOperand(0);
+      llvm::StructType *pRQType = cast<llvm::StructType>(pThis->getType()->getPointerElementType());
+      DxilStructAnnotation *SA = M.GetHLModule().GetTypeSystem().GetStructAnnotation(pRQType);
+      DXASSERT(SA, "otherwise, could not find type annoation for RayQuery specialization");
+      DXASSERT(SA->GetNumTemplateArgs() == 1 && SA->GetTemplateArgAnnotation(0).IsIntegral(),
+                "otherwise, RayQuery has changed, or lacks template args");
+      llvm::IRBuilder<> Builder(CI);
+      llvm::Value *rayFlags = Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
+      llvm::Value *Call = Builder.CreateCall(opFunc, {opVal, rayFlags}, pThis->getName());
+      llvm::Value *GEP = Builder.CreateInBoundsGEP(pThis, {i32Zero, i32Zero});
+      Builder.CreateStore(Call, GEP);
+      CI->replaceAllUsesWith(pThis);
+      CI->eraseFromParent();
+    }
+    pConstructorFunc->eraseFromParent();
+  }
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -5137,6 +5188,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
   // Create Global variable and type annotation for each CBuffer.
   ConstructCBuffer(m_pHLModule, CBufferType, m_ConstVarAnnotationMap);
+
+  // Translate calls to RayQuery constructor into hl Allocate calls
+  TranslateRayQueryConstructor(*m_pHLModule->GetModule());
 
   if (!m_bIsLib) {
     // need this for "llvm.global_dtors"?

@@ -407,6 +407,9 @@ public:
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
 
+      // Remove unused AllocateRayQuery calls
+      RemoveUnusedRayQuery(M);
+
       if (IsLib && DXIL::CompareVersions(ValMajor, ValMinor, 1, 4) <= 0) {
         // 1.4 validator requires function annotations for all functions
         AddFunctionAnnotationForInitializers(M, DM);
@@ -575,6 +578,26 @@ private:
         if (DM.GetTypeSystem().GetFunctionAnnotation(F) == nullptr)
           DM.GetTypeSystem().AddFunctionAnnotation(F);
       }
+    }
+  }
+
+  void RemoveUnusedRayQuery(Module &M) {
+    hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+    llvm::Function *AllocFn = hlslOP->GetOpFunc(
+      DXIL::OpCode::AllocateRayQuery, Type::getVoidTy(M.getContext()));
+    SmallVector<CallInst*, 4> DeadInsts;
+    for (auto U : AllocFn->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        if (CI->user_empty()) {
+          DeadInsts.emplace_back(CI);
+        }
+      }
+    }
+    for (auto CI : DeadInsts) {
+      CI->eraseFromParent();
+    }
+    if (AllocFn->user_empty()) {
+      AllocFn->eraseFromParent();
     }
   }
 };

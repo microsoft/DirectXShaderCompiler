@@ -25,6 +25,7 @@ import hctdb_instrhelp
   IOP_AddUint64,
   IOP_AllMemoryBarrier,
   IOP_AllMemoryBarrierWithGroupSync,
+  IOP_AllocateRayQuery,
   IOP_CallShader,
   IOP_CheckAccessFullyMapped,
   IOP_D3DCOLORtoUBYTE4,

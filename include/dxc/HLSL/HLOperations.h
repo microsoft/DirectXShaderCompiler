@@ -349,6 +349,9 @@ const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 const unsigned kTraceRayRayDescOpIdx = 7;
 const unsigned kTraceRayPayLoadOpIdx = 8;
 
+// CallShader.
+const unsigned kCallShaderPayloadOpIdx = 2;
+
 // TraceRayInline.
 const unsigned kTraceRayInlineRayDescOpIdx = 5;
 
