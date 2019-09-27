@@ -2507,10 +2507,53 @@ void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
   }
 }
 
+// Flatten matching OldVal arg to NewElts, optionally loading values (loadElts).
+// Does not replace or clean up old CallInst.
+static CallInst *CreateFlattenedHLIntrinsicCall(
+    CallInst *CI, Value* OldVal, ArrayRef<Value*> NewElts, bool loadElts) {
+  HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+  Function *F = CI->getCalledFunction();
+  DXASSERT_NOMSG(group == HLOpcodeGroup::HLIntrinsic);
+  unsigned opcode = GetHLOpcode(CI);
+  IRBuilder<> Builder(CI);
+
+  SmallVector<Value *, 4> flatArgs;
+  for (Value *arg : CI->arg_operands()) {
+    if (arg == OldVal) {
+      for (Value *Elt : NewElts) {
+        if (loadElts && Elt->getType()->isPointerTy())
+          Elt = Builder.CreateLoad(Elt);
+        flatArgs.emplace_back(Elt);
+      }
+    } else
+      flatArgs.emplace_back(arg);
+  }
+
+  SmallVector<Type *, 4> flatParamTys;
+  for (Value *arg : flatArgs)
+    flatParamTys.emplace_back(arg->getType());
+  FunctionType *flatFuncTy =
+      FunctionType::get(CI->getType(), flatParamTys, false);
+  Function *flatF =
+      GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
+
+  return Builder.CreateCall(flatF, flatArgs);
+}
+
+static CallInst *RewriteWithFlattenedHLIntrinsicCall(
+    CallInst *CI, Value* OldVal, ArrayRef<Value*> NewElts, bool loadElts) {
+  CallInst *flatCI = CreateFlattenedHLIntrinsicCall(
+    CI, OldVal, NewElts, /*loadElts*/loadElts);
+  CI->replaceAllUsesWith(flatCI);
+  // Clear CI operands so we don't try to translate old call again
+  for (auto& opit : CI->operands())
+    opit.set(UndefValue::get(opit->getType()));
+  return flatCI;
+}
+
 /// RewriteCall - Replace OldVal with flattened NewElts in CallInst.
 void SROA_Helper::RewriteCall(CallInst *CI) {
   HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-  Function *F = CI->getCalledFunction();
   if (group != HLOpcodeGroup::NotHL) {
     unsigned opcode = GetHLOpcode(CI);
     if (group == HLOpcodeGroup::HLIntrinsic) {
@@ -2519,36 +2562,9 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::MOP_Append: {
         // Buffer Append already expand in code gen.
         // Must be OutputStream Append here.
-        SmallVector<Value *, 4> flatArgs;
-        for (Value *arg : CI->arg_operands()) {
-          if (arg == OldVal) {
-            // Flatten to arg.
-            // Every Elt has a pointer type.
-            // For Append, it's not a problem.
-            for (Value *Elt : NewElts)
-              flatArgs.emplace_back(Elt);
-          } else
-            flatArgs.emplace_back(arg);
-        }
-
-        SmallVector<Type *, 4> flatParamTys;
-        for (Value *arg : flatArgs)
-          flatParamTys.emplace_back(arg->getType());
-        // Don't need flat return type for Append.
-        FunctionType *flatFuncTy =
-            FunctionType::get(CI->getType(), flatParamTys, false);
-        Function *flatF =
-            GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
-        IRBuilder<> Builder(CI);
-        Builder.CreateCall(flatF, flatArgs);
-
-        // Append returns void, so it's not used by other instructions
-        // and we don't need to replace it with flatCI.
-        // However, we don't want to visit the same append again
-        // when SROA'ing other arguments, as that would be O(n^2)
-        // and we would attempt double-deleting the original call.
-        for (auto& opit : CI->operands())
-          opit.set(UndefValue::get(opit->getType()));
+        // Every Elt has a pointer type.
+        // For Append, this is desired, so don't load.
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts, /*loadElts*/false);
         DeadInsts.push_back(CI);
       } break;
       case IntrinsicOp::IOP_TraceRay: {
@@ -2569,17 +2585,32 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
                        /*bIn*/ true, /*bOut*/ false);
       } break;
       case IntrinsicOp::IOP_CallShader: {
-        RewriteCallArg(CI, HLOperandIndex::kBinaryOpSrc1Idx,
+        RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
                        /*bIn*/ true, /*bOut*/ true);
       } break;
       case IntrinsicOp::MOP_TraceRayInline: {
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayInlineRayDescOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts, /*loadElts*/true);
+          DeadInsts.push_back(CI);
+          break;
         }
-      } break;
+      }
+      __fallthrough;
       default:
+        // RayQuery this pointer replacement.
+        if (OldVal->getType()->isPointerTy() &&
+            CI->getNumArgOperands() >= HLOperandIndex::kHandleOpIdx &&
+            OldVal == CI->getArgOperand(HLOperandIndex::kHandleOpIdx) &&
+            dxilutil::IsHLSLRayQueryType(
+              OldVal->getType()->getPointerElementType())) {
+          // For RayQuery methods, we want to replace the RayQuery this pointer
+          // with a load and use of the underlying handle value.
+          // This will allow elimination of RayQuery types earlier.
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts, /*loadElts*/true);
+          DeadInsts.push_back(CI);
+          break;
+        }
         DXASSERT(0, "cannot flatten hlsl intrinsic.");
       }
     }
@@ -2722,7 +2753,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     // Skip HLSL object types and RayQuery.
-    if (dxilutil::IsHLSLObjectType(ST) || dxilutil::IsHLSLRayQueryType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       return false;
     }
 
@@ -2763,8 +2794,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
         !HLMatrixType::isa(ElTy)) {
-      if (!(dxilutil::IsHLSLObjectType(ElTy) ||
-            dxilutil::IsHLSLRayQueryType(ElTy))) {
+      if (!(dxilutil::IsHLSLObjectType(ElTy))) {
         // for array of struct
         // split into arrays of struct elements
         StructType *ElST = cast<StructType>(ElTy);
@@ -4648,8 +4678,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
   // Lower resource type to handle ty.
-  if (dxilutil::IsHLSLObjectType(Ty) &&
-    !HLModule::IsStreamOutputPtrType(V->getType())) {
+  if (dxilutil::IsHLSLResourceType(Ty)) {
     Value *Res = V;
     if (!bOut) {
       Value *LdRes = Builder.CreateLoad(Res);
@@ -4669,7 +4698,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
       arraySize *= AT->getArrayNumElements();
       AT = AT->getArrayElementType();
     }
-    if (dxilutil::IsHLSLObjectType(AT)) {
+    if (dxilutil::IsHLSLResourceType(AT)) {
       Value *Res = V;
       Type *Ty = ArrayType::get(HandleTy, arraySize);
       V = AllocaBuilder.CreateAlloca(Ty);

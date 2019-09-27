@@ -4813,87 +4813,16 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, Args);
 }
 
-static void AllocateRayQueryArray(AllocaInst *AI,
-                                  llvm::Function *AllocFn,
-                                  ArrayRef<Value*> callArgs,
-                                  IRBuilder<> &Builder,
-                                  ArrayRef<unsigned> OuterToInnerDims,
-                                  SmallVectorImpl<Value*> &curIndices,
-                                  Twine curName,
-                                  unsigned curDepth = 0) {
-  if (OuterToInnerDims.size() == curDepth) {
-    llvm::CallInst *CI = Builder.CreateCall(AllocFn, callArgs, curName);
-    llvm::Value *GEP = Builder.CreateInBoundsGEP(AI, curIndices);
-    Builder.CreateStore(CI, GEP);
-  } else {
-    unsigned arraySize = OuterToInnerDims[curDepth];
-    for (unsigned idx = 0; idx < arraySize; ++idx) {
-      // Skip leading zero in curIndices
-      curIndices[curDepth + 1] = Builder.getInt32(idx);
-      AllocateRayQueryArray(AI, AllocFn, callArgs, Builder, OuterToInnerDims, curIndices,
-                            curName + "." + Twine(idx), curDepth + 1);
-    }
-  }
-}
+// RayQuery methods
 
-void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
-  // Iterate functions and insert AllocateRayQuery intrinsic to initialize
-  // handle value for every alloca of ray query type
-  hlsl::OP &hlslOP = helper.hlslOP;
-  Constant *i32Zero = hlslOP.GetI32Const(0);
-  DXIL::OpCode opcode = DXIL::OpCode::AllocateRayQuery;
-  llvm::Value *opcodeVal = hlslOP.GetU32Const(static_cast<unsigned>(opcode));
-  llvm::Function *AllocFn = nullptr;  // We only get it if we need it
-  for (Function &f : M->functions()) {
-    if (f.isDeclaration() || f.isIntrinsic() ||
-      GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL)
-      continue;
-    // Iterate allocas
-    BasicBlock &BB = f.getEntryBlock();
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&BB));
-    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
-      // Avoid invalidating the iterator.
-      Instruction *I = BI++;
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
-        llvm::Type *allocaTy = AI->getAllocatedType();
-        SmallVector<unsigned, 4> arrayDims;
-        llvm::Type *elementTy = dxilutil::StripArrayTypes(allocaTy, &arrayDims);
-        if (dxilutil::IsHLSLRayQueryType(elementTy)) {
-          DxilStructAnnotation *SA = helper.dxilTypeSys.GetStructAnnotation(cast<StructType>(elementTy));
-          DXASSERT(SA, "otherwise, could not find type annoation for RayQuery specialization");
-          DXASSERT(SA->GetNumTemplateArgs() == 1 && SA->GetTemplateArgAnnotation(0).IsIntegral(),
-                   "otherwise, RayQuery has changed, or lacks template args");
-          if (AllocFn == nullptr)
-            AllocFn = hlslOP.GetOpFunc(DXIL::OpCode::AllocateRayQuery, Builder.getVoidTy());
-          Builder.SetInsertPoint(AI->getNextNode());
-          llvm::Value *rayFlags = Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
-          // Ultimately, this will replace the alloca, so name it after the alloca
-          Twine baseName = AI->hasName() ? AI->getName() : "hRayQuery";
-          if (allocaTy->isArrayTy()) {
-            DXASSERT_NOMSG(arrayDims.size());
-            // curIndices has extra leading zero and extra trailing zero for handle member
-            SmallVector<Value*, 6> curIndices(arrayDims.size() + 2, i32Zero);
-            AllocateRayQueryArray(AI, AllocFn, {opcodeVal, rayFlags}, Builder, arrayDims, curIndices, baseName);
-          } else {
-            llvm::CallInst *CI = Builder.CreateCall(AllocFn, {opcodeVal, rayFlags}, baseName);
-            llvm::Value *GEP = Builder.CreateInBoundsGEP(AI, {i32Zero, i32Zero});
-            Builder.CreateStore(CI, GEP);
-          }
-        }
-      }
-    }
-  }
+Value *TranslateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                                 HLOperationLowerHelper &helper,
+                                 HLObjectOperationLowerHelper *pObjHelper,
+                                 bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *refArgs[] = {nullptr, CI->getOperand(1)};
+  return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
 }
-
-static Value* TranslateThisPointerToi32Handle(CallInst*CI, hlsl::OP *hlslOP)
-{
-  IRBuilder<> Builder(CI);
-  Value *thisArg = CI->getArgOperand(1);
-  Constant *i32Zero = hlslOP->GetI32Const(0);
-  Value *handleGEP = Builder.CreateGEP(thisArg, {i32Zero, i32Zero});
-  Value *handleValue = Builder.CreateLoad(handleGEP);
-  return handleValue;
-  }
 
 Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,
@@ -4901,49 +4830,35 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
 
-  Value *rayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx);
-
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
 
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
   Args[0] = opArg;
-
-  // Translate this pointer to i32 handle value
-  Args[1] = TranslateThisPointerToi32Handle(CI, hlslOP);
-
-  for (unsigned i = 2; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
+  for (unsigned i = 1; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
     Args[i] = CI->getArgOperand(i);
   }
+
+  IRBuilder<> Builder(CI);
+  unsigned hlIndex = HLOperandIndex::kTraceRayInlineRayDescOpIdx;
+  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
+
   // struct RayDesc
   //{
   //    float3 Origin;
-  //    float  TMin;
-  //    float3 Direction;
-  //    float  TMax;
-  //};
-  IRBuilder<> Builder(CI);
-  Value *zeroIdx = hlslOP->GetU32Const(0);
-  Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
-  origin = Builder.CreateLoad(origin);
-  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
+  Value *origin = CI->getArgOperand(hlIndex++);
   Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
   Args[index++] = Builder.CreateExtractElement(origin, 1);
   Args[index++] = Builder.CreateExtractElement(origin, 2);
-
-  Value *tmin = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(1)});
-  tmin = Builder.CreateLoad(tmin);
-  Args[index++] = tmin;
-
-  Value *direction = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(2)});
-  direction = Builder.CreateLoad(direction);
-
+  //    float  TMin;
+  Args[index++] = CI->getArgOperand(hlIndex++);
+  //    float3 Direction;
+  Value *direction = CI->getArgOperand(hlIndex++);
   Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
   Args[index++] = Builder.CreateExtractElement(direction, 1);
   Args[index++] = Builder.CreateExtractElement(direction, 2);
-
-  Value *tmax = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(3)});
-  tmax = Builder.CreateLoad(tmax);
-  Args[index++] = tmax;
+  //    float  TMax;
+  Args[index++] = CI->getArgOperand(hlIndex++);
+  //};
 
   DXASSERT_NOMSG(index == DXIL::OperandIndex::kTraceRayInlineNumOp);
 
@@ -4959,8 +4874,9 @@ Value *TranslateCommitProceduralPrimitiveHit(CallInst *CI, IntrinsicOp IOP, OP::
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *THit = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
-  Value *Args[] = {opArg,TranslateThisPointerToi32Handle(CI, hlslOP),THit};
+  Value *Args[] = {opArg, handle, THit};
 
   IRBuilder<> Builder(CI);
   Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
@@ -4975,13 +4891,14 @@ Value *TranslateGenericRayQueryMethod(CallInst *CI, IntrinsicOp IOP, OP::OpCode 
   hlsl::OP *hlslOP = &helper.hlslOP;
 
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
-  Value *Args[] = {opArg,TranslateThisPointerToi32Handle(CI, hlslOP)};
+  Value *Args[] = {opArg, handle};
 
   IRBuilder<> Builder(CI);
   Function *F = hlslOP->GetOpFunc(opcode, CI->getType());
 
-  return Builder.CreateCall(F, Args);
+  return Builder.CreateCall(F, {opArg, handle});
 }
 
 Value *TranslateRayQueryMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -4990,7 +4907,7 @@ Value *TranslateRayQueryMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::Op
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint32_t rVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
   Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
   uint8_t cVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
@@ -5006,7 +4923,7 @@ Value *TranslateRayQueryTransposedMatrix3x4Operation(CallInst *CI, IntrinsicOp I
                                                   bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP; 
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint32_t rVals[] = { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2 };
   Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
   uint8_t cVals[] = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3 };
@@ -5022,7 +4939,7 @@ Value *TranslateRayQueryFloat2Getter(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint8_t elementVals[] = {0, 1};
   Constant *element = ConstantDataVector::get(CI->getContext(), elementVals);
   Value *retVal =
@@ -5036,7 +4953,7 @@ Value *TranslateRayQueryFloat3Getter(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint8_t elementVals[] = {0, 1, 2};
   Constant *element = ConstantDataVector::get(CI->getContext(), elementVals);
   Value *retVal =
@@ -5199,6 +5116,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
+    {IntrinsicOp::IOP_AllocateRayQuery, TranslateAllocateRayQuery, DXIL::OpCode::AllocateRayQuery},
     {IntrinsicOp::IOP_CallShader, TranslateCallShader, DXIL::OpCode::CallShader},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TranslateCheckAccess, DXIL::OpCode::CheckAccessFullyMapped},
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
@@ -7782,8 +7700,6 @@ void TranslateBuiltinOperations(
   HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet};
 
   Module *M = HLM.GetModule();
-
-  AllocateRayQueryObjects(M, helper);
 
   SmallVector<Function *, 4> NonUniformResourceIndexIntrinsics;
 

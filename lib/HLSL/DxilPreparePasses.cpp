@@ -375,10 +375,6 @@ public:
       // Remove unused AllocateRayQuery calls
       RemoveUnusedRayQuery(M);
 
-      // Remove store undef output.
-      hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
-      RemoveStoreUndefOutput(M, hlslOP);
-
       // Skip validation patch for lib.
       if (!IsLib) {
         if (ValMajor == 1 && ValMinor <= 1) {
@@ -390,6 +386,10 @@ public:
         if (DM.GetShaderModel()->IsHS())
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
+
+      // Remove store undef output.
+      hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      RemoveStoreUndefOutput(M, hlslOP);
 
       RemoveUnusedStaticGlobal(M);
 

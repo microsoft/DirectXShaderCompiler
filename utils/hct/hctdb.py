@@ -2572,7 +2572,7 @@ class db_hlsl_attribute(object):
 
 class db_hlsl_intrinsic(object):
     "An HLSL intrinsic declaration"
-    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, unsigned_op, overload_idx):
+    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, unsigned_op, overload_idx, hidden):
         self.name = name                                # Function name
         self.idx = idx                                  # Unique number within namespace
         self.opname = opname                            # D3D-style name
@@ -2588,6 +2588,7 @@ class db_hlsl_intrinsic(object):
         if unsigned_op != "":
             self.unsigned_op = "%s_%s" % (id_prefix, unsigned_op)
         self.overload_param_index = overload_idx        # Parameter determines the overload type, -1 means ret type
+        self.hidden = hidden                            # Internal high-level op, not exposed to HLSL
         self.key = ("%3d" % ns_idx) + "!" + name + "!" + ("%2d" % len(params)) + "!" + ("%3d" % idx)    # Unique key
         self.vulkanSpecific = ns.startswith("Vk")       # Vulkan specific intrinsic - SPIRV change
 
@@ -2824,6 +2825,7 @@ class db_hlsl(object):
             readnone = False          # Not read memory
             unsigned_op = ""          # Unsigned opcode if exist
             overload_param_index = -1 # Parameter determines the overload type, -1 means ret type.
+            hidden = False
             for a in attrs:
                 if (a == ""):
                     continue
@@ -2833,6 +2835,10 @@ class db_hlsl(object):
                 if (a == "rn"):
                     readnone = True
                     continue
+                if (a == "hidden"):
+                    hidden = True
+                    continue
+
                 assign = a.split('=')
 
                 if (len(assign) != 2):
@@ -2848,7 +2854,7 @@ class db_hlsl(object):
                     continue
                 assert False, "invalid attr %s" % (a)
 
-            return readonly, readnone, unsigned_op, overload_param_index
+            return readonly, readnone, unsigned_op, overload_param_index, hidden
 
         current_namespace = None
         for line in intrinsic_defs:
@@ -2881,7 +2887,7 @@ class db_hlsl(object):
                         op = operand_match.group(1)
                 if not op:
                     op = name
-                readonly, readnone, unsigned_op, overload_param_index = process_attr(attr)
+                readonly, readnone, unsigned_op, overload_param_index, hidden = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
                     opts = bracket_cleanup_re.sub(r"<\1@\2>", opts)
@@ -2905,7 +2911,7 @@ class db_hlsl(object):
                 # TODO: verify a single level of indirection
                 self.intrinsics.append(db_hlsl_intrinsic(
                     name, num_entries, op, args, current_namespace, ns_idx, "pending doc for " + name,
-                    readonly, readnone, unsigned_op, overload_param_index))
+                    readonly, readnone, unsigned_op, overload_param_index, hidden))
                 num_entries += 1
                 continue
             assert False, "cannot parse line %s" % (line)
