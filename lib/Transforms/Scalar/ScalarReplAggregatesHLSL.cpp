@@ -2588,6 +2588,13 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
                        /*bIn*/ true, /*bOut*/ true);
       } break;
+      case IntrinsicOp::IOP_DispatchMesh: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kDispatchMeshOpPayload)) {
+          RewriteCallArg(CI, HLOperandIndex::kDispatchMeshOpPayload,
+                         /*bIn*/ true, /*bOut*/ false);
+        }
+      } break;
       case IntrinsicOp::MOP_TraceRayInline: {
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {

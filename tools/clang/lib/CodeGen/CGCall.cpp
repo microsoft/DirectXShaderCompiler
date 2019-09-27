@@ -3379,6 +3379,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           EmitAggregateCopy(AI, Addr, I->Ty, RV.isVolatileQualified());
         } else {
           // Skip the extra memcpy call.
+          // HLSL Change Starts
+          // Generate AddrSpaceCast for shared memory.
+          if (RVAddrSpace != ArgAddrSpace) {
+            Addr = Builder.CreateAddrSpaceCast(
+                Addr, IRFuncTy->getParamType(FirstIRArg));
+          }
+          // HLSL Change Ends
           IRCallArgs[FirstIRArg] = Addr;
         }
       }
