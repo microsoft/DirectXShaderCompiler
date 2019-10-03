@@ -487,7 +487,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args67[] =
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args68[] =
 {
     {"WaveActiveAllEqual", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_BOOL, IA_R, IA_C},
-    {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
+    {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args69[] =
@@ -639,15 +639,15 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args92[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args93[] =
 {
-    {"WaveReadLaneAt", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
-    {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
+    {"WaveReadLaneAt", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
+    {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
     {"lane", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args94[] =
 {
-    {"WaveReadLaneFirst", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
-    {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
+    {"WaveReadLaneFirst", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
+    {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_ANY, IA_R, IA_C},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args95[] =
