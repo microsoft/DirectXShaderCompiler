@@ -1078,6 +1078,11 @@ TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan2) { runFileTest("intrinsics.atan2.hlsl"); }
+TEST_F(FileTest, IntrinsicsAtanFp16) {
+  // Float16 capability should be emitted for usage of fp16 in the extended
+  // instruction set.
+  runFileTest("intrinsics.atan.fp16.hlsl");
+}
 
 // Unspported intrinsic functions
 TEST_F(FileTest, IntrinsicsAbort) {
@@ -1969,19 +1974,6 @@ TEST_F(FileTest, CapabilityUnique) { runFileTest("capability.unique.hlsl"); }
 
 // For extension uniqueness
 TEST_F(FileTest, ExtensionUnique) { runFileTest("extension.unique.hlsl"); }
-
-// For vendor-specific extensions
-TEST_F(FileTest, VendorSpecificExtensionAllowed) {
-  // The SPV_AMD_gpu_shader_half_float extension adds support for 16-bit
-  // floating-point component types for a number of instructions in the
-  // GLSL.std.450 extended instruction set.
-  runFileTest("extension.GLSLstd450-fp16.allowed.hlsl");
-}
-TEST_F(FileTest, VendorSpecificExtensionNotAllowed) {
-  // Command line options can entirely prevent the compiler from using
-  // vendor-specific extensions.
-  runFileTest("extension.GLSLstd450-fp16.not-allowed.hlsl", Expect::Failure);
-}
 
 // For RelaxedPrecision decorations
 TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {
