@@ -18,14 +18,13 @@ struct DxilEraseDeadRegion : public FunctionPass {
     initializeDxilEraseDeadRegionPass(*PassRegistry::getPassRegistry());
   }
 
-  static bool FindRegion(PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
+  static bool FindDeadRegion(PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
     auto ProcessSuccessors = [&WorkList, Begin, End, &Region, PDT](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
         if (Succ == End) continue;
         if (Region.count(Succ)) continue;
         if (Succ == Begin) return false; // If goes back to the beginning, there's a loop, give up.
-        if (!PDT->dominates(End, Succ)) return false;
         WorkList.push_back(Succ);
         Region.insert(Succ);
       }
@@ -38,6 +37,10 @@ struct DxilEraseDeadRegion : public FunctionPass {
     while (WorkList.size()) {
       BasicBlock *BB = WorkList.back();
       WorkList.pop_back();
+
+      for (Instruction &I : *BB)
+        if (I.mayHaveSideEffects())
+          return false;
 
       if (!ProcessSuccessors(BB))
         return false;
@@ -67,16 +70,12 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
     if (!DT->dominates(Common, BB))
       return false;
-
-    std::set<BasicBlock *> Region;
-    if (!FindRegion(PDT, Common, BB, Region))
+    if (!PDT->dominates(BB, Common))
       return false;
 
-    for (BasicBlock *BB : Region) {
-      for (Instruction &I : *BB)
-        if (I.mayHaveSideEffects())
-          return false;
-    }
+    std::set<BasicBlock *> Region;
+    if (!FindDeadRegion(PDT, Common, BB, Region))
+      return false;
 
     Common->getTerminator()->eraseFromParent();
     BranchInst::Create(BB, Common);
