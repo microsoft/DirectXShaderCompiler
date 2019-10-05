@@ -1,13 +1,30 @@
+//===- DxilEraseDeadRegion.cpp - Heuristically Remove Dead Region ---------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
+// Overview:
+//   1. Identify potentially dead regions by finding blocks with multiple
+//      predecessors but no PHIs
+//   2. Find common dominant ancestor of all the predecessors
+//   3. Ensure original block post-dominates the ancestor
+//   4. Ensure no instructions in the region have side effects (not including
+//      original block and ancestor)
+//   5. Remove all blocks in the region (excluding original block and ancestor)
+//
 
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
 
 using namespace llvm;
 
@@ -50,9 +67,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
   }
 
   static bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *BB) {
-    for (Instruction &I : *BB)
-      if (isa<PHINode>(&I))
-        return false;
+    if (BB->begin() != BB->end() && isa<PHINode>(BB->begin()))
+      return false;
 
     std::vector<BasicBlock *> Predecessors(pred_begin(BB), pred_end(BB));
     if (Predecessors.size() < 2) return false;
@@ -103,13 +119,21 @@ struct DxilEraseDeadRegion : public FunctionPass {
     auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     auto *PDT = &getAnalysis<PostDominatorTree>();
 
+    std::set<BasicBlock *> FailedSet;
     bool Changed = false;
     while (1) {
       bool LocalChanged = false;
-      for (BasicBlock &BB : F) {
+      for (Function::iterator It = F.begin(), E = F.end(); It != E; It++) {
+        BasicBlock &BB = *It;
+        if (FailedSet.count(&BB))
+          continue;
+
         if (TrySimplify(DT, PDT, &BB)) {
           LocalChanged = true;
           break;
+        }
+        else {
+          FailedSet.insert(&BB);
         }
       }
 
