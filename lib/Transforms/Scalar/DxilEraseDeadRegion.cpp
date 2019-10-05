@@ -26,6 +26,9 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
 
+#include <unordered_map>
+#include <unordered_set>
+
 using namespace llvm;
 
 struct DxilEraseDeadRegion : public FunctionPass {
@@ -35,13 +38,33 @@ struct DxilEraseDeadRegion : public FunctionPass {
     initializeDxilEraseDeadRegionPass(*PassRegistry::getPassRegistry());
   }
 
-  static bool FindDeadRegion(PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
+  std::unordered_map<BasicBlock *, bool> m_HasSideEffect;
+
+  bool HasSideEffects(BasicBlock *BB) {
+    auto FindIt = m_HasSideEffect.find(BB);
+    if (FindIt != m_HasSideEffect.end()) {
+      return FindIt->second;
+    }
+
+    for (Instruction &I : *BB)
+      if (I.mayHaveSideEffects()) {
+        m_HasSideEffect[BB] = true;
+        return true;
+      }
+
+    m_HasSideEffect[BB] = false;
+    return false;
+  }
+
+  bool FindDeadRegion(PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [&WorkList, Begin, End, &Region, PDT](BasicBlock *BB) {
+    auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region, PDT](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
         if (Succ == End) continue;
-        if (Region.count(Succ)) continue;
         if (Succ == Begin) return false; // If goes back to the beginning, there's a loop, give up.
+        if (Region.count(Succ)) continue;
+        if (this->HasSideEffects(Succ)) return false; // Give up if the block may have side effects
+
         WorkList.push_back(Succ);
         Region.insert(Succ);
       }
@@ -54,11 +77,6 @@ struct DxilEraseDeadRegion : public FunctionPass {
     while (WorkList.size()) {
       BasicBlock *BB = WorkList.back();
       WorkList.pop_back();
-
-      for (Instruction &I : *BB)
-        if (I.mayHaveSideEffects())
-          return false;
-
       if (!ProcessSuccessors(BB))
         return false;
     }
@@ -66,36 +84,50 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return true;
   }
 
-  static bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *BB) {
+  bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *BB) {
+    // Give up if BB has any Phis
     if (BB->begin() != BB->end() && isa<PHINode>(BB->begin()))
       return false;
 
     std::vector<BasicBlock *> Predecessors(pred_begin(BB), pred_end(BB));
     if (Predecessors.size() < 2) return false;
 
+    // Give up if BB is a self loop
+    for (BasicBlock *PredBB : Predecessors)
+      if (PredBB == BB)
+        return false;
+
+    // Find the common ancestor of all the predecessors
     BasicBlock *Common = DT->findNearestCommonDominator(Predecessors[0], Predecessors[1]);
     if (!Common) return false;
-
-    if (Common->getTerminator()->hasMetadataOtherThanDebugLoc())
-      return false;
-
     for (unsigned i = 2; i < Predecessors.size(); i++) {
       Common = DT->findNearestCommonDominator(Common, Predecessors[i]);
       if (!Common) return false;
     }
 
-    if (!DT->dominates(Common, BB))
+   // If there are any metadata on Common block's branch, give up.
+    if (Common->getTerminator()->hasMetadataOtherThanDebugLoc())
       return false;
-    if (!PDT->dominates(BB, Common))
+
+    if (!DT->properlyDominates(Common, BB))
+      return false;
+    if (!PDT->properlyDominates(BB, Common))
       return false;
 
     std::set<BasicBlock *> Region;
-    if (!FindDeadRegion(PDT, Common, BB, Region))
+    if (!this->FindDeadRegion(PDT, Common, BB, Region))
       return false;
 
+    // If BB branches INTO the region, forming a loop give up.
+    for (BasicBlock *Succ : successors(BB))
+      if (Region.count(Succ))
+        return false;
+
+    // Replace Common's branch with an unconditional branch to BB
     Common->getTerminator()->eraseFromParent();
     BranchInst::Create(BB, Common);
 
+    // Delete the region
     for (BasicBlock *BB : Region) {
       for (Instruction &I : *BB)
         I.dropAllReferences();
@@ -119,7 +151,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
     auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     auto *PDT = &getAnalysis<PostDominatorTree>();
 
-    std::set<BasicBlock *> FailedSet;
+    std::unordered_set<BasicBlock *> FailedSet;
     bool Changed = false;
     while (1) {
       bool LocalChanged = false;
@@ -128,7 +160,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
         if (FailedSet.count(&BB))
           continue;
 
-        if (TrySimplify(DT, PDT, &BB)) {
+        if (this->TrySimplify(DT, PDT, &BB)) {
           LocalChanged = true;
           break;
         }
