@@ -2003,6 +2003,7 @@ class db_dxil(object):
         add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [])
         add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
         add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [])
+        add_pass('dxil-erase-dead-region', 'DxilEraseDeadRegion', 'DxilEraseDeadRegion', [])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
