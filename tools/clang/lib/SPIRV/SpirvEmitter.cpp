@@ -6945,6 +6945,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicLit(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_mad:
+  case hlsl::IntrinsicOp::IOP_umad:
     retVal = processIntrinsicMad(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_modf:
