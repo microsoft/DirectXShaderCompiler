@@ -7098,14 +7098,30 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processRayBuiltins(callExpr, hlslOpcode);
     break;
   }
-  case hlsl::IntrinsicOp::IOP_AcceptHitAndEndSearch: {
-    spvBuilder.createRayTracingOpsNV(spv::Op::OpTerminateRayNV, QualType(), {},
-                                     srcLoc);
-    break;
-  }
+  case hlsl::IntrinsicOp::IOP_AcceptHitAndEndSearch:
   case hlsl::IntrinsicOp::IOP_IgnoreHit: {
-    spvBuilder.createRayTracingOpsNV(spv::Op::OpIgnoreIntersectionNV,
-                                     QualType(), {}, srcLoc);
+
+    // Any modifications made to the ray payload in an any hit shader are
+    // preserved before calling AcceptHit/IgnoreHit. Write out the results to
+    // the payload which is visible only in entry functions
+    const auto iter = functionInfoMap.find(curFunction);
+    if (iter != functionInfoMap.end()) {
+      const auto &entryInfo = iter->second;
+      if (entryInfo->isEntryFunction) {
+        const auto payloadArg = curFunction->getParamDecl(0);
+        const auto payloadArgInst =
+            declIdMapper.getDeclEvalInfo(payloadArg, payloadArg->getLocStart());
+        auto tempLoad = spvBuilder.createLoad(
+            payloadArg->getType(), payloadArgInst, payloadArg->getLocStart());
+        spvBuilder.createStore(currentRayPayload, tempLoad,
+                               callExpr->getExprLoc());
+      }
+    }
+    spvBuilder.createRayTracingOpsNV(
+        hlslOpcode == hlsl::IntrinsicOp ::IOP_AcceptHitAndEndSearch
+            ? spv::Op::OpTerminateRayNV
+            : spv::Op::OpIgnoreIntersectionNV,
+        QualType(), {}, srcLoc);
     break;
   }
   case hlsl::IntrinsicOp::IOP_ReportHit: {
@@ -10357,6 +10373,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
         // First argument is always rayPayload
         curStageVar = declIdMapper.createRayTracingNVStageVar(
             spv::StorageClass::IncomingRayPayloadNV, param);
+        currentRayPayload = curStageVar;
       } else {
         // Second argument is always attribute
         curStageVar = declIdMapper.createRayTracingNVStageVar(
