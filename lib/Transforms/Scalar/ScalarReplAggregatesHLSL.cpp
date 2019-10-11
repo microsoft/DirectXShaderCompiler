@@ -1872,44 +1872,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
 
   // Allow copy between different address space.
   if (DestTy != SrcTy) {
-    bool bMatchInnerTy = false;
-    // When size is same, try to go deepest level which keep same size and
-    // match.
-    unsigned size = DL.getTypeAllocSize(DestTy);
-    if (size == DL.getTypeAllocSize(SrcTy)) {
-      Value *zeroIdx = Builder.getInt32(0);
-      auto addZeroIdx = [&DL, &size, &zeroIdx, &Builder](Type *Ty, Value *Ptr) {
-        if (unsigned dstDepth = MatchSizeByCheckElementType(Ty, DL, size, 0)) {
-          if (GEPOperator *GEPPtr = dyn_cast<GEPOperator>(Ptr)) {
-            SmallVector<Value *, 2> IdxList(GEPPtr->idx_begin(),
-                                            GEPPtr->idx_end());
-            // level not + 1 because it is included in GEPPtr idx.
-            IdxList.append(dstDepth, zeroIdx);
-            return Builder.CreateInBoundsGEP(GEPPtr->getPointerOperand(),
-                                             IdxList);
-          } else {
-            SmallVector<Value *, 2> IdxList(dstDepth + 1, zeroIdx);
-            return Builder.CreateInBoundsGEP(Ptr, IdxList);
-          }
-        }
-        return Ptr;
-      };
-
-      Value *DestPtr = addZeroIdx(DestTy, Dest);
-
-      Value *SrcPtr = addZeroIdx(SrcTy, Src);
-
-      if (DestPtr->getType() == SrcPtr->getType()) {
-        Dest = DestPtr;
-        Src = SrcPtr;
-
-        DestTy = Dest->getType()->getPointerElementType();
-        SrcTy = DestTy;
-        bMatchInnerTy = true;
-      }
-    }
-    if (!bMatchInnerTy)
-      return;
+    return;
   }
   // Try to find fieldAnnotation from user of Dest/Src.
   if (!fieldAnnotation) {
