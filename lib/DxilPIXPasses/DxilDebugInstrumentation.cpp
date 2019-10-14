@@ -225,7 +225,7 @@ private:
   void addInvocationSelectionProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value * addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value * addGeometryShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
-  Value * addComputeShaderProlog(BuilderContext &BC);
+  Value * addDispatchedShaderProlog(BuilderContext &BC);
   Value * addVertexShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   void addDebugEntryValue(BuilderContext &BC, Value * TheValue);
   void addInvocationStartMarker(BuilderContext &BC);
@@ -260,30 +260,11 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
 
   auto ShaderModel = BC.DM.GetShaderModel();
   switch (ShaderModel->GetKind()) {
-  case DXIL::ShaderKind::Pixel: {
-    auto Existing_SV_Position = std::find_if(
-      InputElements.begin(), InputElements.end(),
-      [](const std::unique_ptr<DxilSignatureElement> & Element) {
-      return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::Position; });
-
-    // SV_Position, if present, has to have full mask, so we needn't worry 
-    // about the shader having selected components that don't include x or y.
-    // If not present, we add it.
-    if (Existing_SV_Position == InputElements.end()) {
-      auto Added_SV_Position = llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4);
-      Added_SV_Position->AppendSemanticIndex(0);
-      Added_SV_Position->SetSigPointKind(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
-
-      auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
-      SVIndices.PixelShader.Position = InputElements[index]->GetID();
-    }
-    else {
-      SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
-    }
-  }
-  break;
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh:
+  case DXIL::ShaderKind::Compute:
+    // Dispatch* thread Id is not in the input signature
+    break;
   case DXIL::ShaderKind::Vertex: {
     {
       auto Existing_SV_VertexId = std::find_if(
@@ -325,14 +306,37 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
         SVIndices.VertexShader.InstanceId = Existing_SV_InstanceId->get()->GetID();
       }
     }
-  }
-  break;
+  } break;
   case DXIL::ShaderKind::Geometry: 
     // GS Instance Id and Primitive Id are not in the input signature
   break;
-  case DXIL::ShaderKind::Compute:
-    // Compute thread Id is not in the input signature
-  break;
+  case DXIL::ShaderKind::Pixel: {
+    auto Existing_SV_Position =
+        std::find_if(InputElements.begin(), InputElements.end(),
+                     [](const std::unique_ptr<DxilSignatureElement> &Element) {
+                       return Element->GetSemantic()->GetKind() ==
+                              hlsl::DXIL::SemanticKind::Position;
+                     });
+
+    // SV_Position, if present, has to have full mask, so we needn't worry
+    // about the shader having selected components that don't include x or y.
+    // If not present, we add it.
+    if (Existing_SV_Position == InputElements.end()) {
+      auto Added_SV_Position =
+          llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
+                                    hlsl::DXIL::InterpolationMode::Linear, 1,
+                                    4);
+      Added_SV_Position->AppendSemanticIndex(0);
+      Added_SV_Position->SetSigPointKind(DXIL::SigPointKind::PSIn);
+      Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
+
+      auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
+      SVIndices.PixelShader.Position = InputElements[index]->GetID();
+    } else {
+      SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
+    }
+  } break;
   default:
     assert(false); // guaranteed by runOnModule
   }
@@ -340,7 +344,7 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
   return SVIndices;
 }
 
-Value * DxilDebugInstrumentation::addComputeShaderProlog(BuilderContext &BC) {
+Value * DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant* One32Arg = BC.HlslOP->GetU32Const(1);
   Constant* Two32Arg = BC.HlslOP->GetU32Const(2);
@@ -482,8 +486,10 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext &BC, 
 
   Value * ParameterTestResult = nullptr;
   switch (ShaderModel->GetKind()) {
-  case DXIL::ShaderKind::Pixel:
-    ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh:
+    ParameterTestResult = addDispatchedShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Geometry:
     ParameterTestResult = addGeometryShaderProlog(BC, SVIndices);
@@ -491,8 +497,8 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext &BC, 
   case DXIL::ShaderKind::Vertex:
     ParameterTestResult = addVertexShaderProlog(BC, SVIndices);
     break;
-  case DXIL::ShaderKind::Compute:
-      ParameterTestResult = addComputeShaderProlog(BC);
+  case DXIL::ShaderKind::Pixel:
+    ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
     break;
   default:
     assert(false); // guaranteed by runOnModule
@@ -744,10 +750,12 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   auto ShaderModel = DM.GetShaderModel();
   switch (ShaderModel->GetKind()) {
-  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Vertex:
-  case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Geometry:
+  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Compute:
     break;
   default:
     return false;
