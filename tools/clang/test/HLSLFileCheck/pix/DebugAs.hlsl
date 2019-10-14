@@ -1,6 +1,6 @@
-// RUN: %dxc -Emain -Tas_6_7 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=10,parameter1=20,parameter2=30 | %FileCheck %s
+// RUN: %dxc -Emain -Tas_6_5 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=10,parameter1=20,parameter2=30 | %FileCheck %s
 
-// Check that the CS thread IDs are added properly
+// Check that the AS thread IDs are added properly
 
 // CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)
 // CHECK: %ThreadIdX = call i32 @dx.op.threadId.i32(i32 93, i32 0)
@@ -16,8 +16,7 @@ struct smallPayload {
   uint dummy;
 };
 
-[numthreads(1, 1, 1)] void ASMain(in uint3 groupID
-                                  : SV_GroupID) {
+[numthreads(1, 1, 1)] void main() {
   smallPayload p;
   p.dummy = 0;
   DispatchMesh(2, 1, 1, p);
