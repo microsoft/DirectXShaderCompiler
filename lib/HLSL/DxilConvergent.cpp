@@ -40,6 +40,15 @@ bool hlsl::IsConvergentMarker(Value *V) {
   return F->getName().startswith(kConvergentFunctionPrefix);
 }
 
+bool hlsl::IsConvergentMarker(const Function *F) {
+  return F->getName().startswith(kConvergentFunctionPrefix);
+}
+
+bool hlsl::IsConvergentMarker(const char *Name) {
+  StringRef RName = Name;
+  return RName.startswith(kConvergentFunctionPrefix);
+}
+
 Value *hlsl::GetConvergentSource(Value *V) {
   return cast<CallInst>(V)->getOperand(0);
 }
