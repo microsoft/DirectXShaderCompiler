@@ -28,6 +28,7 @@
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/HLMatrixType.h"
 
 #include <unordered_set>
 #include "llvm/ADT/SetVector.h"
@@ -848,7 +849,12 @@ HRESULT CShaderReflectionType::Initialize(
     // We might have an array of matrices, though, so we only exit if
     // the field annotation says we have a matrix, and we've bottomed
     // out and the element type isn't itself an array.
-    if(typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy())
+    //
+    // For libraries however, we may have unlowered matrix types, so
+    // we have to check for HLMatrixType so we don't skip counting the
+    // inner-most matrix array size.
+    if(typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy() &&
+       !HLMatrixType::isa(elementType))
     {
       break;
     }
