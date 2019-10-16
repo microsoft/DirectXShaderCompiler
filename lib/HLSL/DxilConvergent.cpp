@@ -24,13 +24,10 @@
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/HLSL/DxilConvergentName.h"
 
 using namespace llvm;
 using namespace hlsl;
-
-namespace {
-const StringRef kConvergentFunctionPrefix = "dxil.convergent.marker.";
-}
 
 bool hlsl::IsConvergentMarker(Value *V) {
   CallInst *CI = dyn_cast<CallInst>(V);
@@ -38,15 +35,6 @@ bool hlsl::IsConvergentMarker(Value *V) {
     return false;
   Function *F = CI->getCalledFunction();
   return F->getName().startswith(kConvergentFunctionPrefix);
-}
-
-bool hlsl::IsConvergentMarker(const Function *F) {
-  return F->getName().startswith(kConvergentFunctionPrefix);
-}
-
-bool hlsl::IsConvergentMarker(const char *Name) {
-  StringRef RName = Name;
-  return RName.startswith(kConvergentFunctionPrefix);
 }
 
 Value *hlsl::GetConvergentSource(Value *V) {
