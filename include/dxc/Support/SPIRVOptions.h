@@ -48,6 +48,7 @@ struct SpirvCodeGenOptions {
   bool enableReflect;
   bool invertY; // Additive inverse
   bool invertW; // Multiplicative inverse
+  bool invariantPosition;
   bool noWarnEmulatedFeatures;
   bool noWarnIgnoredFeatures;
   bool useDxLayout;
