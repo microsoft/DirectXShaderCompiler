@@ -3531,12 +3531,18 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         if (PT->getAddressSpace() == DXIL::kTGSMAddrSpace) {
           if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
             Value *Ptr = GEP->getPointerOperand();
+            // Allow inner constant GEP
+            if (isa<ConstantExpr>(Ptr) && isa<GEPOperator>(Ptr))
+              Ptr = cast<GEPOperator>(Ptr)->getPointerOperand();
             if (!isa<GlobalVariable>(Ptr)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrFailToResloveTGSMPointer);
             }
           } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(&I)) {
             Value *Ptr = BCI->getOperand(0);
+            // Allow inner constant GEP
+            if (isa<ConstantExpr>(Ptr) && isa<GEPOperator>(Ptr))
+              Ptr = cast<GEPOperator>(Ptr)->getPointerOperand();
             if (!isa<GetElementPtrInst>(Ptr) && !isa<GlobalVariable>(Ptr)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrFailToResloveTGSMPointer);
