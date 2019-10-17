@@ -2793,46 +2793,45 @@ SampleHelper::SampleHelper(
                                             : HLOperandIndex::kSampleCoordArgIndex;
   TranslateCoord(CI, kCoordArgIdx);
 
+  // TextureCube does not support offsets, shifting each subsequent arg index down by 1
+  unsigned cube = (resourceKind == DXIL::ResourceKind::TextureCube ||
+                   resourceKind == DXIL::ResourceKind::TextureCubeArray)
+                  ? 1 : 0;
+
   switch (op) {
   case OP::OpCode::Sample:
-    TranslateOffset(CI, HLOperandIndex::kSampleOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleLevel:
     SetLOD(CI, HLOperandIndex::kSampleLLevelArgIndex);
-    if (resourceKind == DXIL::ResourceKind::TextureCube ||
-        resourceKind == DXIL::ResourceKind::TextureCubeArray) {
-      TranslateOffset(CI, HLOperandIndex::kInvalidIdx); // Initialize offsets to zero
-      SetStatus(CI, HLOperandIndex::kSampleLCubeStatusArgIndex);
-    } else {
-      TranslateOffset(CI, HLOperandIndex::kSampleLOffsetArgIndex);
-      SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex);
-    }
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleLOffsetArgIndex);
+    SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleBias:
     SetBias(CI, HLOperandIndex::kSampleBBiasArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleBOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleBClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleBStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleBOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleBClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleBStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleCmp:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleCmpOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleCmpLevelZero:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpLZCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleCmpLZOffsetArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleCmpLZStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpLZOffsetArgIndex);
+    SetStatus(CI, HLOperandIndex::kSampleCmpLZStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleGrad:
     SetDDX(CI, HLOperandIndex::kSampleGDDXArgIndex);
     SetDDY(CI, HLOperandIndex::kSampleGDDYArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleGOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleGClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleGStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleGOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleGClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleGStatusArgIndex - cube);
     break;
   case OP::OpCode::CalculateLOD:
     // Only need coord for LOD calculation.
@@ -3054,6 +3053,14 @@ struct GatherHelper {
 
   bool hasSampleOffsets;
 
+  unsigned maxHLOperandRead = 0;
+  Value *ReadHLOperand(CallInst *CI, unsigned opIdx) {
+    if (CI->getNumArgOperands() > opIdx) {
+      maxHLOperandRead = std::max(maxHLOperandRead, opIdx);
+      return CI->getArgOperand(opIdx);
+    }
+    return nullptr;
+  }
   void TranslateCoord(CallInst *CI, unsigned coordIdx,
                       unsigned coordDimensions) {
     Value *coordArg = CI->getArgOperand(coordIdx);
@@ -3072,18 +3079,23 @@ struct GatherHelper {
   }
   void TranslateOffset(CallInst *CI, unsigned offsetIdx,
                        unsigned offsetDimensions) {
-    Value *undefI = UndefValue::get(Type::getInt32Ty(CI->getContext()));
-    if (CI->getNumArgOperands() > offsetIdx) {
-      Value *offsetArg = CI->getArgOperand(offsetIdx);
+    IntegerType *i32Ty = Type::getInt32Ty(CI->getContext());
+    if (Value *offsetArg = ReadHLOperand(CI, offsetIdx)) {
+      DXASSERT(offsetArg->getType()->getVectorNumElements() == offsetDimensions,
+               "otherwise, HL coordinate dimensions mismatch");
       IRBuilder<> Builder(CI);
       for (unsigned i = 0; i < offsetDimensions; i++)
         offset[i] = Builder.CreateExtractElement(offsetArg, i);
-      for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
-        offset[i] = undefI;
     } else {
-      for (unsigned i = 0; i < kMaxOffsetDimensions; i++)
-        offset[i] = undefI;
+      // Use zeros for offsets when not specified, not undef.
+      Value *zero = ConstantInt::get(i32Ty, (uint64_t)0);
+      for (unsigned i = 0; i < offsetDimensions; i++)
+        offset[i] = zero;
     }
+    // Use undef for components that should not be used for this resource dim.
+    Value *undefI = UndefValue::get(i32Ty);
+    for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
+      offset[i] = undefI;
   }
   void TranslateSampleOffset(CallInst *CI, unsigned offsetIdx,
                              unsigned offsetDimensions) {
@@ -3144,33 +3156,47 @@ GatherHelper::GatherHelper(
   }
   unsigned coordSize = DxilResource::GetNumCoords(RK);
   unsigned offsetSize = DxilResource::GetNumOffsets(RK);
+  bool cube = RK == DXIL::ResourceKind::TextureCube ||
+              RK == DXIL::ResourceKind::TextureCubeArray;
 
   const unsigned kCoordArgIdx = HLOperandIndex::kSampleCoordArgIndex;
   TranslateCoord(CI, kCoordArgIdx, coordSize);
 
   switch (op) {
   case OP::OpCode::TextureGather: {
-    TranslateOffset(CI, HLOperandIndex::kGatherOffsetArgIndex, offsetSize);
-    // Gather all don't have sample offset version overload.
-    if (ch != GatherChannel::GatherAll)
-      TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
-                            offsetSize);
-    unsigned statusIdx =
-        hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
-                         : HLOperandIndex::kGatherStatusArgIndex;
+    unsigned statusIdx;
+    if (cube) {
+      TranslateOffset(CI, HLOperandIndex::kInvalidIdx, offsetSize);
+      statusIdx = HLOperandIndex::kGatherCubeStatusArgIndex;
+    } else {
+      TranslateOffset(CI, HLOperandIndex::kGatherOffsetArgIndex, offsetSize);
+      // Gather all don't have sample offset version overload.
+      if (ch != GatherChannel::GatherAll)
+        TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
+                              offsetSize);
+      statusIdx =
+          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
+                           : HLOperandIndex::kGatherStatusArgIndex;
+    }
     SetStatus(CI, statusIdx);
   } break;
   case OP::OpCode::TextureGatherCmp: {
     special = CI->getArgOperand(HLOperandIndex::kGatherCmpCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kGatherCmpOffsetArgIndex, offsetSize);
-    // Gather all don't have sample offset version overload.
-    if (ch != GatherChannel::GatherAll)
-      TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
-                            offsetSize);
-    unsigned statusIdx =
-        hasSampleOffsets
-            ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
-            : HLOperandIndex::kGatherCmpStatusArgIndex;
+    unsigned statusIdx;
+    if (cube) {
+      TranslateOffset(CI, HLOperandIndex::kInvalidIdx, offsetSize);
+      statusIdx = HLOperandIndex::kGatherCmpCubeStatusArgIndex;
+    } else {
+      TranslateOffset(CI, HLOperandIndex::kGatherCmpOffsetArgIndex, offsetSize);
+      // Gather all don't have sample offset version overload.
+      if (ch != GatherChannel::GatherAll)
+        TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
+                              offsetSize);
+      statusIdx =
+          hasSampleOffsets
+              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
+              : HLOperandIndex::kGatherCmpStatusArgIndex;
+    }
     SetStatus(CI, statusIdx);
   } break;
   default:
