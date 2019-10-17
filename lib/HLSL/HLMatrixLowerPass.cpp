@@ -588,7 +588,7 @@ Constant *HLMatrixLowerPass::lowerConstInitVal(Constant *Val) {
       LoweredElems.emplace_back(lowerConstInitVal(ArrayElem));
     }
 
-    Type *LoweredElemTy = HLMatrixType::getLoweredType(ArrayTy->getElementType());
+    Type *LoweredElemTy = HLMatrixType::getLoweredType(ArrayTy->getElementType(), /*MemRepr*/true);
     ArrayType *LoweredArrayTy = ArrayType::get(LoweredElemTy, NumElems);
     return ConstantArray::get(LoweredArrayTy, LoweredElems);
   }
