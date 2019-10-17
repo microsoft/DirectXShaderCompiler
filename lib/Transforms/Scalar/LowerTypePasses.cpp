@@ -522,19 +522,31 @@ void ReplaceMultiDimGEP(User *GEP, Value *OneDim, IRBuilder<> &Builder) {
   Value *ArrayIdx = GEPIt.getOperand();
   ++GEPIt;
   Value *VecIdx = nullptr;
+  SmallVector<Value*,8> StructIdxs;
   for (; GEPIt != E; ++GEPIt) {
     if (GEPIt->isArrayTy()) {
       unsigned arraySize = GEPIt->getArrayNumElements();
       Value *V = GEPIt.getOperand();
       ArrayIdx = Builder.CreateMul(ArrayIdx, Builder.getInt32(arraySize));
       ArrayIdx = Builder.CreateAdd(V, ArrayIdx);
+    } else if (isa<StructType>(*GEPIt)) {
+      // Replaces multi-dim array of struct, with single-dim array of struct
+      StructIdxs.push_back(PtrOffset);
+      StructIdxs.push_back(ArrayIdx);
+      while (GEPIt != E) {
+        StructIdxs.push_back(GEPIt.getOperand());
+        ++GEPIt;
+      }
+      break;
     } else {
       DXASSERT_NOMSG(isa<VectorType>(*GEPIt));
       VecIdx = GEPIt.getOperand();
     }
   }
   Value *NewGEP = nullptr;
-  if (!VecIdx)
+  if (StructIdxs.size())
+    NewGEP = Builder.CreateGEP(OneDim, StructIdxs);
+  else if (!VecIdx)
     NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx});
   else
     NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx, VecIdx});
