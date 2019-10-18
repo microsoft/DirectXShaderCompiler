@@ -752,16 +752,15 @@ public:
         if (compileOK && !opts.CodeGenHighLevel) {
           HRESULT valHR = S_OK;
 
-          if (needsValidation) {
-            valHR = dxcutil::ValidateAndAssembleToContainer(
+          dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics(),
+                pOutputStream, opts.IsDebugInfoEnabled(),
+                opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent);
+          if (needsValidation) {
+            valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
           } else {
-            dxcutil::AssembleToContainer(action.takeModule(),
-                                         pOutputBlob, m_pMalloc,
-                                         SerializeFlags, pOutputStream,
-                                         &ShaderHashContent);
+            dxcutil::AssembleToContainer(inputs);
           }
 
           // Callback after valid DXIL is produced
