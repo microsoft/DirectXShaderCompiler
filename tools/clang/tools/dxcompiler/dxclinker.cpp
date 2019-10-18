@@ -268,14 +268,14 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         }
         // Validation.
         HRESULT valHR = S_OK;
+        dxcutil::AssembleInputs inputs(
+          std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
+          pOutputStream,
+          opts.DebugInfo, opts.DebugFile, &Diag);
         if (needsValidation) {
-          valHR = dxcutil::ValidateAndAssembleToContainer(
-              std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
-              pOutputStream,
-              /*bDebugInfo*/ false, llvm::StringRef(), Diag);
+          valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {
-          dxcutil::AssembleToContainer(std::move(pM), pOutputBlob, m_pMalloc,
-                                       SerializeFlags, pOutputStream);
+          dxcutil::AssembleToContainer(inputs);
         }
         // Callback after valid DXIL is produced
         if (SUCCEEDED(valHR)) {
