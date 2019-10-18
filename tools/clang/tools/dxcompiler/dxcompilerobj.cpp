@@ -761,6 +761,7 @@ public:
             dxcutil::AssembleToContainer(action.takeModule(),
                                          pOutputBlob, m_pMalloc,
                                          SerializeFlags, pOutputStream,
+                                         opts.GetPDBName(),
                                          &ShaderHashContent);
           }
 

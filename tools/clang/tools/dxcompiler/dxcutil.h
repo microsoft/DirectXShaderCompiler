@@ -14,6 +14,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/microcom.h"
 #include <memory>
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 class DiagnosticsEngine;
@@ -24,7 +25,6 @@ class LLVMContext;
 class MemoryBuffer;
 class Module;
 class raw_string_ostream;
-class StringRef;
 class Twine;
 } // namespace llvm
 
@@ -50,6 +50,7 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          IMalloc *pMalloc,
                          hlsl::SerializeDxilFlags SerializeFlags,
                          CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
+                         llvm::StringRef DebugName = llvm::StringRef(),
                          hlsl::DxilShaderHash *pShaderHashOut = nullptr);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,

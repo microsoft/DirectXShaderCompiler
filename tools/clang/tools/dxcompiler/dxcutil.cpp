@@ -124,9 +124,14 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          IMalloc *pMalloc,
                          SerializeDxilFlags SerializeFlags,
                          CComPtr<AbstractMemoryStream> &pOutputStream,
+                         llvm::StringRef DebugName,
                          DxilShaderHash *pShaderHashOut) {
   // Take ownership of the module from the action.
   DxilCompilerLLVMModuleOutput llvmModule(std::move(pM));
+
+  if (DebugName.size()) {
+    llvmModule.SetDebugName(DebugName);
+  }
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
                                        SerializeFlags, pShaderHashOut);
@@ -160,7 +165,8 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
 HRESULT ValidateAndAssembleToContainer(
     std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputBlob,
     IMalloc *pMalloc, SerializeDxilFlags SerializeFlags,
-    CComPtr<AbstractMemoryStream> &pOutputStream, bool bDebugInfo, llvm::StringRef DebugName,
+    CComPtr<AbstractMemoryStream> &pOutputStream,
+    bool bDebugInfo, llvm::StringRef DebugName,
     clang::DiagnosticsEngine &Diag, DxilShaderHash *pShaderHashOut) {
   HRESULT valHR = S_OK;
 
@@ -187,7 +193,7 @@ HRESULT ValidateAndAssembleToContainer(
     }
   }
 
-  if (bDebugInfo && DebugName.size()) {
+  if (DebugName.size()) {
     llvmModule.SetDebugName(DebugName);
   }
 
