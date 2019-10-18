@@ -3063,7 +3063,10 @@ struct GatherHelper {
   }
   void TranslateCoord(CallInst *CI, unsigned coordIdx,
                       unsigned coordDimensions) {
-    Value *coordArg = CI->getArgOperand(coordIdx);
+    Value *coordArg = ReadHLOperand(CI, coordIdx);
+    DXASSERT_NOMSG(coordArg);
+    DXASSERT(coordArg->getType()->getVectorNumElements() == coordDimensions,
+             "otherwise, HL coordinate dimensions mismatch");
     IRBuilder<> Builder(CI);
     for (unsigned i = 0; i < coordDimensions; i++)
       coord[i] = Builder.CreateExtractElement(coordArg, i);
@@ -3072,10 +3075,7 @@ struct GatherHelper {
       coord[i] = undefF;
   }
   void SetStatus(CallInst *CI, unsigned statusIdx) {
-    if (CI->getNumArgOperands() == (statusIdx + 1))
-      status = CI->getArgOperand(statusIdx);
-    else
-      status = nullptr;
+    status = ReadHLOperand(CI, statusIdx);
   }
   void TranslateOffset(CallInst *CI, unsigned offsetIdx,
                        unsigned offsetDimensions) {
@@ -3104,7 +3104,7 @@ struct GatherHelper {
       hasSampleOffsets = true;
       IRBuilder<> Builder(CI);
       for (unsigned ch = 0; ch < kSampleOffsetDimensions; ch++) {
-        Value *offsetArg = CI->getArgOperand(offsetIdx + ch);
+        Value *offsetArg = ReadHLOperand(CI, offsetIdx + ch);
         for (unsigned i = 0; i < offsetDimensions; i++)
           sampleOffsets[ch][i] = Builder.CreateExtractElement(offsetArg, i);
         for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
@@ -3181,7 +3181,7 @@ GatherHelper::GatherHelper(
     SetStatus(CI, statusIdx);
   } break;
   case OP::OpCode::TextureGatherCmp: {
-    special = CI->getArgOperand(HLOperandIndex::kGatherCmpCmpValArgIndex);
+    special = ReadHLOperand(CI, HLOperandIndex::kGatherCmpCmpValArgIndex);
     unsigned statusIdx;
     if (cube) {
       TranslateOffset(CI, HLOperandIndex::kInvalidIdx, offsetSize);
@@ -3203,6 +3203,8 @@ GatherHelper::GatherHelper(
     DXASSERT(0, "invalid opcode for Gather");
     break;
   }
+  DXASSERT(maxHLOperandRead == CI->getNumArgOperands() - 1,
+           "otherwise, unused HL arguments for Sample op");
 }
 
 void GenerateDxilGather(CallInst *CI, Function *F,
