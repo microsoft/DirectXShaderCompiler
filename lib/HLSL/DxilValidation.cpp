@@ -201,6 +201,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
+    case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed";
     case hlsl::ValidationRule::TypesI8: return "I8 can only used as immediate value for intrinsic";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
     case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1";
@@ -2696,18 +2697,30 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
   }
 }
 
-static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
+// outer type may be: [ptr to][1 dim array of]( UDT struct | scalar )
+// inner type (UDT struct member) may be: [N dim array of]( UDT struct | scalar )
+// scalar type may be: ( float(16|32|64) | int(16|32|64) )
+static bool ValidateType(Type *Ty, ValidationContext &ValCtx, bool bInner = false) {
   DXASSERT_NOMSG(Ty != nullptr);
   if (Ty->isPointerTy()) {
-    return ValidateType(Ty->getPointerElementType(), ValCtx);
+    Type *EltTy = Ty->getPointerElementType();
+    if (bInner || EltTy->isPointerTy()) {
+      ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoPtrToPtr);
+      return false;
+    }
+    Ty = EltTy;
   }
   if (Ty->isArrayTy()) {
     Type *EltTy = Ty->getArrayElementType();
-    if (isa<ArrayType>(EltTy)) {
+    if (!bInner && isa<ArrayType>(EltTy)) {
+      // Outermost array should be converted to single-dim,
+      // but arrays inside struct are allowed to be multi-dim
       ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoMultiDim);
       return false;
     }
-    return ValidateType(EltTy, ValCtx);
+    while (EltTy->isArrayTy())
+      EltTy = EltTy->getArrayElementType();
+    Ty = EltTy;
   }
   if (Ty->isStructTy()) {
     bool result = true;
@@ -2725,7 +2738,7 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
       result = false;
     }
     for (auto e : ST->elements()) {
-      if (!ValidateType(e, ValCtx)) {
+      if (!ValidateType(e, ValCtx, /*bInner*/true)) {
         result = false;
       }
     }
