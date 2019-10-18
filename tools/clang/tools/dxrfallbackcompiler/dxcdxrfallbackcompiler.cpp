@@ -324,13 +324,10 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
             outStream.flush();
 
             // Validation.
-            dxcutil::AssembleToContainer(
+            dxcutil::AssembleInputs inputs(
                 std::move(M), pResultBlob, TM.GetInstalledAllocator(), SerializeDxilFlags::None,
-                pOutputStream
-#if !DISABLE_GET_CUSTOM_DIAG_ID
-                , Diag
-#endif
-            );
+                pOutputStream);
+            dxcutil::AssembleToContainer(inputs);
         }
 
         DiagStream.flush();
@@ -408,12 +405,13 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::PatchShaderBindingTables(
             raw_stream_ostream outStream(pOutputStream.p);
             WriteBitcodeToFile(M.get(), outStream);
             outStream.flush();
-            dxcutil::AssembleToContainer(
+            dxcutil::AssembleInputs inputs(
                 std::move(M),
                 pResultBlob,
                 TM.GetInstalledAllocator(),
                 SerializeDxilFlags::None,
                 pOutputStream);
+            dxcutil::AssembleToContainer(inputs);
         }
 
         DiagStream.flush();
@@ -564,14 +562,12 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
             outStream.flush();
 
             // Validation.
-            HRESULT valHR = dxcutil::ValidateAndAssembleToContainer(
+            dxcutil::AssembleInputs inputs(
                 std::move(M), pResultBlob, TM.GetInstalledAllocator(), SerializeDxilFlags::None,
                 pOutputStream,
                 /*bDebugInfo*/ false
-#if !DISABLE_GET_CUSTOM_DIAG_ID
-                , Diag
-#endif
             );
+            HRESULT valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
 
             if (FAILED(valHR))
                 hasErrors = true;
@@ -723,12 +719,13 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
       raw_stream_ostream outStream(pOutputStream.p);
       WriteBitcodeToFile(M.get(), outStream);
       outStream.flush();
-      dxcutil::AssembleToContainer(
+      dxcutil::AssembleInputs inputs(
           std::move(M), 
           pResultBlob, 
           TM.GetInstalledAllocator(),
           SerializeDxilFlags::None,
           pOutputStream);
+      dxcutil::AssembleToContainer(inputs);
     }
 
     DiagStream.flush();

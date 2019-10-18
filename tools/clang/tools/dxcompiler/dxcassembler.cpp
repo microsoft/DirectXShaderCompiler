@@ -147,9 +147,10 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       flags |= SerializeDxilFlags::IncludeDebugNamePart;
       flags |= SerializeDxilFlags::DebugNameDependOnSource;
     }
-    dxcutil::AssembleToContainer(std::move(M), pResultBlob,
-                                         TM.GetInstalledAllocator(), flags,
-                                         pOutputStream);
+    dxcutil::AssembleInputs inputs(std::move(M), pResultBlob,
+                                   TM.GetInstalledAllocator(), flags,
+                                   pOutputStream);
+    dxcutil::AssembleToContainer(inputs);
 
     IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));
   }
