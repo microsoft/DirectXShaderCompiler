@@ -1728,6 +1728,9 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
       const FunctionProtoType *FT =
           FD->getFunctionType()->getAs<FunctionProtoType>();
       Ty = FT->getParamType(pIntrinsic->iOverloadParamIndex);
+      // To go thru reference type.
+      if (Ty->isReferenceType())
+        Ty = Ty.getNonReferenceType();
     }
 
     // TODO: refine the code for getting element type
