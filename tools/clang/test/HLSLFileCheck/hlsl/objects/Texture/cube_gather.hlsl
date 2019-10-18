@@ -29,7 +29,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 0)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.Gather(samp, a.xyz, status); r += CheckAccessFullyMapped(status);
+  r += cube.Gather(samp, a.xyz+0.05, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGather.f32(i32 73,
@@ -44,7 +44,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 0)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.Gather(samp, a.xyzw, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.Gather(samp, a.xyzw+0.05, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -63,7 +63,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 0)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherRed(samp, a.xyz, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherRed(samp, a.xyz+0.05, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGather.f32(i32 73,
@@ -78,7 +78,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 0)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherRed(samp, a.xyzw, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherRed(samp, a.xyzw+0.05, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -97,7 +97,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 1)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherGreen(samp, a.xyz, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherGreen(samp, a.xyz+0.05, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGather.f32(i32 73,
@@ -112,7 +112,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 1)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherGreen(samp, a.xyzw, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherGreen(samp, a.xyzw+0.05, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -131,7 +131,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 2)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherBlue(samp, a.xyz, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherBlue(samp, a.xyz+0.05, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGather.f32(i32 73,
@@ -146,7 +146,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 2)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherBlue(samp, a.xyzw, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherBlue(samp, a.xyzw+0.05, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -165,7 +165,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 3)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherAlpha(samp, a.xyz, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherAlpha(samp, a.xyz+0.05, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGather.f32(i32 73,
@@ -180,7 +180,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , i32 3)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherAlpha(samp, a.xyzw, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherAlpha(samp, a.xyzw+0.05, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -201,7 +201,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherCmp(sampcmp, a.xyz, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherCmp(sampcmp, a.xyz+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGatherCmp.f32(i32 74,
@@ -218,7 +218,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherCmp(sampcmp, a.xyzw, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherCmp(sampcmp, a.xyzw+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -239,7 +239,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherCmpRed(sampcmp, a.xyz, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherCmpRed(sampcmp, a.xyz+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGatherCmp.f32(i32 74,
@@ -256,7 +256,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherCmpRed(sampcmp, a.xyzw, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherCmpRed(sampcmp, a.xyzw+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -277,7 +277,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherCmpGreen(sampcmp, a.xyz, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherCmpGreen(sampcmp, a.xyz+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGatherCmp.f32(i32 74,
@@ -294,7 +294,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherCmpGreen(sampcmp, a.xyzw, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherCmpGreen(sampcmp, a.xyzw+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -315,7 +315,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherCmpBlue(sampcmp, a.xyz, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherCmpBlue(sampcmp, a.xyz+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGatherCmp.f32(i32 74,
@@ -332,7 +332,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherCmpBlue(sampcmp, a.xyzw, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherCmpBlue(sampcmp, a.xyzw+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
 
   ///////////////////////////////////////////////
@@ -353,7 +353,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.GatherCmpAlpha(sampcmp, a.xyz, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cube.GatherCmpAlpha(sampcmp, a.xyz+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
   // CHECK: call %dx.types.ResRet.f32 @dx.op.textureGatherCmp.f32(i32 74,
@@ -370,7 +370,7 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: , float 5.000000e-01)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.GatherCmpAlpha(sampcmp, a.xyzw, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.GatherCmpAlpha(sampcmp, a.xyzw+0.05, CMP, status); r += CheckAccessFullyMapped(status);
 
 
   return r;

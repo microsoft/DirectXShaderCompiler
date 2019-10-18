@@ -262,10 +262,10 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: call %dx.types.ResRet.f32 @dx.op.sampleCmpLevelZero.f32(i32 65,
   // CHECK: , float %{{[^,]+}}, float %{{[^,]+}}, float %{{[^,]+}}, float undef
   // CHECK: , i32 undef, i32 undef, i32 undef
-  // CHECK: , float 5.000000e-01)
+  // CHECK: , float 1.500000e+00)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cube.SampleCmpLevelZero(sampcmp, a.xyz, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cube.SampleCmpLevelZero(sampcmp, a.xyz, CMP+1, status); r += CheckAccessFullyMapped(status);
 
   // TextureCubeArray
 
@@ -278,10 +278,10 @@ float4 main(float4 a : A) : SV_Target
   // CHECK: call %dx.types.ResRet.f32 @dx.op.sampleCmpLevelZero.f32(i32 65,
   // CHECK: , float %{{[^,]+}}, float %{{[^,]+}}, float %{{[^,]+}}, float %{{[^,]+}}
   // CHECK: , i32 undef, i32 undef, i32 undef
-  // CHECK: , float 5.000000e-01)
+  // CHECK: , float 1.500000e+00)
   // CHECK: extractvalue %dx.types.ResRet.f32 %{{[^,]+}}, 4
   // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32(i32 71,
-  r += cubeArray.SampleCmpLevelZero(sampcmp, a.xyzw, CMP, status); r += CheckAccessFullyMapped(status);
+  r += cubeArray.SampleCmpLevelZero(sampcmp, a.xyzw, CMP+1, status); r += CheckAccessFullyMapped(status);
 
 
   return r;
