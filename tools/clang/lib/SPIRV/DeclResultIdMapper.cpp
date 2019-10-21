@@ -161,7 +161,7 @@ bool shouldSkipInStructLayout(const Decl *decl) {
   if (isa<EmptyDecl>(decl))
     return true;
 
-  // For the $Globals cbuffer, we only care about externally-visiable
+  // For the $Globals cbuffer, we only care about externally-visible
   // non-resource-type variables. The rest should be filtered out.
 
   const auto *declContext = decl->getDeclContext();
@@ -755,6 +755,10 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Collect the type and name for each field
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
+    // 'groupshared' variables should not be placed in $Globals cbuffer.
+    if(forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
+      continue;
+
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
@@ -975,7 +979,10 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
                             /*isGlobalsCBuffer*/ true);
 
   uint32_t index = 0;
-  for (const auto *decl : collectDeclsInDeclContext(context))
+  for (const auto *decl : collectDeclsInDeclContext(context)) {
+    // 'groupshared' variables should not be placed in $Globals cbuffer.
+    if(decl->hasAttr<HLSLGroupSharedAttr>())
+      continue;
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varDecl->getInit())
@@ -994,6 +1001,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
       astDecls[varDecl] = DeclSpirvInfo(globals, index++);
     }
+  }
 }
 
 SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
