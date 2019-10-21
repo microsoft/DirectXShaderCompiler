@@ -1922,6 +1922,9 @@ TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 TEST_F(FileTest, ComputeShaderGroupShared) {
   runFileTest("cs.groupshared.hlsl");
 }
+TEST_F(FileTest, ComputeShaderGroupSharedNotInGlobals) {
+  runFileTest("cs.groupshared.not-in-globals.hlsl");
+}
 TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
   setBeforeHLSLLegalization();
   runFileTest("cs.groupshared.function-param.hlsl");
