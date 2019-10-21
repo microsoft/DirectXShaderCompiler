@@ -23,9 +23,12 @@ class Value;
 } // namespace llvm
 
 namespace hlsl {
+class DxilTypeSystem;
 
-llvm::StructType *GetLoweredUDT(llvm::StructType *structTy);
-llvm::Constant *TranslateInitForLoweredUDT(llvm::Constant *Init, llvm::Type *NewTy,
+llvm::StructType *GetLoweredUDT(
+  llvm::StructType *structTy, hlsl::DxilTypeSystem *pTypeSys = nullptr);
+llvm::Constant *TranslateInitForLoweredUDT(
+    llvm::Constant *Init, llvm::Type *NewTy,
     // We need orientation for matrix fields
     hlsl::DxilTypeSystem *pTypeSys,
     hlsl::MatrixOrientation matOrientation = hlsl::MatrixOrientation::Undefined);
