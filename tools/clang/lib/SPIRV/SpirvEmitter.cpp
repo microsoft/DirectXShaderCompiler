@@ -6443,7 +6443,16 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
     const Expr *base = collectArrayStructIndices(thisBase, rawIndex, rawIndices,
                                                  indices, isMSOutAttribute);
-    indices->push_back(doExpr(indexing->getIdx()));
+    // The index into an array must be an integer number.
+    const auto *idxExpr = indexing->getIdx();
+    const auto idxExprType = idxExpr->getType();
+    SpirvInstruction *thisIndex = doExpr(idxExpr);
+    if (!idxExprType->isIntegerType() || idxExprType->isBooleanType()) {
+      thisIndex = castToInt(thisIndex, idxExprType, astContext.UnsignedIntTy,
+                            idxExpr->getExprLoc());
+    }
+
+    indices->push_back(thisIndex);
     return base;
   }
 
