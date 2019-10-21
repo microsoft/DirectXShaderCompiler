@@ -54,7 +54,7 @@ static Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, un
 // Lowered UDT is the same layout, but with vectors and matrices translated to
 // arrays.
 // Returns nullptr for failure due to embedded HLSL object type.
-StructType *hlsl::GetLoweredUDT(StructType *structTy) {
+StructType *hlsl::GetLoweredUDT(StructType *structTy, DxilTypeSystem *pTypeSys) {
   bool changed = false;
   SmallVector<Type*, 8> NewElTys(structTy->getNumContainedTypes());
 
@@ -106,17 +106,29 @@ StructType *hlsl::GetLoweredUDT(StructType *structTy) {
   }
 
   if (changed) {
-    return StructType::create(
+    StructType *newStructTy = StructType::create(
       structTy->getContext(), NewElTys, structTy->getStructName());
+    if (DxilStructAnnotation *pSA = pTypeSys ?
+          pTypeSys->GetStructAnnotation(structTy) : nullptr) {
+      if (!pTypeSys->GetStructAnnotation(newStructTy)) {
+        DxilStructAnnotation &NewSA = *pTypeSys->AddStructAnnotation(newStructTy);
+        for (unsigned iField = 0; iField < NewElTys.size(); ++iField) {
+          NewSA.GetFieldAnnotation(iField) = pSA->GetFieldAnnotation(iField);
+        }
+      }
+    }
+    return newStructTy;
   }
 
   return structTy;
 }
 
-Constant *hlsl::TranslateInitForLoweredUDT(Constant *Init, Type *NewTy,
+Constant *hlsl::TranslateInitForLoweredUDT(
+    Constant *Init, Type *NewTy,
     // We need orientation for matrix fields
     DxilTypeSystem *pTypeSys,
     MatrixOrientation matOrientation) {
+
   // handle undef and zero init
   if (isa<UndefValue>(Init))
     return UndefValue::get(NewTy);
@@ -159,14 +171,23 @@ Constant *hlsl::TranslateInitForLoweredUDT(Constant *Init, Type *NewTy,
       }
     }
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    DxilStructAnnotation *pStructAnnotation =
+      pTypeSys ? pTypeSys->GetStructAnnotation(ST) : nullptr;
     values.reserve(ST->getNumContainedTypes());
     ConstantStruct *CS = cast<ConstantStruct>(Init);
     for (unsigned i = 0; i < ST->getStructNumElements(); ++i) {
+      MatrixOrientation matFieldOrientation = matOrientation;
+      if (pStructAnnotation) {
+        DxilFieldAnnotation &FA = pStructAnnotation->GetFieldAnnotation(i);
+        if (FA.HasMatrixAnnotation()) {
+          matFieldOrientation = FA.GetMatrixAnnotation().Orientation;
+        }
+      }
       values.emplace_back(
         TranslateInitForLoweredUDT(
           cast<Constant>(CS->getAggregateElement(i)),
           NewTy->getStructElementType(i),
-          pTypeSys, matOrientation));
+          pTypeSys, matFieldOrientation));
     }
     return ConstantStruct::get(cast<StructType>(NewTy), values);
   }
@@ -411,7 +432,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         }
       } break;
 
-      case HLOpcodeGroup::NotHL:
+      //case HLOpcodeGroup::NotHL:  // TODO: Support lib functions
       case HLOpcodeGroup::HLIntrinsic: {
         // Just bitcast for now
         IRBuilder<> Builder(CI);
