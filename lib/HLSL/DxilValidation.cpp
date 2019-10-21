@@ -1297,6 +1297,9 @@ static void ValidateSampleInst(CallInst *CI, Value *srvHandle, Value *samplerHan
   bool isSampleCompTy = compTy == DXIL::ComponentType::F32;
   isSampleCompTy |= compTy == DXIL::ComponentType::SNormF32;
   isSampleCompTy |= compTy == DXIL::ComponentType::UNormF32;
+  isSampleCompTy |= compTy == DXIL::ComponentType::F16;
+  isSampleCompTy |= compTy == DXIL::ComponentType::SNormF16;
+  isSampleCompTy |= compTy == DXIL::ComponentType::UNormF16;
   if (!isSampleCompTy) {
     ValCtx.EmitInstrError(CI, ValidationRule::InstrSampleCompType);
   }
