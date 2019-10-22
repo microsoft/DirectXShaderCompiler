@@ -619,7 +619,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
     } 
 
     if (!ElementType->isArrayTy()) {
-      std::remove(ScalarAllocas.begin(), ScalarAllocas.end(), nullptr);
+      ScalarAllocas.erase(std::remove(ScalarAllocas.begin(), ScalarAllocas.end(), nullptr), ScalarAllocas.end());
       PromoteMemToReg(ScalarAllocas, *DT, nullptr, AC);
     }
   }

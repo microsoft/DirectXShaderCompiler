@@ -35,7 +35,9 @@ namespace llvm {
 //===----------------------------------------------------------------------===//
 
 template<class Ty>
-struct identity : public std::unary_function<Ty, Ty> {
+struct identity {
+  using argument_type = Ty;
+
   Ty &operator()(Ty &self) const {
     return self;
   }
@@ -45,14 +47,14 @@ struct identity : public std::unary_function<Ty, Ty> {
 };
 
 template<class Ty>
-struct less_ptr : public std::binary_function<Ty, Ty, bool> {
+struct less_ptr {
   bool operator()(const Ty* left, const Ty* right) const {
     return *left < *right;
   }
 };
 
 template<class Ty>
-struct greater_ptr : public std::binary_function<Ty, Ty, bool> {
+struct greater_ptr {
   bool operator()(const Ty* left, const Ty* right) const {
     return *right < *left;
   }
@@ -118,7 +120,8 @@ public:
           iterator_category;
   typedef typename std::iterator_traits<RootIt>::difference_type
           difference_type;
-  typedef typename UnaryFunc::result_type value_type;
+  typedef decltype(std::declval<UnaryFunc>()(*std::declval<RootIt>()))
+          value_type;
 
   typedef void pointer;
   //typedef typename UnaryFunc::result_type *pointer;
