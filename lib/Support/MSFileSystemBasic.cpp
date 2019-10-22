@@ -239,7 +239,7 @@ MSFileSystemForIface::MSFileSystemForIface(IDxcSystemAccess* systemAccess)
 }
 
 _Use_decl_annotations_
-HRESULT MSFileSystemForIface::AddMappingHandle(IUnknown* mapping, HANDLE* pResult)
+HRESULT MSFileSystemForIface::AddMappingHandle(IUnknown* mapping, HANDLE* pResult) throw()
 {
   DXASSERT_NOMSG(mapping != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
@@ -256,7 +256,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-HRESULT MSFileSystemForIface::AddMappingView(ID3D10Blob* blob)
+HRESULT MSFileSystemForIface::AddMappingView(ID3D10Blob* blob) throw()
 {
   DXASSERT_NOMSG(blob != nullptr);
   LPVOID address = blob->GetBufferPointer();
@@ -273,7 +273,7 @@ HRESULT MSFileSystemForIface::AddMappingView(ID3D10Blob* blob)
 }
 
 _Use_decl_annotations_
-HRESULT MSFileSystemForIface::AddFindHandle(IEnumSTATSTG* enumStatStg, HANDLE* pResult)
+HRESULT MSFileSystemForIface::AddFindHandle(IEnumSTATSTG* enumStatStg, HANDLE* pResult) throw()
 {
   DXASSERT_NOMSG(enumStatStg != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
@@ -290,7 +290,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-HRESULT MSFileSystemForIface::AddFileHandle(IUnknown* storage, IStream* stream, HANDLE* pResult)
+HRESULT MSFileSystemForIface::AddFileHandle(IUnknown* storage, IStream* stream, HANDLE* pResult) throw()
 {
   DXASSERT_NOMSG(storage != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
@@ -306,7 +306,7 @@ Cleanup:
   return hr;
 }
 
-void MSFileSystemForIface::CloseInternalHandle(HANDLE handle)
+void MSFileSystemForIface::CloseInternalHandle(HANDLE handle) throw()
 {
   DXASSERT_NOMSG(handle != nullptr);
   DXASSERT_NOMSG(handle != INVALID_HANDLE_VALUE);
@@ -323,7 +323,7 @@ void MSFileSystemForIface::CloseInternalHandle(HANDLE handle)
 }
 
 _Use_decl_annotations_
-void MSFileSystemForIface::RemoveMappingView(LPCVOID address)
+void MSFileSystemForIface::RemoveMappingView(LPCVOID address) throw()
 {
   TViewMap::iterator i = m_mappingViews.find(address);
   DXASSERT(i != m_mappingViews.end(), "otherwise pointer to view isn't in map");
@@ -333,7 +333,7 @@ void MSFileSystemForIface::RemoveMappingView(LPCVOID address)
 }
 
 _Use_decl_annotations_
-void MSFileSystemForIface::GetFindHandle(HANDLE findHandle, IEnumSTATSTG** enumStatStg)
+void MSFileSystemForIface::GetFindHandle(HANDLE findHandle, IEnumSTATSTG** enumStatStg) throw()
 {
   DXASSERT_NOMSG(findHandle != nullptr);
   DXASSERT_NOMSG(enumStatStg != nullptr);
@@ -347,7 +347,7 @@ void MSFileSystemForIface::GetFindHandle(HANDLE findHandle, IEnumSTATSTG** enumS
   (*enumStatStg)->AddRef();
 }
 
-int MSFileSystemForIface::GetHandleFD(HANDLE fileHandle)
+int MSFileSystemForIface::GetHandleFD(HANDLE fileHandle) throw()
 {
   DXASSERT_NOMSG(fileHandle != nullptr);
 
@@ -358,7 +358,7 @@ int MSFileSystemForIface::GetHandleFD(HANDLE fileHandle)
 }
 
 _Use_decl_annotations_
-void MSFileSystemForIface::GetHandleMapping(HANDLE mapping, _Outptr_ IUnknown** pResult)
+void MSFileSystemForIface::GetHandleMapping(HANDLE mapping, _Outptr_ IUnknown** pResult) throw()
 {
   DXASSERT_NOMSG(mapping != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
@@ -373,7 +373,7 @@ void MSFileSystemForIface::GetHandleMapping(HANDLE mapping, _Outptr_ IUnknown** 
 }
 
 _Use_decl_annotations_
-void MSFileSystemForIface::GetHandleStorage(HANDLE fileHandle, _Outptr_ IUnknown** pResult)
+void MSFileSystemForIface::GetHandleStorage(HANDLE fileHandle, _Outptr_ IUnknown** pResult) throw()
 {
   DXASSERT_NOMSG(fileHandle != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
@@ -388,7 +388,7 @@ void MSFileSystemForIface::GetHandleStorage(HANDLE fileHandle, _Outptr_ IUnknown
 }
 
 _Use_decl_annotations_
-void MSFileSystemForIface::GetHandleStream(HANDLE fileHandle, _Outptr_ IStream** pResult)
+void MSFileSystemForIface::GetHandleStream(HANDLE fileHandle, _Outptr_ IStream** pResult) throw()
 {
   DXASSERT_NOMSG(fileHandle != nullptr);
   DXASSERT_NOMSG(pResult != nullptr);
@@ -404,7 +404,7 @@ void MSFileSystemForIface::GetHandleStream(HANDLE fileHandle, _Outptr_ IStream**
 
 
 _Use_decl_annotations_
-HANDLE MSFileSystemForIface::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData)
+HANDLE MSFileSystemForIface::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IEnumSTATSTG> enumStatStg;
@@ -441,7 +441,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData)
+BOOL MSFileSystemForIface::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IEnumSTATSTG> enumStatStg;
@@ -475,13 +475,13 @@ Cleanup:
   return TRUE;
 }
 
-void MSFileSystemForIface::FindClose(HANDLE findHandle)
+void MSFileSystemForIface::FindClose(HANDLE findHandle) throw()
 {
   CloseInternalHandle(findHandle);
 }
 
 _Use_decl_annotations_
-HANDLE MSFileSystemForIface::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes)
+HANDLE MSFileSystemForIface::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IUnknown> storage;
@@ -503,7 +503,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::SetFileTime(HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime)
+BOOL MSFileSystemForIface::SetFileTime(HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IUnknown> storage;
@@ -522,7 +522,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::GetFileInformationByHandle(HANDLE hFile, LPBY_HANDLE_FILE_INFORMATION lpFileInformation)
+BOOL MSFileSystemForIface::GetFileInformationByHandle(HANDLE hFile, LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IUnknown> storage;
@@ -541,7 +541,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForIface::GetFileType(HANDLE hFile)
+DWORD MSFileSystemForIface::GetFileType(HANDLE hFile) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IUnknown> storage;
@@ -565,21 +565,21 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::CreateHardLinkW(LPCWSTR lpFileName, LPCWSTR lpExistingFileName)
+BOOL MSFileSystemForIface::CreateHardLinkW(LPCWSTR lpFileName, LPCWSTR lpExistingFileName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, DWORD dwFlags)
+BOOL MSFileSystemForIface::MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, DWORD dwFlags) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForIface::GetFileAttributesW(LPCWSTR lpFileName)
+DWORD MSFileSystemForIface::GetFileAttributesW(LPCWSTR lpFileName) throw()
 {
   HRESULT hr = S_OK;
   DWORD attributes;
@@ -597,35 +597,35 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::CloseHandle(HANDLE hObject)
+BOOL MSFileSystemForIface::CloseHandle(HANDLE hObject) throw()
 {
   this->CloseInternalHandle(hObject);
   return TRUE;
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::DeleteFileW(LPCWSTR lpFileName)
+BOOL MSFileSystemForIface::DeleteFileW(LPCWSTR lpFileName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::RemoveDirectoryW(LPCWSTR lpFileName)
+BOOL MSFileSystemForIface::RemoveDirectoryW(LPCWSTR lpFileName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::CreateDirectoryW(LPCWSTR lpPathName)
+BOOL MSFileSystemForIface::CreateDirectoryW(LPCWSTR lpPathName) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForIface::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer)
+DWORD MSFileSystemForIface::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   DWORD written = 0;
   HRESULT hr = S_OK;
@@ -643,7 +643,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForIface::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize)
+DWORD MSFileSystemForIface::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize) throw()
 {
   DWORD written = 0;
   HRESULT hr = S_OK;
@@ -661,7 +661,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForIface::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer)
+DWORD MSFileSystemForIface::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   DWORD written = 0;
   HRESULT hr = S_OK;
@@ -679,19 +679,19 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-BOOLEAN MSFileSystemForIface::CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName, DWORD dwFlags)
+BOOLEAN MSFileSystemForIface::CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName, DWORD dwFlags) throw()
 {
   SetLastError(ERROR_FUNCTION_NOT_CALLED);
   return FALSE;
 }
 
-bool MSFileSystemForIface::SupportsCreateSymbolicLink()
+bool MSFileSystemForIface::SupportsCreateSymbolicLink() throw()
 {
   return false;
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForIface::ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead)
+BOOL MSFileSystemForIface::ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IStream> stream;
@@ -714,7 +714,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-HANDLE MSFileSystemForIface::CreateFileMappingW(HANDLE hFile, DWORD flProtect, DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow)
+HANDLE MSFileSystemForIface::CreateFileMappingW(HANDLE hFile, DWORD flProtect, DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow) throw()
 {
   HRESULT hr = S_OK;
   HANDLE result = INVALID_HANDLE_VALUE;
@@ -736,7 +736,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-LPVOID MSFileSystemForIface::MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow, SIZE_T dwNumberOfBytesToMap)
+LPVOID MSFileSystemForIface::MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow, SIZE_T dwNumberOfBytesToMap) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IUnknown> mapping;
@@ -763,12 +763,12 @@ BOOL MSFileSystemForIface::UnmapViewOfFile(LPCVOID lpBaseAddress) throw()
   return TRUE;
 }
 
-bool MSFileSystemForIface::FileDescriptorIsDisplayed(int fd)
+bool MSFileSystemForIface::FileDescriptorIsDisplayed(int fd) throw()
 {
   return false;
 }
 
-unsigned MSFileSystemForIface::GetColumnCount(DWORD nStdHandle)
+unsigned MSFileSystemForIface::GetColumnCount(DWORD nStdHandle) throw()
 {
   return 0;
 }
@@ -778,16 +778,16 @@ unsigned MSFileSystemForIface::GetConsoleOutputTextAttributes() throw()
   return 0;
 }
 
-void MSFileSystemForIface::SetConsoleOutputTextAttributes(unsigned attributes)
+void MSFileSystemForIface::SetConsoleOutputTextAttributes(unsigned attributes) throw()
 {
   return;
 }
 
-void MSFileSystemForIface::ResetConsoleOutputTextAttributes()
+void MSFileSystemForIface::ResetConsoleOutputTextAttributes() throw()
 {
 }
 
-int MSFileSystemForIface::open_osfhandle(intptr_t osfhandle, int flags)
+int MSFileSystemForIface::open_osfhandle(intptr_t osfhandle, int flags) throw()
 {
   return GetHandleFD((HANDLE)osfhandle);
 }
@@ -824,7 +824,7 @@ Cleanup:
   return hr;
 }
 
-HANDLE MSFileSystemForIface::GetHandleForFD(int fd)
+HANDLE MSFileSystemForIface::GetHandleForFD(int fd) throw()
 {
   MSFileSystemHandle* ptr;
   switch (fd)
@@ -837,7 +837,7 @@ HANDLE MSFileSystemForIface::GetHandleForFD(int fd)
   return ptr->GetHandle();
 }
 
-intptr_t MSFileSystemForIface::get_osfhandle(int fd) {
+intptr_t MSFileSystemForIface::get_osfhandle(int fd) throw() {
   if (FAILED(EnsureFDAvailable(fd))) {
     errno = EBADF;
     return -1;
@@ -846,14 +846,14 @@ intptr_t MSFileSystemForIface::get_osfhandle(int fd) {
   return (intptr_t)GetHandleForFD(fd);
 }
 
-int MSFileSystemForIface::close(int fd)
+int MSFileSystemForIface::close(int fd) throw()
 {
   HANDLE h = GetHandleForFD(fd);
   this->CloseInternalHandle(h);
   return 0;
 }
 
-long MSFileSystemForIface::lseek(int fd, long offset, int origin)
+long MSFileSystemForIface::lseek(int fd, long offset, int origin) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IStream> stream;
@@ -886,19 +886,19 @@ Cleanup:
   return uli.LowPart;
 }
 
-int MSFileSystemForIface::setmode(int fd, int mode)
+int MSFileSystemForIface::setmode(int fd, int mode) throw()
 {
   return 0;
 }
 
 _Use_decl_annotations_
-errno_t MSFileSystemForIface::resize_file(LPCWSTR path, uint64_t size)
+errno_t MSFileSystemForIface::resize_file(LPCWSTR path, uint64_t size) throw()
 {
   return EBADF;
 }
 
 _Use_decl_annotations_
-int MSFileSystemForIface::Read(int fd, void* buffer, unsigned int count)
+int MSFileSystemForIface::Read(int fd, void* buffer, unsigned int count) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IStream> stream;
@@ -923,7 +923,7 @@ Cleanup:
 }
 
 _Use_decl_annotations_
-int MSFileSystemForIface::Write(int fd, const void* buffer, unsigned int count)
+int MSFileSystemForIface::Write(int fd, const void* buffer, unsigned int count) throw()
 {
   HRESULT hr = S_OK;
   CComPtr<IStream> stream;
@@ -1140,7 +1140,7 @@ MSFileSystemBlocked::MSFileSystemBlocked()
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemBlocked::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer)
+DWORD MSFileSystemBlocked::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   if (nBufferLength > 1)
   {
@@ -1151,14 +1151,14 @@ DWORD MSFileSystemBlocked::GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBu
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemBlocked::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize)
+DWORD MSFileSystemBlocked::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize) throw()
 {
   SetLastError(NO_ERROR);
   return 0;
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemBlocked::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer)
+DWORD MSFileSystemBlocked::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   if (nBufferLength > 1)
   {
