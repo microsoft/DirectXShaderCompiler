@@ -88,6 +88,23 @@ TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
+TEST_F(FileTest, StructuredBufferTypeWithVector) {
+  runFileTest("type.structured-buffer.vector.hlsl");
+}
+TEST_F(FileTest, StructuredBufferTypeWithVectorDX) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("type.structured-buffer.vector.dx.hlsl");
+}
+TEST_F(FileTest, StructuredBufferTypeWithVectorGL) {
+  setGlLayout();
+  runFileTest("type.structured-buffer.vector.gl.hlsl");
+}
+TEST_F(FileTest, StructuredBufferTypeWithVectorScalar) {
+  // VK_EXT_scalar_block_layout
+  setScalarLayout();
+  runFileTest("type.structured-buffer.vector.scalar.hlsl");
+}
 TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
@@ -1033,6 +1050,13 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsStaticError) {
   runFileTest("intrinsics.interlocked-methods.static-error.hlsl",
               Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzling) {
+  runFileTest("intrinsics.interlocked-methods.texture.swizzling.hlsl");
+}
+TEST_F(FileTest, IntrinsicsInterlockedMethodsTextureSwizzlingError) {
+  runFileTest("intrinsics.interlocked-methods.texture.swizzling.error.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
@@ -1048,6 +1072,7 @@ TEST_F(FileTest, IntrinsicsModfWithSwizzling) {
   runFileTest("intrinsics.modf.swizzle.hlsl");
 }
 TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
+TEST_F(FileTest, IntrinsicsUMad) { runFileTest("intrinsics.umad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }
 TEST_F(FileTest, IntrinsicsMsad4) { runFileTest("intrinsics.msad4.hlsl"); }
 TEST_F(FileTest, IntrinsicsNormalize) {
@@ -1090,6 +1115,11 @@ TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan2) { runFileTest("intrinsics.atan2.hlsl"); }
+TEST_F(FileTest, IntrinsicsAtanFp16) {
+  // Float16 capability should be emitted for usage of fp16 in the extended
+  // instruction set.
+  runFileTest("intrinsics.atan.fp16.hlsl");
+}
 
 // Unspported intrinsic functions
 TEST_F(FileTest, IntrinsicsAbort) {
@@ -1850,6 +1880,9 @@ TEST_F(FileTest, VulkanSubpassInputError) {
 TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
+  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl", Expect::Failure);
+}
 
 TEST_F(FileTest, NamespaceFunctions) {
   runFileTest("namespace.functions.hlsl");
@@ -1888,6 +1921,9 @@ TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 // CS: groupshared
 TEST_F(FileTest, ComputeShaderGroupShared) {
   runFileTest("cs.groupshared.hlsl");
+}
+TEST_F(FileTest, ComputeShaderGroupSharedNotInGlobals) {
+  runFileTest("cs.groupshared.not-in-globals.hlsl");
 }
 TEST_F(FileTest, ComputeShaderGroupSharedFunctionParam) {
   setBeforeHLSLLegalization();
@@ -2007,19 +2043,6 @@ TEST_F(FileTest, CapabilityUnique) { runFileTest("capability.unique.hlsl"); }
 
 // For extension uniqueness
 TEST_F(FileTest, ExtensionUnique) { runFileTest("extension.unique.hlsl"); }
-
-// For vendor-specific extensions
-TEST_F(FileTest, VendorSpecificExtensionAllowed) {
-  // The SPV_AMD_gpu_shader_half_float extension adds support for 16-bit
-  // floating-point component types for a number of instructions in the
-  // GLSL.std.450 extended instruction set.
-  runFileTest("extension.GLSLstd450-fp16.allowed.hlsl");
-}
-TEST_F(FileTest, VendorSpecificExtensionNotAllowed) {
-  // Command line options can entirely prevent the compiler from using
-  // vendor-specific extensions.
-  runFileTest("extension.GLSLstd450-fp16.not-allowed.hlsl", Expect::Failure);
-}
 
 // For RelaxedPrecision decorations
 TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {

@@ -1145,6 +1145,11 @@ private:
   llvm::SmallDenseMap<QualType,
                       std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
       callDataMap;
+
+  /// Incoming ray payload for current entry function being translated.
+  /// Only valid for any-hit/closest-hit ray tracing shaders.
+  SpirvInstruction *currentRayPayload;
+
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;

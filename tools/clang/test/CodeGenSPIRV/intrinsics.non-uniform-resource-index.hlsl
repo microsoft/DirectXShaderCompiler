@@ -1,67 +1,67 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK: OpCapability RuntimeDescriptorArrayEXT
-// CHECK: OpCapability ShaderNonUniformEXT
-// CHECK: OpCapability SampledImageArrayNonUniformIndexingEXT
-// CHECK: OpCapability StorageImageArrayNonUniformIndexingEXT
-// CHECK: OpCapability UniformTexelBufferArrayNonUniformIndexingEXT
-// CHECK: OpCapability StorageTexelBufferArrayNonUniformIndexingEXT
-// CHECK: OpCapability InputAttachmentArrayNonUniformIndexingEXT
+// CHECK: OpCapability RuntimeDescriptorArray
+// CHECK: OpCapability ShaderNonUniform
+// CHECK: OpCapability SampledImageArrayNonUniformIndexing
+// CHECK: OpCapability StorageImageArrayNonUniformIndexing
+// CHECK: OpCapability UniformTexelBufferArrayNonUniformIndexing
+// CHECK: OpCapability StorageTexelBufferArrayNonUniformIndexing
+// CHECK: OpCapability InputAttachmentArrayNonUniformIndexing
 
 // CHECK: OpExtension "SPV_EXT_descriptor_indexing"
 
-// CHECK: OpDecorate [[nu1:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu2:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu3:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu4:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu5:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu6:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu7:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu8:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu9:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu10:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu11:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu12:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu13:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu14:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu15:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu16:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu17:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu18:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu19:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu20:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu21:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu22:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu23:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu24:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu25:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu26:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu27:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu28:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu29:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu30:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu31:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu32:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu33:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu34:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu35:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu36:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu37:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu38:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu39:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu40:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu41:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu42:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu43:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu44:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu45:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu46:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu47:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu48:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu49:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu50:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu51:%\d+]] NonUniformEXT
-// CHECK: OpDecorate [[nu52:%\d+]] NonUniformEXT
+// CHECK: OpDecorate [[nu1:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu2:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu3:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu4:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu5:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu6:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu7:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu8:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu9:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu10:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu11:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu12:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu13:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu14:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu15:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu16:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu17:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu18:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu19:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu20:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu21:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu22:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu23:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu24:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu25:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu26:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu27:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu28:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu29:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu30:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu31:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu32:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu33:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu34:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu35:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu36:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu37:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu38:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu39:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu40:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu41:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu42:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu43:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu44:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu45:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu46:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu47:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu48:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu49:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu50:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu51:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu52:%\d+]] NonUniform
 
 Texture2D           gTextures[32];
 SamplerState        gSamplers[];

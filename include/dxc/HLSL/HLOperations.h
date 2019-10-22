@@ -278,7 +278,6 @@ const unsigned kSampleBStatusArgIndex = 7;
 const unsigned kSampleLLevelArgIndex = 4;
 const unsigned kSampleLOffsetArgIndex = 5;
 const unsigned kSampleLStatusArgIndex = 6;
-const unsigned kSampleLCubeStatusArgIndex = 5;  // Cube/CubeArray has no offset arg
 
 // SampleCmpLevelZero.
 const unsigned kSampleCmpLZCmpValArgIndex = 4;
@@ -292,6 +291,7 @@ const unsigned kGatherOffsetArgIndex = 4;
 const unsigned kGatherStatusArgIndex = 5;
 const unsigned kGatherSampleOffsetArgIndex = 5;
 const unsigned kGatherStatusWithSampleOffsetArgIndex = 8;
+const unsigned kGatherCubeStatusArgIndex = 4;
 
 // GatherCmp.
 const unsigned kGatherCmpCmpValArgIndex = 4;
@@ -299,6 +299,7 @@ const unsigned kGatherCmpOffsetArgIndex = 5;
 const unsigned kGatherCmpStatusArgIndex = 6;
 const unsigned kGatherCmpSampleOffsetArgIndex = 6;
 const unsigned kGatherCmpStatusWithSampleOffsetArgIndex = 9;
+const unsigned kGatherCmpCubeStatusArgIndex = 5;
 
 // WriteSamplerFeedback.
 const unsigned kWriteSamplerFeedbackSampledArgIndex = 2;
@@ -348,6 +349,9 @@ const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;
 const unsigned kTraceRayPayLoadOpIdx = 8;
+
+// CallShader.
+const unsigned kCallShaderPayloadOpIdx = 2;
 
 // TraceRayInline.
 const unsigned kTraceRayInlineRayDescOpIdx = 5;

@@ -58,6 +58,7 @@
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/HLSL/HLLowerUDT.h"
 #include <deque>
 #include <unordered_map>
 #include <unordered_set>
@@ -777,6 +778,195 @@ static unsigned getNestedLevelInStruct(const Type *ty) {
   return lvl;
 }
 
+/// Returns first GEP index that indexes a struct member, or 0 otherwise.
+/// Ignores initial ptr index.
+static unsigned FindFirstStructMemberIdxInGEP(GEPOperator *GEP) {
+  StructType *ST = dyn_cast<StructType>(
+    GEP->getPointerOperandType()->getPointerElementType());
+  int index = 1;
+  for (auto it = gep_type_begin(GEP), E = gep_type_end(GEP); it != E;
+       ++it, ++index) {
+    if (ST) {
+      DXASSERT(!HLMatrixType::isa(ST) && !dxilutil::IsHLSLObjectType(ST),
+               "otherwise, indexing into hlsl object");
+      return index;
+    }
+    ST = dyn_cast<StructType>(it->getPointerElementType());
+  }
+  return 0;
+}
+
+/// Return true when ptr should not be SROA'd or copied, but used directly
+/// by a function in its lowered form.  Also collect uses for translation.
+/// What is meant by directly here:
+///   Possibly accessed through GEP array index or address space cast, but
+///   not under another struct member (always allow SROA of outer struct).
+typedef SmallMapVector<CallInst*, unsigned, 4> FunctionUseMap;
+static unsigned IsPtrUsedByLoweredFn(
+    Value *V, FunctionUseMap &CollectedUses) {
+  bool bFound = false;
+  for (Use &U : V->uses()) {
+    User *user = U.getUser();
+
+    if (CallInst *CI = dyn_cast<CallInst>(user)) {
+      unsigned foundIdx = (unsigned)-1;
+      Function *F = CI->getCalledFunction();
+      Type *Ty = V->getType();
+      if (F->isDeclaration() && !F->isIntrinsic() &&
+          Ty->isPointerTy()) {
+        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+        if (group == HLOpcodeGroup::HLIntrinsic) {
+          unsigned opIdx = U.getOperandNo();
+          switch ((IntrinsicOp)hlsl::GetHLOpcode(CI)) {
+            // TODO: Lower these as well, along with function parameter types
+            //case IntrinsicOp::IOP_TraceRay:
+            //  if (opIdx != HLOperandIndex::kTraceRayPayLoadOpIdx)
+            //    continue;
+            //  break;
+            //case IntrinsicOp::IOP_ReportHit:
+            //  if (opIdx != HLOperandIndex::kReportIntersectionAttributeOpIdx)
+            //    continue;
+            //  break;
+            //case IntrinsicOp::IOP_CallShader:
+            //  if (opIdx != HLOperandIndex::kCallShaderPayloadOpIdx)
+            //    continue;
+            //  break;
+            case IntrinsicOp::IOP_DispatchMesh:
+              if (opIdx != HLOperandIndex::kDispatchMeshOpPayload)
+                continue;
+              break;
+            default:
+              continue;
+          }
+          foundIdx = opIdx;
+
+        // TODO: Lower these as well, along with function parameter types
+        //} else if (group == HLOpcodeGroup::NotHL) {
+        //  foundIdx = U.getOperandNo();
+        }
+      }
+      if (foundIdx != (unsigned)-1) {
+        bFound = true;
+        auto insRes = CollectedUses.insert(std::make_pair(CI, foundIdx));
+        DXASSERT_LOCALVAR(insRes, insRes.second,
+            "otherwise, multiple uses in single call");
+      }
+
+    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
+      // Not what we are looking for if GEP result is not [array of] struct.
+      // If use is under struct member, we can still SROA the outer struct.
+      if (!dxilutil::StripArrayTypes(GEP->getType()->getPointerElementType())
+            ->isStructTy() ||
+          FindFirstStructMemberIdxInGEP(cast<GEPOperator>(GEP)))
+        continue;
+      if (IsPtrUsedByLoweredFn(user, CollectedUses))
+        bFound = true;
+
+    } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
+      if (IsPtrUsedByLoweredFn(user, CollectedUses))
+        bFound = true;
+
+    } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
+      unsigned opcode = CE->getOpcode();
+      if (opcode == Instruction::AddrSpaceCast || Instruction::GetElementPtr)
+        if (IsPtrUsedByLoweredFn(user, CollectedUses))
+          bFound = true;
+    }
+  }
+  return bFound;
+}
+
+/// Rewrite call to natively use an argument with addrspace cast/bitcast
+static CallInst *RewriteIntrinsicCallForCastedArg(CallInst *CI, unsigned argIdx) {
+  Function *F = CI->getCalledFunction();
+  HLOpcodeGroup group = GetHLOpcodeGroupByName(F);
+  DXASSERT_NOMSG(group == HLOpcodeGroup::HLIntrinsic);
+  unsigned opcode = GetHLOpcode(CI);
+  SmallVector<Type *, 8> newArgTypes(CI->getFunctionType()->param_begin(),
+                                     CI->getFunctionType()->param_end());
+  SmallVector<Value *, 8> newArgs(CI->arg_operands());
+
+  Value *newArg = CI->getOperand(argIdx)->stripPointerCasts();
+  newArgTypes[argIdx] = newArg->getType();
+  newArgs[argIdx] = newArg;
+
+  FunctionType *newFuncTy = FunctionType::get(CI->getType(), newArgTypes, false);
+  Function *newF = GetOrCreateHLFunction(*F->getParent(), newFuncTy, group, opcode);
+
+  IRBuilder<> Builder(CI);
+  return Builder.CreateCall(newF, newArgs);
+}
+
+/// Translate pointer for cases where intrinsics use UDT pointers directly
+/// Return existing or new ptr if needs preserving,
+/// otherwise nullptr to proceed with existing checks and SROA.
+static Value *TranslatePtrIfUsedByLoweredFn(
+    Value *Ptr, DxilTypeSystem &TypeSys) {
+  if (!Ptr->getType()->isPointerTy())
+    return nullptr;
+  Type *Ty = Ptr->getType()->getPointerElementType();
+  SmallVector<unsigned, 4> outerToInnerLengths;
+  Ty = dxilutil::StripArrayTypes(Ty, &outerToInnerLengths);
+  if (!Ty->isStructTy())
+    return nullptr;
+  if (HLMatrixType::isa(Ty) || dxilutil::IsHLSLObjectType(Ty))
+    return nullptr;
+  unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
+  FunctionUseMap FunctionUses;
+  if (!IsPtrUsedByLoweredFn(Ptr, FunctionUses))
+    return nullptr;
+  // Translate vectors to arrays in type, but don't SROA
+  Type *NewTy = GetLoweredUDT(cast<StructType>(Ty), &TypeSys);
+
+  // No work to do here, but prevent SROA.
+  if (Ty == NewTy && AddrSpace != DXIL::kTGSMAddrSpace)
+    return Ptr;
+
+  // If type changed, replace value, otherwise casting may still
+  // require a rewrite of the calls.
+  Value *NewPtr = Ptr;
+  if (Ty != NewTy) {
+    NewTy = dxilutil::WrapInArrayTypes(NewTy, outerToInnerLengths);
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+      Module &M = *GV->getParent();
+      // Rewrite init expression for arrays instead of vectors
+      Constant *Init = GV->hasInitializer() ?
+        GV->getInitializer() : UndefValue::get(Ptr->getType());
+      Constant *NewInit = TranslateInitForLoweredUDT(
+        Init, NewTy, &TypeSys);
+      // Replace with new GV, and rewrite vector load/store users
+      GlobalVariable *NewGV = new GlobalVariable(
+          M, NewTy, GV->isConstant(), GV->getLinkage(),
+          NewInit, GV->getName(), /*InsertBefore*/ GV,
+          GV->getThreadLocalMode(), AddrSpace);
+      NewPtr = NewGV;
+    } else if (AllocaInst *AI = dyn_cast<AllocaInst>(Ptr)) {
+      IRBuilder<> Builder(AI);
+      AllocaInst * NewAI = Builder.CreateAlloca(NewTy, nullptr, AI->getName());
+      NewPtr = NewAI;
+    } else {
+      DXASSERT(false, "Ptr must be global or alloca");
+    }
+    // This will rewrite vector load/store users
+    // and insert bitcasts for CallInst users
+    ReplaceUsesForLoweredUDT(Ptr, NewPtr);
+  }
+
+  // Rewrite the HLIntrinsic calls
+  for (auto it : FunctionUses) {
+    CallInst *CI = it.first;
+    HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+    if (group == HLOpcodeGroup::NotHL)
+      continue;
+    CallInst *newCI = RewriteIntrinsicCallForCastedArg(CI, it.second);
+    CI->replaceAllUsesWith(newCI);
+    CI->eraseFromParent();
+  }
+
+  return NewPtr;
+}
+
+
 // performScalarRepl - This algorithm is a simple worklist driven algorithm,
 // which runs on all of the alloca instructions in the entry block, removing
 // them if they are only used by getelementptr instructions.
@@ -863,6 +1053,15 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
     if (SROA_Helper::IsEmptyStructType(Ty, typeSys)) {
       SROA_Helper::MarkEmptyStructUsers(AI, DeadInsts);
       DeleteDeadInstructions();
+      continue;
+    }
+
+    if (Value *NewV = TranslatePtrIfUsedByLoweredFn(AI, typeSys)) {
+      if (NewV != AI) {
+        DXASSERT(AI->getNumUses() == 0, "must have zero users.");
+        AI->eraseFromParent();
+        Changed = true;
+      }
       continue;
     }
 
@@ -1053,8 +1252,7 @@ void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
         IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
         if (IntrinsicOp::IOP_TraceRay == opcode ||
             IntrinsicOp::IOP_ReportHit == opcode ||
-            IntrinsicOp::IOP_CallShader == opcode ||
-            IntrinsicOp::IOP_DispatchMesh == opcode) {
+            IntrinsicOp::IOP_CallShader == opcode) {
           return MarkUnsafe(Info, User);
         }
       }
@@ -2507,10 +2705,53 @@ void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
   }
 }
 
+// Flatten matching OldVal arg to NewElts, optionally loading values (loadElts).
+// Does not replace or clean up old CallInst.
+static CallInst *CreateFlattenedHLIntrinsicCall(
+    CallInst *CI, Value* OldVal, ArrayRef<Value*> NewElts, bool loadElts) {
+  HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+  Function *F = CI->getCalledFunction();
+  DXASSERT_NOMSG(group == HLOpcodeGroup::HLIntrinsic);
+  unsigned opcode = GetHLOpcode(CI);
+  IRBuilder<> Builder(CI);
+
+  SmallVector<Value *, 4> flatArgs;
+  for (Value *arg : CI->arg_operands()) {
+    if (arg == OldVal) {
+      for (Value *Elt : NewElts) {
+        if (loadElts && Elt->getType()->isPointerTy())
+          Elt = Builder.CreateLoad(Elt);
+        flatArgs.emplace_back(Elt);
+      }
+    } else
+      flatArgs.emplace_back(arg);
+  }
+
+  SmallVector<Type *, 4> flatParamTys;
+  for (Value *arg : flatArgs)
+    flatParamTys.emplace_back(arg->getType());
+  FunctionType *flatFuncTy =
+      FunctionType::get(CI->getType(), flatParamTys, false);
+  Function *flatF =
+      GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
+
+  return Builder.CreateCall(flatF, flatArgs);
+}
+
+static CallInst *RewriteWithFlattenedHLIntrinsicCall(
+    CallInst *CI, Value* OldVal, ArrayRef<Value*> NewElts, bool loadElts) {
+  CallInst *flatCI = CreateFlattenedHLIntrinsicCall(
+    CI, OldVal, NewElts, /*loadElts*/loadElts);
+  CI->replaceAllUsesWith(flatCI);
+  // Clear CI operands so we don't try to translate old call again
+  for (auto& opit : CI->operands())
+    opit.set(UndefValue::get(opit->getType()));
+  return flatCI;
+}
+
 /// RewriteCall - Replace OldVal with flattened NewElts in CallInst.
 void SROA_Helper::RewriteCall(CallInst *CI) {
   HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-  Function *F = CI->getCalledFunction();
   if (group != HLOpcodeGroup::NotHL) {
     unsigned opcode = GetHLOpcode(CI);
     if (group == HLOpcodeGroup::HLIntrinsic) {
@@ -2519,36 +2760,9 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
       case IntrinsicOp::MOP_Append: {
         // Buffer Append already expand in code gen.
         // Must be OutputStream Append here.
-        SmallVector<Value *, 4> flatArgs;
-        for (Value *arg : CI->arg_operands()) {
-          if (arg == OldVal) {
-            // Flatten to arg.
-            // Every Elt has a pointer type.
-            // For Append, it's not a problem.
-            for (Value *Elt : NewElts)
-              flatArgs.emplace_back(Elt);
-          } else
-            flatArgs.emplace_back(arg);
-        }
-
-        SmallVector<Type *, 4> flatParamTys;
-        for (Value *arg : flatArgs)
-          flatParamTys.emplace_back(arg->getType());
-        // Don't need flat return type for Append.
-        FunctionType *flatFuncTy =
-            FunctionType::get(CI->getType(), flatParamTys, false);
-        Function *flatF =
-            GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
-        IRBuilder<> Builder(CI);
-        Builder.CreateCall(flatF, flatArgs);
-
-        // Append returns void, so it's not used by other instructions
-        // and we don't need to replace it with flatCI.
-        // However, we don't want to visit the same append again
-        // when SROA'ing other arguments, as that would be O(n^2)
-        // and we would attempt double-deleting the original call.
-        for (auto& opit : CI->operands())
-          opit.set(UndefValue::get(opit->getType()));
+        // Every Elt has a pointer type.
+        // For Append, this is desired, so don't load.
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts, /*loadElts*/false);
         DeadInsts.push_back(CI);
       } break;
       case IntrinsicOp::IOP_TraceRay: {
@@ -2569,17 +2783,32 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
                        /*bIn*/ true, /*bOut*/ false);
       } break;
       case IntrinsicOp::IOP_CallShader: {
-        RewriteCallArg(CI, HLOperandIndex::kBinaryOpSrc1Idx,
+        RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
                        /*bIn*/ true, /*bOut*/ true);
       } break;
       case IntrinsicOp::MOP_TraceRayInline: {
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayInlineRayDescOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts, /*loadElts*/true);
+          DeadInsts.push_back(CI);
+          break;
         }
-      } break;
+      }
+      __fallthrough;
       default:
+        // RayQuery this pointer replacement.
+        if (OldVal->getType()->isPointerTy() &&
+            CI->getNumArgOperands() >= HLOperandIndex::kHandleOpIdx &&
+            OldVal == CI->getArgOperand(HLOperandIndex::kHandleOpIdx) &&
+            dxilutil::IsHLSLRayQueryType(
+              OldVal->getType()->getPointerElementType())) {
+          // For RayQuery methods, we want to replace the RayQuery this pointer
+          // with a load and use of the underlying handle value.
+          // This will allow elimination of RayQuery types earlier.
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts, /*loadElts*/true);
+          DeadInsts.push_back(CI);
+          break;
+        }
         DXASSERT(0, "cannot flatten hlsl intrinsic.");
       }
     }
@@ -2722,7 +2951,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     // Skip HLSL object types and RayQuery.
-    if (dxilutil::IsHLSLObjectType(ST) || dxilutil::IsHLSLRayQueryType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       return false;
     }
 
@@ -3862,7 +4091,8 @@ private:
   Value *castArgumentIfRequired(Value *V, Type *Ty, bool bOut,
                                 DxilParamInputQual inputQual,
                                 DxilFieldAnnotation &annotation,
-                                IRBuilder<> &Builder);
+                                IRBuilder<> &Builder,
+                                DxilTypeSystem &TypeSys);
   // Replace use of parameter which changed type when flatten.
   // Also add information to Arg if required.
   void replaceCastParameter(Value *NewParam, Value *OldParam, Function &F,
@@ -4030,10 +4260,20 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       bFlatVector = false;
 
     std::vector<Value *> Elts;
-    bool SROAed = SROA_Helper::DoScalarReplacement(
-        EltGV, Elts, Builder, bFlatVector,
-        // TODO: set precise.
-        /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts);
+    bool SROAed = false;
+    if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
+        TranslatePtrIfUsedByLoweredFn(EltGV, dxilTypeSys))) {
+      if (GV != EltGV) {
+        EltGV->removeDeadConstantUsers();
+        EltGV->eraseFromParent();
+      }
+      EltGV = NewEltGV;
+    } else {
+      SROAed = SROA_Helper::DoScalarReplacement(
+          EltGV, Elts, Builder, bFlatVector,
+          // TODO: set precise.
+          /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts);
+    }
 
     if (SROAed) {
       // Push Elts into workList.
@@ -4647,8 +4887,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
   // Lower resource type to handle ty.
-  if (dxilutil::IsHLSLObjectType(Ty) &&
-    !HLModule::IsStreamOutputPtrType(V->getType())) {
+  if (dxilutil::IsHLSLResourceType(Ty)) {
     Value *Res = V;
     if (!bOut) {
       Value *LdRes = Builder.CreateLoad(Res);
@@ -4668,7 +4907,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
       arraySize *= AT->getArrayNumElements();
       AT = AT->getArrayElementType();
     }
-    if (dxilutil::IsHLSLObjectType(AT)) {
+    if (dxilutil::IsHLSLResourceType(AT)) {
       Value *Res = V;
       Type *Ty = ArrayType::get(HandleTy, arraySize);
       V = AllocaBuilder.CreateAlloca(Ty);
@@ -4681,9 +4920,23 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
 Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     Value *V, Type *Ty, bool bOut,
     DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
-    IRBuilder<> &Builder) {
+    IRBuilder<> &Builder,
+    DxilTypeSystem &TypeSys) {
   Module &M = *m_pHLModule->GetModule();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+
+  if (inputQual == DxilParamInputQual::InPayload) {
+    DXASSERT_NOMSG(isa<StructType>(Ty));
+    // Lower payload type here
+    StructType *LoweredTy = GetLoweredUDT(cast<StructType>(Ty), &TypeSys);
+    if (LoweredTy != Ty) {
+      Value *Ptr = AllocaBuilder.CreateAlloca(LoweredTy);
+      ReplaceUsesForLoweredUDT(V, Ptr);
+      castParamMap[V] = std::make_pair(Ptr, inputQual);
+      V = Ptr;
+    }
+    return V;
+  }
 
   // Remove pointer for vector/scalar which is not out.
   if (V->getType()->isPointerTy() && !Ty->isAggregateType() && !bOut) {
@@ -4973,7 +5226,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 
       // Cast vector/matrix/resource parameter.
       V = castArgumentIfRequired(V, Ty, bOut, inputQual,
-                                  annotation, Builder);
+                                  annotation, Builder, dxilTypeSys);
 
       // Cannot SROA, save it to final parameter list.
       FlatParamList.emplace_back(V);
@@ -5382,6 +5635,7 @@ static void LegalizeDxilInputOutputs(Function *F,
       bLoadOutputFromTemp = true;
     } else if (bLoad && bStore) {
       switch (qual) {
+      case DxilParamInputQual::InPayload:
       case DxilParamInputQual::InputPrimitive:
       case DxilParamInputQual::InputPatch:
       case DxilParamInputQual::OutputPatch: {

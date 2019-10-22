@@ -14,6 +14,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/microcom.h"
 #include <memory>
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 class DiagnosticsEngine;
@@ -24,7 +25,6 @@ class LLVMContext;
 class MemoryBuffer;
 class Module;
 class raw_string_ostream;
-class StringRef;
 class Twine;
 } // namespace llvm
 
@@ -39,18 +39,30 @@ class DxcOpts;
 } // namespace hlsl
 
 namespace dxcutil {
-HRESULT ValidateAndAssembleToContainer(
-    std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputContainerBlob,
-    IMalloc *pMalloc, hlsl::SerializeDxilFlags SerializeFlags,
-    CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode, bool bDebugInfo, llvm::StringRef DebugName,
-    clang::DiagnosticsEngine &Diag, hlsl::DxilShaderHash *pShaderHashOut = nullptr);
+struct AssembleInputs {
+  AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
+                 CComPtr<IDxcBlob> &pOutputContainerBlob,
+                 IMalloc *pMalloc,
+                 hlsl::SerializeDxilFlags SerializeFlags,
+                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
+                 bool bDebugInfo = false,
+                 llvm::StringRef DebugName = llvm::StringRef(),
+                 clang::DiagnosticsEngine *pDiag = nullptr,
+                 hlsl::DxilShaderHash *pShaderHashOut = nullptr);
+  std::unique_ptr<llvm::Module> pM;
+  CComPtr<IDxcBlob> &pOutputContainerBlob;
+  IMalloc *pMalloc;
+  hlsl::SerializeDxilFlags SerializeFlags;
+  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
+  bool bDebugInfo;
+  llvm::StringRef DebugName = llvm::StringRef();
+  clang::DiagnosticsEngine *pDiag;
+  hlsl::DxilShaderHash *pShaderHashOut = nullptr;
+};
+
+HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
-void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
-                         CComPtr<IDxcBlob> &pOutputContainerBlob,
-                         IMalloc *pMalloc,
-                         hlsl::SerializeDxilFlags SerializeFlags,
-                         CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
-                         hlsl::DxilShaderHash *pShaderHashOut = nullptr);
+void AssembleToContainer(AssembleInputs &inputs);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          hlsl::options::DxcOpts &opts,

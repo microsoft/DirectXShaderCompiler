@@ -287,6 +287,8 @@ enum class PSVSemanticKind : uint8_t    // DXIL::SemanticKind
   InsideTessFactor,
   ViewID,
   Barycentrics,
+  ShadingRate,
+  CullPrimitive,
   Invalid,
 };
 

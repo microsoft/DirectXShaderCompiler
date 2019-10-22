@@ -1197,6 +1197,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionBlocksForFuncti
 }
 
 HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionsForCU(llvm::DICompileUnit *CU) {
+  bool FoundFunctions = false;
   for (llvm::DISubprogram *SubProgram : CU->getSubprograms()) {
     DWORD dwNewFunID;
     const DWORD dwParentID = SubProgram->isLocalToUnit() ? HlslCompilandId : HlslProgramId;
@@ -1207,7 +1208,18 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionsForCU(llvm::DI
 
     if (llvm::Function *F = SubProgram->getFunction()) {
       IFR(CreateFunctionBlocksForFunction(F));
+      FoundFunctions = true;
     }
+  }
+
+  if (!FoundFunctions) {
+    // This works around an old bug in dxcompiler whose effects are still
+    // sometimes present in PIX users' traces. (The bug was that the subprogram(s)
+    // weren't pointing to their contained function.)
+    llvm::Module *M = &m_Session.ModuleRef();
+    auto &DM = M->GetDxilModule();
+    llvm::Function *EntryPoint = DM.GetEntryFunction();
+    IFR(CreateFunctionBlocksForFunction(EntryPoint));
   }
 
   return S_OK;
@@ -1426,7 +1438,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     IFR(GetTypeInfo(CT, &ctTI));
     TypeInfo *baseTI;
     IFR(GetTypeInfo(BaseType, &baseTI));
-    unsigned embedCount = 1;
+    int64_t embedCount = 1;
     for (llvm::DINode *N : CT->getElements()) {
       if (N != nullptr) {
         if (auto *SubRange = llvm::dyn_cast<llvm::DISubrange>(N)) {
@@ -1436,7 +1448,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
         }
       }
     }
-    for (unsigned i = 0; i < embedCount; ++i) {
+    for (int64_t i = 0; i < embedCount; ++i) {
       ctTI->Embed(*baseTI);
     }
     return S_OK;

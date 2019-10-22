@@ -354,7 +354,7 @@ void DxilModule::CollectShaderFlagsForModule() {
           for (const Instruction &I : BB.getInstList()) {
             const DxilInst_DispatchMesh dispatch(const_cast<Instruction*>(&I));
             if (dispatch) {
-              Type *payloadTy = dispatch.get_payload()->getType();
+              Type *payloadTy = dispatch.get_payload()->getType()->getPointerElementType();
               const DataLayout &DL = m_pModule->getDataLayout();
               props.ShaderProps.AS.payloadSizeInBytes = DL.getTypeAllocSize(payloadTy);
             }

@@ -41,7 +41,7 @@ bool validateSpirvBinary(spv_target_env env, std::vector<uint32_t> &binary,
   spvtools::ValidatorOptions options;
   options.SetBeforeHlslLegalization(beforeHlslLegalization);
   if (dxLayout || scalarLayout) {
-    options.SetSkipBlockLayout(true);
+    options.SetScalarBlockLayout(true);
   } else if (glLayout) {
     // The default for spirv-val.
   } else {

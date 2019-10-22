@@ -1506,7 +1506,7 @@ class db_dxil(object):
         next_op_idx += 1
 
         # RayQuery
-        self.add_dxil_op("AllocateRayQuery", next_op_idx, "AllocateRayQuery", "allocates space for RayQuery and return handle", "v", "rn", [
+        self.add_dxil_op("AllocateRayQuery", next_op_idx, "AllocateRayQuery", "allocates space for RayQuery and return handle", "v", "", [
             db_dxil_param(0, "i32", "", "handle to RayQuery state"),
             db_dxil_param(2, "u32", "constRayFlags", "Valid combination of RAY_FLAGS", is_const=True)])
         next_op_idx += 1
@@ -2003,6 +2003,7 @@ class db_dxil(object):
         add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [])
         add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
         add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [])
+        add_pass('dxil-erase-dead-region', 'DxilEraseDeadRegion', 'DxilEraseDeadRegion', [])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
@@ -2219,7 +2220,7 @@ class db_dxil(object):
             ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA,NotInSig _65,NA,NA,NA
             Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA,NA,NA,NA,NA
             ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA,NA,NA,NA,NA
-            CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,SV _65,NA
+            CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _65,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -2389,6 +2390,7 @@ class db_dxil(object):
         self.add_valrule_msg("Types.Defined", "Type must be defined based on DXIL primitives", "Type '%0' is not defined on DXIL primitives")
         self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width")
         self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type")
+        self.add_valrule("Types.NoPtrToPtr", "Pointers to pointers, or pointers in structures are not allowed")
         self.add_valrule("Types.I8", "I8 can only used as immediate value for intrinsic")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'")
@@ -2572,7 +2574,7 @@ class db_hlsl_attribute(object):
 
 class db_hlsl_intrinsic(object):
     "An HLSL intrinsic declaration"
-    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, unsigned_op, overload_idx):
+    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, unsigned_op, overload_idx, hidden):
         self.name = name                                # Function name
         self.idx = idx                                  # Unique number within namespace
         self.opname = opname                            # D3D-style name
@@ -2588,6 +2590,7 @@ class db_hlsl_intrinsic(object):
         if unsigned_op != "":
             self.unsigned_op = "%s_%s" % (id_prefix, unsigned_op)
         self.overload_param_index = overload_idx        # Parameter determines the overload type, -1 means ret type
+        self.hidden = hidden                            # Internal high-level op, not exposed to HLSL
         self.key = ("%3d" % ns_idx) + "!" + name + "!" + ("%2d" % len(params)) + "!" + ("%3d" % idx)    # Unique key
         self.vulkanSpecific = ns.startswith("Vk")       # Vulkan specific intrinsic - SPIRV change
 
@@ -2824,6 +2827,7 @@ class db_hlsl(object):
             readnone = False          # Not read memory
             unsigned_op = ""          # Unsigned opcode if exist
             overload_param_index = -1 # Parameter determines the overload type, -1 means ret type.
+            hidden = False
             for a in attrs:
                 if (a == ""):
                     continue
@@ -2833,6 +2837,10 @@ class db_hlsl(object):
                 if (a == "rn"):
                     readnone = True
                     continue
+                if (a == "hidden"):
+                    hidden = True
+                    continue
+
                 assign = a.split('=')
 
                 if (len(assign) != 2):
@@ -2848,7 +2856,7 @@ class db_hlsl(object):
                     continue
                 assert False, "invalid attr %s" % (a)
 
-            return readonly, readnone, unsigned_op, overload_param_index
+            return readonly, readnone, unsigned_op, overload_param_index, hidden
 
         current_namespace = None
         for line in intrinsic_defs:
@@ -2881,7 +2889,7 @@ class db_hlsl(object):
                         op = operand_match.group(1)
                 if not op:
                     op = name
-                readonly, readnone, unsigned_op, overload_param_index = process_attr(attr)
+                readonly, readnone, unsigned_op, overload_param_index, hidden = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
                     opts = bracket_cleanup_re.sub(r"<\1@\2>", opts)
@@ -2905,7 +2913,7 @@ class db_hlsl(object):
                 # TODO: verify a single level of indirection
                 self.intrinsics.append(db_hlsl_intrinsic(
                     name, num_entries, op, args, current_namespace, ns_idx, "pending doc for " + name,
-                    readonly, readnone, unsigned_op, overload_param_index))
+                    readonly, readnone, unsigned_op, overload_param_index, hidden))
                 num_entries += 1
                 continue
             assert False, "cannot parse line %s" % (line)

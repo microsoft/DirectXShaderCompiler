@@ -763,7 +763,7 @@ static unsigned CountNumOperands(StringRef AsmString, unsigned Variant) {
 namespace {
 struct AliasPriorityComparator {
   typedef std::pair<CodeGenInstAlias *, int> ValueType;
-  bool operator()(const ValueType &LHS, const ValueType &RHS) {
+  bool operator()(const ValueType &LHS, const ValueType &RHS) const {
     if (LHS.second ==  RHS.second) {
       // We don't actually care about the order, but for consistency it
       // shouldn't depend on pointer comparisons.

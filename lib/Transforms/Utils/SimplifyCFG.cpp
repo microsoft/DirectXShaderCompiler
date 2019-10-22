@@ -2099,6 +2099,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, unsigned BonusInstThreshold) {
           for (BasicBlock::iterator I = BB->begin(), E = BB->end();
                I != E; ) {
             Instruction *Curr = I++;
+            if (isa<DbgInfoIntrinsic>(Curr)) continue; // HLSL Change - Ignore debug insts
             if (isa<CmpInst>(Curr)) {
               Cond = Curr;
               break;

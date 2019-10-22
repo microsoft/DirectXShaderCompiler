@@ -139,6 +139,10 @@ void initializeDxilConditionalMem2RegPass(PassRegistry&);
 
 Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
 void initializeDxilLoopUnrollPass(PassRegistry&);
+
+Pass *createDxilEraseDeadRegionPass();
+void initializeDxilEraseDeadRegionPass(PassRegistry&);
+
 //===----------------------------------------------------------------------===//
 //
 // LowerStaticGlobalIntoAlloca. Replace static globals with alloca if only used

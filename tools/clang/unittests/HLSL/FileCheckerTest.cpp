@@ -722,6 +722,9 @@ public:
     // Iterate over all RUN lines
     for (auto &cmd : cmds) {
       RunFileCheckFromCommands(cmd.c_str(), fileName);
+      // If any of the RUN cmd fails then skip executing remaining cmds
+      // and report the error
+      if (this->RunResult != 0) break;
     }
   }
 

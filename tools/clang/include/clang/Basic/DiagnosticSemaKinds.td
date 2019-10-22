@@ -7525,8 +7525,6 @@ def err_hlsl_type_mismatch : Error<
   "type mismatch">;
 def err_hlsl_unsupported_array_equality_op: Error<
   "equality operators cannot be used with array types">;
-def err_hlsl_unsupported_array_size: Error<
-  "array dimension must be between 1 and 65536">;
 def err_hlsl_unsupported_incomplete_array: Error<
   "array dimensions of struct/class members must be explicit">;
 def err_hlsl_unsupported_bool_lvalue_op : Error<

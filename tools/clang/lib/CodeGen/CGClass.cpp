@@ -1725,17 +1725,29 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
     EmitBlock(loopBB);
   }
 
-  // Find the end of the array.
-  llvm::Value *arrayEnd = Builder.CreateInBoundsGEP(arrayBegin, numElements,
-                                                    "arrayctor.end");
+  // HLSL Change Begin: Loop on index instead of ptr
+  //// Find the end of the array.
+  //llvm::Value *arrayEnd = Builder.CreateInBoundsGEP(arrayBegin, numElements,
+  //                                                  "arrayctor.end");
+  // HLSL Change End
 
   // Enter the loop, setting up a phi for the current location to initialize.
   llvm::BasicBlock *entryBB = Builder.GetInsertBlock();
   llvm::BasicBlock *loopBB = createBasicBlock("arrayctor.loop");
   EmitBlock(loopBB);
-  llvm::PHINode *cur = Builder.CreatePHI(arrayBegin->getType(), 2,
-                                         "arrayctor.cur");
-  cur->addIncoming(arrayBegin, entryBB);
+
+  // HLSL Change Begin: Loop on index instead of ptr
+  //llvm::PHINode *cur = Builder.CreatePHI(arrayBegin->getType(), 2,
+  //                                       "arrayctor.cur");
+  //cur->addIncoming(arrayBegin, entryBB);
+  llvm::PHINode *idx = Builder.CreatePHI(numElements->getType(), 2,
+                                         "arrayctor.idx");
+  idx->addIncoming(
+    llvm::ConstantInt::get(numElements->getType(), (uint64_t)0), entryBB);
+  llvm::Value *next = Builder.CreateAdd(idx,
+    llvm::ConstantInt::get(idx->getType(), (uint64_t)1), "arrayctor.next");
+  llvm::Value *cur = Builder.CreateInBoundsGEP(arrayBegin, {idx}, "arrayctor.cur");
+  // HLSL Change End
 
   // Inside the loop body, emit the constructor call on the array element.
 
@@ -1768,16 +1780,31 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
                            /*Delegating=*/false, cur, E);
   }
 
-  // Go to the next element.
-  llvm::Value *next =
-    Builder.CreateInBoundsGEP(cur, llvm::ConstantInt::get(SizeTy, 1),
-                              "arrayctor.next");
-  cur->addIncoming(next, Builder.GetInsertBlock());
+  // HLSL Change Begin: Loop on index instead of ptr
+  //// Go to the next element.
+  //llvm::Value *next =
+  //  Builder.CreateInBoundsGEP(cur, llvm::ConstantInt::get(SizeTy, 1),
+  //                            "arrayctor.next");
+  //cur->addIncoming(next, Builder.GetInsertBlock());
+  idx->addIncoming(next, Builder.GetInsertBlock());
+  // HLSL Change End
 
   // Check whether that's the end of the loop.
-  llvm::Value *done = Builder.CreateICmpEQ(next, arrayEnd, "arrayctor.done");
+  // HLSL Change Begin: Loop on index instead of ptr
+  //llvm::Value *done = Builder.CreateICmpEQ(next, arrayEnd, "arrayctor.done");
+  llvm::Value *done = Builder.CreateICmpEQ(next, numElements, "arrayctor.done");
+  // HLSL Change End
+
   llvm::BasicBlock *contBB = createBasicBlock("arrayctor.cont");
-  Builder.CreateCondBr(done, contBB, loopBB);
+  llvm::TerminatorInst *TI = cast<llvm::TerminatorInst>(  // HLSL Change, capture terminator
+    Builder.CreateCondBr(done, contBB, loopBB));
+
+  // HLSL Change Begin: force unroll
+  LoopAttributes loopAttr;
+  loopAttr.HlslUnrollPolicy = LoopAttributes::HlslForceUnroll;
+  LoopInfo loopInfo(loopBB, loopAttr);
+  TI->setMetadata("llvm.loop", loopInfo.getLoopID());
+  // HLSL Change End
 
   // Patch the earlier check to skip over the loop.
   if (zeroCheckBranch) zeroCheckBranch->setSuccessor(0, contBB);

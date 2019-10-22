@@ -4333,6 +4333,7 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
 typedef float(__cdecl *FloatUnaryEvalFuncType)(float);
 typedef double(__cdecl *DoubleUnaryEvalFuncType)(double);
 
+typedef APInt(__cdecl *IntBinaryEvalFuncType)(const APInt&, const APInt&);
 typedef float(__cdecl *FloatBinaryEvalFuncType)(float, float);
 typedef double(__cdecl *DoubleBinaryEvalFuncType)(double, double);
 
@@ -4354,21 +4355,34 @@ static Value * EvalUnaryIntrinsic(ConstantFP *fpV,
   return Result;
 }
 
-static Value * EvalBinaryIntrinsic(ConstantFP *fpV0, ConstantFP *fpV1,
+static Value * EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
                                FloatBinaryEvalFuncType floatEvalFunc,
-                               DoubleBinaryEvalFuncType doubleEvalFunc) {
-  llvm::Type *Ty = fpV0->getType();
+                               DoubleBinaryEvalFuncType doubleEvalFunc,
+                               IntBinaryEvalFuncType intEvalFunc) {
+  llvm::Type *Ty = cV0->getType();
   Value *Result = nullptr;
   if (Ty->isDoubleTy()) {
+    ConstantFP *fpV0 = cast<ConstantFP>(cV0);
+    ConstantFP *fpV1 = cast<ConstantFP>(cV1);
     double dV0 = fpV0->getValueAPF().convertToDouble();
     double dV1 = fpV1->getValueAPF().convertToDouble();
     Value *dResult = ConstantFP::get(Ty, doubleEvalFunc(dV0, dV1));
     Result = dResult;
-  } else {
-    DXASSERT_NOMSG(Ty->isFloatTy());
+  } else if (Ty->isFloatTy()) {
+    ConstantFP *fpV0 = cast<ConstantFP>(cV0);
+    ConstantFP *fpV1 = cast<ConstantFP>(cV1);
     float fV0 = fpV0->getValueAPF().convertToFloat();
     float fV1 = fpV1->getValueAPF().convertToFloat();
     Value *dResult = ConstantFP::get(Ty, floatEvalFunc(fV0, fV1));
+    Result = dResult;
+  } else {
+    DXASSERT_NOMSG(Ty->isIntegerTy());
+    DXASSERT_NOMSG(intEvalFunc);
+    ConstantInt *ciV0 = cast<ConstantInt>(cV0);
+    ConstantInt *ciV1 = cast<ConstantInt>(cV1);
+    const APInt& iV0 = ciV0->getValue();
+    const APInt& iV1 = ciV1->getValue();
+    Value *dResult = ConstantInt::get(Ty, intEvalFunc(iV0, iV1));
     Result = dResult;
   }
   return Result;
@@ -4400,7 +4414,8 @@ static Value * EvalUnaryIntrinsic(CallInst *CI,
 
 static Value * EvalBinaryIntrinsic(CallInst *CI,
                                FloatBinaryEvalFuncType floatEvalFunc,
-                               DoubleBinaryEvalFuncType doubleEvalFunc) {
+                               DoubleBinaryEvalFuncType doubleEvalFunc,
+                               IntBinaryEvalFuncType intEvalFunc = nullptr) {
   Value *V0 = CI->getArgOperand(0);
   Value *V1 = CI->getArgOperand(1);
   llvm::Type *Ty = CI->getType();
@@ -4411,15 +4426,15 @@ static Value * EvalBinaryIntrinsic(CallInst *CI,
     Constant *CV1 = cast<Constant>(V1);
     IRBuilder<> Builder(CI);
     for (unsigned i=0;i<VT->getNumElements();i++) {
-      ConstantFP *fpV0 = cast<ConstantFP>(CV0->getAggregateElement(i));
-      ConstantFP *fpV1 = cast<ConstantFP>(CV1->getAggregateElement(i));
-      Value *EltResult = EvalBinaryIntrinsic(fpV0, fpV1, floatEvalFunc, doubleEvalFunc);
+      Constant *cV0 = cast<Constant>(CV0->getAggregateElement(i));
+      Constant *cV1 = cast<Constant>(CV1->getAggregateElement(i));
+      Value *EltResult = EvalBinaryIntrinsic(cV0, cV1, floatEvalFunc, doubleEvalFunc, intEvalFunc);
       Result = Builder.CreateInsertElement(Result, EltResult, i);
     }
   } else {
-    ConstantFP *fpV0 = cast<ConstantFP>(V0);
-    ConstantFP *fpV1 = cast<ConstantFP>(V1);
-    Result = EvalBinaryIntrinsic(fpV0, fpV1, floatEvalFunc, doubleEvalFunc);
+    Constant *cV0 = cast<Constant>(V0);
+    Constant *cV1 = cast<Constant>(V1);
+    Result = EvalBinaryIntrinsic(cV0, cV1, floatEvalFunc, doubleEvalFunc, intEvalFunc);
   }
   CI->replaceAllUsesWith(Result);
   CI->eraseFromParent();
@@ -4514,18 +4529,24 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   case IntrinsicOp::IOP_max: {
     auto maxF = [](float a, float b) -> float { return a > b ? a:b; };
     auto maxD = [](double a, double b) -> double { return a > b ? a:b; };
-    // Handled in DXIL constant folding
-    if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
-      return nullptr;
-    return EvalBinaryIntrinsic(CI, maxF, maxD);
+    auto imaxI = [](const APInt &a, const APInt &b) -> APInt { return a.sgt(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, maxF, maxD, imaxI);
   } break;
   case IntrinsicOp::IOP_min: {
     auto minF = [](float a, float b) -> float { return a < b ? a:b; };
     auto minD = [](double a, double b) -> double { return a < b ? a:b; };
-    // Handled in DXIL constant folding
-    if (CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy())
-      return nullptr;
-    return EvalBinaryIntrinsic(CI, minF, minD);
+    auto iminI = [](const APInt &a, const APInt &b) -> APInt { return a.slt(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, minF, minD, iminI);
+  } break;
+  case IntrinsicOp::IOP_umax: {
+    DXASSERT_NOMSG(CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy());
+    auto umaxI = [](const APInt &a, const APInt &b) -> APInt { return a.ugt(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, nullptr, nullptr, umaxI);
+  } break;
+  case IntrinsicOp::IOP_umin: {
+    DXASSERT_NOMSG(CI->getArgOperand(0)->getType()->getScalarType()->isIntegerTy());
+    auto uminI = [](const APInt &a, const APInt &b) -> APInt { return a.ult(b) ? a : b; };
+    return EvalBinaryIntrinsic(CI, nullptr, nullptr, uminI);
   } break;
   case IntrinsicOp::IOP_rcp: {
     auto rcpF = [](float v) -> float { return 1.0 / v; };
@@ -4547,12 +4568,10 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
   } break;
   case IntrinsicOp::IOP_frac: {
     auto fracF = [](float v) -> float {
-      int exp = 0;
-      return frexpf(v, &exp);
+      return v - floor(v);
     };
     auto fracD = [](double v) -> double {
-      int exp = 0;
-      return frexp(v, &exp);
+      return v - floor(v);
     };
 
     return EvalUnaryIntrinsic(CI, fracF, fracD);
@@ -5069,6 +5088,57 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
   }
 }
 
+// Translate RayQuery constructor.  From:
+//  %call = call %"RayQuery<flags>" @<constructor>(%"RayQuery<flags>" %ptr)
+// To:
+//  i32 %handle = AllocateRayQuery(i32 <IntrinsicOp::IOP_AllocateRayQuery>, i32 %flags)
+//  %gep = GEP %"RayQuery<flags>" %ptr, 0, 0
+//  store i32* %gep, i32 %handle
+//  ; and replace uses of %call with %ptr
+void TranslateRayQueryConstructor(llvm::Module &M) {
+  SmallVector<Function*, 4> Constructors;
+  for (auto &F : M.functions()) {
+    // Match templated RayQuery constructor instantiation by prefix and signature.
+    // It should be impossible to achieve the same signature from HLSL.
+    if (!F.getName().startswith("\01??0?$RayQuery@$"))
+      continue;
+    llvm::Type *Ty = F.getReturnType();
+    if (!Ty->isPointerTy() || !dxilutil::IsHLSLRayQueryType(Ty->getPointerElementType()))
+      continue;
+    if (F.arg_size() != 1 || Ty != F.arg_begin()->getType())
+      continue;
+    Constructors.emplace_back(&F);
+  }
+
+  for (auto pConstructorFunc : Constructors) {
+    llvm::IntegerType *i32Ty = llvm::Type::getInt32Ty(M.getContext());
+    llvm::ConstantInt *i32Zero = llvm::ConstantInt::get(i32Ty, (uint64_t)0, false);
+    llvm::FunctionType *funcTy = llvm::FunctionType::get(i32Ty, {i32Ty, i32Ty}, false);
+    unsigned opcode = (unsigned)IntrinsicOp::IOP_AllocateRayQuery;
+    llvm::ConstantInt *opVal = llvm::ConstantInt::get(i32Ty, opcode, false);
+    Function *opFunc = GetOrCreateHLFunction(M, funcTy, HLOpcodeGroup::HLIntrinsic, opcode);
+
+    while (!pConstructorFunc->user_empty()) {
+      Value *V = *pConstructorFunc->user_begin();
+      llvm::CallInst *CI = cast<CallInst>(V); // Must be call
+      llvm::Value *pThis = CI->getArgOperand(0);
+      llvm::StructType *pRQType = cast<llvm::StructType>(pThis->getType()->getPointerElementType());
+      DxilStructAnnotation *SA = M.GetHLModule().GetTypeSystem().GetStructAnnotation(pRQType);
+      DXASSERT(SA, "otherwise, could not find type annoation for RayQuery specialization");
+      DXASSERT(SA->GetNumTemplateArgs() == 1 && SA->GetTemplateArgAnnotation(0).IsIntegral(),
+                "otherwise, RayQuery has changed, or lacks template args");
+      llvm::IRBuilder<> Builder(CI);
+      llvm::Value *rayFlags = Builder.getInt32(SA->GetTemplateArgAnnotation(0).GetIntegral());
+      llvm::Value *Call = Builder.CreateCall(opFunc, {opVal, rayFlags}, pThis->getName());
+      llvm::Value *GEP = Builder.CreateInBoundsGEP(pThis, {i32Zero, i32Zero});
+      Builder.CreateStore(Call, GEP);
+      CI->replaceAllUsesWith(pThis);
+      CI->eraseFromParent();
+    }
+    pConstructorFunc->eraseFromParent();
+  }
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -5139,6 +5209,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
   // Create Global variable and type annotation for each CBuffer.
   ConstructCBuffer(m_pHLModule, CBufferType, m_ConstVarAnnotationMap);
+
+  // Translate calls to RayQuery constructor into hl Allocate calls
+  TranslateRayQueryConstructor(*m_pHLModule->GetModule());
 
   if (!m_bIsLib) {
     // need this for "llvm.global_dtors"?

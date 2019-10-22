@@ -583,6 +583,20 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
   return false;
 }
 
+bool IsHLSLRayQueryType(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(
+                RT->getAsCXXRecordDecl())) {
+      StringRef name = templateDecl->getName();
+      if (name == "RayQuery")
+        return true;
+    }
+  }
+  return false;
+}
+
 QualType GetHLSLResourceResultType(QualType type) {
   // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>
   const RecordType *RT = type->getAs<RecordType>();
