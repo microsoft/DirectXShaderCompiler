@@ -916,7 +916,7 @@ static Value *TranslatePtrIfUsedByLoweredFn(
   if (!IsPtrUsedByLoweredFn(Ptr, FunctionUses))
     return nullptr;
   // Translate vectors to arrays in type, but don't SROA
-  Type *NewTy = GetLoweredUDT(cast<StructType>(Ty));
+  Type *NewTy = GetLoweredUDT(cast<StructType>(Ty), &TypeSys);
 
   // No work to do here, but prevent SROA.
   if (Ty == NewTy && AddrSpace != DXIL::kTGSMAddrSpace)
@@ -926,11 +926,6 @@ static Value *TranslatePtrIfUsedByLoweredFn(
   // require a rewrite of the calls.
   Value *NewPtr = Ptr;
   if (Ty != NewTy) {
-    // TODO: Transfer type annotation
-    DxilStructAnnotation *pOldAnnotation = TypeSys.GetStructAnnotation(cast<StructType>(Ty));
-    if (pOldAnnotation) {
-
-    }
     NewTy = dxilutil::WrapInArrayTypes(NewTy, outerToInnerLengths);
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
       Module &M = *GV->getParent();
@@ -4096,7 +4091,8 @@ private:
   Value *castArgumentIfRequired(Value *V, Type *Ty, bool bOut,
                                 DxilParamInputQual inputQual,
                                 DxilFieldAnnotation &annotation,
-                                IRBuilder<> &Builder);
+                                IRBuilder<> &Builder,
+                                DxilTypeSystem &TypeSys);
   // Replace use of parameter which changed type when flatten.
   // Also add information to Arg if required.
   void replaceCastParameter(Value *NewParam, Value *OldParam, Function &F,
@@ -4924,14 +4920,15 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
 Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     Value *V, Type *Ty, bool bOut,
     DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
-    IRBuilder<> &Builder) {
+    IRBuilder<> &Builder,
+    DxilTypeSystem &TypeSys) {
   Module &M = *m_pHLModule->GetModule();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
   if (inputQual == DxilParamInputQual::InPayload) {
     DXASSERT_NOMSG(isa<StructType>(Ty));
     // Lower payload type here
-    StructType *LoweredTy = GetLoweredUDT(cast<StructType>(Ty));
+    StructType *LoweredTy = GetLoweredUDT(cast<StructType>(Ty), &TypeSys);
     if (LoweredTy != Ty) {
       Value *Ptr = AllocaBuilder.CreateAlloca(LoweredTy);
       ReplaceUsesForLoweredUDT(V, Ptr);
@@ -5229,7 +5226,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 
       // Cast vector/matrix/resource parameter.
       V = castArgumentIfRequired(V, Ty, bOut, inputQual,
-                                  annotation, Builder);
+                                  annotation, Builder, dxilTypeSys);
 
       // Cannot SROA, save it to final parameter list.
       FlatParamList.emplace_back(V);
