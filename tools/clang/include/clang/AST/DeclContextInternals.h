@@ -131,7 +131,7 @@ public:
     } else {
       DeclsTy &Vec = *getAsVector();
       Vec.erase(std::remove_if(Vec.begin(), Vec.end(),
-                               std::mem_fun(&Decl::isFromASTFile)),
+                               std::mem_fn(&Decl::isFromASTFile)),
                 Vec.end());
       // Don't have any external decls any more.
       Data = DeclsAndHasExternalTy(&Vec, false);
