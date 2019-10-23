@@ -5529,7 +5529,8 @@ Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
 void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
                     hlsl::OP *hlslOP, IRBuilder<> &Builder,
                     DxilFieldAnnotation *prevFieldAnnotation,
-                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys);
+                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
+                    HLObjectOperationLowerHelper *pObjHelper);
 
 Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
                              IRBuilder<> &Builder, bool bInsertLdNextToGEP) {
@@ -5568,10 +5569,33 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
   }
 }
 
+void TranslateResourceInCB(LoadInst *LI,
+                           HLObjectOperationLowerHelper *pObjHelper,
+                           GlobalVariable *CbGV) {
+  if (LI->user_empty()) {
+    LI->eraseFromParent();
+    return;
+  }
+
+  GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
+  CallInst *CI = cast<CallInst>(LI->user_back());
+  MDNode *MD = HLModule::GetDxilResourceAttrib(CI->getCalledFunction());
+
+  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, MD);
+
+  // Lower Ptr to GV base Ptr.
+  Value *GvPtr = pObjHelper->LowerCbResourcePtr(Ptr, ResPtr);
+  IRBuilder<> Builder(LI);
+  Value *GvLd = Builder.CreateLoad(GvPtr);
+  LI->replaceAllUsesWith(GvLd);
+  LI->eraseFromParent();
+}
+
 void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
                             hlsl::OP *hlslOP,
                             DxilFieldAnnotation *prevFieldAnnotation,
-                            DxilTypeSystem &dxilTypeSys, const DataLayout &DL) {
+                            DxilTypeSystem &dxilTypeSys, const DataLayout &DL,
+                            HLObjectOperationLowerHelper *pObjHelper) {
   IRBuilder<> Builder(user);
   if (CallInst *CI = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -5673,6 +5697,14 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
   } else if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
     Type *Ty = ldInst->getType();
     Type *EltTy = Ty->getScalarType();
+    // Resource inside cbuffer is lowered after GenerateDxilOperations.
+    if (dxilutil::IsHLSLObjectType(Ty)) {
+      CallInst *CI = cast<CallInst>(handle);
+      GlobalVariable *CbGV = cast<GlobalVariable>(
+          CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
+      TranslateResourceInCB(ldInst, pObjHelper, CbGV);
+      return;
+    }
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
 
     unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
@@ -5699,7 +5731,7 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
     TranslateCBGep(GEP, handle, baseOffset, hlslOP, Builder,
-                   prevFieldAnnotation, DL, dxilTypeSys);
+                   prevFieldAnnotation, DL, dxilTypeSys, pObjHelper);
     GEP->eraseFromParent();
   }
 }
@@ -5707,7 +5739,8 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
 void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
                     hlsl::OP *hlslOP, IRBuilder<> &Builder,
                     DxilFieldAnnotation *prevFieldAnnotation,
-                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys) {
+                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
+                    HLObjectOperationLowerHelper *pObjHelper) {
   SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
 
   Value *offset = baseOffset;
@@ -5813,19 +5846,21 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
     Instruction *user = cast<Instruction>(*(U++));
 
     TranslateCBAddressUser(user, handle, offset, hlslOP, fieldAnnotation,
-                           dxilTypeSys, DL);
+                           dxilTypeSys, DL, pObjHelper);
   }
 }
 
 void TranslateCBOperations(Value *handle, Value *ptr, Value *offset, OP *hlslOP,
-                           DxilTypeSystem &dxilTypeSys, const DataLayout &DL) {
+                           DxilTypeSystem &dxilTypeSys, const DataLayout &DL,
+                           HLObjectOperationLowerHelper *pObjHelper) {
   auto User = ptr->user_begin();
   auto UserE = ptr->user_end();
   for (; User != UserE;) {
     // Must be Instruction.
     Instruction *I = cast<Instruction>(*(User++));
     TranslateCBAddressUser(I, handle, offset, hlslOP,
-                           /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL);
+                           /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL,
+                           pObjHelper);
   }
 }
 
@@ -5970,28 +6005,6 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
                           DxilFieldAnnotation *prevFieldAnnotation,
                           const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
                           HLObjectOperationLowerHelper *pObjHelper);
-
-void TranslateResourceInCB(LoadInst *LI,
-                           HLObjectOperationLowerHelper *pObjHelper,
-                           GlobalVariable *CbGV) {
-  if (LI->user_empty()) {
-    LI->eraseFromParent();
-    return;
-  }
-
-  GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
-  CallInst *CI = cast<CallInst>(LI->user_back());
-  MDNode *MD = HLModule::GetDxilResourceAttrib(CI->getCalledFunction());
-
-  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, MD);
-
-  // Lower Ptr to GV base Ptr.
-  Value *GvPtr = pObjHelper->LowerCbResourcePtr(Ptr, ResPtr);
-  IRBuilder<> Builder(LI);
-  Value *GvLd = Builder.CreateLoad(GvPtr);
-  LI->replaceAllUsesWith(GvLd);
-  LI->eraseFromParent();
-}
 
 void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
                                   Value *legacyIdx, unsigned channelOffset,
@@ -7407,7 +7420,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     else {
       TranslateCBOperations(handle, CI, /*offset*/ hlslOP->GetU32Const(0),
                             hlslOP, helper.dxilTypeSys,
-                            CI->getModule()->getDataLayout());
+                            CI->getModule()->getDataLayout(), pObjHelper);
     }
     Translated = true;
     return;
