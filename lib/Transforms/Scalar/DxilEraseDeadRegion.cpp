@@ -118,6 +118,9 @@ struct DxilEraseDeadRegion : public FunctionPass {
     if (!this->FindDeadRegion(PDT, Common, BB, Region))
       return false;
 
+    if (!Region.size())
+      return false;
+
     // If BB branches INTO the region, forming a loop give up.
     for (BasicBlock *Succ : successors(BB))
       if (Region.count(Succ))
