@@ -11,13 +11,13 @@
 // CHECK: cbufferLoad
 // CHECK: i32 128
 // CHECK: cbufferLoad
-// CHECK: i32 240
+// CHECK: i32 188
 // CHECK: cbufferLoad
-// CHECK: i32 352
+// CHECK: i32 104
 // CHECK: cbufferLoad
-// CHECK: i32 144
+// CHECK: i32 132
 // CHECK: cbufferLoad
-// CHECK: i32 224
+// CHECK: i32 180
 
 struct ST {
    float4 a;
