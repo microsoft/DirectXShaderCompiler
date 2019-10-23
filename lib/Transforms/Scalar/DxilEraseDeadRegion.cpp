@@ -81,7 +81,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
         return false;
     }
 
-    return true;
+    return Region.size() != 0;
   }
 
   bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *BB) {
@@ -116,9 +116,6 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
     std::set<BasicBlock *> Region;
     if (!this->FindDeadRegion(PDT, Common, BB, Region))
-      return false;
-
-    if (!Region.size())
       return false;
 
     // If BB branches INTO the region, forming a loop give up.
