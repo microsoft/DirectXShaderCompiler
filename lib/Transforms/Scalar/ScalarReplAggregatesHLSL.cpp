@@ -4254,8 +4254,10 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     // Flat Global vector if no dynamic vector indexing.
     bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
 
-    // Disable scalarization of groupshared vector arrays
-    if (GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace &&
+    // Disable scalarization of groupshared/const_static vector arrays
+    if ((GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace ||
+         (GV->isConstant() && GV->hasInitializer() &&
+          GV->getLinkage() == GlobalValue::LinkageTypes::InternalLinkage)) &&
         Ty->isArrayTy())
       bFlatVector = false;
 
