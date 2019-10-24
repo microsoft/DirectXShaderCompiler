@@ -655,8 +655,7 @@ public:
                            uint64_t *pEndOffset,
                            dxil_dia::Session::RVA *pLowestUserRVA,
                            dxil_dia::Session::RVA *pHighestUserRVA);
-  HRESULT GetDxilAllocaRegister(llvm::Instruction *I, DWORD *pRegNum,
-                                DWORD *pRegSize);
+  HRESULT GetDxilAllocaRegister(llvm::Instruction *I, DWORD *pRegNum, DWORD *pRegSize);
   HRESULT PopulateParentToChildrenIDMap(SymbolManager::ParentToChildrenMap *pParentToChildren);
 
 private:
@@ -1805,16 +1804,13 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
   const auto &Instrs = m_Session.InstructionsRef();
   llvm::DenseMap<llvm::DILocalScope *, Session::RVA> EndOfScope;
   for (auto It = Instrs.rbegin(); It != Instrs.rend(); ++It) {
-    Session::RVA RVA = It->first;
+    const Session::RVA RVA = It->first;
     const auto *I = It->second;
     const llvm::DebugLoc &DL = I->getDebugLoc();
     if (!DL) {
       continue;
     }
     llvm::MDNode *LocalScope = DL.getScope();
-    if (LocalScope == nullptr) {
-      LocalScope = DL.getScope();
-    }
     if (LocalScope == nullptr) {
       continue;
     }
@@ -1863,8 +1859,9 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
       }
       Var->SetDxilRegister(Reg + dwRegIndex);
       m_SymToLR[Var->GetVarID()] = SymbolManager::LiveRange{
-          static_cast<uint32_t>(FirstUseRVA),
-          endOfScopeRVA - static_cast<uint32_t>(FirstUseRVA)};
+        static_cast<uint32_t>(FirstUseRVA),
+        endOfScopeRVA - static_cast<uint32_t>(FirstUseRVA)
+      };
     }
   }
   return S_OK;
@@ -1880,8 +1877,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
     return S_FALSE;
   }
 
-  llvm::Function *DbgDeclare =
-      llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::dbg_declare);
+  llvm::Function *DbgDeclare = llvm::Intrinsic::getDeclaration(M, llvm::Intrinsic::dbg_declare);
   if (CI->getCalledFunction() != DbgDeclare) {
     return S_FALSE;
   }
@@ -1894,10 +1890,8 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
 
   std::vector<dxil_dia::Session::RVA> usesRVAs;
 
-  if (auto *RegMV =
-          llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(0))) {
-    if (auto *RegVM =
-            llvm::dyn_cast<llvm::ValueAsMetadata>(RegMV->getMetadata())) {
+  if (auto *RegMV = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(0))) {
+    if (auto *RegVM = llvm::dyn_cast<llvm::ValueAsMetadata>(RegMV->getMetadata())) {
       if (auto *Reg = llvm::dyn_cast<llvm::Instruction>(RegVM->getValue())) {
         HRESULT hr;
         IFR(hr = GetDxilAllocaRegister(Reg, pReg, pRegSize));
@@ -1921,16 +1915,14 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
     *pHighestUserRVA = *std::max_element(usesRVAs.begin(), usesRVAs.end());
   }
 
-  if (auto *LVMV =
-          llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1))) {
+  if (auto *LVMV = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1))) {
     *LV = llvm::dyn_cast<llvm::DILocalVariable>(LVMV->getMetadata());
     if (*LV == nullptr) {
       return E_FAIL;
     }
   }
 
-  if (auto *FieldsMV =
-          llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(2))) {
+  if (auto *FieldsMV = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(2))) {
     auto *Fields = llvm::dyn_cast<llvm::DIExpression>(FieldsMV->getMetadata());
     if (Fields == nullptr) {
       return E_FAIL;
