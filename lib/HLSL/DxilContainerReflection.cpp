@@ -1394,7 +1394,10 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
   case DxilResource::Kind::TextureCubeArray:
     return isUAV ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
   case DxilResource::Kind::RTAccelerationStructure:
-    return (D3D_SHADER_INPUT_TYPE)D3D_SIT_RTACCELERATIONSTRUCTURE;
+    return (D3D_SHADER_INPUT_TYPE)(D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER + 1);  // D3D_SIT_RTACCELERATIONSTRUCTURE
+  case DxilResource::Kind::FeedbackTexture2D:
+  case DxilResource::Kind::FeedbackTexture2DArray:
+    return (D3D_SHADER_INPUT_TYPE)(D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER + 2);  // D3D_SIT_FEEDBACKTEXTURE
   default:
     return (D3D_SHADER_INPUT_TYPE)-1;
   }
@@ -1431,8 +1434,10 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
   case DxilResource::Kind::Texture1DArray:
     return D3D_SRV_DIMENSION_TEXTURE1DARRAY;
   case DxilResource::Kind::Texture2D:
+  case DxilResource::Kind::FeedbackTexture2D:
     return D3D_SRV_DIMENSION_TEXTURE2D;
   case DxilResource::Kind::Texture2DArray:
+  case DxilResource::Kind::FeedbackTexture2DArray:
     return D3D_SRV_DIMENSION_TEXTURE2DARRAY;
   case DxilResource::Kind::Texture2DMS:
     return D3D_SRV_DIMENSION_TEXTURE2DMS;
