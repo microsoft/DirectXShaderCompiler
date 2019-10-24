@@ -81,7 +81,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
         return false;
     }
 
-    return true;
+    return Region.size() != 0;
   }
 
   bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *BB) {
