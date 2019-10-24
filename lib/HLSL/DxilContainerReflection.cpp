@@ -1834,16 +1834,8 @@ static uint8_t NegMask(uint8_t V) {
 void DxilShaderReflection::CreateReflectionObjectsForSignature(
   const DxilSignature &Sig,
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC> &Descs) {
-  bool clipDistanceSeen = false;
   for (auto && SigElem : Sig.GetElements()) {
     D3D12_SIGNATURE_PARAMETER_DESC Desc;
-
-    // TODO: why do we have multiple SV_ClipDistance elements?
-    if (SigElem->GetSemantic()->GetKind() == DXIL::SemanticKind::ClipDistance) {
-      if (clipDistanceSeen) continue;
-      clipDistanceSeen = true;
-    }
-
     Desc.ComponentType = CompTypeToRegisterComponentType(SigElem->GetCompType());
     Desc.Mask = SigElem->GetColsAsMask();
     // D3D11_43 does not have MinPrecison.
