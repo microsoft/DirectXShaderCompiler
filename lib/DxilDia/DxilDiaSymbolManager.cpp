@@ -1797,8 +1797,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
   //     if scope not in end_of_scope:
   //       end_of_scope[scope] = rva(I)
   //     if I is dbg.declare:
-  //       live_range[symbol of I] = SymbolManager.LiveRange[FirstUseRVA,
-  //       end_of_scope[scope]]
+  //       live_range[symbol of I] = SymbolManager.LiveRange[FirstUseRVA, end_of_scope[scope]]
   llvm::Module *M = &m_Session.ModuleRef();
   m_SymToLR.clear();
   const auto &Instrs = m_Session.InstructionsRef();
