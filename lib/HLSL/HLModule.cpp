@@ -1099,8 +1099,13 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
           MarkPreciseAttributeOnValWithFunctionCall(arg, Builder, M);
         }
       } else {
-        IRBuilder<> Builder(CI->getNextNode());
-        MarkPreciseAttributeOnValWithFunctionCall(CI, Builder, M);
+        if (CI->getType()->isPointerTy()) {
+          // For instance, matrix subscript...
+          MarkPreciseAttributeOnPtrWithFunctionCall(CI, M);
+        } else {
+          IRBuilder<> Builder(CI->getNextNode());
+          MarkPreciseAttributeOnValWithFunctionCall(CI, Builder, M);
+        }
       }
     } else {
       // Must be GEP here.
