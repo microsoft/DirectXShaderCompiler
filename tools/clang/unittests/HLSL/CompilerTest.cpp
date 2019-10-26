@@ -1532,20 +1532,39 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
       pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NOT_NULL(pPartHeader);
+  pResult.Release();
   
   // Remove root signature
-  CComPtr<IDxcBlob> pNewProgram;
+  CComPtr<IDxcBlob> pProgramRootSigRemoved;
   CComPtr<IDxcContainerBuilder> pBuilder;
   VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_RootSignature));
-  pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  pContainerHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramRootSigRemoved));
+  pContainerHeader = (hlsl::DxilContainerHeader *)(pProgramRootSigRemoved->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeaderShouldBeNull = hlsl::GetDxilPartByType(pContainerHeader,
+                                        hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NULL(pPartHeaderShouldBeNull);
+  pBuilder.Release();
+  pResult.Release();
+
+  // Add root signature back
+  CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcBlob> pProgramRootSigAdded;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+    hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgramRootSigRemoved));
+  pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+  pBuilder->SerializeContainer(&pResult);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramRootSigAdded));
+  pContainerHeader = (hlsl::DxilContainerHeader *)(pProgramRootSigAdded->GetBufferPointer());
   pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
                                         hlsl::DxilFourCC::DFCC_RootSignature);
-  VERIFY_IS_NULL(pPartHeader);
+  VERIFY_IS_NOT_NULL(pPartHeader);
 }
 #endif // Container builder unsupported
 
