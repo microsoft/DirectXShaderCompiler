@@ -860,6 +860,7 @@ public:
       DefaultFPEnvScope fpEnvScope;
 
       CComPtr<AbstractMemoryStream> pOutputStream;
+      pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
       dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
