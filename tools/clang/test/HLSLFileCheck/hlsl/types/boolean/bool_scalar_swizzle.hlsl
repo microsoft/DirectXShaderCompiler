@@ -11,5 +11,5 @@ float main() : SV_Target
 {
     bool b = true;
     bool2 b2 = b.xx;
-    return 0;
+    return b2.x && b2.y ? 1 : 0;
 }

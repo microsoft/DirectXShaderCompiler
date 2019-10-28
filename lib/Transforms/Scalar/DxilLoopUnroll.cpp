@@ -1163,13 +1163,68 @@ public:
     return false;
   }
 
+  static bool TryRemoveUnusedAlloca(AllocaInst *AI) {
+    std::vector<User *> WorkList;
+    std::vector<Instruction *> RemoveList;
+
+    for (User *U : AI->users()) {
+      WorkList.push_back(U);
+    }
+
+    while (WorkList.size()) {
+      User *U = WorkList.back();
+      WorkList.pop_back();
+      if (isa<StoreInst>(U) || isa<BitCastOperator>(U) || isa<GEPOperator>(U)) {
+        RemoveList.push_back(cast<Instruction>(U));
+        for (User *UU : U->users()) {
+          WorkList.push_back(UU);
+        }
+      }
+      else { // Load? PHINode? Memcpy? Assume written.
+        return false;
+      }
+    }
+
+    for (Instruction *I : RemoveList) {
+      I->dropAllReferences();
+    }
+    for (Instruction *I : RemoveList) {
+      I->eraseFromParent();
+    }
+    AI->eraseFromParent();
+    return true;
+  }
+
+  static bool RemoveAllUnusedAllocas(Function &F) {
+
+    std::vector<AllocaInst *> Allocas;
+    BasicBlock &EntryBB = *F.begin();
+    for (auto It = EntryBB.begin(), E = EntryBB.end(); It != E;) {
+      Instruction &I = *(It++);
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
+        Allocas.push_back(AI);
+      }
+    }
+
+    bool Changed = false;
+    for (AllocaInst *AI : Allocas) {
+      Changed |= TryRemoveUnusedAlloca(AI);
+    }
+
+    return Changed;
+  }
+
   bool runOnFunction(Function &F) {
+
+
     LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
 
     bool NeedPromote = false;
     bool Changed = false;
+    
+    Changed |= RemoveAllUnusedAllocas(F);
 
     if (NoOpt) {
       // If any of the functions are marked as full unroll.
