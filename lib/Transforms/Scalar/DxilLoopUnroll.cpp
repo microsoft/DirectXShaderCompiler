@@ -1163,6 +1163,9 @@ public:
     return false;
   }
 
+  // Collect and remove all instructions that use AI, but
+  // give up if there are anything other than store, bitcast,
+  // or GEP.
   static bool TryRemoveUnusedAlloca(AllocaInst *AI) {
     std::vector<User *> WorkList;
     std::vector<Instruction *> RemoveList;
@@ -1174,13 +1177,22 @@ public:
     while (WorkList.size()) {
       User *U = WorkList.back();
       WorkList.pop_back();
-      if (isa<StoreInst>(U) || isa<BitCastOperator>(U) || isa<GEPOperator>(U)) {
-        RemoveList.push_back(cast<Instruction>(U));
-        for (User *UU : U->users()) {
-          WorkList.push_back(UU);
+      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+        unsigned Opcode = UI->getOpcode();
+        if (Opcode == Instruction::BitCast ||
+          Opcode == Instruction::GetElementPtr ||
+          Opcode == Instruction::Store)
+        {
+          RemoveList.push_back(UI);
+          for (User *UU : U->users()) {
+            WorkList.push_back(UU);
+          }
+        }
+        else { // Load? PHINode? Memcpy? Assume written.
+          return false;
         }
       }
-      else { // Load? PHINode? Memcpy? Assume written.
+      else { // Non-instruction strong user? Give up.
         return false;
       }
     }
@@ -1196,7 +1208,6 @@ public:
   }
 
   static bool RemoveAllUnusedAllocas(Function &F) {
-
     std::vector<AllocaInst *> Allocas;
     BasicBlock &EntryBB = *F.begin();
     for (auto It = EntryBB.begin(), E = EntryBB.end(); It != E;) {
