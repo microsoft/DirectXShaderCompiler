@@ -72,6 +72,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/PredIteratorCache.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SetVector.h"
@@ -1167,41 +1168,50 @@ public:
   // give up if there are anything other than store, bitcast,
   // or GEP.
   static bool TryRemoveUnusedAlloca(AllocaInst *AI) {
-    std::vector<User *> WorkList;
-    std::vector<Instruction *> RemoveList;
+    struct UseDef {
+      Instruction *Def;
+      User *Use;
+      UseDef(Instruction *Def, User *U) : Def(Def), Use(U) {}
+    };
+    std::vector<UseDef> WorkList;
 
     for (User *U : AI->users()) {
-      WorkList.push_back(U);
+      WorkList.push_back(UseDef(AI, U));
     }
 
-    while (WorkList.size()) {
-      User *U = WorkList.back();
-      WorkList.pop_back();
-      if (Instruction *UI = dyn_cast<Instruction>(U)) {
-        unsigned Opcode = UI->getOpcode();
-        if (Opcode == Instruction::BitCast ||
-          Opcode == Instruction::GetElementPtr ||
-          Opcode == Instruction::Store)
-        {
-          RemoveList.push_back(UI);
-          for (User *UU : U->users()) {
-            WorkList.push_back(UU);
-          }
+    for (unsigned i = 0; i < WorkList.size(); i++) {
+      UseDef UD = WorkList[i];
+      User *U = UD.Use;
+
+      Instruction *UI = dyn_cast<Instruction>(U);
+      if (!UI) // Non-instruction strong user? Give up.
+        return false;
+
+      unsigned Opcode = UI->getOpcode();
+      if (Opcode == Instruction::BitCast ||
+        Opcode == Instruction::GetElementPtr ||
+        Opcode == Instruction::Store)
+      {
+        for (User *UU : U->users()) {
+          WorkList.push_back(UseDef(UI, UU));
         }
-        else { // Load? PHINode? Memcpy? Assume written.
+      }
+      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(UI)) {
+        if (MC->getSource() == UD.Def) { // MC reads from our alloca
           return false;
         }
       }
-      else { // Non-instruction strong user? Give up.
+      else { // Load? PHINode? Assume read.
         return false;
       }
     }
 
-    for (Instruction *I : RemoveList) {
-      I->dropAllReferences();
+    // Remove all the users
+    for (UseDef &UD : WorkList) {
+      cast<Instruction>(UD.Use)->dropAllReferences();
     }
-    for (Instruction *I : RemoveList) {
-      I->eraseFromParent();
+    for (UseDef &UD : WorkList) {
+      cast<Instruction>(UD.Use)->eraseFromParent();
     }
     AI->eraseFromParent();
     return true;
