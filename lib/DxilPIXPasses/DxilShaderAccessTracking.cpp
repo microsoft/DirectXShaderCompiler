@@ -254,7 +254,8 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext &Ctx, OP *HlslOP,
                                           Value *ByteIndex,
                                           ShaderAccessFlags access) {
   
-  auto OffsetByteIndex = Builder.CreateAdd(ByteIndex, HlslOP->GetU32Const(static_cast<unsigned>(OffsetFromAccess(access))), "OffsetByteIndex");
+  unsigned OffsetForAccessType = static_cast<unsigned>(OffsetFromAccess(access) * BytesPerDWORD);
+  auto OffsetByteIndex = Builder.CreateAdd(ByteIndex, HlslOP->GetU32Const(OffsetForAccessType), "OffsetByteIndex");
 
   UndefValue* UndefIntArg = UndefValue::get(Type::getInt32Ty(Ctx));
   Constant* LiteralOne = HlslOP->GetU32Const(1);

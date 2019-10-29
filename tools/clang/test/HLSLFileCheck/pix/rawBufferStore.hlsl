@@ -13,13 +13,13 @@
 
 // Now the writes with atomicBinOp "|=2":
 
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 25, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 28, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
 // CHECK: call void @dx.op.rawBufferStore.f32
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 25, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 28, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
 // CHECK: call void @dx.op.rawBufferStore.i32
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 25, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 28, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
 // CHECK: call void @dx.op.rawBufferStore.f16
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 25, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle, i32 28, i32 undef, i32 1, i32 undef, i32 undef, i32 undef, i8 1)
 // CHECK: call void @dx.op.rawBufferStore.i16
 
 struct S
