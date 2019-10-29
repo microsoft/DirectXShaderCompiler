@@ -1166,54 +1166,43 @@ public:
 
   // Collect and remove all instructions that use AI, but
   // give up if there are anything other than store, bitcast,
-  // or GEP.
+  // memcpy, or GEP.
   static bool TryRemoveUnusedAlloca(AllocaInst *AI) {
-    struct UseDef {
-      Instruction *Def;
-      User *Use;
-      UseDef(Instruction *Def, User *U) : Def(Def), Use(U) {}
-    };
-    std::vector<UseDef> WorkList;
+    std::vector<Instruction *> WorkList;
 
-    for (User *U : AI->users()) {
-      WorkList.push_back(UseDef(AI, U));
-    }
+    WorkList.push_back(AI);
 
     for (unsigned i = 0; i < WorkList.size(); i++) {
-      UseDef UD = WorkList[i];
-      User *U = UD.Use;
+      Instruction *I = WorkList[i];
 
-      Instruction *UI = dyn_cast<Instruction>(U);
-      if (!UI) // Non-instruction strong user? Give up.
-        return false;
+      for (User *U : I->users()) {
+        Instruction *UI = cast<Instruction>(U);
 
-      unsigned Opcode = UI->getOpcode();
-      if (Opcode == Instruction::BitCast ||
-        Opcode == Instruction::GetElementPtr ||
-        Opcode == Instruction::Store)
-      {
-        for (User *UU : U->users()) {
-          WorkList.push_back(UseDef(UI, UU));
+        unsigned Opcode = UI->getOpcode();
+        if (Opcode == Instruction::BitCast ||
+          Opcode == Instruction::GetElementPtr ||
+          Opcode == Instruction::Store)
+        {
+          WorkList.push_back(UI);
         }
-      }
-      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(UI)) {
-        if (MC->getSource() == UD.Def) { // MC reads from our alloca
+        else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(UI)) {
+          if (MC->getSource() == I) { // MC reads from our alloca
+            return false;
+          }
+          WorkList.push_back(UI);
+        }
+        else { // Load? PHINode? Assume read.
           return false;
         }
       }
-      else { // Load? PHINode? Assume read.
-        return false;
-      }
     }
 
-    // Remove all the users
-    for (UseDef &UD : WorkList) {
-      cast<Instruction>(UD.Use)->dropAllReferences();
+    // Remove all instructions
+    for (auto It = WorkList.rbegin(), E = WorkList.rend(); It != E; It++) {
+      Instruction *I = *It;
+      I->eraseFromParent();
     }
-    for (UseDef &UD : WorkList) {
-      cast<Instruction>(UD.Use)->eraseFromParent();
-    }
-    AI->eraseFromParent();
+
     return true;
   }
 
