@@ -292,6 +292,8 @@ public:
   TEST_METHOD(AmplificationGreaterThanMaxZ)
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
 
+  TEST_METHOD(ValidateRootSigContainer)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -305,11 +307,10 @@ public:
     }
   }
 
-  void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
+  void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false, UINT32 Flags = DxcValidatorFlags_Default) {
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
 
-    UINT32 Flags = DxcValidatorFlags_Default;
     if (!IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize())) {
       // Validation of raw bitcode as opposed to DxilContainer is not supported through DXIL.dll
       if (!m_ver.m_InternalValidator) {
@@ -325,7 +326,7 @@ public:
     CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
   }
 
-  void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
+  void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false, UINT32 Flags = DxcValidatorFlags_Default) {
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
@@ -3781,4 +3782,21 @@ TEST_F(ValidationTest, AmplificationGreaterThanMaxXYZ) {
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 2, i32 4}",
                           "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
+}
+
+TEST_F(ValidationTest, ValidateRootSigContainer) {
+  // Validation of root signature-only container not supported until 1.5
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
+  LPCSTR pSource = "#define main \"DescriptorTable(UAV(u0))\"";
+  CComPtr<IDxcBlob> pObject;
+  if (!CompileSource(pSource, "rootsig_1_0", &pObject))
+    return;
+  CheckValidationMsgs(pObject, {}, false,
+    DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit);
+  pObject.Release();
+  if (!CompileSource(pSource, "rootsig_1_1", &pObject))
+    return;
+  CheckValidationMsgs(pObject, {}, false,
+    DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit);
 }
