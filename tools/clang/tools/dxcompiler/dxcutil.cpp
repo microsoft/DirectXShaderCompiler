@@ -267,6 +267,37 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   return valHR;
 }
 
+HRESULT ValidateRootSignatureInContainer(
+    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag) {
+  HRESULT valHR = S_OK;
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pValResult;
+  CreateValidator(pValidator);
+  IFT(pValidator->Validate(pRootSigContainer,
+        DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit,
+        &pValResult));
+  IFT(pValResult->GetStatus(&valHR));
+  if (pDiag) {
+    if (FAILED(valHR)) {
+      CComPtr<IDxcBlobEncoding> pErrors;
+      IFT(pValResult->GetErrorBuffer(&pErrors));
+#ifdef DBG
+      UINT32 codePage = CP_ACP;
+      BOOL known = FALSE;
+      IFT(pErrors->GetEncoding(&known, &codePage));
+      DXASSERT_NOMSG(!known || codePage == CP_ACP || codePage == CP_UTF8);
+#endif
+      StringRef errRef((const char *)pErrors->GetBufferPointer(),
+                       pErrors->GetBufferSize());
+      unsigned DiagID = pDiag->getCustomDiagID(
+        clang::DiagnosticsEngine::Error,
+        "root signature validation errors\r\n%0");
+      pDiag->Report(DiagID) << errRef;
+    }
+  }
+  return valHR;
+}
+
 void CreateOperationResultFromOutputs(
     IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
     const std::string &warnings, bool hasErrorOccurred,
