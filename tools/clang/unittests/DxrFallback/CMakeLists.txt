@@ -51,7 +51,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_clang_executable(test_DxrFallback
   test_DxrFallback.cpp
 
-  d3dx12.h
   DXSampleHelper.h
   ShaderTester.h
   ShaderTesterImpl.cpp

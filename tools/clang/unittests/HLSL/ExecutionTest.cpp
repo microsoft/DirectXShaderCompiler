@@ -42,7 +42,7 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <DXGIDebug.h>
-#include <D3dx12.h>
+#include "dxc/Support/D3dx12.h"
 #include <DirectXMath.h>
 #include <strsafe.h>
 #include <d3dcompiler.h>
