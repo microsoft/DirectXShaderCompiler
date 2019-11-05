@@ -28,4 +28,7 @@ if (WIN32)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 endif (WIN32)
 
+target_compile_definitions(dxclib
+    PRIVATE VERSION_STRING_SUFFIX=" for ${CMAKE_SYSTEM_NAME}")
+    
 add_dependencies(dxclib TablegenHLSLOptions dxcompiler)
