@@ -16,6 +16,7 @@
 
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilConstants.h"
@@ -30,6 +31,7 @@
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DxilContainer/DxilContainerReader.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxcutil.h"
 
@@ -1547,6 +1549,15 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
 namespace dxcutil {
 
 HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
+  CComPtr<IDxcBlob> pPdbContainerBlob;
+  {
+    CComPtr<IStream> pStream;
+    IFR(hlsl::CreateReadOnlyBlobStream(pProgram, &pStream));
+    if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(DxcGetThreadMallocNoRef(), pStream, &pPdbContainerBlob))) {
+      pProgram = pPdbContainerBlob;
+    }
+  }
+
   const char *pIL = (const char *)pProgram->GetBufferPointer();
   uint32_t pILLength = pProgram->GetBufferSize();
   const char *pReflectionIL = nullptr;
@@ -1617,9 +1628,6 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
     it = std::find_if(begin(pContainer), end(pContainer),
                       DxilPartIsType(DFCC_DXIL));
-    if (it == end(pContainer)) {
-      return DXC_E_CONTAINER_MISSING_DXIL;
-    }
 
     DxilPartIterator dbgit =
         std::find_if(begin(pContainer), end(pContainer),
@@ -1627,6 +1635,10 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     // Use dbg module if exist.
     if (dbgit != end(pContainer))
       it = dbgit;
+
+    if (it == end(pContainer)) {
+      return DXC_E_CONTAINER_MISSING_DXIL;
+    }
 
     const DxilProgramHeader *pProgramHeader =
         reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
