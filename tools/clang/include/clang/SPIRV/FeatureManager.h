@@ -35,6 +35,7 @@ enum class Extension {
   KHR_shader_draw_parameters,
   KHR_post_depth_coverage,
   KHR_ray_tracing,
+  EXT_demote_to_helper_invocation,
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_fragment_invocation_density,

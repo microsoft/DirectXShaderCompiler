@@ -553,5 +553,13 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
   return visitInstruction(instr);
 }
 
+bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocationEXT,
+                inst->getSourceLocation());
+  addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
+               inst->getSourceLocation());
+  return true;
+}
+
 } // end namespace spirv
 } // end namespace clang
