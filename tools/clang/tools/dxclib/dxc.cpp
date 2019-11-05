@@ -1111,6 +1111,10 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
   }
 }
 
+#ifndef VERSION_STRING_SUFFIX
+#define VERSION_STRING_SUFFIX ""
+#endif
+
 #ifdef _WIN32
 int dxc::main(int argc, const wchar_t **argv_) {
 #else
@@ -1172,7 +1176,7 @@ int dxc::main(int argc, const char **argv_) {
       std::string version;
       llvm::raw_string_ostream versionStream(version);
       context.GetCompilerVersionInfo(versionStream);
-      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler",
+      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler" VERSION_STRING_SUFFIX,
                              versionStream.str().c_str(),
                              dxcOpts.ShowHelpHidden);
       helpStream.flush();
