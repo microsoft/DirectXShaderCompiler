@@ -2092,15 +2092,13 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
 
 void MemcpySplitter::Split(llvm::Function &F) {
   const DataLayout &DL = F.getParent()->getDataLayout();
-
-  Function *memcpy = nullptr;
+  SmallVector<Function *, 2> memcpys;
   for (Function &Fn : F.getParent()->functions()) {
     if (Fn.getIntrinsicID() == Intrinsic::memcpy) {
-      memcpy = &Fn;
-      break;
+      memcpys.emplace_back(&Fn);
     }
   }
-  if (memcpy) {
+  for (Function *memcpy : memcpys) {
     for (auto U = memcpy->user_begin(); U != memcpy->user_end();) {
       MemCpyInst *MI = cast<MemCpyInst>(*(U++));
       if (MI->getParent()->getParent() != &F)
