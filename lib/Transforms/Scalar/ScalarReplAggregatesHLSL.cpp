@@ -2098,17 +2098,16 @@ void MemcpySplitter::Split(llvm::Function &F) {
       memcpys.emplace_back(&Fn);
     }
   }
-  if (!memcpys.empty()) {
-    for (Function *memcpy : memcpys)
-      for (auto U = memcpy->user_begin(); U != memcpy->user_end();) {
-        MemCpyInst *MI = cast<MemCpyInst>(*(U++));
-        if (MI->getParent()->getParent() != &F)
-          continue;
-        // Matrix is treated as scalar type, will not use memcpy.
-        // So use nullptr for fieldAnnotation should be safe here.
-        SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys,
-                    /*bEltMemCpy*/ false);
-      }
+  for (Function *memcpy : memcpys) {
+    for (auto U = memcpy->user_begin(); U != memcpy->user_end();) {
+      MemCpyInst *MI = cast<MemCpyInst>(*(U++));
+      if (MI->getParent()->getParent() != &F)
+        continue;
+      // Matrix is treated as scalar type, will not use memcpy.
+      // So use nullptr for fieldAnnotation should be safe here.
+      SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys,
+                  /*bEltMemCpy*/ false);
+    }
   }
  }
 
