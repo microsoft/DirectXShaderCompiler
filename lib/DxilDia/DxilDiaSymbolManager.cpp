@@ -649,7 +649,12 @@ public:
   HRESULT CreateGlobalVariablesForAllCUs();
   HRESULT CreateLocalVariables();
   HRESULT CreateLiveRanges();
-  HRESULT IsDbgDeclareCall(llvm::Module *M, const llvm::Instruction *I, DWORD *pReg, DWORD *pRegSize, llvm::DILocalVariable **LV, uint64_t *pStartOffset, uint64_t *pEndOffset);
+  HRESULT IsDbgDeclareCall(llvm::Module *M, const llvm::Instruction *I,
+                           DWORD *pReg, DWORD *pRegSize,
+                           llvm::DILocalVariable **LV, uint64_t *pStartOffset,
+                           uint64_t *pEndOffset,
+                           dxil_dia::Session::RVA *pLowestUserRVA,
+                           dxil_dia::Session::RVA *pHighestUserRVA);
   HRESULT GetDxilAllocaRegister(llvm::Instruction *I, DWORD *pRegNum, DWORD *pRegSize);
   HRESULT PopulateParentToChildrenIDMap(SymbolManager::ParentToChildrenMap *pParentToChildren);
 
@@ -1142,6 +1147,8 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionBlockForLocalSc
     }
   } else if (auto *Block = llvm::dyn_cast<llvm::DILexicalBlock>(LS)) {
     ParentLS = Block->getScope();
+  } else if (auto *BlockFile = llvm::dyn_cast<llvm::DILexicalBlockFile>(LS)) {
+    ParentLS = BlockFile->getScope();
   }
 
   if (ParentLS == nullptr) {
@@ -1195,6 +1202,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionBlocksForFuncti
 }
 
 HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionsForCU(llvm::DICompileUnit *CU) {
+  bool FoundFunctions = false;
   for (llvm::DISubprogram *SubProgram : CU->getSubprograms()) {
     DWORD dwNewFunID;
     const DWORD dwParentID = SubProgram->isLocalToUnit() ? HlslCompilandId : HlslProgramId;
@@ -1205,7 +1213,18 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionsForCU(llvm::DI
 
     if (llvm::Function *F = SubProgram->getFunction()) {
       IFR(CreateFunctionBlocksForFunction(F));
+      FoundFunctions = true;
     }
+  }
+
+  if (!FoundFunctions) {
+    // This works around an old bug in dxcompiler whose effects are still
+    // sometimes present in PIX users' traces. (The bug was that the subprogram(s)
+    // weren't pointing to their contained function.)
+    llvm::Module *M = &m_Session.ModuleRef();
+    auto &DM = M->GetDxilModule();
+    llvm::Function *EntryPoint = DM.GetEntryFunction();
+    IFR(CreateFunctionBlocksForFunction(EntryPoint));
   }
 
   return S_OK;
@@ -1420,7 +1439,23 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(DWORD dwP
     };
 
     IFR(AddType<symbol_factory::Type>(dwParentID, CT, pNewTypeID, SymTagArrayType, CT, LazyName));
-
+    TypeInfo *ctTI;
+    IFR(GetTypeInfo(CT, &ctTI));
+    TypeInfo *baseTI;
+    IFR(GetTypeInfo(BaseType, &baseTI));
+    int64_t embedCount = 1;
+    for (llvm::DINode *N : CT->getElements()) {
+      if (N != nullptr) {
+        if (auto *SubRange = llvm::dyn_cast<llvm::DISubrange>(N)) {
+          embedCount *= SubRange->getCount();
+        } else {
+          return E_FAIL;
+        }
+      }
+    }
+    for (int64_t i = 0; i < embedCount; ++i) {
+      ctTI->Embed(*baseTI);
+    }
     return S_OK;
   }
   case llvm::dwarf::DW_TAG_class_type: {
@@ -1762,7 +1797,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
   //     if scope not in end_of_scope:
   //       end_of_scope[scope] = rva(I)
   //     if I is dbg.declare:
-  //       live_range[symbol of I] = SymbolManager.LiveRange[RVA(I), end_of_scope[scope]]
+  //       live_range[symbol of I] = SymbolManager.LiveRange[FirstUseRVA, end_of_scope[scope]]
   llvm::Module *M = &m_Session.ModuleRef();
   m_SymToLR.clear();
   const auto &Instrs = m_Session.InstructionsRef();
@@ -1774,10 +1809,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
     if (!DL) {
       continue;
     }
-    llvm::MDNode *LocalScope = DL.getInlinedAtScope();
-    if (LocalScope == nullptr) {
-      LocalScope = DL.getScope();
-    }
+    llvm::MDNode *LocalScope = DL.getScope();
     if (LocalScope == nullptr) {
       continue;
     }
@@ -1796,10 +1828,15 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
     llvm::DILocalVariable *LV;
     uint64_t StartOffset;
     uint64_t EndOffset;
-    HRESULT hr = IsDbgDeclareCall(M, I, &Reg, &RegSize, &LV, &StartOffset, &EndOffset);
+    Session::RVA FirstUseRVA;
+    Session::RVA LastUseRVA;
+    HRESULT hr = IsDbgDeclareCall(M, I, &Reg, &RegSize, &LV, &StartOffset,
+                                  &EndOffset, &FirstUseRVA, &LastUseRVA);
     if (hr != S_OK) {
       continue;
     }
+
+    endOfScopeRVA = std::max<Session::RVA>(endOfScopeRVA, LastUseRVA);
 
     auto varIt = m_VarToID.find(LV);
     if (varIt == m_VarToID.end()) {
@@ -1821,16 +1858,19 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLiveRanges() {
       }
       Var->SetDxilRegister(Reg + dwRegIndex);
       m_SymToLR[Var->GetVarID()] = SymbolManager::LiveRange{
-        static_cast<uint32_t>(RVA),
-        endOfScopeRVA - static_cast<uint32_t>(RVA)
+        static_cast<uint32_t>(FirstUseRVA),
+        endOfScopeRVA - static_cast<uint32_t>(FirstUseRVA)
       };
     }
-
   }
   return S_OK;
 }
 
-HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(llvm::Module *M, const llvm::Instruction *I, DWORD *pReg, DWORD *pRegSize, llvm::DILocalVariable **LV, uint64_t *pStartOffset, uint64_t *pEndOffset) {
+HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
+    llvm::Module *M, const llvm::Instruction *I, DWORD *pReg, DWORD *pRegSize,
+    llvm::DILocalVariable **LV, uint64_t *pStartOffset, uint64_t *pEndOffset,
+    dxil_dia::Session::RVA *pLowestUserRVA,
+    dxil_dia::Session::RVA *pHighestUserRVA) {
   auto *CI = llvm::dyn_cast<llvm::CallInst>(I);
   if (CI == nullptr) {
     return S_FALSE;
@@ -1844,6 +1884,10 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(llvm::Module
   *LV = nullptr;
   *pReg = *pRegSize = 0;
   *pStartOffset = *pEndOffset = 0;
+  *pLowestUserRVA = 0;
+  *pHighestUserRVA = 0;
+
+  std::vector<dxil_dia::Session::RVA> usesRVAs;
 
   if (auto *RegMV = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(0))) {
     if (auto *RegVM = llvm::dyn_cast<llvm::ValueAsMetadata>(RegMV->getMetadata())) {
@@ -1853,13 +1897,26 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(llvm::Module
         if (hr != S_OK) {
           return hr;
         }
+        llvm::iterator_range<llvm::Value::user_iterator> users = Reg->users();
+        for (llvm::User *user : users) {
+          auto *inst = llvm::dyn_cast<llvm::Instruction>(user);
+          if (inst != nullptr) {
+            auto rva = m_Session.RvaMapRef().find(inst);
+            usesRVAs.push_back(rva->second);
+          }
+        }
       }
     }
   }
 
+  if (!usesRVAs.empty()) {
+    *pLowestUserRVA = *std::min_element(usesRVAs.begin(), usesRVAs.end());
+    *pHighestUserRVA = *std::max_element(usesRVAs.begin(), usesRVAs.end());
+  }
+
   if (auto *LVMV = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1))) {
     *LV = llvm::dyn_cast<llvm::DILocalVariable>(LVMV->getMetadata());
-    if (LV == nullptr) {
+    if (*LV == nullptr) {
       return E_FAIL;
     }
   }

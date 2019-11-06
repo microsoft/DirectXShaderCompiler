@@ -530,37 +530,15 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
 
 bool CapabilityVisitor::visit(SpirvExtInst *instr) {
   // OpExtInst using the GLSL extended instruction allows only 32-bit types by
-  // default. The AMD_gpu_shader_half_float extension adds support for 16-bit
-  // floating-point component types for the following instructions described in
-  // the GLSL.std.450 extended instruction set:
-  // Acos, Acosh, Asin, Asinh, Atan2, Atanh, Atan, Cos, Cosh, Degrees, Exp,
-  // Exp2, InterpolateAtCentroid, InterpolateAtSample, InterpolateAtOffset, Log,
-  // Log2, Pow, Radians, Sin, Sinh, Tan, Tanh
+  // default for interpolation instructions. The AMD_gpu_shader_half_float
+  // extension adds support for 16-bit floating-point component types for these
+  // instructions:
+  // InterpolateAtCentroid, InterpolateAtSample, InterpolateAtOffset
   if (SpirvType::isOrContainsType<FloatType, 16>(instr->getResultType()))
     switch (instr->getInstruction()) {
-    case GLSLstd450::GLSLstd450Acos:
-    case GLSLstd450::GLSLstd450Acosh:
-    case GLSLstd450::GLSLstd450Asin:
-    case GLSLstd450::GLSLstd450Asinh:
-    case GLSLstd450::GLSLstd450Atan2:
-    case GLSLstd450::GLSLstd450Atanh:
-    case GLSLstd450::GLSLstd450Atan:
-    case GLSLstd450::GLSLstd450Cos:
-    case GLSLstd450::GLSLstd450Cosh:
-    case GLSLstd450::GLSLstd450Degrees:
-    case GLSLstd450::GLSLstd450Exp:
-    case GLSLstd450::GLSLstd450Exp2:
     case GLSLstd450::GLSLstd450InterpolateAtCentroid:
     case GLSLstd450::GLSLstd450InterpolateAtSample:
     case GLSLstd450::GLSLstd450InterpolateAtOffset:
-    case GLSLstd450::GLSLstd450Log:
-    case GLSLstd450::GLSLstd450Log2:
-    case GLSLstd450::GLSLstd450Pow:
-    case GLSLstd450::GLSLstd450Radians:
-    case GLSLstd450::GLSLstd450Sin:
-    case GLSLstd450::GLSLstd450Sinh:
-    case GLSLstd450::GLSLstd450Tan:
-    case GLSLstd450::GLSLstd450Tanh:
       addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
                    instr->getSourceLocation());
     default:

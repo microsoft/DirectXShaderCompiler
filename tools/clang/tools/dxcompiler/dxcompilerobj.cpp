@@ -678,6 +678,12 @@ public:
 
           pOutputBlob.Release();
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
+          if (!opts.DisableValidation) {
+            CComPtr<IDxcBlobEncoding> pValErrors;
+            // Validation failure communicated through diagnostic error
+            dxcutil::ValidateRootSignatureInContainer(
+              pOutputBlob, &compiler.getDiagnostics());
+          }
         }
       }
       // SPIRV change starts
@@ -752,16 +758,15 @@ public:
         if (compileOK && !opts.CodeGenHighLevel) {
           HRESULT valHR = S_OK;
 
-          if (needsValidation) {
-            valHR = dxcutil::ValidateAndAssembleToContainer(
+          dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(), opts.GetPDBName(), compiler.getDiagnostics(),
-                (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) ? &ShaderHashContent : nullptr);
+                pOutputStream, opts.IsDebugInfoEnabled(),
+                opts.GetPDBName(), &compiler.getDiagnostics(),
+                &ShaderHashContent);
+          if (needsValidation) {
+            valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
           } else {
-            dxcutil::AssembleToContainer(action.takeModule(),
-                                         pOutputBlob, m_pMalloc,
-                                         SerializeFlags, pOutputStream,
-                (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) ? &ShaderHashContent : nullptr);
+            dxcutil::AssembleToContainer(inputs);
           }
 
           // Callback after valid DXIL is produced

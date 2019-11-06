@@ -110,7 +110,7 @@ ByteAddressBuffer buf;
 
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[addr:%\d+]]
 // CHECK: [[val0_uint:%\d+]] = OpLoad %uint [[ptr]]
-// CHECK:      [[val0:%\d+]] = OpBitcast %int %174
+// CHECK:      [[val0:%\d+]] = OpBitcast %int [[val0_uint]]
 // CHECK:   [[newAddr:%\d+]] = OpIAdd %uint [[addr]] %uint_1
 // CHECK:       [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[newAddr]]
 // CHECK: [[val1_uint:%\d+]] = OpLoad %uint [[ptr]]

@@ -2064,30 +2064,17 @@ Value *TrivialDotOperation(OP::OpCode opcode, Value *src0,
   return dotOP;
 }
 
-Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP, IRBuilder<> &Builder) {
+Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize, hlsl::OP *hlslOP, IRBuilder<> &Builder, bool Unsigned = false) {
+  auto madOpCode = Unsigned ? DXIL::OpCode::UMad : DXIL::OpCode::IMad;
   Value *Elt0 = Builder.CreateExtractElement(arg0, (uint64_t)0);
   Value *Elt1 = Builder.CreateExtractElement(arg1, (uint64_t)0);
   Value *Result = Builder.CreateMul(Elt0, Elt1);
-  switch (vecSize) {
-  case 4:
-    Elt0 = Builder.CreateExtractElement(arg0, 3);
-    Elt1 = Builder.CreateExtractElement(arg1, 3);
-    Result = TrivialDxilTrinaryOperation(DXIL::OpCode::IMad, Elt0, Elt1, Result, hlslOP, Builder);
-    // Pass thru.
-  case 3:
-    Elt0 = Builder.CreateExtractElement(arg0, 2);
-    Elt1 = Builder.CreateExtractElement(arg1, 2);
-    Result = TrivialDxilTrinaryOperation(DXIL::OpCode::IMad, Elt0, Elt1, Result, hlslOP, Builder);
-    // Pass thru.
-  case 2:
-    Elt0 = Builder.CreateExtractElement(arg0, 1);
-    Elt1 = Builder.CreateExtractElement(arg1, 1);
-    Result = TrivialDxilTrinaryOperation(DXIL::OpCode::IMad, Elt0, Elt1, Result, hlslOP, Builder);
-    break;
-  default:
-  case 1:
-    DXASSERT(vecSize == 1, "invalid vector size.");
+  for (unsigned iVecElt = 1; iVecElt < vecSize; ++iVecElt) {
+    Elt0 = Builder.CreateExtractElement(arg0, iVecElt);
+    Elt1 = Builder.CreateExtractElement(arg1, iVecElt);
+    Result = TrivialDxilTrinaryOperation(madOpCode, Elt0, Elt1, Result, hlslOP, Builder);
   }
+
   return Result;
 }
 
@@ -2641,7 +2628,7 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
       }
       else {
-        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder);
+        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder, IOP == IntrinsicOp::IOP_umul);
       }
     }
     else {
@@ -2806,40 +2793,45 @@ SampleHelper::SampleHelper(
                                             : HLOperandIndex::kSampleCoordArgIndex;
   TranslateCoord(CI, kCoordArgIdx);
 
+  // TextureCube does not support offsets, shifting each subsequent arg index down by 1
+  unsigned cube = (resourceKind == DXIL::ResourceKind::TextureCube ||
+                   resourceKind == DXIL::ResourceKind::TextureCubeArray)
+                  ? 1 : 0;
+
   switch (op) {
   case OP::OpCode::Sample:
-    TranslateOffset(CI, HLOperandIndex::kSampleOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleLevel:
     SetLOD(CI, HLOperandIndex::kSampleLLevelArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleLOffsetArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleLOffsetArgIndex);
+    SetStatus(CI, HLOperandIndex::kSampleLStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleBias:
     SetBias(CI, HLOperandIndex::kSampleBBiasArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleBOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleBClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleBStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleBOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleBClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleBStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleCmp:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleCmpOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleCmpLevelZero:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpLZCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleCmpLZOffsetArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleCmpLZStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpLZOffsetArgIndex);
+    SetStatus(CI, HLOperandIndex::kSampleCmpLZStatusArgIndex - cube);
     break;
   case OP::OpCode::SampleGrad:
     SetDDX(CI, HLOperandIndex::kSampleGDDXArgIndex);
     SetDDY(CI, HLOperandIndex::kSampleGDDYArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kSampleGOffsetArgIndex);
-    SetClamp(CI, HLOperandIndex::kSampleGClampArgIndex);
-    SetStatus(CI, HLOperandIndex::kSampleGStatusArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleGOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleGClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleGStatusArgIndex - cube);
     break;
   case OP::OpCode::CalculateLOD:
     // Only need coord for LOD calculation.
@@ -3061,9 +3053,20 @@ struct GatherHelper {
 
   bool hasSampleOffsets;
 
+  unsigned maxHLOperandRead = 0;
+  Value *ReadHLOperand(CallInst *CI, unsigned opIdx) {
+    if (CI->getNumArgOperands() > opIdx) {
+      maxHLOperandRead = std::max(maxHLOperandRead, opIdx);
+      return CI->getArgOperand(opIdx);
+    }
+    return nullptr;
+  }
   void TranslateCoord(CallInst *CI, unsigned coordIdx,
                       unsigned coordDimensions) {
-    Value *coordArg = CI->getArgOperand(coordIdx);
+    Value *coordArg = ReadHLOperand(CI, coordIdx);
+    DXASSERT_NOMSG(coordArg);
+    DXASSERT(coordArg->getType()->getVectorNumElements() == coordDimensions,
+             "otherwise, HL coordinate dimensions mismatch");
     IRBuilder<> Builder(CI);
     for (unsigned i = 0; i < coordDimensions; i++)
       coord[i] = Builder.CreateExtractElement(coordArg, i);
@@ -3072,25 +3075,27 @@ struct GatherHelper {
       coord[i] = undefF;
   }
   void SetStatus(CallInst *CI, unsigned statusIdx) {
-    if (CI->getNumArgOperands() == (statusIdx + 1))
-      status = CI->getArgOperand(statusIdx);
-    else
-      status = nullptr;
+    status = ReadHLOperand(CI, statusIdx);
   }
   void TranslateOffset(CallInst *CI, unsigned offsetIdx,
                        unsigned offsetDimensions) {
-    Value *undefI = UndefValue::get(Type::getInt32Ty(CI->getContext()));
-    if (CI->getNumArgOperands() > offsetIdx) {
-      Value *offsetArg = CI->getArgOperand(offsetIdx);
+    IntegerType *i32Ty = Type::getInt32Ty(CI->getContext());
+    if (Value *offsetArg = ReadHLOperand(CI, offsetIdx)) {
+      DXASSERT(offsetArg->getType()->getVectorNumElements() == offsetDimensions,
+               "otherwise, HL coordinate dimensions mismatch");
       IRBuilder<> Builder(CI);
       for (unsigned i = 0; i < offsetDimensions; i++)
         offset[i] = Builder.CreateExtractElement(offsetArg, i);
-      for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
-        offset[i] = undefI;
     } else {
-      for (unsigned i = 0; i < kMaxOffsetDimensions; i++)
-        offset[i] = undefI;
+      // Use zeros for offsets when not specified, not undef.
+      Value *zero = ConstantInt::get(i32Ty, (uint64_t)0);
+      for (unsigned i = 0; i < offsetDimensions; i++)
+        offset[i] = zero;
     }
+    // Use undef for components that should not be used for this resource dim.
+    Value *undefI = UndefValue::get(i32Ty);
+    for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
+      offset[i] = undefI;
   }
   void TranslateSampleOffset(CallInst *CI, unsigned offsetIdx,
                              unsigned offsetDimensions) {
@@ -3099,7 +3104,7 @@ struct GatherHelper {
       hasSampleOffsets = true;
       IRBuilder<> Builder(CI);
       for (unsigned ch = 0; ch < kSampleOffsetDimensions; ch++) {
-        Value *offsetArg = CI->getArgOperand(offsetIdx + ch);
+        Value *offsetArg = ReadHLOperand(CI, offsetIdx + ch);
         for (unsigned i = 0; i < offsetDimensions; i++)
           sampleOffsets[ch][i] = Builder.CreateExtractElement(offsetArg, i);
         for (unsigned i = offsetDimensions; i < kMaxOffsetDimensions; i++)
@@ -3151,39 +3156,55 @@ GatherHelper::GatherHelper(
   }
   unsigned coordSize = DxilResource::GetNumCoords(RK);
   unsigned offsetSize = DxilResource::GetNumOffsets(RK);
+  bool cube = RK == DXIL::ResourceKind::TextureCube ||
+              RK == DXIL::ResourceKind::TextureCubeArray;
 
   const unsigned kCoordArgIdx = HLOperandIndex::kSampleCoordArgIndex;
   TranslateCoord(CI, kCoordArgIdx, coordSize);
 
   switch (op) {
   case OP::OpCode::TextureGather: {
-    TranslateOffset(CI, HLOperandIndex::kGatherOffsetArgIndex, offsetSize);
-    // Gather all don't have sample offset version overload.
-    if (ch != GatherChannel::GatherAll)
-      TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
-                            offsetSize);
-    unsigned statusIdx =
-        hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
-                         : HLOperandIndex::kGatherStatusArgIndex;
+    unsigned statusIdx;
+    if (cube) {
+      TranslateOffset(CI, HLOperandIndex::kInvalidIdx, offsetSize);
+      statusIdx = HLOperandIndex::kGatherCubeStatusArgIndex;
+    } else {
+      TranslateOffset(CI, HLOperandIndex::kGatherOffsetArgIndex, offsetSize);
+      // Gather all don't have sample offset version overload.
+      if (ch != GatherChannel::GatherAll)
+        TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
+                              offsetSize);
+      statusIdx =
+          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
+                           : HLOperandIndex::kGatherStatusArgIndex;
+    }
     SetStatus(CI, statusIdx);
   } break;
   case OP::OpCode::TextureGatherCmp: {
-    special = CI->getArgOperand(HLOperandIndex::kGatherCmpCmpValArgIndex);
-    TranslateOffset(CI, HLOperandIndex::kGatherCmpOffsetArgIndex, offsetSize);
-    // Gather all don't have sample offset version overload.
-    if (ch != GatherChannel::GatherAll)
-      TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
-                            offsetSize);
-    unsigned statusIdx =
-        hasSampleOffsets
-            ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
-            : HLOperandIndex::kGatherCmpStatusArgIndex;
+    special = ReadHLOperand(CI, HLOperandIndex::kGatherCmpCmpValArgIndex);
+    unsigned statusIdx;
+    if (cube) {
+      TranslateOffset(CI, HLOperandIndex::kInvalidIdx, offsetSize);
+      statusIdx = HLOperandIndex::kGatherCmpCubeStatusArgIndex;
+    } else {
+      TranslateOffset(CI, HLOperandIndex::kGatherCmpOffsetArgIndex, offsetSize);
+      // Gather all don't have sample offset version overload.
+      if (ch != GatherChannel::GatherAll)
+        TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
+                              offsetSize);
+      statusIdx =
+          hasSampleOffsets
+              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
+              : HLOperandIndex::kGatherCmpStatusArgIndex;
+    }
     SetStatus(CI, statusIdx);
   } break;
   default:
     DXASSERT(0, "invalid opcode for Gather");
     break;
   }
+  DXASSERT(maxHLOperandRead == CI->getNumArgOperands() - 1,
+           "otherwise, unused HL arguments for Sample op");
 }
 
 void GenerateDxilGather(CallInst *CI, Function *F,
@@ -4807,56 +4828,16 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(F, Args);
 }
 
-void AllocateRayQueryObjects(llvm::Module *M, HLOperationLowerHelper &helper) {
-  // Iterate functions and insert AllocateRayQuery intrinsic to initialize
-  // handle value for every alloca of ray query type
-  hlsl::OP &hlslOP = helper.hlslOP;
-  Constant *i32Zero = hlslOP.GetI32Const(0);
-  DXIL::OpCode opcode = DXIL::OpCode::AllocateRayQuery;
-  llvm::Value *opcodeVal = hlslOP.GetU32Const(static_cast<unsigned>(opcode));
-  for (Function &f : M->functions()) {
-    if (f.isDeclaration() || f.isIntrinsic() ||
-      GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL)
-      continue;
-    // Iterate allocas
-    BasicBlock &BB = f.getEntryBlock();
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&BB));
-    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
-      // Avoid invalidating the iterator.
-      Instruction *I = BI++;
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
-        llvm::Type *allocaTy = AI->getAllocatedType();
-        llvm::Type *elementTy = allocaTy;
-        while (elementTy->isArrayTy())
-          elementTy = elementTy->getArrayElementType();
-        if (dxilutil::IsHLSLRayQueryType(elementTy)) {
-          DxilStructAnnotation *SA = helper.dxilTypeSys.GetStructAnnotation(cast<StructType>(elementTy));
-          DXASSERT(SA, "otherwise, could not find type annoation for RayQuery specialization");
-          DXASSERT(SA->GetNumTemplateArgs() == 1 && SA->GetTemplateArgAnnotation(0).IsIntegral(),
-                   "otherwise, RayQuery has changed, or lacks template args");
-          Builder.SetInsertPoint(AI->getNextNode());
-          DXASSERT(!allocaTy->isArrayTy(), "Array not handled yet");
-          llvm::Function *AllocFn = hlslOP.GetOpFunc(DXIL::OpCode::AllocateRayQuery, Builder.getVoidTy());
-          llvm::Value *rayFlags = ConstantInt::get(helper.i32Ty,
-            APInt(32, SA->GetTemplateArgAnnotation(0).GetIntegral()));
-          llvm::CallInst *CI = Builder.CreateCall(AllocFn, {opcodeVal, rayFlags}, "hRayQuery");
-          llvm::Value *GEP = Builder.CreateGEP(AI, {i32Zero, i32Zero});
-          Builder.CreateStore(CI, GEP);
-        }
-      }
-    }
-  }
-}
+// RayQuery methods
 
-static Value* TranslateThisPointerToi32Handle(CallInst*CI, hlsl::OP *hlslOP)
-{
-  IRBuilder<> Builder(CI);
-  Value *thisArg = CI->getArgOperand(1);
-  Constant *i32Zero = hlslOP->GetI32Const(0);
-  Value *handleGEP = Builder.CreateGEP(thisArg, {i32Zero, i32Zero});
-  Value *handleValue = Builder.CreateLoad(handleGEP);
-  return handleValue;
-  }
+Value *TranslateAllocateRayQuery(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                                 HLOperationLowerHelper &helper,
+                                 HLObjectOperationLowerHelper *pObjHelper,
+                                 bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *refArgs[] = {nullptr, CI->getOperand(1)};
+  return TrivialDxilOperation(opcode, refArgs, helper.voidTy, CI, hlslOP);
+}
 
 Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,
@@ -4864,49 +4845,35 @@ Value *TranslateTraceRayInline(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
 
-  Value *rayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx);
-
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
 
   Value *Args[DXIL::OperandIndex::kTraceRayInlineNumOp];
   Args[0] = opArg;
-
-  // Translate this pointer to i32 handle value
-  Args[1] = TranslateThisPointerToi32Handle(CI, hlslOP);
-
-  for (unsigned i = 2; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
+  for (unsigned i = 1; i < HLOperandIndex::kTraceRayInlineRayDescOpIdx; i++) {
     Args[i] = CI->getArgOperand(i);
   }
+
+  IRBuilder<> Builder(CI);
+  unsigned hlIndex = HLOperandIndex::kTraceRayInlineRayDescOpIdx;
+  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
+
   // struct RayDesc
   //{
   //    float3 Origin;
-  //    float  TMin;
-  //    float3 Direction;
-  //    float  TMax;
-  //};
-  IRBuilder<> Builder(CI);
-  Value *zeroIdx = hlslOP->GetU32Const(0);
-  Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
-  origin = Builder.CreateLoad(origin);
-  unsigned index = DXIL::OperandIndex::kTraceRayInlineRayDescOpIdx;
+  Value *origin = CI->getArgOperand(hlIndex++);
   Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
   Args[index++] = Builder.CreateExtractElement(origin, 1);
   Args[index++] = Builder.CreateExtractElement(origin, 2);
-
-  Value *tmin = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(1)});
-  tmin = Builder.CreateLoad(tmin);
-  Args[index++] = tmin;
-
-  Value *direction = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(2)});
-  direction = Builder.CreateLoad(direction);
-
+  //    float  TMin;
+  Args[index++] = CI->getArgOperand(hlIndex++);
+  //    float3 Direction;
+  Value *direction = CI->getArgOperand(hlIndex++);
   Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
   Args[index++] = Builder.CreateExtractElement(direction, 1);
   Args[index++] = Builder.CreateExtractElement(direction, 2);
-
-  Value *tmax = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(3)});
-  tmax = Builder.CreateLoad(tmax);
-  Args[index++] = tmax;
+  //    float  TMax;
+  Args[index++] = CI->getArgOperand(hlIndex++);
+  //};
 
   DXASSERT_NOMSG(index == DXIL::OperandIndex::kTraceRayInlineNumOp);
 
@@ -4922,8 +4889,9 @@ Value *TranslateCommitProceduralPrimitiveHit(CallInst *CI, IntrinsicOp IOP, OP::
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *THit = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
-  Value *Args[] = {opArg,TranslateThisPointerToi32Handle(CI, hlslOP),THit};
+  Value *Args[] = {opArg, handle, THit};
 
   IRBuilder<> Builder(CI);
   Function *F = hlslOP->GetOpFunc(opcode, Builder.getVoidTy());
@@ -4938,13 +4906,14 @@ Value *TranslateGenericRayQueryMethod(CallInst *CI, IntrinsicOp IOP, OP::OpCode 
   hlsl::OP *hlslOP = &helper.hlslOP;
 
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
-  Value *Args[] = {opArg,TranslateThisPointerToi32Handle(CI, hlslOP)};
+  Value *Args[] = {opArg, handle};
 
   IRBuilder<> Builder(CI);
   Function *F = hlslOP->GetOpFunc(opcode, CI->getType());
 
-  return Builder.CreateCall(F, Args);
+  return Builder.CreateCall(F, {opArg, handle});
 }
 
 Value *TranslateRayQueryMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -4953,7 +4922,7 @@ Value *TranslateRayQueryMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::Op
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint32_t rVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
   Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
   uint8_t cVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
@@ -4969,7 +4938,7 @@ Value *TranslateRayQueryTransposedMatrix3x4Operation(CallInst *CI, IntrinsicOp I
                                                   bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP; 
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint32_t rVals[] = { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2 };
   Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
   uint8_t cVals[] = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3 };
@@ -4985,7 +4954,7 @@ Value *TranslateRayQueryFloat2Getter(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint8_t elementVals[] = {0, 1};
   Constant *element = ConstantDataVector::get(CI->getContext(), elementVals);
   Value *retVal =
@@ -4999,7 +4968,7 @@ Value *TranslateRayQueryFloat3Getter(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
                          bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   VectorType *Ty = cast<VectorType>(CI->getType());
-  Value* handle = TranslateThisPointerToi32Handle(CI, hlslOP);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   uint8_t elementVals[] = {0, 1, 2};
   Constant *element = ConstantDataVector::get(CI->getContext(), elementVals);
   Value *retVal =
@@ -5162,6 +5131,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
+    {IntrinsicOp::IOP_AllocateRayQuery, TranslateAllocateRayQuery, DXIL::OpCode::AllocateRayQuery},
     {IntrinsicOp::IOP_CallShader, TranslateCallShader, DXIL::OpCode::CallShader},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TranslateCheckAccess, DXIL::OpCode::CheckAccessFullyMapped},
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
@@ -5468,7 +5438,7 @@ IntrinsicLower gLowerTable[] = {
     { IntrinsicOp::IOP_umad, TranslateFUITrinary, DXIL::OpCode::UMad},
     { IntrinsicOp::IOP_umax, TranslateFUIBinary, DXIL::OpCode::UMax},
     { IntrinsicOp::IOP_umin, TranslateFUIBinary, DXIL::OpCode::UMin },
-    { IntrinsicOp::IOP_umul, TranslateFUIBinary, DXIL::OpCode::UMul },
+    { IntrinsicOp::IOP_umul, TranslateMul, DXIL::OpCode::UMul },
     { IntrinsicOp::IOP_usign, TranslateUSign, DXIL::OpCode::UMax },
     { IntrinsicOp::MOP_InterlockedUMax, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::MOP_InterlockedUMin, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes },
@@ -5559,7 +5529,8 @@ Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
 void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
                     hlsl::OP *hlslOP, IRBuilder<> &Builder,
                     DxilFieldAnnotation *prevFieldAnnotation,
-                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys);
+                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
+                    HLObjectOperationLowerHelper *pObjHelper);
 
 Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
                              IRBuilder<> &Builder, bool bInsertLdNextToGEP) {
@@ -5598,10 +5569,33 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
   }
 }
 
+void TranslateResourceInCB(LoadInst *LI,
+                           HLObjectOperationLowerHelper *pObjHelper,
+                           GlobalVariable *CbGV) {
+  if (LI->user_empty()) {
+    LI->eraseFromParent();
+    return;
+  }
+
+  GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
+  CallInst *CI = cast<CallInst>(LI->user_back());
+  MDNode *MD = HLModule::GetDxilResourceAttrib(CI->getCalledFunction());
+
+  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, MD);
+
+  // Lower Ptr to GV base Ptr.
+  Value *GvPtr = pObjHelper->LowerCbResourcePtr(Ptr, ResPtr);
+  IRBuilder<> Builder(LI);
+  Value *GvLd = Builder.CreateLoad(GvPtr);
+  LI->replaceAllUsesWith(GvLd);
+  LI->eraseFromParent();
+}
+
 void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
                             hlsl::OP *hlslOP,
                             DxilFieldAnnotation *prevFieldAnnotation,
-                            DxilTypeSystem &dxilTypeSys, const DataLayout &DL) {
+                            DxilTypeSystem &dxilTypeSys, const DataLayout &DL,
+                            HLObjectOperationLowerHelper *pObjHelper) {
   IRBuilder<> Builder(user);
   if (CallInst *CI = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -5703,6 +5697,14 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
   } else if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
     Type *Ty = ldInst->getType();
     Type *EltTy = Ty->getScalarType();
+    // Resource inside cbuffer is lowered after GenerateDxilOperations.
+    if (dxilutil::IsHLSLObjectType(Ty)) {
+      CallInst *CI = cast<CallInst>(handle);
+      GlobalVariable *CbGV = cast<GlobalVariable>(
+          CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
+      TranslateResourceInCB(ldInst, pObjHelper, CbGV);
+      return;
+    }
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
 
     unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
@@ -5729,7 +5731,7 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
     TranslateCBGep(GEP, handle, baseOffset, hlslOP, Builder,
-                   prevFieldAnnotation, DL, dxilTypeSys);
+                   prevFieldAnnotation, DL, dxilTypeSys, pObjHelper);
     GEP->eraseFromParent();
   }
 }
@@ -5737,7 +5739,8 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
 void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
                     hlsl::OP *hlslOP, IRBuilder<> &Builder,
                     DxilFieldAnnotation *prevFieldAnnotation,
-                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys) {
+                    const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
+                    HLObjectOperationLowerHelper *pObjHelper) {
   SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
 
   Value *offset = baseOffset;
@@ -5843,19 +5846,21 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
     Instruction *user = cast<Instruction>(*(U++));
 
     TranslateCBAddressUser(user, handle, offset, hlslOP, fieldAnnotation,
-                           dxilTypeSys, DL);
+                           dxilTypeSys, DL, pObjHelper);
   }
 }
 
 void TranslateCBOperations(Value *handle, Value *ptr, Value *offset, OP *hlslOP,
-                           DxilTypeSystem &dxilTypeSys, const DataLayout &DL) {
+                           DxilTypeSystem &dxilTypeSys, const DataLayout &DL,
+                           HLObjectOperationLowerHelper *pObjHelper) {
   auto User = ptr->user_begin();
   auto UserE = ptr->user_end();
   for (; User != UserE;) {
     // Must be Instruction.
     Instruction *I = cast<Instruction>(*(User++));
     TranslateCBAddressUser(I, handle, offset, hlslOP,
-                           /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL);
+                           /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL,
+                           pObjHelper);
   }
 }
 
@@ -6000,28 +6005,6 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
                           DxilFieldAnnotation *prevFieldAnnotation,
                           const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
                           HLObjectOperationLowerHelper *pObjHelper);
-
-void TranslateResourceInCB(LoadInst *LI,
-                           HLObjectOperationLowerHelper *pObjHelper,
-                           GlobalVariable *CbGV) {
-  if (LI->user_empty()) {
-    LI->eraseFromParent();
-    return;
-  }
-
-  GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
-  CallInst *CI = cast<CallInst>(LI->user_back());
-  MDNode *MD = HLModule::GetDxilResourceAttrib(CI->getCalledFunction());
-
-  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, MD);
-
-  // Lower Ptr to GV base Ptr.
-  Value *GvPtr = pObjHelper->LowerCbResourcePtr(Ptr, ResPtr);
-  IRBuilder<> Builder(LI);
-  Value *GvLd = Builder.CreateLoad(GvPtr);
-  LI->replaceAllUsesWith(GvLd);
-  LI->eraseFromParent();
-}
 
 void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
                                   Value *legacyIdx, unsigned channelOffset,
@@ -7437,7 +7420,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     else {
       TranslateCBOperations(handle, CI, /*offset*/ hlslOP->GetU32Const(0),
                             hlslOP, helper.dxilTypeSys,
-                            CI->getModule()->getDataLayout());
+                            CI->getModule()->getDataLayout(), pObjHelper);
     }
     Translated = true;
     return;
@@ -7745,8 +7728,6 @@ void TranslateBuiltinOperations(
   HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet};
 
   Module *M = HLM.GetModule();
-
-  AllocateRayQueryObjects(M, helper);
 
   SmallVector<Function *, 4> NonUniformResourceIndexIntrinsics;
 

@@ -271,6 +271,7 @@ enum class ValidationRule : unsigned {
   TypesI8, // I8 can only used as immediate value for intrinsic
   TypesIntWidth, // Int type must be of valid width
   TypesNoMultiDim, // Only one dimension allowed for array type
+  TypesNoPtrToPtr, // Pointers to pointers, or pointers in structures are not allowed
   TypesNoVector, // Vector types must not be present
 
   // Uniform analysis

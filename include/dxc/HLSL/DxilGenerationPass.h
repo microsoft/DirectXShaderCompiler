@@ -85,6 +85,7 @@ void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
 void initializeHLEmitMetadataPass(llvm::PassRegistry&);
 void initializeDxilFinalizeModulePass(llvm::PassRegistry&);
 void initializeDxilEmitMetadataPass(llvm::PassRegistry&);
+void initializeDxilEraseDeadRegionPass(llvm::PassRegistry&);
 void initializeDxilExpandTrigIntrinsicsPass(llvm::PassRegistry&);
 void initializeDxilDeadFunctionEliminationPass(llvm::PassRegistry&);
 void initializeHLDeadFunctionEliminationPass(llvm::PassRegistry&);

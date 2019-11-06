@@ -47,6 +47,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilUtil.h"
 
@@ -87,6 +88,7 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
+  TEST_METHOD(CompileAS_CheckPSV0)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
@@ -740,6 +742,57 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
   std::string start(s.c_str(), strlen(expected));
   VERIFY_ARE_EQUAL_STR(expected, start.c_str());
 #endif
+}
+
+TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+  const char asSource[] =
+    "struct PayloadType { uint a, b, c; };\n"
+    "[shader(\"amplification\")]\n"
+    "[numthreads(1,1,1)]\n"
+    "void main(uint idx : SV_GroupIndex) {\n"
+    " PayloadType p = { idx, 2, 3 };\n"
+    " DispatchMesh(1,1,1, p);\n"
+    "}";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(asSource, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"as_6_5", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  HRESULT hrStatus;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrStatus));
+  VERIFY_SUCCEEDED(hrStatus);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+  IFT(containerReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    VERIFY_SUCCEEDED(containerReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_PipelineStateValidation) {
+      blobFound = true;
+      CComPtr<IDxcBlob> pBlob;
+      VERIFY_SUCCEEDED(containerReflection->GetPartContent(i, &pBlob));
+      DxilPipelineStateValidation PSV;
+      PSV.InitFromPSV0(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+      PSVShaderKind kind = PSV.GetShaderKind();
+      VERIFY_ARE_EQUAL(PSVShaderKind::Amplification, kind);
+      PSVRuntimeInfo0* pInfo = PSV.GetPSVRuntimeInfo0();
+      VERIFY_IS_NOT_NULL(pInfo);
+      VERIFY_ARE_EQUAL(12, pInfo->AS.PayloadSizeInBytes);
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(blobFound);
 }
 
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
@@ -1529,7 +1582,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
-  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\batch\\misc\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {

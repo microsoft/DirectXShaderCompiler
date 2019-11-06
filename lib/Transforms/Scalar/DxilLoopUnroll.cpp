@@ -72,6 +72,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/PredIteratorCache.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SetVector.h"
@@ -619,7 +620,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
     } 
 
     if (!ElementType->isArrayTy()) {
-      std::remove(ScalarAllocas.begin(), ScalarAllocas.end(), nullptr);
+      ScalarAllocas.erase(std::remove(ScalarAllocas.begin(), ScalarAllocas.end(), nullptr), ScalarAllocas.end());
       PromoteMemToReg(ScalarAllocas, *DT, nullptr, AC);
     }
   }
@@ -1163,13 +1164,77 @@ public:
     return false;
   }
 
+  // Collect and remove all instructions that use AI, but
+  // give up if there are anything other than store, bitcast,
+  // memcpy, or GEP.
+  static bool TryRemoveUnusedAlloca(AllocaInst *AI) {
+    std::vector<Instruction *> WorkList;
+
+    WorkList.push_back(AI);
+
+    for (unsigned i = 0; i < WorkList.size(); i++) {
+      Instruction *I = WorkList[i];
+
+      for (User *U : I->users()) {
+        Instruction *UI = cast<Instruction>(U);
+
+        unsigned Opcode = UI->getOpcode();
+        if (Opcode == Instruction::BitCast ||
+          Opcode == Instruction::GetElementPtr ||
+          Opcode == Instruction::Store)
+        {
+          WorkList.push_back(UI);
+        }
+        else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(UI)) {
+          if (MC->getSource() == I) { // MC reads from our alloca
+            return false;
+          }
+          WorkList.push_back(UI);
+        }
+        else { // Load? PHINode? Assume read.
+          return false;
+        }
+      }
+    }
+
+    // Remove all instructions
+    for (auto It = WorkList.rbegin(), E = WorkList.rend(); It != E; It++) {
+      Instruction *I = *It;
+      I->eraseFromParent();
+    }
+
+    return true;
+  }
+
+  static bool RemoveAllUnusedAllocas(Function &F) {
+    std::vector<AllocaInst *> Allocas;
+    BasicBlock &EntryBB = *F.begin();
+    for (auto It = EntryBB.begin(), E = EntryBB.end(); It != E;) {
+      Instruction &I = *(It++);
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
+        Allocas.push_back(AI);
+      }
+    }
+
+    bool Changed = false;
+    for (AllocaInst *AI : Allocas) {
+      Changed |= TryRemoveUnusedAlloca(AI);
+    }
+
+    return Changed;
+  }
+
   bool runOnFunction(Function &F) {
+
+
     LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
 
     bool NeedPromote = false;
     bool Changed = false;
+    
+    Changed |= RemoveAllUnusedAllocas(F);
 
     if (NoOpt) {
       // If any of the functions are marked as full unroll.

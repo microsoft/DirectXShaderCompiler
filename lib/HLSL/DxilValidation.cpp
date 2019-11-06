@@ -201,6 +201,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
+    case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed";
     case hlsl::ValidationRule::TypesI8: return "I8 can only used as immediate value for intrinsic";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
     case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1";
@@ -1297,6 +1298,9 @@ static void ValidateSampleInst(CallInst *CI, Value *srvHandle, Value *samplerHan
   bool isSampleCompTy = compTy == DXIL::ComponentType::F32;
   isSampleCompTy |= compTy == DXIL::ComponentType::SNormF32;
   isSampleCompTy |= compTy == DXIL::ComponentType::UNormF32;
+  isSampleCompTy |= compTy == DXIL::ComponentType::F16;
+  isSampleCompTy |= compTy == DXIL::ComponentType::SNormF16;
+  isSampleCompTy |= compTy == DXIL::ComponentType::UNormF16;
   if (!isSampleCompTy) {
     ValCtx.EmitInstrError(CI, ValidationRule::InstrSampleCompType);
   }
@@ -2696,18 +2700,30 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
   }
 }
 
-static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
+// outer type may be: [ptr to][1 dim array of]( UDT struct | scalar )
+// inner type (UDT struct member) may be: [N dim array of]( UDT struct | scalar )
+// scalar type may be: ( float(16|32|64) | int(16|32|64) )
+static bool ValidateType(Type *Ty, ValidationContext &ValCtx, bool bInner = false) {
   DXASSERT_NOMSG(Ty != nullptr);
   if (Ty->isPointerTy()) {
-    return ValidateType(Ty->getPointerElementType(), ValCtx);
+    Type *EltTy = Ty->getPointerElementType();
+    if (bInner || EltTy->isPointerTy()) {
+      ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoPtrToPtr);
+      return false;
+    }
+    Ty = EltTy;
   }
   if (Ty->isArrayTy()) {
     Type *EltTy = Ty->getArrayElementType();
-    if (isa<ArrayType>(EltTy)) {
+    if (!bInner && isa<ArrayType>(EltTy)) {
+      // Outermost array should be converted to single-dim,
+      // but arrays inside struct are allowed to be multi-dim
       ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoMultiDim);
       return false;
     }
-    return ValidateType(EltTy, ValCtx);
+    while (EltTy->isArrayTy())
+      EltTy = EltTy->getArrayElementType();
+    Ty = EltTy;
   }
   if (Ty->isStructTy()) {
     bool result = true;
@@ -2725,7 +2741,7 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
       result = false;
     }
     for (auto e : ST->elements()) {
-      if (!ValidateType(e, ValCtx)) {
+      if (!ValidateType(e, ValCtx, /*bInner*/true)) {
         result = false;
       }
     }
@@ -3197,7 +3213,9 @@ static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
 }
 
 static bool IsLLVMInstructionAllowedForLib(Instruction &I, ValidationContext &ValCtx) {
-  if (!ValCtx.isLibProfile)
+  if (!(ValCtx.isLibProfile ||
+        ValCtx.DxilMod.GetShaderModel()->IsMS() ||
+        ValCtx.DxilMod.GetShaderModel()->IsAS()))
     return false;
   switch (I.getOpcode()) {
   case Instruction::InsertElement:
@@ -3218,41 +3236,6 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I, ValidationContext &Va
   default:
     return false;
   }
-}
-
-static bool IsFromMeshPayload(Instruction *I) {
-  unsigned opcode = I->getOpcode();
-  switch (opcode) {
-  case Instruction::Alloca: {
-    break;
-  }
-  case Instruction::GetElementPtr: {
-    Value *src0 = I->getOperand(0);
-    if (I = dyn_cast<Instruction>(src0)) {
-      return IsFromMeshPayload(I);
-    }
-    return false;
-  }
-  case Instruction::Store: {
-    Value *src1 = I->getOperand(1);
-    if (I = dyn_cast<Instruction>(src1)) {
-      return IsFromMeshPayload(I);
-    }
-    return false;
-  }
-  default:
-    return false;
-  }
-
-  for (auto user : I->users()) {
-    if (CallInst *CI = dyn_cast<CallInst>(user)) {
-      Function *func = CI->getCalledFunction();
-      StringRef funcName = func->getName();
-      if (funcName.startswith("dx.op.dispatchMesh"))
-        return true;
-    }
-  }
-  return false;
 }
 
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
@@ -3394,13 +3377,11 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       unsigned opcode = I.getOpcode();
       switch (opcode) {
       case Instruction::Alloca: {
-        if (!IsFromMeshPayload(&I)) {
-          AllocaInst *AI = cast<AllocaInst>(&I);
-          // TODO: validate address space and alignment
-          Type *Ty = AI->getAllocatedType();
-          if (!ValidateType(Ty, ValCtx)) {
-            continue;
-          }
+        AllocaInst *AI = cast<AllocaInst>(&I);
+        // TODO: validate address space and alignment
+        Type *Ty = AI->getAllocatedType();
+        if (!ValidateType(Ty, ValCtx)) {
+          continue;
         }
       } break;
       case Instruction::ExtractValue: {
@@ -3423,20 +3404,16 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         }
       } break;
       case Instruction::Store: {
-        if (!IsFromMeshPayload(&I)) {
-          StoreInst *SI = cast<StoreInst>(&I);
-          Type *Ty = SI->getValueOperand()->getType();
-          if (!ValidateType(Ty, ValCtx)) {
-            continue;
-          }
+        StoreInst *SI = cast<StoreInst>(&I);
+        Type *Ty = SI->getValueOperand()->getType();
+        if (!ValidateType(Ty, ValCtx)) {
+          continue;
         }
       } break;
       case Instruction::GetElementPtr: {
-        if (!IsFromMeshPayload(&I)) {
-          Type *Ty = I.getType()->getPointerElementType();
-          if (!ValidateType(Ty, ValCtx)) {
-            continue;
-          }
+        Type *Ty = I.getType()->getPointerElementType();
+        if (!ValidateType(Ty, ValCtx)) {
+          continue;
         }
         GetElementPtrInst *GEP = cast<GetElementPtrInst>(&I);
         bool allImmIndex = true;
@@ -3528,12 +3505,18 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         if (PT->getAddressSpace() == DXIL::kTGSMAddrSpace) {
           if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
             Value *Ptr = GEP->getPointerOperand();
+            // Allow inner constant GEP
+            if (isa<ConstantExpr>(Ptr) && isa<GEPOperator>(Ptr))
+              Ptr = cast<GEPOperator>(Ptr)->getPointerOperand();
             if (!isa<GlobalVariable>(Ptr)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrFailToResloveTGSMPointer);
             }
           } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(&I)) {
             Value *Ptr = BCI->getOperand(0);
+            // Allow inner constant GEP
+            if (isa<ConstantExpr>(Ptr) && isa<GEPOperator>(Ptr))
+              Ptr = cast<GEPOperator>(Ptr)->getPointerOperand();
             if (!isa<GetElementPtrInst>(Ptr) && !isa<GlobalVariable>(Ptr)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrFailToResloveTGSMPointer);

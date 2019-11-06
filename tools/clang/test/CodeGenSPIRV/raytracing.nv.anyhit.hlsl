@@ -69,10 +69,14 @@ void main(inout Payload MyPayload, in Attribute MyAttr) {
   uint _16 = HitKind();
 
   if (_16 == 1U) {
-// CHECK:  OpIgnoreIntersectionNV
+// CHECK:  [[payloadread0:%\d+]] = OpLoad %Payload %MyPayload_0
+// CHECK-NEXT : OpStore %MyPayload [[payloadread0]]
+// CHECK-NEXT : OpIgnoreIntersectionNV
     IgnoreHit();
   } else {
-// CHECK:  OpTerminateRayNV
+// CHECK:  [[payloadread1:%\d+]] = OpLoad %Payload %MyPayload_0
+// CHECK-NEXT : OpStore %MyPayload [[payloadread1]]
+// CHECK-NEXT : OpTerminateRayNV
     AcceptHitAndEndSearch();
   }
 }

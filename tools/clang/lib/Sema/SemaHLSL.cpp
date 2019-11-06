@@ -1728,13 +1728,21 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
       const FunctionProtoType *FT =
           FD->getFunctionType()->getAs<FunctionProtoType>();
       Ty = FT->getParamType(pIntrinsic->iOverloadParamIndex);
+      // To go thru reference type.
+      if (Ty->isReferenceType())
+        Ty = Ty.getNonReferenceType();
     }
 
     // TODO: refine the code for getting element type
     if (const ExtVectorType *VecTy = hlsl::ConvertHLSLVecMatTypeToExtVectorType(context, Ty)) {
       Ty = VecTy->getElementType();
     }
-    if (Ty->isUnsignedIntegerType()) {
+
+    // Make sure to use unsigned op when return type is 'unsigned' matrix
+    bool isUnsignedMatOp =
+        IsHLSLMatType(Ty) && GetHLSLMatElementType(Ty)->isUnsignedIntegerType();
+
+    if (Ty->isUnsignedIntegerType() || isUnsignedMatOp) {
       opcode = hlsl::GetUnsignedOpcode(opcode);
     }
   }
@@ -3312,7 +3320,7 @@ private:
           break;
         }
       } else if (kind == AR_OBJECT_RAY_QUERY) {
-        recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "RayQuery", "flags");
+        recordDecl = DeclareRayQueryType(*m_context);
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2D", "kind");
@@ -6848,14 +6856,27 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
   DXASSERT_NOMSG(initSequence != nullptr);
 
   // In HLSL there are no default initializers, eg float4x4 m();
-  if (Kind.getKind() == InitializationKind::IK_Default) {
-    return;
-  }
-
-  // Value initializers occur for temporaries with empty parens or braces.
-  if (Kind.getKind() == InitializationKind::IK_Value) {
-    m_sema->Diag(Kind.getLocation(), diag::err_hlsl_type_empty_init) << Entity.getType();
-    SilenceSequenceDiagnostics(initSequence);
+  // Except for RayQuery constructor (also handle InitializationKind::IK_Value)
+  if (Kind.getKind() == InitializationKind::IK_Default ||
+      Kind.getKind() == InitializationKind::IK_Value) {
+    QualType destBaseType = m_context->getBaseElementType(Entity.getType());
+    ArTypeObjectKind destBaseShape = GetTypeObjectKind(destBaseType);
+    if (destBaseShape == AR_TOBJ_OBJECT) {
+      const CXXRecordDecl *typeRecordDecl = destBaseType->getAsCXXRecordDecl();
+      int index = FindObjectBasicKindIndex(GetRecordDeclForBuiltInOrStruct(typeRecordDecl));
+      DXASSERT(index != -1, "otherwise can't find type we already determined was an object");
+      if (g_ArBasicKindsAsTypes[index] == AR_OBJECT_RAY_QUERY) {
+        CXXConstructorDecl *Constructor = *typeRecordDecl->ctor_begin();
+        initSequence->AddConstructorInitializationStep(
+          Constructor, AccessSpecifier::AS_public, destBaseType, false, false, false);
+        return;
+      }
+    }
+    // Value initializers occur for temporaries with empty parens or braces.
+    if (Kind.getKind() == InitializationKind::IK_Value) {
+      m_sema->Diag(Kind.getLocation(), diag::err_hlsl_type_empty_init) << Entity.getType();
+      SilenceSequenceDiagnostics(initSequence);
+    }
     return;
   }
 
@@ -11666,6 +11687,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       // Add methods if not ready.
       hlslSource->AddHLSLObjectMethodsIfNotReady(eltQt);
+      bIsObject = true;
     }
   }
 

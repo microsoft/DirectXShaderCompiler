@@ -259,18 +259,27 @@ HRESULT DxcValidator::RunRootSignatureValidation(
   const DxilProgramHeader *pProgramHeader = GetDxilProgramHeader(pDxilContainer, DFCC_DXIL);
   const DxilPartHeader *pPSVPart = GetDxilPartByType(pDxilContainer, DFCC_PipelineStateValidation);
   const DxilPartHeader *pRSPart = GetDxilPartByType(pDxilContainer, DFCC_RootSignature);
-  IFRBOOL(pPSVPart && pRSPart, DXC_E_MISSING_PART);
+  IFRBOOL(pRSPart, DXC_E_MISSING_PART);
+  if (pProgramHeader) {
+    // Container has shader part, make sure we have PSV.
+    IFRBOOL(pPSVPart, DXC_E_MISSING_PART);
+  }
   try {
     RootSignatureHandle RSH;
     RSH.LoadSerialized((const uint8_t*)GetDxilPartData(pRSPart), pRSPart->PartSize);
     RSH.Deserialize();
     raw_stream_ostream DiagStream(pDiagStream);
-    IFRBOOL(VerifyRootSignatureWithShaderPSV(RSH.GetDesc(),
-                                             GetVersionShaderType(pProgramHeader->ProgramVersion),
-                                             GetDxilPartData(pPSVPart),
-                                             pPSVPart->PartSize,
-                                             DiagStream),
-      DXC_E_INCORRECT_ROOT_SIGNATURE);
+    if (pProgramHeader) {
+      IFRBOOL(VerifyRootSignatureWithShaderPSV(RSH.GetDesc(),
+                                               GetVersionShaderType(pProgramHeader->ProgramVersion),
+                                               GetDxilPartData(pPSVPart),
+                                               pPSVPart->PartSize,
+                                               DiagStream),
+              DXC_E_INCORRECT_ROOT_SIGNATURE);
+    } else {
+      IFRBOOL(VerifyRootSignature(RSH.GetDesc(), DiagStream, false),
+              DXC_E_INCORRECT_ROOT_SIGNATURE);
+    }
   } catch(...) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }

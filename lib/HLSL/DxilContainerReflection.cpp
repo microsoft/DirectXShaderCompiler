@@ -28,6 +28,7 @@
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/HLMatrixType.h"
 
 #include <unordered_set>
 #include "llvm/ADT/SetVector.h"
@@ -848,7 +849,12 @@ HRESULT CShaderReflectionType::Initialize(
     // We might have an array of matrices, though, so we only exit if
     // the field annotation says we have a matrix, and we've bottomed
     // out and the element type isn't itself an array.
-    if(typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy())
+    //
+    // For libraries however, we may have unlowered matrix types, so
+    // we have to check for HLMatrixType so we don't skip counting the
+    // inner-most matrix array size.
+    if(typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy() &&
+       !HLMatrixType::isa(elementType))
     {
       break;
     }
@@ -1388,7 +1394,10 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
   case DxilResource::Kind::TextureCubeArray:
     return isUAV ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
   case DxilResource::Kind::RTAccelerationStructure:
-    return (D3D_SHADER_INPUT_TYPE)D3D_SIT_RTACCELERATIONSTRUCTURE;
+    return (D3D_SHADER_INPUT_TYPE)(D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER + 1);  // D3D_SIT_RTACCELERATIONSTRUCTURE
+  case DxilResource::Kind::FeedbackTexture2D:
+  case DxilResource::Kind::FeedbackTexture2DArray:
+    return (D3D_SHADER_INPUT_TYPE)(D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER + 2);  // D3D_SIT_UAV_FEEDBACKTEXTURE
   default:
     return (D3D_SHADER_INPUT_TYPE)-1;
   }
@@ -1425,8 +1434,10 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
   case DxilResource::Kind::Texture1DArray:
     return D3D_SRV_DIMENSION_TEXTURE1DARRAY;
   case DxilResource::Kind::Texture2D:
+  case DxilResource::Kind::FeedbackTexture2D:
     return D3D_SRV_DIMENSION_TEXTURE2D;
   case DxilResource::Kind::Texture2DArray:
+  case DxilResource::Kind::FeedbackTexture2DArray:
     return D3D_SRV_DIMENSION_TEXTURE2DARRAY;
   case DxilResource::Kind::Texture2DMS:
     return D3D_SRV_DIMENSION_TEXTURE2DMS;
@@ -1828,16 +1839,8 @@ static uint8_t NegMask(uint8_t V) {
 void DxilShaderReflection::CreateReflectionObjectsForSignature(
   const DxilSignature &Sig,
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC> &Descs) {
-  bool clipDistanceSeen = false;
   for (auto && SigElem : Sig.GetElements()) {
     D3D12_SIGNATURE_PARAMETER_DESC Desc;
-
-    // TODO: why do we have multiple SV_ClipDistance elements?
-    if (SigElem->GetSemantic()->GetKind() == DXIL::SemanticKind::ClipDistance) {
-      if (clipDistanceSeen) continue;
-      clipDistanceSeen = true;
-    }
-
     Desc.ComponentType = CompTypeToRegisterComponentType(SigElem->GetCompType());
     Desc.Mask = SigElem->GetColsAsMask();
     // D3D11_43 does not have MinPrecison.

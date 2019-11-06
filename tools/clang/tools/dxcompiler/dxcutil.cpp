@@ -102,6 +102,27 @@ private:
 } // namespace
 
 namespace dxcutil {
+
+AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
+                CComPtr<IDxcBlob> &pOutputContainerBlob,
+                IMalloc *pMalloc,
+                hlsl::SerializeDxilFlags SerializeFlags,
+                CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
+                bool bDebugInfo,
+                llvm::StringRef DebugName,
+                clang::DiagnosticsEngine *pDiag,
+                hlsl::DxilShaderHash *pShaderHashOut)
+  : pM(std::move(pM)),
+    pOutputContainerBlob(pOutputContainerBlob),
+    pMalloc(pMalloc),
+    SerializeFlags(SerializeFlags),
+    pModuleBitcode(pModuleBitcode),
+    bDebugInfo(bDebugInfo),
+    DebugName(DebugName),
+    pDiag(pDiag),
+    pShaderHashOut(pShaderHashOut)
+{}
+
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
   if (pMajor == nullptr || pMinor == nullptr)
     return;
@@ -119,17 +140,16 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
   }
 }
 
-void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
-                         CComPtr<IDxcBlob> &pOutputBlob,
-                         IMalloc *pMalloc,
-                         SerializeDxilFlags SerializeFlags,
-                         CComPtr<AbstractMemoryStream> &pOutputStream,
-                         DxilShaderHash *pShaderHashOut) {
+void AssembleToContainer(AssembleInputs &inputs) {
   // Take ownership of the module from the action.
-  DxilCompilerLLVMModuleOutput llvmModule(std::move(pM));
+  DxilCompilerLLVMModuleOutput llvmModule(std::move(inputs.pM));
 
-  llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
-                                       SerializeFlags, pShaderHashOut);
+  if (inputs.DebugName.size()) {
+    llvmModule.SetDebugName(inputs.DebugName);
+  }
+
+  llvmModule.WrapModuleInDxilContainer(inputs.pMalloc, inputs.pModuleBitcode, inputs.pOutputContainerBlob,
+                                       inputs.SerializeFlags, inputs.pShaderHashOut);
 }
 
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
@@ -157,38 +177,36 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
   finished = false;
 }
 
-HRESULT ValidateAndAssembleToContainer(
-    std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputBlob,
-    IMalloc *pMalloc, SerializeDxilFlags SerializeFlags,
-    CComPtr<AbstractMemoryStream> &pOutputStream, bool bDebugInfo, llvm::StringRef DebugName,
-    clang::DiagnosticsEngine &Diag, DxilShaderHash *pShaderHashOut) {
+HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   HRESULT valHR = S_OK;
 
   // Take ownership of the module from the action.
-  DxilCompilerLLVMModuleOutput llvmModule(std::move(pM));
+  DxilCompilerLLVMModuleOutput llvmModule(std::move(inputs.pM));
 
   CComPtr<IDxcValidator> pValidator;
   bool bInternalValidator = CreateValidator(pValidator);
   // Warning on internal Validator
 
   if (bInternalValidator) {
-    unsigned diagID =
-        Diag.getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
-                             "DXIL.dll not found.  Resulting DXIL will not be "
-                             "signed for use in release environments.\r\n");
-    Diag.Report(diagID);
+    if (inputs.pDiag) {
+      unsigned diagID =
+          inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
+                               "DXIL.dll not found.  Resulting DXIL will not be "
+                               "signed for use in release environments.\r\n");
+      inputs.pDiag->Report(diagID);
+    }
     // If using the internal validator, we'll use the modules directly.
     // In this case, we'll want to make a clone to avoid
     // SerializeDxilContainerForModule stripping all the debug info. The debug
     // info will be stripped from the orginal module, but preserved in the cloned
     // module.
-    if (bDebugInfo) {
+    if (inputs.bDebugInfo) {
       llvmModule.CloneForDebugInfo();
     }
   }
 
-  if (bDebugInfo && DebugName.size()) {
-    llvmModule.SetDebugName(DebugName);
+  if (inputs.DebugName.size()) {
+    llvmModule.SetDebugName(inputs.DebugName);
   }
 
   // Verify validator version can validate this module
@@ -201,26 +219,28 @@ HRESULT ValidateAndAssembleToContainer(
   DM.GetValidatorVersion(ReqValMajor, ReqValMinor);
   if (DXIL::CompareVersions(ValMajor, ValMinor, ReqValMajor, ReqValMinor) < 0) {
     // Module is expecting to be validated by a newer validator.
-    unsigned diagID =
-      Diag.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-        "The module cannot be validated by the version of the validator "
-        "currently attached.");
-    Diag.Report(diagID);
+    if (inputs.pDiag) {
+      unsigned diagID =
+        inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+          "The module cannot be validated by the version of the validator "
+          "currently attached.");
+      inputs.pDiag->Report(diagID);
+    }
     return E_FAIL;
   }
 
-  llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
-                                       SerializeFlags, pShaderHashOut);
+  llvmModule.WrapModuleInDxilContainer(inputs.pMalloc, inputs.pModuleBitcode, inputs.pOutputContainerBlob,
+                                       inputs.SerializeFlags, inputs.pShaderHashOut);
 
   CComPtr<IDxcOperationResult> pValResult;
   // Important: in-place edit is required so the blob is reused and thus
   // dxil.dll can be released.
   if (bInternalValidator) {
     IFT(RunInternalValidator(pValidator, llvmModule.get(),
-                             llvmModule.getWithDebugInfo(), pOutputBlob,
+                             llvmModule.getWithDebugInfo(), inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
-    IFT(pValidator->Validate(pOutputBlob, DxcValidatorFlags_InPlaceEdit,
+    IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
                              &pValResult));
   }
   IFT(pValResult->GetStatus(&valHR));
@@ -231,17 +251,50 @@ HRESULT ValidateAndAssembleToContainer(
     IFT(hlsl::DxcGetBlobAsUtf8(pErrors, &pErrorsUtf8));
     StringRef errRef((const char *)pErrorsUtf8->GetBufferPointer(),
                      pErrorsUtf8->GetBufferSize());
-    unsigned DiagID = Diag.getCustomDiagID(clang::DiagnosticsEngine::Error,
-                                           "validation errors\r\n%0");
-    Diag.Report(DiagID) << errRef;
+    if (inputs.pDiag) {
+      unsigned DiagID = inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Error,
+                                             "validation errors\r\n%0");
+      inputs.pDiag->Report(DiagID) << errRef;
+    }
   }
   CComPtr<IDxcBlob> pValidatedBlob;
   IFT(pValResult->GetResult(&pValidatedBlob));
   if (pValidatedBlob != nullptr) {
-    std::swap(pOutputBlob, pValidatedBlob);
+    std::swap(inputs.pOutputContainerBlob, pValidatedBlob);
   }
   pValidator.Release();
 
+  return valHR;
+}
+
+HRESULT ValidateRootSignatureInContainer(
+    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag) {
+  HRESULT valHR = S_OK;
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pValResult;
+  CreateValidator(pValidator);
+  IFT(pValidator->Validate(pRootSigContainer,
+        DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit,
+        &pValResult));
+  IFT(pValResult->GetStatus(&valHR));
+  if (pDiag) {
+    if (FAILED(valHR)) {
+      CComPtr<IDxcBlobEncoding> pErrors;
+      IFT(pValResult->GetErrorBuffer(&pErrors));
+#ifdef DBG
+      UINT32 codePage = CP_ACP;
+      BOOL known = FALSE;
+      IFT(pErrors->GetEncoding(&known, &codePage));
+      DXASSERT_NOMSG(!known || codePage == CP_ACP || codePage == CP_UTF8);
+#endif
+      StringRef errRef((const char *)pErrors->GetBufferPointer(),
+                       pErrors->GetBufferSize());
+      unsigned DiagID = pDiag->getCustomDiagID(
+        clang::DiagnosticsEngine::Error,
+        "root signature validation errors\r\n%0");
+      pDiag->Report(DiagID) << errRef;
+    }
+  }
   return valHR;
 }
 

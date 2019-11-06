@@ -206,6 +206,7 @@ public:
   TEST_METHOD(CompileWhenDebugThenDIPresent)
   TEST_METHOD(CompileDebugLines)
   TEST_METHOD(CompileDebugPDB)
+  TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(CompileWhenDefinesThenApplied)
   TEST_METHOD(CompileWhenDefinesManyThenApplied)
@@ -258,6 +259,7 @@ public:
   TEST_METHOD(DiaLoadBadBitcodeThenFail)
   TEST_METHOD(DiaLoadDebugThenOK)
   TEST_METHOD(DiaTableIndexThenOK)
+  TEST_METHOD(DiaLoadDebugSubrangeNegativeThenOK)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenInclude)
@@ -278,19 +280,24 @@ public:
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
-  TEST_METHOD(CodeGenSamples)
+  TEST_METHOD(BatchSamples)
+  TEST_METHOD(BatchD3DReflect)
+  TEST_METHOD(BatchDxil)
+  TEST_METHOD(BatchHLSL)
+  TEST_METHOD(BatchInfra)
+  TEST_METHOD(BatchPasses)
+  TEST_METHOD(BatchShaderTargets)
+  TEST_METHOD(BatchValidation)
+
   TEST_METHOD(SubobjectCodeGenErrors)
-  TEST_METHOD(SanitizePDBName)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
 
   // Batch directories
-  TEST_METHOD(CodeGenBatch)
   BEGIN_TEST_METHOD(CodeGenHashStability)
       TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
-  TEST_METHOD(Mesh)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -703,7 +710,7 @@ public:
     using namespace llvm;
     using namespace WEX::TestExecution;
 
-    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+    if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -769,7 +776,7 @@ public:
     using namespace llvm;
     using namespace WEX::TestExecution;
 
-    if (implicitDir) suitePath.insert(0, L"..\\CodeGenHLSL\\");
+    if (implicitDir) suitePath.insert(0, L"..\\HLSLFileCheck\\");
 
     ::llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
@@ -1026,6 +1033,41 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   VERIFY_SUCCEEDED(CreateDiaSourceFromDxbcBlob(pLib, fxcBlob, &pDiaSource));
   WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 #endif
+}
+
+TEST_F(CompilerTest, CompileDebugDisasmPDB) {
+  const char *hlsl = R"(
+    [RootSignature("")]
+    float main(float pos : A) : SV_Target {
+      float x = abs(pos);
+      float y = sin(pos);
+      float z = x + y;
+      return z;
+    }
+  )";
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcCompiler2> pCompiler2;
+
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlob> pPdbBlob;
+  WCHAR *pDebugName = nullptr;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
+  CreateBlobFromText(hlsl, &pSource);
+  LPCWSTR args[] = { L"/Zi", L"/Qembed_debug" };
+  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  // Test that disassembler can consume a PDB container
+  CComPtr<IDxcBlobEncoding> pDisasm;
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pPdbBlob, &pDisasm));
 }
 
 // Test that the new PDB format still works with Dia
@@ -1526,20 +1568,39 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
       pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NOT_NULL(pPartHeader);
+  pResult.Release();
   
   // Remove root signature
-  CComPtr<IDxcBlob> pNewProgram;
+  CComPtr<IDxcBlob> pProgramRootSigRemoved;
   CComPtr<IDxcContainerBuilder> pBuilder;
   VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_RootSignature));
-  pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  pContainerHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramRootSigRemoved));
+  pContainerHeader = (hlsl::DxilContainerHeader *)(pProgramRootSigRemoved->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeaderShouldBeNull = hlsl::GetDxilPartByType(pContainerHeader,
+                                        hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NULL(pPartHeaderShouldBeNull);
+  pBuilder.Release();
+  pResult.Release();
+
+  // Add root signature back
+  CComPtr<IDxcBlobEncoding> pRootSignatureBlob;
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcBlob> pProgramRootSigAdded;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+    hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, 0, &pRootSignatureBlob));
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgramRootSigRemoved));
+  pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
+  pBuilder->SerializeContainer(&pResult);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramRootSigAdded));
+  pContainerHeader = (hlsl::DxilContainerHeader *)(pProgramRootSigAdded->GetBufferPointer());
   pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
                                         hlsl::DxilFourCC::DFCC_RootSignature);
-  VERIFY_IS_NULL(pPartHeader);
+  VERIFY_IS_NOT_NULL(pPartHeader);
 }
 #endif // Container builder unsupported
 
@@ -2344,7 +2405,7 @@ TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
   VERIFY_FAILED(pDiaSource->loadDataFromIStream(pStream));
 }
 
-static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource **ppDataSource) {
+static void CompileTestAndLoadDiaSource(dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDiaDataSource **ppDataSource) {
   CComPtr<IDxcBlob> pContainer;
   CComPtr<IDxcBlob> pDebugContent;
   CComPtr<IDiaDataSource> pDiaSource;
@@ -2356,7 +2417,7 @@ static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource
   args.push_back(L"/Zi");
   args.push_back(L"/Qembed_debug");
 
-  VerifyCompileOK(dllSupport, EmptyCompute, L"cs_6_0", args, &pContainer);
+  VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
   VERIFY_SUCCEEDED(pReflection->Load(pContainer));
@@ -2369,6 +2430,36 @@ static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource
     *ppDataSource = pDiaSource.Detach();
   }
 }
+
+static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource **ppDataSource) {
+  CompileTestAndLoadDiaSource(dllSupport, EmptyCompute, L"cs_6_0", ppDataSource);
+}
+
+TEST_F(CompilerTest, DiaLoadDebugSubrangeNegativeThenOK) {
+  static const char source[] = R"(
+    SamplerState  samp0 : register(s0);
+    Texture2DArray tex0 : register(t0);
+
+    float4 foo(Texture2DArray textures[], int idx, SamplerState samplerState, float3 uvw) {
+      return textures[NonUniformResourceIndex(idx)].Sample(samplerState, uvw);
+    }
+
+    [RootSignature( "DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0)) " )]
+    float4 main(int index : INDEX, float3 uvw : TEXCOORD) : SV_Target {
+      Texture2DArray textures[] = {
+        tex0,
+      };
+      return foo(textures, index, samp0, uvw);
+    }
+  )";
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CompileTestAndLoadDiaSource(m_dllSupport, source, L"ps_6_0", &pDiaDataSource);
+
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
+}
+
 
 TEST_F(CompilerTest, DiaLoadDebugThenOK) {
   CompileTestAndLoadDia(m_dllSupport, nullptr);
@@ -2536,10 +2627,6 @@ TEST_F(CompilerTest, CodeGenRootSigProfile2) {
 
 TEST_F(CompilerTest, CodeGenRootSigProfile5) {
   CodeGenTest(L"rootSigProfile5.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenSamples){
-  CodeGenTestCheckBatchDir(L"Samples");
 }
 
 TEST_F(CompilerTest, LibGVStore) {
@@ -2783,55 +2870,6 @@ TEST_F(CompilerTest, SubobjectCodeGenErrors) {
   }
 }
 
-// Check that pdb name doesn't contain any preceding or trailing quotations
-TEST_F(CompilerTest, SanitizePDBName) {
-  const char *hlsl = R"(
-    [RootSignature("")]
-    float main(float pos : A) : SV_Target {
-      float x = abs(pos);
-      float y = sin(pos);
-      float z = x + y;
-      return z;
-    }
-  )";
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcCompiler2> pCompiler2;
-
-  CComPtr<IDxcOperationResult> pResult;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
-
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
-  CreateBlobFromText(hlsl, &pSource);
-  LPCWSTR args[] = { L"/Zi", L"/Fd",
-    L"\"my_pdb.pdb\"" // With Added Quotations
-  };
-  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(pSource, L"source.hlsl", L"main",
-    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  VERIFY_IS_TRUE(pDebugName && 0 == wcscmp(pDebugName, L"my_pdb.pdb"));
-
-  CComPtr<IDxcContainerReflection> pReflection;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  VERIFY_SUCCEEDED(pReflection->Load(pProgram));
-
-  CComPtr<IDxcBlob> pNameBlob;
-  UINT32 uDebugNameIndex = 0;
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugName, &uDebugNameIndex));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(uDebugNameIndex, &pNameBlob));
-
-  auto pName = (hlsl::DxilShaderDebugName *)pNameBlob->GetBufferPointer();
-  const char *Name = (char *)&pName[1];
-  VERIFY_IS_TRUE(0 == strcmp(Name, "my_pdb.pdb"));
-}
-
 #ifdef _WIN32
 TEST_F(CompilerTest, ManualFileCheckTest) {
 #else
@@ -2869,15 +2907,37 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 
 
 TEST_F(CompilerTest, CodeGenHashStability) {
-  CodeGenTestCheckBatchHash(L"batch");
+  CodeGenTestCheckBatchHash(L"");
 }
 
-TEST_F(CompilerTest, CodeGenBatch) {
-  CodeGenTestCheckBatchDir(L"batch");
+TEST_F(CompilerTest, BatchD3DReflect) {
+  CodeGenTestCheckBatchDir(L"d3dreflect");
 }
 
-TEST_F(CompilerTest, Mesh) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-  CodeGenTestCheckBatchDir(L"mesh");
+TEST_F(CompilerTest, BatchDxil) {
+  CodeGenTestCheckBatchDir(L"dxil");
+}
+
+TEST_F(CompilerTest, BatchHLSL) {
+  CodeGenTestCheckBatchDir(L"hlsl");
+}
+
+TEST_F(CompilerTest, BatchInfra) {
+  CodeGenTestCheckBatchDir(L"infra");
+}
+
+TEST_F(CompilerTest, BatchPasses) {
+  CodeGenTestCheckBatchDir(L"passes");
+}
+
+TEST_F(CompilerTest, BatchShaderTargets) {
+  CodeGenTestCheckBatchDir(L"shader_targets");
+}
+
+TEST_F(CompilerTest, BatchValidation) {
+  CodeGenTestCheckBatchDir(L"validation");
+}
+
+TEST_F(CompilerTest, BatchSamples) {
+  CodeGenTestCheckBatchDir(L"samples");
 }

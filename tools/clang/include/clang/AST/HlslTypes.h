@@ -322,6 +322,7 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
 
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
+clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>
@@ -382,6 +383,7 @@ unsigned GetHLSLOutputPatchCount(clang::QualType type);
 bool IsHLSLSubobjectType(clang::QualType type);
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 
                           DXIL::HitGroupType &ghType);
+bool IsHLSLRayQueryType(clang::QualType type);
 
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);

@@ -102,6 +102,12 @@ Decl *Parser::ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
   Actions.ActOnStartHLSLBufferView();
   Parser::DeclGroupPtrTy dcl = ParseDeclGroup(PDS, Declarator::FileContext);
 
+  // If parsing of decl group fails, then decl group must have been illformed. Bail out!
+  // Note that we don't have to generate any diagnostics here as it was already
+  // generated previously in ParseDirectDeclarator().
+  if (!dcl)
+    return nullptr;
+
   // Check if the register type is valid
   NamedDecl *namedDecl = cast<NamedDecl>(dcl.get().getSingleDecl());
   ArrayRef<hlsl::UnusualAnnotation*> annotations = namedDecl->getUnusualAnnotations();
