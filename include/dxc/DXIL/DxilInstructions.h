@@ -6937,5 +6937,55 @@ struct DxilInst_GeometryIndex {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
+
+/// This instruction returns candidate hit InstanceContributionToHitGroupIndex
+struct DxilInst_RayQuery_CandidateInstanceContributionToHitGroupIndex {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_RayQuery_CandidateInstanceContributionToHitGroupIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_rayQueryHandle = 1,
+  };
+  // Accessors
+  llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
+  void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction returns committed hit InstanceContributionToHitGroupIndex
+struct DxilInst_RayQuery_CommittedInstanceContributionToHitGroupIndex {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_RayQuery_CommittedInstanceContributionToHitGroupIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_rayQueryHandle = 1,
+  };
+  // Accessors
+  llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
+  void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
