@@ -2092,24 +2092,23 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
 
 void MemcpySplitter::Split(llvm::Function &F) {
   const DataLayout &DL = F.getParent()->getDataLayout();
-
-  Function *memcpy = nullptr;
+  SmallVector<Function *, 2> memcpys;
   for (Function &Fn : F.getParent()->functions()) {
     if (Fn.getIntrinsicID() == Intrinsic::memcpy) {
-      memcpy = &Fn;
-      break;
+      memcpys.emplace_back(&Fn);
     }
   }
-  if (memcpy) {
-    for (auto U = memcpy->user_begin(); U != memcpy->user_end();) {
-      MemCpyInst *MI = cast<MemCpyInst>(*(U++));
-      if (MI->getParent()->getParent() != &F)
-        continue;
-      // Matrix is treated as scalar type, will not use memcpy.
-      // So use nullptr for fieldAnnotation should be safe here.
-      SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys,
-                  /*bEltMemCpy*/ false);
-    }
+  if (!memcpys.empty()) {
+    for (Function *memcpy : memcpys)
+      for (auto U = memcpy->user_begin(); U != memcpy->user_end();) {
+        MemCpyInst *MI = cast<MemCpyInst>(*(U++));
+        if (MI->getParent()->getParent() != &F)
+          continue;
+        // Matrix is treated as scalar type, will not use memcpy.
+        // So use nullptr for fieldAnnotation should be safe here.
+        SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys,
+                    /*bEltMemCpy*/ false);
+      }
   }
  }
 
