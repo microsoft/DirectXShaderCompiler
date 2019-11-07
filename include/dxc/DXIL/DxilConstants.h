@@ -428,6 +428,7 @@ namespace DXIL {
     AllocateRayQuery = 178, // allocates space for RayQuery and return handle
     RayQuery_Abort = 181, // aborts a ray query
     RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
+    RayQuery_CandidateInstanceContributionToHitGroupIndex = 214, // returns candidate hit InstanceContributionToHitGroupIndex
     RayQuery_CandidateInstanceID = 202, // returns candidate hit instance ID
     RayQuery_CandidateInstanceIndex = 201, // returns candidate hit instance index
     RayQuery_CandidateObjectRayDirection = 206, // returns candidate object ray direction
@@ -443,6 +444,7 @@ namespace DXIL {
     RayQuery_CommitNonOpaqueTriangleHit = 182, // commits a non opaque triangle hit
     RayQuery_CommitProceduralPrimitiveHit = 183, // commits a procedural primitive hit
     RayQuery_CommittedGeometryIndex = 209, // returns committed hit geometry index
+    RayQuery_CommittedInstanceContributionToHitGroupIndex = 215, // returns committed hit InstanceContributionToHitGroupIndex
     RayQuery_CommittedInstanceID = 208, // returns committed hit instance ID
     RayQuery_CommittedInstanceIndex = 207, // returns committed hit instance index
     RayQuery_CommittedObjectRayDirection = 212, // returns committed object ray direction
@@ -656,9 +658,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
-    NumOpCodes_Dxil_1_5 = 214,
+    NumOpCodes_Dxil_1_5 = 216,
   
-    NumOpCodes = 214 // exclusive last value of enumeration
+    NumOpCodes = 216 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
