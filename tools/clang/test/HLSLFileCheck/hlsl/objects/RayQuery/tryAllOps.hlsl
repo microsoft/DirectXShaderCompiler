@@ -22,6 +22,7 @@
 // CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 205, i32 %[[hRayQuery]], i8 1)
 // CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 204, i32 %[[hRayQuery]])
 // CHECK: call float @dx.op.rayQuery_StateScalar.f32(i32 199, i32 %[[hRayQuery]])
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 214, i32 %[[hRayQuery]])
 // CHECK: call i1 @dx.op.rayQuery_Proceed.i1(i32 180, i32 %[[hRayQuery]])
 // CHECK: call float @dx.op.rayQuery_StateMatrix.f32(i32 187, i32 %[[hRayQuery]], i32 0, i8 0)
 // CHECK: call i1 @dx.op.rayQuery_StateScalar.i1(i32 190, i32 %[[hRayQuery]])
@@ -32,6 +33,7 @@
 // CHECK: call float @dx.op.rayQuery_StateMatrix.f32(i32 189, i32 %[[hRayQuery]], i32 0, i8 0)
 // CHECK: call i1 @dx.op.rayQuery_StateScalar.i1(i32 192, i32 %[[hRayQuery]])
 // CHECK: call float @dx.op.rayQuery_StateVector.f32(i32 194, i32 %[[hRayQuery]], i8 1)
+// CHECL: call i32 @dx.op.rayQuery_StateScalar.i32(i32 215, i32 %[[hRayQuery]])
 // CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 209, i32 %[[hRayQuery]])
 // CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 208, i32 %[[hRayQuery]])
 // CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 207, i32 %[[hRayQuery]])
@@ -115,6 +117,10 @@ void CS()
             {
                 DoSomething();
             }
+            if(q.CandidateInstanceContributionToHitGroupIndex())
+            {
+                DoSomething();
+            }
             break;
         case CANDIDATE_PROCEDURAL_PRIMITIVE:
         {
@@ -149,6 +155,10 @@ void CS()
             DoSomething();
         }
         if(q.CommittedTriangleBarycentrics().y == 0)
+        {
+            DoSomething();
+        }
+        if(q.CommittedInstanceContributionToHitGroupIndex())
         {
             DoSomething();
         }

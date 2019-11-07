@@ -930,8 +930,10 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // RayQuery_CommittedInstanceIndex=207, RayQuery_CommittedInstanceID=208,
   // RayQuery_CommittedGeometryIndex=209, RayQuery_CommittedPrimitiveIndex=210,
   // RayQuery_CommittedObjectRayOrigin=211,
-  // RayQuery_CommittedObjectRayDirection=212
-  if ((176 <= op && op <= 212))
+  // RayQuery_CommittedObjectRayDirection=212,
+  // RayQuery_CandidateInstanceContributionToHitGroupIndex=214,
+  // RayQuery_CommittedInstanceContributionToHitGroupIndex=215
+  if ((176 <= op && op <= 212) || (214 <= op && op <= 215))
     return (major > 6 || (major == 6 && minor >= 5));
   // Instructions: DispatchMesh=173
   if (op == 173)

@@ -414,7 +414,7 @@ class db_dxil(object):
                  "RayQuery_CandidateObjectRayOrigin,RayQuery_CandidateObjectRayDirection,RayQuery_CommittedInstanceIndex,RayQuery_CommittedInstanceID,RayQuery_CommittedGeometryIndex,RayQuery_CommittedPrimitiveIndex,"+
                  "RayQuery_CommittedObjectRayOrigin,RayQuery_CommittedObjectRayDirection,RayQuery_CandidateProceduralPrimitiveNonOpaque,RayQuery_CandidateTriangleFrontFace,RayQuery_CommittedTriangleFrontFace,"+
                  "RayQuery_CandidateTriangleBarycentrics,RayQuery_CommittedTriangleBarycentrics,RayQuery_CommittedStatus,RayQuery_CandidateType,RayQuery_CandidateObjectToWorld3x4,"+
-                 "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4").split(","):
+                 "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4,RayQuery_CandidateInstanceContributionToHitGroupIndex,RayQuery_CommittedInstanceContributionToHitGroupIndex").split(","):
             self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6,5
 
@@ -1713,9 +1713,19 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "result")])
         next_op_idx += 1
 
+        self.add_dxil_op("RayQuery_CandidateInstanceContributionToHitGroupIndex", next_op_idx, "RayQuery_StateScalar", "returns candidate hit InstanceContributionToHitGroupIndex", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayQuery_CommittedInstanceContributionToHitGroupIndex", next_op_idx, "RayQuery_StateScalar", "returns committed hit InstanceContributionToHitGroupIndex", "i", "ro", [
+            db_dxil_param(0, "i32", "", "operation result"),
+            db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle")])
+        next_op_idx += 1
+
         # End of DXIL 1.5 opcodes.
         self.set_op_count_for_version(1, 5, next_op_idx)
-        assert next_op_idx == 214, "214 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 216, "216 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
