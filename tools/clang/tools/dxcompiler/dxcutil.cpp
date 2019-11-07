@@ -203,14 +203,14 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
                              &pValResult));
   }
   IFT(pValResult->GetStatus(&valHR));
-  if (FAILED(valHR)) {
-    CComPtr<IDxcBlobEncoding> pErrors;
-    CComPtr<IDxcBlobUtf8> pErrorsUtf8;
-    IFT(pValResult->GetErrorBuffer(&pErrors));
-    IFT(hlsl::DxcGetBlobAsUtf8(pErrors, inputs.pMalloc, &pErrorsUtf8));
-    StringRef errRef(pErrorsUtf8->GetStringPointer(),
-                     pErrorsUtf8->GetStringLength());
-    if (inputs.pDiag) {
+  if (inputs.pDiag) {
+    if (FAILED(valHR)) {
+      CComPtr<IDxcBlobEncoding> pErrors;
+      CComPtr<IDxcBlobUtf8> pErrorsUtf8;
+      IFT(pValResult->GetErrorBuffer(&pErrors));
+      IFT(hlsl::DxcGetBlobAsUtf8(pErrors, inputs.pMalloc, &pErrorsUtf8));
+      StringRef errRef(pErrorsUtf8->GetStringPointer(),
+                       pErrorsUtf8->GetStringLength());
       unsigned DiagID = inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Error,
                                              "validation errors\r\n%0");
       inputs.pDiag->Report(DiagID) << errRef;
