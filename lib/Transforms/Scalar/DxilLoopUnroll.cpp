@@ -1144,10 +1144,8 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequiredID(LoopSimplifyID);
     AU.setPreservesCFG();
   }
 
@@ -1227,30 +1225,13 @@ public:
   bool runOnFunction(Function &F) {
 
 
-    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
 
-    bool NeedPromote = false;
     bool Changed = false;
     
     Changed |= RemoveAllUnusedAllocas(F);
-
-    if (NoOpt) {
-      // If any of the functions are marked as full unroll.
-      for (Loop *L : *LI) {
-        if (HasLoopsMarkedUnrollRecursive(L)) {
-          NeedPromote = true;
-          break;
-        }
-      }
-    }
-    else {
-      NeedPromote = true;
-    }
-
-    if (NeedPromote)
-      Changed |= Mem2Reg(F, *DT, *AC);
+    Changed |= Mem2Reg(F, *DT, *AC);
 
     return Changed;
   }

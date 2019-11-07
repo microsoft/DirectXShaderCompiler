@@ -166,8 +166,8 @@ void EnsureEnabled(DxcDllSupport &dxcSupport);
 void ReadFileIntoBlob(DxcDllSupport &dxcSupport, _In_ LPCWSTR pFileName,
                       _Outptr_ IDxcBlobEncoding **ppBlobEncoding);
 void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
-void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName);
-void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, HANDLE hFile, _In_opt_ LPCWSTR pFileName);
+void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
+void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPCWSTR pFileName, _In_ UINT32 textCodePage);
 void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
                         int charCount, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,

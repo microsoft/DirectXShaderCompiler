@@ -336,6 +336,27 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
+  void patchValidation_1_4(Module &M) {
+    Function *DoNothingF = nullptr;
+    for (Function &F : M) {
+      if (F.isIntrinsic() && F.getIntrinsicID() == Intrinsic::donothing) {
+        DoNothingF = &F;
+        break;
+      }
+    }
+
+    if (!DoNothingF)
+      return;
+
+    for (auto It = DoNothingF->user_begin(), E = DoNothingF->user_end(); It != E; ) {
+      User *U = *(It++);
+      cast<Instruction>(U)->eraseFromParent();
+    }
+
+    assert(DoNothingF->user_empty() && "Not all users removed from @llvm.donothing");
+    DoNothingF->eraseFromParent();
+  }
+
   void patchValidation_1_1(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
       for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
@@ -375,6 +396,9 @@ public:
       if (!IsLib) {
         if (ValMajor == 1 && ValMinor <= 1) {
           patchValidation_1_1(M);
+        }
+        if (ValMajor == 1 && ValMinor <= 4) {
+          patchValidation_1_4(M);
         }
 
         // Set used masks for signature elements

@@ -120,10 +120,9 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
 namespace Unicode {
 
 _Success_(return != false)
-bool UTF16ToEncodedString(_In_z_ const wchar_t* text, DWORD cp, DWORD flags, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+bool UTF16ToEncodedString(_In_z_ const wchar_t* text, size_t cUTF16, DWORD cp, DWORD flags, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
-  size_t cUTF16 = wcslen(text);
   if (lossy != nullptr) *lossy = false;
 
   // Handle zero-length as a special case; it's a special value to indicate errors in WideCharToMultiByte.
@@ -188,30 +187,47 @@ std::wstring UTF8ToUTF16StringOrThrow(_In_z_ const char *pUTF8) {
 }
 
 _Use_decl_annotations_
-bool UTF8ToConsoleString(_In_z_ const char* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+bool UTF8ToConsoleString(_In_z_ const char* text, _In_ size_t textLen, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   std::wstring text16;
   if (lossy != nullptr) *lossy = false;
-  if (!UTF8ToUTF16String(text, &text16)) {
+  if (!UTF8ToUTF16String(text, textLen, &text16)) {
     return false;
   }
-  return UTF16ToConsoleString(text16.c_str(), pValue, lossy);
+  return UTF16ToConsoleString(text16.c_str(), text16.length(), pValue, lossy);
+}
+
+_Use_decl_annotations_
+bool UTF8ToConsoleString(_In_z_ const char* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy) {
+  return UTF8ToConsoleString(text, strlen(text), pValue, lossy);
+}
+
+_Use_decl_annotations_
+bool UTF16ToConsoleString(const wchar_t* text, _In_ size_t textLen, std::string* pValue, bool* lossy) {
+  DXASSERT_NOMSG(text != nullptr);
+  DXASSERT_NOMSG(pValue != nullptr);
+  UINT cp = GetConsoleOutputCP();
+  return UTF16ToEncodedString(text, textLen, cp, 0, pValue, lossy);
 }
 
 _Use_decl_annotations_
 bool UTF16ToConsoleString(const wchar_t* text, std::string* pValue, bool* lossy) {
-  DXASSERT_NOMSG(text != nullptr);
-  DXASSERT_NOMSG(pValue != nullptr);
-  UINT cp = GetConsoleOutputCP();
-  return UTF16ToEncodedString(text, cp, 0, pValue, lossy);
+  return UTF16ToConsoleString(text, wcslen(text), pValue, lossy);
+}
+
+_Use_decl_annotations_
+bool UTF16ToUTF8String(const wchar_t *pUTF16, size_t cUTF16, std::string *pUTF8) {
+  DXASSERT_NOMSG(pUTF16 != nullptr);
+  DXASSERT_NOMSG(pUTF8 != nullptr);
+  return UTF16ToEncodedString(pUTF16, cUTF16, CP_UTF8, 0, pUTF8, nullptr);
 }
 
 _Use_decl_annotations_
 bool UTF16ToUTF8String(const wchar_t *pUTF16, std::string *pUTF8) {
   DXASSERT_NOMSG(pUTF16 != nullptr);
   DXASSERT_NOMSG(pUTF8 != nullptr);
-  return UTF16ToEncodedString(pUTF16, CP_UTF8, 0, pUTF8, nullptr);
+  return UTF16ToEncodedString(pUTF16, wcslen(pUTF16), CP_UTF8, 0, pUTF8, nullptr);
 }
 
 std::string UTF16ToUTF8StringOrThrow(_In_z_ const wchar_t *pUTF16) {

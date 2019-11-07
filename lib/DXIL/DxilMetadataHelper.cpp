@@ -22,6 +22,7 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
@@ -48,6 +49,7 @@ const char DxilMDHelper::kDxilTypeSystemMDName[]                      = "dx.type
 const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.typevar.";
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
+const char DxilMDHelper::kDxilVariableDebugLayoutMDName[]             = "dx.dbg.varlayout";
 const char DxilMDHelper::kDxilNonUniformAttributeMDName[]             = "dx.nonuniform";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
@@ -2399,6 +2401,40 @@ void DxilMDHelper::MarkNonUniform(Instruction *I) {
     { ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1)) });
 
   I->setMetadata(DxilMDHelper::kDxilNonUniformAttributeMDName, preciseNode);
+}
+
+bool DxilMDHelper::GetVariableDebugLayout(llvm::DbgDeclareInst *inst,
+    unsigned &StartOffsetInBits, std::vector<DxilDIArrayDim> &ArrayDims) {
+  llvm::MDTuple *Tuple = dyn_cast_or_null<MDTuple>(inst->getMetadata(DxilMDHelper::kDxilVariableDebugLayoutMDName));
+  if (Tuple == nullptr) return false;
+
+  IFTBOOL(Tuple->getNumOperands() % 2 == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  StartOffsetInBits = ConstMDToUint32(Tuple->getOperand(0));
+
+  for (unsigned Idx = 1; Idx < Tuple->getNumOperands(); Idx += 2) {
+    DxilDIArrayDim ArrayDim = {};
+    ArrayDim.StrideInBits = ConstMDToUint32(Tuple->getOperand(Idx + 0));
+    ArrayDim.NumElements = ConstMDToUint32(Tuple->getOperand(Idx + 1));
+    ArrayDims.emplace_back(ArrayDim);
+  }
+
+  return true;
+}
+
+void DxilMDHelper::SetVariableDebugLayout(llvm::DbgDeclareInst *inst,
+    unsigned StartOffsetInBits, const std::vector<DxilDIArrayDim> &ArrayDims) {
+  LLVMContext &Ctx = inst->getContext();
+
+  std::vector<Metadata*> MDVals;
+  MDVals.reserve(ArrayDims.size() + 1);
+  MDVals.emplace_back(Uint32ToConstMD(StartOffsetInBits, Ctx));
+  for (const DxilDIArrayDim &ArrayDim : ArrayDims) {
+    MDVals.emplace_back(Uint32ToConstMD(ArrayDim.StrideInBits, Ctx));
+    MDVals.emplace_back(Uint32ToConstMD(ArrayDim.NumElements, Ctx));
+  }
+
+  inst->setMetadata(DxilMDHelper::kDxilVariableDebugLayoutMDName, MDNode::get(Ctx, MDVals));
 }
 
 } // namespace hlsl

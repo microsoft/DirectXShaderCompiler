@@ -92,6 +92,7 @@ public:
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
+  TEST_METHOD(DxcUtils_CreateReflection)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -389,7 +390,8 @@ public:
 
   void CompileToProgram(LPCSTR program, LPCWSTR entryPoint, LPCWSTR target,
                         LPCWSTR *pArguments, UINT32 argCount,
-                        IDxcBlob **ppProgram) {
+                        IDxcBlob **ppProgram,
+                        IDxcOperationResult **ppResult = nullptr) {
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcBlob> pProgram;
@@ -402,6 +404,8 @@ public:
                                         0, nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
     *ppProgram = pProgram.Detach();
+    if (ppResult)
+      *ppResult = pResult.Detach();
   }
 
   bool DoesValidatorSupportDebugName() {
@@ -442,26 +446,45 @@ public:
     return std::string((const char *)(pDebugName + 1));
   }
 
-  std::string CompileToShaderHash(LPCSTR program, LPCWSTR entryPoint,
-    LPCWSTR target, LPCWSTR *pArguments, UINT32 argCount) {
-    CComPtr<IDxcBlob> pProgram;
-    CComPtr<IDxcBlob> pHashBlob;
-    CComPtr<IDxcContainerReflection> pContainer;
-    UINT32 index;
-
-    CompileToProgram(program, entryPoint, target, pArguments, argCount, &pProgram);
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainer));
-    VERIFY_SUCCEEDED(pContainer->Load(pProgram));
-    if (FAILED(pContainer->FindFirstPartKind(hlsl::DFCC_ShaderHash, &index))) {
-      return std::string();
-    }
-    VERIFY_SUCCEEDED(pContainer->GetPartContent(index, &pHashBlob));
+  std::string RetrieveHashFromBlob(IDxcBlob* pHashBlob) {
+    VERIFY_ARE_NOT_EQUAL(pHashBlob, nullptr);
+    VERIFY_ARE_EQUAL(pHashBlob->GetBufferSize(), sizeof(DxcShaderHash));
     const hlsl::DxilShaderHash *pShaderHash = (hlsl::DxilShaderHash *)pHashBlob->GetBufferPointer();
     std::string result;
     llvm::raw_string_ostream os(result);
     for (int i = 0; i < 16; ++i)
       os << llvm::format("%.2x", pShaderHash->Digest[i]);
     return os.str();
+  }
+
+  std::string CompileToShaderHash(LPCSTR program, LPCWSTR entryPoint,
+    LPCWSTR target, LPCWSTR *pArguments, UINT32 argCount) {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcBlob> pHashBlob;
+    CComPtr<IDxcContainerReflection> pContainer;
+    UINT32 index;
+
+    CompileToProgram(program, entryPoint, target, pArguments, argCount, &pProgram, &pResult);
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainer));
+    VERIFY_SUCCEEDED(pContainer->Load(pProgram));
+    if (FAILED(pContainer->FindFirstPartKind(hlsl::DFCC_ShaderHash, &index))) {
+      return std::string();
+    }
+    VERIFY_SUCCEEDED(pContainer->GetPartContent(index, &pHashBlob));
+    std::string hashFromPart = RetrieveHashFromBlob(pHashBlob);
+
+    CComPtr<IDxcResult> pDxcResult;
+    if (SUCCEEDED(pResult->QueryInterface(&pDxcResult))) {
+      // Make sure shader hash was returned in result
+      VERIFY_IS_TRUE(pDxcResult->HasOutput(DXC_OUT_SHADER_HASH));
+      pHashBlob.Release();
+      VERIFY_SUCCEEDED(pDxcResult->GetOutput(DXC_OUT_SHADER_HASH, IID_PPV_ARGS(&pHashBlob), nullptr));
+      std::string hashFromResult = RetrieveHashFromBlob(pHashBlob);
+      VERIFY_ARE_EQUAL(hashFromPart, hashFromPart);
+    }
+
+    return hashFromPart;
   }
 
   std::string DisassembleProgram(LPCSTR program, LPCWSTR entryPoint,
@@ -1183,21 +1206,22 @@ static void Ref1_CheckBinding_b_buf(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
 }
 
 
+const char *Ref1_Shader =
+  "float cbval1;"
+  "cbuffer MyCB : register(b11, space2) { int4 cbval2, cbval3; }"
+  "RWTexture1D<int4> tex : register(u5);"
+  "Texture1D<float4> tex2 : register(t0);"
+  "SamplerState samp : register(s7);"
+  "RWByteAddressBuffer b_buf;"
+  "export float function0(min16float x) { "
+  "  return x + cbval2.x + tex[0].x; }"
+  "export float function1(float x, min12int i) {"
+  "  return x + cbval1 + b_buf.Load(x) + tex2.Sample(samp, x).x; }"
+  "[shader(\"vertex\")]"
+  "float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.x; }";
+
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
   if (m_ver.SkipDxilVersion(1, 3)) return;
-  const char *shader =
-    "float cbval1;"
-    "cbuffer MyCB : register(b11, space2) { int4 cbval2, cbval3; }"
-    "RWTexture1D<int4> tex : register(u5);"
-    "Texture1D<float4> tex2 : register(t0);"
-    "SamplerState samp : register(s7);"
-    "RWByteAddressBuffer b_buf;"
-    "export float function0(min16float x) { "
-    "  return x + cbval2.x + tex[0].x; }"
-    "export float function1(float x, min12int i) {"
-    "  return x + cbval1 + b_buf.Load(x) + tex2.Sample(samp, x).x; }"
-    "[shader(\"vertex\")]"
-    "float function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.x; }";
 
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1207,7 +1231,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
   CComPtr<ID3D12LibraryReflection> pLibraryReflection;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText(shader, &pSource);
+  CreateBlobFromText(Ref1_Shader, &pSource);
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
     L"lib_6_3", nullptr, 0, nullptr, 0,
     nullptr, &pResult));
@@ -1335,6 +1359,119 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
   IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
 }
 
+TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CComPtr<IDxcBlobEncoding> pSource;
+  CreateBlobFromText(Ref1_Shader, &pSource);
+
+  LPCWSTR options[] = {
+    L"-Qstrip_reflect_from_dxil",
+    L"-Qstrip_reflect"
+  };
+
+  {
+    // Test Shader path
+    auto VerifyCreateReflectionShader = [&](IDxcBlob *pBlob)
+    {
+      DxcBuffer buffer = { pBlob->GetBufferPointer(), pBlob->GetBufferSize(), 0 };
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pShaderReflection)));
+      D3D12_SHADER_DESC desc;
+      VERIFY_SUCCEEDED(pShaderReflection->GetDesc(&desc));
+      VERIFY_ARE_EQUAL(desc.Version, EncodedVersion_vs_6_3);
+      VERIFY_ARE_EQUAL(desc.ConstantBuffers, 2);
+      VERIFY_ARE_EQUAL(desc.BoundResources, 2);
+      // That should be good enough to check that IDxcUtils::CreateReflection worked
+    };
+
+    {
+      // Test Full container path
+      CComPtr<IDxcOperationResult> pResult;
+      VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"function2",
+        L"vs_6_3", options, 1, // just strip reflection from DXIL, not container
+        nullptr, 0, nullptr, &pResult));
+      HRESULT hr;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+      VERIFY_SUCCEEDED(hr);
+
+      CComPtr<IDxcBlob> pProgram;
+      VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+      VerifyCreateReflectionShader(pProgram);
+    }
+
+    {
+      // From New IDxcResult API
+      CComPtr<IDxcOperationResult> pResult;
+      VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"function2",
+        L"vs_6_3", options, 2, // strip reflection from DXIL and container
+        nullptr, 0, nullptr, &pResult));
+      HRESULT hr;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+      VERIFY_SUCCEEDED(hr);
+
+      // Test separate reflection result path
+      CComPtr<IDxcResult> pResultV2;
+      CComPtr<IDxcBlob> pReflectionPart;
+      VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
+      VERIFY_SUCCEEDED(pResultV2->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
+      VerifyCreateReflectionShader(pReflectionPart);
+    }
+  }
+
+  {
+    // Test Library path
+    auto VerifyCreateReflectionLibrary = [&](IDxcBlob *pBlob)
+    {
+      DxcBuffer buffer = { pBlob->GetBufferPointer(), pBlob->GetBufferSize(), 0 };
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pLibraryReflection)));
+      D3D12_LIBRARY_DESC desc;
+      VERIFY_SUCCEEDED(pLibraryReflection->GetDesc(&desc));
+      VERIFY_ARE_EQUAL(desc.FunctionCount, 3);
+      // That should be good enough to check that IDxcUtils::CreateReflection worked
+    };
+
+    {
+      // Test Full container path
+      CComPtr<IDxcOperationResult> pResult;
+      VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
+        L"lib_6_3", options, 1, // just strip reflection from DXIL, not container
+        nullptr, 0, nullptr, &pResult));
+      HRESULT hr;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+      VERIFY_SUCCEEDED(hr);
+
+      CComPtr<IDxcBlob> pProgram;
+      VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+      VerifyCreateReflectionLibrary(pProgram);
+    }
+
+    {
+      // From New IDxcResult API
+      CComPtr<IDxcOperationResult> pResult;
+      VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
+        L"lib_6_3", options, 2, // strip reflection from DXIL and container
+        nullptr, 0, nullptr, &pResult));
+      HRESULT hr;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+      VERIFY_SUCCEEDED(hr);
+
+      // Test separate reflection result path
+      CComPtr<IDxcResult> pResultV2;
+      CComPtr<IDxcBlob> pReflectionPart;
+      VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
+      VERIFY_SUCCEEDED(pResultV2->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
+      // Test Reflection part path
+      VerifyCreateReflectionLibrary(pReflectionPart);
+    }
+  }
+}
+
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1438,7 +1575,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
     CComPtr<IDxcBlobEncoding> pSource;
     SetupBasicHeader(pHeader);
     pHeader->ContainerSizeInBytes = hlsl::DxilContainerMaxSize + 1;
-    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, CP_UTF8, &pSource);
+    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, 0, &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
 
@@ -1447,7 +1584,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
     CComPtr<IDxcBlobEncoding> pSource;
     SetupBasicHeader(pHeader);
     pHeader->PartCount = 1;
-    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, CP_UTF8, &pSource);
+    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, 0, &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
 
@@ -1458,7 +1595,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
     pHeader->PartCount = 1;
     *((uint32_t *)(pHeader + 1)) = 1024;
     pHeader->ContainerSizeInBytes += sizeof(uint32_t);
-    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, CP_UTF8, &pSource);
+    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, 0, &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
 
@@ -1471,7 +1608,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
     pHeader->ContainerSizeInBytes += sizeof(uint32_t);
     hlsl::GetDxilContainerPart(pHeader, 0)->PartSize = 1024;
     pHeader->ContainerSizeInBytes += sizeof(hlsl::DxilPartHeader);
-    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, CP_UTF8, &pSource);
+    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, 0, &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
 }

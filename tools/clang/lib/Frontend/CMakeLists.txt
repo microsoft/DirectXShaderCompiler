@@ -45,6 +45,7 @@ add_clang_library(clangFrontend
 
   DEPENDS
   ClangDriverOptions
+  TablegenHLSLOptions
 
   LINK_LIBS
   clangAST

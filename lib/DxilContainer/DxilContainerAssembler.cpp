@@ -1548,7 +1548,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            llvm::StringRef DebugName,
                                            SerializeDxilFlags Flags,
                                            DxilShaderHash *pShaderHashOut,
-                                           AbstractMemoryStream *pReflectionStreamOut) {
+                                           AbstractMemoryStream *pReflectionStreamOut,
+                                           AbstractMemoryStream *pRootSigStreamOut) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1637,11 +1638,23 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
+
     // Write the root signature (RTS0) part.
     if (rootSigWriter.size()) {
-      writer.AddPart(
-        DFCC_RootSignature, rootSigWriter.size(),
-        [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+      if (pRootSigStreamOut) {
+        // Write root signature wrapped in container for separate output
+        DxilContainerWriter_impl rootSigContainerWriter;
+        rootSigContainerWriter.AddPart(
+          DFCC_RootSignature, rootSigWriter.size(),
+          [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+        rootSigContainerWriter.write(pRootSigStreamOut);
+      }
+      if ((Flags & SerializeDxilFlags::StripRootSignature) == 0) {
+        // Write embedded root signature
+        writer.AddPart(
+          DFCC_RootSignature, rootSigWriter.size(),
+          [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+      }
       bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
     }
   }

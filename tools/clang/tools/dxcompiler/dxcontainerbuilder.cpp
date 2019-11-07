@@ -40,7 +40,7 @@ public:
     return DoBasicQueryInterface<IDxcContainerBuilder>(this, riid, ppvObject);
   }
 
-  void Init(const char *warning) {
+  void Init(const wchar_t *warning) {
     m_warning = warning;
     m_RequireValidation = false;
   }
@@ -58,7 +58,7 @@ private:
 
   PartList m_parts;
   CComPtr<IDxcBlob> m_pContainer; 
-  const char *m_warning;
+  const wchar_t *m_warning;
   bool m_RequireValidation;
 
   UINT32 ComputeContainerSize();
@@ -156,7 +156,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOper
     // Update Parts
     IFT(UpdateParts(pMemoryStream));
 
-    CComPtr<IDxcBlobEncoding> pErrorBlob;
+    CComPtr<IDxcBlobUtf16> pValErrorUtf16;
     HRESULT valHR = S_OK;
     if (m_RequireValidation) {
       CComPtr<IDxcValidator> pValidator;
@@ -165,28 +165,38 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOper
       IFT(pValidator->Validate(pResult, DxcValidatorFlags_RootSignatureOnly, &pValidationResult));
       IFT(pValidationResult->GetStatus(&valHR));
       if (FAILED(valHR)) {
-        CComPtr<AbstractMemoryStream> pErrorOutputStream;
-        CComPtr<IDxcBlob> pErrorResult;
-        IFT(CreateMemoryStream(m_pMalloc, &pErrorOutputStream));
-        IFT(pErrorOutputStream.QueryInterface(&pErrorResult));
-        
-        // Combine existing warnings and errors from validation
         CComPtr<IDxcBlobEncoding> pValError;
         IFT(pValidationResult->GetErrorBuffer(&pValError));
-        IFT(pErrorOutputStream->Reserve(strlen(m_warning) + pValError->GetBufferSize()));
-        ULONG cbWritten;
-        IFT(pErrorOutputStream->Write(m_warning, strlen(m_warning), &cbWritten));
-        IFT(pErrorOutputStream->Write(pValError->GetBufferPointer(), pValError->GetBufferSize(), &cbWritten));
-        DxcCreateBlobWithEncodingSet(pErrorResult, CP_UTF8, &pErrorBlob);
-      }
-      else {
-        DxcCreateBlobWithEncodingOnHeapCopy(m_warning, strlen(m_warning), CP_UTF8, &pErrorBlob);
+        if (pValError->GetBufferPointer() && pValError->GetBufferSize())
+          IFT(hlsl::DxcGetBlobAsUtf16(pValError, m_pMalloc, &pValErrorUtf16));
       }
     }
-    else {
-      DxcCreateBlobWithEncodingOnHeapCopy(m_warning, strlen(m_warning), CP_UTF8, &pErrorBlob);
+    // Combine existing warnings and errors from validation
+    CComPtr<IDxcBlobEncoding> pErrorBlob;
+    CDxcMallocHeapPtr<wchar_t> errorHeap(m_pMalloc);
+    SIZE_T warningLength = m_warning ? wcslen(m_warning) : 0;
+    SIZE_T valErrorLength = pValErrorUtf16 ? pValErrorUtf16->GetStringLength() : 0;
+    SIZE_T totalErrorLength = warningLength + valErrorLength;
+    if (totalErrorLength) {
+      SIZE_T errorSizeInBytes = (totalErrorLength + 1) * sizeof(wchar_t);
+      errorHeap.AllocateBytes(errorSizeInBytes);
+      if (warningLength)
+        memcpy(errorHeap.m_pData, m_warning, warningLength * sizeof(wchar_t));
+      if (valErrorLength)
+        memcpy(errorHeap.m_pData + warningLength,
+               pValErrorUtf16->GetStringPointer(),
+               valErrorLength * sizeof(wchar_t));
+      errorHeap.m_pData[totalErrorLength] = L'\0';
+      IFT(hlsl::DxcCreateBlobWithEncodingOnMalloc(
+        errorHeap.m_pData, m_pMalloc, errorSizeInBytes,
+        DXC_CP_UTF16, &pErrorBlob));
+      errorHeap.Detach();
     }
-    DxcOperationResult::CreateFromResultErrorStatus(pResult, pErrorBlob, valHR, ppResult);
+
+    IFT(DxcResult::Create(valHR, DXC_OUT_OBJECT, {
+        DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pResult, DxcOutNoName),
+        DxcOutputObject::DataOutput(DXC_OUT_ERRORS, pErrorBlob, DxcOutNoName)
+      }, ppResult));
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -240,10 +250,10 @@ HRESULT DxcContainerBuilder::UpdateParts(AbstractMemoryStream *pStream) {
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   // Call dxil.dll's containerbuilder 
   *ppv = nullptr;
-  const char *warning;
+  const wchar_t *warning;
   HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
   if (FAILED(hr)) {
-    warning = "Unable to create container builder from dxil.dll. Resulting container will not be signed.\n";
+    warning = L"Unable to create container builder from dxil.dll. Resulting container will not be signed.\n";
   }
   else {
     return hr;

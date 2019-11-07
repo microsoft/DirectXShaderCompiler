@@ -343,13 +343,12 @@ HRESULT ReadOptsAndValidate(LPCWSTR *pArguments, _In_ UINT32 argCount,
                                       mainArgs, opts, outStream)) {
     CComPtr<IDxcBlob> pErrorBlob;
     IFT(pOutputStream->QueryInterface(&pErrorBlob));
-    CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
     outStream.flush();
-    IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
-                                     &pErrorBlobWithEncoding));
-    IFT(DxcOperationResult::CreateFromResultErrorStatus(
-        nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
-    return E_INVALIDARG;
+    IFT(DxcResult::Create(E_INVALIDARG, DXC_OUT_NONE, {
+        DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage,
+          (LPCSTR)pErrorBlob->GetBufferPointer(), pErrorBlob->GetBufferSize())
+      }, ppResult));
+    return S_OK;
   }
   DXASSERT(opts.HLSLVersion > 2015,
            "else ReadDxcOpts didn't fail for non-isense");
@@ -623,8 +622,8 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
 
-    CComPtr<IDxcBlobEncoding> utf8Source;
-    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+    CComPtr<IDxcBlobUtf8> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, m_pMalloc, &utf8Source));
 
     LPCSTR fakeName = "input.hlsl";
 
@@ -635,7 +634,7 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      StringRef Data((LPSTR)utf8Source->GetBufferPointer(), utf8Source->GetBufferSize());
+      StringRef Data(utf8Source->GetStringPointer(), utf8Source->GetStringLength());
       std::unique_ptr<llvm::MemoryBuffer> pBuffer(llvm::MemoryBuffer::getMemBufferCopy(Data, fakeName));
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fakeName, pBuffer.release()));
 
@@ -644,11 +643,16 @@ public:
 
       std::string errors;
       std::string rewrite;
+      LPCWSTR pOutputName = nullptr;  // TODO: Fill this in
       HRESULT status = DoRewriteUnused(
           &m_langExtensionsHelper, fakeName, pRemap.get(), utf8EntryPoint,
           defineCount > 0 ? definesStr.c_str() : nullptr, errors, rewrite);
-      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
-                                                       ppResult);
+      return DxcResult::Create(status, DXC_OUT_HLSL, {
+          DxcOutputObject::StringOutput(DXC_OUT_HLSL, CP_UTF8,  // TODO: Support DefaultTextCodePage
+            rewrite.c_str(), pOutputName),
+          DxcOutputObject::ErrorOutput(CP_UTF8,   // TODO Support DefaultTextCodePage
+            errors.c_str())
+        }, ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
   }
@@ -665,8 +669,8 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
 
-    CComPtr<IDxcBlobEncoding> utf8Source;
-    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+    CComPtr<IDxcBlobUtf8> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, m_pMalloc, &utf8Source));
 
     LPCSTR fakeName = "input.hlsl";
 
@@ -677,7 +681,7 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(), utf8Source->GetBufferSize());
+      StringRef Data(utf8Source->GetStringPointer(), utf8Source->GetStringLength());
       std::unique_ptr<llvm::MemoryBuffer> pBuffer(llvm::MemoryBuffer::getMemBufferCopy(Data, fakeName));
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fakeName, pBuffer.release()));
 
@@ -692,9 +696,11 @@ public:
           DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
                           RewriterOptionMask::Default, errors, rewrite);
-
-      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
-                                                       ppResult);
+      return DxcResult::Create(status, DXC_OUT_HLSL, {
+          DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
+            rewrite.c_str(), DxcOutNoName),
+          DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage, errors.c_str())
+        }, ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
 
@@ -716,8 +722,8 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
 
-    CComPtr<IDxcBlobEncoding> utf8Source;
-    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+    CComPtr<IDxcBlobUtf8> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, m_pMalloc, &utf8Source));
 
     CW2A utf8SourceName(pSourceName, CP_UTF8);
     LPCSTR fName = utf8SourceName.m_psz;
@@ -728,7 +734,7 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(), utf8Source->GetBufferSize());
+      StringRef Data(utf8Source->GetStringPointer(), utf8Source->GetStringLength());
       std::unique_ptr<llvm::MemoryBuffer> pBuffer(llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fName, pBuffer.release()));
 
@@ -743,9 +749,11 @@ public:
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
                           rewriteOption, errors, rewrite);
-
-      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
-                                                       ppResult);
+      return DxcResult::Create(status, DXC_OUT_HLSL, {
+          DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
+            rewrite.c_str(), DxcOutNoName),
+          DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage, errors.c_str())
+        }, ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
 
@@ -772,8 +780,8 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
 
-    CComPtr<IDxcBlobEncoding> utf8Source;
-    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+    CComPtr<IDxcBlobUtf8> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, m_pMalloc, &utf8Source));
 
     CW2A utf8SourceName(pSourceName, CP_UTF8);
     LPCSTR fName = utf8SourceName.m_psz;
@@ -785,8 +793,8 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(),
-                     utf8Source->GetBufferSize());
+      StringRef Data(utf8Source->GetStringPointer(),
+                     utf8Source->GetStringLength());
       std::unique_ptr<llvm::MemoryBuffer> pBuffer(
           llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(
@@ -796,6 +804,11 @@ public:
 
       hlsl::options::DxcOpts opts;
       IFR(ReadOptsAndValidate(pArguments, argCount, opts, ppResult));
+      HRESULT hr;
+      if (*ppResult && SUCCEEDED((*ppResult)->GetStatus(&hr)) && FAILED(hr)) {
+        // Looks odd, but this call succeeded enough to allocate a result
+        return S_OK;
+      }
 
       std::string errors;
       std::string rewrite;
@@ -803,9 +816,11 @@ public:
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
                           Default, errors, rewrite);
-
-      return DxcOperationResult::CreateFromUtf8Strings(errors.c_str(), rewrite.c_str(), status,
-                                                       ppResult);
+      return DxcResult::Create(status, DXC_OUT_HLSL, {
+          DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
+            rewrite.c_str(), DxcOutNoName),
+          DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage, errors.c_str())
+        }, ppResult);
     }
     CATCH_CPP_RETURN_HRESULT();
   }

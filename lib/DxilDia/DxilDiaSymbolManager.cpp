@@ -1889,6 +1889,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
 
   std::vector<dxil_dia::Session::RVA> usesRVAs;
 
+  bool HasRegister = false;
   if (auto *RegMV = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(0))) {
     if (auto *RegVM = llvm::dyn_cast<llvm::ValueAsMetadata>(RegMV->getMetadata())) {
       if (auto *Reg = llvm::dyn_cast<llvm::Instruction>(RegVM->getValue())) {
@@ -1897,6 +1898,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
         if (hr != S_OK) {
           return hr;
         }
+        HasRegister = true;
         llvm::iterator_range<llvm::Value::user_iterator> users = Reg->users();
         for (llvm::User *user : users) {
           auto *inst = llvm::dyn_cast<llvm::Instruction>(user);
@@ -1907,6 +1909,9 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::IsDbgDeclareCall(
         }
       }
     }
+  }
+  if (!HasRegister) {
+    return E_FAIL;
   }
 
   if (!usesRVAs.empty()) {

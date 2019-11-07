@@ -296,10 +296,27 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   const MainArgs &argStrings, DxcOpts &opts,
   llvm::raw_ostream &errors) {
   DXASSERT_NOMSG(optionTable != nullptr);
+  opts.DefaultTextCodePage = DXC_CP_UTF8;
 
   unsigned missingArgIndex = 0, missingArgCount = 0;
   InputArgList Args = optionTable->ParseArgs(
     argStrings.getArrayRef(), missingArgIndex, missingArgCount, flagsToInclude);
+
+  // Set DefaultTextCodePage early so it may influence error buffer
+  // Default to UTF8 for compatibility
+  llvm::StringRef encoding = Args.getLastArgValue(OPT_encoding);
+  if (!encoding.empty()) {
+    if (encoding.equals_lower("utf8")) {
+      opts.DefaultTextCodePage = DXC_CP_UTF8;
+    } else if (encoding.equals_lower("utf16")) {
+      opts.DefaultTextCodePage = DXC_CP_UTF16;
+    } else {
+      errors << "Unsupported value '" << encoding
+        << "for -encoding option.  Allowed values: utf8, utf16.";
+      return 1;
+    }
+  }
+
   // Verify consistency for external library support.
   opts.ExternalLib = Args.getLastArgValue(OPT_external_lib);
   opts.ExternalFn = Args.getLastArgValue(OPT_external_fn);
@@ -359,13 +376,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   if (opts.IsLibraryProfile()) {
-    if (Args.getLastArg(OPT_entrypoint)) {
-      errors << "cannot specify entry point for a library";
-      return 1;
-    } else {
-      // Set entry point to impossible name.
-      opts.EntryPoint = "lib.no::entry";
-    }
+    // Don't bother erroring out when entry is specified.  We weren't always
+    // doing this before, so doing so will break existing code.
+    // Set entry point to impossible name.
+    opts.EntryPoint = "lib.no::entry";
   } else {
     if (Args.getLastArg(OPT_exports)) {
       errors << "library profile required when using -exports option";
@@ -427,6 +441,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
+  opts.OutputReflectionFile = Args.getLastArgValue(OPT_Fre);
+  opts.OutputRootSigFile = Args.getLastArgValue(OPT_Frs);
+  opts.OutputShaderHashFile = Args.getLastArgValue(OPT_Fsh);
   opts.UseColor = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
   opts.UseInstructionNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
   opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID, false);
@@ -440,6 +457,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.VariableName = Args.getLastArgValue(OPT_Vn);
   opts.InputFile = Args.getLastArgValue(OPT_INPUT);
   opts.ForceRootSigVer = Args.getLastArgValue(OPT_force_rootsig_ver);
+  if (opts.ForceRootSigVer.empty())
+    opts.ForceRootSigVer = Args.getLastArgValue(OPT_force_rootsig_ver_);
   opts.PrivateSource = Args.getLastArgValue(OPT_setprivate);
   opts.RootSignatureSource = Args.getLastArgValue(OPT_setrootsignature);
   opts.VerifyRootSignatureSource = Args.getLastArgValue(OPT_verifyrootsignature);
@@ -536,13 +555,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisableValidation = Args.hasFlag(OPT_VD, OPT_INVALID, false);
 
   opts.AllResourcesBound = Args.hasFlag(OPT_all_resources_bound, OPT_INVALID, false);
+  opts.AllResourcesBound = Args.hasFlag(OPT_all_resources_bound_, OPT_INVALID, opts.AllResourcesBound);
   opts.ColorCodeAssembly = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
-  opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load, OPT_INVALID, false);
+  opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_no_legacy_cbuf_layout, OPT_INVALID, false);
+  opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_, OPT_INVALID, opts.NotUseLegacyCBufLoad);
   opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
+  opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable_, OPT_INVALID, opts.PackPrefixStable);
   opts.PackOptimized = Args.hasFlag(OPT_pack_optimized, OPT_INVALID, false);
+  opts.PackOptimized = Args.hasFlag(OPT_pack_optimized_, OPT_INVALID, opts.PackOptimized);
   opts.DisplayIncludeProcess = Args.hasFlag(OPT_H, OPT_INVALID, false);
   opts.WarningAsError = Args.hasFlag(OPT__SLASH_WX, OPT_INVALID, false);
   opts.AvoidFlowControl = Args.hasFlag(OPT_Gfa, OPT_INVALID, false);
@@ -564,6 +587,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.LegacyResourceReservation = Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false);
   opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
+  opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
@@ -599,7 +623,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (!opts.Preprocess.empty() &&
       (!opts.OutputHeader.empty() || !opts.OutputObject.empty() ||
-       !opts.OutputWarnings || !opts.OutputWarningsFile.empty())) {
+       !opts.OutputWarnings || !opts.OutputWarningsFile.empty() ||
+       !opts.OutputReflectionFile.empty() ||
+       !opts.OutputRootSigFile.empty() ||
+       !opts.OutputShaderHashFile.empty())) {
     errors << "Preprocess cannot be specified with other options.";
     return 1;
   }
@@ -620,6 +647,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
+  // XXX TODO: Sort this out, since it's required for new API, but a separate argument for old APIs.
   if ((flagsToInclude & hlsl::options::DriverOption) &&
       opts.TargetProfile.empty() && !opts.DumpBin && opts.Preprocess.empty() && !opts.RecompileFromBinary) {
     // Target profile is required in arguments only for drivers when compiling;

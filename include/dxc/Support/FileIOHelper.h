@@ -20,6 +20,8 @@
 // Forward declarations.
 struct IDxcBlob;
 struct IDxcBlobEncoding;
+struct IDxcBlobUtf8;
+struct IDxcBlobUtf16;
 
 namespace hlsl {
 
@@ -131,6 +133,26 @@ void WriteBinaryFile(_In_z_ LPCWSTR pFileName,
 UINT32 DxcCodePageFromBytes(_In_count_(byteLen) const char *bytes,
                             size_t byteLen) throw();
 
+// More general create blob functions, used by other functions
+// Null pMalloc means use current thread malloc.
+// bPinned will point to existing memory without managing it;
+// bCopy will copy to heap; bPinned and bCopy are mutually exclusive.
+// If encodingKnown, UTF-8 or UTF-16, and null-termination possible,
+// an IDxcBlobUtf8 or IDxcBlobUtf16 will be constructed.
+// If text, it's best if size includes null terminator when not copying,
+// otherwise IDxcBlobUtf8 or IDxcBlobUtf16 will not be constructed.
+HRESULT DxcCreateBlob(
+    LPCVOID pPtr, SIZE_T size, bool bPinned, bool bCopy,
+    bool encodingKnown, UINT32 codePage,
+    IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
+// Create from blob references original blob.
+// Pass nonzero for offset or length for sub-blob reference.
+HRESULT DxcCreateBlobEncodingFromBlob(
+    IDxcBlob *pFromBlob, UINT32 offset, UINT32 length,
+    bool encodingKnown, UINT32 codePage,
+    IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
+
+// Load files
 HRESULT
 DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
                       _In_opt_ UINT32 *pCodePage,
@@ -191,16 +213,11 @@ DxcCreateBlobWithEncodingOnMallocCopy(
   _In_ IMalloc *pIMalloc, _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
   _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
-HRESULT DxcGetBlobAsUtf8(_In_ IDxcBlob *pBlob,
-                         _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
-HRESULT
-DxcGetBlobAsUtf8NullTerm(
-    _In_ IDxcBlob *pBlob,
-    _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
-
+HRESULT DxcGetBlobAsUtf8(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
+                         _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding) throw();
 HRESULT
 DxcGetBlobAsUtf16(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
-                  _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+                  _COM_Outptr_ IDxcBlobUtf16 **pBlobEncoding) throw();
 
 bool IsBlobNullOrEmpty(_In_opt_ IDxcBlob *pBlob) throw();
 

@@ -49,7 +49,7 @@ enum class DxilShaderHashFlags : uint32_t {
 typedef struct DxilShaderHash {
   uint32_t Flags; // DxilShaderHashFlags
   uint8_t Digest[DxilContainerHashSize];
-} DxcShaderHash;
+} DxilShaderHash;
 
 struct DxilContainerVersion {
   uint16_t Major;
@@ -410,6 +410,7 @@ enum class SerializeDxilFlags : uint32_t {
   DebugNameDependOnSource     = 1 << 2, // Make the debug name depend on source (and not just final module).
   StripReflectionFromDxilPart = 1 << 3, // Strip Reflection info from DXIL part.
   IncludeReflectionPart       = 1 << 4, // Include reflection in STAT part.
+  StripRootSignature          = 1 << 5, // Strip Root Signature from main shader container.
 };
 inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));
