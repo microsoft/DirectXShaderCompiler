@@ -678,6 +678,12 @@ public:
 
           pOutputBlob.Release();
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
+          if (!opts.DisableValidation) {
+            CComPtr<IDxcBlobEncoding> pValErrors;
+            // Validation failure communicated through diagnostic error
+            dxcutil::ValidateRootSignatureInContainer(
+              pOutputBlob, &compiler.getDiagnostics());
+          }
         }
       }
       // SPIRV change starts
