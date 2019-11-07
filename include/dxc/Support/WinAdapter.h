@@ -268,6 +268,7 @@
 #define _In_count_(size)
 #define _In_range_(lb, ub)
 #define _In_bytecount_(size)
+#define _In_opt_bytecount_(size)
 #define _In_NLS_string_(size)
 #define __in_bcount(size)
 
@@ -333,6 +334,7 @@
 #define _COM_Outptr_
 #define _COM_Outptr_opt_
 #define _COM_Outptr_result_maybenull_
+#define _COM_Outptr_opt_result_maybenull_
 
 #define _Null_
 #define _Notnull_

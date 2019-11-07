@@ -627,8 +627,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
        !opts.OutputReflectionFile.empty() ||
        !opts.OutputRootSigFile.empty() ||
        !opts.OutputShaderHashFile.empty())) {
-    errors << "Preprocess cannot be specified with other options.";
-    return 1;
+    opts.OutputHeader = "";
+    opts.OutputObject = "";
+    opts.OutputWarnings = true;
+    opts.OutputWarningsFile = "";
+    opts.OutputReflectionFile = "";
+    opts.OutputRootSigFile = "";
+    opts.OutputShaderHashFile = "";
+    errors << "Warning: compiler options ignored with Preprocess.";
   }
 
   if (opts.DumpBin) {
@@ -653,23 +659,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     // Target profile is required in arguments only for drivers when compiling;
     // APIs take this through an argument.
     errors << "Target profile argument is missing";
-    return 1;
-  }
-
-  if (opts.EmbedDebug && !opts.DebugInfo) {
-    errors << "Must enable debug info with /Zi for /Qembed_debug";
-    return 1;
-  }
-
-  if (opts.DebugInfo && !opts.DebugNameForBinary && !opts.DebugNameForSource) {
-    opts.DebugNameForBinary = true;
-  } else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
-    errors << "Cannot specify both /Zss and /Zsb";
-    return 1;
-  }
-
-  if (opts.DebugNameForSource && !opts.DebugInfo) {
-    errors << "/Zss requires debug info (/Zi)";
     return 1;
   }
 
@@ -842,6 +831,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV Change Ends
+
+  // Validation for DebugInfo here because spirv uses same DebugInfo opt,
+  // and legacy wrappers will add EmbedDebug in this case, leading to this
+  // failing if placed before spirv path sets DebugInfo to true.
+  if (opts.EmbedDebug && !opts.DebugInfo) {
+    errors << "Must enable debug info with /Zi for /Qembed_debug";
+    return 1;
+  }
+
+  if (opts.DebugInfo && !opts.DebugNameForBinary && !opts.DebugNameForSource) {
+    opts.DebugNameForBinary = true;
+  } else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
+    errors << "Cannot specify both /Zss and /Zsb";
+    return 1;
+  }
+
+  if (opts.DebugNameForSource && !opts.DebugInfo) {
+    errors << "/Zss requires debug info (/Zi)";
+    return 1;
+  }
 
   opts.Args = std::move(Args);
   return 0;

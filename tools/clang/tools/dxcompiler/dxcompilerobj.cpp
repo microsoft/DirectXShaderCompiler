@@ -477,12 +477,21 @@ public:
       IFT(UIntToInt(argCount, &argCountInt));
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
       hlsl::options::DxcOpts opts;
-      bool finished = false;
-      dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, &pDxcOperationResult, finished);
-      if (finished) {
-        IFT(pDxcOperationResult->QueryInterface(riid, ppResult));
-        hr = S_OK;
-        goto Cleanup;
+      std::string warnings;
+      raw_string_ostream w(warnings);
+      {
+        bool finished = false;
+        CComPtr<AbstractMemoryStream> pOptionErrorStream;
+        IFT(CreateMemoryStream(m_pMalloc, &pOptionErrorStream));
+        dxcutil::ReadOptsAndValidate(mainArgs, opts, pOptionErrorStream, &pDxcOperationResult, finished);
+        if (finished) {
+          IFT(pDxcOperationResult->QueryInterface(riid, ppResult));
+          hr = S_OK;
+          goto Cleanup;
+        }
+        if (pOptionErrorStream->GetPtrSize() > 0) {
+          w << StringRef((const char*)pOptionErrorStream->GetPtr(), (size_t)pOptionErrorStream->GetPtrSize());
+        }
       }
 
       bool isPreprocessing = !opts.Preprocess.empty();
@@ -518,22 +527,25 @@ public:
         true, false, pSource->Encoding != 0, pSource->Encoding,
         nullptr, &pSourceEncoding));
 
-#ifdef ENABLE_SPIRV_CODEGEN
+ #ifdef ENABLE_SPIRV_CODEGEN
       // We want to embed the preprocessed source code in the final SPIR-V if
       // debug information is enabled. Therefore, we invoke Preprocess() here
       // first for such case. Then we invoke the compilation process over the
       // preprocessed source code, so that line numbers are consistent with the
       // embedded source code.
       if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo) {
-        CComPtr<IDxcOperationResult> ppSrcCodeResult;
-        IFT(m_OldCompiler.Preprocess(
-          pSourceEncoding, pUtf16SourceName.m_psz, pArguments, argCount,
-          nullptr, nullptr, pIncludeHandler, &ppSrcCodeResult));
+        CComPtr<IDxcResult> pSrcCodeResult;
+        std::vector<LPCWSTR> PreprocessArgs;
+        PreprocessArgs.reserve(argCount + 1);
+        PreprocessArgs.assign(pArguments, pArguments + argCount);
+        PreprocessArgs.push_back(L"-P");
+        PreprocessArgs.push_back(L"preprocessed.hlsl");
+        IFT(Compile(pSource, PreprocessArgs.data(), PreprocessArgs.size(), pIncludeHandler, IID_PPV_ARGS(&pSrcCodeResult)));
         HRESULT status;
-        IFT(ppSrcCodeResult->GetStatus(&status));
+        IFT(pSrcCodeResult->GetStatus(&status));
         if (SUCCEEDED(status)) {
           pSourceEncoding.Release();
-          IFT(ppSrcCodeResult->GetResult(&pSourceEncoding));
+          IFT(pSrcCodeResult->GetOutput(DXC_OUT_HLSL, IID_PPV_ARGS(&pSourceEncoding), nullptr));
         }
       }
 #endif // ENABLE_SPIRV_CODEGEN
@@ -576,8 +588,6 @@ public:
       CreateDefineStrings(opts.Defines.data(), opts.Defines.size(), defines);
 
       // Setup a compiler instance.
-      std::string warnings;
-      raw_string_ostream w(warnings);
       raw_stream_ostream outStream(pOutputStream.p);
       llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
       CompilerInstance compiler;
@@ -715,7 +725,7 @@ public:
       }
       // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
-      else if (opts.GenSPIRV) {
+      else if (!isPreprocessing && opts.GenSPIRV) {
         // Since SpirvOptions is passed to the SPIR-V CodeGen as a whole
         // structure, we need to copy a few non-spirv-specific options into the
         // structure.
@@ -730,7 +740,7 @@ public:
 
         compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
         clang::EmitSpirvAction action;
-        FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+        FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();

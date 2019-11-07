@@ -268,11 +268,6 @@ std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
     return std::wstring(pBlobUtf16->GetStringPointer(), pBlobUtf16->GetStringLength());
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   IFT(pBlob->QueryInterface(&pBlobEncoding));
-  //if (FAILED(pBlob->QueryInterface(&pBlobEncoding))) {
-  //  // Assume it is already UTF-16
-  //  return std::wstring((const wchar_t*)pBlob->GetBufferPointer(),
-  //                      pBlob->GetBufferSize() / 2);
-  //}
   BOOL known;
   UINT32 codePage;
   IFT(pBlobEncoding->GetEncoding(&known, &codePage));

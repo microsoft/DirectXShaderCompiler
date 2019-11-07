@@ -255,7 +255,7 @@ public:
   }
   DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding_Impl)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding, _T::Base>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding, typename _T::Base>(this, iid, ppvObject);
   }
 
   ~InternalDxcBlobEncoding_Impl() {
@@ -841,7 +841,7 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlob
   if (!pMalloc)
     pMalloc = DxcGetThreadMallocNoRef();
 
-  CDxcMallocHeapPtr<CHAR> utf8NewCopy(pMalloc);
+  CDxcMallocHeapPtr<char> utf8NewCopy(pMalloc);
   UINT32 utf8CharCount = 0;
 
   // Reuse or copy the underlying blob depending on null-termination
