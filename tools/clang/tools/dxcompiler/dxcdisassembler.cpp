@@ -1272,7 +1272,9 @@ static const char *OpCodeSignatures[] = {
   "(rayQueryHandle)",  // RayQuery_CommittedPrimitiveIndex
   "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayOrigin
   "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayDirection
-  "()"  // GeometryIndex
+  "()",  // GeometryIndex
+  "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
+  "(rayQueryHandle)"  // RayQuery_CommittedInstanceContributionToHitGroupIndex
 };
 // OPCODE-SIGS:END
 

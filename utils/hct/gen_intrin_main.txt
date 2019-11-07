@@ -908,6 +908,8 @@ uint [[ro]] CommittedGeometryIndex();
 uint [[ro]] CommittedPrimitiveIndex();
 float<3> [[ro]] CommittedObjectRayOrigin();
 float<3> [[ro]] CommittedObjectRayDirection();
+uint [[ro]] CandidateInstanceContributionToHitGroupIndex();
+uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
 
 } namespace
 
