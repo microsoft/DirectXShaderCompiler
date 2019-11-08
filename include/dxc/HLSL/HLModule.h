@@ -39,6 +39,7 @@ class MDNode;
 class GlobalVariable;
 class DIGlobalVariable;
 class DebugInfoFinder;
+class GetElementPtrInst;
 }
 
 
@@ -178,8 +179,10 @@ public:
   llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
   llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
   void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
-  void AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
-                                              llvm::MDNode *MD);
+  DxilResourceBase *AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
+                                                           llvm::MDNode *MD);
+  unsigned GetBindingForResourceInCB(llvm::GetElementPtrInst *CbPtr,
+                                     llvm::GlobalVariable *CbGV);
 
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
