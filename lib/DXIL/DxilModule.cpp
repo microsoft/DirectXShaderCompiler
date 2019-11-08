@@ -1561,7 +1561,7 @@ static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
         return true;
     }
     SequentialType *seqTy;
-    while (seqTy = dyn_cast<SequentialType>(eTy)) {
+    while ((seqTy = dyn_cast<SequentialType>(eTy))) {
       eTy = seqTy->getElementType();
     }
     if (eTy->getScalarSizeInBits() < 32) {

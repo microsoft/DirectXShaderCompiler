@@ -99,7 +99,7 @@ void HLExpandStoreIntrinsics::emitElementStores(CallInst &OriginalCall,
   }
   else if (ArrayType *ArrayTy = dyn_cast<ArrayType>(StackTopTy)) {
     unsigned ElemSize = (unsigned)Module.getDataLayout().getTypeAllocSize(ArrayTy->getElementType());
-    for (int i = 0; i < ArrayTy->getNumElements(); ++i) {
+    for (int i = 0; i < (int)ArrayTy->getNumElements(); ++i) {
       unsigned ElemOffsetFromBase = OffsetFromBase + ElemSize * i;
       GEPIndicesStack.emplace_back(Builder.getInt32(i));
       emitElementStores(OriginalCall, GEPIndicesStack, ArrayTy->getElementType(), ElemOffsetFromBase);

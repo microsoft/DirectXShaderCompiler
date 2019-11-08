@@ -1129,10 +1129,10 @@ public:
   static char ID;
 
   // Function overrides that resolve options when used for DxOpt
-  void applyOptions(PassOptions O) {
+  void applyOptions(PassOptions O) override {
     GetPassOptionBool(O, "NoOpt", &NoOpt, false);
   }
-  void dumpConfig(raw_ostream &OS) {
+  void dumpConfig(raw_ostream &OS) override {
     FunctionPass::dumpConfig(OS);
     OS << ",NoOpt=" << NoOpt;
   }
@@ -1222,7 +1222,7 @@ public:
     return Changed;
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
 
 
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();

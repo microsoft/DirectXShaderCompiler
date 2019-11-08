@@ -443,7 +443,7 @@ public:
   // returns true if no errors occurred.
   bool InitFromPSV0(const void* pBits, uint32_t size) {
     if(!(pBits != nullptr)) return false;
-    uint8_t* pCurBits = (uint8_t*)pBits;
+    uint8_t* pCurBits = (uint8_t*)const_cast<void*>(pBits);
     uint32_t minsize = sizeof(PSVRuntimeInfo0) + sizeof(uint32_t) * 2;
     if(!(size >= minsize)) return false;
     m_uPSVRuntimeInfoSize = *((const uint32_t*)pCurBits);

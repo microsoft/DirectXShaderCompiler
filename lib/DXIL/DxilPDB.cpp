@@ -155,7 +155,7 @@ struct MSFWriter {
     void WriteBlocks(uint32_t NumBlocks, const void *Data, uint32_t Size) {
       assert(NumBlocks >= GetNumBlocks(Size) && "Cannot fit data into the requested number of blocks!");
       uint32_t TotalSize = NumBlocks * kMsfBlockSize;
-      OS.write((char *)Data, Size);
+      OS.write(static_cast<char*>(const_cast<void *>(Data)), Size);
       WriteZeroPads(TotalSize - Size);
       BlocksWritten += NumBlocks;
     }

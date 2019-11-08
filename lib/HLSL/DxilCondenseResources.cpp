@@ -1901,9 +1901,7 @@ void DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
 
 // Change ResourceSymbol to undef if don't need.
 void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
-  std::vector<GlobalVariable *> &LLVMUsed = m_DM->GetLLVMUsed();
-
-  auto UpdateResourceSymbol = [&LLVMUsed, this](DxilResourceBase *res) {
+  auto UpdateResourceSymbol = [](DxilResourceBase *res) {
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
       GV->removeDeadConstantUsers();
       DXASSERT(GV->user_empty(), "else resource not lowered");

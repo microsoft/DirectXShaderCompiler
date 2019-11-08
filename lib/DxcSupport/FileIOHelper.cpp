@@ -260,7 +260,7 @@ public:
 
   ~InternalDxcBlobEncoding_Impl() {
     if (m_MallocFree) {
-      ((IMalloc *)m_Owner)->Free((void *)m_Buffer);
+      ((IMalloc *)m_Owner)->Free(const_cast<void *>(m_Buffer));
     }
     if (m_Owner != nullptr) {
       m_Owner->Release();
@@ -315,7 +315,7 @@ public:
   }
 
   virtual LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override {
-    return (LPVOID)m_Buffer;
+    return const_cast<LPVOID>(m_Buffer);
   }
   virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
     return m_BufferSize;

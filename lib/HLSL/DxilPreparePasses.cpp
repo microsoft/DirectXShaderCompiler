@@ -256,11 +256,6 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   return true;
 }
 
-static uint8_t NegMask(uint8_t V) {
-  V ^= 0xF;
-  return V & 0xF;
-}
-
 static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.

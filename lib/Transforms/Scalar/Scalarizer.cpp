@@ -152,8 +152,8 @@ public:
 // HLSL Change Begin
   bool AllowFolding = false;
   Scalarizer(bool AllowFolding) :
-    AllowFolding(AllowFolding),
-    FunctionPass(ID) {
+    FunctionPass(ID),
+    AllowFolding(AllowFolding) {
     initializeScalarizerPass(*PassRegistry::getPassRegistry());
   }
 // HLSL Change End
@@ -219,7 +219,7 @@ Scatterer::Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v,
 Scatterer::Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v,
                      bool AllowFolding,
                      ValueVector *cachePtr)
-  : BB(bb), BBI(bbi), V(v), AllowFolding(AllowFolding), CachePtr(cachePtr) {
+  : AllowFolding(AllowFolding), BB(bb), BBI(bbi), V(v), CachePtr(cachePtr) {
 #endif // HLSL Change
   Type *Ty = V->getType();
   PtrTy = dyn_cast<PointerType>(Ty);

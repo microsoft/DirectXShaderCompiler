@@ -812,7 +812,7 @@ static void addDebugInfoForElements(Value *ParentVal,
     if (ParentDbgDeclare == nullptr) return;
 
     // Get the bit piece offset
-    if (ParentDbgExpr = ParentDbgDeclare->getExpression()) {
+    if ((ParentDbgExpr = ParentDbgDeclare->getExpression())) {
       if (ParentDbgExpr->isBitPiece()) {
         ParentBitPieceOffset = ParentDbgExpr->getBitPieceOffset();
       }
