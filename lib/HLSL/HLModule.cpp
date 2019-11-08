@@ -756,7 +756,7 @@ void HLModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
   return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
 }
 
-void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
+DxilResourceBase *HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
                                                       llvm::MDNode *MD) {
   IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kHLDxilResourceAttributeNumFields,
           DXC_E_INCORRECT_DXIL_METADATA);
@@ -770,7 +770,7 @@ void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
   Type *Ty = GV->getType()->getPointerElementType();
   if (ArrayType *AT = dyn_cast<ArrayType>(Ty))
     rangeSize = AT->getNumElements();
-
+  DxilResourceBase *R = nullptr;
   switch (RC) {
   case DxilResource::Class::Sampler: {
     std::unique_ptr<DxilSampler> S = llvm::make_unique<DxilSampler>();
@@ -778,6 +778,7 @@ void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
     S->SetGlobalSymbol(GV);
     S->SetGlobalName(GV->getName());
     S->SetRangeSize(rangeSize);
+    R = S.get();
     AddSampler(std::move(S));
   } break;
   case DxilResource::Class::SRV: {
@@ -786,6 +787,7 @@ void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
     Res->SetRangeSize(rangeSize);
+    R = Res.get();
     AddSRV(std::move(Res));
   } break;
   case DxilResource::Class::UAV: {
@@ -794,11 +796,25 @@ void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
     Res->SetRangeSize(rangeSize);
+    R = Res.get();
     AddUAV(std::move(Res));
   } break;
   default:
     DXASSERT(0, "Invalid metadata for AddResourceWithGlobalVariableAndMDNode");
   }
+  return R;
+}
+
+unsigned HLModule::GetBindingForResourceInCB(GetElementPtrInst *CbPtr,
+                                             GlobalVariable *CbGV) {
+  DXIL::ResourceClass RC = GetResourceClass(CbPtr->getResultElementType());
+  for (auto &CB : m_CBuffers) {
+    if (CbGV != CB->GetGlobalSymbol())
+      continue;
+    RC = DXIL::ResourceClass::Invalid;
+    break;
+  }
+  return UINT_MAX;
 }
 
 // TODO: Don't check names.

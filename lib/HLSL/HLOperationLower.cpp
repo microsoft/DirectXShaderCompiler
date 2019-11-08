@@ -359,15 +359,17 @@ private:
     if (arraySize > 1) {
       Ty = ArrayType::get(Ty, arraySize);
     }
-
-    return CreateResourceGV(Ty, Name, MD);
+    unsigned ResBinding = HLM.GetBindingForResourceInCB(CbPtr, CbGV);
+    return CreateResourceGV(Ty, Name, MD, ResBinding);
   }
 
-  Value *CreateResourceGV(Type *Ty, StringRef Name, MDNode *MD) {
+  Value *CreateResourceGV(Type *Ty, StringRef Name, MDNode *MD, unsigned ResBinding) {
     Module &M = *HLM.GetModule();
     Constant *GV = M.getOrInsertGlobal(Name, Ty);
     // Create resource and set GV as globalSym.
-    HLM.AddResourceWithGlobalVariableAndMDNode(GV, MD);
+    DxilResourceBase *Res = HLM.AddResourceWithGlobalVariableAndMDNode(GV, MD);
+    DXASSERT(Res, "fail to create resource for global variable in cbuffer");
+    Res->SetLowerBound(ResBinding);
     return GV;
   }
 };
