@@ -1427,6 +1427,11 @@ TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {
   runFileTest("spirv.interface.alias-builtin.hlsl");
 }
 
+// For testing UserSemantic decoration
+TEST_F(FileTest, SpirvUserSemanticVS) {
+  runFileTest("spirv.user-semantic.vs.hlsl");
+}
+
 TEST_F(FileTest, SpirvStageIO16bitTypes) {
   runFileTest("spirv.stage-io.16bit.hlsl");
 }
