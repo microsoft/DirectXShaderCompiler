@@ -14,6 +14,7 @@
 #include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/WinAdapter.h"
 
 #include "llvm/ADT/STLExtras.h"
@@ -805,16 +806,140 @@ DxilResourceBase *HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constan
   return R;
 }
 
+static uint64_t getRegBindingKey(unsigned CbID, unsigned ConstantIdx) {
+  return (uint64_t)(CbID) << 32 | ConstantIdx;
+}
+
+void HLModule::AddRegBinding(unsigned CbID, unsigned ConstantIdx, unsigned Srv, unsigned Uav,
+                             unsigned Sampler) {
+  uint64_t Key = getRegBindingKey(CbID, ConstantIdx);
+  m_SrvBindingInCB[Key] = Srv;
+  m_UavBindingInCB[Key] = Uav;
+  m_SamplerBindingInCB[Key] = Sampler;
+}
+
+static DXIL::ResourceClass GetRCFromType(Type *ResTy, Module &M) {
+  MDNode *MD = HLModule::GetDxilResourceAttrib(ResTy, M);
+  if (!MD)
+    return DXIL::ResourceClass::Invalid;
+  DxilResource::Class RC =
+      static_cast<DxilResource::Class>(DxilMDHelper::ConstMDToUint32(
+          MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
+  return RC;
+}
+
+static unsigned CountResNum(Module &M, Type *Ty, DXIL::ResourceClass RC) {
+  // Count num of RCs.
+  unsigned ArraySize = 1;
+  while (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    ArraySize *= AT->getNumElements();
+    Ty = AT->getElementType();
+  }
+
+  if (!Ty->isAggregateType())
+    return 0;
+
+  StructType *ST = dyn_cast<StructType>(Ty);
+  DXIL::ResourceClass TmpRC = GetRCFromType(ST, M);
+  if (TmpRC == RC)
+    return ArraySize;
+
+  unsigned Size = 0;
+  for (Type *EltTy : ST->elements()) {
+    Size += CountResNum(M, EltTy, RC);
+  }
+
+  return Size * ArraySize;
+}
+// Note: the rule for register binding on struct array is like this:
+// struct X {
+//   Texture2D x;
+//   SamplerState s ;
+//   Texture2D y;
+// };
+// X x[2] : register(t3) : register(s3);
+// x[0].x t3
+// x[0].s s3
+// x[0].y t4
+// x[1].x t5
+// x[1].s s4
+// x[1].y t6
+// So x[0].x and x[1].x not in an array.
+static unsigned CalcRegBinding(gep_type_iterator GEPIt, gep_type_iterator E,
+                               Module &M, DXIL::ResourceClass RC) {
+  unsigned NumRC = 0;
+  // Count GEP offset when only count RC size.
+  for (; GEPIt != E; GEPIt++) {
+    Type *Ty = *GEPIt;
+    Value *idx = GEPIt.getOperand();
+    Constant *constIdx = dyn_cast<Constant>(idx);
+    unsigned immIdx = constIdx->getUniqueInteger().getLimitedValue();
+    // Not support dynamic indexing.
+    // Array should be just 1d res array as global res.
+    if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+      NumRC += immIdx * CountResNum(M, AT->getElementType(), RC);
+    } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
+      for (unsigned i=0;i<immIdx;i++) {
+        NumRC += CountResNum(M, ST->getElementType(i), RC);
+      }
+    }
+  }
+  return NumRC;
+}
+
 unsigned HLModule::GetBindingForResourceInCB(GetElementPtrInst *CbPtr,
                                              GlobalVariable *CbGV) {
-  DXIL::ResourceClass RC = GetResourceClass(CbPtr->getResultElementType());
+  if (!CbPtr->hasAllConstantIndices()) {
+    // Not support dynmaic indexing resource array inside cb.
+    string ErrorMsg("Index for resource array inside cbuffer must be a literal expression");
+    dxilutil::EmitErrorOnInstruction(
+        CbPtr,
+        ErrorMsg);
+    return UINT_MAX;
+  }
+  Module &M = *m_pModule;
+  Type *ResTy = CbPtr->getResultElementType();
+  DxilResource::Class RC = GetRCFromType(ResTy, M);
+
+  unsigned RegBinding = UINT_MAX;
   for (auto &CB : m_CBuffers) {
     if (CbGV != CB->GetGlobalSymbol())
       continue;
-    RC = DXIL::ResourceClass::Invalid;
+
+    gep_type_iterator GEPIt = gep_type_begin(CbPtr), E = gep_type_end(CbPtr);
+    // The pointer index.
+    GEPIt++;
+    unsigned ID = CB->GetID();
+    unsigned idx = cast<ConstantInt>(GEPIt.getOperand())->getLimitedValue();
+    // The first level index to get current constant.
+    GEPIt++;
+
+    uint64_t Key = getRegBindingKey(ID, idx);
+    switch (RC) {
+    default:
+      break;
+    case DXIL::ResourceClass::SRV:
+      if (m_SrvBindingInCB.count(Key))
+        RegBinding = m_SrvBindingInCB[Key];
+      break;
+    case DXIL::ResourceClass::UAV:
+      if (m_UavBindingInCB.count(Key))
+        RegBinding = m_UavBindingInCB[Key];
+      break;
+    case DXIL::ResourceClass::Sampler:
+      if (m_SamplerBindingInCB.count(Key))
+        RegBinding = m_SamplerBindingInCB[Key];
+      break;
+    }
+    if (RegBinding == UINT_MAX)
+      break;
+
+    // Calc RegBinding.
+    RegBinding += CalcRegBinding(GEPIt, E, M, RC);
+
     break;
   }
-  return UINT_MAX;
+  return RegBinding;
 }
 
 // TODO: Don't check names.

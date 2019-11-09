@@ -317,8 +317,9 @@ private:
     IRBuilder<> Builder(HLM.GetCtx());
     Value *zero = Builder.getInt32(0);
     for (; GEPIt != E; ++GEPIt, ++i) {
-      if (GEPIt->isArrayTy()) {
-        // Change array idx to 0 to make sure all array ptr share same key.
+      ConstantInt *ImmIdx = dyn_cast<ConstantInt>(GEPIt.getOperand());
+      if (!ImmIdx) {
+        // Remove dynamic indexing to avoid crash.
         idxList[i] = zero;
       }
     }
@@ -342,6 +343,12 @@ private:
     for (; GEPIt != E; ++GEPIt, ++i) {
       if (GEPIt->isArrayTy()) {
         arraySize *= GEPIt->getArrayNumElements();
+        if (!Name.empty())
+          Name += ".";
+        if (ConstantInt *ImmIdx = dyn_cast<ConstantInt>(GEPIt.getOperand())) {
+          unsigned idx = ImmIdx->getLimitedValue();
+          Name += std::to_string(idx);
+        }
       } else if (GEPIt->isStructTy()) {
         DxilStructAnnotation *typeAnnot =
             typeSys.GetStructAnnotation(cast<StructType>(*GEPIt));
@@ -356,9 +363,7 @@ private:
     }
 
     Type *Ty = CbPtr->getResultElementType();
-    if (arraySize > 1) {
-      Ty = ArrayType::get(Ty, arraySize);
-    }
+    // Not support resource array in cbuffer.
     unsigned ResBinding = HLM.GetBindingForResourceInCB(CbPtr, CbGV);
     return CreateResourceGV(Ty, Name, MD, ResBinding);
   }
