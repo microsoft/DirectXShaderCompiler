@@ -182,7 +182,7 @@ static bool IsBufferNullTerminated(LPCVOID pBuffer, SIZE_T size, UINT32 codePage
   switch (codePage) {
   case DXC_CP_UTF8: return IsUtfBufferNullTerminated<char>(pBuffer, size);
   case DXC_CP_UTF16: return IsUtfBufferNullTerminated<wchar_t>(pBuffer, size);
-  default: return IsUtfBufferNullTerminated<char>(pBuffer, size);
+  default: return false;
   }
 }
 template<typename _char>

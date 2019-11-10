@@ -1530,7 +1530,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenMissingThenFails) {
 
   SetupBasicHeader(&header);
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobPinned(&header, header.ContainerSizeInBytes, CP_UTF8, &pSource);
+  CreateBlobPinned(&header, header.ContainerSizeInBytes, 0, &pSource);
   VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
 }
 
@@ -1546,7 +1546,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
   {
     CComPtr<IDxcBlobEncoding> pSource;
     SetupBasicHeader(pHeader);
-    CreateBlobPinned(pHeader, sizeof(hlsl::DxilContainerHeader) - 4, CP_UTF8,
+    CreateBlobPinned(pHeader, sizeof(hlsl::DxilContainerHeader) - 4, 0,
                      &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
@@ -1556,7 +1556,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
     CComPtr<IDxcBlobEncoding> pSource;
     SetupBasicHeader(pHeader);
     pHeader->Version.Major = 100;
-    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, CP_UTF8, &pSource);
+    CreateBlobPinned(pHeader, pHeader->ContainerSizeInBytes, 0, &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
 
@@ -1565,7 +1565,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenInvalidThenFails) {
     CComPtr<IDxcBlobEncoding> pSource;
     SetupBasicHeader(pHeader);
     pHeader->ContainerSizeInBytes = 1024;
-    CreateBlobPinned(pHeader, sizeof(hlsl::DxilContainerHeader), CP_UTF8,
+    CreateBlobPinned(pHeader, sizeof(hlsl::DxilContainerHeader), 0,
                      &pSource);
     VERIFY_FAILED(pCompiler->Disassemble(pSource, &pDisassembly));
   }
