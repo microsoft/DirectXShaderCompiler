@@ -53,7 +53,7 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
   size_t rv;
   const char *locale = CPToLocale(CodePage);
   locale = setlocale(LC_ALL, locale);
-  if (lpMultiByteStr[cbMultiByte] != '\0') {
+  if (lpMultiByteStr[cbMultiByte - 1] != '\0') {
     char *srcStr = (char *)malloc((cbMultiByte +1) * sizeof(char));
     strncpy(srcStr, lpMultiByteStr, cbMultiByte);
     srcStr[cbMultiByte]='\0';
@@ -102,7 +102,7 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
   size_t rv;
   const char *locale = CPToLocale(CodePage);
   locale = setlocale(LC_ALL, locale);
-  if (lpWideCharStr[cchWideChar] != L'\0') {
+  if (lpWideCharStr[cchWideChar - 1] != L'\0') {
     wchar_t *srcStr = (wchar_t *)malloc((cchWideChar+1) * sizeof(wchar_t));
     wcsncpy(srcStr, lpWideCharStr, cchWideChar);
     srcStr[cchWideChar] = L'\0';

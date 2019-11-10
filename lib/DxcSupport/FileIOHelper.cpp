@@ -171,18 +171,31 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
   return codePage;
 }
 
+static bool IsSizeWcharAligned(SIZE_T size) { return (size & (sizeof(wchar_t) - 1)) == 0; }
+
+template<typename _char>
+bool IsUtfBufferNullTerminated(LPCVOID pBuffer, SIZE_T size) {
+  return (size >= sizeof(_char) && (size & (sizeof(_char) - 1)) == 0 &&
+    reinterpret_cast<const _char*>(pBuffer)[(size / sizeof(_char)) - 1] == 0);
+}
 static bool IsBufferNullTerminated(LPCVOID pBuffer, SIZE_T size, UINT32 codePage) {
   switch (codePage) {
-  case CP_UTF8:
-    if (size >= 1)
-      return (reinterpret_cast<const char*>(pBuffer)[size-1] == '\0');
-    break;
-  case CP_UTF16:
-    if (size >= sizeof(wchar_t) && (size & 1) == 0)
-      return (reinterpret_cast<const wchar_t*>(pBuffer)[(size / 2)-1] == L'\0');
-    break;
+  case DXC_CP_UTF8: return IsUtfBufferNullTerminated<char>(pBuffer, size);
+  case DXC_CP_UTF16: return IsUtfBufferNullTerminated<wchar_t>(pBuffer, size);
+  default: return IsUtfBufferNullTerminated<char>(pBuffer, size);
   }
-  return false;
+}
+template<typename _char>
+bool IsUtfBufferEmptyString(LPCVOID pBuffer, SIZE_T size) {
+  return (size == 0 || (size == sizeof(_char) &&
+    reinterpret_cast<const _char*>(pBuffer)[0] == 0));
+}
+static bool IsBufferEmptyString(LPCVOID pBuffer, SIZE_T size, UINT32 codePage) {
+  switch (codePage) {
+  case DXC_CP_UTF8: return IsUtfBufferEmptyString<char>(pBuffer, size);
+  case DXC_CP_UTF16: return IsUtfBufferEmptyString<wchar_t>(pBuffer, size);
+  default: return IsUtfBufferEmptyString<char>(pBuffer, size);
+  }
 }
 
 class DxcBlobNoEncoding_Impl : public IDxcBlobEncoding {
@@ -199,7 +212,7 @@ public:
     if (GetBufferSize() < sizeof(wchar_t)) {
       return L""; // Special case for empty string blob
     }
-    DXASSERT((GetBufferSize() & 1) == 0,
+    DXASSERT(IsSizeWcharAligned(GetBufferSize()),
              "otherwise, buffer size is not even multiple of wchar_t");
     DXASSERT(*(const wchar_t*)
              ((const BYTE*)GetBufferPointer() + GetBufferSize() - sizeof(wchar_t))
@@ -209,7 +222,7 @@ public:
   }
   virtual SIZE_T STDMETHODCALLTYPE GetStringLength(void) override {
     SIZE_T bufSize = GetBufferSize();
-    return bufSize ? (bufSize >> 1) - 1 : 0;
+    return bufSize ? (bufSize / sizeof(wchar_t)) - 1 : 0;
   }
 };
 
@@ -227,7 +240,7 @@ public:
   }
   virtual SIZE_T STDMETHODCALLTYPE GetStringLength(void) override {
     SIZE_T bufSize = GetBufferSize();
-    return bufSize ? bufSize - 1 : 0;
+    return bufSize ? (bufSize / sizeof(char)) - 1 : 0;
   }
 };
 
@@ -343,7 +356,7 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
 
   // If the buffer is empty, don't dereference bufferPointer at all.
   // Keep the null terminator post-condition.
-  if (bufferSize == 0) {
+  if (IsBufferEmptyString(bufferPointer, bufferSize, codePage)) {
     if (!utf16NewCopy.Allocate(1))
       return E_OUTOFMEMORY;
     utf16NewCopy.m_pData[0] = L'\0';
@@ -381,7 +394,7 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
     return S_OK;
   }
 
-  if ((UINT32)numActuallyConvertedUTF16 < (buffSizeUTF16 >> 1) &&
+  if ((UINT32)numActuallyConvertedUTF16 < (buffSizeUTF16 / sizeof(wchar_t)) &&
       utf16NewCopy.m_pData[numActuallyConvertedUTF16 - 1] != L'\0') {
     utf16NewCopy.m_pData[numActuallyConvertedUTF16++] = L'\0';
   }
@@ -401,9 +414,9 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
   UINT32 utf16CharCount = 0;
   const WCHAR *utf16Chars = nullptr;
   if (codePage == CP_UTF16) {
-    DXASSERT((bufferSize & 1) == 0, "otherwise, odd buffer size with UTF-16");
+    DXASSERT(IsSizeWcharAligned(bufferSize), "otherwise, odd buffer size with UTF-16");
     utf16Chars = (const WCHAR*)bufferPointer;
-    utf16CharCount = bufferSize >> 1;
+    utf16CharCount = bufferSize / sizeof(wchar_t);
   } else if (bufferSize) {
     IFR(CodePageBufferToUtf16(codePage, bufferPointer, bufferSize,
                               utf16NewCopy, &utf16CharCount));
@@ -412,8 +425,7 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
 
   // If the buffer is empty, don't dereference bufferPointer at all.
   // Keep the null terminator post-condition.
-  if (utf16CharCount == 0 ||
-      (utf16CharCount == 1 && utf16Chars[0] == L'\0')) {
+  if (IsUtfBufferEmptyString<wchar_t>(utf16Chars, utf16CharCount)) {
     if (!utf8NewCopy.Allocate(1))
       return E_OUTOFMEMORY;
     DXASSERT(*pConvertedCharCount == 0, "else didn't init properly");
@@ -429,7 +441,7 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
 
   UINT32 buffSizeUtf8;
   IFR(Int32ToUInt32(numToConvertUtf8, &buffSizeUtf8));
-  if (!IsBufferNullTerminated(utf16Chars, utf16CharCount << 1, CP_UTF16)) {
+  if (!IsBufferNullTerminated(utf16Chars, utf16CharCount * sizeof(wchar_t), CP_UTF16)) {
     // If original size doesn't include null-terminator,
     // we have to add one to the converted buffer.
     IFR(UInt32Add(buffSizeUtf8, 1, &buffSizeUtf8));
@@ -557,10 +569,10 @@ HRESULT DxcCreateBlob(
     if (encodingKnown) {
       if (!bNullTerminated) {
         if (codePage == CP_UTF8) {
-          newSize += 1;
+          newSize += sizeof(char);
           bNullTerminated = true;
         } else if (codePage == CP_UTF16) {
-          newSize += 2;
+          newSize += sizeof(wchar_t);
           bNullTerminated = true;
         }
       }
@@ -569,7 +581,10 @@ HRESULT DxcCreateBlob(
     pData = heapCopy.m_pData;
     if (pData == nullptr)
       return E_OUTOFMEMORY;
-    memcpy(pData, pPtr, size);
+    if (pPtr)
+      memcpy(pData, pPtr, size);
+    else
+      memset(pData, 0, size);
   }
 
   if (bNullTerminated && codePage == CP_UTF8) {
@@ -581,7 +596,7 @@ HRESULT DxcCreateBlob(
     *ppBlobEncoding = internalUtf8;
   } else if (bNullTerminated && codePage == CP_UTF16) {
     if (bCopy && newSize > size)
-      ((wchar_t*)pData)[(newSize >> 1) - 1] = 0;
+      ((wchar_t*)pData)[(newSize / sizeof(wchar_t)) - 1] = 0;
     InternalDxcBlobUtf16 *internalUtf16;
     IFR(InternalDxcBlobUtf16::CreateFromMalloc(
         pData, pMalloc, newSize, true, codePage, &internalUtf16));
@@ -932,9 +947,9 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
 
   // Reuse or copy the underlying blob depending on null-termination
   if (codePage == CP_UTF16) {
-    DXASSERT((blobLen & 1) == 0,
+    DXASSERT(IsSizeWcharAligned(blobLen),
              "otherwise, UTF-16 blob size not evenly divisible by 2");
-    utf16CharCount = blobLen >> 1;
+    utf16CharCount = blobLen / sizeof(wchar_t);
     if (IsBufferNullTerminated(pBlob->GetBufferPointer(), blobLen, CP_UTF16)) {
       // Already null-terminated, reference other blob's memory
       InternalDxcBlobUtf16* internalEncoding;
@@ -961,7 +976,7 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
 
   // At this point, we have new utf16NewCopy to wrap in a blob
   DXASSERT(!utf16CharCount ||
-           IsBufferNullTerminated(utf16NewCopy.m_pData, utf16CharCount << 1, CP_UTF16),
+           IsBufferNullTerminated(utf16NewCopy.m_pData, utf16CharCount * sizeof(wchar_t), CP_UTF16),
            "otherwise, failed to null-terminate buffer.");
   InternalDxcBlobUtf16* internalEncoding;
   hr = InternalDxcBlobUtf16::CreateFromMalloc(
