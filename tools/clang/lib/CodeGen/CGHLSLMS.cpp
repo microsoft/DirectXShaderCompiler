@@ -102,6 +102,10 @@ private:
   llvm::DenseMap<HLSLBufferDecl *, uint32_t> constantBufMap;
   // Map for resource type to resource metadata value.
   std::unordered_map<llvm::Type *, MDNode*> resMetadataMap;
+  // Map from Constant to register bindings.
+  llvm::DenseMap<llvm::Constant *,
+                 llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
+      constantRegBindingMap;
 
   bool  m_bDebugInfo;
   bool  m_bIsLib;
@@ -3104,6 +3108,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     return;
   }
   llvm::Constant *constVal = CGM.GetAddrOfGlobalVar(constDecl);
+  auto &regBindings = constantRegBindingMap[constVal];
 
   bool isGlobalCB = CB.GetID() == globalCBIndex;
   uint32_t offset = 0;
@@ -3130,8 +3135,8 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
       break;
     }
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
+      RegisterAssignment *ra = cast<RegisterAssignment>(it);
       if (isGlobalCB) {
-        RegisterAssignment *ra = cast<RegisterAssignment>(it);
         if (ra->RegisterSpace.hasValue()) {
           DiagnosticsEngine& Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
@@ -3143,6 +3148,22 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
         // Change to byte.
         offset <<= 2;
         userOffset = true;
+      }
+      switch (ra->RegisterType) {
+      default:
+        break;
+      case 't':
+        regBindings.emplace_back(
+            std::make_pair(DXIL::ResourceClass::SRV, ra->RegisterNumber));
+        break;
+      case 'u':
+        regBindings.emplace_back(
+            std::make_pair(DXIL::ResourceClass::UAV, ra->RegisterNumber));
+        break;
+      case 's':
+        regBindings.emplace_back(
+            std::make_pair(DXIL::ResourceClass::Sampler, ra->RegisterNumber));
+        break;
       }
       break;
     }
@@ -3340,6 +3361,45 @@ static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB,
     offset += size;
   }
   return offset;
+}
+
+static void AddRegBindingsForResourceInConstantBuffer(
+    HLModule *pHLModule,
+    llvm::DenseMap<llvm::Constant *,
+                   llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>,
+                                     1>> &constantRegBindingMap) {
+  for (unsigned i = 0; i < pHLModule->GetCBuffers().size(); i++) {
+    HLCBuffer &CB = *static_cast<HLCBuffer *>(&(pHLModule->GetCBuffer(i)));
+    auto &Constants = CB.GetConstants();
+    for (unsigned j = 0; j < Constants.size(); j++) {
+      const std::unique_ptr<DxilResourceBase> &C = Constants[j];
+      Constant *CGV = C->GetGlobalSymbol();
+      auto &regBindings = constantRegBindingMap[CGV];
+      if (regBindings.empty())
+        continue;
+      unsigned Srv = UINT_MAX;
+      unsigned Uav = UINT_MAX;
+      unsigned Sampler = UINT_MAX;
+      for (auto it : regBindings) {
+        unsigned RegNum = it.second;
+        switch (it.first) {
+        case DXIL::ResourceClass::SRV:
+          Srv = RegNum;
+          break;
+        case DXIL::ResourceClass::UAV:
+          Uav = RegNum;
+          break;
+        case DXIL::ResourceClass::Sampler:
+          Sampler = RegNum;
+          break;
+        default:
+          DXASSERT(0, "invalid resource class");
+          break;
+        }
+      }
+      pHLModule->AddRegBinding(CB.GetID(), j, Srv, Uav, Sampler);
+    }
+  }
 }
 
 static void AllocateDxilConstantBuffers(HLModule *pHLModule,
@@ -5202,6 +5262,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       props.ShaderProps.VS.clipPlanes[i] = GV;
     }
   }
+
+  // Add Reg bindings for resource in cb.
+  AddRegBindingsForResourceInConstantBuffer(m_pHLModule, constantRegBindingMap);
 
   // Allocate constant buffers.
   AllocateDxilConstantBuffers(m_pHLModule, m_ConstVarAnnotationMap);
