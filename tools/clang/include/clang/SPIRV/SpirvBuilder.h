@@ -496,6 +496,8 @@ public:
   createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
                        llvm::ArrayRef<SpirvInstruction *> operands,
                        bool cullFlags, SourceLocation loc);
+  /// \brief Creates an OpReadClockKHR instruction.
+  SpirvInstruction *createReadClock(SpirvInstruction *scope, SourceLocation);
 
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);

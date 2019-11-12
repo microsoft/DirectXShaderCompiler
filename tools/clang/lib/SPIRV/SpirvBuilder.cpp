@@ -929,6 +929,15 @@ SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
   return inst;
 }
 
+SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst =
+      new (context) SpirvReadClock(astContext.UnsignedLongLongTy, scope, loc);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
