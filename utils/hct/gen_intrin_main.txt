@@ -330,6 +330,15 @@ resource [[rn]] CreateResourceFromHeap(in uint index);
 
 } namespace
 
+
+// SPIRV Change Starts
+namespace VkIntrinsics {
+
+u64 [[]] ReadClock(in uint scope);
+
+} namespace
+// SPIRV Change Ends
+
 namespace StreamMethods {
 
 void [[]] Append(in $match<-1, 1> void x) : stream_append;
