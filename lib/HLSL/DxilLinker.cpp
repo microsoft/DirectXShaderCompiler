@@ -125,7 +125,7 @@ public:
   DxilModule &GetDxilModule() { return m_DM; }
   void LazyLoadFunction(Function *F);
   void BuildGlobalUsage();
-  void CollectUsedInitFunctions(StringSet<> &addedFunctionSet,
+  void CollectUsedInitFunctions(SetVector<StringRef> &addedFunctionSet,
                                 SmallVector<StringRef, 4> &workList);
 
 private:
@@ -159,7 +159,7 @@ private:
   bool AttachLib(DxilLib *lib);
   bool DetachLib(DxilLib *lib);
   bool AddFunctions(SmallVector<StringRef, 4> &workList,
-                    DenseSet<DxilLib *> &libSet, StringSet<> &addedFunctionSet,
+                    SetVector<DxilLib *> &libSet, SetVector<StringRef> &addedFunctionSet,
                     DxilLinkJob &linkJob, bool bLazyLoadDone,
                     bool bAllowFuncionDecls);
   // Attached libs to link.
@@ -284,7 +284,7 @@ void DxilLib::BuildGlobalUsage() {
                  m_resourceMap, m_DM);
 }
 
-void DxilLib::CollectUsedInitFunctions(StringSet<> &addedFunctionSet,
+void DxilLib::CollectUsedInitFunctions(SetVector<StringRef> &addedFunctionSet,
                                        SmallVector<StringRef, 4> &workList) {
   // Add init functions to used functions.
   for (Function *Ctor : m_initFuncSet) {
@@ -353,7 +353,7 @@ private:
   void AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap);
   bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
   void AddResourceToDM(DxilModule &DM);
-  std::unordered_map<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
+  llvm::MapVector<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
   llvm::StringMap<llvm::Function *> m_functionDecls;
   // New created functions.
   llvm::StringMap<llvm::Function *> m_newFunctions;
@@ -1168,8 +1168,8 @@ bool DxilLinkerImpl::DetachLib(DxilLib *lib) {
 }
 
 bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
-                                  DenseSet<DxilLib *> &libSet,
-                                  StringSet<> &addedFunctionSet,
+                                  SetVector<DxilLib *> &libSet,
+                                  SetVector<StringRef> &addedFunctionSet,
                                   DxilLinkJob &linkJob, bool bLazyLoadDone,
                                   bool bAllowFuncionDecls) {
   while (!workList.empty()) {
@@ -1241,8 +1241,8 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
 
   DxilLinkJob linkJob(m_ctx, exportMap, m_valMajor, m_valMinor);
 
-  DenseSet<DxilLib *> libSet;
-  StringSet<> addedFunctionSet;
+  SetVector<DxilLib *> libSet;
+  SetVector<StringRef> addedFunctionSet;
 
   bool bIsLib = pSM->IsLib();
   if (!bIsLib) {
