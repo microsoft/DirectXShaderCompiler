@@ -2160,7 +2160,7 @@ bool DeclResultIdMapper::createStageVars(
       // Special handling of HS ouput, for which we write to only one
       // element in the per-vertex data array: the one indexed by
       // SV_ControlPointID.
-      else if (invocationId.hasValue()) {
+      else if (invocationId.hasValue() && invocationId.getValue() != nullptr) {
         // Remove the arrayness to get the element type.
         assert(isa<ConstantArrayType>(evalType));
         const auto elementType =
