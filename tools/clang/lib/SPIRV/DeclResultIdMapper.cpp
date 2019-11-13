@@ -1923,7 +1923,7 @@ bool DeclResultIdMapper::createStageVars(
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
     // semantic it is created for
-    spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticInfo().str);
+    spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
 
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
