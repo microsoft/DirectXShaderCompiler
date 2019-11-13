@@ -159,6 +159,12 @@ QualType desugarType(QualType type, llvm::Optional<bool> *isRowMajor);
 /// a row into a column here.
 bool isRowMajorMatrix(const SpirvCodeGenOptions &, QualType type);
 
+/// Returns true if a matrix or an array of matrix has the majorness
+/// attribute. When it contains the attribute, it updates `isRowMajorAttr`
+/// properly.
+bool containsMatrixMajorAttr(const ASTContext &astContext, QualType type,
+                             llvm::Optional<bool> *isRowMajorAttr);
+
 /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
 bool isStructuredBuffer(QualType type);
 

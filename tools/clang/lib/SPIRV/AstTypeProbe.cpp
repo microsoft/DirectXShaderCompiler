@@ -742,6 +742,21 @@ bool isRowMajorMatrix(const SpirvCodeGenOptions &spvOptions, QualType type) {
   return !spvOptions.defaultRowMajor;
 }
 
+bool containsMatrixMajorAttr(const ASTContext &astContext, QualType type,
+                             llvm::Optional<bool> *isRowMajorAttr) {
+  bool attrRowMajor = false;
+  if (hlsl::HasHLSLMatOrientation(type, &attrRowMajor)) {
+    *isRowMajorAttr = attrRowMajor;
+    return true;
+  }
+
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe())
+    return containsMatrixMajorAttr(astContext, arrayType->getElementType(),
+                                   isRowMajorAttr);
+
+  return false;
+}
+
 bool isStructuredBuffer(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
@@ -1097,7 +1112,8 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
     if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
         !elemType->isFloatingType())
       return isColMajorDecl(decl);
-    if (const auto *structType = arrayType->getElementType()->getAs<RecordType>()) {
+    if (const auto *structType =
+            arrayType->getElementType()->getAs<RecordType>()) {
       return isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
                                              arrayType->getElementType(),
                                              structType->getDecl());

@@ -6,15 +6,15 @@
 
 // CHECK: OpDecorate %in_var_A Location 0
 // CHECK: OpDecorate %in_var_B Location 4
-// CHECK: OpDecorate %in_var_C Location 6
-// CHECK: OpDecorate %in_var_D Location 7
-// CHECK: OpDecorate %in_var_E Location 8
+// CHECK: OpDecorate %in_var_C Location 7
+// CHECK: OpDecorate %in_var_D Location 8
+// CHECK: OpDecorate %in_var_E Location 9
 
 // CHECK: OpDecorate %out_var_A Location 0
-// CHECK: OpDecorate %out_var_B Location 2
-// CHECK: OpDecorate %out_var_C Location 6
-// CHECK: OpDecorate %out_var_D Location 7
-// CHECK: OpDecorate %out_var_E Location 8
+// CHECK: OpDecorate %out_var_B Location 3
+// CHECK: OpDecorate %out_var_C Location 7
+// CHECK: OpDecorate %out_var_D Location 8
+// CHECK: OpDecorate %out_var_E Location 9
 
 // CHECK:  %in_var_A = OpVariable %_ptr_Input__arr_v2half_uint_4 Input
 // CHECK:  %in_var_B = OpVariable %_ptr_Input__arr_v3ushort_uint_2 Input
@@ -29,19 +29,19 @@
 // CHECK: %out_var_E = OpVariable %_ptr_Output_v3ushort Output
 
 struct VSOut {
-    half2x3   outA    : A; // 2 locations: 0, 1
-    int16_t2  outB[4] : B; // 4 locations: 2, 3, 4, 5
-    half      outC    : C; // 1 location : 6
-    int16_t2  outD    : D; // 1 location : 7
-    uint16_t3 outE    : E; // 1 location : 8
+    half2x3   outA    : A; // 3 locations: 0, 1, 2
+    int16_t2  outB[4] : B; // 4 locations: 3, 4, 5, 6
+    half      outC    : C; // 1 location : 7
+    int16_t2  outD    : D; // 1 location : 8
+    uint16_t3 outE    : E; // 1 location : 9
 };
 
 VSOut main(
     half2        inA[4] : A, // 4 locations: 0, 1, 2, 3
-    uint16_t2x3  inB    : B, // 2 locations: 4, 5
-    int16_t      inC    : C, // 1 location : 6
-    uint16_t2    inD    : D, // 1 location : 7
-    float16_t3x2 inE    : E  // 3 location : 8, 9, 10
+    uint16_t2x3  inB    : B, // 3 locations: 4, 5, 6
+    int16_t      inC    : C, // 1 location : 7
+    uint16_t2    inD    : D, // 1 location : 8
+    float16_t3x2 inE    : E  // 2 location : 9, 10
 ) {
     VSOut o;
     o.outA    = inA[0].x;

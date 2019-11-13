@@ -785,6 +785,12 @@ TEST_F(FileTest, SemanticDuplication) {
   runFileTest("semantic.duplication.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, SemanticOnStruct) { runFileTest("semantic.on-struct.hlsl"); }
+TEST_F(FileTest, SemanticLocationDefaultColMajor) {
+  runFileTest("semantic.location.default_colmajor.hlsl");
+}
+TEST_F(FileTest, SemanticLocationDefaultRowMajor) {
+  runFileTest("semantic.location.default_rowmajor.hlsl");
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
@@ -1881,7 +1887,8 @@ TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
-  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl", Expect::Failure);
+  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl",
+              Expect::Failure);
 }
 
 TEST_F(FileTest, NamespaceFunctions) {

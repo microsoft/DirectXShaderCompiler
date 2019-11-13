@@ -60,12 +60,23 @@ QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                    "getUintTypeWithSourceComponents");
 }
 
-uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
+uint32_t getLocationCount(const ASTContext &astContext, QualType type,
+                          bool rowMajorAttr) {
   // See Vulkan spec 14.1.4. Location Assignment for the complete set of rules.
+
+  // Check if it has a matrix majorness attribute before getting the canonical
+  // type. If yes and it is row_major attribute, we set `rowMajorAttr` as true.
+  llvm::Optional<bool> isRowMajorAttr;
+  if (containsMatrixMajorAttr(astContext, type, &isRowMajorAttr)) {
+    if (isRowMajorAttr.getValue())
+      rowMajorAttr = true;
+    else
+      rowMajorAttr = false;
+  }
 
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return getLocationCount(astContext, canonicalType);
+    return getLocationCount(astContext, canonicalType, rowMajorAttr);
 
   // Inputs and outputs of the following types consume a single interface
   // location:
@@ -109,23 +120,33 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   {
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      if (!rowMajorAttr) {
+        // Swap rowCount and colCount if it is a col-major matrix
+        uint32_t tmpForSwap = rowCount;
+        rowCount = colCount;
+        colCount = tmpForSwap;
+      }
       return getLocationCount(astContext,
-                              astContext.getExtVectorType(elemType, colCount)) *
+                              astContext.getExtVectorType(elemType, colCount),
+                              rowMajorAttr) *
              rowCount;
+    }
   }
 
   // Typedefs
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return getLocationCount(astContext, typedefType->desugar());
+    return getLocationCount(astContext, typedefType->desugar(), rowMajorAttr);
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>())
-    return getLocationCount(astContext, refType->getPointeeType());
+    return getLocationCount(astContext, refType->getPointeeType(),
+                            rowMajorAttr);
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>())
-    return getLocationCount(astContext, ptrType->getPointeeType());
+    return getLocationCount(astContext, ptrType->getPointeeType(),
+                            rowMajorAttr);
 
   // If a declared input or output is an array of size n and each element takes
   // m locations, it will be assigned m * n consecutive locations starting with
@@ -133,7 +154,8 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
 
   // Array types
   if (const auto *arrayType = astContext.getAsConstantArrayType(type))
-    return getLocationCount(astContext, arrayType->getElementType()) *
+    return getLocationCount(astContext, arrayType->getElementType(),
+                            rowMajorAttr) *
            static_cast<uint32_t>(arrayType->getSize().getZExtValue());
 
   // Struct type
@@ -756,7 +778,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
     // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if(forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
+    if (forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -981,7 +1003,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
     // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if(decl->hasAttr<HLSLGroupSharedAttr>())
+    if (decl->hasAttr<HLSLGroupSharedAttr>())
       continue;
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
@@ -1908,7 +1930,7 @@ bool DeclResultIdMapper::createStageVars(
     StageVar stageVar(
         sigPoint, *semanticToUse, builtinAttr, evalType,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationCount(astContext, type));
+        getLocationCount(astContext, type, spirvOptions.defaultRowMajor));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     SpirvVariable *varInstr =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -2335,8 +2357,9 @@ bool DeclResultIdMapper::createPayloadStageVars(
 
   const auto loc = decl->getLocation();
   if (!type->isStructureType()) {
-    StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationCount(astContext, type));
+    StageVar stageVar(
+        sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
+        getLocationCount(astContext, type, spirvOptions.defaultRowMajor));
     const auto name = namePrefix.str() + "." + decl->getNameAsString();
     SpirvVariable *varInstr =
         spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false, loc);
