@@ -701,6 +701,10 @@ TEST_F(FileTest, SemanticPrimitiveIdPS) {
 TEST_F(FileTest, SemanticOutputControlPointIdHS) {
   runFileTest("semantic.output-control-point-id.hs.hlsl");
 }
+TEST_F(FileTest, SemanticOutputControlPointIdHSError) {
+  runFileTest("semantic.output-control-point-id.hs.error.hlsl",
+              Expect::Failure);
+}
 TEST_F(FileTest, SemanticGSInstanceIDGS) {
   runFileTest("semantic.gs-instance-id.gs.hlsl");
 }
