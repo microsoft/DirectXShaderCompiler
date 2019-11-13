@@ -260,6 +260,8 @@ public:
   TEST_METHOD(DiaLoadDebugThenOK)
   TEST_METHOD(DiaTableIndexThenOK)
   TEST_METHOD(DiaLoadDebugSubrangeNegativeThenOK)
+  TEST_METHOD(DiaLoadRelocatedBitcode)
+  TEST_METHOD(DiaLoadBitcodePlusExtraData)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenInclude)
@@ -2405,11 +2407,8 @@ TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
   VERIFY_FAILED(pDiaSource->loadDataFromIStream(pStream));
 }
 
-static void CompileTestAndLoadDiaSource(dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDiaDataSource **ppDataSource) {
+static void CompileAndGetDebugPart(dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDxcBlob **ppDebugPart) {
   CComPtr<IDxcBlob> pContainer;
-  CComPtr<IDxcBlob> pDebugContent;
-  CComPtr<IDiaDataSource> pDiaSource;
-  CComPtr<IStream> pStream;
   CComPtr<IDxcLibrary> pLib;
   CComPtr<IDxcContainerReflection> pReflection;
   UINT32 index;
@@ -2422,7 +2421,17 @@ static void CompileTestAndLoadDiaSource(dxc::DxcDllSupport &dllSupport, const ch
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
   VERIFY_SUCCEEDED(pReflection->Load(pContainer));
   VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &pDebugContent));
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
+}
+
+static void CompileTestAndLoadDiaSource(dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDiaDataSource **ppDataSource) {
+  CComPtr<IDxcBlob> pDebugContent;
+  CComPtr<IStream> pStream;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CompileAndGetDebugPart(dllSupport, source, profile, &pDebugContent);
   VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
   VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pStream));
@@ -2460,6 +2469,148 @@ TEST_F(CompilerTest, DiaLoadDebugSubrangeNegativeThenOK) {
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
 
+TEST_F(CompilerTest, DiaLoadRelocatedBitcode) {
+
+  static const char source[] = R"(
+    SamplerState  samp0 : register(s0);
+    Texture2DArray tex0 : register(t0);
+
+    float4 foo(Texture2DArray textures[], int idx, SamplerState samplerState, float3 uvw) {
+      return textures[NonUniformResourceIndex(idx)].Sample(samplerState, uvw);
+    }
+
+    [RootSignature( "DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0)) " )]
+    float4 main(int index : INDEX, float3 uvw : TEXCOORD) : SV_Target {
+      Texture2DArray textures[] = {
+        tex0,
+      };
+      return foo(textures, index, samp0, uvw);
+    }
+  )";
+
+  CComPtr<IDxcBlob> pPart;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CompileAndGetDebugPart(m_dllSupport, source, L"ps_6_0", &pPart);
+  const char *pPartData = (char *)pPart->GetBufferPointer();
+  const size_t uPartSize = pPart->GetBufferSize();
+
+  // Get program header
+  const hlsl::DxilProgramHeader *programHeader = (hlsl::DxilProgramHeader *)pPartData;
+
+  const char *pBitcode = nullptr;
+  uint32_t uBitcodeSize = 0;
+  hlsl::GetDxilProgramBitcode(programHeader, &pBitcode, &uBitcodeSize);
+  VERIFY_IS_TRUE(uBitcodeSize % sizeof(UINT32) == 0);
+
+  size_t uNewGapSize = 4 * 10; // Size of some bytes between program header and bitcode
+  size_t uNewSuffixeBytes = 4 * 10; // Size of some random bytes after the program
+
+  hlsl::DxilProgramHeader newProgramHeader = {};
+  memcpy(&newProgramHeader, programHeader, sizeof(newProgramHeader));
+  newProgramHeader.BitcodeHeader.BitcodeOffset = uNewGapSize + sizeof(newProgramHeader.BitcodeHeader);
+
+  unsigned uNewSizeInBytes = sizeof(newProgramHeader) + uNewGapSize + uBitcodeSize + uNewSuffixeBytes;
+  VERIFY_IS_TRUE(uNewSizeInBytes % sizeof(UINT32) == 0);
+  newProgramHeader.SizeInUint32 = uNewSizeInBytes / sizeof(UINT32);
+
+  llvm::SmallVector<char, 0> buffer;
+  llvm::raw_svector_ostream OS(buffer);
+
+  // Write the header
+  OS.write((char *)&newProgramHeader, sizeof(newProgramHeader));
+
+  // Write some garbage between the header and the bitcode
+  for (unsigned i = 0; i < uNewGapSize; i++) {
+    OS.write(0xFF);
+  }
+
+  // Write the actual bitcode
+  OS.write(pBitcode, uBitcodeSize);
+
+  // Write some garbage after the bitcode
+  for (unsigned i = 0; i < uNewSuffixeBytes; i++) {
+    OS.write(0xFF);
+  }
+  OS.flush();
+
+  // Try to load this new program, make sure dia is still okay.
+  CComPtr<IDxcBlobEncoding> pNewProgramBlob;
+  VERIFY_SUCCEEDED(pLib->CreateBlobWithEncodingFromPinned(buffer.data(), buffer.size(), CP_ACP, &pNewProgramBlob));
+
+  CComPtr<IStream> pNewProgramStream;
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pNewProgramBlob, &pNewProgramStream));
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaDataSource));
+
+  VERIFY_SUCCEEDED(pDiaDataSource->loadDataFromIStream(pNewProgramStream));
+}
+
+TEST_F(CompilerTest, DiaLoadBitcodePlusExtraData) {
+  // Test that dia doesn't crash when bitcode has unused extra data at the end
+
+  static const char source[] = R"(
+    SamplerState  samp0 : register(s0);
+    Texture2DArray tex0 : register(t0);
+
+    float4 foo(Texture2DArray textures[], int idx, SamplerState samplerState, float3 uvw) {
+      return textures[NonUniformResourceIndex(idx)].Sample(samplerState, uvw);
+    }
+
+    [RootSignature( "DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0)) " )]
+    float4 main(int index : INDEX, float3 uvw : TEXCOORD) : SV_Target {
+      Texture2DArray textures[] = {
+        tex0,
+      };
+      return foo(textures, index, samp0, uvw);
+    }
+  )";
+
+  CComPtr<IDxcBlob> pPart;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CompileAndGetDebugPart(m_dllSupport, source, L"ps_6_0", &pPart);
+  const char *pPartData = (char *)pPart->GetBufferPointer();
+  const size_t uPartSize = pPart->GetBufferSize();
+
+  // Get program header
+  const hlsl::DxilProgramHeader *programHeader = (hlsl::DxilProgramHeader *)pPartData;
+
+  const char *pBitcode = nullptr;
+  uint32_t uBitcodeSize = 0;
+  hlsl::GetDxilProgramBitcode(programHeader, &pBitcode, &uBitcodeSize);
+
+  llvm::SmallVector<char, 0> buffer;
+  llvm::raw_svector_ostream OS(buffer);
+
+  // Write the bitcode
+  OS.write(pBitcode, uBitcodeSize);
+  for (unsigned i = 0; i < 12; i++) {
+    OS.write(0xFF);
+  }
+  OS.flush();
+
+  // Try to load this new program, make sure dia is still okay.
+  CComPtr<IDxcBlobEncoding> pNewProgramBlob;
+  VERIFY_SUCCEEDED(pLib->CreateBlobWithEncodingFromPinned(buffer.data(), buffer.size(), CP_ACP, &pNewProgramBlob));
+
+  CComPtr<IStream> pNewProgramStream;
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pNewProgramBlob, &pNewProgramStream));
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaDataSource));
+
+  VERIFY_SUCCEEDED(pDiaDataSource->loadDataFromIStream(pNewProgramStream));
+}
 
 TEST_F(CompilerTest, DiaLoadDebugThenOK) {
   CompileTestAndLoadDia(m_dllSupport, nullptr);
