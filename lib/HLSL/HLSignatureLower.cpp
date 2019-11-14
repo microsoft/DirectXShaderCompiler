@@ -1064,7 +1064,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   DxilFunctionProps &props = HLM.GetDxilFunctionProps(Entry);
   Module &M = *(HLM.GetModule());
 
-  OP::OpCode opcode;
+  OP::OpCode opcode = (OP::OpCode)-1;
   switch (SK) {
   case DXIL::SignatureKind::Input:
     opcode = OP::OpCode::LoadInput;
@@ -1614,7 +1614,7 @@ void HLSignatureLower::GenerateEmitIndicesOperation(Value *indicesOutput) {
     // Skip first pointer idx which must be 0.
     GEPIt++;
     Value *primIdx = GEPIt.getOperand();
-    DXASSERT(++GEPIt == E, "invalid GEP here");
+    DXASSERT(++GEPIt == E, "invalid GEP here"); (void)E;
 
     auto GepUser = GEP->user_begin();
     auto GepUserE = GEP->user_end();

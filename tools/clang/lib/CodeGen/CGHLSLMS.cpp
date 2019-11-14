@@ -1418,7 +1418,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.GS.instanceCount = 1;
   }
 
-  // Computer shader.
+  // Compute shader
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
     if (isMS) {
       funcProps->ShaderProps.MS.numThreads[0] = Attr->getX();

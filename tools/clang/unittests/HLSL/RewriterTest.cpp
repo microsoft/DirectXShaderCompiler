@@ -103,11 +103,6 @@ public:
     }
   };
 
-  std::string BlobToUtf8(_In_ IDxcBlob* pBlob) {
-    if (pBlob == nullptr) return std::string();
-    return std::string((char*)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-  }
-
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _In_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;

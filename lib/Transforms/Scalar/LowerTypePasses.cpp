@@ -110,16 +110,9 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
   for (AllocaInst *A : workList) {
     AllocaInst *NewA = lowerAlloca(A);
     if (HasDbgInfo) {
-      // Add debug info.
+      // Migrate debug info.
       DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A);
-      if (DDI) {
-        Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
-        Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
-        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-        IRBuilder<> debugBuilder(DDI);
-        debugBuilder.CreateCall(DDI->getCalledFunction(),
-                                {VMD, DDIVar, DDIExp});
-      }
+      if (DDI) DDI->setOperand(0, MetadataAsValue::get(Context, LocalAsMetadata::get(NewA)));
     }
     // Replace users.
     lowerUseWithNewValue(A, NewA);

@@ -538,6 +538,10 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName()) {
+      return false;
+    }
+
     StringRef name = ST->getName();
     // TODO: don't check names.
     if (name.startswith("dx.types.wave_t"))
@@ -585,7 +589,7 @@ bool ContainsHLSLObjectType(llvm::Type *Ty) {
     Ty = llvm::cast<llvm::ArrayType>(Ty)->getArrayElementType();
 
   if (llvm::StructType *ST = llvm::dyn_cast<llvm::StructType>(Ty)) {
-    if (ST->getName().startswith("dx.types."))
+    if (ST->hasName() && ST->getName().startswith("dx.types."))
       return true;
     // TODO: How is this suppoed to check for Input/OutputPatch types if
     // these have already been eliminated in function arguments during CG?

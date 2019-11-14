@@ -256,11 +256,6 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   return true;
 }
 
-static uint8_t NegMask(uint8_t V) {
-  V ^= 0xF;
-  return V & 0xF;
-}
-
 static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
@@ -336,6 +331,27 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
+  void patchValidation_1_5(Module &M) {
+    Function *DoNothingF = nullptr;
+    for (Function &F : M) {
+      if (F.isIntrinsic() && F.getIntrinsicID() == Intrinsic::donothing) {
+        DoNothingF = &F;
+        break;
+      }
+    }
+
+    if (!DoNothingF)
+      return;
+
+    for (auto It = DoNothingF->user_begin(), E = DoNothingF->user_end(); It != E; ) {
+      User *U = *(It++);
+      cast<Instruction>(U)->eraseFromParent();
+    }
+
+    assert(DoNothingF->user_empty() && "Not all users removed from @llvm.donothing");
+    DoNothingF->eraseFromParent();
+  }
+
   void patchValidation_1_1(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
       for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
@@ -381,6 +397,10 @@ public:
         MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
         if (DM.GetShaderModel()->IsHS())
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
+      }
+
+      if (ValMajor == 1 && ValMinor <= 5) {
+        patchValidation_1_5(M);
       }
 
       // Remove store undef output.

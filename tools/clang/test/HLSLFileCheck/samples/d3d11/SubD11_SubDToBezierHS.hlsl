@@ -3,8 +3,9 @@
 // CHECK: primitiveID
 // CHECK: storePatchConstant
 // CHECK: main
-// CHECK: primitiveID
-// CHECK: bufferLoad
+// These values are not used other than being stored into array allocas, which we now remove.
+// xCHECK: primitiveID
+// xCHECK: bufferLoad
 // CHECK: storeOutput
 
 //--------------------------------------------------------------------------------------

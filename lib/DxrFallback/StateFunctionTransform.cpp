@@ -45,7 +45,7 @@ inline std::string stringf(const char* fmt, ...)
   {
     ret.resize(size);
     va_start(args, fmt);
-    vsnprintf((char*)ret.data(), size + 1, fmt, args);
+    vsnprintf(const_cast<char*>(ret.data()), size + 1, fmt, args);
     va_end(args);
   }
   return ret;

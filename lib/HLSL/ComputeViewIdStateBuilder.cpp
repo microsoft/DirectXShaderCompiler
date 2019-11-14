@@ -840,7 +840,7 @@ void DxilViewIdStateBuilder::CreateViewIdSets(const std::unordered_map<unsigned,
 unsigned DxilViewIdStateBuilder::GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const {
   DXASSERT_NOMSG(row >= 0 && col < kNumComps && SigElem.GetStartRow() != Semantic::kUndefinedRow);
   unsigned idx = (((unsigned)row) + SigElem.GetStartRow())*kNumComps + col + SigElem.GetStartCol();
-  DXASSERT_NOMSG(idx < kMaxSigScalars);
+  DXASSERT_NOMSG(idx < kMaxSigScalars); (void)kMaxSigScalars;
   return idx;
 }
 

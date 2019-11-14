@@ -506,7 +506,8 @@ bool OP::IsDxilOpFuncName(StringRef name) {
 }
 
 bool OP::IsDxilOpFunc(const llvm::Function *F) {
-  if (!F->hasName())
+  // Test for null to allow IsDxilOpFunc(Call.getCalledFunc()) to be resilient to indirect calls
+  if (F == nullptr || !F->hasName())
     return false;
   return IsDxilOpFuncName(F->getName());
 }

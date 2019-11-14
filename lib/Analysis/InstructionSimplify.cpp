@@ -3941,6 +3941,333 @@ Value *llvm::SimplifyCall(Value *V, ArrayRef<Value *> Args,
                         Query(DL, TLI, DT, AC, CxtI), RecursionLimit);
 }
 
+// HLSL Change - Begin
+// Copied CastInst simplification from LLVM 8
+
+static
+Constant *foldConstVectorToAPInt(APInt &Result, Type *DestTy,
+                                        Constant *C, Type *SrcEltTy,
+                                        unsigned NumSrcElts,
+                                        const DataLayout &DL) {
+  // Now that we know that the input value is a vector of integers, just shift
+  // and insert them into our result.
+  unsigned BitShift = DL.getTypeSizeInBits(SrcEltTy);
+  for (unsigned i = 0; i != NumSrcElts; ++i) {
+    Constant *Element;
+    if (DL.isLittleEndian())
+      Element = C->getAggregateElement(NumSrcElts - i - 1);
+    else
+      Element = C->getAggregateElement(i);
+
+    if (Element && isa<UndefValue>(Element)) {
+      Result <<= BitShift;
+      continue;
+    }
+
+    auto *ElementCI = dyn_cast_or_null<ConstantInt>(Element);
+    if (!ElementCI)
+      return ConstantExpr::getBitCast(C, DestTy);
+
+    Result <<= BitShift;
+    Result |= ElementCI->getValue().zextOrSelf(Result.getBitWidth());
+  }
+
+  return nullptr;
+}
+
+/// Constant fold bitcast, symbolically evaluating it with DataLayout.
+/// This always returns a non-null constant, but it may be a
+/// ConstantExpr if unfoldable.
+static
+Constant *FoldBitCast(Constant *C, Type *DestTy, const DataLayout &DL) {
+  // Catch the obvious splat cases.
+  if (C->isNullValue() && !DestTy->isX86_MMXTy())
+    return Constant::getNullValue(DestTy);
+  if (C->isAllOnesValue() && !DestTy->isX86_MMXTy() &&
+      !DestTy->isPtrOrPtrVectorTy()) // Don't get ones for ptr types!
+    return Constant::getAllOnesValue(DestTy);
+
+  if (auto *VTy = dyn_cast<VectorType>(C->getType())) {
+    // Handle a vector->scalar integer/fp cast.
+    if (isa<IntegerType>(DestTy) || DestTy->isFloatingPointTy()) {
+      unsigned NumSrcElts = VTy->getNumElements();
+      Type *SrcEltTy = VTy->getElementType();
+
+      // If the vector is a vector of floating point, convert it to vector of int
+      // to simplify things.
+      if (SrcEltTy->isFloatingPointTy()) {
+        unsigned FPWidth = SrcEltTy->getPrimitiveSizeInBits();
+        Type *SrcIVTy =
+          VectorType::get(IntegerType::get(C->getContext(), FPWidth), NumSrcElts);
+        // Ask IR to do the conversion now that #elts line up.
+        C = ConstantExpr::getBitCast(C, SrcIVTy);
+      }
+
+      APInt Result(DL.getTypeSizeInBits(DestTy), 0);
+      if (Constant *CE = foldConstVectorToAPInt(Result, DestTy, C,
+                                                SrcEltTy, NumSrcElts, DL))
+        return CE;
+
+      if (isa<IntegerType>(DestTy))
+        return ConstantInt::get(DestTy, Result);
+
+      APFloat FP(DestTy->getFltSemantics(), Result);
+      return ConstantFP::get(DestTy->getContext(), FP);
+    }
+  }
+
+  // The code below only handles casts to vectors currently.
+  auto *DestVTy = dyn_cast<VectorType>(DestTy);
+  if (!DestVTy)
+    return ConstantExpr::getBitCast(C, DestTy);
+
+  // If this is a scalar -> vector cast, convert the input into a <1 x scalar>
+  // vector so the code below can handle it uniformly.
+  if (isa<ConstantFP>(C) || isa<ConstantInt>(C)) {
+    Constant *Ops = C; // don't take the address of C!
+    return FoldBitCast(ConstantVector::get(Ops), DestTy, DL);
+  }
+
+  // If this is a bitcast from constant vector -> vector, fold it.
+  if (!isa<ConstantDataVector>(C) && !isa<ConstantVector>(C))
+    return ConstantExpr::getBitCast(C, DestTy);
+
+  // If the element types match, IR can fold it.
+  unsigned NumDstElt = DestVTy->getNumElements();
+  unsigned NumSrcElt = C->getType()->getVectorNumElements();
+  if (NumDstElt == NumSrcElt)
+    return ConstantExpr::getBitCast(C, DestTy);
+
+  Type *SrcEltTy = C->getType()->getVectorElementType();
+  Type *DstEltTy = DestVTy->getElementType();
+
+  // Otherwise, we're changing the number of elements in a vector, which
+  // requires endianness information to do the right thing.  For example,
+  //    bitcast (<2 x i64> <i64 0, i64 1> to <4 x i32>)
+  // folds to (little endian):
+  //    <4 x i32> <i32 0, i32 0, i32 1, i32 0>
+  // and to (big endian):
+  //    <4 x i32> <i32 0, i32 0, i32 0, i32 1>
+
+  // First thing is first.  We only want to think about integer here, so if
+  // we have something in FP form, recast it as integer.
+  if (DstEltTy->isFloatingPointTy()) {
+    // Fold to an vector of integers with same size as our FP type.
+    unsigned FPWidth = DstEltTy->getPrimitiveSizeInBits();
+    Type *DestIVTy =
+      VectorType::get(IntegerType::get(C->getContext(), FPWidth), NumDstElt);
+    // Recursively handle this integer conversion, if possible.
+    C = FoldBitCast(C, DestIVTy, DL);
+
+    // Finally, IR can handle this now that #elts line up.
+    return ConstantExpr::getBitCast(C, DestTy);
+  }
+
+  // Okay, we know the destination is integer, if the input is FP, convert
+  // it to integer first.
+  if (SrcEltTy->isFloatingPointTy()) {
+    unsigned FPWidth = SrcEltTy->getPrimitiveSizeInBits();
+    Type *SrcIVTy =
+      VectorType::get(IntegerType::get(C->getContext(), FPWidth), NumSrcElt);
+    // Ask IR to do the conversion now that #elts line up.
+    C = ConstantExpr::getBitCast(C, SrcIVTy);
+    // If IR wasn't able to fold it, bail out.
+    if (!isa<ConstantVector>(C) &&  // FIXME: Remove ConstantVector.
+        !isa<ConstantDataVector>(C))
+      return C;
+  }
+
+  // Now we know that the input and output vectors are both integer vectors
+  // of the same size, and that their #elements is not the same.  Do the
+  // conversion here, which depends on whether the input or output has
+  // more elements.
+  bool isLittleEndian = DL.isLittleEndian();
+
+  SmallVector<Constant*, 32> Result;
+  if (NumDstElt < NumSrcElt) {
+    // Handle: bitcast (<4 x i32> <i32 0, i32 1, i32 2, i32 3> to <2 x i64>)
+    Constant *Zero = Constant::getNullValue(DstEltTy);
+    unsigned Ratio = NumSrcElt/NumDstElt;
+    unsigned SrcBitSize = SrcEltTy->getPrimitiveSizeInBits();
+    unsigned SrcElt = 0;
+    for (unsigned i = 0; i != NumDstElt; ++i) {
+      // Build each element of the result.
+      Constant *Elt = Zero;
+      unsigned ShiftAmt = isLittleEndian ? 0 : SrcBitSize*(Ratio-1);
+      for (unsigned j = 0; j != Ratio; ++j) {
+        Constant *Src = C->getAggregateElement(SrcElt++);
+        if (Src && isa<UndefValue>(Src))
+          Src = Constant::getNullValue(C->getType()->getVectorElementType());
+        else
+          Src = dyn_cast_or_null<ConstantInt>(Src);
+        if (!Src)  // Reject constantexpr elements.
+          return ConstantExpr::getBitCast(C, DestTy);
+
+        // Zero extend the element to the right size.
+        Src = ConstantExpr::getZExt(Src, Elt->getType());
+
+        // Shift it to the right place, depending on endianness.
+        Src = ConstantExpr::getShl(Src,
+                                   ConstantInt::get(Src->getType(), ShiftAmt));
+        ShiftAmt += isLittleEndian ? SrcBitSize : -SrcBitSize;
+
+        // Mix it in.
+        Elt = ConstantExpr::getOr(Elt, Src);
+      }
+      Result.push_back(Elt);
+    }
+    return ConstantVector::get(Result);
+  }
+
+  // Handle: bitcast (<2 x i64> <i64 0, i64 1> to <4 x i32>)
+  unsigned Ratio = NumDstElt/NumSrcElt;
+  unsigned DstBitSize = DL.getTypeSizeInBits(DstEltTy);
+
+  // Loop over each source value, expanding into multiple results.
+  for (unsigned i = 0; i != NumSrcElt; ++i) {
+    auto *Element = C->getAggregateElement(i);
+
+    if (!Element) // Reject constantexpr elements.
+      return ConstantExpr::getBitCast(C, DestTy);
+
+    if (isa<UndefValue>(Element)) {
+      // Correctly Propagate undef values.
+      Result.append(Ratio, UndefValue::get(DstEltTy));
+      continue;
+    }
+
+    auto *Src = dyn_cast<ConstantInt>(Element);
+    if (!Src)
+      return ConstantExpr::getBitCast(C, DestTy);
+
+    unsigned ShiftAmt = isLittleEndian ? 0 : DstBitSize*(Ratio-1);
+    for (unsigned j = 0; j != Ratio; ++j) {
+      // Shift the piece of the value into the right place, depending on
+      // endianness.
+      Constant *Elt = ConstantExpr::getLShr(Src,
+                                  ConstantInt::get(Src->getType(), ShiftAmt));
+      ShiftAmt += isLittleEndian ? DstBitSize : -DstBitSize;
+
+      // Truncate the element to an integer with the same pointer size and
+      // convert the element back to a pointer using a inttoptr.
+      if (DstEltTy->isPointerTy()) {
+        IntegerType *DstIntTy = Type::getIntNTy(C->getContext(), DstBitSize);
+        Constant *CE = ConstantExpr::getTrunc(Elt, DstIntTy);
+        Result.push_back(ConstantExpr::getIntToPtr(CE, DstEltTy));
+        continue;
+      }
+
+      // Truncate and remember this piece.
+      Result.push_back(ConstantExpr::getTrunc(Elt, DstEltTy));
+    }
+  }
+
+  return ConstantVector::get(Result);
+}
+
+static
+Constant *ConstantFoldCastOperand(unsigned Opcode, Constant *C,
+                                        Type *DestTy, const DataLayout &DL) {
+  assert(Instruction::isCast(Opcode));
+  switch (Opcode) {
+  default:
+    llvm_unreachable("Missing case");
+  case Instruction::PtrToInt:
+    // If the input is a inttoptr, eliminate the pair.  This requires knowing
+    // the width of a pointer, so it can't be done in ConstantExpr::getCast.
+    if (auto *CE = dyn_cast<ConstantExpr>(C)) {
+      if (CE->getOpcode() == Instruction::IntToPtr) {
+        Constant *Input = CE->getOperand(0);
+        unsigned InWidth = Input->getType()->getScalarSizeInBits();
+        unsigned PtrWidth = DL.getPointerTypeSizeInBits(CE->getType());
+        if (PtrWidth < InWidth) {
+          Constant *Mask =
+            ConstantInt::get(CE->getContext(),
+                             APInt::getLowBitsSet(InWidth, PtrWidth));
+          Input = ConstantExpr::getAnd(Input, Mask);
+        }
+        // Do a zext or trunc to get to the dest size.
+        return ConstantExpr::getIntegerCast(Input, DestTy, false);
+      }
+    }
+    return ConstantExpr::getCast(Opcode, C, DestTy);
+  case Instruction::IntToPtr:
+    // If the input is a ptrtoint, turn the pair into a ptr to ptr bitcast if
+    // the int size is >= the ptr size and the address spaces are the same.
+    // This requires knowing the width of a pointer, so it can't be done in
+    // ConstantExpr::getCast.
+    if (auto *CE = dyn_cast<ConstantExpr>(C)) {
+      if (CE->getOpcode() == Instruction::PtrToInt) {
+        Constant *SrcPtr = CE->getOperand(0);
+        unsigned SrcPtrSize = DL.getPointerTypeSizeInBits(SrcPtr->getType());
+        unsigned MidIntSize = CE->getType()->getScalarSizeInBits();
+
+        if (MidIntSize >= SrcPtrSize) {
+          unsigned SrcAS = SrcPtr->getType()->getPointerAddressSpace();
+          if (SrcAS == DestTy->getPointerAddressSpace())
+            return FoldBitCast(CE->getOperand(0), DestTy, DL);
+        }
+      }
+    }
+
+    return ConstantExpr::getCast(Opcode, C, DestTy);
+  case Instruction::Trunc:
+  case Instruction::ZExt:
+  case Instruction::SExt:
+  case Instruction::FPTrunc:
+  case Instruction::FPExt:
+  case Instruction::UIToFP:
+  case Instruction::SIToFP:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::AddrSpaceCast:
+      return ConstantExpr::getCast(Opcode, C, DestTy);
+  case Instruction::BitCast:
+    return FoldBitCast(C, DestTy, DL);
+  }
+}
+
+static Value *SimplifyCastInst(unsigned CastOpc, Value *Op,
+                               Type *Ty, const DataLayout &DL) {
+  if (auto *C = dyn_cast<Constant>(Op))
+    return ConstantFoldCastOperand(CastOpc, C, Ty, DL);
+
+  if (auto *CI = dyn_cast<CastInst>(Op)) {
+    auto *Src = CI->getOperand(0);
+    Type *SrcTy = Src->getType();
+    Type *MidTy = CI->getType();
+    Type *DstTy = Ty;
+    if (Src->getType() == Ty) {
+      auto FirstOp = static_cast<Instruction::CastOps>(CI->getOpcode());
+      auto SecondOp = static_cast<Instruction::CastOps>(CastOpc);
+      Type *SrcIntPtrTy =
+          SrcTy->isPtrOrPtrVectorTy() ? DL.getIntPtrType(SrcTy) : nullptr;
+      Type *MidIntPtrTy =
+          MidTy->isPtrOrPtrVectorTy() ? DL.getIntPtrType(MidTy) : nullptr;
+      Type *DstIntPtrTy =
+          DstTy->isPtrOrPtrVectorTy() ? DL.getIntPtrType(DstTy) : nullptr;
+      if (CastInst::isEliminableCastPair(FirstOp, SecondOp, SrcTy, MidTy, DstTy,
+                                         SrcIntPtrTy, MidIntPtrTy,
+                                         DstIntPtrTy) == Instruction::BitCast)
+        return Src;
+    }
+  }
+
+  // bitcast x -> x
+  if (CastOpc == Instruction::BitCast)
+    if (Op->getType() == Ty)
+      return Op;
+
+  return nullptr;
+}
+
+Value *llvm::SimplifyCastInst(unsigned CastOpc, Value *Op,
+                              Type *Ty, const DataLayout &DL) {
+  return ::SimplifyCastInst(CastOpc, Op, Ty, DL);
+}
+
+// HLSL Change - End
+
 /// SimplifyInstruction - See if we can compute a simplified version of this
 /// instruction.  If not, this returns null.
 Value *llvm::SimplifyInstruction(Instruction *I, const DataLayout &DL,
@@ -4075,12 +4402,14 @@ Value *llvm::SimplifyInstruction(Instruction *I, const DataLayout &DL,
     break;
   case Instruction::Call: {
     CallSite CS(cast<CallInst>(I));
-    // HLSL Change Begin - simplify dxil call.
-    if (hlsl::CanSimplify(CS.getCalledFunction())) {
-      SmallVector<Value *, 4> Args(CS.arg_begin(), CS.arg_end());
-      if (Value *DxilResult = hlsl::SimplifyDxilCall(CS.getCalledFunction(), Args, I)) {
-        Result = DxilResult;
-        break;
+    // HLSL Change Begin - simplify dxil calls.
+    if (Function *Callee = CS.getCalledFunction()) {
+      if (hlsl::CanSimplify(Callee)) {
+        SmallVector<Value *, 4> Args(CS.arg_begin(), CS.arg_end());
+        if (Value *DxilResult = hlsl::SimplifyDxilCall(CS.getCalledFunction(), Args, I)) {
+          Result = DxilResult;
+          break;
+        }
       }
     }
     // HLSL Change End.

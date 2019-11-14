@@ -47,8 +47,8 @@ ShaderFlags::ShaderFlags():
 , m_bBarycentrics(false)
 , m_bUseNativeLowPrecision(false)
 , m_bShadingRate(false)
-, m_bSamplerFeedback(false)
 , m_bRaytracingTier1_1(false)
+, m_bSamplerFeedback(false)
 , m_align0(0)
 , m_align1(0)
 {}

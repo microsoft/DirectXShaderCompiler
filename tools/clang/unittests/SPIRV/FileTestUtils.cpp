@@ -141,7 +141,6 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
   try {
     dxc::DxcDllSupport dllSupport;
     IFT(dllSupport.Initialize());
-    DxcInitThreadMalloc();
 
     if (hlsl::options::initHlslOptTable())
       throw std::bad_alloc();
@@ -212,7 +211,6 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     success = false;
   }
 
-  DxcCleanupThreadMalloc();
   return success;
 }
 

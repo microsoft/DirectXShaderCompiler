@@ -415,6 +415,7 @@ protected:
 
 public:
   // Internal
+  HRESULT InitializeEmpty();
   HRESULT Initialize(
     DxilModule              &M,
     llvm::Type              *type,
@@ -793,6 +794,12 @@ static bool IsObjectType(
 
   D3D_SHADER_VARIABLE_TYPE ignored;
   return TryToDetectObjectType(structType, &ignored);
+}
+
+HRESULT CShaderReflectionType::InitializeEmpty()
+{
+  ZeroMemory(&m_Desc, sizeof(m_Desc));
+  return S_OK;
 }
 
 // Main logic for translating an LLVM type and associated
@@ -1282,7 +1289,9 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   VarDesc.StartSampler = UINT_MAX;
   VarDesc.uFlags |= D3D_SVF_USED;
   CShaderReflectionVariable Var;
-  CShaderReflectionType *pVarType = nullptr;
+
+  // First type is an empty type: returned if no annotation available.
+  CShaderReflectionType *pVarType = allTypes[0].get();
 
   // Create reflection type, if we have the necessary annotation info
 
@@ -1685,6 +1694,14 @@ void DxilShaderReflection::SetCBufferUsage() {
 void DxilModuleReflection::CreateReflectionObjects() {
   DXASSERT_NOMSG(m_pDxilModule != nullptr);
 
+  {
+    // Add empty type for when no type info is available, instead of returning nullptr.
+    DXASSERT_NOMSG(m_Types.empty());
+    CShaderReflectionType *pEmptyType = new CShaderReflectionType();
+    m_Types.push_back(std::unique_ptr<CShaderReflectionType>(pEmptyType));
+    pEmptyType->InitializeEmpty();
+  }
+
   // Create constant buffers, resources and signatures.
   for (auto && cb : m_pDxilModule->GetCBuffers()) {
     std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
@@ -1908,7 +1925,8 @@ HRESULT DxilModuleReflection::LoadRDAT(const DxilPartHeader *pPart) {
 }
 
 HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
-  DXASSERT_NOMSG(pShaderPart != nullptr);
+  if (pShaderPart == nullptr)
+    return E_INVALIDARG;
   const char *pData = GetDxilPartData(pShaderPart);
   try {
     const char *pBitcode;
@@ -1916,14 +1934,18 @@ HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
     GetDxilProgramBitcode((DxilProgramHeader *)pData, &pBitcode, &bitcodeLength);
     std::unique_ptr<MemoryBuffer> pMemBuffer =
         MemoryBuffer::getMemBufferCopy(StringRef(pBitcode, bitcodeLength));
+    bool bBitcodeLoadError = false;
+    auto errorHandler = [&bBitcodeLoadError](const DiagnosticInfo &diagInfo) {
+        bBitcodeLoadError |= diagInfo.getSeverity() == DS_Error;
+      };
 #if 0 // We materialize eagerly, because we'll need to walk instructions to look for usage information.
     ErrorOr<std::unique_ptr<Module>> module =
-        getLazyBitcodeModule(std::move(pMemBuffer), Context);
+        getLazyBitcodeModule(std::move(pMemBuffer), Context, errorHandler);
 #else
     ErrorOr<std::unique_ptr<Module>> module =
-      parseBitcodeFile(pMemBuffer->getMemBufferRef(), Context, nullptr);
+      parseBitcodeFile(pMemBuffer->getMemBufferRef(), Context, errorHandler);
 #endif
-    if (!module) {
+    if (!module || bBitcodeLoadError) {
       return E_INVALIDARG;
     }
     std::swap(m_pModule, module.get());

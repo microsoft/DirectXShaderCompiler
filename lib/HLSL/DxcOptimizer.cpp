@@ -20,6 +20,7 @@
 #include "dxc/HLSL/HLMatrixLowerPass.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/HLSL/DxilValueCache.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/dxcapi.impl.h"
 
@@ -92,12 +93,15 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilConvergentMarkPass(Registry);
     initializeDxilDeadFunctionEliminationPass(Registry);
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
+    initializeDxilEliminateVectorPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilEraseDeadRegionPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
     initializeDxilFinalizeModulePass(Registry);
+    initializeDxilFinalizeNoopsPass(Registry);
     initializeDxilFixConstArrayInitializerPass(Registry);
     initializeDxilGenerationPassPass(Registry);
+    initializeDxilInsertNoopsPass(Registry);
     initializeDxilLegalizeEvalOperationsPass(Registry);
     initializeDxilLegalizeResourcesPass(Registry);
     initializeDxilLegalizeSampleOffsetPassPass(Registry);
@@ -110,6 +114,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilPromoteStaticResourcesPass(Registry);
     initializeDxilSimpleGVNHoistPass(Registry);
     initializeDxilTranslateRawBufferPass(Registry);
+    initializeDxilValueCachePass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);

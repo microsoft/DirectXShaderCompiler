@@ -240,7 +240,7 @@ struct DxilDescriptorRange {
 };
 struct DxilRootDescriptorTable {
   uint32_t NumDescriptorRanges;
-  _Field_size_full_(NumDescriptorRanges)  const DxilDescriptorRange *pDescriptorRanges;
+  _Field_size_full_(NumDescriptorRanges)  DxilDescriptorRange *pDescriptorRanges;
 };
 struct DxilRootConstants {
   uint32_t ShaderRegister;
@@ -275,7 +275,7 @@ struct DxilDescriptorRange1 {
 };
 struct DxilRootDescriptorTable1 {
   uint32_t NumDescriptorRanges;
-  _Field_size_full_(NumDescriptorRanges)  const DxilDescriptorRange1 *pDescriptorRanges;
+  _Field_size_full_(NumDescriptorRanges)  DxilDescriptorRange1 *pDescriptorRanges;
 };
 struct DxilRootParameter1 {
   DxilRootParameterType ParameterType;

@@ -827,24 +827,6 @@ bool IsValidLoadInput(Value *V) {
   return true;
 }
 
-// Apply current shuffle vector mask on top of previous shuffle mask.
-// For example, if previous mask is (12,11,10,13) and current mask is (3,1,0,2)
-// new mask would be (13,11,12,10)
-Constant *AccumulateMask(Constant *curMask, Constant *prevMask) {
-  if (curMask == nullptr) {
-    return prevMask;
-  }
-  unsigned size = cast<VectorType>(curMask->getType())->getNumElements();
-  SmallVector<uint32_t, 16> Elts;
-  for (unsigned i = 0; i != size; ++i) {
-    ConstantInt *Index = cast<ConstantInt>(curMask->getAggregateElement(i));
-    ConstantInt *IVal =
-        cast<ConstantInt>(prevMask->getAggregateElement(Index->getSExtValue()));
-    Elts.emplace_back(IVal->getSExtValue());
-  }
-  return ConstantDataVector::get(curMask->getContext(), Elts);
-}
-
 // Tunnel through insert/extract element and shuffle to find original source
 // of scalar value, or specified element (vecIdx) of vector value.
 Value *FindScalarSource(Value *src, unsigned vecIdx = 0) {
@@ -2745,7 +2727,7 @@ struct SampleHelper {
     DXASSERT_NOMSG(compareValue);
   }
   void SetClamp(CallInst *CI, unsigned clampIdx) {
-    if (clamp = ReadHLOperand(CI, clampIdx)) {
+    if ((clamp = ReadHLOperand(CI, clampIdx))) {
       if (clamp->getType()->isVectorTy()) {
         IRBuilder<> Builder(CI);
         clamp = Builder.CreateExtractElement(clamp, (uint64_t)0);
@@ -4914,8 +4896,6 @@ Value *TranslateGenericRayQueryMethod(CallInst *CI, IntrinsicOp IOP, OP::OpCode 
 
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-
-  Value *Args[] = {opArg, handle};
 
   IRBuilder<> Builder(CI);
   Function *F = hlslOP->GetOpFunc(opcode, CI->getType());

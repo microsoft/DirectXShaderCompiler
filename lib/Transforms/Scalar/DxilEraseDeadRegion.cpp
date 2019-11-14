@@ -56,9 +56,9 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return false;
   }
 
-  bool FindDeadRegion(PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
+  bool FindDeadRegion(BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region, PDT](BasicBlock *BB) {
+    auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
         if (Succ == End) continue;
         if (Succ == Begin) return false; // If goes back to the beginning, there's a loop, give up.
@@ -115,7 +115,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
       return false;
 
     std::set<BasicBlock *> Region;
-    if (!this->FindDeadRegion(PDT, Common, BB, Region))
+    if (!this->FindDeadRegion(Common, BB, Region))
       return false;
 
     // If BB branches INTO the region, forming a loop give up.

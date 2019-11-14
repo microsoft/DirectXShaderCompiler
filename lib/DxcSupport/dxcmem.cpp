@@ -42,17 +42,18 @@ HRESULT DxcInitThreadMalloc() throw() {
 
 void DxcCleanupThreadMalloc() throw() {
   if (g_ThreadMallocTls) {
+    DXASSERT(g_pDefaultMalloc, "else DxcInitThreadMalloc didn't work/fail atomically");
     g_ThreadMallocTls->llvm::sys::ThreadLocal<IMalloc>::~ThreadLocal();
     g_pDefaultMalloc->Free(g_ThreadMallocTls);
     g_ThreadMallocTls = nullptr;
-    DXASSERT(g_pDefaultMalloc, "else DxcInitThreadMalloc didn't work/fail atomically");
-    g_pDefaultMalloc->Release();
-    g_pDefaultMalloc = nullptr;
   }
 }
 
 IMalloc *DxcGetThreadMallocNoRef() throw() {
-  DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
+  if (g_ThreadMallocTls == nullptr) {
+    return g_pDefaultMalloc;
+  }
+
   return g_ThreadMallocTls->get();
 }
 
