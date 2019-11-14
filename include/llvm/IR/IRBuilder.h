@@ -517,6 +517,7 @@ template<bool preserveNames = true, typename T = ConstantFolder,
 class IRBuilder : public IRBuilderBase, public Inserter {
   T Folder;
 public:
+  bool AllowFolding = true; // HLSL Change - Runtime flag on whether to do folding
   IRBuilder(LLVMContext &C, const T &F, const Inserter &I = Inserter(),
             MDNode *FPMathTag = nullptr)
     : IRBuilderBase(C, FPMathTag), Inserter(I), Folder(F) {
@@ -703,6 +704,7 @@ private:
 public:
   Value *CreateAdd(Value *LHS, Value *RHS, const Twine &Name = "",
                    bool HasNUW = false, bool HasNSW = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateAdd(LC, RC, HasNUW, HasNSW), Name);
@@ -717,6 +719,7 @@ public:
   }
   Value *CreateFAdd(Value *LHS, Value *RHS, const Twine &Name = "",
                     MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFAdd(LC, RC), Name);
@@ -725,6 +728,7 @@ public:
   }
   Value *CreateSub(Value *LHS, Value *RHS, const Twine &Name = "",
                    bool HasNUW = false, bool HasNSW = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateSub(LC, RC, HasNUW, HasNSW), Name);
@@ -739,6 +743,7 @@ public:
   }
   Value *CreateFSub(Value *LHS, Value *RHS, const Twine &Name = "",
                     MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFSub(LC, RC), Name);
@@ -747,6 +752,7 @@ public:
   }
   Value *CreateMul(Value *LHS, Value *RHS, const Twine &Name = "",
                    bool HasNUW = false, bool HasNSW = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateMul(LC, RC, HasNUW, HasNSW), Name);
@@ -761,6 +767,7 @@ public:
   }
   Value *CreateFMul(Value *LHS, Value *RHS, const Twine &Name = "",
                     MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFMul(LC, RC), Name);
@@ -769,6 +776,7 @@ public:
   }
   Value *CreateUDiv(Value *LHS, Value *RHS, const Twine &Name = "",
                     bool isExact = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateUDiv(LC, RC, isExact), Name);
@@ -781,6 +789,7 @@ public:
   }
   Value *CreateSDiv(Value *LHS, Value *RHS, const Twine &Name = "",
                     bool isExact = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateSDiv(LC, RC, isExact), Name);
@@ -793,6 +802,7 @@ public:
   }
   Value *CreateFDiv(Value *LHS, Value *RHS, const Twine &Name = "",
                     MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFDiv(LC, RC), Name);
@@ -800,12 +810,14 @@ public:
                                       FPMathTag, FMF), Name);
   }
   Value *CreateURem(Value *LHS, Value *RHS, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateURem(LC, RC), Name);
     return Insert(BinaryOperator::CreateURem(LHS, RHS), Name);
   }
   Value *CreateSRem(Value *LHS, Value *RHS, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateSRem(LC, RC), Name);
@@ -813,6 +825,7 @@ public:
   }
   Value *CreateFRem(Value *LHS, Value *RHS, const Twine &Name = "",
                     MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFRem(LC, RC), Name);
@@ -822,6 +835,7 @@ public:
 
   Value *CreateShl(Value *LHS, Value *RHS, const Twine &Name = "",
                    bool HasNUW = false, bool HasNSW = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateShl(LC, RC, HasNUW, HasNSW), Name);
@@ -841,6 +855,7 @@ public:
 
   Value *CreateLShr(Value *LHS, Value *RHS, const Twine &Name = "",
                     bool isExact = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateLShr(LC, RC, isExact), Name);
@@ -859,6 +874,7 @@ public:
 
   Value *CreateAShr(Value *LHS, Value *RHS, const Twine &Name = "",
                     bool isExact = false) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateAShr(LC, RC, isExact), Name);
@@ -876,6 +892,7 @@ public:
   }
 
   Value *CreateAnd(Value *LHS, Value *RHS, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *RC = dyn_cast<Constant>(RHS)) {
       if (isa<ConstantInt>(RC) && cast<ConstantInt>(RC)->isAllOnesValue())
         return LHS;  // LHS & -1 -> LHS
@@ -892,6 +909,7 @@ public:
   }
 
   Value *CreateOr(Value *LHS, Value *RHS, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *RC = dyn_cast<Constant>(RHS)) {
       if (RC->isNullValue())
         return LHS;  // LHS | 0 -> LHS
@@ -908,6 +926,7 @@ public:
   }
 
   Value *CreateXor(Value *LHS, Value *RHS, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateXor(LC, RC), Name);
@@ -923,6 +942,7 @@ public:
   Value *CreateBinOp(Instruction::BinaryOps Opc,
                      Value *LHS, Value *RHS, const Twine &Name = "",
                      MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateBinOp(Opc, LC, RC), Name);
@@ -934,6 +954,7 @@ public:
 
   Value *CreateNeg(Value *V, const Twine &Name = "",
                    bool HasNUW = false, bool HasNSW = false) {
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateNeg(VC, HasNUW, HasNSW), Name);
     BinaryOperator *BO = Insert(BinaryOperator::CreateNeg(V), Name);
@@ -949,12 +970,14 @@ public:
   }
   Value *CreateFNeg(Value *V, const Twine &Name = "",
                     MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateFNeg(VC), Name);
     return Insert(AddFPMathAttributes(BinaryOperator::CreateFNeg(V),
                                       FPMathTag, FMF), Name);
   }
   Value *CreateNot(Value *V, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateNot(VC), Name);
     return Insert(BinaryOperator::CreateNot(V), Name);
@@ -1035,6 +1058,7 @@ public:
   }
   Value *CreateGEP(Type *Ty, Value *Ptr, ArrayRef<Value *> IdxList,
                    const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr)) {
       // Every index must be constant.
       size_t i, e;
@@ -1052,6 +1076,7 @@ public:
   }
   Value *CreateInBoundsGEP(Type *Ty, Value *Ptr, ArrayRef<Value *> IdxList,
                            const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr)) {
       // Every index must be constant.
       size_t i, e;
@@ -1068,6 +1093,7 @@ public:
     return CreateGEP(nullptr, Ptr, Idx, Name);
   }
   Value *CreateGEP(Type *Ty, Value *Ptr, Value *Idx, const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       if (Constant *IC = dyn_cast<Constant>(Idx))
         return Insert(Folder.CreateGetElementPtr(Ty, PC, IC), Name);
@@ -1075,6 +1101,7 @@ public:
   }
   Value *CreateInBoundsGEP(Type *Ty, Value *Ptr, Value *Idx,
                            const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       if (Constant *IC = dyn_cast<Constant>(Idx))
         return Insert(Folder.CreateInBoundsGetElementPtr(Ty, PC, IC), Name);
@@ -1087,6 +1114,7 @@ public:
                             const Twine &Name = "") {
     Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), Idx0);
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateGetElementPtr(Ty, PC, Idx), Name);
 
@@ -1096,6 +1124,7 @@ public:
                                     const Twine &Name = "") {
     Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), Idx0);
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateInBoundsGetElementPtr(Ty, PC, Idx), Name);
 
@@ -1108,6 +1137,7 @@ public:
       ConstantInt::get(Type::getInt32Ty(Context), Idx1)
     };
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateGetElementPtr(Ty, PC, Idxs), Name);
 
@@ -1120,6 +1150,7 @@ public:
       ConstantInt::get(Type::getInt32Ty(Context), Idx1)
     };
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateInBoundsGetElementPtr(Ty, PC, Idxs), Name);
 
@@ -1128,6 +1159,7 @@ public:
   Value *CreateConstGEP1_64(Value *Ptr, uint64_t Idx0, const Twine &Name = "") {
     Value *Idx = ConstantInt::get(Type::getInt64Ty(Context), Idx0);
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateGetElementPtr(nullptr, PC, Idx), Name);
 
@@ -1137,6 +1169,7 @@ public:
                                     const Twine &Name = "") {
     Value *Idx = ConstantInt::get(Type::getInt64Ty(Context), Idx0);
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateInBoundsGetElementPtr(nullptr, PC, Idx), Name);
 
@@ -1149,6 +1182,7 @@ public:
       ConstantInt::get(Type::getInt64Ty(Context), Idx1)
     };
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateGetElementPtr(nullptr, PC, Idxs), Name);
 
@@ -1161,6 +1195,7 @@ public:
       ConstantInt::get(Type::getInt64Ty(Context), Idx1)
     };
 
+    if (AllowFolding)
     if (Constant *PC = dyn_cast<Constant>(Ptr))
       return Insert(Folder.CreateInBoundsGetElementPtr(nullptr, PC, Idxs),
                     Name);
@@ -1262,6 +1297,7 @@ public:
                              const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateZExtOrBitCast(VC, DestTy), Name);
     return Insert(CastInst::CreateZExtOrBitCast(V, DestTy), Name);
@@ -1270,6 +1306,7 @@ public:
                              const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateSExtOrBitCast(VC, DestTy), Name);
     return Insert(CastInst::CreateSExtOrBitCast(V, DestTy), Name);
@@ -1278,6 +1315,7 @@ public:
                               const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateTruncOrBitCast(VC, DestTy), Name);
     return Insert(CastInst::CreateTruncOrBitCast(V, DestTy), Name);
@@ -1286,6 +1324,7 @@ public:
                     const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateCast(Op, VC, DestTy), Name);
     return Insert(CastInst::Create(Op, V, DestTy), Name);
@@ -1294,6 +1333,7 @@ public:
                            const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreatePointerCast(VC, DestTy), Name);
     return Insert(CastInst::CreatePointerCast(V, DestTy), Name);
@@ -1304,6 +1344,7 @@ public:
     if (V->getType() == DestTy)
       return V;
 
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V)) {
       return Insert(Folder.CreatePointerBitCastOrAddrSpaceCast(VC, DestTy),
                     Name);
@@ -1317,6 +1358,7 @@ public:
                        const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateIntCast(VC, DestTy, isSigned), Name);
     return Insert(CastInst::CreateIntegerCast(V, DestTy, isSigned), Name);
@@ -1342,6 +1384,7 @@ public:
   Value *CreateFPCast(Value *V, Type *DestTy, const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(V))
       return Insert(Folder.CreateFPCast(VC, DestTy), Name);
     return Insert(CastInst::CreateFPCast(V, DestTy), Name);
@@ -1441,6 +1484,7 @@ public:
 
   Value *CreateICmp(CmpInst::Predicate P, Value *LHS, Value *RHS,
                     const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateICmp(P, LC, RC), Name);
@@ -1448,6 +1492,7 @@ public:
   }
   Value *CreateFCmp(CmpInst::Predicate P, Value *LHS, Value *RHS,
                     const Twine &Name = "", MDNode *FPMathTag = nullptr) {
+    if (AllowFolding)
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFCmp(P, LC, RC), Name);
@@ -1481,6 +1526,7 @@ public:
 
   Value *CreateSelect(Value *C, Value *True, Value *False,
                       const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *CC = dyn_cast<Constant>(C))
       if (Constant *TC = dyn_cast<Constant>(True))
         if (Constant *FC = dyn_cast<Constant>(False))
@@ -1494,6 +1540,7 @@ public:
 
   Value *CreateExtractElement(Value *Vec, Value *Idx,
                               const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(Vec))
       if (Constant *IC = dyn_cast<Constant>(Idx))
         return Insert(Folder.CreateExtractElement(VC, IC), Name);
@@ -1507,6 +1554,7 @@ public:
 
   Value *CreateInsertElement(Value *Vec, Value *NewElt, Value *Idx,
                              const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *VC = dyn_cast<Constant>(Vec))
       if (Constant *NC = dyn_cast<Constant>(NewElt))
         if (Constant *IC = dyn_cast<Constant>(Idx))
@@ -1521,6 +1569,7 @@ public:
 
   Value *CreateShuffleVector(Value *V1, Value *V2, Value *Mask,
                              const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *V1C = dyn_cast<Constant>(V1))
       if (Constant *V2C = dyn_cast<Constant>(V2))
         if (Constant *MC = dyn_cast<Constant>(Mask))
@@ -1541,6 +1590,7 @@ public:
   Value *CreateExtractValue(Value *Agg,
                             ArrayRef<unsigned> Idxs,
                             const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *AggC = dyn_cast<Constant>(Agg))
       return Insert(Folder.CreateExtractValue(AggC, Idxs), Name);
     return Insert(ExtractValueInst::Create(Agg, Idxs), Name);
@@ -1549,6 +1599,7 @@ public:
   Value *CreateInsertValue(Value *Agg, Value *Val,
                            ArrayRef<unsigned> Idxs,
                            const Twine &Name = "") {
+    if (AllowFolding)
     if (Constant *AggC = dyn_cast<Constant>(Agg))
       if (Constant *ValC = dyn_cast<Constant>(Val))
         return Insert(Folder.CreateInsertValue(AggC, ValC, Idxs), Name);

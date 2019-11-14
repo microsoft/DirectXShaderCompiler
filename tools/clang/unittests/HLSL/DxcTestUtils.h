@@ -127,13 +127,8 @@ public:
   static FileRunTestResult RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport);
 };
 
-inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
-  if (pBlob == nullptr)
-    return std::string();
-  return std::string((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-}
-
 void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
+std::string BlobToUtf8(_In_ IDxcBlob *pBlob);
 std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,

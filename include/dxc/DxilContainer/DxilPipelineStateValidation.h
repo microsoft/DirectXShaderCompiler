@@ -443,7 +443,7 @@ public:
   // returns true if no errors occurred.
   bool InitFromPSV0(const void* pBits, uint32_t size) {
     if(!(pBits != nullptr)) return false;
-    uint8_t* pCurBits = (uint8_t*)pBits;
+    uint8_t* pCurBits = (uint8_t*)const_cast<void*>(pBits);
     uint32_t minsize = sizeof(PSVRuntimeInfo0) + sizeof(uint32_t) * 2;
     if(!(size >= minsize)) return false;
     m_uPSVRuntimeInfoSize = *((const uint32_t*)pCurBits);
@@ -534,7 +534,7 @@ public:
 
       // Input to Output dependencies
       for (unsigned i = 0; i < 4; i++) {
-        if (m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
+        if (!IsMS() && m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
           minsize += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i]);
           if (!(size >= minsize)) return false;
           m_pInputToOutputTable = (uint32_t*)pCurBits;

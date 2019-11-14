@@ -18,6 +18,7 @@ add_llvm_library(LLVMHLSL
   DxilPromoteResourcePasses.cpp
   DxilPackSignatureElement.cpp
   DxilPatchShaderRecordBindings.cpp
+  DxilNoops.cpp
   DxilPreserveAllOutputs.cpp
   DxilSimpleGVNHoist.cpp
   DxilSignatureValidation.cpp
@@ -26,6 +27,7 @@ add_llvm_library(LLVMHLSL
   DxilTranslateRawBuffer.cpp
   DxilExportMap.cpp
   DxilValidation.cpp
+  DxilValueCache.cpp
   DxcOptimizer.cpp
   HLDeadFunctionElimination.cpp
   HLExpandStoreIntrinsics.cpp

@@ -11,17 +11,14 @@
 // CHECK: calculateLOD
 // CHECK: i1 false
 // CHECK: texture2DMSGetSamplePosition
-// CHECK: llvm.dbg.declare(metadata i32* %width
-// CHECK: llvm.dbg.declare(metadata i32* %height
-// CHECK: llvm.dbg.declare(metadata i32* %numOfLevels
 // CHECK: getDimensions
-// CHECK: llvm.dbg.declare(metadata i32* %arraySize
-// CHECK: llvm.dbg.declare(metadata i32* %numSamples
+// CHECK: llvm.dbg.value(metadata i32 %
+// CHECK: llvm.dbg.value(metadata i32 %
 // CHECK: getDimensions
-// CHECK: llvm.dbg.declare(metadata i32* %numStructs
-// CHECK: llvm.dbg.declare(metadata i32* %stride
+// CHECK: llvm.dbg.value(metadata i32 %
+// CHECK: llvm.dbg.value(metadata i32 %
 // CHECK: getDimensions
-// CHECK: llvm.dbg.declare(metadata i32* %dim
+// CHECK: llvm.dbg.value(metadata i32 %
 // CHECK: getDimensions
 
 // Exclude quoted source file (see readme)

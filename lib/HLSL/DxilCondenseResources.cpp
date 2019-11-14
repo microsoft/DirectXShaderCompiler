@@ -21,6 +21,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilValueCache.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -422,6 +423,168 @@ ModulePass *llvm::createDxilCondenseResourcesPass() {
 
 INITIALIZE_PASS(DxilCondenseResources, "hlsl-dxil-condense", "DXIL Condense Resources", false, false)
 
+static
+bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
+
+  // Simple pass to collect resource PHI's
+  SmallVector<PHINode *, 8> PHIs;
+  for (Function &F : M) {
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (PHINode *PN = dyn_cast<PHINode>(&I)) {
+          if (hlsl::dxilutil::IsHLSLObjectType(PN->getType())) {
+            PHIs.push_back(PN);
+          }
+        }
+        else {
+          break;
+        }
+
+      }
+    }
+  }
+
+  if (PHIs.empty())
+    return false;
+
+  // Do a very simple CFG simplification of removing diamond graphs.
+  std::vector<BasicBlock *> DeadBlocks;
+  std::unordered_set<BasicBlock *> DeadBlocksSet;
+  for (PHINode *PN : PHIs) {
+    for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
+      BasicBlock *BB = PN->getIncomingBlock(i);
+      if (DeadBlocksSet.count(BB)) continue;
+      if (DVC->IsNeverReachable(BB)) {
+        DeadBlocksSet.insert(BB);
+        DeadBlocks.push_back(BB);
+      }
+    }
+  }
+
+  bool Changed = false;
+  SmallVector<Value *, 3> CleanupValues;
+  SmallPtrSet<Value *, 3> CleanupValuesSet;
+  auto AddCleanupValues = [&CleanupValues, &CleanupValuesSet](Value *V) {
+    if (!CleanupValuesSet.count(V)) {
+      CleanupValuesSet.insert(V);
+      CleanupValues.push_back(V);
+    }
+  };
+
+  for (unsigned i = 0; i < DeadBlocks.size(); i++) {
+    BasicBlock *BB = DeadBlocks[i];
+    BasicBlock *Pred = BB->getSinglePredecessor();
+    BasicBlock *Succ = BB->getSingleSuccessor();
+
+    if (!Pred || !Succ)
+      continue;
+
+    // A very simple folding of diamond graph.
+    BranchInst *Br = cast<BranchInst>(Pred->getTerminator());
+    BasicBlock *Peer = nullptr;
+    if (Br->isConditional())
+      Peer = Br->getSuccessor(0) == BB ? 
+          Br->getSuccessor(1) : Br->getSuccessor(0);
+
+    if (Peer && Peer->getSingleSuccessor() == Succ) {
+      Changed = true;
+
+      BranchInst::Create(Peer, Pred);
+
+      Br->dropAllReferences();
+      Br->eraseFromParent();
+
+      for (Instruction &I : *Succ)
+        if (PHINode *PN = dyn_cast<PHINode>(&I)) {
+          if (Instruction *IncomingI = dyn_cast<Instruction>(PN->getIncomingValueForBlock(BB))) {
+            if (!DeadBlocksSet.count(IncomingI->getParent()))
+              AddCleanupValues(IncomingI); // Mark the incoming value for deletion
+          }
+          PN->removeIncomingValue(BB);
+
+          if (PN->getNumIncomingValues() == 1) {
+            PN->replaceAllUsesWith(PN->getIncomingValue(0));
+            std::remove(PHIs.begin(), PHIs.end(), PN);
+            AddCleanupValues(PN); // Mark for deletion
+          }
+        }
+        else
+          break;
+
+      BB->dropAllReferences();
+      while (!BB->empty()){
+        Instruction *ChildI = &*BB->rbegin();
+        if (PHINode *PN = dyn_cast<PHINode>(ChildI))
+          std::remove(PHIs.begin(), PHIs.end(), PN);
+        ChildI->eraseFromParent();
+      }
+      BB->eraseFromParent();
+    }
+  }
+
+  unsigned Attempts = PHIs.size();
+  for (unsigned AttemptIdx = 0; AttemptIdx < Attempts; AttemptIdx++) {
+    bool LocalChanged = false;
+    for (auto It = PHIs.begin(); It != PHIs.end();) {
+      PHINode *PN = *It;
+      if (Value *V = DVC->GetValue(PN)) {
+
+        PHIs.erase(It);
+        AddCleanupValues(PN); // Mark for deletion later
+        PN->replaceAllUsesWith(V);
+        Changed = true;
+        LocalChanged = true;
+
+        for (unsigned i = 0, C = PN->getNumIncomingValues(); i < C; i++) {
+          Value *IncomingV = PN->getIncomingValue(i);
+          if (IncomingV != V)
+            AddCleanupValues(IncomingV); // Mark the incoming value for deletion later
+        }
+      }
+      else {
+        It++;
+      }
+    }
+
+    if (!LocalChanged)
+      break;
+  }
+
+  // Simple DCE to remove all dependencies of the resource PHI nodes we removed.
+  // This may be a little too agressive
+  for (;;) {
+    bool LocalChanged = false;
+    // Must use a numeric idx instead of an interator, because
+    // we're modifying the array as we go. Iterator gets invalidated
+    // because they're just pointers.
+    for (unsigned Idx = 0; Idx < CleanupValues.size();) {
+      Value *V = CleanupValues[Idx];
+      if (Instruction *I = dyn_cast<Instruction>(V)) {
+        if (I->user_empty()) {
+          // Add dependencies to process
+          for (Value *Op : I->operands()) {
+            AddCleanupValues(Op);
+          }
+          LocalChanged = true;
+          I->eraseFromParent();
+          CleanupValues.erase(CleanupValues.begin() + Idx);
+        }
+        else {
+          Idx++;
+        }
+      }
+      else {
+        CleanupValues.erase(CleanupValues.begin() + Idx);
+      }
+    }
+
+    Changed |= LocalChanged;
+    if (!LocalChanged)
+      break;
+  }
+  return Changed;
+}
+
 namespace {
 class DxilLowerCreateHandleForLib : public ModulePass {
 private:
@@ -433,6 +596,10 @@ private:
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLowerCreateHandleForLib() : ModulePass(ID) {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DxilValueCache>();
+  }
 
   const char *getPassName() const override {
     return "DXIL Lower createHandleForLib";
@@ -482,6 +649,9 @@ public:
 
     if (m_bIsLib && DM.GetShaderModel()->GetMinor() == ShaderModel::kOfflineMinor)
       return bChanged;
+
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    bChanged |= LegalizeResourcesPHIs(M, DVC);
 
     // Make sure no select on resource.
     bChanged |= RemovePhiOnResource();
@@ -1731,9 +1901,7 @@ void DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
 
 // Change ResourceSymbol to undef if don't need.
 void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
-  std::vector<GlobalVariable *> &LLVMUsed = m_DM->GetLLVMUsed();
-
-  auto UpdateResourceSymbol = [&LLVMUsed, this](DxilResourceBase *res) {
+  auto UpdateResourceSymbol = [](DxilResourceBase *res) {
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
       GV->removeDeadConstantUsers();
       DXASSERT(GV->user_empty(), "else resource not lowered");
@@ -2254,7 +2422,9 @@ ModulePass *llvm::createDxilLowerCreateHandleForLibPass() {
   return new DxilLowerCreateHandleForLib();
 }
 
-INITIALIZE_PASS(DxilLowerCreateHandleForLib, "hlsl-dxil-lower-handle-for-lib", "DXIL Lower createHandleForLib", false, false)
+INITIALIZE_PASS_BEGIN(DxilLowerCreateHandleForLib, "hlsl-dxil-lower-handle-for-lib", "DXIL Lower createHandleForLib", false, false)
+INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
+INITIALIZE_PASS_END(DxilLowerCreateHandleForLib, "hlsl-dxil-lower-handle-for-lib", "DXIL Lower createHandleForLib", false, false)
 
 
 class DxilAllocateResourcesForLib : public ModulePass {

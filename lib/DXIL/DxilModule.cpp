@@ -1009,6 +1009,7 @@ namespace {
 template <typename TResource>
 static void RemoveResourcesWithUnusedSymbolsHelper(std::vector<std::unique_ptr<TResource>> &vec) {
   unsigned resID = 0;
+  std::unordered_set<GlobalVariable *> eraseList; // Need in case of duplicate defs of lib resources
   for (auto p = vec.begin(); p != vec.end();) {
     auto c = p++;
     Constant *symbol = (*c)->GetGlobalSymbol();
@@ -1016,13 +1017,16 @@ static void RemoveResourcesWithUnusedSymbolsHelper(std::vector<std::unique_ptr<T
     if (symbol->user_empty()) {
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
-        GV->eraseFromParent();
+        eraseList.insert(GV);
       continue;
     }
     if ((*c)->GetID() != resID) {
       (*c)->SetID(resID);
     }
     resID++;
+  }
+  for (auto gv : eraseList) {
+    gv->eraseFromParent();
   }
 }
 }
@@ -1557,7 +1561,7 @@ static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
         return true;
     }
     SequentialType *seqTy;
-    while (seqTy = dyn_cast<SequentialType>(eTy)) {
+    while ((seqTy = dyn_cast<SequentialType>(eTy))) {
       eTy = seqTy->getElementType();
     }
     if (eTy->getScalarSizeInBits() < 32) {

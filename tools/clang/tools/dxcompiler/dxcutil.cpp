@@ -61,44 +61,6 @@ bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
   return bInternalValidator;
 }
 
-// Class to manage lifetime of llvm module and provide some utility
-// functions used for generating compiler output.
-class DxilCompilerLLVMModuleOutput {
-public:
-  DxilCompilerLLVMModuleOutput(std::unique_ptr<llvm::Module> module)
-      : m_llvmModule(std::move(module)) {}
-
-  void CloneForDebugInfo() {
-    m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
-  }
-
-  void WrapModuleInDxilContainer(IMalloc *pMalloc,
-                                 AbstractMemoryStream *pModuleBitcode,
-                                 CComPtr<IDxcBlob> &pDxilContainerBlob,
-                                 SerializeDxilFlags Flags,
-                                 DxilShaderHash *pShaderHashOut) {
-    CComPtr<AbstractMemoryStream> pContainerStream;
-    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(),
-                                    pModuleBitcode, pContainerStream, m_debugName, Flags,
-                                    pShaderHashOut);
-
-    pDxilContainerBlob.Release();
-    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
-  }
-  void SetDebugName(llvm::StringRef DebugName) {
-    m_debugName = DebugName;
-  }
-
-  llvm::Module *get() { return m_llvmModule.get(); }
-  llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
-
-private:
-  std::string m_debugName;
-  std::unique_ptr<llvm::Module> m_llvmModule;
-  std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
-};
-
 } // namespace
 
 namespace dxcutil {
@@ -111,7 +73,9 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 bool bDebugInfo,
                 llvm::StringRef DebugName,
                 clang::DiagnosticsEngine *pDiag,
-                hlsl::DxilShaderHash *pShaderHashOut)
+                hlsl::DxilShaderHash *pShaderHashOut,
+                AbstractMemoryStream *pReflectionOut,
+                AbstractMemoryStream *pRootSigOut)
   : pM(std::move(pM)),
     pOutputContainerBlob(pOutputContainerBlob),
     pMalloc(pMalloc),
@@ -120,7 +84,9 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     bDebugInfo(bDebugInfo),
     DebugName(DebugName),
     pDiag(pDiag),
-    pShaderHashOut(pShaderHashOut)
+    pShaderHashOut(pShaderHashOut),
+    pReflectionOut(pReflectionOut),
+    pRootSigOut(pRootSigOut)
 {}
 
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
@@ -141,15 +107,13 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
 }
 
 void AssembleToContainer(AssembleInputs &inputs) {
-  // Take ownership of the module from the action.
-  DxilCompilerLLVMModuleOutput llvmModule(std::move(inputs.pM));
-
-  if (inputs.DebugName.size()) {
-    llvmModule.SetDebugName(inputs.DebugName);
-  }
-
-  llvmModule.WrapModuleInDxilContainer(inputs.pMalloc, inputs.pModuleBitcode, inputs.pOutputContainerBlob,
-                                       inputs.SerializeFlags, inputs.pShaderHashOut);
+  CComPtr<AbstractMemoryStream> pContainerStream;
+  IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
+  SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
+                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+                                  inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
+  inputs.pOutputContainerBlob.Release();
+  IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));
 }
 
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
@@ -163,12 +127,11 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                                       mainArgs, opts, outStream)) {
     CComPtr<IDxcBlob> pErrorBlob;
     IFT(pOutputStream->QueryInterface(&pErrorBlob));
-    CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
     outStream.flush();
-    IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
-                                     &pErrorBlobWithEncoding));
-    IFT(DxcOperationResult::CreateFromResultErrorStatus(
-        nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
+    IFT(DxcResult::Create(E_INVALIDARG, DXC_OUT_NONE, {
+        DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage,
+          (LPCSTR)pErrorBlob->GetBufferPointer(), pErrorBlob->GetBufferSize())
+      }, ppResult));
     finished = true;
     return;
   }
@@ -180,8 +143,9 @@ void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   HRESULT valHR = S_OK;
 
-  // Take ownership of the module from the action.
-  DxilCompilerLLVMModuleOutput llvmModule(std::move(inputs.pM));
+  // If we have debug info, this will be a clone of the module before debug info is stripped.
+  // This is used with internal validator to provide more useful error messages.
+  std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
   bool bInternalValidator = CreateValidator(pValidator);
@@ -201,12 +165,8 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     // info will be stripped from the orginal module, but preserved in the cloned
     // module.
     if (inputs.bDebugInfo) {
-      llvmModule.CloneForDebugInfo();
+      llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
     }
-  }
-
-  if (inputs.DebugName.size()) {
-    llvmModule.SetDebugName(inputs.DebugName);
   }
 
   // Verify validator version can validate this module
@@ -214,7 +174,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   IFT(pValidator->QueryInterface(&pValidatorVersion));
   UINT32 ValMajor, ValMinor;
   IFT(pValidatorVersion->GetVersion(&ValMajor, &ValMinor));
-  DxilModule &DM = llvmModule.get()->GetDxilModule();
+  DxilModule &DM = inputs.pM.get()->GetOrCreateDxilModule();
   unsigned ReqValMajor, ReqValMinor;
   DM.GetValidatorVersion(ReqValMajor, ReqValMinor);
   if (DXIL::CompareVersions(ValMajor, ValMinor, ReqValMajor, ReqValMinor) < 0) {
@@ -229,29 +189,28 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     return E_FAIL;
   }
 
-  llvmModule.WrapModuleInDxilContainer(inputs.pMalloc, inputs.pModuleBitcode, inputs.pOutputContainerBlob,
-                                       inputs.SerializeFlags, inputs.pShaderHashOut);
+  AssembleToContainer(inputs);
 
   CComPtr<IDxcOperationResult> pValResult;
   // Important: in-place edit is required so the blob is reused and thus
   // dxil.dll can be released.
   if (bInternalValidator) {
-    IFT(RunInternalValidator(pValidator, llvmModule.get(),
-                             llvmModule.getWithDebugInfo(), inputs.pOutputContainerBlob,
+    IFT(RunInternalValidator(pValidator, inputs.pM.get(),
+                             llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
     IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
                              &pValResult));
   }
   IFT(pValResult->GetStatus(&valHR));
-  if (FAILED(valHR)) {
-    CComPtr<IDxcBlobEncoding> pErrors;
-    CComPtr<IDxcBlobEncoding> pErrorsUtf8;
-    IFT(pValResult->GetErrorBuffer(&pErrors));
-    IFT(hlsl::DxcGetBlobAsUtf8(pErrors, &pErrorsUtf8));
-    StringRef errRef((const char *)pErrorsUtf8->GetBufferPointer(),
-                     pErrorsUtf8->GetBufferSize());
-    if (inputs.pDiag) {
+  if (inputs.pDiag) {
+    if (FAILED(valHR)) {
+      CComPtr<IDxcBlobEncoding> pErrors;
+      CComPtr<IDxcBlobUtf8> pErrorsUtf8;
+      IFT(pValResult->GetErrorBuffer(&pErrors));
+      IFT(hlsl::DxcGetBlobAsUtf8(pErrors, inputs.pMalloc, &pErrorsUtf8));
+      StringRef errRef(pErrorsUtf8->GetStringPointer(),
+                       pErrorsUtf8->GetStringLength());
       unsigned DiagID = inputs.pDiag->getCustomDiagID(clang::DiagnosticsEngine::Error,
                                              "validation errors\r\n%0");
       inputs.pDiag->Report(DiagID) << errRef;
@@ -280,15 +239,11 @@ HRESULT ValidateRootSignatureInContainer(
   if (pDiag) {
     if (FAILED(valHR)) {
       CComPtr<IDxcBlobEncoding> pErrors;
+      CComPtr<IDxcBlobUtf8> pErrorsUtf8;
       IFT(pValResult->GetErrorBuffer(&pErrors));
-#ifdef DBG
-      UINT32 codePage = CP_ACP;
-      BOOL known = FALSE;
-      IFT(pErrors->GetEncoding(&known, &codePage));
-      DXASSERT_NOMSG(!known || codePage == CP_ACP || codePage == CP_UTF8);
-#endif
-      StringRef errRef((const char *)pErrors->GetBufferPointer(),
-                       pErrors->GetBufferSize());
+      IFT(hlsl::DxcGetBlobAsUtf8(pErrors, nullptr, &pErrorsUtf8));
+      StringRef errRef(pErrorsUtf8->GetStringPointer(),
+                       pErrorsUtf8->GetStringLength());
       unsigned DiagID = pDiag->getCustomDiagID(
         clang::DiagnosticsEngine::Error,
         "root signature validation errors\r\n%0");
@@ -299,25 +254,30 @@ HRESULT ValidateRootSignatureInContainer(
 }
 
 void CreateOperationResultFromOutputs(
+    DXC_OUT_KIND resultKind, UINT32 textEncoding,
     IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
     const std::string &warnings, bool hasErrorOccurred,
     _COM_Outptr_ IDxcOperationResult **ppResult) {
-  CComPtr<IDxcBlobEncoding> pErrorBlob;
-
-  if (pErrorStream != nullptr) {
-    CComPtr<IDxcBlob> pErrorStreamBlob;
-    IFT(pErrorStream.QueryInterface(&pErrorStreamBlob));
-    IFT(DxcCreateBlobWithEncodingSet(pErrorStreamBlob, CP_UTF8, &pErrorBlob));
-  }
+  CComPtr<DxcResult> pResult = DxcResult::Alloc(DxcGetThreadMallocNoRef());
+  IFT(pResult->SetEncoding(textEncoding));
+  IFT(pResult->SetStatusAndPrimaryResult(hasErrorOccurred ? E_FAIL : S_OK, resultKind));
+  IFT(pResult->SetOutputObject(resultKind, pResultBlob));
+  CComPtr<IDxcBlob> pErrorBlob;
+  IFT(pErrorStream.QueryInterface(&pErrorBlob));
   if (IsBlobNullOrEmpty(pErrorBlob)) {
-    pErrorBlob.Release();
-    IFT(DxcCreateBlobWithEncodingOnHeapCopy(warnings.c_str(), warnings.size(),
-                                            CP_UTF8, &pErrorBlob));
+    IFT(pResult->SetOutputString(DXC_OUT_ERRORS, warnings.c_str(), warnings.size()));
+  } else {
+    IFT(pResult->SetOutputObject(DXC_OUT_ERRORS, pErrorBlob));
   }
+  IFT(pResult.QueryInterface(ppResult));
+}
 
-  HRESULT status = hasErrorOccurred ? E_FAIL : S_OK;
-  IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, pErrorBlob,
-                                                      status, ppResult));
+void CreateOperationResultFromOutputs(
+    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
+    const std::string &warnings, bool hasErrorOccurred,
+    _COM_Outptr_ IDxcOperationResult **ppResult) {
+  CreateOperationResultFromOutputs(DXC_OUT_OBJECT, DXC_CP_UTF8,
+    pResultBlob, pErrorStream, warnings, hasErrorOccurred, ppResult);
 }
 
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T) {

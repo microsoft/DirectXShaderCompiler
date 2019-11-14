@@ -68,7 +68,7 @@ public:
   TEST_METHOD(OptimizerWhenSliceWithIntermediateOptionsThenOK)
 
   void OptimizerWhenSliceNThenOK(int optLevel);
-  void OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
+  void OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args = {});
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -111,25 +111,25 @@ TEST_F(OptimizerTest, OptimizerWhenSliceWithIntermediateOptionsThenOK) {
   // The program below working depends on the LegacyResourceReservation option being
   // carried through to the resource register allocator, even though it is not
   // preserved in the final shader.
-  LPCWSTR SampleProgram =
-    L"Texture2D tex0 : register(t0);\r\n"
-    L"Texture2D tex1;\r\n" // tex1 should get register t1
-    L"float4 main() : SV_Target {\r\n"
-    L"  return tex1.Load((int3)0);\r\n"
-    L"}";
+  LPCSTR SampleProgram =
+    "Texture2D tex0 : register(t0);\r\n"
+    "Texture2D tex1;\r\n" // tex1 should get register t1
+    "float4 main() : SV_Target {\r\n"
+    "  return tex1.Load((int3)0);\r\n"
+    "}";
   OptimizerWhenSliceNThenOK(1, SampleProgram, L"ps_6_0", { L"-flegacy-resource-reservation" });
 }
 
 void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {
-  LPCWSTR SampleProgram =
-    L"Texture2D g_Tex;\r\n"
-    L"SamplerState g_Sampler;\r\n"
-    L"void unused() { }\r\n"
-    L"float4 main(float4 pos : SV_Position, float4 user : USER, bool b : B) : SV_Target {\r\n"
-    L"  unused();\r\n"
-    L"  if (b) user = g_Tex.Sample(g_Sampler, pos.xy);\r\n"
-    L"  return user * pos;\r\n"
-    L"}";
+  LPCSTR SampleProgram =
+    "Texture2D g_Tex;\r\n"
+    "SamplerState g_Sampler;\r\n"
+    "void unused() { }\r\n"
+    "float4 main(float4 pos : SV_Position, float4 user : USER, bool b : B) : SV_Target {\r\n"
+    "  unused();\r\n"
+    "  if (b) user = g_Tex.Sample(g_Sampler, pos.xy);\r\n"
+    "  return user * pos;\r\n"
+    "}";
   OptimizerWhenSliceNThenOK(optLevel, SampleProgram, L"ps_6_0");
 }
 static bool IsPassMarkerFunction(LPCWSTR pName) {
@@ -152,7 +152,7 @@ static void ExtractFunctionPasses(std::vector<LPCWSTR> &passes, std::vector<LPCW
   passes.erase(firstPass, lastPass);
 }
 
-void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args) {
+void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText, LPCWSTR pTarget, llvm::ArrayRef<LPCWSTR> args) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOptimizer> pOptimizer;
   CComPtr<IDxcOperationResult> pResult;
@@ -174,7 +174,7 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWS
   // Set up compilation args vector
   wchar_t OptArg[4] = L"/O0";
   OptArg[2] = L'0' + optLevel;
-  Utf16ToBlob(m_dllSupport, pText, &pSource);
+  Utf8ToBlob(m_dllSupport, pText, &pSource);
   std::vector<LPCWSTR> highLevelArgs = { L"/Vd", OptArg };
   highLevelArgs.insert(highLevelArgs.end(), args.begin(), args.end());
 

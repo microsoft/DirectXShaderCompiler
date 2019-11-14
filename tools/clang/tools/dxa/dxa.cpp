@@ -95,7 +95,7 @@ void DxaContext::Assemble() {
         }
       }
 
-      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename));
+      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
     }
   }
 }
@@ -298,7 +298,7 @@ bool DxaContext::ExtractPart(const char *pName) {
         std::swap(pModuleBlob, pContent);
       }
 
-      WriteBlobToFile(pContent, StringRefUtf16(OutputFilename));
+      WriteBlobToFile(pContent, StringRefUtf16(OutputFilename), DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
       printf("%Iu bytes written to %s\n", pContent->GetBufferSize(), OutputFilename.c_str());
       return true;
     }

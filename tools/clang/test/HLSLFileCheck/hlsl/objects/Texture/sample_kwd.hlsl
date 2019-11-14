@@ -1,9 +1,11 @@
 // RUN: %dxc -T ps_6_0 -Od -E main %s | FileCheck %s
 
-// CHECK: %precise = alloca float, align 4
-// CHECK: %globallycoherent = alloca i32, align 4
-// CHECK: %sample = alloca float, align 4
-// CHECK: %center = alloca float, align 4
+// Used to check the following, but allocas are now gone, so they no longer exist.
+//
+//    %precise = alloca float, align 4
+//    %globallycoherent = alloca i32, align 4
+//    %sample = alloca float, align 4
+//    %center = alloca float, align 4
 
 // CHECK: call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 68, %dx.types.Handle %MyBuffer_UAV_structbuf, i32 0, i32 0)
 // CHECK: call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 68, %dx.types.Handle %MyBuffer_UAV_structbuf, i32 0, i32 16)

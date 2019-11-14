@@ -321,7 +321,7 @@ public:
 
   void CreateBlobFromText(_In_z_ const char *pText,
                           _Outptr_ IDxcBlobEncoding **ppBlob) {
-    CreateBlobPinned(pText, strlen(pText), CP_UTF8, ppBlob);
+    CreateBlobPinned(pText, strlen(pText) + 1, CP_UTF8, ppBlob);
   }
 
   HRESULT CreateCompiler(IDxcCompiler **ppResult) {
@@ -1870,8 +1870,8 @@ TEST_F(CompilerTest, CompileWhenODumpThenPassConfig) {
   VerifyOperationSucceeded(pResult);
   CComPtr<IDxcBlob> pResultBlob;
   VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
-  string passes((char *)pResultBlob->GetBufferPointer(), pResultBlob->GetBufferSize());
-  VERIFY_ARE_NOT_EQUAL(string::npos, passes.find("inline"));
+  wstring passes = BlobToUtf16(pResultBlob);
+  VERIFY_ARE_NOT_EQUAL(wstring::npos, passes.find(L"inline"));
 }
 
 TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
@@ -1923,12 +1923,11 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
     VerifyOperationSucceeded(pResult);
     CComPtr<IDxcBlob> pResultBlob;
     VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
-    string passes((char *)pResultBlob->GetBufferPointer(), pResultBlob->GetBufferSize());
+    wstring passes = BlobToUtf16(pResultBlob);
 
     // Get wchar_t version and prepend hlsl-hlensure, to do a split high-level/opt compilation pass.
-    CA2W passesW(passes.c_str(), CP_UTF8);
     std::vector<LPCWSTR> Options;
-    SplitPassList(passesW.m_psz, Options);
+    SplitPassList(const_cast<LPWSTR>(passes.data()), Options);
 
     // Now compile directly.
     pResult.Release();
@@ -2852,8 +2851,8 @@ TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcBlobEncoding> pTextBlob;
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pReassembled, &pTextBlob));
 
-  std::string Text = (const char *)pTextBlob->GetBufferPointer();
-  VERIFY_ARE_NOT_EQUAL(std::string::npos, Text.find("store"));
+  std::wstring Text = BlobToUtf16(pTextBlob);
+  VERIFY_ARE_NOT_EQUAL(std::wstring::npos, Text.find(L"store"));
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {

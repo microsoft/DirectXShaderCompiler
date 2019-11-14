@@ -134,11 +134,12 @@ HRESULT DxcValidator::ValidateWithOptModules(
     }
     // Assemble the result object.
     CComPtr<IDxcBlob> pDiagBlob;
-    CComPtr<IDxcBlobEncoding> pDiagBlobEnconding;
     hr = pDiagStream.QueryInterface(&pDiagBlob);
     DXASSERT_NOMSG(SUCCEEDED(hr));
-    IFT(DxcCreateBlobWithEncodingSet(pDiagBlob, CP_UTF8, &pDiagBlobEnconding));
-    IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pDiagBlobEnconding, validationStatus, ppResult));
+    IFT(DxcResult::Create(validationStatus, DXC_OUT_NONE, {
+        DxcOutputObject::ErrorOutput(CP_UTF8, // TODO Support DefaultTextCodePage
+          (LPCSTR)pDiagBlob->GetBufferPointer(), pDiagBlob->GetBufferSize())
+      }, ppResult));
   }
   CATCH_CPP_ASSIGN_HRESULT();
 

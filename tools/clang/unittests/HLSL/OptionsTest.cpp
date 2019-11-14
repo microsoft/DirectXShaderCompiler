@@ -153,7 +153,7 @@ TEST_F(OptionsTest, ReadOptionsConflict) {
       L"exe.exe",   L"/E",        L"main",    L"/T",           L"lib_6_1",
       L"hlsl.hlsl"};
   MainArgsArr libArr(libArgs);
-  ReadOptsTest(libArr, DxrFlags, "cannot specify entry point for a library");
+  ReadOptsTest(libArr, DxrFlags, "Must disable validation for unsupported lib_6_1 or lib_6_2 targets.");
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenHelpThenShortcut) {

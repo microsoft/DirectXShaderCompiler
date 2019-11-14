@@ -1129,10 +1129,10 @@ public:
   static char ID;
 
   // Function overrides that resolve options when used for DxOpt
-  void applyOptions(PassOptions O) {
+  void applyOptions(PassOptions O) override {
     GetPassOptionBool(O, "NoOpt", &NoOpt, false);
   }
-  void dumpConfig(raw_ostream &OS) {
+  void dumpConfig(raw_ostream &OS) override {
     FunctionPass::dumpConfig(OS);
     OS << ",NoOpt=" << NoOpt;
   }
@@ -1144,10 +1144,8 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequiredID(LoopSimplifyID);
     AU.setPreservesCFG();
   }
 
@@ -1224,33 +1222,16 @@ public:
     return Changed;
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
 
 
-    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
 
-    bool NeedPromote = false;
     bool Changed = false;
     
     Changed |= RemoveAllUnusedAllocas(F);
-
-    if (NoOpt) {
-      // If any of the functions are marked as full unroll.
-      for (Loop *L : *LI) {
-        if (HasLoopsMarkedUnrollRecursive(L)) {
-          NeedPromote = true;
-          break;
-        }
-      }
-    }
-    else {
-      NeedPromote = true;
-    }
-
-    if (NeedPromote)
-      Changed |= Mem2Reg(F, *DT, *AC);
+    Changed |= Mem2Reg(F, *DT, *AC);
 
     return Changed;
   }

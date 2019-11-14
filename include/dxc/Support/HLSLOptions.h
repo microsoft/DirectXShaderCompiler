@@ -102,6 +102,9 @@ public:
   llvm::StringRef OutputHeader; // OPT_Fh
   llvm::StringRef OutputObject; // OPT_Fo
   llvm::StringRef OutputWarningsFile; // OPT_Fe
+  llvm::StringRef OutputReflectionFile; // OPT_Fre
+  llvm::StringRef OutputRootSigFile; // OPT_Frs
+  llvm::StringRef OutputShaderHashFile; // OPT_Fsh
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
@@ -112,6 +115,7 @@ public:
   llvm::StringRef FloatDenormalMode; // OPT_denorm
   std::vector<std::string> Exports; // OPT_exports
   llvm::StringRef DefaultLinkage; // OPT_default_linkage
+  unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
   bool AllResourcesBound = false; // OPT_all_resources_bound
   bool AstDump = false; // OPT_ast_dump
@@ -144,7 +148,7 @@ public:
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
   bool UseInstructionNumbers = false; // OPT_Ni
-  bool NotUseLegacyCBufLoad = false;  // OPT_not_use_legacy_cbuf_load
+  bool NotUseLegacyCBufLoad = false;  // OPT_no_legacy_cbuf_layout
   bool PackPrefixStable = false;  // OPT_pack_prefix_stable
   bool PackOptimized = false;  // OPT_pack_optimized
   bool DisplayIncludeProcess = false; // OPT__vi

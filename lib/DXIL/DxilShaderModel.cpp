@@ -250,7 +250,10 @@ const char * ShaderModel::GetKindName() const {
   return GetKindName(m_Kind);
 }
 
-const char * ShaderModel::GetKindName(Kind kind) {
+const char *ShaderModel::GetKindName(Kind kind) {
+  static_assert(static_cast<unsigned>(Kind::Invalid) ==
+                    _countof(ShaderModelKindNames) - 1,
+                "Invalid kinds or names");
   return ShaderModelKindNames[static_cast<unsigned int>(kind)];
 }
 
@@ -332,12 +335,11 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
 
   // lib_6_x is for offline linking only, and relaxes restrictions
   SM(Kind::Library,  6, kOfflineMinor, "lib_6_x",  32, 32,  true,  true,  UINT_MAX),
-
+  
   SM(Kind::Mesh,     6, 5, "ms_6_5",    0,  0,  true,  true,  UINT_MAX),
   SM(Kind::Amplification, 6, 5, "as_6_5", 0, 0, true,  true,  UINT_MAX),
 
   // Values before Invalid must remain sorted by Kind, then Major, then Minor.
-
   SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
 };
 

@@ -96,8 +96,16 @@ struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
   ) = 0;
 };
 
+// Note: __declspec(selectany) requires 'extern'
+// On Linux __declspec(selectany) is removed and using 'extern' results in link error.
+#ifdef _MSC_VER
+#define CLSID_SCOPE __declspec(selectany) extern
+#else
+#define CLSID_SCOPE
+#endif
+
 // {76bb3c85-006d-4b72-9e10-63cd97df57f0}
-__declspec(selectany) extern const GUID CLSID_DxcDxrFallbackCompiler = {
+CLSID_SCOPE const GUID CLSID_DxcDxrFallbackCompiler = {
   0x76bb3c85,
   0x006d,
   0x4b72,

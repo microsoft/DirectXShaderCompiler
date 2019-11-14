@@ -149,17 +149,17 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
     if (strncmp(bom, "\xef\xbb\xbf", 3) == 0) {
       codePage = CP_UTF8;
     }
-    else if (strncmp(bom, "\xff\xfe**", 2) == 0) {
-      codePage = 1200; //UTF-16 LE
-    }
-    else if (strncmp(bom, "\xfe\xff**", 2) == 0) {
-      codePage = 1201; //UTF-16 BE
-    }
     else if (strncmp(bom, "\xff\xfe\x00\x00", 4) == 0) {
       codePage = 12000; //UTF-32 LE
     }
     else if (strncmp(bom, "\x00\x00\xfe\xff", 4) == 0) {
       codePage = 12001; //UTF-32 BE
+    }
+    else if (strncmp(bom, "\xff\xfe", 2) == 0) {
+      codePage = 1200; //UTF-16 LE
+    }
+    else if (strncmp(bom, "\xfe\xff", 2) == 0) {
+      codePage = 1201; //UTF-16 BE
     }
     else {
       codePage = CP_ACP;
@@ -171,7 +171,81 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
   return codePage;
 }
 
-class InternalDxcBlobEncoding : public IDxcBlobEncoding {
+static bool IsSizeWcharAligned(SIZE_T size) { return (size & (sizeof(wchar_t) - 1)) == 0; }
+
+template<typename _char>
+bool IsUtfBufferNullTerminated(LPCVOID pBuffer, SIZE_T size) {
+  return (size >= sizeof(_char) && (size & (sizeof(_char) - 1)) == 0 &&
+    reinterpret_cast<const _char*>(pBuffer)[(size / sizeof(_char)) - 1] == 0);
+}
+static bool IsBufferNullTerminated(LPCVOID pBuffer, SIZE_T size, UINT32 codePage) {
+  switch (codePage) {
+  case DXC_CP_UTF8: return IsUtfBufferNullTerminated<char>(pBuffer, size);
+  case DXC_CP_UTF16: return IsUtfBufferNullTerminated<wchar_t>(pBuffer, size);
+  default: return false;
+  }
+}
+template<typename _char>
+bool IsUtfBufferEmptyString(LPCVOID pBuffer, SIZE_T size) {
+  return (size == 0 || (size == sizeof(_char) &&
+    reinterpret_cast<const _char*>(pBuffer)[0] == 0));
+}
+static bool IsBufferEmptyString(LPCVOID pBuffer, SIZE_T size, UINT32 codePage) {
+  switch (codePage) {
+  case DXC_CP_UTF8: return IsUtfBufferEmptyString<char>(pBuffer, size);
+  case DXC_CP_UTF16: return IsUtfBufferEmptyString<wchar_t>(pBuffer, size);
+  default: return IsUtfBufferEmptyString<char>(pBuffer, size);
+  }
+}
+
+class DxcBlobNoEncoding_Impl : public IDxcBlobEncoding {
+public:
+  typedef IDxcBlobEncoding Base;
+  static const UINT32 CodePage = CP_ACP;
+};
+
+class DxcBlobUtf16_Impl : public IDxcBlobUtf16 {
+public:
+  static const UINT32 CodePage = CP_UTF16;
+  typedef IDxcBlobUtf16 Base;
+  virtual LPCWSTR STDMETHODCALLTYPE GetStringPointer(void) override {
+    if (GetBufferSize() < sizeof(wchar_t)) {
+      return L""; // Special case for empty string blob
+    }
+    DXASSERT(IsSizeWcharAligned(GetBufferSize()),
+             "otherwise, buffer size is not even multiple of wchar_t");
+    DXASSERT(*(const wchar_t*)
+             ((const BYTE*)GetBufferPointer() + GetBufferSize() - sizeof(wchar_t))
+               == L'\0',
+             "otherwise buffer is not null terminated.");
+    return (LPCWSTR)GetBufferPointer();
+  }
+  virtual SIZE_T STDMETHODCALLTYPE GetStringLength(void) override {
+    SIZE_T bufSize = GetBufferSize();
+    return bufSize ? (bufSize / sizeof(wchar_t)) - 1 : 0;
+  }
+};
+
+class DxcBlobUtf8_Impl : public IDxcBlobUtf8 {
+public:
+  static const UINT32 CodePage = CP_UTF8;
+  typedef IDxcBlobUtf8 Base;
+  virtual LPCSTR STDMETHODCALLTYPE GetStringPointer(void) override {
+    if (GetBufferSize() < sizeof(char)) {
+      return ""; // Special case for empty string blob
+    }
+    DXASSERT(*((const char*)GetBufferPointer() + GetBufferSize() - 1) == '\0',
+             "otherwise buffer is not null terminated.");
+    return (LPCSTR)GetBufferPointer();
+  }
+  virtual SIZE_T STDMETHODCALLTYPE GetStringLength(void) override {
+    SIZE_T bufSize = GetBufferSize();
+    return bufSize ? (bufSize / sizeof(char)) - 1 : 0;
+  }
+};
+
+template <typename _T>
+class InternalDxcBlobEncoding_Impl : public _T {
 private:
   DXC_MICROCOM_TM_REF_FIELDS() // an underlying m_pMalloc that owns this
   LPCVOID m_Buffer = nullptr;
@@ -187,19 +261,19 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~InternalDxcBlobEncoding();
+      this->~InternalDxcBlobEncoding_Impl();
       pTmp->Free(this);
     }
     return result;
   }
-  DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding)
+  DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding_Impl)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding, typename _T::Base>(this, iid, ppvObject);
   }
 
-  ~InternalDxcBlobEncoding() {
+  ~InternalDxcBlobEncoding_Impl() {
     if (m_MallocFree) {
-      ((IMalloc *)m_Owner)->Free((void *)m_Buffer);
+      ((IMalloc *)m_Owner)->Free(const_cast<void *>(m_Buffer));
     }
     if (m_Owner != nullptr) {
       m_Owner->Release();
@@ -208,11 +282,12 @@ public:
 
   static HRESULT
   CreateFromBlob(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc, bool encodingKnown, UINT32 codePage,
-                 _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = InternalDxcBlobEncoding::Alloc(pMalloc);
+                 _COM_Outptr_ InternalDxcBlobEncoding_Impl **pEncoding) {
+    *pEncoding = InternalDxcBlobEncoding_Impl::Alloc(pMalloc);
     if (*pEncoding == nullptr) {
       return E_OUTOFMEMORY;
     }
+    DXASSERT(_T::CodePage == CP_ACP || (encodingKnown && _T::CodePage == codePage), "encoding must match type");
     pBlob->AddRef();
     (*pEncoding)->m_Owner = pBlob;
     (*pEncoding)->m_Buffer = pBlob->GetBufferPointer();
@@ -226,18 +301,20 @@ public:
 
   static HRESULT
   CreateFromMalloc(LPCVOID buffer, IMalloc *pIMalloc, SIZE_T bufferSize, bool encodingKnown,
-    UINT32 codePage, _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = InternalDxcBlobEncoding::Alloc(pIMalloc);
+    UINT32 codePage, _COM_Outptr_ InternalDxcBlobEncoding_Impl **pEncoding) {
+    *pEncoding = InternalDxcBlobEncoding_Impl::Alloc(pIMalloc);
     if (*pEncoding == nullptr) {
       *pEncoding = nullptr;
       return E_OUTOFMEMORY;
     }
+    DXASSERT(_T::CodePage == CP_ACP || (encodingKnown && _T::CodePage == codePage), "encoding must match type");
+    DXASSERT(buffer || bufferSize == 0, "otherwise, nullptr with non-zero size provided");
     pIMalloc->AddRef();
     (*pEncoding)->m_Owner = pIMalloc;
     (*pEncoding)->m_Buffer = buffer;
     (*pEncoding)->m_BufferSize = bufferSize;
     (*pEncoding)->m_EncodingKnown = encodingKnown;
-    (*pEncoding)->m_MallocFree = 1;
+    (*pEncoding)->m_MallocFree = buffer != nullptr;
     (*pEncoding)->m_CodePage = codePage;
     (*pEncoding)->AddRef();
     return S_OK;
@@ -251,7 +328,7 @@ public:
   }
 
   virtual LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override {
-    return (LPVOID)m_Buffer;
+    return const_cast<LPVOID>(m_Buffer);
   }
   virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
     return m_BufferSize;
@@ -267,6 +344,10 @@ public:
   void ClearFreeFlag() { m_MallocFree = 0; }
 };
 
+typedef InternalDxcBlobEncoding_Impl<DxcBlobNoEncoding_Impl> InternalDxcBlobEncoding;
+typedef InternalDxcBlobEncoding_Impl<DxcBlobUtf16_Impl> InternalDxcBlobUtf16;
+typedef InternalDxcBlobEncoding_Impl<DxcBlobUtf8_Impl> InternalDxcBlobUtf8;
+
 static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
                                      SIZE_T bufferSize,
                                      CDxcMallocHeapPtr<WCHAR> &utf16NewCopy,
@@ -275,7 +356,7 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
 
   // If the buffer is empty, don't dereference bufferPointer at all.
   // Keep the null terminator post-condition.
-  if (bufferSize == 0) {
+  if (IsBufferEmptyString(bufferPointer, bufferSize, codePage)) {
     if (!utf16NewCopy.Allocate(1))
       return E_OUTOFMEMORY;
     utf16NewCopy.m_pData[0] = L'\0';
@@ -290,7 +371,7 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
   if (numToConvertUTF16 == 0)
     return HRESULT_FROM_WIN32(GetLastError());
 
-  // Add an extra character to make this more developer-friendly.
+  // Add an extra character in case we need it for null-termination
   unsigned buffSizeUTF16;
   IFR(Int32ToUInt32(numToConvertUTF16, &buffSizeUTF16));
   IFR(UInt32Add(buffSizeUTF16, 1, &buffSizeUTF16));
@@ -304,49 +385,332 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
 
   if (numActuallyConvertedUTF16 == 0)
     return HRESULT_FROM_WIN32(GetLastError());
-  ((LPWSTR)utf16NewCopy)[numActuallyConvertedUTF16] = L'\0';
-  *pConvertedCharCount = numActuallyConvertedUTF16;
+  if (numActuallyConvertedUTF16 < 0)
+    return E_OUTOFMEMORY;
+
+  // If all we have is null terminator, return with zero count.
+  if (utf16NewCopy.m_pData[0] == L'\0') {
+    DXASSERT(*pConvertedCharCount == 0, "else didn't init properly");
+    return S_OK;
+  }
+
+  if ((UINT32)numActuallyConvertedUTF16 < (buffSizeUTF16 / sizeof(wchar_t)) &&
+      utf16NewCopy.m_pData[numActuallyConvertedUTF16 - 1] != L'\0') {
+    utf16NewCopy.m_pData[numActuallyConvertedUTF16++] = L'\0';
+  }
+  *pConvertedCharCount = (UINT32)numActuallyConvertedUTF16;
 
   return S_OK;
 }
 
+static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
+                                    SIZE_T bufferSize,
+                                    IMalloc *pMalloc,
+                                    CDxcMallocHeapPtr<char> &utf8NewCopy,
+                                    _Out_ UINT32 *pConvertedCharCount) {
+  *pConvertedCharCount = 0;
+
+  CDxcMallocHeapPtr<WCHAR> utf16NewCopy(pMalloc);
+  UINT32 utf16CharCount = 0;
+  const WCHAR *utf16Chars = nullptr;
+  if (codePage == CP_UTF16) {
+    DXASSERT(IsSizeWcharAligned(bufferSize), "otherwise, odd buffer size with UTF-16");
+    utf16Chars = (const WCHAR*)bufferPointer;
+    utf16CharCount = bufferSize / sizeof(wchar_t);
+  } else if (bufferSize) {
+    IFR(CodePageBufferToUtf16(codePage, bufferPointer, bufferSize,
+                              utf16NewCopy, &utf16CharCount));
+    utf16Chars = utf16NewCopy.m_pData;
+  }
+
+  // If the buffer is empty, don't dereference bufferPointer at all.
+  // Keep the null terminator post-condition.
+  if (IsUtfBufferEmptyString<wchar_t>(utf16Chars, utf16CharCount)) {
+    if (!utf8NewCopy.Allocate(1))
+      return E_OUTOFMEMORY;
+    DXASSERT(*pConvertedCharCount == 0, "else didn't init properly");
+    utf8NewCopy.m_pData[0] = '\0';
+    return S_OK;
+  }
+
+  int numToConvertUtf8 =
+    WideCharToMultiByte(CP_UTF8, 0, utf16Chars, utf16CharCount,
+                        NULL, 0, NULL, NULL);
+  if (numToConvertUtf8 == 0)
+    return HRESULT_FROM_WIN32(GetLastError());
+
+  UINT32 buffSizeUtf8;
+  IFR(Int32ToUInt32(numToConvertUtf8, &buffSizeUtf8));
+  if (!IsBufferNullTerminated(utf16Chars, utf16CharCount * sizeof(wchar_t), CP_UTF16)) {
+    // If original size doesn't include null-terminator,
+    // we have to add one to the converted buffer.
+    IFR(UInt32Add(buffSizeUtf8, 1, &buffSizeUtf8));
+  }
+  utf8NewCopy.AllocateBytes(buffSizeUtf8);
+  IFROOM(utf8NewCopy.m_pData);
+
+  int numActuallyConvertedUtf8 =
+    WideCharToMultiByte(CP_UTF8, 0, utf16Chars, utf16CharCount,
+                        utf8NewCopy, buffSizeUtf8, NULL, NULL);
+  if (numActuallyConvertedUtf8 == 0)
+    return HRESULT_FROM_WIN32(GetLastError());
+  if (numActuallyConvertedUtf8 < 0)
+    return E_OUTOFMEMORY;
+
+  if ((UINT32)numActuallyConvertedUtf8 < buffSizeUtf8 &&
+      utf8NewCopy.m_pData[numActuallyConvertedUtf8 - 1] != '\0') {
+    utf8NewCopy.m_pData[numActuallyConvertedUtf8++] = '\0';
+  }
+  *pConvertedCharCount = (UINT32)numActuallyConvertedUtf8;
+
+  return S_OK;
+}
+
+static bool TryCreateEmptyBlobUtf(
+    UINT32 codePage, IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) {
+  if (codePage == CP_UTF8) {
+    InternalDxcBlobUtf8 *internalUtf8;
+    IFR(InternalDxcBlobUtf8::CreateFromMalloc(
+          nullptr, pMalloc, 0, true, codePage, &internalUtf8));
+    *ppBlobEncoding = internalUtf8;
+    return true;
+  } else if (codePage == CP_UTF16) {
+    InternalDxcBlobUtf16 *internalUtf16;
+    IFR(InternalDxcBlobUtf16::CreateFromMalloc(
+          nullptr, pMalloc, 0, true, codePage, &internalUtf16));
+    *ppBlobEncoding = internalUtf16;
+    return true;
+  }
+  return false;
+}
+
+static bool TryCreateBlobUtfFromBlob(
+    IDxcBlob *pFromBlob, UINT32 codePage, IMalloc *pMalloc,
+    IDxcBlobEncoding **ppBlobEncoding) {
+  // Try to create a IDxcBlobUtf8 or IDxcBlobUtf16
+  if (IsBlobNullOrEmpty(pFromBlob)) {
+    return TryCreateEmptyBlobUtf(codePage, pMalloc, ppBlobEncoding);
+  } else if (IsBufferNullTerminated(pFromBlob->GetBufferPointer(),
+                              pFromBlob->GetBufferSize(), codePage)) {
+    if (codePage == CP_UTF8) {
+      InternalDxcBlobUtf8 *internalUtf8;
+      IFR(InternalDxcBlobUtf8::CreateFromBlob(
+            pFromBlob, pMalloc, true, codePage, &internalUtf8));
+      *ppBlobEncoding = internalUtf8;
+      return true;
+    } else if (codePage == CP_UTF16) {
+      InternalDxcBlobUtf16 *internalUtf16;
+      IFR(InternalDxcBlobUtf16::CreateFromBlob(
+            pFromBlob, pMalloc, true, codePage, &internalUtf16));
+      *ppBlobEncoding = internalUtf16;
+      return true;
+    }
+  }
+  return false;
+}
+
+
+HRESULT DxcCreateBlob(
+    LPCVOID pPtr, SIZE_T size, bool bPinned, bool bCopy,
+    bool encodingKnown, UINT32 codePage,
+    IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw() {
+
+  IFRBOOL(!(bPinned && bCopy), E_INVALIDARG);
+  IFRBOOL(ppBlobEncoding, E_INVALIDARG);
+  *ppBlobEncoding = nullptr;
+
+  bool bNullTerminated = encodingKnown ? IsBufferNullTerminated(pPtr, size, codePage) : false;
+
+  if (!pMalloc)
+    pMalloc = DxcGetThreadMallocNoRef();
+
+  // Handle empty blob
+  if (!pPtr || !size) {
+    if (encodingKnown && TryCreateEmptyBlobUtf(codePage, pMalloc, ppBlobEncoding))
+      return S_OK;
+    InternalDxcBlobEncoding *pInternalEncoding;
+    IFR(InternalDxcBlobEncoding::CreateFromMalloc(nullptr, pMalloc, 0, encodingKnown, codePage, &pInternalEncoding));
+    *ppBlobEncoding = pInternalEncoding;
+  }
+
+  if (bPinned) {
+    if (encodingKnown) {
+      if (bNullTerminated) {
+        if (codePage == CP_UTF8) {
+          InternalDxcBlobUtf8 *internalUtf8;
+          IFR(InternalDxcBlobUtf8::CreateFromMalloc(
+              pPtr, pMalloc, size, true, codePage, &internalUtf8));
+          *ppBlobEncoding = internalUtf8;
+          internalUtf8->ClearFreeFlag();
+          return S_OK;
+        } else if (codePage == CP_UTF16) {
+          InternalDxcBlobUtf16 *internalUtf16;
+          IFR(InternalDxcBlobUtf16::CreateFromMalloc(
+              pPtr, pMalloc, size, true, codePage, &internalUtf16));
+          *ppBlobEncoding = internalUtf16;
+          internalUtf16->ClearFreeFlag();
+          return S_OK;
+        }
+      }
+    }
+    InternalDxcBlobEncoding *internalEncoding;
+    IFR(InternalDxcBlobEncoding::CreateFromMalloc(
+        pPtr, pMalloc, size, encodingKnown, codePage, &internalEncoding));
+    *ppBlobEncoding = internalEncoding;
+    internalEncoding->ClearFreeFlag();
+    return S_OK;
+  }
+
+  void *pData = const_cast<void*>(pPtr);
+  SIZE_T newSize = size;
+
+  CDxcMallocHeapPtr<char> heapCopy(pMalloc);
+  if (bCopy) {
+    if (encodingKnown) {
+      if (!bNullTerminated) {
+        if (codePage == CP_UTF8) {
+          newSize += sizeof(char);
+          bNullTerminated = true;
+        } else if (codePage == CP_UTF16) {
+          newSize += sizeof(wchar_t);
+          bNullTerminated = true;
+        }
+      }
+    }
+    heapCopy.AllocateBytes(newSize);
+    pData = heapCopy.m_pData;
+    if (pData == nullptr)
+      return E_OUTOFMEMORY;
+    if (pPtr)
+      memcpy(pData, pPtr, size);
+    else
+      memset(pData, 0, size);
+  }
+
+  if (bNullTerminated && codePage == CP_UTF8) {
+    if (bCopy && newSize > size)
+      ((char*)pData)[newSize - 1] = 0;
+    InternalDxcBlobUtf8 *internalUtf8;
+    IFR(InternalDxcBlobUtf8::CreateFromMalloc(
+        pData, pMalloc, newSize, true, codePage, &internalUtf8));
+    *ppBlobEncoding = internalUtf8;
+  } else if (bNullTerminated && codePage == CP_UTF16) {
+    if (bCopy && newSize > size)
+      ((wchar_t*)pData)[(newSize / sizeof(wchar_t)) - 1] = 0;
+    InternalDxcBlobUtf16 *internalUtf16;
+    IFR(InternalDxcBlobUtf16::CreateFromMalloc(
+        pData, pMalloc, newSize, true, codePage, &internalUtf16));
+    *ppBlobEncoding = internalUtf16;
+  } else {
+    InternalDxcBlobEncoding *internalEncoding;
+    IFR(InternalDxcBlobEncoding::CreateFromMalloc(
+        pData, pMalloc, newSize, encodingKnown, codePage, &internalEncoding));
+    *ppBlobEncoding = internalEncoding;
+  }
+  if (bCopy)
+    heapCopy.Detach();
+  return S_OK;
+}
+
+HRESULT DxcCreateBlobEncodingFromBlob(
+    IDxcBlob *pFromBlob, UINT32 offset, UINT32 length,
+    bool encodingKnown, UINT32 codePage,
+    IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw() {
+
+  IFRBOOL(pFromBlob, E_POINTER);
+  IFRBOOL(ppBlobEncoding, E_POINTER);
+  *ppBlobEncoding = nullptr;
+
+  if (!pMalloc)
+    pMalloc = DxcGetThreadMallocNoRef();
+
+  InternalDxcBlobEncoding *internalEncoding;
+  if (offset || length) {
+    UINT32 end;
+    IFR(UInt32Add(offset, length, &end));
+    SIZE_T blobSize = pFromBlob->GetBufferSize();
+    if (end > blobSize)
+      return E_INVALIDARG;
+    IFR(InternalDxcBlobEncoding::CreateFromBlob(
+      pFromBlob, pMalloc, encodingKnown, codePage, &internalEncoding));
+    internalEncoding->AdjustPtrAndSize(offset, length);
+    *ppBlobEncoding = internalEncoding;
+    return S_OK;
+  }
+
+  if (!encodingKnown || codePage == CP_UTF8) {
+    IDxcBlobUtf8 *pBlobUtf8;
+    if(SUCCEEDED(pFromBlob->QueryInterface(&pBlobUtf8))) {
+      *ppBlobEncoding = pBlobUtf8;
+      return S_OK;
+    }
+  }
+  if (!encodingKnown || codePage == CP_UTF16) {
+    IDxcBlobUtf16 *pBlobUtf16;
+    if (SUCCEEDED(pFromBlob->QueryInterface(&pBlobUtf16))) {
+      *ppBlobEncoding = pBlobUtf16;
+      return S_OK;
+    }
+  }
+  CComPtr<IDxcBlobEncoding> pBlobEncoding;
+  if (SUCCEEDED(pFromBlob->QueryInterface(&pBlobEncoding))) {
+    BOOL thisEncodingKnown;
+    UINT32 thisEncoding;
+    IFR(pBlobEncoding->GetEncoding(&thisEncodingKnown, &thisEncoding));
+    bool encodingMatches = thisEncodingKnown && encodingKnown &&
+                           codePage == thisEncoding;
+    if (!encodingKnown && thisEncodingKnown) {
+      codePage = thisEncoding;
+      encodingKnown = thisEncodingKnown;
+      encodingMatches = true;
+    }
+    if (encodingMatches) {
+      if (!TryCreateBlobUtfFromBlob(pFromBlob, codePage, pMalloc, ppBlobEncoding)) {
+        *ppBlobEncoding = pBlobEncoding.Detach();
+      }
+      return S_OK;
+    }
+    if (encodingKnown) {
+      IFR(InternalDxcBlobEncoding::CreateFromBlob(
+          pFromBlob, pMalloc, true, codePage, &internalEncoding));
+      *ppBlobEncoding = internalEncoding;
+      return S_OK;
+    }
+    DXASSERT(!encodingKnown && !thisEncodingKnown, "otherwise, missing case");
+    *ppBlobEncoding = pBlobEncoding.Detach();
+    return S_OK;
+  }
+
+  if (encodingKnown && TryCreateBlobUtfFromBlob(pFromBlob, codePage, pMalloc, ppBlobEncoding)) {
+    return S_OK;
+  }
+
+  IFR(InternalDxcBlobEncoding::CreateFromBlob(
+    pFromBlob, pMalloc, encodingKnown, codePage, &internalEncoding));
+  *ppBlobEncoding = internalEncoding;
+  return S_OK;
+}
+
+
 _Use_decl_annotations_
 HRESULT DxcCreateBlobFromBlob(
     IDxcBlob *pBlob, UINT32 offset, UINT32 length, IDxcBlob **ppResult) throw() {
-  if (pBlob == nullptr || ppResult == nullptr) {
-    return E_POINTER;
-  }
+  IFRBOOL(ppResult, E_POINTER);
   *ppResult = nullptr;
-  SIZE_T blobSize = pBlob->GetBufferSize();
-  if (offset > blobSize)
-    return E_INVALIDARG;
-  UINT32 end;
-  IFR(UInt32Add(offset, length, &end));
-  BOOL encodingKnown = FALSE;
-  UINT32 codePage = CP_ACP;
-  CComPtr<IDxcBlobEncoding> pBlobEncoding;
-  if (SUCCEEDED(pBlob->QueryInterface(&pBlobEncoding))) {
-    IFR(pBlobEncoding->GetEncoding(&encodingKnown, &codePage));
-  }
-  CComPtr<InternalDxcBlobEncoding> pCreated;
-  IFR(InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), encodingKnown, codePage,
-                                              &pCreated));
-  pCreated->AdjustPtrAndSize(offset, length);
-  *ppResult = pCreated.Detach();
+  IDxcBlobEncoding *pResult;
+  IFR(DxcCreateBlobEncodingFromBlob(pBlob, offset, length, false, 0, DxcGetThreadMallocNoRef(), &pResult));
+  *ppResult = pResult;
   return S_OK;
 }
 
 _Use_decl_annotations_
 HRESULT
 DxcCreateBlobOnMalloc(LPCVOID pData, IMalloc *pIMalloc, UINT32 size, IDxcBlob **ppResult) throw() {
-  if (pData == nullptr || ppResult == nullptr) {
-    return E_POINTER;
-  }
-
+  IFRBOOL(ppResult, E_POINTER);
   *ppResult = nullptr;
-  CComPtr<InternalDxcBlobEncoding> blob;
-  IFR(InternalDxcBlobEncoding::CreateFromMalloc(pData, pIMalloc, size, false, 0, &blob));
-  *ppResult = blob.Detach();
+  IDxcBlobEncoding *pResult;
+  IFR(DxcCreateBlob(pData, size, false, false, false, 0, pIMalloc, &pResult));
+  *ppResult = pResult;
   return S_OK;
 }
 
@@ -354,23 +718,11 @@ _Use_decl_annotations_
 HRESULT
 DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
                         _COM_Outptr_ IDxcBlob **ppResult) throw() {
-  if (pData == nullptr || ppResult == nullptr) {
-    return E_POINTER;
-  }
-
+  IFRBOOL(ppResult, E_POINTER);
   *ppResult = nullptr;
-
-  CDxcMallocHeapPtr<char> heapCopy(DxcGetThreadMallocNoRef());
-  if (!heapCopy.Allocate(size)) {
-    return E_OUTOFMEMORY;
-  }
-  memcpy(heapCopy.m_pData, pData, size);
-
-  CComPtr<InternalDxcBlobEncoding> blob;
-  IFR(InternalDxcBlobEncoding::CreateFromMalloc(heapCopy.m_pData,
-    heapCopy.GetMallocNoRef(), size, false, 0, &blob));
-  heapCopy.Detach();
-  *ppResult = blob.Detach();
+  IDxcBlobEncoding *pResult;
+  IFR(DxcCreateBlob(pData, size, false, true, false, 0, DxcGetThreadMallocNoRef(), &pResult));
+  *ppResult = pResult;
   return S_OK;
 }
 
@@ -393,66 +745,37 @@ DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName, UINT32 *pCodePage,
   bool known = (pCodePage != nullptr);
   UINT32 codePage = (pCodePage != nullptr) ? *pCodePage : 0;
 
-  InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(
-    pData, pMalloc, dataSize, known, codePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    *ppBlobEncoding = internalEncoding;
-  }
-  else {
+  HRESULT hr = DxcCreateBlob(pData, dataSize, false, false, known, codePage, pMalloc, ppBlobEncoding);
+  if (FAILED(hr))
     pMalloc->Free(pData);
-  }
   return hr;
 }
 
 _Use_decl_annotations_
 HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
                               IDxcBlobEncoding **ppBlobEncoding) throw() {
-  CComPtr<IMalloc> pMalloc;
-  IFR(CoGetMalloc(1, &pMalloc));
-  return DxcCreateBlobFromFile(pMalloc, pFileName, pCodePage, ppBlobEncoding);
+  return DxcCreateBlobFromFile(DxcGetThreadMallocNoRef(), pFileName, pCodePage, ppBlobEncoding);
 }
 
 _Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingSet(IMalloc *pMalloc, IDxcBlob *pBlob, UINT32 codePage,
                              IDxcBlobEncoding **ppBlobEncoding) throw() {
-  DXASSERT_NOMSG(pMalloc != nullptr);
-  DXASSERT_NOMSG(pBlob != nullptr);
-  DXASSERT_NOMSG(ppBlobEncoding != nullptr);
-  *ppBlobEncoding = nullptr;
-
-  InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromBlob(
-      pBlob, pMalloc, true, codePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    *ppBlobEncoding = internalEncoding;
-  }
-  return hr;
+  return DxcCreateBlobEncodingFromBlob(pBlob, 0, 0, true, codePage, pMalloc, ppBlobEncoding);
 }
 
 _Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingSet(IDxcBlob *pBlob, UINT32 codePage,
                              IDxcBlobEncoding **ppBlobEncoding) throw() {
-  return DxcCreateBlobWithEncodingSet(DxcGetThreadMallocNoRef(), pBlob,
-                                      codePage, ppBlobEncoding);
+  return DxcCreateBlobEncodingFromBlob(pBlob, 0, 0, true, codePage, nullptr, ppBlobEncoding);
 }
 
 _Use_decl_annotations_
 HRESULT DxcCreateBlobWithEncodingFromPinned(LPCVOID pText, UINT32 size,
                                             UINT32 codePage,
                                             IDxcBlobEncoding **pBlobEncoding) throw() {
-  *pBlobEncoding = nullptr;
-
-  InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(
-      pText, DxcGetThreadMallocNoRef(), size, true, codePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    internalEncoding->ClearFreeFlag();
-    *pBlobEncoding = internalEncoding;
-  }
-  return hr;
+  return DxcCreateBlob(pText, size, true, false, true, codePage, nullptr, pBlobEncoding);
 }
 
 _Use_decl_annotations_
@@ -460,6 +783,7 @@ HRESULT
 DxcCreateBlobWithEncodingFromStream(IStream *pStream, bool newInstanceAlways,
                                     UINT32 codePage,
                                     IDxcBlobEncoding **ppBlobEncoding) throw() {
+  IFRBOOL(ppBlobEncoding, E_POINTER);
   *ppBlobEncoding = nullptr;
   if (pStream == nullptr) {
     return S_OK;
@@ -489,217 +813,39 @@ _Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingOnHeapCopy(LPCVOID pText, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **pBlobEncoding) throw() {
-  *pBlobEncoding = nullptr;
-
-  CDxcMallocHeapPtr<char> heapCopy(DxcGetThreadMallocNoRef());
-  if (!heapCopy.Allocate(size)) {
-    return E_OUTOFMEMORY;
-  }
-  memcpy(heapCopy.m_pData, pText, size);
-
-  InternalDxcBlobEncoding* internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(heapCopy.m_pData,
-    heapCopy.GetMallocNoRef(), size, true, codePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    *pBlobEncoding = internalEncoding;
-    heapCopy.Detach();
-  }
-  return hr;
+  return DxcCreateBlob(pText, size, false, true, true, codePage, nullptr, pBlobEncoding);
 }
 
 _Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingOnMalloc(LPCVOID pText, IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **pBlobEncoding) throw() {
-
-  *pBlobEncoding = nullptr;
-  InternalDxcBlobEncoding* internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(pText, pIMalloc, size, true, codePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    *pBlobEncoding = internalEncoding;
-  }
-  return hr;
+  return DxcCreateBlob(pText, size, false, false, true, codePage, pIMalloc, pBlobEncoding);
 }
 
 _Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **ppBlobEncoding) throw() {
-  *ppBlobEncoding = nullptr;
-  void *pData = pIMalloc->Alloc(size);
-  if (pData == nullptr)
-    return E_OUTOFMEMORY;
-  memcpy(pData, pText, size);
-  HRESULT hr = DxcCreateBlobWithEncodingOnMalloc(pData, pIMalloc, size, codePage, ppBlobEncoding);
-  if (FAILED(hr)) {
-    pIMalloc->Free(pData);
-    return hr;
-  }
-  return S_OK;
+  return DxcCreateBlob(pText, size, false, true, true, codePage, pIMalloc, ppBlobEncoding);
 }
 
-
 _Use_decl_annotations_
-HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) throw() {
+HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlobEncoding) throw() {
+  IFRBOOL(pBlob, E_POINTER);
+  IFRBOOL(pBlobEncoding, E_POINTER);
   *pBlobEncoding = nullptr;
+
+  if (SUCCEEDED(pBlob->QueryInterface(pBlobEncoding)))
+    return S_OK;
 
   HRESULT hr;
   CComPtr<IDxcBlobEncoding> pSourceBlob;
   UINT32 codePage = CP_ACP;
   BOOL known = FALSE;
   if (SUCCEEDED(pBlob->QueryInterface(&pSourceBlob))) {
-    hr = pSourceBlob->GetEncoding(&known, &codePage);
-    if (FAILED(hr)) {
+    if (FAILED(hr = pSourceBlob->GetEncoding(&known, &codePage)))
       return hr;
-    }
-
-    // If it's known to be CP_UTF8, there is nothing else to be done.
-    if (known && codePage == CP_UTF8) {
-      *pBlobEncoding = pSourceBlob.Detach();
-      return S_OK;
-    }
-  }
-  else {
-    known = FALSE;
-  }
-
-  SIZE_T blobLen = pBlob->GetBufferSize();
-  if (!known && blobLen > 0) {
-    codePage = DxcCodePageFromBytes((const char *)pBlob->GetBufferPointer(), blobLen);
-  }
-
-  if (codePage == CP_UTF8 || blobLen == 0) {
-    // Reuse the underlying blob but create an object with the encoding known.
-    // Empty blobs are encoding-agnostic, so we can consider them UTF-8 and avoid useless conversion.
-    InternalDxcBlobEncoding* internalEncoding;
-    hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), true, CP_UTF8, &internalEncoding);
-    if (SUCCEEDED(hr)) {
-      *pBlobEncoding = internalEncoding;
-    }
-    return hr;
-  }
-
-  // Convert and create a blob that owns the encoding.
-
-  // Any UTF-16 output must be converted to UTF-16 first, then
-  // back to the target code page.
-  CDxcMallocHeapPtr<WCHAR> utf16NewCopy(DxcGetThreadMallocNoRef());
-  const wchar_t* utf16Chars = nullptr;
-  UINT32 utf16CharCount;
-  if (codePage == CP_UTF16) {
-    utf16Chars = (const wchar_t*)pBlob->GetBufferPointer();
-    utf16CharCount = blobLen / sizeof(wchar_t);
-  }
-  else {
-    hr = CodePageBufferToUtf16(codePage, pBlob->GetBufferPointer(), blobLen,
-                               utf16NewCopy, &utf16CharCount);
-    if (FAILED(hr)) {
-      return hr;
-    }
-    utf16Chars = utf16NewCopy;
-  }
-
-  const UINT32 targetCodePage = CP_UTF8;
-  CDxcTMHeapPtr<char> finalNewCopy;
-  int numToConvertFinal = WideCharToMultiByte(
-    targetCodePage, 0, utf16Chars, utf16CharCount,
-    finalNewCopy, 0, NULL, NULL);
-  if (numToConvertFinal == 0)
-    return HRESULT_FROM_WIN32(GetLastError());
-
-  unsigned buffSizeFinal;
-  IFR(Int32ToUInt32(numToConvertFinal, &buffSizeFinal));
-  IFR(UInt32Add(buffSizeFinal, 1, &buffSizeFinal));
-  finalNewCopy.AllocateBytes(buffSizeFinal);
-  IFROOM(finalNewCopy.m_pData);
-
-  int numActuallyConvertedFinal = WideCharToMultiByte(
-    targetCodePage, 0, utf16Chars, utf16CharCount,
-    finalNewCopy, buffSizeFinal, NULL, NULL);
-  if (numActuallyConvertedFinal == 0)
-    return HRESULT_FROM_WIN32(GetLastError());
-  ((LPSTR)finalNewCopy)[numActuallyConvertedFinal] = '\0';
-
-  InternalDxcBlobEncoding* internalEncoding;
-  hr = InternalDxcBlobEncoding::CreateFromMalloc(finalNewCopy.m_pData,
-    DxcGetThreadMallocNoRef(),
-    numActuallyConvertedFinal, true, targetCodePage, &internalEncoding);
-  if (SUCCEEDED(hr)) {
-    *pBlobEncoding = internalEncoding;
-    finalNewCopy.Detach();
-  }
-  return hr;
-}
-
-HRESULT
-DxcGetBlobAsUtf8NullTerm(_In_ IDxcBlob *pBlob,
-                         _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw() {
-  *ppBlobEncoding = nullptr;
-
-  HRESULT hr;
-  CComPtr<IDxcBlobEncoding> pSourceBlob;
-  unsigned blobSize = pBlob->GetBufferSize();
-
-  // Check whether we already have a null-terminated UTF-8 blob.
-  if (SUCCEEDED(pBlob->QueryInterface(&pSourceBlob))) {
-    UINT32 codePage = CP_ACP;
-    BOOL known = FALSE;
-    hr = pSourceBlob->GetEncoding(&known, &codePage);
-    if (FAILED(hr)) {
-      return hr;
-    }
-    if (known && codePage == CP_UTF8) {
-      char *pChars = (char *)pBlob->GetBufferPointer();
-      if (blobSize > 0) {
-        if (pChars[blobSize - 1] == '\0') {
-          *ppBlobEncoding = pSourceBlob.Detach();
-          return S_OK;
-        }
-      }
-      
-      // We have a non-null-terminated UTF-8 stream. Copy to a new location.
-      CDxcTMHeapPtr<char> pCopy;
-      if (!pCopy.Allocate(blobSize + 1))
-        return E_OUTOFMEMORY;
-      memcpy(pCopy.m_pData, pChars, blobSize);
-      pCopy.m_pData[blobSize] = '\0';
-      IFR(DxcCreateBlobWithEncodingOnMalloc(
-          pCopy.m_pData, DxcGetThreadMallocNoRef(), blobSize + 1, CP_UTF8,
-          ppBlobEncoding));
-      pCopy.Detach();
-      return S_OK;
-    }
-  }
-
-  // Perform the conversion, which typically adds a new null terminator,
-  // but run this again just in case.
-  CComPtr<IDxcBlobEncoding> pConverted;
-  IFR(DxcGetBlobAsUtf8(pBlob, &pConverted));
-  return DxcGetBlobAsUtf8NullTerm(pConverted, ppBlobEncoding);
-}
-
-_Use_decl_annotations_
-HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobEncoding **pBlobEncoding) throw() {
-  *pBlobEncoding = nullptr;
-
-  HRESULT hr;
-  CComPtr<IDxcBlobEncoding> pSourceBlob;
-  UINT32 codePage = CP_ACP;
-  BOOL known = FALSE;
-  if (SUCCEEDED(pBlob->QueryInterface(&pSourceBlob))) {
-    hr = pSourceBlob->GetEncoding(&known, &codePage);
-    if (FAILED(hr)) {
-      return hr;
-    }
-
-    // If it's known to be CP_UTF8, there is nothing else to be done.
-    if (known && codePage == CP_UTF16) {
-      *pBlobEncoding = pSourceBlob.Detach();
-      return S_OK;
-    }
-  }
-  else {
-    known = FALSE;
   }
 
   SIZE_T blobLen = pBlob->GetBufferSize();
@@ -707,27 +853,133 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobEncoding **
     codePage = DxcCodePageFromBytes((char *)pBlob->GetBufferPointer(), blobLen);
   }
 
-  // Reuse the underlying blob but create an object with the encoding known.
-  if (codePage == CP_UTF16) {
-    InternalDxcBlobEncoding* internalEncoding;
-    hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, pMalloc, true, CP_UTF16, &internalEncoding);
-    if (SUCCEEDED(hr)) {
-      *pBlobEncoding = internalEncoding;
+  if (!pMalloc)
+    pMalloc = DxcGetThreadMallocNoRef();
+
+  CDxcMallocHeapPtr<char> utf8NewCopy(pMalloc);
+  UINT32 utf8CharCount = 0;
+
+  // Reuse or copy the underlying blob depending on null-termination
+  if (codePage == CP_UTF8) {
+    utf8CharCount = blobLen;
+    if (IsBufferNullTerminated(pBlob->GetBufferPointer(), blobLen, CP_UTF8)) {
+      // Already null-terminated, reference other blob's memory
+      InternalDxcBlobUtf8* internalEncoding;
+      hr = InternalDxcBlobUtf8::CreateFromBlob(pBlob, pMalloc, true, CP_UTF8, &internalEncoding);
+      if (SUCCEEDED(hr)) {
+        *pBlobEncoding = internalEncoding;
+      }
+      return hr;
+    } else {
+      // Copy to new buffer and null-terminate
+      if(!utf8NewCopy.Allocate(utf8CharCount + 1))
+        return E_OUTOFMEMORY;
+      memcpy(utf8NewCopy.m_pData, pBlob->GetBufferPointer(), blobLen);
+      utf8NewCopy.m_pData[utf8CharCount++] = 0;
     }
-    return hr;
+  } else {
+    // Convert and create a blob that owns the encoding.
+    if (FAILED(
+      hr = CodePageBufferToUtf8(codePage, pBlob->GetBufferPointer(), blobLen,
+                                 pMalloc, utf8NewCopy, &utf8CharCount))) {
+      return hr;
+    }
+    DXASSERT(!utf8CharCount ||
+             IsBufferNullTerminated(utf8NewCopy.m_pData, utf8CharCount, CP_UTF8),
+             "otherwise, CodePageBufferToUtf8 failed to null-terminate buffer.");
   }
 
-  // Convert and create a blob that owns the encoding.
+  // At this point, we have new utf8NewCopy to wrap in a blob
+  InternalDxcBlobUtf8* internalEncoding;
+  hr = InternalDxcBlobUtf8::CreateFromMalloc(
+      utf8NewCopy.m_pData, pMalloc,
+      utf8CharCount, true, CP_UTF8, &internalEncoding);
+  if (SUCCEEDED(hr)) {
+    *pBlobEncoding = internalEncoding;
+    utf8NewCopy.Detach();
+  }
+  return hr;
+}
+
+// This is kept for compatibility.
+HRESULT
+DxcGetBlobAsUtf8NullTerm(_In_ IDxcBlob *pBlob,
+                         _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw() {
+  IFRBOOL(pBlob, E_POINTER);
+  IFRBOOL(ppBlobEncoding, E_POINTER);
+  *ppBlobEncoding = nullptr;
+
+  CComPtr<IDxcBlobUtf8> pConverted;
+  IFR(DxcGetBlobAsUtf8(pBlob, DxcGetThreadMallocNoRef(), &pConverted));
+  pConverted->QueryInterface(ppBlobEncoding);
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBlobEncoding) throw() {
+  IFRBOOL(pBlob, E_POINTER);
+  IFRBOOL(pBlobEncoding, E_POINTER);
+  *pBlobEncoding = nullptr;
+
+  if (SUCCEEDED(pBlob->QueryInterface(pBlobEncoding)))
+    return S_OK;
+
+  HRESULT hr;
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  UINT32 codePage = CP_ACP;
+  BOOL known = FALSE;
+  if (SUCCEEDED(pBlob->QueryInterface(&pSourceBlob))) {
+    if (FAILED(hr = pSourceBlob->GetEncoding(&known, &codePage)))
+      return hr;
+  }
+
+  SIZE_T blobLen = pBlob->GetBufferSize();
+  if (!known) {
+    codePage = DxcCodePageFromBytes((char *)pBlob->GetBufferPointer(), blobLen);
+  }
+
+  if (!pMalloc)
+    pMalloc = DxcGetThreadMallocNoRef();
+
   CDxcMallocHeapPtr<WCHAR> utf16NewCopy(pMalloc);
-  UINT32 utf16CharCount;
-  hr = CodePageBufferToUtf16(codePage, pBlob->GetBufferPointer(), blobLen,
-                             utf16NewCopy, &utf16CharCount);
-  if (FAILED(hr)) {
-    return hr;
+  UINT32 utf16CharCount = 0;
+
+  // Reuse or copy the underlying blob depending on null-termination
+  if (codePage == CP_UTF16) {
+    DXASSERT(IsSizeWcharAligned(blobLen),
+             "otherwise, UTF-16 blob size not evenly divisible by 2");
+    utf16CharCount = blobLen / sizeof(wchar_t);
+    if (IsBufferNullTerminated(pBlob->GetBufferPointer(), blobLen, CP_UTF16)) {
+      // Already null-terminated, reference other blob's memory
+      InternalDxcBlobUtf16* internalEncoding;
+      hr = InternalDxcBlobUtf16::CreateFromBlob(pBlob, pMalloc, true, CP_UTF16, &internalEncoding);
+      if (SUCCEEDED(hr)) {
+        *pBlobEncoding = internalEncoding;
+      }
+      return hr;
+    } else {
+      // Copy to new buffer and null-terminate
+      if(!utf16NewCopy.Allocate(utf16CharCount + 1))
+        return E_OUTOFMEMORY;
+      memcpy(utf16NewCopy.m_pData, pBlob->GetBufferPointer(), blobLen);
+      utf16NewCopy.m_pData[utf16CharCount++] = 0;
+    }
+  } else {
+    // Convert and create a blob that owns the encoding.
+    if (FAILED(
+      hr = CodePageBufferToUtf16(codePage, pBlob->GetBufferPointer(), blobLen,
+                                 utf16NewCopy, &utf16CharCount))) {
+      return hr;
+    }
   }
 
-  InternalDxcBlobEncoding* internalEncoding;
-  hr = InternalDxcBlobEncoding::CreateFromMalloc(
+  // At this point, we have new utf16NewCopy to wrap in a blob
+  DXASSERT(!utf16CharCount ||
+           IsBufferNullTerminated(utf16NewCopy.m_pData, utf16CharCount * sizeof(wchar_t), CP_UTF16),
+           "otherwise, failed to null-terminate buffer.");
+  InternalDxcBlobUtf16* internalEncoding;
+  hr = InternalDxcBlobUtf16::CreateFromMalloc(
       utf16NewCopy.m_pData, pMalloc,
       utf16CharCount * sizeof(WCHAR), true, CP_UTF16, &internalEncoding);
   if (SUCCEEDED(hr)) {
@@ -980,6 +1232,10 @@ public:
     m_offset = 0;
     m_size = m_pSource->GetBufferSize();
     m_pMemory = (LPBYTE)m_pSource->GetBufferPointer();
+    // If Utf8Blob, exclude terminating null character
+    CComPtr<IDxcBlobUtf8> utf8Source;
+    if (m_size && SUCCEEDED(pSource->QueryInterface(&utf8Source)))
+      m_size = utf8Source->GetStringLength();
   }
 
   // ISequentialStream implementation.

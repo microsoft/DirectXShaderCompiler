@@ -945,11 +945,12 @@ unsigned HLModule::GetBindingForResourceInCB(GetElementPtrInst *CbPtr,
 // TODO: Don't check names.
 bool HLModule::IsStreamOutputType(llvm::Type *Ty) {
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (ST->getName().startswith("class.PointStream"))
+    StringRef name = ST->getName();
+    if (name.startswith("class.PointStream"))
       return true;
-    if (ST->getName().startswith("class.LineStream"))
+    if (name.startswith("class.LineStream"))
       return true;
-    if (ST->getName().startswith("class.TriangleStream"))
+    if (name.startswith("class.TriangleStream"))
       return true;
   }
   return false;

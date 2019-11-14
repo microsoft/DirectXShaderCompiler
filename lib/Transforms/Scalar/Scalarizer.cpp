@@ -45,13 +45,19 @@ typedef SmallVector<std::pair<Instruction *, ValueVector *>, 16> GatherList;
 // component of a scattered vector or vector pointer.
 class Scatterer {
 public:
+  bool AllowFolding = false; // HLSL Change
   Scatterer() {}
 
   // Scatter V into Size components.  If new instructions are needed,
   // insert them before BBI in BB.  If Cache is nonnull, use it to cache
   // the results.
+#if 0 // HLSL Change
   Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v,
             ValueVector *cachePtr = nullptr);
+#else // HLSL Change
+  Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v, bool AllowFolding,
+            ValueVector *cachePtr = nullptr);
+#endif // HLSL Change
 
   // Return component I, creating a new Value for it if necessary.
   Value *operator[](unsigned I);
@@ -143,6 +149,14 @@ class Scalarizer : public FunctionPass,
 public:
   static char ID;
 
+// HLSL Change Begin
+  bool AllowFolding = false;
+  Scalarizer(bool AllowFolding) :
+    FunctionPass(ID),
+    AllowFolding(AllowFolding) {
+    initializeScalarizerPass(*PassRegistry::getPassRegistry());
+  }
+// HLSL Change End
   Scalarizer() :
     FunctionPass(ID) {
     initializeScalarizerPass(*PassRegistry::getPassRegistry());
@@ -197,10 +211,16 @@ char Scalarizer::ID = 0;
 
 INITIALIZE_PASS_WITH_OPTIONS(Scalarizer, "scalarizer",
                              "Scalarize vector operations", false, false)
-
+#if 0 // HLSL Change
 Scatterer::Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v,
                      ValueVector *cachePtr)
   : BB(bb), BBI(bbi), V(v), CachePtr(cachePtr) {
+#else // HLSL Change
+Scatterer::Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v,
+                     bool AllowFolding,
+                     ValueVector *cachePtr)
+  : AllowFolding(AllowFolding), BB(bb), BBI(bbi), V(v), CachePtr(cachePtr) {
+#endif // HLSL Change
   Type *Ty = V->getType();
   PtrTy = dyn_cast<PointerType>(Ty);
   if (PtrTy)
@@ -221,6 +241,7 @@ Value *Scatterer::operator[](unsigned I) {
   if (CV[I])
     return CV[I];
   IRBuilder<> Builder(BB, BBI);
+  Builder.AllowFolding = AllowFolding; // HLSL Change
   if (PtrTy) {
     if (!CV[0]) {
       Type *Ty =
@@ -295,19 +316,25 @@ Scatterer Scalarizer::scatter(Instruction *Point, Value *V) {
     auto InsertPoint = BB->begin();
     while (InsertPoint != BB->end() && isa<DbgInfoIntrinsic>(InsertPoint))
       InsertPoint++;
-    return Scatterer(BB, InsertPoint, V, &Scattered[V]);
+    Scatterer(BB, InsertPoint, V, AllowFolding, &Scattered[V]);
     // HLSL Change - End
   }
   if (Instruction *VOp = dyn_cast<Instruction>(V)) {
     // Put the scattered form of an instruction directly after the
     // instruction.
     BasicBlock *BB = VOp->getParent();
+#if 0 // HLSL Change
     return Scatterer(BB, std::next(BasicBlock::iterator(VOp)),
                      V, &Scattered[V]);
+#else // HLSL Change
+    return Scatterer(BB, std::next(BasicBlock::iterator(VOp)),
+                     V, AllowFolding, &Scattered[V]);
+#endif // HLSL Change
   }
   // In the fallback case, just put the scattered before Point and
   // keep the result local to Point.
-  return Scatterer(Point->getParent(), Point, V);
+  // return Scatterer(Point->getParent(), Point, V); // HLSL Change
+  return Scatterer(Point->getParent(), Point, V, AllowFolding);
 }
 
 // Replace Op with the gathered form of the components in CV.  Defer the
@@ -404,6 +431,7 @@ bool Scalarizer::splitBinary(Instruction &I, const Splitter &Split) {
 
   unsigned NumElems = VT->getNumElements();
   IRBuilder<> Builder(I.getParent(), &I);
+  Builder.AllowFolding = AllowFolding; // HLSL Change
   Scatterer Op0 = scatter(&I, I.getOperand(0));
   Scatterer Op1 = scatter(&I, I.getOperand(1));
   assert(Op0.size() == NumElems && "Mismatched binary operation");
@@ -424,6 +452,7 @@ bool Scalarizer::visitSelectInst(SelectInst &SI) {
 
   unsigned NumElems = VT->getNumElements();
   IRBuilder<> Builder(SI.getParent(), &SI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   Scatterer Op1 = scatter(&SI, SI.getOperand(1));
   Scatterer Op2 = scatter(&SI, SI.getOperand(2));
   assert(Op1.size() == NumElems && "Mismatched select");
@@ -465,6 +494,7 @@ bool Scalarizer::visitGetElementPtrInst(GetElementPtrInst &GEPI) {
     return false;
 
   IRBuilder<> Builder(GEPI.getParent(), &GEPI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   unsigned NumElems = VT->getNumElements();
   unsigned NumIndices = GEPI.getNumIndices();
 
@@ -499,6 +529,7 @@ bool Scalarizer::visitCastInst(CastInst &CI) {
 
   unsigned NumElems = VT->getNumElements();
   IRBuilder<> Builder(CI.getParent(), &CI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   Scatterer Op0 = scatter(&CI, CI.getOperand(0));
   assert(Op0.size() == NumElems && "Mismatched cast");
   ValueVector Res;
@@ -519,6 +550,7 @@ bool Scalarizer::visitBitCastInst(BitCastInst &BCI) {
   unsigned DstNumElems = DstVT->getNumElements();
   unsigned SrcNumElems = SrcVT->getNumElements();
   IRBuilder<> Builder(BCI.getParent(), &BCI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   Scatterer Op0 = scatter(&BCI, BCI.getOperand(0));
   ValueVector Res;
   Res.resize(DstNumElems);
@@ -606,6 +638,7 @@ bool Scalarizer::visitPHINode(PHINode &PHI) {
 
   unsigned NumElems = VT->getNumElements();
   IRBuilder<> Builder(PHI.getParent(), &PHI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   ValueVector Res;
   Res.resize(NumElems);
 
@@ -637,6 +670,7 @@ bool Scalarizer::visitLoadInst(LoadInst &LI) {
 
   unsigned NumElems = Layout.VecTy->getNumElements();
   IRBuilder<> Builder(LI.getParent(), &LI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   Scatterer Ptr = scatter(&LI, LI.getPointerOperand());
   ValueVector Res;
   Res.resize(NumElems);
@@ -662,6 +696,7 @@ bool Scalarizer::visitStoreInst(StoreInst &SI) {
 
   unsigned NumElems = Layout.VecTy->getNumElements();
   IRBuilder<> Builder(SI.getParent(), &SI);
+  Builder.AllowFolding = this->AllowFolding; // HLSL Change
   Scatterer Ptr = scatter(&SI, SI.getPointerOperand());
   Scatterer Val = scatter(&SI, FullValue);
 
@@ -762,6 +797,7 @@ bool Scalarizer::finish() {
       BasicBlock *BB = Op->getParent();
       unsigned Count = Ty->getVectorNumElements();
       IRBuilder<> Builder(BB, Op);
+      Builder.AllowFolding = this->AllowFolding; // HLSL Change
       if (isa<PHINode>(Op))
         Builder.SetInsertPoint(BB, BB->getFirstInsertionPt());
       for (unsigned I = 0; I < Count; ++I)
@@ -786,6 +822,12 @@ bool Scalarizer::finish() {
   return true;
 }
 
+// HLSL Change Begin
+FunctionPass *llvm::createScalarizerPass(bool AllowFolding) {
+  Scalarizer *pass = new Scalarizer(AllowFolding);
+  return pass;
+}
+// HLSL Change End
 FunctionPass *llvm::createScalarizerPass() {
   return new Scalarizer();
 }
