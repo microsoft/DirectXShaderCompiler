@@ -1485,7 +1485,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   LPCWSTR args[] = { L"/Zi", L"/Qembed_debug", L"/Zss" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_6_0", args, _countof(args), nullptr, 0,
+    L"ps_6_5", args, _countof(args), nullptr, 0,
     nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   // Append private data blob
