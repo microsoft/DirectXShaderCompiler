@@ -1690,9 +1690,6 @@ TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
 TEST_F(FileTest, FlattenResourceArrayBindings3) {
   runFileTest("vk.binding.cl.flatten-arrays.example3.hlsl");
 }
-TEST_F(FileTest, FlattenResourceArrayBindingsOverlapError) {
-  runFileTest("vk.binding.cl.flatten-arrays.error.hlsl", Expect::Failure);
-}
 
 // For testing the "-auto-binding-space" command line option which specifies the
 // "default space" for resources.
