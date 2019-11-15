@@ -117,7 +117,7 @@ TEST_F(OptimizerTest, OptimizerWhenSliceWithIntermediateOptionsThenOK) {
     L"float4 main() : SV_Target {\r\n"
     L"  return tex1.Load((int3)0);\r\n"
     L"}";
-  OptimizerWhenSliceNThenOK(1, SampleProgram, L"ps_6_0", { L"-flegacy-resource-reservation" });
+  OptimizerWhenSliceNThenOK(1, SampleProgram, L"ps_6_5", { L"-flegacy-resource-reservation" });
 }
 
 void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {
@@ -130,7 +130,7 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {
     L"  if (b) user = g_Tex.Sample(g_Sampler, pos.xy);\r\n"
     L"  return user * pos;\r\n"
     L"}";
-  OptimizerWhenSliceNThenOK(optLevel, SampleProgram, L"ps_6_0");
+  OptimizerWhenSliceNThenOK(optLevel, SampleProgram, L"ps_6_5");
 }
 static bool IsPassMarkerFunction(LPCWSTR pName) {
   return 0 == _wcsicmp(pName, L"-opt-fn-passes");
