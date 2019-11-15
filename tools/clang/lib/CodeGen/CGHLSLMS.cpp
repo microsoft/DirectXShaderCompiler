@@ -422,7 +422,18 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
 
   m_pHLModule->SetAutoBindingSpace(CGM.getCodeGenOpts().HLSLDefaultSpace);
 
-  m_pHLModule->SetValidatorVersion(CGM.getCodeGenOpts().HLSLValidatorMajorVer, CGM.getCodeGenOpts().HLSLValidatorMinorVer);
+  unsigned ValMajor = CGM.getCodeGenOpts().HLSLValidatorMajorVer;
+  if (ValMajor == UINT_MAX) {
+    // Use dxil version as validator version when no user-specified validator
+    // version.
+    unsigned DxilMajor = 1;
+    unsigned DxilMinor = 0;
+    SM->GetDxilVersion(DxilMajor, DxilMinor);
+    m_pHLModule->SetValidatorVersion(DxilMajor, DxilMinor);
+  } else {
+    unsigned ValMinor = CGM.getCodeGenOpts().HLSLValidatorMinorVer;
+    m_pHLModule->SetValidatorVersion(ValMajor, ValMinor);
+  }
 
   m_bDebugInfo = CGM.getCodeGenOpts().getDebugInfo() == CodeGenOptions::FullDebugInfo;
 
