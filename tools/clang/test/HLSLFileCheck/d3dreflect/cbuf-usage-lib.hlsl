@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -auto-binding-space 13 -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Make sure usage flag is set properly for cbuffers used in libraries
 
