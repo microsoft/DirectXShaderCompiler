@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_2 -enable-16bit-types -HV 2018 -Qstrip_reflect %s -validator-version 1.5 | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_2 -enable-16bit-types -HV 2018 -Qstrip_reflect %s  | FileCheck %s
 
 
 struct MyStruct1

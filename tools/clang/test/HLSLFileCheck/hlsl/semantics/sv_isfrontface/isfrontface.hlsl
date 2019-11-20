@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main %s -validator-version 1.5 | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main %s | FileCheck %s
 
 // Make sure use uint isfrontface works.
 // CHECK: main

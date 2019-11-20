@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T gs_6_0 %s -validator-version 1.5 | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
 // Make sure uint isfrontface works.
 // CHECK: emitStream
