@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -T lib_6_3 -enable-16bit-types %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -enable-16bit-types -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Note: validator version 1.5 is required because these tests use
 // module disassembly -> reassembly between steps, and type annotations
