@@ -529,11 +529,9 @@ void DxilModuleTest::VerifyValidatorVersionMatches(
   DM.GetValidatorVersion(vMajor, vMinor);
 
   if (expectedMajor == UINT_MAX) {
-    // Expect dxil version
-    unsigned vMajorDxil, vMinorDxil;
-    DM.GetDxilVersion(vMajorDxil, vMinorDxil);
-    VERIFY_ARE_EQUAL(vMajor, vMajorDxil);
-    VERIFY_ARE_EQUAL(vMinor, vMinorDxil);
+    // Expect current version
+    VERIFY_ARE_EQUAL(vMajor, c.m_ver.m_ValMajor);
+    VERIFY_ARE_EQUAL(vMinor, c.m_ver.m_ValMinor);
   } else {
     VERIFY_ARE_EQUAL(vMajor, expectedMajor);
     VERIFY_ARE_EQUAL(vMinor, expectedMinor);
