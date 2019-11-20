@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main %s  -validator-version 1.5  | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main %s | %D3DReflect %s | FileCheck %s
 
 struct {
     int X;
