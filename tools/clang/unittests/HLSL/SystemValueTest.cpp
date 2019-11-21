@@ -276,6 +276,10 @@ TEST_F(SystemValueTest, VerifyNotAvailableFail) {
 TEST_F(SystemValueTest, VerifySVAsArbitrary) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::Arb) {
@@ -294,6 +298,10 @@ TEST_F(SystemValueTest, VerifySVAsArbitrary) {
 TEST_F(SystemValueTest, VerifySVAsSV) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SV || interpretation == DXIL::SemanticInterpretationKind::SGV) {
@@ -312,6 +320,10 @@ TEST_F(SystemValueTest, VerifySVAsSV) {
 TEST_F(SystemValueTest, VerifySGV) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SGV) {
@@ -331,6 +343,10 @@ TEST_F(SystemValueTest, VerifySGV) {
 TEST_F(SystemValueTest, VerifySVNotPacked) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NotPacked) {
@@ -349,6 +365,10 @@ TEST_F(SystemValueTest, VerifySVNotPacked) {
 TEST_F(SystemValueTest, VerifySVNotInSig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NotInSig) {
@@ -369,6 +389,10 @@ TEST_F(SystemValueTest, VerifyVertexPacking) {
   VERIFY_IS_TRUE("Not Implemented");
 
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     DXIL::PackingKind pk = SigPoint::GetSigPoint(sp)->GetPackingKind();
     if (pk == DXIL::PackingKind::Vertex) {
       // TBD: Test constraints here, or add constraints to validator and just generate cases to pack here, expecting success?
@@ -381,6 +405,10 @@ TEST_F(SystemValueTest, VerifyPatchConstantPacking) {
   VERIFY_IS_TRUE("Not Implemented");
 
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     DXIL::PackingKind pk = SigPoint::GetSigPoint(sp)->GetPackingKind();
     if (pk == DXIL::PackingKind::PatchConstant) {
       // TBD: Test constraints here, or add constraints to validator and just generate cases to pack here, expecting success?
@@ -393,6 +421,10 @@ TEST_F(SystemValueTest, VerifyTargetPacking) {
   VERIFY_IS_TRUE("Not Implemented");
 
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     DXIL::PackingKind pk = SigPoint::GetSigPoint(sp)->GetPackingKind();
     if (pk == DXIL::PackingKind::Target) {
       // TBD: Test constraints here, or add constraints to validator and just generate cases to pack here, expecting success?
@@ -409,6 +441,10 @@ TEST_F(SystemValueTest, VerifyTessFactors) {
 TEST_F(SystemValueTest, VerifyShadowEntries) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
+    if (sp >= DXIL::SigPointKind::MSIn && sp <= DXIL::SigPointKind::ASIn) {
+      // TODO: add tests for mesh/amplification shaders to system-values.hlsl
+      continue;
+    }
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::Shadow) {
