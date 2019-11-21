@@ -768,6 +768,11 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     AllInstructions.push_back(&*I);
   }
 
+  auto Fn = DM.GetEntryFunction();
+  auto & Blocks = Fn->getBasicBlockList();
+  for (auto & block : Blocks) {
+    auto &Is = block.getInstList();
+  }
   // Branchless instrumentation requires taking care of a few things:
   // -Each invocation of the shader will be either of interest or not of interest
   //    -If of interest, the offset into the output UAV will be as expected
