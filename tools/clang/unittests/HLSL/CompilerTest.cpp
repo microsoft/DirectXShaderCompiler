@@ -2767,15 +2767,18 @@ TEST_F(CompilerTest, CodeGenLibUnusedFunc) {
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CodeGenTest(L"rootSigProfile.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile2) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   // TODO: Verify the result when reflect the structures.
   CodeGenTest(L"rootSigProfile2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile5) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CodeGenTest(L"rootSigProfile5.hlsl");
 }
 
