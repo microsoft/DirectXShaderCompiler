@@ -311,6 +311,7 @@ public:
   public:
     unsigned m_ValMajor, m_ValMinor;        // Reported validation version in DXIL
     unsigned m_MinValMajor, m_MinValMinor;  // Minimum validation version dictated by shader model
+    bool m_bExtraMetadata;
   };
 
 public:
@@ -423,6 +424,9 @@ public:
   llvm::Metadata *EmitSubobject(const DxilSubobject &obj);
   void LoadSubobject(const llvm::MDNode &MDO, DxilSubobjects &Subobjects);
 
+  // Extra metadata present
+  bool HasExtraMetadata() { return m_bExtraMetadata; }
+
   // Shader specific.
 private:
   llvm::MDTuple *EmitDxilGSState(DXIL::InputPrimitive Primitive, unsigned MaxVertexCount, 
@@ -508,6 +512,10 @@ private:
   std::unique_ptr<ExtraPropertyHelper> m_ExtraPropertyHelper;
   unsigned m_ValMajor, m_ValMinor;        // Reported validation version in DXIL
   unsigned m_MinValMajor, m_MinValMinor;  // Minimum validation version dictated by shader model
+
+  // Non-fatal if extra metadata is found, but will fail validation.
+  // This is how metadata can be exteneded.
+  bool m_bExtraMetadata;
 };
 
 
