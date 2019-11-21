@@ -1485,7 +1485,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   LPCWSTR args[] = { L"/Zi", L"/Qembed_debug", L"/Zss" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_6_5", args, _countof(args), nullptr, 0,
+    L"ps_6_0", args, _countof(args), nullptr, 0,
     nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   // Append private data blob
@@ -2767,15 +2767,18 @@ TEST_F(CompilerTest, CodeGenLibUnusedFunc) {
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CodeGenTest(L"rootSigProfile.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile2) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   // TODO: Verify the result when reflect the structures.
   CodeGenTest(L"rootSigProfile2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigProfile5) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CodeGenTest(L"rootSigProfile5.hlsl");
 }
 

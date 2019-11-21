@@ -115,6 +115,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_IntermediateFlags(0)
 , m_AutoBindingSpace(UINT_MAX)
 , m_pSubobjects(nullptr)
+, m_bMetadataErrors(false)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
@@ -1389,7 +1390,12 @@ bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
   return DxilMDHelper::IsKnownNamedMetaData(Node);
 }
 
+bool DxilModule::HasMetadataErrors() {
+  return m_bMetadataErrors;
+}
+
 void DxilModule::LoadDxilMetadata() {
+  m_bMetadataErrors = false;
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
@@ -1480,11 +1486,23 @@ void DxilModule::LoadDxilMetadata() {
 
   LoadDxilResources(*pEntryResources);
 
-  m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+  // Type system is not required for consumption of dxil.
+  try {
+    m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+  } catch (hlsl::Exception &) {
+    m_bMetadataErrors = true;
+#ifdef DBG
+    throw;
+#endif
+    m_pTypeSystem->GetStructAnnotationMap().clear();
+    m_pTypeSystem->GetFunctionAnnotationMap().clear();
+  }
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
 
   m_pMDHelper->LoadDxilViewIdState(m_SerializedState);
+
+  m_bMetadataErrors |= m_pMDHelper->HasExtraMetadata();
 }
 
 MDTuple *DxilModule::EmitDxilResources() {

@@ -178,6 +178,8 @@ public:
   void ReEmitDxilResources();
   /// Deserialize DXIL metadata form into in-memory form.
   void LoadDxilMetadata();
+  /// Return true if non-fatal metadata error was detected.
+  bool HasMetadataErrors();
 
   /// Check if a Named meta data node is known by dxil module.
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
@@ -364,6 +366,10 @@ private:
   uint32_t m_AutoBindingSpace;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;
+
+  // m_bMetadataErrors is true if non-fatal metadata errors were encountered.
+  // Validator will fail in this case, but should not block module load.
+  bool m_bMetadataErrors;
 };
 
 } // namespace hlsl

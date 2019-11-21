@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -T lib_6_3 -auto-binding-space 11 -validator-version 1.5 %s | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // Make sure ST is removed
 // CHECK-NOT: @ST
