@@ -292,8 +292,6 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
     if (a.find(L"Zi") != std::wstring::npos) continue;
     original_flags.push_back(a.data());
   }
-  original_flags.push_back(L"-validator-version");
-  original_flags.push_back(L"1.5");
 
   std::string originalOutput;
   CComPtr<IDxcBlob> pOriginalHash;

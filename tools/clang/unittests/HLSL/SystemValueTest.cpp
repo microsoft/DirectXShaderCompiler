@@ -306,7 +306,7 @@ TEST_F(SystemValueTest, VerifySVAsSV) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SV || interpretation == DXIL::SemanticInterpretationKind::SGV) {
         CComPtr<IDxcOperationResult> pResult;
-        CompileHLSLTemplate(pResult, sp, sv, false, 6, 5);
+        CompileHLSLTemplate(pResult, sp, sv, false);
         HRESULT result;
         VERIFY_SUCCEEDED(pResult->GetStatus(&result));
         VERIFY_SUCCEEDED(result);
@@ -328,7 +328,7 @@ TEST_F(SystemValueTest, VerifySGV) {
       DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SGV) {
         CComPtr<IDxcOperationResult> pResult;
-        CompileHLSLTemplate(pResult, sp, sv, true, 6, 5);
+        CompileHLSLTemplate(pResult, sp, sv, true);
         HRESULT result;
         VERIFY_SUCCEEDED(pResult->GetStatus(&result));
         VERIFY_SUCCEEDED(result);

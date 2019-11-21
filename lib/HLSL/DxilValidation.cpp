@@ -5617,6 +5617,10 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   if (!pDxilModule) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
+  if (pDxilModule->HasMetadataErrors()) {
+    DiagPrinter << "Metadata error encountered in non-critical metadata (such as Type Annotations).\n";
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
 
   ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
 

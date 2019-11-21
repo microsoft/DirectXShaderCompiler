@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -E main -T vs_6_0 -validator-version 1.5 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Make sure nest empty struct works.
 
