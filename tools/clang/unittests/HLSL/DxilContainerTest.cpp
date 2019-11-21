@@ -586,31 +586,31 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   LPCWSTR Zsb[] = { L"/Zsb" };
   
   // No debug info, no debug name...
-  std::string noName = CompileToDebugName(program1, L"main", L"ps_6_5", nullptr, 0);
+  std::string noName = CompileToDebugName(program1, L"main", L"ps_6_0", nullptr, 0);
   VERIFY_IS_TRUE(noName.empty());
 
   if (!DoesValidatorSupportDebugName())
     return;
 
   // Debug info, default to source name.
-  std::string sourceName1 = CompileToDebugName(program1, L"main", L"ps_6_5", Zi, _countof(Zi));
+  std::string sourceName1 = CompileToDebugName(program1, L"main", L"ps_6_0", Zi, _countof(Zi));
   VERIFY_IS_FALSE(sourceName1.empty());
 
   // Deterministic naming.
-  std::string sourceName1Again = CompileToDebugName(program1, L"main", L"ps_6_5", Zi, _countof(Zi));
+  std::string sourceName1Again = CompileToDebugName(program1, L"main", L"ps_6_0", Zi, _countof(Zi));
   VERIFY_ARE_EQUAL_STR(sourceName1.c_str(), sourceName1Again.c_str());
 
   // Use program binary by default, so name should be the same.
-  std::string sourceName2 = CompileToDebugName(program2, L"main", L"ps_6_5", Zi, _countof(Zi));
+  std::string sourceName2 = CompileToDebugName(program2, L"main", L"ps_6_0", Zi, _countof(Zi));
   VERIFY_IS_TRUE(0 == strcmp(sourceName2.c_str(), sourceName1.c_str()));
 
   // Source again, different because different switches are specified.
-  std::string sourceName1Zss = CompileToDebugName(program1, L"main", L"ps_6_5", ZiZss, _countof(ZiZss));
+  std::string sourceName1Zss = CompileToDebugName(program1, L"main", L"ps_6_0", ZiZss, _countof(ZiZss));
   VERIFY_IS_FALSE(0 == strcmp(sourceName1Zss.c_str(), sourceName1.c_str()));
 
   // Binary program 1 and 2 should be different from source and equal to each other.
-  std::string binName1 = CompileToDebugName(program1, L"main", L"ps_6_5", ZiZsb, _countof(ZiZsb));
-  std::string binName2 = CompileToDebugName(program2, L"main", L"ps_6_5", ZiZsb, _countof(ZiZsb));
+  std::string binName1 = CompileToDebugName(program1, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
+  std::string binName2 = CompileToDebugName(program2, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
   VERIFY_ARE_EQUAL_STR(binName1.c_str(), binName2.c_str());
   VERIFY_IS_FALSE(0 == strcmp(sourceName1Zss.c_str(), binName1.c_str()));
 
@@ -618,15 +618,15 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
     return;
 
   // Verify source hash
-  std::string binHash1Zss = CompileToShaderHash(program1, L"main", L"ps_6_5", ZiZss, _countof(ZiZss));
+  std::string binHash1Zss = CompileToShaderHash(program1, L"main", L"ps_6_0", ZiZss, _countof(ZiZss));
   VERIFY_IS_FALSE(binHash1Zss.empty());
 
   // bin hash when compiling with /Zi
-  std::string binHash1 = CompileToShaderHash(program1, L"main", L"ps_6_5", ZiZsb, _countof(ZiZsb));
+  std::string binHash1 = CompileToShaderHash(program1, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
   VERIFY_IS_FALSE(binHash1.empty());
 
   // Without /Zi hash for /Zsb should be the same
-  std::string binHash2 = CompileToShaderHash(program2, L"main", L"ps_6_5", Zsb, _countof(Zsb));
+  std::string binHash2 = CompileToShaderHash(program2, L"main", L"ps_6_0", Zsb, _countof(Zsb));
   VERIFY_IS_FALSE(binHash2.empty());
   VERIFY_ARE_EQUAL_STR(binHash1.c_str(), binHash2.c_str());
 
@@ -652,6 +652,7 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
     "}";
 
   {
+    std::string s = DisassembleProgram(program, L"VSMain", L"vs_6_0");
     // NOTE: this will change when proper packing is done, and when 'always-reads' is accurately implemented.
     const char expected_1_4[] =
       ";\n"
@@ -685,15 +686,17 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
       "; SV_Position              0   xyzw        0      POS   float   xyzw\n"  // could read SV_POSITION
       "; COLOR                    0   xyzw        1     NONE   float   xyzw\n"; // should read '1' in register
-    std::string s64 = DisassembleProgram(program, L"VSMain", L"vs_6_4");
-    std::string start64(s64.c_str(), strlen(expected_1_4));
-    VERIFY_ARE_EQUAL_STR(expected_1_4, start64.c_str());
-    std::string s65 = DisassembleProgram(program, L"VSMain", L"vs_6_5");
-    std::string start65(s65.c_str(), strlen(expected));
-    VERIFY_ARE_EQUAL_STR(expected, start65.c_str());
+    if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) < 0) {
+      std::string start(s.c_str(), strlen(expected_1_4));
+      VERIFY_ARE_EQUAL_STR(expected_1_4, start.c_str());
+    } else {
+      std::string start(s.c_str(), strlen(expected));
+      VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+    }
   }
 
   {
+    std::string s = DisassembleProgram(program, L"PSMain", L"ps_6_0");
     // NOTE: this will change when proper packing is done, and when 'always-reads' is accurately implemented.
     const char expected_1_4[] =
       ";\n"
@@ -725,14 +728,13 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       "; Name                 Index   Mask Register SysValue  Format   Used\n"
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
       "; SV_Target                0   xyzw        0   TARGET   float   xyzw\n";// could read SV_TARGET
-    
-    std::string s64 = DisassembleProgram(program, L"PSMain", L"ps_6_4");
-    std::string start64(s64.c_str(), strlen(expected_1_4));
-    VERIFY_ARE_EQUAL_STR(expected_1_4, start64.c_str());
-
-    std::string s65 = DisassembleProgram(program, L"PSMain", L"ps_6_5");
-    std::string start65(s65.c_str(), strlen(expected));
-    VERIFY_ARE_EQUAL_STR(expected, start65.c_str());
+    if (hlsl::DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 5) < 0) {
+      std::string start(s.c_str(), strlen(expected_1_4));
+      VERIFY_ARE_EQUAL_STR(expected_1_4, start.c_str());
+    } else {
+      std::string start(s.c_str(), strlen(expected));
+      VERIFY_ARE_EQUAL_STR(expected, start.c_str());
+    }
   }
 }
 

@@ -665,9 +665,15 @@ public:
           opts.KeepReflectionInDxil = true;
         }
 
-        // user-specified validator version override
-        compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
-        compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
+        if (opts.ValVerMajor != UINT_MAX) {
+          // user-specified validator version override
+          compiler.getCodeGenOpts().HLSLValidatorMajorVer = opts.ValVerMajor;
+          compiler.getCodeGenOpts().HLSLValidatorMinorVer = opts.ValVerMinor;
+        } else {
+          // Version from dxil.dll, or internal validator if unavailable
+          dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
+                                      &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
+        }
       }
 
       if (opts.AstDump) {

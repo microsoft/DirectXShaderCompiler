@@ -1693,21 +1693,17 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // Clone module for reflection, strip function defs
   std::unique_ptr<Module> reflectionModule;
   if (bEmitReflection) {
-    if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0) {
-      // Retain usage information in metadata for reflection by:
-      // Upgrade validator version, re-emit metadata, then clone module for reflection.
-      // 0,0 = Not meant to be validated, support latest
-      pModule->SetValidatorVersion(0, 0);
-      pModule->ReEmitDxilResources();
-    }
+    // Retain usage information in metadata for reflection by:
+    // Upgrade validator version, re-emit metadata, then clone module for reflection.
+    // 0,0 = Not meant to be validated, support latest
+    pModule->SetValidatorVersion(0, 0);
+    pModule->ReEmitDxilResources();
 
     reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
 
-    if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0) {
-      // Now restore validator version on main module and re-emit metadata.
-      pModule->SetValidatorVersion(ValMajor, ValMinor);
-      pModule->ReEmitDxilResources();
-    }
+    // Now restore validator version on main module and re-emit metadata.
+    pModule->SetValidatorVersion(ValMajor, ValMinor);
+    pModule->ReEmitDxilResources();
 
     for (Function &F : reflectionModule->functions()) {
       if (!F.isDeclaration()) {

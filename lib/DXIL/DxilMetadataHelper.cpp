@@ -84,6 +84,7 @@ DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper>
 , m_ValMinor(0)
 , m_MinValMajor(1)
 , m_MinValMinor(0)
+, m_bExtraMetadata(false)
 {
 }
 
@@ -96,6 +97,14 @@ void DxilMDHelper::SetShaderModel(const ShaderModel *pSM) {
   if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, m_MinValMajor, m_MinValMinor) < 0) {
     m_ValMajor = m_MinValMajor;
     m_ValMinor = m_MinValMinor;
+  }
+  // Validator version 0.0 is not meant for validation or retail driver consumption,
+  // and is used for separate reflection.
+  // MinVal version drives metadata decisions for compatilbility, so snap this to
+  // latest for reflection/no validation case.
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 0, 0) == 0) {
+    m_MinValMajor = 0;
+    m_MinValMinor = 0;
   }
   if (m_ExtraPropertyHelper) {
     m_ExtraPropertyHelper->m_ValMajor = m_ValMajor;
@@ -509,7 +518,9 @@ void DxilMDHelper::LoadSignatureElement(const MDOperand &MDO, DxilSignatureEleme
     SE.SetSemanticIndexVec({0});
   }
   // Name-value list of extended properties.
+  m_ExtraPropertyHelper->m_bExtraMetadata = false;
   m_ExtraPropertyHelper->LoadSignatureElementProperties(pTupleMD->getOperand(kDxilSignatureElementNameValueList), SE);
+  m_bExtraMetadata |= m_ExtraPropertyHelper->m_bExtraMetadata;
 }
 
 //
@@ -627,7 +638,9 @@ void DxilMDHelper::LoadDxilSRV(const MDOperand &MDO, DxilResource &SRV) {
   SRV.SetSampleCount(ConstMDToUint32(pTupleMD->getOperand(kDxilSRVSampleCount)));
 
   // Name-value list of extended properties.
+  m_ExtraPropertyHelper->m_bExtraMetadata = false;
   m_ExtraPropertyHelper->LoadSRVProperties(pTupleMD->getOperand(kDxilSRVNameValueList), SRV);
+  m_bExtraMetadata |= m_ExtraPropertyHelper->m_bExtraMetadata;
 }
 
 MDTuple *DxilMDHelper::EmitDxilUAV(const DxilResource &UAV) {
@@ -669,7 +682,9 @@ void DxilMDHelper::LoadDxilUAV(const MDOperand &MDO, DxilResource &UAV) {
   UAV.SetROV(ConstMDToBool(pTupleMD->getOperand(kDxilUAVRasterizerOrderedView)));
 
   // Name-value list of extended properties.
+  m_ExtraPropertyHelper->m_bExtraMetadata = false;
   m_ExtraPropertyHelper->LoadUAVProperties(pTupleMD->getOperand(kDxilUAVNameValueList), UAV);
+  m_bExtraMetadata |= m_ExtraPropertyHelper->m_bExtraMetadata;
 }
 
 MDTuple *DxilMDHelper::EmitDxilCBuffer(const DxilCBuffer &CB) {
@@ -704,7 +719,9 @@ void DxilMDHelper::LoadDxilCBuffer(const MDOperand &MDO, DxilCBuffer &CB) {
   CB.SetSize(ConstMDToUint32(pTupleMD->getOperand(kDxilCBufferSizeInBytes)));
 
   // Name-value list of extended properties.
+  m_ExtraPropertyHelper->m_bExtraMetadata = false;
   m_ExtraPropertyHelper->LoadCBufferProperties(pTupleMD->getOperand(kDxilCBufferNameValueList), CB);
+  m_bExtraMetadata |= m_ExtraPropertyHelper->m_bExtraMetadata;
 }
 
 void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalVariable*> &LLVMUsed) {
@@ -826,11 +843,15 @@ void DxilMDHelper::LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, Dxi
     IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
     annotation.SetIntegral((int64_t)ConstMDToUint64(pTupleMD->getOperand(kDxilTemplateArgValue)));
     break;
+  default:
+    DXASSERT(false, "Unknown template argument type tag.");
+    m_bExtraMetadata = true;
+    break;
   }
 }
 
 Metadata *DxilMDHelper::EmitDxilStructAnnotation(const DxilStructAnnotation &SA) {
-  bool bSupportExtended = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
+  bool bSupportExtended = DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 5) >= 0;
 
   vector<Metadata *> MDVals;
   MDVals.reserve(SA.GetNumFields() + 2);  // In case of extended 1.5 property list
@@ -863,20 +884,32 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   if (pTupleMD->getNumOperands() == 1) {
     SA.MarkEmptyStruct();
   }
-  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0 &&
-      (pTupleMD->getNumOperands() == SA.GetNumFields()+2)) {
+  if (pTupleMD->getNumOperands() == SA.GetNumFields()+2) {
+    DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 5) >= 0,
+      "otherwise, template annotation emitted for dxil version < 1.5");
     // Load template args from extended operand
     const MDOperand &MDOExtra = pTupleMD->getOperand(SA.GetNumFields()+1);
     const MDTuple *pTupleMDExtra = dyn_cast_or_null<MDTuple>(MDOExtra.get());
     if(pTupleMDExtra) {
-      IFTBOOL(pTupleMDExtra->getNumOperands() % 2 == 0, DXC_E_INCORRECT_DXIL_METADATA);
-      unsigned Tag = ConstMDToUint32(pTupleMDExtra->getOperand(0));
-      IFTBOOL(Tag == kDxilTemplateArgumentsTag, DXC_E_INCORRECT_DXIL_METADATA); // Only one allowed at this point
-      const MDTuple *pTupleTemplateArgs = dyn_cast_or_null<MDTuple>(pTupleMDExtra->getOperand(1).get());
-      IFTBOOL(pTupleTemplateArgs, DXC_E_INCORRECT_DXIL_METADATA);
-      SA.SetNumTemplateArgs(pTupleTemplateArgs->getNumOperands());
-      for (unsigned i = 0; i < pTupleTemplateArgs->getNumOperands(); ++i) {
-        LoadDxilTemplateArgAnnotation(pTupleTemplateArgs->getOperand(i), SA.GetTemplateArgAnnotation(i));
+      for (unsigned i = 0; i < pTupleMDExtra->getNumOperands(); i += 2) {
+        unsigned Tag = ConstMDToUint32(pTupleMDExtra->getOperand(i));
+        const MDOperand &MDO = pTupleMDExtra->getOperand(i + 1);
+        IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+        switch (Tag) {
+        case kDxilTemplateArgumentsTag: {
+          const MDTuple *pTupleTemplateArgs = dyn_cast_or_null<MDTuple>(pTupleMDExtra->getOperand(1).get());
+          IFTBOOL(pTupleTemplateArgs, DXC_E_INCORRECT_DXIL_METADATA);
+          SA.SetNumTemplateArgs(pTupleTemplateArgs->getNumOperands());
+          for (unsigned i = 0; i < pTupleTemplateArgs->getNumOperands(); ++i) {
+            LoadDxilTemplateArgAnnotation(pTupleTemplateArgs->getOperand(i), SA.GetTemplateArgAnnotation(i));
+          }
+        } break;
+        default:
+          DXASSERT(false, "unknown extended tag for struct annotation.");
+          m_bExtraMetadata = true;
+          break;
+        }
       }
     }
   } else {
@@ -989,7 +1022,7 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD((unsigned)FA.GetCompType().GetKind()));
   }
   if (FA.IsCBVarUsed() &&
-      DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 5) >= 0) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationCBUsedTag));
     MDVals.emplace_back(BoolToConstMD(true));
   }
@@ -1041,12 +1074,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       FA.SetCBVarUsed(ConstMDToBool(MDO));
       break;
     default:
-      // TODO:  I don't think we should be failing unrecognized extended tags.
-      //        Perhaps we can flag this case in the module and fail validation
-      //        if flagged.
-      //        That way, an existing loader will not fail on an additional tag
-      //        and the blob would not be signed if the extra tag was not legal.
-      IFTBOOL(false, DXC_E_INCORRECT_DXIL_METADATA);
+      DXASSERT(false, "Unknown extended shader properties tag");
+      m_bExtraMetadata = true;
+      break;
     }
   }
 }
@@ -1393,6 +1423,7 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     } break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
+      m_bExtraMetadata = true;
       break;
     }
   }
@@ -1666,6 +1697,7 @@ Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
   }
   default:
     DXASSERT(false, "otherwise, we didn't handle a valid subobject kind");
+    m_bExtraMetadata = true;
     break;
   }
   return MDNode::get(m_Ctx, Args);
@@ -1745,6 +1777,7 @@ void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobje
   }
   default:
     DXASSERT(false, "otherwise, we didn't handle a valid subobject kind");
+    m_bExtraMetadata = true;
     break;
   }
 }
@@ -1780,7 +1813,9 @@ void DxilMDHelper::LoadDxilSampler(const MDOperand &MDO, DxilSampler &S) {
   S.SetSamplerKind((DxilSampler::SamplerKind)ConstMDToUint32(pTupleMD->getOperand(kDxilSamplerType)));
 
   // Name-value list of extended properties.
+  m_ExtraPropertyHelper->m_bExtraMetadata = false;
   m_ExtraPropertyHelper->LoadSamplerProperties(pTupleMD->getOperand(kDxilSamplerNameValueList), S);
+  m_bExtraMetadata |= m_ExtraPropertyHelper->m_bExtraMetadata;
 }
 
 const MDOperand &DxilMDHelper::GetResourceClass(llvm::MDNode *MD,
@@ -2026,7 +2061,8 @@ void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads, u
 //
 DxilMDHelper::ExtraPropertyHelper::ExtraPropertyHelper(Module *pModule)
 : m_Ctx(pModule->getContext())
-, m_pModule(pModule) {
+, m_pModule(pModule)
+, m_bExtraMetadata(false) {
 }
 
 DxilExtraPropertyHelper::DxilExtraPropertyHelper(Module *pModule)
@@ -2073,6 +2109,8 @@ void DxilExtraPropertyHelper::LoadSRVProperties(const MDOperand &MDO, DxilResour
       break;
     default:
       DXASSERT(false, "Unknown resource record tag");
+      m_bExtraMetadata = true;
+      break;
     }
   }
 }
@@ -2126,6 +2164,8 @@ void DxilExtraPropertyHelper::LoadUAVProperties(const MDOperand &MDO, DxilResour
       break;
     default:
       DXASSERT(false, "Unknown resource record tag");
+      m_bExtraMetadata = true;
+      break;
     }
   }
 }
@@ -2160,6 +2200,8 @@ void DxilExtraPropertyHelper::LoadCBufferProperties(const MDOperand &MDO, DxilCB
       break;
     default:
       DXASSERT(false, "Unknown cbuffer tag");
+      m_bExtraMetadata = true;
+      break;
     }
   }
 }
@@ -2188,6 +2230,8 @@ void DxilExtraPropertyHelper::EmitSignatureElementProperties(const DxilSignature
 
   if (SE.GetUsageMask() != 0 &&
       DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0) {
+    // Emitting this will not hurt old reatil loader (only asserts),
+    // and is required for signatures to match in validation.
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementUsageCompMaskTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetUsageMask(), m_Ctx));
   }
@@ -2220,6 +2264,8 @@ void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MD
       break;
     default:
       DXASSERT(false, "Unknown signature element tag");
+      m_bExtraMetadata = true;
+      break;
     }
   }
 }
