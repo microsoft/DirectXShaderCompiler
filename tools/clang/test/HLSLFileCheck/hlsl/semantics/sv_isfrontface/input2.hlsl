@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s -validator-version 1.5 | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: @main
 float4 main(

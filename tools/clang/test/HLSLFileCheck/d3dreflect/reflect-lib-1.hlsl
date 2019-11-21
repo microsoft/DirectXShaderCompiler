@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external -validator-version 1.5 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 float cbval1;
 cbuffer MyCB : register(b11, space2) { int4 cbval2, cbval3; }

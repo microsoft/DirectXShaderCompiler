@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T cs_6_0 -not_use_legacy_cbuf_load -validator-version 1.1  %s | FileCheck %s
+// RUN: %dxilver 1.1 | %dxc -E main -T cs_6_0 -not_use_legacy_cbuf_load  %s | FileCheck %s
 
 // CHECK: 64-Bit integer
 // CHECK: dx.op.bufferStore.i32
