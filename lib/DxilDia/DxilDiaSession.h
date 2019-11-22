@@ -20,6 +20,7 @@
 
 #include "dia2.h"
 
+#include "dxc/dxcpix.h"
 #include "dxc/DXIL/DxilModule.h"
 
 #include "dxc/Support/Global.h"
@@ -29,7 +30,7 @@
 #include "DxilDiaSymbolManager.h"
 
 namespace dxil_dia {
-class Session : public IDiaSession {
+class Session : public IDiaSession, public IDxcPixDxilDebugInfoFactory {
 public:
   using RVA = unsigned;
   using RVAMap = std::map<RVA, const llvm::Instruction *>;
@@ -71,7 +72,7 @@ public:
   HRESULT getSourceFileIdByName(llvm::StringRef fileName, DWORD *pRetVal);
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDiaSession>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDiaSession, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
   }
 
   STDMETHODIMP get_loadAddress(
@@ -374,6 +375,9 @@ public:
   STDMETHODIMP findInputAssemblyFile(
     /* [in] */ IDiaSymbol *pSymbol,
     /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
+
+  STDMETHODIMP NewDxcPixDxilDebugInfo(
+      _COM_Outptr_ IDxcPixDxilDebugInfo** ppDxilDebugInfo) override;
 
 private:
   DXC_MICROCOM_TM_REF_FIELDS()

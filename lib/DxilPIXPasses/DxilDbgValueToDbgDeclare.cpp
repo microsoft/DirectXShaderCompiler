@@ -557,13 +557,12 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
       return;
   }
 
-  auto* Loc = GetVariableLocation();
   const OffsetInBits AlignedOffset = m_Offsets.Add(Ty);
 
   llvm::Type *AllocaTy = llvm::ArrayType::get(AllocaElementTy, 1);
   llvm::AllocaInst *&Alloca = m_AlignedOffsetToAlloca[AlignedOffset];
   Alloca = m_B.CreateAlloca(AllocaTy, m_B.getInt32(0));
-  Alloca->setDebugLoc(Loc);
+  Alloca->setDebugLoc(llvm::DebugLoc());
 
   auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
   auto *Variable = GetMetadataAsValue(m_Variable);
@@ -571,7 +570,7 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
   auto *DbgDeclare = m_B.CreateCall(
       m_DbgDeclareFn,
       {Storage, Variable, Expression});
-  DbgDeclare->setDebugLoc(Loc);
+  DbgDeclare->setDebugLoc(GetVariableLocation());
 }
 
 static unsigned NumArrayElements(
