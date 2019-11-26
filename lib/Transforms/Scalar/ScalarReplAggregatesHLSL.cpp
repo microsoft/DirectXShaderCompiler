@@ -6247,7 +6247,7 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   Name += DGV->getName();
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
-  DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_variable, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+  DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_auto_variable, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
   DIB.insertDeclare(AI, ConvertedLocalVar, DIB.createExpression(ArrayRef<int64_t>()), Loc, AI->getNextNode());
 }
 
