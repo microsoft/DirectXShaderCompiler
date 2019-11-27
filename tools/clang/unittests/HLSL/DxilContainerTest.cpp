@@ -1373,10 +1373,43 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
     L"-Qstrip_reflect_from_dxil",
     L"-Qstrip_reflect"
   };
+  const UINT32 kStripFromDxilOnly = 1;  // just strip reflection from DXIL, not container
+  const UINT32 kStripFromContainer = 2; // strip reflection from DXIL and container
+
+  auto VerifyStripReflection = [&](IDxcBlob *pBlob, bool bShouldSucceed) {
+    CComPtr<IDxcContainerReflection> pReflection;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+    VERIFY_SUCCEEDED(pReflection->Load(pBlob));
+    UINT32 idxPart = (UINT32)-1;
+    if (bShouldSucceed)
+      VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &idxPart));
+    else
+      VERIFY_FAILED(pReflection->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &idxPart));
+    CComPtr<IDxcContainerBuilder> pBuilder;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+    VERIFY_SUCCEEDED(pBuilder->Load(pBlob));
+    if (bShouldSucceed) {
+      VERIFY_SUCCEEDED(pBuilder->RemovePart(DXC_PART_REFLECTION_DATA));
+      CComPtr<IDxcOperationResult> pResult;
+      VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+      HRESULT hr = E_FAIL;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+      VERIFY_SUCCEEDED(hr);
+      CComPtr<IDxcBlob> pStrippedBlob;
+      pResult->GetResult(&pStrippedBlob);
+      CComPtr<IDxcContainerReflection> pReflection2;
+      VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection2));
+      VERIFY_SUCCEEDED(pReflection2->Load(pStrippedBlob));
+      idxPart = (UINT32)-1;
+      VERIFY_FAILED(pReflection2->FindFirstPartKind(DXC_PART_REFLECTION_DATA, &idxPart));
+    } else {
+      VERIFY_FAILED(pBuilder->RemovePart(DXC_PART_REFLECTION_DATA));
+    }
+  };
 
   {
     // Test Shader path
-    auto VerifyCreateReflectionShader = [&](IDxcBlob *pBlob)
+    auto VerifyCreateReflectionShader = [&](IDxcBlob *pBlob, bool bValid)
     {
       DxcBuffer buffer = { pBlob->GetBufferPointer(), pBlob->GetBufferSize(), 0 };
       CComPtr<ID3D12ShaderReflection> pShaderReflection;
@@ -1384,16 +1417,18 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       D3D12_SHADER_DESC desc;
       VERIFY_SUCCEEDED(pShaderReflection->GetDesc(&desc));
       VERIFY_ARE_EQUAL(desc.Version, EncodedVersion_vs_6_3);
-      VERIFY_ARE_EQUAL(desc.ConstantBuffers, 2);
-      VERIFY_ARE_EQUAL(desc.BoundResources, 2);
-      // That should be good enough to check that IDxcUtils::CreateReflection worked
+      if (bValid) {
+        VERIFY_ARE_EQUAL(desc.ConstantBuffers, 2);
+        VERIFY_ARE_EQUAL(desc.BoundResources, 2);
+        // That should be good enough to check that IDxcUtils::CreateReflection worked
+      }
     };
 
     {
       // Test Full container path
       CComPtr<IDxcOperationResult> pResult;
       VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"function2",
-        L"vs_6_3", options, 1, // just strip reflection from DXIL, not container
+        L"vs_6_3", options, kStripFromDxilOnly,
         nullptr, 0, nullptr, &pResult));
       HRESULT hr;
       VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
@@ -1401,14 +1436,17 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
 
       CComPtr<IDxcBlob> pProgram;
       VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-      VerifyCreateReflectionShader(pProgram);
+      VerifyCreateReflectionShader(pProgram, true);
+
+      // Verify reflection stripping
+      VerifyStripReflection(pProgram, true);
     }
 
     {
       // From New IDxcResult API
       CComPtr<IDxcOperationResult> pResult;
       VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"function2",
-        L"vs_6_3", options, 2, // strip reflection from DXIL and container
+        L"vs_6_3", options, kStripFromContainer,
         nullptr, 0, nullptr, &pResult));
       HRESULT hr;
       VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
@@ -1419,28 +1457,36 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       CComPtr<IDxcBlob> pReflectionPart;
       VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
       VERIFY_SUCCEEDED(pResultV2->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
-      VerifyCreateReflectionShader(pReflectionPart);
+      VerifyCreateReflectionShader(pReflectionPart, true);
+
+      // Container should have limited reflection, and no reflection part
+      CComPtr<IDxcBlob> pProgram;
+      VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+      VerifyCreateReflectionShader(pProgram, false);
+      VerifyStripReflection(pProgram, false);
     }
   }
 
   {
     // Test Library path
-    auto VerifyCreateReflectionLibrary = [&](IDxcBlob *pBlob)
+    auto VerifyCreateReflectionLibrary = [&](IDxcBlob *pBlob, bool bValid)
     {
       DxcBuffer buffer = { pBlob->GetBufferPointer(), pBlob->GetBufferSize(), 0 };
       CComPtr<ID3D12LibraryReflection> pLibraryReflection;
       VERIFY_SUCCEEDED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pLibraryReflection)));
       D3D12_LIBRARY_DESC desc;
       VERIFY_SUCCEEDED(pLibraryReflection->GetDesc(&desc));
-      VERIFY_ARE_EQUAL(desc.FunctionCount, 3);
+      if (bValid) {
+        VERIFY_ARE_EQUAL(desc.FunctionCount, 3);
       // That should be good enough to check that IDxcUtils::CreateReflection worked
+      }
     };
 
     {
       // Test Full container path
       CComPtr<IDxcOperationResult> pResult;
       VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
-        L"lib_6_3", options, 1, // just strip reflection from DXIL, not container
+        L"lib_6_3", options, kStripFromDxilOnly,
         nullptr, 0, nullptr, &pResult));
       HRESULT hr;
       VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
@@ -1448,14 +1494,17 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
 
       CComPtr<IDxcBlob> pProgram;
       VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-      VerifyCreateReflectionLibrary(pProgram);
+      VerifyCreateReflectionLibrary(pProgram, true);
+
+      // Verify reflection stripping
+      VerifyStripReflection(pProgram, true);
     }
 
     {
       // From New IDxcResult API
       CComPtr<IDxcOperationResult> pResult;
       VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
-        L"lib_6_3", options, 2, // strip reflection from DXIL and container
+        L"lib_6_3", options, kStripFromContainer,
         nullptr, 0, nullptr, &pResult));
       HRESULT hr;
       VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
@@ -1467,7 +1516,13 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
       VERIFY_SUCCEEDED(pResultV2->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
       // Test Reflection part path
-      VerifyCreateReflectionLibrary(pReflectionPart);
+      VerifyCreateReflectionLibrary(pReflectionPart, true);
+
+      // Container should have limited reflection, and no reflection part
+      CComPtr<IDxcBlob> pProgram;
+      VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+      VerifyCreateReflectionLibrary(pProgram, false);
+      VerifyStripReflection(pProgram, false);
     }
   }
 }
