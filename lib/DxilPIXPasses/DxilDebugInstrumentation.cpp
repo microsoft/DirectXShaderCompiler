@@ -972,8 +972,9 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
       }
     }
 
+    int NewBlockCounter = 0;
     for (auto &InsertableEdge : InsertableEdges) {
-      auto *NewBlock = BasicBlock::Create(Ctx, "PIXDebug",
+      auto *NewBlock = BasicBlock::Create(Ctx, "PIXDebug" + std::to_string(NewBlockCounter++),
                                           InsertableEdge.first->getParent());
       IRBuilder<> Builder(NewBlock);
 
@@ -1014,8 +1015,6 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
       // Add a branch to the new block to point to the current block
       Builder.CreateBr(&CurrentBlock);
-
-      //CurrentBlock.removePredecessor(PreviousBlock);
     }
   }
 
