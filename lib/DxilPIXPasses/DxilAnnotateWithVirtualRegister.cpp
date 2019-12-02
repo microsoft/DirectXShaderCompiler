@@ -20,10 +20,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/Type.h"
@@ -46,7 +46,8 @@ public:
 private:
   void AnnotateValues(llvm::Instruction *pI);
   void AnnotateStore(llvm::Instruction *pI);
-  bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI, llvm::Value **pIdx);
+  bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
+                             llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
@@ -54,7 +55,7 @@ private:
 
   hlsl::DxilModule *m_DM;
   std::uint32_t m_uVReg;
-  std::unique_ptr < llvm::ModuleSlotTracker > m_MST;
+  std::unique_ptr<llvm::ModuleSlotTracker> m_MST;
   void Init(llvm::Module &M) {
     m_DM = &M.GetOrCreateDxilModule();
     m_uVReg = 0;
@@ -132,7 +133,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(llvm::Instruction *pI) {
   PixAllocaRegWrite::AddMD(m_DM->GetCtx(), pSt, AllocaReg, Index);
 }
 
-bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI, llvm::Value **pIdx) {
+bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
+    llvm::Value *V, llvm::AllocaInst **pAI, llvm::Value **pIdx) {
   llvm::IRBuilder<> B(m_DM->GetCtx());
 
   *pAI = nullptr;
@@ -144,7 +146,8 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(llvm::Value *V, llvm
       return false;
     }
 
-    llvm::SmallVector<llvm::Value *, 2> Indices(pGEP->idx_begin(), pGEP->idx_end());
+    llvm::SmallVector<llvm::Value *, 2> Indices(pGEP->idx_begin(),
+                                                pGEP->idx_end());
     if (Indices.size() != 2) {
       return false;
     }
@@ -153,7 +156,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(llvm::Value *V, llvm
     if (pIdx0 == nullptr || pIdx0->getLimitedValue() != 0) {
       return false;
     }
-    
+
     *pAI = Alloca;
     *pIdx = Indices[1];
     return true;
@@ -173,12 +176,11 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(llvm::Value *V, llvm
   return false;
 }
 
-void DxilAnnotateWithVirtualRegister::AnnotateAlloca(llvm::AllocaInst *pAlloca) {
+void DxilAnnotateWithVirtualRegister::AnnotateAlloca(
+    llvm::AllocaInst *pAlloca) {
   llvm::Type *pAllocaTy = pAlloca->getType()->getElementType();
-  if (pAllocaTy->isFloatTy() ||
-      pAllocaTy->isIntegerTy() ||
-      pAllocaTy->isHalfTy() ||
-      pAllocaTy->isIntegerTy(16)) {
+  if (pAllocaTy->isFloatTy() || pAllocaTy->isIntegerTy() ||
+      pAllocaTy->isHalfTy() || pAllocaTy->isIntegerTy(16)) {
     AssignNewAllocaRegister(pAlloca, 1);
   } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, AT->getNumElements());
@@ -194,7 +196,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
   AssignNewDxilRegister(pI);
 }
 
-void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(llvm::Instruction *pI) {
+void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(
+    llvm::Instruction *pI) {
   PixDxilReg::AddMD(m_DM->GetCtx(), pI, m_uVReg);
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
@@ -204,7 +207,8 @@ void DxilAnnotateWithVirtualRegister::AssignNewDxilRegister(llvm::Instruction *p
   m_uVReg++;
 }
 
-void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *pAlloca, std::uint32_t C) {
+void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
+    llvm::AllocaInst *pAlloca, std::uint32_t C) {
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
   if (OSOverride != nullptr) {
     static constexpr bool DontPrintType = false;
@@ -213,11 +217,14 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(llvm::AllocaInst *
   }
   m_uVReg += C;
 }
-}
+} // namespace
 
 using namespace llvm;
 
-INITIALIZE_PASS(DxilAnnotateWithVirtualRegister, DEBUG_TYPE, "Annotates each instruction in the DXIL module with a virtual register number", false, false)
+INITIALIZE_PASS(DxilAnnotateWithVirtualRegister, DEBUG_TYPE,
+                "Annotates each instruction in the DXIL module with a virtual "
+                "register number",
+                false, false)
 
 ModulePass *llvm::createDxilAnnotateWithVirtualRegisterPass() {
   return new DxilAnnotateWithVirtualRegister();
