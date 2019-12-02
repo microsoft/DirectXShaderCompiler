@@ -2,9 +2,16 @@
 
 // Check that flow control constructs don't break the instrumentation.
 
-// check instrumentation for one branch. 
+// CHECK:  %UAVIncResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0, i32 0, i32 undef, i32 undef, i32 %IncrementForThisInvocation1)
 
-// CHECK:  %UAVIncResult2
+// CHECK:  %MaskedForUAVLimit3 = and i32 %UAVIncResult2, 983039
+
+// CHECK:  %MultipliedForInterest4 = mul i32 %MaskedForUAVLimit3, %OffsetMultiplicand
+
+// CHECK:  %AddedForInterest5 = add i32 %MultipliedForInterest4, %OffsetAddend
+
+// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5, i32 undef
+
 
 struct VS_OUTPUT_ENV {
   float4 Pos : SV_Position;
