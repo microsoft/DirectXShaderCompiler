@@ -105,7 +105,7 @@ typedef struct DxcShaderHash {
 #define DXC_PART_PRIVATE_DATA             DXC_FOURCC('P', 'R', 'I', 'V')
 #define DXC_PART_ROOT_SIGNATURE           DXC_FOURCC('R', 'T', 'S', '0')
 #define DXC_PART_DXIL                     DXC_FOURCC('D', 'X', 'I', 'L')
-#define DXC_PART_REFLECTION_DATA          DXC_FOURCC('R', 'D', 'A', 'T')
+#define DXC_PART_REFLECTION_DATA          DXC_FOURCC('S', 'T', 'A', 'T')
 #define DXC_PART_SHADER_HASH              DXC_FOURCC('H', 'A', 'S', 'H')
 #define DXC_PART_INPUT_SIGNATURE          DXC_FOURCC('I', 'S', 'G', '1')
 #define DXC_PART_OUTPUT_SIGNATURE         DXC_FOURCC('O', 'S', 'G', '1')

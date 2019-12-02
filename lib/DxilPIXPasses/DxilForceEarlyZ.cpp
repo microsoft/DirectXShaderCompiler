@@ -9,9 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;
@@ -26,9 +26,7 @@ public:
   bool runOnModule(Module &M) override;
 };
 
-
-bool DxilForceEarlyZ::runOnModule(Module &M)
-{
+bool DxilForceEarlyZ::runOnModule(Module &M) {
   // This pass adds the force-early-z flag
 
   DxilModule &DM = M.GetOrCreateDxilModule();
@@ -42,8 +40,9 @@ bool DxilForceEarlyZ::runOnModule(Module &M)
 
 char DxilForceEarlyZ::ID = 0;
 
-ModulePass *llvm::createDxilForceEarlyZPass() {
-  return new DxilForceEarlyZ();
-}
+ModulePass *llvm::createDxilForceEarlyZPass() { return new DxilForceEarlyZ(); }
 
-INITIALIZE_PASS(DxilForceEarlyZ, "hlsl-dxil-force-early-z", "HLSL DXIL Force the early Z global flag, if shader has no discard calls", false, false)
+INITIALIZE_PASS(
+    DxilForceEarlyZ, "hlsl-dxil-force-early-z",
+    "HLSL DXIL Force the early Z global flag, if shader has no discard calls",
+    false, false)
