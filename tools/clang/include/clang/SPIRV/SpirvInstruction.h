@@ -47,9 +47,7 @@ public:
     IK_ExecutionMode,   // OpExecutionMode
     IK_String,          // OpString (debug)
     IK_Source,          // OpSource (debug)
-    IK_Name,            // Op*Name (debug)
     IK_ModuleProcessed, // OpModuleProcessed (debug)
-    IK_LineInfo,        // OpLine (debug)
     IK_Decoration,      // Op*Decorate
     IK_Type,            // OpType*
     IK_Variable,        // OpVariable
