@@ -3,8 +3,8 @@
 // Make sure alignment is 4.
 // CHECK:@{{.*}} = addrspace(3) global [8 x float] undef, align 4
 // CHECK:store float {{.*}}, float addrspace(3)* {{.*}}, align 4
-// CHECK:load float, float addrspace(3)* {{.*}}, align 4
 // CHECK:store float {{.*}}, float addrspace(3)* {{.*}}, align 4
+// CHECK:load float, float addrspace(3)* {{.*}}, align 4
 // CHECK:load float, float addrspace(3)* {{.*}}, align 4
 
 struct S {
