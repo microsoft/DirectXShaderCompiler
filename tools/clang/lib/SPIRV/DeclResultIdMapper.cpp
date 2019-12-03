@@ -756,7 +756,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
     // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if(forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
+    if (forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -981,7 +981,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
     // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if(decl->hasAttr<HLSLGroupSharedAttr>())
+    if (decl->hasAttr<HLSLGroupSharedAttr>())
       continue;
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
@@ -1611,12 +1611,10 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
     for (uint32_t i = 0; i < numBindingsToUse; ++i) {
       bool success = bindingSet.useBinding(bindingNo + i, setNo);
-      if (!success && spirvOptions.flattenResourceArrays) {
-        emitError("ran into binding number conflict when assigning binding "
-                  "number %0 in set %1",
-                  {})
-            << bindingNo << setNo;
-      }
+      // We will not emit an error if we find a set/binding overlap because it
+      // is possible that the optimizer optimizes away a resource which resolves
+      // the overlap.
+      (void)success;
     }
 
     // No need to decorate multiple binding numbers for arrays. It will be done
