@@ -583,6 +583,11 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
+
+  if (spirvOptions.debugInfoRich) {
+    debugInfo.debugScopeStack.push_back(debugInfo.debugCompilationUnit);
+  }
+
   uint32_t numEntryPoints = 0;
 
   // The entry function is the seed of the queue.

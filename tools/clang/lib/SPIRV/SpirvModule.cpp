@@ -240,6 +240,11 @@ void SpirvModule::addDebugSource(SpirvSource *src) {
   debugSources.push_back(src);
 }
 
+void SpirvModule::addDebugInfo(SpirvDebugInstruction *info) {
+  assert(info);
+  debugInfo.push_back(info);
+}
+
 void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {
   assert(p);
   moduleProcesses.push_back(p);

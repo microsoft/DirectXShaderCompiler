@@ -770,18 +770,16 @@ SpirvBuilder::createRayTracingOpsNV(spv::Op opcode, QualType resultType,
 
 SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
                                                   llvm::StringRef text) {
-  assert(insertPoint && "null insert point");
   auto *inst = new (context) SpirvDebugSource(astContext.VoidTy, file, text);
-  insertPoint->addInstruction(inst);
+  module->addDebugInfo(inst);
   return inst;
 }
 
 SpirvDebugCompilationUnit *
 SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
-  assert(insertPoint && "null insert point");
   auto *inst = new (context) SpirvDebugCompilationUnit(
       astContext.VoidTy, /*version*/ 1, /*DWARF version*/ 4, source);
-  insertPoint->addInstruction(inst);
+  module->addDebugInfo(inst);
   return inst;
 }
 

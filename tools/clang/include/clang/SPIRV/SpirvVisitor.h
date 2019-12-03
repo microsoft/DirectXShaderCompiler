@@ -115,6 +115,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvRayTracingOpNV)
   DEFINE_VISIT_METHOD(SpirvDebugSource)
   DEFINE_VISIT_METHOD(SpirvDebugCompilationUnit)
+  DEFINE_VISIT_METHOD(SpirvDebugFunction)
 
 #undef DEFINE_VISIT_METHOD
 

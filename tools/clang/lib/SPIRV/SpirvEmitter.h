@@ -44,8 +44,13 @@ public:
       : debugSource(nullptr), debugCompilationUnit(nullptr), debugScopeStack() {
   }
 
+  // The HLL source code
   SpirvDebugSource *debugSource;
+
+  // The compilation unit (topmost debug info node)
   SpirvDebugCompilationUnit *debugCompilationUnit;
+
+  // Stack of lexical scopes
   std::vector<SpirvInstruction *> debugScopeStack;
 };
 

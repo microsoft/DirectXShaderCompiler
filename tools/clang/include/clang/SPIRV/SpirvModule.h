@@ -126,6 +126,9 @@ public:
   // Adds the debug source to the module.
   void addDebugSource(SpirvSource *);
 
+  // Adds the given debug info instruction to the module.
+  void addDebugInfo(SpirvDebugInstruction *);
+
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
@@ -164,6 +167,13 @@ private:
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
   std::vector<SpirvFunction *> functions;
+
+  // DebugScope, DebugNoScope, DebugDeclare, DebugValue instructions can
+  // interleave with instructions within a function body. All other debugging
+  // instructions should be located between section 9 and section 10.
+  // This vector contains all of these instructions which fall between section 9
+  // and section 10.
+  std::vector<SpirvDebugInstruction *> debugInfo;
 };
 
 } // end namespace spirv

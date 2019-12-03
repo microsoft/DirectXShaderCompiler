@@ -28,6 +28,7 @@ class IntegerType;
 class SpirvBasicBlock;
 class SpirvFunction;
 class SpirvType;
+class SpirvDebugType;
 class SpirvVariable;
 class SpirvString;
 class Visitor;
@@ -119,6 +120,7 @@ public:
     // For DebugInfo instructions defined in OpenCL.DebugInfo.100
     IK_DebugCompilationUnit,
     IK_DebugSource,
+    IK_DebugFunction,
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1756,16 +1758,20 @@ class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() >= IK_DebugCompilationUnit &&
-           inst->getKind() <= IK_DebugSource;
+           inst->getKind() <= IK_DebugFunction;
   }
 
 protected:
-  // TODO: Replace opcode type with an enum, when it is available in SPIRV-Headers.
+  // TODO: Replace opcode type with an enum, when it is available in
+  // SPIRV-Headers.
   SpirvDebugInstruction(Kind kind, uint32_t opcode, QualType resultType);
 
 private:
   // TODO: Replace this with an enum, when it is available in SPIRV-Headers.
   uint32_t debugOpcode;
+  // TODO: Define entire set of classes for debug types (similar to SpirvType).
+  // The debug type is always set to nullptr for now.
+  SpirvDebugType *debugType;
 };
 
 class SpirvDebugSource : public SpirvDebugInstruction {
@@ -1800,6 +1806,37 @@ private:
   uint32_t dwarfVersion;
   SpirvDebugSource *source;
   spv::SourceLanguage lang;
+};
+
+class SpirvDebugFunction : public SpirvDebugInstruction {
+public:
+  SpirvDebugFunction(QualType resultType, SpirvDebugSource *src,
+                     uint32_t fnLine, uint32_t fnColumn,
+                     SpirvDebugInstruction *parentScope,
+                     llvm::StringRef linkageName, uint32_t flags,
+                     uint32_t scopeLine, SpirvFunction *fn);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugFunction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  SpirvDebugSource *source;
+  // Source line number at which the function appears
+  uint32_t fnLine;
+  // Source column number at which the function appears
+  uint32_t fnColumn;
+  // Debug instruction which represents the parent lexical scope
+  SpirvDebugInstruction *parentScope;
+  std::string linkageName;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+  // Line number in the source program at which the function scope begins
+  uint32_t scopeLine;
+  // The function to which this debug instruction belongs
+  SpirvFunction *fn;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

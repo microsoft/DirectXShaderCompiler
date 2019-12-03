@@ -83,6 +83,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -765,7 +766,7 @@ SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode,
                                              QualType resultType)
     : SpirvInstruction(kind, spv::Op::OpExtInst, resultType,
                        /*SourceLocation*/ {}),
-      debugOpcode(opcode) {}
+      debugOpcode(opcode), debugType(nullptr) {}
 
 SpirvDebugSource::SpirvDebugSource(QualType resultType, llvm::StringRef f,
                                    llvm::StringRef t)
@@ -779,6 +780,16 @@ SpirvDebugCompilationUnit::SpirvDebugCompilationUnit(QualType resultType,
     : SpirvDebugInstruction(IK_DebugCompilationUnit, /*opcode*/ 1u, resultType),
       spirvVersion(spvVer), dwarfVersion(dwarfVer), source(src),
       lang(spv::SourceLanguage::HLSL) {}
+
+SpirvDebugFunction::SpirvDebugFunction(QualType resultType,
+                                       SpirvDebugSource *src, uint32_t fline,
+                                       uint32_t fcol,
+                                       SpirvDebugInstruction *parent,
+                                       llvm::StringRef linkName, uint32_t flags,
+                                       uint32_t bodyLine, SpirvFunction *func)
+    : SpirvDebugInstruction(IK_DebugFunction, /*opcode*/ 20u, resultType),
+      source(src), fnLine(fline), fnColumn(fcol), parentScope(parent),
+      linkageName(linkName), scopeLine(bodyLine), fn(func) {}
 
 } // namespace spirv
 } // namespace clang
