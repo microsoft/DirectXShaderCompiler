@@ -66,7 +66,9 @@ protected:
 AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
   IRBuilder<> AllocaBuilder(A);
   Type *NewTy = lowerType(A->getAllocatedType());
-  return AllocaBuilder.CreateAlloca(NewTy);
+  AllocaInst *NewA = AllocaBuilder.CreateAlloca(NewTy);
+  NewA->setAlignment(A->getAlignment());
+  return NewA;
 }
 
 GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
@@ -92,6 +94,7 @@ GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
       *M, NewTy, /*IsConstant*/ isConst, linkage,
       /*InitVal*/ InitVal, GV->getName() + getGlobalPrefix(),
       /*InsertBefore*/ nullptr, TLMode, AddressSpace);
+  NewGV->setAlignment(GV->getAlignment());
   return NewGV;
 }
 
@@ -342,10 +345,12 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
       // If ld whole struct, need to split the load.
       Value *newLd = UndefValue::get(ldInst->getType());
       Value *zero = Builder.getInt32(0);
+      unsigned align = ldInst->getAlignment();
       for (unsigned i = 0; i < size; i++) {
         Value *idx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-        Value *Elt = Builder.CreateLoad(GEP);
+        LoadInst *Elt = Builder.CreateLoad(GEP);
+        Elt->setAlignment(align);
         newLd = Builder.CreateInsertElement(newLd, Elt, i);
       }
       ldInst->replaceAllUsesWith(newLd);
@@ -353,11 +358,13 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(User)) {
       Value *val = stInst->getValueOperand();
       Value *zero = Builder.getInt32(0);
+      unsigned align = stInst->getAlignment();
       for (unsigned i = 0; i < size; i++) {
         Value *Elt = Builder.CreateExtractElement(val, i);
         Value *idx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-        Builder.CreateStore(Elt, GEP);
+        StoreInst *EltSt = Builder.CreateStore(Elt, GEP);
+        EltSt->setAlignment(align);
       }
       stInst->eraseFromParent();
     } else {
