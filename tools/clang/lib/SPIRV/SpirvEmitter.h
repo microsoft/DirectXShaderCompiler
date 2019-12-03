@@ -38,6 +38,17 @@
 namespace clang {
 namespace spirv {
 
+class RichDebugInfo {
+public:
+  RichDebugInfo()
+      : debugSource(nullptr), debugCompilationUnit(nullptr), debugScopeStack() {
+  }
+
+  SpirvDebugSource *debugSource;
+  SpirvDebugCompilationUnit *debugCompilationUnit;
+  std::vector<SpirvInstruction *> debugScopeStack;
+};
+
 /// SPIR-V emitter class. It consumes the HLSL AST and emits SPIR-V words.
 ///
 /// This class only overrides the HandleTranslationUnit() method; Traversing
@@ -1156,6 +1167,8 @@ private:
 
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
+
+  RichDebugInfo debugInfo;
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {

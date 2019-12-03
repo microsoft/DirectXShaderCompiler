@@ -81,6 +81,8 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -758,5 +760,25 @@ SpirvRayTracingOpNV::SpirvRayTracingOpNV(
     llvm::ArrayRef<SpirvInstruction *> vecOperands, SourceLocation loc)
     : SpirvInstruction(IK_RayTracingOpNV, opcode, resultType, loc),
       operands(vecOperands.begin(), vecOperands.end()) {}
+
+SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode,
+                                             QualType resultType)
+    : SpirvInstruction(kind, spv::Op::OpExtInst, resultType,
+                       /*SourceLocation*/ {}),
+      debugOpcode(opcode) {}
+
+SpirvDebugSource::SpirvDebugSource(QualType resultType, llvm::StringRef f,
+                                   llvm::StringRef t)
+    : SpirvDebugInstruction(IK_DebugSource, /*opcode*/ 35u, resultType),
+      file(f), text(t) {}
+
+SpirvDebugCompilationUnit::SpirvDebugCompilationUnit(QualType resultType,
+                                                     uint32_t spvVer,
+                                                     uint32_t dwarfVer,
+                                                     SpirvDebugSource *src)
+    : SpirvDebugInstruction(IK_DebugCompilationUnit, /*opcode*/ 1u, resultType),
+      spirvVersion(spvVer), dwarfVersion(dwarfVer), source(src),
+      lang(spv::SourceLanguage::HLSL) {}
+
 } // namespace spirv
 } // namespace clang

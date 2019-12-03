@@ -115,6 +115,10 @@ public:
     IK_VectorShuffle,             // OpVectorShuffle
     IK_ArrayLength,               // OpArrayLength
     IK_RayTracingOpNV,            // NV raytracing ops
+
+    // For DebugInfo instructions defined in OpenCL.DebugInfo.100
+    IK_DebugCompilationUnit,
+    IK_DebugSource,
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1746,6 +1750,56 @@ public:
 
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
+};
+
+class SpirvDebugInstruction : public SpirvInstruction {
+public:
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() >= IK_DebugCompilationUnit &&
+           inst->getKind() <= IK_DebugSource;
+  }
+
+protected:
+  // TODO: Replace opcode type with an enum, when it is available in SPIRV-Headers.
+  SpirvDebugInstruction(Kind kind, uint32_t opcode, QualType resultType);
+
+private:
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers.
+  uint32_t debugOpcode;
+};
+
+class SpirvDebugSource : public SpirvDebugInstruction {
+public:
+  SpirvDebugSource(QualType resultType, llvm::StringRef file,
+                   llvm::StringRef text);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugSource;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  std::string file;
+  std::string text;
+};
+
+class SpirvDebugCompilationUnit : public SpirvDebugInstruction {
+public:
+  SpirvDebugCompilationUnit(QualType resultType, uint32_t spirvVersion,
+                            uint32_t dwarfVersion, SpirvDebugSource *src);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugCompilationUnit;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  uint32_t spirvVersion;
+  uint32_t dwarfVersion;
+  SpirvDebugSource *source;
+  spv::SourceLanguage lang;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

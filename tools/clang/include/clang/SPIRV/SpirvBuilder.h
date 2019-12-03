@@ -412,6 +412,12 @@ public:
                         llvm::ArrayRef<SpirvInstruction *> operands,
                         SourceLocation loc);
 
+  // === SPIR-V Rich Debug Info Creation ===
+  SpirvDebugSource *createDebugSource(llvm::StringRef file,
+                                      llvm::StringRef text);
+
+  SpirvDebugCompilationUnit *createDebugCompilationUnit(SpirvDebugSource *);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 

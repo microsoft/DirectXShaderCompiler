@@ -554,6 +554,13 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
 
+  // OpenCL.DebugInfo.100 DebugSource
+  if (spirvOptions.debugInfoRich) {
+    debugInfo.debugSource = spvBuilder.createDebugSource(fileNames[0], source);
+    debugInfo.debugCompilationUnit =
+        spvBuilder.createDebugCompilationUnit(debugInfo.debugSource);
+  }
+
   if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
