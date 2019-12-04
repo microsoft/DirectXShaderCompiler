@@ -2,31 +2,54 @@
 
 // Check that flow control constructs don't break the instrumentation.
 
-// check instrumentation for one branch. 
-
 // CHECK:  %UAVIncResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0, i32 0, i32 undef, i32 undef, i32 %IncrementForThisInvocation1)
+
 // CHECK:  %MaskedForUAVLimit3 = and i32 %UAVIncResult2, 983039
+
 // CHECK:  %MultipliedForInterest4 = mul i32 %MaskedForUAVLimit3, %OffsetMultiplicand
+
 // CHECK:  %AddedForInterest5 = add i32 %MultipliedForInterest4, %OffsetAddend
-// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5, i32 undef, i32 64771, i32 undef, i32 undef, i32 undef, i8 1)
-// CHECK:  switch i32
-// CHECK:    i32 0, label 
-// CHECK:    i32 32, label
-// CHECK:  ]
+
+// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5, i32 undef
+
+
+struct VS_OUTPUT_ENV {
+  float4 Pos : SV_Position;
+  float2 Tex : TEXCOORD0;
+};
 
 int i32;
 float f32;
 
-float4 Vectorize(float f)
-{
-  return float4((float)f / 128.f, (float)f / 128.f, (float)f / 128.f, 1.f);
+float4 Vectorize(float f) {
+  float4 ret;
+
+  if (f < 1024) // testbreakpoint0
+    ret.x = f;
+  else
+    ret.x = f + 100;
+
+  if (f < 512)
+    ret.y = f;
+  else
+    ret.y = f + 10;
+
+  if (f < 2048)
+    ret.z = f;
+  else
+    ret.z = f + 1000;
+
+  if (f < 4096)
+    ret.w = f + f;
+  else
+    ret.w = f + 1;
+
+  return ret;
 }
 
-float4 FlowControlPS() : SV_Target
-{
-  float4 ret = { 0,0,0,1 };
-  switch (i32)
-  {
+float4 FlowControlPS(VS_OUTPUT_ENV input) : SV_Target {
+  float4 ret = {0, 0, 0, 1}; // FirstExecutableLine
+  switch (i32) {
   case 0:
     ret = float4(1, 0, 1, 1);
     break;
@@ -35,19 +58,20 @@ float4 FlowControlPS() : SV_Target
     break;
   }
 
-  if (i32 > 10)
-  {
+  if (i32 > 10) {
     ret.r += 0.1f;
-  }
-  else
-  {
+  } else {
     ret.g += 0.1f;
   }
 
-  for (uint i = 0; i < 3; ++i)
+  for (uint i = 0; i < 3; ++i) // testbreakpoint1
   {
-    ret.b += (float)i32 / 10.f;
+    ret.b += f32 / 1024.f;
   }
 
-  return ret;
+  for (uint j = 0; j < i32 / 8; ++j) {
+    ret.b += f32 / 1000.f;
+  }
+
+  return ret; // LastExecutableLine
 }

@@ -948,6 +948,78 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   addInvocationSelectionProlog(BC, SystemValues);
   addInvocationStartMarker(BC);
 
+  // Explicitly name new blocks in order to provide stable names for testing purposes
+  int NewBlockCounter = 0;
+
+  auto Fn = DM.GetEntryFunction();
+  auto &Blocks = Fn->getBasicBlockList();
+  for (auto &CurrentBlock : Blocks) {
+    struct ValueAndPhi {
+      Value *Val;
+      PHINode *Phi;
+      unsigned Index;
+    };
+
+    std::map<BasicBlock *, std::vector<ValueAndPhi>> InsertableEdges;
+
+    auto &Is = CurrentBlock.getInstList();
+    for (auto &Inst : Is) {
+      if (Inst.getOpcode() != Instruction::OtherOps::PHI) {
+        break;
+      }
+      PHINode &PN = llvm::cast<PHINode>(Inst);
+      for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
+        BasicBlock *PhiBB = PN.getIncomingBlock(i);
+        Value *PhiVal = PN.getIncomingValue(i);
+        InsertableEdges[PhiBB].push_back({PhiVal, &PN, i});
+      }
+    }
+
+    for (auto &InsertableEdge : InsertableEdges) {
+      auto *NewBlock = BasicBlock::Create(Ctx, "PIXDebug" + std::to_string(NewBlockCounter++),
+                                          InsertableEdge.first->getParent());
+      IRBuilder<> Builder(NewBlock);
+
+      auto *PreviousBlock = InsertableEdge.first;
+
+      // Modify all successor operands of the terminator in the previous block
+      // that match the current block to point to the new block:
+      TerminatorInst *terminator = PreviousBlock->getTerminator();
+      unsigned NumSuccessors = terminator->getNumSuccessors();
+      for (unsigned SuccessorIndex = 0; SuccessorIndex < NumSuccessors;
+           ++SuccessorIndex) {
+        auto *CurrentSuccessor = terminator->getSuccessor(SuccessorIndex);
+        if (CurrentSuccessor == &CurrentBlock) {
+          terminator->setSuccessor(SuccessorIndex, NewBlock);
+        }
+      }
+
+      // Modify the Phis and add debug instrumentation
+      for (auto &ValueNPhi : InsertableEdge.second) {
+        // Modify the phi to refer to the new block:
+        ValueNPhi.Phi->setIncomingBlock(ValueNPhi.Index, NewBlock);
+
+        // Add instrumentation to the new block
+        std::uint32_t RegNum;
+        if (!pix_dxil::PixDxilReg::FromInst(ValueNPhi.Phi, &RegNum)) {
+          continue;
+        }
+
+        std::uint32_t InstNum;
+        if (!pix_dxil::PixDxilInstNum::FromInst(ValueNPhi.Phi, &InstNum)) {
+          continue;
+        }
+
+        BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
+        addStepDebugEntryValue(BC, InstNum, ValueNPhi.Val, RegNum,
+                               BC.Builder.getInt32(0));
+      }
+
+      // Add a branch to the new block to point to the current block
+      Builder.CreateBr(&CurrentBlock);
+    }
+  }
+
   // Instrument original instructions:
   for (auto &Inst : AllInstructions) {
     // Instrumentation goes after the instruction if it is not a terminator.
