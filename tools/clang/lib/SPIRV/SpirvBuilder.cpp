@@ -770,7 +770,7 @@ SpirvBuilder::createRayTracingOpsNV(spv::Op opcode, QualType resultType,
 
 SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
                                                   llvm::StringRef text) {
-  auto *inst = new (context) SpirvDebugSource(astContext.VoidTy, file, text);
+  auto *inst = new (context) SpirvDebugSource(file, text);
   module->addDebugInfo(inst);
   return inst;
 }
@@ -778,7 +778,7 @@ SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
 SpirvDebugCompilationUnit *
 SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   auto *inst = new (context) SpirvDebugCompilationUnit(
-      astContext.VoidTy, /*version*/ 1, /*DWARF version*/ 4, source);
+      /*version*/ 1, /*DWARF version*/ 4, source);
   module->addDebugInfo(inst);
   return inst;
 }

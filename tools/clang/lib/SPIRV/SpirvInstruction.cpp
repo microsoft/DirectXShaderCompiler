@@ -768,85 +768,79 @@ SpirvRayTracingOpNV::SpirvRayTracingOpNV(
     : SpirvInstruction(IK_RayTracingOpNV, opcode, resultType, loc),
       operands(vecOperands.begin(), vecOperands.end()) {}
 
-SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode,
-                                             QualType resultType)
-    : SpirvInstruction(kind, spv::Op::OpExtInst, resultType,
+// Note: we are using a null result type in the constructor. All debug
+// instructions should later get OpTypeVoid as their result type.
+SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode)
+    : SpirvInstruction(kind, spv::Op::OpExtInst,
+                       /*result type */ {},
                        /*SourceLocation*/ {}),
       debugOpcode(opcode), debugType(nullptr) {}
 
-SpirvDebugSource::SpirvDebugSource(QualType resultType, llvm::StringRef f,
-                                   llvm::StringRef t)
-    : SpirvDebugInstruction(IK_DebugSource, /*opcode*/ 35u, resultType),
-      file(f), text(t) {}
+SpirvDebugSource::SpirvDebugSource(llvm::StringRef f, llvm::StringRef t)
+    : SpirvDebugInstruction(IK_DebugSource, /*opcode*/ 35u), file(f), text(t) {}
 
-SpirvDebugCompilationUnit::SpirvDebugCompilationUnit(QualType resultType,
-                                                     uint32_t spvVer,
+SpirvDebugCompilationUnit::SpirvDebugCompilationUnit(uint32_t spvVer,
                                                      uint32_t dwarfVer,
                                                      SpirvDebugSource *src)
-    : SpirvDebugInstruction(IK_DebugCompilationUnit, /*opcode*/ 1u, resultType),
+    : SpirvDebugInstruction(IK_DebugCompilationUnit, /*opcode*/ 1u),
       spirvVersion(spvVer), dwarfVersion(dwarfVer), source(src),
       lang(spv::SourceLanguage::HLSL) {}
 
 SpirvDebugFunction::SpirvDebugFunction(
-    QualType resultType, llvm::StringRef name, SpirvDebugSource *src,
-    uint32_t fline, uint32_t fcol, SpirvDebugInstruction *parent,
-    llvm::StringRef linkName, uint32_t flags_, uint32_t bodyLine,
-    SpirvFunction *func)
-    : SpirvDebugInstruction(IK_DebugFunction, /*opcode*/ 20u, resultType),
-      source(src), fnLine(fline), fnColumn(fcol), parentScope(parent),
-      linkageName(linkName), flags(flags_), scopeLine(bodyLine), fn(func) {
+    llvm::StringRef name, SpirvDebugSource *src, uint32_t fline, uint32_t fcol,
+    SpirvDebugInstruction *parent, llvm::StringRef linkName, uint32_t flags_,
+    uint32_t bodyLine, SpirvFunction *func)
+    : SpirvDebugInstruction(IK_DebugFunction, /*opcode*/ 20u), source(src),
+      fnLine(fline), fnColumn(fcol), parentScope(parent), linkageName(linkName),
+      flags(flags_), scopeLine(bodyLine), fn(func) {
   debugName = name;
 }
 
 SpirvDebugLocalVariable::SpirvDebugLocalVariable(
-    QualType resultType, llvm::StringRef varName, SpirvDebugSource *src,
-    uint32_t lineNumber, uint32_t colNumber, SpirvDebugInstruction *parent,
-    uint32_t flags_, llvm::Optional<uint32_t> argNumber_)
-    : SpirvDebugInstruction(IK_DebugLocalVariable, /*opcode*/ 26u, resultType),
-      source(src), line(lineNumber), column(colNumber), parentScope(parent),
-      flags(flags_), argNumber(argNumber_) {
+    llvm::StringRef varName, SpirvDebugSource *src, uint32_t lineNumber,
+    uint32_t colNumber, SpirvDebugInstruction *parent, uint32_t flags_,
+    llvm::Optional<uint32_t> argNumber_)
+    : SpirvDebugInstruction(IK_DebugLocalVariable, /*opcode*/ 26u), source(src),
+      line(lineNumber), column(colNumber), parentScope(parent), flags(flags_),
+      argNumber(argNumber_) {
   debugName = varName;
 }
 
 SpirvDebugGlobalVariable::SpirvDebugGlobalVariable(
-    QualType resultType, llvm::StringRef varName, SpirvDebugSource *src,
-    uint32_t line_, uint32_t column_, SpirvDebugInstruction *parent,
+    llvm::StringRef varName, SpirvDebugSource *src, uint32_t line_,
+    uint32_t column_, SpirvDebugInstruction *parent,
     llvm::StringRef linkageName_, SpirvVariable *var_, uint32_t flags_,
     llvm::Optional<SpirvInstruction *> staticMemberDebugType_)
-    : SpirvDebugInstruction(IK_DebugGlobalVariable, /*opcode*/ 18u, resultType),
+    : SpirvDebugInstruction(IK_DebugGlobalVariable, /*opcode*/ 18u),
       source(src), line(line_), column(column_), parentScope(parent),
       linkageName(linkageName_), var(var_), flags(flags_),
       staticMemberDebugType(staticMemberDebugType_) {
   debugName = varName;
 }
 
-SpirvDebugOperation::SpirvDebugOperation(QualType resultType,
-                                         uint32_t operationOpCode_,
+SpirvDebugOperation::SpirvDebugOperation(uint32_t operationOpCode_,
                                          llvm::ArrayRef<int32_t> operands_)
-    : SpirvDebugInstruction(IK_DebugOperation, /*opcode*/ 30u, resultType),
+    : SpirvDebugInstruction(IK_DebugOperation, /*opcode*/ 30u),
       operationOpcode(operationOpCode_),
       operands(operands_.begin(), operands_.end()) {}
 
 SpirvDebugExpression::SpirvDebugExpression(
-    QualType resultType, llvm::ArrayRef<SpirvDebugOperation *> operations_)
-    : SpirvDebugInstruction(IK_DebugExpression, /*opcode*/ 31u, resultType),
+    llvm::ArrayRef<SpirvDebugOperation *> operations_)
+    : SpirvDebugInstruction(IK_DebugExpression, /*opcode*/ 31u),
       operations(operations_.begin(), operations_.end()) {}
 
-SpirvDebugDeclare::SpirvDebugDeclare(QualType resultType,
-                                     SpirvDebugLocalVariable *debugVar_,
+SpirvDebugDeclare::SpirvDebugDeclare(SpirvDebugLocalVariable *debugVar_,
                                      SpirvVariable *var_,
                                      SpirvDebugExpression *expr)
-    : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u, resultType),
+    : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u),
       debugVar(debugVar_), var(var_), expression(expr) {}
 
-SpirvDebugValue::SpirvDebugValue(QualType resultType,
-                                 SpirvDebugLocalVariable *var,
+SpirvDebugValue::SpirvDebugValue(SpirvDebugLocalVariable *var,
                                  SpirvInstruction *val,
                                  SpirvDebugExpression *expr,
                                  llvm::ArrayRef<SpirvInstruction *> idx)
-    : SpirvDebugInstruction(IK_DebugValue, /*opcode*/ 29u, resultType),
-      debugVar(var), value(val), expression(expr),
-      indices(idx.begin(), idx.end()) {}
+    : SpirvDebugInstruction(IK_DebugValue, /*opcode*/ 29u), debugVar(var),
+      value(val), expression(expr), indices(idx.begin(), idx.end()) {}
 
 } // namespace spirv
 } // namespace clang

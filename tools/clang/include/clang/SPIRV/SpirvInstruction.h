@@ -1760,6 +1760,12 @@ private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
 
+/// \breif Base class for all OpenCL.DebugInfo.100 extension instructions.
+/// Note that all of these instructions should be added to the SPIR-V module as
+/// an OpExtInst instructions. So, all of these instructions must:
+/// 1) contain the result-id of the extended instruction set
+/// 2) have OpTypeVoid as their Result Type.
+/// TODO: We currently leave these two pieces of information out.
 class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
@@ -1770,7 +1776,7 @@ public:
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
   // SPIRV-Headers.
-  SpirvDebugInstruction(Kind kind, uint32_t opcode, QualType resultType);
+  SpirvDebugInstruction(Kind kind, uint32_t opcode);
 
 private:
   // TODO: Replace this with an enum, when it is available in SPIRV-Headers.
@@ -1782,8 +1788,7 @@ private:
 
 class SpirvDebugSource : public SpirvDebugInstruction {
 public:
-  SpirvDebugSource(QualType resultType, llvm::StringRef file,
-                   llvm::StringRef text);
+  SpirvDebugSource(llvm::StringRef file, llvm::StringRef text);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugSource;
@@ -1798,8 +1803,8 @@ private:
 
 class SpirvDebugCompilationUnit : public SpirvDebugInstruction {
 public:
-  SpirvDebugCompilationUnit(QualType resultType, uint32_t spirvVersion,
-                            uint32_t dwarfVersion, SpirvDebugSource *src);
+  SpirvDebugCompilationUnit(uint32_t spirvVersion, uint32_t dwarfVersion,
+                            SpirvDebugSource *src);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugCompilationUnit;
@@ -1816,8 +1821,8 @@ private:
 
 class SpirvDebugFunction : public SpirvDebugInstruction {
 public:
-  SpirvDebugFunction(QualType resultType, llvm::StringRef name,
-                     SpirvDebugSource *src, uint32_t fnLine, uint32_t fnColumn,
+  SpirvDebugFunction(llvm::StringRef name, SpirvDebugSource *src,
+                     uint32_t fnLine, uint32_t fnColumn,
                      SpirvDebugInstruction *parentScope,
                      llvm::StringRef linkageName, uint32_t flags,
                      uint32_t scopeLine, SpirvFunction *fn);
@@ -1847,8 +1852,8 @@ private:
 
 class SpirvDebugLocalVariable : public SpirvDebugInstruction {
 public:
-  SpirvDebugLocalVariable(QualType resultType, llvm::StringRef varName,
-                          SpirvDebugSource *src, uint32_t line, uint32_t column,
+  SpirvDebugLocalVariable(llvm::StringRef varName, SpirvDebugSource *src,
+                          uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parentScope, uint32_t flags,
                           llvm::Optional<uint32_t> argNumber = llvm::None);
 
@@ -1871,8 +1876,8 @@ private:
 class SpirvDebugGlobalVariable : public SpirvDebugInstruction {
 public:
   SpirvDebugGlobalVariable(
-      QualType resultType, llvm::StringRef varName, SpirvDebugSource *src,
-      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      llvm::StringRef varName, SpirvDebugSource *src, uint32_t line,
+      uint32_t column, SpirvDebugInstruction *parentScope,
       llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
       llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
 
@@ -1896,7 +1901,7 @@ private:
 
 class SpirvDebugOperation : public SpirvDebugInstruction {
 public:
-  SpirvDebugOperation(QualType resultType, uint32_t operationOpCode,
+  SpirvDebugOperation(uint32_t operationOpCode,
                       llvm::ArrayRef<int32_t> operands = {});
 
   static bool classof(const SpirvInstruction *inst) {
@@ -1911,8 +1916,7 @@ private:
 };
 
 class SpirvDebugExpression : public SpirvDebugInstruction {
-  SpirvDebugExpression(QualType resultType,
-                       llvm::ArrayRef<SpirvDebugOperation *> operations = {});
+  SpirvDebugExpression(llvm::ArrayRef<SpirvDebugOperation *> operations = {});
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugExpression;
@@ -1926,8 +1930,8 @@ private:
 
 class SpirvDebugDeclare : public SpirvDebugInstruction {
 public:
-  SpirvDebugDeclare(QualType resultType, SpirvDebugLocalVariable *,
-                    SpirvVariable *, SpirvDebugExpression *);
+  SpirvDebugDeclare(SpirvDebugLocalVariable *, SpirvVariable *,
+                    SpirvDebugExpression *);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugDeclare;
@@ -1943,8 +1947,8 @@ private:
 
 class SpirvDebugValue : public SpirvDebugInstruction {
 public:
-  SpirvDebugValue(QualType resultType, SpirvDebugLocalVariable *debugVar,
-                  SpirvInstruction *value, SpirvDebugExpression *expr,
+  SpirvDebugValue(SpirvDebugLocalVariable *debugVar, SpirvInstruction *value,
+                  SpirvDebugExpression *expr,
                   llvm::ArrayRef<SpirvInstruction *> indices);
 
   static bool classof(const SpirvInstruction *inst) {
