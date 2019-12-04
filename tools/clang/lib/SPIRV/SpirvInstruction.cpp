@@ -86,6 +86,10 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugLocalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugGlobalVariable)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugOperation)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugExpression)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugDeclare)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugValue)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -815,6 +819,34 @@ SpirvDebugGlobalVariable::SpirvDebugGlobalVariable(
       staticMemberDebugType(staticMemberDebugType_) {
   debugName = varName;
 }
+
+SpirvDebugOperation::SpirvDebugOperation(QualType resultType,
+                                         uint32_t operationOpCode_,
+                                         llvm::ArrayRef<int32_t> operands_)
+    : SpirvDebugInstruction(IK_DebugOperation, /*opcode*/ 30u, resultType),
+      operationOpcode(operationOpCode_),
+      operands(operands_.begin(), operands_.end()) {}
+
+SpirvDebugExpression::SpirvDebugExpression(
+    QualType resultType, llvm::ArrayRef<SpirvDebugOperation *> operations_)
+    : SpirvDebugInstruction(IK_DebugExpression, /*opcode*/ 31u, resultType),
+      operations(operations_.begin(), operations_.end()) {}
+
+SpirvDebugDeclare::SpirvDebugDeclare(QualType resultType,
+                                     SpirvDebugLocalVariable *debugVar_,
+                                     SpirvVariable *var_,
+                                     SpirvDebugExpression *expr)
+    : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u, resultType),
+      debugVar(debugVar_), var(var_), expression(expr) {}
+
+SpirvDebugValue::SpirvDebugValue(QualType resultType,
+                                 SpirvDebugLocalVariable *var,
+                                 SpirvInstruction *val,
+                                 SpirvDebugExpression *expr,
+                                 llvm::ArrayRef<SpirvInstruction *> idx)
+    : SpirvDebugInstruction(IK_DebugValue, /*opcode*/ 29u, resultType),
+      debugVar(var), value(val), expression(expr),
+      indices(idx.begin(), idx.end()) {}
 
 } // namespace spirv
 } // namespace clang

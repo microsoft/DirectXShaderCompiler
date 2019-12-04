@@ -118,6 +118,10 @@ public:
   DEFINE_VISIT_METHOD(SpirvDebugFunction)
   DEFINE_VISIT_METHOD(SpirvDebugLocalVariable)
   DEFINE_VISIT_METHOD(SpirvDebugGlobalVariable)
+  DEFINE_VISIT_METHOD(SpirvDebugOperation)
+  DEFINE_VISIT_METHOD(SpirvDebugExpression)
+  DEFINE_VISIT_METHOD(SpirvDebugDeclare)
+  DEFINE_VISIT_METHOD(SpirvDebugValue)
 
 #undef DEFINE_VISIT_METHOD
 

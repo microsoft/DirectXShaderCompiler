@@ -123,6 +123,10 @@ public:
     IK_DebugFunction,
     IK_DebugLocalVariable,
     IK_DebugGlobalVariable,
+    IK_DebugOperation,
+    IK_DebugExpression,
+    IK_DebugDeclare,
+    IK_DebugValue,
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1760,7 +1764,7 @@ class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() >= IK_DebugCompilationUnit &&
-           inst->getKind() <= IK_DebugGlobalVariable;
+           inst->getKind() <= IK_DebugValue;
   }
 
 protected:
@@ -1888,6 +1892,72 @@ private:
   // TODO: Replace this with an enum, when it is available in SPIRV-Headers
   uint32_t flags;
   llvm::Optional<SpirvInstruction *> staticMemberDebugType;
+};
+
+class SpirvDebugOperation : public SpirvDebugInstruction {
+public:
+  SpirvDebugOperation(QualType resultType, uint32_t operationOpCode,
+                      llvm::ArrayRef<int32_t> operands = {});
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugOperation;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  uint32_t operationOpcode;
+  llvm::SmallVector<int32_t, 2> operands;
+};
+
+class SpirvDebugExpression : public SpirvDebugInstruction {
+  SpirvDebugExpression(QualType resultType,
+                       llvm::ArrayRef<SpirvDebugOperation *> operations = {});
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugExpression;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  llvm::SmallVector<SpirvDebugOperation *, 4> operations;
+};
+
+class SpirvDebugDeclare : public SpirvDebugInstruction {
+public:
+  SpirvDebugDeclare(QualType resultType, SpirvDebugLocalVariable *,
+                    SpirvVariable *, SpirvDebugExpression *);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugDeclare;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  SpirvDebugLocalVariable *debugVar;
+  SpirvVariable *var;
+  SpirvDebugExpression *expression;
+};
+
+class SpirvDebugValue : public SpirvDebugInstruction {
+public:
+  SpirvDebugValue(QualType resultType, SpirvDebugLocalVariable *debugVar,
+                  SpirvInstruction *value, SpirvDebugExpression *expr,
+                  llvm::ArrayRef<SpirvInstruction *> indices);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugValue;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  SpirvDebugLocalVariable *debugVar;
+  SpirvInstruction *value;
+  SpirvDebugExpression *expression;
+  llvm::SmallVector<SpirvInstruction *, 4> indices;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
