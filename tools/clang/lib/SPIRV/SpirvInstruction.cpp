@@ -84,6 +84,8 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugLocalVariable)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugGlobalVariable)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -781,15 +783,38 @@ SpirvDebugCompilationUnit::SpirvDebugCompilationUnit(QualType resultType,
       spirvVersion(spvVer), dwarfVersion(dwarfVer), source(src),
       lang(spv::SourceLanguage::HLSL) {}
 
-SpirvDebugFunction::SpirvDebugFunction(QualType resultType,
-                                       SpirvDebugSource *src, uint32_t fline,
-                                       uint32_t fcol,
-                                       SpirvDebugInstruction *parent,
-                                       llvm::StringRef linkName, uint32_t flags,
-                                       uint32_t bodyLine, SpirvFunction *func)
+SpirvDebugFunction::SpirvDebugFunction(
+    QualType resultType, llvm::StringRef name, SpirvDebugSource *src,
+    uint32_t fline, uint32_t fcol, SpirvDebugInstruction *parent,
+    llvm::StringRef linkName, uint32_t flags_, uint32_t bodyLine,
+    SpirvFunction *func)
     : SpirvDebugInstruction(IK_DebugFunction, /*opcode*/ 20u, resultType),
       source(src), fnLine(fline), fnColumn(fcol), parentScope(parent),
-      linkageName(linkName), scopeLine(bodyLine), fn(func) {}
+      linkageName(linkName), flags(flags_), scopeLine(bodyLine), fn(func) {
+  debugName = name;
+}
+
+SpirvDebugLocalVariable::SpirvDebugLocalVariable(
+    QualType resultType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t lineNumber, uint32_t colNumber, SpirvDebugInstruction *parent,
+    uint32_t flags_, llvm::Optional<uint32_t> argNumber_)
+    : SpirvDebugInstruction(IK_DebugLocalVariable, /*opcode*/ 26u, resultType),
+      source(src), line(lineNumber), column(colNumber), parentScope(parent),
+      flags(flags_), argNumber(argNumber_) {
+  debugName = varName;
+}
+
+SpirvDebugGlobalVariable::SpirvDebugGlobalVariable(
+    QualType resultType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t line_, uint32_t column_, SpirvDebugInstruction *parent,
+    llvm::StringRef linkageName_, SpirvVariable *var_, uint32_t flags_,
+    llvm::Optional<SpirvInstruction *> staticMemberDebugType_)
+    : SpirvDebugInstruction(IK_DebugGlobalVariable, /*opcode*/ 18u, resultType),
+      source(src), line(line_), column(column_), parentScope(parent),
+      linkageName(linkageName_), var(var_), flags(flags_),
+      staticMemberDebugType(staticMemberDebugType_) {
+  debugName = varName;
+}
 
 } // namespace spirv
 } // namespace clang

@@ -121,6 +121,8 @@ public:
     IK_DebugCompilationUnit,
     IK_DebugSource,
     IK_DebugFunction,
+    IK_DebugLocalVariable,
+    IK_DebugGlobalVariable,
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1758,7 +1760,7 @@ class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() >= IK_DebugCompilationUnit &&
-           inst->getKind() <= IK_DebugFunction;
+           inst->getKind() <= IK_DebugGlobalVariable;
   }
 
 protected:
@@ -1810,8 +1812,8 @@ private:
 
 class SpirvDebugFunction : public SpirvDebugInstruction {
 public:
-  SpirvDebugFunction(QualType resultType, SpirvDebugSource *src,
-                     uint32_t fnLine, uint32_t fnColumn,
+  SpirvDebugFunction(QualType resultType, llvm::StringRef name,
+                     SpirvDebugSource *src, uint32_t fnLine, uint32_t fnColumn,
                      SpirvDebugInstruction *parentScope,
                      llvm::StringRef linkageName, uint32_t flags,
                      uint32_t scopeLine, SpirvFunction *fn);
@@ -1837,6 +1839,55 @@ private:
   uint32_t scopeLine;
   // The function to which this debug instruction belongs
   SpirvFunction *fn;
+};
+
+class SpirvDebugLocalVariable : public SpirvDebugInstruction {
+public:
+  SpirvDebugLocalVariable(QualType resultType, llvm::StringRef varName,
+                          SpirvDebugSource *src, uint32_t line, uint32_t column,
+                          SpirvDebugInstruction *parentScope, uint32_t flags,
+                          llvm::Optional<uint32_t> argNumber = llvm::None);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugLocalVariable;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  SpirvDebugSource *source;
+  uint32_t line;
+  uint32_t column;
+  SpirvDebugInstruction *parentScope;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+  llvm::Optional<uint32_t> argNumber;
+};
+
+class SpirvDebugGlobalVariable : public SpirvDebugInstruction {
+public:
+  SpirvDebugGlobalVariable(
+      QualType resultType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
+      llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugGlobalVariable;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  SpirvDebugSource *source;
+  uint32_t line;
+  uint32_t column;
+  SpirvDebugInstruction *parentScope;
+  std::string linkageName;
+  SpirvVariable *var;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+  llvm::Optional<SpirvInstruction *> staticMemberDebugType;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
