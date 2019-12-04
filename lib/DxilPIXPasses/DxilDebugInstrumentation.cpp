@@ -948,6 +948,9 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   addInvocationSelectionProlog(BC, SystemValues);
   addInvocationStartMarker(BC);
 
+  // Explicitly name new blocks in order to provide stable names for testing purposes
+  int NewBlockCounter = 0;
+
   auto Fn = DM.GetEntryFunction();
   auto &Blocks = Fn->getBasicBlockList();
   for (auto &CurrentBlock : Blocks) {
@@ -972,7 +975,6 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
       }
     }
 
-    int NewBlockCounter = 0;
     for (auto &InsertableEdge : InsertableEdges) {
       auto *NewBlock = BasicBlock::Create(Ctx, "PIXDebug" + std::to_string(NewBlockCounter++),
                                           InsertableEdge.first->getParent());
