@@ -1546,6 +1546,19 @@ TEST_F(FileTest, SpirvDebugClOption) {
   runFileTest("spirv.debug.cl-option.hlsl");
 }
 
+TEST_F(FileTest, SpirvDebugO1Option) {
+  runFileTest("spirv.debug.o1.option.hlsl");
+}
+
+TEST_F(FileTest, SpirvDebugO2Option) {
+  runFileTest("spirv.debug.o2.option.hlsl");
+}
+
+TEST_F(FileTest, SpirvDebugO3Option) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.o3.option.hlsl");
+}
+
 TEST_F(FileTest, SpirvDebugControlFile) {
   useVulkan1p1();
   runFileTest("spirv.debug.ctrl.file.hlsl");
