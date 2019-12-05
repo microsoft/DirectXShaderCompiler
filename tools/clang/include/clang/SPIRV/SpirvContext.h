@@ -202,9 +202,6 @@ public:
 
   const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
 
-  HybridFunctionType *getFunctionType(QualType ret,
-                                      llvm::ArrayRef<QualType> param);
-
   /// Functions to get/set current entry point ShaderModelKind.
   ShaderModelKind getCurrentShaderModelKind() { return curShaderModelKind; }
   void setCurrentShaderModelKind(ShaderModelKind smk) {
