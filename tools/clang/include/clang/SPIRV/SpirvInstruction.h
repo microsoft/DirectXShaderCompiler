@@ -28,10 +28,10 @@ class IntegerType;
 class SpirvBasicBlock;
 class SpirvFunction;
 class SpirvType;
-class SpirvDebugType;
 class SpirvVariable;
 class SpirvString;
 class Visitor;
+class DebugTypeComposite;
 
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
@@ -127,6 +127,12 @@ public:
     IK_DebugExpression,
     IK_DebugDeclare,
     IK_DebugValue,
+    IK_DebugTypeBasic,
+    IK_DebugTypeArray,
+    IK_DebugTypeVector,
+    IK_DebugTypeFunction,
+    IK_DebugTypeComposite,
+    IK_DebugTypeMember,
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1770,8 +1776,10 @@ class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() >= IK_DebugCompilationUnit &&
-           inst->getKind() <= IK_DebugValue;
+           inst->getKind() <= IK_DebugTypeMember;
   }
+
+  void setDebugType(SpirvDebugInstruction *type) { debugType = type; }
 
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
@@ -1781,9 +1789,10 @@ protected:
 private:
   // TODO: Replace this with an enum, when it is available in SPIRV-Headers.
   uint32_t debugOpcode;
-  // TODO: Define entire set of classes for debug types (similar to SpirvType).
-  // The debug type is always set to nullptr for now.
-  SpirvDebugType *debugType;
+  // The constructor for SpirvDebugInstruction sets the debug type to nullptr.
+  // A type lowering IMR pass will set debug types for all debug instructions
+  // that do contain a debug type.
+  SpirvDebugInstruction *debugType;
 };
 
 class SpirvDebugSource : public SpirvDebugInstruction {
@@ -1962,6 +1971,207 @@ private:
   SpirvInstruction *value;
   SpirvDebugExpression *expression;
   llvm::SmallVector<SpirvInstruction *, 4> indices;
+};
+
+/// The following classes represent debug types defined in the
+/// OpenCL.DebugInfo.100 spec.
+///
+/// Note: While debug type and SPIR-V type are very similar, they are not quite
+/// identical. For example: the debug type contains the HLL string name of the
+/// type. Another example: two structs with similar definitions in different
+/// lexical scopes translate into 1 SPIR-V type, but translate into 2 different
+/// debug type instructions.
+///
+/// Note: DebugTypeComposite contains a vector of its members, which can be
+/// DebugTypeMember or DebugFunction. The former is a type, and the latter is a
+/// SPIR-V instruction. This somewhat tips the sclae in favor of using the
+/// SpirvInstruction base class for representing debug types.
+///
+/// TODO: Add support for the following debug types:
+///   DebugTypePointer,
+///   DebugTypeQualifier,
+///   DebugTypedef,
+///   DebugTypeEnum,
+///   DebugTypeInheritance,
+///   DebugTypePtrToMember,
+///   DebugTypeTemplate,
+///   DebugTypeTemplateParameter,
+///   DebugTypeTemplateTemplateParameter,
+///   DebugTypeTemplateParameterPack,
+
+class SpirvDebugType : public SpirvDebugInstruction {
+public:
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() >= IK_DebugTypeBasic &&
+           inst->getKind() <= IK_DebugTypeMember;
+  }
+
+protected:
+  SpirvDebugType(Kind kind, uint32_t opcode)
+      : SpirvDebugInstruction(kind, opcode) {}
+};
+
+/// Represents basic debug types, including boolean, float, integer.
+class SpirvDebugTypeBasic : public SpirvDebugType {
+public:
+  SpirvDebugTypeBasic(llvm::StringRef name, uint32_t size, uint32_t encoding);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeBasic;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  std::string name;
+  uint32_t size;
+  // TODO: Replace uint32_t with enum from SPIRV-Headers once available.
+  // 0, Unspecified
+  // 1, Address
+  // 2, Boolean
+  // 3, Float
+  // 4, Signed
+  // 5, SignedChar
+  // 6, Unsigned
+  // 7, UnsignedChar
+  uint32_t encoding;
+};
+
+/// Represents array debug types
+class SpirvDebugTypeArray : public SpirvDebugType {
+public:
+  SpirvDebugTypeArray(SpirvDebugInstruction *elemType,
+                      llvm::ArrayRef<uint32_t> elemCount);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeArray;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getElementType() const { return elementType; }
+  llvm::ArrayRef<uint32_t> getElementCount() const { return elementCount; }
+
+private:
+  SpirvDebugInstruction *elementType;
+  llvm::SmallVector<uint32_t, 4> elementCount;
+};
+
+/// Represents vector debug types
+class SpirvDebugTypeVector : public SpirvDebugType {
+public:
+  SpirvDebugTypeVector(SpirvDebugInstruction *elemType, uint32_t elemCount);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeVector;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getElementType() const { return elementType; }
+  uint32_t getElementCount() const { return elementCount; }
+
+private:
+  SpirvDebugInstruction *elementType;
+  uint32_t elementCount;
+};
+
+/// Represents a function debug type. Includes the function return type and
+/// parameter types.
+class SpirvDebugTypeFunction : public SpirvDebugType {
+public:
+  SpirvDebugTypeFunction(uint32_t flags, SpirvDebugInstruction *ret,
+                         llvm::ArrayRef<SpirvDebugInstruction *> params);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeFunction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  uint32_t getDebugFlags() const { return debugFlags; }
+  SpirvDebugInstruction *getReturnType() const { return returnType; }
+  llvm::ArrayRef<SpirvDebugInstruction *> getParamTypes() const {
+    return paramTypes;
+  }
+
+private:
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is available.
+  uint32_t debugFlags;
+  SpirvDebugInstruction *returnType;
+  llvm::SmallVector<SpirvDebugInstruction *, 4> paramTypes;
+};
+
+/// Represents the debug type of a struct/union/class member.
+/// Note: We have intentionally left out the pointer to the parent composite
+/// type.
+class SpirvDebugTypeMember : public SpirvDebugType {
+public:
+  SpirvDebugTypeMember(llvm::StringRef name, SpirvDebugType *member,
+                       SpirvInstruction *source, uint32_t line, uint32_t column,
+                       uint32_t offset, uint32_t size, uint32_t flags,
+                       SpirvInstruction *value = nullptr);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeMember;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  std::string name;         //< Name of the member as it appears in the program
+  SpirvDebugType *member;        //< The type of the current member
+  SpirvInstruction *source; //< DebugSource containing this type
+  uint32_t line;            //< Line number
+  uint32_t column;          //< Column number
+  uint32_t offset;          //< Offset (in bits) of this member in the struct
+  uint32_t size;            //< Size (in bits) of this member in the struct
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
+  // available.
+  uint32_t debugFlags;
+  SpirvInstruction *value;  //< Value (if static member)
+};
+
+class SpirvDebugTypeComposite : public SpirvDebugType {
+  SpirvDebugTypeComposite(llvm::StringRef name, SpirvInstruction *source,
+                          uint32_t line, uint32_t column,
+                          SpirvDebugInstruction *parent,
+                          llvm::StringRef linkageName, uint32_t size,
+                          uint32_t flags, uint32_t tag,
+                          llvm::ArrayRef<SpirvDebugInstruction *> members);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeMember;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+private:
+  std::string name;         //< Name of the member as it appears in the program
+  SpirvInstruction *source; //< DebugSource containing this type
+  uint32_t line;            //< Line number
+  uint32_t column;          //< Column number
+
+  // The parent lexical scope. Must be one of the following:
+  // DebugCompilationUnit, DebugFunction, DebugLexicalBlock or other
+  // DebugTypeComposite
+  SpirvDebugInstruction *parent; //< The parent lexical scope
+
+  std::string linkageName; //< Linkage name
+  uint32_t size;           //< Size (in bits) of an instance of composite
+
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
+  // available.
+  uint32_t debugFlags;
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
+  // available.
+  uint32_t tag;
+
+  // Pointer to members inside this composite type.
+  // Note: Members must be ids of DebugTypeMember, DebugFunction or
+  // DebugTypeInheritance. Since DebugFunction may be a member, we cannot use a
+  // vector of SpirvDebugType.
+  llvm::SmallVector<SpirvDebugInstruction *, 4> members;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

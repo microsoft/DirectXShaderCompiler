@@ -122,6 +122,12 @@ public:
   DEFINE_VISIT_METHOD(SpirvDebugExpression)
   DEFINE_VISIT_METHOD(SpirvDebugDeclare)
   DEFINE_VISIT_METHOD(SpirvDebugValue)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeBasic)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeArray)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeVector)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeFunction)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeComposite)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeMember)
 
 #undef DEFINE_VISIT_METHOD
 

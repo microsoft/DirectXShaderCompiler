@@ -267,5 +267,55 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   return type;
 }
 
+SpirvDebugInstruction *
+SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
+                                llvm::StringRef name, uint32_t size,
+                                uint32_t encoding) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeBasic(name, size, encoding);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugInstruction *
+SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
+                                SpirvDebugInstruction *elemType,
+                                llvm::ArrayRef<uint32_t> elemCount) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeArray(elemType, elemCount);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugInstruction *
+SpirvContext::getDebugTypeVector(const SpirvType *spirvType,
+                                 SpirvDebugInstruction *elemType,
+                                 uint32_t elemCount) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeVector(elemType, elemCount);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+SpirvDebugInstruction* SpirvContext::getDebugTypeFunction(
+  const SpirvType* spirvType, uint32_t flags, SpirvDebugInstruction* ret,
+  llvm::ArrayRef<SpirvDebugInstruction*> params) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeFunction(flags, ret, params);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
 } // end namespace spirv
 } // end namespace clang

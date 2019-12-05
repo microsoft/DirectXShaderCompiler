@@ -8,6 +8,7 @@ add_clang_library(clangSPIRV
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp
   DeclResultIdMapper.cpp
+  DebugTypeVisitor.cpp
   EmitSpirvAction.cpp
   EmitVisitor.cpp
   FeatureManager.cpp

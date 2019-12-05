@@ -139,10 +139,29 @@ public:
   /// Deallocates the memory pointed by the given pointer.
   void deallocate(void *ptr) const {}
 
+  // === DebugTypes ===
+
+  // TODO: Replace uint32_t with an enum for encoding.
+  SpirvDebugInstruction *getDebugTypeBasic(const SpirvType *spirvType,
+                                           llvm::StringRef name, uint32_t size,
+                                           uint32_t encoding);
+
+  SpirvDebugInstruction *getDebugTypeArray(const SpirvType *spirvType,
+                                           SpirvDebugInstruction *elemType,
+                                           llvm::ArrayRef<uint32_t> elemCount);
+
+  SpirvDebugInstruction *getDebugTypeVector(const SpirvType *spirvType,
+                                            SpirvDebugInstruction *elemType,
+                                            uint32_t elemCount);
+
+  SpirvDebugInstruction *
+  getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
+                       SpirvDebugInstruction *ret,
+                       llvm::ArrayRef<SpirvDebugInstruction *> params);
+
   // === Types ===
 
   const VoidType *getVoidType() const { return voidType; }
-
   const BoolType *getBoolType() const { return boolType; }
   const IntegerType *getSIntType(uint32_t bitwidth);
   const IntegerType *getUIntType(uint32_t bitwidth);
@@ -279,6 +298,11 @@ private:
   // Major/Minor hlsl profile version.
   uint32_t majorVersion;
   uint32_t minorVersion;
+
+  // Mapping from SPIR-V type to debug type instruction.
+  // The purpose is not to generate several DebugType* instructions for the same
+  // type if the type is used for several variables.
+  llvm::DenseMap<const SpirvType *, SpirvDebugInstruction *> debugTypes;
 };
 
 } // end namespace spirv
