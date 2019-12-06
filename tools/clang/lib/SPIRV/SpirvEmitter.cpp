@@ -1043,8 +1043,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     paramTypes.push_back(valueType);
   }
 
-  auto *funcType = spvContext.getFunctionType(retType, paramTypes);
-  spvBuilder.beginFunction(retType, funcType, decl->getLocStart(), funcName,
+  spvBuilder.beginFunction(retType, paramTypes, decl->getLocStart(), funcName,
                            decl->hasAttr<HLSLPreciseAttr>(), func);
 
   if (isNonStaticMemberFn) {
@@ -10606,14 +10605,12 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   uint32_t inputArraySize = 0;
   uint32_t outputArraySize = 0;
 
-  // Construct the wrapper function signature.
-  auto *funcType = spvContext.getFunctionType(astContext.VoidTy, {});
-
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunction = spvBuilder.beginFunction(
-      astContext.VoidTy, funcType, decl->getLocStart(), decl->getName());
+  entryFunction =
+      spvBuilder.beginFunction(astContext.VoidTy, /* param QualTypes */ {},
+                               decl->getLocStart(), decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 

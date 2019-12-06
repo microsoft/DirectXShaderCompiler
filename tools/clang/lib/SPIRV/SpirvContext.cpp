@@ -242,11 +242,6 @@ SpirvContext::getFunctionType(const SpirvType *ret,
   return *inserted.first;
 }
 
-HybridFunctionType *
-SpirvContext::getFunctionType(QualType ret, llvm::ArrayRef<QualType> param) {
-  return new (this) HybridFunctionType(ret, param);
-}
-
 const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
   // Create a uint RuntimeArray.
   const auto *raType =
