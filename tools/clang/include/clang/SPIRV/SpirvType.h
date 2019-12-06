@@ -503,29 +503,6 @@ private:
   QualType imageType;
 };
 
-// This class can be extended to also accept QualType vector as param types.
-class HybridFunctionType : public HybridType {
-public:
-  HybridFunctionType(QualType ret, llvm::ArrayRef<QualType> param)
-      : HybridType(TK_HybridFunction), returnType(ret),
-        paramTypes(param.begin(), param.end()) {}
-
-  static bool classof(const SpirvType *t) {
-    return t->getKind() == TK_HybridFunction;
-  }
-
-  bool operator==(const HybridFunctionType &that) const {
-    return returnType == that.returnType && paramTypes == that.paramTypes;
-  }
-
-  QualType getReturnType() const { return returnType; }
-  llvm::ArrayRef<QualType> getParamTypes() const { return paramTypes; }
-
-private:
-  QualType returnType;
-  llvm::SmallVector<QualType, 8> paramTypes;
-};
-
 //
 // Function Definition for templated functions
 //

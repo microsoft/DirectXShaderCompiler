@@ -26,21 +26,23 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
   module = new (context) SpirvModule;
 }
 
-SpirvFunction *
-SpirvBuilder::beginFunction(QualType returnType, SpirvType *functionType,
-                            SourceLocation loc, llvm::StringRef funcName,
-                            bool isPrecise, SpirvFunction *func) {
+SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
+                                           llvm::ArrayRef<QualType> paramTypes,
+                                           SourceLocation loc,
+                                           llvm::StringRef funcName,
+                                           bool isPrecise,
+                                           SpirvFunction *func) {
   assert(!function && "found nested function");
   if (func) {
     function = func;
     function->setAstReturnType(returnType);
-    function->setFunctionType(functionType);
+    function->setAstParamTypes(paramTypes);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
   } else {
     function = new (context)
-        SpirvFunction(returnType, functionType, loc, funcName, isPrecise);
+        SpirvFunction(returnType, paramTypes, loc, funcName, isPrecise);
   }
 
   return function;

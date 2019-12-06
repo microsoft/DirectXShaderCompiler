@@ -1015,8 +1015,13 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias);
 
   const bool isPrecise = fn->hasAttr<HLSLPreciseAttr>();
+  // Note: we do not need to worry about function parameter types at this point
+  // as this is used when function declarations are seen. When function
+  // definition is seen, the parameter types will be set properly and take into
+  // account whether the function is a member function of a class/struct (in
+  // which case a 'this' parameter is added at the beginnig).
   SpirvFunction *spirvFunction = new (spvContext)
-      SpirvFunction(fn->getReturnType(), /*functionType*/ nullptr,
+      SpirvFunction(fn->getReturnType(), /* param QualTypes */ {},
                     fn->getLocation(), fn->getName(), isPrecise);
 
   // No need to dereference to get the pointer. Function returns that are
