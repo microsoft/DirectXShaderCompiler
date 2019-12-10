@@ -865,8 +865,16 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
+// SPIRV change starts
+#if defined(ENABLE_SPIRV_CODEGEN)
+      bool writePDB = !opts.GenSPIRV;
+#else
+      bool writePDB = true;
+#endif
+// SPIRV change ends
       if (!hasErrorOccurred) {
-        if (opts.IsDebugInfoEnabled() && !opts.CodeGenHighLevel && !opts.OptDump) {
+        if (writePDB && opts.IsDebugInfoEnabled() && !opts.CodeGenHighLevel &&
+            !opts.OptDump) {
           CComPtr<IDxcBlob> pDebugBlob;
           IFT(pOutputStream.QueryInterface(&pDebugBlob));
           CComPtr<IDxcBlob> pStrippedContainer;
@@ -1345,7 +1353,18 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 
     LPCWSTR EmbedDebugOpt[] = { L"-Qembed_debug" };
     if (opts.DebugInfo && !ppDebugBlob && !opts.EmbedDebug && !opts.StripDebug) {
-      outStream << "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning.\n";
+// SPIRV change starts
+#if defined(ENABLE_SPIRV_CODEGEN)
+      if (!opts.GenSPIRV)
+        outStream << "warning: no output provided for debug - embedding PDB in "
+                     "shader container.  Use -Qembed_debug to silence this "
+                     "warning.\n";
+#else
+      outStream << "warning: no output provided for debug - embedding PDB in "
+                   "shader container.  Use -Qembed_debug to silence this "
+                   "warning.\n";
+#endif
+// SPIRV change ends
       IFT(pArgs->AddArguments(EmbedDebugOpt, _countof(EmbedDebugOpt)));
     }
 
