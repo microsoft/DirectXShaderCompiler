@@ -1401,6 +1401,7 @@ public:
     // generate stores of incoming indices to corresponding index pointers
     if (Stores.empty())
       return;
+    Type *i32Ty = IntegerType::getInt32Ty(Stores[0]->getContext());
     for (auto V : Stores) {
       StoreInst *SI = cast<StoreInst>(V);
       IRBuilder<> Builder(SI);
@@ -1409,16 +1410,24 @@ public:
       Value *Val = SI->getValueOperand();
       IndexVector &ptrIndices = ResToIdxReplacement[Ptr];
       IndexVector &valIndices = ResToIdxReplacement[Val];
-      DXASSERT_NOMSG(ptrIndices.size() == valIndices.size());
+      // If Val is not found, it is treated as an undef value that will translate
+      // to an undef index, which may still be valid if it's never used.
+      Value *UndefIndex = valIndices.size() > 0 ? nullptr : UndefValue::get(i32Ty);
+      DXASSERT_NOMSG(valIndices.size() == 0 || ptrIndices.size() == valIndices.size());
       idxVector.resize(ptrIndices.size(), nullptr);
       for (unsigned i = 0; i < idxVector.size(); i++) {
-        idxVector[i] = Builder.CreateStore(valIndices[i], ptrIndices[i]);
+        idxVector[i] = Builder.CreateStore(
+          UndefIndex ? UndefIndex : valIndices[i],
+          ptrIndices[i]);
       }
     }
   }
 
   // For each Phi/Select: update matching incoming values for new phis
   void UpdateSelects() {
+    if (Selects.empty())
+      return;
+    Type *i32Ty = IntegerType::getInt32Ty(Selects[0]->getContext());
     for (auto V : Selects) {
       // update incoming index values corresponding to incoming resource values
       IndexVector &idxVector = ResToIdxReplacement[V];
@@ -1426,12 +1435,17 @@ public:
       unsigned numOperands = I->getNumOperands();
       unsigned startOp = isa<PHINode>(V) ? 0 : 1;
       for (unsigned iOp = startOp; iOp < numOperands; iOp++) {
-        IndexVector &incomingIndices = ResToIdxReplacement[I->getOperand(iOp)];
-        DXASSERT_NOMSG(idxVector.size() == incomingIndices.size());
+        Value *Val = I->getOperand(iOp);
+        IndexVector &incomingIndices = ResToIdxReplacement[Val];
+        // If Val is not found, it is treated as an undef value that will translate
+        // to an undef index, which may still be valid if it's never used.
+        Value *UndefIndex = incomingIndices.size() > 0 ? nullptr : UndefValue::get(i32Ty);
+        DXASSERT_NOMSG(incomingIndices.size() == 0 || idxVector.size() == incomingIndices.size());
         for (unsigned i = 0; i < idxVector.size(); i++) {
           // must be instruction (phi/select)
           Instruction *indexI = cast<Instruction>(idxVector[i]);
-          indexI->setOperand(iOp, incomingIndices[i]);
+          indexI->setOperand(iOp,
+            UndefIndex ? UndefIndex : incomingIndices[i]);
         }
 
         // Now clear incoming operand (adding to cleanup) to break cycles
