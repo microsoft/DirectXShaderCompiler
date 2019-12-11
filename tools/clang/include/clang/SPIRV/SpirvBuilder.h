@@ -442,9 +442,14 @@ public:
   void addModuleProcessed(llvm::StringRef process);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
-  /// instruction set) of the GLSL instruction set. Returns the  the imported
-  /// GLSL instruction set.
+  /// instruction set) of the GLSL instruction set. Returns the imported GLSL
+  /// instruction set.
   SpirvExtInstImport *getGLSLExtInstSet();
+
+  /// \brief If not added already, adds an OpExtInstImport (import of extended
+  /// instruction set) of the OpenCL.DebugInfo.100 instruction set. Returns the
+  /// imported instruction set.
+  SpirvExtInstImport *getOpenCLDebugInfoExtInstSet();
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -562,6 +567,11 @@ protected:
   inline void requireExtension(llvm::StringRef extension, SourceLocation);
 
 private:
+  /// \brief If not added already, adds an OpExtInstImport (import of extended
+  /// instruction set) for the given instruction set. Returns the imported
+  /// instruction set.
+  SpirvExtInstImport *getExtInstSet(llvm::StringRef extensionName);
+
   /// \brief Returns the composed ImageOperandsMask from non-zero parameters
   /// and pushes non-zero parameters to *orderedParams in the expected order.
   spv::ImageOperandsMask composeImageOperandsMask(

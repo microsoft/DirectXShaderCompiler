@@ -787,16 +787,23 @@ void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
 
-SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet() {
-  SpirvExtInstImport *glslSet = mod->getGLSLExtInstSet();
-  if (!glslSet) {
+SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
+  SpirvExtInstImport *set = module->getExtInstSet(extName);
+  if (!set) {
     // The extended instruction set is likely required for several different
     // reasons. We can't pinpoint the source location for one specific function.
-    glslSet =
-        new (context) SpirvExtInstImport(/*SourceLocation*/ {}, "GLSL.std.450");
-    mod->addExtInstSet(glslSet);
+    set = new (context) SpirvExtInstImport(/*SourceLocation*/ {}, extName);
+    module->addExtInstSet(set);
   }
-  return glslSet;
+  return set;
+}
+
+SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet() {
+  return getExtInstSet("GLSL.std.450");
+}
+
+SpirvExtInstImport *SpirvBuilder::getOpenCLDebugInfoExtInstSet() {
+  return getExtInstSet("OpenCL.DebugInfo.100");
 }
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,

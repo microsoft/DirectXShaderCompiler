@@ -269,8 +269,7 @@ private:
 /// \brief ExtInstImport instruction
 class SpirvExtInstImport : public SpirvInstruction {
 public:
-  SpirvExtInstImport(SourceLocation loc,
-                     llvm::StringRef extensionName = "GLSL.std.450");
+  SpirvExtInstImport(SourceLocation loc, llvm::StringRef extensionName);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {

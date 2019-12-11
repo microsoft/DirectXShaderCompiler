@@ -205,14 +205,13 @@ void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
   extInstSets.push_back(set);
 }
 
-SpirvExtInstImport *SpirvModule::getGLSLExtInstSet() {
+SpirvExtInstImport *SpirvModule::getExtInstSet(llvm::StringRef name) {
   // We expect very few (usually 1) extended instruction sets to exist in the
   // module, so this is not expensive.
-  auto found =
-      std::find_if(extInstSets.begin(), extInstSets.end(),
-                   [](const SpirvExtInstImport *set) {
-                     return set->getExtendedInstSetName() == "GLSL.std.450";
-                   });
+  auto found = std::find_if(extInstSets.begin(), extInstSets.end(),
+                            [name](const SpirvExtInstImport *set) {
+                              return set->getExtendedInstSetName() == name;
+                            });
 
   if (found != extInstSets.end())
     return *found;
