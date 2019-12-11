@@ -285,8 +285,9 @@ private:
   void initInstruction(SpirvInstruction *);
 
   // Finalizes the current instruction by encoding the instruction size into the
-  // first word, and then appends the current instruction to the SPIR-V binary.
-  void finalizeInstruction();
+  // first word, and then appends the current instruction to the given SPIR-V
+  // binary section.
+  void finalizeInstruction(std::vector<uint32_t> *section);
 
   // Encodes the given string into the current instruction that is being built.
   void encodeString(llvm::StringRef value);
