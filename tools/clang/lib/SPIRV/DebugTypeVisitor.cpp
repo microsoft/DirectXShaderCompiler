@@ -10,11 +10,7 @@
 #include <sstream>
 
 #include "DebugTypeVisitor.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/HlslTypes.h"
-#include "clang/SPIRV/AstTypeProbe.h"
-#include "clang/SPIRV/SpirvFunction.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvModule.h"
 
 namespace clang {
@@ -114,6 +110,7 @@ bool DebugTypeVisitor::visitInstruction(SpirvDebugInstruction *instr) {
   // OpExtInst with result type of void.
   instr->setAstResultType(astContext.VoidTy);
   instr->setResultType(spvContext.getVoidType());
+  instr->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
 
   // The following instructions are the only debug instructions that contain a
   // debug type:

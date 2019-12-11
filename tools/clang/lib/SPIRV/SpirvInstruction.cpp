@@ -780,7 +780,7 @@ SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode)
     : SpirvInstruction(kind, spv::Op::OpExtInst,
                        /*result type */ {},
                        /*SourceLocation*/ {}),
-      debugOpcode(opcode), debugType(nullptr) {}
+      debugOpcode(opcode), debugType(nullptr), instructionSet(nullptr) {}
 
 SpirvDebugSource::SpirvDebugSource(llvm::StringRef f, llvm::StringRef t)
     : SpirvDebugInstruction(IK_DebugSource, /*opcode*/ 35u), file(f), text(t) {}

@@ -1770,7 +1770,6 @@ private:
 /// an OpExtInst instructions. So, all of these instructions must:
 /// 1) contain the result-id of the extended instruction set
 /// 2) have OpTypeVoid as their Result Type.
-/// TODO: We currently leave these two pieces of information out.
 class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
@@ -1779,6 +1778,7 @@ public:
   }
 
   void setDebugType(SpirvDebugInstruction *type) { debugType = type; }
+  void setInstructionSet(SpirvExtInstImport *set) { instructionSet = set; }
 
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
@@ -1792,6 +1792,10 @@ private:
   // A type lowering IMR pass will set debug types for all debug instructions
   // that do contain a debug type.
   SpirvDebugInstruction *debugType;
+
+  // The pointer to the debug info extended instruction set.
+  // This is not required by the constructor, and can be set via any IMR pass.
+  SpirvExtInstImport *instructionSet;
 };
 
 class SpirvDebugSource : public SpirvDebugInstruction {
