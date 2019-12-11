@@ -17,7 +17,7 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}) {}
+      constants({}), variables({}), functions({}), debugInfo({}) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   // Note: It is debatable whether reverse order of visiting the module should
@@ -37,6 +37,12 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     for (auto iter = functions.rbegin(); iter != functions.rend(); ++iter) {
       auto *fn = *iter;
       if (!fn->invokeVisitor(visitor, reverseOrder))
+        return false;
+    }
+
+    for (auto iter = debugInfo.rbegin(); iter != debugInfo.rend(); ++iter) {
+      auto *debugInstruction = *iter;
+      if (!debugInstruction->invokeVisitor(visitor))
         return false;
     }
 
@@ -157,6 +163,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     for (auto var : variables)
       if (!var->invokeVisitor(visitor))
+        return false;
+
+    for (auto debugInstruction : debugInfo)
+      if (!debugInstruction->invokeVisitor(visitor))
         return false;
 
     for (auto fn : functions)

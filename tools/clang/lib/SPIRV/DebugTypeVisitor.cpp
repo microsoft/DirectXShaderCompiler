@@ -103,29 +103,31 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   return debugType;
 }
 
-bool DebugTypeVisitor::visitInstruction(SpirvDebugInstruction *instr) {
+bool DebugTypeVisitor::visitInstruction(SpirvInstruction *instr) {
+  if (auto *debugInstr = dyn_cast<SpirvDebugInstruction>(instr)) {
+    // Set the result type of debug instructions to OpTypeVoid.
+    // According to the OpenCL.DebugInfo.100 spec, all debug instructions are
+    // OpExtInst with result type of void.
+    debugInstr->setAstResultType(astContext.VoidTy);
+    debugInstr->setResultType(spvContext.getVoidType());
+    debugInstr->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
 
-  // Set the result type of debug instructions to OpTypeVoid.
-  // According to the OpenCL.DebugInfo.100 spec, all debug instructions are
-  // OpExtInst with result type of void.
-  instr->setAstResultType(astContext.VoidTy);
-  instr->setResultType(spvContext.getVoidType());
-  instr->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
-
-  // The following instructions are the only debug instructions that contain a
-  // debug type:
-  // DebugGlobalVariable
-  // DebugLocalVariable
-  // DebugFunction
-  // DebugFunctionDeclaration
-  // TODO: We currently don't have a SpirvDebugFunctionDeclaration class. Add
-  // one if needed.
-  if (isa<SpirvDebugGlobalVariable>(instr) ||
-      isa<SpirvDebugLocalVariable>(instr) || isa<SpirvDebugFunction>(instr)) {
-    const SpirvType *spirvType = instr->getResultType();
-    if (spirvType) {
-      SpirvDebugInstruction *debugType = lowerToDebugType(spirvType);
-      instr->setDebugType(debugType);
+    // The following instructions are the only debug instructions that contain a
+    // debug type:
+    // DebugGlobalVariable
+    // DebugLocalVariable
+    // DebugFunction
+    // DebugFunctionDeclaration
+    // TODO: We currently don't have a SpirvDebugFunctionDeclaration class. Add
+    // one if needed.
+    if (isa<SpirvDebugGlobalVariable>(debugInstr) ||
+        isa<SpirvDebugLocalVariable>(debugInstr) ||
+        isa<SpirvDebugFunction>(debugInstr)) {
+      const SpirvType *spirvType = debugInstr->getResultType();
+      if (spirvType) {
+        SpirvDebugInstruction *debugType = lowerToDebugType(spirvType);
+        debugInstr->setDebugType(debugType);
+      }
     }
   }
 

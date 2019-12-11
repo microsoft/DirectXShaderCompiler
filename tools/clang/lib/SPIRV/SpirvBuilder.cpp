@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "CapabilityVisitor.h"
+#include "DebugTypeVisitor.h"
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
@@ -1053,6 +1054,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  DebugTypeVisitor debugTypeVisitor(astContext, context, spirvOptions, *this);
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
@@ -1062,6 +1064,10 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Lower types
   mod->invokeVisitor(&lowerTypeVisitor);
+
+  // Generate debug types (if needed)
+  if (spirvOptions.debugInfoRich)
+    module->invokeVisitor(&debugTypeVisitor);
 
   // Add necessary capabilities and extensions
   mod->invokeVisitor(&capabilityVisitor);

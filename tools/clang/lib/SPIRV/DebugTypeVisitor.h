@@ -39,15 +39,12 @@ public:
   bool visit(SpirvBasicBlock *, Phase) { return true; }
   bool visit(SpirvFunction *, Phase) { return true; }
 
-  /// Visitor for different debug instructions.
-  bool visitInstruction(SpirvDebugInstruction *);
-
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *) { return true; }
+  bool visitInstruction(SpirvInstruction *);
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
