@@ -122,6 +122,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvDebugExpression)
   DEFINE_VISIT_METHOD(SpirvDebugDeclare)
   DEFINE_VISIT_METHOD(SpirvDebugValue)
+  DEFINE_VISIT_METHOD(SpirvDebugLexicalBlock)
   DEFINE_VISIT_METHOD(SpirvDebugTypeBasic)
   DEFINE_VISIT_METHOD(SpirvDebugTypeArray)
   DEFINE_VISIT_METHOD(SpirvDebugTypeVector)

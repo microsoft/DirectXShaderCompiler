@@ -556,9 +556,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // OpenCL.DebugInfo.100 DebugSource
   if (spirvOptions.debugInfoRich) {
-    debugInfo.debugSource = spvBuilder.createDebugSource(fileNames[0], source);
-    debugInfo.debugCompilationUnit =
-        spvBuilder.createDebugCompilationUnit(debugInfo.debugSource);
+    debugInfo.source = spvBuilder.createDebugSource(fileNames[0], source);
+    debugInfo.compilationUnit =
+        spvBuilder.createDebugCompilationUnit(debugInfo.source);
   }
 
   if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
@@ -585,7 +585,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
   if (spirvOptions.debugInfoRich) {
-    debugInfo.debugScopeStack.push_back(debugInfo.debugCompilationUnit);
+    debugInfo.scopeStack.push_back(debugInfo.compilationUnit);
   }
 
   uint32_t numEntryPoints = 0;
@@ -753,8 +753,30 @@ void SpirvEmitter::doDecl(const Decl *decl) {
 void SpirvEmitter::doStmt(const Stmt *stmt,
                           llvm::ArrayRef<const Attr *> attrs) {
   if (const auto *compoundStmt = dyn_cast<CompoundStmt>(stmt)) {
+    if (spirvOptions.debugInfoRich) {
+      // Any opening of curly braces ('{') starts a CompoundStmt in the AST
+      // tree. It also means we have a new lexical block!
+      const auto loc = stmt->getLocStart();
+      const uint32_t line =
+          astContext.getSourceManager().getPresumedLineNumber(loc);
+      const uint32_t column =
+          astContext.getSourceManager().getPresumedColumnNumber(loc);
+      auto *debugLexicalBlock = spvBuilder.createDebugLexicalBlock(
+          debugInfo.source, line, column, debugInfo.scopeStack.back());
+
+      // Add this lexical block to the stack of lexical scopes.
+      debugInfo.scopeStack.push_back(debugLexicalBlock);
+    }
+
+    // Iterate over sub-statements
     for (auto *st : compoundStmt->body())
       doStmt(st);
+
+    if (spirvOptions.debugInfoRich) {
+      // We are done with processing this compound statement. Remove its lexical
+      // block from the stack of lexical scopes.
+      debugInfo.scopeStack.pop_back();
+    }
   } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
     doReturnStmt(retStmt);
   } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {

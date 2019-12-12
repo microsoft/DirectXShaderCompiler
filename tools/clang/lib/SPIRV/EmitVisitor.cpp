@@ -1109,6 +1109,21 @@ bool EmitVisitor::visit(SpirvDebugCompilationUnit *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

@@ -257,6 +257,7 @@ public:
   bool visit(SpirvRayTracingOpNV *);
   bool visit(SpirvDebugSource *);
   bool visit(SpirvDebugCompilationUnit *);
+  bool visit(SpirvDebugLexicalBlock *);
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();

@@ -127,6 +127,7 @@ public:
     IK_DebugExpression,
     IK_DebugDeclare,
     IK_DebugValue,
+    IK_DebugLexicalBlock,
     IK_DebugTypeBasic,
     IK_DebugTypeArray,
     IK_DebugTypeVector,
@@ -1984,6 +1985,29 @@ private:
   SpirvInstruction *value;
   SpirvDebugExpression *expression;
   llvm::SmallVector<SpirvInstruction *, 4> indices;
+};
+
+class SpirvDebugLexicalBlock : public SpirvDebugInstruction {
+public:
+  SpirvDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
+                         uint32_t column, SpirvDebugInstruction *parent);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugLexicalBlock;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  SpirvDebugInstruction *getParent() const { return parent; }
+
+private:
+  SpirvDebugSource *source;
+  uint32_t line;
+  uint32_t column;
+  SpirvDebugInstruction *parent;
 };
 
 /// The following classes represent debug types defined in the

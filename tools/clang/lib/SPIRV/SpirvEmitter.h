@@ -41,17 +41,17 @@ namespace spirv {
 class RichDebugInfo {
 public:
   RichDebugInfo()
-      : debugSource(nullptr), debugCompilationUnit(nullptr), debugScopeStack() {
+      : source(nullptr), compilationUnit(nullptr), scopeStack() {
   }
 
   // The HLL source code
-  SpirvDebugSource *debugSource;
+  SpirvDebugSource *source;
 
   // The compilation unit (topmost debug info node)
-  SpirvDebugCompilationUnit *debugCompilationUnit;
+  SpirvDebugCompilationUnit *compilationUnit;
 
   // Stack of lexical scopes
-  std::vector<SpirvInstruction *> debugScopeStack;
+  std::vector<SpirvDebugInstruction *> scopeStack;
 };
 
 /// SPIR-V emitter class. It consumes the HLSL AST and emits SPIR-V words.

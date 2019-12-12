@@ -418,6 +418,10 @@ public:
 
   SpirvDebugCompilationUnit *createDebugCompilationUnit(SpirvDebugSource *);
 
+  SpirvDebugLexicalBlock *
+  createDebugLexicalBlock(SpirvDebugSource *, uint32_t line, uint32_t column,
+                          SpirvDebugInstruction *parent);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 

@@ -784,6 +784,16 @@ SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   return inst;
 }
 
+SpirvDebugLexicalBlock *
+SpirvBuilder::createDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
+                                      uint32_t column,
+                                      SpirvDebugInstruction *parent) {
+  auto *inst =
+      new (context) SpirvDebugLexicalBlock(source, line, column, parent);
+  module->addDebugInfo(inst);
+  return inst;
+}
+
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }

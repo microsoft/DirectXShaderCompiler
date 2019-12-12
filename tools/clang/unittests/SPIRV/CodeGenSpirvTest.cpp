@@ -2204,5 +2204,9 @@ TEST_F(FileTest, RichDebugInfoDebugCompilationUnit) {
   runFileTest("rich.debug.debugcompilationunit.hlsl", Expect::Success,
               /*runValidation*/ false);
 }
+TEST_F(FileTest, RichDebugInfoDebugLexicalBlock) {
+  runFileTest("rich.debug.debuglexicalblock.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
 
 } // namespace
