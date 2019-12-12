@@ -2193,10 +2193,16 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
 }
 
 // Tests for Rich Debug Information
+// TODO: change |runValidation| parameter back to 'true' once the following bug
+// has been fixed in SPIRV-Tools:
+// https://github.com/KhronosGroup/SPIRV-Tools/issues/3086
 TEST_F(FileTest, RichDebugInfoDebugSource) {
   runFileTest("rich.debug.debugsource.hlsl", Expect::Success,
               /*runValidation*/ false);
 }
-
+TEST_F(FileTest, RichDebugInfoDebugCompilationUnit) {
+  runFileTest("rich.debug.debugcompilationunit.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
 
 } // namespace

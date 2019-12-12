@@ -1089,10 +1089,23 @@ bool EmitVisitor::visit(SpirvDebugSource *inst) {
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(fileString));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(contentString));
-  // Not calling finalize instruction here.
-  const auto op = static_cast<spv::Op>(curInst[0]);
-  curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
-  richDebugInfo.insert(richDebugInfo.end(), curInst.begin(), curInst.end());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugCompilationUnit *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(inst->getSpirvVersion());
+  curInst.push_back(inst->getDwarfVersion());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugSource()));
+  curInst.push_back(static_cast<uint32_t>(inst->getLanguage()));
+  finalizeInstruction(&richDebugInfo);
   return true;
 }
 

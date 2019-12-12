@@ -1829,6 +1829,11 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  uint32_t getSpirvVersion() const { return spirvVersion; }
+  uint32_t getDwarfVersion() const { return dwarfVersion; }
+  SpirvDebugSource *getDebugSource() const { return source; }
+  spv::SourceLanguage getLanguage() const { return lang; }
+
 private:
   uint32_t spirvVersion;
   uint32_t dwarfVersion;
