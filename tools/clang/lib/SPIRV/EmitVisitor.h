@@ -274,7 +274,10 @@ private:
     return obj->getResultId();
   }
 
-  void emitDebugLine(spv::Op op, const SourceLocation &loc);
+  // Emits an OpLine instruction for the given operation into the given binary
+  // section.
+  void emitDebugLine(spv::Op op, const SourceLocation &loc,
+                     std::vector<uint32_t> *section);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
@@ -332,6 +335,9 @@ private:
   std::vector<uint32_t> annotationsBinary;
   // All type and constant instructions
   std::vector<uint32_t> typeConstantBinary;
+  // All global variable declarations (all OpVariable instructions whose Storage
+  // Class is not Function)
+  std::vector<uint32_t> globalVarsBinary;
   // All other instructions
   std::vector<uint32_t> mainBinary;
   // File information for debugging that will be used by OpLine.

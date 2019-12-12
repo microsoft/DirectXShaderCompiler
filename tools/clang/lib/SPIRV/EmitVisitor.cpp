@@ -120,7 +120,10 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
                              curInst.end());
 }
 
-void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
+void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
+                                std::vector<uint32_t> *section) {
+  assert(section);
+
   // Based on SPIR-V spec, OpSelectionMerge must immediately precede either an
   // OpBranchConditional or OpSwitch instruction. Similarly OpLoopMerge must
   // immediately precede either an OpBranch or OpBranchConditional instruction.
@@ -177,7 +180,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
   curInst.push_back(line);
   curInst.push_back(column);
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
-  mainBinary.insert(mainBinary.end(), curInst.begin(), curInst.end());
+  section->insert(section->end(), curInst.begin(), curInst.end());
 }
 
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
@@ -203,8 +206,17 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
                                spv::Decoration::NoContraction, {});
   }
 
+  // According to Section 2.4. Logical Layout of a Module in the SPIR-V spec:
+  // OpLine is always emitted to the main binary, except for global variables.
+  // Global variables (variables whose storage class is NOT function) are
+  // emitted before the main binary. They are allowed to have an OpLine
+  // associated with them.
+  bool isGlobalVar = false;
+  if (auto *var = dyn_cast<SpirvVariable>(inst))
+    isGlobalVar = var->getStorageClass() != spv::StorageClass::Function;
   const auto op = inst->getopcode();
-  emitDebugLine(op, inst->getSourceLocation());
+  emitDebugLine(op, inst->getSourceLocation(),
+                isGlobalVar ? &globalVarsBinary : &mainBinary);
 
   // Initialize the current instruction for emitting.
   curInst.clear();
@@ -212,7 +224,7 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
 }
 
 void EmitVisitor::initInstruction(spv::Op op, const SourceLocation &loc) {
-  emitDebugLine(op, loc);
+  emitDebugLine(op, loc, &mainBinary);
 
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(op));
@@ -239,6 +251,7 @@ std::vector<uint32_t> EmitVisitor::takeBinary() {
                 annotationsBinary.end());
   result.insert(result.end(), typeConstantBinary.begin(),
                 typeConstantBinary.end());
+  result.insert(result.end(), globalVarsBinary.begin(), globalVarsBinary.end());
   result.insert(result.end(), mainBinary.begin(), mainBinary.end());
   return result;
 }
@@ -461,7 +474,9 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
   if (inst->hasInitializer())
     curInst.push_back(
         getOrAssignResultId<SpirvInstruction>(inst->getInitializer()));
-  finalizeInstruction(&mainBinary);
+  finalizeInstruction(inst->getStorageClass() == spv::StorageClass::Function
+                          ? &mainBinary
+                          : &globalVarsBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   if (spvOptions.enableReflect && inst->hasBinding() &&
