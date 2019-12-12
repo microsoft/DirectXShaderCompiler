@@ -1779,6 +1779,8 @@ public:
 
   void setDebugType(SpirvDebugInstruction *type) { debugType = type; }
   void setInstructionSet(SpirvExtInstImport *set) { instructionSet = set; }
+  SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
+  uint32_t getDebugOpcode() const { return debugOpcode; }
 
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
@@ -1807,6 +1809,9 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
+
+  llvm::StringRef getFile() const { return file; }
+  llvm::StringRef getContent() const { return text; }
 
 private:
   std::string file;
@@ -2123,7 +2128,7 @@ public:
 
 private:
   std::string name;         //< Name of the member as it appears in the program
-  SpirvDebugType *member;        //< The type of the current member
+  SpirvDebugType *member;   //< The type of the current member
   SpirvInstruction *source; //< DebugSource containing this type
   uint32_t line;            //< Line number
   uint32_t column;          //< Column number
@@ -2132,7 +2137,7 @@ private:
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
   // available.
   uint32_t debugFlags;
-  SpirvInstruction *value;  //< Value (if static member)
+  SpirvInstruction *value; //< Value (if static member)
 };
 
 class SpirvDebugTypeComposite : public SpirvDebugType {

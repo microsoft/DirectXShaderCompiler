@@ -255,6 +255,7 @@ public:
   bool visit(SpirvVectorShuffle *);
   bool visit(SpirvArrayLength *);
   bool visit(SpirvRayTracingOpNV *);
+  bool visit(SpirvDebugSource *);
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();
@@ -338,6 +339,8 @@ private:
   // All global variable declarations (all OpVariable instructions whose Storage
   // Class is not Function)
   std::vector<uint32_t> globalVarsBinary;
+  // All Rich Debug Info instructions
+  std::vector<uint32_t> richDebugInfo;
   // All other instructions
   std::vector<uint32_t> mainBinary;
   // File information for debugging that will be used by OpLine.

@@ -252,6 +252,7 @@ std::vector<uint32_t> EmitVisitor::takeBinary() {
   result.insert(result.end(), typeConstantBinary.begin(),
                 typeConstantBinary.end());
   result.insert(result.end(), globalVarsBinary.begin(), globalVarsBinary.end());
+  result.insert(result.end(), richDebugInfo.begin(), richDebugInfo.end());
   result.insert(result.end(), mainBinary.begin(), mainBinary.end());
   return result;
 }
@@ -1070,6 +1071,28 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
   finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugSource *inst) {
+  SpirvString *fileString =
+      new (context) SpirvString(/*SourceLocation*/ {}, inst->getFile());
+  SpirvString *contentString =
+      new (context) SpirvString(/*SourceLocation*/ {}, inst->getContent());
+  visit(fileString);
+  visit(contentString);
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(fileString));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(contentString));
+  // Not calling finalize instruction here.
+  const auto op = static_cast<spv::Op>(curInst[0]);
+  curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
+  richDebugInfo.insert(richDebugInfo.end(), curInst.begin(), curInst.end());
   return true;
 }
 
