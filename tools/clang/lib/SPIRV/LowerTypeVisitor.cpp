@@ -78,6 +78,18 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(spirvType);
   }
 
+  // Debug instructions have a debug type in addition to the result type.
+  // Their resutl type is always 'void'. But their debug type can be anything.
+  if (auto *debugInstruction = dyn_cast<SpirvDebugInstruction>(instr)) {
+    const QualType debugQualType = debugInstruction->getDebugQualType();
+    if (!debugQualType.isNull()) {
+      const SpirvType *spirvType =
+          lowerType(debugQualType, instr->getLayoutRule(),
+                    /*isRowMajor*/ llvm::None, instr->getSourceLocation());
+      debugInstruction->setDebugSpirvType(spirvType);
+    }
+  }
+
   // Instruction-specific type updates
 
   const auto *resultType = instr->getResultType();

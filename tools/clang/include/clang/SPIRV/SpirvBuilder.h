@@ -422,6 +422,11 @@ public:
   createDebugLexicalBlock(SpirvDebugSource *, uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parent);
 
+  SpirvDebugLocalVariable *createDebugLocalVariable(
+      QualType debugType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      uint32_t flags, llvm::Optional<uint32_t> argNumber = llvm::None);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 

@@ -634,6 +634,18 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   assert(astDecls[var].instr == nullptr);
   astDecls[var].instr = varInstr;
 
+  if (spirvOptions.debugInfoRich) {
+    // Add DebugLocalVariable information
+    uint32_t line = astContext.getSourceManager().getPresumedLineNumber(loc);
+    uint32_t column =
+        astContext.getSourceManager().getPresumedColumnNumber(loc);
+    // TODO: replace this with FlagIsLocal enum.
+    uint32_t flags = 1 << 2;
+    auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+        type, name, theEmitter.getRichDebugInfo().source, line, column,
+        theEmitter.getRichDebugInfo().scopeStack.back(), flags);
+  }
+
   return varInstr;
 }
 

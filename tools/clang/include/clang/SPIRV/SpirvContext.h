@@ -17,6 +17,7 @@
 #include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Support/Allocator.h"
 
 namespace clang {
@@ -159,6 +160,11 @@ public:
   getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
                        SpirvDebugInstruction *ret,
                        llvm::ArrayRef<SpirvDebugInstruction *> params);
+
+  llvm::MapVector<const SpirvType *, SpirvDebugInstruction *>
+  getDebugTypes() const {
+    return debugTypes;
+  }
 
   // === Types ===
 
@@ -303,7 +309,7 @@ private:
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same
   // type if the type is used for several variables.
-  llvm::DenseMap<const SpirvType *, SpirvDebugInstruction *> debugTypes;
+  llvm::MapVector<const SpirvType *, SpirvDebugInstruction *> debugTypes;
 };
 
 } // end namespace spirv

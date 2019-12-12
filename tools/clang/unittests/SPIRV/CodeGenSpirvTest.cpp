@@ -2208,5 +2208,25 @@ TEST_F(FileTest, RichDebugInfoDebugLexicalBlock) {
   runFileTest("rich.debug.debuglexicalblock.hlsl", Expect::Success,
               /*runValidation*/ false);
 }
+TEST_F(FileTest, RichDebugInfoTypeBool) {
+  runFileTest("rich.debug.type.bool.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, RichDebugInfoTypeInt) {
+  runFileTest("rich.debug.type.int.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, RichDebugInfoTypeFloat) {
+  runFileTest("rich.debug.type.float.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, RichDebugInfoTypeVector) {
+  runFileTest("rich.debug.type.vector.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, RichDebugInfoLocalVariable) {
+  runFileTest("rich.debug.local-variable.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
 
 } // namespace

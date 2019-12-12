@@ -1771,6 +1771,7 @@ private:
 /// an OpExtInst instructions. So, all of these instructions must:
 /// 1) contain the result-id of the extended instruction set
 /// 2) have OpTypeVoid as their Result Type.
+/// 3) contain additional QualType and SpirvType for the debug type.
 class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
@@ -1782,6 +1783,11 @@ public:
   void setInstructionSet(SpirvExtInstImport *set) { instructionSet = set; }
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
   uint32_t getDebugOpcode() const { return debugOpcode; }
+  QualType getDebugQualType() const { return debugQualType; }
+  const SpirvType *getDebugSpirvType() const { return debugSpirvType; }
+  SpirvDebugInstruction *getDebugType() const { return debugType; }
+  void setDebugQualType(QualType type) { debugQualType = type; }
+  void setDebugSpirvType(const SpirvType *type) { debugSpirvType = type; }
 
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
@@ -1791,6 +1797,10 @@ protected:
 private:
   // TODO: Replace this with an enum, when it is available in SPIRV-Headers.
   uint32_t debugOpcode;
+
+  QualType debugQualType;
+  const SpirvType *debugSpirvType;
+
   // The constructor for SpirvDebugInstruction sets the debug type to nullptr.
   // A type lowering IMR pass will set debug types for all debug instructions
   // that do contain a debug type.
@@ -1875,8 +1885,8 @@ private:
 
 class SpirvDebugLocalVariable : public SpirvDebugInstruction {
 public:
-  SpirvDebugLocalVariable(llvm::StringRef varName, SpirvDebugSource *src,
-                          uint32_t line, uint32_t column,
+  SpirvDebugLocalVariable(QualType debugQualType, llvm::StringRef varName,
+                          SpirvDebugSource *src, uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parentScope, uint32_t flags,
                           llvm::Optional<uint32_t> argNumber = llvm::None);
 
@@ -1885,6 +1895,13 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  SpirvDebugInstruction *getParentScope() const { return parentScope; }
+  uint32_t getFlags() const { return flags; }
+  llvm::Optional<uint32_t> getArgNumber() const { return argNumber; }
 
 private:
   SpirvDebugSource *source;

@@ -1156,6 +1156,32 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
+  SpirvString *varName =
+      new (context) SpirvString(/*SourceLocation*/ {}, inst->getDebugName());
+  visit(varName);
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(varName));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
+  curInst.push_back(inst->getFlags());
+  if (inst->getArgNumber().hasValue())
+    curInst.push_back(inst->getArgNumber().getValue());
+
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

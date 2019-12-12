@@ -40,9 +40,7 @@ namespace spirv {
 
 class RichDebugInfo {
 public:
-  RichDebugInfo()
-      : source(nullptr), compilationUnit(nullptr), scopeStack() {
-  }
+  RichDebugInfo() : source(nullptr), compilationUnit(nullptr), scopeStack() {}
 
   // The HLL source code
   SpirvDebugSource *source;
@@ -69,6 +67,7 @@ public:
   DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
+  RichDebugInfo &getRichDebugInfo() { return debugInfo; }
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});

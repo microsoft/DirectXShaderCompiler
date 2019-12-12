@@ -29,6 +29,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     uint32_t encoding = 2u;
     SpirvConstant *sizeInstruction = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy, llvm::APInt(32, size));
+    sizeInstruction->setResultType(spvContext.getUIntType(32));
     debugType = spvContext.getDebugTypeBasic(spirvType, name, sizeInstruction,
                                              encoding);
     break;
@@ -39,6 +40,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     const bool isSigned = intType->isSignedInt();
     SpirvConstant *sizeInstruction = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy, llvm::APInt(32, size));
+    sizeInstruction->setResultType(spvContext.getUIntType(32));
     // TODO: Use enums rather than uint32_t.
     uint32_t encoding = isSigned ? 4u : 6u;
     std::string debugName = "";
@@ -58,6 +60,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     const uint32_t size = floatType->getBitwidth();
     SpirvConstant *sizeInstruction = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy, llvm::APInt(32, size));
+    sizeInstruction->setResultType(spvContext.getUIntType(32));
     // TODO: Use enums rather than uint32_t.
     uint32_t encoding = 3u;
     std::string debugName = "";
@@ -84,7 +87,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     auto *vecType = dyn_cast<VectorType>(spirvType);
     SpirvDebugInstruction *elemDebugType =
         lowerToDebugType(vecType->getElementType());
-    debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType,
+    debugType = spvContext.getDebugTypeVector(spirvType, elemDebugType,
                                              vecType->getElementCount());
     break;
   }
@@ -106,7 +109,9 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   }
   }
 
-  spvModule->addDebugInfo(debugType);
+  debugType->setAstResultType(astContext.VoidTy);
+  debugType->setResultType(context.getVoidType());
+  debugType->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
   return debugType;
 }
 
@@ -130,11 +135,26 @@ bool DebugTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     if (isa<SpirvDebugGlobalVariable>(debugInstr) ||
         isa<SpirvDebugLocalVariable>(debugInstr) ||
         isa<SpirvDebugFunction>(debugInstr)) {
-      const SpirvType *spirvType = debugInstr->getResultType();
+      const SpirvType *spirvType = debugInstr->getDebugSpirvType();
       if (spirvType) {
         SpirvDebugInstruction *debugType = lowerToDebugType(spirvType);
         debugInstr->setDebugType(debugType);
       }
+    }
+  }
+
+  return true;
+}
+
+bool DebugTypeVisitor::visit(SpirvModule *module, Phase phase) {
+  if (phase == Phase::Done) {
+    // When the processing for all debug types is done, we need to take all the
+    // debug types in the context and add their SPIR-V instructions to the
+    // SPIR-V module.
+    // Note that we don't add debug types to the module when we create them, as
+    // there could be duplicates.
+    for (const auto typePair : spvContext.getDebugTypes()) {
+      module->addDebugInfo(typePair.second);
     }
   }
 

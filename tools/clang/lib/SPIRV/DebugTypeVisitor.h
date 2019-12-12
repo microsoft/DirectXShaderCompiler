@@ -31,11 +31,7 @@ public:
         spvBuilder(builder) {}
 
   // Visiting different SPIR-V constructs.
-  bool visit(SpirvModule *module, Phase) {
-    spvModule = module;
-    return true;
-  }
-
+  bool visit(SpirvModule *module, Phase);
   bool visit(SpirvBasicBlock *, Phase) { return true; }
   bool visit(SpirvFunction *, Phase) { return true; }
 
@@ -67,7 +63,6 @@ private:
   ASTContext &astContext;   /// AST context
   SpirvContext &spvContext; /// SPIR-V context
   SpirvBuilder &spvBuilder; ///< SPIR-V builder
-  SpirvModule *spvModule;   /// SPIR-V module in memory
 };
 
 } // end namespace spirv

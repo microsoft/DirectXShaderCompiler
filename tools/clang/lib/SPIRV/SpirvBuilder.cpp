@@ -794,6 +794,16 @@ SpirvBuilder::createDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
   return inst;
 }
 
+SpirvDebugLocalVariable *SpirvBuilder::createDebugLocalVariable(
+    QualType debugQualType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+    uint32_t flags, llvm::Optional<uint32_t> argNumber) {
+  auto *inst = new (context) SpirvDebugLocalVariable(
+      debugQualType, varName, src, line, column, parentScope, flags, argNumber);
+  module->addDebugInfo(inst);
+  return inst;
+}
+
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }

@@ -4,7 +4,7 @@
 // CHECK:   [[debugSource:%\d+]] = OpExtInst %void [[debugSet]] DebugSource {{%\d+}} {{%\d+}}
 // CHECK:      [[compUnit:%\d+]] = OpExtInst %void [[debugSet]] DebugCompilationUnit 1 4 [[debugSource]] HLSL
 float4 main(float4 color : COLOR) : SV_TARGET
-// CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock %21 8 1 [[compUnit]]
+// CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 8 1 [[compUnit]]
 {
   float4 c = 0.xxxx;
   // CHECK: [[forLoopLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 11 12 [[mainFnLexBlock]]
@@ -23,7 +23,7 @@ float4 main(float4 color : COLOR) : SV_TARGET
     // CHECK: [[ifStmtLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 24 20 [[whileLoopLexBlock]]
     if (bool(c.x)) {
       c = c + c;
-      // CHECK: %27 = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 27 7 [[ifStmtLexBlock]]
+      // CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] 27 7 [[ifStmtLexBlock]]
       {
         c = c + c;
       }

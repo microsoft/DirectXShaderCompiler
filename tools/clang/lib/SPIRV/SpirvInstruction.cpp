@@ -804,13 +804,14 @@ SpirvDebugFunction::SpirvDebugFunction(
 }
 
 SpirvDebugLocalVariable::SpirvDebugLocalVariable(
-    llvm::StringRef varName, SpirvDebugSource *src, uint32_t lineNumber,
-    uint32_t colNumber, SpirvDebugInstruction *parent, uint32_t flags_,
-    llvm::Optional<uint32_t> argNumber_)
+    QualType debugQualType_, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t lineNumber, uint32_t colNumber, SpirvDebugInstruction *parent,
+    uint32_t flags_, llvm::Optional<uint32_t> argNumber_)
     : SpirvDebugInstruction(IK_DebugLocalVariable, /*opcode*/ 26u), source(src),
       line(lineNumber), column(colNumber), parentScope(parent), flags(flags_),
       argNumber(argNumber_) {
   debugName = varName;
+  setDebugQualType(debugQualType_);
 }
 
 SpirvDebugGlobalVariable::SpirvDebugGlobalVariable(
