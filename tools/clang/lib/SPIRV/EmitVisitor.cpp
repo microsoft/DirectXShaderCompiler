@@ -1124,6 +1124,38 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
+  SpirvString *typeNameString =
+      new (context) SpirvString(/*SourceLocation*/ {}, inst->getName());
+  visit(typeNameString);
+
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(typeNameString));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSize()));
+  curInst.push_back(inst->getEncoding());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getElementType()));
+  curInst.push_back(inst->getElementCount());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

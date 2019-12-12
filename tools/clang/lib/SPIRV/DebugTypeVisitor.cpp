@@ -27,13 +27,18 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     uint32_t size = 32;
     // TODO: Use enums rather than uint32_t.
     uint32_t encoding = 2u;
-    debugType = spvContext.getDebugTypeBasic(spirvType, name, size, encoding);
+    SpirvConstant *sizeInstruction = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, size));
+    debugType = spvContext.getDebugTypeBasic(spirvType, name, sizeInstruction,
+                                             encoding);
     break;
   }
   case SpirvType::TK_Integer: {
     auto *intType = dyn_cast<IntegerType>(spirvType);
     const uint32_t size = intType->getBitwidth();
     const bool isSigned = intType->isSignedInt();
+    SpirvConstant *sizeInstruction = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, size));
     // TODO: Use enums rather than uint32_t.
     uint32_t encoding = isSigned ? 4u : 6u;
     std::string debugName = "";
@@ -44,13 +49,15 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
       stream << (isSigned ? "int" : "uint") << size << "_t";
       debugName = stream.str();
     }
-    debugType =
-        spvContext.getDebugTypeBasic(spirvType, debugName, size, encoding);
+    debugType = spvContext.getDebugTypeBasic(spirvType, debugName,
+                                             sizeInstruction, encoding);
     break;
   }
   case SpirvType::TK_Float: {
     auto *floatType = dyn_cast<FloatType>(spirvType);
     const uint32_t size = floatType->getBitwidth();
+    SpirvConstant *sizeInstruction = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, size));
     // TODO: Use enums rather than uint32_t.
     uint32_t encoding = 3u;
     std::string debugName = "";
@@ -61,8 +68,8 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
       stream << "float" << size << "_t";
       debugName = stream.str();
     }
-    debugType =
-        spvContext.getDebugTypeBasic(spirvType, debugName, size, encoding);
+    debugType = spvContext.getDebugTypeBasic(spirvType, debugName,
+                                             sizeInstruction, encoding);
     break;
   }
   case SpirvType::TK_Array: {

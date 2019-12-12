@@ -143,7 +143,8 @@ public:
 
   // TODO: Replace uint32_t with an enum for encoding.
   SpirvDebugInstruction *getDebugTypeBasic(const SpirvType *spirvType,
-                                           llvm::StringRef name, uint32_t size,
+                                           llvm::StringRef name,
+                                           SpirvConstant *size,
                                            uint32_t encoding);
 
   SpirvDebugInstruction *getDebugTypeArray(const SpirvType *spirvType,

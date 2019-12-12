@@ -2051,7 +2051,8 @@ protected:
 /// Represents basic debug types, including boolean, float, integer.
 class SpirvDebugTypeBasic : public SpirvDebugType {
 public:
-  SpirvDebugTypeBasic(llvm::StringRef name, uint32_t size, uint32_t encoding);
+  SpirvDebugTypeBasic(llvm::StringRef name, SpirvConstant *size,
+                      uint32_t encoding);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeBasic;
@@ -2059,9 +2060,13 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  llvm::StringRef getName() const { return name; }
+  SpirvConstant *getSize() const { return size; }
+  uint32_t getEncoding() const { return encoding; }
+
 private:
   std::string name;
-  uint32_t size;
+  SpirvConstant *size;
   // TODO: Replace uint32_t with enum from SPIRV-Headers once available.
   // 0, Unspecified
   // 1, Address

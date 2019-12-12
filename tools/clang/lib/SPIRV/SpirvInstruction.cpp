@@ -855,7 +855,8 @@ SpirvDebugLexicalBlock::SpirvDebugLexicalBlock(SpirvDebugSource *source_,
     : SpirvDebugInstruction(IK_DebugLexicalBlock, /*opcode*/ 21u),
       source(source_), line(line_), column(column_), parent(parent_) {}
 
-SpirvDebugTypeBasic::SpirvDebugTypeBasic(llvm::StringRef name_, uint32_t size_,
+SpirvDebugTypeBasic::SpirvDebugTypeBasic(llvm::StringRef name_,
+                                         SpirvConstant *size_,
                                          uint32_t encoding_)
     : SpirvDebugType(IK_DebugTypeBasic, /*opcode*/ 2u), name(name_),
       size(size_), encoding(encoding_) {}

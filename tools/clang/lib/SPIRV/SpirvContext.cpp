@@ -269,7 +269,7 @@ const StructType *SpirvContext::getACSBufferCounterType() {
 
 SpirvDebugInstruction *
 SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
-                                llvm::StringRef name, uint32_t size,
+                                llvm::StringRef name, SpirvConstant *size,
                                 uint32_t encoding) {
   // Reuse existing debug type if possible.
   if (debugTypes.find(spirvType) != debugTypes.end())
