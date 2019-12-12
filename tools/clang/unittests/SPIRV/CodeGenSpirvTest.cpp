@@ -2192,4 +2192,11 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
   runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
 }
 
+// Tests for Rich Debug Information
+TEST_F(FileTest, RichDebugInfoDebugSource) {
+  runFileTest("rich.debug.debugsource.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+
+
 } // namespace
