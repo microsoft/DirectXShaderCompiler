@@ -493,7 +493,7 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
 
       Br->dropAllReferences();
       Br->eraseFromParent();
-
+      auto PhiEnd = PHIs.end();
       for (Instruction &I : *Succ)
         if (PHINode *PN = dyn_cast<PHINode>(&I)) {
           if (Instruction *IncomingI = dyn_cast<Instruction>(PN->getIncomingValueForBlock(BB))) {
@@ -504,7 +504,7 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
 
           if (PN->getNumIncomingValues() == 1) {
             PN->replaceAllUsesWith(PN->getIncomingValue(0));
-            std::remove(PHIs.begin(), PHIs.end(), PN);
+            PhiEnd = std::remove(PHIs.begin(), PhiEnd, PN);
             AddCleanupValues(PN); // Mark for deletion
           }
         }
@@ -515,7 +515,7 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
       while (!BB->empty()){
         Instruction *ChildI = &*BB->rbegin();
         if (PHINode *PN = dyn_cast<PHINode>(ChildI))
-          std::remove(PHIs.begin(), PHIs.end(), PN);
+          PhiEnd = std::remove(PHIs.begin(), PhiEnd, PN);
         ChildI->eraseFromParent();
       }
       BB->eraseFromParent();
