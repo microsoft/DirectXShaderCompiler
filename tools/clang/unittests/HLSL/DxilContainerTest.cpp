@@ -32,7 +32,12 @@
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
+#if _MSC_VER >= 1920
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
+#include  <experimental/filesystem>
+#else
 #include <filesystem>
+#endif
 #endif
 
 #include "llvm/Support/Format.h"
@@ -60,6 +65,7 @@
 using namespace std;
 using namespace hlsl_test;
 #ifdef _WIN32
+
 using namespace std::experimental::filesystem;
 
 static uint8_t MaskCount(uint8_t V) {
