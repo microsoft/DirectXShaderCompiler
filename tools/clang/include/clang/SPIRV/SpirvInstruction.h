@@ -1866,6 +1866,15 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return fnLine; }
+  uint32_t getColumn() const { return fnColumn; }
+  SpirvDebugInstruction *getParentScope() const { return parentScope; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getFlags() const { return flags; }
+  uint32_t getScopeLine() const { return scopeLine; }
+  SpirvFunction *getSpirvFunction() const { return fn; }
+
 private:
   SpirvDebugSource *source;
   // Source line number at which the function appears
@@ -2157,6 +2166,9 @@ public:
 private:
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is available.
   uint32_t debugFlags;
+  // Return Type is a debug instruction which represents type of return value of
+  // the function. If the function has no return value, this operand is
+  // OpTypeVoid, in which case we will use nullptr for this member.
   SpirvDebugInstruction *returnType;
   llvm::SmallVector<SpirvDebugInstruction *, 4> paramTypes;
 };

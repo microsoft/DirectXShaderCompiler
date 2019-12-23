@@ -427,6 +427,14 @@ public:
       uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
       uint32_t flags, llvm::Optional<uint32_t> argNumber = llvm::None);
 
+  SpirvDebugFunction *createDebugFunction(llvm::StringRef name,
+                                          SpirvDebugSource *src,
+                                          uint32_t fnLine, uint32_t fnColumn,
+                                          SpirvDebugInstruction *parentScope,
+                                          llvm::StringRef linkageName,
+                                          uint32_t flags, uint32_t scopeLine,
+                                          SpirvFunction *fn);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 

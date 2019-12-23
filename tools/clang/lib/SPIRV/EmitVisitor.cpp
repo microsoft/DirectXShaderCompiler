@@ -1124,6 +1124,36 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugFunction *inst) {
+  SpirvString *nameString =
+      new (context) SpirvString(/*SourceLocation*/ {}, inst->getDebugName());
+  SpirvString *linkageNameString =
+      new (context) SpirvString(/*SourceLocation*/ {}, inst->getLinkageName());
+  visit(nameString);
+  visit(linkageNameString);
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(nameString));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(linkageNameString));
+  curInst.push_back(inst->getFlags());
+  curInst.push_back(inst->getScopeLine());
+  curInst.push_back(
+      getOrAssignResultId<SpirvFunction>(inst->getSpirvFunction()));
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
   SpirvString *typeNameString =
       new (context) SpirvString(/*SourceLocation*/ {}, inst->getName());
@@ -1152,6 +1182,28 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getElementType()));
   curInst.push_back(inst->getElementCount());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(inst->getDebugFlags());
+  if (inst->getReturnType()) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getReturnType()));
+  } else {
+    // If return type is void, the return instruction must be OpTypeVoid.
+    curInst.push_back(typeHandler.emitType(context.getVoidType()));
+  }
+  for (auto *paramType : inst->getParamTypes()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(paramType));
+  }
   finalizeInstruction(&richDebugInfo);
   return true;
 }

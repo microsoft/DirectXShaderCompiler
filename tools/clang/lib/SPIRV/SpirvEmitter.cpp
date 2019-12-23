@@ -1077,8 +1077,25 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     paramTypes.push_back(valueType);
   }
 
-  spvBuilder.beginFunction(retType, paramTypes, decl->getLocStart(), funcName,
-                           decl->hasAttr<HLSLPreciseAttr>(), func);
+  auto loc = decl->getLocStart();
+  SpirvFunction *spirvFunction =
+      spvBuilder.beginFunction(retType, paramTypes, loc, funcName,
+                               decl->hasAttr<HLSLPreciseAttr>(), func);
+
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    auto line = astContext.getSourceManager().getPresumedLineNumber(loc);
+    auto column = astContext.getSourceManager().getPresumedColumnNumber(loc);
+    auto *source = getRichDebugInfo().source;
+    auto *parentScope = getRichDebugInfo().scopeStack.back();
+    // TODO: figure out the proper flag based on the function decl.
+    // using FlagIsPublic for now.
+    uint32_t flags = 3u;
+    // The line number in the source program at which the function scope begins.
+    auto scopeLine = astContext.getSourceManager().getPresumedLineNumber(
+        decl->getBody()->getLocStart());
+    spvBuilder.createDebugFunction(funcName, source, line, column, parentScope,
+                                   funcName, flags, scopeLine, func);
+  }
 
   if (isNonStaticMemberFn) {
     // Remember the parameter for the 'this' object so later we can handle

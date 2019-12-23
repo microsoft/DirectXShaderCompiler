@@ -79,7 +79,7 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   }
 
   // Debug instructions have a debug type in addition to the result type.
-  // Their resutl type is always 'void'. But their debug type can be anything.
+  // Their result type is always 'void'. But their debug type can be anything.
   if (auto *debugInstruction = dyn_cast<SpirvDebugInstruction>(instr)) {
     const QualType debugQualType = debugInstruction->getDebugQualType();
     if (!debugQualType.isNull()) {

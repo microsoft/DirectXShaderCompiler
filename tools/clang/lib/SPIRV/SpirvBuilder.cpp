@@ -804,6 +804,16 @@ SpirvDebugLocalVariable *SpirvBuilder::createDebugLocalVariable(
   return inst;
 }
 
+SpirvDebugFunction *SpirvBuilder::createDebugFunction(
+    llvm::StringRef name, SpirvDebugSource *src, uint32_t line, uint32_t column,
+    SpirvDebugInstruction *parentScope, llvm::StringRef linkageName,
+    uint32_t flags, uint32_t scopeLine, SpirvFunction *fn) {
+  auto *inst = new (context) SpirvDebugFunction(
+      name, src, line, column, parentScope, linkageName, flags, scopeLine, fn);
+  module->addDebugInfo(inst);
+  return inst;
+}
+
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }

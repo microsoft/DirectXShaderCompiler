@@ -91,10 +91,19 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
                                              vecType->getElementCount());
     break;
   }
+  case SpirvType::TK_Pointer: {
+    debugType = lowerToDebugType(
+        dyn_cast<SpirvPointerType>(spirvType)->getPointeeType());
+    break;
+  }
   case SpirvType::TK_Function: {
     auto *fnType = dyn_cast<FunctionType>(spirvType);
+    // Special case: There is no DebugType for void. So if the function return
+    // type is void, we set it to nullptr.
     SpirvDebugInstruction *returnType =
-        lowerToDebugType(fnType->getReturnType());
+        isa<VoidType>(fnType->getReturnType())
+            ? nullptr
+            : lowerToDebugType(fnType->getReturnType());
     llvm::SmallVector<SpirvDebugInstruction *, 4> params;
     for (const auto *paramType : fnType->getParamTypes())
       params.push_back(lowerToDebugType(paramType));
@@ -102,7 +111,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     // The info needed probably resides in clang::FunctionDecl.
     // This info can either be stored in the SpirvFunction class. Or,
     // alternatively the info can be stored in the SpirvContext.
-    const uint32_t flags = 0;
+    const uint32_t flags = 3u;
     debugType =
         spvContext.getDebugTypeFunction(spirvType, flags, returnType, params);
     break;
@@ -133,9 +142,16 @@ bool DebugTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     // TODO: We currently don't have a SpirvDebugFunctionDeclaration class. Add
     // one if needed.
     if (isa<SpirvDebugGlobalVariable>(debugInstr) ||
-        isa<SpirvDebugLocalVariable>(debugInstr) ||
-        isa<SpirvDebugFunction>(debugInstr)) {
+        isa<SpirvDebugLocalVariable>(debugInstr)) {
       const SpirvType *spirvType = debugInstr->getDebugSpirvType();
+      if (spirvType) {
+        SpirvDebugInstruction *debugType = lowerToDebugType(spirvType);
+        debugInstr->setDebugType(debugType);
+      }
+    }
+    if (auto *debugFunction = dyn_cast<SpirvDebugFunction>(debugInstr)) {
+      const SpirvType *spirvType =
+          debugFunction->getSpirvFunction()->getFunctionType();
       if (spirvType) {
         SpirvDebugInstruction *debugType = lowerToDebugType(spirvType);
         debugInstr->setDebugType(debugType);
