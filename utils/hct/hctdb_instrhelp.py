@@ -1286,7 +1286,7 @@ def get_target_profiles():
                 continue
             if (min_sm > shader_model):
                 continue
-            result += "%s_%s,"%(profile,shader_model)
+            result += "%s_%s, "%(profile,shader_model)
         result += "\\n\\t\\t "
 
     result += "\">;"
