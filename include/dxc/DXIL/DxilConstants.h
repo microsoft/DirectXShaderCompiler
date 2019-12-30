@@ -27,7 +27,10 @@ import hctdb_instrhelp
 namespace DXIL {
   // DXIL version.
   const unsigned kDxilMajor = 1;
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
+  // VALRULE-TEXT:BEGIN
   const unsigned kDxilMinor = 5;
+  // VALRULE-TEXT:END
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
     return 0 | (DxilMajor << 8) | (DxilMinor);
