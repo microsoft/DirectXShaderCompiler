@@ -28,8 +28,11 @@ public:
   using Kind = DXIL::ShaderKind;
 
   // Major/Minor version of highest shader model
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
+  // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
   static const unsigned kHighestMinor = 5;
+  // VALRULE-TEXT:END
   static const unsigned kOfflineMinor = 0xF;
 
   bool IsPS() const     { return m_Kind == Kind::Pixel; }
@@ -56,25 +59,20 @@ public:
   }
   bool IsSM50Plus() const   { return IsSMAtLeast(5, 0); }
   bool IsSM51Plus() const   { return IsSMAtLeast(5, 1); }
-  bool IsSM60Plus() const   { return IsSMAtLeast(6, 0); }
-  bool IsSM61Plus() const   { return IsSMAtLeast(6, 1); }
-  bool IsSM62Plus() const   { return IsSMAtLeast(6, 2); }
-  bool IsSM63Plus() const   { return IsSMAtLeast(6, 3); }
-  bool IsSM64Plus() const   { return IsSMAtLeast(6, 4); }
-  bool IsSM65Plus() const   { return IsSMAtLeast(6, 5); }
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_shader_model_plus()</py>*/
+  // VALRULE-TEXT:BEGIN
+  bool IsSM60Plus() const { return IsSMAtLeast(6, 0); }
+  bool IsSM61Plus() const { return IsSMAtLeast(6, 1); }
+  bool IsSM62Plus() const { return IsSMAtLeast(6, 2); }
+  bool IsSM63Plus() const { return IsSMAtLeast(6, 3); }
+  bool IsSM64Plus() const { return IsSMAtLeast(6, 4); }
+  bool IsSM65Plus() const { return IsSMAtLeast(6, 5); }
+  // VALRULE-TEXT:END
   const char *GetName() const { return m_pszName; }
   const char *GetKindName() const;
-  unsigned GetNumTempRegs() const { return DXIL::kMaxTempRegCount; }
-  unsigned GetNumInputRegs() const { return m_NumInputRegs; }
-  unsigned GetNumOutputRegs() const { return m_NumOutputRegs; }
-  unsigned GetCBufferSize() const { return DXIL::kMaxCBufferSize; }
-  unsigned SupportsUAV() const { return m_bUAVs; }
-  unsigned SupportsTypedUAVs() const { return m_bTypedUavs; }
-  unsigned GetUAVRegLimit() const { return m_NumUAVRegs; }
+
   DXIL::PackingStrategy GetDefaultPackingStrategy() const { return DXIL::PackingStrategy::PrefixStable; }
 
-  static unsigned Count() { return kNumShaderModels - 1; }
-  static const ShaderModel *Get(unsigned Idx);
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
   static const char *GetKindName(Kind kind);
@@ -97,8 +95,10 @@ private:
   ShaderModel(Kind Kind, unsigned Major, unsigned Minor, const char *pszName,
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
-
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_num_shader_models()</py>*/
+  // VALRULE-TEXT:BEGIN
   static const unsigned kNumShaderModels = 65;
+  // VALRULE-TEXT:END
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();

@@ -5586,6 +5586,8 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
 }
 
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_validation_version()</py>*/
+  // VALRULE-TEXT:BEGIN
   // 1.0 is the first validator.
   // 1.1 adds:
   // - ILDN container part support
@@ -5605,6 +5607,7 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - DXR 1.1 & RayQuery support
   *pMajor = 1;
   *pMinor = 5;
+  // VALRULE-TEXT:END
 }
 
 _Use_decl_annotations_ HRESULT
