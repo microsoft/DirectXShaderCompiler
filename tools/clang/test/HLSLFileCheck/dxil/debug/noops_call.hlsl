@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
+// RUN: %dxilver 1.7 | %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
 
 typedef float4 MyCoolFloat4; 
 static float4 myStaticGlobalVar = float4(1.0, 1.0, 1.0, 1.0);
