@@ -31,7 +31,7 @@ public:
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
-  static const unsigned kHighestMinor = 5;
+  static const unsigned kHighestMinor = 6;
   // VALRULE-TEXT:END
   static const unsigned kOfflineMinor = 0xF;
 
@@ -67,6 +67,7 @@ public:
   bool IsSM63Plus() const { return IsSMAtLeast(6, 3); }
   bool IsSM64Plus() const { return IsSMAtLeast(6, 4); }
   bool IsSM65Plus() const { return IsSMAtLeast(6, 5); }
+  bool IsSM66Plus() const { return IsSMAtLeast(6, 6); }
   // VALRULE-TEXT:END
   const char *GetName() const { return m_pszName; }
   const char *GetKindName() const;
@@ -97,7 +98,7 @@ private:
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_num_shader_models()</py>*/
   // VALRULE-TEXT:BEGIN
-  static const unsigned kNumShaderModels = 65;
+  static const unsigned kNumShaderModels = 74;
   // VALRULE-TEXT:END
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 

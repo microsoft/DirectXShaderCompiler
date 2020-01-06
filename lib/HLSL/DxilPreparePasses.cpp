@@ -331,7 +331,7 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
-  void patchValidation_1_5(Module &M) {
+  void patchValidation_1_6(Module &M) {
     Function *DoNothingF = nullptr;
     for (Function &F : M) {
       if (F.isIntrinsic() && F.getIntrinsicID() == Intrinsic::donothing) {
@@ -399,8 +399,8 @@ public:
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
 
-      if (ValMajor == 1 && ValMinor <= 5) {
-        patchValidation_1_5(M);
+      if (ValMajor == 1 && ValMinor <= 6) {
+        patchValidation_1_6(M);
       }
 
       // Remove store undef output.

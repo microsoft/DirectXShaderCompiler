@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
+// RUN: %dxilver 1.7 | %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
 
 // Test that non-const arithmetic are not optimized away
 

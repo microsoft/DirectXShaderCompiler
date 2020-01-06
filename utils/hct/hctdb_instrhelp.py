@@ -1087,7 +1087,7 @@ def get_interpretation_table():
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
 highest_major = 6
-highest_minor = 5
+highest_minor = 6
 highest_shader_models = {4:1, 5:1, 6:highest_minor}
 
 def getShaderModels():
