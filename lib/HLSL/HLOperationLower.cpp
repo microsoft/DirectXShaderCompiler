@@ -1594,6 +1594,12 @@ Value *TranslateClip(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   } else
     cond = Builder.CreateFCmpOLT(arg, hlslOP->GetFloatConst(0));
 
+  /*If discard condition evaluates to false at compile-time, then
+  don't emit the discard instruction.*/
+  if (ConstantInt *constCond = dyn_cast<ConstantInt>(cond))
+    if (!constCond->getLimitedValue())
+      return nullptr;
+
   Constant *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::Discard);
   Builder.CreateCall(discard, {opArg, cond});
   return nullptr;
