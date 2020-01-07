@@ -331,7 +331,7 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
-  void patchValidation_1_6(Module &M) {
+  void patchDxil_1_5(Module &M) {
     Function *DoNothingF = nullptr;
     for (Function &F : M) {
       if (F.isIntrinsic() && F.getIntrinsicID() == Intrinsic::donothing) {
@@ -385,6 +385,9 @@ public:
       unsigned ValMajor = 0;
       unsigned ValMinor = 0;
       M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+      unsigned DxilMajor = 0;
+      unsigned DxilMinor = 0;
+      M.GetDxilModule().GetDxilVersion(DxilMajor, DxilMinor);
 
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
@@ -399,8 +402,8 @@ public:
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
 
-      if (ValMajor == 1 && ValMinor <= 6) {
-        patchValidation_1_6(M);
+      if (DxilMajor == 1 && DxilMinor <= 5) {
+        patchDxil_1_5(M);
       }
 
       // Remove store undef output.
