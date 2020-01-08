@@ -6575,6 +6575,20 @@ static Value *CalcHLSLLiteralToLowestPrecision(CGBuilderTy &Builder, Value *Src,
   return nullptr;
 }
 
+static Value* CastLiteralToDestFPTy(CGBuilderTy& Builder, Value *v, llvm::Type *DstTy) {
+  double vd = cast<llvm::ConstantFP>(v)->getValueAPF().convertToDouble();
+  if (DstTy->isFloatTy()) {
+    return llvm::ConstantFP::get(Builder.getFloatTy(), vd);
+  } else if (DstTy->isHalfTy()) {
+    return llvm::ConstantFP::get(Builder.getHalfTy(), vd);
+  } else if (DstTy->isDoubleTy()) {
+    return llvm::ConstantFP::get(Builder.getDoubleTy(), vd);
+  }
+
+  DXASSERT(false, "Encountered unexpected dest type when casting a float literal.");
+  return nullptr;
+}
+
 Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
                                             QualType SrcType,
                                             QualType DstType) {
@@ -6672,6 +6686,11 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
           F = ConstantFP::get(DstTy->getContext(), APFloat(rf));
           Value *Sel = Builder.CreateSelect(Cond, T, F, "cond");
           return Sel;
+        } else if (DstTy->isHalfTy()) {
+          T = ConstantFP::get(Builder.getHalfTy(), ld);
+          F = ConstantFP::get(Builder.getHalfTy(), rd);
+          Value *Sel = Builder.CreateSelect(Cond, T, F, "cond");
+          return Sel;
         } else if (DstTy == Builder.getInt32Ty()) {
           T = Builder.getInt32(ld);
           F = Builder.getInt32(rd);
@@ -6708,6 +6727,35 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
           else
             return Builder.CreateUIToFP(CastResult, DstTy);
         }
+      } else if (I->getType()->isFloatingPointTy()) {
+        // Ensure that an expression having builtin type
+        // as literal float is straightway cast to the destination
+        // float type instead of producing double ty and then
+        // truncating it to the dest fp type.
+        // ex1:- float a = (i ? 1.0 : 0.0) + (j ? 1.0 : 0.0)
+        // ex2:- half a = (i ? 1.0 : 0.0) + (j ? 1.0 : 0.0)
+
+        // Skip if the destination type is not float as
+        // cast would be needed in this case.
+        if (!DstTy->isFloatingPointTy())
+          return nullptr;
+
+        Value *op0 = BO->getOperand(0);
+        Value *op1 = BO->getOperand(1);
+
+        // Operands of the current binary op could itself be a literal float
+        // Or they could be an expression comprising literal floats. Handle
+        // both the cases.
+        Value *newOp0 = isa<llvm::ConstantFP>(op0) ?
+          CastLiteralToDestFPTy(Builder, op0, DstTy) :
+          EmitHLSLLiteralCast(CGF, op0, SrcType, DstType);
+
+        Value *newOp1 = isa<llvm::ConstantFP>(op1) ?
+          CastLiteralToDestFPTy(Builder, op1, DstTy) :
+          EmitHLSLLiteralCast(CGF, op1, SrcType, DstType);
+
+        if (newOp0 && newOp1)
+          return Builder.CreateBinOp(BO->getOpcode(), newOp0, newOp1);
       }
     }
     // TODO: support other opcode if need.
