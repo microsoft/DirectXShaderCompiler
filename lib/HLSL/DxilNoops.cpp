@@ -40,7 +40,6 @@ Function *GetOrCreateNoopF(Module &M) {
 class DxilInsertNoops : public FunctionPass {
 public:
   static char ID;
-
   DxilInsertNoops() : FunctionPass(ID) {
     initializeDxilInsertNoopsPass(*PassRegistry::getPassRegistry());
   }
