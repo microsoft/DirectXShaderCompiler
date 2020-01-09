@@ -41,9 +41,6 @@ class DxilInsertNoops : public FunctionPass {
 public:
   static char ID;
 
-  Value *NothingGVLoad_i32 = nullptr;
-  Value *NothingGVLoad_f32 = nullptr;
-
   DxilInsertNoops() : FunctionPass(ID) {
     initializeDxilInsertNoopsPass(*PassRegistry::getPassRegistry());
   }
@@ -130,7 +127,7 @@ public:
   if (!NothingGV) {
     NothingGV = M.getGlobalVariable(kNothingName);
     if (!NothingGV) {
-      auto i32Ty = Type::getInt32Ty(M.getContext());
+      Type *i32Ty = Type::getInt32Ty(M.getContext());
       NothingGV = new GlobalVariable(M,
         i32Ty, true,
         llvm::GlobalValue::InternalLinkage,
