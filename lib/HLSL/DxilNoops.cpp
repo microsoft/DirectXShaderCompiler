@@ -164,14 +164,14 @@ bool DxilFinalizeNoops::runOnModule(Module &M) {
     return false;
 
   if (!NoopF->user_empty()) {
-    Function *DoNothingF = Intrinsic::getDeclaration(&M, Intrinsic::donothing);
     for (auto It = NoopF->user_begin(), E = NoopF->user_end(); It != E;) {
       User *U = *(It++);
       CallInst *CI = cast<CallInst>(U);
-      CI->setCalledFunction(DoNothingF);
 
       Instruction *Nop = GetFinalNoopInst(M, CI);
       Nop->setDebugLoc(CI->getDebugLoc());
+
+      CI->eraseFromParent();
     }
   }
 

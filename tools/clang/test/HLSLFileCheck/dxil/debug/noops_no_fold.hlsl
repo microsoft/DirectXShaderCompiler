@@ -36,3 +36,5 @@ float4 main() : SV_Target {
   // CHECK: call void @llvm.donothing()
 }
 
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
