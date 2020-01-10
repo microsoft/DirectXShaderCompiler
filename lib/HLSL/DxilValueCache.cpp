@@ -25,6 +25,8 @@
 #include "llvm/ADT/Statistic.h"
 
 #include "dxc/HLSL/DxilValueCache.h"
+#include "dxc/HLSL/DxilNoops.h"
+
 #include <unordered_set>
 
 #define DEBUG_TYPE "dxil-value-cache"
@@ -221,6 +223,10 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
         Cast->getOpcode(),
         OptionallyGetValue(Cast->getOperand(0)),
         Cast->getType(), DL);
+  }
+  else if (CallInst *CI = dyn_cast<CallInst>(I)) {
+    if (hlsl::IsDxilCopy(CI))
+      Simplified = OptionallyGetValue(CI->getArgOperand(0));
   }
 
   if (Simplified && isa<Constant>(Simplified))
