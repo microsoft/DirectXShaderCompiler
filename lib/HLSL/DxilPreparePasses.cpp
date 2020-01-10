@@ -23,6 +23,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
@@ -922,3 +923,110 @@ ModulePass *llvm::createDxilEmitMetadataPass() {
 }
 
 INITIALIZE_PASS(DxilEmitMetadata, "hlsl-dxilemit", "HLSL DXIL Metadata Emit", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+const StringRef UniNoWaveSensitiveGradientErrMsg =
+    "Gradient operations are not affected by wave-sensitive data or control "
+    "flow.";
+
+class DxilValidateWaveSensitivity : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilValidateWaveSensitivity() : ModulePass(ID) {}
+
+  const char *getPassName() const override {
+    return "HLSL DXIL wave sensitiveity validation";
+  }
+
+  bool runOnModule(Module &M) override {
+    // Only check ps and lib profile.
+    DxilModule &DM = M.GetDxilModule();
+    const ShaderModel *pSM = DM.GetShaderModel();
+    if (!pSM->IsPS() && !pSM->IsLib())
+      return false;
+
+    SmallVector<CallInst *, 16> gradientOps;
+    SmallVector<CallInst *, 16> barriers;
+    SmallVector<CallInst *, 16> waveOps;
+
+    for (auto &F : M) {
+      if (!F.isDeclaration())
+        continue;
+
+      for (User *U : F.users()) {
+        CallInst *CI = dyn_cast<CallInst>(U);
+        if (!CI)
+          continue;
+        Function *FCalled = CI->getCalledFunction();
+        if (!FCalled || !FCalled->isDeclaration())
+          continue;
+
+        if (!hlsl::OP::IsDxilOpFunc(FCalled))
+          continue;
+
+        DXIL::OpCode dxilOpcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
+
+        if (OP::IsDxilOpWave(dxilOpcode)) {
+          waveOps.emplace_back(CI);
+        }
+
+        if (OP::IsDxilOpGradient(dxilOpcode)) {
+          gradientOps.push_back(CI);
+        }
+
+        if (dxilOpcode == DXIL::OpCode::Barrier) {
+          barriers.push_back(CI);
+        }
+      }
+    }
+
+    // Skip if not have wave op.
+    if (waveOps.empty())
+      return false;
+
+    // Skip if no gradient op.
+    if (gradientOps.empty())
+      return false;
+
+    for (auto &F : M) {
+      if (F.isDeclaration())
+        continue;
+
+      SmallVector<CallInst *, 16> localGradientOps;
+      for (CallInst *CI : gradientOps) {
+        if (CI->getParent()->getParent() == &F)
+          localGradientOps.emplace_back(CI);
+      }
+
+      if (localGradientOps.empty())
+        continue;
+
+      PostDominatorTree PDT;
+      PDT.runOnFunction(F);
+      std::unique_ptr<WaveSensitivityAnalysis> WaveVal(
+          WaveSensitivityAnalysis::create(PDT));
+
+      WaveVal->Analyze(&F);
+      for (CallInst *op : localGradientOps) {
+        if (WaveVal->IsWaveSensitive(op)) {
+          dxilutil::EmitWarningOnInstruction(op,
+                                             UniNoWaveSensitiveGradientErrMsg);
+        }
+      }
+    }
+    return false;
+  }
+};
+
+}
+
+char DxilValidateWaveSensitivity::ID = 0;
+
+ModulePass *llvm::createDxilValidateWaveSensitivityPass() {
+  return new DxilValidateWaveSensitivity();
+}
+
+INITIALIZE_PASS(DxilValidateWaveSensitivity, "hlsl-validate-wave-sensitivity", "HLSL DXIL wave sensitiveity validation", false, false)

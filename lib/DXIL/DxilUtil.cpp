@@ -231,6 +231,23 @@ static bool EmitErrorOnInstructionFollowPhiSelect(
   return false;
 }
 
+static bool EmitWarningOnInstructionFollowPhiSelect(
+    Instruction *I, StringRef Msg, unsigned depth=0) {
+  if (depth > 4)
+    return false;
+  if (I->getDebugLoc().get()) {
+    EmitWarningOnInstruction(I, Msg);
+    return true;
+  }
+  if (isa<PHINode>(I) || isa<SelectInst>(I)) {
+    for (auto U : I->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U))
+        if (EmitWarningOnInstructionFollowPhiSelect(UI, Msg, depth+1))
+          return true;
+  }
+  return false;
+}
+
 std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
   std::string locString;
   raw_string_ostream os(locString);
@@ -254,6 +271,19 @@ void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
   }
 
   I->getContext().emitError(FormatMessageWithoutLocation(Msg));
+}
+
+void EmitWarningOnInstruction(Instruction *I, StringRef Msg) {
+  const DebugLoc &DL = I->getDebugLoc();
+  if (DL.get()) {
+    I->getContext().emitWarning(FormatMessageAtLocation(DL, Msg));
+    return;
+  } else if (isa<PHINode>(I) || isa<SelectInst>(I)) {
+    if (EmitWarningOnInstructionFollowPhiSelect(I, Msg))
+      return;
+  }
+
+  I->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
 }
 
 const StringRef kResourceMapErrorMsg =

@@ -109,6 +109,9 @@ void initializeResumePassesPass(llvm::PassRegistry&);
 void initializeMatrixBitcastLowerPassPass(llvm::PassRegistry&);
 void initializeDxilCleanupAddrSpaceCastPass(llvm::PassRegistry&);
 
+ModulePass *createDxilValidateWaveSensitivityPass();
+void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
+
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
 }
