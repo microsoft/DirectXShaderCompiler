@@ -31,26 +31,13 @@
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
+#include "clang/SPIRV/SpirvModule.h"
 #include "llvm/ADT/STLExtras.h"
 
 #include "DeclResultIdMapper.h"
 
 namespace clang {
 namespace spirv {
-
-class RichDebugInfo {
-public:
-  RichDebugInfo() : source(nullptr), compilationUnit(nullptr), scopeStack() {}
-
-  // The HLL source code
-  SpirvDebugSource *source;
-
-  // The compilation unit (topmost debug info node)
-  SpirvDebugCompilationUnit *compilationUnit;
-
-  // Stack of lexical scopes
-  std::vector<SpirvDebugInstruction *> scopeStack;
-};
 
 /// SPIR-V emitter class. It consumes the HLSL AST and emits SPIR-V words.
 ///
@@ -67,7 +54,9 @@ public:
   DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
-  RichDebugInfo &getRichDebugInfo() { return debugInfo; }
+  llvm::MapVector<llvm::StringRef, RichDebugInfo> &getRichDebugInfo() {
+    return debugInfo;
+  }
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
@@ -1172,7 +1161,12 @@ private:
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
 
-  RichDebugInfo debugInfo;
+  /// File name to rich debug info map. When the main source file
+  /// includes header files, we create an element of debugInfo for
+  /// each file. RichDebugInfo includes DebugSource,
+  /// DebugCompilationUnit and scopeStack which keeps lexical scopes
+  /// recursively.
+  llvm::MapVector<llvm::StringRef, RichDebugInfo> debugInfo;
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {

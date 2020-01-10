@@ -105,6 +105,18 @@ std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
   return words;
 }
 
+uint32_t EmitVisitor::getOrCreateOpString(llvm::StringRef str) {
+  auto it = debugFileIdMap.find(str);
+  if (it != debugFileIdMap.end()) {
+    return it->second;
+  }
+  SpirvString *inst = new (context) SpirvString(/*SourceLocation*/ {}, str);
+  visit(inst);
+  uint32_t fid = getOrAssignResultId<SpirvInstruction>(inst);
+  debugFileIdMap[inst->getString()] = fid;
+  return fid;
+}
+
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
                                               llvm::StringRef debugName) {
   // Most instructions do not have a debug name associated with them.
@@ -144,17 +156,8 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   auto fileId = debugMainFileId;
   const auto &sm = astContext.getSourceManager();
   const char *fileName = sm.getPresumedLoc(loc).getFilename();
-  if (fileName) {
-    auto it = debugFileIdMap.find(fileName);
-    if (it == debugFileIdMap.end()) {
-      // Emit the OpString for this new fileName.
-      SpirvString *inst =
-          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
-      visit(inst);
-      it = debugFileIdMap.find(fileName);
-    }
-    fileId = it->second;
-  }
+  if (fileName)
+    fileId = getOrCreateOpString(fileName);
 
   if (!fileId) {
     emitError("spvOptions.debugInfoLine is true but no fileId was set");
@@ -376,23 +379,16 @@ bool EmitVisitor::visit(SpirvString *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   encodeString(inst->getString());
   finalizeInstruction(&debugFileBinary);
-
-  if (spvOptions.debugInfoLine) {
-    if (debugFileIdMap.find(inst->getString()) != debugFileIdMap.end())
-      return true;
-    debugFileIdMap[inst->getString()] =
-        getOrAssignResultId<SpirvInstruction>(inst);
-  }
   return true;
 }
 
 bool EmitVisitor::visit(SpirvSource *inst) {
   // Emit the OpString for the file name.
+  uint32_t fileId = debugMainFileId;
   if (inst->hasFile()) {
-    visit(inst->getFile());
-
-    if (spvOptions.debugInfoLine && !debugMainFileId)
-      debugMainFileId = debugFileIdMap[inst->getFile()->getString()];
+    fileId = getOrCreateOpString(inst->getFile()->getString());
+    if (!debugMainFileId)
+      debugMainFileId = fileId;
   }
 
   // Chop up the source into multiple segments if it is too long.
@@ -408,9 +404,8 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
-  if (inst->hasFile()) {
-    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getFile()));
-  }
+  if (inst->hasFile())
+    curInst.push_back(fileId);
   if (firstSnippet.hasValue()) {
     // Note: in order to improve performance and avoid multiple copies, we
     // encode this (potentially large) string directly into the debugFileBinary.
@@ -1075,20 +1070,19 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugSource *inst) {
-  SpirvString *fileString =
-      new (context) SpirvString(/*SourceLocation*/ {}, inst->getFile());
-  SpirvString *contentString =
-      new (context) SpirvString(/*SourceLocation*/ {}, inst->getContent());
-  visit(fileString);
-  visit(contentString);
+  uint32_t fileId = getOrCreateOpString(inst->getFile());
+  uint32_t textId = 0;
+  if (!inst->getContent().empty())
+    textId = getOrCreateOpString(inst->getContent());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(fileString));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(contentString));
+  curInst.push_back(fileId);
+  if (textId)
+    curInst.push_back(textId);
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1125,19 +1119,15 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugFunction *inst) {
-  SpirvString *nameString =
-      new (context) SpirvString(/*SourceLocation*/ {}, inst->getDebugName());
-  SpirvString *linkageNameString =
-      new (context) SpirvString(/*SourceLocation*/ {}, inst->getLinkageName());
-  visit(nameString);
-  visit(linkageNameString);
+  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(nameString));
+  curInst.push_back(nameId);
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
@@ -1145,7 +1135,7 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
   curInst.push_back(inst->getColumn());
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(linkageNameString));
+  curInst.push_back(linkageNameId);
   curInst.push_back(inst->getFlags());
   curInst.push_back(inst->getScopeLine());
   curInst.push_back(
@@ -1155,17 +1145,14 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
-  SpirvString *typeNameString =
-      new (context) SpirvString(/*SourceLocation*/ {}, inst->getName());
-  visit(typeNameString);
-
+  uint32_t typeNameId = getOrCreateOpString(inst->getName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(typeNameString));
+  curInst.push_back(typeNameId);
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSize()));
   curInst.push_back(inst->getEncoding());
   finalizeInstruction(&richDebugInfo);
@@ -1209,16 +1196,14 @@ bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
-  SpirvString *varName =
-      new (context) SpirvString(/*SourceLocation*/ {}, inst->getDebugName());
-  visit(varName);
+  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(varName));
+  curInst.push_back(nameId);
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));

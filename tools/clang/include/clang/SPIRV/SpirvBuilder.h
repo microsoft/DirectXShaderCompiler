@@ -414,7 +414,7 @@ public:
 
   // === SPIR-V Rich Debug Info Creation ===
   SpirvDebugSource *createDebugSource(llvm::StringRef file,
-                                      llvm::StringRef text);
+                                      llvm::StringRef text = "");
 
   SpirvDebugCompilationUnit *createDebugCompilationUnit(SpirvDebugSource *);
 

@@ -556,9 +556,12 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // OpenCL.DebugInfo.100 DebugSource
   if (spirvOptions.debugInfoRich) {
-    debugInfo.source = spvBuilder.createDebugSource(fileNames[0], source);
-    debugInfo.compilationUnit =
-        spvBuilder.createDebugCompilationUnit(debugInfo.source);
+    for (uint32_t i = 0; i < fileNames.size(); ++i) {
+      const auto &file = fileNames[i];
+      auto *dbgSrc = spvBuilder.createDebugSource(file, i == 0 ? source : "");
+      debugInfo[file] =
+          RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
+    }
   }
 
   if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
@@ -583,11 +586,6 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
-
-  if (spirvOptions.debugInfoRich) {
-    debugInfo.scopeStack.push_back(debugInfo.compilationUnit);
-  }
-
   uint32_t numEntryPoints = 0;
 
   // The entry function is the seed of the queue.
@@ -757,25 +755,39 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
       // Any opening of curly braces ('{') starts a CompoundStmt in the AST
       // tree. It also means we have a new lexical block!
       const auto loc = stmt->getLocStart();
-      const uint32_t line =
-          astContext.getSourceManager().getPresumedLineNumber(loc);
-      const uint32_t column =
-          astContext.getSourceManager().getPresumedColumnNumber(loc);
+      const auto &sm = astContext.getSourceManager();
+      const uint32_t line = sm.getPresumedLineNumber(loc);
+      const uint32_t column = sm.getPresumedColumnNumber(loc);
+
+      const StringRef file = sm.getPresumedLoc(loc).getFilename();
+      auto it = debugInfo.find(file);
+      RichDebugInfo *info = nullptr;
+      if (it == debugInfo.end()) {
+        auto *dbgSrc = spvBuilder.createDebugSource(file);
+        debugInfo[file] = RichDebugInfo(
+            dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
+        info = &debugInfo.back().second;
+      } else {
+        info = &it->second;
+      }
+
       auto *debugLexicalBlock = spvBuilder.createDebugLexicalBlock(
-          debugInfo.source, line, column, debugInfo.scopeStack.back());
+          info->source, line, column, info->scopeStack.back());
 
       // Add this lexical block to the stack of lexical scopes.
-      debugInfo.scopeStack.push_back(debugLexicalBlock);
-    }
+      info->scopeStack.push_back(debugLexicalBlock);
 
-    // Iterate over sub-statements
-    for (auto *st : compoundStmt->body())
-      doStmt(st);
+      // Iterate over sub-statements
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
 
-    if (spirvOptions.debugInfoRich) {
       // We are done with processing this compound statement. Remove its lexical
       // block from the stack of lexical scopes.
-      debugInfo.scopeStack.pop_back();
+      info->scopeStack.pop_back();
+    } else {
+      // Iterate over sub-statements
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
     }
   } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
     doReturnStmt(retStmt);
@@ -1083,16 +1095,29 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
                                decl->hasAttr<HLSLPreciseAttr>(), func);
 
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
-    auto line = astContext.getSourceManager().getPresumedLineNumber(loc);
-    auto column = astContext.getSourceManager().getPresumedColumnNumber(loc);
-    auto *source = getRichDebugInfo().source;
-    auto *parentScope = getRichDebugInfo().scopeStack.back();
+    const auto &sm = astContext.getSourceManager();
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+
+    const StringRef file = sm.getPresumedLoc(loc).getFilename();
+    auto it = debugInfo.find(file);
+    RichDebugInfo *info = nullptr;
+    if (it == debugInfo.end()) {
+      auto *dbgSrc = spvBuilder.createDebugSource(file);
+      debugInfo[file] =
+          RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
+      info = &debugInfo.back().second;
+    } else {
+      info = &it->second;
+    }
+
+    auto *source = info->source;
+    auto *parentScope = info->scopeStack.back();
     // TODO: figure out the proper flag based on the function decl.
     // using FlagIsPublic for now.
     uint32_t flags = 3u;
     // The line number in the source program at which the function scope begins.
-    auto scopeLine = astContext.getSourceManager().getPresumedLineNumber(
-        decl->getBody()->getLocStart());
+    auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
     spvBuilder.createDebugFunction(funcName, source, line, column, parentScope,
                                    funcName, flags, scopeLine, func);
   }

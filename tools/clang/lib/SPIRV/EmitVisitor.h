@@ -282,6 +282,10 @@ private:
     return obj->getResultId();
   }
 
+  /// If we already created OpString for str, just return the created one.
+  /// Otherwise, create it, keep it in debugFileIdMap, and return it.
+  uint32_t getOrCreateOpString(llvm::StringRef str);
+
   // Emits an OpLine instruction for the given operation into the given binary
   // section.
   void emitDebugLine(spv::Op op, const SourceLocation &loc,

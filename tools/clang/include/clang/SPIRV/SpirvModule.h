@@ -22,6 +22,23 @@ namespace spirv {
 class SpirvFunction;
 class SpirvVisitor;
 
+struct RichDebugInfo {
+  RichDebugInfo(SpirvDebugSource *src, SpirvDebugCompilationUnit *cu)
+      : source(src), compilationUnit(cu) {
+    scopeStack.push_back(cu);
+  }
+  RichDebugInfo() : source(nullptr), compilationUnit(nullptr), scopeStack() {}
+
+  // The HLL source code
+  SpirvDebugSource *source;
+
+  // The compilation unit (topmost debug info node)
+  SpirvDebugCompilationUnit *compilationUnit;
+
+  // Stack of lexical scopes
+  std::vector<SpirvDebugInstruction *> scopeStack;
+};
+
 struct ExtensionComparisonInfo {
   static inline SpirvExtension *getEmptyKey() { return nullptr; }
   static inline SpirvExtension *getTombstoneKey() { return nullptr; }
