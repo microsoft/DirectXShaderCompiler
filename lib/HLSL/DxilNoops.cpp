@@ -134,7 +134,7 @@ public:
     }
   }
 
-  return new llvm::LoadInst(NothingGV, "nop", InsertBefore);
+  return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
 }
 
   bool runOnModule(Module &M) override;
