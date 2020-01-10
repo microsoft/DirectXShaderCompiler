@@ -332,27 +332,6 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
-  void patchDxil_1_5(Module &M) {
-    Function *DoNothingF = nullptr;
-    for (Function &F : M) {
-      if (F.isIntrinsic() && F.getIntrinsicID() == Intrinsic::donothing) {
-        DoNothingF = &F;
-        break;
-      }
-    }
-
-    if (!DoNothingF)
-      return;
-
-    for (auto It = DoNothingF->user_begin(), E = DoNothingF->user_end(); It != E; ) {
-      User *U = *(It++);
-      cast<Instruction>(U)->eraseFromParent();
-    }
-
-    assert(DoNothingF->user_empty() && "Not all users removed from @llvm.donothing");
-    DoNothingF->eraseFromParent();
-  }
-
   void patchValidation_1_1(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
       for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
@@ -401,10 +380,6 @@ public:
         MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
         if (DM.GetShaderModel()->IsHS())
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
-      }
-
-      if (DxilMajor == 1 && DxilMinor <= 5) {
-        patchDxil_1_5(M);
       }
 
       // Remove store undef output.

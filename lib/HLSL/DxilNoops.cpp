@@ -20,6 +20,7 @@ using namespace llvm;
 
 namespace {
 StringRef kNoopName = "dx.noop";
+StringRef kNothingName = "dx.nothing";
 }
 
 //==========================================================
@@ -115,9 +116,26 @@ namespace {
 class DxilFinalizeNoops : public ModulePass {
 public:
   static char ID;
+  GlobalVariable *NothingGV = nullptr;
+
   DxilFinalizeNoops() : ModulePass(ID) {
     initializeDxilFinalizeNoopsPass(*PassRegistry::getPassRegistry());
   }
+
+  Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
+  if (!NothingGV) {
+    NothingGV = M.getGlobalVariable(kNothingName);
+    if (!NothingGV) {
+      Type *i32Ty = Type::getInt32Ty(M.getContext());
+      NothingGV = new GlobalVariable(M,
+        i32Ty, true,
+        llvm::GlobalValue::InternalLinkage,
+        llvm::ConstantInt::get(i32Ty, 0), kNothingName);
+    }
+  }
+
+  return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
+}
 
   bool runOnModule(Module &M) override;
   const char *getPassName() const override { return "Dxil Finalize Noops"; }
@@ -142,11 +160,14 @@ bool DxilFinalizeNoops::runOnModule(Module &M) {
     return false;
 
   if (!NoopF->user_empty()) {
-    Function *DoNothingF = Intrinsic::getDeclaration(&M, Intrinsic::donothing);
     for (auto It = NoopF->user_begin(), E = NoopF->user_end(); It != E;) {
       User *U = *(It++);
       CallInst *CI = cast<CallInst>(U);
-      CI->setCalledFunction(DoNothingF);
+
+      Instruction *Nop = GetFinalNoopInst(M, CI);
+      Nop->setDebugLoc(CI->getDebugLoc());
+
+      CI->eraseFromParent();
     }
   }
 
