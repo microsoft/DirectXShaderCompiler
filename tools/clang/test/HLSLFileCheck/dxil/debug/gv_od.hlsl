@@ -8,7 +8,7 @@
 // Exclude quoted source file (see readme)
 // CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
-// CHECK: !DILocalVariable(tag: DW_TAG_auto_variable, name: "global.gG"
+// CHECK: !DILocalVariable(tag: DW_TAG_arg_variable, name: "global.gG"
 
 static bool gG;
 
