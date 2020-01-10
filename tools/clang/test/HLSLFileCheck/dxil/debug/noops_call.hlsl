@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.7 | %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
 
 typedef float4 MyCoolFloat4; 
 static float4 myStaticGlobalVar = float4(1.0, 1.0, 1.0, 1.0);
@@ -60,30 +60,32 @@ float4 depth2(float4 val)
     return val;
 }
 
+// CHECK: @dx.nothing = internal constant i32 0
+
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
     float4 ret1 = localScopeVar_func(color);
     // ** call **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // ** return **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret2 = localRegVar_func(ret1);
     // ** call **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // ** copy **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // ** return **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret3 = array_func(ret2);
     // ** call **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // CHECK: store
     // CHECK: store
     // CHECK: store
@@ -93,57 +95,56 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: load
     // CHECK: load
     // ** return **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret4 = typedef_func(ret3);
     // ** call **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // ** copy **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // ** return **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret5 = global_func(ret4);
     // ** call **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // ** return **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret6 = depth2(ret5);
     // ** call **
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
     // depth2() {
       // ** call **
-      // CHECK: call void @llvm.donothing()
+      // CHECK: load i32, i32* @dx.nothing
       // depth3() {
         // ** call **
-        // CHECK: call void @llvm.donothing()
+        // CHECK: load i32, i32* @dx.nothing
         // depth4() {
           // CHECK: fmul
           // CHECK: fmul
           // CHECK: fmul
           // CHECK: fmul
-          // CHECK: call void @llvm.donothing()
+          // CHECK: load i32, i32* @dx.nothing
         // }
         // CHECK: fmul
         // CHECK: fmul
         // CHECK: fmul
         // CHECK: fmul
-        // CHECK: call void @llvm.donothing()
+        // CHECK: load i32, i32* @dx.nothing
       // }
       // CHECK: fmul
       // CHECK: fmul
       // CHECK: fmul
       // CHECK: fmul
-      // CHECK: call void @llvm.donothing()
+      // CHECK: load i32, i32* @dx.nothing
     // }
 
     return max(ret6, color);
-    // CHECK: call void @llvm.donothing()
+    // CHECK: load i32, i32* @dx.nothing
 }
-
 
