@@ -273,9 +273,6 @@ enum class ValidationRule : unsigned {
   TypesNoMultiDim, // Only one dimension allowed for array type
   TypesNoPtrToPtr, // Pointers to pointers, or pointers in structures are not allowed
   TypesNoVector, // Vector types must not be present
-
-  // Uniform analysis
-  UniNoWaveSensitiveGradient, // Gradient operations are not affected by wave-sensitive data or control flow.
 };
 // VALRULE-ENUM:END
 

@@ -1,8 +1,8 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck -input=stderr %s
 
-// CHECK: Gradient operations are not affected by wave-sensitive data or control flow.
-// CHECK: Gradient operations are not affected by wave-sensitive data or control flow.
-// CHECK: Gradient operations are not affected by wave-sensitive data or control flow.
+// CHECK:warning: Gradient operations are not affected by wave-sensitive data or control flow.
+// CHECK:warning: Gradient operations are not affected by wave-sensitive data or control flow.
+// CHECK:warning: Gradient operations are not affected by wave-sensitive data or control flow.
 
 float4 main(float4 p: SV_Position) : SV_Target {
   // cannot feed into ddx

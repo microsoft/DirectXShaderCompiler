@@ -274,7 +274,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmMaxMSSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
     case hlsl::ValidationRule::SmAmplificationShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
     case hlsl::ValidationRule::SmAmplificationShaderPayloadSizeDeclared: return "For shader '%0', payload size %1 is greater than declared size of %2 bytes";
-    case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
     case hlsl::ValidationRule::FlowDeadLoop: return "Loop must have break";
@@ -2827,26 +2826,6 @@ static bool IsValueMinPrec(DxilModule &DxilMod, Value *V) {
   return Ty->isHalfTy();
 }
 
-static void ValidateGradientOps(Function *F, ArrayRef<CallInst *> ops, ArrayRef<CallInst *> barriers, ValidationContext &ValCtx) {
-  // In the absence of wave operations, the wave validation effect need not happen.
-  // We haven't verified this is true at this point, but validation will fail
-  // later if the flags don't match in any case. Given that most shaders will
-  // not be using these wave operations, it's a reasonable cost saving.
-  if (!ValCtx.DxilMod.m_ShaderFlags.GetWaveOps()) {
-    return;
-  }
-
-    PostDominatorTree PDT;
-    PDT.runOnFunction(*F);
-  std::unique_ptr<WaveSensitivityAnalysis> WaveVal(WaveSensitivityAnalysis::create(PDT));
-  WaveVal->Analyze(F);
-  for (CallInst *op : ops) {
-    if (WaveVal->IsWaveSensitive(op)) {
-      ValCtx.EmitInstrError(op, ValidationRule::UniNoWaveSensitiveGradient);
-    }
-  }
-}
-
 static void ValidateMsIntrinsics(Function *F,
                                  ValidationContext &ValCtx,
                                  CallInst *setMeshOutputCounts,
@@ -3531,10 +3510,6 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       }
     }
     ValidateControlFlowHint(*b, ValCtx);
-  }
-
-  if (!gradientOps.empty()) {
-    ValidateGradientOps(F, gradientOps, barriers, ValCtx);
   }
 
   ValidateMsIntrinsics(F, ValCtx, setMeshOutputCounts, getMeshPayload);

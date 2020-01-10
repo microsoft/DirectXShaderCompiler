@@ -3188,7 +3188,6 @@ TYPES.INTWIDTH                            Int type must be of valid width
 TYPES.NOMULTIDIM                          Only one dimension allowed for array type
 TYPES.NOPTRTOPTR                          Pointers to pointers, or pointers in structures are not allowed
 TYPES.NOVECTOR                            Vector types must not be present
-UNI.NOWAVESENSITIVEGRADIENT               Gradient operations are not affected by wave-sensitive data or control flow.
 ========================================= =======================================================================================================================================================================================================================================================================================================
 
 .. VALRULES-RST:END

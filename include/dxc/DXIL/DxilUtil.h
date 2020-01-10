@@ -70,6 +70,7 @@ namespace dxilutil {
   bool RemoveUnusedFunctions(llvm::Module &M, llvm::Function *EntryFunc,
                              llvm::Function *PatchConstantFunc, bool IsLib);
   void EmitErrorOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
+  void EmitWarningOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
   void EmitResMappingError(llvm::Instruction *Res);
   std::string FormatMessageAtLocation(const llvm::DebugLoc &DL, const llvm::Twine& Msg);
   llvm::Twine FormatMessageWithoutLocation(const llvm::Twine& Msg);

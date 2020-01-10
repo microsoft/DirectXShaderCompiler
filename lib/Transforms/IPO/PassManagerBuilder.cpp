@@ -644,6 +644,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createComputeViewIdStatePass());
     MPM.add(createDxilDeadFunctionEliminationPass());
     MPM.add(createNoPausePassesPass());
+    MPM.add(createDxilValidateWaveSensitivityPass());
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

@@ -210,27 +210,6 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
   return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
 }
 
-// If we don't have debug location and this is select/phi,
-// try recursing users to find instruction with debug info.
-// Only recurse phi/select and limit depth to prevent doing
-// too much work if no debug location found.
-static bool EmitErrorOnInstructionFollowPhiSelect(
-    Instruction *I, StringRef Msg, unsigned depth=0) {
-  if (depth > 4)
-    return false;
-  if (I->getDebugLoc().get()) {
-    EmitErrorOnInstruction(I, Msg);
-    return true;
-  }
-  if (isa<PHINode>(I) || isa<SelectInst>(I)) {
-    for (auto U : I->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U))
-        if (EmitErrorOnInstructionFollowPhiSelect(UI, Msg, depth+1))
-          return true;
-  }
-  return false;
-}
-
 std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
   std::string locString;
   raw_string_ostream os(locString);
@@ -243,17 +222,59 @@ Twine FormatMessageWithoutLocation(const Twine& Msg) {
   return Msg + " Use /Zi for source location.";
 }
 
-void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
+static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
+                                            bool bWarning);
+
+// If we don't have debug location and this is select/phi,
+// try recursing users to find instruction with debug info.
+// Only recurse phi/select and limit depth to prevent doing
+// too much work if no debug location found.
+static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
+                                                           StringRef Msg,
+                                                           bool bWarning,
+                                                           unsigned depth = 0) {
+  if (depth > 4)
+    return false;
+  if (I->getDebugLoc().get()) {
+    EmitWarningOrErrorOnInstruction(I, Msg, bWarning);
+    return true;
+  }
+  if (isa<PHINode>(I) || isa<SelectInst>(I)) {
+    for (auto U : I->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U))
+        if (EmitWarningOrErrorOnInstructionFollowPhiSelect(UI, Msg, bWarning,
+                                                           depth + 1))
+          return true;
+  }
+  return false;
+}
+
+static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
+                                            bool bWarning) {
   const DebugLoc &DL = I->getDebugLoc();
   if (DL.get()) {
-    I->getContext().emitError(FormatMessageAtLocation(DL, Msg));
+    if (bWarning)
+      I->getContext().emitWarning(FormatMessageAtLocation(DL, Msg));
+    else
+      I->getContext().emitError(FormatMessageAtLocation(DL, Msg));
     return;
   } else if (isa<PHINode>(I) || isa<SelectInst>(I)) {
-    if (EmitErrorOnInstructionFollowPhiSelect(I, Msg))
+    if (EmitWarningOrErrorOnInstructionFollowPhiSelect(I, Msg, bWarning))
       return;
   }
 
-  I->getContext().emitError(FormatMessageWithoutLocation(Msg));
+  if (bWarning)
+    I->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
+  else
+    I->getContext().emitError(FormatMessageWithoutLocation(Msg));
+}
+
+void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
+  EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/false);
+}
+
+void EmitWarningOnInstruction(Instruction *I, StringRef Msg) {
+  EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/true);
 }
 
 const StringRef kResourceMapErrorMsg =
