@@ -6243,6 +6243,9 @@ DIGlobalVariable *FindGlobalVariableFor(const DebugInfoFinder &DbgFinder, Global
   return nullptr;
 }
 
+// Create a fake local variable for the GlobalVariable GV that has just been
+// lowered to local Alloca.
+//
 static
 void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
   if (!DbgFinder.compile_unit_count())
@@ -6263,16 +6266,19 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
 
   DITypeIdentifierMap EmptyMap;
   DIBuilder DIB(*GV->getParent());
-  DIScope *ParentScope = DGV->getScope();
-
-  DIScope *Scope = DIB.createLexicalBlock(Subprogram, ParentScope->getFile(), 0, 0);
+  DIScope *Scope = Subprogram;
   DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
   std::string Name = "global.";
   Name += DGV->getName();
+  // Using arg_variable instead of auto_variable because arg variables can use
+  // Subprogram as its scope, so we don't have to make one up for it.
+  llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
-  DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_auto_variable, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+  DILocalVariable *ConvertedLocalVar =
+    DIB.createLocalVariable(Tag, Scope,
+      Name, DGV->getFile(), DGV->getLine(), Ty);
   DIB.insertDeclare(AI, ConvertedLocalVar, DIB.createExpression(ArrayRef<int64_t>()), Loc, AI->getNextNode());
 }
 
