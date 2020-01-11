@@ -229,6 +229,20 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
         return {alignment, rowCount * colCount * size};
       }
 
+      if (rowMajor && rule == SpirvLayoutRule::FxcCTBuffer) {
+        // Same as GLSL rules with special sizing scheme:
+        // The size of the last row vector is not rounded up.
+        // For example, a float should be at offset 44 following a float3x3.
+        // The SPIR-V validator accepts this sizing scheme but *only*
+        // for row-major layout.
+        const uint32_t lastVecSize = alignment * vecStorageSize;
+        alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
+        alignment = roundToPow2(alignment, kStd140Vec4Alignment);
+        *stride = alignment;
+        size = (colCount - 1) * alignment + lastVecSize;
+        return {alignment, size};
+      }
+
       alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
       if (rule == SpirvLayoutRule::GLSLStd140 ||
           rule == SpirvLayoutRule::RelaxedGLSLStd140 ||

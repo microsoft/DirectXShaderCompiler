@@ -154,6 +154,8 @@ struct S {
 //   float3 CB_vector5;                 // Offset: 2976 Size:    12 [unused]
 //   int CB_scalarArray3[3];            // Offset: 2992 Size:    36 [unused]
 //   float3 CB_vector6;                 // Offset: 3028 Size:    12 [unused]
+//   float3x3 CB_matrix5;               // Offset: 3040 Size:    44 [unused]
+//   float CB_scalar3;                  // Offset: 3084 Size:     4 [unused]
 //
 // }
 
@@ -197,6 +199,10 @@ struct S {
 // CHECK: OpMemberDecorate %type_MyCBuffer 21 Offset 2976
 // CHECK: OpMemberDecorate %type_MyCBuffer 22 Offset 2992
 // CHECK: OpMemberDecorate %type_MyCBuffer 23 Offset 3028
+// CHECK: OpMemberDecorate %type_MyCBuffer 24 Offset 3040
+// CHECK: OpMemberDecorate %type_MyCBuffer 24 MatrixStride 16
+// CHECK: OpMemberDecorate %type_MyCBuffer 24 RowMajor
+// CHECK: OpMemberDecorate %type_MyCBuffer 25 Offset 3084
 
 cbuffer MyCBuffer
 {
@@ -224,6 +230,8 @@ cbuffer MyCBuffer
     float3             CB_vector5;
     int                CB_scalarArray3[3];
     float3             CB_vector6;
+    float3x3           CB_matrix5;
+    float              CB_scalar3;
 };
 
 // fxc layout:
@@ -277,6 +285,8 @@ cbuffer MyCBuffer
 //   double3 TB_vector4;                // Offset: 2816 Size:    24 [unused]
 //   double3 TB_vectorArray4[4];        // Offset: 2848 Size:   120 [unused]
 //   double TB_scalar2;                 // Offset: 2968 Size:     8 [unused]
+//   float3x3 TB_matrix5;               // Offset: 2976 Size:    44 [unused]
+//   float TB_scalar3;                  // Offset: 3020 Size:     4 [unused]
 //
 // }
 
@@ -317,6 +327,10 @@ cbuffer MyCBuffer
 // CHECK: OpMemberDecorate %type_MyTBuffer 18 Offset 2816
 // CHECK: OpMemberDecorate %type_MyTBuffer 19 Offset 2848
 // CHECK: OpMemberDecorate %type_MyTBuffer 20 Offset 2968
+// CHECK: OpMemberDecorate %type_MyTBuffer 21 Offset 2976
+// CHECK: OpMemberDecorate %type_MyTBuffer 21 MatrixStride 16
+// CHECK: OpMemberDecorate %type_MyTBuffer 21 RowMajor
+// CHECK: OpMemberDecorate %type_MyTBuffer 22 Offset 3020
 
 tbuffer MyTBuffer
 {
@@ -341,6 +355,8 @@ tbuffer MyTBuffer
     double3            TB_vector4;
     double3            TB_vectorArray4[4];
     double             TB_scalar2;
+    float3x3           TB_matrix5;
+    float              TB_scalar3;
 };
 
 ConstantBuffer<S> MyConstantBuffer;
