@@ -880,11 +880,12 @@ SpirvDebugTypeFunction::SpirvDebugTypeFunction(
 
 SpirvDebugTypeMember::SpirvDebugTypeMember(
     llvm::StringRef name_, SpirvDebugType *member_, SpirvInstruction *source_,
-    uint32_t line_, uint32_t column_, uint32_t offset_, uint32_t size_,
-    uint32_t flags_, SpirvInstruction *value_)
+    uint32_t line_, uint32_t column_, SpirvDebugInstruction *parent_,
+    uint32_t offset_, uint32_t size_, uint32_t flags_, SpirvInstruction *value_)
     : SpirvDebugType(IK_DebugTypeMember, /*opcode*/ 11u), name(name_),
       member(member_), source(source_), line(line_), column(column_),
-      offset(offset_), size(size_), debugFlags(flags_), value(value_) {}
+      parent(parent_), offset(offset_), size(size_), debugFlags(flags_),
+      value(value_) {}
 
 SpirvDebugTypeComposite::SpirvDebugTypeComposite(
     llvm::StringRef name_, SpirvInstruction *source_, uint32_t line_,

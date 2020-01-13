@@ -1133,8 +1133,7 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(inst->getLine());
   curInst.push_back(inst->getColumn());
-  curInst.push_back(
-      getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
   curInst.push_back(linkageNameId);
   curInst.push_back(inst->getFlags());
   curInst.push_back(inst->getScopeLine());
@@ -1209,8 +1208,7 @@ bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(inst->getLine());
   curInst.push_back(inst->getColumn());
-  curInst.push_back(
-      getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
   curInst.push_back(inst->getFlags());
   if (inst->getArgNumber().hasValue())
     curInst.push_back(inst->getArgNumber().getValue());

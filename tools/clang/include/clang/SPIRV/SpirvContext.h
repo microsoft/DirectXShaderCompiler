@@ -161,8 +161,7 @@ public:
                        SpirvDebugInstruction *ret,
                        llvm::ArrayRef<SpirvDebugInstruction *> params);
 
-  llvm::MapVector<const SpirvType *, SpirvDebugInstruction *>
-  getDebugTypes() const {
+  llvm::MapVector<const SpirvType *, SpirvDebugType *> getDebugTypes() const {
     return debugTypes;
   }
 
@@ -309,7 +308,7 @@ private:
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same
   // type if the type is used for several variables.
-  llvm::MapVector<const SpirvType *, SpirvDebugInstruction *> debugTypes;
+  llvm::MapVector<const SpirvType *, SpirvDebugType *> debugTypes;
 };
 
 } // end namespace spirv

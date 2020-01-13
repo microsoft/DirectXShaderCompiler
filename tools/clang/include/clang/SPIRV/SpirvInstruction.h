@@ -1789,6 +1789,8 @@ public:
   void setDebugQualType(QualType type) { debugQualType = type; }
   void setDebugSpirvType(const SpirvType *type) { debugSpirvType = type; }
 
+  virtual SpirvDebugInstruction *getParent() const { return nullptr; }
+
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
   // SPIRV-Headers.
@@ -1869,7 +1871,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return fnLine; }
   uint32_t getColumn() const { return fnColumn; }
-  SpirvDebugInstruction *getParentScope() const { return parentScope; }
+  SpirvDebugInstruction *getParent() const override { return parentScope; }
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getFlags() const { return flags; }
   uint32_t getScopeLine() const { return scopeLine; }
@@ -1908,7 +1910,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  SpirvDebugInstruction *getParentScope() const { return parentScope; }
+  SpirvDebugInstruction *getParent() const override { return parentScope; }
   uint32_t getFlags() const { return flags; }
   llvm::Optional<uint32_t> getArgNumber() const { return argNumber; }
 
@@ -1935,6 +1937,8 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getParent() const override { return parentScope; }
 
 private:
   SpirvDebugSource *source;
@@ -1965,6 +1969,7 @@ private:
 };
 
 class SpirvDebugExpression : public SpirvDebugInstruction {
+public:
   SpirvDebugExpression(llvm::ArrayRef<SpirvDebugOperation *> operations = {});
 
   static bool classof(const SpirvInstruction *inst) {
@@ -2027,7 +2032,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  SpirvDebugInstruction *getParent() const { return parent; }
+  SpirvDebugInstruction *getParent() const override { return parent; }
 
 private:
   SpirvDebugSource *source;
@@ -2180,7 +2185,8 @@ class SpirvDebugTypeMember : public SpirvDebugType {
 public:
   SpirvDebugTypeMember(llvm::StringRef name, SpirvDebugType *member,
                        SpirvInstruction *source, uint32_t line, uint32_t column,
-                       uint32_t offset, uint32_t size, uint32_t flags,
+                       SpirvDebugInstruction *parent, uint32_t offset,
+                       uint32_t size, uint32_t flags,
                        SpirvInstruction *value = nullptr);
 
   static bool classof(const SpirvInstruction *inst) {
@@ -2189,12 +2195,20 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  SpirvDebugInstruction *getParent() const override { return parent; }
+
 private:
   std::string name;         //< Name of the member as it appears in the program
   SpirvDebugType *member;   //< The type of the current member
   SpirvInstruction *source; //< DebugSource containing this type
   uint32_t line;            //< Line number
   uint32_t column;          //< Column number
+
+  // The parent lexical scope. Must be one of the following:
+  // DebugCompilationUnit, DebugFunction, DebugLexicalBlock or other
+  // DebugTypeComposite
+  SpirvDebugInstruction *parent; //< The parent lexical scope
+
   uint32_t offset;          //< Offset (in bits) of this member in the struct
   uint32_t size;            //< Size (in bits) of this member in the struct
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
@@ -2204,6 +2218,7 @@ private:
 };
 
 class SpirvDebugTypeComposite : public SpirvDebugType {
+public:
   SpirvDebugTypeComposite(llvm::StringRef name, SpirvInstruction *source,
                           uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parent,
@@ -2212,10 +2227,12 @@ class SpirvDebugTypeComposite : public SpirvDebugType {
                           llvm::ArrayRef<SpirvDebugInstruction *> members);
 
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_DebugTypeMember;
+    return inst->getKind() == IK_DebugTypeComposite;
   }
 
   bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getParent() const override { return parent; }
 
 private:
   std::string name;         //< Name of the member as it appears in the program
