@@ -1094,6 +1094,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       spvBuilder.beginFunction(retType, paramTypes, loc, funcName,
                                decl->hasAttr<HLSLPreciseAttr>(), func);
 
+  RichDebugInfo *info = nullptr;
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
     const auto &sm = astContext.getSourceManager();
     const uint32_t line = sm.getPresumedLineNumber(loc);
@@ -1101,7 +1102,6 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     const StringRef file = sm.getPresumedLoc(loc).getFilename();
     auto it = debugInfo.find(file);
-    RichDebugInfo *info = nullptr;
     if (it == debugInfo.end()) {
       auto *dbgSrc = spvBuilder.createDebugSource(file);
       debugInfo[file] =
@@ -1118,9 +1118,15 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     uint32_t flags = 3u;
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    spvBuilder.createDebugFunction(funcName, source, line, column, parentScope,
-                                   funcName, flags, scopeLine, func);
+    SpirvDebugInstruction *debugFunction;
+    debugFunction = spvBuilder.createDebugFunction(
+        funcName, source, line, column, parentScope, funcName, flags, scopeLine,
+        func);
+
+    info->scopeStack.push_back(debugFunction);
   }
+
+  // TODO: If `decl->hasBody() == false`, add DebugFunctionDeclaration.
 
   if (isNonStaticMemberFn) {
     // Remember the parameter for the 'this' object so later we can handle
@@ -1166,6 +1172,10 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   spvBuilder.endFunction();
+
+  if (spirvOptions.debugInfoRich) {
+    info->scopeStack.pop_back();
+  }
 }
 
 bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
