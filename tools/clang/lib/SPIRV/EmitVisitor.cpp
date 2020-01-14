@@ -1217,6 +1217,35 @@ bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugDeclare *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugLocalVariable()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVariable()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugExpression()));
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugExpression *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  for (const auto &op : inst->getOperations())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(op));
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

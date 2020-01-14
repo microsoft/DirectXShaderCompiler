@@ -427,6 +427,13 @@ public:
       uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
       uint32_t flags, llvm::Optional<uint32_t> argNumber = llvm::None);
 
+  // Get a null DebugExpression if exists. Otherwise, create one and return it.
+  SpirvDebugExpression *getOrCreateNullDebugExpression();
+
+  SpirvDebugDeclare *createDebugDeclare(
+      SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
+      llvm::Optional<SpirvDebugExpression *> dbgExpr = llvm::None);
+
   SpirvDebugFunction *createDebugFunction(llvm::StringRef name,
                                           SpirvDebugSource *src,
                                           uint32_t fnLine, uint32_t fnColumn,
@@ -625,6 +632,9 @@ private:
   };
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
+
+  /// DebugExpression that does not reference any DebugOperation
+  SpirvDebugExpression *nullDebugExpr;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

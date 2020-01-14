@@ -263,7 +263,7 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
-      hlslUserType("") {
+      hlslUserType(""), debugDecl(nullptr) {
   setStorageClass(sc);
   setPrecise(precise);
 }
@@ -272,7 +272,8 @@ SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
                                                bool isPrecise,
                                                SourceLocation loc)
     : SpirvInstruction(IK_FunctionParameter, spv::Op::OpFunctionParameter,
-                       resultType, loc) {
+                       resultType, loc),
+      debugDecl(nullptr) {
   setPrecise(isPrecise);
 }
 
@@ -838,7 +839,7 @@ SpirvDebugExpression::SpirvDebugExpression(
       operations(operations_.begin(), operations_.end()) {}
 
 SpirvDebugDeclare::SpirvDebugDeclare(SpirvDebugLocalVariable *debugVar_,
-                                     SpirvVariable *var_,
+                                     SpirvInstruction *var_,
                                      SpirvDebugExpression *expr)
     : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u),
       debugVar(debugVar_), var(var_), expression(expr) {}

@@ -2196,53 +2196,59 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
 // TODO: change |runValidation| parameter back to 'true' once the following bug
 // has been fixed in SPIRV-Tools:
 // https://github.com/KhronosGroup/SPIRV-Tools/issues/3086
+const bool runValidationForRichDebugInfo = false;
+
 TEST_F(FileTest, RichDebugInfoDebugSource) {
   runFileTest("rich.debug.debugsource.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoDebugCompilationUnit) {
   runFileTest("rich.debug.debugcompilationunit.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoDebugLexicalBlock) {
   runFileTest("rich.debug.debuglexicalblock.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoTypeBool) {
   runFileTest("rich.debug.type.bool.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoTypeInt) {
   runFileTest("rich.debug.type.int.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoTypeFloat) {
   runFileTest("rich.debug.type.float.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoTypeVector) {
   runFileTest("rich.debug.type.vector.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoTypeFunction) {
   runFileTest("rich.debug.type.function.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoLocalVariable) {
   runFileTest("rich.debug.local-variable.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoFunction) {
   runFileTest("rich.debug.function.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoFunctionParam) {
   runFileTest("rich.debug.function.param.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoDebugSourceMultiple) {
   runFileTest("rich.debug.debugsource.multiple.hlsl", Expect::Success,
-              /*runValidation*/ false);
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoDeclare) {
+  runFileTest("rich.debug.debugdeclare.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 
 } // namespace

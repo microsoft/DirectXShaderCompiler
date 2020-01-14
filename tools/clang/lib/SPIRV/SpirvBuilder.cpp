@@ -23,7 +23,7 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt) {
+      spirvOptions(opt), nullDebugExpr(nullptr) {
   mod = new (context) SpirvModule;
 }
 
@@ -802,6 +802,44 @@ SpirvDebugLocalVariable *SpirvBuilder::createDebugLocalVariable(
       debugQualType, varName, src, line, column, parentScope, flags, argNumber);
   module->addDebugInfo(inst);
   return inst;
+}
+
+SpirvDebugExpression *SpirvBuilder::getOrCreateNullDebugExpression() {
+  if (nullDebugExpr)
+    return nullDebugExpr;
+
+  nullDebugExpr = new (context) SpirvDebugExpression();
+  module->addDebugInfo(nullDebugExpr);
+  return nullDebugExpr;
+}
+
+SpirvDebugDeclare *SpirvBuilder::createDebugDeclare(
+    SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
+    llvm::Optional<SpirvDebugExpression *> dbgExpr) {
+  if (auto *localVar = dyn_cast<SpirvVariable>(var)) {
+    auto *decl = new (context) SpirvDebugDeclare(
+        dbgVar, var,
+        dbgExpr.hasValue() ? dbgExpr.getValue()
+                           : getOrCreateNullDebugExpression());
+    assert(!localVar->getDebugDeclare() &&
+           "Debug info for local variable already exists!");
+    localVar->setDebugDeclare(decl);
+    return decl;
+  }
+
+  if (auto *param = dyn_cast<SpirvFunctionParameter>(var)) {
+    auto *decl = new (context) SpirvDebugDeclare(
+        dbgVar, var,
+        dbgExpr.hasValue() ? dbgExpr.getValue()
+                           : getOrCreateNullDebugExpression());
+    assert(!param->getDebugDeclare() &&
+           "Debug info for function param already exists!");
+    param->setDebugDeclare(decl);
+    return decl;
+  }
+
+  assert(false && "var must be SpirvVariable or SpirvFunctionParameter!");
+  return nullptr;
 }
 
 SpirvDebugFunction *SpirvBuilder::createDebugFunction(

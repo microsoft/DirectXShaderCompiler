@@ -36,17 +36,27 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
     }
     // If a basic block is the first basic block of a function, it should
     // include all the variables of the function.
-    if (!vars.empty())
-      for (auto var = vars.rbegin(); var != vars.rend(); ++var)
+    if (!vars.empty()) {
+      for (auto var = vars.rbegin(); var != vars.rend(); ++var) {
+        auto *decl = (*var)->getDebugDeclare();
+        if (decl && !decl->invokeVisitor(visitor))
+          return false;
         if (!(*var)->invokeVisitor(visitor))
           return false;
+      }
+    }
   } else {
     // If a basic block is the first basic block of a function, it should
     // include all the variables of the function.
-    if (!vars.empty())
-      for (auto *var : vars)
+    if (!vars.empty()) {
+      for (auto *var : vars) {
         if (!var->invokeVisitor(visitor))
           return false;
+        auto *decl = var->getDebugDeclare();
+        if (decl && !decl->invokeVisitor(visitor))
+          return false;
+      }
+    }
 
     for (auto iter = instructions.begin(); iter != instructions.end(); ++iter) {
       if (!iter->instruction->invokeVisitor(visitor))

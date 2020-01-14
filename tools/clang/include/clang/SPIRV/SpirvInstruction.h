@@ -32,6 +32,7 @@ class SpirvVariable;
 class SpirvString;
 class Visitor;
 class DebugTypeComposite;
+class SpirvDebugDeclare;
 
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
@@ -484,7 +485,15 @@ public:
   void setBindingNo(int32_t b) { binding = b; }
   void setHlslUserType(llvm::StringRef userType) { hlslUserType = userType; }
 
+  void setDebugDeclare(SpirvDebugDeclare *decl) { debugDecl = decl; }
+  SpirvDebugDeclare *getDebugDeclare() const { return debugDecl; }
+
 private:
+  // When we turn on the rich debug info generation option, we want
+  // to keep the DebugLocalVariable instruction corresponding to
+  // this SpirvFunctionParameter instruction.
+  SpirvDebugDeclare *debugDecl;
+
   SpirvInstruction *initializer;
   int32_t descriptorSet;
   int32_t binding;
@@ -502,6 +511,15 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
+
+  void setDebugDeclare(SpirvDebugDeclare *decl) { debugDecl = decl; }
+  SpirvDebugDeclare *getDebugDeclare() const { return debugDecl; }
+
+private:
+  // When we turn on the rich debug info generation option, we want
+  // to keep the DebugLocalVariable instruction corresponding to
+  // this SpirvFunctionParameter instruction.
+  SpirvDebugDeclare *debugDecl;
 };
 
 /// \brief Merge instructions include OpLoopMerge and OpSelectionMerge
@@ -1978,13 +1996,17 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  const llvm::SmallVector<SpirvDebugOperation *, 4> &getOperations() const {
+    return operations;
+  }
+
 private:
   llvm::SmallVector<SpirvDebugOperation *, 4> operations;
 };
 
 class SpirvDebugDeclare : public SpirvDebugInstruction {
 public:
-  SpirvDebugDeclare(SpirvDebugLocalVariable *, SpirvVariable *,
+  SpirvDebugDeclare(SpirvDebugLocalVariable *, SpirvInstruction *,
                     SpirvDebugExpression *);
 
   static bool classof(const SpirvInstruction *inst) {
@@ -1993,9 +2015,13 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  SpirvDebugLocalVariable *getDebugLocalVariable() const { return debugVar; }
+  SpirvInstruction *getVariable() const { return var; }
+  SpirvDebugExpression *getDebugExpression() const { return expression; }
+
 private:
   SpirvDebugLocalVariable *debugVar;
-  SpirvVariable *var;
+  SpirvInstruction *var;
   SpirvDebugExpression *expression;
 };
 

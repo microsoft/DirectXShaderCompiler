@@ -260,6 +260,8 @@ public:
   bool visit(SpirvDebugLexicalBlock *);
   bool visit(SpirvDebugFunction *);
   bool visit(SpirvDebugLocalVariable *);
+  bool visit(SpirvDebugDeclare *);
+  bool visit(SpirvDebugExpression *);
   bool visit(SpirvDebugTypeBasic *);
   bool visit(SpirvDebugTypeVector *);
   bool visit(SpirvDebugTypeFunction *);

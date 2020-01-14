@@ -614,8 +614,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags,
         param->getFunctionScopeIndex());
-
-    // TODO: Add DebugDeclare
+    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
   }
 
   return fnParamInstr;
@@ -660,8 +659,7 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
     uint32_t flags = 1 << 2;
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags);
-
-    // TODO: Add DebugDeclare
+    spvBuilder.createDebugDeclare(debugLocalVar, varInstr);
   }
 
   return varInstr;
