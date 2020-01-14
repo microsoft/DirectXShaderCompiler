@@ -592,6 +592,7 @@ SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
+  const auto name = param->getName();
   SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
       type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
 
@@ -601,6 +602,21 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
 
   assert(astDecls[param].instr == nullptr);
   astDecls[param].instr = fnParamInstr;
+
+  if (spirvOptions.debugInfoRich) {
+    // Add DebugLocalVariable information
+    const auto &sm = astContext.getSourceManager();
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+    const auto *info = theEmitter.getOrCreateRichDebugInfo(loc);
+    // TODO: replace this with FlagIsLocal enum.
+    uint32_t flags = 1 << 2;
+    auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+        type, name, info->source, line, column, info->scopeStack.back(), flags,
+        param->getFunctionScopeIndex());
+
+    // TODO: Add DebugDeclare
+  }
 
   return fnParamInstr;
 }
@@ -639,12 +655,13 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
     const auto &sm = astContext.getSourceManager();
     const uint32_t line = sm.getPresumedLineNumber(loc);
     const uint32_t column = sm.getPresumedColumnNumber(loc);
-    const auto &info =
-        theEmitter.getRichDebugInfo()[sm.getPresumedLoc(loc).getFilename()];
+    const auto *info = theEmitter.getOrCreateRichDebugInfo(loc);
     // TODO: replace this with FlagIsLocal enum.
     uint32_t flags = 1 << 2;
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
-        type, name, info.source, line, column, info.scopeStack.back(), flags);
+        type, name, info->source, line, column, info->scopeStack.back(), flags);
+
+    // TODO: Add DebugDeclare
   }
 
   return varInstr;

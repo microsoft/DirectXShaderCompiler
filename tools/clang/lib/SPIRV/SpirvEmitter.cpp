@@ -748,6 +748,20 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   }
 }
 
+RichDebugInfo *
+SpirvEmitter::getOrCreateRichDebugInfo(const SourceLocation &loc) {
+  const StringRef file =
+      astContext.getSourceManager().getPresumedLoc(loc).getFilename();
+  auto it = debugInfo.find(file);
+  if (it != debugInfo.end())
+    return &it->second;
+
+  auto *dbgSrc = spvBuilder.createDebugSource(file);
+  debugInfo[file] =
+      RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
+  return &debugInfo.back().second;
+}
+
 void SpirvEmitter::doStmt(const Stmt *stmt,
                           llvm::ArrayRef<const Attr *> attrs) {
   if (const auto *compoundStmt = dyn_cast<CompoundStmt>(stmt)) {
@@ -758,18 +772,7 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
       const auto &sm = astContext.getSourceManager();
       const uint32_t line = sm.getPresumedLineNumber(loc);
       const uint32_t column = sm.getPresumedColumnNumber(loc);
-
-      const StringRef file = sm.getPresumedLoc(loc).getFilename();
-      auto it = debugInfo.find(file);
-      RichDebugInfo *info = nullptr;
-      if (it == debugInfo.end()) {
-        auto *dbgSrc = spvBuilder.createDebugSource(file);
-        debugInfo[file] = RichDebugInfo(
-            dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
-        info = &debugInfo.back().second;
-      } else {
-        info = &it->second;
-      }
+      RichDebugInfo *info = getOrCreateRichDebugInfo(loc);
 
       auto *debugLexicalBlock = spvBuilder.createDebugLexicalBlock(
           info->source, line, column, info->scopeStack.back());
@@ -1095,21 +1098,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
                                decl->hasAttr<HLSLPreciseAttr>(), func);
 
   RichDebugInfo *info = nullptr;
+  const auto &sm = astContext.getSourceManager();
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
-    const auto &sm = astContext.getSourceManager();
     const uint32_t line = sm.getPresumedLineNumber(loc);
     const uint32_t column = sm.getPresumedColumnNumber(loc);
-
-    const StringRef file = sm.getPresumedLoc(loc).getFilename();
-    auto it = debugInfo.find(file);
-    if (it == debugInfo.end()) {
-      auto *dbgSrc = spvBuilder.createDebugSource(file);
-      debugInfo[file] =
-          RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
-      info = &debugInfo.back().second;
-    } else {
-      info = &it->second;
-    }
+    info = getOrCreateRichDebugInfo(loc);
 
     auto *source = info->source;
     auto *parentScope = info->scopeStack.back();
