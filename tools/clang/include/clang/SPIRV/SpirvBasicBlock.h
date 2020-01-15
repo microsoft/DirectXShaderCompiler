@@ -70,9 +70,16 @@ public:
   /// OpLoopMerge instruction. Returns nullptr otherwise.
   SpirvBasicBlock *getContinueTarget() const { return continueTarget; }
 
+  /// Get/set DebugScope for this basic block.
+  SpirvDebugScope *getDebugScope() const { return debugScope; }
+  void setDebugScope(SpirvDebugScope *scope) { debugScope = scope; }
+
   /// Adds an instruction to the vector of instructions belonging to this basic
   /// block.
   void addInstruction(SpirvInstruction *inst) { instructions.push_back(inst); }
+
+  /// Return true if instructions is empty. Otherwise, return false.
+  bool empty() { return instructions.empty(); }
 
   /// Returns true if the last instruction in this basic block is a termination
   /// instruction.
@@ -106,6 +113,9 @@ private:
   /// The continue merge targets if this basic block is a header block
   /// of structured control flow.
   SpirvBasicBlock *continueTarget;
+
+  /// DebugScope that groups all instructions in this basic block.
+  SpirvDebugScope *debugScope;
 };
 
 } // end namespace spirv

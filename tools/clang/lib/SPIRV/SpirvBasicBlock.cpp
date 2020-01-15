@@ -15,7 +15,7 @@ namespace spirv {
 
 SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
     : labelId(0), labelName(name), mergeTarget(nullptr),
-      continueTarget(nullptr) {}
+      continueTarget(nullptr), debugScope(nullptr) {}
 
 bool SpirvBasicBlock::hasTerminator() const {
   return !instructions.empty() &&
@@ -26,6 +26,9 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
                                     llvm::ArrayRef<SpirvVariable *> vars,
                                     bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
+    return false;
+
+  if (debugScope && !visitor->visit(debugScope))
     return false;
 
   if (reverseOrder) {

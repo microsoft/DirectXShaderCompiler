@@ -22,11 +22,14 @@ SpirvFunction::SpirvFunction(QualType returnType,
     : functionId(0), astReturnType(returnType),
       astParamTypes(paramTypes.begin(), paramTypes.end()), returnType(nullptr),
       fnType(nullptr), relaxedPrecision(false), precise(isPrecise),
-      containsAlias(false), rvalue(false), functionLoc(loc),
-      functionName(name) {}
+      containsAlias(false), rvalue(false), functionLoc(loc), functionName(name),
+      debugScope(nullptr) {}
 
 bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
+    return false;
+
+  if (debugScope && !visitor->visit(debugScope))
     return false;
 
   for (auto *param : parameters) {

@@ -575,6 +575,8 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
 
+  void setCurrentLexicalScope(SpirvDebugInstruction *inst);
+
 public:
   std::vector<uint32_t> takeModule();
 
@@ -635,6 +637,9 @@ private:
 
   /// DebugExpression that does not reference any DebugOperation
   SpirvDebugExpression *nullDebugExpr;
+
+  /// A debug instruction for the current lexical scope.
+  SpirvDebugInstruction *currentLexicalScope;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

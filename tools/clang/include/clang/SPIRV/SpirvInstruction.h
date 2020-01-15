@@ -129,6 +129,7 @@ public:
     IK_DebugDeclare,
     IK_DebugValue,
     IK_DebugLexicalBlock,
+    IK_DebugScope,
     IK_DebugTypeBasic,
     IK_DebugTypeArray,
     IK_DebugTypeVector,
@@ -2065,6 +2066,24 @@ private:
   uint32_t line;
   uint32_t column;
   SpirvDebugInstruction *parent;
+};
+
+/// Represent DebugScope. We assume that DXC does not generate inlining
+/// information. We do not add "Inlined" operand.
+class SpirvDebugScope : public SpirvDebugInstruction {
+public:
+  SpirvDebugScope(SpirvDebugInstruction *);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugScope;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getScope() const { return scope; }
+
+private:
+  SpirvDebugInstruction *scope;
 };
 
 /// The following classes represent debug types defined in the

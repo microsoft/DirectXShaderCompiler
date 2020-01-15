@@ -1118,6 +1118,18 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugScope *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getScope()));
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugFunction *inst) {
   uint32_t nameId = getOrCreateOpString(inst->getDebugName());
   uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());

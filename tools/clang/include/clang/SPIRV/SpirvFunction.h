@@ -95,6 +95,10 @@ public:
   void setRValue() { rvalue = true; }
   bool isRValue() { return rvalue; }
 
+  /// Get/set DebugScope for this function.
+  SpirvDebugScope *getDebugScope() const { return debugScope; }
+  void setDebugScope(SpirvDebugScope *scope) { debugScope = scope; }
+
 private:
   uint32_t functionId; ///< This function's <result-id>
 
@@ -130,6 +134,9 @@ private:
 
   /// Basic blocks inside this function.
   std::vector<SpirvBasicBlock *> basicBlocks;
+
+  /// DebugScope that groups all instructions in this basic block.
+  SpirvDebugScope *debugScope;
 };
 
 } // end namespace spirv
