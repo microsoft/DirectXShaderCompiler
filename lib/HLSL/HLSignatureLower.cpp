@@ -952,7 +952,7 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
   } else if (CallInst *CI = dyn_cast<CallInst>(info.user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
     // Intrinsic will be translated later.
-    if (group == HLOpcodeGroup::HLIntrinsic)
+    if (group == HLOpcodeGroup::HLIntrinsic || group == HLOpcodeGroup::NotHL)
       return;
     unsigned opcode = GetHLOpcode(CI);
     DXASSERT_NOMSG(group == HLOpcodeGroup::HLMatLoadStore);
@@ -1549,6 +1549,9 @@ void HLSignatureLower::GenerateStreamOutputOperation(Value *streamVal, unsigned 
     // Should only used by append, restartStrip .
     CallInst *CI = cast<CallInst>(user);
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+    // Ignore user functions.
+    if (group == HLOpcodeGroup::NotHL)
+      continue;
     unsigned opcode = GetHLOpcode(CI);
     DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLIntrinsic, "Must be HLIntrinsic here");
     IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
