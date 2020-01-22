@@ -4,7 +4,7 @@ float4 foo;
 
 // This function has no output semantic on purpose in order to produce an error,
 // otherwise, the warnings will not be captured in the output for FileCheck.
-float main() {
+float main() : OUT {
   float4 x = foo;
 
 #pragma dxc diagnostic push
@@ -14,8 +14,8 @@ float main() {
   if ((x.y == 0))
   {
 
-// CHECK-NOT: implicit truncation of vector type
-#pragma dxc diagnostic ignored "-Wconversion"
+// CHECK: error: implicit truncation of vector type
+#pragma dxc diagnostic error "-Wconversion"
     return x;
 
   }
@@ -24,5 +24,3 @@ float main() {
 #pragma dxc diagnostic pop
 
 }
-
-// CHECK: error: Semantic must be defined
