@@ -992,6 +992,7 @@ public:
       ? hlsl::DXIL::kNewLayoutString
       : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
+    compiler.getDiagnosticOpts().ShowOptionNames = 1;
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
