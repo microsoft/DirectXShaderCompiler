@@ -81,7 +81,7 @@ class VersionGen():
                 base_commit_count = int(get_commit_count(self.latest_release_info["sha"]))
             current_commit_count = int(get_commit_count("HEAD"))
             distance_from_base = current_commit_count - base_commit_count
-            if (self.current_branch is "master"):
+            if (self.current_branch == "master"):
                 distance_from_base += 10000
             self.rc_version_field_4_cache = str(distance_from_base)
         return self.rc_version_field_4_cache
