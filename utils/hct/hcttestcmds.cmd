@@ -54,7 +54,20 @@ if %Failed% neq 0 goto :failed
 rem del .pdb file if exists
 del %CD%\*.pdb 1>nul 2>nul
 
-set testname=/Fd implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
+set testname=/Fd implies /Qstrip_debug and produces auto hash-named .pdb file
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fad . /Fo smoke.hlsl.strip
+rem .pdb file should be produced
+call :check_file *.PDB del
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.hlsl.strip
+rem auto debug name is hex digest + .pdb
+call :check_file log find-opt -r "shader debug name: [0-9a-f]*.pdb" find-not "DICompileUnit" del
+if %Failed% neq 0 goto :failed
+
+rem del .pdb file if exists
+del %CD%\*.pdb 1>nul 2>nul
+
+set testname=/Fad implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd .\ /Fo smoke.hlsl.strip
 rem .pdb file should be produced
 call :check_file *.PDB del
@@ -66,6 +79,7 @@ if %Failed% neq 0 goto :failed
 
 rem del .pdb file if exists
 del %CD%\*.pdb 1>nul 2>nul
+
 
 set testname=Embed debug info
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.hlsl.embedpdb
