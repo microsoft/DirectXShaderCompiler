@@ -48,6 +48,14 @@ set DO_BUILD=1
 set CMAKE_OPTS=
 set SPEAK=1
 set PARALLEL_OPT=
+set ALL_DEFS=OFF
+set ANALYZE=OFF
+set OFFICIAL=OFF
+set FIXED_VER=OFF
+set FIXED_LOC=
+set VENDOR=
+set SPIRV=OFF
+set SPV_TEST=OFF
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -57,33 +65,35 @@ if "%1"=="-b" (
   set DO_SETUP=0
   shift /1
 )
+
 if "%1"=="-alldef" (
-  set CMAKE_OPTS=-DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=ON
+  set ALL_DEFS=ON
   shift /1
 )
 if "%1"=="-analyze" (
-  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=ON
+  set ANALYZE=ON
   shift /1
 )
 if "%1"=="-official" (
   echo Will generate official version for build
-  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=ON
+  set OFFICIAL=ON
   shift /1
 )
 if "%1"=="-fv" (
   echo Fixed version flag set for build.
-  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=ON
+  set FIXED_VER=ON
   shift /1
 )
 if "%1"=="-fvloc" (
   echo Fixed version flag set for build, version file location: %2
-  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=ON -DHLSL_FIXED_VERSION_LOCATION:STRING=%2
+  set FIXED_VER=ON
+  set FIXED_LOC=%2
   shift /1
   shift /1
 )
 if "%1"=="-cv" (
   echo Set the CLANG_VENDOR value.
-  set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_VENDOR:STRING=%2
+  set VENDOR=%2
   shift /1
   shift /1
 )
@@ -162,12 +172,12 @@ if "%BUILD_VS_VER%"=="2015" (
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
-  set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=ON
+  set SPIRV=ON
   shift /1
 )
 if "%1"=="-spirvtest" (
   echo Building SPIR-V tests is enabled.
-  set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=ON
+  set SPV_TEST=ON
   shift /1
 )
 rem End SPIRV change
@@ -197,6 +207,14 @@ if "%1"=="-ninja" (
   shift /1
 )
 
+set CMAKE_OPTS=-DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER% -DHLSL_FIXED_VERSION_LOCATION:STRING=%FIXED_LOC%
+set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_VENDOR:STRING=%VENDOR%
+set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
+set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_INCLUDE_TESTS:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF
