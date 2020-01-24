@@ -144,6 +144,7 @@ public:
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
   bool ShowHelpHidden = false; // OPT__help_hidden
+  bool ShowOptionNames = false; // OPT_fdiagnostics_show_option
   bool UseColor = false; // OPT_Cc
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
@@ -171,6 +172,8 @@ public:
   bool ExportShadersOnly = false; // OPT_export_shaders_only
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
+
+  std::vector<std::string> Warnings;
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();

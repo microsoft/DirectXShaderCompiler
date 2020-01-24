@@ -1,8 +1,8 @@
-// RUN: %dxc -T vs_6_0 %s | FileCheck %s
+// RUN: %dxc -T vs_6_0 %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_OPTION
+// RUN: %dxc -T vs_6_0 -fdiagnostics-show-option %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_OPTION
+// RUN: %dxc -T vs_6_0 -fno-diagnostics-show-option %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_NO_OPTION
 
-// Make sure the option for disabling the warning is printed.
-// At the time of this writing, these may only be used with the pragma:
-// #pragma dxc diagnostic ignored "-Wparentheses-equality"
+// Make sure the option name for the warning is printed.
 
 float4 foo;
 
@@ -12,12 +12,14 @@ float main() {
   float4 x = foo;
 
 // CHECK: equality comparison with extraneous parentheses
-// CHECK: -Wparentheses-equality
+// CHK_OPTION: -Wparentheses-equality
+// CHK_NO_OPTION-NOT
   if ((x.y == 0))
   {
 
 // CHECK: implicit truncation of vector type
-// CHECK: -Wconversion
+// CHK_OPTION: -Wconversion
+// CHK_NO_OPTION-NOT: -Wconversion
     return x;
 
   }

@@ -41,8 +41,8 @@ def T_Group               : OptionGroup<"<T group>">;
 def O_Group               : OptionGroup<"<O group>">, Group<CompileOnly_Group>;
 def R_Group               : OptionGroup<"<R group>">, Group<CompileOnly_Group>;
 def R_value_Group         : OptionGroup<"<R (with value) group>">, Group<R_Group>;
-def W_Group               : OptionGroup<"<W group>">, Group<CompileOnly_Group>;
-def W_value_Group         : OptionGroup<"<W (with value) group>">, Group<W_Group>;
+def W_Group               : OptionGroup<"<W group>">, Group<CompileOnly_Group>, HelpText<"Warning Options">;
+def W_value_Group         : OptionGroup<"<W (with value) group>">, Group<W_Group>, HelpText<"Warning Options">;
 def d_Group               : OptionGroup<"<d group>">;
 def f_Group               : OptionGroup<"<f group>">, Group<CompileOnly_Group>;
 def f_clang_Group         : OptionGroup<"<f (clang-only) group>">, Group<CompileOnly_Group>;
@@ -100,10 +100,10 @@ def Odump : Flag<["-", "/"], "Odump">, Group<hlslcomp_Group>, Flags<[CoreOption]
     HelpText<"Print the optimizer commands.">;
 def Qunused_arguments : Flag<["-"], "Qunused-arguments">, Group<hlslcore_Group>, Flags<[CoreOption]>,
   HelpText<"Don't emit warning for unused driver arguments">;
-def Wall : Flag<["-"], "Wall">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
-def Wdeprecated : Flag<["-"], "Wdeprecated">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
-//def W_Joined : Joined<["-"], "W">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-//  MetaVarName<"<warning>">, HelpText<"Enable the specified warning">;
+def Wall : Flag<["-"], "Wall">, Group<W_Group>, Flags<[CoreOption]>;
+def Wdeprecated : Flag<["-"], "Wdeprecated">, Group<W_Group>, Flags<[CoreOption]>;
+def W_Joined : Joined<["-"], "W">, Group<W_Group>, Flags<[CoreOption]>,
+  MetaVarName<"[no-]<warning>">, HelpText<"Enable/Disable the specified warning">;
 def d_Flag : Flag<["-"], "d">, Group<d_Group>;
 def d_Joined : Joined<["-"], "d">, Group<d_Group>;
 //def fcolor_diagnostics : Flag<["-"], "fcolor-diagnostics">, Group<hlslcomp_Group>,
@@ -117,8 +117,10 @@ def fconstexpr_depth_EQ : Joined<["-"], "fconstexpr-depth=">, Group<f_Group>;
 def fconstexpr_steps_EQ : Joined<["-"], "fconstexpr-steps=">, Group<f_Group>;
 def fconstexpr_backtrace_limit_EQ : Joined<["-"], "fconstexpr-backtrace-limit=">,
                                     Group<f_Group>;
-//def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
-//    Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
+def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
+def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>, HelpText<"Do not print option name with mappable diagnostics">;
 def fdiagnostics_show_category_EQ : Joined<["-"], "fdiagnostics-show-category=">, Group<hlslcomp_Group>;
 def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 
