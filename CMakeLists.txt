@@ -87,7 +87,7 @@ option(HLSL_ENABLE_FIXED_VER "Reads version information from a file." OFF) # HLS
 
 if (HLSL_ENABLE_FIXED_VER)
   set(HLSL_EMBED_VERSION ON)
-  if (NOT DEFINED HLSL_FIXED_VERSION_LOCATION)
+  if (NOT DEFINED HLSL_FIXED_VERSION_LOCATION OR HLSL_FIXED_VERSION_LOCATION STREQUAL "")
     # HLSL Change - Directory with fixed version.inc file
     set(HLSL_FIXED_VERSION_LOCATION  ${CMAKE_CURRENT_SOURCE_DIR}\\utils\\version)
   endif()
