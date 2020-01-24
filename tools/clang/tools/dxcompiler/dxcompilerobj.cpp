@@ -33,6 +33,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -391,6 +392,30 @@ static void CreateDefineStrings(
   }
 }
 
+// Add Defines for HLSL Version, Shader stage, and shader major and minor versions.
+static void CreateVersionDefineStrings(unsigned HLSLVersion, llvm::StringRef TargetProfile, std::vector<std::string> &defines) {
+  // Add HLSL version to defines
+  std::string verDef("__HLSL_VERSION=");
+  verDef += std::to_string(HLSLVersion);
+  defines.push_back(verDef);
+
+  const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(TargetProfile.str().c_str());
+
+  // Add target stage to defines
+  std::string stageDef("__SHADER_TARGET_STAGE=");
+  stageDef += std::to_string((unsigned)SM->GetKind());
+  defines.push_back(stageDef);
+
+  // Add target versions to defines
+  std::string majorDef("__SHADER_TARGET_MAJOR=");
+  majorDef += std::to_string(SM->GetMajor());
+  defines.push_back(majorDef);
+
+  std::string minorDef("__SHADER_TARGET_MINOR=");
+  minorDef += std::to_string(SM->GetMinor());
+  defines.push_back(minorDef);
+}
+
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions,
                     public IDxcContainerEvent,
@@ -586,6 +611,7 @@ public:
       // Not very efficient but also not very important.
       std::vector<std::string> defines;
       CreateDefineStrings(opts.Defines.data(), opts.Defines.size(), defines);
+      CreateVersionDefineStrings(opts.HLSLVersion, opts.TargetProfile, defines);
 
       // Setup a compiler instance.
       raw_stream_ostream outStream(pOutputStream.p);

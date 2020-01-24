@@ -46,6 +46,7 @@ add_clang_library(clangFrontend
   DEPENDS
   ClangDriverOptions
   TablegenHLSLOptions
+  hlsl_version_autogen # HLSL Change
 
   LINK_LIBS
   clangAST
@@ -57,3 +58,4 @@ add_clang_library(clangFrontend
   clangSema
 #  clangSerialization # HLSL Change
   )
+target_include_directories(clangFrontend PUBLIC ${HLSL_VERSION_LOCATION}) # HLSL Change

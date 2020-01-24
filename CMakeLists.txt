@@ -81,7 +81,7 @@ endif()
 
 option(HLSL_EMBED_VERSION "If set, embeds version information in the binaries." ON) # HLSL Change
 # HLSL Change - Directory with version.inc file used for the build (generated or copied from HLSL_FIXED_VERSION_LOCATION)
-set(HLSL_VERSION_LOCATION ${CMAKE_CURRENT_BINARY_DIR}\\utils\\version)
+set(HLSL_VERSION_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/utils/version)
 option(HLSL_OFFICIAL_BUILD "If set, embeds official version in the binaries (based on the latest release version)" OFF) # HLSL Change
 option(HLSL_ENABLE_FIXED_VER "Reads version information from a file." OFF) # HLSL Change
 
@@ -89,7 +89,7 @@ if (HLSL_ENABLE_FIXED_VER)
   set(HLSL_EMBED_VERSION ON)
   if (NOT DEFINED HLSL_FIXED_VERSION_LOCATION OR HLSL_FIXED_VERSION_LOCATION STREQUAL "")
     # HLSL Change - Directory with fixed version.inc file
-    set(HLSL_FIXED_VERSION_LOCATION  ${CMAKE_CURRENT_SOURCE_DIR}\\utils\\version)
+    set(HLSL_FIXED_VERSION_LOCATION  ${CMAKE_CURRENT_SOURCE_DIR}/utils/version)
   endif()
 endif()
 
