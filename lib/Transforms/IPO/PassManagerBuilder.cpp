@@ -309,6 +309,9 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
 
   MPM.add(createDeadCodeEliminationPass());
 
+  MPM.add(createPromoteMemoryToRegisterPass());
+  MPM.add(createDxilEliminateVectorPass());
+
   if (OptLevel > 0) {
     MPM.add(createDxilFixConstArrayInitializerPass());
   }
