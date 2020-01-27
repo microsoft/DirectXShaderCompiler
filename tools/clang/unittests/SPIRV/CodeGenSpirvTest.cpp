@@ -578,6 +578,9 @@ TEST_F(FileTest, MethodCallOnStaticVar) {
   runFileTest("oo.method.on-static-var.hlsl");
 }
 TEST_F(FileTest, Inheritance) { runFileTest("oo.inheritance.hlsl"); }
+TEST_F(FileTest, InheritanceMemberFunction) {
+  runFileTest("oo.inheritance.member.function.hlsl");
+}
 TEST_F(FileTest, InheritanceStageIOVS) {
   runFileTest("oo.inheritance.stage-io.vs.hlsl");
 }

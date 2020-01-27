@@ -6421,8 +6421,12 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     // If we are accessing a derived struct, we need to account for the number
     // of base structs, since they are placed as fields at the beginning of the
     // derived struct.
-    const uint32_t index = getNumBaseClasses(indexing->getBase()->getType()) +
-                           fieldDecl->getFieldIndex();
+    auto baseType = indexing->getBase()->getType();
+    if (baseType->isPointerType()) {
+      baseType = baseType->getPointeeType();
+    }
+    const uint32_t index =
+        getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
     if (rawIndex) {
       rawIndices->push_back(index);
     } else {
