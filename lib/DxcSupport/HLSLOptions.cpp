@@ -234,6 +234,26 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, uns
   return true;
 }
 
+// Copied from CompilerInvocation since we parse our own diagnostic arguments
+static void addDiagnosticArgs(ArgList &Args, OptSpecifier Group,
+                              OptSpecifier GroupWithValue,
+                              std::vector<std::string> &Diagnostics) {
+  for (Arg *A : Args.filtered(Group)) {
+    if (A->getOption().getKind() == Option::FlagClass) {
+      // The argument is a pure flag (such as OPT_Wall or OPT_Wdeprecated). Add
+      // its name (minus the "W" or "R" at the beginning) to the warning list.
+      Diagnostics.push_back(A->getOption().getName().drop_front(1));
+    } else if (A->getOption().matches(GroupWithValue)) {
+      // This is -Wfoo= or -Rfoo=, where foo is the name of the diagnostic group.
+      Diagnostics.push_back(A->getOption().getName().drop_front(1).rtrim("=-"));
+    } else {
+      // Otherwise, add its value (for OPT_W_Joined and similar).
+      for (const char *Arg : A->getValues())
+        Diagnostics.emplace_back(Arg);
+    }
+  }
+}
+
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
 /// Checks and collects the arguments for -fvk-{b|s|t|u}-shift into *shifts.
@@ -444,6 +464,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OutputReflectionFile = Args.getLastArgValue(OPT_Fre);
   opts.OutputRootSigFile = Args.getLastArgValue(OPT_Frs);
   opts.OutputShaderHashFile = Args.getLastArgValue(OPT_Fsh);
+  opts.ShowOptionNames = Args.hasFlag(OPT_fdiagnostics_show_option, OPT_fno_diagnostics_show_option, true);
   opts.UseColor = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
   opts.UseInstructionNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
   opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID, false);
@@ -722,6 +743,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     errors << "-Qstrip_reflect_from_dxil mutually exclusive with -Qkeep_reflect_in_dxil.";
     return 1;
   }
+
+  addDiagnosticArgs(Args, OPT_W_Group, OPT_W_value_Group, opts.Warnings);
+
 
     // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
