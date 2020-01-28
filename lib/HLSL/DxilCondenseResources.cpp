@@ -425,7 +425,6 @@ INITIALIZE_PASS(DxilCondenseResources, "hlsl-dxil-condense", "DXIL Condense Reso
 
 static
 bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
-
   // Simple pass to collect resource PHI's
   SmallVector<PHINode *, 8> PHIs;
   for (Function &F : M) {
@@ -447,134 +446,22 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
   if (PHIs.empty())
     return false;
 
-  // Do a very simple CFG simplification of removing diamond graphs.
-  std::vector<BasicBlock *> DeadBlocks;
-  std::unordered_set<BasicBlock *> DeadBlocksSet;
-  for (PHINode *PN : PHIs) {
-    for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
-      BasicBlock *BB = PN->getIncomingBlock(i);
-      if (DeadBlocksSet.count(BB)) continue;
-      if (DVC->IsNeverReachable(BB)) {
-        DeadBlocksSet.insert(BB);
-        DeadBlocks.push_back(BB);
-      }
-    }
-  }
+  SmallVector<Instruction *, 8> DeadInsts;
 
+  // Try to simplify those PHI's with DVC and collect them in DeadInsts
   bool Changed = false;
-  SmallVector<Value *, 3> CleanupValues;
-  SmallPtrSet<Value *, 3> CleanupValuesSet;
-  auto AddCleanupValues = [&CleanupValues, &CleanupValuesSet](Value *V) {
-    if (!CleanupValuesSet.count(V)) {
-      CleanupValuesSet.insert(V);
-      CleanupValues.push_back(V);
-    }
-  };
-
-  for (unsigned i = 0; i < DeadBlocks.size(); i++) {
-    BasicBlock *BB = DeadBlocks[i];
-    BasicBlock *Pred = BB->getSinglePredecessor();
-    BasicBlock *Succ = BB->getSingleSuccessor();
-
-    if (!Pred || !Succ)
-      continue;
-
-    // A very simple folding of diamond graph.
-    BranchInst *Br = cast<BranchInst>(Pred->getTerminator());
-    BasicBlock *Peer = nullptr;
-    if (Br->isConditional())
-      Peer = Br->getSuccessor(0) == BB ? 
-          Br->getSuccessor(1) : Br->getSuccessor(0);
-
-    if (Peer && Peer->getSingleSuccessor() == Succ) {
-      Changed = true;
-
-      BranchInst::Create(Peer, Pred);
-
-      Br->dropAllReferences();
-      Br->eraseFromParent();
-      auto PhiEnd = PHIs.end();
-      for (Instruction &I : *Succ)
-        if (PHINode *PN = dyn_cast<PHINode>(&I)) {
-          if (Instruction *IncomingI = dyn_cast<Instruction>(PN->getIncomingValueForBlock(BB))) {
-            if (!DeadBlocksSet.count(IncomingI->getParent()))
-              AddCleanupValues(IncomingI); // Mark the incoming value for deletion
-          }
-          PN->removeIncomingValue(BB);
-
-          if (PN->getNumIncomingValues() == 1) {
-            PN->replaceAllUsesWith(PN->getIncomingValue(0));
-            PhiEnd = std::remove(PHIs.begin(), PhiEnd, PN);
-            AddCleanupValues(PN); // Mark for deletion
-          }
-        }
-        else
-          break;
-
-      BB->dropAllReferences();
-      while (!BB->empty()){
-        Instruction *ChildI = &*BB->rbegin();
-        if (PHINode *PN = dyn_cast<PHINode>(ChildI))
-          PhiEnd = std::remove(PHIs.begin(), PhiEnd, PN);
-        ChildI->eraseFromParent();
-      }
-      BB->eraseFromParent();
-    }
-  }
-
-  unsigned Attempts = PHIs.size();
-  for (unsigned AttemptIdx = 0; AttemptIdx < Attempts; AttemptIdx++) {
+  for (unsigned Attempt = 0, MaxAttempt = PHIs.size(); Attempt < MaxAttempt; Attempt++) {
     bool LocalChanged = false;
-    for (auto It = PHIs.begin(); It != PHIs.end();) {
-      PHINode *PN = *It;
+    for (unsigned i = 0; i < PHIs.size(); i++) {
+      PHINode *PN = PHIs[i];
       if (Value *V = DVC->GetValue(PN)) {
-
-        PHIs.erase(It);
-        AddCleanupValues(PN); // Mark for deletion later
         PN->replaceAllUsesWith(V);
-        Changed = true;
         LocalChanged = true;
-
-        for (unsigned i = 0, C = PN->getNumIncomingValues(); i < C; i++) {
-          Value *IncomingV = PN->getIncomingValue(i);
-          if (IncomingV != V)
-            AddCleanupValues(IncomingV); // Mark the incoming value for deletion later
-        }
+        DeadInsts.push_back(PN);
+        PHIs.erase(PHIs.begin() + i);
       }
       else {
-        It++;
-      }
-    }
-
-    if (!LocalChanged)
-      break;
-  }
-
-  // Simple DCE to remove all dependencies of the resource PHI nodes we removed.
-  // This may be a little too agressive
-  for (;;) {
-    bool LocalChanged = false;
-    // Must use a numeric idx instead of an interator, because
-    // we're modifying the array as we go. Iterator gets invalidated
-    // because they're just pointers.
-    for (unsigned Idx = 0; Idx < CleanupValues.size();) {
-      Value *V = CleanupValues[Idx];
-      if (Instruction *I = dyn_cast<Instruction>(V)) {
-        if (I->user_empty()) {
-          // Add dependencies to process
-          for (Value *Op : I->operands()) {
-            AddCleanupValues(Op);
-          }
-          LocalChanged = true;
-          I->eraseFromParent();
-          CleanupValues.erase(CleanupValues.begin() + Idx);
-        }
-        else {
-          Idx++;
-        }
-      }
-      else {
-        CleanupValues.erase(CleanupValues.begin() + Idx);
+        i++;
       }
     }
 
@@ -582,6 +469,18 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
     if (!LocalChanged)
       break;
   }
+
+  // Simple DCE
+  for (unsigned i = 0; i < DeadInsts.size(); i++) {
+    Instruction *I = DeadInsts[i];
+    if (I->user_empty()) {
+      for (Use &Op : I->operands())
+        if (Instruction *OpI = dyn_cast<Instruction>(Op.get()))
+          DeadInsts.push_back(OpI);
+      I->eraseFromParent();
+    }
+  }
+
   return Changed;
 }
 
