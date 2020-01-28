@@ -1435,6 +1435,7 @@ void Preprocessor::RegisterBuiltinPragmas() {
     // TODO: add HLSL-specific pragma handlers
     AddPragmaHandler(new PragmaOnceHandler());
     AddPragmaHandler(new PragmaMarkHandler());
+    AddPragmaHandler("dxc", new PragmaDiagnosticHandler("dxc"));
     AddPragmaHandler(new PragmaMessageHandler(PPCallbacks::PMK_Message));
     return;
   }
