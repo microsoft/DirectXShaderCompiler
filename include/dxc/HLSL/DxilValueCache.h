@@ -15,7 +15,7 @@ namespace llvm {
 class Module;
 class DominatorTree;
 
-struct DxilValueCache : public ModulePass {
+struct DxilValueCache : public ImmutablePass {
   static char ID;
 
   // Special Weak Value to Weak Value map.
@@ -50,19 +50,21 @@ private:
   void MarkNeverReachable(BasicBlock *BB);
   bool IsAlwaysReachable_(BasicBlock *BB);
   bool IsNeverReachable_(BasicBlock *BB);
+  bool EverTakesBranchTo(BasicBlock *A, BasicBlock *B);
   Value *OptionallyGetValue(Value *V);
   Value *ProcessValue(Value *V, DominatorTree *DT);
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
   Value *ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT);
+  Value *ProcessAndSimpilfy_Load(Instruction *LI, DominatorTree *DT);
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
 public:
 
   const char *getPassName() const override;
   DxilValueCache();
+  void getAnalysisUsage(AnalysisUsage &) const;
 
-  bool runOnModule(Module &M) override { return false; } // Doesn't do anything by itself.
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
@@ -70,7 +72,7 @@ public:
 };
 
 void initializeDxilValueCachePass(class llvm::PassRegistry &);
-ModulePass *createDxilValueCachePass();
+Pass *createDxilValueCachePass();
 
 }
 

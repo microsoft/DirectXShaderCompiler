@@ -22,9 +22,11 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/Statistic.h"
 
 #include "dxc/HLSL/DxilValueCache.h"
+
 #include <unordered_set>
 
 #define DEBUG_TYPE "dxil-value-cache"
@@ -63,6 +65,20 @@ bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
   return false;
 }
 
+bool DxilValueCache::EverTakesBranchTo(BasicBlock *A, BasicBlock *B) {
+  BranchInst *Br = dyn_cast<BranchInst>(A->getTerminator());
+  if (!Br) return false;
+
+  if (Br->isUnconditional() && Br->getSuccessor(0) == B)
+    return true;
+
+  if (ConstantInt *C = dyn_cast<ConstantInt>(OptionallyGetValue(Br->getCondition()))) {
+    unsigned SuccIndex = C->getLimitedValue() != 0 ? 0 : 1;
+    return Br->getSuccessor(SuccIndex) == B;
+  }
+  return true;
+}
+
 bool DxilValueCache::IsNeverReachable_(BasicBlock *BB) {
   if (Value *V = ValueMap.Get(BB))
     if (IsConstantFalse(V))
@@ -74,20 +90,26 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   PHINode *PN = cast<PHINode>(I);
   BasicBlock *SoleIncoming = nullptr;
 
+  bool IsAllNeverReachable = true;
   Value *Simplified = nullptr;
   for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
     BasicBlock *PredBB = PN->getIncomingBlock(i);
-    if (IsAlwaysReachable_(PredBB)) {
-      SoleIncoming = PredBB;
-      break;
-    }
-    else if (!IsNeverReachable_(PredBB)) {
+    if (IsNeverReachable_(PredBB))
+      continue;
+
+    IsAllNeverReachable = false;
+
+    if (EverTakesBranchTo(PredBB, PN->getParent())) {
       if (SoleIncoming) {
         SoleIncoming = nullptr;
         break;
       }
       SoleIncoming = PredBB;
     }
+  }
+
+  if (IsAllNeverReachable) {
+    return UndefValue::get(I->getType());
   }
 
   if (SoleIncoming) {
@@ -170,7 +192,15 @@ Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) 
   return nullptr;
 }
 
-
+Value *DxilValueCache::ProcessAndSimpilfy_Load(Instruction *I, DominatorTree *DT) {
+  LoadInst *LI = cast<LoadInst>(I);
+  Value *V = OptionallyGetValue(LI->getPointerOperand());
+  if (Constant *ConstPtr = dyn_cast<Constant>(V)) {
+    const DataLayout &DL = I->getModule()->getDataLayout();
+    return llvm::ConstantFoldLoadFromConstPtr(ConstPtr, DL);
+  }
+  return nullptr;
+}
 
 Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT) {
 
@@ -183,6 +213,9 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   else if (Instruction::PHI == I->getOpcode()) {
     Simplified = ProcessAndSimplify_PHI(I, DT);
   }
+  else if (Instruction::Load == I->getOpcode()) {
+    Simplified = ProcessAndSimpilfy_Load(I, DT);
+  }
   // The rest of the checks use LLVM stock simplifications
   else if (I->isBinaryOp()) {
     Simplified =
@@ -191,6 +224,14 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
         OptionallyGetValue(I->getOperand(0)),
         OptionallyGetValue(I->getOperand(1)),
         DL);
+  }
+  else if (GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(I)) {
+    SmallVector<Value *, 4> Values;
+    for (Value *V : Gep->operand_values()) {
+      Values.push_back(OptionallyGetValue(V));
+    }
+    Simplified =
+      llvm::SimplifyGEPInst(Values, DL, nullptr, DT, nullptr, nullptr);
   }
   else if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
     Simplified =
@@ -311,7 +352,7 @@ Value *DxilValueCache::OptionallyGetValue(Value *V) {
   return V;
 }
 
-DxilValueCache::DxilValueCache() : ModulePass(ID) {
+DxilValueCache::DxilValueCache() : ImmutablePass(ID) {
   initializeDxilValueCachePass(*PassRegistry::getPassRegistry());
 }
 
@@ -338,6 +379,10 @@ bool DxilValueCache::IsNeverReachable(BasicBlock *BB, DominatorTree *DT) {
 LLVM_DUMP_METHOD
 void DxilValueCache::dump() const {
   ValueMap.dump();
+}
+
+void DxilValueCache::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
 }
 
 Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
@@ -443,7 +488,7 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
 
 char DxilValueCache::ID;
 
-ModulePass *llvm::createDxilValueCachePass() {
+Pass *llvm::createDxilValueCachePass() {
   return new DxilValueCache();
 }
 
