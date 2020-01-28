@@ -36,6 +36,7 @@ struct DxilValueCache : public ImmutablePass {
     void Set(Value *Key, Value *V);
     bool Seen(Value *v);
     void SetSentinel(Value *V);
+    void Clear();
     void dump() const;
   private:
     Value *GetSentinel(LLVMContext &Ctx);
@@ -67,6 +68,7 @@ public:
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
+  void Clear();
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   bool IsNeverReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
 };

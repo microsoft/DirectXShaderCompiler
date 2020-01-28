@@ -310,6 +310,15 @@ Value *DxilValueCache::WeakValueMap::GetSentinel(LLVMContext &Ctx) {
   return Sentinel.get();
 }
 
+void DxilValueCache::WeakValueMap::Clear() {
+  if (!Sentinel)
+    return;
+  for (auto it = Map.begin(); it != Map.end(); it++) {
+    if (it->second.Value == Sentinel.get())
+      it->second.Value = nullptr;
+  }
+}
+
 LLVM_DUMP_METHOD
 void DxilValueCache::WeakValueMap::dump() const {
   for (auto It = Map.begin(), E = Map.end(); It != E; It++) {
@@ -364,6 +373,10 @@ Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (Value *NewV = ValueMap.Get(V))
     return NewV;
   return ProcessValue(V, DT);
+}
+
+void DxilValueCache::Clear() {
+  ValueMap.Clear();
 }
 
 bool DxilValueCache::IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT) {
