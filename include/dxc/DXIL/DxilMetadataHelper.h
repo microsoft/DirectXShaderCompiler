@@ -12,6 +12,7 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "llvm/ADT/ArrayRef.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -504,6 +505,7 @@ public:
     unsigned &StartOffsetInBits, std::vector<DxilDIArrayDim> &ArrayDims);
   static void SetVariableDebugLayout(llvm::DbgDeclareInst *inst,
     unsigned StartOffsetInBits, const std::vector<DxilDIArrayDim> &ArrayDims);
+  static void CopyMetadata(llvm::Instruction &I, llvm::Instruction &SrcInst, llvm::ArrayRef<unsigned>WL = llvm::ArrayRef<unsigned>());
 
 private:
   llvm::LLVMContext &m_Ctx;

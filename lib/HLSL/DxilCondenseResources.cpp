@@ -458,15 +458,13 @@ bool EraseDeadBlocks(Module &M, DxilValueCache *DVC) {
         }
         else {
           bool IsConstant = false;
-          if (!DxilMDHelper::HasControlFlowHintToPreventFlatten(Br)) {
-            if (Value *V = DVC->GetValue(Br->getCondition())) {
-              if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
-                bool IsTrue = C->getLimitedValue() != 0;
-                BasicBlock *Succ = IsTrue ?
-                  Br->getSuccessor(0) : Br->getSuccessor(1);
-                Add(Succ);
-                IsConstant = true;
-              }
+          if (Value *V = DVC->GetValue(Br->getCondition())) {
+            if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
+              bool IsTrue = C->getLimitedValue() != 0;
+              BasicBlock *Succ = IsTrue ?
+                Br->getSuccessor(0) : Br->getSuccessor(1);
+              Add(Succ);
+              IsConstant = true;
             }
           }
           if (!IsConstant) {
@@ -510,7 +508,8 @@ bool EraseDeadBlocks(Module &M, DxilValueCache *DVC) {
         BasicBlock *Other = Br->getSuccessor(0) == BB ?
           Br->getSuccessor(1) : Br->getSuccessor(0);
 
-        BranchInst::Create(Other, Br);
+        BranchInst *NewBr = BranchInst::Create(Other, Br);
+        hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Br);
         Br->eraseFromParent();
       }
 
