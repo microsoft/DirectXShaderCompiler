@@ -293,28 +293,19 @@ Value *DxilValueCache::WeakValueMap::Get(Value *V) {
     return nullptr;
 
   Value *Result = Entry.Value;
-  if (Result == GetSentinel(V->getContext()))
+  if (Result == GetSentinel())
     return nullptr;
 
   return Result;
 }
 
 void DxilValueCache::WeakValueMap::SetSentinel(Value *Key) {
-  Map[Key].Set(Key, GetSentinel(Key->getContext()));
-}
-
-Value *DxilValueCache::WeakValueMap::GetSentinel(LLVMContext &Ctx) {
-  if (!Sentinel) {
-    Sentinel.reset( PHINode::Create(Type::getInt1Ty(Ctx), 0) );
-  }
-  return Sentinel.get();
+  Map[Key].Set(Key, GetSentinel());
 }
 
 void DxilValueCache::WeakValueMap::ResetUnknowns() {
-  if (!Sentinel)
-    return;
   for (auto it = Map.begin(); it != Map.end(); it++) {
-    if (it->second.Value == Sentinel.get())
+    if (it->second.Value == GetSentinel())
       it->second.Value = nullptr;
   }
 }
@@ -326,7 +317,7 @@ void DxilValueCache::WeakValueMap::dump() const {
     if (It->second.IsStale())
       continue;
     const Value *V = It->second.Value;
-    bool IsSentinel = Sentinel && V == Sentinel.get();
+    bool IsSentinel = V == GetSentinel();
     if (const BasicBlock *BB = dyn_cast<BasicBlock>(Key)) {
       dbgs() << "[BB]" << BB->getName() << " -> ";
       if (IsSentinel)
