@@ -25,7 +25,7 @@ struct DxilValueCache : public ImmutablePass {
       void allUsesReplacedWith(Value *) override { setValPtr(nullptr); }
     };
     struct ValueEntry {
-      Value *Value;
+      WeakVH Value;
       ValueVH Self;
       ValueEntry() : Value(nullptr), Self(nullptr) {}
       inline void Set(llvm::Value *Key, llvm::Value *V) { Self = Key; Value = V; }
@@ -39,7 +39,8 @@ struct DxilValueCache : public ImmutablePass {
     void ResetUnknowns();
     void dump() const;
   private:
-    static inline Value *GetSentinel() { return (llvm::Value*)-1;  }
+    Value *GetSentinel(LLVMContext &Ctx);
+    std::unique_ptr<Value> Sentinel;
   };
 
 private:
