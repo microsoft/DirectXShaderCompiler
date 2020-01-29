@@ -54,7 +54,7 @@ bool IsEntryBlock(const BasicBlock *BB) {
 void DxilValueCache::MarkAlwaysReachable(BasicBlock *BB) {
   ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 1));
 }
-void DxilValueCache::MarkNeverReachable(BasicBlock *BB) {
+void DxilValueCache::MarkUnreachable(BasicBlock *BB) {
   ValueMap.Set(BB, ConstantInt::get(Type::getInt1Ty(BB->getContext()), 0));
 }
 
@@ -65,21 +65,21 @@ bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
   return false;
 }
 
-bool DxilValueCache::EverTakesBranchTo(BasicBlock *A, BasicBlock *B) {
+bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
   BranchInst *Br = dyn_cast<BranchInst>(A->getTerminator());
   if (!Br) return false;
 
   if (Br->isUnconditional() && Br->getSuccessor(0) == B)
     return true;
 
-  if (ConstantInt *C = dyn_cast<ConstantInt>(OptionallyGetValue(Br->getCondition()))) {
+  if (ConstantInt *C = dyn_cast<ConstantInt>(TryGetCachedValue(Br->getCondition()))) {
     unsigned SuccIndex = C->getLimitedValue() != 0 ? 0 : 1;
     return Br->getSuccessor(SuccIndex) == B;
   }
   return true;
 }
 
-bool DxilValueCache::IsNeverReachable_(BasicBlock *BB) {
+bool DxilValueCache::IsUnreachable_(BasicBlock *BB) {
   if (Value *V = ValueMap.Get(BB))
     if (IsConstantFalse(V))
       return true;
@@ -90,16 +90,16 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   PHINode *PN = cast<PHINode>(I);
   BasicBlock *SoleIncoming = nullptr;
 
-  bool IsAllNeverReachable = true;
+  bool Unreachable = true;
   Value *Simplified = nullptr;
   for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
     BasicBlock *PredBB = PN->getIncomingBlock(i);
-    if (IsNeverReachable_(PredBB))
+    if (IsUnreachable_(PredBB))
       continue;
 
-    IsAllNeverReachable = false;
+    Unreachable = false;
 
-    if (EverTakesBranchTo(PredBB, PN->getParent())) {
+    if (MayBranchTo(PredBB, PN->getParent())) {
       if (SoleIncoming) {
         SoleIncoming = nullptr;
         break;
@@ -108,12 +108,12 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
     }
   }
 
-  if (IsAllNeverReachable) {
+  if (Unreachable) {
     return UndefValue::get(I->getType());
   }
 
   if (SoleIncoming) {
-    Value *V = OptionallyGetValue(PN->getIncomingValueForBlock(SoleIncoming));
+    Value *V = TryGetCachedValue(PN->getIncomingValueForBlock(SoleIncoming));
     if (isa<Constant>(V))
       Simplified = V;
     else if (Instruction *I = dyn_cast<Instruction>(V)) {
@@ -141,7 +141,7 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   // One last step, to check if we have anything cached for whatever we
   // simplified to.
   if (Simplified)
-    Simplified = OptionallyGetValue(Simplified);
+    Simplified = TryGetCachedValue(Simplified);
 
   return Simplified;
 }
@@ -160,33 +160,33 @@ Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) 
     BasicBlock *TrueSucc = Br->getSuccessor(0);
     BasicBlock *FalseSucc = Br->getSuccessor(1);
 
-    Value *Cond = OptionallyGetValue(Br->getCondition());
+    Value *Cond = TryGetCachedValue(Br->getCondition());
 
-    if (IsNeverReachable_(BB)) {
-      MarkNeverReachable(FalseSucc);
-      MarkNeverReachable(TrueSucc);
+    if (IsUnreachable_(BB)) {
+      MarkUnreachable(FalseSucc);
+      MarkUnreachable(TrueSucc);
     }
     else if (IsConstantTrue(Cond)) {
       if (IsAlwaysReachable_(BB)) {
         MarkAlwaysReachable(TrueSucc);
       }
       if (FalseSucc->getSinglePredecessor())
-        MarkNeverReachable(FalseSucc);
+        MarkUnreachable(FalseSucc);
     }
     else if (IsConstantFalse(Cond)) {
       if (IsAlwaysReachable_(BB)) {
         MarkAlwaysReachable(FalseSucc);
       }
       if (TrueSucc->getSinglePredecessor())
-        MarkNeverReachable(TrueSucc);
+        MarkUnreachable(TrueSucc);
     }
   }
   else {
     BasicBlock *Succ = Br->getSuccessor(0);
     if (IsAlwaysReachable_(BB))
       MarkAlwaysReachable(Succ);
-    else if (Succ->getSinglePredecessor() && IsNeverReachable_(BB))
-      MarkNeverReachable(Succ);
+    else if (Succ->getSinglePredecessor() && IsUnreachable_(BB))
+      MarkUnreachable(Succ);
   }
 
   return nullptr;
@@ -194,7 +194,7 @@ Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) 
 
 Value *DxilValueCache::ProcessAndSimpilfy_Load(Instruction *I, DominatorTree *DT) {
   LoadInst *LI = cast<LoadInst>(I);
-  Value *V = OptionallyGetValue(LI->getPointerOperand());
+  Value *V = TryGetCachedValue(LI->getPointerOperand());
   if (Constant *ConstPtr = dyn_cast<Constant>(V)) {
     const DataLayout &DL = I->getModule()->getDataLayout();
     return llvm::ConstantFoldLoadFromConstPtr(ConstPtr, DL);
@@ -221,14 +221,14 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
     Simplified =
       llvm::SimplifyBinOp(
         I->getOpcode(),
-        OptionallyGetValue(I->getOperand(0)),
-        OptionallyGetValue(I->getOperand(1)),
+        TryGetCachedValue(I->getOperand(0)),
+        TryGetCachedValue(I->getOperand(1)),
         DL);
   }
   else if (GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(I)) {
     SmallVector<Value *, 4> Values;
     for (Value *V : Gep->operand_values()) {
-      Values.push_back(OptionallyGetValue(V));
+      Values.push_back(TryGetCachedValue(V));
     }
     Simplified =
       llvm::SimplifyGEPInst(Values, DL, nullptr, DT, nullptr, nullptr);
@@ -236,31 +236,31 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   else if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
     Simplified =
       llvm::SimplifyCmpInst(Cmp->getPredicate(),
-        OptionallyGetValue(I->getOperand(0)),
-        OptionallyGetValue(I->getOperand(1)),
+        TryGetCachedValue(I->getOperand(0)),
+        TryGetCachedValue(I->getOperand(1)),
         DL);
   }
   else if (SelectInst *Select = dyn_cast<SelectInst>(I)) {
     Simplified = 
       llvm::SimplifySelectInst(
-        OptionallyGetValue(Select->getCondition()),
-        OptionallyGetValue(Select->getTrueValue()),
-        OptionallyGetValue(Select->getFalseValue()),
+        TryGetCachedValue(Select->getCondition()),
+        TryGetCachedValue(Select->getTrueValue()),
+        TryGetCachedValue(Select->getFalseValue()),
         DL
       );
   }
   else if (ExtractElementInst *IE = dyn_cast<ExtractElementInst>(I)) {
     Simplified =
       llvm::SimplifyExtractElementInst(
-        OptionallyGetValue(IE->getVectorOperand()),
-        OptionallyGetValue(IE->getIndexOperand()),
+        TryGetCachedValue(IE->getVectorOperand()),
+        TryGetCachedValue(IE->getIndexOperand()),
         DL, nullptr, DT);
   }
   else if (CastInst *Cast = dyn_cast<CastInst>(I)) {
     Simplified =
       llvm::SimplifyCastInst(
         Cast->getOpcode(),
-        OptionallyGetValue(Cast->getOperand(0)),
+        TryGetCachedValue(Cast->getOperand(0)),
         Cast->getType(), DL);
   }
 
@@ -310,7 +310,7 @@ Value *DxilValueCache::WeakValueMap::GetSentinel(LLVMContext &Ctx) {
   return Sentinel.get();
 }
 
-void DxilValueCache::WeakValueMap::Clear() {
+void DxilValueCache::WeakValueMap::ResetUnknowns() {
   if (!Sentinel)
     return;
   for (auto it = Map.begin(); it != Map.end(); it++) {
@@ -355,7 +355,7 @@ void DxilValueCache::WeakValueMap::Set(Value *Key, Value *V) {
 
 // If there's a cached value, return it. Otherwise, return
 // the value itself.
-Value *DxilValueCache::OptionallyGetValue(Value *V) {
+Value *DxilValueCache::TryGetCachedValue(Value *V) {
   if (Value *Simplified = ValueMap.Get(V))
     return Simplified;
   return V;
@@ -375,18 +375,14 @@ Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   return ProcessValue(V, DT);
 }
 
-void DxilValueCache::Clear() {
-  ValueMap.Clear();
-}
-
 bool DxilValueCache::IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT) {
   ProcessValue(BB, DT);
   return IsAlwaysReachable_(BB);
 }
 
-bool DxilValueCache::IsNeverReachable(BasicBlock *BB, DominatorTree *DT) {
+bool DxilValueCache::IsUnreachable(BasicBlock *BB, DominatorTree *DT) {
   ProcessValue(BB, DT);
-  return IsNeverReachable_(BB);
+  return IsUnreachable_(BB);
 }
 
 LLVM_DUMP_METHOD
@@ -483,13 +479,13 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
         if (!IsEntryBlock(BB)) {
           bool AllNeverReachable = true;
           for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; PI++) {
-            if (!IsNeverReachable_(BB)) {
+            if (!IsUnreachable_(BB)) {
               AllNeverReachable = false;
               break;
             }
           }
           if (AllNeverReachable)
-            MarkNeverReachable(BB);
+            MarkUnreachable(BB);
         }
 
       }

@@ -176,7 +176,7 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
 
   if (UnrollLoop) {
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-    DVC->Clear();
+    DVC->ResetUnknowns();
   }
 }
 

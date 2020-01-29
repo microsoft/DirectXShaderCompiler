@@ -36,7 +36,7 @@ struct DxilValueCache : public ImmutablePass {
     void Set(Value *Key, Value *V);
     bool Seen(Value *v);
     void SetSentinel(Value *V);
-    void Clear();
+    void ResetUnknowns();
     void dump() const;
   private:
     Value *GetSentinel(LLVMContext &Ctx);
@@ -48,11 +48,11 @@ private:
   WeakValueMap ValueMap;
 
   void MarkAlwaysReachable(BasicBlock *BB);
-  void MarkNeverReachable(BasicBlock *BB);
+  void MarkUnreachable(BasicBlock *BB);
   bool IsAlwaysReachable_(BasicBlock *BB);
-  bool IsNeverReachable_(BasicBlock *BB);
-  bool EverTakesBranchTo(BasicBlock *A, BasicBlock *B);
-  Value *OptionallyGetValue(Value *V);
+  bool IsUnreachable_(BasicBlock *BB);
+  bool MayBranchTo(BasicBlock *A, BasicBlock *B);
+  Value *TryGetCachedValue(Value *V);
   Value *ProcessValue(Value *V, DominatorTree *DT);
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
@@ -68,9 +68,9 @@ public:
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
-  void Clear();
+  void ResetUnknowns() { ValueMap.ResetUnknowns(); }
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
-  bool IsNeverReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
+  bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
 };
 
 void initializeDxilValueCachePass(class llvm::PassRegistry &);
