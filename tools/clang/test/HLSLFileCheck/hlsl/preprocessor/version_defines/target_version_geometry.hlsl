@@ -1,4 +1,5 @@
-// RUN: %dxc -O0 -T gs_6_1 %s | FileCheck %s
+// RUN: %dxc -O0 -HV 2017 -T gs_6_1 %s | FileCheck %s
+// CHECK: fadd
 // CHECK: fadd
 // CHECK: fadd
 // CHECK: fadd
@@ -14,6 +15,12 @@ void main(inout PointStream<Out> OutputStream0)
   Out output = (Out)0;
   float x = 0;
 
+  // Version should be as specified by -HV
+#if defined(__HLSL_VERSION) && __HLSL_VERSION == 2017
+  x += 1;
+#else
+  x -= 1;
+#endif
 #if defined(__SHADER_TARGET_STAGE) && __SHADER_TARGET_STAGE == __SHADER_STAGE_GEOMETRY
   x += 1;
 #else
