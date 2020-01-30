@@ -1191,8 +1191,9 @@ static void MarkPreciseAttribute(Function *F) {
   F->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
 }
 
-static void MarkPreciseAttributeOnValWithFunctionCall(
-    llvm::Value *V, llvm::IRBuilder<> &Builder, llvm::Module &M) {
+template<typename BuilderTy>
+void HLModule::MarkPreciseAttributeOnValWithFunctionCall(
+    llvm::Value *V, BuilderTy &Builder, llvm::Module &M) {
   Type *Ty = V->getType();
   Type *EltTy = Ty->getScalarType();
 

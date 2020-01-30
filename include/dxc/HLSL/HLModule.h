@@ -211,6 +211,9 @@ public:
   static bool HasPreciseAttributeWithMetadata(llvm::Instruction *I);
   static void MarkPreciseAttributeWithMetadata(llvm::Instruction *I);
   static void ClearPreciseAttributeWithMetadata(llvm::Instruction *I);
+  template<class BuilderTy>
+  static void MarkPreciseAttributeOnValWithFunctionCall(llvm::Value *V,
+                                                        BuilderTy &Builder, llvm::Module &M);
   static void MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                         llvm::Module &M);
   static bool HasPreciseAttribute(llvm::Function *F);

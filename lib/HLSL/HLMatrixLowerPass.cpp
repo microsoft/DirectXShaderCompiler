@@ -150,6 +150,7 @@ private:
   void lowerReturn(ReturnInst* Return);
   Value *lowerCall(CallInst *Call);
   Value *lowerNonHLCall(CallInst *Call);
+  void lowerPreciseCall(CallInst *Call, IRBuilder<> Builder);
   Value *lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeGroup);
   Value *lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode);
   Value *lowerHLMulIntrinsic(Value* Lhs, Value *Rhs, bool Unsigned, IRBuilder<> &Builder);
@@ -683,6 +684,16 @@ Value *HLMatrixLowerPass::lowerCall(CallInst *Call) {
     ? lowerNonHLCall(Call) : lowerHLOperation(Call, OpcodeGroup);
 }
 
+// Special function to lower precise call applied to a matrix
+// The matrix should be lowered and the call regenerated with vector arg
+void HLMatrixLowerPass::lowerPreciseCall(CallInst *Call, IRBuilder<> Builder) {
+  DXASSERT(Call->getNumArgOperands() == 1, "Only one arg expected for precise matrix call");
+  Value *Arg = Call->getArgOperand(0);
+  Value *LoweredArg = getLoweredByValOperand(Arg, Builder);
+  HLModule::MarkPreciseAttributeOnValWithFunctionCall(LoweredArg, Builder, *m_pModule);
+  addToDeadInsts(Call);
+}
+
 Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   // First, handle any operand of matrix-derived type
   // We don't lower the callee's signature in this pass,
@@ -691,6 +702,12 @@ Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   // pass knows how to eliminate.
   IRBuilder<> PreCallBuilder(Call);
   unsigned NumArgs = Call->getNumArgOperands();
+  Function *Func = Call->getCalledFunction();
+  if (Func && HLModule::HasPreciseAttribute(Func)) {
+    lowerPreciseCall(Call, PreCallBuilder);
+    return nullptr;
+  }
+
   for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
     Use &ArgUse = Call->getArgOperandUse(ArgIdx);
     if (ArgUse->getType()->isPointerTy()) {
