@@ -1,13 +1,21 @@
 if(HLSL_EMBED_VERSION)
-    string(REPLACE "/" "\\" HLSL_VERSION_LOCATION_mspath ${HLSL_VERSION_LOCATION})
+    if (WIN32)
+        string(REPLACE "/" "\\" HLSL_VERSION_LOCATION_local ${HLSL_VERSION_LOCATION}\\)
+    else (WIN32)
+        set(HLSL_VERSION_LOCATION_local ${HLSL_VERSION_LOCATION}/)
+    endif (WIN32)
 
-    set(HLSL_VERSION_FILE ${HLSL_VERSION_LOCATION_mspath}\\version.inc)
+    set(HLSL_VERSION_FILE ${HLSL_VERSION_LOCATION_local}version.inc)
     if(HLSL_ENABLE_FIXED_VER)
-        string(REPLACE "/" "\\" HLSL_FIXED_VERSION_LOCATION_mspath ${HLSL_FIXED_VERSION_LOCATION})
-        message("Using fixed version file ${HLSL_FIXED_VERSION_LOCATION_mspath}\\version.inc")
+        if (WIN32)
+            string(REPLACE "/" "\\" HLSL_FIXED_VERSION_LOCATION_local ${HLSL_FIXED_VERSION_LOCATION}\\)
+        else (WIN32)
+            set(HLSL_FIXED_VERSION_LOCATION_local ${HLSL_FIXED_VERSION_LOCATION}/)
+        endif (WIN32)
+        message("Using fixed version file ${HLSL_FIXED_VERSION_LOCATION_local}version.inc")
         add_custom_target(hlsl_version_autogen
-            COMMAND echo "Using fixed version file ${HLSL_FIXED_VERSION_LOCATION_mspath}\\version.inc"
-            COMMAND copy ${HLSL_FIXED_VERSION_LOCATION_mspath}\\version.inc ${HLSL_VERSION_LOCATION_mspath}
+            COMMAND echo "Using fixed version file ${HLSL_FIXED_VERSION_LOCATION_local}version.inc"
+            COMMAND ${CMAKE_COMMAND} -E copy ${HLSL_FIXED_VERSION_LOCATION_local}version.inc ${HLSL_VERSION_LOCATION_local}
             )
     else(HLSL_ENABLE_FIXED_VER)
         if (HLSL_OFFICIAL_BUILD)
