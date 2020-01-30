@@ -690,9 +690,6 @@ void HLMatrixLowerPass::lowerPreciseCall(CallInst *Call, IRBuilder<> Builder) {
   DXASSERT(Call->getNumArgOperands() == 1, "Only one arg expected for precise matrix call");
   Value *Arg = Call->getArgOperand(0);
   Value *LoweredArg = getLoweredByValOperand(Arg, Builder);
-  for (Value *A : Call->arg_operands()) {
-    DXASSERT(A == Arg, "oops");
-  }
   HLModule::MarkPreciseAttributeOnValWithFunctionCall(LoweredArg, Builder, *m_pModule);
   addToDeadInsts(Call);
 }
@@ -706,8 +703,7 @@ Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   IRBuilder<> PreCallBuilder(Call);
   unsigned NumArgs = Call->getNumArgOperands();
   Function *Func = Call->getCalledFunction();
-  StringRef FuncName = Func->getName();
-  if (Func && FuncName.startswith("dx.attribute.precise")) {
+  if (Func && static_cast<StringRef>Func->getName()).startswith("dx.attribute.precise")) {
     lowerPreciseCall(Call, PreCallBuilder);
     return nullptr;
   }
