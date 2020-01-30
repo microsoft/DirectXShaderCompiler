@@ -703,7 +703,7 @@ Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   IRBuilder<> PreCallBuilder(Call);
   unsigned NumArgs = Call->getNumArgOperands();
   Function *Func = Call->getCalledFunction();
-  if (Func && static_cast<StringRef>Func->getName()).startswith("dx.attribute.precise")) {
+  if (Func && HLModule::HasPreciseAttribute(Func)) {
     lowerPreciseCall(Call, PreCallBuilder);
     return nullptr;
   }
