@@ -29,6 +29,7 @@
 #include "llvm/Support/Path.h"
 #include "version.inc" // HLSL Change
 #include "dxc/DXIL/DxilConstants.h" // HLSL Change
+#include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
 using namespace clang;
 
 static bool MacroBodyEndsInBackslash(StringRef MacroBody) {
@@ -367,11 +368,15 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
 #if 1 // HLSL Change Starts
   if (LangOpts.HLSL) {
     Builder.defineMacro("__hlsl_dx_compiler");
+    // DXC Version information
     Builder.defineMacro("__DXC_VERSION_MAJOR", STRINGIFY(RC_VERSION_FIELD_1));
     Builder.defineMacro("__DXC_VERSION_MINOR", STRINGIFY(RC_VERSION_FIELD_2));
     Builder.defineMacro("__DXC_VERSION_RELEASE", STRINGIFY(RC_VERSION_FIELD_3));
     Builder.defineMacro("__DXC_VERSION_COMMITS", STRINGIFY(RC_VERSION_FIELD_4));
-    // "enums" for shader targets
+    // HLSL Version
+    Builder.defineMacro("__HLSL_VERSION", Twine(LangOpts.HLSLVersion));
+    // Shader target information
+    // "enums" for shader stages
     Builder.defineMacro("__SHADER_STAGE_VERTEX",  Twine((unsigned)hlsl::DXIL::ShaderKind::Vertex));
     Builder.defineMacro("__SHADER_STAGE_PIXEL",   Twine((unsigned)hlsl::DXIL::ShaderKind::Pixel));
     Builder.defineMacro("__SHADER_STAGE_GEOMETRY",Twine((unsigned)hlsl::DXIL::ShaderKind::Geometry));
@@ -381,6 +386,12 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__SHADER_STAGE_AMPLIFICATION",Twine((unsigned)hlsl::DXIL::ShaderKind::Amplification));
     Builder.defineMacro("__SHADER_STAGE_MESH",    Twine((unsigned)hlsl::DXIL::ShaderKind::Mesh));
     Builder.defineMacro("__SHADER_STAGE_LIBRARY", Twine((unsigned)hlsl::DXIL::ShaderKind::Library));
+    const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(LangOpts.HLSLProfile.c_str());
+    // The current shader stage itself
+    Builder.defineMacro("__SHADER_TARGET_STAGE", Twine((unsigned)SM->GetKind()));
+    // Add target versions
+    Builder.defineMacro("__SHADER_TARGET_MAJOR", Twine(SM->GetMajor()));
+    Builder.defineMacro("__SHADER_TARGET_MINOR", Twine(SM->GetMinor()));
   }
   return;
 #else
