@@ -148,13 +148,13 @@ public:
     CATCH_CPP_RETURN_HRESULT();
   }
 
-  // This is used by BuildArguments to skip extra entry/profile arguments in the
-  // arg list when already specified separatly.  This would lead to duplicate or
-  // even contradictory arguments in the arg list, visible in debug information.
-  HRESULT AddArgumentsOptionallySkippingEntryAndTarget(
+  // This is used by BuildArguments to skip extra entry/profile/define arguments
+  // in the arg list when already specified separatly.  This would lead to duplicate
+  // or even contradictory arguments in the arg list, visible in debug information.
+  HRESULT AddArgumentsWithOptionalSkips(
       _In_opt_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments to add
       _In_ UINT32 argCount,                             // Number of arguments to add
-      bool skipEntry, bool skipTarget) {
+      bool skipEntry, bool skipTarget, bool skipDefines) {
     DxcThreadMalloc TM(m_pMalloc);
     bool skipNext = false;
     for (UINT32 i = 0; i < argCount; ++i) {
@@ -168,7 +168,8 @@ public:
         if (size >= 2) {
           if (arg[0] == L'-' || arg[0] == L'/') {
             if ((skipEntry && arg[1] == L'E') ||
-                (skipTarget && arg[1] == L'T')) {
+                (skipTarget && arg[1] == L'T') ||
+                (skipDefines && arg[1] == L'D')) {
               skipNext = size == 2;  // skip next if value not joined
               continue;
             }
@@ -489,8 +490,8 @@ public:
         }
       }
       if (pArguments && NumArguments) {
-        IFR(pArgs->AddArgumentsOptionallySkippingEntryAndTarget(
-          pArguments, NumArguments, !!pEntryPoint, !!pTargetProfile));
+        IFR(pArgs->AddArgumentsWithOptionalSkips(
+          pArguments, NumArguments, !!pEntryPoint, !!pTargetProfile, !!NumDefines));
       }
       if (pDefines && NumDefines) {
         IFR(pArgs->AddDefines(pDefines, NumDefines));
