@@ -11,6 +11,7 @@ static bool gG3;
 
 Texture2D tex0[42] : register(t0);
 Texture2D tex1 : register(t42);
+Texture2D tex2[2][2] : register(t43);
 
 const uint idx1;
 const uint idx2;
@@ -39,13 +40,13 @@ Texture2D h(bool foo3) {
   return foo3 ? f(gG2) : g(gG3);
 }
 
-[RootSignature("CBV(b0), DescriptorTable(SRV(t0, numDescriptors=42), SRV(t42))")]
+[RootSignature("CBV(b0), DescriptorTable(SRV(t0, numDescriptors=42), SRV(t42), SRV(t43, numDescriptors=4))")]
 float4 main() : sv_target {
   // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 42
 
   local_tex1 = tex0[idx1];
   local_tex2 = tex0[idx2];
-  local_tex3 = tex0[idx3];
+  local_tex3 = tex2[idx3][idx1];
 
   gG = true;
   gG2 = false;

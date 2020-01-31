@@ -552,7 +552,7 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
         if (PHINode *PN = dyn_cast<PHINode>(&I)) {
-          if (hlsl::dxilutil::IsHLSLObjectType(PN->getType())) {
+          if (hlsl::dxilutil::IsHLSLResourceType(PN->getType())) {
             PHIs.push_back(PN);
           }
         }
@@ -594,11 +594,22 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
 
   // Collect Resource GV loads
   for (GlobalVariable &GV : M.globals()) {
-    if (!hlsl::dxilutil::IsHLSLObjectType(GV.getType()->getPointerElementType()))
+    Type *Ty = GV.getType()->getPointerElementType();
+    while (Ty->isArrayTy())
+      Ty = Ty->getArrayElementType();
+    if (!hlsl::dxilutil::IsHLSLResourceType(Ty))
       continue;
-    for (User *U : GV.users()) {
-      if (Instruction *I = dyn_cast<Instruction>(U))
-        DCEWorklist.push_back(I);
+
+    SmallVector<User *, 4> WorkList(GV.user_begin(), GV.user_end());
+    while (WorkList.size()) {
+      User *U = WorkList.pop_back_val();
+      if (LoadInst *Load = dyn_cast<LoadInst>(U)) {
+        DCEWorklist.push_back(Load);
+      }
+      else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        for (User *GepU : GEP->users())
+          WorkList.push_back(GepU);
+      } 
     }
   }
 
