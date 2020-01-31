@@ -22,6 +22,7 @@
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/DxilValueCache.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -424,15 +425,134 @@ ModulePass *llvm::createDxilCondenseResourcesPass() {
 INITIALIZE_PASS(DxilCondenseResources, "hlsl-dxil-condense", "DXIL Condense Resources", false, false)
 
 static
-bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
+bool EraseDeadBlocks(Module &M, DxilValueCache *DVC) {
+  std::unordered_set<BasicBlock *> Seen;
+  std::vector<BasicBlock *> WorkList;
 
+  bool Changed = false;
+
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    Seen.clear();
+    WorkList.clear();
+
+    auto Add = [&WorkList, &Seen](BasicBlock *BB) {
+      if (!Seen.count(BB)) {
+        WorkList.push_back(BB);
+        Seen.insert(BB);
+      }
+    };
+
+    Add(&F.getEntryBlock());
+
+    // Go through blocks
+    while (WorkList.size()) {
+      BasicBlock *BB = WorkList.back();
+      WorkList.pop_back();
+
+      if (BranchInst *Br = dyn_cast<BranchInst>(BB->getTerminator())) {
+        if (Br->isUnconditional()) {
+          BasicBlock *Succ = Br->getSuccessor(0);
+          Add(Succ);
+        }
+        else {
+          bool IsConstant = false;
+          if (Value *V = DVC->GetValue(Br->getCondition())) {
+            if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
+              bool IsTrue = C->getLimitedValue() != 0;
+              BasicBlock *Succ = IsTrue ?
+                Br->getSuccessor(0) : Br->getSuccessor(1);
+              Add(Succ);
+              IsConstant = true;
+            }
+          }
+          if (!IsConstant) {
+            Add(Br->getSuccessor(0));
+            Add(Br->getSuccessor(1));
+          }
+        }
+      }
+      else if (SwitchInst *Switch = dyn_cast<SwitchInst>(BB->getTerminator())) {
+        for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
+          Add(Switch->getSuccessor(i));
+        }
+      }
+    }
+
+    if (Seen.size() == F.size())
+      continue;
+
+    Changed = true;
+
+    std::vector<BasicBlock *> DeadBlocks;
+
+    // Reconnect edges and everything
+    for (auto it = F.begin(); it != F.end();) {
+      BasicBlock *BB = &*(it++);
+      if (Seen.count(BB))
+        continue;
+
+      DeadBlocks.push_back(BB);
+
+      // Make predecessors branch somewhere else and fix the phi nodes
+      for (auto pred_it = pred_begin(BB); pred_it != pred_end(BB);) {
+        BasicBlock *PredBB = *(pred_it++);
+        if (!Seen.count(PredBB))
+          continue;
+        TerminatorInst *TI = PredBB->getTerminator();
+        if (!TI) continue;
+        BranchInst *Br = dyn_cast<BranchInst>(TI);
+        if (!Br || Br->isUnconditional()) continue;
+
+        BasicBlock *Other = Br->getSuccessor(0) == BB ?
+          Br->getSuccessor(1) : Br->getSuccessor(0);
+
+        BranchInst *NewBr = BranchInst::Create(Other, Br);
+        hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Br);
+        Br->eraseFromParent();
+      }
+
+      // Fix phi nodes in successors
+      for (auto succ_it = succ_begin(BB); succ_it != succ_end(BB); succ_it++) {
+        BasicBlock *SuccBB = *succ_it;
+        if (!Seen.count(SuccBB)) continue;
+        for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
+          Instruction *I = &*(inst_it++);
+          if (PHINode *PN = dyn_cast<PHINode>(I))
+            PN->removeIncomingValue(BB, true);
+          else
+            break;
+        }
+      }
+
+      // Erase all instructions in block
+      while (BB->size()) {
+        Instruction *I = &BB->back();
+        if (!I->getType()->isVoidTy())
+          I->replaceAllUsesWith(UndefValue::get(I->getType()));
+        I->eraseFromParent();
+      }
+    }
+
+    for (BasicBlock *BB : DeadBlocks) {
+      BB->eraseFromParent();
+    }
+
+  }
+
+  return Changed;
+}
+
+static
+bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
   // Simple pass to collect resource PHI's
   SmallVector<PHINode *, 8> PHIs;
   for (Function &F : M) {
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
         if (PHINode *PN = dyn_cast<PHINode>(&I)) {
-          if (hlsl::dxilutil::IsHLSLObjectType(PN->getType())) {
+          if (hlsl::dxilutil::IsHLSLResourceType(PN->getType())) {
             PHIs.push_back(PN);
           }
         }
@@ -447,134 +567,23 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
   if (PHIs.empty())
     return false;
 
-  // Do a very simple CFG simplification of removing diamond graphs.
-  std::vector<BasicBlock *> DeadBlocks;
-  std::unordered_set<BasicBlock *> DeadBlocksSet;
-  for (PHINode *PN : PHIs) {
-    for (unsigned i = 0; i < PN->getNumIncomingValues(); i++) {
-      BasicBlock *BB = PN->getIncomingBlock(i);
-      if (DeadBlocksSet.count(BB)) continue;
-      if (DVC->IsNeverReachable(BB)) {
-        DeadBlocksSet.insert(BB);
-        DeadBlocks.push_back(BB);
-      }
-    }
-  }
-
   bool Changed = false;
-  SmallVector<Value *, 3> CleanupValues;
-  SmallPtrSet<Value *, 3> CleanupValuesSet;
-  auto AddCleanupValues = [&CleanupValues, &CleanupValuesSet](Value *V) {
-    if (!CleanupValuesSet.count(V)) {
-      CleanupValuesSet.insert(V);
-      CleanupValues.push_back(V);
-    }
-  };
 
-  for (unsigned i = 0; i < DeadBlocks.size(); i++) {
-    BasicBlock *BB = DeadBlocks[i];
-    BasicBlock *Pred = BB->getSinglePredecessor();
-    BasicBlock *Succ = BB->getSingleSuccessor();
+  SmallVector<Instruction *, 8> DCEWorklist;
 
-    if (!Pred || !Succ)
-      continue;
-
-    // A very simple folding of diamond graph.
-    BranchInst *Br = cast<BranchInst>(Pred->getTerminator());
-    BasicBlock *Peer = nullptr;
-    if (Br->isConditional())
-      Peer = Br->getSuccessor(0) == BB ? 
-          Br->getSuccessor(1) : Br->getSuccessor(0);
-
-    if (Peer && Peer->getSingleSuccessor() == Succ) {
-      Changed = true;
-
-      BranchInst::Create(Peer, Pred);
-
-      Br->dropAllReferences();
-      Br->eraseFromParent();
-      auto PhiEnd = PHIs.end();
-      for (Instruction &I : *Succ)
-        if (PHINode *PN = dyn_cast<PHINode>(&I)) {
-          if (Instruction *IncomingI = dyn_cast<Instruction>(PN->getIncomingValueForBlock(BB))) {
-            if (!DeadBlocksSet.count(IncomingI->getParent()))
-              AddCleanupValues(IncomingI); // Mark the incoming value for deletion
-          }
-          PN->removeIncomingValue(BB);
-
-          if (PN->getNumIncomingValues() == 1) {
-            PN->replaceAllUsesWith(PN->getIncomingValue(0));
-            PhiEnd = std::remove(PHIs.begin(), PhiEnd, PN);
-            AddCleanupValues(PN); // Mark for deletion
-          }
-        }
-        else
-          break;
-
-      BB->dropAllReferences();
-      while (!BB->empty()){
-        Instruction *ChildI = &*BB->rbegin();
-        if (PHINode *PN = dyn_cast<PHINode>(ChildI))
-          PhiEnd = std::remove(PHIs.begin(), PhiEnd, PN);
-        ChildI->eraseFromParent();
-      }
-      BB->eraseFromParent();
-    }
-  }
-
-  unsigned Attempts = PHIs.size();
-  for (unsigned AttemptIdx = 0; AttemptIdx < Attempts; AttemptIdx++) {
+  // Try to simplify those PHI's with DVC and collect them in DCEWorklist
+  for (unsigned Attempt = 0, MaxAttempt = PHIs.size(); Attempt < MaxAttempt; Attempt++) {
     bool LocalChanged = false;
-    for (auto It = PHIs.begin(); It != PHIs.end();) {
-      PHINode *PN = *It;
+    for (unsigned i = 0; i < PHIs.size(); i++) {
+      PHINode *PN = PHIs[i];
       if (Value *V = DVC->GetValue(PN)) {
-
-        PHIs.erase(It);
-        AddCleanupValues(PN); // Mark for deletion later
         PN->replaceAllUsesWith(V);
-        Changed = true;
         LocalChanged = true;
-
-        for (unsigned i = 0, C = PN->getNumIncomingValues(); i < C; i++) {
-          Value *IncomingV = PN->getIncomingValue(i);
-          if (IncomingV != V)
-            AddCleanupValues(IncomingV); // Mark the incoming value for deletion later
-        }
+        DCEWorklist.push_back(PN);
+        PHIs.erase(PHIs.begin() + i);
       }
       else {
-        It++;
-      }
-    }
-
-    if (!LocalChanged)
-      break;
-  }
-
-  // Simple DCE to remove all dependencies of the resource PHI nodes we removed.
-  // This may be a little too agressive
-  for (;;) {
-    bool LocalChanged = false;
-    // Must use a numeric idx instead of an interator, because
-    // we're modifying the array as we go. Iterator gets invalidated
-    // because they're just pointers.
-    for (unsigned Idx = 0; Idx < CleanupValues.size();) {
-      Value *V = CleanupValues[Idx];
-      if (Instruction *I = dyn_cast<Instruction>(V)) {
-        if (I->user_empty()) {
-          // Add dependencies to process
-          for (Value *Op : I->operands()) {
-            AddCleanupValues(Op);
-          }
-          LocalChanged = true;
-          I->eraseFromParent();
-          CleanupValues.erase(CleanupValues.begin() + Idx);
-        }
-        else {
-          Idx++;
-        }
-      }
-      else {
-        CleanupValues.erase(CleanupValues.begin() + Idx);
+        i++;
       }
     }
 
@@ -582,6 +591,43 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
     if (!LocalChanged)
       break;
   }
+
+  // Collect Resource GV loads
+  for (GlobalVariable &GV : M.globals()) {
+    Type *Ty = GV.getType()->getPointerElementType();
+    while (Ty->isArrayTy())
+      Ty = Ty->getArrayElementType();
+    if (!hlsl::dxilutil::IsHLSLResourceType(Ty))
+      continue;
+
+    SmallVector<User *, 4> WorkList(GV.user_begin(), GV.user_end());
+    while (WorkList.size()) {
+      User *U = WorkList.pop_back_val();
+      if (LoadInst *Load = dyn_cast<LoadInst>(U)) {
+        DCEWorklist.push_back(Load);
+      }
+      else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        for (User *GepU : GEP->users())
+          WorkList.push_back(GepU);
+      } 
+    }
+  }
+
+  // Simple DCE
+  while (DCEWorklist.size()) {
+    Instruction *I = DCEWorklist.back();
+    DCEWorklist.pop_back();
+    if (llvm::isInstructionTriviallyDead(I)) {
+      for (Use &Op : I->operands())
+        if (Instruction *OpI = dyn_cast<Instruction>(Op.get()))
+          DCEWorklist.push_back(OpI);
+      I->eraseFromParent();
+      // Remove the instruction from the worklist if it still exists in it.
+      DCEWorklist.erase(std::remove(DCEWorklist.begin(), DCEWorklist.end(), I),
+                     DCEWorklist.end());
+    }
+  }
+
   return Changed;
 }
 
@@ -651,6 +697,7 @@ public:
       return bChanged;
 
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    bChanged |= EraseDeadBlocks(M, DVC);
     bChanged |= LegalizeResourcesPHIs(M, DVC);
 
     // Make sure no select on resource.

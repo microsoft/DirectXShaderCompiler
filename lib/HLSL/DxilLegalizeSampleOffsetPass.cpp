@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/HLSL/DxilValueCache.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 
@@ -44,6 +45,11 @@ public:
 
   const char *getPassName() const override {
     return "DXIL legalize sample offset";
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<DxilValueCache>();
+    AU.setPreservesAll();
   }
 
   bool runOnFunction(Function &F) override {
@@ -158,7 +164,8 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
   // Always need mem2reg for simplify illegal offsets.
   PM.add(createPromoteMemoryToRegisterPass());
 
-  if (HasIllegalOffsetInLoop(illegalOffsets, F)) {
+  bool UnrollLoop = HasIllegalOffsetInLoop(illegalOffsets, F);
+  if (UnrollLoop) {
     PM.add(createCFGSimplificationPass());
     PM.add(createLCSSAPass());
     PM.add(createLoopSimplifyPass());
@@ -166,6 +173,11 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
     PM.add(createLoopUnrollPass(-2, -1, 0, 0));
   }
   PM.run(F);
+
+  if (UnrollLoop) {
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    DVC->ResetUnknowns();
+  }
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
@@ -202,13 +214,22 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
 
 void DxilLegalizeSampleOffsetPass::LegalizeOffsets(
     const std::vector<Instruction *> &illegalOffsets) {
-  for (Instruction *I : illegalOffsets)
-    llvm::recursivelySimplifyInstruction(I);
+  if (illegalOffsets.size()) {
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    for (Instruction *I : illegalOffsets) {
+      if (Value *V = DVC->GetValue(I)) {
+        I->replaceAllUsesWith(V);
+      }
+    }
+  }
 }
 
 FunctionPass *llvm::createDxilLegalizeSampleOffsetPass() {
   return new DxilLegalizeSampleOffsetPass();
 }
 
-INITIALIZE_PASS(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
+INITIALIZE_PASS_BEGIN(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
+                "DXIL legalize sample offset", false, false)
+INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
+INITIALIZE_PASS_END(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
                 "DXIL legalize sample offset", false, false)

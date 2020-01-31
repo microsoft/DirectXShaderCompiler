@@ -15,7 +15,7 @@ namespace llvm {
 class Module;
 class DominatorTree;
 
-struct DxilValueCache : public ModulePass {
+struct DxilValueCache : public ImmutablePass {
   static char ID;
 
   // Special Weak Value to Weak Value map.
@@ -36,6 +36,7 @@ struct DxilValueCache : public ModulePass {
     void Set(Value *Key, Value *V);
     bool Seen(Value *v);
     void SetSentinel(Value *V);
+    void ResetUnknowns();
     void dump() const;
   private:
     Value *GetSentinel(LLVMContext &Ctx);
@@ -47,30 +48,33 @@ private:
   WeakValueMap ValueMap;
 
   void MarkAlwaysReachable(BasicBlock *BB);
-  void MarkNeverReachable(BasicBlock *BB);
+  void MarkUnreachable(BasicBlock *BB);
   bool IsAlwaysReachable_(BasicBlock *BB);
-  bool IsNeverReachable_(BasicBlock *BB);
-  Value *OptionallyGetValue(Value *V);
+  bool IsUnreachable_(BasicBlock *BB);
+  bool MayBranchTo(BasicBlock *A, BasicBlock *B);
+  Value *TryGetCachedValue(Value *V);
   Value *ProcessValue(Value *V, DominatorTree *DT);
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
   Value *ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT);
+  Value *ProcessAndSimpilfy_Load(Instruction *LI, DominatorTree *DT);
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
 public:
 
   const char *getPassName() const override;
   DxilValueCache();
+  void getAnalysisUsage(AnalysisUsage &) const;
 
-  bool runOnModule(Module &M) override { return false; } // Doesn't do anything by itself.
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
+  void ResetUnknowns() { ValueMap.ResetUnknowns(); }
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
-  bool IsNeverReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
+  bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
 };
 
 void initializeDxilValueCachePass(class llvm::PassRegistry &);
-ModulePass *createDxilValueCachePass();
+Pass *createDxilValueCachePass();
 
 }
 

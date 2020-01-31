@@ -27,6 +27,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/DenseSet.h"
 #include <array>
 #include <algorithm>
 
@@ -2481,6 +2482,26 @@ void DxilMDHelper::SetVariableDebugLayout(llvm::DbgDeclareInst *inst,
   }
 
   inst->setMetadata(DxilMDHelper::kDxilVariableDebugLayoutMDName, MDNode::get(Ctx, MDVals));
+}
+
+void DxilMDHelper::CopyMetadata(Instruction &I, Instruction &SrcInst, ArrayRef<unsigned> WL) {
+  if (!SrcInst.hasMetadata())
+    return;
+
+  DenseSet<unsigned> WLS;
+  for (unsigned M : WL)
+    WLS.insert(M);
+
+  // Otherwise, enumerate and copy over metadata from the old instruction to the
+  // new one.
+  SmallVector<std::pair<unsigned, MDNode *>, 4> TheMDs;
+  SrcInst.getAllMetadataOtherThanDebugLoc(TheMDs);
+  for (const auto &MD : TheMDs) {
+    if (WL.empty() || WLS.count(MD.first))
+      I.setMetadata(MD.first, MD.second);
+  }
+  if (WL.empty() || WLS.count(LLVMContext::MD_dbg))
+    I.setDebugLoc(SrcInst.getDebugLoc());
 }
 
 } // namespace hlsl
