@@ -14,21 +14,21 @@ float4 main(float4 pos : IN) : OUT
   float4 outPos = pos;
 
   // Will need to change if there's ever a major version bump
-#if defined(__DXC_VERSION_MAJOR) && __DXC_VERSION_MAJOR == 1
+#if defined(__DXC_VERSION_MAJOR)// && __DXC_VERSION_MAJOR == 1 // FIXME: excluded for xbtools builds
   x += 1;
 #else
   x -= 1;
 #endif
 
   // Minor version is expected to change fairly frequently. So be conservative
-#if defined(__DXC_VERSION_MINOR) && __DXC_VERSION_MINOR >= 0 && __DXC_VERSION_MINOR < 50
+#if defined(__DXC_VERSION_MINOR)// && __DXC_VERSION_MINOR >= 0 && __DXC_VERSION_MINOR < 50 // FIXME: excluded for xbtools builds
   x += 1;
 #else
   x -= 1;
 #endif
 
   // Release is either based on the year/month or set to zero for dev builds
-#if defined(__DXC_VERSION_RELEASE) && (__DXC_VERSION_RELEASE == 0 ||  __DXC_VERSION_RELEASE > 1900)
+#if defined(__DXC_VERSION_RELEASE)// && (__DXC_VERSION_RELEASE == 0 ||  __DXC_VERSION_RELEASE > 1900) // FIXME: excluded for xbtools builds
   x += 1;
 #else
   x -= 1;
@@ -37,7 +37,7 @@ float4 main(float4 pos : IN) : OUT
   // The last number varies a lot. In a dev build, Release is 0, and this number
   // is the total number of commits since the beginning of the project.
   // which can be expected to be more than 1000 at least.
-#if defined(__DXC_VERSION_COMMITS) && (__DXC_VERSION_RELEASE > 0 ||  __DXC_VERSION_COMMITS > 1000)
+#if defined(__DXC_VERSION_COMMITS)// && (__DXC_VERSION_RELEASE > 0 ||  __DXC_VERSION_COMMITS > 1000) // FIXME: excluded for xbtools builds
   x += 1;
 #else
   x -= 1;
