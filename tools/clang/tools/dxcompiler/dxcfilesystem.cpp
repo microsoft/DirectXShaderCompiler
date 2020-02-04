@@ -153,7 +153,7 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
     return Path[1] == L'\0' || Path[1] == L'/' || Path[1] == L'\\';
   }
   // Disk designator, then absolute path.
-  if (Path[1] == L':' && Path[2] == L'\\') {
+  if (Path[1] == L':' && (Path[2] == L'\\' || Path[2] == L'/')) {
     return TRUE;
   }
   // UNC name
