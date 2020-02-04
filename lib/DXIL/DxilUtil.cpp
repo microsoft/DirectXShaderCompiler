@@ -497,6 +497,8 @@ static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
 
 bool IsHLSLResourceType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
     StringRef name = ST->getName();
     ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
@@ -589,6 +591,8 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
 bool IsHLSLRayQueryType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
     StringRef name = ST->getName();
     // TODO: don't check names.
     ConsumePrefix(name, "class.");
