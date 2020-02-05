@@ -1265,6 +1265,33 @@ bool EmitVisitor::visit(SpirvDebugDeclare *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugGlobalVariable *inst) {
+  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(nameId);
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
+  curInst.push_back(linkageNameId);
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVariable()));
+  curInst.push_back(inst->getFlags());
+  if (inst->getStaticMemberDebugDecl().hasValue())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(
+        inst->getStaticMemberDebugDecl().getValue()));
+
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugExpression *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());

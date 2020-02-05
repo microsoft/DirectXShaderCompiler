@@ -427,6 +427,12 @@ public:
       uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
       uint32_t flags, llvm::Optional<uint32_t> argNumber = llvm::None);
 
+  SpirvDebugGlobalVariable *createDebugGlobalVariable(
+      QualType debugType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
+      llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
+
   // Get a null DebugExpression if exists. Otherwise, create one and return it.
   SpirvDebugExpression *getOrCreateNullDebugExpression();
 

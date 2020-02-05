@@ -1946,8 +1946,8 @@ private:
 class SpirvDebugGlobalVariable : public SpirvDebugInstruction {
 public:
   SpirvDebugGlobalVariable(
-      llvm::StringRef varName, SpirvDebugSource *src, uint32_t line,
-      uint32_t column, SpirvDebugInstruction *parentScope,
+      QualType debugQualType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
       llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
       llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
 
@@ -1957,7 +1957,16 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
   SpirvDebugInstruction *getParent() const override { return parentScope; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getFlags() const { return flags; }
+  SpirvInstruction *getVariable() const { return var; }
+  llvm::Optional<SpirvInstruction *> getStaticMemberDebugDecl() const {
+    return staticMemberDebugDecl;
+  }
 
 private:
   SpirvDebugSource *source;
@@ -1968,7 +1977,7 @@ private:
   SpirvVariable *var;
   // TODO: Replace this with an enum, when it is available in SPIRV-Headers
   uint32_t flags;
-  llvm::Optional<SpirvInstruction *> staticMemberDebugType;
+  llvm::Optional<SpirvInstruction *> staticMemberDebugDecl;
 };
 
 class SpirvDebugOperation : public SpirvDebugInstruction {

@@ -817,15 +817,17 @@ SpirvDebugLocalVariable::SpirvDebugLocalVariable(
 }
 
 SpirvDebugGlobalVariable::SpirvDebugGlobalVariable(
-    llvm::StringRef varName, SpirvDebugSource *src, uint32_t line_,
-    uint32_t column_, SpirvDebugInstruction *parent,
+    QualType debugQualType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t line_, uint32_t column_, SpirvDebugInstruction *parent,
     llvm::StringRef linkageName_, SpirvVariable *var_, uint32_t flags_,
-    llvm::Optional<SpirvInstruction *> staticMemberDebugType_)
+    llvm::Optional<SpirvInstruction *> staticMemberDebugDecl_)
     : SpirvDebugInstruction(IK_DebugGlobalVariable, /*opcode*/ 18u),
       source(src), line(line_), column(column_), parentScope(parent),
       linkageName(linkageName_), var(var_), flags(flags_),
-      staticMemberDebugType(staticMemberDebugType_) {
+      staticMemberDebugDecl(staticMemberDebugDecl_) {
   debugName = varName;
+  setDebugQualType(debugQualType);
+  setDebugType(nullptr);
 }
 
 SpirvDebugOperation::SpirvDebugOperation(uint32_t operationOpCode_,

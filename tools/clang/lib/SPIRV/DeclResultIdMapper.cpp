@@ -665,14 +665,34 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
+void DeclResultIdMapper::createDebugGlobalVariable(SpirvVariable *var,
+                                                   const QualType &type,
+                                                   const SourceLocation &loc,
+                                                   const StringRef &name) {
+  if (spirvOptions.debugInfoRich) {
+    // Add DebugGlobalVariable information
+    const auto &sm = astContext.getSourceManager();
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+    const auto *info = theEmitter.getOrCreateRichDebugInfo(loc);
+    // TODO: replace this with FlagIsDefinition enum.
+    uint32_t flags = 1 << 3;
+    // TODO: update linkageName correctly.
+    auto *debugGlobalVar = spvBuilder.createDebugGlobalVariable(
+        type, name, info->source, line, column, info->scopeStack.back(),
+        /* linkageName */ name, var, flags);
+  }
+}
+
 SpirvVariable *
 DeclResultIdMapper::createFileVar(const VarDecl *var,
                                   llvm::Optional<SpirvInstruction *> init) {
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
-  SpirvVariable *varInstr = spvBuilder.addModuleVar(
-      type, spv::StorageClass::Private, var->hasAttr<HLSLPreciseAttr>(),
-      var->getName(), init, loc);
+  const auto name = var->getName();
+  SpirvVariable *varInstr =
+      spvBuilder.addModuleVar(type, spv::StorageClass::Private,
+                              var->hasAttr<HLSLPreciseAttr>(), name, init, loc);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
@@ -680,6 +700,8 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 
   assert(astDecls[var].instr == nullptr);
   astDecls[var].instr = varInstr;
+
+  createDebugGlobalVariable(varInstr, type, loc, name);
 
   return varInstr;
 }
@@ -729,12 +751,15 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
   const auto type = var->getType();
   const auto loc = var->getLocation();
+  const auto name = var->getName();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
-      type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
-      llvm::None, loc);
+      type, storageClass, var->hasAttr<HLSLPreciseAttr>(), name, llvm::None,
+      loc);
   varInstr->setLayoutRule(rule);
   DeclSpirvInfo info(varInstr);
   astDecls[var] = info;
+
+  createDebugGlobalVariable(varInstr, type, loc, name);
 
   // Variables in Workgroup do not need descriptor decorations.
   if (storageClass == spv::StorageClass::Workgroup)

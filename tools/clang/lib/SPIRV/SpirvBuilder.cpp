@@ -812,6 +812,18 @@ SpirvDebugLocalVariable *SpirvBuilder::createDebugLocalVariable(
   return inst;
 }
 
+SpirvDebugGlobalVariable *SpirvBuilder::createDebugGlobalVariable(
+    QualType debugType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+    llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
+    llvm::Optional<SpirvInstruction *> staticMemberDebugType) {
+  auto *inst = new (context) SpirvDebugGlobalVariable(
+      debugType, varName, src, line, column, parentScope, linkageName, var,
+      flags, staticMemberDebugType);
+  module->addDebugInfo(inst);
+  return inst;
+}
+
 SpirvDebugExpression *SpirvBuilder::getOrCreateNullDebugExpression() {
   if (nullDebugExpr)
     return nullDebugExpr;

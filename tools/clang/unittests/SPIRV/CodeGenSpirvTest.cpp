@@ -2242,6 +2242,10 @@ TEST_F(FileTest, RichDebugInfoLocalVariable) {
   runFileTest("rich.debug.local-variable.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoGlobalVariable) {
+  runFileTest("rich.debug.global-variable.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoFunction) {
   runFileTest("rich.debug.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
