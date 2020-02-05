@@ -1184,6 +1184,26 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugTypeArray *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getElementType()));
+  for (auto it = inst->getElementCount().rbegin();
+       it != inst->getElementCount().rend(); ++it) {
+    const auto countId = typeHandler.getOrCreateConstantInt(
+        llvm::APInt(32, *it), context.getUIntType(32),
+        /* isSpecConst */ false);
+    curInst.push_back(countId);
+  }
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());

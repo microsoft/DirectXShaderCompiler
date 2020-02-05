@@ -288,7 +288,9 @@ SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
   if (debugTypes.find(spirvType) != debugTypes.end())
     return debugTypes[spirvType];
 
-  auto *debugType = new (this) SpirvDebugTypeArray(elemType, elemCount);
+  auto *eTy = dyn_cast<SpirvDebugType>(elemType);
+  assert(eTy && "Element type must be a SpirvDebugType.");
+  auto *debugType = new (this) SpirvDebugTypeArray(eTy, elemCount);
   debugTypes[spirvType] = debugType;
   return debugType;
 }

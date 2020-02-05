@@ -867,7 +867,7 @@ SpirvDebugTypeBasic::SpirvDebugTypeBasic(llvm::StringRef name_,
     : SpirvDebugType(IK_DebugTypeBasic, /*opcode*/ 2u), name(name_),
       size(size_), encoding(encoding_) {}
 
-SpirvDebugTypeArray::SpirvDebugTypeArray(SpirvDebugInstruction *elemType,
+SpirvDebugTypeArray::SpirvDebugTypeArray(SpirvDebugType *elemType,
                                          llvm::ArrayRef<uint32_t> elemCount)
     : SpirvDebugType(IK_DebugTypeArray, /*opcode*/ 5u), elementType(elemType),
       elementCount(elemCount.begin(), elemCount.end()) {}

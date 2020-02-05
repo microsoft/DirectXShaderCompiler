@@ -2226,6 +2226,10 @@ TEST_F(FileTest, RichDebugInfoTypeVector) {
   runFileTest("rich.debug.type.vector.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoTypeArray) {
+  runFileTest("rich.debug.type.array.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoTypeFunction) {
   runFileTest("rich.debug.type.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);

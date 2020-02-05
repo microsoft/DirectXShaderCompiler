@@ -79,8 +79,16 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     auto *arrType = dyn_cast<ArrayType>(spirvType);
     SpirvDebugInstruction *elemDebugType =
         lowerToDebugType(arrType->getElementType());
-    debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType,
-                                             {arrType->getElementCount()});
+    if (auto *dbgArrType = dyn_cast<SpirvDebugTypeArray>(elemDebugType)) {
+      auto &counts = dbgArrType->getElementCount();
+      // Note that this is reverse order of dimension. We must iterate the
+      // count array in a reverse order when we actually emit it.
+      counts.push_back(arrType->getElementCount());
+      debugType = dbgArrType;
+    } else {
+      debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType,
+                                               {arrType->getElementCount()});
+    }
     break;
   }
   case SpirvType::TK_Vector: {

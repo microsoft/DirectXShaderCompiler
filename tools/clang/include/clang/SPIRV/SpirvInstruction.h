@@ -2158,7 +2158,7 @@ private:
 /// Represents array debug types
 class SpirvDebugTypeArray : public SpirvDebugType {
 public:
-  SpirvDebugTypeArray(SpirvDebugInstruction *elemType,
+  SpirvDebugTypeArray(SpirvDebugType *elemType,
                       llvm::ArrayRef<uint32_t> elemCount);
 
   static bool classof(const SpirvInstruction *inst) {
@@ -2167,12 +2167,12 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  SpirvDebugInstruction *getElementType() const { return elementType; }
-  llvm::ArrayRef<uint32_t> getElementCount() const { return elementCount; }
+  SpirvDebugType *getElementType() const { return elementType; }
+  llvm::SmallVector<uint32_t, 2> &getElementCount() { return elementCount; }
 
 private:
-  SpirvDebugInstruction *elementType;
-  llvm::SmallVector<uint32_t, 4> elementCount;
+  SpirvDebugType *elementType;
+  llvm::SmallVector<uint32_t, 2> elementCount;
 };
 
 /// Represents vector debug types

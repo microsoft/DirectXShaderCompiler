@@ -265,6 +265,7 @@ public:
   bool visit(SpirvDebugExpression *);
   bool visit(SpirvDebugTypeBasic *);
   bool visit(SpirvDebugTypeVector *);
+  bool visit(SpirvDebugTypeArray *);
   bool visit(SpirvDebugTypeFunction *);
 
   // Returns the assembled binary built up in this visitor.
