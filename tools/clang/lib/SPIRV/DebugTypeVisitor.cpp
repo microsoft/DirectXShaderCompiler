@@ -99,6 +99,18 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
                                              vecType->getElementCount());
     break;
   }
+  case SpirvType::TK_Matrix: {
+    // TODO: I temporarily use a DebugTypeArray for a matrix type.
+    // However, when the debug info extension supports matrix type
+    // e.g., DebugTypeMatrix, we must replace DebugTypeArray with
+    // DebugTypeMatrix.
+    auto *matType = dyn_cast<MatrixType>(spirvType);
+    SpirvDebugInstruction *elemDebugType =
+        lowerToDebugType(matType->getElementType());
+    debugType = spvContext.getDebugTypeArray(
+        spirvType, elemDebugType, {matType->numRows(), matType->numCols()});
+    break;
+  }
   case SpirvType::TK_Pointer: {
     debugType = lowerToDebugType(
         dyn_cast<SpirvPointerType>(spirvType)->getPointeeType());
