@@ -127,8 +127,9 @@ public:
   // Adds the debug source to the module.
   void addSource(SpirvSource *);
 
-  // Adds the given DebugOperation and DebugExpression instruction to
-  // debugOp and debugExpr, respectively.
+  // Adds the given DebugInfoNone, DebugOperation, and DebugExpression
+  // instruction to debugNone, debugOp, and debugExpr, respectively.
+  void addDebugInfo(SpirvDebugInfoNone *none) { debugNone = none; }
   void addDebugInfo(SpirvDebugOperation *);
   void addDebugInfo(SpirvDebugExpression *);
 
@@ -223,8 +224,7 @@ private:
   // be invalid because of forward references.
 
   // Keep DebugOperation and DebugExpression.
-  // TODO: Add DebugInfoNone to debugOp if exists (and change the name of
-  // debugOp).
+  SpirvDebugInfoNone *debugNone;
   std::vector<SpirvDebugOperation *> debugOp;
   std::vector<SpirvDebugExpression *> debugExpr;
 

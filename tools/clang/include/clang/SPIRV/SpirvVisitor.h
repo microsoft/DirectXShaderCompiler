@@ -113,6 +113,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvVectorShuffle)
   DEFINE_VISIT_METHOD(SpirvArrayLength)
   DEFINE_VISIT_METHOD(SpirvRayTracingOpNV)
+  DEFINE_VISIT_METHOD(SpirvDebugInfoNone)
   DEFINE_VISIT_METHOD(SpirvDebugSource)
   DEFINE_VISIT_METHOD(SpirvDebugCompilationUnit)
   DEFINE_VISIT_METHOD(SpirvDebugFunction)

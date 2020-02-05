@@ -23,7 +23,8 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt), nullDebugExpr(nullptr), currentLexicalScope(nullptr) {
+      spirvOptions(opt), debugNone(nullptr), nullDebugExpr(nullptr),
+      currentLexicalScope(nullptr) {
   mod = new (context) SpirvModule;
 }
 
@@ -822,6 +823,15 @@ SpirvDebugGlobalVariable *SpirvBuilder::createDebugGlobalVariable(
       flags, staticMemberDebugType);
   module->addDebugInfo(inst);
   return inst;
+}
+
+SpirvDebugInfoNone *SpirvBuilder::getOrCreateDebugInfoNone() {
+  if (debugNone)
+    return debugNone;
+
+  debugNone = new (context) SpirvDebugInfoNone();
+  module->addDebugInfo(debugNone);
+  return debugNone;
 }
 
 SpirvDebugExpression *SpirvBuilder::getOrCreateNullDebugExpression() {

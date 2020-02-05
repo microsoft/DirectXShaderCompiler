@@ -119,6 +119,7 @@ public:
     IK_RayTracingOpNV,            // NV raytracing ops
 
     // For DebugInfo instructions defined in OpenCL.DebugInfo.100
+    IK_DebugInfoNone,
     IK_DebugCompilationUnit,
     IK_DebugSource,
     IK_DebugFunction,
@@ -1830,6 +1831,17 @@ private:
   // The pointer to the debug info extended instruction set.
   // This is not required by the constructor, and can be set via any IMR pass.
   SpirvExtInstImport *instructionSet;
+};
+
+class SpirvDebugInfoNone : public SpirvDebugInstruction {
+public:
+  SpirvDebugInfoNone();
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugInfoNone;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
 };
 
 class SpirvDebugSource : public SpirvDebugInstruction {

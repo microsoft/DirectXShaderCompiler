@@ -1069,6 +1069,17 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugInfoNone *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugSource *inst) {
   uint32_t fileId = getOrCreateOpString(inst->getFile());
   uint32_t textId = 0;

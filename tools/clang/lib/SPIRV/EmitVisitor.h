@@ -255,6 +255,7 @@ public:
   bool visit(SpirvVectorShuffle *);
   bool visit(SpirvArrayLength *);
   bool visit(SpirvRayTracingOpNV *);
+  bool visit(SpirvDebugInfoNone *);
   bool visit(SpirvDebugSource *);
   bool visit(SpirvDebugCompilationUnit *);
   bool visit(SpirvDebugLexicalBlock *);

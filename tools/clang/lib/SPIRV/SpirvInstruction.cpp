@@ -81,6 +81,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugInfoNone)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
@@ -784,6 +785,9 @@ SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode)
                        /*result type */ {},
                        /*SourceLocation*/ {}),
       debugOpcode(opcode), debugType(nullptr), instructionSet(nullptr) {}
+
+SpirvDebugInfoNone::SpirvDebugInfoNone()
+    : SpirvDebugInstruction(IK_DebugInfoNone, /*opcode*/ 0u) {}
 
 SpirvDebugSource::SpirvDebugSource(llvm::StringRef f, llvm::StringRef t)
     : SpirvDebugInstruction(IK_DebugSource, /*opcode*/ 35u), file(f), text(t) {}

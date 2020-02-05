@@ -433,6 +433,9 @@ public:
       llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
       llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
 
+  // Get a DebugInfoNone if exists. Otherwise, create one and return it.
+  SpirvDebugInfoNone *getOrCreateDebugInfoNone();
+
   // Get a null DebugExpression if exists. Otherwise, create one and return it.
   SpirvDebugExpression *getOrCreateNullDebugExpression();
 
@@ -640,6 +643,8 @@ private:
   };
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
+
+  SpirvDebugInfoNone *debugNone;
 
   /// DebugExpression that does not reference any DebugOperation
   SpirvDebugExpression *nullDebugExpr;

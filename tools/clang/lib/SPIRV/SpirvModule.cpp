@@ -39,9 +39,10 @@ void addDebugInfoToMap(
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}), debugOp({}), debugExpr({}),
-      debugSources({}), debugCompUnits({}), debugTypes({}), debugVariables({}),
-      debugLexicalScopes({}), debugInfo({}) {}
+      constants({}), variables({}), functions({}), debugNone(nullptr),
+      debugOp({}), debugExpr({}), debugSources({}), debugCompUnits({}),
+      debugTypes({}), debugVariables({}), debugLexicalScopes({}),
+      debugInfo({}) {}
 
 bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
                                                  SpirvDebugInstruction *scope,
@@ -171,9 +172,15 @@ bool SpirvModule::invokeVisitorDebugInfo(Visitor *visitor, bool reverseOrder) {
       if (!debugInstruction->invokeVisitor(visitor))
         return false;
     }
+
+    if (debugNone)
+      debugNone->invokeVisitor(visitor);
   }
   // Traverse the regular order of a SPIR-V debug info.
   else {
+    if (debugNone)
+      debugNone->invokeVisitor(visitor);
+
     for (auto *opInfo : debugOp)
       if (!opInfo->invokeVisitor(visitor))
         return false;
