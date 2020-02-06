@@ -1109,7 +1109,9 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     info = getOrCreateRichDebugInfo(loc);
 
     auto *source = info->source;
-    auto *parentScope = info->scopeStack.back();
+    // Note that info->scopeStack.back() is a lexical scope of the function
+    // caller.
+    auto *parentScope = info->compilationUnit;
     // TODO: figure out the proper flag based on the function decl.
     // using FlagIsPublic for now.
     uint32_t flags = 3u;
