@@ -838,14 +838,14 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateDefines(IMalloc *pMall
   llvm::MDNode *definesNode = pSession->Defines()->getOperand(0);
   // Construct a double null terminated string for defines with L"\0" as a delimiter
   CComBSTR pBSTR;
+  unsigned uIndex = 0;
   for (llvm::MDNode::op_iterator it = definesNode->op_begin(); it != definesNode->op_end(); ++it) {
     llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(*it)->getString();
     std::string str(strRef.begin(), strRef.size());
     CA2W cv(str.c_str(), CP_UTF8);
     pBSTR.Append(cv);
-    pBSTR.Append(L"\0", 1);
+    uIndex++;
   }
-  pBSTR.Append(L"\0", 1);
   VARIANT Variant;
   Variant.bstrVal = pBSTR;
   Variant.vt = VARENUM::VT_BSTR;

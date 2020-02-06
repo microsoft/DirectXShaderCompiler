@@ -262,6 +262,7 @@ public:
   TEST_METHOD(DiaLoadDebugSubrangeNegativeThenOK)
   TEST_METHOD(DiaLoadRelocatedBitcode)
   TEST_METHOD(DiaLoadBitcodePlusExtraData)
+  TEST_METHOD(DiaCompileArgs)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenInclude)
@@ -2552,6 +2553,144 @@ TEST_F(CompilerTest, DiaLoadRelocatedBitcode) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaDataSource));
 
   VERIFY_SUCCEEDED(pDiaDataSource->loadDataFromIStream(pNewProgramStream));
+}
+
+TEST_F(CompilerTest, DiaCompileArgs) {
+  static const char source[] = R"(
+    SamplerState  samp0 : register(s0);
+    Texture2DArray tex0 : register(t0);
+
+    float4 foo(Texture2DArray textures[], int idx, SamplerState samplerState, float3 uvw) {
+      return textures[NonUniformResourceIndex(idx)].Sample(samplerState, uvw);
+    }
+
+    [RootSignature( "DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0)) " )]
+    float4 main(int index : INDEX, float3 uvw : TEXCOORD) : SV_Target {
+      Texture2DArray textures[] = {
+        tex0,
+      };
+      return foo(textures, index, samp0, uvw);
+    }
+  )";
+
+  CComPtr<IDxcBlob> pPart;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+
+  auto CompileAndGetDebugPart = [](dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDxcBlob **ppDebugPart) {
+    CComPtr<IDxcBlob> pContainer;
+    CComPtr<IDxcLibrary> pLib;
+    CComPtr<IDxcContainerReflection> pReflection;
+    UINT32 index;
+    std::vector<LPCWSTR> args;
+    args.push_back(L"/Zi");
+    args.push_back(L"/Qembed_debug");
+    args.push_back(L"/DMY_SPECIAL_DEFINE");
+    args.push_back(L"-D");
+    args.push_back(L"MY_OTHER_SPECIAL_DEFINE");
+
+    VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+    VERIFY_SUCCEEDED(pReflection->Load(pContainer));
+    VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+    VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
+  };
+
+  CompileAndGetDebugPart(m_dllSupport, source, L"ps_6_0", &pPart);
+
+  CComPtr<IStream> pNewProgramStream;
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pPart, &pNewProgramStream));
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaDataSource));
+
+  VERIFY_SUCCEEDED(pDiaDataSource->loadDataFromIStream(pNewProgramStream));
+
+  CComPtr<IDiaSession> pSession;
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pSession));
+
+  CComPtr<IDiaEnumTables> pEnumTables;
+  VERIFY_SUCCEEDED(pSession->getEnumTables(&pEnumTables));
+
+  CComPtr<IDiaTable> pSymbolTable;
+
+  LONG uCount = 0;
+  VERIFY_SUCCEEDED(pEnumTables->get_Count(&uCount));
+  for (int i = 0; i < uCount; i++) {
+    CComPtr<IDiaTable> pTable;
+    VARIANT index = {};
+    index.vt = VT_I4;
+    index.intVal = i;
+    VERIFY_SUCCEEDED(pEnumTables->Item(index, &pTable));
+
+    CComBSTR pName;
+    VERIFY_SUCCEEDED(pTable->get_name(&pName));
+
+    if (pName == "Symbols") {
+      pSymbolTable = pTable;
+      break;
+    }
+  }
+
+  std::wstring Args;
+  std::wstring Entry;
+  unsigned Flags;
+  std::wstring Target;
+  std::wstring Defines;
+
+  VERIFY_SUCCEEDED(pSymbolTable->get_Count(&uCount));
+  for (int i = 0; i < uCount; i++) {
+    CComPtr<IUnknown> pSymbolUnk;
+    CComPtr<IDiaSymbol> pSymbol;
+    CComVariant pValue;
+    CComBSTR pName;
+    VERIFY_SUCCEEDED(pSymbolTable->Item(i, &pSymbolUnk));
+    VERIFY_SUCCEEDED(pSymbolUnk->QueryInterface(&pSymbol));
+    VERIFY_SUCCEEDED(pSymbol->get_name(&pName));
+    VERIFY_SUCCEEDED(pSymbol->get_value(&pValue));
+    if (pName == "hlslTarget") {
+      if (pValue.vt == VT_BSTR)
+        Target = pValue.bstrVal;
+    }
+    else if (pName == "hlslEntry") {
+      if (pValue.vt == VT_BSTR)
+        Entry = pValue.bstrVal;
+    }
+    else if (pName == "hlslFlags") {
+      if (pValue.vt == VT_UI4)
+        Flags = pValue.uintVal;
+    }
+    else if (pName == "hlslArguments") {
+      if (pValue.vt == VT_BSTR)
+        Args = pValue.bstrVal;
+    }
+    else if (pName == "hlslDefines") {
+      if (pValue.vt == VT_BSTR)
+        Defines = pValue.bstrVal;
+    }
+  }
+
+  auto StringContains = [](std::wstring Str, std::wstring Sub) {
+    return Str.find(Sub) != std::wstring::npos;
+  };
+
+  VERIFY_IS_TRUE(Target == L"ps_6_0");
+  VERIFY_IS_TRUE(Entry == L"main");
+  VERIFY_IS_TRUE(Flags == 0);
+  VERIFY_IS_TRUE(StringContains(Args, L"Zi") &&
+    StringContains(Args, L"Qembed_debug") &&
+    StringContains(Args, L"MY_SPECIAL_DEFINE") &&
+    StringContains(Args, L"MY_OTHER_SPECIAL_DEFINE"));
+  VERIFY_IS_TRUE(!StringContains(Defines, L"Zi") &&
+    !StringContains(Defines, L"Qembed_debug") &&
+    StringContains(Defines, L"MY_SPECIAL_DEFINE") &&
+    StringContains(Defines, L"MY_OTHER_SPECIAL_DEFINE"));
+
 }
 
 TEST_F(CompilerTest, DiaLoadBitcodePlusExtraData) {
