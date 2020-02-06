@@ -207,7 +207,7 @@ bool DxaContext::ExtractFile(const char *pName) {
     return printedAny;
   }
 
-  CA2W WideName(pName);
+  CA2W WideName(pName, CP_UTF8);
   for (;;) {
     CComPtr<IUnknown> pInjectedSourceUnk;
     ULONG fetched;
