@@ -46,7 +46,7 @@ add_clang_library(clangFrontend
   DEPENDS
   ClangDriverOptions
   TablegenHLSLOptions
-  hlsl_version_autogen # HLSL Change
+  hlsl_dxcversion_autogen # HLSL Change
 
   LINK_LIBS
   clangAST
