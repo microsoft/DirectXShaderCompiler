@@ -16,6 +16,12 @@
 namespace clang {
 namespace spirv {
 
+void DebugTypeVisitor::setDefaultDebugInfo(SpirvDebugInstruction *instr) {
+  instr->setAstResultType(astContext.VoidTy);
+  instr->setResultType(context.getVoidType());
+  instr->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
+}
+
 SpirvDebugInstruction *
 DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
   // DebugTypeComposite is already lowered by LowerTypeVisitor,
@@ -23,6 +29,25 @@ DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
   // We have to update member information including offset and size.
   auto *instr =
       dyn_cast<SpirvDebugTypeComposite>(spvContext.getDebugType(type));
+  SpirvDebugType *actualType = nullptr;
+  if (instr) {
+    auto *tempType = instr->getTypeTemplate();
+    if (tempType) {
+      auto &tempParams = tempType->getParams();
+      for (auto &t : tempParams) {
+        t->setActualType(
+            dyn_cast<SpirvDebugType>(lowerToDebugType(t->getSpirvType())));
+        if (!t->getValue()) {
+          auto *debugNone = spvBuilder.getOrCreateDebugInfoNone();
+          setDefaultDebugInfo(debugNone);
+          t->setValue(debugNone);
+        }
+        setDefaultDebugInfo(t);
+      }
+      setDefaultDebugInfo(tempType);
+    }
+  }
+  // TODO: else emit error!
   assert(instr && "StructType was not lowered by LowerTypeVisitor");
   if (instr->getFullyLowered())
     return instr;
@@ -190,20 +215,20 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   }
   }
 
-  debugType->setAstResultType(astContext.VoidTy);
-  debugType->setResultType(context.getVoidType());
-  debugType->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
+  // TODO: When we emit all debug type completely, we should remove "Unknown"
+  // type.
+  if (!debugType) {
+    debugType =
+        spvContext.getDebugTypeBasic(nullptr, "Unknown", 0, 0 /*Unspecified*/);
+  }
+
+  setDefaultDebugInfo(debugType);
   return debugType;
 }
 
 bool DebugTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   if (auto *debugInstr = dyn_cast<SpirvDebugInstruction>(instr)) {
-    // Set the result type of debug instructions to OpTypeVoid.
-    // According to the OpenCL.DebugInfo.100 spec, all debug instructions are
-    // OpExtInst with result type of void.
-    debugInstr->setAstResultType(astContext.VoidTy);
-    debugInstr->setResultType(spvContext.getVoidType());
-    debugInstr->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
+    setDefaultDebugInfo(debugInstr);
 
     // The following instructions are the only debug instructions that contain a
     // debug type:

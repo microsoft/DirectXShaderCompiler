@@ -377,8 +377,55 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which
     // is then a subclass of RecordDecl.) So we need to check them before
     // checking the general struct type.
-    if (const auto *spvType = lowerResourceType(type, rule, srcLoc))
-      return spvType;
+    auto spvTypeAndUnderlyingType = lowerResourceType(type, rule, srcLoc);
+    if (spvTypeAndUnderlyingType.first) {
+      if (debugExtInstSet && !visitedRecordDecl.count(decl)) {
+        llvm::SmallVector<StructType::FieldInfo, 4> fields;
+        auto *dbgType = lowerDebugTypeComposite(
+            structType, spvTypeAndUnderlyingType.first, fields, true);
+        visitedRecordDecl.insert(decl);
+
+        // If an underlying type exists, we want to create a template type
+        // information for this composite type e.g., StructuredBuffer<S>.
+        // Note that we pass a pointer to SpirvType for the underlying type
+        // which must be lowered by DebugTypeVisitor.
+        if (spvTypeAndUnderlyingType.second) {
+          const llvm::StringRef name = decl->getName();
+          QualType elemType;
+          if (name == "InputPatch") {
+            elemType = hlsl::GetHLSLInputPatchElementType(type);
+          } else if (name == "OutputPatch") {
+            elemType = hlsl::GetHLSLOutputPatchElementType(type);
+          } else {
+            elemType = hlsl::GetHLSLResourceResultType(type);
+          }
+
+          const SourceLocation &loc = decl->getLocStart();
+          const auto &sm = astContext.getSourceManager();
+          uint32_t line = sm.getPresumedLineNumber(loc);
+          uint32_t column = sm.getPresumedColumnNumber(loc);
+
+          RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
+          const char *file = sm.getPresumedLoc(loc).getFilename();
+          if (file)
+            debugInfo = &spvContext.getDebugInfo()[file];
+
+          auto *param = spvContext.getDebugTypeTemplateParameter(
+              std::string(name.data()) + ".TemplateParam",
+              spvTypeAndUnderlyingType.second, nullptr, debugInfo->source, line,
+              column);
+
+          // SpirvContext::getDebugTypeTemplate() will replace the
+          // registered DebugTypeComposite with a new DebugTypeTemplate.
+          auto *tempInfo =
+              dyn_cast<SpirvDebugTypeTemplate>(spvContext.getDebugTypeTemplate(
+                  spvTypeAndUnderlyingType.first, dbgType));
+          tempInfo->getParams().push_back(
+              dyn_cast<SpirvDebugTypeTemplateParameter>(param));
+        }
+      }
+      return spvTypeAndUnderlyingType.first;
+    }
 
     // Collect all fields' information.
     llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
@@ -407,7 +454,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         spvContext.getStructType(loweredFields, decl->getName(), false,
                                  StructInterfaceType::InternalStorage);
     if (debugExtInstSet && !visitedRecordDecl.count(decl)) {
-      lowerDebugTypeComposite(structType, spvType, loweredFields);
+      lowerDebugTypeComposite(structType, spvType, loweredFields, false);
       visitedRecordDecl.insert(decl);
     }
     return spvType;
@@ -465,9 +512,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   return 0;
 }
 
-const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
-                                                     SpirvLayoutRule rule,
-                                                     SourceLocation srcLoc) {
+std::pair<const SpirvType *, const SpirvType *>
+LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
+                                    SourceLocation srcLoc) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -496,11 +543,14 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-      return spvContext.getImageType(
+      const SpirvType *underlyingType =
           lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc),
-          dim, ImageType::WithDepth::Unknown, isArray, isMS,
-          ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
+                    /*isRowMajor*/ llvm::None, srcLoc);
+      return std::make_pair(
+          spvContext.getImageType(
+              underlyingType, dim, ImageType::WithDepth::Unknown, isArray, isMS,
+              ImageType::WithSampler::Yes, spv::ImageFormat::Unknown),
+          underlyingType);
     }
 
     // There is no RWTexture3DArray
@@ -512,22 +562,25 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
-      return spvContext.getImageType(
+      const SpirvType *underlyingType =
           lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc),
-          dim, ImageType::WithDepth::Unknown, isArray,
-          /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
-          format);
+                    /*isRowMajor*/ llvm::None, srcLoc);
+      return std::make_pair(spvContext.getImageType(
+                                underlyingType, dim,
+                                ImageType::WithDepth::Unknown, isArray,
+                                /*isMultiSampled=*/false,
+                                /*sampled=*/ImageType::WithSampler::No, format),
+                            underlyingType);
     }
   }
 
   // Sampler types
   if (name == "SamplerState" || name == "SamplerComparisonState") {
-    return spvContext.getSamplerType();
+    return std::make_pair(spvContext.getSamplerType(), nullptr);
   }
 
   if (name == "RaytracingAccelerationStructure") {
-    return spvContext.getAccelerationStructureTypeNV();
+    return std::make_pair(spvContext.getAccelerationStructureTypeNV(), nullptr);
   }
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
@@ -584,10 +637,12 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
     if (asAlias) {
       // All structured buffers are in the Uniform storage class.
-      return spvContext.getPointerType(valType, spv::StorageClass::Uniform);
+      return std::make_pair(
+          spvContext.getPointerType(valType, spv::StorageClass::Uniform),
+          structType);
     }
 
-    return valType;
+    return std::make_pair(valType, structType);
   }
 
   // ByteAddressBuffer types.
@@ -596,18 +651,22 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         spvContext.getByteAddressBufferType(/*isRW*/ false);
     if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
-      return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
+      return std::make_pair(
+          spvContext.getPointerType(bufferType, spv::StorageClass::Uniform),
+          nullptr);
     }
-    return bufferType;
+    return std::make_pair(bufferType, nullptr);
   }
   // RWByteAddressBuffer types.
   if (name == "RWByteAddressBuffer") {
     const auto *bufferType = spvContext.getByteAddressBufferType(/*isRW*/ true);
     if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
-      return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
+      return std::make_pair(
+          spvContext.getPointerType(bufferType, spv::StorageClass::Uniform),
+          nullptr);
     }
-    return bufferType;
+    return std::make_pair(bufferType, nullptr);
   }
 
   // Buffer and RWBuffer types
@@ -621,54 +680,66 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
       // supported for now.
       emitError("cannot instantiate RWBuffer with struct type %0", srcLoc)
           << sampledType;
-      return 0;
+      return std::make_pair(nullptr, nullptr);
     }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
-    return spvContext.getImageType(
+    const SpirvType *underlyingType =
         lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc),
-        spv::Dim::Buffer, ImageType::WithDepth::Unknown,
-        /*isArrayed=*/false, /*isMultiSampled=*/false,
-        /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
-                                     : ImageType::WithSampler::No,
-        format);
+                  /*isRowMajor*/ llvm::None, srcLoc);
+    return std::make_pair(
+        spvContext.getImageType(
+            underlyingType, spv::Dim::Buffer, ImageType::WithDepth::Unknown,
+            /*isArrayed=*/false, /*isMultiSampled=*/false,
+            /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
+                                         : ImageType::WithSampler::No,
+            format),
+        underlyingType);
   }
 
   // InputPatch
   if (name == "InputPatch") {
     const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
-    return spvContext.getArrayType(
-        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc), elemCount,
-        /*ArrayStride*/ llvm::None);
+    const SpirvType *underlyingType =
+        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc);
+    return std::make_pair(spvContext.getArrayType(underlyingType, elemCount,
+                                                  /*ArrayStride*/ llvm::None),
+                          underlyingType);
   }
   // OutputPatch
   if (name == "OutputPatch") {
     const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
-    return spvContext.getArrayType(
-        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc), elemCount,
-        /*ArrayStride*/ llvm::None);
+    const SpirvType *underlyingType =
+        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc);
+    return std::make_pair(spvContext.getArrayType(underlyingType, elemCount,
+                                                  /*ArrayStride*/ llvm::None),
+                          underlyingType);
   }
   // Output stream objects (TriangleStream, LineStream, and PointStream)
   if (name == "TriangleStream" || name == "LineStream" ||
       name == "PointStream") {
-    return lowerType(hlsl::GetHLSLResourceResultType(type), rule,
-                     /*isRowMajor*/ llvm::None, srcLoc);
+    return std::make_pair(lowerType(hlsl::GetHLSLResourceResultType(type), rule,
+                                    /*isRowMajor*/ llvm::None, srcLoc),
+                          nullptr);
   }
 
   if (name == "SubpassInput" || name == "SubpassInputMS") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    return spvContext.getImageType(
+    const SpirvType *underlyingType =
         lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc),
-        spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
-        /*isArrayed=*/false,
-        /*isMultipleSampled=*/name == "SubpassInputMS",
-        ImageType::WithSampler::No, spv::ImageFormat::Unknown);
+                  /*isRowMajor*/ llvm::None, srcLoc);
+    return std::make_pair(
+        spvContext.getImageType(underlyingType, spv::Dim::SubpassData,
+                                ImageType::WithDepth::Unknown,
+                                /*isArrayed=*/false,
+                                /*isMultipleSampled=*/name == "SubpassInputMS",
+                                ImageType::WithSampler::No,
+                                spv::ImageFormat::Unknown),
+        underlyingType);
   }
 
-  return nullptr;
+  return std::make_pair(nullptr, nullptr);
 }
 
 spv::ImageFormat
@@ -861,7 +932,7 @@ LowerTypeVisitor::populateLayoutInformation(
 
 SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
     const RecordType *structType, const SpirvType *type,
-    llvm::SmallVector<StructType::FieldInfo, 4> &fields) {
+    llvm::SmallVector<StructType::FieldInfo, 4> &fields, bool isResourceType) {
   const auto *decl = structType->getDecl();
   const SourceLocation &loc = decl->getLocStart();
   const auto &sm = astContext.getSourceManager();
@@ -892,6 +963,8 @@ SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
   bool isPrivate = decl->isModulePrivate();
 
   std::string name = type->getName();
+  if (isResourceType)
+    name = "@" + name;
 
   // TODO: Update parent, size, and flags information correctly.
   RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
@@ -914,6 +987,9 @@ SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
   dbgTyComposite->setAstResultType(astContext.VoidTy);
   dbgTyComposite->setResultType(spvContext.getVoidType());
   dbgTyComposite->setInstructionSet(debugExtInstSet);
+
+  if (isResourceType)
+    return dbgTyComposite;
 
   uint32_t fieldIdx = 0;
   for (auto &memberDecl : decl->decls()) {

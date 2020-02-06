@@ -61,6 +61,11 @@ private:
 
   SpirvDebugInstruction *lowerToDebugTypeComposite(const StructType *);
 
+  // Set the result type of debug instructions to OpTypeVoid.
+  // According to the OpenCL.DebugInfo.100 spec, all debug instructions are
+  // OpExtInst with result type of void.
+  void setDefaultDebugInfo(SpirvDebugInstruction *instr);
+
 private:
   ASTContext &astContext;   /// AST context
   SpirvContext &spvContext; /// SPIR-V context

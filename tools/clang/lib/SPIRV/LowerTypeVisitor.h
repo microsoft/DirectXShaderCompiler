@@ -64,8 +64,10 @@ private:
                              SourceLocation);
 
   /// Lowers the given HLSL resource type into its SPIR-V type.
-  const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
-                                     SourceLocation);
+  ///
+  /// Returns the lowered SpirvType and its underlying SpirvType.
+  std::pair<const SpirvType *, const SpirvType *>
+  lowerResourceType(QualType type, SpirvLayoutRule rule, SourceLocation);
 
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
@@ -82,10 +84,9 @@ private:
                             SpirvLayoutRule rule);
 
   /// Generate rich debug info for composite type.
-  SpirvDebugTypeComposite *
-  lowerDebugTypeComposite(const RecordType *structType,
-                          const SpirvType *spirvType,
-                          llvm::SmallVector<StructType::FieldInfo, 4> &fields);
+  SpirvDebugTypeComposite *lowerDebugTypeComposite(
+      const RecordType *structType, const SpirvType *spirvType,
+      llvm::SmallVector<StructType::FieldInfo, 4> &fields, bool isResourceType);
 
 private:
   ASTContext &astContext;                /// AST context
