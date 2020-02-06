@@ -1141,6 +1141,28 @@ bool EmitVisitor::visit(SpirvDebugScope *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugFunctionDeclaration *inst) {
+  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(nameId);
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
+  curInst.push_back(linkageNameId);
+  curInst.push_back(inst->getFlags());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugFunction *inst) {
   uint32_t nameId = getOrCreateOpString(inst->getDebugName());
   uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());

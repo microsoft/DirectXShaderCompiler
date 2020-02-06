@@ -84,6 +84,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugInfoNone)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunctionDeclaration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugLocalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugGlobalVariable)
@@ -809,6 +810,15 @@ SpirvDebugFunction::SpirvDebugFunction(
       fnLine(fline), fnColumn(fcol), parentScope(parent), linkageName(linkName),
       flags(flags_), scopeLine(bodyLine), fn(func), debugNone(nullptr),
       fnType(nullptr) {
+  debugName = name;
+}
+
+SpirvDebugFunctionDeclaration::SpirvDebugFunctionDeclaration(
+    llvm::StringRef name, SpirvDebugSource *src, uint32_t fline, uint32_t fcol,
+    SpirvDebugInstruction *parent, llvm::StringRef linkName, uint32_t flags_)
+    : SpirvDebugInstruction(IK_DebugFunctionDecl, /*opcode*/ 19u), source(src),
+      fnLine(fline), fnColumn(fcol), parentScope(parent), linkageName(linkName),
+      flags(flags_) {
   debugName = name;
 }
 

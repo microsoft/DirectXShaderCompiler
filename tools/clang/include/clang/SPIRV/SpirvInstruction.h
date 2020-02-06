@@ -124,6 +124,7 @@ public:
     IK_DebugInfoNone,
     IK_DebugCompilationUnit,
     IK_DebugSource,
+    IK_DebugFunctionDecl,
     IK_DebugFunction,
     IK_DebugLocalVariable,
     IK_DebugGlobalVariable,
@@ -1887,6 +1888,40 @@ private:
   uint32_t dwarfVersion;
   SpirvDebugSource *source;
   spv::SourceLanguage lang;
+};
+
+class SpirvDebugFunctionDeclaration : public SpirvDebugInstruction {
+public:
+  SpirvDebugFunctionDeclaration(llvm::StringRef name, SpirvDebugSource *src,
+                                uint32_t fnLine, uint32_t fnColumn,
+                                SpirvDebugInstruction *parentScope,
+                                llvm::StringRef linkageName, uint32_t flags);
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugFunctionDecl;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return fnLine; }
+  uint32_t getColumn() const { return fnColumn; }
+  void setParent(SpirvDebugInstruction *scope) { parentScope = scope; }
+  SpirvDebugInstruction *getParent() const override { return parentScope; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getFlags() const { return flags; }
+
+private:
+  SpirvDebugSource *source;
+  // Source line number at which the function appears
+  uint32_t fnLine;
+  // Source column number at which the function appears
+  uint32_t fnColumn;
+  // Debug instruction which represents the parent lexical scope
+  SpirvDebugInstruction *parentScope;
+  std::string linkageName;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
 };
 
 class SpirvDebugFunction : public SpirvDebugInstruction {
