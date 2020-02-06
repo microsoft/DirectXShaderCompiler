@@ -192,6 +192,9 @@ bool DebugTypeVisitor::visit(SpirvModule *module, Phase phase) {
     for (const auto typePair : spvContext.getDebugTypes()) {
       module->addDebugInfo(typePair.second);
     }
+    for (auto *type : spvContext.getTailDebugTypes()) {
+      module->addDebugInfo(type);
+    }
   }
 
   return true;

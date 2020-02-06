@@ -11,6 +11,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/GLSL.std.450.h"
 #include "spirv/unified1/spirv.hpp11"
+#include "clang/AST/APValue.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/APFloat.h"
@@ -2249,11 +2250,10 @@ private:
 /// type.
 class SpirvDebugTypeMember : public SpirvDebugType {
 public:
-  SpirvDebugTypeMember(llvm::StringRef name, SpirvDebugType *member,
-                       SpirvInstruction *source, uint32_t line, uint32_t column,
-                       SpirvDebugInstruction *parent, uint32_t offset,
-                       uint32_t size, uint32_t flags,
-                       SpirvInstruction *value = nullptr);
+  SpirvDebugTypeMember(llvm::StringRef name, const SpirvType *type,
+                       SpirvDebugSource *source, uint32_t line, uint32_t column,
+                       SpirvDebugInstruction *parent, uint32_t flags,
+                       uint32_t offset, const APValue *value = nullptr);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeMember;
@@ -2263,10 +2263,20 @@ public:
 
   SpirvDebugInstruction *getParent() const override { return parent; }
 
+  void setType(SpirvDebugType *type_) { type = type_; }
+  SpirvDebugType *getType() const { return type; }
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  uint32_t getOffset() const { return offset; }
+  uint32_t getDebugFlags() const { return debugFlags; }
+  const APValue *getValue() const { return value; }
+
+  const SpirvType *getSpirvType() const { return spvType; }
+
 private:
-  std::string name;         //< Name of the member as it appears in the program
-  SpirvDebugType *member;   //< The type of the current member
-  SpirvInstruction *source; //< DebugSource containing this type
+  SpirvDebugType *type;     //< The type of the current member
+  SpirvDebugSource *source; //< DebugSource containing this type
   uint32_t line;            //< Line number
   uint32_t column;          //< Column number
 
@@ -2280,17 +2290,25 @@ private:
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
   // available.
   uint32_t debugFlags;
-  SpirvInstruction *value; //< Value (if static member)
+  const APValue *value; //< Value (if static member)
+
+  // We will lower DebugTypeMember in two steps: LowerTypeVisitor and
+  // DebugTypeVisitor, which is different from other debug types that are
+  // lowered only by DebugTypeVisitor. It is because DebugTypeMember requires
+  // more information that needs the declaration info. Therefore, we keep
+  // SpirvType instead of SpirvDebugType when it is first lowered by
+  // LowerTypeVisitor and SpirvType will be lowered to SpirvDebugType by
+  // DebugTypeVisitor.
+  const SpirvType *spvType;
 };
 
 class SpirvDebugTypeComposite : public SpirvDebugType {
 public:
-  SpirvDebugTypeComposite(llvm::StringRef name, SpirvInstruction *source,
+  SpirvDebugTypeComposite(llvm::StringRef name, SpirvDebugSource *source,
                           uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parent,
                           llvm::StringRef linkageName, uint32_t size,
-                          uint32_t flags, uint32_t tag,
-                          llvm::ArrayRef<SpirvDebugInstruction *> members);
+                          uint32_t flags, uint32_t tag);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeComposite;
@@ -2298,11 +2316,22 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  llvm::SmallVector<SpirvDebugInstruction *, 4> &getMembers() {
+    return members;
+  }
   SpirvDebugInstruction *getParent() const override { return parent; }
+  uint32_t getTag() const { return tag; }
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getDebugFlags() const { return debugFlags; }
+
+  void setFullyLowered() { fullyLowered = true; }
+  bool getFullyLowered() const { return fullyLowered; }
 
 private:
-  std::string name;         //< Name of the member as it appears in the program
-  SpirvInstruction *source; //< DebugSource containing this type
+  SpirvDebugSource *source; //< DebugSource containing this type
   uint32_t line;            //< Line number
   uint32_t column;          //< Column number
 
@@ -2326,6 +2355,11 @@ private:
   // DebugTypeInheritance. Since DebugFunction may be a member, we cannot use a
   // vector of SpirvDebugType.
   llvm::SmallVector<SpirvDebugInstruction *, 4> members;
+
+  // It is first lowered by LowerTypeVisitor and then lowered by
+  // DebugTypeVisitor. We set fullyLowered true after it is lowered
+  // by DebugTypeVisitor.
+  bool fullyLowered;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

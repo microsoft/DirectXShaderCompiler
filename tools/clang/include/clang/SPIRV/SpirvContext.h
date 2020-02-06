@@ -165,6 +165,20 @@ public:
                                            SpirvConstant *size,
                                            uint32_t encoding);
 
+  SpirvDebugInstruction *
+  getDebugTypeMember(llvm::StringRef name, const SpirvType *type,
+                     SpirvDebugSource *source, uint32_t line, uint32_t column,
+                     SpirvDebugInstruction *parent, uint32_t flags,
+                     uint32_t offset = UINT32_MAX,
+                     const APValue *value = nullptr);
+
+  SpirvDebugInstruction *
+  getDebugTypeComposite(const SpirvType *spirvType, llvm::StringRef name,
+                        SpirvDebugSource *source, uint32_t line,
+                        uint32_t column, SpirvDebugInstruction *parent,
+                        llvm::StringRef linkageName, uint32_t size,
+                        uint32_t flags, uint32_t tag);
+
   SpirvDebugInstruction *getDebugTypeArray(const SpirvType *spirvType,
                                            SpirvDebugInstruction *elemType,
                                            llvm::ArrayRef<uint32_t> elemCount);
@@ -180,6 +194,10 @@ public:
 
   llvm::MapVector<const SpirvType *, SpirvDebugType *> getDebugTypes() const {
     return debugTypes;
+  }
+
+  llvm::SmallVector<SpirvDebugInstruction *, 16> getTailDebugTypes() const {
+    return tailDebugTypes;
   }
 
   // === Types ===
@@ -347,6 +365,14 @@ private:
   // The purpose is not to generate several DebugType* instructions for the same
   // type if the type is used for several variables.
   llvm::MapVector<const SpirvType *, SpirvDebugType *> debugTypes;
+
+  // Keep DebugTypeMember, DebugTypeInheritance, DebugTypeTemplate,
+  // and DebugTypeTemplateParameter.
+  // Since they do not have corresponding SpirvType, we cannot keep them
+  // in debugTypes. No component references them other than themselves,
+  // there by being able to safely emit them at the end of other debug
+  // extension instructions.
+  llvm::SmallVector<SpirvDebugInstruction *, 16> tailDebugTypes;
 };
 
 } // end namespace spirv

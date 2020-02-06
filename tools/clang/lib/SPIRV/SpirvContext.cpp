@@ -280,6 +280,37 @@ SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
   return debugType;
 }
 
+SpirvDebugInstruction *SpirvContext::getDebugTypeMember(
+    llvm::StringRef name, const SpirvType *type, SpirvDebugSource *source,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parent,
+    uint32_t flags, uint32_t offset, const APValue *value) {
+  // NOTE: Do not search it in debugTypes because it would have the same
+  // spirvType but has different parent i.e., type composite.
+
+  SpirvDebugTypeMember *debugType = new (this) SpirvDebugTypeMember(
+      name, type, source, line, column, parent, flags, offset, value);
+
+  // NOTE: Do not save it in debugTypes because it would have the same
+  // spirvType but it has different parent i.e., type composite. Instead,
+  // we want to keep it in tailDebugTypes.
+  tailDebugTypes.push_back(debugType);
+  return debugType;
+}
+
+SpirvDebugInstruction *SpirvContext::getDebugTypeComposite(
+    const SpirvType *spirvType, llvm::StringRef name, SpirvDebugSource *source,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parent,
+    llvm::StringRef linkageName, uint32_t size, uint32_t flags, uint32_t tag) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeComposite(
+      name, source, line, column, parent, linkageName, size, flags, tag);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
 SpirvDebugInstruction *
 SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
                                 SpirvDebugInstruction *elemType,

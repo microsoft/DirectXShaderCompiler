@@ -1237,6 +1237,61 @@ bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
+  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  const auto size = typeHandler.getOrCreateConstantInt(llvm::APInt(32, 0),
+                                                       context.getUIntType(32),
+                                                       /* isSpecConst */ false);
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(typeNameId);
+  curInst.push_back(inst->getTag());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
+  curInst.push_back(linkageNameId);
+  curInst.push_back(size);
+  curInst.push_back(inst->getDebugFlags());
+  for (auto *member : inst->getMembers()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(member));
+  }
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
+  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
+  const auto offset = typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, inst->getOffset()), context.getUIntType(32),
+      /* isSpecConst */ false);
+  const auto size = typeHandler.getOrCreateConstantInt(llvm::APInt(32, 0),
+                                                       context.getUIntType(32),
+                                                       /* isSpecConst */ false);
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(typeNameId);
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getParent()));
+  curInst.push_back(offset);
+  curInst.push_back(size);
+  curInst.push_back(inst->getDebugFlags());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
   uint32_t nameId = getOrCreateOpString(inst->getDebugName());
   initInstruction(inst);

@@ -219,6 +219,7 @@ private:
   //    7.3. For each DebugLexicalBlock defined in this function
   //         7.3.1. DebugTypeXXX defined in block
   //         7.3.2. DebugLocalVariable defined in block
+  // 8. DebugTypeMember and DebugTypeInheritance
   //
   // If we do not follow this order, generated SPIR-V code would
   // be invalid because of forward references.

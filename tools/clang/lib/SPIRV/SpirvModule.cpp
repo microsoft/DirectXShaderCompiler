@@ -80,7 +80,11 @@ bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
           if (isa<SpirvDebugTypeComposite>(type)) {
             if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
               return false;
-          } else {
+          }
+        }
+        for (auto iter = typeVec.rbegin(); iter != typeVec.rend(); ++iter) {
+          auto *type = *iter;
+          if (!isa<SpirvDebugTypeComposite>(type)) {
             if (!type->invokeVisitor(visitor))
               return false;
           }
@@ -101,11 +105,14 @@ bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
       if (it != debugTypes.end()) {
         auto &typeVec = it->second;
         for (auto *type : typeVec) {
+          if (!isa<SpirvDebugTypeComposite>(type)) {
+            if (!type->invokeVisitor(visitor))
+              return false;
+          }
+        }
+        for (auto *type : typeVec) {
           if (isa<SpirvDebugTypeComposite>(type)) {
             if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
-              return false;
-          } else {
-            if (!type->invokeVisitor(visitor))
               return false;
           }
         }
