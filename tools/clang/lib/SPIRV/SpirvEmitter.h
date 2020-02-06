@@ -39,23 +39,6 @@
 namespace clang {
 namespace spirv {
 
-struct RichDebugInfo {
-  RichDebugInfo(SpirvDebugSource *src, SpirvDebugCompilationUnit *cu)
-      : source(src), compilationUnit(cu) {
-    scopeStack.push_back(cu);
-  }
-  RichDebugInfo() : source(nullptr), compilationUnit(nullptr), scopeStack() {}
-
-  // The HLL source code
-  SpirvDebugSource *source;
-
-  // The compilation unit (topmost debug info node)
-  SpirvDebugCompilationUnit *compilationUnit;
-
-  // Stack of lexical scopes
-  std::vector<SpirvDebugInstruction *> scopeStack;
-};
-
 /// SPIR-V emitter class. It consumes the HLSL AST and emits SPIR-V words.
 ///
 /// This class only overrides the HandleTranslationUnit() method; Traversing
@@ -1179,13 +1162,6 @@ private:
 
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
-
-  /// File name to rich debug info map. When the main source file
-  /// includes header files, we create an element of debugInfo for
-  /// each file. RichDebugInfo includes DebugSource,
-  /// DebugCompilationUnit and scopeStack which keeps lexical scopes
-  /// recursively.
-  llvm::MapVector<llvm::StringRef, RichDebugInfo> debugInfo;
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {

@@ -23,8 +23,7 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt), debugNone(nullptr), nullDebugExpr(nullptr),
-      currentLexicalScope(nullptr) {
+      spirvOptions(opt), debugNone(nullptr), nullDebugExpr(nullptr) {
   mod = new (context) SpirvModule;
 }
 
@@ -93,8 +92,8 @@ SpirvBasicBlock *SpirvBuilder::createBasicBlock(llvm::StringRef name) {
   assert(function && "found detached basic block");
   auto *bb = new (context) SpirvBasicBlock(name);
   basicBlocks.push_back(bb);
-  if (currentLexicalScope)
-    bb->setDebugScope(new (context) SpirvDebugScope(currentLexicalScope));
+  if (auto *scope = context.getCurrentLexicalScope())
+    bb->setDebugScope(new (context) SpirvDebugScope(scope));
   return bb;
 }
 
@@ -1146,14 +1145,6 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
-}
-
-void SpirvBuilder::setCurrentLexicalScope(SpirvDebugInstruction *inst) {
-  assert((isa<SpirvDebugLexicalBlock>(inst) || isa<SpirvDebugFunction>(inst) ||
-          isa<SpirvDebugCompilationUnit>(inst) ||
-          isa<SpirvDebugTypeComposite>(inst)) &&
-         "Given inst is not a lexical scope");
-  currentLexicalScope = inst;
 }
 
 std::vector<uint32_t> SpirvBuilder::takeModule() {

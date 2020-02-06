@@ -23,6 +23,23 @@
 namespace clang {
 namespace spirv {
 
+struct RichDebugInfo {
+  RichDebugInfo(SpirvDebugSource *src, SpirvDebugCompilationUnit *cu)
+      : source(src), compilationUnit(cu) {
+    scopeStack.push_back(cu);
+  }
+  RichDebugInfo() : source(nullptr), compilationUnit(nullptr), scopeStack() {}
+
+  // The HLL source code
+  SpirvDebugSource *source;
+
+  // The compilation unit (topmost debug info node)
+  SpirvDebugCompilationUnit *compilationUnit;
+
+  // Stack of lexical scopes
+  std::vector<SpirvDebugInstruction *> scopeStack;
+};
+
 // Provides DenseMapInfo for spv::StorageClass so that we can use
 // spv::StorageClass as key to DenseMap.
 //
@@ -255,6 +272,19 @@ public:
     return curShaderModelKind == ShaderModelKind::Amplification;
   }
 
+  llvm::MapVector<llvm::StringRef, RichDebugInfo> &getDebugInfo() {
+    return debugInfo;
+  }
+
+  void pushDebugLexicalScope(RichDebugInfo *info, SpirvDebugInstruction *scope);
+  void popDebugLexicalScope(RichDebugInfo *info) {
+    info->scopeStack.pop_back();
+    currentLexicalScope = info->scopeStack.back();
+  }
+  SpirvDebugInstruction *getCurrentLexicalScope() {
+    return currentLexicalScope;
+  }
+
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -304,6 +334,14 @@ private:
   // Major/Minor hlsl profile version.
   uint32_t majorVersion;
   uint32_t minorVersion;
+
+  /// File name to rich debug info map. When the main source file
+  /// includes header files, we create an element of debugInfo for
+  /// each file. RichDebugInfo includes DebugSource,
+  /// DebugCompilationUnit and scopeStack which keeps lexical scopes
+  /// recursively.
+  llvm::MapVector<llvm::StringRef, RichDebugInfo> debugInfo;
+  SpirvDebugInstruction *currentLexicalScope;
 
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same
