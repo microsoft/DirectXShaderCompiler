@@ -131,6 +131,8 @@ public:
   DEFINE_VISIT_METHOD(SpirvDebugTypeFunction)
   DEFINE_VISIT_METHOD(SpirvDebugTypeComposite)
   DEFINE_VISIT_METHOD(SpirvDebugTypeMember)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeTemplate)
+  DEFINE_VISIT_METHOD(SpirvDebugTypeTemplateParameter)
 
 #undef DEFINE_VISIT_METHOD
 

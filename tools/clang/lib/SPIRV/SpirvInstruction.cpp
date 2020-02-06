@@ -99,6 +99,8 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeVector)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeFunction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeMember)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplate)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplateParameter)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -914,7 +916,20 @@ SpirvDebugTypeComposite::SpirvDebugTypeComposite(
     uint32_t tag_)
     : SpirvDebugType(IK_DebugTypeComposite, /*opcode*/ 10u), source(source_),
       line(line_), column(column_), parent(parent_), linkageName(linkageName_),
-      size(size_), debugFlags(flags_), tag(tag_), fullyLowered(false) {
+      size(size_), debugFlags(flags_), tag(tag_), typeTemplate(nullptr),
+      fullyLowered(false) {
+  debugName = name;
+}
+
+SpirvDebugTypeTemplate::SpirvDebugTypeTemplate(SpirvDebugInstruction *target_)
+    : SpirvDebugType(IK_DebugTypeTemplate, /*opcode*/ 14u), target(target_) {}
+
+SpirvDebugTypeTemplateParameter::SpirvDebugTypeTemplateParameter(
+    llvm::StringRef name, const SpirvType *type, SpirvInstruction *value_,
+    SpirvDebugSource *source_, uint32_t line_, uint32_t column_)
+    : SpirvDebugType(IK_DebugTypeTemplateParameter, /*opcode*/ 15u),
+      spvType(type), actualType(nullptr), value(value_), source(source_),
+      line(line_), column(column_) {
   debugName = name;
 }
 

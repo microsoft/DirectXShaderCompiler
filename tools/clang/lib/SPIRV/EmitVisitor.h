@@ -271,6 +271,8 @@ public:
   bool visit(SpirvDebugTypeFunction *);
   bool visit(SpirvDebugTypeComposite *);
   bool visit(SpirvDebugTypeMember *);
+  bool visit(SpirvDebugTypeTemplate *);
+  bool visit(SpirvDebugTypeTemplateParameter *);
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();

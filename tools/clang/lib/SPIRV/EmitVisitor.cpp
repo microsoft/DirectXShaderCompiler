@@ -1292,6 +1292,40 @@ bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugTypeTemplate *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  for (auto *param : inst->getParams()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(param));
+  }
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugTypeTemplateParameter *inst) {
+  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(typeNameId);
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getActualType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getValue()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
+  curInst.push_back(inst->getLine());
+  curInst.push_back(inst->getColumn());
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
   uint32_t nameId = getOrCreateOpString(inst->getDebugName());
   initInstruction(inst);

@@ -361,6 +361,49 @@ SpirvDebugInstruction* SpirvContext::getDebugTypeFunction(
   return debugType;
 }
 
+SpirvDebugInstruction *
+SpirvContext::getDebugTypeTemplate(const SpirvType *spirvType,
+                                   SpirvDebugInstruction *target) {
+  // NOTE: Do not search it in debugTypes because we assume that
+  // only resource type e.g., RWStructuredBuffer<S> can be a DebugTypeTemplate
+  // and its DebugTypeComposite keeps this DebugTypeTemplate as a member.
+  auto it = debugTypes.find(spirvType);
+  if (it != debugTypes.end()) {
+    if (auto *composite = dyn_cast<SpirvDebugTypeComposite>(it->second)) {
+      auto *typeTemp = composite->getTypeTemplate();
+      if (typeTemp) {
+        return typeTemp;
+      } else {
+        auto *debugType = new (this) SpirvDebugTypeTemplate(target);
+        composite->setTypeTemplate(debugType);
+
+        // NOTE: Do not save it in debugTypes because it is not
+        // corresponding to a spirvType but it is pointed by a composite
+        // type. Instead, we want to keep it in tailDebugTypes.
+        tailDebugTypes.push_back(debugType);
+        return debugType;
+      }
+    }
+    // else we must emit an error!
+  }
+  return nullptr;
+}
+
+SpirvDebugInstruction *SpirvContext::getDebugTypeTemplateParameter(
+    llvm::StringRef name, const SpirvType *type, SpirvInstruction *value,
+    SpirvDebugSource *source, uint32_t line, uint32_t column) {
+  // NOTE: Do not search it in debugTypes because DebugTypeTemplateParameter
+  // just represents a debug type that registers the same spirvType for itself.
+
+  auto *debugType = new (this)
+      SpirvDebugTypeTemplateParameter(name, type, value, source, line, column);
+  // NOTE: Do not save it in debugTypes because it is not corresponding
+  // to a spirvType but it is pointed by a type template. Instead,
+  // we want to keep it in tailDebugTypes.
+  tailDebugTypes.push_back(debugType);
+  return debugType;
+}
+
 void SpirvContext::pushDebugLexicalScope(RichDebugInfo *info,
                                          SpirvDebugInstruction *scope) {
   assert((isa<SpirvDebugLexicalBlock>(scope) ||
