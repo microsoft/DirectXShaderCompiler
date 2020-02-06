@@ -873,12 +873,18 @@ SpirvDebugTypeBasic::SpirvDebugTypeBasic(llvm::StringRef name_,
     : SpirvDebugType(IK_DebugTypeBasic, /*opcode*/ 2u), name(name_),
       size(size_), encoding(encoding_) {}
 
+uint32_t SpirvDebugTypeBasic::getSizeInBits() const {
+  auto *size_ = dyn_cast<SpirvConstantInteger>(size);
+  assert(size_ && "Size of DebugTypeBasic must be int type const.");
+  return size_->getValue().getLimitedValue();
+}
+
 SpirvDebugTypeArray::SpirvDebugTypeArray(SpirvDebugType *elemType,
                                          llvm::ArrayRef<uint32_t> elemCount)
     : SpirvDebugType(IK_DebugTypeArray, /*opcode*/ 5u), elementType(elemType),
       elementCount(elemCount.begin(), elemCount.end()) {}
 
-SpirvDebugTypeVector::SpirvDebugTypeVector(SpirvDebugInstruction *elemType,
+SpirvDebugTypeVector::SpirvDebugTypeVector(SpirvDebugType *elemType,
                                            uint32_t elemCount)
     : SpirvDebugType(IK_DebugTypeVector, /*opcode*/ 6u), elementType(elemType),
       elementCount(elemCount) {}

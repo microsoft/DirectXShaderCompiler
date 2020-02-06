@@ -1240,9 +1240,9 @@ bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
 bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
   uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
   uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
-  const auto size = typeHandler.getOrCreateConstantInt(llvm::APInt(32, 0),
-                                                       context.getUIntType(32),
-                                                       /* isSpecConst */ false);
+  const auto size = typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, inst->getSizeInBits()), context.getUIntType(32),
+      /* isSpecConst */ false);
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1270,9 +1270,9 @@ bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
   const auto offset = typeHandler.getOrCreateConstantInt(
       llvm::APInt(32, inst->getOffset()), context.getUIntType(32),
       /* isSpecConst */ false);
-  const auto size = typeHandler.getOrCreateConstantInt(llvm::APInt(32, 0),
-                                                       context.getUIntType(32),
-                                                       /* isSpecConst */ false);
+  const auto size = typeHandler.getOrCreateConstantInt(
+      llvm::APInt(32, inst->getSizeInBits()), context.getUIntType(32),
+      /* isSpecConst */ false);
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));

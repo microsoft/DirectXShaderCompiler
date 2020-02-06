@@ -2141,6 +2141,8 @@ public:
            inst->getKind() <= IK_DebugTypeMember;
   }
 
+  virtual uint32_t getSizeInBits() const { return 0u; }
+
 protected:
   SpirvDebugType(Kind kind, uint32_t opcode)
       : SpirvDebugInstruction(kind, opcode) {}
@@ -2161,6 +2163,7 @@ public:
   llvm::StringRef getName() const { return name; }
   SpirvConstant *getSize() const { return size; }
   uint32_t getEncoding() const { return encoding; }
+  uint32_t getSizeInBits() const override;
 
 private:
   std::string name;
@@ -2192,6 +2195,14 @@ public:
   SpirvDebugType *getElementType() const { return elementType; }
   llvm::SmallVector<uint32_t, 2> &getElementCount() { return elementCount; }
 
+  uint32_t getSizeInBits() const override {
+    // TODO: avoid integer overflow
+    uint32_t nElem = elementType->getSizeInBits();
+    for (auto k : elementCount)
+      nElem *= k;
+    return nElem;
+  }
+
 private:
   SpirvDebugType *elementType;
   llvm::SmallVector<uint32_t, 2> elementCount;
@@ -2200,7 +2211,7 @@ private:
 /// Represents vector debug types
 class SpirvDebugTypeVector : public SpirvDebugType {
 public:
-  SpirvDebugTypeVector(SpirvDebugInstruction *elemType, uint32_t elemCount);
+  SpirvDebugTypeVector(SpirvDebugType *elemType, uint32_t elemCount);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeVector;
@@ -2208,11 +2219,15 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  SpirvDebugInstruction *getElementType() const { return elementType; }
+  SpirvDebugType *getElementType() const { return elementType; }
   uint32_t getElementCount() const { return elementCount; }
 
+  uint32_t getSizeInBits() const override {
+    return elementCount * elementType->getSizeInBits();
+  }
+
 private:
-  SpirvDebugInstruction *elementType;
+  SpirvDebugType *elementType;
   uint32_t elementCount;
 };
 
@@ -2270,6 +2285,7 @@ public:
   uint32_t getColumn() const { return column; }
   uint32_t getOffset() const { return offset; }
   uint32_t getDebugFlags() const { return debugFlags; }
+  uint32_t getSizeInBits() const override { return size; }
   const APValue *getValue() const { return value; }
 
   const SpirvType *getSpirvType() const { return spvType; }
@@ -2326,6 +2342,8 @@ public:
   uint32_t getColumn() const { return column; }
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getDebugFlags() const { return debugFlags; }
+
+  uint32_t getSizeInBits() const override { return size; }
 
   void setFullyLowered() { fullyLowered = true; }
   bool getFullyLowered() const { return fullyLowered; }
