@@ -206,9 +206,10 @@ HybridStructType::HybridStructType(
       interfaceType(iface) {}
 
 FunctionType::FunctionType(const SpirvType *ret,
-                           llvm::ArrayRef<const SpirvType *> param)
+                           llvm::ArrayRef<const SpirvType *> param,
+                           bool isMember)
     : SpirvType(TK_Function), returnType(ret),
-      paramTypes(param.begin(), param.end()) {
+      paramTypes(param.begin(), param.end()), isMemberFunction(isMember) {
   // Make sure
   assert(!isa<HybridType>(ret));
   for (auto *paramType : param) {

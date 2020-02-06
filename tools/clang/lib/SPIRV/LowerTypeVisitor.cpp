@@ -54,8 +54,8 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
       spirvParamTypes.push_back(spvContext.getPointerType(
           spirvParamType, spv::StorageClass::Function));
     }
-    fn->setFunctionType(
-        spvContext.getFunctionType(spirvReturnType, spirvParamTypes));
+    fn->setFunctionType(spvContext.getFunctionType(
+        spirvReturnType, spirvParamTypes, fn->isMemberFunction()));
   }
   return true;
 }

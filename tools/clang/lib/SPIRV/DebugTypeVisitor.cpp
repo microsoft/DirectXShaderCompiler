@@ -171,8 +171,14 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
             ? nullptr
             : lowerToDebugType(fnType->getReturnType());
     llvm::SmallVector<SpirvDebugInstruction *, 4> params;
-    for (const auto *paramType : fnType->getParamTypes())
+    bool skipOnce = fnType->hasThisParam();
+    for (const auto *paramType : fnType->getParamTypes()) {
+      if (skipOnce) {
+        skipOnce = false;
+        continue;
+      }
       params.push_back(lowerToDebugType(paramType));
+    }
     // TODO: Add mechanism to properly calculate the flags.
     // The info needed probably resides in clang::FunctionDecl.
     // This info can either be stored in the SpirvFunction class. Or,

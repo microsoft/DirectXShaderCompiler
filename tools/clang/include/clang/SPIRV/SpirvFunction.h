@@ -99,6 +99,13 @@ public:
   SpirvDebugScope *getDebugScope() const { return debugScope; }
   void setDebugScope(SpirvDebugScope *scope) { debugScope = scope; }
 
+  /// Returns true if this is a member function of a struct or class.
+  bool isMemberFunction() const {
+    if (parameters.empty())
+      return false;
+    return parameters[0]->getDebugName() == "param.this";
+  }
+
 private:
   uint32_t functionId; ///< This function's <result-id>
 

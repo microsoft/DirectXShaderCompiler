@@ -231,14 +231,16 @@ const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
 
 FunctionType *
 SpirvContext::getFunctionType(const SpirvType *ret,
-                              llvm::ArrayRef<const SpirvType *> param) {
+                              llvm::ArrayRef<const SpirvType *> param,
+                              bool isMember) {
   // Create a temporary object for finding in the set.
   FunctionType type(ret, param);
   auto found = functionTypes.find(&type);
   if (found != functionTypes.end())
     return *found;
 
-  auto inserted = functionTypes.insert(new (this) FunctionType(ret, param));
+  auto inserted =
+      functionTypes.insert(new (this) FunctionType(ret, param, isMember));
   return *inserted.first;
 }
 

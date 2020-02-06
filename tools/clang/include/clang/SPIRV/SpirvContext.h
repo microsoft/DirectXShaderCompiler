@@ -248,7 +248,8 @@ public:
                                          spv::StorageClass);
 
   FunctionType *getFunctionType(const SpirvType *ret,
-                                llvm::ArrayRef<const SpirvType *> param);
+                                llvm::ArrayRef<const SpirvType *> param,
+                                bool isMember = false);
 
   const StructType *getByteAddressBufferType(bool isWritable);
   const StructType *getACSBufferCounterType();
