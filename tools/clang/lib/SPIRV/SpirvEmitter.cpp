@@ -1115,11 +1115,19 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     uint32_t flags = 3u;
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    SpirvDebugInstruction *debugFunction;
+    SpirvDebugFunction *debugFunction;
     debugFunction = spvBuilder.createDebugFunction(
         funcName, source, line, column, parentScope, funcName, flags, scopeLine,
         func);
     func->setDebugScope(new (astContext) SpirvDebugScope(debugFunction));
+
+    // We want to keep member function info of a structure, but a StructType
+    // was not created yet. SpirvContext holds a map between CXXMethodDecl and
+    // its corresponding DebugFunction. When StructType will be created, it
+    // will keep its member function info.
+    if (const auto *methodDecl = dyn_cast<CXXMethodDecl>(decl)) {
+      spvContext.saveFunctionInfo(methodDecl, debugFunction);
+    }
 
     spvContext.pushDebugLexicalScope(info, debugFunction);
   }

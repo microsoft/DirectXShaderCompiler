@@ -1903,6 +1903,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return fnLine; }
   uint32_t getColumn() const { return fnColumn; }
+  void setParent(SpirvDebugInstruction *scope) { parentScope = scope; }
   SpirvDebugInstruction *getParent() const override { return parentScope; }
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getFlags() const { return flags; }
@@ -2272,6 +2273,11 @@ public:
     return inst->getKind() == IK_DebugTypeMember;
   }
 
+  void updateOffsetAndSize(uint32_t offset_, uint32_t size_) {
+    offset = offset_;
+    size = size_;
+  }
+
   bool invokeVisitor(Visitor *v) override;
 
   SpirvDebugInstruction *getParent() const override { return parent; }
@@ -2341,6 +2347,7 @@ public:
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getDebugFlags() const { return debugFlags; }
 
+  void setSizeInBits(uint32_t size_) { size = size_; }
   uint32_t getSizeInBits() const override { return size; }
 
   void setFullyLowered() { fullyLowered = true; }

@@ -179,6 +179,8 @@ public:
                         llvm::StringRef linkageName, uint32_t size,
                         uint32_t flags, uint32_t tag);
 
+  SpirvDebugInstruction *getDebugType(const SpirvType *spirvType);
+
   SpirvDebugInstruction *getDebugTypeArray(const SpirvType *spirvType,
                                            SpirvDebugInstruction *elemType,
                                            llvm::ArrayRef<uint32_t> elemCount);
@@ -231,6 +233,16 @@ public:
       llvm::ArrayRef<StructType::FieldInfo> fields, llvm::StringRef name,
       bool isReadOnly = false,
       StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
+
+  void saveFunctionInfo(const CXXMethodDecl *decl, SpirvDebugFunction *fn) {
+    structDeclToFnList[decl] = fn;
+  }
+  SpirvDebugFunction *findFunctionInfo(const CXXMethodDecl *decl) {
+    auto it = structDeclToFnList.find(decl);
+    if (it != structDeclToFnList.end())
+      return it->second;
+    return nullptr;
+  }
 
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
@@ -373,6 +385,11 @@ private:
   // there by being able to safely emit them at the end of other debug
   // extension instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 16> tailDebugTypes;
+
+  // Mapping from RecordDecl (struct or class or enum) to a vector of its member
+  // function info.
+  llvm::DenseMap<const CXXMethodDecl *, SpirvDebugFunction *>
+      structDeclToFnList;
 };
 
 } // end namespace spirv

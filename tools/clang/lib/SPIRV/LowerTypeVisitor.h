@@ -23,9 +23,10 @@ namespace spirv {
 class LowerTypeVisitor : public Visitor {
 public:
   LowerTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-                   const SpirvCodeGenOptions &opts)
+                   const SpirvCodeGenOptions &opts,
+                   SpirvExtInstImport *debugExt)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx),
-        alignmentCalc(astCtx, opts) {}
+        alignmentCalc(astCtx, opts), debugExtInstSet(debugExt) {}
 
   // Visiting different SPIR-V constructs.
   bool visit(SpirvModule *, Phase) { return true; }
@@ -80,10 +81,22 @@ private:
   populateLayoutInformation(llvm::ArrayRef<HybridStructType::FieldInfo> fields,
                             SpirvLayoutRule rule);
 
+  /// Generate rich debug info for composite type.
+  SpirvDebugTypeComposite *
+  lowerDebugTypeComposite(const RecordType *structType,
+                          const SpirvType *spirvType,
+                          llvm::SmallVector<StructType::FieldInfo, 4> &fields);
+
 private:
   ASTContext &astContext;                /// AST context
   SpirvContext &spvContext;              /// SPIR-V context
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
+
+  SpirvExtInstImport *debugExtInstSet; /// Pointer to
+                                       /// OpenCLDebugInfoExtInstSet
+
+  llvm::SmallSet<const Decl *, 4> visitedRecordDecl; /// A set of already
+                                                     /// visited RecordDecl
 };
 
 } // end namespace spirv

@@ -311,6 +311,13 @@ SpirvDebugInstruction *SpirvContext::getDebugTypeComposite(
   return debugType;
 }
 
+SpirvDebugInstruction *SpirvContext::getDebugType(const SpirvType *spirvType) {
+  auto it = debugTypes.find(spirvType);
+  if (it != debugTypes.end())
+    return it->second;
+  return nullptr;
+}
+
 SpirvDebugInstruction *
 SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
                                 SpirvDebugInstruction *elemType,

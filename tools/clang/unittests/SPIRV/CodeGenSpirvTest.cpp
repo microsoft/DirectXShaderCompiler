@@ -2238,6 +2238,10 @@ TEST_F(FileTest, RichDebugInfoTypeFunction) {
   runFileTest("rich.debug.type.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoTypeComposite) {
+  runFileTest("rich.debug.type.composite.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoLocalVariable) {
   runFileTest("rich.debug.local-variable.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);

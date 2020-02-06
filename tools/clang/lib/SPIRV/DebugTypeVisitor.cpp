@@ -17,6 +17,45 @@ namespace clang {
 namespace spirv {
 
 SpirvDebugInstruction *
+DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
+  // DebugTypeComposite is already lowered by LowerTypeVisitor,
+  // but it is not completely lowered.
+  // We have to update member information including offset and size.
+  auto *instr =
+      dyn_cast<SpirvDebugTypeComposite>(spvContext.getDebugType(type));
+  assert(instr && "StructType was not lowered by LowerTypeVisitor");
+  if (instr->getFullyLowered())
+    return instr;
+
+  uint32_t sizeInBits = 0;
+  uint32_t offsetInBits = 0;
+  auto &members = instr->getMembers();
+  for (auto *member : members) {
+    auto *debugMember = dyn_cast<SpirvDebugTypeMember>(member);
+    if (!debugMember) {
+      continue;
+    }
+
+    SpirvDebugType *memberTy =
+        dyn_cast<SpirvDebugType>(lowerToDebugType(debugMember->getSpirvType()));
+    debugMember->setType(memberTy);
+
+    uint32_t memberSizeInBits = memberTy->getSizeInBits();
+    uint32_t memberOffset = debugMember->getOffset();
+    if (memberOffset == UINT32_MAX)
+      memberOffset = offsetInBits;
+    debugMember->updateOffsetAndSize(memberOffset, memberSizeInBits);
+
+    offsetInBits = memberOffset + memberSizeInBits;
+    if (sizeInBits < offsetInBits)
+      sizeInBits = offsetInBits;
+  }
+  instr->setSizeInBits(sizeInBits);
+  instr->setFullyLowered();
+  return instr;
+}
+
+SpirvDebugInstruction *
 DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   SpirvDebugInstruction *debugType = nullptr;
 
@@ -75,6 +114,13 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
                                              sizeInstruction, encoding);
     break;
   }
+  case SpirvType::TK_Struct: {
+    const auto *structType = dyn_cast<StructType>(spirvType);
+    debugType = lowerToDebugTypeComposite(structType);
+    break;
+  }
+  // TODO: Add DebugTypeComposite for class and union.
+  // TODO: Add DebugTypeEnum.
   case SpirvType::TK_Array: {
     auto *arrType = dyn_cast<ArrayType>(spirvType);
     SpirvDebugInstruction *elemDebugType =
