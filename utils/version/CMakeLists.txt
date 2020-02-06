@@ -35,7 +35,7 @@ file(TO_NATIVE_PATH "${HLSL_VERSION_LOCATION}/dxcversion.inc" HLSL_DXC_VERSION_F
 add_custom_target(hlsl_dxcversion_autogen
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${HLSL_GEN_VERSION_FILE} ${HLSL_DXC_VERSION_FILE}
     DEPENDS ${HLSL_GEN_VERSION_FILE}
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py
 )
 
 set_property(SOURCE ${HLSL_DXC_VERSION_FILE}
