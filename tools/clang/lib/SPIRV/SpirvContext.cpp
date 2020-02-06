@@ -349,9 +349,11 @@ SpirvContext::getDebugTypeVector(const SpirvType *spirvType,
   debugTypes[spirvType] = debugType;
   return debugType;
 }
-SpirvDebugInstruction* SpirvContext::getDebugTypeFunction(
-  const SpirvType* spirvType, uint32_t flags, SpirvDebugInstruction* ret,
-  llvm::ArrayRef<SpirvDebugInstruction*> params) {
+
+SpirvDebugInstruction *
+SpirvContext::getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
+                                   SpirvDebugType *ret,
+                                   llvm::ArrayRef<SpirvDebugType *> params) {
   // Reuse existing debug type if possible.
   if (debugTypes.find(spirvType) != debugTypes.end())
     return debugTypes[spirvType];

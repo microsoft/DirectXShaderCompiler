@@ -807,7 +807,8 @@ SpirvDebugFunction::SpirvDebugFunction(
     uint32_t bodyLine, SpirvFunction *func)
     : SpirvDebugInstruction(IK_DebugFunction, /*opcode*/ 20u), source(src),
       fnLine(fline), fnColumn(fcol), parentScope(parent), linkageName(linkName),
-      flags(flags_), scopeLine(bodyLine), fn(func) {
+      flags(flags_), scopeLine(bodyLine), fn(func), debugNone(nullptr),
+      fnType(nullptr) {
   debugName = name;
 }
 
@@ -894,8 +895,8 @@ SpirvDebugTypeVector::SpirvDebugTypeVector(SpirvDebugType *elemType,
       elementCount(elemCount) {}
 
 SpirvDebugTypeFunction::SpirvDebugTypeFunction(
-    uint32_t flags, SpirvDebugInstruction *ret,
-    llvm::ArrayRef<SpirvDebugInstruction *> params)
+    uint32_t flags, SpirvDebugType *ret,
+    llvm::ArrayRef<SpirvDebugType *> params)
     : SpirvDebugType(IK_DebugTypeFunction, /*opcode*/ 8u), debugFlags(flags),
       returnType(ret), paramTypes(params.begin(), params.end()) {}
 

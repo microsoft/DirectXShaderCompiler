@@ -2242,6 +2242,10 @@ TEST_F(FileTest, RichDebugInfoTypeMemberFunction) {
   runFileTest("rich.debug.type.member.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoMemberFunctionWithoutCall) {
+  runFileTest("rich.debug.member.function.without-call.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoTypeComposite) {
   runFileTest("rich.debug.type.composite.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);

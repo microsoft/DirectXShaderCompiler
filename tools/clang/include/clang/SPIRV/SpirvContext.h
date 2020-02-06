@@ -191,8 +191,8 @@ public:
 
   SpirvDebugInstruction *
   getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
-                       SpirvDebugInstruction *ret,
-                       llvm::ArrayRef<SpirvDebugInstruction *> params);
+                       SpirvDebugType *ret,
+                       llvm::ArrayRef<SpirvDebugType *> params);
 
   SpirvDebugInstruction *getDebugTypeTemplate(const SpirvType *spirvType,
                                               SpirvDebugInstruction *target);

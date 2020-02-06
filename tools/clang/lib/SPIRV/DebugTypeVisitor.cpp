@@ -58,6 +58,18 @@ DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
   for (auto *member : members) {
     auto *debugMember = dyn_cast<SpirvDebugTypeMember>(member);
     if (!debugMember) {
+      if (auto *fn = dyn_cast<SpirvDebugFunction>(member)) {
+        if (const auto *fnType = fn->getFunctionType()) {
+          fn->setDebugType(lowerToDebugType(fnType));
+          setDefaultDebugInfo(fn);
+        }
+        if (!fn->getSpirvFunction()) {
+          auto *debugNone = spvBuilder.getOrCreateDebugInfoNone();
+          setDefaultDebugInfo(debugNone);
+          fn->setDebugInfoNone(debugNone);
+        }
+      }
+      // TODO: else emit error!
       continue;
     }
 
@@ -191,18 +203,20 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     auto *fnType = dyn_cast<FunctionType>(spirvType);
     // Special case: There is no DebugType for void. So if the function return
     // type is void, we set it to nullptr.
-    SpirvDebugInstruction *returnType =
-        isa<VoidType>(fnType->getReturnType())
-            ? nullptr
-            : lowerToDebugType(fnType->getReturnType());
-    llvm::SmallVector<SpirvDebugInstruction *, 4> params;
+    SpirvDebugType *returnType = nullptr;
+    if (!isa<VoidType>(fnType->getReturnType())) {
+      auto *loweredRetTy = lowerToDebugType(fnType->getReturnType());
+      returnType = dyn_cast<SpirvDebugType>(loweredRetTy);
+      assert(returnType && "Function return type info must be SpirvDebugType");
+    }
+    llvm::SmallVector<SpirvDebugType *, 4> params;
     bool skipOnce = fnType->hasThisParam();
     for (const auto *paramType : fnType->getParamTypes()) {
       if (skipOnce) {
         skipOnce = false;
         continue;
       }
-      params.push_back(lowerToDebugType(paramType));
+      params.push_back(dyn_cast<SpirvDebugType>(lowerToDebugType(paramType)));
     }
     // TODO: Add mechanism to properly calculate the flags.
     // The info needed probably resides in clang::FunctionDecl.
@@ -268,6 +282,22 @@ bool DebugTypeVisitor::visit(SpirvModule *module, Phase phase) {
     // there could be duplicates.
     for (const auto typePair : spvContext.getDebugTypes()) {
       module->addDebugInfo(typePair.second);
+
+      // If SpirvDebugFunction is a member of this composite type and
+      // it has FunctionType, it means DebugTypeVisitor lowers the
+      // FunctionType to generate the debug function type info which is
+      // not yet added to debug info of the module. We must add it now.
+      if (auto *composite =
+              dyn_cast<SpirvDebugTypeComposite>(typePair.second)) {
+        auto &members = composite->getMembers();
+        for (auto *member : members) {
+          auto *fn = dyn_cast<SpirvDebugFunction>(member);
+          if (!fn)
+            continue;
+          if (fn->getFunctionType())
+            module->addDebugInfo(fn);
+        }
+      }
     }
     for (auto *type : spvContext.getTailDebugTypes()) {
       module->addDebugInfo(type);

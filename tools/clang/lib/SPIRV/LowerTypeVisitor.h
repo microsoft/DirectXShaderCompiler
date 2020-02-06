@@ -74,6 +74,15 @@ private:
   spv::ImageFormat translateSampledTypeToImageFormat(QualType sampledType,
                                                      SourceLocation);
 
+  /// Generate debug info of a function.
+  ///
+  /// When there is no function call for decl, SpirvEmitter does not
+  /// generate function definition nor function info. However, if it is
+  /// a member method of a struct/class, we need to generate its debug
+  /// info.
+  SpirvDebugFunction *generateFunctionInfo(const CXXMethodDecl *decl,
+                                           SpirvDebugInstruction *parent);
+
 private:
   /// Calculates all layout information needed for the given structure fields.
   /// Returns the lowered field info vector.

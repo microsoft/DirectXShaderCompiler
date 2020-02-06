@@ -930,6 +930,53 @@ LowerTypeVisitor::populateLayoutInformation(
   return result;
 }
 
+SpirvDebugFunction *
+LowerTypeVisitor::generateFunctionInfo(const CXXMethodDecl *decl,
+                                       SpirvDebugInstruction *parent) {
+  // Lower the function return type.
+  const SpirvType *spirvReturnType =
+      lowerType(decl->getReturnType(), SpirvLayoutRule::Void,
+                /*isRowMajor*/ llvm::None,
+                /*SourceLocation*/ {});
+  // Lower the function parameter types.
+  llvm::SmallVector<const SpirvType *, 4> spirvParamTypes;
+  unsigned numParams = decl->getNumParams();
+  for (unsigned i = 0; i < numParams; ++i) {
+    const auto *spirvParamType = lowerType(
+        decl->getParamDecl(i)->getOriginalType(), SpirvLayoutRule::Void,
+        /*isRowMajor*/ llvm::None, SourceLocation());
+    spirvParamTypes.push_back(
+        spvContext.getPointerType(spirvParamType, spv::StorageClass::Function));
+  }
+  auto *fnType =
+      spvContext.getFunctionType(spirvReturnType, spirvParamTypes, true);
+
+  std::string classOrStructName = "";
+  if (const auto *st = dyn_cast<CXXRecordDecl>(decl->getDeclContext()))
+    classOrStructName = st->getName().str() + ".";
+
+  std::string funcName = classOrStructName + decl->getName().str();
+
+  const auto &sm = astContext.getSourceManager();
+  auto loc = decl->getLocStart();
+  const uint32_t line = sm.getPresumedLineNumber(loc);
+  const uint32_t column = sm.getPresumedColumnNumber(loc);
+
+  RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
+  const char *file = sm.getPresumedLoc(loc).getFilename();
+  if (file)
+    debugInfo = &spvContext.getDebugInfo()[file];
+
+  // using FlagIsPublic for now.
+  uint32_t flags = 3u;
+  auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
+  SpirvDebugFunction *fn = new (spvContext)
+      SpirvDebugFunction(funcName, debugInfo->source, line, column, parent,
+                         funcName, flags, scopeLine, nullptr);
+  fn->setFunctionType(fnType);
+  return fn;
+}
+
 SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
     const RecordType *structType, const SpirvType *type,
     llvm::SmallVector<StructType::FieldInfo, 4> &fields, bool isResourceType) {
@@ -998,8 +1045,9 @@ SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
       if (fn) {
         fn->setParent(dbgTyComposite);
         members.push_back(fn);
+      } else {
+        members.push_back(generateFunctionInfo(cxxMethodDecl, dbgTyComposite));
       }
-      // TODO: else generate function info
       continue;
     }
 

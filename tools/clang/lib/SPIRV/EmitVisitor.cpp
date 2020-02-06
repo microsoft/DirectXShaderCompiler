@@ -1160,8 +1160,13 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
   curInst.push_back(linkageNameId);
   curInst.push_back(inst->getFlags());
   curInst.push_back(inst->getScopeLine());
-  curInst.push_back(
-      getOrAssignResultId<SpirvFunction>(inst->getSpirvFunction()));
+  auto *fn = inst->getSpirvFunction();
+  if (fn) {
+    curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
+  } else {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getDebugInfoNone()));
+  }
   finalizeInstruction(&richDebugInfo);
   return true;
 }
