@@ -867,11 +867,13 @@ SpirvDebugLexicalBlock::SpirvDebugLexicalBlock(SpirvDebugSource *source_,
 SpirvDebugScope::SpirvDebugScope(SpirvDebugInstruction *scope_)
     : SpirvDebugInstruction(IK_DebugScope, /*opcode*/ 23u), scope(scope_) {}
 
-SpirvDebugTypeBasic::SpirvDebugTypeBasic(llvm::StringRef name_,
+SpirvDebugTypeBasic::SpirvDebugTypeBasic(llvm::StringRef name,
                                          SpirvConstant *size_,
                                          uint32_t encoding_)
-    : SpirvDebugType(IK_DebugTypeBasic, /*opcode*/ 2u), name(name_),
-      size(size_), encoding(encoding_) {}
+    : SpirvDebugType(IK_DebugTypeBasic, /*opcode*/ 2u), size(size_),
+      encoding(encoding_) {
+  debugName = name;
+}
 
 uint32_t SpirvDebugTypeBasic::getSizeInBits() const {
   auto *size_ = dyn_cast<SpirvConstantInteger>(size);

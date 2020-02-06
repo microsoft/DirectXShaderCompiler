@@ -2160,13 +2160,11 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::StringRef getName() const { return name; }
   SpirvConstant *getSize() const { return size; }
   uint32_t getEncoding() const { return encoding; }
   uint32_t getSizeInBits() const override;
 
 private:
-  std::string name;
   SpirvConstant *size;
   // TODO: Replace uint32_t with enum from SPIRV-Headers once available.
   // 0, Unspecified

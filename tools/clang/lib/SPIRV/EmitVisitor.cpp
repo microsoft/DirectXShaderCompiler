@@ -1167,7 +1167,7 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
-  uint32_t typeNameId = getOrCreateOpString(inst->getName());
+  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
