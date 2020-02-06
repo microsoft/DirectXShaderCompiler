@@ -19,7 +19,7 @@ if errorlevel 1 (
   echo Failed to clean binaries, stopping hctcheckin.
   exit /b 1
 )
-call %HLSL_SRC_DIR%\utils\hct\hctbuild.cmd
+call %HLSL_SRC_DIR%\utils\hct\hctbuild.cmd -parallel
 if errorlevel 1 (
   echo Failed to build binaries, stopping hctcheckin.
   exit /b 1

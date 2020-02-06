@@ -18,8 +18,8 @@
 #include <unordered_set>
 #include <strstream>
 #include <iomanip>
-#include "CompilationResult.h"
-#include "HLSLTestData.h"
+#include "dxc/Test/CompilationResult.h"
+#include "dxc/Test/HLSLTestData.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -27,8 +27,8 @@
 
 #undef _read
 #include "WexTestClass.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
@@ -42,7 +42,7 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <DXGIDebug.h>
-#include <D3dx12.h>
+#include "dxc/Support/d3dx12.h"
 #include <DirectXMath.h>
 #include <strsafe.h>
 #include <d3dcompiler.h>

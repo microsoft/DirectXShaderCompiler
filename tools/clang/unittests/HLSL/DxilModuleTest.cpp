@@ -7,9 +7,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "CompilationResult.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/CompilationResult.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"

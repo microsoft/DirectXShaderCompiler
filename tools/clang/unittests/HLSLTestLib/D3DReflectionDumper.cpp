@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
-#include "D3DReflectionDumper.h"
+#include "dxc/test/D3DReflectionDumper.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include <sstream>
 

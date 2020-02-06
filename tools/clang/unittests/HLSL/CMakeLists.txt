@@ -30,20 +30,13 @@ set(HLSL_IGNORE_SOURCES
 )
 add_clang_library(clang-hlsl-tests SHARED
   AllocatorTest.cpp
-  CompilationResult.h
   CompilerTest.cpp
-  DxcTestUtils.cpp
   DxilContainerTest.cpp
   DxilModuleTest.cpp
   DXIsenseTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
-  FileCheckerTest.cpp
-  FileCheckForTest.cpp
   FunctionTest.cpp
-  HLSLTestData.h
-  HlslTestUtils.h
-  D3DReflectionDumper.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
   Objects.cpp
@@ -63,9 +56,7 @@ set(HLSL_IGNORE_SOURCES
   MSFileSysTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  D3DReflectionDumper.cpp
   DxilContainerTest.cpp
-  FileCheckerTest.cpp
   ValidationTest.cpp
   CompilerTest.cpp
   )
@@ -94,6 +85,7 @@ set_target_properties(clang-hlsl-tests PROPERTIES FOLDER "Clang tests")
 if (WIN32)
 target_link_libraries(clang-hlsl-tests PRIVATE
   dxcompiler
+  HLSLTestLib
   ${TAEF_LIBRARIES}
   ${DIASDK_LIBRARIES}
   ${D3D12_LIBRARIES}
@@ -109,6 +101,7 @@ if(WIN32)
 include_directories(${TAEF_INCLUDE_DIRS})
 include_directories(${DIASDK_INCLUDE_DIRS})
 include_directories(${D3D12_INCLUDE_DIRS})
+
 endif(WIN32)
 
 # Add includes to directly reference intrinsic tables.

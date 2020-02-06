@@ -413,8 +413,8 @@ HRESULT DxcContext::ReadFileIntoPartContent(hlsl::DxilFourCC fourCC, LPCWSTR fil
     DWORD dataSize;
     hlsl::ReadBinaryFile(fileName, (void**)&pData, &dataSize);
     DXASSERT(pData != nullptr, "otherwise ReadBinaryFile should throw an exception");
-    hlsl::DxilContainerHeader *pHeader = (hlsl::DxilContainerHeader*) pData.m_pData;
-    IFRBOOL(hlsl::IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes), E_INVALIDARG);
+    hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(pData.m_pData, dataSize);
+    IFRBOOL(hlsl::IsValidDxilContainer(pHeader, dataSize), E_INVALIDARG);
     hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_RootSignature);
     IFRBOOL(pPartHeader != nullptr, E_INVALIDARG);
     hlsl::DxcCreateBlobOnHeapCopy(hlsl::GetDxilPartData(pPartHeader), pPartHeader->PartSize, &pResult);
