@@ -53,8 +53,26 @@ bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
       if (it != debugLexicalScopes.end()) {
         auto &children = it->second;
         for (auto iter = children.rbegin(); iter != children.rend(); ++iter) {
-          if (!invokeVisitorDebugLexicalScope(visitor, *iter, reverseOrder))
+          auto *debugInstruction = *iter;
+          if (!invokeVisitorDebugLexicalScope(visitor, debugInstruction,
+                                              reverseOrder))
             return false;
+          if (!debugInstruction->invokeVisitor(visitor))
+            return false;
+        }
+      }
+    }
+
+    {
+      auto it = debugTypes.find(scope);
+      if (it != debugTypes.end()) {
+        auto &typeVec = it->second;
+        for (auto iter = typeVec.rbegin(); iter != typeVec.rend(); ++iter) {
+          auto *type = *iter;
+          if (isa<SpirvDebugTypeComposite>(type)) {
+            if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
+              return false;
+          }
         }
       }
     }
@@ -77,44 +95,21 @@ bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
         auto &typeVec = it->second;
         for (auto iter = typeVec.rbegin(); iter != typeVec.rend(); ++iter) {
           auto *type = *iter;
-          if (isa<SpirvDebugTypeComposite>(type)) {
-            if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
-              return false;
-          }
-        }
-        for (auto iter = typeVec.rbegin(); iter != typeVec.rend(); ++iter) {
-          auto *type = *iter;
-          if (!isa<SpirvDebugTypeComposite>(type)) {
-            if (!type->invokeVisitor(visitor))
-              return false;
-          }
+          if (!type->invokeVisitor(visitor))
+            return false;
         }
       }
     }
-
-    if (!scope->invokeVisitor(visitor))
-      return false;
   }
   // Traverse the regular order of a SPIR-V debug info for lexical scope.
   else {
-    if (!scope->invokeVisitor(visitor))
-      return false;
-
     {
       auto it = debugTypes.find(scope);
       if (it != debugTypes.end()) {
         auto &typeVec = it->second;
         for (auto *type : typeVec) {
-          if (!isa<SpirvDebugTypeComposite>(type)) {
-            if (!type->invokeVisitor(visitor))
-              return false;
-          }
-        }
-        for (auto *type : typeVec) {
-          if (isa<SpirvDebugTypeComposite>(type)) {
-            if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
-              return false;
-          }
+          if (!type->invokeVisitor(visitor))
+            return false;
         }
       }
     }
@@ -131,10 +126,25 @@ bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
     }
 
     {
+      auto it = debugTypes.find(scope);
+      if (it != debugTypes.end()) {
+        auto &typeVec = it->second;
+        for (auto *type : typeVec) {
+          if (isa<SpirvDebugTypeComposite>(type)) {
+            if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
+              return false;
+          }
+        }
+      }
+    }
+
+    {
       auto it = debugLexicalScopes.find(scope);
       if (it != debugLexicalScopes.end()) {
         auto &children = it->second;
         for (auto *child : children) {
+          if (!child->invokeVisitor(visitor))
+            return false;
           if (!invokeVisitorDebugLexicalScope(visitor, child, reverseOrder))
             return false;
         }
@@ -158,6 +168,8 @@ bool SpirvModule::invokeVisitorDebugInfo(Visitor *visitor, bool reverseOrder) {
       auto *debugInstruction = *iter;
       if (!invokeVisitorDebugLexicalScope(visitor, debugInstruction,
                                           reverseOrder))
+        return false;
+      if (!debugInstruction->invokeVisitor(visitor))
         return false;
     }
 
@@ -201,6 +213,8 @@ bool SpirvModule::invokeVisitorDebugInfo(Visitor *visitor, bool reverseOrder) {
         return false;
 
     for (auto *cuInfo : debugCompUnits) {
+      if (!cuInfo->invokeVisitor(visitor))
+        return false;
       if (!invokeVisitorDebugLexicalScope(visitor, cuInfo, reverseOrder))
         return false;
     }
