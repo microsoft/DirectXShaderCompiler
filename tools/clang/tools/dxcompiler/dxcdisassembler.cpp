@@ -29,7 +29,6 @@
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
-#include "dxc/DxilContainer/DxilContainerReader.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilUtil.h"

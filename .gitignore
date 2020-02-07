@@ -26,6 +26,9 @@
 .vscode
 # Visual Studio 2017
 .vs/
+# Test outputs
+*.dxbc
+*.ll.converted
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).
@@ -48,11 +51,11 @@ autoconf/autom4te.cache
 #==============================================================================#
 # Directories to ignore (do not add trailing '/'s, they skip symlinks).
 #==============================================================================#
+# Build directories
+build.x64
+build.x86
 # External projects that are tracked independently.
 external/*
-projects/*
-!projects/*.*
-!projects/Makefile
 # Clang, which is tracked independently.
 # HLSL Change - track clang together with llvm in this git repo
 # tools/clang

@@ -32,10 +32,10 @@
 #include <atlbase.h>
 #include <atlfile.h>
 
-#include "HLSLTestData.h"
 #include "WexTestClass.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HLSLTestData.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/dxctools.h"

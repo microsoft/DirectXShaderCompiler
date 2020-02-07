@@ -12,16 +12,16 @@
 #include <vector>
 #include <string>
 #include "llvm/ADT/ArrayRef.h"
-#include "CompilationResult.h"
-#include "HLSLTestData.h"
+#include "dxc/Test/CompilationResult.h"
+#include "dxc/Test/HLSLTestData.h"
 #include "llvm/Support/ManagedStatic.h"
 
 #include <fstream>
 
 #include "WexTestClass.h"
-#include "HlslTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/dxcapi.h"
-#include "DxcTestUtils.h"
 
 using namespace std;
 using namespace hlsl;

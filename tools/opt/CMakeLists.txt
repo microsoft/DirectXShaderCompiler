@@ -11,12 +11,13 @@ set(LLVM_LINK_COMPONENTS
 #  Instrumentation # HLSL Change
 #  MC # HLSL Change
 #  ObjCARCOpts # HLSL Change
+  Passes
+  PassPrinters # HLSL Change
   ScalarOpts
   Support
   Target
   TransformUtils
   Vectorize
-  Passes
   )
 
 # Support plugins.
@@ -29,7 +30,6 @@ add_llvm_tool(opt
   BreakpointPrinter.cpp
   GraphPrinters.cpp
   NewPMDriver.cpp
-  PassPrinters.cpp
   PrintSCC.cpp
   opt.cpp
   )

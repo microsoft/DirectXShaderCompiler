@@ -14,6 +14,10 @@
 #ifndef LLVM_TOOLS_OPT_PASSPRINTERS_H
 #define LLVM_TOOLS_OPT_PASSPRINTERS_H
 
+#include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/RegionPass.h"
+
 namespace llvm {
 
 class BasicBlockPass;

@@ -12,7 +12,7 @@
 #include <windows.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
-#include <D3dx12.h>
+#include "dxc/Support/d3dx12.h"
 #include <d3dcompiler.h>
 #include <atlbase.h>
 #include <atlenc.h>
@@ -25,7 +25,7 @@
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
-#include "HLSLTestUtils.h"          // LogCommentFmt
+#include "dxc/Test/HLSLTestUtils.h"          // LogCommentFmt
 
 #include <stdlib.h>
 #include <DirectXMath.h>

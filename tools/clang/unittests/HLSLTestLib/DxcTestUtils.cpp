@@ -9,9 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "CompilationResult.h"
-#include "DxcTestUtils.h"
-#include "HlslTestUtils.h"
+#include "dxc/Test/CompilationResult.h"
+#include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringRef.h"

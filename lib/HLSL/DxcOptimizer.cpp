@@ -42,8 +42,7 @@
 #include <list>   // should change this for string_table
 #include <vector>
 
-// This is pretty ugly; should be refactored to a proper library
-#include "../tools/opt/PassPrinters.cpp"
+#include "llvm/PassPrinters/PassPrinters.h"
 
 using namespace llvm;
 using namespace hlsl;

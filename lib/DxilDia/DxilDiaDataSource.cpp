@@ -87,8 +87,12 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
     CComPtr<IStream> pIStream = pInputIStream;
     CComPtr<IDxcBlob> pContainer;
     if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pInputIStream, &pContainer))) {
-      hlsl::DxilPartHeader *PartHeader =
-        hlsl::GetDxilPartByType((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), hlsl::DFCC_ShaderDebugInfoDXIL);
+      const hlsl::DxilContainerHeader *pContainerHeader = 
+        hlsl::IsDxilContainerLike(pContainer->GetBufferPointer(), pContainer->GetBufferSize());
+      if (!hlsl::IsValidDxilContainer(pContainerHeader, pContainer->GetBufferSize()))
+        return E_FAIL;
+      const hlsl::DxilPartHeader *PartHeader =
+        hlsl::GetDxilPartByType(pContainerHeader, hlsl::DFCC_ShaderDebugInfoDXIL);
       if (!PartHeader)
         return E_FAIL;
       CComPtr<IDxcBlobEncoding> pPinnedBlob;

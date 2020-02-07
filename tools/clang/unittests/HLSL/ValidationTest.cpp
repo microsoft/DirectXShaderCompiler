@@ -27,8 +27,8 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
 
-#include "DxcTestUtils.h"
-#include "HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 using namespace std;
 using namespace hlsl;
