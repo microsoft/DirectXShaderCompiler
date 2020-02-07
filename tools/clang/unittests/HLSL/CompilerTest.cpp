@@ -2591,7 +2591,7 @@ TEST_F(CompilerTest, DiaCompileArgs) {
     args.push_back(L"/Qembed_debug");
     args.push_back(L"/DMY_SPECIAL_DEFINE");
     args.push_back(L"-D");
-    args.push_back(L"MY_OTHER_SPECIAL_DEFINE");
+    args.push_back(L"MY_OTHER_SPECIAL_DEFINE=\"MY_STRING\"");
 
     VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
@@ -2670,8 +2670,14 @@ TEST_F(CompilerTest, DiaCompileArgs) {
         Args = pValue.bstrVal;
     }
     else if (pName == "hlslDefines") {
-      if (pValue.vt == VT_BSTR)
-        Defines = pValue.bstrVal;
+      if (pValue.vt == VT_BSTR) {
+        BCHAR *Str = pValue.bstrVal;
+        while (*Str) {
+          Defines += L" ";
+          Defines += Str;
+          Str += wcslen(Str)+1;
+        }
+      }
     }
   }
 
