@@ -775,7 +775,7 @@ public:
   }
 
   virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override {
-    HANDLE H = CreateFileW(CA2W(lpFileName), GENERIC_READ | GENERIC_WRITE,
+    HANDLE H = CreateFileW(CA2W(lpFileName, CP_UTF8), GENERIC_READ | GENERIC_WRITE,
                            FILE_SHARE_READ | FILE_SHARE_WRITE,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
     if (H == INVALID_HANDLE_VALUE)
@@ -788,7 +788,7 @@ public:
 
   // fake my way toward as linux-y a file_status as I can get
   virtual int Stat(const char *lpFileName, struct stat *Status) throw() override {
-    CA2W fileName_utf16(lpFileName);
+    CA2W fileName_utf16(lpFileName, CP_UTF8);
 
     DWORD attr = GetFileAttributesW(fileName_utf16);
     if (attr == INVALID_FILE_ATTRIBUTES)

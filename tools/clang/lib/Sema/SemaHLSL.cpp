@@ -3886,7 +3886,7 @@ public:
       const HLSL_INTRINSIC *pIntrinsic = nullptr;
       const HLSL_INTRINSIC *pPrior = nullptr;
       UINT64 lookupCookie = 0;
-      CA2W wideTypeName(typeName);
+      CA2W wideTypeName(typeName, CP_UTF8);
       HRESULT found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
       while (pIntrinsic != nullptr && SUCCEEDED(found)) {
         if (!AreIntrinsicTemplatesEquivalent(pIntrinsic, pPrior)) {

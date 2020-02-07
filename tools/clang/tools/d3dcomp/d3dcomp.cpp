@@ -52,8 +52,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   }
 
   try {
-    CA2W pEntrypointW(pEntrypoint);
-    CA2W pTargetProfileW(pTarget);
+    CA2W pEntrypointW(pEntrypoint, CP_UTF8);
+    CA2W pTargetProfileW(pTarget, CP_UTF8);
     std::vector<std::wstring> defineValues;
     std::vector<DxcDefine> defines;
     if (pDefines) {
@@ -61,9 +61,9 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
 
       // Convert to UTF-16.
       while (pCursor->Name) {
-        defineValues.push_back(std::wstring(CA2W(pCursor->Name)));
+        defineValues.push_back(std::wstring(CA2W(pCursor->Name, CP_UTF8)));
         if (pCursor->Definition)
-          defineValues.push_back(std::wstring(CA2W(pCursor->Definition)));
+          defineValues.push_back(std::wstring(CA2W(pCursor->Definition, CP_UTF8)));
         else
           defineValues.push_back(std::wstring());
         ++pCursor;
@@ -154,7 +154,7 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
   }
 
   try {
-    CA2W pFileName(pSourceName);
+    CA2W pFileName(pSourceName, CP_UTF8);
     return CompileFromBlob(source, pFileName, pDefines, includeHandler, pEntrypoint,
                            pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
   } catch (const std::bad_alloc &) {
@@ -289,9 +289,9 @@ HRESULT PreprocessFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
 
       // Convert to UTF-16.
       while (pCursor->Name) {
-        defineValues.push_back(std::wstring(CA2W(pCursor->Name)));
+        defineValues.push_back(std::wstring(CA2W(pCursor->Name, CP_UTF8)));
         if (pCursor->Definition)
-          defineValues.push_back(std::wstring(CA2W(pCursor->Definition)));
+          defineValues.push_back(std::wstring(CA2W(pCursor->Definition, CP_UTF8)));
         else
           defineValues.push_back(std::wstring());
         ++pCursor;
@@ -357,7 +357,7 @@ HRESULT WINAPI BridgeD3DPreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcDat
   }
 
   try {
-    CA2W pFileName(pSourceName);
+    CA2W pFileName(pSourceName, CP_UTF8);
     return PreprocessFromBlob(source, pFileName, pDefines, includeHandler,
                               ppCodeText, ppErrorMsgs);
   } catch (const std::bad_alloc &) {
