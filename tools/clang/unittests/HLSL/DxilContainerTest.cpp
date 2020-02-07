@@ -43,9 +43,9 @@
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "HLSLTestData.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HLSLTestData.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -1851,7 +1851,7 @@ TEST_F(DxilContainerTest, DxilContainerUnitTest) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", arguments.data(), arguments.size(), nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   
-  const hlsl::DxilContainerHeader *pHeader = static_cast<const hlsl::DxilContainerHeader *> (pProgram->GetBufferPointer());
+  const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
   VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(hlsl::GetDxilProgramHeader(pHeader, hlsl::DxilFourCC::DFCC_DXIL));
@@ -1866,7 +1866,7 @@ TEST_F(DxilContainerTest, DxilContainerUnitTest) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   
-  pHeader = static_cast<const hlsl::DxilContainerHeader *> (pProgram->GetBufferPointer());
+  pHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
   VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
   VERIFY_IS_NOT_NULL(hlsl::GetDxilProgramHeader(pHeader, hlsl::DxilFourCC::DFCC_DXIL));

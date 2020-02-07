@@ -25,9 +25,9 @@
 #include <atlfile.h>
 #endif
 
-#include "HLSLTestData.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HlslTestData.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/MD5.h"
@@ -36,7 +36,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/DxilContainer/DxilContainer.h"
-#include "D3DReflectionDumper.h"
+#include "dxc/Test/D3DReflectionDumper.h"
 
 #include "d3d12shader.h"
 
@@ -55,7 +55,8 @@ FileRunCommandResult FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSup
   }
 }
 
-FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
+FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior, 
+                                             PluginToolsPaths *pPluginToolsPaths /*=nullptr*/) {
   bool isFileCheck =
     0 == _stricmp(Command.c_str(), "FileCheck") ||
     0 == _stricmp(Command.c_str(), "%FileCheck");
@@ -79,6 +80,9 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
   else if (0 == _stricmp(Command.c_str(), "tee")) {
     return RunTee(Prior);
   }
+  else if (0 == _stricmp(Command.c_str(), "fc")) {
+    return RunFileCompareText(Prior);
+  }
   else if (0 == _stricmp(Command.c_str(), "%dxilver")) {
     return RunDxilVer(DllSupport, Prior);
   }
@@ -94,13 +98,17 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
     return RunD3DReflect(DllSupport, Prior);
   }
-  else {
-    FileRunCommandResult result {};
-    result.ExitCode = 1;
-    result.StdErr = "Unrecognized command ";
-    result.StdErr += Command;
-    return result;
+  else if (pPluginToolsPaths != nullptr) {
+    auto it = pPluginToolsPaths->find(Command.c_str());
+    if (it != pPluginToolsPaths->end()) {
+      return RunFromPath(it->second, Prior);
+    }
   }
+  FileRunCommandResult result {};
+  result.ExitCode = 1;
+  result.StdErr = "Unrecognized command ";
+  result.StdErr += Command;
+  return result;
 }
 
 FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResult *Prior) {
@@ -647,6 +655,92 @@ FileRunCommandResult FileRunCommandPart::RunTee(const FileRunCommandResult *Prio
   return *Prior;
 }
 
+void FileRunCommandPart::SubstituteFilenameVars(std::string &args) {
+  size_t pos;
+  std::string baseFileName = CW2A(CommandFileName);
+  if ((pos = baseFileName.find_last_of(".")) != std::string::npos) {
+    baseFileName = baseFileName.substr(0, pos);
+  }
+  while ((pos = args.find("%t")) != std::string::npos) {
+    args.replace(pos, 2, baseFileName.c_str());
+  }
+  while ((pos = args.find("%b")) != std::string::npos) {
+    args.replace(pos, 2, baseFileName.c_str());
+  }
+}
+
+#if _WIN32
+bool FileRunCommandPart::ReadFileContentToString(HANDLE hFile, std::string &str) {
+  char buffer[1024];
+  DWORD len;
+
+  size_t size = ::GetFileSize(hFile, nullptr);
+  if (size == INVALID_FILE_SIZE) {
+    return false;
+  }
+  str.reserve(size);
+
+  if (::SetFilePointer(hFile, 0, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+    return false;
+  }
+
+  while (::ReadFile(hFile, buffer, sizeof(buffer), &len, nullptr) && len > 0) {
+    str.append(buffer, len);
+  }
+  return true;
+}
+#endif
+
+FileRunCommandResult FileRunCommandPart::RunFileCompareText(const FileRunCommandResult *Prior) {
+  if (Prior != nullptr) {
+    return FileRunCommandResult::Error("prior command not supported");
+  }
+
+  FileRunCommandResult result;
+  result.ExitCode = 1;
+
+  // strip leading and trailing spaces and split
+  std::string args(strtrim(Arguments));
+  size_t pos;
+  if ((pos = args.find_first_of(' ')) == std::string::npos) {
+    return FileRunCommandResult::Error("RunFileCompareText expected 2 file arguments.");
+  }
+  std::string fileName1 = args.substr(0, pos);
+  std::string fileName2 = strtrim(args.substr(pos + 1));
+
+  // replace %t and %b with the command file name without extension
+  SubstituteFilenameVars(fileName1);
+  SubstituteFilenameVars(fileName2);
+
+  // read file content and compare
+  CA2W fileName1W(fileName1.c_str());
+  CA2W fileName2W(fileName2.c_str());
+  hlsl_test::LogCommentFmt(L"Comparing files %s and %s", fileName1W.m_psz, fileName2W.m_psz);
+
+  std::ifstream ifs1(fileName1, std::ifstream::in);
+  if (ifs1.fail()) {
+    hlsl_test::LogCommentFmt(L"Failed to open %s", fileName1W.m_psz);
+    return result;
+  }
+  std::string file1Content((std::istreambuf_iterator<char>(ifs1)), (std::istreambuf_iterator<char>()));
+
+  std::ifstream ifs2(fileName2, std::ifstream::in);
+  if (ifs2.fail()) {
+    hlsl_test::LogCommentFmt(L"Failed to open %s", fileName2W.m_psz);
+    return result;
+  }
+  std::string file2Content((std::istreambuf_iterator<char>(ifs2)), (std::istreambuf_iterator<char>()));
+
+  if (file1Content.compare(file2Content) == 0) {
+    hlsl_test::LogCommentFmt(L"No differences found.");
+    result.ExitCode = 0;
+  }
+  else {
+    hlsl_test::LogCommentFmt(L"Files are different!");
+  }
+  return result;
+}
+
 FileRunCommandResult FileRunCommandPart::RunXFail(const FileRunCommandResult *Prior) {
   if (Prior == nullptr)
     return FileRunCommandResult::Error("XFail requires a prior command");
@@ -670,8 +764,90 @@ FileRunCommandResult FileRunCommandPart::RunDxilVer(dxc::DxcDllSupport& DllSuppo
   return CheckDxilVer(DllSupport, RequiredDxilMajor, RequiredDxilMinor);
 }
 
+#ifndef _WIN32
+FileRunCommandResult FileRunCommandPart::RunFromPath(const std::string &toolPath, const FileRunCommandResult *Prior) {
+  return FileRunCommandResult::Error("RunFromPath not supported");
+}
+#else //_WIN32
+FileRunCommandResult FileRunCommandPart::RunFromPath(const std::string &toolPath, const FileRunCommandResult *Prior) {
+  if (Prior != nullptr) {
+    return FileRunCommandResult::Error("prior command not supported");
+  }
+
+  std::string args = Arguments;
+
+  // replace %s with command file name
+  size_t pos;
+  while ((pos = args.find("%s")) != std::string::npos) {
+    args.replace(pos, 2, CW2A(CommandFileName));
+  }
+
+  // replace %t and %b with the command file name without extension
+  SubstituteFilenameVars(args);
+
+  // Run the tool via CreateProcess, redirect stdout and strerr to temporary files
+  std::wstring stdOutFileName = std::wstring(CommandFileName) + L".tmp_stdout";
+  std::wstring stdErrFileName = std::wstring(CommandFileName) + L".tmp_stderr";
+
+  SECURITY_ATTRIBUTES sa;
+  ZeroMemory(&sa, sizeof(sa));
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = true;
+
+  HANDLE hStdOutFile = CreateFileW(stdOutFileName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &sa, 
+                                   CREATE_ALWAYS, FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+  IFT(hStdOutFile != INVALID_HANDLE_VALUE);
+  HANDLE hStdErrFile = CreateFileW(stdErrFileName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &sa, 
+                                   CREATE_ALWAYS, FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+  IFT(hStdErrFile!= INVALID_HANDLE_VALUE);
+
+  STARTUPINFOA si;
+  ZeroMemory(&si, sizeof(si));
+  si.cb = sizeof(si);
+  si.hStdOutput = hStdOutFile;
+  si.hStdError = hStdErrFile;
+  si.dwFlags |= STARTF_USESTDHANDLES;
+
+  PROCESS_INFORMATION pi;
+  ZeroMemory(&pi, sizeof(pi));
+
+  std::vector<char> args2(args.c_str(), args.c_str() + args.size() + 1); // args to CreateProcess cannot be const char *
+  if (!CreateProcessA(toolPath.c_str(), args2.data(), nullptr, nullptr, true, 0, nullptr, nullptr, &si, &pi)) {
+    return FileRunCommandResult::Error("CreateProcess failed.");
+  }
+  ::WaitForSingleObject(pi.hProcess, 10000);  // 10s timeout
+
+  // Get exit code of the process
+  FileRunCommandResult result;
+  DWORD exitCode;
+  if (!::GetExitCodeProcess(pi.hProcess, &exitCode)) {
+    result = FileRunCommandResult::Error("GetExitCodeProcess failed.");
+  }
+  else {
+    result.ExitCode = exitCode;
+  }
+
+  // Close process and thread handles
+  ::CloseHandle(pi.hProcess);
+  ::CloseHandle(pi.hThread);
+
+  // Read stdout and strerr output from temporary files
+  if (!ReadFileContentToString(hStdOutFile, result.StdOut) || 
+      !ReadFileContentToString(hStdErrFile, result.StdErr)) {
+    result = FileRunCommandResult::Error("RunFromPaths failed.");
+  }
+
+  // Close temporary file handles - will delete the files 
+  IFT(::CloseHandle(hStdOutFile)); 
+  IFT(::CloseHandle(hStdErrFile));
+
+  return result;
+}
+#endif //_WIN32
+
 class FileRunTestResultImpl : public FileRunTestResult {
   dxc::DxcDllSupport &m_support;
+  PluginToolsPaths *m_pPluginToolsPaths;
 
   void RunHashTestFromCommands(LPCSTR commands, LPCWSTR fileName) {
     std::vector<FileRunCommandPart> parts;
@@ -705,7 +881,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
     FileRunCommandResult result;
     FileRunCommandResult* previousResult = nullptr;
     for (FileRunCommandPart & part : parts) {
-      result = part.Run(m_support, previousResult);
+      result = part.Run(m_support, previousResult, m_pPluginToolsPaths);
       previousResult = &result;
       if (result.AbortPipeline) break;
     }
@@ -715,7 +891,8 @@ class FileRunTestResultImpl : public FileRunTestResult {
   }
 
 public:
-  FileRunTestResultImpl(dxc::DxcDllSupport &support) : m_support(support) {}
+  FileRunTestResultImpl(dxc::DxcDllSupport &support, PluginToolsPaths *pPluginToolsPaths = nullptr)
+    : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths) {}
   void RunFileCheckFromFileCommands(LPCWSTR fileName) {
     // Assume UTF-8 files.
     auto cmds = GetRunLines(fileName);
@@ -743,16 +920,18 @@ FileRunTestResult FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileNam
   return result;
 }
 
-FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName) {
+FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, 
+                                                         PluginToolsPaths *pPluginToolsPaths /*=nullptr*/) {
   dxc::DxcDllSupport dllSupport;
   IFT(dllSupport.Initialize());
-  FileRunTestResultImpl result(dllSupport);
+  FileRunTestResultImpl result(dllSupport, pPluginToolsPaths);
   result.RunFileCheckFromFileCommands(fileName);
   return result;
 }
 
-FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport) {
-  FileRunTestResultImpl result(dllSupport);
+FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport,
+                                      PluginToolsPaths *pPluginToolsPaths /*=nullptr*/) {
+  FileRunTestResultImpl result(dllSupport, pPluginToolsPaths);
   result.RunFileCheckFromFileCommands(fileName);
   return result;
 }

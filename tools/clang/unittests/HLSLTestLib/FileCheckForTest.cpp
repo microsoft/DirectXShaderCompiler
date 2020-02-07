@@ -38,7 +38,7 @@
 // HLSL Change
 #include <dxc/Support/WinIncludes.h>
 #include "llvm/Support/MSFileSystem.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 // End HLSL Change
 
 using namespace llvm;

@@ -22,11 +22,11 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
-#include "HLSLTestData.h"
+#include "dxc/Test/HLSLTestData.h"
 #ifdef _WIN32
 #include "WexTestClass.h"
 #endif
-#include "HlslTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/ADT/STLExtras.h"

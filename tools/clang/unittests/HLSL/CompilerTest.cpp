@@ -29,9 +29,9 @@
 #include "dia2.h"
 #endif
 
-#include "HLSLTestData.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HLSLTestData.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/Support/Global.h"
@@ -1392,8 +1392,9 @@ TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
                                       0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   // Check if it contains debug blob
-  hlsl::DxilContainerHeader *pHeader =
-      (hlsl::DxilContainerHeader *)(pProgram->GetBufferPointer());
+  hlsl::DxilContainerHeader *pHeader = 
+      hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
       pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL);
   VERIFY_IS_NOT_NULL(pPartHeader);
@@ -1407,7 +1408,8 @@ TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
   pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  pHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pHeader = hlsl::IsDxilContainerLike(pNewProgram->GetBufferPointer(), pNewProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pHeader, pNewProgram->GetBufferSize()));
   pPartHeader = hlsl::GetDxilPartByType(
       pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL);
   VERIFY_IS_NULL(pPartHeader);
@@ -1442,8 +1444,8 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 
   CComPtr<IDxcBlob> pNewProgram;
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  hlsl::DxilContainerHeader *pContainerHeader =
-    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(pNewProgram->GetBufferPointer(), pNewProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pNewProgram->GetBufferSize()));
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
   VERIFY_IS_NOT_NULL(pPartHeader);
@@ -1461,8 +1463,8 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 
   pNewProgram.Release();
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  pContainerHeader =
-    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pContainerHeader = hlsl::IsDxilContainerLike(pNewProgram->GetBufferPointer(), pNewProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pNewProgram->GetBufferSize()));
   pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
   VERIFY_IS_NULL(pPartHeader);
@@ -1518,8 +1520,8 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
 
   CComPtr<IDxcBlob> pNewProgram;
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  hlsl::DxilContainerHeader *pContainerHeader =
-    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(pNewProgram->GetBufferPointer(), pNewProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pNewProgram->GetBufferSize()));
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_ShaderDebugName);
   VERIFY_IS_NOT_NULL(pPartHeader);
@@ -1538,8 +1540,8 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
 
   pNewProgram.Release();
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
-  pContainerHeader =
-    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pContainerHeader = hlsl::IsDxilContainerLike(pNewProgram->GetBufferPointer(), pNewProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pNewProgram->GetBufferSize()));
   pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_ShaderDebugName);
   VERIFY_IS_NULL(pPartHeader);
@@ -1565,8 +1567,8 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   VERIFY_SUCCEEDED(status);
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   VERIFY_IS_NOT_NULL(pProgram);
-  hlsl::DxilContainerHeader *pContainerHeader =
-      (hlsl::DxilContainerHeader *)(pProgram->GetBufferPointer());
+  hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pProgram->GetBufferSize()));
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
       pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NOT_NULL(pPartHeader);
@@ -1580,7 +1582,8 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_RootSignature));
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgramRootSigRemoved));
-  pContainerHeader = (hlsl::DxilContainerHeader *)(pProgramRootSigRemoved->GetBufferPointer());
+  pContainerHeader = hlsl::IsDxilContainerLike(pProgramRootSigRemoved->GetBufferPointer(), pProgramRootSigRemoved->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pProgramRootSigRemoved->GetBufferSize()));
   hlsl::DxilPartHeader *pPartHeaderShouldBeNull = hlsl::GetDxilPartByType(pContainerHeader,
                                         hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NULL(pPartHeaderShouldBeNull);
@@ -1599,7 +1602,8 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   pBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature, pRootSignatureBlob);
   pBuilder->SerializeContainer(&pResult);
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgramRootSigAdded));
-  pContainerHeader = (hlsl::DxilContainerHeader *)(pProgramRootSigAdded->GetBufferPointer());
+  pContainerHeader = hlsl::IsDxilContainerLike(pProgramRootSigAdded->GetBufferPointer(), pProgramRootSigAdded->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pProgramRootSigAdded->GetBufferSize()));
   pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
                                         hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NOT_NULL(pPartHeader);

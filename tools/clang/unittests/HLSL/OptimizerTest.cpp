@@ -24,9 +24,9 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
-#include "HLSLTestData.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HLSLTestData.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/Support/Global.h"

@@ -233,6 +233,7 @@ public:
 };
 HRESULT CreateMemoryStream(_In_ IMalloc *pMalloc, _COM_Outptr_ AbstractMemoryStream** ppResult) throw();
 HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** ppResult) throw();
+HRESULT CreateFixedSizeMemoryStream(_In_ LPBYTE pBuffer, size_t size, _COM_Outptr_ AbstractMemoryStream** ppResult) throw();
 
 template <typename T>
 HRESULT WriteStreamValue(AbstractMemoryStream *pStream, const T& value) {

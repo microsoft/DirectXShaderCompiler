@@ -1332,6 +1332,114 @@ public:
   }
 };
 
+class FixedSizeMemoryStream : public AbstractMemoryStream {
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  LPBYTE m_pBuffer;
+  ULONG m_offset;
+  ULONG m_size;
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(FixedSizeMemoryStream)
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+    return DoBasicQueryInterface<IStream, ISequentialStream>(this, iid, ppvObject);
+  }
+
+  void Init(LPBYTE pBuffer, size_t size) {
+    m_pBuffer = pBuffer;
+    m_offset = 0;
+    m_size = size;
+  }
+
+  // ISequentialStream implementation.
+  HRESULT STDMETHODCALLTYPE Read(void *pv, ULONG cb, ULONG *pcbRead) override {
+    if (!pv || !pcbRead)
+      return E_POINTER;
+    ULONG cbLeft = m_size - m_offset;
+    *pcbRead = std::min(cb, cbLeft);
+    memcpy(pv, m_pBuffer + m_offset, *pcbRead);
+    m_offset += *pcbRead;
+    return (*pcbRead == cb) ? S_OK : S_FALSE;
+  }
+
+  HRESULT STDMETHODCALLTYPE Write(void const *pv, ULONG cb, ULONG *pcbWritten) override {
+    if (!pv || !pcbWritten)
+      return E_POINTER;
+    ULONG cbLeft = m_size - m_offset;
+    *pcbWritten = std::min(cb, cbLeft);
+    memcpy(m_pBuffer + m_offset, pv, *pcbWritten);
+    m_offset += *pcbWritten;
+    return (*pcbWritten == cb) ? S_OK : S_FALSE;
+  }
+
+  // IStream implementation.
+  HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) override {
+    return STG_E_ACCESSDENIED;
+  }
+
+  HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER, 
+    ULARGE_INTEGER *, ULARGE_INTEGER *) override {
+    return E_NOTIMPL;
+  }
+
+  HRESULT STDMETHODCALLTYPE Commit(DWORD) override { return E_NOTIMPL; }
+
+  HRESULT STDMETHODCALLTYPE Revert(void) override { return E_NOTIMPL; }
+
+  HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
+    ULARGE_INTEGER, DWORD) override {
+    return E_NOTIMPL;
+  }
+
+  HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
+    ULARGE_INTEGER, DWORD) override {
+    return E_NOTIMPL;
+  }
+
+  HRESULT STDMETHODCALLTYPE Clone(IStream **) override { return E_NOTIMPL; }
+
+  HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER, DWORD, ULARGE_INTEGER *) override {
+    return E_NOTIMPL;
+  }
+ 
+  HRESULT STDMETHODCALLTYPE Stat(STATSTG *pStatstg,
+    DWORD grfStatFlag) override {
+    if (pStatstg == nullptr) {
+      return E_POINTER;
+    }
+    ZeroMemory(pStatstg, sizeof(*pStatstg));
+    pStatstg->type = STGTY_STREAM;
+    pStatstg->cbSize.u.LowPart = m_size;
+    return S_OK;
+  }
+
+  // AbstractMemoryStream implementation
+  LPBYTE GetPtr() throw() override {
+    return m_pBuffer;
+  }
+
+  ULONG GetPtrSize() throw() override {
+    return m_size;
+  }
+
+  LPBYTE Detach() throw() override {
+    LPBYTE result = m_pBuffer;
+    m_pBuffer = nullptr;
+    m_size = 0;
+    m_offset = 0;
+    return result;
+  }
+
+  UINT64 GetPosition() throw() override {
+    return m_offset;
+  }
+
+  HRESULT Reserve(ULONG targetSize) throw() override {
+    return targetSize <= m_size ? S_OK : E_BOUNDS;
+  }
+};
+
 HRESULT CreateMemoryStream(_In_ IMalloc *pMalloc, _COM_Outptr_ AbstractMemoryStream** ppResult) throw() {
   if (pMalloc == nullptr || ppResult == nullptr) {
     return E_POINTER;
@@ -1350,6 +1458,19 @@ HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** 
   CComPtr<ReadOnlyBlobStream> stream = ReadOnlyBlobStream::Alloc(DxcGetThreadMallocNoRef());
   if (stream.p) {
     stream->Init(pSource);
+  }
+  *ppResult = stream.Detach();
+  return (*ppResult == nullptr) ? E_OUTOFMEMORY : S_OK;
+}
+
+HRESULT CreateFixedSizeMemoryStream(_In_ LPBYTE pBuffer, size_t size, _COM_Outptr_ AbstractMemoryStream** ppResult) throw() {
+  if (pBuffer == nullptr || ppResult == nullptr) {
+    return E_POINTER;
+  }
+
+  CComPtr<FixedSizeMemoryStream> stream = FixedSizeMemoryStream::Alloc(DxcGetThreadMallocNoRef());
+  if (stream.p) {
+    stream->Init(pBuffer, size);
   }
   *ppResult = stream.Detach();
   return (*ppResult == nullptr) ? E_OUTOFMEMORY : S_OK;
