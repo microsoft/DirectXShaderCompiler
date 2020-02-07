@@ -91,6 +91,7 @@ target_link_libraries(clang-hlsl-tests PRIVATE
 else(WIN32)
 target_link_libraries(clang-hlsl-tests
   dxcompiler
+  HLSLTestLib
   )
 endif(WIN32)
 

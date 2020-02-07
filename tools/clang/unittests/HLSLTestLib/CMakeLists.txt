@@ -18,6 +18,8 @@ add_clang_library(HLSLTestLib
   DxcTestUtils.cpp
   FileCheckForTest.cpp
 )
+include_directories(${DXC_GTEST_DIR}/googletest/include)
+include_directories(${DXC_GTEST_DIR}/googlemock/include)
 endif(WIN32)
 
 add_dependencies(HLSLTestLib TablegenHLSLOptions)

@@ -11,10 +11,10 @@
 
 #pragma once
 
-#include "dxc\Support\Global.h"
-#include "dxc\Support\WinAdapter.h"
-#include "dxc\DxilContainer\DxilContainer.h"
-#include "dxc\DxilContainer\DxilContainerReader.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinAdapter.h"
+#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainerReader.h"
 
 namespace hlsl {
 
