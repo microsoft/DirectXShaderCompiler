@@ -509,14 +509,15 @@ public:
 
       // Formerly API values.
       const char *pUtf8SourceName = opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
-      CA2W pUtf16SourceName(pUtf8SourceName);
+      CA2W pUtf16SourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint = opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing
                                     ? opts.Preprocess.data()
                                     : opts.OutputObject.empty()
                                       ? "" : opts.OutputObject.data();
       CA2W pUtf16OutputName(isPreprocessing ?
-                            opts.Preprocess.data() : pUtf8OutputName);
+                              opts.Preprocess.data() : pUtf8OutputName,
+                            CP_UTF8);
       LPCWSTR pObjectName = (!isPreprocessing && opts.OutputObject.empty()) ?
                             nullptr : pUtf16OutputName.m_psz;
       IFT(primaryOutput.SetName(pObjectName));

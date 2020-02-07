@@ -353,7 +353,7 @@ STDMETHODIMP dxil_dia::Session::findInjectedSource(
   /* [in] */ LPCOLESTR srcFile,
   /* [out] */ IDiaEnumInjectedSources **ppResult) {
   if (Contents() != nullptr) {
-    CW2A pUtf8FileName(srcFile);
+    CW2A pUtf8FileName(srcFile, CP_UTF8);
     DxcThreadMalloc TM(m_pMalloc);
     IDiaTable *pTable;
     IFT(Table::Create(this, Table::Kind::InjectedSource, &pTable));
