@@ -63,11 +63,9 @@ set(HLSL_IGNORE_SOURCES
 
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
-  DxcTestUtils.cpp
   DxilModuleTest.cpp
   DXIsenseTest.cpp
   ExtensionTest.cpp
-  FileCheckForTest.cpp
   FunctionTest.cpp
   HLSLTestOptions.cpp
   Objects.cpp
@@ -93,6 +91,7 @@ target_link_libraries(clang-hlsl-tests PRIVATE
 else(WIN32)
 target_link_libraries(clang-hlsl-tests
   dxcompiler
+  HLSLTestLib
   )
 endif(WIN32)
 
