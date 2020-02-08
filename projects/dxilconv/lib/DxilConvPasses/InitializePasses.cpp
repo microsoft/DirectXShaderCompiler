@@ -31,7 +31,7 @@ void __cdecl initializeDxilConvPasses(PassRegistry &Registry) {
 }
 
 namespace hlsl {
-HRESULT SetupRegistryPassForHLSLInternal() {
+HRESULT SetupRegistryPassForDxilConvPasses() {
   try
   {
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
