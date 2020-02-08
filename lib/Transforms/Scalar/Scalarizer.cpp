@@ -331,6 +331,14 @@ Scatterer Scalarizer::scatter(Instruction *Point, Value *V) {
                      V, AllowFolding, &Scattered[V]);
 #endif // HLSL Change
   }
+  // HLSL Change - Begin
+  // Allow constant folding for Constant cases, so we don't
+  // place instructions before a PHI node.
+  if (Constant *C = dyn_cast<Constant>(V)) {
+    return Scatterer(Point->getParent(), Point,
+                     V, /* allowFolding */ true, &Scattered[V]);
+  }
+  // HLSL Change - End
   // In the fallback case, just put the scattered before Point and
   // keep the result local to Point.
   // return Scatterer(Point->getParent(), Point, V); // HLSL Change
