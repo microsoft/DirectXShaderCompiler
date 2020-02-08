@@ -40,6 +40,9 @@ add_llvm_tool(opt
 target_link_libraries(opt
    DxilConvPasses
 )
+
+add_dependencies(opt DxilConvPasses)
+
 export_executable_symbols(opt)
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
