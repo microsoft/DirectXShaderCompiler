@@ -14,9 +14,6 @@
 typedef D3D_NAME D3D10_NAME;
 typedef D3D_REGISTER_COMPONENT_TYPE D3D10_REGISTER_COMPONENT_TYPE;
 
-//
-// Copied from internal d3d10shaderp.h
-//
 
 typedef struct _D3D11_INTERNALSHADER_PARAMETER_FOR_GS
 {
