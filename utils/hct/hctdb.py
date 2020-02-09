@@ -2662,6 +2662,7 @@ class db_hlsl(object):
             "sampler_cube": "LICOMPTYPE_SAMPLERCUBE",
             "sampler_cmp": "LICOMPTYPE_SAMPLERCMP",
             "sampler": "LICOMPTYPE_SAMPLER",
+            "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc" : "LICOMPTYPE_RAYDESC",
             "acceleration_struct" : "LICOMPTYPE_ACCELERATION_STRUCT",
             "udt" : "LICOMPTYPE_USER_DEFINED_TYPE",

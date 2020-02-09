@@ -5140,6 +5140,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
     {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_GetResourceFromHeap, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_HitKind, TrivialNoArgWithRetOperation, DXIL::OpCode::HitKind},

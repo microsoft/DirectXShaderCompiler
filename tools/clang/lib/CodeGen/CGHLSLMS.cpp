@@ -7302,6 +7302,15 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
       CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
       return;
     }
+  } else if (dxilutil::IsHLSLResourceDescType(SrcPtrTy) &&
+             dxilutil::IsHLSLResourceType(DestPtrTy)) {
+    // Cast resource desc to resource.
+    Value *CastPtr = CGF.Builder.CreatePointerCast(SrcPtr, DestPtr->getType());
+    // Load resource.
+    Value *V = CGF.Builder.CreateLoad(CastPtr);
+    // Store to resource ptr.
+    CGF.Builder.CreateStore(V, DestPtr);
+    return;
   } else if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
              dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);

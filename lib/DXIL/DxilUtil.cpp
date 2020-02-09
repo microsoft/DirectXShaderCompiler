@@ -602,6 +602,19 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
   return false;
 }
 
+bool IsHLSLResourceDescType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    // TODO: don't check names.
+    if (name == ("struct.Resource"))
+      return true;
+  }
+  return false;
+}
+
 bool IsIntegerOrFloatingPointType(llvm::Type *Ty) {
   return Ty->isIntegerTy() || Ty->isFloatingPointTy();
 }
