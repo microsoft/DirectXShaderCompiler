@@ -9,6 +9,7 @@ add_llvm_library(LLVMDXIL
   DxilOperations.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
+  DxilResourceProperties.cpp
   DxilSampler.cpp
   DxilSemantic.cpp
   DxilShaderFlags.cpp

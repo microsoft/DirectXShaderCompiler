@@ -36,6 +36,7 @@ enum class HLOpcodeGroup {
   HLMatLoadStore,
   HLSelect,
   HLCreateHandle,
+  HLAnnotateHandle,
   NumOfHLOps
 };
 

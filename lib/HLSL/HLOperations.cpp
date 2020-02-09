@@ -38,6 +38,7 @@ static StringRef HLOpcodeGroupNames[]{
     "matldst",     // HLMatLoadStore,
     "select",      // HLSelect,
     "createhandle",// HLCreateHandle,
+    "annotatehandle" // HLAnnotateHandle,
     "numOfHLDXIL", // NumOfHLOps
 };
 
@@ -53,6 +54,7 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.matldst",   // HLMatLoadStore,
     "dx.hl.select",    // HLSelect,
     "dx.hl.createhandle",  // HLCreateHandle,
+    "dx.hl.annotatehandle",      // HLAnnotateHandle,
     "numOfHLDXIL",     // NumOfHLOps
 };
 
@@ -83,6 +85,8 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       }
     case 'm': // matldst
       return HLOpcodeGroup::HLMatLoadStore;
+    case 'a': // annotatehandle
+      return HLOpcodeGroup::HLAnnotateHandle;
     }
   }
   return HLOpcodeGroup::NotHL;
@@ -133,6 +137,7 @@ StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLAnnotateHandle:
     return HLOpcodeGroupNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -151,6 +156,7 @@ StringRef GetHLOpcodeGroupFullName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLAnnotateHandle:
     return HLOpcodeGroupFullNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -432,6 +438,10 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     F->addFnAttr(Attribute::NoUnwind);
     F->addFnAttr(Attribute::NoInline);
     F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
+  } break;
+  case HLOpcodeGroup::HLAnnotateHandle: {
+    F->addFnAttr(Attribute::ReadNone);
+    F->addFnAttr(Attribute::NoUnwind);
   } break;
   case HLOpcodeGroup::NotHL:
   case HLOpcodeGroup::HLExtIntrinsic:

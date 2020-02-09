@@ -47,6 +47,7 @@
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilGenerationPass.h" // support pause/resume passes
 #include "dxc/HLSL/DxilExportMap.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -106,6 +107,14 @@ private:
   llvm::DenseMap<llvm::Constant *,
                  llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
       constantRegBindingMap;
+
+  // Map from type to resource properties.
+  // This only has info about type, globalcoherent is saved in
+  // globalCoherentSet.
+  DenseMap<llvm::Type *, DxilResourceProperties> typeToResPropertiesMap;
+
+  // Set to mark globalcoherent.
+  DenseSet<Value *> globalCoherentSet;
 
   bool  m_bDebugInfo;
   bool  m_bIsLib;
@@ -228,6 +237,12 @@ private:
   // save intrinsic opcode
   std::vector<std::pair<Function *, unsigned>> m_IntrinsicMap;
   void AddHLSLIntrinsicOpcodeToFunction(Function *, unsigned opcode);
+  void AddOpcodeParamForIntrinsics(
+      HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
+      std::unordered_map<llvm::Type *, MDNode *> &resMetaMap);
+  void AddOpcodeParamForIntrinsic(
+      HLModule &HLM, Function *F, unsigned opcode, llvm::Type *HandleTy,
+      std::unordered_map<llvm::Type *, MDNode *> &resMetaMap);
 
   // Type annotation related.
   unsigned ConstructStructAnnotation(DxilStructAnnotation *annotation,
@@ -236,6 +251,7 @@ private:
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
                              unsigned &arrayEltSize);
   MDNode *GetOrAddResTypeMD(QualType resTy);
+  DxilResourceProperties BuildResourceProperty(QualType resTy);
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
                                           QualType fieldTy,
                                           bool bDefaultRowMajor);
@@ -802,6 +818,123 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   }
 }
 
+DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
+  const RecordType *RT = resTy->getAs<RecordType>();
+  DxilResourceProperties RP;
+  if (!RT) {
+    RP.Class = DXIL::ResourceClass::Invalid;
+    return RP;
+  }
+  RecordDecl *RD = RT->getDecl();
+  SourceLocation loc = RD->getLocation();
+
+  hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
+  llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
+
+  auto it = typeToResPropertiesMap.find(Ty);
+  if (it != typeToResPropertiesMap.end())
+    return it->second;
+
+  // llvm::Type *RetTy = cast<StructType>(Ty)->getElementType(0);
+  // Anno.RetType = RetTy;
+  auto SetResProperties = [&RP](DxilResource &Res) {
+    switch (Res.GetKind()) {
+    default:
+      break;
+    case DXIL::ResourceKind::FeedbackTexture2D:
+    case DXIL::ResourceKind::FeedbackTexture2DArray:
+      RP.SamplerFeedbackType = Res.GetSamplerFeedbackType();
+      break;
+    case DXIL::ResourceKind::RTAccelerationStructure:
+
+      break;
+    case DXIL::ResourceKind::StructuredBuffer:
+    case DXIL::ResourceKind::StructuredBufferWithCounter:
+      RP.ElementStride = Res.GetElementStride();
+      break;
+    case DXIL::ResourceKind::TypedBuffer:
+      RP.Typed.CompType = Res.GetCompType().GetKind();
+      break;
+    case DXIL::ResourceKind::Texture2DMS:
+    case DXIL::ResourceKind::Texture2DMSArray:
+      RP.Typed.CompType = Res.GetCompType().GetKind();
+      switch (Res.GetSampleCount()) {
+      default:
+        RP.Typed.SampleCountPow2 =
+            DxilResourceProperties::kSampleCountUndefined;
+        break;
+      case 1:
+        RP.Typed.SampleCountPow2 = 0;
+        break;
+      case 2:
+        RP.Typed.SampleCountPow2 = 1;
+        break;
+      case 4:
+        RP.Typed.SampleCountPow2 = 2;
+        break;
+      case 8:
+        RP.Typed.SampleCountPow2 = 3;
+        break;
+      case 16:
+        RP.Typed.SampleCountPow2 = 4;
+        break;
+      case 32:
+        RP.Typed.SampleCountPow2 = 5;
+        break;
+      }
+      break;
+    case DXIL::ResourceKind::Texture1D:
+    case DXIL::ResourceKind::Texture2D:
+    case DXIL::ResourceKind::TextureCube:
+    case DXIL::ResourceKind::Texture1DArray:
+    case DXIL::ResourceKind::Texture2DArray:
+    case DXIL::ResourceKind::TextureCubeArray:
+    case DXIL::ResourceKind::Texture3D:
+      RP.Typed.CompType = Res.GetCompType().GetKind();
+      break;
+    }
+  };
+  // Save resource type metadata.
+  switch (resClass) {
+  case DXIL::ResourceClass::UAV: {
+    DxilResource UAV;
+    // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
+    SetUAVSRV(loc, resClass, &UAV, resTy);
+
+    RP.Kind = UAV.GetKind();
+    RP.Class = UAV.GetClass();
+    RP.UAV.bGloballyCoherent = false;
+    if (UAV.HasCounter()) {
+      RP.Kind = DXIL::ResourceKind::StructuredBufferWithCounter;
+    }
+    RP.UAV.bROV = UAV.IsROV();
+    SetResProperties(UAV);
+    typeToResPropertiesMap[Ty] = RP;
+  } break;
+  case DXIL::ResourceClass::SRV: {
+    DxilResource SRV;
+    SetUAVSRV(loc, resClass, &SRV, resTy);
+    RP.Kind = SRV.GetKind();
+    RP.Class = SRV.GetClass();
+    SetResProperties(SRV);
+    typeToResPropertiesMap[Ty] = RP;
+  } break;
+  case DXIL::ResourceClass::Sampler: {
+    DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
+
+    RP.Class = DXIL::ResourceClass::Sampler;
+    RP.Kind = DXIL::ResourceKind::Sampler;
+    if (kind == DXIL::SamplerKind::Comparison)
+      RP.Kind = DXIL::ResourceKind::SamplerComparison;
+
+    typeToResPropertiesMap[Ty] = RP;
+  }
+  default:
+    break;
+  }
+  return RP;
+}
+
 namespace {
 MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
   DXASSERT(hlsl::IsHLSLMatType(Ty), "");
@@ -1182,6 +1315,16 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   };
 
+  auto AddHandleAnnotation = [&](QualType qTy, llvm::Type *Ty) {
+    hlsl::DxilResourceBase::Class resClass = TypeToClass(qTy);
+    if (resClass != hlsl::DxilResourceBase::Class::Invalid) {
+      if (!typeToResPropertiesMap.count(Ty)) {
+        DxilResourceProperties RP = BuildResourceProperty(qTy);
+        typeToResPropertiesMap[Ty] = RP;
+      }
+    }
+  };
+
   if (hlsl::GetIntrinsicOp(FD, intrinsicOpcode, intrinsicGroup)) {
     AddHLSLIntrinsicOpcodeToFunction(F, intrinsicOpcode);
     F->addFnAttr(hlsl::HLPrefix, intrinsicGroup);
@@ -1200,6 +1343,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       QualType recordTy = MD->getASTContext().getRecordType(RD);
       llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
       AddResourceMetadata(recordTy, Ty);
+      AddHandleAnnotation(recordTy, Ty);
     }
 
     // Add metadata for any resources found in parameters
@@ -1210,6 +1354,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Ty = Ty->getPointerElementType();
       QualType paramTy = FD->getParamDecl(iParam)->getType();
       AddResourceMetadata(paramTy, Ty);
+      AddHandleAnnotation(paramTy, Ty);
     }
 
     StringRef lower;
@@ -2330,6 +2475,10 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
   AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
+  if (D.hasAttr<HLSLGloballyCoherentAttr>()) {
+    // TODO: support glc in struct element.
+    globalCoherentSet.insert(V);
+  }
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -3959,7 +4108,96 @@ static Value *CreateHandleFromResPtr(
   return Handle;
 }
 
-static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
+namespace {
+
+Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
+                            DxilResourceProperties &RP, llvm::Type *ResTy,
+                            IRBuilder<> &Builder, bool bGLC) {
+  if (bGLC) {
+    DXASSERT(RP.Class == DXIL::ResourceClass::UAV, "glc should on uav");
+    RP.UAV.bGloballyCoherent = true;
+  }
+
+  Constant *RPConstant = resource_helper::getAsConstant(
+      RP, HLM.GetOP()->GetResourcePropertiesType(), *HLM.GetShaderModel());
+  return HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLAnnotateHandle,
+      (unsigned)HLOpcodeGroup::HLAnnotateHandle, Handle->getType(),
+      {Handle, Builder.getInt8((uint8_t)RP.Class),
+       Builder.getInt8((uint8_t)RP.Kind), RPConstant, UndefValue::get(ResTy)},
+      *HLM.GetModule());
+}
+
+void LowerGetResourceFromHeap(
+    HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap) {
+  llvm::Module &M = *HLM.GetModule();
+  llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
+  unsigned GetResFromHeapOp =
+      static_cast<unsigned>(IntrinsicOp::IOP_GetResourceFromHeap);
+  DenseMap<Instruction *, Instruction *> ResourcePtrToHandlePtrMap;
+
+  for (auto it : intrinsicMap) {
+    unsigned opcode = it.second;
+    if (opcode != GetResFromHeapOp)
+      continue;
+    Function *F = it.first;
+    for (auto uit = F->user_begin(); uit != F->user_end();) {
+      CallInst *CI = cast<CallInst>(*(uit++));
+      Instruction *ResPtr = cast<Instruction>(CI->getArgOperand(0));
+      Value *Index = CI->getArgOperand(1);
+      IRBuilder<> Builder(CI);
+      // Make a handle from GetResFromHeap.
+      Value *Handle =
+          HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLIntrinsic,
+                                  GetResFromHeapOp, HandleTy, {Index}, M);
+
+      // Find the handle ptr for res ptr.
+      auto it = ResourcePtrToHandlePtrMap.find(ResPtr);
+      Instruction *HandlePtr = nullptr;
+      if (it != ResourcePtrToHandlePtrMap.end()) {
+        HandlePtr = it->second;
+      } else {
+        IRBuilder<> AllocaBuilder(
+            ResPtr->getParent()->getParent()->getEntryBlock().begin());
+        HandlePtr = AllocaBuilder.CreateAlloca(HandleTy);
+        ResourcePtrToHandlePtrMap[ResPtr] = HandlePtr;
+      }
+      // Store handle to handle ptr.
+      Builder.CreateStore(Handle, HandlePtr);
+      CI->eraseFromParent();
+    }
+  }
+
+  // Replace load of Resource ptr into load of handel ptr.
+  for (auto it : ResourcePtrToHandlePtrMap) {
+    Instruction *resPtr = it.first;
+    Instruction *handlePtr = it.second;
+
+    for (auto uit = resPtr->user_begin(); uit != resPtr->user_end();) {
+      User *U = *(uit++);
+      BitCastInst *BCI = cast<BitCastInst>(U);
+      DXASSERT(
+          dxilutil::IsHLSLResourceType(BCI->getType()->getPointerElementType()),
+          "illegal cast of resource ptr");
+      for (auto cuit = BCI->user_begin(); cuit != BCI->user_end();) {
+        LoadInst *LI = cast<LoadInst>(*(cuit++));
+        IRBuilder<> Builder(LI);
+        Value *Handle = Builder.CreateLoad(handlePtr);
+        Value *Res =
+            HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
+                                    (unsigned)HLCastOpcode::HandleToResCast,
+                                    LI->getType(), {Handle}, M);
+        LI->replaceAllUsesWith(Res);
+        LI->eraseFromParent();
+      }
+      BCI->eraseFromParent();
+    }
+    resPtr->eraseFromParent();
+  }
+}
+} // namespace
+
+void CGMSHLSLRuntime::AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
                                        unsigned opcode, llvm::Type *HandleTy,
     std::unordered_map<llvm::Type *, MDNode*> &resMetaMap) {
   llvm::Module &M = *HLM.GetModule();
@@ -4130,6 +4368,10 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
           }
           Value *Handle = CreateHandleFromResPtr(arg, HLM, HandleTy,
                                                  resMetaMap, Builder);
+          llvm::Type *ResTy = arg->getType()->getPointerElementType();
+          bool bGLC = globalCoherentSet.count(arg);
+          DxilResourceProperties RP = typeToResPropertiesMap[ResTy];
+          Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, Builder, bGLC);
           opcodeParamList[i] = Handle;
         }
       }
@@ -4155,7 +4397,8 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
   F->eraseFromParent();
 }
 
-static void AddOpcodeParamForIntrinsics(HLModule &HLM
+void CGMSHLSLRuntime::AddOpcodeParamForIntrinsics(
+    HLModule &HLM
     , std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
     std::unordered_map<llvm::Type *, MDNode*> &resMetaMap) {
   llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
@@ -5262,6 +5505,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       props.ShaderProps.VS.clipPlanes[i] = GV;
     }
   }
+
+  // Lower getResourceHeap.
+  LowerGetResourceFromHeap(*m_pHLModule, m_IntrinsicMap);
 
   // Add Reg bindings for resource in cb.
   AddRegBindingsForResourceInConstantBuffer(m_pHLModule, constantRegBindingMap);
