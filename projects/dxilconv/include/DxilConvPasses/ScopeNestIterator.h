@@ -126,6 +126,7 @@ private: // Interface
     {
         // Must advance iterator to first element. Should always succeed.
         bool ok = GetNextElement();
+        (void)(ok); // avoid release-build warning
         DXASSERT_NOMSG(ok);
     }
 
@@ -834,6 +835,7 @@ private: // ScopeNestIterator Implementation
                 // us to move from the stack again. Indicates some problem with the
                 // state transition.
                 BranchKind Kind = annotation.Get();
+                (void)(Kind); // avoid release-build warning
                 DXASSERT_NOMSG(Kind != BranchKind::IfEnd &&
                        Kind != BranchKind::LoopBackEdge &&
                        Kind != BranchKind::LoopExit &&

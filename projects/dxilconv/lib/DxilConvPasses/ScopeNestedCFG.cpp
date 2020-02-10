@@ -45,7 +45,6 @@ using std::set;
 
 #define SNCFG_DBG   0
 
-
 //===----------------------------------------------------------------------===//
 //                    ScopeNested CFG Transformation
 //===----------------------------------------------------------------------===//
@@ -393,6 +392,7 @@ bool ScopeNestedCFG::runOnFunction(Function &F) {
     BasicBlock *pHeader = pLoop->getHeader();
     LoopItem LI = m_LoopMap[pHeader];
     BasicBlock *pLatch = LI.pLL;
+    (void)(pLatch);
     DXASSERT_NOMSG(pLatch->getTerminator()->getNumSuccessors() == 1 && pLatch->getTerminator()->getSuccessor(0) == pHeader);
 
     m_pLoopHeader = pHeader;
@@ -548,7 +548,8 @@ void ScopeNestedCFG::AnnotateBranch(BasicBlock *pBB, BranchKind Kind) {
     ConstantAsMetadata *p1 = dyn_cast<ConstantAsMetadata>(pMD->getOperand(0));
     ConstantInt *pVal = dyn_cast<ConstantInt>(p1->getValue());
     BranchKind OldKind = (BranchKind)pVal->getZExtValue();
-    DXASSERT(OldKind == Kind || 
+    (void)(OldKind);
+    DXASSERT(OldKind == Kind ||
              (OldKind == BranchKind::IfBegin && Kind == BranchKind::IfNoEnd) ||
              (OldKind == BranchKind::IfNoEnd && Kind == BranchKind::IfBegin),
              "the algorithm should not be changing branch types implicitly (unless it is an if)");
@@ -837,6 +838,7 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
 void ScopeNestedCFG::SanitizeLoopContinues(Loop *pLoop) {
   BasicBlock *pLatch = pLoop->getLoopLatch();
   TerminatorInst *pLatchTI = pLatch->getTerminator();
+  (void)(pLatchTI);
   DXASSERT_NOMSG(dyn_cast<BranchInst>(pLatchTI) != nullptr && pLatchTI->getNumSuccessors() == 1 && (&*pLatch->begin()) == pLatchTI);
 
   // Collect continue BBs.
@@ -852,6 +854,7 @@ void ScopeNestedCFG::SanitizeLoopContinues(Loop *pLoop) {
     BasicBlock *pPredBB = LatchPredBBs[i];
 
     BasicBlock *pContinue = SplitEdge(pPredBB, pLatch, "dx.LoopContinue", pLoop, nullptr);
+    (void)(pContinue);
     DXASSERT_NOMSG(pContinue->getTerminator()->getNumSuccessors() == 1);
     DXASSERT_NOMSG((++pred_begin(pContinue)) == pred_end(pContinue));
   }
@@ -1234,6 +1237,7 @@ void ScopeNestedCFG::DetermineSwitchBreaks(BasicBlock *pSwitchBegin,
                                            SwitchBreaksMap &SwitchBreaks) {
   DXASSERT_NOMSG(SwitchBreaks.empty());
   TerminatorInst *pTI = pSwitchBegin->getTerminator();
+  (void)(pTI);
   DXASSERT_NOMSG(dyn_cast<SwitchInst>(pTI) != nullptr);
 
   auto it = ScopeEndPoints.find(pSwitchBegin);

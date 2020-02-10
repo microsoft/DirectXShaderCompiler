@@ -354,7 +354,9 @@ int __cdecl main(int argc, char **argv) {
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
   // HLSL Change Starts
   initializeReducibilityAnalysisPass(Registry);
+#ifdef _WIN32
   initializeDxilConvPasses(Registry);
+#endif
   // HLSL Change Ends
 
 #ifdef LINK_POLLY_INTO_TOOLS

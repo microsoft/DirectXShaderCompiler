@@ -37,11 +37,12 @@ add_llvm_tool(opt
   opt.cpp
 )
 
+if(WIN32)
 target_link_libraries(opt
    DxilConvPasses
 )
-
 add_dependencies(opt DxilConvPasses)
+endif(WIN32)
 
 export_executable_symbols(opt)
 
