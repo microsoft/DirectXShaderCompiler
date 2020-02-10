@@ -23,7 +23,6 @@ required_libraries =
  AsmParser
  BitReader
  BitWriter
- DXIL
  HLSL
  IRReader
  IPO
