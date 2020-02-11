@@ -4,11 +4,14 @@ set(LLVM_LINK_COMPONENTS
   BitWriter
 #  CodeGen # HLSL Change
   Core
+  DXIL # HLSL Change
+  HLSL # HLSL Change
   IPA
   IPO
   IRReader
   InstCombine
 #  Instrumentation # HLSL Change
+  Passes # HLSL Change
 #  MC # HLSL Change
 #  ObjCARCOpts # HLSL Change
   Passes
@@ -18,7 +21,7 @@ set(LLVM_LINK_COMPONENTS
   Target
   TransformUtils
   Vectorize
-  )
+)
 
 # Support plugins.
 set(LLVM_NO_DEAD_STRIP 1)
@@ -32,14 +35,16 @@ add_llvm_tool(opt
   NewPMDriver.cpp
   PrintSCC.cpp
   opt.cpp
-  )
-export_executable_symbols(opt)
+)
 
-# HLSL Change Starts
-if (NOT HLSL_OPTIONAL_PROJS_IN_DEFAULT)
-  set_target_properties(opt PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
-endif ()
-# HLSL Change Ends
+if(WIN32)
+target_link_libraries(opt
+   DxilConvPasses
+)
+add_dependencies(opt DxilConvPasses)
+endif(WIN32)
+
+export_executable_symbols(opt)
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(opt Polly)
