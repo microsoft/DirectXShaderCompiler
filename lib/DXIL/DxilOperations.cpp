@@ -384,6 +384,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Inline Ray Query                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::RayQuery_CandidateInstanceContributionToHitGroupIndex, "RayQuery_CandidateInstanceContributionToHitGroupIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
   {  OC::RayQuery_CommittedInstanceContributionToHitGroupIndex, "RayQuery_CommittedInstanceContributionToHitGroupIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+
+  // Get handle from heap                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -810,6 +814,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Mesh);
     return;
   }
+  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217
+  if ((216 <= op && op <= 217)) {
+    major = 6;  minor = 6;
+    return;
+  }
   // OPCODE-SMMASK:END
 }
 
@@ -866,7 +875,11 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   memset(m_OpCodeClassCache, 0, sizeof(m_OpCodeClassCache));
   static_assert(_countof(OP::m_OpCodeProps) == (size_t)OP::OpCode::NumOpCodes, "forgot to update OP::m_OpCodeProps");
 
-  m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx), "dx.types.Handle", pModule);
+  m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                        "dx.types.Handle", pModule);
+  m_pResourcePropertiesType = GetOrCreateStructType(
+      m_Ctx, {Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx)},
+      "dx.types.ResourceProperties", pModule);
 
   Type *DimsType[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) };
   m_pDimensionsType = GetOrCreateStructType(m_Ctx, DimsType, "dx.types.Dimensions", pModule);
@@ -940,6 +953,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pI4S = GetInt4Type(); // 4 i32s in a struct.
   Type *udt = pOverloadType;
   Type *obj = pOverloadType;
+  Type *resProperty = GetResourcePropertiesType();
 
   std::string funcName = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
   // Add ret type to the name.
@@ -1302,6 +1316,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     // Inline Ray Query
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:A(pI32);     A(pI32); A(pI32); break;
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:A(pI32);     A(pI32); A(pI32); break;
+
+    // Get handle from heap
+  case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); break;
+  case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(pI8);  A(pI8);  A(resProperty);break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1469,6 +1487,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_Abort:
   case OpCode::RayQuery_CommitNonOpaqueTriangleHit:
   case OpCode::RayQuery_CommitProceduralPrimitiveHit:
+  case OpCode::CreateHandleFromHeap:
+  case OpCode::AnnotateHandle:
     return Type::getVoidTy(m_Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:
@@ -1565,6 +1585,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 
 Type *OP::GetHandleType() const {
   return m_pHandleType;
+}
+
+Type *OP::GetResourcePropertiesType() const {
+  return m_pResourcePropertiesType;
 }
 
 Type *OP::GetDimensionsType() const

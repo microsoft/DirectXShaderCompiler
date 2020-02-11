@@ -359,6 +359,21 @@ public:
     }
   }
 
+  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP) {
+    for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
+      Function *F = it.second;
+      if (!F)
+        continue;
+      for (auto uit = F->user_begin(); uit != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(uit++));
+        DxilInst_AnnotateHandle annoteHdl(CI);
+        Value *hdl = annoteHdl.get_res();
+        CI->replaceAllUsesWith(hdl);
+        CI->eraseFromParent();
+      }
+    }
+  }
+
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
@@ -384,6 +399,9 @@ public:
 
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      if (DxilMinor < 6) {
+        patchDxil_1_6(M, hlslOP);
+      }
       RemoveStoreUndefOutput(M, hlslOP);
 
       RemoveUnusedStaticGlobal(M);

@@ -330,6 +330,8 @@ namespace DXIL {
     RTAccelerationStructure,
     FeedbackTexture2D,
     FeedbackTexture2DArray,
+    StructuredBufferWithCounter,
+    SamplerComparison,
     NumEntries,
   };
 
@@ -411,6 +413,10 @@ namespace DXIL {
     EmitStream = 97, // emits a vertex to a given stream
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
     GSInstanceID = 100, // GSInstanceID
+  
+    // Get handle from heap
+    AnnotateHandle = 217, // create handle from descriptor
+    CreateHandleFromHeap = 216, // create resource handle from heap
   
     // Graphics shader
     ViewID = 138, // returns the view index
@@ -662,8 +668,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
+    NumOpCodes_Dxil_1_6 = 218,
   
-    NumOpCodes = 216 // exclusive last value of enumeration
+    NumOpCodes = 218 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -729,6 +736,10 @@ namespace DXIL {
     EmitStream,
     EmitThenCutStream,
     GSInstanceID,
+  
+    // Get handle from heap
+    AnnotateHandle,
+    CreateHandleFromHeap,
   
     // Graphics shader
     ViewID,
@@ -910,8 +921,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
+    NumOpClasses_Dxil_1_6 = 145,
   
-    NumOpClasses = 143 // exclusive last value of enumeration
+    NumOpClasses = 145 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

@@ -609,7 +609,7 @@ bool IsHLSLResourceDescType(llvm::Type *Ty) {
     StringRef name = ST->getName();
 
     // TODO: don't check names.
-    if (name == ("struct.Resource"))
+    if (name == ("struct..Resource"))
       return true;
   }
   return false;

@@ -852,7 +852,7 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
 CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context) {
   // struct ResourceDescriptor { uint8 desc; }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
-                                         "Resource",
+                                         ".Resource",
                                          TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
   QualType vectorType = context.getExtVectorType(context.UnsignedIntTy, 8);

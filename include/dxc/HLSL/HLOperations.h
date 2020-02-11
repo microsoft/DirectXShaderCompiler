@@ -347,6 +347,14 @@ const unsigned kWaveAllEqualValueOpIdx = 1;
 const unsigned kCreateHandleResourceOpIdx = 1;
 const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 
+// AnnotateHandle.
+const unsigned kAnnotateHandleHandleOpIdx = 1;
+const unsigned kAnnotateHandleResourceClassOpIdx = 2;
+const unsigned kAnnotateHandleResourceKindOpIdx = 3;
+const unsigned kAnnotateHandleResourcePropertiesOpIdx = 4;
+const unsigned kAnnotateHandleResourceTypeOpIdx = 5;
+
+
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;
 const unsigned kTraceRayPayLoadOpIdx = 8;

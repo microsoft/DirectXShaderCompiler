@@ -47,9 +47,12 @@ struct DxilResourceProperties {
     uint32_t RawDword1;
   };
 
+  bool operator==(const DxilResourceProperties &);
+  bool operator!=(const DxilResourceProperties &);
 };
 
 class ShaderModel;
+class DxilResourceBase;
 
 namespace resource_helper {
 llvm::Constant *getAsConstant(const DxilResourceProperties &,
@@ -59,6 +62,7 @@ DxilResourceProperties loadFromConstant(const llvm::Constant &,
                                         DXIL::ResourceKind RK,
                                         llvm::Type *Ty,
                                         const ShaderModel &);
+DxilResourceProperties loadFromResourceBase(DxilResourceBase *);
 }; // namespace resource_helper
 
 } // namespace hlsl

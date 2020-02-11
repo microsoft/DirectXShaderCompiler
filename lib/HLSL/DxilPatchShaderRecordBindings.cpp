@@ -457,7 +457,8 @@ llvm::Value *DxilPatchShaderRecordBindings::GetAliasedDescriptorHeapHandle(Modul
     
     ViewKey key = {};
     key.ViewType = (unsigned int)resKind;
-    if (resKind == DXIL::ResourceKind::StructuredBuffer)
+    if (resKind == DXIL::ResourceKind::StructuredBuffer ||
+        resKind == DXIL::ResourceKind::StructuredBufferWithCounter)
     {
       key.StructuredStride = type->getPrimitiveSizeInBits();
     } else if (resKind != DXIL::ResourceKind::RawBuffer)

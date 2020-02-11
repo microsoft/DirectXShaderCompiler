@@ -22,7 +22,7 @@ float4 main(uint2 uv : TEXCOORD, uint a : A) : SV_Target {
   if (val.x > 0) {
     tex = tex1;
   }
-  // CHECK: @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %[[handle]]
+  // CHECK: %[[annotHandle:.+]] = call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %[[handle]], i8 0, i8 2, %dx.types.ResourceProperties { i32 -858993463, i32 -858993463 })
   return tex.Load(0);
 }
 
