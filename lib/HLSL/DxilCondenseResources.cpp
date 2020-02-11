@@ -2285,6 +2285,9 @@ void PatchTBufferLoad(CallInst *handle, DxilModule &DM) {
       // TODO: Handle this, or prevent this for tbuffer
       DXASSERT(false, "otherwise CBufferLoad used for tbuffer rather than "
                       "CBufferLoadLegacy");
+    } else if (opcode == DXIL::OpCode::AnnotateHandle) {
+      DxilInst_AnnotateHandle annotateHandle(I);
+      PatchTBufferLoad(cast<CallInst>(annotateHandle.get_res()), DM);
     } else {
       DXASSERT(false, "otherwise unexpected user of CreateHandle value");
     }
@@ -2416,6 +2419,9 @@ static void CollectCBufferMemberUsage(Value *V,
         hlsl::OP::OpCode op = hlslOP->GetDxilOpFuncCallInst(CI);
         if (op == DXIL::OpCode::CreateHandleForLib) {
           CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+        } else if (op == DXIL::OpCode::AnnotateHandle) {
+          CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP,
+                                    bMinPrecision);
         } else if (op == DXIL::OpCode::CBufferLoadLegacy) {
           DxilInst_CBufferLoadLegacy cbload(CI);
           Value *resIndex = cbload.get_regIndex();

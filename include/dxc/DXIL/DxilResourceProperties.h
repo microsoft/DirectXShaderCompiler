@@ -28,9 +28,10 @@ struct DxilResourceProperties {
   union {
     struct {
       DXIL::ComponentType CompType : 5; // TypedBuffer/Image.
+      unsigned SingleComponent : 1; // Return type is single component.
       // 2^SampleCountPow2 for Sample count of Texture2DMS.
       unsigned SampleCountPow2 : 3;
-      unsigned Reserved : 24;
+      unsigned Reserved : 23;
     } Typed;
     unsigned ElementStride; // in bytes for StructurizedBuffer.
     DXIL::SamplerFeedbackType SamplerFeedbackType; // FeedbackTexture2D.
@@ -53,16 +54,29 @@ struct DxilResourceProperties {
 
 class ShaderModel;
 class DxilResourceBase;
+struct DxilInst_AnnotateHandle;
 
 namespace resource_helper {
-llvm::Constant *getAsConstant(const DxilResourceProperties &,
-                              llvm::Type *Ty, const ShaderModel &);
+llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
+                              const ShaderModel &);
 DxilResourceProperties loadFromConstant(const llvm::Constant &,
                                         DXIL::ResourceClass RC,
-                                        DXIL::ResourceKind RK,
-                                        llvm::Type *Ty,
+                                        DXIL::ResourceKind RK, llvm::Type *Ty,
                                         const ShaderModel &);
+DxilResourceProperties
+loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
+                       const ShaderModel &);
 DxilResourceProperties loadFromResourceBase(DxilResourceBase *);
+bool IsResourceSingleComponent(llvm::Type *Ty);
+
+bool IsAnyTexture(DXIL::ResourceKind ResourceKind);
+bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind);
+bool IsTypedBuffer(DXIL::ResourceKind ResourceKind);
+bool IsTyped(DXIL::ResourceKind ResourceKind);
+bool IsRawBuffer(DXIL::ResourceKind ResourceKind);
+bool IsTBuffer(DXIL::ResourceKind ResourceKind);
+bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind);
+
 }; // namespace resource_helper
 
 } // namespace hlsl

@@ -628,14 +628,9 @@ struct ValidationContext {
           EmitInstrError(CI, ValidationRule::InstrOpConstRange);
           continue;
         }
-        ConstantInt *RC = cast<ConstantInt>(resClass);
-        ConstantInt *RK = cast<ConstantInt>(resKind);
-        ConstantStruct *ResProp =
-            cast<ConstantStruct>(hdl.get_HandleAnnotation());
 
-        DxilResourceProperties RP = resource_helper::loadFromConstant(
-            *ResProp, (DXIL::ResourceClass)RC->getLimitedValue(),
-            (DXIL::ResourceKind)RK->getLimitedValue(), ResPropTy, SM);
+        DxilResourceProperties RP =
+            resource_helper::loadFromAnnotateHandle(hdl, ResPropTy, SM);
         ResPropMap[CI] = RP;
       }
     }

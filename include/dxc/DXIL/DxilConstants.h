@@ -115,7 +115,7 @@ namespace DXIL {
 
   const unsigned kResRetStatusIndex = 4;
 
-  enum class ComponentType : uint8_t { 
+  enum class ComponentType : uint32_t {
     Invalid = 0,
     I1, I16, U16, I32, U32, I64, U64,
     F16, F32, F64,

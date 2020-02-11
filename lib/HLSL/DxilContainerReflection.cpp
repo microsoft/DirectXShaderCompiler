@@ -1616,6 +1616,10 @@ static void CollectCBufUsage(Value *cbHandle,
       Value *byteOffset = cbload.get_byteOffset();
       unsigned offset = GetCBOffset(byteOffset);
       cbufUsage.emplace_back(offset);
+    } else if (opcode == DXIL::OpCode::AnnotateHandle) {
+      DxilInst_AnnotateHandle annotateHandle(CI);
+      Value *annotatedHandle = annotateHandle.get_res();
+      CollectCBufUsage(annotatedHandle, cbufUsage, bMinPrecision);
     } else {
       //
       DXASSERT(0, "invalid opcode");
