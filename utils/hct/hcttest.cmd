@@ -12,6 +12,8 @@ set TEST_ALL=1
 set TEST_CLANG=0
 set TEST_CMD=0
 set TEST_EXEC=0
+set TEST_DXILCONV=0
+set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
@@ -90,10 +92,19 @@ if "%1"=="-clean" (
 ) else if "%1"=="cmd" (
   set TEST_ALL=0
   set TEST_CMD=1
+) else if "%1" == "dxilconv" (
+  set TEST_ALL=0
+  set TEST_DXILCONV=1
+) else if "%1" == "dxilconv-filter" (
+  set TEST_ALL=0
+  set TEST_DXILCONV=1
+  set TEST_DXILCONV_FILTER= /name:%2
+  shift /1
 ) else if "%1"=="noexec" (
   set TEST_ALL=0
   set TEST_CLANG=1
   set TEST_CMD=1
+  set TEST_DXILCONV=1
 ) else if "%1"=="exec" (
   rem If exec is explicitly supplied, hcttest will fail if machine is not configured
   rem to run execution tests, otherwise, execution tests would be skipped.
@@ -156,12 +167,13 @@ shift /1
 goto :collect_args
 :done_args
 
-rem By default, run clang tests and execution tests.
+rem By default, run all clang tests and execution tests and dxilconv tests
 if "%TEST_ALL%"=="1" (
   set TEST_CLANG=1
   set TEST_CMD=1
   set TEST_EXEC=1
   set TEST_EXTRAS=1
+  set TEST_DXILCONV=1
 )
 
 where te.exe 1>nul 2>nul
@@ -195,7 +207,7 @@ if "%TEST_CLEAN%"=="1" (
 if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
-call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
+call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxbc2dxil.exe dxilconv.dll dxilconv-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll opt.exe
 if errorlevel 1 exit /b 1
 
 rem Begin SPIRV change
@@ -233,7 +245,7 @@ if "%TEST_CLANG%"=="1" (
 )
 
 if "%TEST_CMD%"=="1" (
-  copy /y %HLSL_SRC_DIR%\utils\hct\smoke.hlsl %TEST_DIR%\smoke.hlsl
+  copy /y %HLSL_SRC_DIR%\utils\hct\cmdtestfiles\smoke.hlsl %TEST_DIR%\smoke.hlsl
   call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
   set RES_CMD=!ERRORLEVEL!
 )
@@ -271,6 +283,12 @@ if exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
   )
 )
 
+if "%TEST_DXILCONV%"=="1" (
+  call :runte dxilconv-tests.dll /p:"DxilConvDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" %TEST_DXILCONV_FILTER%
+  set RES_DXILCONV=!ERRORLEVEL!
+)
+
+
 if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
   call "%HCT_EXTRAS%\hcttest-after.cmd" %TEST_DIR%
   set RES_HCTTEST_AFTER=!ERRORLEVEL!
@@ -293,6 +311,7 @@ if "%TEST_EXEC%"=="1" (
 )
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
+call :check_result "dxilconv tests" %RES_DXILCONV%
 
 if not "%TESTS_PASSED%"=="0" (
   echo %TESTS_PASSED% succeeded.
@@ -336,6 +355,7 @@ echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib
 echo  compat-suite  - run compat-suite test.
 echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten"
 echo  cmd           - run command line tool tests.
+echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.
 echo  exec          - run execution tests.
 echo  exec-future   - run execution tests for future releases.
@@ -346,13 +366,14 @@ echo Select clang or exec targets with filter by test name:
 echo  clang-filter Name
 echo  exec-filter Name
 echo  exec-exp-filter Name
+echo  dxilconv-filter Name
 echo.
 echo Use the HCT_EXTRAS environment variable to add hcttest-before and hcttest-after hooks.
 echo.
 echo Delete test directory and do not copy binaries or run tests:
 echo   hcttest clean
 echo.
-call :showtesample clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
+call :showtesample clang-hlsl-tests.dll /p:"DxilConvDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
 
 goto :eof
 
