@@ -96,15 +96,16 @@ class VersionGen():
     def product_version_str(self):
         if (self.options.no_commit_sha):
             return self.quoted_version_str()
-        else:
-            return '"{}.{}.{}.{} ({}, {})"'.format(
+        pv = '"{}.{}.{}.{} '.format(
                 self.rc_version_field_1(),
                 self.rc_version_field_2(),
                 self.rc_version_field_3(),
-                self.rc_version_field_4(),
-                self.current_branch,
-                get_last_commit_sha()
-                )
+                self.rc_version_field_4())
+        if (self.current_branch != "HEAD"):
+             pv += '({}, {})"'.format(self.current_branch, get_last_commit_sha())
+        else:
+             pv += '({})"'.format(get_last_commit_sha())
+        return pv
 
     def print_define(self, name, value):
         print('#ifdef {}'.format(name))
