@@ -47,7 +47,7 @@ set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
 set SPEAK=1
-set PARALLEL_OPT=
+set PARALLEL_OPT=/m
 set ALL_DEFS=OFF
 set ANALYZE=OFF
 set OFFICIAL=OFF
@@ -154,8 +154,8 @@ if "%1"=="-dont-speak" (
   shift /1
 )
 
-if "%1"=="-parallel" (
-  set PARALLEL_OPT=/m
+if "%1"=="-no-parallel" (
+  set PARALLEL_OPT=
   shift /1
 )
 
@@ -301,7 +301,7 @@ echo   -fv            fixes the resource version for release (utils\version\vers
 echo   -fvloc <path>  directory with the version.inc file
 echo   -rel           builds release rather than debug
 echo   -dont-speak    disables audible build confirmation
-echo   -parallel      enables parallel build
+echo   -no-parallel   disables parallel build
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
