@@ -88,6 +88,8 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "dxc/HLSL/DxilValueCache.h" // HLSL Change
+
 #include <algorithm>
 using namespace llvm;
 
@@ -125,6 +127,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DxilValueCache) // HLSL Change
 INITIALIZE_PASS_END(ScalarEvolution, "scalar-evolution",
                 "Scalar Evolution Analysis", false, true)
 char ScalarEvolution::ID = 0;
@@ -5160,6 +5163,14 @@ ScalarEvolution::ComputeExitLimitFromICmp(const Loop *L,
         if (!isa<SCEVCouldNotCompute>(Ret)) return Ret;
       }
 
+  // HLSL Change - begin
+  // Try to compute the value exhaustively *right now*. Before trying the more pessimistic
+  // partial evaluation.
+  const SCEV *AggresiveResult = ComputeExitCountExhaustively(L, ExitCond, !L->contains(TBB));
+  if (AggresiveResult != getCouldNotCompute())
+    return AggresiveResult;
+  // HLSL Change - end
+
   switch (Cond) {
   case ICmpInst::ICMP_NE: {                     // while (X != Y)
     // Convert to: while (X-Y != 0)
@@ -5198,7 +5209,8 @@ ScalarEvolution::ComputeExitLimitFromICmp(const Loop *L,
 #endif
     break;
   }
-  return ComputeExitCountExhaustively(L, ExitCond, !L->contains(TBB));
+  // return ComputeExitCountExhaustively(L, ExitCond, !L->contains(TBB)); // HLSL Change
+  return getCouldNotCompute(); // HLSL Change - We already tried the exhaustive approach earlier, so don't try again and just give up.
 }
 
 ScalarEvolution::ExitLimit
@@ -5578,8 +5590,17 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   PHINode *PHI = nullptr;
   for (BasicBlock::iterator I = Header->begin();
        (PHI = dyn_cast<PHINode>(I)); ++I) {
+
     Constant *StartCST =
       dyn_cast<Constant>(PHI->getIncomingValue(!SecondIsBackedge));
+
+    // HLSL Change begin
+    // If we don't have a constant, try getting a constant from the value cache.
+    if (!StartCST)
+      if (Value *V = getAnalysis<DxilValueCache>().GetValue(PHI->getIncomingValue(!SecondIsBackedge)))
+        StartCST = dyn_cast<Constant>(V);
+    // HLSL Change end
+
     if (!StartCST) continue;
     CurrentIterVals[PHI] = StartCST;
   }
@@ -8116,6 +8137,7 @@ void ScalarEvolution::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<DxilValueCache>(); // HLSL Change
 }
 
 bool ScalarEvolution::hasLoopInvariantBackedgeTakenCount(const Loop *L) {
