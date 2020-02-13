@@ -41,6 +41,7 @@ import hctdb_instrhelp
   IOP_GetAttributeAtVertex,
   IOP_GetRenderTargetSampleCount,
   IOP_GetRenderTargetSamplePosition,
+  IOP_GetResourceFromHeap,
   IOP_GroupMemoryBarrier,
   IOP_GroupMemoryBarrierWithGroupSync,
   IOP_HitKind,

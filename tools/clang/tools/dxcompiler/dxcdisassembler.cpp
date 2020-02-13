@@ -366,6 +366,7 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify("byte", alignment);
       break;
     case DxilResource::Kind::StructuredBuffer:
+    case DxilResource::Kind::StructuredBufferWithCounter:
       OS << right_justify("struct", alignment);
       break;
     default:
@@ -393,6 +394,7 @@ void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
     switch (res.GetKind()) {
     case DxilResource::Kind::RawBuffer:
     case DxilResource::Kind::StructuredBuffer:
+    case DxilResource::Kind::StructuredBufferWithCounter:
       if (res.GetClass() == DxilResourceBase::Class::SRV)
         OS << right_justify("r/o", alignment);
       else {
@@ -1275,7 +1277,9 @@ static const char *OpCodeSignatures[] = {
   "(rayQueryHandle,component)",  // RayQuery_CommittedObjectRayDirection
   "()",  // GeometryIndex
   "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
-  "(rayQueryHandle)"  // RayQuery_CommittedInstanceContributionToHitGroupIndex
+  "(rayQueryHandle)",  // RayQuery_CommittedInstanceContributionToHitGroupIndex
+  "(index)",  // CreateHandleFromHeap
+  "(res,resourceClass,resourceKind,props)"  // AnnotateHandle
 };
 // OPCODE-SIGS:END
 

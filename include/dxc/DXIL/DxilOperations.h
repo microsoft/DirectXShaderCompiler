@@ -49,6 +49,7 @@ public:
   llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
+  llvm::Type *GetResourcePropertiesType() const;
   llvm::Type *GetDimensionsType() const;
   llvm::Type *GetSamplePosType() const;
   llvm::Type *GetBinaryWithCarryType() const;
@@ -119,6 +120,7 @@ private:
   llvm::Module *m_pModule;
 
   llvm::Type *m_pHandleType;
+  llvm::Type *m_pResourcePropertiesType;
   llvm::Type *m_pDimensionsType;
   llvm::Type *m_pSamplePosType;
   llvm::Type *m_pBinaryWithCarryType;

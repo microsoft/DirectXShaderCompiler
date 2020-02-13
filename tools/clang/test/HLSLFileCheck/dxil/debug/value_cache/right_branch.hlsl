@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
 
 // Make sure DxilValueCache actually predicts the correct branch
 
@@ -19,7 +19,6 @@ float4 main() : SV_Target {
   if (w >= 0) {
     tex = tex1;
   }
-
   // CHECK: @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %[[handle]]
   return tex.Load(0) + float4(x,y,z,w);
 }

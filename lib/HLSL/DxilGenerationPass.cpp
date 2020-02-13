@@ -13,6 +13,7 @@
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
@@ -250,7 +251,9 @@ public:
 
     GenerateDxilCBufferHandles();
     MarkUpdateCounter(UpdateCounterSet);
-    LowerHLCreateHandle();
+
+    std::unordered_map<CallInst *, Type*> HandleToResTypeMap;
+    LowerHLCreateHandle(HandleToResTypeMap);
 
     // LowerHLCreateHandle() should have translated HLCreateHandle to CreateHandleForLib.
     // Clean up HLCreateHandle functions.
@@ -287,6 +290,10 @@ public:
     HLModule::ClearHLMetadata(M);
     M.ResetHLModule();
 
+    if (SM->IsSM62Plus() && DxilMod.GetUseMinPrecision()) {
+      TranslateMinPrecisionRawBuffer(DxilMod, HandleToResTypeMap);
+    }
+
     // We now have a DXIL representation - record this.
     SetPauseResumePasses(M, "hlsl-dxilemit", "hlsl-dxilload");
 
@@ -304,10 +311,20 @@ private:
   // change built-in funtion into DXIL operations
   void GenerateDxilOperations(Module &M,
                               std::unordered_set<LoadInst *> &UpdateCounterSet);
-  void LowerHLCreateHandle();
+  void LowerHLCreateHandle(
+      std::unordered_map<CallInst *, Type *> &HandleToResTypeMap);
 
   // Translate precise attribute into HL function call.
   void TranslatePreciseAttribute();
+  // Translate RawBufferLoad/RawBufferStore
+  // For DXIL >= 1.2, if min precision is enabled, currently generation pass is
+  // producing i16/f16 return type for min precisions. For rawBuffer, we will
+  // change this so that min precisions are returning its actual scalar type
+  // (i32/f32) and will be truncated to their corresponding types after loading
+  // / before storing.
+  void TranslateMinPrecisionRawBuffer(
+      DxilModule &DM,
+      std::unordered_map<CallInst *, Type *> &HandleToResTypeMap);
 
   // Input module is not optimized.
   bool NotOptimized;
@@ -343,11 +360,87 @@ void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
     CI->eraseFromParent();
   }
 }
+
+void TranslateHLAnnotateHandle(
+    Function *F, hlsl::OP &hlslOP,
+    std::unordered_map<CallInst *, Type *> &HandleToResTypeMap) {
+  Value *opArg = hlslOP.GetU32Const((unsigned)DXIL::OpCode::AnnotateHandle);
+
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *handle =
+        CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+    Value *RC =
+        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceClassOpIdx);
+    Value *RK =
+        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceKindOpIdx);
+    Value *RP = CI->getArgOperand(
+        HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
+    Type *ResTy =
+        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceTypeOpIdx)
+            ->getType();
+    IRBuilder<> Builder(CI);
+
+    Function *annotateHandle =
+        hlslOP.GetOpFunc(DXIL::OpCode::AnnotateHandle, Builder.getVoidTy());
+    CallInst *newHandle =
+        Builder.CreateCall(annotateHandle, {opArg, handle, RC, RK, RP});
+    HandleToResTypeMap[newHandle] = ResTy;
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+
+void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP) {
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *User = *(U++);
+    if (!isa<Instruction>(User))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(User);
+    IRBuilder<> Builder(CI);
+    HLCastOpcode opcode = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
+    switch (opcode) {
+    case HLCastOpcode::HandleToResCast: {
+      Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+      for (auto HandleU = CI->user_begin(); HandleU != CI->user_end();) {
+        Value *HandleUser = *(HandleU++);
+        CallInst *HandleCI = dyn_cast<CallInst>(HandleUser);
+        if (!HandleCI)
+          continue;
+        hlsl::HLOpcodeGroup handleGroup =
+            hlsl::GetHLOpcodeGroup(HandleCI->getCalledFunction());
+        if (handleGroup == HLOpcodeGroup::HLCreateHandle) {
+          HandleCI->replaceAllUsesWith(Handle);
+          HandleCI->eraseFromParent();
+        }
+      }
+      if (CI->user_empty()) {
+        CI->eraseFromParent();
+      }
+    } break;
+    }
+  }
+}
 } // namespace
 
-void DxilGenerationPass::LowerHLCreateHandle() {
+void DxilGenerationPass::LowerHLCreateHandle(
+    std::unordered_map<CallInst *, Type *> &HandleToResTypeMap) {
   Module *M = m_pHLModule->GetModule();
   hlsl::OP &hlslOP = *m_pHLModule->GetOP();
+  // Lower cast handle to res used by hl.createhandle.
+  for (iplist<Function>::iterator F : M->getFunctionList()) {
+    if (F->user_empty())
+      continue;
+    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+    if (group == HLOpcodeGroup::HLCast) {
+      TranslateHLCastHandleToRes(F, hlslOP);
+    }
+  }
   // generate dxil operation
   for (iplist<Function>::iterator F : M->getFunctionList()) {
     if (F->user_empty())
@@ -358,6 +451,11 @@ void DxilGenerationPass::LowerHLCreateHandle() {
         // Will lower in later pass.
         TranslateHLCreateHandle(F, hlslOP);
       }
+    } else {
+      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+      if (group != HLOpcodeGroup::HLAnnotateHandle)
+        continue;
+      TranslateHLAnnotateHandle(F, hlslOP, HandleToResTypeMap);
     }
   }
 }
@@ -577,6 +675,185 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
       DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFn);
       Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
       TranslatePreciseAttributeOnFunction(*patchConstantFunc, M);
+    }
+  }
+}
+
+namespace {
+void ReplaceMinPrecisionRawBufferLoadByType(Function *F, Type *FromTy,
+                                            Type *ToTy, OP *Op,
+                                            const DataLayout &DL) {
+  Function *newFunction = Op->GetOpFunc(DXIL::OpCode::RawBufferLoad, ToTy);
+  for (auto FUser = F->user_begin(), FEnd = F->user_end(); FUser != FEnd;) {
+    User *UserCI = *(FUser++);
+    if (CallInst *CI = dyn_cast<CallInst>(UserCI)) {
+      IRBuilder<> CIBuilder(CI);
+      SmallVector<Value *, 5> newFuncArgs;
+      // opcode, handle, index, elementOffset, mask
+      // Compiler is generating correct element offset even for min precision
+      // types So no need to recalculate here
+      for (unsigned i = 0; i < 5; ++i) {
+        newFuncArgs.emplace_back(CI->getArgOperand(i));
+      }
+      // new alignment for new type
+      newFuncArgs.emplace_back(Op->GetI32Const(DL.getTypeAllocSize(ToTy)));
+      CallInst *newCI = CIBuilder.CreateCall(newFunction, newFuncArgs);
+      for (auto CIUser = CI->user_begin(), CIEnd = CI->user_end();
+           CIUser != CIEnd;) {
+        User *UserEV = *(CIUser++);
+        if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(UserEV)) {
+          IRBuilder<> EVBuilder(EV);
+          ArrayRef<unsigned> Indices = EV->getIndices();
+          DXASSERT(Indices.size() == 1,
+                   "Otherwise we have wrong extract value.");
+          Value *newEV = EVBuilder.CreateExtractValue(newCI, Indices);
+          Value *newTruncV = nullptr;
+          if (4 == Indices[0]) { // Don't truncate status
+            newTruncV = newEV;
+          } else if (FromTy->isHalfTy()) {
+            newTruncV = EVBuilder.CreateFPTrunc(newEV, FromTy);
+          } else if (FromTy->isIntegerTy()) {
+            newTruncV = EVBuilder.CreateTrunc(newEV, FromTy);
+          } else {
+            DXASSERT(false, "unexpected type conversion");
+          }
+          EV->replaceAllUsesWith(newTruncV);
+          EV->eraseFromParent();
+        }
+      }
+      CI->eraseFromParent();
+    }
+  }
+  F->eraseFromParent();
+}
+
+void ReplaceMinPrecisionRawBufferStoreByType(
+    Function *F, Type *FromTy, Type *ToTy, OP *Op,
+    std::unordered_map<CallInst *, Type *> &HandleToResTypeMap,
+    DxilTypeSystem &typeSys, const DataLayout &DL) {
+  Function *newFunction = Op->GetOpFunc(DXIL::OpCode::RawBufferStore, ToTy);
+  // for each function
+  // add argument 4-7 to its upconverted values
+  // replace function call
+  for (auto FuncUser = F->user_begin(), FuncEnd = F->user_end();
+       FuncUser != FuncEnd;) {
+    CallInst *CI = dyn_cast<CallInst>(*(FuncUser++));
+    DXASSERT(CI, "function user must be a call instruction.");
+    IRBuilder<> CIBuilder(CI);
+    SmallVector<Value *, 9> Args;
+    for (unsigned i = 0; i < 4; ++i) {
+      Args.emplace_back(CI->getArgOperand(i));
+    }
+    // values to store should be converted to its higher precision types
+    if (FromTy->isHalfTy()) {
+      for (unsigned i = 4; i < 8; ++i) {
+        Value *NewV = CIBuilder.CreateFPExt(CI->getArgOperand(i),
+                                            ToTy);
+        Args.emplace_back(NewV);
+      }
+    } else if (FromTy->isIntegerTy()) {
+      // This case only applies to typed buffer since Store operation of byte
+      // address buffer for min precision is handled by implicit conversion on
+      // intrinsic call. Since we are extending integer, we have to know if we
+      // should sign ext or zero ext. We can do this by iterating checking the
+      // size of the element at struct type and comp type at type annotation
+      CallInst *handleCI = dyn_cast<CallInst>(
+          CI->getArgOperand(DxilInst_RawBufferStore::arg_uav));
+      DXASSERT(handleCI,
+               "otherwise handle was not an argument to buffer store.");
+      auto resTyIt = HandleToResTypeMap.find(handleCI);
+      DXASSERT(resTyIt != HandleToResTypeMap.end(),
+               "otherwise fail to handle for buffer store lost its retTy");
+      StructType *STy = dyn_cast<StructType>(resTyIt->second);
+
+      STy = cast<StructType>(STy->getElementType(0));
+      DxilStructAnnotation *SAnnot =
+          typeSys.GetStructAnnotation(STy);
+      ConstantInt *offsetInt = dyn_cast<ConstantInt>(
+          CI->getArgOperand(DxilInst_RawBufferStore::arg_elementOffset));
+      unsigned offset = offsetInt->getSExtValue();
+      unsigned currentOffset = 0;
+      for (DxilStructTypeIterator iter = begin(STy, SAnnot),
+                                  ItEnd = end(STy, SAnnot);
+           iter != ItEnd; ++iter) {
+        std::pair<Type *, DxilFieldAnnotation *> pair = *iter;
+        currentOffset += DL.getTypeAllocSize(pair.first);
+        if (currentOffset > offset) {
+          if (pair.second->GetCompType().IsUIntTy()) {
+            for (unsigned i = 4; i < 8; ++i) {
+              Value *NewV = CIBuilder.CreateZExt(CI->getArgOperand(i), ToTy);
+              Args.emplace_back(NewV);
+            }
+            break;
+          } else if (pair.second->GetCompType().IsIntTy()) {
+            for (unsigned i = 4; i < 8; ++i) {
+              Value *NewV = CIBuilder.CreateSExt(CI->getArgOperand(i), ToTy);
+              Args.emplace_back(NewV);
+            }
+            break;
+          } else {
+            DXASSERT(false, "Invalid comp type");
+          }
+        }
+      }
+    }
+
+    // mask
+    Args.emplace_back(CI->getArgOperand(8));
+    // alignment
+    Args.emplace_back(CIBuilder.getInt32(DL.getTypeAllocSize(ToTy)));
+    CIBuilder.CreateCall(newFunction, Args);
+    CI->eraseFromParent();
+  }
+}
+
+} // namespace
+void DxilGenerationPass::TranslateMinPrecisionRawBuffer(
+    DxilModule &DM,
+    std::unordered_map<CallInst *, Type *> &HandleToResTypeMap) {
+  hlsl::OP *hlslOP = DM.GetOP();
+  LLVMContext &Ctx = DM.GetCtx();
+  Type *I32Ty = Type::getInt32Ty(Ctx);
+  Type *I16Ty = Type::getInt16Ty(Ctx);
+  Type *F32Ty = Type::getFloatTy(Ctx);
+  Type *F16Ty = Type::getHalfTy(Ctx);
+  const DataLayout &DL = DM.GetModule()->getDataLayout();
+  DxilTypeSystem &typeSys = DM.GetTypeSystem();
+  SmallVector<Function *, 2> rawBufLoads;
+  for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::RawBufferLoad)) {
+    Function *F = it.second;
+    if (!F)
+      continue;
+    rawBufLoads.emplace_back(F);
+  }
+
+  for (Function *F : rawBufLoads) {
+    StructType *RetTy = cast<StructType>(F->getReturnType());
+    Type *EltTy = RetTy->getElementType(0);
+    if (EltTy->isHalfTy()) {
+      ReplaceMinPrecisionRawBufferLoadByType(F, F16Ty, F32Ty, hlslOP, DL);
+    } else if (EltTy == I16Ty) {
+      ReplaceMinPrecisionRawBufferLoadByType(F, I16Ty, I32Ty, hlslOP, DL);
+    }
+  }
+
+  SmallVector<Function *, 2> rawBufStores;
+  for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::RawBufferStore)) {
+    Function *F = it.second;
+    if (!F)
+      continue;
+    rawBufStores.emplace_back(F);
+  }
+
+  for (Function *F : rawBufStores) {
+    Type *EltTy =
+        F->getFunctionType()->getParamType(DxilInst_RawBufferStore::arg_value0);
+    if (EltTy->isHalfTy()) {
+      ReplaceMinPrecisionRawBufferStoreByType(F, F16Ty, F32Ty, hlslOP,
+                                              HandleToResTypeMap, typeSys, DL);
+    } else if (EltTy == I16Ty) {
+      ReplaceMinPrecisionRawBufferStoreByType(F, I16Ty, I32Ty, hlslOP,
+                                              HandleToResTypeMap, typeSys, DL);
     }
   }
 }

@@ -386,6 +386,9 @@ class db_dxil(object):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_model_translated = 6,0
+        for i in "CreateHandleFromHeap,AnnotateHandle".split(","):
+            self.name_idx[i].category = "Get handle from heap"
+            self.name_idx[i].shader_model = 6,6
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
             self.name_idx[i].category = "Dot product with accumulate"
             self.name_idx[i].shader_model = 6,4
@@ -1727,6 +1730,23 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 5, next_op_idx)
         assert next_op_idx == 216, "216 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
+        self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "ro", [
+            db_dxil_param(0, "res", "", "result"),
+            db_dxil_param(2, "i32", "index", "heap index")])
+        next_op_idx += 1
+
+        self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
+            db_dxil_param(0, "res", "", "annotated handle"),
+            db_dxil_param(2, "res", "res", "input handle"),
+            db_dxil_param(3, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
+            db_dxil_param(4, "i8", "resourceKind", "the kind of resource to create (Texture1D/2D/..., Buffer...)", is_const=True), # maps to DxilResourceBase::Kind
+            db_dxil_param(5, "resproperty", "props", "details like component type, strutrure stride...")])
+        next_op_idx += 1
+
+        # End of DXIL 1.6 opcodes.
+        self.set_op_count_for_version(1, 6, next_op_idx)
+        assert next_op_idx == 218, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
+
         # Set interesting properties.
         self.build_indices()
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,TextureGather,TextureGatherCmp".split(","):
@@ -2662,6 +2682,7 @@ class db_hlsl(object):
             "sampler_cube": "LICOMPTYPE_SAMPLERCUBE",
             "sampler_cmp": "LICOMPTYPE_SAMPLERCMP",
             "sampler": "LICOMPTYPE_SAMPLER",
+            "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc" : "LICOMPTYPE_RAYDESC",
             "acceleration_struct" : "LICOMPTYPE_ACCELERATION_STRUCT",
             "udt" : "LICOMPTYPE_USER_DEFINED_TYPE",

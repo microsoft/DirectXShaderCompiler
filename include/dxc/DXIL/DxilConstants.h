@@ -115,7 +115,7 @@ namespace DXIL {
 
   const unsigned kResRetStatusIndex = 4;
 
-  enum class ComponentType : uint8_t { 
+  enum class ComponentType : uint32_t {
     Invalid = 0,
     I1, I16, U16, I32, U32, I64, U64,
     F16, F32, F64,
@@ -330,8 +330,41 @@ namespace DXIL {
     RTAccelerationStructure,
     FeedbackTexture2D,
     FeedbackTexture2DArray,
+    StructuredBufferWithCounter,
+    SamplerComparison,
     NumEntries,
   };
+
+  inline bool IsAnyTexture(DXIL::ResourceKind ResourceKind) {
+    return DXIL::ResourceKind::Texture1D <= ResourceKind &&
+           ResourceKind <= DXIL::ResourceKind::TextureCubeArray;
+  }
+
+  inline bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::StructuredBuffer ||
+           ResourceKind == DXIL::ResourceKind::StructuredBufferWithCounter;
+  }
+
+  inline bool IsTypedBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::TypedBuffer;
+  }
+
+  inline bool IsTyped(DXIL::ResourceKind ResourceKind) {
+    return IsTypedBuffer(ResourceKind) || IsAnyTexture(ResourceKind);
+  }
+
+  inline bool IsRawBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::RawBuffer;
+  }
+
+  inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::TBuffer;
+  }
+
+  inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
+           ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
+  }
 
   // TODO: change opcodes.
   /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
@@ -411,6 +444,10 @@ namespace DXIL {
     EmitStream = 97, // emits a vertex to a given stream
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
     GSInstanceID = 100, // GSInstanceID
+  
+    // Get handle from heap
+    AnnotateHandle = 217, // annotate handle with resource properties
+    CreateHandleFromHeap = 216, // create resource handle from heap
   
     // Graphics shader
     ViewID = 138, // returns the view index
@@ -662,8 +699,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
+    NumOpCodes_Dxil_1_6 = 218,
   
-    NumOpCodes = 216 // exclusive last value of enumeration
+    NumOpCodes = 218 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -729,6 +767,10 @@ namespace DXIL {
     EmitStream,
     EmitThenCutStream,
     GSInstanceID,
+  
+    // Get handle from heap
+    AnnotateHandle,
+    CreateHandleFromHeap,
   
     // Graphics shader
     ViewID,
@@ -910,8 +952,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
+    NumOpClasses_Dxil_1_6 = 145,
   
-    NumOpClasses = 143 // exclusive last value of enumeration
+    NumOpClasses = 145 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

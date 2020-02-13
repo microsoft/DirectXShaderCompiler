@@ -6987,5 +6987,68 @@ struct DxilInst_RayQuery_CommittedInstanceContributionToHitGroupIndex {
   llvm::Value *get_rayQueryHandle() const { return Instr->getOperand(1); }
   void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
+
+/// This instruction create resource handle from heap
+struct DxilInst_CreateHandleFromHeap {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_CreateHandleFromHeap(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromHeap);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_index = 1,
+  };
+  // Accessors
+  llvm::Value *get_index() const { return Instr->getOperand(1); }
+  void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction annotate handle with resource properties
+struct DxilInst_AnnotateHandle {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_AnnotateHandle(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AnnotateHandle);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_res = 1,
+    arg_resourceClass = 2,
+    arg_resourceKind = 3,
+    arg_props = 4,
+  };
+  // Accessors
+  llvm::Value *get_res() const { return Instr->getOperand(1); }
+  void set_res(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_resourceClass() const { return Instr->getOperand(2); }
+  void set_resourceClass(llvm::Value *val) { Instr->setOperand(2, val); }
+  int8_t get_resourceClass_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_resourceClass_val(int8_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+  llvm::Value *get_resourceKind() const { return Instr->getOperand(3); }
+  void set_resourceKind(llvm::Value *val) { Instr->setOperand(3, val); }
+  int8_t get_resourceKind_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
+  void set_resourceKind_val(int8_t val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+  llvm::Value *get_props() const { return Instr->getOperand(4); }
+  void set_props(llvm::Value *val) { Instr->setOperand(4, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

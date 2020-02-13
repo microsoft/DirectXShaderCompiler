@@ -205,10 +205,10 @@ void CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, const cla
 void PrintClipPlaneIfPresent(clang::Expr *ClipPlane, llvm::raw_ostream &Out, const clang::PrintingPolicy &Policy);
 void Indent(unsigned int Indentation, llvm::raw_ostream &Out);
 void GetHLSLAttributedTypes(
-  _In_ clang::Sema* self,
-  clang::QualType type, 
-  _Inout_opt_ const clang::AttributedType** ppMatrixOrientation, 
-  _Inout_opt_ const clang::AttributedType** ppNorm);
+    _In_ clang::Sema *self, clang::QualType type,
+    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
+    _Inout_opt_ const clang::AttributedType **ppNorm,
+    _Inout_opt_ const clang::AttributedType **ppGLC);
 
 bool IsMatrixType(
   _In_ clang::Sema* self, 

@@ -410,6 +410,7 @@ class db_oload_gen:
             "SamplePos": "A(pPos);",
             "udt": "A(udt);",
             "obj": "A(obj);",
+            "resproperty": "A(resProperty);",
         }
         last_category = None
         for i in self.instrs:
