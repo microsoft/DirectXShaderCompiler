@@ -323,6 +323,7 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
 clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
+clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>
@@ -362,6 +363,7 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor = nullptr);
 bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue);
 bool IsHLSLUnsigned(clang::QualType type);
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm = nullptr);
+bool HasHLSLGloballyCoherent(clang::QualType type);
 bool IsHLSLInputPatchType(clang::QualType type);
 bool IsHLSLOutputPatchType(clang::QualType type);
 bool IsHLSLPointStreamType(clang::QualType type);

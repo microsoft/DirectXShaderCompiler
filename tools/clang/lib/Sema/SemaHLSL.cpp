@@ -205,6 +205,8 @@ enum ArBasicKind {
   // RayQuery
   AR_OBJECT_RAY_QUERY,
 
+  // Resource
+  AR_OBJECT_RESOURCE,
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -488,7 +490,7 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   0,      //AR_OBJECT_RAY_QUERY,
-
+  0,      //AR_OBJECT_RESOURCE,
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1117,6 +1119,9 @@ static const ArBasicKind g_Texture2DArrayCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_RESOURCE,
+                                           AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_RayDescCT[] =
 {
   AR_OBJECT_RAY_DESC,
@@ -1230,6 +1235,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
   g_Texture2DCT,        // LICOMPTYPE_TEXTURE2D
   g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
+  g_ResourceCT,         // LICOMPTYPE_RESOURCE
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -1320,7 +1326,8 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-  AR_OBJECT_RAY_QUERY
+  AR_OBJECT_RAY_QUERY,
+  AR_OBJECT_RESOURCE,
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1406,6 +1413,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   1, // AR_OBJECT_RAY_QUERY,
+  0, // AR_OBJECT_RESOURCE,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1501,6 +1509,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RESOURCE,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1619,7 +1628,8 @@ const char* g_ArBasicTypeNames[] =
   "ProceduralPrimitiveHitGroup",
   "RaytracingPipelineConfig1",
 
-  "RayQuery"
+  "RayQuery",
+  "Resource",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -3321,6 +3331,8 @@ private:
         }
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
+      } else if (kind == AR_OBJECT_RESOURCE) {
+        recordDecl = DeclareResourceType(*m_context);
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2D", "kind");
@@ -3986,6 +3998,8 @@ public:
 
     case AR_OBJECT_SAMPLER:
     case AR_OBJECT_SAMPLERCOMPARISON:
+
+    case AR_OBJECT_RESOURCE:
 
     case AR_OBJECT_BUFFER:
 
@@ -8377,6 +8391,14 @@ bool HLSLExternalSource::CanConvert(
     goto lSuccess;
   }
 
+  // Cast from Resource to Object types.
+  if (SourceInfo.EltKind == AR_OBJECT_RESOURCE) {
+    if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT) {
+      Second = ICK_Flat_Conversion;
+      goto lSuccess;
+    }
+  }
+
   // Convert scalar/vector/matrix dimensions
   if (!ConvertDimensions(TargetInfo, SourceInfo, Second, Remarks))
     return false;
@@ -12142,20 +12164,18 @@ static QualType getUnderlyingType(QualType Type)
 /// <param name="ppMatrixOrientation">Set pointer to column_major/row_major AttributedType if supplied.</param>
 /// <param name="ppNorm">Set pointer to snorm/unorm AttributedType if supplied.</param>
 void hlsl::GetHLSLAttributedTypes(
-  _In_ clang::Sema* self,
-  clang::QualType type, 
-  _Inout_opt_ const clang::AttributedType** ppMatrixOrientation, 
-  _Inout_opt_ const clang::AttributedType** ppNorm)
-{
-  if (ppMatrixOrientation)
-    *ppMatrixOrientation = nullptr;
-  if (ppNorm)
-    *ppNorm = nullptr;
+    _In_ clang::Sema *self, clang::QualType type,
+    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
+    _Inout_opt_ const clang::AttributedType **ppNorm,
+    _Inout_opt_ const clang::AttributedType **ppGLC) {
+  AssignOpt<const clang::AttributedType *>(nullptr, ppMatrixOrientation);
+  AssignOpt<const clang::AttributedType *>(nullptr, ppNorm);
+  AssignOpt<const clang::AttributedType *>(nullptr, ppGLC);
 
   // Note: we clear output pointers once set so we can stop searching
   QualType Desugared = getUnderlyingType(type);
   const AttributedType *AT = dyn_cast<AttributedType>(Desugared);
-  while (AT && (ppMatrixOrientation || ppNorm)) {
+  while (AT && (ppMatrixOrientation || ppNorm || ppGLC)) {
     AttributedType::Kind Kind = AT->getAttrKind();
 
     if (Kind == AttributedType::attr_hlsl_row_major ||
@@ -12174,6 +12194,12 @@ void hlsl::GetHLSLAttributedTypes(
       {
         *ppNorm = AT;
         ppNorm = nullptr;
+      }
+    }
+    else if (Kind == AttributedType::attr_hlsl_globallycoherent) {
+      if (ppGLC) {
+        *ppGLC = AT;
+        ppGLC = nullptr;
       }
     }
 

@@ -324,6 +324,8 @@ void [[]] DispatchMesh(in uint threadGroupCountX, in uint threadGroupCountY, in 
 // HL Op for allocating ray query object that default constructor uses
 uint [[hidden]] AllocateRayQuery(in uint flags);
 
+resource [[rn]] GetResourceFromHeap(in uint index);
+
 } namespace
 
 namespace StreamMethods {

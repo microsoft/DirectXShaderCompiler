@@ -90,7 +90,7 @@ static const char *s_ResourceDimNames[] = {
         "invalid", "1d",        "2d",      "2dMS",      "3d",
         "cube",    "1darray",   "2darray", "2darrayMS", "cubearray",
         "buf",     "rawbuf",    "structbuf", "cbuffer", "sampler",
-        "tbuffer", "ras", "fbtex2d", "fbtex2darray"
+        "tbuffer", "ras", "fbtex2d", "fbtex2darray", "structbufwithcounter", "samplercomparison",
 };
 static_assert(_countof(s_ResourceDimNames) == (unsigned)DxilResourceBase::Kind::NumEntries,
   "Resource dim names array must be updated when new resource kind enums are added.");

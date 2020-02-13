@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_6 %s -Od | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
 
 Texture2D tex0[42] : register(t0);
 Texture2D tex1 : register(t42);

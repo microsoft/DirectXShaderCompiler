@@ -26,6 +26,7 @@
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/DxilConvergent.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -159,6 +160,26 @@ private:
     HandleMetaMap[Handle] = {DXIL::ResourceClass::Invalid,
                              DXIL::ResourceKind::Invalid,
                              StructType::get(Type::getVoidTy(HLM.GetCtx()), nullptr)};
+    if (CallInst *CI = dyn_cast<CallInst>(Handle)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLAnnotateHandle) {
+        ConstantInt *RC = cast<ConstantInt>(CI->getArgOperand(
+            HLOperandIndex::kAnnotateHandleResourceClassOpIdx));
+        ConstantInt *RK = cast<ConstantInt>(CI->getArgOperand(
+            HLOperandIndex::kAnnotateHandleResourceKindOpIdx));
+        Type *ResTy =
+            CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceTypeOpIdx)
+                ->getType();
+
+        ResAttribute Attrib = {(DXIL::ResourceClass)RC->getLimitedValue(),
+                               (DXIL::ResourceKind)RK->getLimitedValue(),
+                               ResTy};
+
+        HandleMetaMap[Handle] = Attrib;
+        return HandleMetaMap[Handle];
+      }
+    }
     if (Argument *Arg = dyn_cast<Argument>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(Arg);
       if (!MD) {
@@ -2485,7 +2506,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 
   Builder.CreateStore(width, widthPtr);
 
-  if (RK == DxilResource::Kind::StructuredBuffer) {
+  if (DXIL::IsStructuredBuffer(RK)) {
     // Set stride.
     Value *stridePtr = CI->getArgOperand(widthOpIdx + 1);
     const DataLayout &DL = helper.dataLayout;
@@ -2535,7 +2556,23 @@ Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-  pObjHelper->MarkHasCounter(handle->getType(), handle);
+  Value *counterHandle = handle;
+  if (CallInst *CIHandle = dyn_cast<CallInst>(handle)) {
+    hlsl::HLOpcodeGroup group =
+        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
+    if (group == HLOpcodeGroup::HLAnnotateHandle) {
+      // Mark has counter for the input handle.
+      counterHandle =
+          CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+      // Change kind into StructurBufferWithCounter.
+      CIHandle->setArgOperand(
+          HLOperandIndex::kAnnotateHandleResourceKindOpIdx,
+          ConstantInt::get(
+              helper.i8Ty,
+              (unsigned)DXIL::ResourceKind::StructuredBufferWithCounter));
+    }
+  }
+  pObjHelper->MarkHasCounter(counterHandle->getType(), counterHandle);
 
   bool bInc = IOP == IntrinsicOp::MOP_IncrementCounter;
   IRBuilder<> Builder(CI);
@@ -3427,6 +3464,7 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
+  case DxilResource::Kind::StructuredBufferWithCounter:
     opcode = OP::OpCode::RawBufferLoad;
     break;
   case DxilResource::Kind::TypedBuffer:
@@ -3603,7 +3641,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
     numComponents = Ty->getVectorNumElements();
   }
 
-  if (RK == HLResource::Kind::StructuredBuffer) {
+  if (DXIL::IsStructuredBuffer(RK)) {
     // Basic type case for StructuredBuffer::Load()
     Value *ResultElts[4];
     Value *StructBufLoad = GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
@@ -3797,6 +3835,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
+  case DxilResource::Kind::StructuredBufferWithCounter:
     opcode = OP::OpCode::RawBufferStore;
     break;
   case DxilResource::Kind::TypedBuffer:
@@ -5085,6 +5124,21 @@ Value *TranslateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
 } // namespace
 
+// Resource Handle.
+namespace {
+Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
+                                  DXIL::OpCode opcode,
+                                  HLOperationLowerHelper &helper,
+                                  HLObjectOperationLowerHelper *pObjHelper,
+                                  bool &Translated) {
+  hlsl::OP &hlslOP = helper.hlslOP;
+  Function *dxilFunc = hlslOP.GetOpFunc(opcode, helper.voidTy);
+  IRBuilder<> Builder(CI);
+  Value *opArg = ConstantInt::get(helper.i32Ty, (unsigned)opcode);
+  return Builder.CreateCall(dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx)});
+}
+}
+
 // Lower table.
 namespace {
 
@@ -5140,6 +5194,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
     {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_GetResourceFromHeap, TranslateGetHandleFromHeap, DXIL::OpCode::CreateHandleFromHeap},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_HitKind, TrivialNoArgWithRetOperation, DXIL::OpCode::HitKind},
@@ -7450,7 +7505,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
       Translated = true;
       Type *ObjTy = pObjHelper->GetResourceType(handle);
       Type *RetTy = ObjTy->getStructElementType(0);
-      if (RK == DxilResource::Kind::StructuredBuffer) {
+      if (DXIL::IsStructuredBuffer(RK)) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, RK,
                                     helper.dataLayout);
       } else if (RetTy->isAggregateType() &&

@@ -223,6 +223,20 @@ bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
   return false;
 }
 
+bool HasHLSLGloballyCoherent(clang::QualType type) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_globallycoherent:
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
+             ->getAs<AttributedType>();
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,

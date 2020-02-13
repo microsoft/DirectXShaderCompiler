@@ -315,6 +315,7 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
     switch (UAV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
+    case DXIL::ResourceKind::StructuredBufferWithCounter:
       hasRawAndStructuredBuffer = true;
       break;
     default:

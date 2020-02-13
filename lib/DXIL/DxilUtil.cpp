@@ -495,6 +495,28 @@ static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   return true;
 }
 
+bool IsResourceSingleComponent(Type *Ty) {
+  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
+    if (arrType->getArrayNumElements() > 1) {
+      return false;
+    }
+    return IsResourceSingleComponent(arrType->getArrayElementType());
+  } else if (llvm::StructType *structType =
+                 llvm::dyn_cast<llvm::StructType>(Ty)) {
+    if (structType->getStructNumElements() > 1) {
+      return false;
+    }
+    return IsResourceSingleComponent(structType->getStructElementType(0));
+  } else if (llvm::VectorType *vectorType =
+                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+    if (vectorType->getNumElements() > 1) {
+      return false;
+    }
+    return IsResourceSingleComponent(vectorType->getVectorElementType());
+  }
+  return true;
+}
+
 bool IsHLSLResourceType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -597,6 +619,19 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
     // TODO: don't check names.
     ConsumePrefix(name, "class.");
     if (name.startswith("RayQuery<"))
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLResourceDescType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    // TODO: don't check names.
+    if (name == ("struct..Resource"))
       return true;
   }
   return false;

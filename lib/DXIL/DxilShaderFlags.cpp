@@ -17,6 +17,9 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Casting.h"
 #include "dxc/DXIL/DxilEntryProps.h"
+#include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -189,28 +192,6 @@ static ConstantInt *GetArbitraryConstantRangeID(CallInst *handleCall) {
   return ConstantRangeID;
 }
 
-static bool IsResourceSingleComponent(llvm::Type *Ty) {
-  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
-    if (arrType->getArrayNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(arrType->getArrayElementType());
-  } else if (llvm::StructType *structType =
-                 llvm::dyn_cast<llvm::StructType>(Ty)) {
-    if (structType->getStructNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(structType->getStructElementType(0));
-  } else if (llvm::VectorType *vectorType =
-                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
-    if (vectorType->getNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(vectorType->getVectorElementType());
-  }
-  return true;
-}
-
 // Given a handle type, find an arbitrary call instructions to create handle
 static CallInst *FindCallToCreateHandle(Value *handleType) {
   Value *curVal = handleType;
@@ -351,7 +332,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                       DxilResource resource = M->GetUAV(rangeID->getLimitedValue());
                       if ((resource.IsTypedBuffer() ||
                         resource.IsAnyTexture()) &&
-                        !IsResourceSingleComponent(resource.GetRetType())) {
+                        !dxilutil::IsResourceSingleComponent(resource.GetRetType())) {
                         hasMulticomponentUAVLoads = true;
                       }
                     }
@@ -371,10 +352,29 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                 for (auto &&res : M->GetUAVs()) {
                   if (res->GetGlobalSymbol() == resType) {
                     if ((res->IsTypedBuffer() || res->IsAnyTexture()) &&
-                        !IsResourceSingleComponent(res->GetRetType())) {
+                        !dxilutil::IsResourceSingleComponent(res->GetRetType())) {
                       hasMulticomponentUAVLoads = true;
                     }
                   }
+                }
+              }
+            } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
+              DxilInst_AnnotateHandle annotateHandle(handleCall);
+              Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
+
+              DxilResourceProperties RP =
+                  resource_helper::loadFromAnnotateHandle(
+                      annotateHandle, ResPropTy, *M->GetShaderModel());
+              if (RP.Class == DXIL::ResourceClass::UAV) {
+                // Validator 1.0 assumes that all uav load is multi component
+                // load.
+                if (hasMulticomponentUAVLoadsBackCompat) {
+                  hasMulticomponentUAVLoads = true;
+                  continue;
+                } else {
+                  if (DXIL::IsTyped(RP.Kind) &&
+                      !RP.Typed.SingleComponent)
+                    hasMulticomponentUAVLoads = true;
                 }
               }
             }

@@ -849,6 +849,18 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   return typeDeclBuilder.completeDefinition();
 }
 
+CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context) {
+  // struct ResourceDescriptor { uint8 desc; }
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
+                                         ".Resource",
+                                         TagDecl::TagKind::TTK_Struct);
+  typeDeclBuilder.startDefinition();
+
+  typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+
+  return typeDeclBuilder.completeDefinition();
+}
+
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {
   return FD != nullptr && FD->hasAttr<HLSLIntrinsicAttr>();
 }
