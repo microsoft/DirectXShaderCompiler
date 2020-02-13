@@ -1570,19 +1570,22 @@ StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
   return bChanged;
 }
 
+// Return true if any members or components of struct <Ty> contain
+// scalars of less than 32 bits, in which case translation is required
 static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
   if (Ty->getName().startswith("class.matrix."))
     return true;
   for (auto eTy : Ty->elements()) {
-    if (StructType *structTy = dyn_cast<StructType>(eTy)) {
-      if (ResourceTypeRequiresTranslation(structTy))
-        return true;
-    }
+    // Skip past all levels of sequential types to test their elements
     SequentialType *seqTy;
     while ((seqTy = dyn_cast<SequentialType>(eTy))) {
       eTy = seqTy->getElementType();
     }
-    if (eTy->getScalarSizeInBits() < 32) {
+    // Recursively call this function again to process internal structs
+    if (StructType *structTy = dyn_cast<StructType>(eTy)) {
+      if (ResourceTypeRequiresTranslation(structTy))
+        return true;
+    } else if (eTy->getScalarSizeInBits() < 32) { // test scalar sizes
       return true;
     }
   }
