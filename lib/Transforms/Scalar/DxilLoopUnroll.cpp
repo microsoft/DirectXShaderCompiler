@@ -985,7 +985,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       if (Value *C = DVC->GetValue(ConstantCond))
         ConstantCond = C;
 
-      if (GetConstantI1(BI->getCondition(), &Cond)) {
+      if (GetConstantI1(ConstantCond, &Cond)) {
         if (BI->getSuccessor(Cond ? 1 : 0) == CurIteration.Header) {
           Succeeded = true;
           break;
