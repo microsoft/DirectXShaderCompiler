@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/IR/ValueMap.h"
 
 namespace llvm {
 
