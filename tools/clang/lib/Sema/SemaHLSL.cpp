@@ -12168,18 +12168,9 @@ void hlsl::GetHLSLAttributedTypes(
     _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
     _Inout_opt_ const clang::AttributedType **ppNorm,
     _Inout_opt_ const clang::AttributedType **ppGLC) {
-  if (ppMatrixOrientation) {
-    *ppMatrixOrientation = nullptr;
-    *ppGLC = nullptr;
-  }
-  if (ppNorm) {
-    *ppNorm = nullptr;
-    *ppGLC = nullptr;
-  }
-  if (ppGLC) {
-    *ppNorm = nullptr;
-    *ppMatrixOrientation = nullptr;
-  }
+  AssignOpt<const clang::AttributedType *>(nullptr, ppMatrixOrientation);
+  AssignOpt<const clang::AttributedType *>(nullptr, ppNorm);
+  AssignOpt<const clang::AttributedType *>(nullptr, ppGLC);
 
   // Note: we clear output pointers once set so we can stop searching
   QualType Desugared = getUnderlyingType(type);

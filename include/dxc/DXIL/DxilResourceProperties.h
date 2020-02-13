@@ -52,6 +52,10 @@ struct DxilResourceProperties {
   bool operator!=(const DxilResourceProperties &);
 };
 
+static_assert(sizeof(DxilResourceProperties) == 4 * sizeof(uint32_t),
+              "update shader model and functions read/write "
+              "DxilResourceProperties when size is changed");
+
 class ShaderModel;
 class DxilResourceBase;
 struct DxilInst_AnnotateHandle;
