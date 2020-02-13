@@ -569,10 +569,8 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
             if (isa<Constant>(IndexOp))
               continue;
 
-            if (Value *V = DVC->GetValue(IndexOp)) {
-              if (Constant *C = dyn_cast<Constant>(V))
-                GEP->setOperand(i + 1, C);
-            }
+            if (Constant *C = DVC->GetConstValue(IndexOp))
+              GEP->setOperand(i + 1, C);
           }
         }
 

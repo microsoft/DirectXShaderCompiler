@@ -5380,9 +5380,7 @@ getConstantEvolvingPHIOperands(Instruction *UseInst, const Loop *L,
     if (isa<Constant>(*OpI)) continue;
 
     // HLSL Change begin
-    if (Value *V = DVC->GetValue(*OpI))
-      if (isa<Constant>(V))
-        continue;
+    if (DVC->GetConstValue(*OpI)) continue;
     // HLSL Change end
 
     Instruction *OpInst = dyn_cast<Instruction>(*OpI);
@@ -5608,8 +5606,8 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
     // HLSL Change begin
     // If we don't have a constant, try getting a constant from the value cache.
     if (!StartCST)
-      if (Value *V = getAnalysis<DxilValueCache>().GetValue(PHI->getIncomingValue(!SecondIsBackedge)))
-        StartCST = dyn_cast<Constant>(V);
+      if (Constant *C = getAnalysis<DxilValueCache>().GetConstValue(PHI->getIncomingValue(!SecondIsBackedge)))
+        StartCST = C;
     // HLSL Change end
 
     if (!StartCST) continue;

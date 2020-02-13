@@ -375,6 +375,12 @@ Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   return ProcessValue(V, DT);
 }
 
+Constant *DxilValueCache::GetConstValue(Value *V, DominatorTree *DT) {
+  if (Value *NewV = GetValue(V))
+    return dyn_cast<Constant>(NewV);
+  return nullptr;
+}
+
 bool DxilValueCache::IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT) {
   ProcessValue(BB, DT);
   return IsAlwaysReachable_(BB);
