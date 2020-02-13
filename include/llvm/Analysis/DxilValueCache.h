@@ -8,12 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/IR/ValueMap.h"
 
 namespace llvm {
 
 class Module;
 class DominatorTree;
+class Constant;
 
 struct DxilValueCache : public ImmutablePass {
   static char ID;
@@ -68,6 +69,7 @@ public:
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
+  Constant *GetConstValue(Value *V, DominatorTree *DT = nullptr);
   void ResetUnknowns() { ValueMap.ResetUnknowns(); }
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);

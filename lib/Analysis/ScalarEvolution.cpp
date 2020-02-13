@@ -88,6 +88,8 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/DxilValueCache.h" // HLSL Change
+
 #include <algorithm>
 using namespace llvm;
 
@@ -125,6 +127,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DxilValueCache) // HLSL Change
 INITIALIZE_PASS_END(ScalarEvolution, "scalar-evolution",
                 "Scalar Evolution Analysis", false, true)
 char ScalarEvolution::ID = 0;
@@ -5160,6 +5163,14 @@ ScalarEvolution::ComputeExitLimitFromICmp(const Loop *L,
         if (!isa<SCEVCouldNotCompute>(Ret)) return Ret;
       }
 
+  // HLSL Change - begin
+  // Try to compute the value exhaustively *right now*. Before trying the more pessimistic
+  // partial evaluation.
+  const SCEV *AggresiveResult = ComputeExitCountExhaustively(L, ExitCond, !L->contains(TBB));
+  if (AggresiveResult != getCouldNotCompute())
+    return AggresiveResult;
+  // HLSL Change - end
+
   switch (Cond) {
   case ICmpInst::ICMP_NE: {                     // while (X != Y)
     // Convert to: while (X-Y != 0)
@@ -5198,7 +5209,8 @@ ScalarEvolution::ComputeExitLimitFromICmp(const Loop *L,
 #endif
     break;
   }
-  return ComputeExitCountExhaustively(L, ExitCond, !L->contains(TBB));
+  // return ComputeExitCountExhaustively(L, ExitCond, !L->contains(TBB)); // HLSL Change
+  return getCouldNotCompute(); // HLSL Change - We already tried the exhaustive approach earlier, so don't try again and just give up.
 }
 
 ScalarEvolution::ExitLimit
@@ -5356,6 +5368,7 @@ static bool canConstantEvolve(Instruction *I, const Loop *L) {
 /// recursing through each instruction operand until reaching a loop header phi.
 static PHINode *
 getConstantEvolvingPHIOperands(Instruction *UseInst, const Loop *L,
+                               DxilValueCache *DVC, // HLSL Change
                                DenseMap<Instruction *, PHINode *> &PHIMap) {
 
   // Otherwise, we can evaluate this instruction if all of its operands are
@@ -5365,6 +5378,10 @@ getConstantEvolvingPHIOperands(Instruction *UseInst, const Loop *L,
          OpE = UseInst->op_end(); OpI != OpE; ++OpI) {
 
     if (isa<Constant>(*OpI)) continue;
+
+    // HLSL Change begin
+    if (DVC->GetConstValue(*OpI)) continue;
+    // HLSL Change end
 
     Instruction *OpInst = dyn_cast<Instruction>(*OpI);
     if (!OpInst || !canConstantEvolve(OpInst, L)) return nullptr;
@@ -5378,7 +5395,8 @@ getConstantEvolvingPHIOperands(Instruction *UseInst, const Loop *L,
     if (!P) {
       // Recurse and memoize the results, whether a phi is found or not.
       // This recursive call invalidates pointers into PHIMap.
-      P = getConstantEvolvingPHIOperands(OpInst, L, PHIMap);
+      //P = getConstantEvolvingPHIOperands(OpInst, L, PHIMap); // HLSL Change
+      P = getConstantEvolvingPHIOperands(OpInst, L, DVC, PHIMap); // HLSL Change - Pass DVC
       PHIMap[OpInst] = P;
     }
     if (!P)
@@ -5396,7 +5414,8 @@ getConstantEvolvingPHIOperands(Instruction *UseInst, const Loop *L,
 /// way, but the operands of an operation must either be constants or a value
 /// derived from a constant PHI.  If this expression does not fit with these
 /// constraints, return null.
-static PHINode *getConstantEvolvingPHI(Value *V, const Loop *L) {
+// static PHINode *getConstantEvolvingPHI(Value *V, const Loop *L) { // HLSL Change
+static PHINode *getConstantEvolvingPHI(Value *V, const Loop *L, DxilValueCache *DVC) { // HLSL Change
   Instruction *I = dyn_cast<Instruction>(V);
   if (!I || !canConstantEvolve(I, L)) return nullptr;
 
@@ -5406,7 +5425,8 @@ static PHINode *getConstantEvolvingPHI(Value *V, const Loop *L) {
 
   // Record non-constant instructions contained by the loop.
   DenseMap<Instruction *, PHINode *> PHIMap;
-  return getConstantEvolvingPHIOperands(I, L, PHIMap);
+  // return getConstantEvolvingPHIOperands(I, L, PHIMap); // HLSL Change
+  return getConstantEvolvingPHIOperands(I, L, DVC, PHIMap); // HLSL Change
 }
 
 /// EvaluateExpression - Given an expression that passes the
@@ -5561,7 +5581,8 @@ ScalarEvolution::getConstantEvolutionLoopExitValue(PHINode *PN,
 const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
                                                           Value *Cond,
                                                           bool ExitWhen) {
-  PHINode *PN = getConstantEvolvingPHI(Cond, L);
+  // PHINode *PN = getConstantEvolvingPHI(Cond, L); // HLSL Change
+  PHINode *PN = getConstantEvolvingPHI(Cond, L, &getAnalysis<DxilValueCache>()); // HLSL Change
   if (!PN) return getCouldNotCompute();
 
   // If the loop is canonicalized, the PHI will have exactly two entries.
@@ -5578,13 +5599,36 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   PHINode *PHI = nullptr;
   for (BasicBlock::iterator I = Header->begin();
        (PHI = dyn_cast<PHINode>(I)); ++I) {
+
     Constant *StartCST =
       dyn_cast<Constant>(PHI->getIncomingValue(!SecondIsBackedge));
+
+    // HLSL Change begin
+    // If we don't have a constant, try getting a constant from the value cache.
+    if (!StartCST)
+      if (Constant *C = getAnalysis<DxilValueCache>().GetConstValue(PHI->getIncomingValue(!SecondIsBackedge)))
+        StartCST = C;
+    // HLSL Change end
+
     if (!StartCST) continue;
     CurrentIterVals[PHI] = StartCST;
   }
   if (!CurrentIterVals.count(PN))
     return getCouldNotCompute();
+
+  // HLSL Change begin
+  SmallVector<std::pair<Instruction *, Constant *>, 4> KnownInvariantOps;
+  if (Instruction *CondI = dyn_cast<Instruction>(Cond)) {
+    for (Use &U : CondI->operands()) {
+      if (Instruction *OpI = dyn_cast<Instruction>(U.get())) {
+        if (Value *V = getAnalysis<DxilValueCache>().GetValue(OpI)) {
+          if (Constant *C = dyn_cast<Constant>(V))
+            KnownInvariantOps.push_back({ OpI, C });
+        }
+      }
+    }
+  }
+  // HLSL Change end
 
   // Okay, we find a PHI node that defines the trip count of this loop.  Execute
   // the loop symbolically to determine when the condition gets a value of
@@ -5592,6 +5636,11 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   unsigned MaxIterations = MaxBruteForceIterations;   // Limit analysis.
   const DataLayout &DL = F->getParent()->getDataLayout();
   for (unsigned IterationNum = 0; IterationNum != MaxIterations;++IterationNum){
+    // HLSL Change begin
+    for (std::pair<Instruction *, Constant *> &Pair : KnownInvariantOps)
+      CurrentIterVals[Pair.first] = Pair.second;
+    // HLSL Change end
+
     ConstantInt *CondVal = dyn_cast_or_null<ConstantInt>(
         EvaluateExpression(Cond, L, CurrentIterVals, DL, TLI));
 
@@ -8116,6 +8165,7 @@ void ScalarEvolution::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<DxilValueCache>(); // HLSL Change
 }
 
 bool ScalarEvolution::hasLoopInvariantBackedgeTakenCount(const Loop *L) {
