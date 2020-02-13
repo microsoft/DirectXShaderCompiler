@@ -81,7 +81,7 @@
 
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilValueCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 
 using namespace llvm;
 using namespace hlsl;

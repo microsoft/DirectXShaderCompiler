@@ -88,7 +88,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#include "dxc/HLSL/DxilValueCache.h" // HLSL Change
+#include "llvm/Analysis/DxilValueCache.h" // HLSL Change
 
 #include <algorithm>
 using namespace llvm;

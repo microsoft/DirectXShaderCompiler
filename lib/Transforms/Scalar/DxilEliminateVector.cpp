@@ -21,7 +21,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/DIBuilder.h"
 
-#include "dxc/HLSL/DxilValueCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 
 #include <vector>
 
