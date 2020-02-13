@@ -5428,7 +5428,7 @@ static PHINode *getConstantEvolvingPHI(Value *V, const Loop *L, DxilValueCache *
   // Record non-constant instructions contained by the loop.
   DenseMap<Instruction *, PHINode *> PHIMap;
   // return getConstantEvolvingPHIOperands(I, L, PHIMap); // HLSL Change
-  return getConstantEvolvingPHIOperands(I, L, DVC, PHIMap);
+  return getConstantEvolvingPHIOperands(I, L, DVC, PHIMap); // HLSL Change
 }
 
 /// EvaluateExpression - Given an expression that passes the
@@ -5584,7 +5584,7 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
                                                           Value *Cond,
                                                           bool ExitWhen) {
   // PHINode *PN = getConstantEvolvingPHI(Cond, L); // HLSL Change
-  PHINode *PN = getConstantEvolvingPHI(Cond, L, &getAnalysis<DxilValueCache>());
+  PHINode *PN = getConstantEvolvingPHI(Cond, L, &getAnalysis<DxilValueCache>()); // HLSL Change
   if (!PN) return getCouldNotCompute();
 
   // If the loop is canonicalized, the PHI will have exactly two entries.
