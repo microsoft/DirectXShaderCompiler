@@ -179,6 +179,8 @@ public:
   llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
   llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
   void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
+  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
+  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
   DxilResourceBase *AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
                                                            llvm::MDNode *MD);
   unsigned GetBindingForResourceInCB(llvm::GetElementPtrInst *CbPtr,

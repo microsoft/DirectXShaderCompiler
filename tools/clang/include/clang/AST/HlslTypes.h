@@ -363,6 +363,7 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor = nullptr);
 bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue);
 bool IsHLSLUnsigned(clang::QualType type);
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm = nullptr);
+bool HasHLSLGloballyCoherent(clang::QualType type);
 bool IsHLSLInputPatchType(clang::QualType type);
 bool IsHLSLOutputPatchType(clang::QualType type);
 bool IsHLSLPointStreamType(clang::QualType type);

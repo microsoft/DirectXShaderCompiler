@@ -3270,6 +3270,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     SRetPtr = ReturnValue.getValue();
     if (!SRetPtr) {
       SRetPtr = CreateMemTemp(RetTy);
+      // HLSL Change begin.
+      CGM.getHLSLRuntime().MarkRetTemp(*this, SRetPtr, RetTy);
+      // HLSL Change end.
       if (HaveInsertPoint() && ReturnValue.isUnused()) {
         uint64_t size =
             CGM.getDataLayout().getTypeAllocSize(ConvertTypeForMem(RetTy));

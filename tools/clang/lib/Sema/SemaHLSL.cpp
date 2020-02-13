@@ -12164,20 +12164,27 @@ static QualType getUnderlyingType(QualType Type)
 /// <param name="ppMatrixOrientation">Set pointer to column_major/row_major AttributedType if supplied.</param>
 /// <param name="ppNorm">Set pointer to snorm/unorm AttributedType if supplied.</param>
 void hlsl::GetHLSLAttributedTypes(
-  _In_ clang::Sema* self,
-  clang::QualType type, 
-  _Inout_opt_ const clang::AttributedType** ppMatrixOrientation, 
-  _Inout_opt_ const clang::AttributedType** ppNorm)
-{
-  if (ppMatrixOrientation)
+    _In_ clang::Sema *self, clang::QualType type,
+    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
+    _Inout_opt_ const clang::AttributedType **ppNorm,
+    _Inout_opt_ const clang::AttributedType **ppGLC) {
+  if (ppMatrixOrientation) {
     *ppMatrixOrientation = nullptr;
-  if (ppNorm)
+    *ppGLC = nullptr;
+  }
+  if (ppNorm) {
     *ppNorm = nullptr;
+    *ppGLC = nullptr;
+  }
+  if (ppGLC) {
+    *ppNorm = nullptr;
+    *ppMatrixOrientation = nullptr;
+  }
 
   // Note: we clear output pointers once set so we can stop searching
   QualType Desugared = getUnderlyingType(type);
   const AttributedType *AT = dyn_cast<AttributedType>(Desugared);
-  while (AT && (ppMatrixOrientation || ppNorm)) {
+  while (AT && (ppMatrixOrientation || ppNorm || ppGLC)) {
     AttributedType::Kind Kind = AT->getAttrKind();
 
     if (Kind == AttributedType::attr_hlsl_row_major ||
@@ -12196,6 +12203,12 @@ void hlsl::GetHLSLAttributedTypes(
       {
         *ppNorm = AT;
         ppNorm = nullptr;
+      }
+    }
+    else if (Kind == AttributedType::attr_hlsl_globallycoherent) {
+      if (ppGLC) {
+        *ppGLC = AT;
+        ppGLC = nullptr;
       }
     }
 

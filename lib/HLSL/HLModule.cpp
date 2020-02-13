@@ -756,6 +756,12 @@ MDNode *HLModule::DxilCBufferToMDNode(const DxilCBuffer &CB) {
 void HLModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
   return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
 }
+void HLModule::LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R) {
+  return m_pMDHelper->LoadDxilResourceFromMDNode(MD, R);
+}
+void HLModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
+  return m_pMDHelper->LoadDxilSamplerFromMDNode(MD, S);
+}
 
 DxilResourceBase *HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
                                                       llvm::MDNode *MD) {

@@ -108,13 +108,10 @@ private:
                  llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
       constantRegBindingMap;
 
-  // Map from type to resource properties.
-  // This only has info about type, globalcoherent is saved in
-  // globalCoherentSet.
-  DenseMap<llvm::Type *, DxilResourceProperties> typeToResPropertiesMap;
-
-  // Set to mark globalcoherent.
-  DenseSet<Value *> globalCoherentSet;
+  // Map from value to resource properties.
+  // This only collect object variables(global/local/parameter), not object fields inside struct.
+  // Object fields inside struct is saved by TypeAnnotation.
+  DenseMap<Value *, DxilResourceProperties> valToResPropertiesMap;
 
   bool  m_bDebugInfo;
   bool  m_bIsLib;
@@ -250,7 +247,7 @@ private:
                                      DxilTypeSystem &dxilTypeSys);
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
                              unsigned &arrayEltSize);
-  MDNode *GetOrAddResTypeMD(QualType resTy);
+  MDNode *GetOrAddResTypeMD(QualType resTy, bool bCreate);
   DxilResourceProperties BuildResourceProperty(QualType resTy);
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
                                           QualType fieldTy,
@@ -330,7 +327,8 @@ public:
   void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
                           llvm::TerminatorInst *TI,
                           ArrayRef<const Attr *> Attrs) override;
-  
+  void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
+                  clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
 
   /// Get or add constant to the program
@@ -768,7 +766,7 @@ static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
     .Default(DxilSampler::SamplerKind::Invalid);
 }
 
-MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
+MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
   const RecordType *RT = resTy->getAs<RecordType>();
   if (!RT)
     return nullptr;
@@ -778,7 +776,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
   llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
   auto it = resMetadataMap.find(Ty);
-  if (it != resMetadataMap.end())
+  if (!bCreate && it != resMetadataMap.end())
     return it->second;
 
   // Save resource type metadata.
@@ -788,7 +786,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
     // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
     SetUAVSRV(loc, resClass, &UAV, resTy);
     // Set global symbol to save type.
-    UAV.SetGlobalSymbol(UndefValue::get(Ty));
+    UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
     resMetadataMap[Ty] = MD;
     return MD;
@@ -797,7 +795,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
     DxilResource SRV;
     SetUAVSRV(loc, resClass, &SRV, resTy);
     // Set global symbol to save type.
-    SRV.SetGlobalSymbol(UndefValue::get(Ty));
+    SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
     resMetadataMap[Ty] = MD;
     return MD;
@@ -807,7 +805,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
     DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
     S.SetSamplerKind(kind);
     // Set global symbol to save type.
-    S.SetGlobalSymbol(UndefValue::get(Ty));
+    S.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
     resMetadataMap[Ty] = MD;
     return MD;
@@ -818,7 +816,26 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   }
 }
 
+
+namespace {
+MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
+  DXASSERT(hlsl::IsHLSLMatType(Ty), "");
+  bool bIsRowMajor = bDefaultRowMajor;
+  HasHLSLMatOrientation(Ty, &bIsRowMajor);
+  return bIsRowMajor ? MatrixOrientation::RowMajor
+                     : MatrixOrientation::ColumnMajor;
+}
+
+QualType GetArrayEltType(ASTContext &Context, QualType Ty) {
+  while (const clang::ArrayType *ArrayTy = Context.getAsArrayType(Ty))
+    Ty = ArrayTy->getElementType();
+  return Ty;
+}
+
+} // namespace
+
 DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
+  resTy = GetArrayEltType(CGM.getContext(), resTy);
   const RecordType *RT = resTy->getAs<RecordType>();
   DxilResourceProperties RP;
   if (!RT) {
@@ -829,95 +846,24 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
   SourceLocation loc = RD->getLocation();
 
   hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
+  RP.Class = resClass;
+  if (resClass == DXIL::ResourceClass::Invalid)
+    return RP;
+
   llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
-
-  auto it = typeToResPropertiesMap.find(Ty);
-  if (it != typeToResPropertiesMap.end())
-    return it->second;
-
-  // llvm::Type *RetTy = cast<StructType>(Ty)->getElementType(0);
-  // Anno.RetType = RetTy;
-  auto SetResProperties = [&RP](DxilResource &Res) {
-    switch (Res.GetKind()) {
-    default:
-      break;
-    case DXIL::ResourceKind::FeedbackTexture2D:
-    case DXIL::ResourceKind::FeedbackTexture2DArray:
-      RP.SamplerFeedbackType = Res.GetSamplerFeedbackType();
-      break;
-    case DXIL::ResourceKind::RTAccelerationStructure:
-
-      break;
-    case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
-      RP.ElementStride = Res.GetElementStride();
-      break;
-    case DXIL::ResourceKind::TypedBuffer:
-      RP.Typed.CompType = Res.GetCompType().GetKind();
-      break;
-    case DXIL::ResourceKind::Texture2DMS:
-    case DXIL::ResourceKind::Texture2DMSArray:
-      RP.Typed.CompType = Res.GetCompType().GetKind();
-      switch (Res.GetSampleCount()) {
-      default:
-        RP.Typed.SampleCountPow2 =
-            DxilResourceProperties::kSampleCountUndefined;
-        break;
-      case 1:
-        RP.Typed.SampleCountPow2 = 0;
-        break;
-      case 2:
-        RP.Typed.SampleCountPow2 = 1;
-        break;
-      case 4:
-        RP.Typed.SampleCountPow2 = 2;
-        break;
-      case 8:
-        RP.Typed.SampleCountPow2 = 3;
-        break;
-      case 16:
-        RP.Typed.SampleCountPow2 = 4;
-        break;
-      case 32:
-        RP.Typed.SampleCountPow2 = 5;
-        break;
-      }
-      break;
-    case DXIL::ResourceKind::Texture1D:
-    case DXIL::ResourceKind::Texture2D:
-    case DXIL::ResourceKind::TextureCube:
-    case DXIL::ResourceKind::Texture1DArray:
-    case DXIL::ResourceKind::Texture2DArray:
-    case DXIL::ResourceKind::TextureCubeArray:
-    case DXIL::ResourceKind::Texture3D:
-      RP.Typed.CompType = Res.GetCompType().GetKind();
-      break;
-    }
-  };
-  // Save resource type metadata.
   switch (resClass) {
   case DXIL::ResourceClass::UAV: {
     DxilResource UAV;
     // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
     SetUAVSRV(loc, resClass, &UAV, resTy);
-
-    RP.Kind = UAV.GetKind();
-    RP.Class = UAV.GetClass();
-    RP.UAV.bGloballyCoherent = false;
-    if (UAV.HasCounter()) {
-      RP.Kind = DXIL::ResourceKind::StructuredBufferWithCounter;
-    }
-    RP.UAV.bROV = UAV.IsROV();
-    SetResProperties(UAV);
-    typeToResPropertiesMap[Ty] = RP;
+    UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    RP = resource_helper::loadFromResourceBase(&UAV);
   } break;
   case DXIL::ResourceClass::SRV: {
     DxilResource SRV;
     SetUAVSRV(loc, resClass, &SRV, resTy);
-    RP.Kind = SRV.GetKind();
-    RP.Class = SRV.GetClass();
-    SetResProperties(SRV);
-    typeToResPropertiesMap[Ty] = RP;
+    SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    RP = resource_helper::loadFromResourceBase(&SRV);
   } break;
   case DXIL::ResourceClass::Sampler: {
     DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
@@ -926,31 +872,12 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     RP.Kind = DXIL::ResourceKind::Sampler;
     if (kind == DXIL::SamplerKind::Comparison)
       RP.Kind = DXIL::ResourceKind::SamplerComparison;
-
-    typeToResPropertiesMap[Ty] = RP;
   }
   default:
     break;
   }
   return RP;
 }
-
-namespace {
-MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
-  DXASSERT(hlsl::IsHLSLMatType(Ty), "");
-  bool bIsRowMajor = bDefaultRowMajor;
-  HasHLSLMatOrientation(Ty, &bIsRowMajor);
-  return bIsRowMajor ? MatrixOrientation::RowMajor
-                          : MatrixOrientation::ColumnMajor;
-}
-
-QualType GetArrayEltType(ASTContext& Context, QualType Ty) {
-  while (const clang::ArrayType *ArrayTy = Context.getAsArrayType(Ty))
-    Ty = ArrayTy->getElementType();
-  return Ty;
-}
-
-} // namespace
 
 void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     DxilFieldAnnotation &fieldAnnotation, QualType fieldTy,
@@ -977,7 +904,8 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     EltTy = hlsl::GetHLSLVecElementType(Ty);
 
   if (IsHLSLResourceType(Ty)) {
-    MDNode *MD = GetOrAddResTypeMD(Ty);
+    // Always create for llvm::Type could be same for different QualType.
+    MDNode *MD = GetOrAddResTypeMD(Ty, /*bCreate*/ true);
     fieldAnnotation.SetResourceAttribute(MD);
   }
 
@@ -1308,19 +1236,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     hlsl::DxilResourceBase::Class resClass = TypeToClass(qTy);
     if (resClass != hlsl::DxilResourceBase::Class::Invalid) {
       if (!resMetadataMap.count(Ty)) {
-        MDNode *Meta = GetOrAddResTypeMD(qTy);
+        MDNode *Meta = GetOrAddResTypeMD(qTy, /**/false);
         DXASSERT(Meta, "else invalid resource type");
         resMetadataMap[Ty] = Meta;
-      }
-    }
-  };
-
-  auto AddHandleAnnotation = [&](QualType qTy, llvm::Type *Ty) {
-    hlsl::DxilResourceBase::Class resClass = TypeToClass(qTy);
-    if (resClass != hlsl::DxilResourceBase::Class::Invalid) {
-      if (!typeToResPropertiesMap.count(Ty)) {
-        DxilResourceProperties RP = BuildResourceProperty(qTy);
-        typeToResPropertiesMap[Ty] = RP;
       }
     }
   };
@@ -1343,7 +1261,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       QualType recordTy = MD->getASTContext().getRecordType(RD);
       llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
       AddResourceMetadata(recordTy, Ty);
-      AddHandleAnnotation(recordTy, Ty);
     }
 
     // Add metadata for any resources found in parameters
@@ -1354,7 +1271,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Ty = Ty->getPointerElementType();
       QualType paramTy = FD->getParamDecl(iParam)->getType();
       AddResourceMetadata(paramTy, Ty);
-      AddHandleAnnotation(paramTy, Ty);
     }
 
     StringRef lower;
@@ -1771,11 +1687,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   unsigned ArgNo = 0;
   unsigned ParmIdx = 0;
 
+  auto ArgIt = F->arg_begin();
+
   if (const CXXMethodDecl *MethodDecl = dyn_cast<CXXMethodDecl>(FD)) {
     if (MethodDecl->isInstance()) {
       QualType ThisTy = MethodDecl->getThisType(FD->getASTContext());
       DxilParameterAnnotation &paramAnnotation =
           FuncAnnotation->GetParameterAnnotation(ArgNo++);
+      ++ArgIt;
       // Construct annoation for this pointer.
       ConstructFieldAttributedAnnotation(paramAnnotation, ThisTy,
                                          bDefaultRowMajor);
@@ -1788,6 +1707,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (F->getReturnType()->isVoidTy() && !retTy->isVoidType()) {
     // SRet.
     pRetTyAnnotation = &FuncAnnotation->GetParameterAnnotation(ArgNo++);
+    // Save resource properties for parameters.
+    DxilResourceProperties RP = BuildResourceProperty(retTy);
+    if (RP.Class != DXIL::ResourceClass::Invalid)
+      valToResPropertiesMap[ArgIt] = RP;
+    ++ArgIt;
   } else {
     pRetTyAnnotation = &FuncAnnotation->GetRetTypeAnnotation();
   }
@@ -1823,13 +1747,18 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool hasOutVertices = false;
   bool hasOutPrimitives = false;
   bool hasInPayload = false;
-  for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
+  for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx, ++ArgIt) {
     DxilParameterAnnotation &paramAnnotation =
         FuncAnnotation->GetParameterAnnotation(ArgNo);
 
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
 
     QualType fieldTy = parmDecl->getType();
+    // Save resource properties for parameters.
+    DxilResourceProperties RP = BuildResourceProperty(fieldTy);
+    if (RP.Class != DXIL::ResourceClass::Invalid)
+      valToResPropertiesMap[ArgIt] = RP;
+
     // if parameter type is a typedef, try to desugar it first.
     if (isa<TypedefType>(fieldTy.getTypePtr()))
       fieldTy = fieldTy.getDesugaredType(FD->getASTContext());
@@ -2466,7 +2395,16 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
   }
 }
 
-void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) {
+void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
+                                 QualType QualTy) {
+  // Save resource properties for ret temp.
+  DxilResourceProperties RP = BuildResourceProperty(QualTy);
+  if (RP.Class != DXIL::ResourceClass::Invalid)
+    valToResPropertiesMap[V] = RP;
+}
+
+void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
+                                    llvm::Value *V) {
   if (D.hasAttr<HLSLPreciseAttr>()) {
     AllocaInst *AI = cast<AllocaInst>(V);
     HLModule::MarkPreciseAttributeWithMetadata(AI);
@@ -2475,10 +2413,10 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
   AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
-  if (D.hasAttr<HLSLGloballyCoherentAttr>()) {
-    // TODO: support glc in struct element.
-    globalCoherentSet.insert(V);
-  }
+  // Save resource properties for local variables.
+  DxilResourceProperties RP = BuildResourceProperty(D.getType());
+  if (RP.Class != DXIL::ResourceClass::Invalid)
+    valToResPropertiesMap[V] = RP;
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -2557,6 +2495,13 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
     GetOrCreateCBuffer(BD);
   else if (VarDecl *VD = dyn_cast<VarDecl>(D)) {
     hlsl::DxilResourceBase::Class resClass = TypeToClass(VD->getType());
+    // Save resource properties for global variables.
+    if (resClass != DXIL::ResourceClass::Invalid) {
+      GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
+      DxilResourceProperties RP = BuildResourceProperty(VD->getType());
+      if (RP.Class != DXIL::ResourceClass::Invalid)
+        valToResPropertiesMap[GV] = RP;
+    }
     // skip decl has init which is resource.
     if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
       return;
@@ -3040,7 +2985,6 @@ static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
 bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
                                 hlsl::DxilResourceBase::Class resClass,
                                 DxilResource *hlslRes, QualType QualTy) {
-
   RecordDecl *RD = QualTy->getAs<RecordType>()->getDecl();
 
   hlsl::DxilResource::Kind kind = KeywordToKind(RD->getName());
@@ -3156,7 +3100,9 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
     uint32_t strideInBytes = dataLayout.getTypeAllocSize(retTy);
     hlslRes->SetElementStride(strideInBytes);
   }
-
+  if (HasHLSLGloballyCoherent(QualTy)) {
+    hlslRes->SetGloballyCoherent(true);
+  }
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
     if (hlslRes->IsGloballyCoherent()) {
       DiagnosticsEngine &Diags = CGM.getDiags();
@@ -3258,6 +3204,10 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
   }
   llvm::Constant *constVal = CGM.GetAddrOfGlobalVar(constDecl);
   auto &regBindings = constantRegBindingMap[constVal];
+  // Save resource properties for cbuffer variables.
+  DxilResourceProperties RP = BuildResourceProperty(constDecl->getType());
+  if (RP.Class != DXIL::ResourceClass::Invalid)
+    valToResPropertiesMap[constVal] = RP;
 
   bool isGlobalCB = CB.GetID() == globalCBIndex;
   uint32_t offset = 0;
@@ -4112,12 +4062,7 @@ namespace {
 
 Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
                             DxilResourceProperties &RP, llvm::Type *ResTy,
-                            IRBuilder<> &Builder, bool bGLC) {
-  if (bGLC) {
-    DXASSERT(RP.Class == DXIL::ResourceClass::UAV, "glc should on uav");
-    RP.UAV.bGloballyCoherent = true;
-  }
-
+                            IRBuilder<> &Builder) {
   Constant *RPConstant = resource_helper::getAsConstant(
       RP, HLM.GetOP()->GetResourcePropertiesType(), *HLM.GetShaderModel());
   return HLM.EmitHLOperationCall(
@@ -4299,6 +4244,8 @@ void CGMSHLSLRuntime::AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
   if (!lower.empty())
     hlsl::SetHLLowerStrategy(opFunc, lower);
 
+  DxilTypeSystem &typeSys = HLM.GetTypeSystem();
+
   for (auto user = F->user_begin(); user != F->user_end();) {
     // User must be a call.
     CallInst *oldCI = cast<CallInst>(*(user++));
@@ -4356,6 +4303,8 @@ void CGMSHLSLRuntime::AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
       if (Ty->isPointerTy()) {
         Ty = Ty->getPointerElementType();
         if (dxilutil::IsHLSLResourceType(Ty)) {
+
+          DxilResourceProperties RP;
           // Use object type directly, not by pointer.
           // This will make sure temp object variable only used by ld/st.
           if (GEPOperator *argGEP = dyn_cast<GEPOperator>(arg)) {
@@ -4366,12 +4315,79 @@ void CGMSHLSLRuntime::AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
             Builder.Insert(GEP);
             arg = GEP;
           }
+
+          llvm::Type *ResTy = arg->getType()->getPointerElementType();
+
+          auto RPIt = valToResPropertiesMap.find(arg);
+          if (RPIt != valToResPropertiesMap.end())
+          {
+            RP = RPIt->second;
+          } else {
+            // Must be GEP.
+            GEPOperator *GEP = cast<GEPOperator>(arg);
+            // Find RP from GEP.
+            Value *Ptr = GEP->getPointerOperand();
+            // When Ptr is array of resource, check if it is another GEP.
+            while (dxilutil::IsHLSLResourceType(
+                    dxilutil::GetArrayEltTy(Ptr->getType()))) {
+              if (GEPOperator *ParentGEP = dyn_cast<GEPOperator>(Ptr)) {
+                GEP = ParentGEP;
+                Ptr = GEP->getPointerOperand();
+              } else {
+                break;
+              }
+            }
+
+            RPIt = valToResPropertiesMap.find(Ptr);
+            // When ptr is array of resource, ptr could be in valToResPropertiesMap.
+            if (RPIt != valToResPropertiesMap.end()) {
+              RP = RPIt->second;
+            } else {
+              DxilStructAnnotation *Anno = nullptr;
+
+              for (auto gepIt = gep_type_begin(GEP), E = gep_type_end(GEP);
+                   gepIt != E; ++gepIt) {
+
+                if (StructType *ST = dyn_cast<StructType>(*gepIt)) {
+                  Anno = typeSys.GetStructAnnotation(ST);
+                  DXASSERT(Anno, "missing type annotation");
+
+                  unsigned Index = cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
+
+                  DxilFieldAnnotation &fieldAnno =
+                      Anno->GetFieldAnnotation(Index);
+                  if (fieldAnno.HasResourceAttribute()) {
+                    MDNode *resAttrib = fieldAnno.GetResourceAttribute();
+                    DxilResourceBase R(DXIL::ResourceClass::Invalid);
+                    HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
+                    switch (R.GetClass()) {
+                    case DXIL::ResourceClass::SRV:
+                    case DXIL::ResourceClass::UAV: {
+                      DxilResource Res;
+                      HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
+                      RP = resource_helper::loadFromResourceBase(&Res);
+                    } break;
+                    case DXIL::ResourceClass::Sampler: {
+                      DxilSampler Sampler;
+                      HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
+                      RP = resource_helper::loadFromResourceBase(&Sampler);
+                    } break;
+                    default:
+                      DXASSERT(
+                          0, "invalid resource attribute in filed annotation");
+                      break;
+                    }
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          DXASSERT(RP.Class != DXIL::ResourceClass::Invalid, "invalid resource properties");
           Value *Handle = CreateHandleFromResPtr(arg, HLM, HandleTy,
                                                  resMetaMap, Builder);
-          llvm::Type *ResTy = arg->getType()->getPointerElementType();
-          bool bGLC = globalCoherentSet.count(arg);
-          DxilResourceProperties RP = typeToResPropertiesMap[ResTy];
-          Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, Builder, bGLC);
+          Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, Builder);
           opcodeParamList[i] = Handle;
         }
       }
@@ -5443,6 +5459,14 @@ void TranslateRayQueryConstructor(llvm::Module &M) {
 }
 
 void CGMSHLSLRuntime::FinishCodeGen() {
+  // Lower getResourceHeap before AddOpcodeParamForIntrinsics to skip automatic
+  // lower for getResourceFromHeap.
+  LowerGetResourceFromHeap(*m_pHLModule, m_IntrinsicMap);
+  // translate opcode into parameter for intrinsic functions
+  // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
+  // update valToResPropertiesMap for cloned inst.
+  AddOpcodeParamForIntrinsics(*m_pHLModule, m_IntrinsicMap, resMetadataMap);
+
   // Library don't have entry.
   if (!m_bIsLib) {
     SetEntryFunction();
@@ -5469,7 +5493,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
         continue;
 
       // TODO: change flattened function names to dx.entry.<name>:
-      //std::string entryName = (Twine(dxilutil::EntryPrefix) + it.getKey()).str();
+      // std::string entryName = (Twine(dxilutil::EntryPrefix) +
+      // it.getKey()).str();
       CloneShaderEntry(it.second.Func, it.getKey(), *m_pHLModule);
 
       auto AttrIter = HSEntryPatchConstantFuncAttr.find(it.second.Func);
@@ -5506,9 +5531,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
   }
 
-  // Lower getResourceHeap.
-  LowerGetResourceFromHeap(*m_pHLModule, m_IntrinsicMap);
-
   // Add Reg bindings for resource in cb.
   AddRegBindingsForResourceInConstantBuffer(m_pHLModule, constantRegBindingMap);
 
@@ -5527,8 +5549,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     ProcessCtorFunctions(TheModule ,"llvm.global_ctors",
                   Entry.Func->getEntryBlock().getFirstInsertionPt());
   }
-  // translate opcode into parameter for intrinsic functions
-  AddOpcodeParamForIntrinsics(*m_pHLModule, m_IntrinsicMap, resMetadataMap);
 
   // Register patch constant functions referenced by exported Hull Shaders
   if (m_bIsLib && !m_ExportMap.empty()) {

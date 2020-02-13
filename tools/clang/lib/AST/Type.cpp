@@ -2942,6 +2942,7 @@ bool AttributedType::isHLSLTypeSpec() const {
   case attr_hlsl_column_major:
   case attr_hlsl_snorm:
   case attr_hlsl_unorm:
+  case attr_hlsl_globallycoherent:
     return true;
   }
   llvm_unreachable("invalid attr kind");
@@ -2971,6 +2972,7 @@ bool AttributedType::isCallingConv() const {
   case attr_hlsl_column_major:
   case attr_hlsl_snorm:
   case attr_hlsl_unorm:
+  case attr_hlsl_globallycoherent:
   // HLSL Change Ends
     return false;
 

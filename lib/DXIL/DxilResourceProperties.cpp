@@ -44,7 +44,7 @@ Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
   case 2: {
     Constant *RawDwords[] = {
         ConstantInt::get(ST->getElementType(0), RP.RawDword0),
-        ConstantInt::get(ST->getElementType(1), RP.RawDword0)};
+        ConstantInt::get(ST->getElementType(1), RP.RawDword1)};
     return ConstantStruct::get(ST, RawDwords);
   } break;
   default:
@@ -96,6 +96,9 @@ DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
   if (!Res) {
     return RP;
   }
+
+  RP.RawDword0 = 0;
+  RP.RawDword1 = 0;
 
   auto SetResProperties = [&RP](DxilResource &Res) {
     switch (Res.GetKind()) {
