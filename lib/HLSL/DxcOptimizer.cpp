@@ -20,7 +20,7 @@
 #include "dxc/HLSL/HLMatrixLowerPass.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
-#include "dxc/HLSL/DxilValueCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/dxcapi.impl.h"
 

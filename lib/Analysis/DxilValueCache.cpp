@@ -25,7 +25,7 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/Statistic.h"
 
-#include "dxc/HLSL/DxilValueCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
 
@@ -373,6 +373,12 @@ Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (Value *NewV = ValueMap.Get(V))
     return NewV;
   return ProcessValue(V, DT);
+}
+
+Constant *DxilValueCache::GetConstValue(Value *V, DominatorTree *DT) {
+  if (Value *NewV = GetValue(V))
+    return dyn_cast<Constant>(NewV);
+  return nullptr;
 }
 
 bool DxilValueCache::IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT) {

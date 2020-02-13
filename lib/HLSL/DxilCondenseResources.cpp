@@ -21,7 +21,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilValueCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 
 #include "llvm/IR/Instructions.h"

@@ -29,7 +29,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h" // HLSL Change
 #include "dxc/HLSL/ComputeViewIdState.h" // HLSL Change
-#include "dxc/HLSL/DxilValueCache.h" // HLSL Change
+#include "llvm/Analysis/DxilValueCache.h" // HLSL Change
 
 using namespace llvm;
 
