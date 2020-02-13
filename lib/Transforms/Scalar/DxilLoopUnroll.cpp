@@ -77,9 +77,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
+#include "llvm/Analysis/DxilValueCache.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -127,6 +129,7 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolution>();
+    AU.addRequired<DxilValueCache>();
     AU.addRequiredID(LoopSimplifyID);
   }
 };
@@ -536,7 +539,7 @@ inline static int64_t GetGEPIndex(GEPOperator *GEP, unsigned idx) {
 // Otherwise it emits an error and fails compilation.
 //
 template<typename IteratorT>
-static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT ItEnd, DominatorTree *DT, AssumptionCache *AC) { 
+static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT ItEnd, DominatorTree *DT, AssumptionCache *AC, DxilValueCache *DVC) { 
   bool Success = true;
 
   SmallVector<AllocaInst *, 8> WorkList(ItBegin, ItEnd);
@@ -558,7 +561,19 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
 
     GEPs.clear(); // Re-use array
     for (User *U : AI->users()) {
+      // Try to set all GEP operands to constant
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        if (!GEP->hasAllConstantIndices() && isa<GetElementPtrInst>(GEP)) {
+          for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
+            Value *IndexOp = GEP->getOperand(i + 1);
+            if (isa<Constant>(IndexOp))
+              continue;
+
+            if (Constant *C = DVC->GetConstValue(IndexOp))
+              GEP->setOperand(i + 1, C);
+          }
+        }
+
         if (!GEP->hasAllConstantIndices() || GEP->getNumIndices() < 2 ||
           GetGEPIndex(GEP, 0) != 0)
         {
@@ -689,6 +704,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   DebugLoc LoopLoc = L->getStartLoc(); // Debug location for the start of the loop.
   Function *F = L->getHeader()->getParent();
   ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
+  DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
 
   bool HasExplicitLoopCount = false;
   int ExplicitUnrollCountSigned = 0;
@@ -720,15 +736,13 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   unsigned TripCount = 0;
-  unsigned TripMultiple = 0;
-  bool HasTripCount = false;
+
   BasicBlock *ExitingBlock = L->getLoopLatch();
   if (!ExitingBlock || !L->isLoopExiting(ExitingBlock))
     ExitingBlock = L->getExitingBlock();
+
   if (ExitingBlock) {
     TripCount = SE->getSmallConstantTripCount(L, ExitingBlock);
-    TripMultiple = SE->getSmallConstantTripMultiple(L, ExitingBlock);
-    HasTripCount = TripMultiple != 1 || TripCount == 1;
   }
 
   // Analysis passes
@@ -853,7 +867,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   unsigned MaxAttempt = this->MaxIterationAttempt;
   // If we were able to figure out the definitive trip count,
   // just unroll that many times.
-  if (HasTripCount) {
+  if (TripCount != 0) {
     MaxAttempt = TripCount;
   }
   else if (HasExplicitLoopCount) {
@@ -966,7 +980,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Check exit condition to see if we fully unrolled the loop
     if (BranchInst *BI = dyn_cast<BranchInst>(CurIteration.Latch->getTerminator())) {
       bool Cond = false;
-      if (GetConstantI1(BI->getCondition(), &Cond)) {
+
+      Value *ConstantCond = BI->getCondition();
+      if (Value *C = DVC->GetValue(ConstantCond))
+        ConstantCond = C;
+
+      if (GetConstantI1(ConstantCond, &Cond)) {
         if (BI->getSuccessor(Cond ? 1 : 0) == CurIteration.Header) {
           Succeeded = true;
           break;
@@ -976,7 +995,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // We've reached the N defined in [unroll(N)]
     if ((HasExplicitLoopCount && IterationI+1 >= ExplicitUnrollCount) ||
-      (HasTripCount && IterationI+1 >= TripCount))
+      (TripCount != 0 && IterationI+1 >= TripCount))
     {
       Succeeded = true;
       BranchInst *BI = cast<BranchInst>(CurIteration.Latch->getTerminator());
@@ -1074,7 +1093,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
-    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC)) {
+    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
       FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
@@ -1245,5 +1264,17 @@ Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt) {
   return new DxilLoopUnroll(MaxIterationAttempt);
 }
 
-INITIALIZE_PASS(DxilConditionalMem2Reg, "dxil-cond-mem2reg", "Dxil Conditional Mem2Reg", false, false)
-INITIALIZE_PASS(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
+INITIALIZE_PASS_BEGIN(DxilConditionalMem2Reg, "dxil-cond-mem2reg", "Dxil Conditional Mem2Reg", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_END(DxilConditionalMem2Reg, "dxil-cond-mem2reg", "Dxil Conditional Mem2Reg", false, false)
+
+INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
+INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
+INITIALIZE_PASS_END(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
+
