@@ -1927,8 +1927,7 @@ void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
   }
 
   for (auto &UAV : DM.GetUAVs()) {
-    if (UAV->GetKind() == DxilResourceBase::Kind::StructuredBuffer ||
-        UAV->GetKind() == DxilResourceBase::Kind::StructuredBufferWithCounter)
+    if (DXIL::IsStructuredBuffer(UAV->GetKind()))
       UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, M);
   }
 

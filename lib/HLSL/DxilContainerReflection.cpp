@@ -1716,8 +1716,7 @@ void DxilModuleReflection::CreateReflectionObjects() {
 
   // TODO: add tbuffers into m_CBs
   for (auto && uav : m_pDxilModule->GetUAVs()) {
-    if (uav->GetKind() != DxilResource::Kind::StructuredBuffer &&
-        uav->GetKind() != DxilResource::Kind::StructuredBufferWithCounter) {
+    if (!DXIL::IsStructuredBuffer(uav->GetKind())) {
       continue;
     }
     std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());

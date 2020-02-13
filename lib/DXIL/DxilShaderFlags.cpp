@@ -19,6 +19,7 @@
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -331,7 +332,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                       DxilResource resource = M->GetUAV(rangeID->getLimitedValue());
                       if ((resource.IsTypedBuffer() ||
                         resource.IsAnyTexture()) &&
-                        !resource_helper::IsResourceSingleComponent(resource.GetRetType())) {
+                        !dxilutil::IsResourceSingleComponent(resource.GetRetType())) {
                         hasMulticomponentUAVLoads = true;
                       }
                     }
@@ -351,7 +352,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                 for (auto &&res : M->GetUAVs()) {
                   if (res->GetGlobalSymbol() == resType) {
                     if ((res->IsTypedBuffer() || res->IsAnyTexture()) &&
-                        !resource_helper::IsResourceSingleComponent(res->GetRetType())) {
+                        !dxilutil::IsResourceSingleComponent(res->GetRetType())) {
                       hasMulticomponentUAVLoads = true;
                     }
                   }
@@ -371,7 +372,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                   hasMulticomponentUAVLoads = true;
                   continue;
                 } else {
-                  if (resource_helper::IsTyped(RP.Kind) &&
+                  if (DXIL::IsTyped(RP.Kind) &&
                       !RP.Typed.SingleComponent)
                     hasMulticomponentUAVLoads = true;
                 }

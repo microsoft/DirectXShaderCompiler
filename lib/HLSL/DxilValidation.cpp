@@ -1120,8 +1120,7 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
     // Emit invalid res class
     return DXIL::ResourceKind::Invalid;
   }
-  if (RP.Kind != DXIL::ResourceKind::StructuredBuffer &&
-      RP.Kind != DXIL::ResourceKind::StructuredBufferWithCounter)
+  if (!DXIL::IsStructuredBuffer(RP.Kind))
     CompTy = RP.Typed.CompType;
   else
     CompTy = DXIL::ComponentType::Invalid;
@@ -2466,8 +2465,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                ValidationRule::InstrBufferUpdateCounterOnUAV);
     }
 
-    if (RP.Kind != DXIL::ResourceKind::StructuredBuffer &&
-        RP.Kind != DXIL::ResourceKind::StructuredBufferWithCounter) {
+    if (!DXIL::IsStructuredBuffer(RP.Kind)) {
       ValCtx.EmitInstrError(CI, ValidationRule::SmCounterOnlyOnStructBuf);
     }
 

@@ -855,10 +855,8 @@ CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context) {
                                          ".Resource",
                                          TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
-  QualType vectorType = context.getExtVectorType(context.UnsignedIntTy, 8);
-  typeDeclBuilder.addField(
-      "h",
-      vectorType); // Add an 'desc' field to hold the descriptor.
+
+  typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
   return typeDeclBuilder.completeDefinition();
 }

@@ -7013,7 +7013,7 @@ struct DxilInst_CreateHandleFromHeap {
   void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction create handle from descriptor
+/// This instruction annotate handle with resource properties
 struct DxilInst_AnnotateHandle {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -7034,7 +7034,7 @@ struct DxilInst_AnnotateHandle {
     arg_res = 1,
     arg_resourceClass = 2,
     arg_resourceKind = 3,
-    arg_HandleAnnotation = 4,
+    arg_props = 4,
   };
   // Accessors
   llvm::Value *get_res() const { return Instr->getOperand(1); }
@@ -7047,8 +7047,8 @@ struct DxilInst_AnnotateHandle {
   void set_resourceKind(llvm::Value *val) { Instr->setOperand(3, val); }
   int8_t get_resourceKind_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
   void set_resourceKind_val(int8_t val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_HandleAnnotation() const { return Instr->getOperand(4); }
-  void set_HandleAnnotation(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_props() const { return Instr->getOperand(4); }
+  void set_props(llvm::Value *val) { Instr->setOperand(4, val); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

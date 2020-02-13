@@ -2312,7 +2312,7 @@ ID  Name                                                  Description
 214 RayQuery_CandidateInstanceContributionToHitGroupIndex returns candidate hit InstanceContributionToHitGroupIndex
 215 RayQuery_CommittedInstanceContributionToHitGroupIndex returns committed hit InstanceContributionToHitGroupIndex
 216 CreateHandleFromHeap                                  create resource handle from heap
-217 AnnotateHandle                                        create handle from descriptor
+217 AnnotateHandle                                        annotate handle with resource properties
 === ===================================================== =======================================================================================================================================================================================================================
 
 

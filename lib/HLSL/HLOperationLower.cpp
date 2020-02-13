@@ -2506,8 +2506,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 
   Builder.CreateStore(width, widthPtr);
 
-  if (RK == DxilResource::Kind::StructuredBuffer ||
-      RK == DXIL::ResourceKind::StructuredBufferWithCounter) {
+  if (DXIL::IsStructuredBuffer(RK)) {
     // Set stride.
     Value *stridePtr = CI->getArgOperand(widthOpIdx + 1);
     const DataLayout &DL = helper.dataLayout;
@@ -3642,8 +3641,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
     numComponents = Ty->getVectorNumElements();
   }
 
-  if (RK == HLResource::Kind::StructuredBuffer ||
-      RK == HLResource::Kind::StructuredBufferWithCounter) {
+  if (DXIL::IsStructuredBuffer(RK)) {
     // Basic type case for StructuredBuffer::Load()
     Value *ResultElts[4];
     Value *StructBufLoad = GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
@@ -7507,7 +7505,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
       Translated = true;
       Type *ObjTy = pObjHelper->GetResourceType(handle);
       Type *RetTy = ObjTy->getStructElementType(0);
-      if (RK == DxilResource::Kind::StructuredBuffer || RK == DxilResource::Kind::StructuredBufferWithCounter) {
+      if (DXIL::IsStructuredBuffer(RK)) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, RK,
                                     helper.dataLayout);
       } else if (RetTy->isAggregateType() &&

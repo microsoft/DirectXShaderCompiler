@@ -335,6 +335,37 @@ namespace DXIL {
     NumEntries,
   };
 
+  inline bool IsAnyTexture(DXIL::ResourceKind ResourceKind) {
+    return DXIL::ResourceKind::Texture1D <= ResourceKind &&
+           ResourceKind <= DXIL::ResourceKind::TextureCubeArray;
+  }
+
+  inline bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::StructuredBuffer ||
+           ResourceKind == DXIL::ResourceKind::StructuredBufferWithCounter;
+  }
+
+  inline bool IsTypedBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::TypedBuffer;
+  }
+
+  inline bool IsTyped(DXIL::ResourceKind ResourceKind) {
+    return IsTypedBuffer(ResourceKind) || IsAnyTexture(ResourceKind);
+  }
+
+  inline bool IsRawBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::RawBuffer;
+  }
+
+  inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::TBuffer;
+  }
+
+  inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
+           ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
+  }
+
   // TODO: change opcodes.
   /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
   // OPCODE-ENUM:BEGIN
@@ -415,7 +446,7 @@ namespace DXIL {
     GSInstanceID = 100, // GSInstanceID
   
     // Get handle from heap
-    AnnotateHandle = 217, // create handle from descriptor
+    AnnotateHandle = 217, // annotate handle with resource properties
     CreateHandleFromHeap = 216, // create resource handle from heap
   
     // Graphics shader

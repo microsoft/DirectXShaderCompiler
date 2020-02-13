@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 using namespace llvm;
 
@@ -83,7 +84,7 @@ loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
                        const ShaderModel &SM) {
 
   ConstantStruct *ResProp =
-      cast<ConstantStruct>(annotateHandle.get_HandleAnnotation());
+      cast<ConstantStruct>(annotateHandle.get_props());
   return loadFromConstant(
       *ResProp, (DXIL::ResourceClass)annotateHandle.get_resourceClass_val(),
       (DXIL::ResourceKind)annotateHandle.get_resourceKind_val(), Ty, SM);
@@ -151,7 +152,7 @@ DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
     case DXIL::ResourceKind::TextureCubeArray:
     case DXIL::ResourceKind::Texture3D:
       Type *Ty = Res.GetRetType();
-      RP.Typed.SingleComponent = IsResourceSingleComponent(Ty);
+      RP.Typed.SingleComponent = dxilutil::IsResourceSingleComponent(Ty);
       RP.Typed.CompType = Res.GetCompType().GetKind();
       break;
     }
@@ -192,59 +193,6 @@ DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
   } break;
   }
   return RP;
-}
-
-bool IsResourceSingleComponent(llvm::Type *Ty) {
-  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
-    if (arrType->getArrayNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(arrType->getArrayElementType());
-  } else if (llvm::StructType *structType =
-                 llvm::dyn_cast<llvm::StructType>(Ty)) {
-    if (structType->getStructNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(structType->getStructElementType(0));
-  } else if (llvm::VectorType *vectorType =
-                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
-    if (vectorType->getNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(vectorType->getVectorElementType());
-  }
-  return true;
-}
-
-bool IsAnyTexture(DXIL::ResourceKind ResourceKind) {
-  return DXIL::ResourceKind::Texture1D <= ResourceKind &&
-         ResourceKind <= DXIL::ResourceKind::TextureCubeArray;
-}
-
-bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
-  return ResourceKind == DXIL::ResourceKind::StructuredBuffer ||
-         ResourceKind == DXIL::ResourceKind::StructuredBufferWithCounter;
-}
-
-bool IsTypedBuffer(DXIL::ResourceKind ResourceKind) {
-  return ResourceKind == DXIL::ResourceKind::TypedBuffer;
-}
-
-bool IsTyped(DXIL::ResourceKind ResourceKind) {
-  return IsTypedBuffer(ResourceKind) || IsAnyTexture(ResourceKind);
-}
-
-bool IsRawBuffer(DXIL::ResourceKind ResourceKind) {
-  return ResourceKind == DXIL::ResourceKind::RawBuffer;
-}
-
-bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
-  return ResourceKind == DXIL::ResourceKind::TBuffer;
-}
-
-bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
-  return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
-         ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
 }
 
 } // namespace resource_helper

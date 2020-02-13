@@ -1735,12 +1735,12 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "index", "heap index")])
         next_op_idx += 1
 
-        self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "create handle from descriptor", "v", "rn", [
+        self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
             db_dxil_param(0, "res", "", "annotated handle"),
             db_dxil_param(2, "res", "res", "input handle"),
             db_dxil_param(3, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
             db_dxil_param(4, "i8", "resourceKind", "the kind of resource to create (Texture1D/2D/..., Buffer...)", is_const=True), # maps to DxilResourceBase::Kind
-            db_dxil_param(5, "resproperty", "HandleAnnotation", "details like component type, strutrure stride...")])
+            db_dxil_param(5, "resproperty", "props", "details like component type, strutrure stride...")])
         next_op_idx += 1
 
         # End of DXIL 1.6 opcodes.
