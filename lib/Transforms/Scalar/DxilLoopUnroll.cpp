@@ -539,7 +539,7 @@ inline static int64_t GetGEPIndex(GEPOperator *GEP, unsigned idx) {
 // Otherwise it emits an error and fails compilation.
 //
 template<typename IteratorT>
-static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT ItEnd, DominatorTree *DT, AssumptionCache *AC) { 
+static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT ItEnd, DominatorTree *DT, AssumptionCache *AC, DxilValueCache *DVC) { 
   bool Success = true;
 
   SmallVector<AllocaInst *, 8> WorkList(ItBegin, ItEnd);
@@ -561,7 +561,21 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
 
     GEPs.clear(); // Re-use array
     for (User *U : AI->users()) {
+      // Try to set all GEP operands to constant
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        if (!GEP->hasAllConstantIndices() && isa<GetElementPtrInst>(GEP)) {
+          for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
+            Value *IndexOp = GEP->getOperand(i + 1);
+            if (isa<Constant>(IndexOp))
+              continue;
+
+            if (Value *V = DVC->GetValue(IndexOp)) {
+              if (Constant *C = dyn_cast<Constant>(V))
+                GEP->setOperand(i + 1, C);
+            }
+          }
+        }
+
         if (!GEP->hasAllConstantIndices() || GEP->getNumIndices() < 2 ||
           GetGEPIndex(GEP, 0) != 0)
         {
@@ -693,7 +707,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   Function *F = L->getHeader()->getParent();
   ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
   DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-  (void)DVC;
 
   bool HasExplicitLoopCount = false;
   int ExplicitUnrollCountSigned = 0;
@@ -961,6 +974,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
+    // Simplify instructions in the cloned blocks to create
+    // constant exit conditions.
+    for (BasicBlock *ClonedBB : CurIteration.Body)
+      SimplifyInstructionsInBlock_NoDelete(ClonedBB, NULL);
+
     // Check exit condition to see if we fully unrolled the loop
     if (BranchInst *BI = dyn_cast<BranchInst>(CurIteration.Latch->getTerminator())) {
       bool Cond = false;
@@ -1077,7 +1095,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
-    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC)) {
+    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
       FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
