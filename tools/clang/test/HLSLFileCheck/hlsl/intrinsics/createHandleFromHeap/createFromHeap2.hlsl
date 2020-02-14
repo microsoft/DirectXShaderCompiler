@@ -17,8 +17,8 @@ globallycoherent RWBuffer<snorm float> buf1[2];
 uint ID;
 float main(uint i:I): SV_Target {
   S s;
-  s.buf = GetResourceFromHeap(ID);
-  s.buf1[0] = GetResourceFromHeap(ID+1);
-  s.buf1[1] = GetResourceFromHeap(ID+2);
+  s.buf = CreateResourceFromHeap(ID);
+  s.buf1[0] = CreateResourceFromHeap(ID+1);
+  s.buf1[1] = CreateResourceFromHeap(ID+2);
   return s.buf[i] + s.buf1[0][i] + s.buf1[1][i];
 }

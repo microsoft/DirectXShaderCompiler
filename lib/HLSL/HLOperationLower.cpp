@@ -5135,7 +5135,10 @@ Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
   Function *dxilFunc = hlslOP.GetOpFunc(opcode, helper.voidTy);
   IRBuilder<> Builder(CI);
   Value *opArg = ConstantInt::get(helper.i32Ty, (unsigned)opcode);
-  return Builder.CreateCall(dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx)});
+  return Builder.CreateCall(
+      dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx),
+                 // TODO: update nonUniformIndex later.
+                 Builder.getInt1(false)});
 }
 }
 
@@ -5181,6 +5184,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_AllocateRayQuery, TranslateAllocateRayQuery, DXIL::OpCode::AllocateRayQuery},
     {IntrinsicOp::IOP_CallShader, TranslateCallShader, DXIL::OpCode::CallShader},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TranslateCheckAccess, DXIL::OpCode::CheckAccessFullyMapped},
+    {IntrinsicOp::IOP_CreateResourceFromHeap, TranslateGetHandleFromHeap, DXIL::OpCode::CreateHandleFromHeap},
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_DeviceMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -5194,7 +5198,6 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
     {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_GetResourceFromHeap, TranslateGetHandleFromHeap, DXIL::OpCode::CreateHandleFromHeap},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_HitKind, TrivialNoArgWithRetOperation, DXIL::OpCode::HitKind},

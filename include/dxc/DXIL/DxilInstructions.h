@@ -6999,7 +6999,7 @@ struct DxilInst_CreateHandleFromHeap {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Metadata
@@ -7007,10 +7007,15 @@ struct DxilInst_CreateHandleFromHeap {
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
+    arg_nonUniformIndex = 2,
   };
   // Accessors
   llvm::Value *get_index() const { return Instr->getOperand(1); }
   void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(2); }
+  void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(2, val); }
+  bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_nonUniformIndex_val(bool val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
 };
 
 /// This instruction annotate handle with resource properties

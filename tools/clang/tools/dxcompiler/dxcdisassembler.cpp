@@ -1278,7 +1278,7 @@ static const char *OpCodeSignatures[] = {
   "()",  // GeometryIndex
   "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
   "(rayQueryHandle)",  // RayQuery_CommittedInstanceContributionToHitGroupIndex
-  "(index)",  // CreateHandleFromHeap
+  "(index,nonUniformIndex)",  // CreateHandleFromHeap
   "(res,resourceClass,resourceKind,props)"  // AnnotateHandle
 };
 // OPCODE-SIGS:END

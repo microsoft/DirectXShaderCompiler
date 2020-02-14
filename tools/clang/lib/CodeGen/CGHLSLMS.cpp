@@ -4078,7 +4078,7 @@ void LowerGetResourceFromHeap(
   llvm::Module &M = *HLM.GetModule();
   llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
   unsigned GetResFromHeapOp =
-      static_cast<unsigned>(IntrinsicOp::IOP_GetResourceFromHeap);
+      static_cast<unsigned>(IntrinsicOp::IOP_CreateResourceFromHeap);
   DenseMap<Instruction *, Instruction *> ResourcePtrToHandlePtrMap;
 
   for (auto it : intrinsicMap) {
