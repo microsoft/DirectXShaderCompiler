@@ -1732,7 +1732,8 @@ class db_dxil(object):
 
         self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "ro", [
             db_dxil_param(0, "res", "", "result"),
-            db_dxil_param(2, "i32", "index", "heap index")])
+            db_dxil_param(2, "i32", "index", "heap index"),
+            db_dxil_param(3, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
