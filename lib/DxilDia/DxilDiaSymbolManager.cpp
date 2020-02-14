@@ -854,9 +854,6 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateFlags(IMalloc *pMalloc
   Variant.vt = VARENUM::VT_BSTR;
   (*ppSym)->SetValue(&Variant);
   return S_OK;
-
-  //(*ppSym)->SetValue(pSession->DxilModuleRef().GetGlobalFlags());
-  //return S_OK;
 }
 
 HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateTarget(IMalloc *pMalloc, Session *pSession, Symbol **ppSym) {

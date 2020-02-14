@@ -2580,7 +2580,7 @@ TEST_F(CompilerTest, DiaCompileArgs) {
   CComPtr<IDxcLibrary> pLib;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
-  const WCHAR *FlagsList[] = {
+  const WCHAR *FlagList[] = {
     L"/Zi",
     L"-Zpr",
     L"/Qembed_debug",
@@ -2593,8 +2593,8 @@ TEST_F(CompilerTest, DiaCompileArgs) {
   };
 
   std::vector<LPCWSTR> args;
-  for (unsigned i = 0; i < _countof(FlagsList); i++) {
-    args.push_back(FlagsList[i]);
+  for (unsigned i = 0; i < _countof(FlagList); i++) {
+    args.push_back(FlagList[i]);
   }
   for (unsigned i = 0; i < _countof(DefineList); i++) {
     args.push_back(L"/D");
@@ -2657,14 +2657,11 @@ TEST_F(CompilerTest, DiaCompileArgs) {
   std::vector<std::wstring> Defines;
   std::vector<std::wstring> Flags;
 
-  auto ReadNullSeparatedTokens = [](CComVariant &pValue) -> std::vector<std::wstring> {
+  auto ReadNullSeparatedTokens = [](BSTR Str) -> std::vector<std::wstring> {
     std::vector<std::wstring> Result;
-    if (pValue.vt == VT_BSTR) {
-      BCHAR *Str = pValue.bstrVal;
-      while (*Str) {
-        Result.push_back(std::wstring(Str));
-        Str += wcslen(Str)+1;
-      }
+    while (*Str) {
+      Result.push_back(std::wstring(Str));
+      Str += wcslen(Str)+1;
     }
     return Result;
   };
@@ -2689,7 +2686,7 @@ TEST_F(CompilerTest, DiaCompileArgs) {
     }
     else if (pName == "hlslFlags") {
       if (pValue.vt == VT_BSTR)
-        Flags = ReadNullSeparatedTokens(pValue);
+        Flags = ReadNullSeparatedTokens(pValue.bstrVal);
     }
     else if (pName == "hlslArguments") {
       if (pValue.vt == VT_BSTR)
@@ -2697,7 +2694,7 @@ TEST_F(CompilerTest, DiaCompileArgs) {
     }
     else if (pName == "hlslDefines") {
       if (pValue.vt == VT_BSTR)
-        Defines = ReadNullSeparatedTokens(pValue);
+        Defines = ReadNullSeparatedTokens(pValue.bstrVal);
     }
   }
 
@@ -2712,9 +2709,9 @@ TEST_F(CompilerTest, DiaCompileArgs) {
   VERIFY_IS_TRUE(Target == L"ps_6_0");
   VERIFY_IS_TRUE(Entry == L"main");
 
-  VERIFY_IS_TRUE(_countof(FlagsList) == Flags.size());
-  for (unsigned i = 0; i < _countof(FlagsList); i++) {
-    VERIFY_IS_TRUE(Flags[i] == FlagsList[i]);
+  VERIFY_IS_TRUE(_countof(FlagList) == Flags.size());
+  for (unsigned i = 0; i < _countof(FlagList); i++) {
+    VERIFY_IS_TRUE(Flags[i] == FlagList[i]);
   }
   for (unsigned i = 0; i < _countof(DefineList); i++) {
     VERIFY_IS_TRUE(VectorContains(Defines, DefineList[i]));
