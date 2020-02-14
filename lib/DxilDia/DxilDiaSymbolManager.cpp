@@ -814,7 +814,45 @@ HRESULT dxil_dia::hlsl_symbols::CompilandDetailsSymbol::GetChildren(std::vector<
 HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateFlags(IMalloc *pMalloc, Session *pSession, Symbol **ppSym) {
   IFR(AllocAndInit(pMalloc, pSession, HlslCompilandEnvFlagsId, SymTagCompilandEnv, (CompilandEnvSymbol**)ppSym));
   (*ppSym)->SetName(L"hlslFlags");
-  (*ppSym)->SetValue(pSession->DxilModuleRef().GetGlobalFlags());
+
+  const char *specialCases[] = { "/T", "-T", "-D", "/D", "-E", "/E", };
+
+  llvm::MDNode *argsNode = pSession->Arguments()->getOperand(0);
+  // Construct a double null terminated string for defines with L"\0" as a delimiter
+  CComBSTR pBSTR;
+  for (llvm::MDNode::op_iterator it = argsNode->op_begin(); it != argsNode->op_end(); ++it) {
+    llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(*it)->getString();
+
+    bool skip = false;
+    bool skipTwice = false;
+    for (unsigned i = 0; i < _countof(specialCases); i++) {
+      if (strRef == specialCases[i]) {
+        skipTwice = true;
+        skip = true;
+        break;
+      }
+      else if (strRef.startswith(specialCases[i])) {
+        skip = true;
+        break;
+      }
+    }
+
+    if (skip) {
+      if (skipTwice)
+        ++it;
+      continue;
+    }
+
+    std::string str(strRef.begin(), strRef.size());
+    CA2W cv(str.c_str(), CP_UTF8);
+    pBSTR.Append(cv);
+    pBSTR.Append(L"\0", 1);
+  }
+  pBSTR.Append(L"\0", 1);
+  VARIANT Variant;
+  Variant.bstrVal = pBSTR;
+  Variant.vt = VARENUM::VT_BSTR;
+  (*ppSym)->SetValue(&Variant);
   return S_OK;
 }
 
