@@ -2580,18 +2580,32 @@ TEST_F(CompilerTest, DiaCompileArgs) {
   CComPtr<IDxcLibrary> pLib;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
+  const WCHAR *FlagsList[] = {
+    L"/Zi",
+    L"-Zpr",
+    L"/Qembed_debug",
+    L"/Fd", L"F:\\my dir\\",
+    L"-Fo", L"F:\\my dir\\file.dxc",
+  };
+  const WCHAR *DefineList[] = {
+    L"MY_SPECIAL_DEFINE",
+    L"MY_OTHER_SPECIAL_DEFINE=\"MY_STRING\"",
+  };
 
-  auto CompileAndGetDebugPart = [](dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDxcBlob **ppDebugPart) {
+  std::vector<LPCWSTR> args;
+  for (unsigned i = 0; i < _countof(FlagsList); i++) {
+    args.push_back(FlagsList[i]);
+  }
+  for (unsigned i = 0; i < _countof(DefineList); i++) {
+    args.push_back(L"/D");
+    args.push_back(DefineList[i]);
+  }
+
+  auto CompileAndGetDebugPart = [&args](dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile, IDxcBlob **ppDebugPart) {
     CComPtr<IDxcBlob> pContainer;
     CComPtr<IDxcLibrary> pLib;
     CComPtr<IDxcContainerReflection> pReflection;
     UINT32 index;
-    std::vector<LPCWSTR> args;
-    args.push_back(L"/Zi");
-    args.push_back(L"/Qembed_debug");
-    args.push_back(L"/DMY_SPECIAL_DEFINE");
-    args.push_back(L"-D");
-    args.push_back(L"MY_OTHER_SPECIAL_DEFINE=\"MY_STRING\"");
 
     VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
     VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
@@ -2639,9 +2653,21 @@ TEST_F(CompilerTest, DiaCompileArgs) {
 
   std::wstring Args;
   std::wstring Entry;
-  unsigned Flags;
   std::wstring Target;
-  std::wstring Defines;
+  std::vector<std::wstring> Defines;
+  std::vector<std::wstring> Flags;
+
+  auto ReadNullSeparatedTokens = [](CComVariant &pValue) -> std::vector<std::wstring> {
+    std::vector<std::wstring> Result;
+    if (pValue.vt == VT_BSTR) {
+      BCHAR *Str = pValue.bstrVal;
+      while (*Str) {
+        Result.push_back(std::wstring(Str));
+        Str += wcslen(Str)+1;
+      }
+    }
+    return Result;
+  };
 
   VERIFY_SUCCEEDED(pSymbolTable->get_Count(&uCount));
   for (int i = 0; i < uCount; i++) {
@@ -2662,41 +2688,37 @@ TEST_F(CompilerTest, DiaCompileArgs) {
         Entry = pValue.bstrVal;
     }
     else if (pName == "hlslFlags") {
-      if (pValue.vt == VT_UI4)
-        Flags = pValue.uintVal;
+      if (pValue.vt == VT_BSTR)
+        Flags = ReadNullSeparatedTokens(pValue);
     }
     else if (pName == "hlslArguments") {
       if (pValue.vt == VT_BSTR)
         Args = pValue.bstrVal;
     }
     else if (pName == "hlslDefines") {
-      if (pValue.vt == VT_BSTR) {
-        BCHAR *Str = pValue.bstrVal;
-        while (*Str) {
-          Defines += L" ";
-          Defines += Str;
-          Str += wcslen(Str)+1;
-        }
-      }
+      if (pValue.vt == VT_BSTR)
+        Defines = ReadNullSeparatedTokens(pValue);
     }
   }
 
-  auto StringContains = [](std::wstring Str, std::wstring Sub) {
-    return Str.find(Sub) != std::wstring::npos;
+  auto VectorContains = [](std::vector<std::wstring> &Tokens, std::wstring Sub) {
+    for (unsigned i = 0; i < Tokens.size(); i++) {
+      if (Tokens[i].find(Sub) != std::wstring::npos)
+        return true;
+    }
+    return false;
   };
 
   VERIFY_IS_TRUE(Target == L"ps_6_0");
   VERIFY_IS_TRUE(Entry == L"main");
-  VERIFY_IS_TRUE(Flags == 0);
-  VERIFY_IS_TRUE(StringContains(Args, L"Zi") &&
-    StringContains(Args, L"Qembed_debug") &&
-    StringContains(Args, L"MY_SPECIAL_DEFINE") &&
-    StringContains(Args, L"MY_OTHER_SPECIAL_DEFINE"));
-  VERIFY_IS_TRUE(!StringContains(Defines, L"Zi") &&
-    !StringContains(Defines, L"Qembed_debug") &&
-    StringContains(Defines, L"MY_SPECIAL_DEFINE") &&
-    StringContains(Defines, L"MY_OTHER_SPECIAL_DEFINE"));
 
+  VERIFY_IS_TRUE(_countof(FlagsList) == Flags.size());
+  for (unsigned i = 0; i < _countof(FlagsList); i++) {
+    VERIFY_IS_TRUE(Flags[i] == FlagsList[i]);
+  }
+  for (unsigned i = 0; i < _countof(DefineList); i++) {
+    VERIFY_IS_TRUE(VectorContains(Defines, DefineList[i]));
+  }
 }
 
 TEST_F(CompilerTest, DiaLoadBitcodePlusExtraData) {
