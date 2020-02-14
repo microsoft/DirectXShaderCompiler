@@ -4086,6 +4086,9 @@ void LowerGetResourceFromHeap(
     if (opcode != GetResFromHeapOp)
       continue;
     Function *F = it.first;
+    HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+    if (group != HLOpcodeGroup::HLIntrinsic)
+      continue;
     for (auto uit = F->user_begin(); uit != F->user_end();) {
       CallInst *CI = cast<CallInst>(*(uit++));
       Instruction *ResPtr = cast<Instruction>(CI->getArgOperand(0));
