@@ -4,6 +4,6 @@
 
 uint ID;
 float main(uint i:I): SV_Target {
-  Buffer<float> buf = GetResourceFromHeap(ID);
+  Buffer<float> buf = CreateResourceFromHeap(ID);
   return buf[i];
 }
