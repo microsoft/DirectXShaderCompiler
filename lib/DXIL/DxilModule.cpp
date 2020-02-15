@@ -31,6 +31,7 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
 #include <unordered_set>
 
 using namespace llvm;
@@ -1571,10 +1572,13 @@ StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
 }
 
 // Return true if any members or components of struct <Ty> contain
-// scalars of less than 32 bits, in which case translation is required
-static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
+// scalars of less than 32 bits or are matrices, in which case translation is required
+typedef llvm::SmallSetVector<const StructType*, 4> SmallStructSetVector;
+static bool ResourceTypeRequiresTranslation(const StructType * Ty, SmallStructSetVector & containedStructs) {
   if (Ty->getName().startswith("class.matrix."))
     return true;
+  bool bResult = false;
+  containedStructs.insert(Ty);
   for (auto eTy : Ty->elements()) {
     // Skip past all levels of sequential types to test their elements
     SequentialType *seqTy;
@@ -1583,13 +1587,13 @@ static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
     }
     // Recursively call this function again to process internal structs
     if (StructType *structTy = dyn_cast<StructType>(eTy)) {
-      if (ResourceTypeRequiresTranslation(structTy))
-        return true;
+      if (ResourceTypeRequiresTranslation(structTy, containedStructs))
+        bResult = true;
     } else if (eTy->getScalarSizeInBits() < 32) { // test scalar sizes
-      return true;
+      bResult = true;
     }
   }
-  return false;
+  return bResult;
 }
 
 bool DxilModule::StripReflection() {
@@ -1616,11 +1620,19 @@ bool DxilModule::StripReflection() {
   {
     // We must preserve struct annotations for resources containing min-precision types,
     // since they have not yet been converted for legacy layout.
-    SmallVector<const StructType*, 4> structsToRemove;
+    // Keep all structs contained in any we must keep.
+    SmallStructSetVector structsToKeep;
+    SmallStructSetVector structsToRemove;
     for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
-      if (!ResourceTypeRequiresTranslation(item.first))
-        structsToRemove.emplace_back(item.first);
+      SmallStructSetVector containedStructs;
+      if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
+        structsToRemove.insert(item.first);
+      else
+        structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
+
+    for (auto Ty : structsToKeep)
+      structsToRemove.remove(Ty);
     for (auto Ty : structsToRemove) {
       m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
     }
