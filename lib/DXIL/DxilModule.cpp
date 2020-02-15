@@ -1631,15 +1631,8 @@ bool DxilModule::StripReflection() {
         structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
 
-    for (auto Ty : structsToKeep) {
+    for (auto Ty : structsToKeep)
       structsToRemove.remove(Ty);
-      // Clear names
-      m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
-      DxilStructAnnotation *pSA = m_pTypeSystem->GetStructAnnotation(Ty);
-      for (unsigned i = 0; i < pSA->GetNumFields(); ++i) {
-        DxilFieldAnnotation &FA = pSA->GetFieldAnnotation(i);
-        FA.SetFieldName("");
-      }
     for (auto Ty : structsToRemove) {
       m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
     }
