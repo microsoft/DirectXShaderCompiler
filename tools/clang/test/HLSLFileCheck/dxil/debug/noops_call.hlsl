@@ -65,23 +65,30 @@ float4 depth2(float4 val)
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
+    // CHECK: %[[preserve_i32:[0-9]+]] = load i32, i32* @dx.preserve.value
+    // CHECK: %[[preserve_f32:[0-9]+]] = sitofp i32 %[[preserve_i32]]
     float4 ret1 = localScopeVar_func(color);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
+    // CHECK: %[[v1:.+]] = fmul
+    // CHECK: %[[v2:.+]] = fmul
+    // CHECK: %[[v3:.+]] = fmul
+    // CHECK: %[[v4:.+]] = fmul
+    // CHECK: fadd float %[[v1]], %[[preserve_f32]]
+    // CHECK: fadd float %[[v2]], %[[preserve_f32]]
+    // CHECK: fadd float %[[v3]], %[[preserve_f32]]
+    // CHECK: fadd float %[[v4]], %[[preserve_f32]]
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret2 = localRegVar_func(ret1);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
     // ** copy **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret3 = array_func(ret2);
     // ** call **
@@ -95,25 +102,29 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: load
     // CHECK: load
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret4 = typedef_func(ret3);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
     // ** copy **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
+    // CHECK: fadd float %{{.+}}, %[[preserve_f32]]
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret5 = global_func(ret4);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
+    // CHECK: %[[a1:.+]] = fmul
+    // CHECK: %[[a2:.+]] = fmul
+    // CHECK: %[[a3:.+]] = fmul
+    // CHECK: %[[a4:.+]] = fmul
+    // CHECK: fadd float %[[a1]], %[[preserve_f32]]
+    // CHECK: fadd float %[[a2]], %[[preserve_f32]]
+    // CHECK: fadd float %[[a3]], %[[preserve_f32]]
+    // CHECK: fadd float %[[a4]], %[[preserve_f32]]
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret6 = depth2(ret5);
     // ** call **
@@ -125,26 +136,39 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
         // ** call **
         // CHECK: load i32, i32* @dx.nothing
         // depth4() {
-          // CHECK: fmul
-          // CHECK: fmul
-          // CHECK: fmul
-          // CHECK: fmul
-          // CHECK: load i32, i32* @dx.nothing
+          // CHECK: %[[b1:.+]] = fmul
+          // CHECK: %[[b2:.+]] = fmul
+          // CHECK: %[[b3:.+]] = fmul
+          // CHECK: %[[b4:.+]] = fmul
+          // CHECK: fadd float %[[b1]], %[[preserve_f32]]
+          // CHECK: fadd float %[[b2]], %[[preserve_f32]]
+          // CHECK: fadd float %[[b3]], %[[preserve_f32]]
+          // CHECK: fadd float %[[b4]], %[[preserve_f32]]
         // }
-        // CHECK: fmul
-        // CHECK: fmul
-        // CHECK: fmul
-        // CHECK: fmul
-        // CHECK: load i32, i32* @dx.nothing
+        // CHECK: %[[c1:.+]] = fmul
+        // CHECK: %[[c2:.+]] = fmul
+        // CHECK: %[[c3:.+]] = fmul
+        // CHECK: %[[c4:.+]] = fmul
+        // CHECK: fadd float %[[c1]], %[[preserve_f32]]
+        // CHECK: fadd float %[[c2]], %[[preserve_f32]]
+        // CHECK: fadd float %[[c3]], %[[preserve_f32]]
+        // CHECK: fadd float %[[c4]], %[[preserve_f32]]
       // }
-      // CHECK: fmul
-      // CHECK: fmul
-      // CHECK: fmul
-      // CHECK: fmul
-      // CHECK: load i32, i32* @dx.nothing
+      // CHECK: %[[d1:.+]] = fmul
+      // CHECK: %[[d2:.+]] = fmul
+      // CHECK: %[[d3:.+]] = fmul
+      // CHECK: %[[d4:.+]] = fmul
+      // CHECK: fadd float %[[d1]], %[[preserve_f32]]
+      // CHECK: fadd float %[[d2]], %[[preserve_f32]]
+      // CHECK: fadd float %[[d3]], %[[preserve_f32]]
+      // CHECK: fadd float %[[d4]], %[[preserve_f32]]
     // }
 
     return max(ret6, color);
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: call float @dx.op.binary.f32(i32 35
+    // CHECK: call float @dx.op.binary.f32(i32 35
+    // CHECK: call float @dx.op.binary.f32(i32 35
+    // CHECK: call float @dx.op.binary.f32(i32 35
+
 }
 

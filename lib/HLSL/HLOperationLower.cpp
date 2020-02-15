@@ -27,6 +27,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/HLSL/DxilNoops.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -869,6 +870,8 @@ Value *FindScalarSource(Value *src, unsigned vecIdx = 0) {
           vecIdx -= numElt;
           src = SV->getOperand(1);
         }
+      } else if (hlsl::IsDxilPreserve(src)) {
+        src = hlsl::GetDxilPreserveSrc(src);
       } else {
         return UndefValue::get(srcTy);  // Didn't find it.
       }
@@ -877,6 +880,8 @@ Value *FindScalarSource(Value *src, unsigned vecIdx = 0) {
         vecIdx = (unsigned)cast<ConstantInt>(EE->getIndexOperand())
           ->getUniqueInteger().getLimitedValue();
         src = EE->getVectorOperand();
+      } else if (hlsl::IsDxilPreserve(src)) {
+        src = hlsl::GetDxilPreserveSrc(src);
       } else if (hlsl::IsConvergentMarker(src)) {
         src = hlsl::GetConvergentSource(src);
       } else {

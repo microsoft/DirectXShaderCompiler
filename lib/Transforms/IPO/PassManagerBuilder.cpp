@@ -295,6 +295,10 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());
 
+  if (NoOpt)
+    // scalarize preserves
+    MPM.add(createDxilScalarizePreservesPass());
+
   // scalarize vector to scalar
   MPM.add(createScalarizerPass(!NoOpt /* AllowFolding */));
 

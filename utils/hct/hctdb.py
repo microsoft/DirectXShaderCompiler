@@ -2007,6 +2007,7 @@ class db_dxil(object):
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
         add_pass('dxil-finalize-noops', 'DxilFinalizeNoops', 'Dxil Finalize Noops', [])
         add_pass('dxil-insert-noops', 'DxilInsertNoops', 'Dxil Insert Noops', [])
+        add_pass('dxil-scalarize-preserves', 'DxilScalarizePreserves', 'Dxil Scalarize Preserves', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
 
         category_lib="llvm"

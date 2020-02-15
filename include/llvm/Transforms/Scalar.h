@@ -149,6 +149,9 @@ void initializeDxilEliminateVectorPass(PassRegistry&);
 Pass *createDxilInsertNoopsPass();
 void initializeDxilInsertNoopsPass(PassRegistry&);
 
+Pass *createDxilScalarizePreservesPass();
+void initializeDxilScalarizePreservesPass(PassRegistry&);
+
 Pass *createDxilFinalizeNoopsPass();
 void initializeDxilFinalizeNoopsPass(PassRegistry&);
 
