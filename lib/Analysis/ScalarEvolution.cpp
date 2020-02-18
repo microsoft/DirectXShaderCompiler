@@ -89,6 +89,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/DxilValueCache.h" // HLSL Change
+#include "dxc/HLSL/DxilNoops.h" // HLSL Change
 
 #include <algorithm>
 using namespace llvm;
@@ -3323,6 +3324,8 @@ bool ScalarEvolution::checkValidity(const SCEV *S) const {
 const SCEV *ScalarEvolution::getSCEV(Value *V) {
   assert(isSCEVable(V->getType()) && "Value is not SCEVable!");
 
+  if (hlsl::IsDxilPreserve(V)) return getSCEV(hlsl::GetDxilPreserveSrc(V)); // HLSL Change
+
   ValueExprMapType::iterator I = ValueExprMap.find_as(V);
   if (I != ValueExprMap.end()) {
     const SCEV *S = I->second;
@@ -5341,6 +5344,8 @@ static bool CanConstantFold(const Instruction *I) {
       isa<LoadInst>(I))
     return true;
 
+  if (hlsl::IsDxilPreserve(I)) return true; // HLSL Change
+
   if (const CallInst *CI = dyn_cast<CallInst>(I))
     if (const Function *F = CI->getCalledFunction())
       return canConstantFoldCallTo(F);
@@ -5443,6 +5448,13 @@ static Constant *EvaluateExpression(Value *V, const Loop *L,
   if (!I) return nullptr;
 
   if (Constant *C = Vals.lookup(I)) return C;
+
+  // HLSL Change - begin
+  if (hlsl::IsDxilPreserve(V)) {
+    return EvaluateExpression(hlsl::GetDxilPreserveSrc(V),
+      L, Vals, DL, TLI);
+  }
+  // HLSL Change - end
 
   // An instruction inside the loop depends on a value outside the loop that we
   // weren't given a mapping for, or a value such as a call inside the loop.
