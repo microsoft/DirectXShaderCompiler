@@ -229,6 +229,7 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
     string ErrorMsg(ErrorMsgTxt);
     throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
   }
+  SetShaderModel(pSM);
 }
 
 //
