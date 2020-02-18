@@ -1321,7 +1321,7 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     case BranchKind::LoopBreak: {
       // Connect to loop exit.
       TerminatorInst *pClonedScopeBeginTI = Scope.pClonedScopeBeginBB->getTerminator();
-      DXASSERT_NOMSG(pClonedScopeBeginTI->getNumSuccessors() == 1);
+      DXASSERT_LOCALVAR_NOMSG(pClonedScopeBeginTI, pClonedScopeBeginTI->getNumSuccessors() == 1);
       DXASSERT_NOMSG(m_LoopMap.find(pEntry) != m_LoopMap.end());
       LoopItem &LI = m_LoopMap[pEntry];
       AddEdge(Scope.pClonedScopeBeginBB, 0, LI.pLE, Edges);
@@ -1331,7 +1331,7 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     case BranchKind::LoopContinue: {
       // Connect to loop latch.
       TerminatorInst *pClonedScopeBeginTI = Scope.pClonedScopeBeginBB->getTerminator();
-      DXASSERT_NOMSG(pClonedScopeBeginTI->getNumSuccessors() == 1);
+      DXASSERT_LOCALVAR_NOMSG(pClonedScopeBeginTI, pClonedScopeBeginTI->getNumSuccessors() == 1);
       DXASSERT_NOMSG(m_LoopMap.find(pEntry) != m_LoopMap.end());
       LoopItem &LI = m_LoopMap[pEntry];
       AddEdge(Scope.pClonedScopeBeginBB, 0, LI.pLL, Edges);

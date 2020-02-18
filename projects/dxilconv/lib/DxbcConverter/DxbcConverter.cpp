@@ -743,7 +743,7 @@ void DxbcConverter::ConvertSignature(SignatureHelper &SigHelper, DxilSignature &
         const SignatureHelper::ElementRecord &SigElem = SigHelper.m_ElementRecords[iElement];
         unsigned StartRow = SigElem.StartRow;
         unsigned StartCol = SigElem.StartCol;
-        unsigned Rows     = SigElem.Rows; DXASSERT_NOMSG(Rows == 1);
+        unsigned Rows     = SigElem.Rows; DXASSERT_LOCALVAR_NOMSG(Rows, Rows == 1);
         unsigned Cols     = SigElem.Cols;
         unsigned Stream   = SigElem.Stream;
 
@@ -1099,7 +1099,7 @@ static void AddDxilPipelineStateValidationToDXBC(
   // Set resource binding information
   UINT uResIndex = 0;
   for (auto &&R : pModule->GetCBuffers()) {
-    DXASSERT_NOMSG(uResIndex < uTotalResources);
+    DXASSERT_LOCALVAR_NOMSG(uTotalResources, uResIndex < uTotalResources);
     PSVResourceBindInfo0 *pBindInfo = PSV.GetPSVResourceBindInfo0(uResIndex);
     DXASSERT_NOMSG(pBindInfo);
     pBindInfo->ResType = (UINT)PSVResourceType::CBV;
@@ -1854,9 +1854,11 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       DXASSERT_DXBC(Inst.m_NumOperands == 0);
       auto& Iface = m_Interfaces[Inst.m_InterfaceDecl.InterfaceNumber];
       Iface.Tables.assign(Inst.m_InterfaceDecl.pFunctionTableIdentifiers, Inst.m_InterfaceDecl.pFunctionTableIdentifiers + Inst.m_InterfaceDecl.TableLength);
+#ifdef DBG
       for (unsigned TableIdx : Iface.Tables) {
           DXASSERT_DXBC(m_FunctionTables[TableIdx].size() == Inst.m_InterfaceDecl.ExpectedTableSize);
       }
+#endif
       Iface.bDynamicallyIndexed = Inst.m_InterfaceDecl.bDynamicallyIndexed;
       Iface.NumArrayEntries = Inst.m_InterfaceDecl.ArrayLength;
       m_NumIfaces = std::max(m_NumIfaces, Inst.m_InterfaceDecl.InterfaceNumber + Iface.NumArrayEntries);
