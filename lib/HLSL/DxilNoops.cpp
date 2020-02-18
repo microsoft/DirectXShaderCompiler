@@ -84,6 +84,41 @@ public:
 char DxilInsertNoops::ID;
 }
 
+static Value *GetSourcePointer(Value *V) {
+  while (1) {
+    if (GEPOperator *Gep = dyn_cast<GEPOperator>(V)) {
+      V = Gep->getPointerOperand();
+    }
+    else if (isa<AllocaInst>(V) || isa<Argument>(V)) {
+      return V;
+    }
+    else {
+      break;
+    }
+  }
+  return nullptr;
+}
+
+static bool PointerHasLoads(Value *Ptr) {
+  SmallVector<Value *, 8> Worklist;
+  for (User *U : Ptr->users()) {
+    Worklist.push_back(U);
+  }
+
+  while (Worklist.size()) {
+    Value *V = Worklist.pop_back_val();
+    if (isa<GEPOperator>(V)) {
+      for (User *U : V->users()) {
+        Worklist.push_back(U);
+      }
+    }
+    else if (isa<LoadInst>(V)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool DxilInsertNoops::runOnFunction(Function &F) {
   Module &M = *F.getParent();
   Function *NoopF = nullptr;
@@ -142,7 +177,18 @@ bool DxilInsertNoops::runOnFunction(Function &F) {
           }
 
           IRBuilder<> B(&I);
-          Instruction *Last_Value = B.CreateLoad(PrevValuePtr);
+          Value *Last_Value = nullptr;
+          Value *SourcePointer = nullptr;
+          // If there's never any loads for this memory location,
+          // don't generate a load.
+          if ((SourcePointer = GetSourcePointer(PrevValuePtr)) &&
+              PointerHasLoads(SourcePointer))
+          {
+            Last_Value = B.CreateLoad(PrevValuePtr);
+          }
+          else {
+            Last_Value = UndefValue::get(CopySource->getType());
+          }
           Instruction *Preserve = CallInst::Create(PreserveF, ArrayRef<Value *> { CopySource, Last_Value }, "", &I);
           Preserve->setDebugLoc(I.getDebugLoc());
           I.replaceUsesOfWith(CopySource, Preserve);
