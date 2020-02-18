@@ -127,8 +127,8 @@ struct CInstructionInfo
 
 extern CInstructionInfo g_InstructionInfo[D3D10_SB_NUM_OPCODES];
 
-UINT __stdcall GetNumInstructionOperands(D3D10_SB_OPCODE_TYPE OpCode);
-void __stdcall InitInstructionInfo();
+UINT GetNumInstructionOperands(D3D10_SB_OPCODE_TYPE OpCode);
+void InitInstructionInfo();
 
 //*****************************************************************************
 //
