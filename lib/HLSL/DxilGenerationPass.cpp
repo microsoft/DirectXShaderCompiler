@@ -333,8 +333,7 @@ private:
 
 namespace {
 void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
-  Value *opArg = hlslOP.GetU32Const(
-      (unsigned)DXIL::OpCode::CreateHandleForLib);
+  Value *opArg = hlslOP.GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
 
   for (auto U = F->user_begin(); U != F->user_end();) {
     Value *user = *(U++);
@@ -347,8 +346,8 @@ void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
     IRBuilder<> Builder(CI);
     // Res could be ld/phi/select. Will be removed in
     // DxilLowerCreateHandleForLib.
-    Function *createHandle = hlslOP.GetOpFunc(
-        DXIL::OpCode::CreateHandleForLib, res->getType());
+    Function *createHandle =
+        hlslOP.GetOpFunc(DXIL::OpCode::CreateHandleForLib, res->getType());
     newHandle = Builder.CreateCall(createHandle, {opArg, res});
 
     CI->replaceAllUsesWith(newHandle);
@@ -445,20 +444,21 @@ void DxilGenerationPass::LowerHLCreateHandle(
   for (iplist<Function>::iterator F : M->getFunctionList()) {
     if (F->user_empty())
       continue;
-    if (!F->isDeclaration()) {
-      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
-      if (group == HLOpcodeGroup::HLCreateHandle) {
-        // Will lower in later pass.
-        TranslateHLCreateHandle(F, hlslOP);
-      }
-    } else {
-      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
-      if (group != HLOpcodeGroup::HLAnnotateHandle)
-        continue;
+    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+    switch (group) {
+    default:
+      break;
+    case HLOpcodeGroup::HLCreateHandle:
+
+      TranslateHLCreateHandle(F, hlslOP);
+      break;
+    case HLOpcodeGroup::HLAnnotateHandle:
       TranslateHLAnnotateHandle(F, hlslOP, HandleToResTypeMap);
+      break;
     }
   }
 }
+
 
 static void
 MarkUavUpdateCounter(Value* LoadOrGEP,

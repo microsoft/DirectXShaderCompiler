@@ -33,6 +33,21 @@ bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) {
   return !(*this == RP) ;
 }
 
+unsigned DxilResourceProperties::getSampleCount() {
+  assert(DXIL::IsTyped(Kind));
+  const unsigned SampleCountTable[] = {
+    1,  // 0
+    2,  // 1
+    4,  // 2
+    8,  // 3
+    16, // 4
+    32, // 5
+    0,  // 6
+    0,  // kSampleCountUndefined.
+  };
+  return SampleCountTable[Typed.SampleCountPow2];
+}
+
 namespace resource_helper {
 // Resource Class and Resource Kind is used as seperate parameter, other fileds
 // are saved in constant.
@@ -66,11 +81,16 @@ DxilResourceProperties loadFromConstant(const Constant &C,
   StructType *ST = cast<StructType>(Ty);
   switch (ST->getNumElements()) {
   case 2: {
-    const ConstantStruct *CS = cast<ConstantStruct>(&C);
-    const Constant *RawDword0 = CS->getOperand(0);
-    const Constant *RawDword1 = CS->getOperand(1);
-    RP.RawDword0 = cast<ConstantInt>(RawDword0)->getLimitedValue();
-    RP.RawDword1 = cast<ConstantInt>(RawDword1)->getLimitedValue();
+    if (isa<ConstantAggregateZero>(&C)) {
+      RP.RawDword0 = 0;
+      RP.RawDword1 = 0;
+    } else {
+      const ConstantStruct *CS = cast<ConstantStruct>(&C);
+      const Constant *RawDword0 = CS->getOperand(0);
+      const Constant *RawDword1 = CS->getOperand(1);
+      RP.RawDword0 = cast<ConstantInt>(RawDword0)->getLimitedValue();
+      RP.RawDword1 = cast<ConstantInt>(RawDword1)->getLimitedValue();
+    }
   } break;
   default:
     RP.Class = DXIL::ResourceClass::Invalid;

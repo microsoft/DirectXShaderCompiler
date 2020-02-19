@@ -4879,8 +4879,6 @@ void SROA_Parameter_HLSL::replaceCastParameter(
     Value *NewParam, Value *OldParam, Function &F, Argument *Arg,
     const DxilParamInputQual inputQual, IRBuilder<> &Builder) {
   Type *HandleTy = m_pHLModule->GetOP()->GetHandleType();
-  Type *HandlePtrTy = PointerType::get(HandleTy, 0);
-  Module &M = *m_pHLModule->GetModule();
 
   Type *NewTy = NewParam->getType();
   Type *OldTy = OldParam->getType();
@@ -4914,10 +4912,6 @@ void SROA_Parameter_HLSL::replaceCastParameter(
 
   if (NewTy == HandleTy) {
     CopyHandleToResourcePtr(NewParam, OldParam, *m_pHLModule, Builder);
-    // Save resource attribute.
-    Type *ResTy = OldTy->getPointerElementType();
-    MDNode *MD = HLModule::GetDxilResourceAttrib(ResTy, M);
-    m_pHLModule->MarkDxilResourceAttrib(Arg, MD);
   } else if (vectorEltsMap.count(NewParam)) {
     // Vector is flattened to scalars.
     Type *VecTy = OldTy;
@@ -4983,16 +4977,6 @@ void SROA_Parameter_HLSL::replaceCastParameter(
                                  RetBuilder, bRowMajor);
         }
       }
-    }
-
-    Type *NewEltTy = dxilutil::GetArrayEltTy(NewTy);
-    Type *OldEltTy = dxilutil::GetArrayEltTy(OldTy);
-
-    if (NewEltTy == HandlePtrTy) {
-      // Save resource attribute.
-      Type *ResTy = OldEltTy;
-      MDNode *MD = HLModule::GetDxilResourceAttrib(ResTy, M);
-      m_pHLModule->MarkDxilResourceAttrib(Arg, MD);
     }
   }
 }
