@@ -207,7 +207,6 @@ private:
       OffsetInBits Offset
   ) const;
 
-  llvm::Module *m_Module = nullptr;
   llvm::DIVariable* m_Variable = nullptr;
   llvm::IRBuilder<> m_B;
   llvm::Function *m_DbgDeclareFn = nullptr;
@@ -355,7 +354,7 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   auto &Register = m_Registers[DbgValue->getVariable()];
   if (Register == nullptr)
   {
-    Register = std::make_unique<VariableRegisters>(Variable, &M);
+    Register.reset(new VariableRegisters(Variable, &M));
   }
 
   llvm::Value *V = DbgValue->getValue();
@@ -446,8 +445,7 @@ static llvm::DIType *DITypePeelConstAndTypedef(
 VariableRegisters::VariableRegisters(
     llvm::DIVariable *Variable,
     llvm::Module *M
-) : m_Module(M)
-  , m_Variable(Variable)
+) : m_Variable(Variable)
   , m_B(M->GetOrCreateDxilModule().GetEntryFunction()->getEntryBlock().begin())
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
@@ -613,6 +611,7 @@ void VariableRegisters::PopulateAllocaMap_ArrayType(
   }
 
   const SizeInBits ArraySizeInBits = Ty->getSizeInBits();
+  (void)ArraySizeInBits;
 
   const llvm::DITypeIdentifierMap EmptyMap;
   llvm::DIType *ElementTy = Ty->getBaseType().resolve(EmptyMap);
@@ -681,6 +680,7 @@ void VariableRegisters::PopulateAllocaMap_StructType(
 
   m_Offsets.AlignTo(Ty);
   const OffsetInBits StructStart = m_Offsets.GetCurrentAlignedOffset();
+  (void)StructStart;
   const llvm::DITypeIdentifierMap EmptyMap;
 
   for (auto OffsetAndMember : SortedMembers)
