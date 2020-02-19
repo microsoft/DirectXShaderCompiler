@@ -66,8 +66,7 @@ llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
 DxilResourceProperties loadFromConstant(const llvm::Constant &C,
                                         DXIL::ResourceClass RC,
-                                        DXIL::ResourceKind RK, llvm::Type *Ty,
-                                        const ShaderModel &);
+                                        DXIL::ResourceKind RK);
 DxilResourceProperties
 loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
                        const ShaderModel &);

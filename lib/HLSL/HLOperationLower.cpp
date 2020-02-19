@@ -106,12 +106,27 @@ public:
     return Res.ResourceType;
   }
 
-  void MarkHasCounter(Type *Ty, Value *handle) {
+  void MarkHasCounter(Value *handle, Type *i8Ty) {
+    CallInst *CIHandle = cast<CallInst>(handle);
+    hlsl::HLOpcodeGroup group =
+        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
+    DXASSERT(group == HLOpcodeGroup::HLAnnotateHandle, "else invalid handle");
+    // Mark has counter for the input handle.
+    Value *counterHandle =
+        CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+    // Change kind into StructurBufferWithCounter.
+
+    CIHandle->setArgOperand(
+        HLOperandIndex::kAnnotateHandleResourceKindOpIdx,
+        ConstantInt::get(
+            i8Ty,
+            (unsigned)DXIL::ResourceKind::StructuredBufferWithCounter));
+
     DXIL::ResourceClass RC = GetRC(handle);
     DXASSERT_LOCALVAR(RC, RC == DXIL::ResourceClass::UAV,
                       "must UAV for counter");
     std::unordered_set<Value *> resSet;
-    MarkHasCounterOnCreateHandle(handle, resSet);
+    MarkHasCounterOnCreateHandle(counterHandle, resSet);
   }
 
   Value *GetOrCreateResourceForCbPtr(GetElementPtrInst *CbPtr,
@@ -152,10 +167,6 @@ public:
     return Builder.CreateGEP(ResPtr, {Builder.getInt32(0), arrayIdx});
   }
 
-  void PropagateHandleMeta(Value *AnnotatedHandle, Value *CreateHandle) {
-    ResAttribute ResAttr = FindCreateHandleResourceBase(AnnotatedHandle);
-    HandleMetaMap[CreateHandle] = ResAttr;
-  }
   DxilResourceProperties GetResPropsFromAnnotateHandle(CallInst *Anno) {
     DXIL::ResourceClass RC =
         (DXIL::ResourceClass)cast<ConstantInt>(
@@ -169,10 +180,8 @@ public:
             ->getLimitedValue();
     Constant *Props = cast<Constant>(Anno->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
-    Type *RPTy = Props->getType();
-
     DxilResourceProperties RP = resource_helper::loadFromConstant(
-        *Props, RC, RK, RPTy, *HLM.GetShaderModel());
+        *Props, RC, RK);
     return RP;
   }
 
@@ -2490,24 +2499,8 @@ Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-  Value *counterHandle = handle;
-  if (CallInst *CIHandle = dyn_cast<CallInst>(handle)) {
-    hlsl::HLOpcodeGroup group =
-        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
-    if (group == HLOpcodeGroup::HLAnnotateHandle) {
-      // Mark has counter for the input handle.
-      counterHandle =
-          CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
-      // Change kind into StructurBufferWithCounter.
-      CIHandle->setArgOperand(
-          HLOperandIndex::kAnnotateHandleResourceKindOpIdx,
-          ConstantInt::get(
-              helper.i8Ty,
-              (unsigned)DXIL::ResourceKind::StructuredBufferWithCounter));
-      pObjHelper->PropagateHandleMeta(handle, counterHandle);
-    }
-  }
-  pObjHelper->MarkHasCounter(counterHandle->getType(), counterHandle);
+
+  pObjHelper->MarkHasCounter(handle, helper.i8Ty);
 
   bool bInc = IOP == IntrinsicOp::MOP_IncrementCounter;
   IRBuilder<> Builder(CI);

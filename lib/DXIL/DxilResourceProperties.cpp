@@ -72,12 +72,12 @@ Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
 
 DxilResourceProperties loadFromConstant(const Constant &C,
                                         DXIL::ResourceClass RC,
-                                        DXIL::ResourceKind RK, Type *Ty,
-                                        const ShaderModel &) {
+                                        DXIL::ResourceKind RK) {
   DxilResourceProperties RP;
   RP.Class = RC;
   RP.Kind = RK;
   // Ty Should match C.getType().
+  Type *Ty = C.getType();
   StructType *ST = cast<StructType>(Ty);
   switch (ST->getNumElements()) {
   case 2: {
@@ -107,7 +107,7 @@ loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
       cast<ConstantStruct>(annotateHandle.get_props());
   return loadFromConstant(
       *ResProp, (DXIL::ResourceClass)annotateHandle.get_resourceClass_val(),
-      (DXIL::ResourceKind)annotateHandle.get_resourceKind_val(), Ty, SM);
+      (DXIL::ResourceKind)annotateHandle.get_resourceKind_val());
 }
 
 DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
