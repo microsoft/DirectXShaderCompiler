@@ -885,8 +885,6 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
     SA.MarkEmptyStruct();
   }
   if (pTupleMD->getNumOperands() == SA.GetNumFields()+2) {
-    DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 5) >= 0,
-      "otherwise, template annotation emitted for dxil version < 1.5");
     // Load template args from extended operand
     const MDOperand &MDOExtra = pTupleMD->getOperand(SA.GetNumFields()+1);
     const MDTuple *pTupleMDExtra = dyn_cast_or_null<MDTuple>(MDOExtra.get());

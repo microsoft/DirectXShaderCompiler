@@ -6,6 +6,7 @@ add_llvm_library(LLVMDxilPIXPasses
   DxilDebugInstrumentation.cpp
   DxilForceEarlyZ.cpp
   DxilOutputColorBecomesConstant.cpp
+  DxilPIXMeshShaderOutputInstrumentation.cpp
   DxilRemoveDiscards.cpp
   DxilReduceMSAAToSingleSample.cpp
   DxilShaderAccessTracking.cpp
