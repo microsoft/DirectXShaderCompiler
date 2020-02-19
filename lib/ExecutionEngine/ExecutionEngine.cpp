@@ -360,10 +360,10 @@ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
   return Array.get();
 }
 
-void ExecutionEngine::runStaticConstructorsDestructors(Module &module,
+void ExecutionEngine::runStaticConstructorsDestructors(Module &mod,
                                                        bool isDtors) {
   const char *Name = isDtors ? "llvm.global_dtors" : "llvm.global_ctors";
-  GlobalVariable *GV = module.getNamedGlobal(Name);
+  GlobalVariable *GV = mod.getNamedGlobal(Name);
 
   // If this global has internal linkage, or if it has a use, then it must be
   // an old-style (llvmgcc3) static ctor with __main linked in and in use.  If

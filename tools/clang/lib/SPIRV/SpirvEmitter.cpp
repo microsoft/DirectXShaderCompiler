@@ -142,7 +142,7 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   return false;
 }
 
-bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
+bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *mod,
                         std::string *messages) {
   spvtools::Optimizer optimizer(env);
 
@@ -160,10 +160,10 @@ bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
 
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
-  return optimizer.Run(module->data(), module->size(), module, options);
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
-bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
+bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *mod,
                         clang::spirv::SpirvCodeGenOptions &spirvOptions,
                         std::string *messages) {
   spvtools::Optimizer optimizer(env);
@@ -191,12 +191,12 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
       return false;
   }
 
-  return optimizer.Run(module->data(), module->size(), module, options);
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
                         bool beforeHlslLegalization,
-                        std::vector<uint32_t> *module, std::string *messages) {
+                        std::vector<uint32_t> *mod, std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -217,7 +217,7 @@ bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
     options.SetRelaxBlockLayout(true);
   }
 
-  return tools.Validate(module->data(), module->size(), options);
+  return tools.Validate(mod->data(), mod->size(), options);
 }
 
 /// Translates atomic HLSL opcodes into the equivalent SPIR-V opcode.
