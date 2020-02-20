@@ -489,7 +489,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                    spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
-      beforeHlslLegalization(false), mainSourceFile(nullptr) {
+      beforeHlslLegalization(false), mainSourceFile(nullptr),
+      stopEntireCompilation(false) {
 
   // Get ShaderModel from command line hlsl profile option.
   const hlsl::ShaderModel *shaderModel =
@@ -599,6 +600,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     } else {
       doDecl(decl);
     }
+
+    if (stopEntireCompilation)
+      return;
   }
 
   // Translate all functions reachable from the entry function.
@@ -6291,21 +6295,25 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
     }
   }
 
-  const auto *init = varDecl->getInit();
-
-  if (!init) {
+  if (!varDecl->hasInit()) {
     emitError("missing default value for specialization constant",
               varDecl->getLocation());
     hasError = true;
-  } else if (!isAcceptedSpecConstantInit(init)) {
+  }
+
+  if (hasError) {
+    stopEntireCompilation = true;
+    return;
+  }
+
+  const auto *init = varDecl->getInit();
+  if (!isAcceptedSpecConstantInit(init)) {
     emitError("unsupported specialization constant initializer",
               init->getLocStart())
         << init->getSourceRange();
-    hasError = true;
-  }
-
-  if (hasError)
+    stopEntireCompilation = true;
     return;
+  }
 
   SpecConstantEnvRAII specConstantEnvRAII(&isSpecConstantMode);
 

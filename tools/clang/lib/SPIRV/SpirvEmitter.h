@@ -1156,6 +1156,13 @@ private:
 
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
+
+  /// When there is an error, we want to stop compilation to prevent it from
+  /// causing segmentation faults. If it causes a segfault, we cannot check
+  /// the actual error message.
+  /// TODO: I am worried that this is a global variable in this class and it
+  ///       can be easily mis-used. Revisit this design.
+  bool stopEntireCompilation;
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {
