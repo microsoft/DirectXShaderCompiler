@@ -167,7 +167,7 @@ private:
 class VariableRegisters
 {
 public:
-  explicit VariableRegisters(
+  VariableRegisters(
       llvm::DIVariable *Variable,
       llvm::Module *M
   );
