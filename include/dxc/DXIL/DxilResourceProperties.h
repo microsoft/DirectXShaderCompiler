@@ -50,6 +50,7 @@ struct DxilResourceProperties {
 
   bool operator==(const DxilResourceProperties &);
   bool operator!=(const DxilResourceProperties &);
+  unsigned getSampleCount();
 };
 
 static_assert(sizeof(DxilResourceProperties) == 4 * sizeof(uint32_t),
@@ -63,6 +64,9 @@ struct DxilInst_AnnotateHandle;
 namespace resource_helper {
 llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
+DxilResourceProperties loadFromConstant(const llvm::Constant &C,
+                                        DXIL::ResourceClass RC,
+                                        DXIL::ResourceKind RK);
 DxilResourceProperties
 loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
                        const ShaderModel &);

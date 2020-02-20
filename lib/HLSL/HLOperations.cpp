@@ -436,8 +436,6 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
   case HLOpcodeGroup::HLCreateHandle: {
     F->addFnAttr(Attribute::ReadNone);
     F->addFnAttr(Attribute::NoUnwind);
-    F->addFnAttr(Attribute::NoInline);
-    F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
   } break;
   case HLOpcodeGroup::HLAnnotateHandle: {
     F->addFnAttr(Attribute::ReadNone);

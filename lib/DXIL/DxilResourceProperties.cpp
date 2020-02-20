@@ -33,6 +33,21 @@ bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) {
   return !(*this == RP) ;
 }
 
+unsigned DxilResourceProperties::getSampleCount() {
+  assert(DXIL::IsTyped(Kind));
+  const unsigned SampleCountTable[] = {
+    1,  // 0
+    2,  // 1
+    4,  // 2
+    8,  // 3
+    16, // 4
+    32, // 5
+    0,  // 6
+    0,  // kSampleCountUndefined.
+  };
+  return SampleCountTable[Typed.SampleCountPow2];
+}
+
 namespace resource_helper {
 // Resource Class and Resource Kind is used as seperate parameter, other fileds
 // are saved in constant.
@@ -57,20 +72,25 @@ Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
 
 DxilResourceProperties loadFromConstant(const Constant &C,
                                         DXIL::ResourceClass RC,
-                                        DXIL::ResourceKind RK, Type *Ty,
-                                        const ShaderModel &) {
+                                        DXIL::ResourceKind RK) {
   DxilResourceProperties RP;
   RP.Class = RC;
   RP.Kind = RK;
   // Ty Should match C.getType().
+  Type *Ty = C.getType();
   StructType *ST = cast<StructType>(Ty);
   switch (ST->getNumElements()) {
   case 2: {
-    const ConstantStruct *CS = cast<ConstantStruct>(&C);
-    const Constant *RawDword0 = CS->getOperand(0);
-    const Constant *RawDword1 = CS->getOperand(1);
-    RP.RawDword0 = cast<ConstantInt>(RawDword0)->getLimitedValue();
-    RP.RawDword1 = cast<ConstantInt>(RawDword1)->getLimitedValue();
+    if (isa<ConstantAggregateZero>(&C)) {
+      RP.RawDword0 = 0;
+      RP.RawDword1 = 0;
+    } else {
+      const ConstantStruct *CS = cast<ConstantStruct>(&C);
+      const Constant *RawDword0 = CS->getOperand(0);
+      const Constant *RawDword1 = CS->getOperand(1);
+      RP.RawDword0 = cast<ConstantInt>(RawDword0)->getLimitedValue();
+      RP.RawDword1 = cast<ConstantInt>(RawDword1)->getLimitedValue();
+    }
   } break;
   default:
     RP.Class = DXIL::ResourceClass::Invalid;
@@ -87,7 +107,7 @@ loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
       cast<ConstantStruct>(annotateHandle.get_props());
   return loadFromConstant(
       *ResProp, (DXIL::ResourceClass)annotateHandle.get_resourceClass_val(),
-      (DXIL::ResourceKind)annotateHandle.get_resourceKind_val(), Ty, SM);
+      (DXIL::ResourceKind)annotateHandle.get_resourceKind_val());
 }
 
 DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
