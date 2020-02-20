@@ -580,6 +580,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // The entry function is the seed of the queue.
   for (auto *decl : tu->decls()) {
+    if (context.getDiagnostics().hasErrorOccurred())
+      return;
+
     if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
       if (spvContext.isLib()) {
         if (const auto *shaderAttr = funcDecl->getAttr<HLSLShaderAttr>()) {
@@ -605,6 +608,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // The queue can grow in the meanwhile; so need to keep evaluating
   // workQueue.size().
   for (uint32_t i = 0; i < workQueue.size(); ++i) {
+    if (context.getDiagnostics().hasErrorOccurred())
+      return;
     const FunctionInfo *curEntryOrCallee = workQueue[i];
     spvContext.setCurrentShaderModelKind(curEntryOrCallee->shaderModelKind);
     doDecl(curEntryOrCallee->funcDecl);
