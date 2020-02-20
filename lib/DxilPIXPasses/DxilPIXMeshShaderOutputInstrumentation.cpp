@@ -32,6 +32,11 @@
 // WinPixShaderUtils.h
 constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
 
+// Keep these in sync with the same-named values in PIX's MeshShaderOutput.cpp
+constexpr uint32_t triangleIndexIndicator = 1;
+constexpr uint32_t int32ValueIndicator = 2;
+constexpr uint32_t floatValueIndicator = 3;
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -46,8 +51,7 @@ public:
   bool runOnModule(Module &M) override;
 
 private:
-  CallInst *m_VertxeUAV = nullptr;
-  CallInst *m_IndexUAV = nullptr;
+  CallInst *m_OutputUAV = nullptr;
   int m_RemainingReservedSpaceInBytes = 0;
   Constant *m_OffsetMask = nullptr;
 
@@ -188,7 +192,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
       AtomicOpFunc,
       {
           AtomicBinOpcode, // i32, ; opcode
-          m_IndexUAV,      // %dx.types.Handle, ; resource handle
+          m_OutputUAV,      // %dx.types.Handle, ; resource handle
           AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
                      // XOR, IMIN, IMAX, UMIN, UMAX
           Zero32Arg, // i32, ; coordinate c0: index in bytes
@@ -214,7 +218,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
   (void)BC.Builder.CreateCall(
       StoreValue,
       {StoreValueOpcode, // i32 opcode
-       m_IndexUAV,       // %dx.types.Handle, ; resource handle
+       m_OutputUAV,       // %dx.types.Handle, ; resource handle
        TheOffset,        // i32 c0: index in bytes into UAV
        Undef32Arg,       // i32 c1: unused
        TheValue,
@@ -245,8 +249,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
   m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  // m_VertxeUAV = addUAV(BC);
-  m_IndexUAV = addUAV(BC);
+  m_OutputUAV = addUAV(BC);
 
   auto FlattenedGroupId = insertInstructionsToCalculateFlattenedGroupId(BC);
   auto FlattenedThreadId = insertInstructionsToCalculateFlattenedThreadId(BC);
@@ -272,7 +275,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
       Value *byteOffset = reserveDebugEntrySpace(BC2, DwordCount * static_cast<uint32_t>(sizeof(uint32_t)));
 
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(1));
+      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(triangleIndexIndicator));
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedGroupId);
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedThreadId);
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(1));
@@ -306,7 +309,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
       Value *byteOffset = reserveDebugEntrySpace(BC2, DwordCount * static_cast<uint32_t>(sizeof(uint32_t)));
 
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(2));
+      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(int32ValueIndicator));
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedGroupId);
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedThreadId);
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(1));
@@ -342,7 +345,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
       Value *byteOffset = reserveDebugEntrySpace(BC2, DwordCount * static_cast<uint32_t>(sizeof(uint32_t)));
 
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(3));
+      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(floatValueIndicator));
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedGroupId);
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedThreadId);
       byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(1));
