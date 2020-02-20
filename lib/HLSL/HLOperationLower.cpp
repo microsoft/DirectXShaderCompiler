@@ -106,21 +106,37 @@ public:
     return Res.ResourceType;
   }
 
-  void MarkHasCounter(Type *Ty, Value *handle) {
+  void MarkHasCounter(Value *handle, Type *i8Ty) {
+    CallInst *CIHandle = cast<CallInst>(handle);
+    hlsl::HLOpcodeGroup group =
+        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
+    DXASSERT(group == HLOpcodeGroup::HLAnnotateHandle, "else invalid handle");
+    // Mark has counter for the input handle.
+    Value *counterHandle =
+        CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+    // Change kind into StructurBufferWithCounter.
+
+    CIHandle->setArgOperand(
+        HLOperandIndex::kAnnotateHandleResourceKindOpIdx,
+        ConstantInt::get(
+            i8Ty,
+            (unsigned)DXIL::ResourceKind::StructuredBufferWithCounter));
+
     DXIL::ResourceClass RC = GetRC(handle);
     DXASSERT_LOCALVAR(RC, RC == DXIL::ResourceClass::UAV,
                       "must UAV for counter");
     std::unordered_set<Value *> resSet;
-    MarkHasCounterOnCreateHandle(handle, resSet);
+    MarkHasCounterOnCreateHandle(counterHandle, resSet);
   }
 
   Value *GetOrCreateResourceForCbPtr(GetElementPtrInst *CbPtr,
-                                     GlobalVariable *CbGV, MDNode *MD) {
+                                     GlobalVariable *CbGV,
+                                     DxilResourceProperties &RP) {
     // Change array idx to 0 to make sure all array ptr share same key.
     Value *Key = UniformCbPtr(CbPtr, CbGV);
     if (CBPtrToResourceMap.count(Key))
       return CBPtrToResourceMap[Key];
-    Value *Resource = CreateResourceForCbPtr(CbPtr, CbGV, MD);
+    Value *Resource = CreateResourceForCbPtr(CbPtr, CbGV, RP);
     CBPtrToResourceMap[Key] = Resource;
     return Resource;
   }
@@ -151,6 +167,24 @@ public:
     return Builder.CreateGEP(ResPtr, {Builder.getInt32(0), arrayIdx});
   }
 
+  DxilResourceProperties GetResPropsFromAnnotateHandle(CallInst *Anno) {
+    DXIL::ResourceClass RC =
+        (DXIL::ResourceClass)cast<ConstantInt>(
+            Anno->getArgOperand(
+                HLOperandIndex::kAnnotateHandleResourceClassOpIdx))
+            ->getLimitedValue();
+    DXIL::ResourceKind RK =
+        (DXIL::ResourceKind)cast<ConstantInt>(
+            Anno->getArgOperand(
+                HLOperandIndex::kAnnotateHandleResourceKindOpIdx))
+            ->getLimitedValue();
+    Constant *Props = cast<Constant>(Anno->getArgOperand(
+        HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+    DxilResourceProperties RP = resource_helper::loadFromConstant(
+        *Props, RC, RK);
+    return RP;
+  }
+
 private:
   ResAttribute &FindCreateHandleResourceBase(Value *Handle) {
     if (HandleMetaMap.count(Handle))
@@ -179,98 +213,6 @@ private:
         HandleMetaMap[Handle] = Attrib;
         return HandleMetaMap[Handle];
       }
-    }
-    if (Argument *Arg = dyn_cast<Argument>(Handle)) {
-      MDNode *MD = HLM.GetDxilResourceAttrib(Arg);
-      if (!MD) {
-        Handle->getContext().emitError("cannot map resource to handle");
-        return HandleMetaMap[Handle];
-      }
-      DxilResourceBase Res(DxilResource::Class::Invalid);
-      HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
-
-      ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
-                             Res.GetGlobalSymbol()->getType()};
-
-      HandleMetaMap[Handle] = Attrib;
-      return HandleMetaMap[Handle];
-    }
-    if (LoadInst *LI = dyn_cast<LoadInst>(Handle)) {
-      Value *Ptr = LI->getPointerOperand();
-
-      for (User *U : Ptr->users()) {
-        if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          DxilFunctionAnnotation *FnAnnot = HLM.GetFunctionAnnotation(CI->getCalledFunction());
-          if (FnAnnot) {
-            for (auto &arg : CI->arg_operands()) {
-              if (arg == Ptr) {
-                unsigned argNo = arg.getOperandNo();
-                DxilParameterAnnotation &ParamAnnot = FnAnnot->GetParameterAnnotation(argNo);
-                MDNode *MD = ParamAnnot.GetResourceAttribute();
-                if (!MD) {
-                  Handle->getContext().emitError(
-                      "cannot map resource to handle");
-                  return HandleMetaMap[Handle];
-                }
-                DxilResourceBase Res(DxilResource::Class::Invalid);
-                HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
-
-                ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
-                                       Res.GetGlobalSymbol()->getType()};
-
-                HandleMetaMap[Handle] = Attrib;
-                return HandleMetaMap[Handle];
-              }
-            }
-          }
-        }
-        if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-          Value *V = SI->getValueOperand();
-          ResAttribute Attrib = FindCreateHandleResourceBase(V);
-          HandleMetaMap[Handle] = Attrib;
-          return HandleMetaMap[Handle];
-        }
-      }
-      // Cannot find.
-      Handle->getContext().emitError("cannot map resource to handle");
-      return HandleMetaMap[Handle];
-    }
-    if (CallInst *CI = dyn_cast<CallInst>(Handle)) {
-      MDNode *MD = HLM.GetDxilResourceAttrib(CI->getCalledFunction());
-      if (!MD) {
-        Handle->getContext().emitError("cannot map resource to handle");
-        return HandleMetaMap[Handle];
-      }
-      DxilResourceBase Res(DxilResource::Class::Invalid);
-      HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
-
-      ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
-                             Res.GetGlobalSymbol()->getType()};
-
-      HandleMetaMap[Handle] = Attrib;
-      return HandleMetaMap[Handle];
-    }
-    if (SelectInst *Sel = dyn_cast<SelectInst>(Handle)) {
-      ResAttribute &ResT = FindCreateHandleResourceBase(Sel->getTrueValue());
-      // Use MDT here, ResourceClass, ResourceID match is done at
-      // DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect.
-      HandleMetaMap[Handle] = ResT;
-      FindCreateHandleResourceBase(Sel->getFalseValue());
-      return ResT;
-    }
-    if (PHINode *Phi = dyn_cast<PHINode>(Handle)) {
-      if (Phi->getNumOperands() == 0) {
-        Handle->getContext().emitError("cannot map resource to handle");
-        return HandleMetaMap[Handle];
-      }
-      ResAttribute &Res0 = FindCreateHandleResourceBase(Phi->getOperand(0));
-      // Use Res0 here, ResourceClass, ResourceID match is done at
-      // DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect.
-      HandleMetaMap[Handle] = Res0;
-      for (unsigned i = 1; i < Phi->getNumOperands(); i++) {
-        FindCreateHandleResourceBase(Phi->getOperand(i));
-      }
-      return Res0;
     }
     Handle->getContext().emitError("cannot map resource to handle");
 
@@ -350,7 +292,7 @@ private:
   }
 
   Value *CreateResourceForCbPtr(GetElementPtrInst *CbPtr, GlobalVariable *CbGV,
-                                MDNode *MD) {
+                                DxilResourceProperties &RP) {
     Type *CbTy = CbPtr->getPointerOperandType();
     DXASSERT_LOCALVAR(CbTy, CbTy == CbGV->getType(), "else arg not point to var");
 
@@ -385,15 +327,16 @@ private:
 
     Type *Ty = CbPtr->getResultElementType();
     // Not support resource array in cbuffer.
-    unsigned ResBinding = HLM.GetBindingForResourceInCB(CbPtr, CbGV);
-    return CreateResourceGV(Ty, Name, MD, ResBinding);
+    unsigned ResBinding = HLM.GetBindingForResourceInCB(CbPtr, CbGV, RP.Class);
+    return CreateResourceGV(Ty, Name, RP, ResBinding);
   }
 
-  Value *CreateResourceGV(Type *Ty, StringRef Name, MDNode *MD, unsigned ResBinding) {
+  Value *CreateResourceGV(Type *Ty, StringRef Name, DxilResourceProperties &RP,
+                          unsigned ResBinding) {
     Module &M = *HLM.GetModule();
     Constant *GV = M.getOrInsertGlobal(Name, Ty);
     // Create resource and set GV as globalSym.
-    DxilResourceBase *Res = HLM.AddResourceWithGlobalVariableAndMDNode(GV, MD);
+    DxilResourceBase *Res = HLM.AddResourceWithGlobalVariableAndProps(GV, RP);
     DXASSERT(Res, "fail to create resource for global variable in cbuffer");
     Res->SetLowerBound(ResBinding);
     return GV;
@@ -2556,23 +2499,8 @@ Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-  Value *counterHandle = handle;
-  if (CallInst *CIHandle = dyn_cast<CallInst>(handle)) {
-    hlsl::HLOpcodeGroup group =
-        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
-    if (group == HLOpcodeGroup::HLAnnotateHandle) {
-      // Mark has counter for the input handle.
-      counterHandle =
-          CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
-      // Change kind into StructurBufferWithCounter.
-      CIHandle->setArgOperand(
-          HLOperandIndex::kAnnotateHandleResourceKindOpIdx,
-          ConstantInt::get(
-              helper.i8Ty,
-              (unsigned)DXIL::ResourceKind::StructuredBufferWithCounter));
-    }
-  }
-  pObjHelper->MarkHasCounter(counterHandle->getType(), counterHandle);
+
+  pObjHelper->MarkHasCounter(handle, helper.i8Ty);
 
   bool bInc = IOP == IntrinsicOp::MOP_IncrementCounter;
   IRBuilder<> Builder(CI);
@@ -5632,9 +5560,9 @@ void TranslateResourceInCB(LoadInst *LI,
 
   GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
   CallInst *CI = cast<CallInst>(LI->user_back());
-  MDNode *MD = HLModule::GetDxilResourceAttrib(CI->getCalledFunction());
-
-  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, MD);
+  CallInst *Anno = cast<CallInst>(CI->user_back());
+  DxilResourceProperties RP = pObjHelper->GetResPropsFromAnnotateHandle(Anno);
+  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, RP);
 
   // Lower Ptr to GV base Ptr.
   Value *GvPtr = pObjHelper->LowerCbResourcePtr(Ptr, ResPtr);
