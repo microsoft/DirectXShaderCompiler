@@ -3,6 +3,7 @@
 add_llvm_library(LLVMDxilPIXPasses
   DxilAddPixelHitInstrumentation.cpp
   DxilAnnotateWithVirtualRegister.cpp
+  DxilDbgValueToDbgDeclare.cpp
   DxilDebugInstrumentation.cpp
   DxilForceEarlyZ.cpp
   DxilOutputColorBecomesConstant.cpp
