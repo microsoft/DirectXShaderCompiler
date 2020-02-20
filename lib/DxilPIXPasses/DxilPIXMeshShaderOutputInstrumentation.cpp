@@ -1,12 +1,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilPIXMeshShaderOutputInstrumentation.cpp // Copyright (C) Microsoft
-// Corporation. All rights reserved.                 // This file is distributed
-// under the University of Illinois Open Source     // License. See LICENSE.TXT
-// for details.                                     //
+// DxilAddPixelHitInstrumentation.cpp                                        //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Provides a pass to add instrumentation to determine pixel hit count and   //
-// cost. Used by PIX.                                                        //
+// Provides a pass to add instrumentation to retrieve mesh shader output.    //
+// Used by PIX.                                                              //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -75,6 +75,7 @@ private:
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
                                       Value *TheValue);
+  template <typename... T> void Instrument(BuilderContext &BC, T... values);
 };
 
 void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) {
@@ -165,8 +166,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::
       DXIL::OpCode::FlattenedThreadIdInGroup, Type::getInt32Ty(BC.Ctx));
   Constant *Opcode =
       BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::FlattenedThreadIdInGroup);
-  return BC.Builder.CreateCall(ThreadIdFunc, {Opcode},
-                               "FlattenedThreadId");
+  return BC.Builder.CreateCall(ThreadIdFunc, {Opcode}, "FlattenedThreadId");
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
@@ -192,7 +192,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
       AtomicOpFunc,
       {
           AtomicBinOpcode, // i32, ; opcode
-          m_OutputUAV,      // %dx.types.Handle, ; resource handle
+          m_OutputUAV,     // %dx.types.Handle, ; resource handle
           AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
                      // XOR, IMIN, IMAX, UMIN, UMAX
           Zero32Arg, // i32, ; coordinate c0: index in bytes
@@ -218,7 +218,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
   (void)BC.Builder.CreateCall(
       StoreValue,
       {StoreValueOpcode, // i32 opcode
-       m_OutputUAV,       // %dx.types.Handle, ; resource handle
+       m_OutputUAV,      // %dx.types.Handle, ; resource handle
        TheOffset,        // i32 c0: index in bytes into UAV
        Undef32Arg,       // i32 c1: unused
        TheValue,
@@ -234,6 +234,19 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
   return BC.Builder.CreateAdd(
       TheOffset,
       BC.HlslOP->GetU32Const(static_cast<unsigned int>(sizeof(uint32_t))));
+}
+
+template <typename... T>
+void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
+                                                        T... values) {
+  llvm::SmallVector<llvm::Value *, 10> Values(
+      {static_cast<llvm::Value *>(values)...});
+  const uint32_t DwordCount = Values.size();
+  llvm::Value *byteOffset =
+      reserveDebugEntrySpace(BC, DwordCount * sizeof(uint32_t));
+  for (llvm::Value *V : Values) {
+    byteOffset = writeDwordAndReturnNewOffset(BC, byteOffset, V);
+  }
 }
 
 bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
@@ -265,24 +278,9 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
     IRBuilder<> Builder2(Call);
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
-    {
-      constexpr uint32_t DwordCount = 1   // index indicator
-                                      + 1 // flattened group id
-                                      + 1 // flattened thread id
-                                      + 1 // PrimitiveIndex
-                                      + 3 // vertex indices
-          ;
-
-      Value *byteOffset = reserveDebugEntrySpace(BC2, DwordCount * static_cast<uint32_t>(sizeof(uint32_t)));
-
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(triangleIndexIndicator));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedGroupId);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedThreadId);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(1));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(2));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(3));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(4));
-    }
+    Instrument(BC, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
+               FlattenedGroupId, FlattenedThreadId, Call->getOperand(1),
+               Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
   F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Type::getInt32Ty(Ctx));
@@ -297,27 +295,13 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     {
-      constexpr uint32_t DwordCount = 1   // integer vertex value indicator
-                                      + 1 // flattened group id
-                                      + 1 // flattened thread id
-                                      + 1 // Output sig id
-                                      + 1 // row
-                                      + 1 // column
-                                      + 1 // value
-                                      + 1 // vertex index
-          ;
+      auto expandBits = BC2.Builder.CreateCast(
+          Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
 
-      Value *byteOffset = reserveDebugEntrySpace(BC2, DwordCount * static_cast<uint32_t>(sizeof(uint32_t)));
-
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(int32ValueIndicator));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedGroupId);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedThreadId);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(1));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(2));
-      auto expandBits = BC2.Builder.CreateCast(Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, expandBits);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(4));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(5));
+      Instrument(BC2, BC.HlslOP->GetI32Const(int32ValueIndicator),
+                 FlattenedGroupId, FlattenedThreadId, Call->getOperand(1),
+                 Call->getOperand(2), expandBits, Call->getOperand(4),
+                 Call->getOperand(5));
     }
   }
 
@@ -333,28 +317,16 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     {
-      constexpr uint32_t DwordCount = 1   // integer vertex value indicator
-                                      + 1 // flattened group id
-                                      + 1 // flattened thread id
-                                      + 1 // Output sig id
-                                      + 1 // row
-                                      + 1 // column
-                                      + 1 // value
-                                      + 1 // vertex index
-          ;
+      auto expandBits = BC2.Builder.CreateCast(
+          Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
 
-      Value *byteOffset = reserveDebugEntrySpace(BC2, DwordCount * static_cast<uint32_t>(sizeof(uint32_t)));
+      auto reinterpretFloatToInt = BC2.Builder.CreateCast(
+          Instruction::BitCast, Call->getOperand(4), Type::getInt32Ty(Ctx));
 
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, BC.HlslOP->GetI32Const(floatValueIndicator));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedGroupId);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, FlattenedThreadId);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(1));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(2));
-      auto expandBits = BC2.Builder.CreateCast(Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, expandBits);
-      auto reinterpretFloatToInt = BC2.Builder.CreateCast(Instruction::BitCast, Call->getOperand(4), Type::getInt32Ty(Ctx));
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, reinterpretFloatToInt);
-      byteOffset = writeDwordAndReturnNewOffset(BC2, byteOffset, Call->getOperand(5));
+      Instrument(BC2, BC.HlslOP->GetI32Const(floatValueIndicator),
+                 FlattenedGroupId, FlattenedThreadId, Call->getOperand(1),
+                 Call->getOperand(2), expandBits, reinterpretFloatToInt,
+                 Call->getOperand(5));
     }
   }
 
