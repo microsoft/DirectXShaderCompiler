@@ -1943,6 +1943,8 @@ class db_dxil(object):
             {'n':'constant-alpha','t':'float','c':1}])
         add_pass('hlsl-dxil-remove-discards', 'DxilRemoveDiscards', 'HLSL DXIL Remove all discard instructions', [])
         add_pass('hlsl-dxil-force-early-z', 'DxilForceEarlyZ', 'HLSL DXIL Force the early Z global flag, if shader has no discard calls', [])
+        add_pass('hlsl-dxil-pix-meshshader-output-instrumentation', 'DxilPIXMeshShaderOutputInstrumentation', 'DXIL mesh shader output instrumentation for PIX', [
+            {'n':'UAVSize','t':'int','c':1}])
         add_pass('hlsl-dxil-pix-shader-access-instrumentation', 'DxilShaderAccessTracking', 'HLSL DXIL shader access tracking for PIX', [
             {'n':'config','t':'int','c':1},
             {'n':'checkForDynamicIndexing','t':'bool','c':1}])
