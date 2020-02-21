@@ -202,7 +202,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
-  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "UAVSize", "GroupCountX", "GroupCountY", "GroupCountZ" };
+  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "UAVSize" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "config", "checkForDynamicIndexing" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
   static const LPCSTR Float2IntArgs[] = { "float2int-max-integer-bw" };
@@ -279,7 +279,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
-  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None", "None", "None", "None" };
+  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
   static const LPCSTR Float2IntArgs[] = { "Max integer bitwidth to consider in float2int" };
@@ -353,9 +353,6 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("DL")
     ||  S.equals("FatalErrors")
     ||  S.equals("Ftor")
-    ||  S.equals("GroupCountX")
-    ||  S.equals("GroupCountY")
-    ||  S.equals("GroupCountZ")
     ||  S.equals("InlineThreshold")
     ||  S.equals("InsertLifetime")
     ||  S.equals("MaxHeaderSize")

@@ -55,9 +55,6 @@ private:
   int m_RemainingReservedSpaceInBytes = 0;
   Constant *m_OffsetMask = nullptr;
 
-  uint32_t m_GroupCountX;
-  uint32_t m_GroupCountY;
-  uint32_t m_GroupCountZ;
   uint64_t m_UAVSize = 1024 * 1024;
 
   struct BuilderContext {
@@ -69,8 +66,8 @@ private:
   };
 
   CallInst *addUAV(BuilderContext &BC);
-  Value *insertInstructionsToCalculateFlattenedGroupId(BuilderContext &BC);
-  Value *insertInstructionsToCalculateFlattenedThreadId(BuilderContext &BC);
+  Value *insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC);
+  Value *insertInstructionsToCalculateGroupIdZ(BuilderContext &BC);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -79,9 +76,6 @@ private:
 };
 
 void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) {
-  GetPassOptionUnsigned(O, "GroupCountX", &m_GroupCountX, 0);
-  GetPassOptionUnsigned(O, "GroupCountY", &m_GroupCountY, 0);
-  GetPassOptionUnsigned(O, "GroupCountZ", &m_GroupCountZ, 0);
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
 }
 
@@ -136,10 +130,9 @@ CallInst *DxilPIXMeshShaderOutputInstrumentation::addUAV(BuilderContext &BC) {
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateFlattenedGroupId(BuilderContext &BC) {
+    insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC) {
   Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant *One32Arg = BC.HlslOP->GetU32Const(1);
-  Constant *Two32Arg = BC.HlslOP->GetU32Const(2);
 
   auto GroupIdFunc =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
@@ -148,25 +141,22 @@ Value *DxilPIXMeshShaderOutputInstrumentation::
       BC.Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
   auto GroupIdY =
       BC.Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
-  auto GroupIdZ =
-      BC.Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 
-  auto Z = BC.Builder.CreateMul(
-      GroupIdZ, BC.HlslOP->GetU32Const(m_GroupCountY * m_GroupCountX));
-  auto Y =
-      BC.Builder.CreateMul(GroupIdY, BC.HlslOP->GetU32Const(m_GroupCountX));
-  auto ZY = BC.Builder.CreateMul(Z, Y);
-  return BC.Builder.CreateAdd(ZY, GroupIdX);
+  // Spec requires that no group id index is greater than 64k, so we can 
+  // combine two into one 32-bit value:
+  auto YShifted =
+      BC.Builder.CreateShl(GroupIdY, 16);
+  return BC.Builder.CreateAdd(YShifted, GroupIdX);
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateFlattenedThreadId(BuilderContext &BC) {
+    insertInstructionsToCalculateGroupIdZ(BuilderContext &BC) {
+  Constant *Two32Arg = BC.HlslOP->GetU32Const(2);
+  auto GroupIdFunc =
+      BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
+  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
 
-  auto ThreadIdFunc = BC.HlslOP->GetOpFunc(
-      DXIL::OpCode::FlattenedThreadIdInGroup, Type::getInt32Ty(BC.Ctx));
-  Constant *Opcode =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::FlattenedThreadIdInGroup);
-  return BC.Builder.CreateCall(ThreadIdFunc, {Opcode}, "FlattenedThreadId");
+  return BC.Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
@@ -183,7 +173,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
       BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
   Constant *AtomicAdd =
       BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-  Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
+  Constant *OffsetArg = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset());
   UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
   Constant *Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
@@ -195,7 +185,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
           m_OutputUAV,     // %dx.types.Handle, ; resource handle
           AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
                      // XOR, IMIN, IMAX, UMIN, UMAX
-          Zero32Arg, // i32, ; coordinate c0: index in bytes
+          OffsetArg, // i32, ; coordinate c0: index in bytes
           UndefArg,  // i32, ; coordinate c1 (unused)
           UndefArg,  // i32, ; coordinate c2 (unused)
           Increment, // i32); increment value
@@ -264,8 +254,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
   m_OutputUAV = addUAV(BC);
 
-  auto FlattenedGroupId = insertInstructionsToCalculateFlattenedGroupId(BC);
-  auto FlattenedThreadId = insertInstructionsToCalculateFlattenedThreadId(BC);
+  auto GroupIdXandY = insertInstructionsToCalculateFlattenedGroupIdXandY(BC);
+  auto GroupIdZ = insertInstructionsToCalculateGroupIdZ(BC);
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
   auto FunctionUses = F->uses();
@@ -278,8 +268,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
     IRBuilder<> Builder2(Call);
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
-    Instrument(BC, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
-               FlattenedGroupId, FlattenedThreadId, Call->getOperand(1),
+    Instrument(BC2, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
+               GroupIdXandY, GroupIdZ, Call->getOperand(1),
                Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
@@ -298,8 +288,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       auto expandBits = BC2.Builder.CreateCast(
           Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
 
-      Instrument(BC2, BC.HlslOP->GetI32Const(int32ValueIndicator),
-                 FlattenedGroupId, FlattenedThreadId, Call->getOperand(1),
+      Instrument(BC2, BC2.HlslOP->GetI32Const(int32ValueIndicator),
+                 GroupIdXandY, GroupIdZ, Call->getOperand(1),
                  Call->getOperand(2), expandBits, Call->getOperand(4),
                  Call->getOperand(5));
     }
@@ -323,8 +313,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       auto reinterpretFloatToInt = BC2.Builder.CreateCast(
           Instruction::BitCast, Call->getOperand(4), Type::getInt32Ty(Ctx));
 
-      Instrument(BC2, BC.HlslOP->GetI32Const(floatValueIndicator),
-                 FlattenedGroupId, FlattenedThreadId, Call->getOperand(1),
+      Instrument(BC2, BC2.HlslOP->GetI32Const(floatValueIndicator),
+                 GroupIdXandY, GroupIdZ, Call->getOperand(1),
                  Call->getOperand(2), expandBits, reinterpretFloatToInt,
                  Call->getOperand(5));
     }
