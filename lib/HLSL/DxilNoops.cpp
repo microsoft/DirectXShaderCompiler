@@ -393,15 +393,16 @@ bool DxilFinalizeNoops::LowerPreserves(Module &M) {
       IRBuilder<> B(Preserve->getNextNode());
 
       Value *Src = Preserve->getOperand(0);
-      Type *Ty = Preserve->getType();
+      Value *LastSrc = Preserve->getOperand(1);
+      Type *i1Ty = Type::getInt1Ty(F->getContext());
 
-      if (Value *NopV = GetValue(F, Ty)) {
+      if (Value *NopV = GetValue(F, i1Ty)) {
         Value *NewSrc = nullptr;
-        if (Ty->isIntegerTy()) {
-          NewSrc = B.CreateOr(Src, NopV);
+        if (isa<UndefValue>(LastSrc)) {
+          NewSrc = B.CreateSelect(NopV, Src, Src);
         }
-        else if (Ty->isFloatingPointTy()) {
-          NewSrc = B.CreateFAdd(Src, NopV);
+        else {
+          NewSrc = B.CreateSelect(NopV, LastSrc, Src);
         }
 
         if (NewSrc) {
