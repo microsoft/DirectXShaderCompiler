@@ -22,8 +22,4 @@ float main() : A {
     return 1.0;
 }
 
-// CHECK:  :7:18: error: unsupported specialization constant initializer
-// CHECK:  :10:1: error: unsupported specialization constant type
-// CHECK: :13:11: error: missing default value for specialization constant
-// CHECK: :16:17: error: unsupported specialization constant initializer
-// CHECK: :19:18: error: specialization constant must be externally visible
+// CHECK: :7:18: error: unsupported specialization constant initializer

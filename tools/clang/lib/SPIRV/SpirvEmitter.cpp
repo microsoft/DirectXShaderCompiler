@@ -6295,22 +6295,20 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
     }
   }
 
-  if (!varDecl->hasInit()) {
+  const auto *init = varDecl->getInit();
+
+  if (!init) {
     emitError("missing default value for specialization constant",
               varDecl->getLocation());
+    hasError = true;
+  } else if (!isAcceptedSpecConstantInit(init)) {
+    emitError("unsupported specialization constant initializer",
+              init->getLocStart())
+        << init->getSourceRange();
     hasError = true;
   }
 
   if (hasError) {
-    stopEntireCompilation = true;
-    return;
-  }
-
-  const auto *init = varDecl->getInit();
-  if (!isAcceptedSpecConstantInit(init)) {
-    emitError("unsupported specialization constant initializer",
-              init->getLocStart())
-        << init->getSourceRange();
     stopEntireCompilation = true;
     return;
   }

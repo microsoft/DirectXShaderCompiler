@@ -1750,6 +1750,9 @@ TEST_F(FileTest, VulkanSpecConstantUsage) {
 TEST_F(FileTest, VulkanSpecConstantError) {
   runFileTest("vk.spec-constant.error.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, VulkanSpecConstantErrorNotSegfault) {
+  runFileTest("vk.spec-constant.error.not.segfault.hlsl", Expect::Failure);
+}
 
 TEST_F(FileTest, VulkanLayoutCBufferMatrixZpr) {
   runFileTest("vk.layout.cbuffer.zpr.hlsl");
