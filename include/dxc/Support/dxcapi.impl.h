@@ -189,7 +189,7 @@ struct DxcOutputObject {
   }
   HRESULT SetName(_In_opt_z_ llvm::StringRef Name) {
     DXASSERT_NOMSG(!name);
-    if (!Name.empty())
+    if (Name.empty())
       return S_OK;
     CComPtr<IDxcBlobEncoding> pBlobEncoding;
     IFR(TranslateUtf8StringForOutput(Name.data(), Name.size(), DXC_CP_UTF16, &pBlobEncoding));
