@@ -302,15 +302,22 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV Change Ends
 
+  bool disassemblyWritten = false;
   if (!m_Opts.OutputHeader.empty()) {
     llvm::Twine varName = m_Opts.VariableName.empty()
                               ? llvm::Twine("g_", m_Opts.EntryPoint)
                               : m_Opts.VariableName;
     WriteHeader(pDisassembleResult, pBlob, varName,
                 StringRefUtf16(m_Opts.OutputHeader));
-  } else if (!m_Opts.AssemblyCode.empty()) {
+    disassemblyWritten = true;
+  }
+
+  if (!m_Opts.AssemblyCode.empty()) {
     WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode, m_Opts.DefaultTextCodePage);
-  } else {
+    disassemblyWritten = true;
+  }
+
+  if (!disassemblyWritten) {
     WriteBlobToConsole(pDisassembleResult);
   }
   return retVal;

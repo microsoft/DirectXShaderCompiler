@@ -1,4 +1,6 @@
 int g;
+static int g_unused;
+
 #ifndef semantic
 #define semantic SV_Target
 #endif
