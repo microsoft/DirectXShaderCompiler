@@ -11,742 +11,394 @@ setlocal
 
 set script_dir=%~dp0
 set testfiles=%script_dir%cmdtestfiles
+set Failed=0
+set FailingCmdWritten=0
+set OutputLog=%1\testcmd.log
+set LogOutput=1
 
 pushd %1
 
-echo Smoke test for dxr command line program ...
-dxr.exe -remove-unused-globals "%testfiles%\smoke.hlsl" -Emain 1>nul 2>nul
-if %errorlevel% neq  0 (
-  echo Failed - %CD%\dxr.exe -remove-unused-globals "%testfiles%\smoke.hlsl" -Emain
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fc smoke.hlsl.c 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fc %CD%\smoke.hlsl.c
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-rem /Fd implies /Qstrip_debug
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\smoke.hlsl.d
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.Fd.dxo | findstr "shader debug name: smoke.hlsl.d" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find shader debug name.
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.Fd.dxo | findstr "DICompileUnit" 1>nul
-if %errorlevel% equ 0 (
-  echo Found DICompileUnit after implied strip.
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem del .pdb file if exists
-dir %CD%\*.pdb 1>nul
-if %errorlevel% equ 0 (
-  del %CD%\*.pdb
-)
-rem /Fd implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd .\ /Fo smoke.hlsl.strip 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem .pdb file should be produced
-dir %CD%\*.pdb 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find some .pdb file at %CD%
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem auto debug name is hex digest + .pdb
-dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find shader debug name.
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.strip | findstr "DICompileUnit" 1>nul
-if %errorlevel% equ 0 (
-  echo Found DICompileUnit after implied strip.
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-rem Embed debug info
-rem first delete .pdb file if exists
-dir %CD%\*.pdb 1>nul
-if %errorlevel% equ 0 (
-  del %CD%\*.pdb
-)
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.hlsl.embedpdb 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem .pdb file should NOT be produced
-dir %CD%\*.pdb 1>nul
-if %errorlevel% equ 0 (
-  echo Found unexpected .pdb file at %CD%
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem should have auto debug name, which is hex digest + .pdb
-dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find shader debug name.
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr "DICompileUnit" 1>nul
-if %errorlevel% neq 0 (
-  echo Did not find DICompileUnit when /Zi /Qembed_debug is used to embed debug info.
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-del smoke.hlsl.embedpdb
-rem Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
-rem first delete .pdb file if exists
-dir %CD%\*.pdb 1>nul
-if %errorlevel% equ 0 (
-  del %CD%\*.pdb
-)
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb /Fe smoke.err.embedpdb 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem Search for warning:
-findstr -c:"warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning." smoke.err.embedpdb
-if %errorlevel% neq 0 (
-  echo Did not find warning about embedding debug info without -Qembed_debug.
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem .pdb file should NOT be produced
-dir %CD%\*.pdb 1>nul
-if %errorlevel% equ 0 (
-  echo Found unexpected .pdb file at %CD%
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem should have auto debug name, which is hex digest + .pdb
-dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find shader debug name.
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.embedpdb | findstr "DICompileUnit" 1>nul
-if %errorlevel% neq 0 (
-  echo Did not find DICompileUnit when /Zi /Qembed_debug is used to embed debug info.
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-rem /Zi with /Qstrip_debug and no output should not embed
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qstrip_debug /Fo smoke.hlsl.strip 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
-  call :cleanup 2>nul
-  exit /b 1
-)
-rem auto debug name is hex digest + .pdb
-dxc.exe -dumpbin smoke.hlsl.strip | findstr -r -c:"shader debug name: [0-9a-f]*.pdb" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find shader debug name.
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.strip | findstr "DICompileUnit" 1>nul
-if %errorlevel% equ 0 (
-  echo Found DICompileUnit when -Qstrip_debug used.
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-rem /Qstrip_reflect strips reflection
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -D DX12 /Qstrip_reflect /Fo smoke.hlsl.strip 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fd %CD%\
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -dumpbin smoke.hlsl.strip | findstr -c:"i32 6, !\"g\"" 1>nul
-if %errorlevel% equ 0 (
-  echo Found reflection when -Qstrip_reflect used.
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fe smoke.hlsl.e 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fe %CD%\smoke.hlsl.e
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ast-dump 1>nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ast-dump
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning 1>nul 2>smoke.warning.txt
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-findstr warning: %CD%\smoke.warning.txt 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to get warning message from command %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning /no-warnings 1>nul 2>smoke.no.warning.txt
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning /no-warnings
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-findstr warning: %CD%\smoke.no.warning.txt 1>nul
-if %errorlevel% equ 0 (
-  echo no-warning option failed : %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning /no-warnings
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Basic Rewriter Smoke Test
+call :run dxr.exe -remove-unused-globals "%testfiles%\smoke.hlsl" -Emain
+call :check_file log find-not g_unused
+if %Failed% neq 0 goto :failed
 
 
 echo Smoke test for dxc command line program ...
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fh smoke.hlsl.h /Vn g_myvar 1> nul
-if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fh %CD%\smoke.hlsl.h /Vn g_myvar
-  call :cleanup 2>nul
-  exit /b 1
-)
-findstr g_myvar %CD%\smoke.hlsl.h 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find the variable g_myvar in %CD%\smoke.hlsl.h
-  echo Debug with start devenv /debugexe %CD%\dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fh %CD%\smoke.hlsl.h /Vn g_myvar
-  call :cleanup 2>nul
-  exit /b 1
-)
-findstr "0x44, 0x58" %CD%\smoke.hlsl.h 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find the bytecode for DXBC container in %CD%\smoke.hlsl.h
-  call :cleanup 2>nul
-  exit /b 1
-)
 
-dxc.exe "%testfiles%\smoke.hlsl" /P preprocessed.hlsl 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to preprocess smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Basic DXC Smoke Test
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Fc smoke.hlsl.h
+call :check_file smoke.hlsl.h find "define void @main()" del
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_1_0 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile with forcing rootsignature rootsig_1_0
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Test extra DXC outputs together
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /DDX12 /Dcheck_warning /Fh smoke.hlsl.h /Vn g_myvar /Fc smoke.ll /Fo smoke.cso /Fre smoke.reflection /Frs smoke.rootsig /Fe smoke.err
+call :check_file smoke.hlsl.h find g_myvar find "0x44, 0x58" find "define void @main()" del
+call :check_file smoke.ll find "define void @main()" del
+call :check_file smoke.cso del
+call :check_file smoke.reflection del
+call :check_file smoke.rootsig del
+call :check_file smoke.err find "warning: expression result unused" del
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_1_1 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile with forcing rootsignature rootsig_1_1
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=/Fd implies /Qstrip_debug
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo
+call :check_file smoke.hlsl.d del
+call :check_file smoke.hlsl.Fd.dxo
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.hlsl.Fd.dxo
+rem Should have debug name, and debug info should be stripped from module
+call :check_file log find "shader debug name: smoke.hlsl.d" find-not "DICompileUnit"
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_2_0 2>nul
-if %errorlevel% equ 0 (
-  echo rootsig_2_0 is not supported but compilation passed
-  call :cleanup 2>nul
-  exit /b 1
-)
+rem del .pdb file if exists
+del %CD%\*.pdb 1>nul 2>nul
 
+set testname=/Fd implies /Qstrip_debug ; path with \ produces auto hash-named .pdb file
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd .\ /Fo smoke.hlsl.strip
+rem .pdb file should be produced
+call :check_file *.PDB del
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.hlsl.strip
+rem auto debug name is hex digest + .pdb
+call :check_file log find-opt -r "shader debug name: [0-9a-f]*.pdb" find-not "DICompileUnit" del
+if %Failed% neq 0 goto :failed
+
+rem del .pdb file if exists
+del %CD%\*.pdb 1>nul 2>nul
+
+set testname=Embed debug info
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.hlsl.embedpdb
+call :check_file smoke.hlsl.embedpdb
+if %Failed% neq 0 goto :failed
+rem .pdb file should NOT be produced
+call :check_file_not *.pdb del
+call :run dxc.exe -dumpbin smoke.hlsl.embedpdb
+rem should have auto debug name, which is hex digest + .pdb
+call :check_file log find-opt -r "shader debug name: [0-9a-f]*.pdb" find "DICompileUnit" del
+call :check_file smoke.hlsl.embedpdb del
+if %Failed% neq 0 goto :failed
+
+set testname=Auto-embed debug info when no debug output, and expect warning signifying that this is the case.
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fo smoke.hlsl.embedpdb /Fe smoke.err.embedpdb
+call :check_file smoke.hlsl.embedpdb
+rem Search for warning:
+call :check_file smoke.err.embedpdb find "warning: no output provided for debug - embedding PDB in shader container.  Use -Qembed_debug to silence this warning." del
+rem .pdb file should NOT be produced
+call :check_file_not *.pdb del
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.hlsl.embedpdb
+rem should have auto debug name, which is hex digest + .pdb
+call :check_file log find-opt -r "shader debug name: [0-9a-f]*.pdb" find "DICompileUnit"
+call :check_file smoke.hlsl.embedpdb del
+if %Failed% neq 0 goto :failed
+
+set testname=/Zi with /Qstrip_debug and no output should not embed
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qstrip_debug /Fo smoke.hlsl.strip
+call :check_file smoke.hlsl.strip
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.hlsl.strip
+call :check_file log find-opt -r "shader debug name: [0-9a-f]*.pdb" find-not "DICompileUnit"
+call :check_file smoke.hlsl.strip del
+if %Failed% neq 0 goto :failed
+
+set testname=/Qstrip_reflect strips reflection
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -D DX12 /Qstrip_reflect /Fo smoke.hlsl.strip
+call :check_file smoke.hlsl.strip
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.hlsl.strip
+call :check_file log find-not "i32 6, !\"g\""
+call :check_file smoke.hlsl.strip del
+if %Failed% neq 0 goto :failed
+
+set testname=ast-dump
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ast-dump
+call :check_file log find TranslationUnitDecl
+if %Failed% neq 0 goto :failed
+
+set testname=Check Warning
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning
+call :check_file log find warning:
+if %Failed% neq 0 goto :failed
+
+set testname=/no-warnings
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Dcheck_warning /no-warnings
+call :check_file log find-not warning:
+if %Failed% neq 0 goto :failed
+
+set testname=Preprocess
+call :run dxc.exe "%testfiles%\smoke.hlsl" /P preprocessed.hlsl
+call :check_file preprocessed.hlsl find "float4 main"
+if %Failed% neq 0 goto :failed
+
+set testname=-force_rootsig_ver
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_1_0
+if %Failed% neq 0 goto :failed
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_1_1
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" -force_rootsig_ver rootsig_2_0
+if %Failed% neq 0 goto :failed
+
+set testname=Root Signature target
 echo #define main "CBV(b0)"> test-global-rs.hlsl
-dxc -T rootsig_1_1 test-global-rs.hlsl -rootsig-define main -Fo test-global-rs.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile rootsig_1_1 from define
-  call :cleanup 2>nul
-  exit /b 1
-)
+call :run dxc -T rootsig_1_1 test-global-rs.hlsl -rootsig-define main -Fo test-global-rs.cso
+call :check_file test-global-rs.cso del
+if %Failed% neq 0 goto :failed
 
+set testname=Local Root Signature target
 echo #define main "CBV(b0), RootFlags(LOCAL_ROOT_SIGNATURE)"> test-local-rs.hlsl
-dxc -T rootsig_1_1 test-local-rs.hlsl -rootsig-define main -Fo test-local-rs.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile rootsig_1_1 from define with LOCAL_ROOT_SIGNATURE
-  call :cleanup 2>nul
-  exit /b 1
-)
+call :run dxc -T rootsig_1_1 test-local-rs.hlsl -rootsig-define main -Fo test-local-rs.cso
+call :check_file test-local-rs.cso del
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2016 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile with HLSL version 2016
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=HLSL Version
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2016
+call :run-fail dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2015
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2015 2>nul
-if %errorlevel% equ 0 (
-  echo Unsupported HLSL version 2015 should fail but did not fail
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Embed Debug, Recompile
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso 1> nul
+call :check_file smoke.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.cso
+call :check_file log find "DICompileUnit"
+call :check_file smoke.cso del
+if %Failed% neq 0 goto :failed
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso /Cc /Ni /No /Lx
+call :check_file smoke.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.cso
+call :check_file log find "DICompileUnit"
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.cso /recompile
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.cso /recompile /T ps_6_0 /E main
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to compile to binary object from %CD%\smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+rem Note: this smoke.cso is used for a lot of other tests, and they rely on options set here
+set testname=Command-line Defines, Recompile
+call :run dxc.exe "%testfiles%\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke.cso
+call :check_file smoke.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.cso /recompile
+if %Failed% neq 0 goto :failed
 
-dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso /Cc /Ni /No /Lx 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to compile to binary object from "%testfiles%\smoke.hlsl" with disassembly options
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Strip Debug from compiled object
+call :run dxc.exe smoke.cso /dumpbin /Qstrip_debug /Fo nodebug.cso
+call :check_file nodebug.cso
+if %Failed% neq 0 goto :failed
+set testname=Strip Root Signature from compiled object
+call :run dxc.exe smoke.cso /dumpbin /Qstrip_rootsignature /Fo norootsignature.cso
+call :check_file norootsignature.cso
+if %Failed% neq 0 goto :failed
+set testname=Extract rootsignature from compiled object
+call :run dxc.exe smoke.cso /dumpbin /extractrootsignature /Fo rootsig.cso
+call :check_file rootsig.cso
+if %Failed% neq 0 goto :failed
+call :check_file smoke.cso del
+set testname=Add rootsignature to compiled object
+call :run dxc.exe norootsignature.cso /dumpbin /setrootsignature rootsig.cso /Fo smoke.cso
+call :check_file rootsig.cso del
+rem These are still needed later:
+call :check_file smoke.cso
+call :check_file norootsignature.cso
+if %Failed% neq 0 goto :failed
+rem Check that it added by extracting
+call :run dxc.exe smoke.cso /dumpbin /extractrootsignature /Fo rootsig.cso
+rem Need these later:
+call :check_file smoke.cso
+call :check_file rootsig.cso
+if %Failed% neq 0 goto :failed
 
-dxc.exe -dumpbin smoke.cso 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to disassemble binary object from %CD%\smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Compile NonUniform.hlsl, extract and strip root signature
+call :run dxc.exe "%testfiles%\NonUniform.hlsl" /T ps_6_0 /DDX12 /Fo NonUniform.cso
+call :check_file NonUniform.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe NonUniform.cso /dumpbin /Qstrip_rootsignature /Fo NonUniformNoRootSig.cso
+call :check_file NonUniformNoRootSig.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe NonUniform.cso /dumpbin /extractrootsignature /Fo NonUniformRootSig.cso
+call :check_file NonUniformRootSig.cso
+if %Failed% neq 0 goto :failed
 
-dxc.exe smoke.cso /recompile 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to recompile binary object compiled from %CD%\smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Verify root signature for smoke.cso
+call :run dxc.exe smoke.cso /dumpbin /verifyrootsignature rootsig.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe norootsignature.cso /dumpbin /verifyrootsignature rootsig.cso
+if %Failed% neq 0 goto :failed
 
-dxc.exe smoke.cso /recompile /T ps_6_0 /E main 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to recompile binary object with target ps_6_0 from %CD%\smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Verify root signature for NonUniform.cso
+call :run dxc.exe NonUniform.cso /dumpbin /verifyrootsignature NonUniformRootSig.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe NonUniformNoRootSig.cso /dumpbin /verifyrootsignature NonUniformRootSig.cso
+if %Failed% neq 0 goto :failed
 
-dxc.exe "%testfiles%\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke.cso 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to compile "%testfiles%\smoke.hlsl" with command line defines
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Verify mismatched root signatures fail verification
+call :run-fail dxc.exe NonUniformNoRootSig.cso /dumpbin /verifyrootsignature rootsig.cso
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe norootsignature.cso /dumpbin /verifyrootsignature NonUniformRootSig.cso
+if %Failed% neq 0 goto :failed
 
-dxc.exe smoke.cso /recompile 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to recompile smoke.cso with command line defines
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Set root signature when already has one should succeed
+call :run dxc.exe smoke.cso /dumpbin /setrootsignature rootsig.cso /Fo smoke.rsadded.cso
+call :check_file smoke.rsadded.cso del
+if %Failed% neq 0 goto :failed
 
+set testname=Set mismatched root signature when already has one should fail
+call :run-fail dxc.exe smoke.cso /dumpbin /setrootsignature NonUniformRootSig.cso /Fo smoke.rsadded.cso
+call :check_file_not smoke.rsadded.cso del
+if %Failed% neq 0 goto :failed
 
-dxc.exe smoke.cso /dumpbin /Qstrip_debug /Fo nodebug.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to strip debug part from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Compile TextVS.hlsl
+call :run dxc.exe "%testfiles%\TextVS.hlsl" /Tvs_6_0 /Zi /Qembed_debug /Fo TextVS.cso
+call :check_file TextVS.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.cso /dumpbin /verifyrootsignature TextVS.cso
+call :check_file TextVS.cso del
+if %Failed% neq 0 goto :failed
 
-dxc.exe smoke.cso /dumpbin /Qstrip_rootsignature /Fo norootsignature.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to strip rootsignature from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe smoke.cso /dumpbin /extractrootsignature /Fo rootsig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to extract rootsignature from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe norootsignature.cso /dumpbin /setrootsignature rootsig.cso /Fo smoke.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to setrootsignature to DXIL conatiner with no root signature
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\NonUniform.hlsl" /T ps_6_0 /DDX12 /Fo NonUniform.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile NonUniform.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe NonUniform.cso /dumpbin /Qstrip_rootsignature /Fo NonUniformNoRootSig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to strip rootsignature from DXIL container blob for NonUniform.cso
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe NonUniform.cso /dumpbin /extractrootsignature /Fo NonUniformRootSig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to extract rootsignature from DXIL container blob for NonUniform.cso
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe smoke.cso /dumpbin /verifyrootsignature rootsig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to verify root signature for somke.cso
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe norootsignature.cso /dumpbin /verifyrootsignature rootsig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to verify root signature for smoke.cso without root signature
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe NonUniform.cso /dumpbin /verifyrootsignature NonUniformRootSig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to verify root signature for NonUniform.cso
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe NonUniformNoRootSig.cso /dumpbin /verifyrootsignature NonUniformRootSig.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to verify root signature for somke1.cso without root signature
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe NonUniformNoRootSig.cso /dumpbin /verifyrootsignature rootsig.cso 2>nul
-if %errorlevel% equ 0 (
-  echo Verifying invalid root signature for NonUniformNoRootSig.cso should fail but passed
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe norootsignature.cso /dumpbin /verifyrootsignature NonUniformRootSig.cso 2>nul
-if %errorlevel% equ 0 (
-  echo Verifying invalid root signature for norootsignature.cso should fail but passed
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe smoke.cso /dumpbin /setrootsignature rootsig.cso /Fo smoke.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to setrootsignature to DXIL container that already contains root signature
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe smoke.cso /dumpbin /setrootsignature NonUniformRootSig.cso /Fo smoke.cso 2>nul
-if %errorlevel% equ 0 (
-  echo setrootsignature of invalid root signature should fail but passed
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\TextVS.hlsl" /Tvs_6_0 /Zi /Qembed_debug /Fo TextVS.cso 1>nul
-if %errorlevel% neq 0 (
-  echo failed to compile "%testfiles%\TextVS.hlsl"
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe smoke.cso /dumpbin /verifyrootsignature TextVS.cso 1>nul
-if %errorlevel% neq 0 ( 
-  echo Verifying valid replacement of root signature failed
-  call :cleanup 2>nul
-  exit /b 1
-)
-
+set testname=Set private data
 echo private data > private.txt
-dxc.exe smoke.cso /dumpbin /setprivate private.txt /Fo private.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to set private data to DXIL container with no private data
-  call :cleanup 2>nul
-  exit /b 1
-)
+call :run dxc.exe smoke.cso /dumpbin /setprivate private.txt /Fo private.cso
+call :check_file private.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe private.cso /dumpbin /setprivate private.txt /Fo private.cso
+call :check_file private.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe private.cso /dumpbin /Qstrip_priv /Fo noprivate.cso
+call :check_file noprivate.cso
+if %Failed% neq 0 goto :failed
+call :run dxc.exe private.cso /dumpbin /getprivate private1.txt
+call :check_file private1.txt find "private data" del
+if %Failed% neq 0 goto :failed
+set testname=Appending and removing private data blob roundtrip
+call :run FC smoke.cso noprivate.cso
+call :check_file noprivate.cso del
+if %Failed% neq 0 goto :failed
+set testname=Strip multiple, verify stripping
+call :run dxc.exe private.cso /dumpbin /Qstrip_priv /Qstrip_debug /Qstrip_rootsignature /Fo noprivdebugroot.cso
+call :check_file noprivdebugroot.cso
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe noprivdebugroot.cso /dumpbin /getprivate private1.txt
+call :check_file_not private1.txt del
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe noprivdebugroot.cso /dumpbin /extractrootsignature rootsig1.cso
+call :check_file_not rootsig1.cso del
+if %Failed% neq 0 goto :failed
+call :run dxc.exe noprivdebugroot.cso /dumpbin
+call :check_file_not log find-not "DICompileUnit"
+if %Failed% neq 0 goto :failed
+rem Cleanup
+call :check_file private.cso del
+call :check_file noprivdebugroot.cso del
+if %Failed% neq 0 goto :failed
 
-dxc.exe private.cso /dumpbin /setprivate private.txt /Fo private.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to set private data to DXIL container that already contains private data
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxc.exe shader model upgrade
+call :run dxc.exe -dumpbin smoke.cso -Fc smoke.ll
+rem smoke.ll is used later to assemble, so don't delete it.
+call :check_file smoke.ll find "DICompileUnit"
+if %Failed% neq 0 goto :failed
 
-dxc.exe private.cso /dumpbin /Qstrip_priv /Fo noprivate.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to strip private data from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxa command line program
+call :run dxa.exe smoke.cso -listfiles
+if %Failed% neq 0 goto :failed
+call :check_file log find "smoke.hlsl"
+if %Failed% neq 0 goto :failed
 
-dxc.exe private.cso /dumpbin /getprivate private1.txt 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to get private data from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxa -listparts
+call :run dxa.exe smoke.cso -listparts
+if %Failed% neq 0 goto :failed
+rem Check for expected parts for this container
+call :check_file log find DXIL find ILDB find RTS0 find PSV0 find STAT find ILDN find HASH find ISG1 find OSG1
+if %Failed% neq 0 goto :failed
 
-findstr "private data" %CD%\private1.txt 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to get private data content from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxa extract debug module
+call :run dxa.exe smoke.cso -extractpart dbgmodule -o smoke.cso.dbgmodule
+call :check_file smoke.cso.dbgmodule
+if %Failed% neq 0 goto :failed
+call :run dxa.exe smoke.cso.dbgmodule -listfiles
+call :check_file log find "smoke.hlsl"
+if %Failed% neq 0 goto :failed
 
-FC smoke.cso noprivate.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Appending and removing blob roundtrip failed.
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxa extract all files from debug module
+call :run dxa.exe smoke.cso.dbgmodule -extractfile *
+call :check_file log find "float4 main()"
+if %Failed% neq 0 goto :failed
 
-dxc.exe private.cso /dumpbin /Qstrip_priv /Qstrip_debug /Qstrip_rootsignature /Fo noprivdebugroot.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to extract multiple parts from DXIL container blob
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxa extract DXIL module and build container from that
+call :run dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.bc
+call :check_file smoke.cso.plain.bc
+if %Failed% neq 0 goto :failed
+call :run dxa.exe smoke.cso.plain.bc -o smoke.rebuilt-container.cso
+call :check_file smoke.rebuilt-container.cso del
+call :check_file smoke.cso.plain.bc del
+if %Failed% neq 0 goto :failed
 
-echo Smoke test for dxc.exe shader model upgrade...
-dxc.exe /T ps_5_0 "%testfiles%\smoke.hlsl" 1> nul
-if %errorlevel% neq 0 (
-  echo Failed shader model upgrade test - %CD%\dxc.exe /T ps_5_0 %CD%\smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=dxa assemble container from smoke.ll
+call :run dxa.exe smoke.ll -o smoke.rebuilt-container2.cso
+call :check_file smoke.rebuilt-container2.cso del
+if %Failed% neq 0 goto :failed
 
-dxc.exe -dumpbin smoke.cso > smoke.ll
-if %errorlevel% neq 0 (
-  echo Failed to dumpbin from blob.
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-echo Smoke test for dxa command line program ...
-dxa.exe smoke.cso -listfiles 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to list files from blob 
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.cso -listparts 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to list parts from blob
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.cso -extractpart dbgmodule -o smoke.cso.ll 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to extract DXIL part from the blob generated by %CD%\smoke.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.cso.ll -listfiles 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to list files from Dxil part with Dxil with Debug Info
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.cso.ll -extractfile * 1> nul
-if %errorlevel% neq 0 (
-  echo Failed to extract files from Dxil part with Dxil with Debug Info
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.bc 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to extract plain module via dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.bc
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.cso.plain.bc -o smoke.rebuilt-container.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to rebuild container from plain module via dxa.exe smoke.cso.plain.bc -o smoke.rebuilt-container.cso
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxa.exe smoke.ll -o smoke.rebuilt-container2.cso 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to rebuild container from plain module via dxa.exe smoke.ll -o smoke.rebuilt-container2.cso
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-echo Smoke test for dxopt command line ...
-dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" > passes.txt
-if %errorlevel% neq 0 (
-  echo Failed to /ODump
-  call :cleanup 2>nul
-  exit /b 1
-)
-findstr emit passes.txt 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find an emit in the default pass configuration.
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Smoke test for dxopt command line
+call :run dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" -Fo passes.txt
+call :check_file passes.txt find emit
+if %Failed% neq 0 goto :failed
 echo -print-module >> passes.txt
-dxc /T ps_6_0 "%testfiles%\smoke.hlsl" /fcgl > smoke.hl.txt
-if %errorlevel% neq 0 (
-  echo Failed to do a high-level codegen.
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxopt -pf passes.txt -o=smoke.opt.ll smoke.hl.txt >smoke.opt.prn.txt
-if %errorlevel% neq 0 (
-  echo Failed to run the optimizer with default passes.
-  call :cleanup 2>nul
-  exit /b 1
-)
-findstr MODULE-PRINT smoke.opt.prn.txt 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to find the MODULE-PRINT log in the dxcopt output.
-  call :cleanup 2>nul
-  exit /b 1
-)
+call :run dxc /T ps_6_0 "%testfiles%\smoke.hlsl" /fcgl -Fc smoke.hl.txt
+call :check_file smoke.hl.txt
+if %Failed% neq 0 goto :failed
+call :run-nolog dxopt -pf passes.txt -o=smoke.opt.ll smoke.hl.txt > smoke.opt.prn.txt
+call :check_file smoke.opt.prn.txt find MODULE-PRINT del
+if %Failed% neq 0 goto :failed
 
-echo Smoke test for dxc_batch command line ...
-dxc_batch.exe -lib-link -multi-thread "%testfiles%\batch_cmds2.txt" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to run dxc_batch -lib-link -multi-thread "%testfiles%\batch_cmds2.txt"
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Smoke test for dxc_batch command line
+call :run dxc_batch.exe -lib-link -multi-thread "%testfiles%\batch_cmds2.txt"
+if %Failed% neq 0 goto :failed
+call :run dxc_batch.exe -lib-link -multi-thread "%testfiles%\batch_cmds.txt"
+if %Failed% neq 0 goto :failed
+call :run dxc_batch.exe -multi-thread "%testfiles%\batch_cmds.txt"
+if %Failed% neq 0 goto :failed
 
-dxc_batch.exe -lib-link -multi-thread "%testfiles%\batch_cmds.txt" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to run dxc_batch -lib-link -multi-thread "%testfiles%\batch_cmds.txt"
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Smoke test for dxl command line
+call :run dxc.exe -T lib_6_x "%testfiles%\lib_entry4.hlsl" -Fo lib_entry4.dxbc
+call :check_file lib_entry4.dxbc
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -T lib_6_x "%testfiles%\lib_res_match.hlsl" -Fo lib_res_match.dxbc
+call :check_file lib_res_match.dxbc
+if %Failed% neq 0 goto :failed
+call :run dxl.exe -T ps_6_0 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
+call :check_file lib_entry4.dxbc del
+call :check_file lib_res_match.dxbc del
+call :check_file res_match_entry.dxbc del
+if %Failed% neq 0 goto :failed
 
-dxc_batch.exe -multi-thread "%testfiles%\batch_cmds.txt" 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to run dxc_batch -multi-thread "%testfiles%\batch_cmds.txt"
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Test for denorm options
+call :run dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm preserve
+if %Failed% neq 0 goto :failed
+call :run dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm ftz
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm abc
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_1 /denorm any
+if %Failed% neq 0 goto :failed
 
-echo Smoke test for dxl command line ...
-dxc.exe -T lib_6_x "%testfiles%\lib_entry4.hlsl" -Fo lib_entry4.dxbc 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to run dxc.exe -T lib_6_x "%testfiles%\lib_entry4.hlsl" -Fo lib_entry4.dxbc
-  call :cleanup 2>nul
-  exit /b 1
-)
-dxc.exe -T lib_6_x "%testfiles%\lib_res_match.hlsl" -Fo lib_res_match.dxbc 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to run dxc.exe -T lib_6_x "%testfiles%\lib_res_match.hlsl" -Fo lib_res_match.dxbc
-  call :cleanup 2>nul
-  exit /b 1
-)
+set testname=Test /enable-16bit-types
+call :run dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /enable-16bit-types
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_1 /enable-16bit-types
+if %Failed% neq 0 goto :failed
+call :run-fail dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /enable-16bit-types /HV 2017
+if %Failed% neq 0 goto :failed
 
-dxl.exe -T ps_6_0 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to run dxl.exe -T ps_6_0 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-echo Test for denorm options ...
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm preserve 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile "%testfiles%\smoke.hlsl" with /denorm ieee option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm ftz 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile "%testfiles%\smoke.hlsl" with /denorm ftz option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /denorm abc 2>nul
-if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled "%testfiles%\smoke.hlsl" with invalid /denorm option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_1 /denorm any 2>nul
-if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled "%testfiles%\smoke.hlsl" shader model 6.1 with /denorm option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /enable-16bit-types 1>nul
-if %errorlevel% neq 0 (
-  echo Failed to compile "%testfiles%\smoke.hlsl" with /enable-16bit-types option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_1 /enable-16bit-types 2>nul
-if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled "%testfiles%\smoke.hlsl" shader model 6.1 with /enable-16bit-types option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe "%testfiles%\smoke.hlsl" /Tps_6_2 /enable-16bit-types /HV 2017 2>nul
-if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled "%testfiles%\smoke.hlsl" shader model 6.2 with /enable-16bit-types and /HV 2017 option
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-echo Test file with relative path and include
+set testname=Test file with relative path and include
 mkdir subfolder 2>nul
 mkdir inc       2>nul
 copy "%testfiles%\include-main.hlsl" subfolder >nul
 copy "%testfiles%\include-declarations.h" inc  >nul
-dxc.exe -Tps_6_0 -I inc subfolder\include-main.hlsl >nul
-if %errorlevel% neq 0 (
-  echo Failed to compile subfolder\include-main.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
-
-dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl >nul
-if %errorlevel% neq 0 (
-  echo Failed to preprocess subfolder\include-main.hlsl
-  call :cleanup 2>nul
-  exit /b 1
-)
+call :run dxc.exe -Tps_6_0 -I inc subfolder\include-main.hlsl
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
+if %Failed% neq 0 goto :failed
 
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
@@ -766,56 +418,163 @@ call :cleanup
 exit /b 0
 
 :cleanup
-exit /b 0
-rem del .pdb file if exists
-dir %CD%\*.pdb 1>nul
-if %errorlevel% equ 0 (
-  del %CD%\*.pdb
+for %%f in (%clanup_files%) do (
+  del %%f 1>nul 2>nul
 )
-del %CD%\NonUniform.cso
-del %CD%\NonUniformNoRootSig.cso
-del %CD%\NonUniformRootSig.cso
-del %CD%\TextVS.cso
-del %CD%\nodebug.cso
-del %CD%\noprivate.cso
-del %CD%\noprivdebugroot.cso
-del %CD%\norootsignature.cso
-del %CD%\passes.txt
-del %CD%\preprocessed.hlsl
-del %CD%\private.cso
-del %CD%\private.txt
-del %CD%\private1.txt
-del %CD%\rootsig.cso
-del %CD%\smoke.cso
-del %CD%\smoke.cso.ll
-del %CD%\smoke.cso.plain.bc
-del %CD%\smoke.hl.txt
-del %CD%\smoke.hlsl.c
-del %CD%\smoke.hlsl.d
-del %CD%\smoke.hlsl.Fd.dxo
-del %CD%\smoke.hlsl.e
-del %CD%\smoke.hlsl.h
-del %CD%\smoke.hlsl.strip
-del %CD%\smoke.hlsl.embedpdb
-del %CD%\smoke.err.embedpdb
-del %CD%\smoke.ll
-del %CD%\smoke.opt.ll
-del %CD%\smoke.opt.prn.txt
-del %CD%\smoke.rebuilt-container.cso
-del %CD%\smoke.rebuilt-container2.cso
-del %CD%\include-main.hlsl.pp
-rem SPIR-V Change Starts
-del %CD%\smoke.spirv.log
-rem SPIR-V Change Ends
-del %CD%\lib_res_match.dxbc
-del %CD%\lib_entry4.dxbc
-del %CD%\res_match_entry.dxbc
-del %CD%\test-global-rs.hlsl
-del %CD%\test-local-rs.hlsl
-del %CD%\test-global-rs.cso
-del %CD%\test-local-rs.cso
-del %CD%\smoke.no.warning.txt
-del %CD%\smoke.warning.txt
-
+popd
 exit /b 0
 
+rem ============================================
+rem Check that output does not exist
+:check_file_not
+set check_file_pattern=%CD%\%1
+shift /1
+if exist %check_file_pattern% (
+  call :set_failed
+  echo Found unexpected file %check_file_pattern%
+  if "%1"=="del" (
+    del %check_file_pattern% 1>nul
+  )
+  exit /b 1
+)
+exit /b 0
+
+rem ============================================
+rem Check that file exists and find text
+:check_file
+rem echo check_file %*
+if "%1"=="log" (
+  set check_file_pattern=%OutputLog%
+) else (
+  set check_file_pattern=%CD%\%1
+)
+if not exist %check_file_pattern% (
+  if !Failed! equ 0 (
+    call :set_failed
+    echo Failed to find output file %check_file_pattern%
+  )
+  exit /b 1
+)
+shift /1
+
+:check_file_loop
+if "%1"=="" (
+  set clanup_files=!cleanup_files! !check_file_pattern!
+  exit /b !Failed!
+) else if "%1"=="del" (
+  if !Failed! equ 0 (
+    del %check_file_pattern% 1>nul
+  )
+  exit /b !Failed!
+) else (
+  set mode=find
+  set find_not=0
+  if "%1"=="find-not" (
+    set find_not=1
+  ) else if "%1"=="find-opt" (
+    set mode=find-opt
+    shift /1
+  ) else if "%1"=="find-not-opt" (
+    set mode=find-opt
+    set find_not=1
+    shift /1
+  ) else if "%1"=="findstr" (
+    set mode=findstr
+  ) else if "%1"=="findstr-not" (
+    set mode=findstr
+    set find_not=1
+  ) else if not "%1"=="find" (
+    echo Error: unrecognized check_file command: %1
+    call :set_failed
+    exit /b 1
+  )
+
+  if "!mode!"=="find" (
+    set findcmd=findstr /C:%2 %check_file_pattern%
+  ) else if "!mode!"=="find-opt" (
+    set findcmd=findstr %2 /C:%3 %check_file_pattern%
+  ) else if "!mode!"=="findstr" (
+    set findcmd=findstr %* %check_file_pattern%
+  )
+
+  !findcmd! 1>nul
+  if !find_not! equ 0 (
+    if !errorlevel! neq 0 (
+      call :set_failed
+      echo Failed: !findcmd!
+    )
+  ) else (
+    if !errorlevel! equ 0 (
+      call :set_failed
+      echo Found: !findcmd!
+    )
+  )
+
+  if "!mode!"=="findstr" (
+    rem findstr must be last, since it uses all the rest of the args
+    exit /b !Failed!
+  )
+  shift /1
+)
+shift /1
+goto :check_file_loop
+
+rem ============================================
+rem Run, log, and set Failed flag if failing
+:run
+rem echo run %*
+set testcmd=%*
+set FailingCmdWritten=0
+del %OutputLog% 1>nul 2>nul
+if %LogOutput% neq 0 (
+  %testcmd% 1>%OutputLog% 2>&1
+) else (
+  %testcmd%
+)
+if %errorlevel% neq 0 (
+  echo Command Returned: %errorlevel%
+  echo See %OutputLog%
+  call :set_failed %errorlevel%
+)
+exit /b 1
+
+rem ============================================
+rem Run but without redirecting to log
+:run-nolog
+set LogOutput=0
+call :run %*
+set LogOutput=1
+exit /b %errorlevel%
+
+rem ============================================
+rem Run, log, and expect failing result, otherwise set Failed
+:run-fail
+set testcmd=%*
+%testcmd% 1>testcmd.log 2>&1
+if %errorlevel% equ 0 (
+  call :set_failed
+  exit /b 1
+)
+exit /b 0
+
+rem ============================================
+rem Set Failed and write testname/testcmd once.
+:set_failed
+if %FailingCmdWritten% neq 1 (
+  if "%1"=="" (
+    set Failed=1
+  ) else (
+    set Failed=%1
+  )
+  echo Test Failed: %testname%
+  echo %testcmd%
+  set FailingCmdWritten=1
+)
+exit /b 0
+
+rem ============================================
+rem Cleanup and return failure
+:failed
+call :cleanup 2>nul
+if %Failed%=="0" set Failed=1
+exit /b %Failed%
