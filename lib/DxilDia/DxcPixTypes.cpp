@@ -154,39 +154,7 @@ STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(
     _Outptr_result_z_ BSTR *Name)
 {
-  DxcThreadMalloc TM(m_pMalloc);
-
-  if (Name == nullptr)
-  {
-    return E_INVALIDARG;
-  }
-  *Name = nullptr;
-  return S_OK;
-#if 0
-  CComPtr<IDxcPixType> ElementType;
-  IFR(GetElementType(&ElementType));
-
-  CComBSTR ElementName;
-  IFR(ElementType->GetName(&ElementName));
-
-  std::wstring DimsStr;
-
-  DWORD NumDims;
-  IFR(this->GetNumDimensions(&NumDims));
-
-  for (DWORD i = 0; i < NumDims; ++i)
-  {
-      DWORD NumElements;
-      IFR(GetNumElementsInDimension(i, &NumElements));
-
-      DimsStr += L"[";
-      DimsStr += std::to_wstring(NumElements);
-      DimsStr += L"]";
-  }
-
-  *Name = CComBSTR((std::wstring(ElementName) + DimsStr).c_str()).Detach();
-  return S_OK;
-#endif  // 0
+  return E_FAIL;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetSizeInBits(
