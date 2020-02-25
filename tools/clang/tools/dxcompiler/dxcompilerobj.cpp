@@ -787,11 +787,9 @@ public:
         if (!opts.StripReflection) {
           SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
         }
-        // StripRootSignature disabled on Xbox for now since
-        // API wrappers rely on embedded root signature instead of separate output.
-        //if (opts.StripRootSignature) {
-        //  SerializeFlags |= SerializeDxilFlags::StripRootSignature;
-        //}
+        if (opts.StripRootSignature) {
+          SerializeFlags |= SerializeDxilFlags::StripRootSignature;
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -800,6 +798,7 @@ public:
           CComPtr<AbstractMemoryStream> pReflectionStream;
           CComPtr<AbstractMemoryStream> pRootSigStream;
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
+          IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
@@ -810,16 +809,6 @@ public:
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
           } else {
             dxcutil::AssembleToContainer(inputs);
-          }
-          if (pReflectionStream && pReflectionStream->GetPtrSize()) {
-            CComPtr<IDxcBlob> pReflection;
-            IFT(pReflectionStream->QueryInterface(&pReflection));
-            IFT(pResult->SetOutputObject(DXC_OUT_REFLECTION, pReflection));
-          }
-          if (pRootSigStream && pRootSigStream->GetPtrSize()) {
-            CComPtr<IDxcBlob> pRootSignature;
-            IFT(pRootSigStream->QueryInterface(&pRootSignature));
-            IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE, pRootSignature));
           }
 
           // Callback after valid DXIL is produced
@@ -843,13 +832,27 @@ public:
                 }
               }
             }
-          }
 
-          // Always make hash blob for output
-          CComPtr<IDxcBlob> pHashBlob;
-          IFT(hlsl::DxcCreateBlobOnHeapCopy(&ShaderHashContent, (UINT32)sizeof(ShaderHashContent), &pHashBlob));
-          IFT(pResult->SetOutputObject(DXC_OUT_SHADER_HASH, pHashBlob));
-        }
+            if (pReflectionStream && pReflectionStream->GetPtrSize()) {
+              CComPtr<IDxcBlob> pReflection;
+              IFT(pReflectionStream->QueryInterface(&pReflection));
+              IFT(pResult->SetOutputObject(DXC_OUT_REFLECTION, pReflection));
+            }
+            if (pRootSigStream && pRootSigStream->GetPtrSize()) {
+              CComPtr<IDxcBlob> pRootSignature;
+              IFT(pRootSigStream->QueryInterface(&pRootSignature));
+              if (needsValidation) {
+                CComPtr<IDxcBlobEncoding> pValErrors;
+                // Validation failure communicated through diagnostic error
+                dxcutil::ValidateRootSignatureInContainer(pRootSignature, &compiler.getDiagnostics());
+              }
+              IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE, pRootSignature));
+            }
+            CComPtr<IDxcBlob> pHashBlob;
+            IFT(hlsl::DxcCreateBlobOnHeapCopy(&ShaderHashContent, (UINT32)sizeof(ShaderHashContent), &pHashBlob));
+            IFT(pResult->SetOutputObject(DXC_OUT_SHADER_HASH, pHashBlob));
+          } // SUCCEEDED(valHR)
+        } // compileOK && !opts.CodeGenHighLevel
       }
 
       // Add std err to warnings.
