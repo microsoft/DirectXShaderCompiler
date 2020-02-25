@@ -63,62 +63,71 @@ OutParamImpl<T> OutParam(T *V)
   return OutParamImpl<T>(V);
 }
 
-namespace check
+// InParam/InParamImpl provides a mechanism that entrypoints
+// use to tag method arguments as InParams. InParams are
+// not zero-initialized.
+template <typename T>
+struct InParamImpl
 {
-// NotNull/NotNullImpl provide a mechanism that entrypoints can
-// use for automatic parameter validation. They will throw an
+public:
+  InParamImpl(const T *V) : m_V(V)
+  {
+  }
+
+  operator const T *() const
+  {
+    return m_V;
+  }
+
+private:
+  const T *m_V;
+};
+
+template <typename T>
+InParamImpl<T> InParam(T *V)
+{
+  return InParamImpl<T>(V);
+}
+
+
+// ThisPtr/ThisPtrImpl provides a mechanism that entrypoints
+// use to tag method arguments as c++'s this. This values
+// are not checked/initialized.
+template <typename T>
+struct ThisPtrImpl
+{
+public:
+  ThisPtrImpl(T *V) : m_V(V)
+  {
+  }
+
+  operator T *() const
+  {
+    return m_V;
+  }
+
+private:
+  T *m_V;
+};
+
+template <typename T>
+ThisPtrImpl<T> ThisPtr(T *V)
+{
+  return ThisPtrImpl<T>(V);
+}
+
+
+// CheckNotNull/CheckNotNullImpl provide a mechanism that entrypoints
+// can use for automatic parameter validation. They will throw an
 // exception if the given parameter is null.
 template <typename T>
-class NotNullImpl
-{
-public:
-  explicit NotNullImpl(T *V) : m_V(V)
-  {
-    if (m_V != nullptr)
-    {
-      *m_V = T();
-    }
-  }
-
-  operator T *() const
-  {
-    if (m_V == nullptr)
-    {
-      throw hlsl::Exception(E_INVALIDARG);
-    }
-    return m_V;
-  }
-
-private:
-  T *m_V;
-};
+class CheckNotNullImpl;
 
 template <typename T>
-class NotNullImpl<const T>
+class CheckNotNullImpl<OutParamImpl<T>>
 {
 public:
-  explicit NotNullImpl(const T * V) : m_V(V)
-  {
-  }
-
-  operator const T* () const
-  {
-    if (m_V == nullptr)
-    {
-      throw hlsl::Exception(E_INVALIDARG);
-    }
-    return m_V;
-  }
-
-private:
-  const T* m_V;
-};
-
-template <typename T>
-class NotNullImpl<OutParamImpl<T>>
-{
-public:
-  explicit NotNullImpl(OutParamImpl<T> V) : m_V(V)
+  explicit CheckNotNullImpl(OutParamImpl<T> V) : m_V(V)
   {
   }
 
@@ -136,17 +145,31 @@ private:
 };
 
 template <typename T>
-NotNullImpl<T> NotNull(T *V)
+class CheckNotNullImpl<InParamImpl<T>>
 {
-  return NotNullImpl<T>(V);
-}
+public:
+  explicit CheckNotNullImpl(InParamImpl<T> V) : m_V(V)
+  {
+  }
+
+  operator T *() const
+  {
+    if (m_V == nullptr)
+    {
+      throw hlsl::Exception(E_INVALIDARG);
+    }
+    return m_V;
+  }
+
+private:
+  T *m_V;
+};
 
 template <typename T>
-NotNullImpl<OutParamImpl<T>> NotNull(OutParamImpl<T> V)
+CheckNotNullImpl<T> CheckNotNull(T V)
 {
-  return NotNullImpl<OutParamImpl<T>>(V);
+  return CheckNotNullImpl<T>(V);
 }
-}  // namespace check
 
 // WrapOutParams will wrap any OutParams<T> that the
 // entrypoints provide to SetupAndRun -- which is essentially
@@ -155,30 +178,104 @@ void WrapOutParams(IMalloc *)
 {
 }
 
+template <typename T> struct EntrypointWrapper;
+
+// WrapOutParams' specialization that detects OutParams that
+// inherit from IUnknown. Any OutParams inheriting from IUnknown
+// should be wrapped by one of the classes in this file so that
+// user calls will be safely run.
+template <
+    typename T,
+    typename =
+        typename std::enable_if<std::is_base_of<IUnknown, T>::value>::type,
+    typename... O>
+void WrapOutParams(
+    IMalloc* M,
+    CheckNotNullImpl<OutParamImpl<T *>> ppOut,
+    O... Others
+)
+{
+  if (*ppOut)
+  {
+    NewDxcPixDxilDebugInfoObjectOrThrow<typename EntrypointWrapper<T*>::type>(
+        (T**)ppOut,
+        M,
+        *ppOut);
+  }
+
+  WrapOutParams(M, Others...);
+}
+
 template <typename T, typename... O>
 void WrapOutParams(IMalloc *M, T, O... Others)
 {
   WrapOutParams(M, Others...);
 }
 
-// DEFINE_WRAP_OUT_PARAM is a helper macro that every entrypoint should
-// use in order to define a WrapOutParams function to wrap COM objects
-// with the entrypoints wrapper.
-#define DEFINE_WRAP_OUT_PARAM(IInterface)                                   \
-template <typename... R>                                                    \
-void WrapOutParams(                                                         \
-    IMalloc *M,                                                             \
-    check::NotNullImpl<OutParamImpl<IInterface *>> ppOut,                   \
-    R... Results)                                                           \
+
+// DEFINE_ENTRYPOINT_WRAPPER_TRAIT is a helper macro that every entrypoint
+// should use in order to define the EntrypointWrapper traits class for
+// the interface it implements.
+#define DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IInterface)                         \
+template <> struct EntrypointWrapper<IInterface *>                          \
 {                                                                           \
-  if (*ppOut)                                                               \
-  {                                                                         \
-    NewDxcPixDxilDebugInfoObjectOrThrow<IInterface##Entrypoint>(            \
-        (IInterface **)ppOut,                                               \
-        M,                                                                  \
-        *ppOut);                                                            \
-  }                                                                         \
-  WrapOutParams(M, Results...);                                             \
+ using type = IInterface ## Entrypoint;                                     \
+};
+
+// IsValidArgType exposes a static method named check(), which returns
+// true if <T> is a valid type for a method argument, and false otherwise.
+// This is trying to ensure all pointers are checked, and all out params
+// are default-initialized.
+template <typename T>
+struct IsValidArgType
+{
+    static void check() {}
+};
+
+template <typename T>
+struct IsValidArgType<T *>
+{
+    static void check()
+    {
+        static_assert(
+            false,
+            "Pointer arguments should be checked and wrapped"
+            " with InParam/OutParam, or marked with ThisPtr()");
+    }
+};
+
+
+template <typename T>
+struct IsValidArgType<InParamImpl<T>>
+{
+    static void check()
+    {
+        static_assert(
+            false,
+            "InParams should be checked for nullptrs");
+    }
+};
+
+template <typename T>
+struct IsValidArgType<OutParamImpl<T>>
+{
+    static void check()
+    {
+        static_assert(
+            false,
+            "InParams should be checked for nullptrs");
+    }
+};
+
+void EnsureAllPointersAreChecked()
+{
+}
+
+template <typename T, typename... O>
+void EnsureAllPointersAreChecked(T, O... o)
+{
+  IsValidArgType<T>::check();
+  EnsureAllPointersAreChecked(o...);
 }
 
 // SetupAndRun is the function that sets up the environment
@@ -203,6 +300,7 @@ HRESULT SetupAndRun(
     ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
     IFTLLVM(pts.error_code());
 
+    EnsureAllPointersAreChecked(Args...);
     hr = Handler(Args...);
     WrapOutParams(M, Args...);
   }
@@ -262,9 +360,9 @@ public:
     return ::SetupAndRun(
         m_pMalloc,
         std::mem_fn(&Entrypoint<IInterface>::QueryInterfaceImpl),
-        this,
+        ThisPtr(this),
         iid,
-        check::NotNull(OutParam(ppvObject)));
+        CheckNotNull(OutParam(ppvObject)));
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterfaceImpl(REFIID iid, void** ppvObject)
@@ -293,7 +391,7 @@ struct IUnknownEntrypoint : public Entrypoint<IUnknown>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IUnknownEntrypoint);
 };
-DEFINE_WRAP_OUT_PARAM(IUnknown);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IUnknown);
 
 struct IDxcPixTypeEntrypoint : public Entrypoint<IDxcPixType>
 {
@@ -302,22 +400,22 @@ struct IDxcPixTypeEntrypoint : public Entrypoint<IDxcPixType>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetSizeInBits(
       _Outptr_result_z_ DWORD *SizeInBits) override
   {
-    return InvokeOnReal(&IInterface::GetSizeInBits, check::NotNull(OutParam(SizeInBits)));
+    return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
   STDMETHODIMP UnAlias(
       _Outptr_result_z_ IDxcPixType** ppBaseType) override
   {
-    return InvokeOnReal(&IInterface::UnAlias, check::NotNull(OutParam(ppBaseType)));
+    return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixType);
 
 struct IDxcPixConstTypeEntrypoint : public Entrypoint<IDxcPixConstType>
 {
@@ -326,22 +424,22 @@ struct IDxcPixConstTypeEntrypoint : public Entrypoint<IDxcPixConstType>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetSizeInBits(
       _Outptr_result_z_ DWORD *SizeInBits) override
   {
-    return InvokeOnReal(&IInterface::GetSizeInBits, check::NotNull(OutParam(SizeInBits)));
+    return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
   STDMETHODIMP UnAlias(
       _Outptr_result_z_ IDxcPixType** ppBaseType) override
   {
-    return InvokeOnReal(&IInterface::UnAlias, check::NotNull(OutParam(ppBaseType)));
+    return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixConstType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixConstType);
 
 struct IDxcPixTypedefTypeEntrypoint : public Entrypoint<IDxcPixTypedefType>
 {
@@ -350,22 +448,22 @@ struct IDxcPixTypedefTypeEntrypoint : public Entrypoint<IDxcPixTypedefType>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetSizeInBits(
       _Outptr_result_z_ DWORD *SizeInBits) override
   {
-    return InvokeOnReal(&IInterface::GetSizeInBits, check::NotNull(OutParam(SizeInBits)));
+    return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
   STDMETHODIMP UnAlias(
       _Outptr_result_z_ IDxcPixType** ppBaseType) override
   {
-    return InvokeOnReal(&IInterface::UnAlias, check::NotNull(OutParam(ppBaseType)));
+    return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixTypedefType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixTypedefType);
 
 struct IDxcPixScalarTypeEntrypoint : public Entrypoint<IDxcPixScalarType>
 {
@@ -374,22 +472,22 @@ struct IDxcPixScalarTypeEntrypoint : public Entrypoint<IDxcPixScalarType>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetSizeInBits(
       _Outptr_result_z_ DWORD *SizeInBits) override
   {
-    return InvokeOnReal(&IInterface::GetSizeInBits, check::NotNull(OutParam(SizeInBits)));
+    return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
   STDMETHODIMP UnAlias(
       _Outptr_result_z_ IDxcPixType** ppBaseType) override
   {
-    return InvokeOnReal(&IInterface::UnAlias, check::NotNull(OutParam(ppBaseType)));
+    return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixScalarType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixScalarType);
 
 struct IDxcPixArrayTypeEntrypoint : public Entrypoint<IDxcPixArrayType>
 {
@@ -398,40 +496,40 @@ struct IDxcPixArrayTypeEntrypoint : public Entrypoint<IDxcPixArrayType>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetSizeInBits(
       _Outptr_result_z_ DWORD *SizeInBits) override
   {
-    return InvokeOnReal(&IInterface::GetSizeInBits, check::NotNull(OutParam(SizeInBits)));
+    return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
   STDMETHODIMP UnAlias(
       _Outptr_result_z_ IDxcPixType** ppBaseType) override
   {
-    return InvokeOnReal(&IInterface::UnAlias, check::NotNull(OutParam(ppBaseType)));
+    return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 
   STDMETHODIMP GetNumElements(
       _Outptr_result_z_ DWORD *ppNumElements) override
   {
-    return InvokeOnReal(&IInterface::GetNumElements, check::NotNull(OutParam(ppNumElements)));
+    return InvokeOnReal(&IInterface::GetNumElements, CheckNotNull(OutParam(ppNumElements)));
   }
 
   STDMETHODIMP GetIndexedType(
       _Outptr_result_z_ IDxcPixType **ppElementType) override
   {
-    return InvokeOnReal(&IInterface::GetIndexedType, check::NotNull(OutParam(ppElementType)));
+    return InvokeOnReal(&IInterface::GetIndexedType, CheckNotNull(OutParam(ppElementType)));
   }
 
   STDMETHODIMP GetElementType(
       _Outptr_result_z_ IDxcPixType** ppElementType) override
   {
-    return InvokeOnReal(&IInterface::GetElementType, check::NotNull(OutParam(ppElementType)));
+    return InvokeOnReal(&IInterface::GetElementType, CheckNotNull(OutParam(ppElementType)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixArrayType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixArrayType);
 
 struct IDxcPixStructFieldEntrypoint : public Entrypoint<IDxcPixStructField>
 {
@@ -440,22 +538,22 @@ struct IDxcPixStructFieldEntrypoint : public Entrypoint<IDxcPixStructField>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetType(
       _Outptr_result_z_ IDxcPixType** ppType) override
   {
-    return InvokeOnReal(&IInterface::GetType, check::NotNull(OutParam(ppType)));
+    return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 
   STDMETHODIMP GetOffsetInBits(
       _Outptr_result_z_ DWORD *pOffsetInBits) override
   {
-    return InvokeOnReal(&IInterface::GetOffsetInBits, check::NotNull(OutParam(pOffsetInBits)));
+    return InvokeOnReal(&IInterface::GetOffsetInBits, CheckNotNull(OutParam(pOffsetInBits)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixStructField);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixStructField);
 
 struct IDxcPixStructTypeEntrypoint : public Entrypoint<IDxcPixStructType>
 {
@@ -464,42 +562,42 @@ struct IDxcPixStructTypeEntrypoint : public Entrypoint<IDxcPixStructType>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetSizeInBits(
       _Outptr_result_z_ DWORD *SizeInBits) override
   {
-    return InvokeOnReal(&IInterface::GetSizeInBits, check::NotNull(OutParam(SizeInBits)));
+    return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
   STDMETHODIMP UnAlias(
       _Outptr_result_z_ IDxcPixType** ppBaseType) override
   {
-    return InvokeOnReal(&IInterface::UnAlias, check::NotNull(OutParam(ppBaseType)));
+    return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 
   STDMETHODIMP GetNumFields(
       _Outptr_result_z_ DWORD* ppNumFields) override
   {
-      return InvokeOnReal(&IInterface::GetNumFields, check::NotNull(OutParam(ppNumFields)));
+      return InvokeOnReal(&IInterface::GetNumFields, CheckNotNull(OutParam(ppNumFields)));
   }
 
   STDMETHODIMP GetFieldByIndex(
       DWORD dwIndex,
       _Outptr_result_z_ IDxcPixStructField **ppField) override
   {
-    return InvokeOnReal(&IInterface::GetFieldByIndex, dwIndex, check::NotNull(OutParam(ppField)));
+    return InvokeOnReal(&IInterface::GetFieldByIndex, dwIndex, CheckNotNull(OutParam(ppField)));
   }
 
   STDMETHODIMP GetFieldByName(
       _In_ LPCWSTR lpName,
       _Outptr_result_z_ IDxcPixStructField** ppField) override
   {
-    return InvokeOnReal(&IInterface::GetFieldByName, check::NotNull(lpName), check::NotNull(OutParam(ppField)));
+    return InvokeOnReal(&IInterface::GetFieldByName, CheckNotNull(InParam(lpName)), CheckNotNull(OutParam(ppField)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixStructType);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixStructType);
 
 struct IDxcPixDxilStorageEntrypoint : public Entrypoint<IDxcPixDxilStorage>
 {
@@ -509,20 +607,20 @@ struct IDxcPixDxilStorageEntrypoint : public Entrypoint<IDxcPixDxilStorage>
       _In_ LPCWSTR Name,
       _COM_Outptr_ IDxcPixDxilStorage** ppResult) override
   {
-    return InvokeOnReal(&IInterface::AccessField, check::NotNull(Name), check::NotNull(OutParam(ppResult)));
+    return InvokeOnReal(&IInterface::AccessField, CheckNotNull(InParam(Name)), CheckNotNull(OutParam(ppResult)));
   }
 
   STDMETHODIMP Index(
       _In_ DWORD Index,
       _COM_Outptr_ IDxcPixDxilStorage** ppResult) override
   {
-    return InvokeOnReal(&IInterface::Index, Index, check::NotNull(OutParam(ppResult)));
+    return InvokeOnReal(&IInterface::Index, Index, CheckNotNull(OutParam(ppResult)));
   }
 
   STDMETHODIMP GetRegisterNumber(
       _Outptr_result_z_ DWORD *pRegNum) override
   {
-    return InvokeOnReal(&IInterface::GetRegisterNumber, check::NotNull(OutParam(pRegNum)));
+    return InvokeOnReal(&IInterface::GetRegisterNumber, CheckNotNull(OutParam(pRegNum)));
   }
 
   STDMETHODIMP GetIsAlive() override
@@ -533,10 +631,10 @@ struct IDxcPixDxilStorageEntrypoint : public Entrypoint<IDxcPixDxilStorage>
   STDMETHODIMP GetType(
       _Outptr_result_z_ IDxcPixType** ppType) override
   {
-    return InvokeOnReal(&IInterface::GetType, check::NotNull(OutParam(ppType)));
+    return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixDxilStorage);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilStorage);
 
 struct IDxcPixVariableEntrypoint : public Entrypoint<IDxcPixVariable>
 {
@@ -545,22 +643,22 @@ struct IDxcPixVariableEntrypoint : public Entrypoint<IDxcPixVariable>
   STDMETHODIMP GetName(
       _Outptr_result_z_ BSTR *Name) override
   {
-    return InvokeOnReal(&IInterface::GetName, check::NotNull(OutParam(Name)));
+    return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
   STDMETHODIMP GetType(
       _Outptr_result_z_ IDxcPixType **ppType) override
   {
-    return InvokeOnReal(&IInterface::GetType, check::NotNull(OutParam(ppType)));
+    return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 
   STDMETHODIMP GetStorage(
       _COM_Outptr_ IDxcPixDxilStorage **ppStorage) override
   {
-      return InvokeOnReal(&IInterface::GetStorage, check::NotNull(OutParam(ppStorage)));
+      return InvokeOnReal(&IInterface::GetStorage, CheckNotNull(OutParam(ppStorage)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixVariable);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixVariable);
 
 struct IDxcPixDxilLiveVariablesEntrypoint : public Entrypoint<IDxcPixDxilLiveVariables>
 {
@@ -569,24 +667,24 @@ struct IDxcPixDxilLiveVariablesEntrypoint : public Entrypoint<IDxcPixDxilLiveVar
   STDMETHODIMP GetCount(
       _Outptr_ DWORD *dwSize) override
   {
-    return InvokeOnReal(&IInterface::GetCount, check::NotNull(OutParam(dwSize)));
+    return InvokeOnReal(&IInterface::GetCount, CheckNotNull(OutParam(dwSize)));
   }
 
   STDMETHODIMP GetVariableByIndex(
       _In_ DWORD Index,
       _Outptr_result_z_ IDxcPixVariable ** ppVariable) override
   {
-    return InvokeOnReal(&IInterface::GetVariableByIndex, Index, check::NotNull(OutParam(ppVariable)));
+    return InvokeOnReal(&IInterface::GetVariableByIndex, Index, CheckNotNull(OutParam(ppVariable)));
   }
 
   STDMETHODIMP GetVariableByName(
       _In_ LPCWSTR Name,
       _Outptr_result_z_ IDxcPixVariable** ppVariable) override
   {
-    return InvokeOnReal(&IInterface::GetVariableByName, check::NotNull(Name), check::NotNull(OutParam(ppVariable)));
+    return InvokeOnReal(&IInterface::GetVariableByName, CheckNotNull(InParam(Name)), CheckNotNull(OutParam(ppVariable)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixDxilLiveVariables);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilLiveVariables);
 
 struct IDxcPixDxilDebugInfoEntrypoint : public Entrypoint<IDxcPixDxilDebugInfo>
 {
@@ -596,31 +694,31 @@ struct IDxcPixDxilDebugInfoEntrypoint : public Entrypoint<IDxcPixDxilDebugInfo>
       _In_ DWORD InstructionOffset,
       _COM_Outptr_ IDxcPixDxilLiveVariables **ppLiveVariables) override
   {
-    return InvokeOnReal(&IInterface::GetLiveVariablesAt, InstructionOffset, check::NotNull(OutParam(ppLiveVariables)));
+    return InvokeOnReal(&IInterface::GetLiveVariablesAt, InstructionOffset, CheckNotNull(OutParam(ppLiveVariables)));
   }
 
   STDMETHODIMP IsVariableInRegister(
       _In_ DWORD InstructionOffset,
       _In_ const wchar_t *VariableName) override
   {
-    return InvokeOnReal(&IInterface::IsVariableInRegister, InstructionOffset, check::NotNull(VariableName));
+    return InvokeOnReal(&IInterface::IsVariableInRegister, InstructionOffset, CheckNotNull(InParam(VariableName)));
   }
 
   STDMETHODIMP GetFunctionName(
       _In_ DWORD InstructionOffset,
       _Outptr_result_z_ BSTR *ppFunctionName) override
   {
-    return InvokeOnReal(&IInterface::GetFunctionName, InstructionOffset, check::NotNull(OutParam(ppFunctionName)));
+    return InvokeOnReal(&IInterface::GetFunctionName, InstructionOffset, CheckNotNull(OutParam(ppFunctionName)));
   }
 
   STDMETHODIMP GetStackDepth(
       _In_ DWORD InstructionOffset,
       _Outptr_ DWORD *StackDepth) override
   {
-    return InvokeOnReal(&IInterface::GetStackDepth, InstructionOffset, check::NotNull(OutParam(StackDepth)));
+    return InvokeOnReal(&IInterface::GetStackDepth, InstructionOffset, CheckNotNull(OutParam(StackDepth)));
   }
 };
-DEFINE_WRAP_OUT_PARAM(IDxcPixDxilDebugInfo);
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilDebugInfo);
 
 HRESULT CreateEntrypointWrapper(
     IMalloc* pMalloc,
@@ -678,6 +776,6 @@ STDMETHODIMP dxil_dia::Session::NewDxcPixDxilDebugInfo(
       m_pMalloc,
       &NewDxcPixDxilDebugInfoImpl,
       m_pMalloc,
-      this,
-      check::NotNull(OutParam(ppDxilDebugInfo)));
+      ThisPtr(this),
+      CheckNotNull(OutParam(ppDxilDebugInfo)));
 }
