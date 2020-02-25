@@ -135,7 +135,7 @@ public:
   {
     if (m_V == nullptr)
     {
-      throw hlsl::Exception(E_INVALIDARG);
+      throw hlsl::Exception(E_POINTER);
     }
     return m_V;
   }
@@ -156,7 +156,7 @@ public:
   {
     if (m_V == nullptr)
     {
-      throw hlsl::Exception(E_INVALIDARG);
+      throw hlsl::Exception(E_POINTER);
     }
     return m_V;
   }
