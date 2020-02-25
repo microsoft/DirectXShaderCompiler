@@ -142,7 +142,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetIsAlive()
       return S_OK;
     }
   }
-  return S_FALSE;
+  return E_FAIL;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetType(
@@ -199,7 +199,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetIsAlive()
       return S_OK;
     }
   }
-  return S_FALSE;
+  return E_FAIL;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetType(
@@ -233,7 +233,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetRegisterNumber(
 
   if (RegIt == ValueLocationMap.end())
   {
-    return S_FALSE;
+    return E_FAIL;
   }
 
   if (auto *AllocaReg = llvm::dyn_cast<llvm::AllocaInst>(RegIt->second.m_V))
@@ -261,7 +261,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetIsAlive()
   auto RegIt = ValueLocationMap.find(
       m_OffsetFromStorageStartInBits);
 
-  return RegIt == ValueLocationMap.end() ? S_FALSE : S_OK;
+  return RegIt == ValueLocationMap.end() ? E_FAIL : S_OK;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetType(

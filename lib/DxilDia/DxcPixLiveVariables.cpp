@@ -219,13 +219,13 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
 
   if (!DL)
   {
-    return S_FALSE;
+    return E_FAIL;
   }
 
   llvm::DIScope *S = DL->getScope();
   if (S == nullptr)
   {
-    return S_FALSE;
+    return E_FAIL;
   }
 
   const llvm::DITypeIdentifierMap EmptyMap;

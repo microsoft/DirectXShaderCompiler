@@ -290,7 +290,7 @@ HRESULT SetupAndRun(
 {
   DxcThreadMalloc TM(M);
 
-  HRESULT hr = S_FALSE;
+  HRESULT hr = E_FAIL;
   try
   {
     ::llvm::sys::fs::MSFileSystem* msfPtr;
