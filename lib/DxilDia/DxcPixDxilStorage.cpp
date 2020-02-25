@@ -25,16 +25,23 @@ static HRESULT UnAliasType(
 )
 {
   CComPtr<IDxcPixType> Tmp(MaybeAlias);
+  HRESULT hr = E_FAIL;
 
-  HRESULT hr;
-  for (hr = Tmp->UnAlias(OriginalType);
-       hr == S_OK;
-       hr = Tmp->UnAlias(OriginalType))
+  *OriginalType = nullptr;
+  do
   {
-    Tmp.Attach(*OriginalType);
-  }
+    CComPtr<IDxcPixType> Other;
+    
+    hr = Tmp->UnAlias(&Other);
+    IFR(hr);
+    if (hr == S_FALSE)
+    {
+      break;
+    }
 
-  IFR(hr);
+    Tmp = Other;
+  } while (true);
+
   *OriginalType = Tmp.Detach();
   return S_OK;
 }

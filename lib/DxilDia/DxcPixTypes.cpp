@@ -146,7 +146,9 @@ STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetSizeInBits(
 STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(
     _Outptr_result_z_ IDxcPixType **ppType)
 {
-  return E_FAIL;
+  *ppType = this;
+  this->AddRef();
+  return S_FALSE;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(
@@ -197,7 +199,9 @@ STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetSizeInBits(
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::UnAlias(
     _Outptr_result_z_ IDxcPixType **ppType)
 {
-  return E_FAIL;
+  *ppType = this;
+  this->AddRef();
+  return S_FALSE;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetNumElements(
@@ -253,7 +257,9 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetSizeInBits(
 STDMETHODIMP dxil_debug_info::DxcPixStructType::UnAlias(
     _Outptr_result_z_ IDxcPixType **ppType)
 {
-  return E_FAIL;
+  *ppType = this;
+  this->AddRef();
+  return S_FALSE;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixStructType::GetNumFields(
