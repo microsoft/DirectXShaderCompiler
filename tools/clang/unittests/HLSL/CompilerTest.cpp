@@ -1130,66 +1130,35 @@ TEST_F(CompilerTest, CompileDebugLines) {
     "  return z;\r\n"
     "}", &pDiaSource));
     
-  const uint32_t numExpectedVAs = 22;
-  const uint32_t numExpectedLineEntries = 14;
+  const uint32_t numExpectedVAs = 18;
+  const uint32_t numExpectedLineEntries = 6;
 
   auto verifyLines = [=](const std::vector<LineNumber> lines) {
     VERIFY_ARE_EQUAL(lines.size(), numExpectedLineEntries);
-    // alloca pos
-    VERIFY_ARE_EQUAL(lines[0].line, 1);
-    VERIFY_ARE_EQUAL(lines[0].rva,  0);
-
-    // dbg.declare alloca
-    VERIFY_ARE_EQUAL(lines[1].line, 1);
-    VERIFY_ARE_EQUAL(lines[1].rva,  1);
-
-    // alloca x
-    VERIFY_ARE_EQUAL(lines[2].line, 2);
-    VERIFY_ARE_EQUAL(lines[2].rva,  2);
-
-    // dbg.declare x
-    VERIFY_ARE_EQUAL(lines[3].line, 2);
-    VERIFY_ARE_EQUAL(lines[3].rva,  3);
-
-    // alloca y
-    VERIFY_ARE_EQUAL(lines[4].line, 3);
-    VERIFY_ARE_EQUAL(lines[4].rva,  4);
-
-    // dbg.declare y
-    VERIFY_ARE_EQUAL(lines[5].line, 3);
-    VERIFY_ARE_EQUAL(lines[5].rva,  5);
-
-    // alloca z
-    VERIFY_ARE_EQUAL(lines[6].line, 4);
-    VERIFY_ARE_EQUAL(lines[6].rva,  6);
-
-    // dbg.declare z
-    VERIFY_ARE_EQUAL(lines[7].line, 4);
-    VERIFY_ARE_EQUAL(lines[7].rva,  7);
 
     // loadInput
-    VERIFY_ARE_EQUAL(lines[8].line, 1);
-    VERIFY_ARE_EQUAL(lines[8].rva,  8);
+    VERIFY_ARE_EQUAL(lines[0].line, 1);
+    VERIFY_ARE_EQUAL(lines[0].rva,  4);
 
     // abs
-    VERIFY_ARE_EQUAL(lines[9].line, 2);
-    VERIFY_ARE_EQUAL(lines[9].rva, 11);
+    VERIFY_ARE_EQUAL(lines[1].line, 2);
+    VERIFY_ARE_EQUAL(lines[1].rva, 7);
 
     // sin
-    VERIFY_ARE_EQUAL(lines[10].line, 3);
-    VERIFY_ARE_EQUAL(lines[10].rva, 14);
+    VERIFY_ARE_EQUAL(lines[2].line, 3);
+    VERIFY_ARE_EQUAL(lines[2].rva, 10);
 
     // fadd
-    VERIFY_ARE_EQUAL(lines[11].line, 4);
-    VERIFY_ARE_EQUAL(lines[11].rva, 17);
+    VERIFY_ARE_EQUAL(lines[3].line, 4);
+    VERIFY_ARE_EQUAL(lines[3].rva, 13);
 
     // storeOutput
-    VERIFY_ARE_EQUAL(lines[12].line, 5);
-    VERIFY_ARE_EQUAL(lines[12].rva, 20);
+    VERIFY_ARE_EQUAL(lines[4].line, 5);
+    VERIFY_ARE_EQUAL(lines[4].rva, 16);
 
     // ret
-    VERIFY_ARE_EQUAL(lines[13].line, 5);
-    VERIFY_ARE_EQUAL(lines[13].rva, 21);
+    VERIFY_ARE_EQUAL(lines[5].line, 5);
+    VERIFY_ARE_EQUAL(lines[5].rva, 17);
   };
   
   CComPtr<IDiaSession> pSession;
