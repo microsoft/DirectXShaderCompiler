@@ -340,7 +340,7 @@ call :check_file smoke.rebuilt-container2.cso del
 if %Failed% neq 0 goto :failed
 
 set testname=Smoke test for dxopt command line
-call :run dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" -Fo passes.txt
+call :run-nolog dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" > passes.txt
 call :check_file passes.txt find emit
 if %Failed% neq 0 goto :failed
 echo -print-module >> passes.txt
