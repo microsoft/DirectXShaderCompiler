@@ -105,6 +105,7 @@ public:
   llvm::StringRef OutputReflectionFile; // OPT_Fre
   llvm::StringRef OutputRootSigFile; // OPT_Frs
   llvm::StringRef OutputShaderHashFile; // OPT_Fsh
+  llvm::StringRef OutputLiveValueFile; // OPT_Flv
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
@@ -119,6 +120,7 @@ public:
 
   bool AllResourcesBound = false; // OPT_all_resources_bound
   bool AstDump = false; // OPT_ast_dump
+  bool LvaDump = false; // OPT_lva_dump
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
   bool DebugInfo = false; // OPT__SLASH_Zi

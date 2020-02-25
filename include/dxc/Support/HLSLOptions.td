@@ -211,6 +211,8 @@ def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
+def lva_dump : Flag<["-", "/"], "lva-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Dumps a DXR Live Value Analysis report to the debug console in Visual Studio.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
@@ -356,6 +358,7 @@ def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Ou
 def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">,
   HelpText<"Write debug information to the given file, or automatically named file in directory when ending in '\\'">,
   Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def Flv : JoinedOrSeparate<["-", "/"], "Flv">, MetaVarName<"<file>">, HelpText<"Output live value report to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Fre : Separate<["-", "/"], "Fre">, MetaVarName<"<file>">, HelpText<"Output reflection to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Frs : Separate<["-", "/"], "Frs">, MetaVarName<"<file>">, HelpText<"Output root signature to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
 def Fsh : Separate<["-", "/"], "Fsh">, MetaVarName<"<file>">, HelpText<"Output shader hash to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
