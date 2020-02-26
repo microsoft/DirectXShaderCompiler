@@ -37,7 +37,7 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_VULKAN_1_2;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
-    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1", {});
+    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n vulkan1.2", {});
   }
 }
 
@@ -193,9 +193,9 @@ std::string FeatureManager::getKnownExtensions(const char *delimiter,
 
 bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   bool required = true;
-  if (targetEnv == SPV_ENV_VULKAN_1_1 || targetEnv == SPV_ENV_VULKAN_1_2) {
-    // The following extensions are incorporated into Vulkan 1.1, and are
-    // therefore not required to be emitted for that target environment.
+  if (targetEnv >= SPV_ENV_VULKAN_1_1) {
+    // The following extensions are incorporated into Vulkan 1.1 or above, and
+    // are therefore not required to be emitted for that target environment.
     // TODO: Also add the following extensions  if we start to support them.
     // * SPV_KHR_storage_buffer_storage_class
     // * SPV_KHR_variable_pointers
@@ -207,7 +207,7 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
       required = false;
       break;
     default:
-      // Only 1.1 extensions can be suppressed.
+      // Only 1.1 or above extensions can be suppressed.
       required = true;
     }
   }

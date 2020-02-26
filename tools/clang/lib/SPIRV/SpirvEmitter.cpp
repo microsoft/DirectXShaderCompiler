@@ -554,7 +554,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
 
-  if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
+  if (spirvOptions.debugInfoTool &&
+      spirvOptions.targetEnv.compare("vulkan1.1") >= 0) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
