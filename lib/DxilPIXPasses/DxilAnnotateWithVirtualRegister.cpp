@@ -22,6 +22,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -74,7 +75,10 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 
   std::uint32_t InstNum = 0;
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+    if (!llvm::isa<llvm::DbgDeclareInst>(&I))
+    {
+      pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+    }
   }
 
   if (OSOverride != nullptr) {

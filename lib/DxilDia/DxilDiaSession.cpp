@@ -42,7 +42,9 @@ void dxil_dia::Session::Init(
   m_dxilModule = llvm::make_unique<hlsl::DxilModule>(module.get());
 
   llvm::legacy::PassManager PM;
+  llvm::initializeDxilDbgValueToDbgDeclarePass(*llvm::PassRegistry::getPassRegistry());
   llvm::initializeDxilAnnotateWithVirtualRegisterPass(*llvm::PassRegistry::getPassRegistry());
+  PM.add(llvm::createDxilDbgValueToDbgDeclarePass());
   PM.add(llvm::createDxilAnnotateWithVirtualRegisterPass());
   PM.run(*m_module);
 
