@@ -7,24 +7,22 @@ Texture2D tex1 : register(t1);
 
 [RootSignature("DescriptorTable(SRV(t0), SRV(t1))")]
 float4 main() : SV_Target {
-  // CHECK: %[[preserve_i32:[0-9]+]] = load i32, i32* @dx.preserve.value
-  // CHECK-DAG: %[[preserve_f32:[0-9]+]] = sitofp i32 %[[preserve_i32]] to float
-  // CHECK-DAG: %[[preserve_f64:[0-9]+]] = sitofp i32 %[[preserve_i32]] to double
+  // CHECK: %[[p:[0-9]+]] = load i1, i1* @dx.preserve.value
 
   double x = 10;
-  // fadd double 1.000000e+01, %[[preserve_f64]]
+  // select i1 %[[p]], double 1.000000e+01, %[[preserve_f64]]
 
   double y = x + 5;
   // CHECK: %[[a1:.+]] = fadd
-  // fadd double [[a1]], %[[preserve_f64]]
+  // select i1 %[[p]], double [[a1]], double [[a1]]
 
   double z = y * 2;
   // CHECK: %[[b1:.+]] = fmul
-  // fadd double [[b1]], %[[preserve_f64]]
+  // select i1 %[[p]], double [[b1]], double [[b1]]
 
   double w = z / 0.5;
   // CHECK: %[[c1:.+]] = fdiv
-  // fadd double [[c1]], %[[preserve_f64]]
+  // select i1 %[[p]], double [[c1]], double [[c1]]
 
   Texture2D tex = tex0; 
   // CHECK: load i32, i32* @dx.nothing

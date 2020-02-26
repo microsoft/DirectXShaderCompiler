@@ -9,20 +9,20 @@ SamplerState samp0 : register(s0);
 
 [RootSignature("DescriptorTable(SRV(t0), SRV(t1)), DescriptorTable(Sampler(s0))")]
 float4 main(float2 uv : TEXCOORD) : SV_Target {
-  // CHECK: %[[preserve_i32:[0-9]+]] = load i32, i32* @dx.preserve.value
+  // CHECK: [[preserve:%[0-9]+]] = load i1, i1* @dx.preserve.value
 
   int a = -8;
-  // CHECK: %[[preserve_a:.+]] = or i32 -8, %[[preserve_i32]]
+  // CHECK: %[[preserve_a:.+]] = select i1 [[preserve]], i32 -8, i32 -8
 
   int b = 7;
-  // CHECK: %[[preserve_b:.+]] = or i32 7, %[[preserve_i32]]
+  // CHECK: %[[preserve_b:.+]] = select i1 [[preserve]], i32 7, i32 7
 
   int d = a;
-  // CHECK: %[[preserve_d:.+]] = or i32 %[[preserve_a]], %[[preserve_i32]]
+  // CHECK: %[[preserve_d:.+]] = select i1 [[preserve]], i32 %[[preserve_a]], i32 %[[preserve_a]]
 
   int e = b + a;
   // CHECK: %[[add:.+]] = add
-  // CHECK: %[[preserve_e:.+]] = or i32 %[[add]], %[[preserve_i32]]
+  // CHECK: %[[preserve_e:.+]] = select i1 [[preserve]], i32 %[[add]], i32 %[[add]]
 
   // CHECK: call %dx.types.ResRet.f32 @dx.op.sample.f32(i32 60, 
   // CHECK-SAME: i32 -8, i32 -1
