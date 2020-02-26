@@ -442,7 +442,7 @@ bool DxilFinalizeNoops::LowerPreserves(Module &M) {
 
   struct Function_Context {
     Function *F = nullptr;
-    LoadInst *Load = nullptr;
+    Value *V = nullptr;
   };
   std::map<Function *, Function_Context> Contexts;
 
@@ -457,17 +457,18 @@ bool DxilFinalizeNoops::LowerPreserves(Module &M) {
 
       GlobalVariable *GV = M.getGlobalVariable(kPreserveName);
       if (!GV) {
-        Type *i1Ty = B.getInt1Ty();
+        Type *i32Ty = B.getInt32Ty();
         GV = new GlobalVariable(M,
-          i1Ty, true,
+          i32Ty, true,
           llvm::GlobalValue::InternalLinkage,
-          llvm::ConstantInt::get(i1Ty, 0), kPreserveName);
+          llvm::ConstantInt::get(i32Ty, 0), kPreserveName);
       }
 
-      ctx.Load = B.CreateLoad(GV);
+      LoadInst *Load = B.CreateLoad(GV);
+      ctx.V = B.CreateTrunc(Load, B.getInt1Ty());
     }
 
-    return ctx.Load;
+    return ctx.V;
   };
 
   for (Function *PreserveF : PreserveFunctions) {

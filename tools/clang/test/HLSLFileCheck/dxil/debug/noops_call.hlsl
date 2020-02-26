@@ -65,7 +65,8 @@ float4 depth2(float4 val)
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
-    // CHECK: %[[preserve_val:[0-9]+]] = load i1, i1* @dx.preserve.value
+    // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+    // CHECK: %[[preserve_val:[0-9]+]] = trunc i32 %[[p_load]] to i1
     float4 ret1 = localScopeVar_func(color);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
