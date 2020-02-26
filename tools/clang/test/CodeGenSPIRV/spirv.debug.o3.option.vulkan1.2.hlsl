@@ -4,7 +4,7 @@
 // crash when we enable spirv-opt with it.
 
 // CHECK:      [[file:%\d+]] = OpString
-// CHECK-SAME: spirv.debug.o3.option.hlsl
+// CHECK-SAME: spirv.debug.o3.option.vulkan1.2.hlsl
 
 struct VSOUT {
   float4 pos   : SV_POSITION;

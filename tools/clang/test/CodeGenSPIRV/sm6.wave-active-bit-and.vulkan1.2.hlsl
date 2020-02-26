@@ -2,7 +2,7 @@
 
 // Note: WaveActiveBitAnd() only accepts unsigned interger scalars/vectors.
 
-// CHECK: ; Version: 1.3
+// CHECK: ; Version: 1.5
 
 struct S {
     uint4 val1;

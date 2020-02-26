@@ -2,7 +2,7 @@
 
 // Have file path
 // CHECK:      [[file:%\d+]] = OpString
-// CHECK-SAME: spirv.debug.ctrl.source.hlsl
+// CHECK-SAME: spirv.debug.ctrl.source.vulkan1.2.hlsl
 // CHECK:      OpSource HLSL 610 [[file]]
 // Have source code
 // CHECK:      float4 main(uint val
