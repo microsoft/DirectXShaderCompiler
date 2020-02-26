@@ -12,8 +12,8 @@ Texture3D        <uint3> t6 : register(t6);
 Texture2DMS     <float>  t7 : register(t7);
 Texture2DMSArray<float3> t8 : register(t8);
 
-// CHECK: OpEntryPoint Fragment %main "main" %in_var_A %in_var_B %out_var_SV_Target
-// CHECK-SAME: %t1 %t2 %t3 %t4 %t5 %t6 %t7 %t8
+// CHECK: OpEntryPoint Fragment %main "main"
+// CHECK-SAME: %t1 %t2 %t3 %t4 %t5 %t6 %t7 %t8 %in_var_A %in_var_B %out_var_SV_Target
 
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 // CHECK: [[v4ic:%\d+]] = OpConstantComposite %v4int %int_1 %int_2 %int_3 %int_4
