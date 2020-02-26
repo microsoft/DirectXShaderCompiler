@@ -2225,13 +2225,6 @@ TEST_F(FileTest, CompatibilityWithVk1p1) {
   runFileTest("sm6.wave-read-lane-at.vulkan1.2.hlsl");
   runFileTest("sm6.wave-read-lane-first.vulkan1.2.hlsl");
   runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.cl-option.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.commit.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.ctrl.file.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.ctrl.source.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.ctrl.tool.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.o3.option.vulkan1.2.hlsl");
-  runFileTest("spirv.debug.opline.intrinsic.vulkan1.2.hlsl");
 }
 
 } // namespace
