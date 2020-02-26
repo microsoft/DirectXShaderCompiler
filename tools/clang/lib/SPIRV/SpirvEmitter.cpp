@@ -632,7 +632,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     spvBuilder.addEntryPoint(
         getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, entryInfo->funcDecl->getName(),
-        targetEnv == SPV_ENV_VULKAN_1_2 ? declIdMapper.collectAllInterfaceVars()
+        targetEnv == SPV_ENV_VULKAN_1_2 ? spvBuilder.getModule()->getVariables()
                                         : declIdMapper.collectStageVars());
   }
 

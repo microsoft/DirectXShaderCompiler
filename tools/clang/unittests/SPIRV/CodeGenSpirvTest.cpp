@@ -2197,34 +2197,5 @@ TEST_F(FileTest, TextureLoadVk1p2) {
   useVulkan1p2();
   runFileTest("texture.load.vulkan1.2.hlsl");
 }
-TEST_F(FileTest, CompatibilityWithVk1p1) {
-  useVulkan1p2();
-  runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-across-diagonal.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-across-x.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-across-y.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-lane-at.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-all-equal.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-all-true.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-any-true.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-ballot.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-bit-and.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-bit-or.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-bit-xor.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-count-bits.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-max.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-min.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-product.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-sum.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-get-lane-count.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-get-lane-index.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-is-first-lane.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-prefix-count-bits.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-prefix-product.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-prefix-sum.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-read-lane-at.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-read-lane-first.vulkan1.2.hlsl");
-  runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
-}
 
 } // namespace
