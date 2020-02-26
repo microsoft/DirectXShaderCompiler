@@ -29,7 +29,6 @@ float4 main(float2 uv : TEXCOORD) : SV_Target {
 
   int e = d + b;
   // CHECK: %[[add:.+]] = add
-  // CHECK: %[[e:.+]] = select i1 %[[p]], i32 %[[add]], i32 %[[add]]
 
   // CHECK: call %dx.types.ResRet.f32 @dx.op.sample.f32(i32 60, 
   // CHECK-SAME: i32 7, i32 -8

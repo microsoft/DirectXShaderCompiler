@@ -73,10 +73,15 @@ Function *GetOrCreateNoopF(Module &M) {
 class DxilInsertNoops : public FunctionPass {
 public:
   static char ID;
+
+  SmallDenseMap<Type *, Function *> PreserveFunctions;
+
   DxilInsertNoops() : FunctionPass(ID) {
     initializeDxilInsertNoopsPass(*PassRegistry::getPassRegistry());
   }
 
+
+  Instruction *CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt);
   bool runOnFunction(Function &F) override;
   const char *getPassName() const override { return "Dxil Insert Noops"; }
 };
@@ -119,10 +124,23 @@ static bool PointerHasLoads(Value *Ptr) {
   return false;
 }
 
+Instruction *DxilInsertNoops::CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt) {
+  assert(!isa<UndefValue>(LastV));
+  assert(V->getType() == LastV->getType());
+  Type *Ty = V->getType();
+  // Use the cached preserve function.
+  Function *PreserveF = PreserveFunctions[Ty];
+  if (!PreserveF) {
+    PreserveF = GetOrCreatePreserveF(InsertPt->getModule(), Ty);
+    PreserveFunctions[Ty] = PreserveF;
+  }
+
+  return CallInst::Create(PreserveF, ArrayRef<Value *> { V, LastV }, "", InsertPt);
+}
+
 bool DxilInsertNoops::runOnFunction(Function &F) {
   Module &M = *F.getParent();
   Function *NoopF = nullptr;
-  SmallDenseMap<Type *, Function *> PreserveFunctions;
   bool Changed = false;
 
   // Find instructions where we want to insert nops
@@ -150,9 +168,11 @@ bool DxilInsertNoops::runOnFunction(Function &F) {
       // insert a preserve there.
       else if (StoreInst *Store = dyn_cast<StoreInst>(&I)) {
         Value *V = Store->getValueOperand();
-        InsertNop = true;
-        CopySource = V;
-        PrevValuePtr = Store->getPointerOperand();
+        if (isa<LoadInst>(V) || isa<Constant>(V)) {
+          InsertNop = true;
+          CopySource = V;
+          PrevValuePtr = Store->getPointerOperand();
+        }
       }
       // If we have a return, insert a nop just to be safe.
       else if (ReturnInst *Ret = dyn_cast<ReturnInst>(&I)) {
@@ -167,15 +187,6 @@ bool DxilInsertNoops::runOnFunction(Function &F) {
           !CopySource->getType()->isAggregateType() &&
           !CopySource->getType()->isPointerTy())
         {
-          Type *Ty = CopySource->getType();
-
-          // Use the cached preserve function.
-          Function *PreserveF = PreserveFunctions[Ty];
-          if (!PreserveF) {
-            PreserveF = GetOrCreatePreserveF(&M, Ty);
-            PreserveFunctions[Ty] = PreserveF;
-          }
-
           IRBuilder<> B(&I);
           Value *Last_Value = nullptr;
           Value *SourcePointer = nullptr;
@@ -187,9 +198,10 @@ bool DxilInsertNoops::runOnFunction(Function &F) {
             Last_Value = B.CreateLoad(PrevValuePtr);
           }
           else {
-            Last_Value = UndefValue::get(CopySource->getType());
+            Last_Value = CopySource;
           }
-          Instruction *Preserve = CallInst::Create(PreserveF, ArrayRef<Value *> { CopySource, Last_Value }, "", &I);
+
+          Instruction *Preserve = CreatePreserve(CopySource, Last_Value, &I);
           Preserve->setDebugLoc(I.getDebugLoc());
           I.replaceUsesOfWith(CopySource, Preserve);
         }
