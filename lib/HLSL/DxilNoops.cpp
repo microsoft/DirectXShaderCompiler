@@ -203,9 +203,40 @@ static bool PointerHasLoads(Value *Ptr) {
   return false;
 }
 
+Value *GetOrCreatePreserveCond(Function *F) {
+  assert(!F->isDeclaration());
+
+  Module *M = F->getParent();
+  GlobalVariable *GV = M->getGlobalVariable(kPreserveName, true);
+  if (!GV) {
+    Type *i32Ty = Type::getInt32Ty(M->getContext());
+    GV = new GlobalVariable(*M,
+      i32Ty, true,
+      llvm::GlobalValue::InternalLinkage,
+      llvm::ConstantInt::get(i32Ty, 0), kPreserveName);
+  }
+
+  for (User *U : GV->users()) {
+    LoadInst *LI = cast<LoadInst>(U);
+    if (LI->getParent()->getParent() == F) {
+      assert(LI->user_begin() != LI->user_end() &&
+        std::next(LI->user_begin()) == LI->user_end());
+
+      return *LI->user_begin();
+    }
+  }
+
+  BasicBlock *BB = &F->getEntryBlock();
+  IRBuilder<> B(&BB->front());
+
+  LoadInst *Load = B.CreateLoad(GV);
+  return B.CreateTrunc(Load, B.getInt1Ty());
+};
+
+
 Instruction *DxilInsertNoops::CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt) {
-  assert(!isa<UndefValue>(LastV));
   assert(V->getType() == LastV->getType());
+#if 0
   Type *Ty = V->getType();
   // Use the cached preserve function.
   Function *PreserveF = PreserveFunctions[Ty];
@@ -215,6 +246,15 @@ Instruction *DxilInsertNoops::CreatePreserve(Value *V, Value *LastV, Instruction
   }
 
   return CallInst::Create(PreserveF, ArrayRef<Value *> { V, LastV }, "", InsertPt);
+#else
+  //Type *Ty = V->getType();
+
+  if (isa<UndefValue>(LastV))
+    LastV = V;
+
+  return SelectInst::Create(GetOrCreatePreserveCond(InsertPt->getParent()->getParent()), LastV, V, "", InsertPt);
+
+#endif
 }
 
 bool DxilInsertNoops::runOnFunction(Function &F) {
@@ -247,7 +287,7 @@ bool DxilInsertNoops::runOnFunction(Function &F) {
       // insert a preserve there.
       else if (StoreInst *Store = dyn_cast<StoreInst>(&I)) {
         Value *V = Store->getValueOperand();
-        if (isa<LoadInst>(V) || isa<Constant>(V)) {
+        if (isa<LoadInst>(V) || isa<Constant>(V) || isa<Argument>(V)) {
           InsertNop = true;
           CopySource = V;
           PrevValuePtr = Store->getPointerOperand();
@@ -400,19 +440,19 @@ public:
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
-  if (!NothingGV) {
-    NothingGV = M.getGlobalVariable(kNothingName);
     if (!NothingGV) {
-      Type *i32Ty = Type::getInt32Ty(M.getContext());
-      NothingGV = new GlobalVariable(M,
-        i32Ty, true,
-        llvm::GlobalValue::InternalLinkage,
-        llvm::ConstantInt::get(i32Ty, 0), kNothingName);
+      NothingGV = M.getGlobalVariable(kNothingName);
+      if (!NothingGV) {
+        Type *i32Ty = Type::getInt32Ty(M.getContext());
+        NothingGV = new GlobalVariable(M,
+          i32Ty, true,
+          llvm::GlobalValue::InternalLinkage,
+          llvm::ConstantInt::get(i32Ty, 0), kNothingName);
+      }
     }
-  }
 
-  return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
-}
+    return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
+  }
 
   bool LowerPreserves(Module &M);
   bool runOnModule(Module &M) override;
@@ -422,94 +462,38 @@ public:
 char DxilFinalizeNoops::ID;
 }
 
+static void CollectPreserveInstructions(Module &M, SmallVectorImpl<SelectInst *> &Results) {
+  GlobalVariable *GV = M.getGlobalVariable(kPreserveName, true);
+  if (GV) {
+    for (User *U : GV->users()) {
+      LoadInst *LI = cast<LoadInst>(U);
+      assert(LI->user_begin() != LI->user_end() &&
+        std::next(LI->user_begin()) == LI->user_end());
+      Instruction *I = cast<Instruction>(*LI->user_begin());
+
+      for (User *UU : I->users())
+        Results.push_back(cast<SelectInst>(UU));
+    }
+  }
+}
 
 bool DxilFinalizeNoops::LowerPreserves(Module &M) {
-  SmallVector<Function *, 4> PreserveFunctions;
 
-  for (Function &F : M) {
-    if (!F.isDeclaration())
-      continue;
-    if (F.getName().startswith(kPreservePrefix)) {
-      PreserveFunctions.push_back(&F);
-    }
-  }
+  SmallVector<SelectInst *, 8> Preserves;
+  CollectPreserveInstructions(M, Preserves);
 
-  // Bail early if there's no preserve function
-  if (PreserveFunctions.empty())
+  if (Preserves.empty())
     return false;
 
-  bool Changed = false;
+  for (SelectInst *P : Preserves) {
+    Value *PrevV = P->getTrueValue();
+    Value *CurV = P->getFalseValue();
 
-  struct Function_Context {
-    Function *F = nullptr;
-    Value *V = nullptr;
-  };
-  std::map<Function *, Function_Context> Contexts;
-
-  // Helper function to get a unique Load of the special
-  // global variable.
-  auto GetValue = [&](Function *F) -> Value* {
-    Function_Context &ctx = Contexts[F];
-    if (!ctx.F) {
-      ctx.F = F;
-      BasicBlock *BB = &F->getEntryBlock();
-      IRBuilder<> B(&BB->front());
-
-      GlobalVariable *GV = M.getGlobalVariable(kPreserveName);
-      if (!GV) {
-        Type *i32Ty = B.getInt32Ty();
-        GV = new GlobalVariable(M,
-          i32Ty, true,
-          llvm::GlobalValue::InternalLinkage,
-          llvm::ConstantInt::get(i32Ty, 0), kPreserveName);
-      }
-
-      LoadInst *Load = B.CreateLoad(GV);
-      ctx.V = B.CreateTrunc(Load, B.getInt1Ty());
-    }
-
-    return ctx.V;
-  };
-
-  for (Function *PreserveF : PreserveFunctions) {
-    for (auto UserIt = PreserveF->user_begin(); UserIt != PreserveF->user_end();) {
-      User *U = *(UserIt++);
-      CallInst *Preserve = cast<CallInst>(U);
-      Function *F = Preserve->getParent()->getParent();
-
-      IRBuilder<> B(Preserve->getNextNode());
-
-      Value *Src = Preserve->getOperand(0);
-      Value *LastSrc = Preserve->getOperand(1);
-
-      if (Value *NopV = GetValue(F)) {
-        Value *NewSrc = nullptr;
-        if (isa<UndefValue>(LastSrc)) {
-          NewSrc = B.CreateSelect(NopV, Src, Src);
-        }
-        else {
-          NewSrc = B.CreateSelect(NopV, LastSrc, Src);
-        }
-
-        if (NewSrc) {
-          if (Instruction *SrcI = dyn_cast<Instruction>(NewSrc)) {
-            SrcI->setDebugLoc(Preserve->getDebugLoc());
-          }
-          Src = NewSrc;
-        }
-      }
-
-      Preserve->replaceAllUsesWith(Src);
-      Preserve->eraseFromParent();
-    }
-
-    assert(PreserveF->use_empty() && "dx.preserve calls must be all removed now");
-    PreserveF->eraseFromParent();
-
-    Changed = true;
+    if (isa<UndefValue>(PrevV))
+      P->setOperand(1, CurV);
   }
 
-  return Changed;
+  return true;
 }
 
 // Replace all @dx.noop's with load @dx.nothing.value
