@@ -280,7 +280,6 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByName(
           m_pMalloc,
           m_pDxilDebugInfo,
           pDIField);
-      return S_OK;
     }
   }
 

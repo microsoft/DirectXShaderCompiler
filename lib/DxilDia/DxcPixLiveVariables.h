@@ -40,7 +40,7 @@ struct VariableInfo
   struct Location
   {
     llvm::Value *m_V = nullptr;
-    unsigned m_Offset = 0;
+    unsigned m_FragmentIndex = 0;
   };
 
   explicit VariableInfo(

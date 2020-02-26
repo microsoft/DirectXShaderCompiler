@@ -252,7 +252,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetRegisterNumber(
       return E_FAIL;
     }
 
-    *pRegisterNumber = RegNum + RegIt->second.m_Offset;
+    *pRegisterNumber = RegNum + RegIt->second.m_FragmentIndex;
   }
   else
   {

@@ -187,7 +187,7 @@ dxil_debug_info::VariableInfo* dxil_debug_info::LiveVariables::Impl::AssignValue
   auto &FragmentLocation =
       VarInfo->m_ValueLocationMap[FragmentOffsetInBits];
   FragmentLocation.m_V = Address;
-  FragmentLocation.m_Offset = FragmentIndex;
+  FragmentLocation.m_FragmentIndex = FragmentIndex;
 
   return VarInfo;
 }
