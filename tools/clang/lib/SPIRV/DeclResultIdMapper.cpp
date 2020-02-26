@@ -1168,6 +1168,15 @@ std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
   return vars;
 }
 
+std::vector<SpirvVariable *>
+DeclResultIdMapper::collectAllInterfaceVars() const {
+  std::vector<SpirvVariable *> vars = collectStageVars();
+  for (const auto &var : resourceVars) {
+    vars.push_back(var.getSpirvInstr());
+  }
+  return vars;
+}
+
 namespace {
 /// A class for managing stage input/output locations to avoid duplicate uses of
 /// the same location.

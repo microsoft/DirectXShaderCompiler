@@ -628,10 +628,11 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
-    spvBuilder.addEntryPoint(getSpirvShaderStage(entryInfo->shaderModelKind),
-                             entryInfo->entryFunction,
-                             entryInfo->funcDecl->getName(),
-                             declIdMapper.collectStageVars());
+    spvBuilder.addEntryPoint(
+        getSpirvShaderStage(entryInfo->shaderModelKind),
+        entryInfo->entryFunction, entryInfo->funcDecl->getName(),
+        targetEnv == SPV_ENV_VULKAN_1_2 ? declIdMapper.collectAllInterfaceVars()
+                                        : declIdMapper.collectStageVars());
   }
 
   // Add Location decorations to stage input/output variables.

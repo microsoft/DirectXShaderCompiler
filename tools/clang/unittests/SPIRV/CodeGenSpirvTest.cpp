@@ -799,6 +799,7 @@ TEST_F(FileTest, TextureArraySample) {
   runFileTest("texture.array.sample.hlsl");
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
+TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.vulkan1.2.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");

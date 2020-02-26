@@ -471,6 +471,10 @@ public:
   /// mapper.
   std::vector<SpirvVariable *> collectStageVars() const;
 
+  /// \brief Returns all defined stage (builtin/input/ouput) variables and
+  /// resource variables in this mapper.
+  std::vector<SpirvVariable *> collectAllInterfaceVars() const;
+
   /// \brief Writes out the contents in the function parameter for the GS
   /// stream output to the corresponding stage output variables in a recursive
   /// manner. Returns true on success, false if errors occur.

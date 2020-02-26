@@ -33,6 +33,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_VULKAN_1_0;
   else if (opts.targetEnv == "vulkan1.1")
     targetEnv = SPV_ENV_VULKAN_1_1;
+  else if (opts.targetEnv == "vulkan1.2")
+    targetEnv = SPV_ENV_VULKAN_1_2;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
     emitNote("allowed options are:\n vulkan1.0\n vulkan1.1", {});
@@ -81,8 +83,9 @@ bool FeatureManager::requestExtension(Extension ext, llvm::StringRef target,
 bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
                                       llvm::StringRef target,
                                       SourceLocation srcLoc) {
-  if (targetEnv == SPV_ENV_VULKAN_1_0 && requestedEnv == SPV_ENV_VULKAN_1_1) {
-    emitError("Vulkan 1.1 is required for %0 but not permitted to use", srcLoc)
+  if (targetEnv < requestedEnv) {
+    emitError("%0 is required for %1 but not permitted to use", srcLoc)
+        << (requestedEnv == SPV_ENV_VULKAN_1_2 ? "Vulkan 1.2" : "Vulkan 1.1")
         << target;
     emitNote("please specify your target environment via command line option "
              "-fspv-target-env=",
@@ -190,7 +193,7 @@ std::string FeatureManager::getKnownExtensions(const char *delimiter,
 
 bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   bool required = true;
-  if (targetEnv == SPV_ENV_VULKAN_1_1) {
+  if (targetEnv == SPV_ENV_VULKAN_1_1 || targetEnv == SPV_ENV_VULKAN_1_2) {
     // The following extensions are incorporated into Vulkan 1.1, and are
     // therefore not required to be emitted for that target environment.
     // TODO: Also add the following extensions  if we start to support them.
