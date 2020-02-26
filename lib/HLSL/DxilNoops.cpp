@@ -8,6 +8,82 @@
 // Passes to insert dx.noops() and replace them with llvm.donothing()        //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
+//
+// Here is how dx.preserve and dx.noop work.
+//
+// For example, the following HLSL code:
+//
+//     float foo(float y) {
+//        float x = 10;
+//        x = 20;
+//        x += y;
+//        return x;
+//     }
+//
+//     float main() : SV_Target {
+//       float ret = foo(10);
+//       return ret;
+//     }
+//
+// Ordinarily, it gets lowered as:
+//
+//     dx.op.storeOutput(3.0)
+//
+// Intermediate steps at "x = 20;", "x += y;", "return x", and
+// even the call to "foo()" are lost.
+//
+// But with with Preserve and Noop:
+//
+//     void call dx.noop()           // float ret = foo(10);
+//       %y = dx.preserve(10.0, 10.0)  // argument: y=10
+//       %x0 = dx.preserve(10.0, 10.0) // float x = 10;
+//       %x1 = dx.preserve(20.0, %x0)  // x = 20;
+//       %x2 = fadd %x1, %y            // x += y;
+//       void call dx.noop()           // return x
+//     %ret = dx.preserve(%x2, %x2)   // ret = returned from foo()
+//     dx.op.storeOutput(%ret)
+//
+// All the intermediate transformations are visible and could be
+// made inspectable in the debugger.
+//
+// The reason why dx.preserve takes 2 arguments is so that the previous
+// value of a variable does not get cleaned up by DCE. For example:
+//
+//    float x = ...;
+//    do_some_stuff_with(x);
+//    do_some_other_stuff(); // At this point, x's last values
+//                           // are dead and register allocators
+//                           // are free to reuse its location during
+//                           // call this code.
+//                           // So until x is assigned a new value below
+//                           // x could become unavailable.
+//                           //
+//                           // The second parameter in dx.preserve
+//                           // keeps x's previous value alive.
+//
+//    x = ...; // Assign something else
+//
+//
+// When emitting proper DXIL, dx.noop and dx.preserve are lowered to
+// ordinary LLVM instructions that do not affect the semantic of the
+// shader, but can be used by a debugger or backend generator if they
+// know what to look for.
+//
+// We generate two special internal constant global vars:
+//
+//      @dx.preserve.value = internal constant i1 false
+//      @dx.nothing = internal constant i32 0
+//
+// "call dx.noop()" is lowered to "load @dx.nothing"
+//
+// "... = call dx.preserve(%cur_val, %last_val)" is lowered to:
+//
+//    %p = load @dx.preserve.value
+//    ... = select i1 %p, %last_val, %cur_val
+//
+// Since %p is guaranteed to be false, the select is guaranteed
+// to return %cur_val.
+//
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
@@ -59,6 +135,9 @@ static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
 //==========================================================
 // Insertion pass
 //
+// This pass inserts dx.noop and dx.preserve where we want
+// to preserve line mapping or perserve some intermediate
+// values.
 
 namespace {
 
