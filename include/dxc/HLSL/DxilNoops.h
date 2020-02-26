@@ -1,6 +1,4 @@
-#pragma once
-
-//===--------- DxilNoops.cpp - Dxil Noop Instructions ---------------------===//
+//===--------- DxilNoops.h - Dxil Noop Instructions -----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,6 +6,8 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+
+#pragma once
 
 namespace llvm {
   class Value;
