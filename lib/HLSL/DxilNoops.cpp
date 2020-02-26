@@ -331,6 +331,7 @@ public:
 char DxilFinalizeNoops::ID;
 }
 
+
 bool DxilFinalizeNoops::LowerPreserves(Module &M) {
   SmallVector<Function *, 4> PreserveFunctions;
 
@@ -342,16 +343,21 @@ bool DxilFinalizeNoops::LowerPreserves(Module &M) {
     }
   }
 
+  // Bail early if there's no preserve function
+  if (PreserveFunctions.empty())
+    return false;
+
   bool Changed = false;
 
   struct Function_Context {
-    Function *F;
-    LoadInst *Load;
-    std::map<Type *, Value *> Values;
+    Function *F = nullptr;
+    LoadInst *Load = nullptr;
   };
-
   std::map<Function *, Function_Context> Contexts;
-  auto GetValue = [&](Function *F, Type *Ty) -> Value* {
+
+  // Helper function to get a unique Load of the special
+  // global variable.
+  auto GetValue = [&](Function *F) -> Value* {
     Function_Context &ctx = Contexts[F];
     if (!ctx.F) {
       ctx.F = F;
@@ -360,28 +366,17 @@ bool DxilFinalizeNoops::LowerPreserves(Module &M) {
 
       GlobalVariable *GV = M.getGlobalVariable(kPreserveName);
       if (!GV) {
-        Type *i32Ty = B.getInt32Ty();
+        Type *i1Ty = B.getInt1Ty();
         GV = new GlobalVariable(M,
-          i32Ty, true,
+          i1Ty, true,
           llvm::GlobalValue::InternalLinkage,
-          llvm::ConstantInt::get(i32Ty, 0), kPreserveName);
+          llvm::ConstantInt::get(i1Ty, 0), kPreserveName);
       }
 
       ctx.Load = B.CreateLoad(GV);
     }
 
-    Value *&V = ctx.Values[Ty];
-    if (!V) {
-      IRBuilder<> B(ctx.Load->getNextNode());
-      if (Ty->isIntegerTy()) {
-        V = B.CreateTruncOrBitCast(ctx.Load, Ty);
-      }
-      else if (Ty->isFloatingPointTy()) {
-        V = B.CreateSIToFP(ctx.Load, Ty);
-      }
-    }
-
-    return V;
+    return ctx.Load;
   };
 
   for (Function *PreserveF : PreserveFunctions) {
@@ -394,9 +389,8 @@ bool DxilFinalizeNoops::LowerPreserves(Module &M) {
 
       Value *Src = Preserve->getOperand(0);
       Value *LastSrc = Preserve->getOperand(1);
-      Type *i1Ty = Type::getInt1Ty(F->getContext());
 
-      if (Value *NopV = GetValue(F, i1Ty)) {
+      if (Value *NopV = GetValue(F)) {
         Value *NewSrc = nullptr;
         if (isa<UndefValue>(LastSrc)) {
           NewSrc = B.CreateSelect(NopV, Src, Src);
