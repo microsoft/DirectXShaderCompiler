@@ -51,14 +51,15 @@ struct RuntimeData
     int         m_pendingAttrOffset;   
 };
 
-// CHECK: AccessJustOneField
-// CHECK: entry:
-// CHECK:  %0 = getelementptr inbounds %struct.RuntimeData, %struct.RuntimeData* %rd, i32 0, i32 1
-// CHECK:  %1 = load i32, i32* %0, align 4
-// CHECK:  %mul = mul i32 %1, 255
-// CHECK:  %conv = uitofp i32 %mul to float
-// CHECK:  %2 = insertelement <4 x float> undef, float %conv, i64 0
-// CHECK:  %3 = insertelement <4 x float> %2, float 1.000000e+00, i64 1
+// CHECK:  getelementptr inbounds %struct.RuntimeData, %struct.RuntimeData* %rd, i32 0, i32 1
+// CHECK:  load i32, i32*
+// CHECK:  mul i32
+// CHECK:  uitofp i32
+// CHECK:  insertelement <4 x float> undef, float
+// CHECK:  insertelement <4 x float>
+// CHECK:  insertelement <4 x float>
+// CHECK:  insertelement <4 x float>
+// CHECK:  ret <4 x float>
 
 export
 float4 AccessJustOneField(inout RuntimeData rd)
