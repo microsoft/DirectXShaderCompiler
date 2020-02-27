@@ -125,6 +125,7 @@ static void FindAllStores(Value *Ptr, Function *F, SmallVectorImpl<Store_Info> *
   WorklistStorage.clear();
   WorklistStorage.push_back(Ptr);
 
+  unsigned StartIdx = Stores->size();
   bool HasLoad = false;
   while (WorklistStorage.size()) {
     Value *V = WorklistStorage.pop_back_val();
@@ -145,9 +146,11 @@ static void FindAllStores(Value *Ptr, Function *F, SmallVectorImpl<Store_Info> *
     }
   }
 
-  if (HasLoad)
-    for (Store_Info &Info : *Stores)
-      Info.HasLoads = true;
+  if (HasLoad) {
+    Store_Info *ptr = Stores->data();
+    for (unsigned i = StartIdx; i < Stores->size(); i++)
+      ptr[i].HasLoads = true;
+  }
 }
 
 static Value *GetOrCreatePreserveCond(Function *F) {
@@ -201,7 +204,6 @@ static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
 static Instruction *CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt) {
   assert(V->getType() == LastV->getType());
   Type *Ty = V->getType();
-  // Use the cached preserve function.
   Function *PreserveF = GetOrCreatePreserveF(InsertPt->getModule(), Ty);
   return CallInst::Create(PreserveF, ArrayRef<Value *> { V, LastV }, "", InsertPt);
 }
@@ -245,7 +247,6 @@ struct DxilInsertPreserves : public ModulePass {
       AllocaInst *AI = dyn_cast<AllocaInst>(&I);
       if (!AI)
         break;
-
       FindAllStores(AI, &F, &Stores, WorklistStorage);
     }
 
@@ -258,11 +259,7 @@ struct DxilInsertPreserves : public ModulePass {
     for (Store_Info &Info : Stores) {
       StoreInst *Store = Info.Store;
       Value *V = Store->getValueOperand();
-      Value *CopySource = nullptr;
-
-      if (isa<LoadInst>(V) || isa<Constant>(V) || isa<CallInst>(V)) {
-        CopySource = V;
-      }
+      Value *CopySource = V;
 
       if (CopySource &&
         !CopySource->getType()->isAggregateType() &&
