@@ -94,7 +94,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/raw_os_ostream.h"
 
-#include "dxc/HLSL/DxilNoops.h"
 #include <unordered_map>
 
 using namespace llvm;
@@ -106,42 +105,7 @@ StringRef kNothingName = "dx.nothing";
 StringRef kPreserveName = "dx.preserve.value";
 }
 
-bool hlsl::IsDxilPreserve(const Value *V) {
-  if (const CallInst *CI = dyn_cast<CallInst>(V))
-    if (Function *F = CI->getCalledFunction())
-      return F->getName().startswith(kPreservePrefix);
-  return false;
-}
-
-Value *hlsl::GetDxilPreserveSrc(Value *V) {
-  assert(IsDxilPreserve(V));
-  CallInst *CI = cast<CallInst>(V);
-  return CI->getArgOperand(0);
-}
-
-static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
-  std::string str = kPreservePrefix;
-  raw_string_ostream os(str);
-  Ty->print(os);
-  os.flush();
-
-  FunctionType *FT = FunctionType::get(Ty, { Ty, Ty }, false);
-  Function *PreserveF = cast<Function>(M->getOrInsertFunction(str, FT));
-  PreserveF->addFnAttr(Attribute::AttrKind::ReadNone);
-  PreserveF->addFnAttr(Attribute::AttrKind::NoUnwind);
-  return PreserveF;
-}
-
-//==========================================================
-// Insertion pass
-//
-// This pass inserts dx.noop and dx.preserve where we want
-// to preserve line mapping or perserve some intermediate
-// values.
-
-namespace {
-
-Function *GetOrCreateNoopF(Module &M) {
+static Function *GetOrCreateNoopF(Module &M) {
   LLVMContext &Ctx = M.getContext();
   FunctionType *FT = FunctionType::get(Type::getVoidTy(Ctx), false);
   Function *NoopF = cast<Function>(M.getOrInsertFunction(::kNoopName, FT));
@@ -149,61 +113,44 @@ Function *GetOrCreateNoopF(Module &M) {
   return NoopF;
 }
 
-class DxilInsertNoops : public FunctionPass {
-public:
-  static char ID;
-
-  SmallDenseMap<Type *, Function *> PreserveFunctions;
-
-  DxilInsertNoops() : FunctionPass(ID) {
-    initializeDxilInsertNoopsPass(*PassRegistry::getPassRegistry());
-  }
-
-
-  Instruction *CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt);
-  bool runOnFunction(Function &F) override;
-  const char *getPassName() const override { return "Dxil Insert Noops"; }
+struct Store_Info {
+  StoreInst *Store = nullptr;
+  Value *Source = nullptr; // Alloca, GV, or Argument
+  bool HasLoads = false;
 };
 
-char DxilInsertNoops::ID;
-}
+static void FindAllStores(Value *Ptr, Function *F, SmallVectorImpl<Store_Info> *Stores, SmallVectorImpl<Value *> &WorklistStorage) {
+  assert(isa<Argument>(Ptr) || isa<AllocaInst>(Ptr) || isa<GlobalVariable>(Ptr));
 
-static Value *GetSourcePointer(Value *V) {
-  while (1) {
-    if (GEPOperator *Gep = dyn_cast<GEPOperator>(V)) {
-      V = Gep->getPointerOperand();
-    }
-    else if (isa<AllocaInst>(V) || isa<Argument>(V)) {
-      return V;
-    }
-    else {
-      break;
-    }
-  }
-  return nullptr;
-}
+  WorklistStorage.clear();
+  WorklistStorage.push_back(Ptr);
 
-static bool PointerHasLoads(Value *Ptr) {
-  SmallVector<Value *, 8> Worklist;
-  for (User *U : Ptr->users()) {
-    Worklist.push_back(U);
-  }
+  bool HasLoad = false;
+  while (WorklistStorage.size()) {
+    Value *V = WorklistStorage.pop_back_val();
 
-  while (Worklist.size()) {
-    Value *V = Worklist.pop_back_val();
-    if (isa<GEPOperator>(V)) {
-      for (User *U : V->users()) {
-        Worklist.push_back(U);
-      }
+    if (Instruction *I = dyn_cast<Instruction>(V))
+      if (I->getParent()->getParent() != F)
+        continue;
+
+    if (isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V)) {
+      for (User *U : V->users())
+        WorklistStorage.push_back(U);
+    }
+    else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
+      Stores->push_back({ Store, Ptr });
     }
     else if (isa<LoadInst>(V)) {
-      return true;
+      HasLoad = true;
     }
   }
-  return false;
+
+  if (HasLoad)
+    for (Store_Info &Info : *Stores)
+      Info.HasLoads = true;
 }
 
-Value *GetOrCreatePreserveCond(Function *F) {
+static Value *GetOrCreatePreserveCond(Function *F) {
   assert(!F->isDeclaration());
 
   Module *M = F->getParent();
@@ -227,202 +174,215 @@ Value *GetOrCreatePreserveCond(Function *F) {
   }
 
   BasicBlock *BB = &F->getEntryBlock();
-  IRBuilder<> B(&BB->front());
+  Instruction *InsertPt = &BB->front();
+  while (isa<AllocaInst>(InsertPt) || isa<DbgInfoIntrinsic>(InsertPt))
+    InsertPt = InsertPt->getNextNode();
+
+  IRBuilder<> B(InsertPt);
 
   LoadInst *Load = B.CreateLoad(GV);
   return B.CreateTrunc(Load, B.getInt1Ty());
-};
+}
 
 
-Instruction *DxilInsertNoops::CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt) {
+static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
+  std::string str = kPreservePrefix;
+  raw_string_ostream os(str);
+  Ty->print(os);
+  os.flush();
+
+  FunctionType *FT = FunctionType::get(Ty, { Ty, Ty }, false);
+  Function *PreserveF = cast<Function>(M->getOrInsertFunction(str, FT));
+  PreserveF->addFnAttr(Attribute::AttrKind::ReadNone);
+  PreserveF->addFnAttr(Attribute::AttrKind::NoUnwind);
+  return PreserveF;
+}
+
+static Instruction *CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt) {
   assert(V->getType() == LastV->getType());
-#if 0
   Type *Ty = V->getType();
   // Use the cached preserve function.
-  Function *PreserveF = PreserveFunctions[Ty];
-  if (!PreserveF) {
-    PreserveF = GetOrCreatePreserveF(InsertPt->getModule(), Ty);
-    PreserveFunctions[Ty] = PreserveF;
-  }
-
+  Function *PreserveF = GetOrCreatePreserveF(InsertPt->getModule(), Ty);
   return CallInst::Create(PreserveF, ArrayRef<Value *> { V, LastV }, "", InsertPt);
-#else
-  //Type *Ty = V->getType();
-
-  if (isa<UndefValue>(LastV))
-    LastV = V;
-
-  return SelectInst::Create(GetOrCreatePreserveCond(InsertPt->getParent()->getParent()), LastV, V, "", InsertPt);
-
-#endif
 }
 
-bool DxilInsertNoops::runOnFunction(Function &F) {
-  Module &M = *F.getParent();
-  Function *NoopF = nullptr;
-  bool Changed = false;
+static void LowerPreserveToSelect(CallInst *CI) {
+  Value *V = CI->getArgOperand(0);
+  Value *LastV = CI->getArgOperand(1);
 
-  // Find instructions where we want to insert nops
-  for (BasicBlock &BB : F) {
-    for (BasicBlock::iterator It = BB.begin(), E = BB.end(); It != E;) {
-      bool InsertNop = false;
-      Value *CopySource = nullptr;
-      Instruction &I = *(It++);
-      Value *PrevValuePtr = nullptr;
+  if (LastV == V)
+    LastV = UndefValue::get(V->getType());
 
-      // If we are calling a real function, insert a nop
-      // at the callsite.
-      if (CallInst *Call = dyn_cast<CallInst>(&I)) {
-        if (Function *F = Call->getCalledFunction()) {
-          if (!F->isDeclaration())
-            InsertNop = true;
-        }
-      }
-      else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(&I)) {
-        InsertNop = true;
-      }
-      // If we have a copy, e.g:
-      //     float x = 0;
-      //     float y = x;    <---- copy
-      // insert a preserve there.
-      else if (StoreInst *Store = dyn_cast<StoreInst>(&I)) {
-        Value *V = Store->getValueOperand();
-        if (isa<LoadInst>(V) || isa<Constant>(V) || isa<Argument>(V)) {
-          InsertNop = true;
-          CopySource = V;
-          PrevValuePtr = Store->getPointerOperand();
-        }
-      }
-      // If we have a return, insert a nop just to be safe.
-      else if (ReturnInst *Ret = dyn_cast<ReturnInst>(&I)) {
-        InsertNop = true;
-      }
-
-      // Do the insertion
-      if (InsertNop) {
-        // If we have a copy, insert a preserve instead. Only do it for
-        // scalar and vector values for now.
-        if (CopySource &&
-          !CopySource->getType()->isAggregateType() &&
-          !CopySource->getType()->isPointerTy())
-        {
-          IRBuilder<> B(&I);
-          Value *Last_Value = nullptr;
-          Value *SourcePointer = nullptr;
-          // If there's never any loads for this memory location,
-          // don't generate a load.
-          if ((SourcePointer = GetSourcePointer(PrevValuePtr)) &&
-              PointerHasLoads(SourcePointer))
-          {
-            Last_Value = B.CreateLoad(PrevValuePtr);
-          }
-          else {
-            Last_Value = CopySource;
-          }
-
-          Instruction *Preserve = CreatePreserve(CopySource, Last_Value, &I);
-          Preserve->setDebugLoc(I.getDebugLoc());
-          I.replaceUsesOfWith(CopySource, Preserve);
-        }
-        // Insert a noop
-        else {
-          if (!NoopF)
-            NoopF = GetOrCreateNoopF(M);
-
-          CallInst *Noop = CallInst::Create(NoopF, {}, &I);
-          Noop->setDebugLoc(I.getDebugLoc());
-        }
-        Changed = true;
-      }
-    }
-  }
-
-  return Changed;
+  Value *Cond = GetOrCreatePreserveCond(CI->getParent()->getParent());
+  SelectInst *Select = SelectInst::Create(Cond, LastV, V, "", CI);
+  Select->setDebugLoc(CI->getDebugLoc());
+  CI->replaceAllUsesWith(Select);
+  CI->eraseFromParent();
 }
 
-Pass *llvm::createDxilInsertNoopsPass() {
-  return new DxilInsertNoops();
-}
-
-INITIALIZE_PASS(DxilInsertNoops, "dxil-insert-noops", "Dxil Insert Noops", false, false)
 
 //==========================================================
-// Scalarize pass
+// Insertion pass
+//
+// This pass inserts dx.noop and dx.preserve where we want
+// to preserve line mapping or perserve some intermediate
+// values.
+
+struct DxilInsertPreserves : public ModulePass {
+  static char ID;
+  DxilInsertPreserves() : ModulePass(ID) {
+    initializeDxilInsertPreservesPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool DoFunction(Function &F) {
+    if (F.empty())
+      return false;
+    BasicBlock *Entry = &*F.begin();
+
+    SmallVector<Store_Info, 10> Stores;
+    SmallVector<Value *, 10> WorklistStorage;
+    for (Instruction &I : *Entry) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(&I);
+      if (!AI)
+        break;
+
+      FindAllStores(AI, &F, &Stores, WorklistStorage);
+    }
+
+    Module *M = F.getParent();
+    for (GlobalVariable &GV : M->globals()) {
+      FindAllStores(&GV, &F, &Stores, WorklistStorage);
+    }
+
+    bool Changed = false;
+    for (Store_Info &Info : Stores) {
+      StoreInst *Store = Info.Store;
+      Value *V = Store->getValueOperand();
+      Value *CopySource = nullptr;
+
+      if (isa<LoadInst>(V) || isa<Constant>(V) || isa<CallInst>(V)) {
+        CopySource = V;
+      }
+
+      if (CopySource &&
+        !CopySource->getType()->isAggregateType() &&
+        !CopySource->getType()->isPointerTy())
+      {
+        IRBuilder<> B(Store);
+        Value *Last_Value = nullptr;
+        // If there's never any loads for this memory location,
+        // don't generate a load.
+        if (Info.HasLoads) {
+          Last_Value = B.CreateLoad(Store->getPointerOperand());
+        }
+        else {
+          Last_Value = UndefValue::get(CopySource->getType());
+        }
+
+        Instruction *Preserve = CreatePreserve(CopySource, Last_Value, Store);
+        Preserve->setDebugLoc(Store->getDebugLoc());
+        Store->replaceUsesOfWith(CopySource, Preserve);
+
+        Changed = true;
+      }
+      else {
+        Function *NoopF = GetOrCreateNoopF(*M);
+        CallInst *Noop = CallInst::Create(NoopF, {}, Store);
+        Noop->setDebugLoc(Store->getDebugLoc());
+      }
+    }
+
+    return Changed;
+  }
+
+  bool runOnModule(Module &M) override {
+
+    bool Changed = false;
+    for (Function &F : M) {
+      if (F.isDeclaration())
+        continue;
+
+      for (User *U : F.users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          Function *NoopF = GetOrCreateNoopF(M);
+          CallInst *Noop = CallInst::Create(NoopF, {}, CI);
+          Noop->setDebugLoc(CI->getDebugLoc());
+          Changed = true;
+        }
+      }
+
+      Changed |= DoFunction(F);
+
+    }
+
+    return Changed;
+  }
+
+  const char *getPassName() const override { return "Dxil Insert Preserves"; }
+};
+
+char DxilInsertPreserves::ID;
+
+Pass *llvm::createDxilInsertPreservesPass() {
+  return new DxilInsertPreserves();
+}
+
+INITIALIZE_PASS(DxilInsertPreserves, "dxil-insert-preserves", "Dxil Insert Preserves", false, false)
+
+
+//==========================================================
+// Lower dx.preserve to select
+//
+// This pass replaces all dx.preserve calls to select
 //
 
 namespace {
 
-class DxilScalarizePreserves : public ModulePass {
+class DxilPreserveToSelect : public ModulePass {
 public:
   static char ID;
-  DxilScalarizePreserves() : ModulePass(ID) {
-    initializeDxilScalarizePreservesPass(*PassRegistry::getPassRegistry());
+
+  SmallDenseMap<Type *, Function *> PreserveFunctions;
+
+  DxilPreserveToSelect() : ModulePass(ID) {
+    initializeDxilPreserveToSelectPass(*PassRegistry::getPassRegistry());
   }
 
-  bool runOnModule(Module &M) override;
-  const char *getPassName() const override { return "Dxil Scalarize Preserves"; }
+  bool runOnModule(Module &M) override {
+    bool Changed = false;
+    for (auto fit = M.getFunctionList().begin(), end = M.getFunctionList().end();
+      fit != end;)
+    {
+      Function *F = &*(fit++);
+      if (!F->isDeclaration())
+        continue;
+
+      if (F->getName().startswith(kPreservePrefix)) {
+        for (auto uit = F->user_begin(), end = F->user_end(); uit != end;) {
+          User *U = *(uit++);
+          CallInst *CI = cast<CallInst>(U);
+          LowerPreserveToSelect(CI);
+        }
+
+        F->eraseFromParent();
+        Changed = true;
+      }
+    }
+
+    return Changed;
+  }
+  const char *getPassName() const override { return "Dxil Lower Preserves to Selects"; }
 };
 
-char DxilScalarizePreserves::ID;
+char DxilPreserveToSelect::ID;
 }
 
-bool DxilScalarizePreserves::runOnModule(Module &M) {
-  SmallVector<Function *, 4> Functions;
-  for (Function &F : M) {
-    if (F.isDeclaration() && F.getName().startswith(kPreservePrefix) &&
-      F.getReturnType()->isVectorTy())
-    {
-      Functions.push_back(&F);
-    }
-  }
-
-  std::unordered_map<Type *, Function *> PreserveFunctions;
-
-  for (Function *F : Functions) {
-    for (auto it = F->user_begin(); it != F->user_end();) {
-      auto *U = *(it++);
-      CallInst *CI = cast<CallInst>(U);
-
-      Value *Src = CI->getArgOperand(0);
-      Value *Secondary = CI->getArgOperand(1);
-      VectorType *VTy = cast<VectorType>(Src->getType());
-      Type *ElemTy = VTy->getScalarType();
-
-      Function *PreserveF = PreserveFunctions[ElemTy];
-      if (!PreserveF) {
-        PreserveF = GetOrCreatePreserveF(F->getParent(), ElemTy);
-        PreserveFunctions[ElemTy] = PreserveF;
-      }
-
-      Value *NewVectorValue = UndefValue::get(VTy);
-
-      IRBuilder<> B(CI);
-      for (unsigned i = 0; i < VTy->getVectorNumElements(); i++) {
-        Value *Src_i = B.CreateExtractElement(Src, i);
-        Value *Secondary_i = B.CreateExtractElement(Secondary, i);
-
-        SmallVector<Value *, 2> Args;
-        Args.push_back(Src_i);
-        Args.push_back(Secondary_i);
-
-        auto *NewPreserve = B.CreateCall(PreserveF, Args);
-        NewVectorValue = B.CreateInsertElement(NewVectorValue, NewPreserve, i);
-      }
-
-      CI->replaceAllUsesWith(NewVectorValue);
-      CI->eraseFromParent();
-    }
-    F->eraseFromParent();
-  }
-
-  return true;
+Pass *llvm::createDxilPreserveToSelectPass() {
+  return new DxilPreserveToSelect();
 }
 
-Pass *llvm::createDxilScalarizePreservesPass() {
-  return new DxilScalarizePreserves();
-}
+INITIALIZE_PASS(DxilPreserveToSelect, "dxil-insert-noops", "Dxil Insert Noops", false, false)
 
-INITIALIZE_PASS(DxilScalarizePreserves, "dxil-scalarize-preserves", "Dxil Scalarize Preserves", false, false)
 
 //==========================================================
 // Finalize pass
@@ -430,13 +390,13 @@ INITIALIZE_PASS(DxilScalarizePreserves, "dxil-scalarize-preserves", "Dxil Scalar
 
 namespace {
 
-class DxilFinalizeNoops : public ModulePass {
+class DxilFinalizePreserves : public ModulePass {
 public:
   static char ID;
   GlobalVariable *NothingGV = nullptr;
 
-  DxilFinalizeNoops() : ModulePass(ID) {
-    initializeDxilFinalizeNoopsPass(*PassRegistry::getPassRegistry());
+  DxilFinalizePreserves() : ModulePass(ID) {
+    initializeDxilFinalizePreservesPass(*PassRegistry::getPassRegistry());
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
@@ -455,14 +415,18 @@ public:
   }
 
   bool LowerPreserves(Module &M);
+  bool LowerNoops(Module &M);
   bool runOnModule(Module &M) override;
-  const char *getPassName() const override { return "Dxil Finalize Noops"; }
+  const char *getPassName() const override { return "Dxil Finalize Preserves"; }
 };
 
-char DxilFinalizeNoops::ID;
+char DxilFinalizePreserves::ID;
 }
 
-static void CollectPreserveInstructions(Module &M, SmallVectorImpl<SelectInst *> &Results) {
+// Fix undefs in the dx.preserve -> selects
+bool DxilFinalizePreserves::LowerPreserves(Module &M) {
+  bool Changed = false;
+
   GlobalVariable *GV = M.getGlobalVariable(kPreserveName, true);
   if (GV) {
     for (User *U : GV->users()) {
@@ -471,37 +435,26 @@ static void CollectPreserveInstructions(Module &M, SmallVectorImpl<SelectInst *>
         std::next(LI->user_begin()) == LI->user_end());
       Instruction *I = cast<Instruction>(*LI->user_begin());
 
-      for (User *UU : I->users())
-        Results.push_back(cast<SelectInst>(UU));
+      for (User *UU : I->users()) {
+
+        SelectInst *P = cast<SelectInst>(UU);
+        Value *PrevV = P->getTrueValue();
+        Value *CurV = P->getFalseValue();
+
+        if (isa<UndefValue>(PrevV)) {
+          P->setOperand(1, CurV);
+          Changed = true;
+        }
+      }
     }
   }
-}
 
-bool DxilFinalizeNoops::LowerPreserves(Module &M) {
-
-  SmallVector<SelectInst *, 8> Preserves;
-  CollectPreserveInstructions(M, Preserves);
-
-  if (Preserves.empty())
-    return false;
-
-  for (SelectInst *P : Preserves) {
-    Value *PrevV = P->getTrueValue();
-    Value *CurV = P->getFalseValue();
-
-    if (isa<UndefValue>(PrevV))
-      P->setOperand(1, CurV);
-  }
-
-  return true;
+  return Changed;
 }
 
 // Replace all @dx.noop's with load @dx.nothing.value
-bool DxilFinalizeNoops::runOnModule(Module &M) {
-
+bool DxilFinalizePreserves::LowerNoops(Module &M) {
   bool Changed = false;
-
-  Changed |= LowerPreserves(M);
 
   Function *NoopF = nullptr;
   for (Function &F : M) {
@@ -526,15 +479,24 @@ bool DxilFinalizeNoops::runOnModule(Module &M) {
 
     assert(NoopF->user_empty() && "dx.noop calls must be all removed now");
     NoopF->eraseFromParent();
-
   }
 
   return Changed;
 }
 
-Pass *llvm::createDxilFinalizeNoopsPass() {
-  return new DxilFinalizeNoops();
+// Replace all preserves and nops
+bool DxilFinalizePreserves::runOnModule(Module &M) {
+  bool Changed = false;
+
+  Changed |= LowerPreserves(M);
+  Changed |= LowerNoops(M);
+
+  return Changed;
 }
 
-INITIALIZE_PASS(DxilFinalizeNoops, "dxil-finalize-noops", "Dxil Finalize Noops", false, false)
+Pass *llvm::createDxilFinalizePreservesPass() {
+  return new DxilFinalizePreserves();
+}
+
+INITIALIZE_PASS(DxilFinalizePreserves, "dxil-finalize-preserves", "Dxil Finalize Preserves", false, false)
 

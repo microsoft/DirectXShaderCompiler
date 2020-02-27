@@ -295,10 +295,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());
 
-  if (NoOpt)
-    // scalarize preserves
-    MPM.add(createDxilScalarizePreservesPass());
-
   // scalarize vector to scalar
   MPM.add(createScalarizerPass(!NoOpt /* AllowFolding */));
 
@@ -326,8 +322,10 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     if (!HLSLHighLevel) {
       MPM.add(createHLEnsureMetadataPass()); // HLSL Change - rehydrate metadata from high-level codegen
-      MPM.add(createDxilInsertNoopsPass()); // HLSL Change - insert noop instructions
     }
+
+    if (!HLSLHighLevel)
+      MPM.add(createDxilInsertPreservesPass()); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
       MPM.add(Inliner);
@@ -344,7 +342,11 @@ void PassManagerBuilder::populateModulePassManager(
     else if (!Extensions.empty()) // HLSL Change - GlobalExtensions not considered
       MPM.add(createBarrierNoopPass());
 
+    if (!HLSLHighLevel)
+      MPM.add(createDxilPreserveToSelectPass()); // HLSL Change - lower preserve instructions to selects
+
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
+
     // HLSL Change Begins.
     addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
@@ -353,7 +355,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
-      MPM.add(createDxilFinalizeNoopsPass());
+      MPM.add(createDxilFinalizePreservesPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
       MPM.add(createDxilDeadFunctionEliminationPass());

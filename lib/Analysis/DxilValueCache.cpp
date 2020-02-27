@@ -26,7 +26,6 @@
 #include "llvm/ADT/Statistic.h"
 
 #include "llvm/Analysis/DxilValueCache.h"
-#include "dxc/HLSL/DxilNoops.h"
 
 #include <unordered_set>
 
@@ -193,12 +192,6 @@ Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) 
   return nullptr;
 }
 
-Value *DxilValueCache::ProcessAndSimpilfy_Call(Instruction *I, DominatorTree *DT) {
-  if (hlsl::IsDxilPreserve(I))
-    return TryGetCachedValue(hlsl::GetDxilPreserveSrc(I));
-  return nullptr;
-}
-
 Value *DxilValueCache::ProcessAndSimpilfy_Load(Instruction *I, DominatorTree *DT) {
   LoadInst *LI = cast<LoadInst>(I);
   Value *V = TryGetCachedValue(LI->getPointerOperand());
@@ -222,9 +215,6 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   }
   else if (Instruction::Load == I->getOpcode()) {
     Simplified = ProcessAndSimpilfy_Load(I, DT);
-  }
-  else if (Instruction::Call == I->getOpcode()) {
-    Simplified = ProcessAndSimpilfy_Call(I, DT);
   }
   // The rest of the checks use LLVM stock simplifications
   else if (I->isBinaryOp()) {

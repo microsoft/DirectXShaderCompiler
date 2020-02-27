@@ -40,7 +40,6 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -417,7 +416,6 @@ struct ValidationContext {
   const unsigned kDxilNonUniformMDKind;
   const unsigned kLLVMLoopMDKind;
   unsigned m_DxilMajor, m_DxilMinor;
-  ModuleSlotTracker slotTracker;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
                     DxilModule &dxilModule,
@@ -431,8 +429,7 @@ struct ValidationContext {
             DxilMDHelper::kDxilPreciseAttributeMDName)),
         kDxilNonUniformMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilNonUniformAttributeMDName)),
-        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
-        slotTracker(&llvmModule, true) {
+        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
 
     for (Function &F : llvmModule.functions()) {
@@ -777,7 +774,7 @@ struct ValidationContext {
     // Printthe instruction
     std::string InstrStr;
     raw_string_ostream InstrStream(InstrStr);
-    I->print(InstrStream, slotTracker);
+    I->print(InstrStream);
     InstrStream.flush();
     StringRef InstrStrRef = InstrStr;
     InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation

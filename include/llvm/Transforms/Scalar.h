@@ -146,14 +146,14 @@ void initializeDxilEraseDeadRegionPass(PassRegistry&);
 Pass *createDxilEliminateVectorPass();
 void initializeDxilEliminateVectorPass(PassRegistry&);
 
-Pass *createDxilInsertNoopsPass();
-void initializeDxilInsertNoopsPass(PassRegistry&);
+Pass *createDxilInsertPreservesPass();
+void initializeDxilInsertPreservesPass(PassRegistry&);
 
-Pass *createDxilScalarizePreservesPass();
-void initializeDxilScalarizePreservesPass(PassRegistry&);
+Pass *createDxilFinalizePreservesPass();
+void initializeDxilFinalizePreservesPass(PassRegistry&);
 
-Pass *createDxilFinalizeNoopsPass();
-void initializeDxilFinalizeNoopsPass(PassRegistry&);
+Pass *createDxilPreserveToSelectPass();
+void initializeDxilPreserveToSelectPass(PassRegistry&);
 
 //===----------------------------------------------------------------------===//
 //
