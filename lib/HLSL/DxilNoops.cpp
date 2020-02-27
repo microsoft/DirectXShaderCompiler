@@ -116,40 +116,46 @@ static Function *GetOrCreateNoopF(Module &M) {
 struct Store_Info {
   StoreInst *Store = nullptr;
   Value *Source = nullptr; // Alloca, GV, or Argument
-  bool HasLoads = false;
+  bool AllowLoads = false;
 };
 
-static void FindAllStores(Value *Ptr, Function *F, SmallVectorImpl<Store_Info> *Stores, SmallVectorImpl<Value *> &WorklistStorage) {
+static void FindAllStores(Value *Ptr, Function *F, std::vector<Store_Info> *Stores, std::vector<Value *> &WorklistStorage) {
   assert(isa<Argument>(Ptr) || isa<AllocaInst>(Ptr) || isa<GlobalVariable>(Ptr));
 
   WorklistStorage.clear();
   WorklistStorage.push_back(Ptr);
 
   unsigned StartIdx = Stores->size();
-  bool HasLoad = false;
+  bool AllowLoad = false;
   while (WorklistStorage.size()) {
-    Value *V = WorklistStorage.pop_back_val();
+    Value *V = WorklistStorage.back();
+    WorklistStorage.pop_back();
 
     if (Instruction *I = dyn_cast<Instruction>(V))
       if (I->getParent()->getParent() != F)
         continue;
 
-    if (isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V)) {
-      for (User *U : V->users())
+    if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
+      for (User *U : V->users()) {
         WorklistStorage.push_back(U);
+      }
     }
     else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
       Stores->push_back({ Store, Ptr });
     }
     else if (isa<LoadInst>(V)) {
-      HasLoad = true;
+      AllowLoad = true;
     }
   }
 
-  if (HasLoad) {
+  if (isa<GlobalVariable>(Ptr)) {
+    AllowLoad = true;
+  }
+
+  if (AllowLoad) {
     Store_Info *ptr = Stores->data();
     for (unsigned i = StartIdx; i < Stores->size(); i++)
-      ptr[i].HasLoads = true;
+      ptr[i].AllowLoads = true;
   }
 }
 
@@ -222,6 +228,13 @@ static void LowerPreserveToSelect(CallInst *CI) {
   CI->eraseFromParent();
 }
 
+static void InsertNoopAt(Instruction *I) {
+  Module &M = *I->getModule();
+  Function *NoopF = GetOrCreateNoopF(M);
+  CallInst *Noop = CallInst::Create(NoopF, {}, I);
+  Noop->setDebugLoc(I->getDebugLoc());
+}
+
 
 //==========================================================
 // Insertion pass
@@ -241,8 +254,8 @@ struct DxilInsertPreserves : public ModulePass {
       return false;
     BasicBlock *Entry = &*F.begin();
 
-    SmallVector<Store_Info, 10> Stores;
-    SmallVector<Value *, 10> WorklistStorage;
+    std::vector<Store_Info> Stores;
+    std::vector<Value *> WorklistStorage;
     for (Instruction &I : *Entry) {
       AllocaInst *AI = dyn_cast<AllocaInst>(&I);
       if (!AI)
@@ -255,42 +268,46 @@ struct DxilInsertPreserves : public ModulePass {
       FindAllStores(&GV, &F, &Stores, WorklistStorage);
     }
 
+    for (Argument &Arg : F.args()) {
+      if (Arg.getType()->isPointerTy())
+        FindAllStores(&Arg, &F, &Stores, WorklistStorage);
+    }
+
     bool Changed = false;
     for (Store_Info &Info : Stores) {
       StoreInst *Store = Info.Store;
       Value *V = Store->getValueOperand();
-      Value *CopySource = V;
 
-      if (CopySource &&
-        !CopySource->getType()->isAggregateType() &&
-        !CopySource->getType()->isPointerTy())
+      if (V &&
+        !V->getType()->isAggregateType() &&
+        !V->getType()->isPointerTy())
       {
         IRBuilder<> B(Store);
         Value *Last_Value = nullptr;
         // If there's never any loads for this memory location,
         // don't generate a load.
-        if (Info.HasLoads) {
+        if (Info.AllowLoads) {
           Last_Value = B.CreateLoad(Store->getPointerOperand());
         }
         else {
-          Last_Value = UndefValue::get(CopySource->getType());
+          Last_Value = UndefValue::get(V->getType());
         }
 
-        Instruction *Preserve = CreatePreserve(CopySource, Last_Value, Store);
+        Instruction *Preserve = CreatePreserve(V, Last_Value, Store);
         Preserve->setDebugLoc(Store->getDebugLoc());
-        Store->replaceUsesOfWith(CopySource, Preserve);
+        Store->replaceUsesOfWith(V, Preserve);
 
         Changed = true;
       }
       else {
-        Function *NoopF = GetOrCreateNoopF(*M);
-        CallInst *Noop = CallInst::Create(NoopF, {}, Store);
-        Noop->setDebugLoc(Store->getDebugLoc());
+        InsertNoopAt(Store);
       }
     }
 
     return Changed;
   }
+
+
 
   bool runOnModule(Module &M) override {
 
@@ -299,17 +316,24 @@ struct DxilInsertPreserves : public ModulePass {
       if (F.isDeclaration())
         continue;
 
+      // For every real function call, insert a nop
+      // so we can put a breakpoint there.
       for (User *U : F.users()) {
         if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          Function *NoopF = GetOrCreateNoopF(M);
-          CallInst *Noop = CallInst::Create(NoopF, {}, CI);
-          Noop->setDebugLoc(CI->getDebugLoc());
-          Changed = true;
+          InsertNoopAt(CI);
+        }
+      }
+
+      // Insert nops for void return statements
+      if (F.getReturnType()->isVoidTy()) {
+        for (BasicBlock &BB : F) {
+          ReturnInst *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
+          if (Ret)
+            InsertNoopAt(Ret);
         }
       }
 
       Changed |= DoFunction(F);
-
     }
 
     return Changed;
@@ -438,7 +462,7 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
         Value *PrevV = P->getTrueValue();
         Value *CurV = P->getFalseValue();
 
-        if (isa<UndefValue>(PrevV)) {
+        if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
           P->setOperand(1, CurV);
           Changed = true;
         }

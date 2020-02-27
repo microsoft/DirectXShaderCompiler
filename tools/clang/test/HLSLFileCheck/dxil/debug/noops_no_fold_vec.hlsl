@@ -54,7 +54,6 @@ float4 main() : SV_Target {
   // select i1 %[[p]], float [[d4]], %[[preserve_f32]]
 
   return tex.Load(0) + float4(foo,bar);
-  // CHECK: load i32, i32* @dx.nothing
 }
 
 

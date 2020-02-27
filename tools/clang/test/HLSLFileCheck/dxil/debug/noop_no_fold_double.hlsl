@@ -41,6 +41,5 @@ float4 main() : SV_Target {
   // CHECK: fadd
 
   return tex.Load(0) + float4(x,y,z,w);
-  // CHECK: load i32, i32* @dx.nothing
 }
 

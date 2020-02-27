@@ -22,7 +22,6 @@ float main() : SV_Target {
   // CHECK: %[[x6:.+]] = mul 
   // CHECK-SAME: %[[x5]]
 
-  // CHECK: load i32, i32* @dx.nothing
   return x;
 }
 
