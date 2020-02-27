@@ -7,7 +7,7 @@ if "%1"=="" (
 
 echo Testing command line programs at %1 ...
 
-setlocal
+setlocal enableextensions enabledelayedexpansion
 
 set script_dir=%~dp0
 set testfiles=%script_dir%cmdtestfiles
@@ -424,6 +424,7 @@ for %%f in (%cleanup_files%) do (
   del %%f 1>nul 2>nul
 )
 popd
+endlocal
 exit /b 0
 
 rem ============================================
@@ -537,8 +538,9 @@ if %errorlevel% neq 0 (
   echo Command Returned: %errorlevel%
   echo See %OutputLog%
   call :set_failed %errorlevel%
+  exit /b %errorlevel%
 )
-exit /b 1
+exit /b 0
 
 rem ============================================
 rem Run but without redirecting to log
