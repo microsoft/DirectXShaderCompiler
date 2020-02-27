@@ -73,7 +73,7 @@ FunctionPass *createDeadCodeEliminationPass();
 // DeadStoreElimination - This pass deletes stores that are post-dominated by
 // must-aliased stores and are not loaded used between the stores.
 //
-FunctionPass *createDeadStoreEliminationPass();
+FunctionPass *createDeadStoreEliminationPass(unsigned ScanLimit = 0); // HLSL Change - Add ScanLimit
 
 //===----------------------------------------------------------------------===//
 //

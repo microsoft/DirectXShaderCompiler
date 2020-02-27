@@ -347,7 +347,7 @@ namespace llvm {
     /// getDependency - Return the instruction on which a memory operation
     /// depends.  See the class comment for more details.  It is illegal to call
     /// this on non-memory instructions.
-    MemDepResult getDependency(Instruction *QueryInst);
+    MemDepResult getDependency(Instruction *QueryInst, unsigned ScanLimit = 0);
 
     /// getNonLocalCallDependency - Perform a full dependency query for the
     /// specified call, returning the set of blocks that the value is
@@ -407,7 +407,8 @@ namespace llvm {
                                           bool isLoad,
                                           BasicBlock::iterator ScanIt,
                                           BasicBlock *BB,
-                                          Instruction *QueryInst = nullptr);
+                                          Instruction *QueryInst = nullptr,
+                                          unsigned Limit = 0);
 
     /// getLoadLoadClobberFullWidthSize - This is a little bit of analysis that
     /// looks at a memory location for a load (specified by MemLocBase, Offs,

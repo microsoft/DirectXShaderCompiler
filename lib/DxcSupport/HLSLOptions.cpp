@@ -484,6 +484,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.RootSignatureSource = Args.getLastArgValue(OPT_setrootsignature);
   opts.VerifyRootSignatureSource = Args.getLastArgValue(OPT_verifyrootsignature);
   opts.RootSignatureDefine = Args.getLastArgValue(OPT_rootsig_define);
+  opts.ScanLimit = 0;
+  llvm::StringRef limit = Args.getLastArgValue(OPT_memdep_block_scan_limit);
+  if (!limit.empty())
+    opts.ScanLimit = std::stoul(std::string(limit));
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {
