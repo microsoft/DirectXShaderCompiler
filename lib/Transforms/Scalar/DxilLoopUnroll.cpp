@@ -171,39 +171,6 @@ static bool GetConstantI1(Value *V, bool *Val=nullptr) {
   return false;
 }
 
-// Copied from llvm::SimplifyInstructionsInBlock
-static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
-                                       const TargetLibraryInfo *TLI) {
-  bool MadeChange = false;
-
-#ifndef NDEBUG
-  // In debug builds, ensure that the terminator of the block is never replaced
-  // or deleted by these simplifications. The idea of simplification is that it
-  // cannot introduce new instructions, and there is no way to replace the
-  // terminator of a block without introducing a new instruction.
-  AssertingVH<Instruction> TerminatorVH(--BB->end());
-#endif
-
-  for (BasicBlock::iterator BI = BB->begin(), E = --BB->end(); BI != E; ) {
-    assert(!BI->isTerminator());
-    Instruction *Inst = BI++;
-
-    WeakVH BIHandle(BI);
-    if (recursivelySimplifyInstruction(Inst, TLI)) {
-      MadeChange = true;
-      if (BIHandle != BI)
-        BI = BB->begin();
-      continue;
-    }
-#if 0 // HLSL Change
-    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI);
-#endif // HLSL Change
-    if (BIHandle != BI)
-      BI = BB->begin();
-  }
-  return MadeChange;
-}
-
 static bool IsMarkedFullUnroll(Loop *L) {
   if (MDNode *LoopID = L->getLoopID())
     return GetUnrollMetadata(LoopID, "llvm.loop.unroll.full");
@@ -971,11 +938,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         }
       }
     }
-
-    // Simplify instructions in the cloned blocks to create
-    // constant exit conditions.
-    for (BasicBlock *ClonedBB : CurIteration.Body)
-      SimplifyInstructionsInBlock_NoDelete(ClonedBB, NULL);
 
     // Check exit condition to see if we fully unrolled the loop
     if (BranchInst *BI = dyn_cast<BranchInst>(CurIteration.Latch->getTerminator())) {
