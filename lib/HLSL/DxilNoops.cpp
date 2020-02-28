@@ -136,17 +136,17 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
 
     if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
       for (User *U : V->users()) {
-        if (SeenStorage.count(U))
-          continue;
-
-        WorklistStorage.push_back(U);
-
         // Allow load if MC reads from pointer
         if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
           AllowLoad |= MC->getSource() == V;
         }
         else if (isa<LoadInst>(U)) {
           AllowLoad = true;
+        }
+        // Add to worklist if we haven't seen it before.
+        else {
+          if (!SeenStorage.count(U))
+            WorklistStorage.push_back(U);
         }
       }
     }
