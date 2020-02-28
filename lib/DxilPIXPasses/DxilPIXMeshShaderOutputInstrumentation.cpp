@@ -37,11 +37,14 @@ constexpr uint64_t MaxSizePerRecord = 64;
 constexpr uint32_t triangleIndexIndicator = 1;
 constexpr uint32_t int32ValueIndicator = 2;
 constexpr uint32_t floatValueIndicator = 3;
+constexpr uint32_t int16ValueIndicator = 4;
+constexpr uint32_t float16ValueIndicator = 5;
 
 using namespace llvm;
 using namespace hlsl;
 
-class DxilPIXMeshShaderOutputInstrumentation : public ModulePass {
+class DxilPIXMeshShaderOutputInstrumentation : public ModulePass 
+{
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPIXMeshShaderOutputInstrumentation() : ModulePass(ID) {}
@@ -76,15 +79,18 @@ private:
   template <typename... T> void Instrument(BuilderContext &BC, T... values);
 };
 
-void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) {
+void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) 
+{
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
 }
 
-uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() {
+uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() 
+{
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-CallInst *DxilPIXMeshShaderOutputInstrumentation::addUAV(BuilderContext &BC) {
+CallInst *DxilPIXMeshShaderOutputInstrumentation::addUAV(BuilderContext &BC) 
+{
   // Set up a UAV with structure of a single int
   unsigned int UAVResourceHandle =
       static_cast<unsigned int>(BC.DM.GetUAVs().size());
@@ -131,7 +137,8 @@ CallInst *DxilPIXMeshShaderOutputInstrumentation::addUAV(BuilderContext &BC) {
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC) {
+    insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC)
+{
   Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant *One32Arg = BC.HlslOP->GetU32Const(1);
 
@@ -151,7 +158,8 @@ Value *DxilPIXMeshShaderOutputInstrumentation::
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateGroupIdZ(BuilderContext &BC) {
+    insertInstructionsToCalculateGroupIdZ(BuilderContext &BC) 
+{
   Constant *Two32Arg = BC.HlslOP->GetU32Const(2);
   auto GroupIdFunc =
       BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
@@ -161,7 +169,8 @@ Value *DxilPIXMeshShaderOutputInstrumentation::
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
-    BuilderContext &BC, uint32_t SpaceInBytes) {
+    BuilderContext &BC, uint32_t SpaceInBytes) 
+{
   
   // Check the previous caller didn't reserve too much space:
   assert(m_RemainingReservedSpaceInBytes == 0);
@@ -203,7 +212,8 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
-    BuilderContext &BC, Value *TheOffset, Value *TheValue) {
+    BuilderContext &BC, Value *TheOffset, Value *TheValue) 
+{
 
   Function *StoreValue =
       BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(BC.Ctx));
@@ -235,18 +245,21 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
 
 template <typename... T>
 void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
-                                                        T... values) {
+                                                        T... values)
+{
   llvm::SmallVector<llvm::Value *, 10> Values(
       {static_cast<llvm::Value *>(values)...});
   const uint32_t DwordCount = Values.size();
   llvm::Value *byteOffset =
       reserveDebugEntrySpace(BC, DwordCount * sizeof(uint32_t));
-  for (llvm::Value *V : Values) {
+  for (llvm::Value *V : Values)
+  {
     byteOffset = writeDwordAndReturnNewOffset(BC, byteOffset, V);
   }
 }
 
-bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
+bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
+{
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
@@ -266,7 +279,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
   auto FunctionUses = F->uses();
-  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
+  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();)
+  {
     auto &FunctionUse = *FI++;
     auto FunctionUser = FunctionUse.getUser();
 
@@ -280,50 +294,79 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
                Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
-  F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Type::getInt32Ty(Ctx));
-  FunctionUses = F->uses();
-  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
-    auto &FunctionUse = *FI++;
-    auto FunctionUser = FunctionUse.getUser();
+  struct OutputType
+  {
+    Type *type;
+    uint32_t tag;
+  };
+  SmallVector<OutputType, 4> StoreVertexOutputOverloads
+  {
+    {Type::getInt32Ty(Ctx), int32ValueIndicator},
+    {Type::getInt16Ty(Ctx), int16ValueIndicator}, 
+    {Type::getFloatTy(Ctx), floatValueIndicator},
+    {Type::getHalfTy(Ctx), float16ValueIndicator}
+  };
 
-    auto Call = cast<CallInst>(FunctionUser);
-
-    IRBuilder<> Builder2(Call);
-    BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
-
+  for (auto const &Overload : StoreVertexOutputOverloads)
+  {
+    F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
+    FunctionUses = F->uses();
+    for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();)
     {
-      auto expandBits = BC2.Builder.CreateCast(
-          Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
+      auto &FunctionUse = *FI++;
+      auto FunctionUser = FunctionUse.getUser();
 
-      Instrument(BC2, BC2.HlslOP->GetI32Const(int32ValueIndicator),
-                 GroupIdXandY, GroupIdZ, Call->getOperand(1),
-                 Call->getOperand(2), expandBits, Call->getOperand(4),
-                 Call->getOperand(5));
-    }
-  }
+      auto Call = cast<CallInst>(FunctionUser);
 
-  F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Type::getFloatTy(Ctx));
-  FunctionUses = F->uses();
-  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
-    auto &FunctionUse = *FI++;
-    auto FunctionUser = FunctionUse.getUser();
+      IRBuilder<> Builder2(Call);
+      BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
-    auto Call = cast<CallInst>(FunctionUser);
+      // Expand column index to 32 bits:
+      auto ColumnIndex = BC2.Builder.CreateCast(
+       Instruction::ZExt, 
+        Call->getOperand(3), 
+        Type::getInt32Ty(Ctx));
 
-    IRBuilder<> Builder2(Call);
-    BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
+      // Coerce actual value to int32 
+      Value *CoercedValue = Call->getOperand(4);
 
-    {
-      auto expandBits = BC2.Builder.CreateCast(
-          Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
+      if (Overload.tag == floatValueIndicator) 
+      {
+        CoercedValue = BC2.Builder.CreateCast(
+          Instruction::BitCast,
+          CoercedValue, 
+          Type::getInt32Ty(Ctx));
+      }
+      else if (Overload.tag == float16ValueIndicator) 
+      {
+        auto * HalfInt = BC2.Builder.CreateCast(
+          Instruction::BitCast, 
+          CoercedValue, 
+          Type::getInt16Ty(Ctx));
 
-      auto reinterpretFloatToInt = BC2.Builder.CreateCast(
-          Instruction::BitCast, Call->getOperand(4), Type::getInt32Ty(Ctx));
+        CoercedValue = BC2.Builder.CreateCast(
+          Instruction::ZExt, 
+          HalfInt, 
+          Type::getInt32Ty(Ctx));
+      }
+      else if (Overload.tag == int16ValueIndicator) 
+      {
+        CoercedValue = BC2.Builder.CreateCast(
+          Instruction::ZExt,
+          CoercedValue,
+          Type::getInt32Ty(Ctx));
+      }
 
-      Instrument(BC2, BC2.HlslOP->GetI32Const(floatValueIndicator),
-                 GroupIdXandY, GroupIdZ, Call->getOperand(1),
-                 Call->getOperand(2), expandBits, reinterpretFloatToInt,
-                 Call->getOperand(5));
+      Instrument(
+        BC2, 
+        BC2.HlslOP->GetI32Const(Overload.tag),
+        GroupIdXandY,
+        GroupIdZ, 
+        Call->getOperand(1),
+        Call->getOperand(2),
+        ColumnIndex,
+        CoercedValue,
+        Call->getOperand(5));
     }
   }
 
@@ -334,7 +377,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
 char DxilPIXMeshShaderOutputInstrumentation::ID = 0;
 
-ModulePass *llvm::createDxilDxilPIXMeshShaderOutputInstrumentation() {
+ModulePass *llvm::createDxilDxilPIXMeshShaderOutputInstrumentation()
+{
   return new DxilPIXMeshShaderOutputInstrumentation();
 }
 
