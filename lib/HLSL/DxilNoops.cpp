@@ -119,7 +119,7 @@ struct Store_Info {
   bool AllowLoads = false;
 };
 
-static void FindAllStores(Value *Ptr, Function *F, std::vector<Store_Info> *Stores, std::vector<Value *> &WorklistStorage, std::unordered_set<Value *> &SeenStorage) {
+static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vector<Value *> &WorklistStorage, std::unordered_set<Value *> &SeenStorage) {
   assert(isa<Argument>(Ptr) || isa<AllocaInst>(Ptr) || isa<GlobalVariable>(Ptr));
 
   WorklistStorage.clear();
@@ -133,10 +133,6 @@ static void FindAllStores(Value *Ptr, Function *F, std::vector<Store_Info> *Stor
     Value *V = WorklistStorage.back();
     WorklistStorage.pop_back();
     SeenStorage.insert(V);
-
-    if (Instruction *I = dyn_cast<Instruction>(V))
-      if (I->getParent()->getParent() != F)
-        continue;
 
     if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
       for (User *U : V->users()) {
@@ -263,33 +259,55 @@ struct DxilInsertPreserves : public ModulePass {
     initializeDxilInsertPreservesPass(*PassRegistry::getPassRegistry());
   }
 
-  bool DoFunction(Function &F) {
-    if (F.empty())
-      return false;
-    BasicBlock *Entry = &*F.begin();
+  bool runOnModule(Module &M) override {
 
     std::vector<Store_Info> Stores;
     std::vector<Value *> WorklistStorage;
     std::unordered_set<Value *> SeenStorage;
 
-    for (Instruction &I : *Entry) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(&I);
-      if (!AI)
-        break;
-      FindAllStores(AI, &F, &Stores, WorklistStorage, SeenStorage);
-    }
-
-    Module *M = F.getParent();
-    for (GlobalVariable &GV : M->globals()) {
-      FindAllStores(&GV, &F, &Stores, WorklistStorage, SeenStorage);
-    }
-
-    for (Argument &Arg : F.args()) {
-      if (Arg.getType()->isPointerTy())
-        FindAllStores(&Arg, &F, &Stores, WorklistStorage, SeenStorage);
+    for (GlobalVariable &GV : M.globals()) {
+      FindAllStores(&GV, &Stores, WorklistStorage, SeenStorage);
     }
 
     bool Changed = false;
+    for (Function &F : M) {
+      if (F.isDeclaration())
+        continue;
+
+      // Collect Stores on Allocas in function
+      BasicBlock *Entry = &*F.begin();
+      for (Instruction &I : *Entry) {
+        AllocaInst *AI = dyn_cast<AllocaInst>(&I);
+        if (!AI)
+          break;
+        FindAllStores(AI, &Stores, WorklistStorage, SeenStorage);
+      }
+
+      // Collect Stores on pointer Arguments in function
+      for (Argument &Arg : F.args()) {
+        if (Arg.getType()->isPointerTy())
+          FindAllStores(&Arg, &Stores, WorklistStorage, SeenStorage);
+      }
+
+      // For every real function call, insert a nop
+      // so we can put a breakpoint there.
+      for (User *U : F.users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          InsertNoopAt(CI);
+        }
+      }
+
+      // Insert nops for void return statements
+      if (F.getReturnType()->isVoidTy()) {
+        for (BasicBlock &BB : F) {
+          ReturnInst *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
+          if (Ret)
+            InsertNoopAt(Ret);
+        }
+      }
+    }
+
+    // Insert preserves or noops for these stores
     for (Store_Info &Info : Stores) {
       if (StoreInst *Store = dyn_cast<StoreInst>(Info.StoreOrMC)) {
         Value *V = Store->getValueOperand();
@@ -323,38 +341,6 @@ struct DxilInsertPreserves : public ModulePass {
         // TODO: Do something to preserve pointer's previous value.
         InsertNoopAt(MC);
       }
-    }
-
-    return Changed;
-  }
-
-
-
-  bool runOnModule(Module &M) override {
-
-    bool Changed = false;
-    for (Function &F : M) {
-      if (F.isDeclaration())
-        continue;
-
-      // For every real function call, insert a nop
-      // so we can put a breakpoint there.
-      for (User *U : F.users()) {
-        if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          InsertNoopAt(CI);
-        }
-      }
-
-      // Insert nops for void return statements
-      if (F.getReturnType()->isVoidTy()) {
-        for (BasicBlock &BB : F) {
-          ReturnInst *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
-          if (Ret)
-            InsertNoopAt(Ret);
-        }
-      }
-
-      Changed |= DoFunction(F);
     }
 
     return Changed;
