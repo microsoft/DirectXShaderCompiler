@@ -1070,9 +1070,14 @@ bool GetDLLProductVersionInfo(const char *dllPath, std::string &productVersion) 
   return false;
 }
 
-// Collects compiler/validator version info
-void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
-  if (m_dxcSupport.IsEnabled()) {
+namespace dxc {
+
+// Writes compiler version info to stream
+void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS,
+                                const char *ExternalLib,
+                                const char *ExternalFn,
+                                DxcDllSupport &DxcSupport) {
+  if (DxcSupport.IsEnabled()) {
     UINT32 compilerMajor = 1;
     UINT32 compilerMinor = 0;
     CComPtr<IDxcVersionInfo> VerInfo;
@@ -1083,10 +1088,12 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
     CComPtr<IDxcVersionInfo2> VerInfo2;
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
-    const char *compilerName =
-      m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
+    const char *dllName = !ExternalLib ? "dxcompiler.dll" : ExternalLib;
+    std::string compilerName(dllName);
+    if (ExternalFn)
+      compilerName = compilerName + "!" + ExternalFn;
 
-    if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
+    if (SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
       VerInfo->GetVersion(&compilerMajor, &compilerMinor);
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
       if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo2)))
@@ -1095,13 +1102,16 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       OS << compilerName << ": " << compilerMajor << "." << compilerMinor;
     }
     // compiler.dll 1.0 did not support IdxcVersionInfo
-    else if (m_Opts.ExternalFn.empty()) {
+    else if (!ExternalLib) {
       OS << compilerName << ": " << 1 << "." << 0;
+    } else {
+      // ExternalLib/ExternalFn, no version info:
+      OS << compilerName;
     }
 
 #ifdef _WIN32
     unsigned int version[4];
-    if (GetDLLFileVersionInfo(compilerName, version)) {
+    if (GetDLLFileVersionInfo(dllName, version)) {
       // back-compat - old dev buidls had version 3.7.0.0
       if (version[0] == 3 && version[1] == 7 && version[2] == 0 && version[3] == 0) {
 #endif
@@ -1115,17 +1125,18 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       }
       else {
         std::string productVersion;
-        if (GetDLLProductVersionInfo(compilerName, productVersion)) {
+        if (GetDLLProductVersionInfo(dllName, productVersion)) {
           OS << " - " << productVersion;
         }
       }
     }
 #endif
   }
+}
 
-  // Print validator if exists
-  DxcDllSupport DxilSupport;
-  DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+// Writes compiler version info to stream
+void WriteDXILVersionInfo(llvm::raw_ostream &OS,
+                          DxcDllSupport &DxilSupport) {
   if (DxilSupport.IsEnabled()) {
     CComPtr<IDxcVersionInfo> VerInfo;
     if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
@@ -1147,6 +1158,21 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
          << version[3] << ")";
     }
   }
+}
+
+} // namespace dxc
+
+// Collects compiler/validator version info
+void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
+  WriteDxCompilerVersionInfo(OS,
+    m_Opts.ExternalLib.empty() ? nullptr : m_Opts.ExternalLib.data(),
+    m_Opts.ExternalFn.empty() ? nullptr : m_Opts.ExternalFn.data(),
+    m_dxcSupport);
+
+  // Print validator if exists
+  DxcDllSupport DxilSupport;
+  DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+  WriteDXILVersionInfo(OS, DxilSupport);
 }
 
 #ifndef VERSION_STRING_SUFFIX
