@@ -94,7 +94,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/raw_os_ostream.h"
 
-#include <unordered_map>
+#include <unordered_set>
 
 using namespace llvm;
 
@@ -114,22 +114,25 @@ static Function *GetOrCreateNoopF(Module &M) {
 }
 
 struct Store_Info {
-  StoreInst *Store = nullptr;
+  Instruction *StoreOrMC = nullptr;
   Value *Source = nullptr; // Alloca, GV, or Argument
   bool AllowLoads = false;
 };
 
-static void FindAllStores(Value *Ptr, Function *F, std::vector<Store_Info> *Stores, std::vector<Value *> &WorklistStorage) {
+static void FindAllStores(Value *Ptr, Function *F, std::vector<Store_Info> *Stores, std::vector<Value *> &WorklistStorage, std::unordered_set<Value *> &SeenStorage) {
   assert(isa<Argument>(Ptr) || isa<AllocaInst>(Ptr) || isa<GlobalVariable>(Ptr));
 
   WorklistStorage.clear();
   WorklistStorage.push_back(Ptr);
+  // Don't clear Seen Storage because two pointers can be involved with the same
+  // memcpy. Clearing it can get the memcpy added twice.
 
   unsigned StartIdx = Stores->size();
   bool AllowLoad = false;
   while (WorklistStorage.size()) {
     Value *V = WorklistStorage.back();
     WorklistStorage.pop_back();
+    SeenStorage.insert(V);
 
     if (Instruction *I = dyn_cast<Instruction>(V))
       if (I->getParent()->getParent() != F)
@@ -137,14 +140,25 @@ static void FindAllStores(Value *Ptr, Function *F, std::vector<Store_Info> *Stor
 
     if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
       for (User *U : V->users()) {
+        if (SeenStorage.count(U))
+          continue;
+
         WorklistStorage.push_back(U);
+
+        // Allow load if MC reads from pointer
+        if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
+          AllowLoad |= MC->getSource() == V;
+        }
+        else if (isa<LoadInst>(U)) {
+          AllowLoad = true;
+        }
       }
     }
     else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
       Stores->push_back({ Store, Ptr });
     }
-    else if (isa<LoadInst>(V)) {
-      AllowLoad = true;
+    else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
+      Stores->push_back({ MC, Ptr });
     }
   }
 
@@ -256,51 +270,58 @@ struct DxilInsertPreserves : public ModulePass {
 
     std::vector<Store_Info> Stores;
     std::vector<Value *> WorklistStorage;
+    std::unordered_set<Value *> SeenStorage;
+
     for (Instruction &I : *Entry) {
       AllocaInst *AI = dyn_cast<AllocaInst>(&I);
       if (!AI)
         break;
-      FindAllStores(AI, &F, &Stores, WorklistStorage);
+      FindAllStores(AI, &F, &Stores, WorklistStorage, SeenStorage);
     }
 
     Module *M = F.getParent();
     for (GlobalVariable &GV : M->globals()) {
-      FindAllStores(&GV, &F, &Stores, WorklistStorage);
+      FindAllStores(&GV, &F, &Stores, WorklistStorage, SeenStorage);
     }
 
     for (Argument &Arg : F.args()) {
       if (Arg.getType()->isPointerTy())
-        FindAllStores(&Arg, &F, &Stores, WorklistStorage);
+        FindAllStores(&Arg, &F, &Stores, WorklistStorage, SeenStorage);
     }
 
     bool Changed = false;
     for (Store_Info &Info : Stores) {
-      StoreInst *Store = Info.Store;
-      Value *V = Store->getValueOperand();
+      if (StoreInst *Store = dyn_cast<StoreInst>(Info.StoreOrMC)) {
+        Value *V = Store->getValueOperand();
 
-      if (V &&
-        !V->getType()->isAggregateType() &&
-        !V->getType()->isPointerTy())
-      {
-        IRBuilder<> B(Store);
-        Value *Last_Value = nullptr;
-        // If there's never any loads for this memory location,
-        // don't generate a load.
-        if (Info.AllowLoads) {
-          Last_Value = B.CreateLoad(Store->getPointerOperand());
+        if (V &&
+          !V->getType()->isAggregateType() &&
+          !V->getType()->isPointerTy())
+        {
+          IRBuilder<> B(Store);
+          Value *Last_Value = nullptr;
+          // If there's never any loads for this memory location,
+          // don't generate a load.
+          if (Info.AllowLoads) {
+            Last_Value = B.CreateLoad(Store->getPointerOperand());
+          }
+          else {
+            Last_Value = UndefValue::get(V->getType());
+          }
+
+          Instruction *Preserve = CreatePreserve(V, Last_Value, Store);
+          Preserve->setDebugLoc(Store->getDebugLoc());
+          Store->replaceUsesOfWith(V, Preserve);
+
+          Changed = true;
         }
         else {
-          Last_Value = UndefValue::get(V->getType());
+          InsertNoopAt(Store);
         }
-
-        Instruction *Preserve = CreatePreserve(V, Last_Value, Store);
-        Preserve->setDebugLoc(Store->getDebugLoc());
-        Store->replaceUsesOfWith(V, Preserve);
-
-        Changed = true;
       }
-      else {
-        InsertNoopAt(Store);
+      else if (MemCpyInst *MC = cast<MemCpyInst>(Info.StoreOrMC)) {
+        // TODO: Do something to preserve pointer's previous value.
+        InsertNoopAt(MC);
       }
     }
 
