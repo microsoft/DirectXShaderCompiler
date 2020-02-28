@@ -39,17 +39,13 @@ float main() : SV_Target {
   // CHECK: load i32, i32* @dx.nothing
   bar(s);
     // CHECK: fmul
-    // CHECK: select i1 %[[p]]
     // CHECK: fmul
-    // CHECK: select i1 %[[p]]
     // CHECK: load i32, i32* @dx.nothing
 
   // CHECK: load i32, i32* @dx.nothing
   baz(s.x, s.y);
     // CHECK: fmul
-    // CHECK: select i1 %[[p]]
     // CHECK: fmul
-    // CHECK: select i1 %[[p]]
     // CHECK: load i32, i32* @dx.nothing
 
   // CHECK: fadd

@@ -113,6 +113,20 @@ static Function *GetOrCreateNoopF(Module &M) {
   return NoopF;
 }
 
+static bool ShouldPreserve(Value *V) {
+  if (isa<Constant>(V)) return true;
+  if (isa<Argument>(V)) return true;
+  if (isa<LoadInst>(V)) return true;
+  if (ExtractElementInst *GEP = dyn_cast<ExtractElementInst>(V)) {
+    return ShouldPreserve(GEP->getVectorOperand());
+  }
+  if (CallInst *CI = dyn_cast<CallInst>(V)) 
+    if (Function *F = CI->getCalledFunction())
+      if (F->isDeclaration())
+        return true;
+  return false;
+}
+
 struct Store_Info {
   Instruction *StoreOrMC = nullptr;
   Value *Source = nullptr; // Alloca, GV, or Argument
@@ -151,10 +165,18 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
       }
     }
     else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
-      Stores->push_back({ Store, Ptr });
+      if (ShouldPreserve(Store->getValueOperand())) {
+        Store_Info Info;
+        Info.StoreOrMC = Store;
+        Info.Source = Ptr;
+        Stores->push_back(Info);
+      }
     }
     else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
-      Stores->push_back({ MC, Ptr });
+      Store_Info Info;
+      Info.StoreOrMC = MC;
+      Info.Source = Ptr;
+      Stores->push_back(Info);
     }
   }
 
