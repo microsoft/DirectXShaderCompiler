@@ -304,7 +304,7 @@ struct DxilInsertPreserves : public ModulePass {
       for (Instruction &I : *Entry) {
         AllocaInst *AI = dyn_cast<AllocaInst>(&I);
         if (!AI)
-          break;
+          continue;
         // Skip temp allocas
         if (!AI->getMetadata(hlsl::DxilMDHelper::kDxilTempAllocaMDName))
           FindAllStores(AI, &Stores, WorklistStorage, SeenStorage);
