@@ -140,29 +140,23 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
           // CHECK: %[[b2:.+]] = fmul
           // CHECK: %[[b3:.+]] = fmul
           // CHECK: %[[b4:.+]] = fmul
-          // CHECK: select i1 %[[p]], float %{{.+}}, float %[[b1]]
-          // CHECK: select i1 %[[p]], float %{{.+}}, float %[[b2]]
-          // CHECK: select i1 %[[p]], float %{{.+}}, float %[[b3]]
-          // CHECK: select i1 %[[p]], float %{{.+}}, float %[[b4]]
+          // CHECK: load i32, i32* @dx.nothing
         // }
         // CHECK: %[[c1:.+]] = fmul
         // CHECK: %[[c2:.+]] = fmul
         // CHECK: %[[c3:.+]] = fmul
         // CHECK: %[[c4:.+]] = fmul
-        // CHECK: select i1 %[[p]], float %{{.+}}, float %[[c1]]
-        // CHECK: select i1 %[[p]], float %{{.+}}, float %[[c2]]
-        // CHECK: select i1 %[[p]], float %{{.+}}, float %[[c3]]
-        // CHECK: select i1 %[[p]], float %{{.+}}, float %[[c4]]
+        // CHECK: load i32, i32* @dx.nothing
       // }
       // CHECK: %[[d1:.+]] = fmul
       // CHECK: %[[d2:.+]] = fmul
       // CHECK: %[[d3:.+]] = fmul
       // CHECK: %[[d4:.+]] = fmul
-      // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d1]]
-      // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d2]]
-      // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d3]]
-      // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d4]]
     // }
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d1]]
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d2]]
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d3]]
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d4]]
 
     return max(ret6, color);
     // CHECK: call float @dx.op.binary.f32(i32 35

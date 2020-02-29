@@ -51,6 +51,7 @@ const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.type
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
 const char DxilMDHelper::kDxilVariableDebugLayoutMDName[]             = "dx.dbg.varlayout";
+const char DxilMDHelper::kDxilTempAllocaMDName[]                      = "dx.temp";
 const char DxilMDHelper::kDxilNonUniformAttributeMDName[]             = "dx.nonuniform";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";

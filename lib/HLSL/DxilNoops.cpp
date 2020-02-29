@@ -93,6 +93,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "dxc/dxil/DxilMetadataHelper.h"
 
 #include <unordered_set>
 
@@ -120,10 +121,7 @@ static bool ShouldPreserve(Value *V) {
   if (ExtractElementInst *GEP = dyn_cast<ExtractElementInst>(V)) {
     return ShouldPreserve(GEP->getVectorOperand());
   }
-  if (CallInst *CI = dyn_cast<CallInst>(V)) 
-    if (Function *F = CI->getCalledFunction())
-      if (F->isDeclaration())
-        return true;
+  if (isa<CallInst>(V)) return true;
   return false;
 }
 
@@ -288,6 +286,11 @@ struct DxilInsertPreserves : public ModulePass {
     std::unordered_set<Value *> SeenStorage;
 
     for (GlobalVariable &GV : M.globals()) {
+      for (User *U : GV.users()) {
+        if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+          InsertNoopAt(LI);
+        }
+      }
       FindAllStores(&GV, &Stores, WorklistStorage, SeenStorage);
     }
 
@@ -302,7 +305,9 @@ struct DxilInsertPreserves : public ModulePass {
         AllocaInst *AI = dyn_cast<AllocaInst>(&I);
         if (!AI)
           break;
-        FindAllStores(AI, &Stores, WorklistStorage, SeenStorage);
+        // Skip temp allocas
+        if (!AI->getMetadata(hlsl::DxilMDHelper::kDxilTempAllocaMDName))
+          FindAllStores(AI, &Stores, WorklistStorage, SeenStorage);
       }
 
       // Collect Stores on pointer Arguments in function
@@ -320,12 +325,10 @@ struct DxilInsertPreserves : public ModulePass {
       }
 
       // Insert nops for void return statements
-      if (F.getReturnType()->isVoidTy()) {
-        for (BasicBlock &BB : F) {
-          ReturnInst *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
-          if (Ret)
-            InsertNoopAt(Ret);
-        }
+      for (BasicBlock &BB : F) {
+        ReturnInst *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
+        if (Ret)
+          InsertNoopAt(Ret);
       }
     }
 
