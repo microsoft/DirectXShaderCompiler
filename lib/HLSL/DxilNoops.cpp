@@ -93,7 +93,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/raw_os_ostream.h"
-#include "dxc/dxil/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 #include <unordered_set>
 
@@ -286,11 +287,18 @@ struct DxilInsertPreserves : public ModulePass {
     std::unordered_set<Value *> SeenStorage;
 
     for (GlobalVariable &GV : M.globals()) {
+      if (GV.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage ||
+        GV.getType()->getPointerAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
+      {
+        continue;
+      }
+
       for (User *U : GV.users()) {
         if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           InsertNoopAt(LI);
         }
       }
+
       FindAllStores(&GV, &Stores, WorklistStorage, SeenStorage);
     }
 
