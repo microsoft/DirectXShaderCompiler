@@ -1,3 +1,4 @@
+// RUN: %dxc -E main -T cs_6_0 %s -Od | FileCheck %s
 
 RWBuffer<float> uav : register(u0);
 
