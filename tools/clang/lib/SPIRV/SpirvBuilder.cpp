@@ -774,7 +774,7 @@ SpirvBuilder::createRayTracingOpsNV(spv::Op opcode, QualType resultType,
 SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
                                                   llvm::StringRef text) {
   auto *inst = new (context) SpirvDebugSource(file, text);
-  module->addDebugInfo(inst);
+  mod->addDebugInfo(inst);
   return inst;
 }
 
@@ -782,7 +782,7 @@ SpirvDebugCompilationUnit *
 SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   auto *inst = new (context) SpirvDebugCompilationUnit(
       /*version*/ 1, /*DWARF version*/ 4, source);
-  module->addDebugInfo(inst);
+  mod->addDebugInfo(inst);
   return inst;
 }
 
@@ -793,7 +793,7 @@ SpirvBuilder::createDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
   assert(insertPoint && "null insert point");
   auto *inst =
       new (context) SpirvDebugLexicalBlock(source, line, column, parent);
-  module->addDebugInfo(inst);
+  mod->addDebugInfo(inst);
   if (insertPoint->empty()) {
     insertPoint->setDebugScope(new (context) SpirvDebugScope(inst));
   } else {
@@ -808,7 +808,7 @@ SpirvDebugLocalVariable *SpirvBuilder::createDebugLocalVariable(
     uint32_t flags, llvm::Optional<uint32_t> argNumber) {
   auto *inst = new (context) SpirvDebugLocalVariable(
       debugQualType, varName, src, line, column, parentScope, flags, argNumber);
-  module->addDebugInfo(inst);
+  mod->addDebugInfo(inst);
   return inst;
 }
 
@@ -820,7 +820,7 @@ SpirvDebugGlobalVariable *SpirvBuilder::createDebugGlobalVariable(
   auto *inst = new (context) SpirvDebugGlobalVariable(
       debugType, varName, src, line, column, parentScope, linkageName, var,
       flags, staticMemberDebugType);
-  module->addDebugInfo(inst);
+  mod->addDebugInfo(inst);
   return inst;
 }
 
@@ -829,7 +829,7 @@ SpirvDebugInfoNone *SpirvBuilder::getOrCreateDebugInfoNone() {
     return debugNone;
 
   debugNone = new (context) SpirvDebugInfoNone();
-  module->addDebugInfo(debugNone);
+  mod->addDebugInfo(debugNone);
   return debugNone;
 }
 
@@ -838,7 +838,7 @@ SpirvDebugExpression *SpirvBuilder::getOrCreateNullDebugExpression() {
     return nullDebugExpr;
 
   nullDebugExpr = new (context) SpirvDebugExpression();
-  module->addDebugInfo(nullDebugExpr);
+  mod->addDebugInfo(nullDebugExpr);
   return nullDebugExpr;
 }
 
@@ -877,7 +877,7 @@ SpirvDebugFunction *SpirvBuilder::createDebugFunction(
     uint32_t flags, uint32_t scopeLine, SpirvFunction *fn) {
   auto *inst = new (context) SpirvDebugFunction(
       name, src, line, column, parentScope, linkageName, flags, scopeLine, fn);
-  module->addDebugInfo(inst);
+  mod->addDebugInfo(inst);
   return inst;
 }
 
@@ -886,12 +886,12 @@ void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
 }
 
 SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
-  SpirvExtInstImport *set = module->getExtInstSet(extName);
+  SpirvExtInstImport *set = mod->getExtInstSet(extName);
   if (!set) {
     // The extended instruction set is likely required for several different
     // reasons. We can't pinpoint the source location for one specific function.
     set = new (context) SpirvExtInstImport(/*SourceLocation*/ {}, extName);
-    module->addExtInstSet(set);
+    mod->addExtInstSet(set);
   }
   return set;
 }
@@ -1166,7 +1166,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Generate debug types (if needed)
   if (spirvOptions.debugInfoRich)
-    module->invokeVisitor(&debugTypeVisitor);
+    mod->invokeVisitor(&debugTypeVisitor);
 
   // Add necessary capabilities and extensions
   mod->invokeVisitor(&capabilityVisitor);
