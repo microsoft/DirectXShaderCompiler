@@ -2422,8 +2422,8 @@ private:
   // DebugTypeComposite
   SpirvDebugInstruction *parent; //< The parent lexical scope
 
-  uint32_t offset;          //< Offset (in bits) of this member in the struct
-  uint32_t size;            //< Size (in bits) of this member in the struct
+  uint32_t offset; //< Offset (in bits) of this member in the struct
+  uint32_t size;   //< Size (in bits) of this member in the struct
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
   // available.
   uint32_t debugFlags;

@@ -179,7 +179,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     SpirvDebugInstruction *elemDebugType =
         lowerToDebugType(vecType->getElementType());
     debugType = spvContext.getDebugTypeVector(spirvType, elemDebugType,
-                                             vecType->getElementCount());
+                                              vecType->getElementCount());
     break;
   }
   case SpirvType::TK_Matrix: {
