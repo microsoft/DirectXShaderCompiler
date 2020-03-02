@@ -146,9 +146,9 @@ public:
   }
 
   HMODULE Detach() {
-    HMODULE module = m_dll;
+    HMODULE hModule = m_dll;
     m_dll = nullptr;
-    return module;
+    return hModule;
   }
 };
 

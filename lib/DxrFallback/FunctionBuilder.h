@@ -16,9 +16,9 @@
 class FunctionBuilder
 {
 public:
-  FunctionBuilder(llvm::Module* module, const std::string& name)
-    : m_context(module->getContext())
-    , m_module(module)
+  FunctionBuilder(llvm::Module* mod, const std::string& name)
+    : m_context(mod->getContext())
+    , m_module(mod)
     , m_name(name)
   {}
 

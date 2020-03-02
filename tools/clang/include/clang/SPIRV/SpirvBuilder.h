@@ -45,7 +45,7 @@ public:
   SpirvBuilder &operator=(SpirvBuilder &&) = delete;
 
   /// Returns the SPIR-V module being built.
-  SpirvModule *getModule() { return module; }
+  SpirvModule *getModule() { return mod; }
 
   // === Function and Basic Block ===
 
@@ -569,7 +569,7 @@ private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
 
-  SpirvModule *module;          ///< The current module being built
+  SpirvModule *mod;             ///< The current module being built
   SpirvFunction *function;      ///< The current function being built
   SpirvBasicBlock *insertPoint; ///< The current basic block being built
 
@@ -595,22 +595,22 @@ private:
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
-  module->addCapability(new (context) SpirvCapability(loc, cap));
+  mod->addCapability(new (context) SpirvCapability(loc, cap));
 }
 
 void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {
-  module->addExtension(new (context) SpirvExtension(loc, ext));
+  mod->addExtension(new (context) SpirvExtension(loc, ext));
 }
 
 void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
                                   spv::MemoryModel memModel) {
-  module->setMemoryModel(new (context) SpirvMemoryModel(addrModel, memModel));
+  mod->setMemoryModel(new (context) SpirvMemoryModel(addrModel, memModel));
 }
 
 void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                                  std::string targetName,
                                  llvm::ArrayRef<SpirvVariable *> interfaces) {
-  module->addEntryPoint(new (context) SpirvEntryPoint(
+  mod->addEntryPoint(new (context) SpirvEntryPoint(
       target->getSourceLocation(), em, target, targetName, interfaces));
 }
 
@@ -627,7 +627,7 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
     SpirvSource *debugSource = new (context)
         SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
                     fileString, content);
-    module->addDebugSource(debugSource);
+    mod->addDebugSource(debugSource);
     if (!mainSource)
       mainSource = debugSource;
   }
@@ -638,7 +638,7 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
     mainSource = new (context)
         SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
                     nullptr, content);
-    module->addDebugSource(mainSource);
+    mod->addDebugSource(mainSource);
   }
   return mainSource->getFile();
 }
@@ -647,7 +647,7 @@ void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,
                                     spv::ExecutionMode em,
                                     llvm::ArrayRef<uint32_t> params,
                                     SourceLocation loc) {
-  module->addExecutionMode(
+  mod->addExecutionMode(
       new (context) SpirvExecutionMode(loc, entryPoint, em, params, false));
 }
 

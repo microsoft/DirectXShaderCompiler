@@ -1944,16 +1944,16 @@ HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
         bBitcodeLoadError |= diagInfo.getSeverity() == DS_Error;
       };
 #if 0 // We materialize eagerly, because we'll need to walk instructions to look for usage information.
-    ErrorOr<std::unique_ptr<Module>> module =
+    ErrorOr<std::unique_ptr<Module>> mod =
         getLazyBitcodeModule(std::move(pMemBuffer), Context, errorHandler);
 #else
-    ErrorOr<std::unique_ptr<Module>> module =
+    ErrorOr<std::unique_ptr<Module>> mod =
       parseBitcodeFile(pMemBuffer->getMemBufferRef(), Context, errorHandler);
 #endif
-    if (!module || bBitcodeLoadError) {
+    if (!mod || bBitcodeLoadError) {
       return E_INVALIDARG;
     }
-    std::swap(m_pModule, module.get());
+    std::swap(m_pModule, mod.get());
     m_pDxilModule = &m_pModule->GetOrCreateDxilModule();
 
     unsigned ValMajor, ValMinor;
