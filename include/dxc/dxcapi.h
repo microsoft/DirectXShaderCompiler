@@ -25,7 +25,6 @@
 
 #ifdef _WIN32
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)
-#define DEFINE_CROSS_PLATFORM_UUIDOF(T)
 #else
 #include <dlfcn.h>
 #include "dxc/Support/WinAdapter.h"
@@ -254,7 +253,7 @@ IDxcLibrary : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
 
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcLibrary)
+  DECLARE_CROSS_PLATFORM_UUIDOF_VALUE({0xe5204dc7, 0xd18c, 0x4c3c, {0xbd, 0xfb, 0x85, 0x16, 0x73, 0x98, 0x0f, 0xe7}})
 };
 
 // NOTE: IDxcResult replaces IDxcOperationResult
@@ -336,7 +335,7 @@ IDxcCompiler2 : public IDxcCompiler {
     _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
   ) = 0;
 
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcCompiler2)
+  DECLARE_CROSS_PLATFORM_UUIDOF_VALUE({0xA005A9D9, 0xB8BB, 0x4594, {0xB5, 0xC9, 0x0E, 0x63, 0x3B, 0xEC, 0x4D, 0x37}})
 };
 
 struct __declspec(uuid("F1B5BE2A-62DD-4327-A1C2-42AC1E1E78E6"))
@@ -534,7 +533,7 @@ IDxcValidator : public IUnknown {
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
     ) = 0;
 
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcValidator)
+  DECLARE_CROSS_PLATFORM_UUIDOF_VALUE({0xA6E82BD2, 0x1FD7, 0x4826, {0x98, 0x11, 0x28, 0x57, 0xE7, 0x97, 0xF4, 0x9A}})
 };
 
 struct __declspec(uuid("334b1f50-2292-4b35-99a1-25588d8c17fe"))
@@ -602,7 +601,7 @@ IDxcVersionInfo : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) = 0;
 
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo)
+  DECLARE_CROSS_PLATFORM_UUIDOF_VALUE({0xb04f5b50, 0x2059, 0x4f12, {0xa8, 0xff, 0xa1, 0xe0, 0xcd, 0xe1, 0xcc, 0x7e}})
 };
 
 struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83"))

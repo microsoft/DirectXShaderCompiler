@@ -12,11 +12,6 @@
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
 
-DEFINE_CROSS_PLATFORM_UUIDOF(IUnknown)
-DEFINE_CROSS_PLATFORM_UUIDOF(INoMarshal)
-DEFINE_CROSS_PLATFORM_UUIDOF(IStream)
-DEFINE_CROSS_PLATFORM_UUIDOF(ISequentialStream)
-
 //===--------------------------- IUnknown ---------------------------------===//
 
 ULONG IUnknown::AddRef() {

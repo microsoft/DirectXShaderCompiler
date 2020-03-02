@@ -452,11 +452,6 @@ typedef GUID CLSID;
 typedef const GUID &REFGUID;
 typedef const GUID &REFCLSID;
 
-#ifdef __EMULATE_UUID
-typedef const void *REFIID;
-#define IsEqualIID(a, b) a == b
-#define IsEqualCLSID(a, b) !memcmp(&a, &b, sizeof(GUID))
-#else  // __EMULATE_UUID
 typedef GUID IID;
 typedef IID *LPIID;
 typedef const IID &REFIID;
@@ -473,13 +468,25 @@ inline bool operator!=(REFGUID guidOne, REFGUID guidOther) {
 }
 
 inline bool IsEqualIID(REFIID riid1, REFIID riid2) {
+  // Use reference compare like the previous implementation
+  if (&riid1 == &riid2)
+    return true;
+
+  // HACK: Many IIDs are currently initialized to {},
+  // which are obviously identical to eachother. Disallow
+  // this case, those are handled by reference compare only.
+  // This can be removed when all interfaces have a proper
+  // IID specified.
+  static constexpr IID empty = {};
+  if (IsEqualGUID(riid1, empty))
+    return false;
+
   return IsEqualGUID(riid1, riid2);
 }
 
 inline bool IsEqualCLSID(REFCLSID rclsid1, REFCLSID rclsid2) {
   return IsEqualGUID(rclsid1, rclsid2);
 }
-#endif // __EMULATE_UUID
 
 //===--------------------- Struct Types -----------------------------------===//
 
@@ -560,23 +567,26 @@ enum tagSTATFLAG {
 #ifdef __EMULATE_UUID
 
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
+
+#define DECLARE_CROSS_PLATFORM_UUIDOF_VALUE(...)                               \
+public:                                                                        \
+  static inline constexpr IID _IID = __VA_ARGS__;                              \
+  static REFIID uuidof() { return _IID; }
+
+// TODO: This should be gone when all interfaces are converted
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
 public:                                                                        \
-  static REFIID uuidof() { return static_cast<REFIID>(&T##_ID); }              \
-                                                                               \
-private:                                                                       \
-  __attribute__((visibility("default"))) static const char T##_ID;
+  static inline constexpr IID _IID = {};                                       \
+  static REFIID uuidof() { return _IID; }
 
-#define DEFINE_CROSS_PLATFORM_UUIDOF(T)                                        \
-  __attribute__((visibility("default"))) const char T::T##_ID = '\0';
 #define __uuidof(T) T::uuidof()
+
 #define IID_PPV_ARGS(ppType)                                                   \
   (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)
 
 #else // __EMULATE_UUID
 
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)
-#define DEFINE_CROSS_PLATFORM_UUIDOF(T)
 
 template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
   return reinterpret_cast<void **>(pp);
