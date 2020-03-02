@@ -483,8 +483,8 @@ private:
   }
 
 public:
-  DxilPSVWriter(const DxilModule &module, uint32_t PSVVersion = 0)
-  : m_Module(module),
+  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = 0)
+  : m_Module(mod),
     m_PSVInitInfo(PSVVersion)
   {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
@@ -1357,15 +1357,15 @@ private:
   SubobjectTable *m_pSubobjectTable;
 
 public:
-  DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
+  DxilRDATWriter(const DxilModule &mod, uint32_t InfoVersion = 0)
       : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     // Keep track of validator version so we can make a compatible RDAT
-    module.GetValidatorVersion(m_ValMajor, m_ValMinor);
+    mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
 
     CreateParts();
-    UpdateResourceInfo(module);
-    UpdateFunctionInfo(module);
-    UpdateSubobjectInfo(module);
+    UpdateResourceInfo(mod);
+    UpdateFunctionInfo(mod);
+    UpdateSubobjectInfo(mod);
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();

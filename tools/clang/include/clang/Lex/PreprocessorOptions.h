@@ -129,12 +129,12 @@ public:
     llvm::StringSet<> Failed;
 
   public:
-    bool hasAlreadyFailed(StringRef module) {
-      return Failed.count(module) > 0;
+    bool hasAlreadyFailed(StringRef mod) {
+      return Failed.count(mod) > 0;
     }
 
-    void addFailed(StringRef module) {
-      Failed.insert(module);
+    void addFailed(StringRef mod) {
+      Failed.insert(mod);
     }
   };
   

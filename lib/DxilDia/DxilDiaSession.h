@@ -53,7 +53,7 @@ public:
   IMalloc *GetMallocNoRef() { return m_pMalloc.p; }
 
   void Init(std::shared_ptr<llvm::LLVMContext> context,
-            std::shared_ptr<llvm::Module> module,
+            std::shared_ptr<llvm::Module> mod,
             std::shared_ptr<llvm::DebugInfoFinder> finder);
 
   llvm::NamedMDNode *Contents() { return m_contents; }

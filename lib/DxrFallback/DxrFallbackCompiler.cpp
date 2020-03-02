@@ -35,10 +35,10 @@
 using namespace hlsl;
 using namespace llvm;
 
-static std::vector<Function*> getFunctionsWithPrefix(Module* module, const std::string& prefix)
+static std::vector<Function*> getFunctionsWithPrefix(Module* mod, const std::string& prefix)
 {
   std::vector<Function*> functions;
-  for (auto F = module->begin(), E = module->end(); F != E; ++F)
+  for (auto F = mod->begin(), E = mod->end(); F != E; ++F)
   {
     StringRef name = F->getName();
     if (name.startswith(prefix))
@@ -104,9 +104,9 @@ static std::string cleanName(StringRef name)
 }
 
 
-static inline Function* getOrInsertFunction(Module* module, Function* F)
+static inline Function* getOrInsertFunction(Module* mod, Function* F)
 {
-  return dyn_cast<Function>(module->getOrInsertFunction(F->getName(), F->getFunctionType()));
+  return dyn_cast<Function>(mod->getOrInsertFunction(F->getName(), F->getFunctionType()));
 }
 
 
@@ -121,8 +121,8 @@ V get(std::map<K, V>& theMap, const K& key, V defaultVal = static_cast<V>(nullpt
 }
 
 
-DxrFallbackCompiler::DxrFallbackCompiler(llvm::Module* module, const std::vector<std::string>& shaderNames, unsigned maxAttributeSize, unsigned stackSizeInBytes, bool findCalledShaders /*= false*/)
-  : m_module(module)
+DxrFallbackCompiler::DxrFallbackCompiler(llvm::Module* mod, const std::vector<std::string>& shaderNames, unsigned maxAttributeSize, unsigned stackSizeInBytes, bool findCalledShaders /*= false*/)
+  : m_module(mod)
   , m_entryShaderNames(shaderNames)
   , m_stackSizeInBytes(stackSizeInBytes)
   , m_maxAttributeSize(maxAttributeSize)
@@ -553,24 +553,24 @@ void DxrFallbackCompiler::createStateFunctions(
 
 void DxrFallbackCompiler::createLaunchParams(Function* func)
 {
-  Module* module = func->getParent();
-  Function* rewrite_setLaunchParams = module->getFunction("rewrite_setLaunchParams");
+  Module* mod = func->getParent();
+  Function* rewrite_setLaunchParams = mod->getFunction("rewrite_setLaunchParams");
   CallInst* call = dyn_cast<CallInst>(*rewrite_setLaunchParams->user_begin());
 
-  LLVMContext& context = module->getContext();
+  LLVMContext& context = mod->getContext();
   Instruction* insertBefore = call;
 
-  Function* DTidFunc = FunctionBuilder(module, "dx.op.threadId.i32").i32().i32().i32().build();
+  Function* DTidFunc = FunctionBuilder(mod, "dx.op.threadId.i32").i32().i32().i32().build();
   Value* DTidx = CallInst::Create(DTidFunc, { makeInt32((int)hlsl::OP::OpCode::ThreadId, context), makeInt32(0, context) }, "DTidx", insertBefore);
   Value* DTidy = CallInst::Create(DTidFunc, { makeInt32((int)hlsl::OP::OpCode::ThreadId, context), makeInt32(1, context) }, "DTidy", insertBefore);
 
   Value* dimx = call->getArgOperand(1);
   Value* dimy = call->getArgOperand(2);
 
-  Function* groupIndexFunc = FunctionBuilder(module, "dx.op.flattenedThreadIdInGroup.i32").i32().i32().build();
+  Function* groupIndexFunc = FunctionBuilder(mod, "dx.op.flattenedThreadIdInGroup.i32").i32().i32().build();
   Value* groupIndex = CallInst::Create(groupIndexFunc, { makeInt32(96, context) }, "groupIndex", insertBefore);
 
-  Function* fb_setLaunchParams = module->getFunction("fb_Fallback_SetLaunchParams");
+  Function* fb_setLaunchParams = mod->getFunction("fb_Fallback_SetLaunchParams");
   Value* runtimeDataArg = call->getArgOperand(0);
   CallInst::Create(fb_setLaunchParams, { runtimeDataArg, DTidx, DTidy, dimx, dimy, groupIndex }, "", insertBefore);
 
@@ -580,9 +580,9 @@ void DxrFallbackCompiler::createLaunchParams(Function* func)
 
 void DxrFallbackCompiler::createStateDispatch(Function* func, const IntToFuncMap& stateFunctionMap, Type* runtimeDataArgTy)
 {
-  Module* module = func->getParent();
+  Module* mod = func->getParent();
   Function* dispatchFunc = createDispatchFunction(stateFunctionMap, runtimeDataArgTy);
-  Function* rewrite_dispatchFunc = module->getFunction("rewrite_dispatch");
+  Function* rewrite_dispatchFunc = mod->getFunction("rewrite_dispatch");
   rewrite_dispatchFunc->replaceAllUsesWith(dispatchFunc);
   rewrite_dispatchFunc->eraseFromParent();
 }

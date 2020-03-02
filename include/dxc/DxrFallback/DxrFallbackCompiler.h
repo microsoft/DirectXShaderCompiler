@@ -50,7 +50,7 @@ public:
   // called by functions in shaderNames. Shader entry state IDs are still
   // returned only for those originally in shaderNames. findCalledShaders used 
   // for testing.
-  DxrFallbackCompiler(llvm::Module* module, const std::vector<std::string>& shaderNames, unsigned maxAttributeSize, unsigned stackSizeInBytes, bool findCalledShaders = false);
+  DxrFallbackCompiler(llvm::Module* mod, const std::vector<std::string>& shaderNames, unsigned maxAttributeSize, unsigned stackSizeInBytes, bool findCalledShaders = false);
 
   // 0 - no debug output
   // 1 - dump initial combined module, compiled module, and final linked module
