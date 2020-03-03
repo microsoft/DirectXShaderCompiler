@@ -720,11 +720,9 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
   } break;
   case DXIL::ResourceClass::Sampler: {
     DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
-
-    RP.Class = DXIL::ResourceClass::Sampler;
-    RP.Kind = DXIL::ResourceKind::Sampler;
-    if (kind == DXIL::SamplerKind::Comparison)
-      RP.Kind = DXIL::ResourceKind::SamplerComparison;
+    DxilSampler Sampler;
+    Sampler.SetSamplerKind(kind);
+    RP = resource_helper::loadFromResourceBase(&Sampler);
   }
   default:
     break;
