@@ -4,8 +4,8 @@
 
 // CHECK: %[[x:.*]] = add i32
 // CHECK: %[[y:.*]] = add i32
-// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %[[x]], i64 0, metadata ![[vec:.*]], metadata ![[xexp:.*]])
-// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %[[y]], i64 0, metadata ![[vec]], metadata ![[yexp:.*]])
+// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %[[x]], i64 0, metadata ![[vec:.*]], metadata ![[xexp:.*]]), !dbg
+// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %[[y]], i64 0, metadata ![[vec]], metadata ![[yexp:.*]]), !dbg
 
 // Exclude quoted source file (see readme)
 // CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
