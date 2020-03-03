@@ -29,6 +29,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 #include "CGHLSLRuntime.h" // HLSL Change
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change
 using namespace clang;
 using namespace CodeGen;
 
@@ -1788,6 +1789,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
       // Otherwise, create a temporary to hold the value.
       llvm::AllocaInst *Alloc =
           CreateTempAlloca(ConvertTypeForMem(Ty), D.getName() + ".addr");
+      Alloc->setMetadata(hlsl::DxilMDHelper::kDxilTempAllocaMDName, llvm::MDTuple::get(Alloc->getContext(), {})); // HLSL Change
       Alloc->setAlignment(Align.getQuantity());
       DeclPtr = Alloc;
       DoStore = true;

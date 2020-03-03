@@ -230,6 +230,9 @@ public:
   // Variable debug layout metadata.
   static const char kDxilVariableDebugLayoutMDName[];
 
+  // Indication of temporary storage metadata.
+  static const char kDxilTempAllocaMDName[];
+
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*

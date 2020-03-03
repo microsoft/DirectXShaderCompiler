@@ -10,20 +10,22 @@ float4 main() : SV_Target {
   // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
   // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
-  float x = 10;
-  // select i1 %[[p]], float 1.000000e+01, float 1.000000e+01
+  int x = 10;
+  // select i1 %[[p]], i32 10, i32 10
 
-  float y = x + 5;
-  // CHECK: %[[a1:.+]] = fadd
-  // select i1 %[[p]], float [[a1]], float [[a1]]
+  int y = x + 5;
+  // CHECK: %[[a1:.+]] = add
+  // select i1 %[[p]], i32 [[a1]], i32 [[a1]]
 
-  float z = y * 2;
-  // CHECK: %[[b1:.+]] = fmul
-  // select i1 %[[p]], float [[b1]], float [[b1]]
+  int z = y * 2;
+  // CHECK: %[[b1:.+]] = mul
+  // select i1 %[[p]], i32 [[b1]], i32 [[b1]]
 
-  float w = z / 0.5;
-  // CHECK: %[[c1:.+]] = fdiv
-  // select i1 %[[p]], float [[c1]], float [[c1]]
+  int w = z / 0.5;
+  // CHECK: sitofp
+  // CHECK: fdiv
+  // CHECK: %[[c1:.+]] = fptosi
+  // select i1 %[[p]], i32 [[c1]], i32 [[c1]]
 
   Texture2D tex = tex0; 
   // CHECK: load i32, i32* @dx.nothing
