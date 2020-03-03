@@ -23,7 +23,9 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
@@ -1287,6 +1289,30 @@ class DxcAssemblyAnnotationWriter : public llvm::AssemblyAnnotationWriter {
 public:
   ~DxcAssemblyAnnotationWriter() {}
   void printInfoComment(const Value &V, formatted_raw_ostream &OS) override {
+    if (const Instruction *I = dyn_cast<Instruction>(&V)) {
+      if (isa<DbgInfoIntrinsic>(I)) {
+        DILocalVariable *Var = nullptr;
+        DIExpression *Expr = nullptr;
+        if (const DbgDeclareInst *DI = dyn_cast<DbgDeclareInst>(I)) {
+          Var = DI->getVariable();
+          Expr = DI->getExpression();
+        }
+        else if (const DbgValueInst *DI = dyn_cast<DbgValueInst>(I)) {
+          Var = DI->getVariable();
+          Expr = DI->getExpression();
+        }
+
+        if (Var && Expr) {
+          OS << " ; var:\"" << Var->getName() << "\"" << " ";
+          Expr->printAsBody(OS);
+        }
+      }
+      else {
+        DebugLoc Loc = I->getDebugLoc();
+        if (Loc && Loc.getLine() != 0)
+          OS << " ; line:" << Loc.getLine() << " col:" << Loc.getCol();
+      }
+    }
     const CallInst *CI = dyn_cast<const CallInst>(&V);
     if (!CI) {
       return;
