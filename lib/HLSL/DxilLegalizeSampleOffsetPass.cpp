@@ -73,11 +73,6 @@ public:
     // Run simple optimization to legalize offsets.
     LegalizeOffsets(ssaIllegalOffsets);
 
-    // Remove PHINodes to keep code shape.
-    legacy::FunctionPassManager PM(F.getParent());
-    PM.add(createDemoteRegisterToMemoryHlslPass());
-    PM.run(F);
-
     FinalCheck(illegalOffsets, F, hlslOP);
 
     return true;

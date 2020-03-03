@@ -1,4 +1,4 @@
-//===--------- DxilValueCache.cpp - Dxil Constant Value Cache ------------===//
+//===--------- DxilValueCache.h - Dxil Constant Value Cache --------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -6,6 +6,9 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef LLVM_ANALYSIS_DXILVALUECACHE_H
+#define LLVM_ANALYSIS_DXILVALUECACHE_H
 
 #include "llvm/Pass.h"
 #include "llvm/IR/ValueMap.h"
@@ -80,4 +83,4 @@ Pass *createDxilValueCachePass();
 
 }
 
-
+#endif
