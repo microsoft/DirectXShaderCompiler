@@ -172,6 +172,7 @@ public:
   bool ExportShadersOnly = false; // OPT_export_shaders_only
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
+  unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
 
   std::vector<std::string> Warnings;
 

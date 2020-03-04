@@ -150,7 +150,8 @@ def fno_honor_infinities : Flag<["-"], "fno-honor-infinities">, Group<hlsloptz_G
 //  Flags<[CoreOption]>, HelpText<"Form fused FP ops (e.g. FMAs): fast (everywhere)"
 //  " | on (according to FP_CONTRACT pragma, default) | off (never fuse)">;
 def flimited_precision_EQ : Joined<["-"], "flimited-precision=">, Group<hlsloptz_Group>;
-
+def memdep_block_scan_limit : Separate<["-", "/"], "memdep-block-scan-limit">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"The number of instructions to scan in a block in memory dependency analysis.">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
