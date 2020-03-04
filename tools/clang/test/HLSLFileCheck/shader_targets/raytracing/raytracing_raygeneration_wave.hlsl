@@ -1,18 +1,6 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// CHECK:   %[[_2_:[0-9]+]] = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?Log@@3URWByteAddressBuffer@@A", align 4
-// CHECK:   %[[DispatchRaysIndex:DispatchRaysIndex|[0-9]+]] = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 0)
-// CHECK:   %[[DispatchRaysIndex16:DispatchRaysIndex16|[0-9]+]] = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 1)
-// CHECK:   %[[_4_:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer(i32 160, %struct.RWByteAddressBuffer %[[_2_]])
-// CHECK:   %[[AtomicAdd:AtomicAdd|[0-9]+]] = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %[[_4_]], i32 0, i32 0, i32 undef, i32 undef, i32 8)
-// CHECK:   %[[WaveActiveOp:WaveActiveOp|[0-9]+]] = call i64 @dx.op.waveActiveOp.i64(i32 119, i64 8, i8 0, i8 0)
-// CHECK:   %[[conv:conv|[0-9]+]] = trunc i64 %[[WaveActiveOp]] to i32
-// CHECK:   %[[add:add|[0-9]+]] = add i32 %[[conv]], %[[AtomicAdd]]
-// CHECK:   %[[_5_:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer(i32 160, %struct.RWByteAddressBuffer %[[_2_]])
-// CHECK:   call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[_5_]], i32 %[[add]], i32 undef, i32 %[[DispatchRaysIndex]], i32 undef, i32 undef, i32 undef, i8 1, i32 4)
-// CHECK:   %[[add5:add5|[0-9]+]] = add i32 %[[add]], 4
-// CHECK:   %[[_6_:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer(i32 160, %struct.RWByteAddressBuffer %[[_2_]])
-// CHECK:   call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[_6_]], i32 %[[add5]], i32 undef, i32 %[[DispatchRaysIndex16]], i32 undef, i32 undef, i32 undef, i8 1, i32 4)
+// CHECK: call i64 @dx.op.waveActiveOp.i64(i32 119, i64 8, i8 0, i8 0)
 
 struct MyPayload {
   float4 color;
