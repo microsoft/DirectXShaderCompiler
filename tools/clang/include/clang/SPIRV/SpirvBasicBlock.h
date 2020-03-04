@@ -115,6 +115,10 @@ private:
   SpirvBasicBlock *continueTarget;
 
   /// DebugScope that groups all instructions in this basic block.
+  /// TODO: There can be multiple DebugScope instructions in a basic block.
+  ///       Currently, we do not find an actual case that DXC has to emit
+  ///       multiple DebugScope instructions in a basic block, but update it
+  ///       when we find the actual case.
   SpirvDebugScope *debugScope;
 };
 

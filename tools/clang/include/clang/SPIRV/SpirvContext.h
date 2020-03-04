@@ -201,11 +201,11 @@ public:
       llvm::StringRef name, const SpirvType *type, SpirvInstruction *value,
       SpirvDebugSource *source, uint32_t line, uint32_t column);
 
-  llvm::MapVector<const SpirvType *, SpirvDebugType *> getDebugTypes() const {
+  llvm::MapVector<const SpirvType *, SpirvDebugType *> &getDebugTypes() {
     return debugTypes;
   }
 
-  llvm::SmallVector<SpirvDebugInstruction *, 16> getTailDebugTypes() const {
+  llvm::SmallVector<SpirvDebugInstruction *, 16> &getTailDebugTypes() {
     return tailDebugTypes;
   }
 
@@ -310,15 +310,24 @@ public:
     return curShaderModelKind == ShaderModelKind::Amplification;
   }
 
+  /// Function to get all RichDebugInfo (i.e., the current status of
+  /// compilation units).
   llvm::MapVector<llvm::StringRef, RichDebugInfo> &getDebugInfo() {
     return debugInfo;
   }
 
+  /// Function to let the lexical scope stack grow when it enters a
+  /// new lexical scope.
   void pushDebugLexicalScope(RichDebugInfo *info, SpirvDebugInstruction *scope);
+
+  /// Function to pop the last element from the lexical scope stack.
   void popDebugLexicalScope(RichDebugInfo *info) {
     info->scopeStack.pop_back();
     currentLexicalScope = info->scopeStack.back();
   }
+
+  /// Function to get the last lexical scope that the SpirvEmitter
+  /// class instance entered.
   SpirvDebugInstruction *getCurrentLexicalScope() {
     return currentLexicalScope;
   }
@@ -392,6 +401,11 @@ private:
   // in debugTypes. No component references them other than themselves,
   // there by being able to safely emit them at the end of other debug
   // extension instructions.
+  //
+  // TODO: remove tailDebugTypes. Instead, we can keep
+  //       - DebugTypeMember and DebugTypeInheritance in DebugTypeComposite.
+  //       - keep DebugTypeTemplate in DebugTypeComposite and DebugFunction.
+  //       - keep DebugTypeTemplateParameter in DebugTypeTemplate.
   llvm::SmallVector<SpirvDebugInstruction *, 16> tailDebugTypes;
 
   // Mapping from RecordDecl (struct or class or enum) to a vector of its member

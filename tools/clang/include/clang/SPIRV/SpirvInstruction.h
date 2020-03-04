@@ -497,8 +497,10 @@ public:
 
 private:
   // When we turn on the rich debug info generation option, we want
-  // to keep the DebugLocalVariable instruction corresponding to
-  // this SpirvFunctionParameter instruction.
+  // to keep the local variable information (if this SpirvVariable
+  // is a local variable). Since DebugDeclare instruction maps a
+  // DebugLocalVariable instruction to OpVariable instruction, we
+  // keep a pointer to SpirvDebugDeclare in SpirvVariable.
   SpirvDebugDeclare *debugDecl;
 
   SpirvInstruction *initializer;
@@ -524,8 +526,10 @@ public:
 
 private:
   // When we turn on the rich debug info generation option, we want
-  // to keep the DebugLocalVariable instruction corresponding to
-  // this SpirvFunctionParameter instruction.
+  // to keep the function parameter information (like a local
+  // variable). Since DebugDeclare instruction maps a
+  // DebugLocalVariable instruction to OpVariable instruction, we
+  // keep a pointer to SpirvDebugDeclare in SpirvVariable.
   SpirvDebugDeclare *debugDecl;
 };
 
@@ -1814,7 +1818,7 @@ public:
   void setDebugQualType(QualType type) { debugQualType = type; }
   void setDebugSpirvType(const SpirvType *type) { debugSpirvType = type; }
 
-  virtual SpirvDebugInstruction *getParent() const { return nullptr; }
+  virtual SpirvDebugInstruction *getParentScope() const { return nullptr; }
 
 protected:
   // TODO: Replace opcode type with an enum, when it is available in
@@ -1907,7 +1911,7 @@ public:
   uint32_t getLine() const { return fnLine; }
   uint32_t getColumn() const { return fnColumn; }
   void setParent(SpirvDebugInstruction *scope) { parentScope = scope; }
-  SpirvDebugInstruction *getParent() const override { return parentScope; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getFlags() const { return flags; }
 
@@ -1942,7 +1946,7 @@ public:
   uint32_t getLine() const { return fnLine; }
   uint32_t getColumn() const { return fnColumn; }
   void setParent(SpirvDebugInstruction *scope) { parentScope = scope; }
-  SpirvDebugInstruction *getParent() const override { return parentScope; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getFlags() const { return flags; }
   uint32_t getScopeLine() const { return scopeLine; }
@@ -1998,7 +2002,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  SpirvDebugInstruction *getParent() const override { return parentScope; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
   uint32_t getFlags() const { return flags; }
   llvm::Optional<uint32_t> getArgNumber() const { return argNumber; }
 
@@ -2029,7 +2033,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  SpirvDebugInstruction *getParent() const override { return parentScope; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getFlags() const { return flags; }
   SpirvInstruction *getVariable() const { return var; }
@@ -2137,7 +2141,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  SpirvDebugInstruction *getParent() const override { return parent; }
+  SpirvDebugInstruction *getParentScope() const override { return parent; }
 
 private:
   SpirvDebugSource *source;
@@ -2146,8 +2150,10 @@ private:
   SpirvDebugInstruction *parent;
 };
 
-/// Represent DebugScope. We assume that DXC does not generate inlining
-/// information. We do not add "Inlined" operand.
+/// Represent DebugScope. DebugScope has two operands: a lexical scope
+/// and DebugInlinedAt. The DebugInlinedAt is an optional argument
+/// and it is only used when we inline a function. Since DXC does not
+/// conduct the inlining, we do not add DebugInlinedAt operand.
 class SpirvDebugScope : public SpirvDebugInstruction {
 public:
   SpirvDebugScope(SpirvDebugInstruction *);
@@ -2397,7 +2403,7 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  SpirvDebugInstruction *getParent() const override { return parent; }
+  SpirvDebugInstruction *getParentScope() const override { return parent; }
 
   void setType(SpirvDebugType *type_) { type = type_; }
   SpirvDebugType *getType() const { return type; }
@@ -2456,7 +2462,7 @@ public:
   llvm::SmallVector<SpirvDebugInstruction *, 4> &getMembers() {
     return members;
   }
-  SpirvDebugInstruction *getParent() const override { return parent; }
+  SpirvDebugInstruction *getParentScope() const override { return parent; }
   uint32_t getTag() const { return tag; }
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }

@@ -19,7 +19,7 @@ template <class T>
 void addDebugInfoToMap(
     llvm::DenseMap<SpirvDebugInstruction *, std::vector<T *>> &map, T *info,
     SpirvDebugInstruction *alt) {
-  auto *parent = info->getParent();
+  auto *parent = info->getParentScope();
   if (!parent)
     parent = alt;
 

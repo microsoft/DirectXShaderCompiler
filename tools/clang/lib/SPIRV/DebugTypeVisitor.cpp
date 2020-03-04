@@ -280,7 +280,7 @@ bool DebugTypeVisitor::visit(SpirvModule *module, Phase phase) {
     // SPIR-V module.
     // Note that we don't add debug types to the module when we create them, as
     // there could be duplicates.
-    for (const auto typePair : spvContext.getDebugTypes()) {
+    for (const auto &typePair : spvContext.getDebugTypes()) {
       module->addDebugInfo(typePair.second);
 
       // If SpirvDebugFunction is a member of this composite type and
