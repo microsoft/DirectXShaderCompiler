@@ -108,9 +108,7 @@ public:
 
   void MarkHasCounter(Value *handle, Type *i8Ty) {
     CallInst *CIHandle = cast<CallInst>(handle);
-    hlsl::HLOpcodeGroup group =
-        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
-    DXASSERT(group == HLOpcodeGroup::HLAnnotateHandle, "else invalid handle");
+    DXASSERT(hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction()) == HLOpcodeGroup::HLAnnotateHandle, "else invalid handle");
     // Mark has counter for the input handle.
     Value *counterHandle =
         CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
