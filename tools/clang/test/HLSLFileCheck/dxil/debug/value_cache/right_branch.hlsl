@@ -7,7 +7,7 @@ Texture2D tex1 : register(t42);
 
 [RootSignature("DescriptorTable(SRV(t0), SRV(t42))")]
 float4 main() : SV_Target {
-  // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 42
+  // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 42
 
   float x = 10;
   float y = x + 5;
