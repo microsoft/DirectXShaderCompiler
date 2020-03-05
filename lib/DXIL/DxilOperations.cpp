@@ -656,7 +656,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, WaveAllBitCount=135, WavePrefixBitCount=136
   if ((110 <= op && op <= 121) || (135 <= op && op <= 136)) {
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
@@ -792,7 +792,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveMultiPrefixBitCount=167
   if ((165 <= op && op <= 167)) {
     major = 6;  minor = 5;
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
     return;
   }
   // Instructions: GeometryIndex=213
