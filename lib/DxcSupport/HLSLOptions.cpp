@@ -680,7 +680,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // XXX TODO: Sort this out, since it's required for new API, but a separate argument for old APIs.
   if ((flagsToInclude & hlsl::options::DriverOption) &&
-      opts.TargetProfile.empty() && !opts.DumpBin && opts.Preprocess.empty() && !opts.RecompileFromBinary) {
+      !(flagsToInclude & hlsl::options::RewriteOption) &&
+      opts.TargetProfile.empty() && !opts.DumpBin && opts.Preprocess.empty() && !opts.RecompileFromBinary
+      ) {
     // Target profile is required in arguments only for drivers when compiling;
     // APIs take this through an argument.
     errors << "Target profile argument is missing";
@@ -878,6 +880,23 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (opts.DebugNameForSource && !opts.DebugInfo) {
     errors << "/Zss requires debug info (/Zi)";
     return 1;
+  }
+
+  // Rewriter Options
+  if (flagsToInclude & hlsl::options::RewriteOption) {
+    opts.RWOpt.Unchanged = Args.hasFlag(OPT_rw_unchanged, OPT_INVALID, false);
+    opts.RWOpt.SkipFunctionBody = Args.hasFlag(OPT_rw_skip_function_body, OPT_INVALID, false);
+    opts.RWOpt.SkipStatic = Args.hasFlag(OPT_rw_skip_static, OPT_INVALID, false);
+    opts.RWOpt.GlobalExternByDefault = Args.hasFlag(OPT_rw_global_extern_by_default, OPT_INVALID, false);
+    opts.RWOpt.KeepUserMacro = Args.hasFlag(OPT_rw_keep_user_macro, OPT_INVALID, false);
+    opts.RWOpt.ExtractEntryUniforms = Args.hasFlag(OPT_rw_extract_entry_uniforms, OPT_INVALID, false);
+    opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
+
+    if (opts.EntryPoint.empty() &&
+        (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms)) {
+      errors << "-rw-remove-unused-globals and -rw-extract-entry-uniforms requires entry point (-E) to be specified.";
+      return 1;
+    }
   }
 
   opts.Args = std::move(Args);

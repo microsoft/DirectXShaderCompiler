@@ -13,8 +13,22 @@
 #ifndef __DXC_DXCLIB__
 #define __DXC_DXCLIB__
 
+namespace llvm {
+class raw_ostream;
+}
+
 namespace dxc
 {
+class DxcDllSupport;
+
+// Writes compiler version info to stream
+void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS,
+                                const char *ExternalLib,
+                                const char *ExternalFn,
+                                dxc::DxcDllSupport &DxcSupport);
+void WriteDXILVersionInfo(llvm::raw_ostream &OS,
+                          dxc::DxcDllSupport &DxilSupport);
+
 #ifdef _WIN32
 int main(int argc, const wchar_t **argv_);
 #else
