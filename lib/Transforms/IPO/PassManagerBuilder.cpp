@@ -352,6 +352,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
+      MPM.add(createDxilRemoveDeadBlocksPass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
@@ -640,6 +641,7 @@ void PassManagerBuilder::populateModulePassManager(
                                               // so no unused resources get re-added to
                                               // DxilModule.
     MPM.add(createMultiDimArrayToOneDimArrayPass());
+    MPM.add(createDxilRemoveDeadBlocksPass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
     MPM.add(createDeadCodeEliminationPass());
