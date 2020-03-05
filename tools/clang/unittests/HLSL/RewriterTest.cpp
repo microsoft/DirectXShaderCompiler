@@ -86,6 +86,7 @@ public:
   TEST_METHOD(RunNoFunctionBodyInclude);
   TEST_METHOD(RunNoStatic);
   TEST_METHOD(RunKeepUserMacro);
+  TEST_METHOD(RunExtractUniforms);
   TEST_METHOD(RunRewriterFails)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -219,9 +220,15 @@ public:
     DxcDefine myDefines[myDefinesCount] = {
         {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
 
+    LPCWSTR args[] = {L"-HV", L"2016"};
+
+    CComPtr<IDxcRewriter2> rewriter2;
+    VERIFY_SUCCEEDED(rewriter->QueryInterface(&rewriter2));
     // Run rewrite unchanged on the source code
-    VERIFY_SUCCEEDED(rewriter->RewriteUnchanged(source.BlobEncoding, myDefines,
-                                                myDefinesCount, ppResult));
+    VERIFY_SUCCEEDED(rewriter2->RewriteWithOptions( source.BlobEncoding, path,
+                                                    args, _countof(args),
+                                                    myDefines, myDefinesCount,
+                                                    nullptr, ppResult));
 
     // check for compilation errors
     HRESULT hrStatus;
@@ -631,6 +638,52 @@ float test(float a, float b) {\n\
 // Macros:\n\
 #define X 1\n\
 #define Y(A, B)  ( ( A ) + ( B ) )\n\
+") == 0);
+}
+
+TEST_F(RewriterTest, RunExtractUniforms) {
+  CComPtr<IDxcRewriter> pRewriter;
+  CComPtr<IDxcRewriter2> pRewriter2;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  VERIFY_SUCCEEDED(pRewriter->QueryInterface(&pRewriter2));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\rewrite-uniforms.hlsl")
+          .c_str());
+
+  LPCWSTR compileOptions[] = {L"-E", L"FloatFunc", L"-extract-entry-uniforms"};
+
+  // Run rewrite on the source code to move uniform params to globals
+  VERIFY_SUCCEEDED(pRewriter2->RewriteWithOptions(
+    source.BlobEncoding, L"rewrite-uniforms.hlsl",
+    compileOptions, _countof(compileOptions),
+    nullptr, 0, nullptr, &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
+"// Rewrite unchanged result:\n\
+[RootSignature(\"RootFlags(0),DescriptorTable(UAV(u0, numDescriptors = 1), CBV(b0, numDescriptors = 1))\")]\n\
+[numthreads(4, 8, 16)]\n\
+void IntFunc(uint3 id : SV_DispatchThreadID, uniform RWStructuredBuffer<int> buf, uniform uint ui) {\n\
+  buf[id.x + id.y + id.z] = id.x + ui;\n\
+}\n\
+\n\
+\n\
+uniform RWStructuredBuffer<float> buf;\n\
+cbuffer _Params {\n\
+uniform uint ui;\n\
+}\n\
+[RootSignature(\"RootFlags(0),DescriptorTable(UAV(u0, numDescriptors = 1), CBV(b0, numDescriptors = 1))\")]\n\
+[numthreads(4, 8, 16)]\n\
+void FloatFunc(uint3 id : SV_DispatchThreadID) {\n\
+  buf[id.x + id.y + id.z] = id.x;\n\
+}\n\
+\n\
 ") == 0);
 }
 

@@ -9,69 +9,27 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/microcom.h"
+#include "dxclib/dxc.h"
 #include <vector>
 #include <string>
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxctools.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/Support/HLSLOptions.h"
+#include "llvm/Support/raw_ostream.h"
 
 inline bool wcsieq(LPCWSTR a, LPCWSTR b) { return _wcsicmp(a, b) == 0; }
 
 using namespace dxc;
+using namespace llvm::opt;
+using namespace hlsl::options;
 
-class DxrContext {
-
-private:
-  bool m_outputWarnings;
-  LPCWSTR m_pEntryPoint;
-  LPCWSTR m_pName;
-  DxcDefine *m_pDefines;
-  UINT32 m_definesCount;
-  DxcDllSupport& m_dxcSupport;
-
-public:
-  DxrContext(LPCWSTR pName, LPCWSTR pEntryPoint, DxcDefine *pDefines,
-             UINT32 definesCount, bool outputWarnings,
-             DxcDllSupport& dxcSupport) :
-    m_pName(pName), m_pEntryPoint(pEntryPoint), m_pDefines(pDefines),
-    m_definesCount(definesCount), m_outputWarnings(outputWarnings),
-    m_dxcSupport(dxcSupport) {
-  }
-
-  void RunRemoveUnusedGlobals();
-  void RunRewriteUnchanged();
-  HRESULT ReadFromFile(LPCWSTR pFileName, _COM_Outptr_ IDxcBlobEncoding** pBlobEncoding);
-};
-
-void DxrContext::RunRemoveUnusedGlobals() {
-  CComPtr<IDxcRewriter> pRewriter;
-  CComPtr<IDxcOperationResult> pRewriteResult;
-  CComPtr<IDxcBlobEncoding> pBlobEncoding;
-
-  IFT_Data(ReadFromFile(m_pName, &pBlobEncoding), m_pName);
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
-  IFT(pRewriter->RemoveUnusedGlobals(pBlobEncoding, m_pEntryPoint, m_pDefines, m_definesCount, &pRewriteResult));
-
-  WriteOperationResultToConsole(pRewriteResult, m_outputWarnings);
-}
-
-void DxrContext::RunRewriteUnchanged() {
-  CComPtr<IDxcRewriter> pRewriter;
-  CComPtr<IDxcOperationResult> pRewriteResult;
-  CComPtr<IDxcBlobEncoding> pBlobEncoding;
-
-  IFT(ReadFromFile(m_pName, &pBlobEncoding));
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
-  IFT(pRewriter->RewriteUnchanged(pBlobEncoding, m_pDefines, m_definesCount, &pRewriteResult));
-
-  WriteOperationResultToConsole(pRewriteResult, m_outputWarnings);
-}
 
 class FileMapDxcBlobEncoding : public IDxcBlobEncoding {
 private:
@@ -152,141 +110,101 @@ public:
   }
 };
 
-_Use_decl_annotations_
-HRESULT DxrContext::ReadFromFile(LPCWSTR pFileName, IDxcBlobEncoding** pBlobEncoding) {
-  return FileMapDxcBlobEncoding::CreateForFile(pFileName, pBlobEncoding);
-}
-
-void PrintUsage() {
-  wprintf(L"Usage: dxr.exe MODE FILE OPTIONS\n");
-  wprintf(L"MODE can be either -unchanged or -remove-unused-globals.\n");
-  wprintf(L"FILE is the .hlsl file to be rewritten.\n");
-  wprintf(L"  Note that this file will be read using the system default Windows ANSI code page.\n");
-  wprintf(L"OPTIONS currently supports:\n"
-          L"  -E<entry point>\n"
-          L"  -D<define-name>\n"
-          L"  -D<define-name>=<define-value>\n"
-          L"  -external <dxcompiler-path> <entry-point>\n"
-          L"  -no-warnings\n");
-}
-
 int __cdecl wmain(int argc, const wchar_t **argv_) {
-  if (argc < 2 || wcsieq(argv_[1], L"-?") || wcsieq(argv_[1], L"/?")) {
-    PrintUsage();
-    return 0;
-  }
-
-  if (argc < 3) {
-    PrintUsage();
-    return 1;
-  }
-
-  // Determine type of rewrite
-  LPCWSTR pModeName = argv_[1];
-  int modeNum = 0;
-
-  if (wcsieq(pModeName, L"-unchanged")) {
-    modeNum = 0;
-  }
-  else if (wcsieq(pModeName, L"-remove-unused-globals")) {
-    modeNum = 1;
-  }
-  else {
-    printf("Mode does not exist: [%S].\n", pModeName);
-    return 1;
-  }
-
-  // Get the file name
-  LPCWSTR pFileName = argv_[2];
-
-  // Parse command line options
+  if (FAILED(DxcInitThreadMalloc())) return 1;
+  DxcSetThreadMallocToDefault();
   try {
+    if (initHlslOptTable()) throw std::bad_alloc();
+
+    // Parse command line options.
+    const OptTable *optionTable = getHlslOptTable();
+    MainArgs argStrings(argc, argv_);
+    DxcOpts dxcOpts;
     DxcDllSupport dxcSupport;
-    bool outputWarnings = true;
-    LPCWSTR pEntryPoint = nullptr;
-    int definesCount = 0;
-    std::vector<DxcDefine> definesVector;
-    std::vector<std::wstring> definesPieces; // This ensures that the memory needed for the DXCDefine ptrs won't get freed too soon
 
-    for (int i = 2; i < argc; i++) {
-      std::wstring argString(argv_[i]);
-      std::wstring start = argString.substr(0, 2);
-
-      if (wcsieq(argv_[i], L"-external")) {
-        if (dxcSupport.IsEnabled()) {
-          printf("-external already specified\n");
-          return 1;
-        }
-        if (i+2 >= argc) {
-          printf("-external requires a DLL name and function entry point\n");
-          return 1;
-        }
-        ++i;
-        CW2A entryFnName(argv_[i+1]);
-        HRESULT hrLoad = dxcSupport.InitializeForDll(argv_[i], entryFnName);
-        if (FAILED(hrLoad)) {
-          wprintf(L"Unable to load support for external DLL %s with function %s - 0x%08x\n", argv_[i], argv_[i+1], hrLoad);
-          return 1;
-        }
-        ++i; // also consumed the function name
-        continue;
+    // Read options and check errors.
+    {
+      std::string errorString;
+      llvm::raw_string_ostream errorStream(errorString);
+      int optResult =
+          ReadDxcOpts(optionTable, DxrFlags, argStrings, dxcOpts, errorStream);
+      errorStream.flush();
+      if (errorString.size()) {
+        fprintf(stderr, "dxc failed : %s\n", errorString.data());
       }
-
-      if (wcsieq(argv_[i], L"-no-warnings")) {
-        outputWarnings = false;
-        continue;
-      }
-
-      if (wcsieq(start.c_str(), L"-E") || wcsieq(start.c_str(), L"/E")) {
-         pEntryPoint = argv_[i];
-         pEntryPoint += 2;
-         continue;
-      }
-
-      if (wcsieq(start.c_str(), L"-D") || wcsieq(start.c_str(), L"/D")) {
-        std::wstring thisDefine = argv_[i];
-        int index = thisDefine.find(L"=");
-        if (index != std::wstring::npos) {
-          std::wstring tempName = thisDefine.substr(2, index - 2);
-          std::wstring tempVal = thisDefine.substr(index + 1, std::wstring::npos);
-
-          definesPieces.push_back(tempName);
-          definesPieces.push_back(tempVal);
-        }
-        else {
-          LPCWSTR name = argv_[i];
-          name += 2;
-          LPCWSTR value = nullptr;
-          definesVector.push_back(GetDefine(name, value));
-        }
-        definesCount++;
+      if (optResult != 0) {
+        return optResult;
       }
     }
 
-    // Now that definesPieces will no longer be changed, use it to construct the DXCDefines
-    for (size_t i = 0; i < definesPieces.size(); i += 2) {
-      definesVector.push_back(GetDefine(definesPieces[i].c_str(), definesPieces[i + 1].c_str()));
+    // Apply defaults.
+    if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {
+      dxcOpts.EntryPoint = "main";
     }
 
-    DxcDefine *pDefinesArray = nullptr;
-    if (!definesVector.empty())
-      pDefinesArray = definesVector.data(); 
+    // Setup a helper DLL.
+    {
+      std::string dllErrorString;
+      llvm::raw_string_ostream dllErrorStream(dllErrorString);
+      int dllResult = SetupDxcDllSupport(dxcOpts, dxcSupport, dllErrorStream);
+      dllErrorStream.flush();
+      if (dllErrorString.size()) {
+        fprintf(stderr, "%s\n", dllErrorString.data());
+      }
+      if (dllResult)
+        return dllResult;
+    }
 
     EnsureEnabled(dxcSupport);
-    DxrContext context(pFileName, pEntryPoint, pDefinesArray, definesCount, outputWarnings, dxcSupport);
-
-    switch (modeNum) {
-    case 0:
-      context.RunRewriteUnchanged();
-      break;
-    case 1:
-      if (pEntryPoint == nullptr) {
-        printf("Cannot use -remove-unused-globals without specifying an entry point.\n");
-        return 1;
-      }
-      context.RunRemoveUnusedGlobals();
-      break;
+    // Handle help request, which overrides any other processing.
+    if (dxcOpts.ShowHelp) {
+      std::string helpString;
+      llvm::raw_string_ostream helpStream(helpString);
+      std::string version;
+      llvm::raw_string_ostream versionStream(version);
+      WriteDxCompilerVersionInfo(versionStream,
+        dxcOpts.ExternalLib.empty() ? (LPCSTR)nullptr : dxcOpts.ExternalLib.data(),
+        dxcOpts.ExternalFn.empty() ? (LPCSTR)nullptr : dxcOpts.ExternalFn.data(),
+        dxcSupport);
+      versionStream.flush();
+      optionTable->PrintHelp(helpStream, "dxr.exe", "HLSL Rewriter",
+                             version.c_str(),
+                             hlsl::options::RewriteOption,
+                             (dxcOpts.ShowHelpHidden ? 0 : HelpHidden));
+      helpStream.flush();
+      WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
+      return 0;
     }
+
+    CComPtr<IDxcRewriter2> pRewriter;
+    CComPtr<IDxcOperationResult> pRewriteResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    std::wstring wName(CA2W(dxcOpts.InputFile.empty()? "" : dxcOpts.InputFile.data()));
+    if (!dxcOpts.InputFile.empty()) {
+      IFT_Data(FileMapDxcBlobEncoding::CreateForFile(wName.c_str(), &pSource), wName.c_str());
+    }
+    IFT(dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
+    IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
+                                      argv_, argc,
+                                      nullptr, 0, nullptr,
+                                      &pRewriteResult));
+
+    if (dxcOpts.OutputObject.empty()) {
+      // No -Fo, print to console
+      WriteOperationResultToConsole(pRewriteResult, !dxcOpts.OutputWarnings);
+    } else {
+      WriteOperationErrorsToConsole(pRewriteResult, !dxcOpts.OutputWarnings);
+      HRESULT hr;
+      IFT(pRewriteResult->GetStatus(&hr));
+      if (SUCCEEDED(hr)) {
+        CA2W wOutputObject(dxcOpts.OutputObject.data());
+        CComPtr<IDxcBlob> pObject;
+        IFT(pRewriteResult->GetResult(&pObject));
+        WriteBlobToFile(pObject, wOutputObject.m_psz, dxcOpts.DefaultTextCodePage);
+        printf("Rewrite output: %s", dxcOpts.OutputObject.data());
+      }
+    }
+
   }
   catch (const ::hlsl::Exception& hlslException) {
     try {
