@@ -435,13 +435,13 @@ def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOpt
 def rw_unchanged : Flag<["-", "/"], "unchanged">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Rewrite HLSL, without changes.">;
 def rw_skip_function_body : Flag<["-", "/"], "skip-fn-body">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"">;
+  HelpText<"Translate function definitions to declarations">;
 def rw_skip_static : Flag<["-", "/"], "skip-static">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"">;
+  HelpText<"Remove static functions and globals when used with -skip-fn-body">;
 def rw_global_extern_by_default : Flag<["-", "/"], "global-extern-by-default">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"">;
+  HelpText<"Set extern on non-static globals">;
 def rw_keep_user_macro : Flag<["-", "/"], "keep-user-macro">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
-  HelpText<"">;
+  HelpText<"Write out user defines after rewritten HLSL">;
 def rw_extract_entry_uniforms : Flag<["-", "/"], "extract-entry-uniforms">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Move uniform parameters from entry point to global scope">;
 def rw_remove_unused_globals : Flag<["-", "/"], "remove-unused-globals">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
