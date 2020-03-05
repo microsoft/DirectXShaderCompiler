@@ -2743,6 +2743,14 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   }
 
   if (!bTypeMatch) {
+    // If the layouts match, just replace the type
+    SrcST = cast<StructType>(SrcTy);
+    if (SrcST->isLayoutIdentical(DstST)) {
+      BCI->mutateType(Val->getType());
+      BCI->replaceAllUsesWith(Val);
+      BCI->eraseFromParent();
+      return;
+    }
     assert(0 && "Type mismatch.");
     return;
   }
