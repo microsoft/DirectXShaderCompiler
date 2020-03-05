@@ -176,6 +176,11 @@ if "%TEST_ALL%"=="1" (
   set TEST_DXILCONV=1
 )
 
+if not exist %BIN_DIR%\dxilconv.dll (
+  echo Skipping dxilconv tests, dxilconv.dll not found.
+  set TEST_DXILCONV=0
+)
+
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   echo Unable to find te.exe on path.
@@ -207,7 +212,12 @@ if "%TEST_CLEAN%"=="1" (
 if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
-call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxbc2dxil.exe dxilconv.dll dxilconv-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll opt.exe
+call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
+if errorlevel 1 exit /b 1
+
+if "%TEST_DXILCONV%"=="1" (
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxbc2dxil.exe dxilconv.dll dxilconv-tests.dll opt.exe
+)
 if errorlevel 1 exit /b 1
 
 rem Begin SPIRV change
