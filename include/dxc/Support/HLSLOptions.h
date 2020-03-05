@@ -41,6 +41,7 @@ enum HlslFlags {
   NoArgumentUnused = (1 << 14),
   CoreOption = (1 << 15),
   ISenseOption = (1 << 16),
+  RewriteOption = (1 << 17),
 };
 
 enum ID {
@@ -64,7 +65,7 @@ static const unsigned CompilerFlags = HlslFlags::CoreOption;
 /// Flags for dxc.exe command-line tool.
 static const unsigned DxcFlags = HlslFlags::CoreOption | HlslFlags::DriverOption;
 /// Flags for dxr.exe command-line tool.
-static const unsigned DxrFlags = HlslFlags::CoreOption | HlslFlags::DriverOption;
+static const unsigned DxrFlags = HlslFlags::RewriteOption | HlslFlags::DriverOption;
 /// Flags for IDxcIntelliSense APIs.
 static const unsigned ISenseFlags = HlslFlags::CoreOption | HlslFlags::ISenseOption;
 
@@ -83,6 +84,16 @@ public:
   UINT32 ComputeNumberOfWCharsNeededForDefines();
   const DxcDefine *data() const { return DefineVector.data(); }
   unsigned size() const { return DefineVector.size(); }
+};
+
+struct RewriterOpts {
+  bool Unchanged = false;                   // OPT_rw_unchanged
+  bool SkipFunctionBody = false;            // OPT_rw_skip_function_body
+  bool SkipStatic = false;                  // OPT_rw_skip_static
+  bool GlobalExternByDefault = false;       // OPT_rw_global_extern_by_default
+  bool KeepUserMacro = false;               // OPT_rw_keep_user_macro
+  bool ExtractEntryUniforms = false;        // OPT_rw_extract_entry_uniforms
+  bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
 };
 
 /// Use this class to capture all options.
@@ -173,6 +184,9 @@ public:
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
+
+  // Rewriter Options
+  RewriterOpts RWOpt;
 
   std::vector<std::string> Warnings;
 
