@@ -17,6 +17,8 @@ At the moment, the DirectX HLSL Compiler provides the following components:
 
 - dxcompiler.dll, a DLL providing a componentized compiler, assembler, disassembler, and validator
 
+- dxilconv.dll, a DLL providing a converter from DXBC (older shader bytecode format)
+
 - various other tools based on the above components
 
 The Microsoft Windows SDK releases include a supported version of the compiler and validator.
@@ -40,12 +42,16 @@ Note: If you intend to build from sources on Linux/macOS, follow [these instruct
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
 * [Git](http://git-scm.com/downloads).
-* [Visual Studio 2017](https://www.visualstudio.com/downloads). Select the following workloads: Universal Windows Platform Development and Desktop Development with C++.
-* [Python](https://www.python.org/downloads/). Version 3.x is required.
+* [Python](https://www.python.org/downloads/) - version 3.x is required
+* [Visual Studio 2017](https://www.visualstudio.com/downloads) - select the following workloads: 
+    * Universal Windows Platform Development
+    * Desktop Development with C++
+* [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer
+* [Windows Driver Kit](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - same version as the SDK
 
 After cloning the project, you can set up a build environment shortcut by double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut on your desktop with a default configuration.
 
-Tests are built using the TAEF framework. Unless you have the Windows Driver Kit installed, you should run the script at `utils\hct\hctgettaef.py` from your build environment before you start building to download and unzip it as an external dependency. You should only need to do this once.
+Tests are built using the TAEF framework which is included in the Windows Driver Kit.
 
 To build, run this command on the HLSL Console.
 
