@@ -216,6 +216,12 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   else if (Instruction::Load == I->getOpcode()) {
     Simplified = ProcessAndSimpilfy_Load(I, DT);
   }
+  else if (Instruction::GetElementPtr == I->getOpcode()) {
+    SmallVector<Value *, 4> Ops;
+    for (unsigned i = 0; i < I->getNumOperands(); i++)
+      Ops.push_back(TryGetCachedValue(I->getOperand(i)));
+    Simplified = llvm::SimplifyGEPInst(Ops, DL, nullptr, DT);
+  }
   // The rest of the checks use LLVM stock simplifications
   else if (I->isBinaryOp()) {
     Simplified =
