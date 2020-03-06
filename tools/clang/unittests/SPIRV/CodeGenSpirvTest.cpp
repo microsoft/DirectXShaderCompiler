@@ -2192,10 +2192,10 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
   runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
 }
 
-// Test Vulkan1.2 target environment
-TEST_F(FileTest, TextureLoadVk1p2) {
+// Test OpEntryPoint in the Vulkan1.2 target environment
+TEST_F(FileTest, Vk1p2EntryPoint) {
   useVulkan1p2();
-  runFileTest("texture.load.vulkan1.2.hlsl");
+  runFileTest("vk.1p2.entry-point.hlsl");
 }
 
 } // namespace

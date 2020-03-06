@@ -86,7 +86,7 @@ uint32_t getHeaderVersion(llvm::StringRef env) {
     return 0x00010300u;
   if (env == "vulkan1.2")
     return 0x00010500u;
-  return 0x00010000;
+  return 0x00010000u;
 }
 
 constexpr uint32_t kGeneratorNumber = 14;

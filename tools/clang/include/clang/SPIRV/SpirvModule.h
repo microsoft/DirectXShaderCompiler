@@ -129,7 +129,7 @@ public:
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
-  std::vector<SpirvVariable *> getVariables() const { return variables; }
+  llvm::ArrayRef<SpirvVariable *> getVariables() const { return variables; }
 
 private:
   // Use a set for storing capabilities. This will ensure there are no duplicate
