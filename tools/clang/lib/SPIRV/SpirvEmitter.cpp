@@ -195,8 +195,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *mod,
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool beforeHlslLegalization,
-                        std::vector<uint32_t> *mod, std::string *messages) {
+                        bool beforeHlslLegalization, std::vector<uint32_t> *mod,
+                        std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -632,8 +632,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     spvBuilder.addEntryPoint(
         getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, entryInfo->funcDecl->getName(),
-        targetEnv == SPV_ENV_VULKAN_1_2 ? spvBuilder.getModule()->getVariables()
-                                        : declIdMapper.collectStageVars());
+        targetEnv == SPV_ENV_VULKAN_1_2
+            ? spvBuilder.getModule()->getVariables()
+            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
   }
 
   // Add Location decorations to stage input/output variables.
