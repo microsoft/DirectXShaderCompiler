@@ -22,10 +22,10 @@ IDxcPixType : public IUnknown
       _Outptr_result_z_ BSTR *Name) = 0;
 
   virtual STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *GetSizeInBits) = 0;
+      _Out_ DWORD *GetSizeInBits) = 0;
 
   virtual STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) = 0;
+      _COM_Outptr_ IDxcPixType** ppBaseType) = 0;
 };
 
 struct __declspec(uuid("d9df2c8b-2773-466d-9bc2-d848d8496bf6"))
@@ -47,13 +47,13 @@ struct __declspec(uuid("9ba0d9d3-457b-426f-8019-9f3849982aa2"))
 IDxcPixArrayType : public IDxcPixType
 {
   virtual STDMETHODIMP GetNumElements(
-      _Outptr_result_z_ DWORD* ppNumElements) = 0;
+      _Out_ DWORD* ppNumElements) = 0;
 
   virtual STDMETHODIMP GetIndexedType(
-      _Outptr_result_z_ IDxcPixType **ppElementType) = 0;
+      _COM_Outptr_ IDxcPixType **ppElementType) = 0;
 
   virtual STDMETHODIMP GetElementType(
-      _Outptr_result_z_ IDxcPixType** ppElementType) = 0;
+      _COM_Outptr_ IDxcPixType** ppElementType) = 0;
 };
 
 struct __declspec(uuid("6c707d08-7995-4a84-bae5-e6d8291f3b78"))
@@ -63,25 +63,25 @@ IDxcPixStructField : public IUnknown
       _Outptr_result_z_ BSTR *Name) = 0;
 
   virtual STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType** ppType) = 0;
+      _COM_Outptr_ IDxcPixType** ppType) = 0;
 
   virtual STDMETHODIMP GetOffsetInBits(
-      _Outptr_result_z_ DWORD *pOffsetInBits) = 0;
+      _Out_ DWORD *pOffsetInBits) = 0;
 };
 
 struct __declspec(uuid("24c08c44-684b-4b1c-b41b-f8772383d074"))
 IDxcPixStructType : public IDxcPixType
 {
   virtual STDMETHODIMP GetNumFields(
-      _Outptr_result_z_ DWORD* ppNumFields) = 0;
+      _Out_ DWORD* ppNumFields) = 0;
 
   virtual STDMETHODIMP GetFieldByIndex(
       DWORD dwIndex,
-      _Outptr_result_z_ IDxcPixStructField **ppField) = 0;
+      _COM_Outptr_ IDxcPixStructField **ppField) = 0;
 
   virtual STDMETHODIMP GetFieldByName(
       _In_ LPCWSTR lpName,
-      _Outptr_result_z_ IDxcPixStructField** ppField) = 0;
+      _COM_Outptr_ IDxcPixStructField** ppField) = 0;
 };
 
 struct __declspec(uuid("74d522f5-16c4-40cb-867b-4b4149e3db0e"))
@@ -96,12 +96,12 @@ IDxcPixDxilStorage : public IUnknown
       _COM_Outptr_ IDxcPixDxilStorage** ppResult) = 0;
 
   virtual STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegNum) = 0;
+      _Out_ DWORD* pRegNum) = 0;
 
   virtual STDMETHODIMP GetIsAlive() = 0;
 
   virtual STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType** ppType) = 0;
+      _COM_Outptr_ IDxcPixType** ppType) = 0;
 };
 
 struct __declspec(uuid("2f954b30-61a7-4348-95b1-2db356a75cde"))
@@ -111,7 +111,7 @@ IDxcPixVariable : public IUnknown
       _Outptr_result_z_ BSTR *Name) = 0;
 
   virtual STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) = 0;
+      _COM_Outptr_ IDxcPixType** ppType) = 0;
 
   virtual STDMETHODIMP GetStorage(
       _COM_Outptr_ IDxcPixDxilStorage **ppStorage) = 0;
@@ -121,15 +121,15 @@ struct __declspec(uuid("c59d302f-34a2-4fe5-9646-32ce7a52d03f"))
 IDxcPixDxilLiveVariables : public IUnknown
 {
   virtual STDMETHODIMP GetCount(
-      _Outptr_ DWORD *dwSize) = 0;
+      _Out_ DWORD *dwSize) = 0;
 
   virtual STDMETHODIMP GetVariableByIndex(
       _In_ DWORD Index,
-      _Outptr_result_z_ IDxcPixVariable ** ppVariable) = 0;
+      _COM_Outptr_ IDxcPixVariable ** ppVariable) = 0;
 
   virtual STDMETHODIMP GetVariableByName(
       _In_ LPCWSTR Name,
-      _Outptr_result_z_ IDxcPixVariable** ppVariable) = 0;
+      _COM_Outptr_ IDxcPixVariable** ppVariable) = 0;
 };
 
 struct __declspec(uuid("6dd5d45e-a417-4a26-b0ff-bdb7d6dcc63d"))
@@ -149,7 +149,7 @@ IDxcPixDxilDebugInfo : public IUnknown
 
   virtual STDMETHODIMP GetStackDepth(
       _In_ DWORD InstructionOffset,
-      _Outptr_ DWORD *StackDepth) = 0;
+      _Out_ DWORD* StackDepth) = 0;
 };
 
 struct __declspec(uuid("9c2a040d-8068-44ec-8c68-8bfef1b43789"))
