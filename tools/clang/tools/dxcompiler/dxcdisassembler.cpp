@@ -1285,8 +1285,9 @@ static const char *OpCodeSignatures[] = {
   "()",  // GeometryIndex
   "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
   "(rayQueryHandle)",  // RayQuery_CommittedInstanceContributionToHitGroupIndex
-  "(index,nonUniformIndex)",  // CreateHandleFromHeap
+  "(resourceClass,index,nonUniformIndex)",  // CreateHandleFromHeap
   "(res,resourceClass,resourceKind,props)",  // AnnotateHandle
+  "(bind,index,nonUniformIndex)",  // CreateHandleFromTable
   "(unpackMode,pk)",  // Unpack4x8
   "(packMode,x,y,z,w)"  // Pack4x8
 };

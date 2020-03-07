@@ -281,8 +281,9 @@ class db_instrhelp_gen:
                         print("  llvm::Value *get_%s() const { return Instr->getOperand(%d); }" % (o.name, o.pos - 1))
                         print("  void set_%s(llvm::Value *val) { Instr->setOperand(%d, val); }" % (o.name, o.pos - 1))
                         if o.is_const:
-                            print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
-                            print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
+                            if o.llvm_type in self.llvm_type_map:
+                                print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
+                                print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
             print("};")
             print("")
 
@@ -415,6 +416,7 @@ class db_oload_gen:
             "udt": "A(udt);",
             "obj": "A(obj);",
             "resproperty": "A(resProperty);",
+            "resbind": "A(resBind);",
         }
         last_category = None
         for i in self.instrs:

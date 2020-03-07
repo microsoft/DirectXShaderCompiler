@@ -5270,7 +5270,8 @@ Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
   IRBuilder<> Builder(CI);
   Value *opArg = ConstantInt::get(helper.i32Ty, (unsigned)opcode);
   return Builder.CreateCall(
-      dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx),
+      dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx),
+                 CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx),
                  // TODO: update nonUniformIndex later.
                  Builder.getInt1(false)});
 }

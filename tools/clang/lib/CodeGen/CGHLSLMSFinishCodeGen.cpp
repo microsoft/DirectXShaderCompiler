@@ -101,9 +101,11 @@ void LowerGetResourceFromHeap(
       Value *Index = CI->getArgOperand(1);
       IRBuilder<> Builder(CI);
       // Make a handle from GetResFromHeap.
+      // TODO: get res class.
+      Value *ResClass = Builder.getInt8(0);
       Value *Handle =
           HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLIntrinsic,
-                                  GetResFromHeapOp, HandleTy, {Index}, M);
+                                  GetResFromHeapOp, HandleTy, {ResClass, Index}, M);
 
       // Find the handle ptr for res ptr.
       auto it = ResourcePtrToHandlePtrMap.find(ResPtr);

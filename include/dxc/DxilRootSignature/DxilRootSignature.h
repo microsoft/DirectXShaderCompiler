@@ -109,6 +109,8 @@ enum class DxilRootSignatureFlags : uint32_t {
   LocalRootSignature = 0x80,
   DenyAmplificationShaderRootAccess = 0x100,
   DenyMeshShaderRootAccess = 0x200,
+  CBVSRVUAVHeapDirectlyIndexed = 0x400,
+  SamplerHeapDirectlyIndexed = 0x800,
   AllowLowTierReservedHwCbLimit = 0x80000000,
   ValidFlags = 0x800003ff
 };

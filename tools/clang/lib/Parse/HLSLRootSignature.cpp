@@ -359,6 +359,7 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
 
     case 'S':
         bKW = KW(space) || KW(Sampler) || KW(StaticSampler) || KW(SRV) ||
+              KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED) ||
               KW(SHADER_VISIBILITY_ALL)      ||  KW(SHADER_VISIBILITY_VERTEX) || 
               KW(SHADER_VISIBILITY_HULL)     || KW(SHADER_VISIBILITY_DOMAIN)  ||
               KW(SHADER_VISIBILITY_GEOMETRY) || KW(SHADER_VISIBILITY_PIXEL) ||
@@ -742,6 +743,12 @@ HRESULT RootSignatureParser::ParseRootSignatureFlags(DxilRootSignatureFlags & Fl
                 if ((bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::GlobalRootSignature))
                   IFC(Error(ERR_RS_LOCAL_FLAG_ON_GLOBAL, "LOCAL_ROOT_SIGNATURE flag used in global root signature"));
                 Flags |= DxilRootSignatureFlags::LocalRootSignature;
+                break;
+            case TokenType::CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED:
+                Flags |= DxilRootSignatureFlags::CBVSRVUAVHeapDirectlyIndexed;
+                break;
+            case TokenType::SAMPLER_HEAP_DIRECTLY_INDEXED:
+                Flags |= DxilRootSignatureFlags::SamplerHeapDirectlyIndexed;
                 break;
             default:
                 IFC(Error(ERR_RS_UNEXPECTED_TOKEN, "Expected a root signature flag value, found: '%s'", Token.GetStr()));

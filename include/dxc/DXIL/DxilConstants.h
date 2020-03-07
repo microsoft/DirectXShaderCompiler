@@ -379,6 +379,9 @@ namespace DXIL {
   // OPCODE-ENUM:BEGIN
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
+    // 
+    CreateHandleFromTable = 218, // create resource handle from table
+  
     // Amplification shader instructions
     DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
   
@@ -536,7 +539,7 @@ namespace DXIL {
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
     // Packing intrinsics
-    Pack4x8 = 219, // packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+    Pack4x8 = 220, // packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
   
     // Pixel shader
     AttributeAtVertex = 137, // returns the values of the attributes at the vertex.
@@ -688,7 +691,7 @@ namespace DXIL {
     FirstbitHi = 33, // Returns the location of the first set bit starting from the highest order bit and working downward.
   
     // Unpacking intrinsics
-    Unpack4x8 = 218, // unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
+    Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
   
     // Wave
     WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
@@ -715,9 +718,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
-    NumOpCodes_Dxil_1_6 = 220,
+    NumOpCodes_Dxil_1_6 = 221,
   
-    NumOpCodes = 220 // exclusive last value of enumeration
+    NumOpCodes = 221 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -725,6 +728,9 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
+    // 
+    CreateHandleFromTable,
+  
     // Amplification shader instructions
     DispatchMesh,
   
@@ -976,9 +982,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
-    NumOpClasses_Dxil_1_6 = 147,
+    NumOpClasses_Dxil_1_6 = 148,
   
-    NumOpClasses = 147 // exclusive last value of enumeration
+    NumOpClasses = 148 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
