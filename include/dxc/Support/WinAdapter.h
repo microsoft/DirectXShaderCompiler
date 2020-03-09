@@ -592,6 +592,7 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 //===--------------------- COM Interfaces ---------------------------------===//
 
 struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown {
+  IUnknown() : m_count(0) {};
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef();
   virtual ULONG Release();
