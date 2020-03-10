@@ -31,5 +31,9 @@
 #include "DxbcSignatures.h"
 #include <d3dcompiler.h>
 #include <wincrypt.h>
+
+#ifndef DECODE_D3D10_SB_TOKENIZED_PROGRAM_TYPE
 #include <d3d12TokenizedProgramFormat.hpp>
+#endif
+
 #include <ShaderBinary/ShaderBinary.h>
