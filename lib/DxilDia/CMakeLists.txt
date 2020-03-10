@@ -6,6 +6,7 @@ if (WIN32)
 endif (WIN32)
 
 add_llvm_library(LLVMDxilDia
+  DxcPixCompilationInfo.cpp
   DxcPixDxilDebugInfo.cpp
   DxcPixDxilStorage.cpp
   DxcPixEntrypoints.cpp
