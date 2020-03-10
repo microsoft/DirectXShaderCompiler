@@ -24,6 +24,7 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include "dxc/dxcpix.h"
 #ifdef _WIN32
 #include <atlfile.h>
 #include "dia2.h"
@@ -263,6 +264,8 @@ public:
   TEST_METHOD(DiaLoadRelocatedBitcode)
   TEST_METHOD(DiaLoadBitcodePlusExtraData)
   TEST_METHOD(DiaCompileArgs)
+
+  TEST_METHOD(PixDebugCompileInfo)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenInclude)
@@ -2807,6 +2810,117 @@ TEST_F(CompilerTest, DiaTableIndexThenOK) {
   VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
 }
 #endif // _WIN32 - exclude dia stuff
+
+#ifdef _WIN32
+TEST_F(CompilerTest, PixDebugCompileInfo) {
+  static const char source[] = R"(
+    SamplerState  samp0 : register(s0);
+    Texture2DArray tex0 : register(t0);
+
+    float4 foo(Texture2DArray textures[], int idx, SamplerState samplerState, float3 uvw) {
+      return textures[NonUniformResourceIndex(idx)].Sample(samplerState, uvw);
+    }
+
+    [RootSignature( "DescriptorTable(SRV(t0)), DescriptorTable(Sampler(s0)) " )]
+    float4 main(int index : INDEX, float3 uvw : TEXCOORD) : SV_Target {
+      Texture2DArray textures[] = {
+        tex0,
+      };
+      return foo(textures, index, samp0, uvw);
+    }
+  )";
+
+  CComPtr<IDxcBlob> pPart;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  const WCHAR *FlagList[] = {
+      L"/Zi",          L"-Zpr", L"/Qembed_debug",        L"/Fd",
+      L"F:\\my dir\\", L"-Fo",  L"F:\\my dir\\file.dxc",
+  };
+  const WCHAR *DefineList[] = {
+      L"MY_SPECIAL_DEFINE",
+      L"MY_OTHER_SPECIAL_DEFINE=\"MY_STRING\"",
+  };
+
+  std::vector<LPCWSTR> args;
+  for (unsigned i = 0; i < _countof(FlagList); i++) {
+    args.push_back(FlagList[i]);
+  }
+  for (unsigned i = 0; i < _countof(DefineList); i++) {
+    args.push_back(L"/D");
+    args.push_back(DefineList[i]);
+  }
+
+  auto CompileAndGetDebugPart = [&args](dxc::DxcDllSupport &dllSupport,
+                                        const char *source, wchar_t *profile,
+                                        IDxcBlob **ppDebugPart) {
+    CComPtr<IDxcBlob> pContainer;
+    CComPtr<IDxcLibrary> pLib;
+    CComPtr<IDxcContainerReflection> pReflection;
+    UINT32 index;
+
+    VerifyCompileOK(dllSupport, source, profile, args, &pContainer);
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+    VERIFY_SUCCEEDED(
+        dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+    VERIFY_SUCCEEDED(pReflection->Load(pContainer));
+    VERIFY_SUCCEEDED(
+        pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+    VERIFY_SUCCEEDED(pReflection->GetPartContent(index, ppDebugPart));
+  };
+
+  constexpr wchar_t *profile = L"ps_6_0";
+  CompileAndGetDebugPart(m_dllSupport, source, profile, &pPart);
+
+  CComPtr<IStream> pNewProgramStream;
+  VERIFY_SUCCEEDED(
+      pLib->CreateStreamFromBlobReadOnly(pPart, &pNewProgramStream));
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaDataSource));
+
+  VERIFY_SUCCEEDED(pDiaDataSource->loadDataFromIStream(pNewProgramStream));
+
+  CComPtr<IDiaSession> pSession;
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pSession));
+
+  CComPtr<IDxcPixDxilDebugInfoFactory> factory;
+  VERIFY_SUCCEEDED(pSession->QueryInterface(IID_PPV_ARGS(&factory)));
+
+  CComPtr<IDxcPixCompilationInfo> compilationInfo;
+  VERIFY_SUCCEEDED(factory->NewDxcPixCompilationInfo(&compilationInfo));
+
+  CComBSTR arguments;
+  VERIFY_SUCCEEDED(compilationInfo->GetArguments(&arguments));
+  for (unsigned i = 0; i < _countof(FlagList); i++) {
+    VERIFY_IS_TRUE(nullptr != wcsstr(arguments, FlagList[i]));
+  }
+
+  CComBSTR macros;
+  VERIFY_SUCCEEDED(compilationInfo->GetMacroDefinitions(&macros));
+  for (unsigned i = 0; i < _countof(DefineList); i++) {
+    std::wstring MacroDef = std::wstring(L"-D") + DefineList[i];
+    VERIFY_IS_TRUE(nullptr != wcsstr(macros, MacroDef.c_str()));
+  }
+
+  CComBSTR entryPointFile;
+  VERIFY_SUCCEEDED(compilationInfo->GetEntryPointFile(&entryPointFile));
+  VERIFY_ARE_EQUAL(std::wstring(L"source.hlsl"), std::wstring(entryPointFile));
+
+  CComBSTR entryPointFunction;
+  VERIFY_SUCCEEDED(compilationInfo->GetEntryPoint(&entryPointFunction));
+  VERIFY_ARE_EQUAL(std::wstring(L"main"), std::wstring(entryPointFunction));
+
+  CComBSTR hlslTarget;
+  VERIFY_SUCCEEDED(compilationInfo->GetHlslTarget(&hlslTarget));
+  VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
+}
+#endif // _WIN32 - exclude PIX stuff
 
 #ifdef _WIN32
 
