@@ -3,38 +3,36 @@
 // CHECK: OpEntryPoint Fragment %main "main"
 // CHECK-SAME: %_Globals %gSampler %gTex %MyCBuffer %gCBuffer %gSPInput %gRWBuffer %out_var_SV_Target
 
-          int           gScalar;   // 0
-          SamplerState  gSampler;  // Not included - 1
-          float2        gVec;      // 1
-          Texture2D     gTex;      // Not included - 2
-          float2x3      gMat1;     // 2
-row_major float2x3      gMat2;     // 3
-
-row_major float2x3      gArray[2]; // 4
+int gScalar;
+SamplerState gSampler;
+float2 gVec;
+Texture2D gTex;
+float2x3 gMat1;
+row_major float2x3 gMat2;
+row_major float2x3 gArray[2];
 
 struct S {
-    float f;
+  float f;
 };
 
-          S             gStruct;   // 5
+S gStruct;
 
-cbuffer MyCBuffer {                // Not included - 4
-    float4 CBData[16];
+cbuffer MyCBuffer {
+  float4 CBData[16];
 };
 
-ConstantBuffer<S>       gCBuffer;  // Not included - 5
+ConstantBuffer<S> gCBuffer;
 
-typedef SamplerState SamplerStateType; // Not included - type definition
+typedef SamplerState SamplerStateType;
 
 struct {
-    float2 f;
-}                       gAnonStruct; // 6
+  float2 f;
+} gAnonStruct;
 
-[[vk::input_attachment_index(0)]]
-SubpassInput            gSPInput;  // Not included - 8
+[[vk::input_attachment_index(0)]] SubpassInput gSPInput;
 
-RWBuffer<float4>        gRWBuffer[4]; // Not included - 9 (array)
+RWBuffer<float4> gRWBuffer[4];
 
 float4 main() : SV_Target {
-    return gScalar + gMat2[0][0] + gStruct.f;
+  return gScalar + gMat2[0][0] + gStruct.f;
 }
