@@ -73,7 +73,7 @@ FunctionPass *createDeadCodeEliminationPass();
 // DeadStoreElimination - This pass deletes stores that are post-dominated by
 // must-aliased stores and are not loaded used between the stores.
 //
-FunctionPass *createDeadStoreEliminationPass();
+FunctionPass *createDeadStoreEliminationPass(unsigned ScanLimit = 0); // HLSL Change - Add ScanLimit
 
 //===----------------------------------------------------------------------===//
 //
@@ -146,11 +146,17 @@ void initializeDxilEraseDeadRegionPass(PassRegistry&);
 Pass *createDxilEliminateVectorPass();
 void initializeDxilEliminateVectorPass(PassRegistry&);
 
-Pass *createDxilInsertNoopsPass();
-void initializeDxilInsertNoopsPass(PassRegistry&);
+Pass *createDxilInsertPreservesPass();
+void initializeDxilInsertPreservesPass(PassRegistry&);
 
-Pass *createDxilFinalizeNoopsPass();
-void initializeDxilFinalizeNoopsPass(PassRegistry&);
+Pass *createDxilFinalizePreservesPass();
+void initializeDxilFinalizePreservesPass(PassRegistry&);
+
+Pass *createDxilPreserveToSelectPass();
+void initializeDxilPreserveToSelectPass(PassRegistry&);
+
+Pass *createDxilRemoveDeadBlocksPass();
+void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
 
 //===----------------------------------------------------------------------===//
 //

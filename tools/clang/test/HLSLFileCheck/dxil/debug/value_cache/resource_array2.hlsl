@@ -42,7 +42,7 @@ Texture2D h(bool foo3) {
 
 [RootSignature("CBV(b0), DescriptorTable(SRV(t0, numDescriptors=42), SRV(t42), SRV(t43, numDescriptors=4))")]
 float4 main() : sv_target {
-  // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 42
+  // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 42
 
   local_tex1 = tex0[idx1];
   local_tex2 = tex0[idx2];

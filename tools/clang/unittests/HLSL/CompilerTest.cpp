@@ -1130,40 +1130,35 @@ TEST_F(CompilerTest, CompileDebugLines) {
     "  return z;\r\n"
     "}", &pDiaSource));
     
-  static constexpr uint32_t numExpectedRVAs = 10;
+  const uint32_t numExpectedVAs = 18;
+  const uint32_t numExpectedLineEntries = 6;
 
   auto verifyLines = [=](const std::vector<LineNumber> lines) {
-    VERIFY_ARE_EQUAL(lines.size(), numExpectedRVAs);
-    // 0: loadInput
-    VERIFY_ARE_EQUAL(lines[0].rva,  0);
+    VERIFY_ARE_EQUAL(lines.size(), numExpectedLineEntries);
+
+    // loadInput
     VERIFY_ARE_EQUAL(lines[0].line, 1);
-    // 1: dbg.value
-    VERIFY_ARE_EQUAL(lines[1].rva,  1);
-    VERIFY_ARE_EQUAL(lines[1].line, 1);
-    // 2: abs
-    VERIFY_ARE_EQUAL(lines[2].rva,  2);
-    VERIFY_ARE_EQUAL(lines[2].line, 2);
-    // 3: dbg.value
-    VERIFY_ARE_EQUAL(lines[3].rva,  3);
-    VERIFY_ARE_EQUAL(lines[3].line, 2);
-    // 4: sin
-    VERIFY_ARE_EQUAL(lines[4].rva,  4);
-    VERIFY_ARE_EQUAL(lines[4].line, 3);
-    // 5: dbg.value
-    VERIFY_ARE_EQUAL(lines[5].rva,  5);
-    VERIFY_ARE_EQUAL(lines[5].line, 3);
-    // 6: fadd
-    VERIFY_ARE_EQUAL(lines[6].rva,  6);
-    VERIFY_ARE_EQUAL(lines[6].line, 4);
-    // 7: dbg.value
-    VERIFY_ARE_EQUAL(lines[7].rva,  7);
-    VERIFY_ARE_EQUAL(lines[7].line, 4);
-    // 8: storeOutput
-    VERIFY_ARE_EQUAL(lines[8].rva,  8);
-    VERIFY_ARE_EQUAL(lines[8].line, 5);
-    // 9: ret
-    VERIFY_ARE_EQUAL(lines[9].rva,  9);
-    VERIFY_ARE_EQUAL(lines[9].line, 5);
+    VERIFY_ARE_EQUAL(lines[0].rva,  4);
+
+    // abs
+    VERIFY_ARE_EQUAL(lines[1].line, 2);
+    VERIFY_ARE_EQUAL(lines[1].rva, 7);
+
+    // sin
+    VERIFY_ARE_EQUAL(lines[2].line, 3);
+    VERIFY_ARE_EQUAL(lines[2].rva, 10);
+
+    // fadd
+    VERIFY_ARE_EQUAL(lines[3].line, 4);
+    VERIFY_ARE_EQUAL(lines[3].rva, 13);
+
+    // storeOutput
+    VERIFY_ARE_EQUAL(lines[4].line, 5);
+    VERIFY_ARE_EQUAL(lines[4].rva, 16);
+
+    // ret
+    VERIFY_ARE_EQUAL(lines[5].line, 5);
+    VERIFY_ARE_EQUAL(lines[5].rva, 17);
   };
   
   CComPtr<IDiaSession> pSession;
@@ -1172,7 +1167,7 @@ TEST_F(CompilerTest, CompileDebugLines) {
   // Verify lines are ok when getting one RVA at a time.
   std::vector<LineNumber> linesOneByOne;
   VERIFY_SUCCEEDED(pDiaSource->openSession(&pSession));
-  for (int i = 0; i < numExpectedRVAs; ++i) {
+  for (int i = 0; i < numExpectedVAs; ++i) {
     VERIFY_SUCCEEDED(pSession->findLinesByRVA(i, 1, &pEnumLineNumbers));
     std::vector<LineNumber> lines = ReadLineNumbers(pEnumLineNumbers);
     std::copy(lines.begin(), lines.end(), std::back_inserter(linesOneByOne));
@@ -1183,7 +1178,7 @@ TEST_F(CompilerTest, CompileDebugLines) {
   // Verify lines are ok when getting all RVAs at once.
   std::vector<LineNumber> linesAllAtOnce;
   pEnumLineNumbers.Release();
-  VERIFY_SUCCEEDED(pSession->findLinesByRVA(0, numExpectedRVAs, &pEnumLineNumbers));
+  VERIFY_SUCCEEDED(pSession->findLinesByRVA(0, numExpectedVAs, &pEnumLineNumbers));
   linesAllAtOnce = ReadLineNumbers(pEnumLineNumbers);
   verifyLines(linesAllAtOnce);
 
@@ -1207,7 +1202,7 @@ TEST_F(CompilerTest, CompileDebugLines) {
   // Verify lines are ok when getting by address.
   std::vector<LineNumber> linesByAddr;
   pEnumLineNumbers.Release();
-  VERIFY_SUCCEEDED(pSession->findLinesByAddr(0, 0, numExpectedRVAs, &pEnumLineNumbers));
+  VERIFY_SUCCEEDED(pSession->findLinesByAddr(0, 0, numExpectedVAs, &pEnumLineNumbers));
   linesByAddr = ReadLineNumbers(pEnumLineNumbers);
   verifyLines(linesByAddr);
 

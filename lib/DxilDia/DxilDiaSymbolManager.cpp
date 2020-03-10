@@ -1248,7 +1248,9 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateFunctionsForCU(llvm::DI
     IFR(CreateType(SubProgram->getType(), &dwSubprogramTypeID));
     IFR(AddSymbol<symbol_factory::Function>(dwParentID, &dwNewFunID, SubProgram, dwSubprogramTypeID));
     m_ScopeToSym.insert(std::make_pair(SubProgram, dwNewFunID));
+  }
 
+  for (llvm::DISubprogram* SubProgram : CU->getSubprograms()) {
     if (llvm::Function *F = SubProgram->getFunction()) {
       IFR(CreateFunctionBlocksForFunction(F));
       FoundFunctions = true;

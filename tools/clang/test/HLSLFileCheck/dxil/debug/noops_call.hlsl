@@ -65,23 +65,30 @@ float4 depth2(float4 val)
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
+    // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+    // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
     float4 ret1 = localScopeVar_func(color);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
+    // CHECK: %[[v1:.+]] = fmul
+    // CHECK: %[[v2:.+]] = fmul
+    // CHECK: %[[v3:.+]] = fmul
+    // CHECK: %[[v4:.+]] = fmul
+    // CHECK: select i1 %[[p]], float %[[v1]], float %[[v1]]
+    // CHECK: select i1 %[[p]], float %[[v2]], float %[[v2]]
+    // CHECK: select i1 %[[p]], float %[[v3]], float %[[v3]]
+    // CHECK: select i1 %[[p]], float %[[v4]], float %[[v4]]
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret2 = localRegVar_func(ret1);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
     // ** copy **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: select i1 %[[p]],
+    // CHECK: select i1 %[[p]],
+    // CHECK: select i1 %[[p]],
+    // CHECK: select i1 %[[p]],
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret3 = array_func(ret2);
     // ** call **
@@ -95,25 +102,29 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: load
     // CHECK: load
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret4 = typedef_func(ret3);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
     // ** copy **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: select i1 %[[p]], float %{{.+}}
+    // CHECK: select i1 %[[p]], float %{{.+}}
+    // CHECK: select i1 %[[p]], float %{{.+}}
+    // CHECK: select i1 %[[p]], float %{{.+}}
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret5 = global_func(ret4);
     // ** call **
     // CHECK: load i32, i32* @dx.nothing
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
-    // CHECK: fmul
+    // CHECK: %[[a1:.+]] = fmul
+    // CHECK: %[[a2:.+]] = fmul
+    // CHECK: %[[a3:.+]] = fmul
+    // CHECK: %[[a4:.+]] = fmul
+    // CHECK: select i1 %[[p]], float %[[a1]], float %[[a1]]
+    // CHECK: select i1 %[[p]], float %[[a2]], float %[[a2]]
+    // CHECK: select i1 %[[p]], float %[[a3]], float %[[a3]]
+    // CHECK: select i1 %[[p]], float %[[a4]], float %[[a4]]
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
 
     float4 ret6 = depth2(ret5);
     // ** call **
@@ -125,26 +136,33 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
         // ** call **
         // CHECK: load i32, i32* @dx.nothing
         // depth4() {
-          // CHECK: fmul
-          // CHECK: fmul
-          // CHECK: fmul
-          // CHECK: fmul
+          // CHECK: %[[b1:.+]] = fmul
+          // CHECK: %[[b2:.+]] = fmul
+          // CHECK: %[[b3:.+]] = fmul
+          // CHECK: %[[b4:.+]] = fmul
           // CHECK: load i32, i32* @dx.nothing
         // }
-        // CHECK: fmul
-        // CHECK: fmul
-        // CHECK: fmul
-        // CHECK: fmul
+        // CHECK: %[[c1:.+]] = fmul
+        // CHECK: %[[c2:.+]] = fmul
+        // CHECK: %[[c3:.+]] = fmul
+        // CHECK: %[[c4:.+]] = fmul
         // CHECK: load i32, i32* @dx.nothing
       // }
-      // CHECK: fmul
-      // CHECK: fmul
-      // CHECK: fmul
-      // CHECK: fmul
-      // CHECK: load i32, i32* @dx.nothing
+      // CHECK: %[[d1:.+]] = fmul
+      // CHECK: %[[d2:.+]] = fmul
+      // CHECK: %[[d3:.+]] = fmul
+      // CHECK: %[[d4:.+]] = fmul
     // }
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d1]]
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d2]]
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d3]]
+    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d4]]
 
     return max(ret6, color);
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: call float @dx.op.binary.f32(i32 35
+    // CHECK: call float @dx.op.binary.f32(i32 35
+    // CHECK: call float @dx.op.binary.f32(i32 35
+    // CHECK: call float @dx.op.binary.f32(i32 35
+
 }
 

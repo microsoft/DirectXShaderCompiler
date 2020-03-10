@@ -56,6 +56,7 @@ set FIXED_LOC=
 set VENDOR=
 set SPIRV=OFF
 set SPV_TEST=OFF
+set DXILCONV=ON
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -159,6 +160,11 @@ if "%1"=="-no-parallel" (
   shift /1
 )
 
+if "%1"=="-no-dxilconv" (
+  set DXILCONV=OFF
+  shift /1
+)
+
 rem If only VS 2017 is available, pick that by default.
 if "%BUILD_VS_VER%"=="2015" (
   reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
@@ -212,6 +218,7 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER% -DHLSL_FIXED_VERSION_LOCATION:STRING=%FIXED_LOC%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_BUILD_DXILCONV:BOOL=%DXILCONV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_VENDOR:STRING=%VENDOR%
 set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
@@ -289,7 +296,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-parallel]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-no-parallel] [-no-dxilconv]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -302,6 +309,7 @@ echo   -fvloc <path>  directory with the version.inc file
 echo   -rel           builds release rather than debug
 echo   -dont-speak    disables audible build confirmation
 echo   -no-parallel   disables parallel build
+echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)

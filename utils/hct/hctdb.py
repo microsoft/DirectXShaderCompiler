@@ -318,7 +318,10 @@ class db_dxil(object):
             if i.name.startswith("Wave"):
                 i.category = "Wave"
                 i.is_wave = True
-                i.shader_stages = ("library", "compute", "amplification", "mesh", "pixel", "vertex", "hull", "domain", "geometry")
+                i.shader_stages = (
+                    "library", "compute", "amplification", "mesh",
+                    "pixel", "vertex", "hull", "domain", "geometry",
+                    "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable")
             elif i.name.startswith("Quad"):
                 i.category = "Quad Wave Ops"
                 i.is_wave = True
@@ -1956,6 +1959,7 @@ class db_dxil(object):
             {'n':'parameter1','t':'int','c':1},
             {'n':'parameter2','t':'int','c':1}])
         add_pass('dxil-annotate-with-virtual-regs', 'DxilAnnotateWithVirtualRegister', 'Annotates each instruction in the DXIL module with a virtual register number', [])
+        add_pass('dxil-dbg-value-to-dbg-declare', 'DxilDbgValueToDbgDeclare', 'Converts llvm.dbg.value uses to llvm.dbg.declare.', [])
         add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
 
         category_lib="dxil_gen"
@@ -2010,8 +2014,9 @@ class db_dxil(object):
         add_pass('dxil-fix-array-init', 'DxilFixConstArrayInitializer', 'Dxil Fix Array Initializer', [])
         add_pass('hlsl-validate-wave-sensitivity', 'DxilValidateWaveSensitivity', 'HLSL DXIL wave sensitiveity validation', [])
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
-        add_pass('dxil-finalize-noops', 'DxilFinalizeNoops', 'Dxil Finalize Noops', [])
-        add_pass('dxil-insert-noops', 'DxilInsertNoops', 'Dxil Insert Noops', [])
+        add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
+        add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [])
+        add_pass('dxil-preserve-to-select', 'DxilPreserveToSelect', 'Dxil Insert Noops', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
 
         category_lib="llvm"
@@ -2044,6 +2049,7 @@ class db_dxil(object):
         add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
         add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [])
         add_pass('dxil-erase-dead-region', 'DxilEraseDeadRegion', 'DxilEraseDeadRegion', [])
+        add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [

@@ -322,8 +322,10 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     if (!HLSLHighLevel) {
       MPM.add(createHLEnsureMetadataPass()); // HLSL Change - rehydrate metadata from high-level codegen
-      MPM.add(createDxilInsertNoopsPass()); // HLSL Change - insert noop instructions
     }
+
+    if (!HLSLHighLevel)
+      MPM.add(createDxilInsertPreservesPass()); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
       MPM.add(Inliner);
@@ -340,16 +342,21 @@ void PassManagerBuilder::populateModulePassManager(
     else if (!Extensions.empty()) // HLSL Change - GlobalExtensions not considered
       MPM.add(createBarrierNoopPass());
 
+    if (!HLSLHighLevel)
+      MPM.add(createDxilPreserveToSelectPass()); // HLSL Change - lower preserve instructions to selects
+
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
+
     // HLSL Change Begins.
     addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
+      MPM.add(createDxilRemoveDeadBlocksPass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
-      MPM.add(createDxilFinalizeNoopsPass());
+      MPM.add(createDxilFinalizePreservesPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
       MPM.add(createDxilDeadFunctionEliminationPass());
@@ -467,7 +474,7 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_Peephole, MPM);
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
-  MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
+  MPM.add(createDeadStoreEliminationPass(ScanLimit));  // Delete dead stores
   // HLSL Change - disable LICM in frontend for not consider register pressure.
   // MPM.add(createLICMPass());
 
@@ -634,6 +641,7 @@ void PassManagerBuilder::populateModulePassManager(
                                               // so no unused resources get re-added to
                                               // DxilModule.
     MPM.add(createMultiDimArrayToOneDimArrayPass());
+    MPM.add(createDxilRemoveDeadBlocksPass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
     MPM.add(createDeadCodeEliminationPass());
@@ -720,7 +728,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
-  PM.add(createDeadStoreEliminationPass());
+  PM.add(createDeadStoreEliminationPass(ScanLimit)); // HLSL Change - add ScanLimit
 
   // More loops are countable; try to optimize them.
   PM.add(createIndVarSimplifyPass());

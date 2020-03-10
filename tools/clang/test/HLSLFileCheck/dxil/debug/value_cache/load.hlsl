@@ -12,7 +12,7 @@ const static float2 my_offsets[] = {
 
 [RootSignature("DescriptorTable(SRV(t0), SRV(t42)), DescriptorTable(Sampler(s0))")]
 float4 main(uint2 uv : TEXCOORD) : SV_Target {
-  // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 42
+  // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 42
   int x = 0;
   int y = 0;
 

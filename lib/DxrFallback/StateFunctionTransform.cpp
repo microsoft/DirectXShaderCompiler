@@ -656,9 +656,9 @@ void StateFunctionTransform::setResourceGlobals(const std::set<llvm::Value*>& re
   m_resources = &resources;
 }
 
-Function* StateFunctionTransform::createDummyRuntimeDataArgFunc(Module* module, Type* runtimeDataArgTy)
+Function* StateFunctionTransform::createDummyRuntimeDataArgFunc(Module* mod, Type* runtimeDataArgTy)
 {
-  return FunctionBuilder(module, "dummyRuntimeDataArg").type(runtimeDataArgTy).build();
+  return FunctionBuilder(mod, "dummyRuntimeDataArg").type(runtimeDataArgTy).build();
 }
 
 void StateFunctionTransform::setVerbose(bool val)
@@ -691,10 +691,10 @@ void StateFunctionTransform::run(std::vector<Function*>& stateFunctions, _Out_ u
   printFunctions(stateFunctions, "AfterLowerStackFuncs");
 }
 
-void StateFunctionTransform::finalizeStateIds(llvm::Module* module, const std::vector<int>& candidateFuncEntryStateIds)
+void StateFunctionTransform::finalizeStateIds(llvm::Module* mod, const std::vector<int>& candidateFuncEntryStateIds)
 {
-  LLVMContext& context = module->getContext();
-  Function* func = module->getFunction("dummyStateId");
+  LLVMContext& context = mod->getContext();
+  Function* func = mod->getFunction("dummyStateId");
   if (!func)
     return;
 
@@ -723,7 +723,7 @@ void StateFunctionTransform::finalizeStateIds(llvm::Module* module, const std::v
 
 void StateFunctionTransform::init()
 {
-  Module* module = m_function->getParent();
+  Module* mod = m_function->getParent();
   m_function->setName(cleanName(m_function->getName()));
 
   // Run preparatory passes
@@ -742,26 +742,26 @@ void StateFunctionTransform::init()
 
 
   // Create a bunch of functions that we are going to need
-  m_stackIntPtrFunc = FunctionBuilder(module, "stackIntPtr").i32Ptr().type(m_runtimeDataArgTy, "runtimeData").i32("baseOffset").i32("offset").build();
+  m_stackIntPtrFunc = FunctionBuilder(mod, "stackIntPtr").i32Ptr().type(m_runtimeDataArgTy, "runtimeData").i32("baseOffset").i32("offset").build();
 
   Instruction* insertBefore = afterEntryBlockAllocas(m_function);
-  Function* runtimeDataArgFunc = createDummyRuntimeDataArgFunc(module, m_runtimeDataArgTy);
+  Function* runtimeDataArgFunc = createDummyRuntimeDataArgFunc(mod, m_runtimeDataArgTy);
   m_runtimeDataArg = CallInst::Create(runtimeDataArgFunc, "runtimeData", insertBefore);
 
-  Function* stackFrameSizeFunc = FunctionBuilder(module, "dummyStackFrameSize").i32().build();
+  Function* stackFrameSizeFunc = FunctionBuilder(mod, "dummyStackFrameSize").i32().build();
   m_stackFrameSizeVal = CallInst::Create(stackFrameSizeFunc, "stackFrame.size", insertBefore);
 
   // TODO only create the values that are actually needed
-  Function* payloadOffsetFunc = FunctionBuilder(module, "payloadOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
+  Function* payloadOffsetFunc = FunctionBuilder(mod, "payloadOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
   m_payloadOffset = CallInst::Create(payloadOffsetFunc, { m_runtimeDataArg }, "payload.offset", insertBefore);
 
-  Function* committedAttrOffsetFunc = FunctionBuilder(module, "committedAttrOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
+  Function* committedAttrOffsetFunc = FunctionBuilder(mod, "committedAttrOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
   m_committedAttrOffset = CallInst::Create(committedAttrOffsetFunc, { m_runtimeDataArg }, "committedAttr.offset", insertBefore);
 
-  Function* pendingAttrOffsetFunc = FunctionBuilder(module, "pendingAttrOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
+  Function* pendingAttrOffsetFunc = FunctionBuilder(mod, "pendingAttrOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
   m_pendingAttrOffset = CallInst::Create(pendingAttrOffsetFunc, { m_runtimeDataArg }, "pendingAttr.offset", insertBefore);
 
-  Function* stackFrameOffsetFunc = FunctionBuilder(module, "stackFrameOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
+  Function* stackFrameOffsetFunc = FunctionBuilder(mod, "stackFrameOffset").i32().type(m_runtimeDataArgTy, "runtimeData").build();
   m_stackFrameOffset = CallInst::Create(stackFrameOffsetFunc, { m_runtimeDataArg }, "stackFrame.offset", insertBefore);
 
 
@@ -913,8 +913,8 @@ void StateFunctionTransform::preserveLiveValuesAcrossCallsites(_Out_ unsigned in
 
 
   // ... live allocas. 
-  Module* module = m_function->getParent();
-  DataLayout DL(module);
+  Module* mod = m_function->getParent();
+  DataLayout DL(mod);
   DenseMap<Instruction*, Instruction*> allocaToStack;
   Instruction* insertBefore = getInstructionAfter(m_stackFrameOffset);
   for (Instruction* inst : lv.getAllLiveValues())
@@ -1062,15 +1062,15 @@ void StateFunctionTransform::createSubstateFunctions(std::vector<Function*>& sta
 
 void StateFunctionTransform::allocateStackFrame()
 {
-  Module* module = m_function->getParent();
+  Module* mod = m_function->getParent();
 
   // Push stack frame in entry block. 
   Instruction* insertBefore = m_stackFrameOffset;
-  Function* stackFramePushFunc = FunctionBuilder(module, "stackFramePush").voidTy().type(m_runtimeDataArgTy, "runtimeData").i32("size").build();
+  Function* stackFramePushFunc = FunctionBuilder(mod, "stackFramePush").voidTy().type(m_runtimeDataArgTy, "runtimeData").i32("size").build();
   m_stackFramePush = CallInst::Create(stackFramePushFunc, { m_runtimeDataArg, m_stackFrameSizeVal }, "", insertBefore);
 
   // Pop the stack frame just before returns.
-  Function* stackFramePop = FunctionBuilder(module, "stackFramePop").voidTy().type(m_runtimeDataArgTy, "runtimeData").i32("size").build();
+  Function* stackFramePop = FunctionBuilder(mod, "stackFramePop").voidTy().type(m_runtimeDataArgTy, "runtimeData").i32("size").build();
   for (Instruction* insertBefore : m_returns)
     CallInst::Create(stackFramePop, { m_runtimeDataArg, m_stackFrameSizeVal }, "", insertBefore);
 }
@@ -1086,14 +1086,14 @@ void StateFunctionTransform::allocateTraceFrame()
 
   // Push the trace frame first thing so that the runtime 
   // can do setup relative to the entry stack offset.
-  Module* module = m_function->getParent();
+  Module* mod = m_function->getParent();
   Instruction* insertBefore = afterEntryBlockAllocas(m_function);
-  Value* attrSize = makeInt32(attrSizeInInts, module->getContext());
-  Function* traceFramePushFunc = FunctionBuilder(module, "traceFramePush").voidTy().type(m_runtimeDataArgTy, "runtimeData").i32("attrSize").build();
+  Value* attrSize = makeInt32(attrSizeInInts, mod->getContext());
+  Function* traceFramePushFunc = FunctionBuilder(mod, "traceFramePush").voidTy().type(m_runtimeDataArgTy, "runtimeData").i32("attrSize").build();
   CallInst::Create(traceFramePushFunc, { m_runtimeDataArg, attrSize }, "", insertBefore);
 
   // Pop the trace frame just before returns.
-  Function* traceFramePopFunc = FunctionBuilder(module, "traceFramePop").voidTy().type(m_runtimeDataArgTy, "runtimeData").build();
+  Function* traceFramePopFunc = FunctionBuilder(mod, "traceFramePop").voidTy().type(m_runtimeDataArgTy, "runtimeData").build();
   for (Instruction* insertBefore : m_returns)
     CallInst::Create(traceFramePopFunc, { m_runtimeDataArg }, "", insertBefore);
 }
@@ -1109,8 +1109,8 @@ bool isTemporaryAlloca(Value* op)
 
 void StateFunctionTransform::createArgFrames()
 {
-  Module* module = m_function->getParent();
-  DataLayout DL(module);
+  Module* mod = m_function->getParent();
+  DataLayout DL(mod);
   Instruction* stackAllocaInsertBefore = getInstructionAfter(m_stackFrameOffset);
 
   // Retrieve this function's arguments from the stack
@@ -1591,8 +1591,8 @@ Function* StateFunctionTransform::split(Function* baseFunc, BasicBlock* substate
 {
   ValueToValueMapTy VMap;
   Function*         substateFunc = cloneBlocksReachableFrom(substateEntryBlock, VMap);
-  Module*           module = baseFunc->getParent();
-  module->getFunctionList().push_back(substateFunc);
+  Module*           mod = baseFunc->getParent();
+  mod->getFunctionList().push_back(substateFunc);
   substateFunc->setName(m_functionName + ".ss_" + std::to_string(substateIndex));
 
   if (substateIndex != 0)
@@ -1742,14 +1742,14 @@ void StateFunctionTransform::printFunctions(const std::vector<Function*>& funcs,
     delete &out;
 }
 
-void StateFunctionTransform::printModule(const Module* module, const std::string& suffix)
+void StateFunctionTransform::printModule(const Module* mod, const std::string& suffix)
 {
   if (!m_verbose)
     return;
 
   raw_ostream& out = getOutputStream("module", suffix, m_dumpId++);
   out << "; ########################### " << suffix << "\n";
-  out << *module << "\n";
+  out << *mod << "\n";
 }
 
 void StateFunctionTransform::printSet(const InstructionSetVector& vals, const char* msg)
@@ -1764,8 +1764,8 @@ void StateFunctionTransform::printSet(const InstructionSetVector& vals, const ch
   uint64_t totalBytes = 0;
   if (vals.size() > 0)
   {
-    Module*    module = m_function->getParent();
-    DataLayout DL(module);
+    Module*    mod = m_function->getParent();
+    DataLayout DL(mod);
     for (InstructionSetVector::const_iterator I = vals.begin(), IE = vals.end(); I != IE; ++I)
     {
       const Instruction* inst = *I;

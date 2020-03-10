@@ -2974,11 +2974,11 @@ inline void swapStruct(struct message_ref32 &mr) {
   sys::swapByteOrder(mr.sel);
 }
 
-inline void swapStruct(struct objc_module_t &module) {
-  sys::swapByteOrder(module.version);
-  sys::swapByteOrder(module.size);
-  sys::swapByteOrder(module.name);
-  sys::swapByteOrder(module.symtab);
+inline void swapStruct(struct objc_module_t &mod) {
+  sys::swapByteOrder(mod.version);
+  sys::swapByteOrder(mod.size);
+  sys::swapByteOrder(mod.name);
+  sys::swapByteOrder(mod.symtab);
 }
 
 inline void swapStruct(struct objc_symtab_t &symtab) {
@@ -5316,7 +5316,7 @@ static void printObjc2_32bit_MetaData(MachOObjectFile *O, bool verbose) {
 static bool printObjc1_32bit_MetaData(MachOObjectFile *O, bool verbose) {
   uint32_t i, j, p, offset, xoffset, left, defs_left, def;
   const char *r, *name, *defs;
-  struct objc_module_t module;
+  struct objc_module_t mod;
   SectionRef S, xS;
   struct objc_symtab_t symtab;
   struct objc_class_t objc_class;
@@ -5357,34 +5357,34 @@ static bool printObjc1_32bit_MetaData(MachOObjectFile *O, bool verbose) {
     r = get_pointer_32(p, offset, left, S, &info, true);
     if (r == nullptr)
       return true;
-    memset(&module, '\0', sizeof(struct objc_module_t));
+    memset(&mod, '\0', sizeof(struct objc_module_t));
     if (left < sizeof(struct objc_module_t)) {
-      memcpy(&module, r, left);
+      memcpy(&mod, r, left);
       outs() << "   (module extends past end of __module_info section)\n";
     } else
-      memcpy(&module, r, sizeof(struct objc_module_t));
+      memcpy(&mod, r, sizeof(struct objc_module_t));
     if (O->isLittleEndian() != sys::IsLittleEndianHost)
-      swapStruct(module);
+      swapStruct(mod);
 
     outs() << "Module " << format("0x%" PRIx32, p) << "\n";
-    outs() << "    version " << module.version << "\n";
-    outs() << "       size " << module.size << "\n";
+    outs() << "    version " << mod.version << "\n";
+    outs() << "       size " << mod.size << "\n";
     outs() << "       name ";
-    name = get_pointer_32(module.name, xoffset, left, xS, &info, true);
+    name = get_pointer_32(mod.name, xoffset, left, xS, &info, true);
     if (name != nullptr)
       outs() << format("%.*s", left, name);
     else
-      outs() << format("0x%08" PRIx32, module.name)
+      outs() << format("0x%08" PRIx32, mod.name)
              << "(not in an __OBJC section)";
     outs() << "\n";
 
-    r = get_pointer_32(module.symtab, xoffset, left, xS, &info, true);
-    if (module.symtab == 0 || r == nullptr) {
-      outs() << "     symtab " << format("0x%08" PRIx32, module.symtab)
+    r = get_pointer_32(mod.symtab, xoffset, left, xS, &info, true);
+    if (mod.symtab == 0 || r == nullptr) {
+      outs() << "     symtab " << format("0x%08" PRIx32, mod.symtab)
              << " (not in an __OBJC section)\n";
       continue;
     }
-    outs() << "     symtab " << format("0x%08" PRIx32, module.symtab) << "\n";
+    outs() << "     symtab " << format("0x%08" PRIx32, mod.symtab) << "\n";
     memset(&symtab, '\0', sizeof(struct objc_symtab_t));
     defs_left = 0;
     defs = nullptr;
