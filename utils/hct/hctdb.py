@@ -318,7 +318,10 @@ class db_dxil(object):
             if i.name.startswith("Wave"):
                 i.category = "Wave"
                 i.is_wave = True
-                i.shader_stages = ("library", "compute", "amplification", "mesh", "pixel", "vertex", "hull", "domain", "geometry")
+                i.shader_stages = (
+                    "library", "compute", "amplification", "mesh",
+                    "pixel", "vertex", "hull", "domain", "geometry",
+                    "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable")
             elif i.name.startswith("Quad"):
                 i.category = "Quad Wave Ops"
                 i.is_wave = True
