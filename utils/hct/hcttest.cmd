@@ -176,11 +176,6 @@ if "%TEST_ALL%"=="1" (
   set TEST_DXILCONV=1
 )
 
-if not exist %BIN_DIR%\dxilconv.dll (
-  echo Skipping dxilconv tests, dxilconv.dll not found.
-  set TEST_DXILCONV=0
-)
-
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   echo Unable to find te.exe on path.
@@ -196,6 +191,12 @@ if "%GENERATOR_NINJA%"=="1" (
 ) else (
   set BIN_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\bin
   set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
+)
+
+echo %BIN_DIR%\dxilconv.dll
+if not exist %BIN_DIR%\dxilconv.dll (
+  echo Skipping dxilconv tests, dxilconv.dll not found.
+  set TEST_DXILCONV=0
 )
 
 if "%TEST_CLEAN%"=="1" (

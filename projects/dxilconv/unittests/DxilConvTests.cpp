@@ -63,6 +63,7 @@ public:
   TEST_METHOD(BatchDxilCleanup);
   TEST_METHOD(BatchNormalizeDxil);
   TEST_METHOD(BatchScopeNestIterator);
+  TEST_METHOD(RegressionTests);
 
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
@@ -299,4 +300,8 @@ TEST_F(DxilConvTest, BatchNormalizeDxil) {
 
 TEST_F(DxilConvTest, BatchScopeNestIterator) {  
   DxilConvTestCheckBatchDir(L"scope_nest_iterator", ".ll");
+}
+
+TEST_F(DxilConvTest, RegressionTests) {
+  DxilConvTestCheckBatchDir(L"regression_tests", ".hlsl");
 }
