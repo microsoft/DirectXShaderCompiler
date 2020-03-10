@@ -1885,6 +1885,8 @@ class db_dxil(object):
         add_pass("scoped-noalias", "ScopedNoAliasAA", "Scoped NoAlias Alias Analysis", [
             {'n':"enable-scoped-noalias", 'i':'EnableScopedNoAlias', 't':'bool', 'd':'Use to disable scoped no-alias'}])
         add_pass("basicaa", "BasicAliasAnalysis", "Basic Alias Analysis (stateless AA impl)", [])
+        add_pass("lva", "LiveValueAnalysis", "Live Value Analysis for DXR live state", [
+            {'n':"enable-lva", 'i':'EnableLVA', 't':'bool', 'd':'Use to report DXR live state information to debug console and optional file output'}])
         add_pass("simplifycfg", "CFGSimplifyPass", "Simplify the CFG", [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'Ftor', 't':'std::function<bool(const Function &)>', 'c':1},

@@ -1095,6 +1095,8 @@ public:
     if (Opts.OptLevel >= 3)
       compiler.getCodeGenOpts().UnrollLoops = true;
 
+    compiler.getCodeGenOpts().HLSLLiveValueAnalysis = Opts.EnableLVA;
+    compiler.getCodeGenOpts().HLSLLiveValueAnalysisOutputFile = Opts.OutputLiveValueFile;
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;

@@ -23,6 +23,7 @@ namespace llvm {
   class Pass;
   class PassInfo;
   class LibCallInfo;
+  class StringRef;
 
   //===--------------------------------------------------------------------===//
   //
@@ -78,6 +79,13 @@ namespace llvm {
   /// constructed pass takes ownership of the pointer that is provided.
   ///
   FunctionPass *createLibCallAliasAnalysisPass(LibCallInfo *LCI);
+
+  //===--------------------------------------------------------------------===//
+  //
+  /// createLiveValueAnalysisPass - This pass analyzes live state surrounding
+  /// DXR TraceRay callsites and creates reports for output.
+  ///
+  ModulePass *createLiveValueAnalysisPass(StringRef LiveValueAnalysisOutputFile);
 
   //===--------------------------------------------------------------------===//
   //

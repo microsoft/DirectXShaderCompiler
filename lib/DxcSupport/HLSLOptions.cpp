@@ -472,7 +472,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
-  opts.LvaDump = Args.hasFlag(OPT_lva_dump, OPT_INVALID, false);
+  opts.EnableLVA = Args.hasFlag(OPT_enable_lva, OPT_INVALID, false);
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
   opts.DebugNameForBinary = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);
@@ -649,6 +649,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
        !opts.OutputWarnings || !opts.OutputWarningsFile.empty() ||
        !opts.OutputReflectionFile.empty() ||
        !opts.OutputRootSigFile.empty() ||
+       !opts.OutputLiveValueFile.empty() ||
        !opts.OutputShaderHashFile.empty())) {
     opts.OutputHeader = "";
     opts.OutputObject = "";
@@ -656,6 +657,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.OutputWarningsFile = "";
     opts.OutputReflectionFile = "";
     opts.OutputRootSigFile = "";
+    opts.OutputLiveValueFile = "";
     opts.OutputShaderHashFile = "";
     errors << "Warning: compiler options ignored with Preprocess.";
   }

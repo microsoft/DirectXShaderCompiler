@@ -129,6 +129,8 @@ public:
   bool HLSLHighLevel = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
+  bool HLSLLiveValueAnalysis = false; // HLSL Change
+  std::string HLSLLiveValueAnalysisOutputFile = ""; // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

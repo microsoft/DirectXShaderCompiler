@@ -177,6 +177,10 @@ public:
   std::string HLSLProfile;
   /// Whether to target high-level DXIL.
   bool HLSLHighLevel = false;
+  /// Whether to run the Live Value Analysis for DXR pass.
+  bool HLSLLiveValueAnalysis = false;
+  /// Output file to receive the Live Value Analysis report.
+  std::string HLSLLiveValueAnalysisOutputFile;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
