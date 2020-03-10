@@ -152,11 +152,32 @@ IDxcPixDxilDebugInfo : public IUnknown
       _Out_ DWORD* StackDepth) = 0;
 };
 
+struct __declspec(uuid("61b16c95-8799-4ed8-bdb0-3b6c08a141b4"))
+IDxcPixCompilationInfo : public IUnknown
+{
+  virtual STDMETHODIMP GetSourceFile(
+      _In_ DWORD SourceFileOrdinal,
+      _Outptr_result_z_ BSTR *pSourceName,
+      _Outptr_result_z_ BSTR *pSourceContents) = 0;
+  virtual STDMETHODIMP GetArguments(
+      _Outptr_result_z_ BSTR *pArguments) = 0;
+  virtual STDMETHODIMP GetMacroDefinitions(
+      _Outptr_result_z_ BSTR *pMacroDefinitions) = 0;
+  virtual STDMETHODIMP GetEntryPointFile(
+    _Outptr_result_z_ BSTR *pEntryPointFile) = 0;
+  virtual STDMETHODIMP GetHlslTarget(
+    _Outptr_result_z_ BSTR *pHlslTarget) = 0;
+  virtual STDMETHODIMP GetEntryPoint(
+    _Outptr_result_z_ BSTR *pEntryPoint) = 0;
+};
+
 struct __declspec(uuid("9c2a040d-8068-44ec-8c68-8bfef1b43789"))
 IDxcPixDxilDebugInfoFactory : public IUnknown
 {
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) = 0;
+  virtual STDMETHODIMP NewDxcPixCompilationInfo(
+      _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) = 0;
 };
 
 #ifndef CLSID_SCOPE
