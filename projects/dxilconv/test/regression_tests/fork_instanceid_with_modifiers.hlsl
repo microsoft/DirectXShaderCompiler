@@ -1,11 +1,12 @@
-// RUN: %fxc /Ths_5_0 %s /Fo %t.fxc
+// RUN: %fxc /Ths_5_0 %s /Fo %t.dxbc
 // RUN: %dxbc2dxil %t.dxbc /emit-llvm | %FileCheck %s
 
-// RUN: %fxc /Ths_5_1 /DDX12 %s /Fo %t.fxc
+// RUN: %fxc /Ths_5_1 /DDX12 %s /Fo %t.dxbc
 // RUN: %dxbc2dxil %t.dxbc /emit-llvm | %FileCheck %s
 
-// CHECK-LABEL: hullloop0:CHECK:  [[InstanceID:.*]] = phi i32
-// CHECK:  %1 = sub i32 0, [[InstanceID]]
+// CHECK: hullloop0:
+// CHECK: %[[InstanceID:.*]] = phi i32
+// CHECK: sub i32 0, %[[InstanceID:.*]]
 
 #ifndef DX12
 #define RS
