@@ -195,8 +195,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *mod,
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool beforeHlslLegalization,
-                        std::vector<uint32_t> *mod, std::string *messages) {
+                        bool beforeHlslLegalization, std::vector<uint32_t> *mod,
+                        std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -554,7 +554,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
 
-  if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
+  if (spirvOptions.debugInfoTool &&
+      spirvOptions.targetEnv.compare("vulkan1.1") >= 0) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
@@ -628,10 +629,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
-    spvBuilder.addEntryPoint(getSpirvShaderStage(entryInfo->shaderModelKind),
-                             entryInfo->entryFunction,
-                             entryInfo->funcDecl->getName(),
-                             declIdMapper.collectStageVars());
+    spvBuilder.addEntryPoint(
+        getSpirvShaderStage(entryInfo->shaderModelKind),
+        entryInfo->entryFunction, entryInfo->funcDecl->getName(),
+        targetEnv == SPV_ENV_VULKAN_1_2
+            ? spvBuilder.getModule()->getVariables()
+            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
   }
 
   // Add Location decorations to stage input/output variables.
