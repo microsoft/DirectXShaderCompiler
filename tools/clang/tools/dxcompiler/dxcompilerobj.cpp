@@ -616,6 +616,7 @@ public:
       // validator can be used as a fallback.
       bool produceFullContainer = false;
       bool needsValidation = false;
+      bool validateRootSigContainer = false;
 
       if (isPreprocessing) {
         // These settings are back-compatible with fxc.
@@ -675,6 +676,12 @@ public:
           dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
                                       &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
         }
+
+        // Root signature-only container validation is only supported on 1.5 and above.
+        validateRootSigContainer = DXIL::CompareVersions(
+          compiler.getCodeGenOpts().HLSLValidatorMajorVer,
+          compiler.getCodeGenOpts().HLSLValidatorMinorVer,
+          1, 5) >= 0;
       }
 
       if (opts.AstDump) {
@@ -716,7 +723,7 @@ public:
 
           pOutputBlob.Release();
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
-          if (!opts.DisableValidation) {
+          if (validateRootSigContainer && !opts.DisableValidation) {
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
             dxcutil::ValidateRootSignatureInContainer(
@@ -841,7 +848,7 @@ public:
             if (pRootSigStream && pRootSigStream->GetPtrSize()) {
               CComPtr<IDxcBlob> pRootSignature;
               IFT(pRootSigStream->QueryInterface(&pRootSignature));
-              if (needsValidation) {
+              if (validateRootSigContainer && needsValidation) {
                 CComPtr<IDxcBlobEncoding> pValErrors;
                 // Validation failure communicated through diagnostic error
                 dxcutil::ValidateRootSignatureInContainer(pRootSignature, &compiler.getDiagnostics());
