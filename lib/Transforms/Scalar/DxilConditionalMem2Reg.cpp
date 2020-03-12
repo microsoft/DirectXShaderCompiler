@@ -1,4 +1,4 @@
-//===- DxilLoopUnroll.cpp - Special Unroll for Constant Values ------------===//
+//===- DxilConditionalMem2Reg.cpp - Mem2Reg that selectively promotes Allocas ----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,28 +8,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
-#include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Transforms/Utils/UnrollLoop.h"
-#include "llvm/Transforms/Utils/SSAUpdater.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/PredIteratorCache.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -83,13 +75,6 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
-// Special Mem2Reg pass
-//
-// In order to figure out loop bounds to unroll, we must first run mem2reg pass
-// on the function, but we don't want to run mem2reg on functions that don't
-// have to be unrolled when /Od is given. This pass considers all these
-// conditions and runs mem2reg on functions only when needed.
-//
 class DxilConditionalMem2Reg : public FunctionPass {
 public:
   static char ID;
