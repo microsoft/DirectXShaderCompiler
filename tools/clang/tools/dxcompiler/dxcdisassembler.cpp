@@ -35,6 +35,8 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxcutil.h"
+#include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -1285,6 +1287,141 @@ static const char *OpCodeSignatures[] = {
 };
 // OPCODE-SIGS:END
 
+LPCSTR ResourceKindToString(DXIL::ResourceKind RK) {
+  switch (RK)
+  {
+  case DXIL::ResourceKind::Texture1D: return "Texture1D";
+  case DXIL::ResourceKind::Texture2D: return "Texture2D";
+  case DXIL::ResourceKind::Texture2DMS: return "Texture2DMS";
+  case DXIL::ResourceKind::Texture3D: return "Texture3D";
+  case DXIL::ResourceKind::TextureCube: return "TextureCube";
+  case DXIL::ResourceKind::Texture1DArray: return "Texture1DArray";
+  case DXIL::ResourceKind::Texture2DArray: return "Texture2DArray";
+  case DXIL::ResourceKind::Texture2DMSArray: return "Texture2DMSArray";
+  case DXIL::ResourceKind::TextureCubeArray: return "TextureCubeArray";
+  case DXIL::ResourceKind::TypedBuffer: return "TypedBuffer";
+  case DXIL::ResourceKind::RawBuffer: return "ByteAddressBuffer";
+  case DXIL::ResourceKind::StructuredBuffer: return "StructuredBuffer";
+  case DXIL::ResourceKind::CBuffer: return "CBuffer";
+  case DXIL::ResourceKind::Sampler: return "Sampler";
+  case DXIL::ResourceKind::TBuffer: return "TBuffer";
+  case DXIL::ResourceKind::RTAccelerationStructure: return "RTAccelerationStructure";
+  case DXIL::ResourceKind::FeedbackTexture2D: return "FeedbackTexture2D";
+  case DXIL::ResourceKind::FeedbackTexture2DArray: return "FeedbackTexture2DArray";
+  case DXIL::ResourceKind::StructuredBufferWithCounter: return "StructuredBufferWithCounter";
+  case DXIL::ResourceKind::SamplerComparison: return "SamplerComparison";
+  default:
+    return "<invalid ResourceKind>";
+  }
+}
+
+LPCSTR CompTypeToString(DXIL::ComponentType CompType) {
+  switch (CompType) {
+  case DXIL::ComponentType::I1: return "I1";
+  case DXIL::ComponentType::I16: return "I16";
+  case DXIL::ComponentType::U16: return "U16";
+  case DXIL::ComponentType::I32: return "I32";
+  case DXIL::ComponentType::U32: return "U32";
+  case DXIL::ComponentType::I64: return "I64";
+  case DXIL::ComponentType::U64: return "U64";
+  case DXIL::ComponentType::F16: return "F16";
+  case DXIL::ComponentType::F32: return "F32";
+  case DXIL::ComponentType::F64: return "F64";
+  case DXIL::ComponentType::SNormF16: return "SNormF16";
+  case DXIL::ComponentType::UNormF16: return "UNormF16";
+  case DXIL::ComponentType::SNormF32: return "SNormF32";
+  case DXIL::ComponentType::UNormF32: return "UNormF32";
+  case DXIL::ComponentType::SNormF64: return "SNormF64";
+  case DXIL::ComponentType::UNormF64: return "UNormF64";
+  default:
+    return "<invalid CompType>";
+  }
+}
+
+LPCSTR SamplerFeedbackTypeToString(DXIL::SamplerFeedbackType SFT) {
+  switch(SFT) {
+  case DXIL::SamplerFeedbackType::MinMip: return "MinMip";
+  case DXIL::SamplerFeedbackType::MipRegionUsed: return "MipRegionUsed";
+  default:
+    return "<invalid sampler feedback type>";
+  }
+}
+
+void PrintResourceProperties(DxilResourceProperties &RP,
+                             formatted_raw_ostream &OS) {
+  OS << "  resource: ";
+
+  if (RP.Class == DXIL::ResourceClass::CBuffer) {
+    OS << "CBuffer";
+    return;
+  } else if (RP.Class == DXIL::ResourceClass::SRV &&
+             RP.Kind == DXIL::ResourceKind::TBuffer) {
+    OS << "TBuffer";
+    return;
+  }
+
+  if (RP.Class == DXIL::ResourceClass::Sampler) {
+    if (RP.Kind == DXIL::ResourceKind::Sampler)
+      OS << "SamplerState";
+    else if (RP.Kind == DXIL::ResourceKind::SamplerComparison)
+      OS << "SamplerComparisonState";
+    return;
+  }
+
+  bool bUAV = RP.Class == DXIL::ResourceClass::UAV;
+  LPCSTR RW = bUAV ? (RP.UAV.bROV ? "ROV" : "RW") : "";
+  LPCSTR GC = bUAV && RP.UAV.bGloballyCoherent ? "globallycoherent " : "";
+
+  switch (RP.Kind)
+  {
+  case DXIL::ResourceKind::Texture1D:
+  case DXIL::ResourceKind::Texture2D:
+  case DXIL::ResourceKind::Texture3D:
+  case DXIL::ResourceKind::TextureCube:
+  case DXIL::ResourceKind::Texture1DArray:
+  case DXIL::ResourceKind::Texture2DArray:
+  case DXIL::ResourceKind::TextureCubeArray:
+  case DXIL::ResourceKind::TypedBuffer:
+    OS << GC << RW << ResourceKindToString(RP.Kind);
+    OS << "<" << CompTypeToString(RP.Typed.CompType)
+       << (bUAV && !RP.Typed.SingleComponent ? "[vec]" : "")
+       << ">";
+    break;
+
+  case DXIL::ResourceKind::Texture2DMS:
+  case DXIL::ResourceKind::Texture2DMSArray:
+    OS << ResourceKindToString(RP.Kind);
+    OS << "<" << CompTypeToString(RP.Typed.CompType)
+       << ", samples=" << RP.getSampleCount()
+       << ">";
+    break;
+
+  case DXIL::ResourceKind::RawBuffer:
+    OS << GC << RW << ResourceKindToString(RP.Kind);
+    break;
+
+  case DXIL::ResourceKind::StructuredBuffer:
+  case DXIL::ResourceKind::StructuredBufferWithCounter:
+    OS << GC << RW << ResourceKindToString(RP.Kind);
+    OS << "<stride=" << RP.ElementStride << ">";
+    break;
+
+  case DXIL::ResourceKind::RTAccelerationStructure:
+    OS << ResourceKindToString(RP.Kind);
+    break;
+
+  case DXIL::ResourceKind::FeedbackTexture2D:
+  case DXIL::ResourceKind::FeedbackTexture2DArray:
+    OS << ResourceKindToString(RP.Kind);
+    OS << "<" << SamplerFeedbackTypeToString(RP.SamplerFeedbackType) << ">";
+    break;
+
+  default:
+    OS << "<invalid resource properties>";
+    break;
+  }
+}
+
 class DxcAssemblyAnnotationWriter : public llvm::AssemblyAnnotationWriter {
 public:
   ~DxcAssemblyAnnotationWriter() {}
@@ -1339,6 +1476,22 @@ public:
     DXIL::OpCode opcode = (DXIL::OpCode)opcodeVal;
     OS << "  ; " << hlsl::OP::GetOpCodeName(opcode)
        << OpCodeSignatures[opcodeVal];
+
+    // Add extra decoding for certain ops
+    switch (opcode) {
+    case DXIL::OpCode::AnnotateHandle: {
+      // Decode resource properties
+      DxilInst_AnnotateHandle AH(const_cast<CallInst*>(CI));
+      if (Constant *Props = dyn_cast<Constant>(AH.get_props())) {
+        DXIL::ResourceClass RC = static_cast<DXIL::ResourceClass>(AH.get_resourceClass_val());
+        DXIL::ResourceKind RK = static_cast<DXIL::ResourceKind>(AH.get_resourceKind_val());
+        DxilResourceProperties RP = resource_helper::loadFromConstant(*Props, RC, RK);
+        PrintResourceProperties(RP, OS);
+      }
+    } break;
+    default:
+      break;
+    }
   }
 };
 
