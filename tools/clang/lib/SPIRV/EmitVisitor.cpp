@@ -1586,10 +1586,14 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
 
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
-    if (interfaceType == StructInterfaceType::StorageBuffer)
-      emitDecoration(id, spv::Decoration::BufferBlock, {});
-    else if (interfaceType == StructInterfaceType::UniformBuffer)
+    if (interfaceType == StructInterfaceType::StorageBuffer) {
+      emitDecoration(id,
+                     removeBufferBlock ? spv::Decoration::Block
+                                       : spv::Decoration::BufferBlock,
+                     {});
+    } else if (interfaceType == StructInterfaceType::UniformBuffer) {
       emitDecoration(id, spv::Decoration::Block, {});
+    }
 
     initTypeInstruction(spv::Op::OpTypeStruct);
     curTypeInst.push_back(id);

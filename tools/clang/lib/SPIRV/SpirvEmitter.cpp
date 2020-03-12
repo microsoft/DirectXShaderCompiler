@@ -617,6 +617,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   }
 
   const spv_target_env targetEnv = featureManager.getTargetEnv();
+  spvContext.setTargetEnv(targetEnv);
 
   // Addressing and memory model are required in a valid SPIR-V module.
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,

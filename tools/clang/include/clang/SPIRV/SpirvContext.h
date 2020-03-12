@@ -12,6 +12,7 @@
 #include <array>
 
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "spirv-tools/libspirv.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
@@ -213,6 +214,9 @@ public:
   uint32_t getMinorVersion() const { return minorVersion; }
   void setMinorVersion(uint32_t minor) { minorVersion = minor; }
 
+  /// Function to set SPIR-V target environment information.
+  void setTargetEnv(spv_target_env env) { spvTargetEnv = env; }
+
   /// Functions to query current entry point ShaderModelKind.
   bool isPS() const { return curShaderModelKind == ShaderModelKind::Pixel; }
   bool isVS() const { return curShaderModelKind == ShaderModelKind::Vertex; }
@@ -279,6 +283,8 @@ private:
   // Major/Minor hlsl profile version.
   uint32_t majorVersion;
   uint32_t minorVersion;
+  // SPIR-V target environment information.
+  spv_target_env spvTargetEnv;
 };
 
 } // end namespace spirv

@@ -48,12 +48,14 @@ public:
                   std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
-                  const std::function<uint32_t()> &takeNextIdFn)
+                  const std::function<uint32_t()> &takeNextIdFn,
+                  bool vk1p2OrLater)
       : astContext(astCtx), context(spvContext), debugVariableBinary(debugVec),
         annotationsBinary(decVec), typeConstantBinary(typesVec),
         takeNextIdFunction(takeNextIdFn), emittedConstantInts({}),
         emittedConstantFloats({}), emittedConstantComposites({}),
-        emittedConstantNulls({}), emittedConstantBools() {
+        emittedConstantNulls({}), emittedConstantBools(),
+        removeBufferBlock(vk1p2OrLater) {
     assert(decVec);
     assert(typesVec);
   }
@@ -164,6 +166,9 @@ private:
   // emittedTypes is a map that caches the result-id of types in order to avoid
   // emitting an identical type multiple times.
   llvm::DenseMap<const SpirvType *, uint32_t> emittedTypes;
+
+  // True if the target environment is equal to Vulkan1.2 or later.
+  bool removeBufferBlock;
 };
 
 /// \breif The visitor class that emits the SPIR-V words from the in-memory
@@ -189,9 +194,10 @@ public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), id(0),
-        typeHandler(astCtx, spvCtx, &debugVariableBinary, &annotationsBinary,
-                    &typeConstantBinary,
-                    [this]() -> uint32_t { return takeNextId(); }),
+        typeHandler(
+            astCtx, spvCtx, &debugVariableBinary, &annotationsBinary,
+            &typeConstantBinary, [this]() -> uint32_t { return takeNextId(); },
+            opts.targetEnv.compare("vulkan1.2") >= 0),
         debugMainFileId(0), debugLine(0), debugColumn(0),
         lastOpWasMergeInst(false) {}
 

@@ -221,6 +221,12 @@ const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
       return foundSC->second;
   }
 
+  if (spvTargetEnv >= SPV_ENV_VULKAN_1_2) {
+    if (const auto *structType = dyn_cast<StructType>(pointee)) {
+      if (structType->getInterfaceType() == StructInterfaceType::StorageBuffer)
+        sc = spv::StorageClass::StorageBuffer;
+    }
+  }
   return pointerTypes[pointee][sc] = new (this) SpirvPointerType(pointee, sc);
 }
 

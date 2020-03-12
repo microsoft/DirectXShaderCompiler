@@ -99,8 +99,11 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
       }
     }
-    const SpirvType *pointerType =
-        spvContext.getPointerType(resultType, instr->getStorageClass());
+    auto sc = instr->getStorageClass();
+    const auto *pointerType = spvContext.getPointerType(resultType, sc);
+    auto newSC = pointerType->getStorageClass();
+    if (sc != newSC)
+      instr->setStorageClass(newSC);
     instr->setResultType(pointerType);
     break;
   }
