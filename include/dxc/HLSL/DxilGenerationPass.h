@@ -112,6 +112,9 @@ void initializeDxilCleanupAddrSpaceCastPass(llvm::PassRegistry&);
 ModulePass *createDxilValidateWaveSensitivityPass();
 void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
 
+FunctionPass *createRevertWavelessBreaksPass();
+void initializeRevertWavelessBreaksPass(llvm::PassRegistry&);
+
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
 }

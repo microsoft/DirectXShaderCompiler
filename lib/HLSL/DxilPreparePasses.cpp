@@ -31,6 +31,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include <memory>
 #include <unordered_set>
 
@@ -403,6 +404,10 @@ public:
         patchDxil_1_6(M, hlslOP);
       }
       RemoveStoreUndefOutput(M, hlslOP);
+
+      // Constify the dx.break global if present
+      if (GlobalVariable *BreakGV = M.getGlobalVariable("dx.break"))
+        BreakGV->setConstant(true);
 
       RemoveUnusedStaticGlobal(M);
 
@@ -1023,3 +1028,120 @@ ModulePass *llvm::createDxilValidateWaveSensitivityPass() {
 }
 
 INITIALIZE_PASS(DxilValidateWaveSensitivity, "hlsl-validate-wave-sensitivity", "HLSL DXIL wave sensitiveity validation", false, false)
+
+
+namespace {
+
+// Append all blocks containing instructions that are sensitive to WaveCI into SensitiveBB
+// Sensitivity entails being an eventual user of WaveCI and also belonging to a block with
+// an artificially conditional break that breaks out of a loop that contains WaveCI
+static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, SmallPtrSet<BasicBlock *, 16> &SensitiveBB) {
+  BasicBlock *WaveBB = WaveCI->getParent();
+  // If this wave operation isn't in a loop, there is no need to track its sensitivity
+  if (!LInfo->getLoopFor(WaveBB))
+    return;
+
+  SmallVector<User *, 16> WorkList;
+  SmallPtrSet<Instruction *, 16> VisitedPhis; // To prevent infinite looping, only visit each PHI once
+  WorkList.append(WaveCI->user_begin(), WaveCI->user_end());
+
+  while (!WorkList.empty()) {
+    Instruction *I = dyn_cast<Instruction>(WorkList.pop_back_val());
+    if (I && LInfo->getLoopFor(I->getParent())) {
+      // If we've seen this PHI before, don't reprocess it
+      if (isa<PHINode>(I)) {
+        if(!VisitedPhis.insert(I).second)
+          continue;
+      }
+      // Determine if the instruction's block has an artificially-conditional break
+      // and breaks out of a loop that contains the waveCI
+      BasicBlock *BB = I->getParent();
+      if (BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator())) {
+        if (BI->isConditional()) {
+          Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
+          LoadInst *LI = Cond?dyn_cast<LoadInst>(Cond->getOperand(0)):nullptr;
+          if (Cond && isa<ICmpInst>(Cond) && LI && LI->isVolatile()) {
+            Loop *BreakLoop = LInfo->getLoopFor(BB);
+            if (BreakLoop && BreakLoop->contains(WaveBB))
+              SensitiveBB.insert(BB);
+          }
+        }
+      }
+      // TODO: hit the brakes if we've left any loop that might contain WaveCI
+      WorkList.append(I->user_begin(), I->user_end());
+    }
+  }
+}
+
+class RevertWavelessBreaks : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit RevertWavelessBreaks() : FunctionPass(ID) {}
+  const char *getPassName() const override { return "DXIL Unconditionalize breaks"; }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<LoopInfoWrapperPass>();
+  }
+
+  LoopInfo *LInfo;
+
+  bool runOnFunction(Function &F) override {
+    if (F.isDeclaration())
+      return false;
+    // Only check ps and lib profile.
+    Module *M = F.getEntryBlock().getModule();
+    DxilModule &DM = M->GetDxilModule();
+    const ShaderModel *pSM = DM.GetShaderModel();
+    // If we're not a wave-capable stage, nothing needs to be done
+    if (!pSM->IsPS() && !pSM->IsLib())
+      return false;
+
+    LInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    // For each wave operation, collect the blocks sensitive to it
+    SmallPtrSet<BasicBlock *, 16> SensitiveBBs;
+    for (Function &IF : M->functions()) {
+      if (&IF == &F || !IF.getNumUses() || !IF.isDeclaration() || !hlsl::OP::IsDxilOpFunc(&IF))
+        continue;
+
+      for (User *U : IF.users())
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
+          if (OP::IsDxilOpWave(opcode))
+            CollectSensitiveBlocks(LInfo, CI, SensitiveBBs);
+        }
+    }
+
+    bool Changed = false;
+    // Revert artificially conditional breaks in blocks not included in SensitiveBBs
+    for (auto &BB : F) {
+      if (!SensitiveBBs.count(&BB)) {
+        if (BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator())) {
+          if (BI->isConditional()) {
+            Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
+            LoadInst *LI = Cond?dyn_cast<LoadInst>(Cond->getOperand(0)):nullptr;
+            if (Cond && isa<ICmpInst>(Cond) && LI && LI->isVolatile()) {
+              // Make branch conditional always true and erase the conditional preds
+              Constant *C = ConstantInt::get(Type::getInt1Ty(BI->getContext()), 1);
+              BI->setCondition(C);
+              Cond->eraseFromParent();
+              LI->eraseFromParent();
+              Changed = true;
+            }
+          }
+        }
+      }
+    }
+    return Changed;
+  }
+};
+
+}
+
+char RevertWavelessBreaks::ID = 0;
+
+INITIALIZE_PASS_BEGIN(RevertWavelessBreaks, "hlsl-waveless", "HLSL Remove false condition", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_END(RevertWavelessBreaks, "hlsl-waveless", "HLSL Remove false condition", false, false)
+
+FunctionPass *llvm::createRevertWavelessBreaksPass() {
+  return new RevertWavelessBreaks();
+}

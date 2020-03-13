@@ -292,6 +292,8 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
 
+  MPM.add(createRevertWavelessBreaksPass());
+
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());
 

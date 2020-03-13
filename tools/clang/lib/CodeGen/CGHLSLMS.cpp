@@ -239,6 +239,7 @@ public:
                                      ArrayRef<Value *> paramList) override;
 
   void EmitHLSLDiscard(CodeGenFunction &CGF) override;
+  void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
 
   Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF, llvm::Type *RetType,
                                  Value *Ptr, Value *Idx, QualType Ty) override;
@@ -4322,6 +4323,39 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
       llvm::Type::getVoidTy(CGF.getLLVMContext()),
       {ConstantFP::get(llvm::Type::getFloatTy(CGF.getLLVMContext()), -1.0f)},
       TheModule);
+}
+
+// Emit an artificially conditionalized branch for a break operation when in a potentially wave-enabled stage
+// This allows the block containing what would have been an unconditional break to be included in the loop
+// If the block uses values that are wave-sensitive, it needs to stay in the loop to prevent optimizations
+// that might produce incorrect results by ignoring the volatile aspect of wave operation results.
+void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, BasicBlock *DestBB, BasicBlock *AltBB) {
+  // If not a wave-enabled stage, we can keep everything unconditional as before
+  if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsLib()) {
+    CGF.Builder.CreateBr(DestBB);
+    return;
+  }
+
+  // Create an internal global for the conditional branch to depend on.
+  Constant *GV = TheModule.getGlobalVariable("dx.break");
+  llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+  if (!GV) {
+    llvm::Type *i32ArrayTy = llvm::ArrayType::get(i32Ty, 1);
+    unsigned int Values[1] = { 0 };
+    Constant *InitialValue = ConstantDataArray::get(Context, Values);
+
+    // Create the non-constant global to prevent the branch conditional being optimized away
+    GV = new GlobalVariable(TheModule,
+                            i32ArrayTy, false,
+                            GlobalValue::InternalLinkage,
+                            InitialValue, "dx.break");
+  }
+  Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
+  Value *Gep  = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
+  // volatile load to prevent sccp from determining it is really constant
+  LoadInst *LI = CGF.Builder.CreateLoad(Gep, true);
+  Value *Cmp = CGF.Builder.CreateICmpEQ(LI, llvm::ConstantInt::get(i32Ty,0));
+  CGF.Builder.CreateCondBr(Cmp, DestBB, AltBB);
 }
 
 static llvm::Type *MergeIntType(llvm::IntegerType *T0, llvm::IntegerType *T1) {
