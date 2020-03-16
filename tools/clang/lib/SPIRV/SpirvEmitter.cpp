@@ -600,6 +600,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     } else {
       doDecl(decl);
     }
+
+    if (context.getDiagnostics().hasErrorOccurred())
+      return;
   }
 
   // Translate all functions reachable from the entry function.
@@ -609,10 +612,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     const FunctionInfo *curEntryOrCallee = workQueue[i];
     spvContext.setCurrentShaderModelKind(curEntryOrCallee->shaderModelKind);
     doDecl(curEntryOrCallee->funcDecl);
+    if (context.getDiagnostics().hasErrorOccurred())
+      return;
   }
-
-  if (context.getDiagnostics().hasErrorOccurred())
-    return;
 
   const spv_target_env targetEnv = featureManager.getTargetEnv();
 

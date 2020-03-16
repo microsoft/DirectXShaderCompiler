@@ -109,8 +109,16 @@ TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
 }
-TEST_F(FileTest, StructuredByteBufferArrayError) {
+TEST_F(FileTest, StructuredBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, AppendStructuredBufferArrayError) {
+  runFileTest("type.append-structured-buffer.array.error.hlsl",
+              Expect::Failure);
+}
+TEST_F(FileTest, ConsumeStructuredBufferArrayError) {
+  runFileTest("type.consume-structured-buffer.array.error.hlsl",
+              Expect::Failure);
 }
 TEST_F(FileTest, AppendConsumeStructuredBufferTypeCast) {
   runFileTest("type.append.consume-structured-buffer.cast.hlsl");
@@ -1586,8 +1594,11 @@ TEST_F(FileTest, SpirvDebugControlUnknown) {
 TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", Expect::Failure);
 }
-TEST_F(FileTest, VulkanAttributeInvalidUsages) {
-  runFileTest("vk.attribute.invalid.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
+  runFileTest("vk.attribute.push-constant.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
+  runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
@@ -1747,8 +1758,23 @@ TEST_F(FileTest, VulkanSpecConstantInit) {
 TEST_F(FileTest, VulkanSpecConstantUsage) {
   runFileTest("vk.spec-constant.usage.hlsl");
 }
-TEST_F(FileTest, VulkanSpecConstantError) {
-  runFileTest("vk.spec-constant.error.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanSpecConstantError1) {
+  runFileTest("vk.spec-constant.error1.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError2) {
+  runFileTest("vk.spec-constant.error2.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError3) {
+  runFileTest("vk.spec-constant.error3.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError4) {
+  runFileTest("vk.spec-constant.error4.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError5) {
+  runFileTest("vk.spec-constant.error5.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantErrorNotSegfault) {
+  runFileTest("vk.spec-constant.error.not.segfault.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanLayoutCBufferMatrixZpr) {
@@ -1895,15 +1921,22 @@ TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");
 }
-TEST_F(FileTest, VulkanSubpassInputError) {
-  runFileTest("vk.subpass-input.error.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanSubpassInputError1) {
+  runFileTest("vk.subpass-input.missing-attr.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSubpassInputError2) {
+  runFileTest("vk.subpass-input.type.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSubpassInputError3) {
+  runFileTest("vk.subpass-input.static.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
-  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl", Expect::Failure);
+  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl",
+              Expect::Failure);
 }
 
 TEST_F(FileTest, NamespaceFunctions) {
