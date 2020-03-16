@@ -50,6 +50,7 @@ add_llvm_library(LLVMScalarOpts
   DxilEraseDeadRegion.cpp # HLSL Change
   DxilFixConstArrayInitializer.cpp # HLSL Change
   DxilEliminateVector.cpp # HLSL Change
+  DxilConditionalMem2Reg.cpp # HLSL Change
   Scalarizer.cpp
   SeparateConstOffsetFromGEP.cpp
   SimplifyCFGPass.cpp
