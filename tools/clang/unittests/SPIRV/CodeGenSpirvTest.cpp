@@ -2235,7 +2235,7 @@ TEST_F(FileTest, Vk1p2EntryPoint) {
 }
 
 // Test removing BufferBlock in the Vulkan1.2 target environment
-TEST_F(FileTest, Vk1p2EntryPoint) {
+TEST_F(FileTest, Vk1p2RemoveBufferBlock) {
   useVulkan1p2();
   runFileTest("vk.1p2.block.insteadof.bufferblock.hlsl");
 }
