@@ -15,6 +15,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 #define LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 
+#include "llvm/ADT/StringRef.h" // HLSL Change
 #include <vector>
 
 namespace hlsl {
@@ -130,7 +131,7 @@ public:
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
   bool HLSLLiveValueAnalysis = false; // HLSL Change
-  std::string HLSLLiveValueAnalysisOutputFile = ""; // HLSL Change
+  StringRef HLSLLiveValueAnalysisOutputFile; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
 
 private:

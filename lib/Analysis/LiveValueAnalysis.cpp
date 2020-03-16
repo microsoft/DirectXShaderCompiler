@@ -22,7 +22,7 @@ ModulePass *llvm::createLiveValueAnalysisPass(StringRef LiveValueAnalysisOutputF
   return new LiveValueAnalysis(LiveValueAnalysisOutputFile);
 }
 
-LiveValueAnalysis::LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile = "")
+LiveValueAnalysis::LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile)
   : ModulePass(ID) {
   initializeLiveValueAnalysisPass(*PassRegistry::getPassRegistry());
   m_outputFile = LiveValueAnalysisOutputFile;

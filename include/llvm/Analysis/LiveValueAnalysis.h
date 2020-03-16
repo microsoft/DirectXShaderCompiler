@@ -34,7 +34,7 @@ namespace llvm {
     std::string m_outputFile;
 
   public:
-    LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile);
+    LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile = "");
     ~LiveValueAnalysis() override;
     static char ID;
 
