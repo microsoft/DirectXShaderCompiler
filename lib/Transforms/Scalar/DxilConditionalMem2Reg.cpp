@@ -9,21 +9,16 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/IR/PredIteratorCache.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
@@ -75,6 +70,18 @@ static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
   return Changed;
 }
 
+//
+// Special Mem2Reg pass that conditionally promotes or transforms Alloca's.
+//
+// Anything marked 'dx.precise', will not be promoted because precise markers
+// are not propagated to the dxil operations yet and will be lost if alloca
+// is removed right now.
+//
+// Precise Allocas of vectors get scalarized here. It's important we do that
+// before Scalarizer pass because promoting the allocas later than that will
+// produce vector phi's (disallowed by the validator), which need another
+// Scalarizer pass to clean up.
+//
 class DxilConditionalMem2Reg : public FunctionPass {
 public:
   static char ID;
@@ -160,6 +167,22 @@ public:
     return Changed;
   }
 
+  //
+  // Turns all allocas of vector types that are marked with 'dx.precise'
+  // and turn them into scalars. For example:
+  //
+  //    x = alloca <f32 x 4> !dx.precise
+  //
+  // becomes:
+  //
+  //    x1 = alloca f32 !dx.precise
+  //    x2 = alloca f32 !dx.precise
+  //    x3 = alloca f32 !dx.precise
+  //    x4 = alloca f32 !dx.precise
+  //
+  // This function also replaces all stores and loads but leaves everything
+  // else alone by generating insertelement and extractelement as appropriate.
+  //
   static bool ScalarizePreciseVectorAlloca(Function &F) {
     BasicBlock *Entry = &*F.begin();
 
