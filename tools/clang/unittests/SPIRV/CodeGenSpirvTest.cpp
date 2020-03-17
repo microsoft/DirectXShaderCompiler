@@ -88,9 +88,6 @@ TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
-TEST_F(FileTest, StructuredBufferTypeVulkan1p2) {
-  runFileTest("type.structured-buffer.vulkan1.2.hlsl");
-}
 TEST_F(FileTest, StructuredBufferTypeWithVector) {
   runFileTest("type.structured-buffer.vector.hlsl");
 }
