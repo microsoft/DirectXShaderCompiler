@@ -5357,6 +5357,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isAggregateType = !isObject &&
       (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
       !hlsl::IsHLSLVecMatType(ParamTy);
+    bool bInOut = Param->isModifierIn() && Param->isModifierOut();
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
@@ -5434,6 +5435,12 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       argLV = CGF.EmitLValue(Arg);
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
+      // Skip copy-in copy-out for local variables.
+      if (bInOut && argAddr && isa<AllocaInst>(argAddr)) {
+        llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
+        if (argAddr->getType()->getPointerElementType() == ToTy)
+          continue;
+      }
       argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
       argAlignment = argLV.getAlignment();
     }
