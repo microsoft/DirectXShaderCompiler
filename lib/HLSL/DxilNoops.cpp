@@ -103,8 +103,8 @@ using namespace llvm;
 namespace {
 StringRef kNoopName = "dx.noop";
 StringRef kPreservePrefix = "dx.preserve.";
-StringRef kNothingName = "dx.nothing";
-StringRef kPreserveName = "dx.preserve.value";
+StringRef kNothingName = "dx.nothing.a";
+StringRef kPreserveName = "dx.preserve.value.a";
 }
 
 static Function *GetOrCreateNoopF(Module &M) {
@@ -190,6 +190,14 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
   }
 }
 
+static User *GetUniqueUser(Value *V) {
+  if (V->user_begin() != V->user_end()) {
+    if (std::next(V->user_begin()) == V->user_end())
+      return *V->user_begin();
+  }
+  return nullptr;
+}
+
 static Value *GetOrCreatePreserveCond(Function *F) {
   assert(!F->isDeclaration());
 
@@ -197,19 +205,22 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   GlobalVariable *GV = M->getGlobalVariable(kPreserveName, true);
   if (!GV) {
     Type *i32Ty = Type::getInt32Ty(M->getContext());
+    Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+
+    unsigned int Values[1] = { 0 };
+    Constant *InitialValue = llvm::ConstantDataArray::get(M->getContext(), Values);
+
     GV = new GlobalVariable(*M,
-      i32Ty, true,
+      i32ArrayTy, true,
       llvm::GlobalValue::InternalLinkage,
-      llvm::ConstantInt::get(i32Ty, 0), kPreserveName);
+      InitialValue, kPreserveName);
   }
 
   for (User *U : GV->users()) {
-    LoadInst *LI = cast<LoadInst>(U);
+    GEPOperator *Gep = Gep = cast<GEPOperator>(U);
+    LoadInst *LI = cast<LoadInst>(GetUniqueUser(Gep));
     if (LI->getParent()->getParent() == F) {
-      assert(LI->user_begin() != LI->user_end() &&
-        std::next(LI->user_begin()) == LI->user_end());
-
-      return *LI->user_begin();
+      return GetUniqueUser(LI);
     }
   }
 
@@ -220,7 +231,8 @@ static Value *GetOrCreatePreserveCond(Function *F) {
 
   IRBuilder<> B(InsertPt);
 
-  LoadInst *Load = B.CreateLoad(GV);
+  Value *Indices[] = { B.getInt32(0), B.getInt32(0) };
+  LoadInst *Load = B.CreateLoad(B.CreateGEP(GV, Indices));
   return B.CreateTrunc(Load, B.getInt1Ty());
 }
 
@@ -461,18 +473,25 @@ public:
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
+    Type *i32Ty = Type::getInt32Ty(M.getContext());
     if (!NothingGV) {
       NothingGV = M.getGlobalVariable(kNothingName);
       if (!NothingGV) {
-        Type *i32Ty = Type::getInt32Ty(M.getContext());
+        Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+
+        unsigned int Values[1] = { 0 };
+        Constant *InitialValue = llvm::ConstantDataArray::get(M.getContext(), Values);
+
         NothingGV = new GlobalVariable(M,
-          i32Ty, true,
+          i32ArrayTy, true,
           llvm::GlobalValue::InternalLinkage,
-          llvm::ConstantInt::get(i32Ty, 0), kNothingName);
+          InitialValue, kNothingName);
       }
     }
 
-    return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
+    Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
+    return new llvm::LoadInst(ConstantExpr::getGetElementPtr(
+      nullptr, NothingGV, Indices), nullptr, InsertBefore);
   }
 
   bool LowerPreserves(Module &M);
@@ -491,7 +510,8 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
   GlobalVariable *GV = M.getGlobalVariable(kPreserveName, true);
   if (GV) {
     for (User *U : GV->users()) {
-      LoadInst *LI = cast<LoadInst>(U);
+      GEPOperator *Gep = cast<GEPOperator>(U);
+      LoadInst *LI = cast<LoadInst>(GetUniqueUser(Gep));
       assert(LI->user_begin() != LI->user_end() &&
         std::next(LI->user_begin()) == LI->user_end());
       Instruction *I = cast<Instruction>(*LI->user_begin());
