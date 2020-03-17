@@ -20,7 +20,7 @@ using namespace llvm;
 
 namespace {
 StringRef kNoopName = "dx.noop";
-StringRef kNothingName = "dx.nothing";
+StringRef kNothingName = "dx.nothing.a";
 }
 
 //==========================================================
@@ -28,6 +28,14 @@ StringRef kNothingName = "dx.nothing";
 //
 
 namespace {
+
+static User *GetUniqueUser(Value *V) {
+  if (V->user_begin() != V->user_end()) {
+    if (std::next(V->user_begin()) == V->user_end())
+      return *V->user_begin();
+  }
+  return nullptr;
+}
 
 Function *GetOrCreateNoopF(Module &M) {
   LLVMContext &Ctx = M.getContext();
@@ -123,18 +131,26 @@ public:
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
+  Type *i32Ty = Type::getInt32Ty(M.getContext());
   if (!NothingGV) {
+
     NothingGV = M.getGlobalVariable(kNothingName);
     if (!NothingGV) {
       Type *i32Ty = Type::getInt32Ty(M.getContext());
+      Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+      unsigned int Values[1] = { 0 };
+      Constant *InitialValue = llvm::ConstantDataArray::get(M.getContext(), Values);
+
       NothingGV = new GlobalVariable(M,
-        i32Ty, true,
+        i32ArrayTy, true,
         llvm::GlobalValue::InternalLinkage,
-        llvm::ConstantInt::get(i32Ty, 0), kNothingName);
+        InitialValue, kNothingName);
     }
   }
 
-  return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
+  Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
+  return new llvm::LoadInst(
+    ConstantExpr::getGetElementPtr(nullptr, NothingGV, Indices), nullptr, InsertBefore);
 }
 
   bool runOnModule(Module &M) override;
