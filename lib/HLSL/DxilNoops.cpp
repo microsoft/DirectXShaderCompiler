@@ -115,6 +115,12 @@ static Function *GetOrCreateNoopF(Module &M) {
   return NoopF;
 }
 
+static Constant *GetConstGep(Constant *Ptr, unsigned Idx0, unsigned Idx1) {
+  Type *i32Ty = Type::getInt32Ty(Ptr->getContext());
+  Constant *Indices[] = { ConstantInt::get(i32Ty, Idx0), ConstantInt::get(i32Ty, Idx1) };
+  return ConstantExpr::getGetElementPtr(nullptr, Ptr, Indices);
+}
+
 static bool ShouldPreserve(Value *V) {
   if (isa<Constant>(V)) return true;
   if (isa<Argument>(V)) return true;
@@ -233,8 +239,8 @@ static Value *GetOrCreatePreserveCond(Function *F) {
 
   IRBuilder<> B(InsertPt);
 
-  Value *Indices[] = { B.getInt32(0), B.getInt32(0) };
-  LoadInst *Load = B.CreateLoad(B.CreateGEP(GV, Indices));
+  Constant *Gep = GetConstGep(GV, 0, 0);
+  LoadInst *Load = B.CreateLoad(Gep);
   return B.CreateTrunc(Load, B.getInt1Ty());
 }
 
@@ -491,9 +497,8 @@ public:
       }
     }
 
-    Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
-    return new llvm::LoadInst(ConstantExpr::getGetElementPtr(
-      nullptr, NothingGV, Indices), nullptr, InsertBefore);
+    Constant *Gep = GetConstGep(NothingGV, 0, 0);
+    return new llvm::LoadInst(Gep, nullptr, InsertBefore);
   }
 
   bool LowerPreserves(Module &M);
