@@ -23,19 +23,17 @@ StringRef kNoopName = "dx.noop";
 StringRef kNothingName = "dx.nothing.a";
 }
 
+static Constant *GetConstGep(Constant *Ptr, unsigned Idx0, unsigned Idx1) {
+  Type *i32Ty = Type::getInt32Ty(Ptr->getContext());
+  Constant *Indices[] = { ConstantInt::get(i32Ty, Idx0), ConstantInt::get(i32Ty, Idx1) };
+  return ConstantExpr::getGetElementPtr(nullptr, Ptr, Indices);
+}
+
 //==========================================================
 // Insertion pass
 //
 
 namespace {
-
-static User *GetUniqueUser(Value *V) {
-  if (V->user_begin() != V->user_end()) {
-    if (std::next(V->user_begin()) == V->user_end())
-      return *V->user_begin();
-  }
-  return nullptr;
-}
 
 Function *GetOrCreateNoopF(Module &M) {
   LLVMContext &Ctx = M.getContext();
@@ -131,9 +129,7 @@ public:
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
-  Type *i32Ty = Type::getInt32Ty(M.getContext());
   if (!NothingGV) {
-
     NothingGV = M.getGlobalVariable(kNothingName);
     if (!NothingGV) {
       Type *i32Ty = Type::getInt32Ty(M.getContext());
@@ -148,9 +144,8 @@ public:
     }
   }
 
-  Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
-  return new llvm::LoadInst(
-    ConstantExpr::getGetElementPtr(nullptr, NothingGV, Indices), nullptr, InsertBefore);
+  Constant  *Gep = GetConstGep(NothingGV, 0, 0);
+  return new llvm::LoadInst(Gep, nullptr, InsertBefore);
 }
 
   bool runOnModule(Module &M) override;
