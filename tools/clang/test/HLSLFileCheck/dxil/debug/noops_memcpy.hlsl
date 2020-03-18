@@ -6,7 +6,8 @@ struct S {
 };
 
 float main() : SV_Target {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // CHECK-SAME: @dx.preserve.value
   // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   S a = { 0.f, 1.f};
@@ -23,7 +24,8 @@ float main() : SV_Target {
 
   S d = c;
   // Memcpy should just get lowered to a noop for now.
-  // CHECK: load i32, i32* @dx.nothing
+  // CHECK: load i32, i32*
+  // CHECK-SAME: @dx.nothing
 
   return d.x + d.y;
 }

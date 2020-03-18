@@ -5,11 +5,10 @@
 Texture2D tex0 : register(t0);
 Texture2D tex1 : register(t1);
 
-// CHECK: @dx.nothing = internal constant i32 0
-
 [RootSignature("DescriptorTable(SRV(t0), SRV(t1))")]
 float4 main() : SV_Target {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // CHECK-SAME: @dx.preserve.value
   // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   float2 xy = float2(10, 20);
@@ -35,12 +34,14 @@ float4 main() : SV_Target {
   // select i1 %[[p]], float [[c2]], float [[c2]]
 
   Texture2D tex = tex0; 
-  // CHECK: load i32, i32* @dx.nothing
+  // CHECK: load i32, i32*
+  // CHECK-SAME: @dx.nothing
 
   // CHECK: br i1
   if (foo.x+bar.y >= 0) {
     tex = tex1;
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: br
   }
 
