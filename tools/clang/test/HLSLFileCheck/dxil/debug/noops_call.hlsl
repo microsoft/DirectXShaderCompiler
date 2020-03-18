@@ -60,32 +60,36 @@ float4 depth2(float4 val)
     return val;
 }
 
-// CHECK: @dx.nothing = internal constant i32 0
-
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
     float4 ret1 = localScopeVar_func(color);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 
     float4 ret2 = localRegVar_func(ret1);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** copy **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 
     float4 ret3 = array_func(ret2);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: store
     // CHECK: store
     // CHECK: store
@@ -95,56 +99,69 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: load
     // CHECK: load
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 
     float4 ret4 = typedef_func(ret3);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** copy **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 
     float4 ret5 = global_func(ret4);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // CHECK: fmul
     // ** return **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 
     float4 ret6 = depth2(ret5);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // depth2() {
       // ** call **
-      // CHECK: load i32, i32* @dx.nothing
+      // CHECK: load i32, i32*
+      // CHECK-SAME: @dx.nothing
       // depth3() {
         // ** call **
-        // CHECK: load i32, i32* @dx.nothing
+        // CHECK: load i32, i32*
+        // CHECK-SAME: @dx.nothing
         // depth4() {
           // CHECK: fmul
           // CHECK: fmul
           // CHECK: fmul
           // CHECK: fmul
-          // CHECK: load i32, i32* @dx.nothing
+          // CHECK: load i32, i32*
+          // CHECK-SAME: @dx.nothing
         // }
         // CHECK: fmul
         // CHECK: fmul
         // CHECK: fmul
         // CHECK: fmul
-        // CHECK: load i32, i32* @dx.nothing
+        // CHECK: load i32, i32*
+        // CHECK-SAME: @dx.nothing
       // }
       // CHECK: fmul
       // CHECK: fmul
       // CHECK: fmul
       // CHECK: fmul
-      // CHECK: load i32, i32* @dx.nothing
+      // CHECK: load i32, i32*
+      // CHECK-SAME: @dx.nothing
     // }
 
     return max(ret6, color);
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 }
 
