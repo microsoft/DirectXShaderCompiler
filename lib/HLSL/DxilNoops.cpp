@@ -218,9 +218,11 @@ static Value *GetOrCreatePreserveCond(Function *F) {
 
   for (User *U : GV->users()) {
     GEPOperator *Gep = Gep = cast<GEPOperator>(U);
-    LoadInst *LI = cast<LoadInst>(GetUniqueUser(Gep));
-    if (LI->getParent()->getParent() == F) {
-      return GetUniqueUser(LI);
+    for (User *GepU : Gep->users()) {
+      LoadInst *LI = cast<LoadInst>(GepU);
+      if (LI->getParent()->getParent() == F) {
+        return GetUniqueUser(LI);
+      }
     }
   }
 
@@ -511,20 +513,22 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
   if (GV) {
     for (User *U : GV->users()) {
       GEPOperator *Gep = cast<GEPOperator>(U);
-      LoadInst *LI = cast<LoadInst>(GetUniqueUser(Gep));
-      assert(LI->user_begin() != LI->user_end() &&
-        std::next(LI->user_begin()) == LI->user_end());
-      Instruction *I = cast<Instruction>(*LI->user_begin());
+      for (User *GepU : Gep->users()) {
+        LoadInst *LI = cast<LoadInst>(GepU);
+        assert(LI->user_begin() != LI->user_end() &&
+          std::next(LI->user_begin()) == LI->user_end());
+        Instruction *I = cast<Instruction>(*LI->user_begin());
 
-      for (User *UU : I->users()) {
+        for (User *UU : I->users()) {
 
-        SelectInst *P = cast<SelectInst>(UU);
-        Value *PrevV = P->getTrueValue();
-        Value *CurV = P->getFalseValue();
+          SelectInst *P = cast<SelectInst>(UU);
+          Value *PrevV = P->getTrueValue();
+          Value *CurV = P->getFalseValue();
 
-        if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
-          P->setOperand(1, CurV);
-          Changed = true;
+          if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
+            P->setOperand(1, CurV);
+            Changed = true;
+          }
         }
       }
     }
