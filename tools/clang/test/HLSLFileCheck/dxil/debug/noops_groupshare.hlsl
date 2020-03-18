@@ -13,7 +13,8 @@ groupshared float bar;
 [RootSignature("CBV(b0), DescriptorTable(UAV(u0))")]
 void main() {
 
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // CHECK-SAME: @dx.preserve.value
   // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   // CHECK: store
