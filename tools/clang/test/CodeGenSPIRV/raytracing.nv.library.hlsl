@@ -65,7 +65,7 @@ void MyRayGenMain() {
   rayDesc.TMax = 1000.0f;
 // CHECK: OpTraceNV {{%\d+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %uint_0
   TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
-// CHECK: OpExecuteCallableNV %uint_0 %uint_0
+// CHECK: OpExecuteCallableKHR %uint_0 %uint_0
   CallShader(0, myCallData);
 }
 
@@ -132,14 +132,14 @@ void MyISecMain() {
   float4x3 _15 = WorldToObject4x3();
 
   Attribute myHitAttribute = { float2(0.0f,0.0f) };
-// CHECK: OpReportIntersectionNV %bool %float_0 %uint_0
+// CHECK: OpReportIntersectionKHR %bool %float_0 %uint_0
   ReportHit(0.0f, 0U, myHitAttribute);
 }
 
 [shader("intersection")]
 void MyISecMain2() {
   Attribute myHitAttribute = { float2(0.0f,1.0f) };
-// CHECK: OpReportIntersectionNV %bool %float_0 %uint_0
+// CHECK: OpReportIntersectionKHR %bool %float_0 %uint_0
   ReportHit(0.0f, 0U, myHitAttribute);
 }
 
@@ -180,17 +180,17 @@ void MyAHitMain(inout Payload MyPayload, in Attribute MyAttr) {
   uint _16 = HitKind();
 
   if (_16 == 1U) {
-// CHECK:  OpIgnoreIntersectionNV
+// CHECK:  OpIgnoreIntersectionKHR
     IgnoreHit();
   } else {
-// CHECK:  OpTerminateRayNV
+// CHECK:  OpTerminateRayKHR
     AcceptHitAndEndSearch();
   }
 }
 
 [shader("anyhit")]
 void MyAHitMain2(inout Payload MyPayload, in Attribute MyAttr) {
-// CHECK:  OpTerminateRayNV
+// CHECK:  OpTerminateRayKHR
     AcceptHitAndEndSearch();
 }
 

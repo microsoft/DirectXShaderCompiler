@@ -57,6 +57,6 @@ void main() {
   float4x3 _15 = WorldToObject4x3();
 
   Attribute myHitAttribute = { float2(0.0f,0.0f) };
-// CHECK: OpReportIntersectionNV %bool %float_0 %uint_0
+// CHECK: OpReportIntersectionKHR %bool %float_0 %uint_0
   ReportHit(0.0f, 0U, myHitAttribute);
 }
