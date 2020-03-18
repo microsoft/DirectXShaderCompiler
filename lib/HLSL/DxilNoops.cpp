@@ -20,7 +20,13 @@ using namespace llvm;
 
 namespace {
 StringRef kNoopName = "dx.noop";
-StringRef kNothingName = "dx.nothing";
+StringRef kNothingName = "dx.nothing.a";
+}
+
+static Constant *GetConstGep(Constant *Ptr, unsigned Idx0, unsigned Idx1) {
+  Type *i32Ty = Type::getInt32Ty(Ptr->getContext());
+  Constant *Indices[] = { ConstantInt::get(i32Ty, Idx0), ConstantInt::get(i32Ty, Idx1) };
+  return ConstantExpr::getGetElementPtr(nullptr, Ptr, Indices);
 }
 
 //==========================================================
@@ -127,14 +133,19 @@ public:
     NothingGV = M.getGlobalVariable(kNothingName);
     if (!NothingGV) {
       Type *i32Ty = Type::getInt32Ty(M.getContext());
+      Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+      unsigned int Values[1] = { 0 };
+      Constant *InitialValue = llvm::ConstantDataArray::get(M.getContext(), Values);
+
       NothingGV = new GlobalVariable(M,
-        i32Ty, true,
+        i32ArrayTy, true,
         llvm::GlobalValue::InternalLinkage,
-        llvm::ConstantInt::get(i32Ty, 0), kNothingName);
+        InitialValue, kNothingName);
     }
   }
 
-  return new llvm::LoadInst(NothingGV, nullptr, InsertBefore);
+  Constant  *Gep = GetConstGep(NothingGV, 0, 0);
+  return new llvm::LoadInst(Gep, nullptr, InsertBefore);
 }
 
   bool runOnModule(Module &M) override;
