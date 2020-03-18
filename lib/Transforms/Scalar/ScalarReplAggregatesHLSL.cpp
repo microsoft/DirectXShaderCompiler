@@ -3850,6 +3850,43 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   }
 }
 
+
+static bool DominateAllUsersPostDom(Instruction *I, Value *V,
+                                    PostDominatorTree &PDT) {
+  BasicBlock *BB = I->getParent();
+  Function *F = I->getParent()->getParent();
+  for (auto U = V->user_begin(); U != V->user_end(); ) {
+    Instruction *UI = dyn_cast<Instruction>(*(U++));
+    if (!UI)
+      continue;
+    assert (UI->getParent()->getParent() == F);
+
+    if (!PDT.dominates(BB, UI->getParent()))
+      return false;
+
+    if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
+      if (!DominateAllUsersPostDom(I, UI, PDT))
+        return false;
+    }
+  }
+  return true;
+}
+
+// Determine if `I` dominates all the users of `V`
+static bool DominateAllUsers(Instruction *I, Value *V) {
+  Function *F = I->getParent()->getParent();
+
+  // The Entry Block dominates everything, trivially true
+  if (&F->getEntryBlock() == I->getParent())
+    return true;
+
+  // Post dominator tree.
+  PostDominatorTree PDT;
+  PDT.runOnFunction(*F);
+  return DominateAllUsersPostDom(I, V, PDT);
+}
+
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               bool bAllowReplace) {
@@ -3870,9 +3907,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
       if (PS.storedType == PointerStatus::StoredType::NotStored) {
         PS.storedType = PointerStatus::StoredType::InitializerStored;
       } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
-        // For single mem store, if the store not dominator all users.
-        // Makr it as Stored.
-        // Case like:
+        // For single mem store, if the store does not dominate all users.
+        // Mark it as Stored.
+        // In cases like:
         // struct A { float4 x[25]; };
         // A a;
         // static A a2;
@@ -3888,6 +3925,13 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         PS.storedType = PointerStatus::StoredType::Stored;
       }
     }
+  } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
+    // As above, it the memcpy doesn't dominate all its users,
+    // full replacement isn't possible without complicated PHI insertion
+    // This will likely replace with ld/st which will be replaced in mem2reg
+    Instruction *Memcpy = PS.StoringMemcpy;
+    if (!DominateAllUsers(Memcpy, V))
+        PS.storedType = PointerStatus::StoredType::Stored;
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
