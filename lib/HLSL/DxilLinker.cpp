@@ -351,7 +351,7 @@ private:
   bool AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap);
   void CloneFunctions(ValueToValueMapTy &vmap);
   void AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap);
-  bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
+  bool AddResource(DxilModule &DM, DxilResourceBase *res, llvm::GlobalVariable *GV);
   void AddResourceToDM(DxilModule &DM);
   llvm::MapVector<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
   llvm::StringMap<llvm::Function *> m_functionDecls;
@@ -455,7 +455,7 @@ bool IsMatchedType(Type *Ty0, Type *Ty) {
 }
 } // namespace
 
-bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
+bool DxilLinkJob::AddResource(DxilModule &DM, DxilResourceBase *res, llvm::GlobalVariable *GV) {
   if (m_resourceMap.count(res->GetGlobalName())) {
     DxilResourceBase *res0 = m_resourceMap[res->GetGlobalName()].first;
     Type *Ty0 = res0->GetGlobalSymbol()->getType()->getPointerElementType();
@@ -464,8 +464,9 @@ bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      m_ctx.emitError(Twine(kRedefineResource) + res->GetResClassName() + " for " +
-                      res->GetGlobalName());
+      Twine Msg = Twine(kRedefineResource) + res->GetResClassName() + " for " +
+                  res->GetGlobalName();
+      dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), Msg.str());
       return false;
     }
   } else {
@@ -599,7 +600,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
             // For resource of same name, if class and type match, just map to
             // same NewGV.
             GlobalVariable *NewGV = m_newGlobals[GV->getName()];
-            if (AddResource(res, NewGV)) {
+            if (AddResource(DM, res, NewGV)) {
               vmap[GV] = NewGV;
             } else {
               bSuccess = false;
@@ -608,7 +609,8 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
           }
 
           // Redefine of global.
-          m_ctx.emitError(Twine(kRedefineGlobal) + GV->getName());
+          Twine Msg = Twine(kRedefineGlobal) + GV->getName();
+          dxilutil::EmitErrorOnGlobalVariable(&DM, GV, Msg.str());
           bSuccess = false;
         }
         continue;
@@ -631,7 +633,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
       typeSys.CopyTypeAnnotation(Ty, tmpTypeSys);
 
       if (DxilResourceBase *res = pLib->GetResource(GV)) {
-        bSuccess &= AddResource(res, NewGV);
+        bSuccess &= AddResource(DM, res, NewGV);
       }
     }
   }
@@ -696,7 +698,8 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
   if (!entryDM.HasDxilFunctionProps(entryFunc)) {
     // Cannot get function props.
-    m_ctx.emitError(Twine(kNoEntryProps) + entryFunc->getName());
+    Twine Msg = Twine(kNoEntryProps) + entryFunc->getName();
+    dxilutil::EmitErrorOnFunction(entryFunc, Msg.str());
     return nullptr;
   }
 
@@ -704,9 +707,10 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   if (pSM->GetKind() != props.shaderKind) {
     // Shader kind mismatch.
-    m_ctx.emitError(Twine(kShaderKindMismatch) +
-                    ShaderModel::GetKindName(pSM->GetKind()) + " and " +
-                    ShaderModel::GetKindName(props.shaderKind));
+    Twine Msg = Twine(kShaderKindMismatch) +
+                ShaderModel::GetKindName(pSM->GetKind()) + " and " +
+                ShaderModel::GetKindName(props.shaderKind);
+    dxilutil::EmitErrorOnFunction(entryFunc, Msg.str());
     return nullptr;
   }
 
@@ -1120,7 +1124,9 @@ bool DxilLinkerImpl::AttachLib(DxilLib *lib) {
     StringRef name = it->getKey();
     if (m_functionNameMap.count(name)) {
       // Redefine of function.
-      m_ctx.emitError(Twine(kRedefineFunction) + name);
+      const DxilFunctionLinkInfo *DFLI = it->getValue().get();
+      Twine Msg = Twine(kRedefineFunction) + name;
+      dxilutil::EmitErrorOnFunction(DFLI->func, Msg.str());
       bSuccess = false;
       continue;
     }

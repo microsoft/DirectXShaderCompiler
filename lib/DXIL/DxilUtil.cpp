@@ -210,10 +210,51 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
   return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
 }
 
+
+DIGlobalVariable *FindGlobalVariableDebugInfo(GlobalVariable *GV,
+                                              DebugInfoFinder &DbgInfoFinder) {
+  struct GlobalFinder {
+    GlobalVariable *GV;
+    bool operator()(llvm::DIGlobalVariable *const arg) const {
+      return arg->getVariable() == GV;
+    }
+  };
+  GlobalFinder F = {GV};
+  DebugInfoFinder::global_variable_iterator Found =
+      std::find_if(DbgInfoFinder.global_variables().begin(),
+                   DbgInfoFinder.global_variables().end(), F);
+  if (Found != DbgInfoFinder.global_variables().end()) {
+    return *Found;
+  }
+  return nullptr;
+}
+
 std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
   std::string locString;
   raw_string_ostream os(locString);
   DL.print(os);
+  os << ": " << Msg;
+  return os.str();
+}
+
+std::string FormatMessageInSubProgram(DISubprogram *DISP, const Twine& Msg) {
+  std::string locString;
+  raw_string_ostream os(locString);
+
+  auto *Scope = cast<DIScope>(DISP->getScope());
+  os << Scope->getFilename();
+  os << ':' << DISP->getLine();
+  os << ": " << Msg;
+  return os.str();
+}
+
+std::string FormatMessageInVariable(DIVariable *DIV, const Twine& Msg) {
+  std::string locString;
+  raw_string_ostream os(locString);
+
+  auto *Scope = cast<DIScope>(DIV->getScope());
+  os << Scope->getFilename();
+  os << ':' << DIV->getLine();
   os << ": " << Msg;
   return os.str();
 }
@@ -276,6 +317,59 @@ void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
 void EmitWarningOnInstruction(Instruction *I, StringRef Msg) {
   EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/true);
 }
+
+static void EmitWarningOrErrorOnFunction(Function *F, StringRef Msg,
+                                         bool bWarning) {
+  DISubprogram *DISP = getDISubprogram(F);
+  if (DISP) {
+    if (bWarning)
+      F->getContext().emitWarning(FormatMessageInSubProgram(DISP, Msg));
+    else
+      F->getContext().emitError(FormatMessageInSubProgram(DISP, Msg));
+    return;
+  }
+
+  if (bWarning)
+    F->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
+  else
+    F->getContext().emitError(FormatMessageWithoutLocation(Msg));
+}
+
+void EmitErrorOnFunction(Function *F, StringRef Msg) {
+  EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/false);
+}
+
+void EmitWarningOnFunction(Function *F, StringRef Msg) {
+  EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/true);
+}
+
+static void EmitWarningOrErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV,
+                                               StringRef Msg, bool bWarning) {
+  DIVariable *DIV = nullptr;
+  if (GV)
+    DIV = FindGlobalVariableDebugInfo(GV, DM->GetOrCreateDebugInfoFinder());
+  if (DIV) {
+    if (bWarning)
+      GV->getContext().emitWarning(FormatMessageInVariable(DIV, Msg));
+    else
+      GV->getContext().emitError(FormatMessageInVariable(DIV, Msg));
+    return;
+  }
+
+  if (bWarning)
+    GV->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
+  else
+    GV->getContext().emitError(FormatMessageWithoutLocation(Msg));
+}
+
+void EmitErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, StringRef Msg) {
+  EmitWarningOrErrorOnGlobalVariable(DM, GV, Msg, /*bWarning*/false);
+}
+
+void EmitWarningOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, StringRef Msg) {
+  EmitWarningOrErrorOnGlobalVariable(DM, GV, Msg, /*bWarning*/true);
+}
+
 
 const StringRef kResourceMapErrorMsg =
     "local resource not guaranteed to map to unique global resource.";

@@ -256,7 +256,7 @@ private:
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
       LoadInst *LdRes = dyn_cast<LoadInst>(Res);
       if (!LdRes) {
-        CI->getContext().emitError(CI, "cannot map resource to handle");
+        dxilutil::EmitErrorOnInstruction(CI, "cannot map resource to handle.");
         return;
       }
       UpdateCounterSet.insert(LdRes);
@@ -600,7 +600,7 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
       std::vector<int> mask { 2, 1, 0, 3 };
       val = Builder.CreateShuffleVector(val, val, mask);
     } else {
-      CI->getContext().emitError(CI, "Unsupported input type for intrinsic D3DColorToUByte4");
+      dxilutil::EmitErrorOnInstruction(CI, "Unsupported input type for intrinsic D3DColorToUByte4.");
       return UndefValue::get(CI->getType());
     }
   }
@@ -735,15 +735,15 @@ Value *TranslateAddUint64(CallInst *CI, IntrinsicOp IOP,
   Type *Ty = val->getType();
   VectorType *VT = dyn_cast<VectorType>(Ty);
   if (!VT) {
-    CI->getContext().emitError(
-        CI, "AddUint64 can only be applied to uint2 and uint4 operands");
+    dxilutil::EmitErrorOnInstruction(
+        CI, "AddUint64 can only be applied to uint2 and uint4 operands.");
     return UndefValue::get(Ty);
   }
 
   unsigned size = VT->getNumElements();
   if (size != 2 && size != 4) {
-    CI->getContext().emitError(
-        CI, "AddUint64 can only be applied to uint2 and uint4 operands");
+    dxilutil::EmitErrorOnInstruction(
+        CI, "AddUint64 can only be applied to uint2 and uint4 operands.");
     return UndefValue::get(Ty);
   }
   Value *op0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
@@ -842,8 +842,8 @@ Value *TranslateEvalHelper(CallInst *CI, Value *val, IRBuilder<> &Builder,
     for (unsigned i = 0; i < Ty->getVectorNumElements(); ++i) {
       Value *InputEl = FindScalarSource(val, i);
       if (!IsValidLoadInput(InputEl)) {
-        CI->getContext().emitError(CI, "attribute evaluation can only be done "
-                                       "on values taken directly from inputs");
+        dxilutil::EmitErrorOnInstruction(CI, "attribute evaluation can only be done "
+                                             "on values taken directly from inputs.");
         return result;
       }
       CallInst *loadInput = cast<CallInst>(InputEl);
@@ -857,8 +857,8 @@ Value *TranslateEvalHelper(CallInst *CI, Value *val, IRBuilder<> &Builder,
   else {
     Value *InputEl = FindScalarSource(val);
     if (!IsValidLoadInput(InputEl)) {
-      CI->getContext().emitError(CI, "attribute evaluation can only be done "
-                                     "on values taken directly from inputs");
+      dxilutil::EmitErrorOnInstruction(CI, "attribute evaluation can only be done "
+                                           "on values taken directly from inputs.");
       return result;
     }
     CallInst *loadInput = cast<CallInst>(InputEl);
@@ -5076,7 +5076,7 @@ namespace {
 Value *EmptyLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
                   HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Translated = false;
-  CI->getContext().emitError(CI, "Unsupported intrinsic");
+  dxilutil::EmitErrorOnInstruction(CI, "Unsupported intrinsic.");
   return nullptr;
 }
 
@@ -5088,7 +5088,7 @@ Value *UnsupportedVulkanIntrinsic(CallInst *CI, IntrinsicOp IOP,
                                   HLObjectOperationLowerHelper *pObjHelper,
                                   bool &Translated) {
   Translated = false;
-  CI->getContext().emitError(CI, "Unsupported Vulkan intrinsic");
+  dxilutil::EmitErrorOnInstruction(CI, "Unsupported Vulkan intrinsic.");
   return nullptr;
 }
 #endif // ENABLE_SPIRV_CODEGEN
@@ -7223,7 +7223,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         if (!isa<CallInst>(GEPUser)) {
           // Invalid operations.
           Translated = false;
-          CI->getContext().emitError(GEP, "Invalid operation on typed buffer");
+          dxilutil::EmitErrorOnInstruction(GEP, "Invalid operation on typed buffer.");
           return;
         }
         CallInst *userCall = cast<CallInst>(GEPUser);
@@ -7232,8 +7232,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         if (group != HLOpcodeGroup::HLIntrinsic) {
           // Invalid operations.
           Translated = false;
-          CI->getContext().emitError(userCall,
-                                     "Invalid operation on typed buffer");
+          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
           return;
         }
         unsigned opcode = hlsl::GetHLOpcode(userCall);
@@ -7252,15 +7251,14 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         case IntrinsicOp::IOP_InterlockedCompareExchange: {
           // Invalid operations.
           Translated = false;
-          CI->getContext().emitError(
-              userCall, "Atomic operation on typed buffer is not supported");
+          dxilutil::EmitErrorOnInstruction(
+              userCall, "Atomic operation on typed buffer is not supported.");
           return;
         } break;
         default:
           // Invalid operations.
           Translated = false;
-          CI->getContext().emitError(userCall,
-                                     "Invalid operation on typed buffer");
+          dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
           return;
           break;
         }
@@ -7288,13 +7286,12 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           case IntrinsicOp::IOP_InterlockedXor:
           case IntrinsicOp::IOP_InterlockedCompareStore:
           case IntrinsicOp::IOP_InterlockedCompareExchange: {
-            CI->getContext().emitError(
-                userCall, "Atomic operation targets must be groupshared on UAV");
+            dxilutil::EmitErrorOnInstruction(
+                userCall, "Atomic operation targets must be groupshared on UAV.");
             return;
           } break;
           default:
-            CI->getContext().emitError(userCall,
-                                       "Invalid operation on typed buffer");
+            dxilutil::EmitErrorOnInstruction(userCall, "Invalid operation on typed buffer.");
             return;
             break;
           }
