@@ -10,6 +10,8 @@ find_path(TAEF_INCLUDE_DIR      # Set variable TAEF_INCLUDE_DIR
           HINTS "${CMAKE_SOURCE_DIR}/external/taef/build/Include"
           HINTS "${WINDOWS_KIT_10_PATH}/Testing/Development/inc"
           HINTS "${WINDOWS_KIT_81_PATH}/Testing/Development/inc"
+          HINTS "$ENV{TAEF_PATH}/../../../Include"
+          HINTS "$ENV{TAEF_PATH}/../../../Development/inc"
           DOC "path to TAEF header files"
           HINTS
           )
@@ -68,6 +70,9 @@ elseif(EXISTS "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF/x86/te.exe"
 elseif(EXISTS "${WINDOWS_KIT_81_PATH}/Testing/Runtimes/TAEF/x86/te.exe"
     AND EXISTS "${WINDOWS_KIT_81_PATH}/Testing/Runtimes/TAEF/x64/te.exe")
   set(TAEF_BIN_DIR "${WINDOWS_KIT_81_PATH}/Testing/Runtimes/TAEF")
+elseif(EXISTS "${TAEF_PATH}/te.exe")
+  set(TAEF_BIN_DIR "${TAEF_PATH}/..")
+  message("TAEF_BIN_DIR=${TAEF_BIN_DIR}")
 elseif(EXISTS "${WINDOWS_KIT_10_PATH}")
   message(ERROR "Unable to find TAEF binaries under Windows 10 SDK.")
 elseif(EXISTS "${WINDOWS_KIT_81_PATH}")
