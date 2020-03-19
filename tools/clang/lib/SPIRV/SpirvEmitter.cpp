@@ -6323,7 +6323,7 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
       specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId(),
       varDecl->getLocation());
 
-  specConstant->setDebugName(varDecl->getName());
+  specConstant->setDebugName(spvContext, varDecl->getName());
   declIdMapper.registerSpecConstant(varDecl, specConstant);
 }
 

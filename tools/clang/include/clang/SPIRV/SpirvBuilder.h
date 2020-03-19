@@ -445,7 +445,7 @@ public:
   /// Note: the corresponding pointer type of the given type will not be
   /// constructed in this method.
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
-                               std::string name, bool isPrecise,
+                               llvm::StringRef name, bool isPrecise,
                                SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
@@ -599,7 +599,7 @@ void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
 }
 
 void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {
-  mod->addExtension(new (context) SpirvExtension(loc, ext));
+  mod->addExtension(SpirvExtension::Create(context, loc, ext));
 }
 
 void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
@@ -610,7 +610,7 @@ void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
 void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                                  std::string targetName,
                                  llvm::ArrayRef<SpirvVariable *> interfaces) {
-  mod->addEntryPoint(new (context) SpirvEntryPoint(
+  mod->addEntryPoint(SpirvEntryPoint::Create(context,
       target->getSourceLocation(), em, target, targetName, interfaces));
 }
 
@@ -622,11 +622,12 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
   SpirvSource *mainSource = nullptr;
   for (const auto &name : fileNames) {
     SpirvString *fileString =
-        name.empty() ? nullptr
-                     : new (context) SpirvString(/*SourceLocation*/ {}, name);
-    SpirvSource *debugSource = new (context)
-        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
-                    fileString, content);
+        name.empty()
+            ? nullptr
+            : SpirvString::Create(context, /*SourceLocation*/ {}, name);
+    SpirvSource *debugSource = SpirvSource::Create(
+        context, /*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
+        fileString, content);
     mod->addDebugSource(debugSource);
     if (!mainSource)
       mainSource = debugSource;
@@ -635,9 +636,9 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
   // If mainSource is nullptr, fileNames is empty and no input file is
   // specified. We must create a SpirvSource for OpSource HLSL <version>.
   if (!mainSource) {
-    mainSource = new (context)
-        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
-                    nullptr, content);
+    mainSource = SpirvSource::Create(context, /*SourceLocation*/ {},
+                                     spv::SourceLanguage::HLSL, version,
+                                     nullptr, content);
     mod->addDebugSource(mainSource);
   }
   return mainSource->getFile();
@@ -648,7 +649,7 @@ void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,
                                     llvm::ArrayRef<uint32_t> params,
                                     SourceLocation loc) {
   mod->addExecutionMode(
-      new (context) SpirvExecutionMode(loc, entryPoint, em, params, false));
+      SpirvExecutionMode::Create(context, loc, entryPoint, em, params, false));
 }
 
 } // end namespace spirv

@@ -18,6 +18,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/TrailingObjects.h"
 
 namespace clang {
 namespace spirv {
@@ -26,6 +27,7 @@ class BoolType;
 class FloatType;
 class IntegerType;
 class SpirvBasicBlock;
+class SpirvContext;
 class SpirvFunction;
 class SpirvType;
 class SpirvVariable;
@@ -144,7 +146,8 @@ public:
 
   clang::SourceLocation getSourceLocation() const { return srcLoc; }
 
-  void setDebugName(llvm::StringRef name) { debugName = name; }
+  void setDebugName(const SpirvContext &ctx, llvm::StringRef name);
+  void setDebugNameNoCopy(llvm::StringRef name) { debugName = name; }
   llvm::StringRef getDebugName() const { return debugName; }
 
   bool isArithmeticInstruction() const;
@@ -176,6 +179,13 @@ public:
   void setContainsAliasComponent(bool contains) { containsAlias = contains; }
   bool containsAliasComponent() const { return containsAlias; }
 
+  /// Allocate memory with additional space for trailing objects.
+  void *operator new(std::size_t size, const SpirvContext &ctx,
+                     std::size_t extra = 0);
+
+  /// No-op, memory eventually freed by SpirvContext.
+  void operator delete(void *) {}
+
 protected:
   // Forbid creating SpirvInstruction directly
   SpirvInstruction(Kind kind, spv::Op opcode, QualType astResultType,
@@ -188,7 +198,7 @@ protected:
   QualType astResultType;
   uint32_t resultId;
   SourceLocation srcLoc;
-  std::string debugName;
+  llvm::StringRef debugName;
   const SpirvType *resultType;
   uint32_t resultTypeId;
   SpirvLayoutRule layoutRule;
@@ -231,9 +241,14 @@ private:
 };
 
 /// \brief Extension instruction
-class SpirvExtension : public SpirvInstruction {
-public:
+class SpirvExtension : public SpirvInstruction,
+                       private llvm::TrailingObjects<SpirvExtension, char> {
+  friend TrailingObjects;
   SpirvExtension(SourceLocation loc, llvm::StringRef extensionName);
+
+public:
+  static SpirvExtension *Create(const SpirvContext &c, SourceLocation loc,
+                                llvm::StringRef extensionName);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -244,17 +259,22 @@ public:
 
   bool operator==(const SpirvExtension &that) const;
 
-  llvm::StringRef getExtensionName() const { return extName; }
-
-private:
-  std::string extName;
+  llvm::StringRef getExtensionName() const {
+    return getTrailingObjects<char>();
+  }
 };
 
 /// \brief ExtInstImport instruction
-class SpirvExtInstImport : public SpirvInstruction {
+class SpirvExtInstImport
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvExtInstImport, char> {
+  friend TrailingObjects;
+  SpirvExtInstImport(SourceLocation loc, llvm::StringRef extensionName);
+
 public:
-  SpirvExtInstImport(SourceLocation loc,
-                     llvm::StringRef extensionName = "GLSL.std.450");
+  static SpirvExtInstImport *
+  Create(const SpirvContext &c, SourceLocation loc,
+         llvm::StringRef extensionName = "GLSL.std.450");
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -263,10 +283,9 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::StringRef getExtendedInstSetName() const { return extName; }
-
-private:
-  std::string extName;
+  llvm::StringRef getExtendedInstSetName() const {
+    return getTrailingObjects<char>();
+  }
 };
 
 /// \brief OpMemoryModel instruction
@@ -290,11 +309,20 @@ private:
 };
 
 /// \brief OpEntryPoint instruction
-class SpirvEntryPoint : public SpirvInstruction {
-public:
+class SpirvEntryPoint
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvEntryPoint, SpirvVariable *, char> {
+  friend TrailingObjects;
   SpirvEntryPoint(SourceLocation loc, spv::ExecutionModel executionModel,
                   SpirvFunction *entryPoint, llvm::StringRef nameStr,
                   llvm::ArrayRef<SpirvVariable *> iface);
+
+public:
+  static SpirvEntryPoint *Create(const SpirvContext &c, SourceLocation loc,
+                                 spv::ExecutionModel executionModel,
+                                 SpirvFunction *entryPoint,
+                                 llvm::StringRef nameStr,
+                                 llvm::ArrayRef<SpirvVariable *> iface);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -305,22 +333,37 @@ public:
 
   spv::ExecutionModel getExecModel() const { return execModel; }
   SpirvFunction *getEntryPoint() const { return entryPoint; }
-  llvm::StringRef getEntryPointName() const { return name; }
-  llvm::ArrayRef<SpirvVariable *> getInterface() const { return interfaceVec; }
+  llvm::StringRef getEntryPointName() const {
+    return getTrailingObjects<char>();
+  }
+  llvm::ArrayRef<SpirvVariable *> getInterface() const {
+    return {getTrailingObjects<SpirvVariable *>(), numInterfaceVars};
+  }
 
 private:
   spv::ExecutionModel execModel;
   SpirvFunction *entryPoint;
-  std::string name;
-  llvm::SmallVector<SpirvVariable *, 8> interfaceVec;
+  std::size_t numInterfaceVars;
+  std::size_t numTrailingObjects(OverloadToken<SpirvVariable *>) const {
+    return numInterfaceVars;
+  }
 };
 
 /// \brief OpExecutionMode and OpExecutionModeId instructions
-class SpirvExecutionMode : public SpirvInstruction {
-public:
+class SpirvExecutionMode
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvExecutionMode, uint32_t> {
+  friend TrailingObjects;
   SpirvExecutionMode(SourceLocation loc, SpirvFunction *entryPointFunction,
                      spv::ExecutionMode, llvm::ArrayRef<uint32_t> params,
                      bool usesIdParams);
+
+public:
+  static SpirvExecutionMode *Create(const SpirvContext &c, SourceLocation loc,
+                                    SpirvFunction *entryPointFunction,
+                                    spv::ExecutionMode,
+                                    llvm::ArrayRef<uint32_t> params,
+                                    bool usesIdParams);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -331,18 +374,26 @@ public:
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   spv::ExecutionMode getExecutionMode() const { return execMode; }
-  llvm::ArrayRef<uint32_t> getParams() const { return params; }
+  llvm::ArrayRef<uint32_t> getParams() const {
+    return {getTrailingObjects<uint32_t>(), numParams};
+  }
 
 private:
   SpirvFunction *entryPoint;
   spv::ExecutionMode execMode;
-  llvm::SmallVector<uint32_t, 4> params;
+  std::size_t numParams;
 };
 
 /// \brief OpString instruction
-class SpirvString : public SpirvInstruction {
-public:
+class SpirvString
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvString, char> {
+  friend TrailingObjects;
   SpirvString(SourceLocation loc, llvm::StringRef stringLiteral);
+
+public:
+  static SpirvString *Create(const SpirvContext &c, SourceLocation loc,
+                             llvm::StringRef stringLiteral);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -351,17 +402,20 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::StringRef getString() const { return str; }
-
-private:
-  std::string str;
+  llvm::StringRef getString() const { return getTrailingObjects<char>(); }
 };
 
 /// \brief OpSource and OpSourceContinued instruction
-class SpirvSource : public SpirvInstruction {
-public:
+class SpirvSource : public SpirvInstruction,
+                    private llvm::TrailingObjects<SpirvSource, char> {
+  friend TrailingObjects;
   SpirvSource(SourceLocation loc, spv::SourceLanguage language, uint32_t ver,
               SpirvString *file, llvm::StringRef src);
+
+public:
+  static SpirvSource *Create(const SpirvContext &c, SourceLocation loc,
+                             spv::SourceLanguage language, uint32_t ver,
+                             SpirvString *file, llvm::StringRef src);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -374,19 +428,24 @@ public:
   uint32_t getVersion() const { return version; }
   bool hasFile() const { return file != nullptr; }
   SpirvString *getFile() const { return file; }
-  llvm::StringRef getSource() const { return source; }
+  llvm::StringRef getSource() const { return getTrailingObjects<char>(); }
 
 private:
   spv::SourceLanguage lang;
   uint32_t version;
   SpirvString *file;
-  std::string source;
 };
 
 /// \brief OpModuleProcessed instruction
-class SpirvModuleProcessed : public SpirvInstruction {
-public:
+class SpirvModuleProcessed
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvModuleProcessed, char> {
+  friend TrailingObjects;
   SpirvModuleProcessed(SourceLocation loc, llvm::StringRef processStr);
+
+public:
+  static SpirvModuleProcessed *Create(const SpirvContext &c, SourceLocation loc,
+                                      llvm::StringRef processStr);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -395,15 +454,15 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::StringRef getProcess() const { return process; }
-
-private:
-  std::string process;
+  llvm::StringRef getProcess() const { return getTrailingObjects<char>(); }
 };
 
 /// \brief OpDecorate(Id) and OpMemberDecorate instructions
-class SpirvDecoration : public SpirvInstruction {
-public:
+class SpirvDecoration
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvDecoration, SpirvInstruction *,
+                                    uint32_t> {
+  friend TrailingObjects;
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor, llvm::ArrayRef<uint32_t> params = {},
                   llvm::Optional<uint32_t> index = llvm::None);
@@ -415,6 +474,24 @@ public:
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor,
                   llvm::ArrayRef<SpirvInstruction *> params);
+
+public:
+  static SpirvDecoration *Create(const SpirvContext &c, SourceLocation loc,
+                                 SpirvInstruction *target,
+                                 spv::Decoration decor,
+                                 llvm::ArrayRef<uint32_t> params = {},
+                                 llvm::Optional<uint32_t> index = llvm::None);
+  static SpirvDecoration *Create(const SpirvContext &c, SourceLocation loc,
+                                 SpirvInstruction *target,
+                                 spv::Decoration decor,
+                                 llvm::StringRef stringParam,
+                                 llvm::Optional<uint32_t> index = llvm::None);
+
+  // Used for creating OpDecorateId instructions
+  static SpirvDecoration *Create(const SpirvContext &c, SourceLocation loc,
+                                 SpirvInstruction *target,
+                                 spv::Decoration decor,
+                                 llvm::ArrayRef<SpirvInstruction *> params);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -429,8 +506,12 @@ public:
   SpirvInstruction *getTarget() const { return target; }
 
   spv::Decoration getDecoration() const { return decoration; }
-  llvm::ArrayRef<uint32_t> getParams() const { return params; }
-  llvm::ArrayRef<SpirvInstruction *> getIdParams() const { return idParams; }
+  llvm::ArrayRef<uint32_t> getParams() const {
+    return {getTrailingObjects<uint32_t>(), numParams};
+  }
+  llvm::ArrayRef<SpirvInstruction *> getIdParams() const {
+    return {getTrailingObjects<SpirvInstruction *>(), numIdParams};
+  }
   bool isMemberDecoration() const { return index.hasValue(); }
   uint32_t getMemberIndex() const { return index.getValue(); }
 
@@ -442,8 +523,11 @@ private:
   SpirvInstruction *target;
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
-  llvm::SmallVector<uint32_t, 4> params;
-  llvm::SmallVector<SpirvInstruction *, 4> idParams;
+  std::size_t numParams;
+  std::size_t numIdParams;
+  std::size_t numTrailingObjects(OverloadToken<SpirvInstruction *>) const {
+    return numIdParams;
+  }
 };
 
 /// \brief OpVariable instruction
@@ -466,13 +550,16 @@ public:
 
   void setDescriptorSetNo(int32_t dset) { descriptorSet = dset; }
   void setBindingNo(int32_t b) { binding = b; }
-  void setHlslUserType(llvm::StringRef userType) { hlslUserType = userType; }
+  void setHlslUserType(const SpirvContext &ctx, llvm::StringRef userType);
+  void setHlslUserTypeNoCopy(llvm::StringRef userType) {
+    hlslUserType = userType;
+  }
 
 private:
   SpirvInstruction *initializer;
   int32_t descriptorSet;
   int32_t binding;
-  std::string hlslUserType;
+  llvm::StringRef hlslUserType;
 };
 
 class SpirvFunctionParameter : public SpirvInstruction {
@@ -667,12 +754,21 @@ private:
 };
 
 /// \brief Switch instruction
-class SpirvSwitch : public SpirvBranching {
-public:
+class SpirvSwitch
+    : public SpirvBranching,
+      private llvm::TrailingObjects<SpirvSwitch,
+                                    std::pair<uint32_t, SpirvBasicBlock *>> {
+  friend TrailingObjects;
   SpirvSwitch(
       SourceLocation loc, SpirvInstruction *selector,
       SpirvBasicBlock *defaultLabel,
       llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec);
+
+public:
+  static SpirvSwitch *
+  Create(const SpirvContext &c, SourceLocation loc, SpirvInstruction *selector,
+         SpirvBasicBlock *defaultLabel,
+         llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -684,7 +780,8 @@ public:
   SpirvInstruction *getSelector() const { return selector; }
   SpirvBasicBlock *getDefaultLabel() const { return defaultLabel; }
   llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> getTargets() const {
-    return targets;
+    return {getTrailingObjects<std::pair<uint32_t, SpirvBasicBlock *>>(),
+            numTargets};
   }
   // Returns the branch label that will be taken for the given literal.
   SpirvBasicBlock *getTargetLabelForLiteral(uint32_t) const;
@@ -694,7 +791,7 @@ public:
 private:
   SpirvInstruction *selector;
   SpirvBasicBlock *defaultLabel;
-  llvm::SmallVector<std::pair<uint32_t, SpirvBasicBlock *>, 4> targets;
+  std::size_t numTargets;
 };
 
 /// \brief OpUnreachable instruction
@@ -714,11 +811,18 @@ public:
 ///
 /// Note: If needed, this class can be extended to cover Ptr access chains,
 /// and InBounds access chains. These are currently not used by CodeGen.
-class SpirvAccessChain : public SpirvInstruction {
-public:
+class SpirvAccessChain
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvAccessChain, SpirvInstruction *> {
+  friend TrailingObjects;
   SpirvAccessChain(QualType resultType, SourceLocation loc,
                    SpirvInstruction *base,
                    llvm::ArrayRef<SpirvInstruction *> indexVec);
+
+public:
+  static SpirvAccessChain *Create(const SpirvContext &c, QualType resultType,
+                                  SourceLocation loc, SpirvInstruction *base,
+                                  llvm::ArrayRef<SpirvInstruction *> indexVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -728,11 +832,13 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getBase() const { return base; }
-  llvm::ArrayRef<SpirvInstruction *> getIndexes() const { return indices; }
+  llvm::ArrayRef<SpirvInstruction *> getIndexes() const {
+    return {getTrailingObjects<SpirvInstruction *>(), numIndices};
+  }
 
 private:
   SpirvInstruction *base;
-  llvm::SmallVector<SpirvInstruction *, 4> indices;
+  std::size_t numIndices;
 };
 
 /// \brief Atomic instructions.
@@ -1048,11 +1154,19 @@ private:
   llvm::APFloat value;
 };
 
-class SpirvConstantComposite : public SpirvConstant {
-public:
+class SpirvConstantComposite
+    : public SpirvConstant,
+      private llvm::TrailingObjects<SpirvConstantComposite, SpirvConstant *> {
+  friend TrailingObjects;
   SpirvConstantComposite(QualType type,
                          llvm::ArrayRef<SpirvConstant *> constituents,
                          bool isSpecConst = false);
+
+public:
+  static SpirvConstantComposite *
+  Create(const SpirvContext &c, QualType type,
+         llvm::ArrayRef<SpirvConstant *> constituents,
+         bool isSpecConst = false);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1062,11 +1176,11 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   llvm::ArrayRef<SpirvConstant *> getConstituents() const {
-    return constituents;
+    return {getTrailingObjects<SpirvConstant *>(), numConstituents};
   }
 
 private:
-  llvm::SmallVector<SpirvConstant *, 4> constituents;
+  std::size_t numConstituents;
 };
 
 class SpirvConstantNull : public SpirvConstant {
@@ -1084,10 +1198,18 @@ public:
 };
 
 /// \brief OpCompositeConstruct instruction
-class SpirvCompositeConstruct : public SpirvInstruction {
-public:
+class SpirvCompositeConstruct
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvCompositeConstruct,
+                                    SpirvInstruction *> {
+  friend TrailingObjects;
   SpirvCompositeConstruct(QualType resultType, SourceLocation loc,
                           llvm::ArrayRef<SpirvInstruction *> constituentsVec);
+
+public:
+  static SpirvCompositeConstruct *
+  Create(const SpirvContext &c, QualType resultType, SourceLocation loc,
+         llvm::ArrayRef<SpirvInstruction *> constituentsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1097,19 +1219,27 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   llvm::ArrayRef<SpirvInstruction *> getConstituents() const {
-    return consituents;
+    return {getTrailingObjects<SpirvInstruction *>(), numConstituents};
   }
 
 private:
-  llvm::SmallVector<SpirvInstruction *, 4> consituents;
+  std::size_t numConstituents;
 };
 
 /// \brief Extraction instruction (OpCompositeExtract)
-class SpirvCompositeExtract : public SpirvInstruction {
-public:
+class SpirvCompositeExtract
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvCompositeExtract, uint32_t> {
+  friend TrailingObjects;
   SpirvCompositeExtract(QualType resultType, SourceLocation loc,
                         SpirvInstruction *composite,
                         llvm::ArrayRef<uint32_t> indices);
+
+public:
+  static SpirvCompositeExtract *Create(const SpirvContext &c,
+                                       QualType resultType, SourceLocation loc,
+                                       SpirvInstruction *composite,
+                                       llvm::ArrayRef<uint32_t> indices);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1119,19 +1249,30 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getComposite() const { return composite; }
-  llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
+  llvm::ArrayRef<uint32_t> getIndexes() const {
+    return {getTrailingObjects<uint32_t>(), numIndices};
+  }
 
 private:
   SpirvInstruction *composite;
-  llvm::SmallVector<uint32_t, 4> indices;
+  std::size_t numIndices;
 };
 
 /// \brief Composite insertion instruction (OpCompositeInsert)
-class SpirvCompositeInsert : public SpirvInstruction {
-public:
+class SpirvCompositeInsert
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvCompositeInsert, uint32_t> {
+  friend TrailingObjects;
   SpirvCompositeInsert(QualType resultType, SourceLocation loc,
                        SpirvInstruction *composite, SpirvInstruction *object,
                        llvm::ArrayRef<uint32_t> indices);
+
+public:
+  static SpirvCompositeInsert *Create(const SpirvContext &c,
+                                      QualType resultType, SourceLocation loc,
+                                      SpirvInstruction *composite,
+                                      SpirvInstruction *object,
+                                      llvm::ArrayRef<uint32_t> indices);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1142,12 +1283,14 @@ public:
 
   SpirvInstruction *getComposite() const { return composite; }
   SpirvInstruction *getObject() const { return object; }
-  llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
+  llvm::ArrayRef<uint32_t> getIndexes() const {
+    return {getTrailingObjects<uint32_t>(), numIndices};
+  }
 
 private:
   SpirvInstruction *composite;
   SpirvInstruction *object;
-  llvm::SmallVector<uint32_t, 4> indices;
+  std::size_t numIndices;
 };
 
 /// \brief EmitVertex instruction
@@ -1177,10 +1320,18 @@ public:
 };
 
 /// \brief ExtInst instruction
-class SpirvExtInst : public SpirvInstruction {
-public:
+class SpirvExtInst
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvExtInst, SpirvInstruction *> {
+  friend TrailingObjects;
   SpirvExtInst(QualType resultType, SourceLocation loc, SpirvExtInstImport *set,
                GLSLstd450 inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
+
+public:
+  static SpirvExtInst *Create(const SpirvContext &c, QualType resultType,
+                              SourceLocation loc, SpirvExtInstImport *set,
+                              GLSLstd450 inst,
+                              llvm::ArrayRef<SpirvInstruction *> operandsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1191,20 +1342,29 @@ public:
 
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
   GLSLstd450 getInstruction() const { return instruction; }
-  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const {
+    return {getTrailingObjects<SpirvInstruction *>(), numOperands};
+  }
 
 private:
   SpirvExtInstImport *instructionSet;
   GLSLstd450 instruction;
-  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  std::size_t numOperands;
 };
 
 /// \brief OpFunctionCall instruction
-class SpirvFunctionCall : public SpirvInstruction {
-public:
+class SpirvFunctionCall
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvFunctionCall, SpirvInstruction *> {
+  friend TrailingObjects;
   SpirvFunctionCall(QualType resultType, SourceLocation loc,
                     SpirvFunction *function,
                     llvm::ArrayRef<SpirvInstruction *> argsVec);
+
+public:
+  static SpirvFunctionCall *Create(const SpirvContext &c, QualType resultType,
+                                   SourceLocation loc, SpirvFunction *function,
+                                   llvm::ArrayRef<SpirvInstruction *> argsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1214,11 +1374,13 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvFunction *getFunction() const { return function; }
-  llvm::ArrayRef<SpirvInstruction *> getArgs() const { return args; }
+  llvm::ArrayRef<SpirvInstruction *> getArgs() const {
+    return {getTrailingObjects<SpirvInstruction *>(), numArgs};
+  }
 
 private:
   SpirvFunction *function;
-  llvm::SmallVector<SpirvInstruction *, 4> args;
+  std::size_t numArgs;
 };
 
 /// \brief Base for OpGroupNonUniform* instructions
@@ -1684,11 +1846,19 @@ private:
 };
 
 /// \brief OpVectorShuffle instruction
-class SpirvVectorShuffle : public SpirvInstruction {
-public:
+class SpirvVectorShuffle
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvVectorShuffle, uint32_t> {
+  friend TrailingObjects;
   SpirvVectorShuffle(QualType resultType, SourceLocation loc,
                      SpirvInstruction *vec1, SpirvInstruction *vec2,
                      llvm::ArrayRef<uint32_t> componentsVec);
+
+public:
+  static SpirvVectorShuffle *Create(const SpirvContext &c, QualType resultType,
+                                    SourceLocation loc, SpirvInstruction *vec1,
+                                    SpirvInstruction *vec2,
+                                    llvm::ArrayRef<uint32_t> componentsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1699,12 +1869,14 @@ public:
 
   SpirvInstruction *getVec1() const { return vec1; }
   SpirvInstruction *getVec2() const { return vec2; }
-  llvm::ArrayRef<uint32_t> getComponents() const { return components; }
+  llvm::ArrayRef<uint32_t> getComponents() const {
+    return {getTrailingObjects<uint32_t>(), numComponents};
+  }
 
 private:
   SpirvInstruction *vec1;
   SpirvInstruction *vec2;
-  llvm::SmallVector<uint32_t, 4> components;
+  std::size_t numComponents;
 };
 
 class SpirvArrayLength : public SpirvInstruction {
@@ -1731,11 +1903,18 @@ private:
 /// These include following SPIR-V opcodes:
 /// OpTraceNV, OpReportIntersectionNV, OpIgnoreIntersectionNV, OpTerminateRayNV,
 /// OpExecuteCallableNV
-class SpirvRayTracingOpNV : public SpirvInstruction {
-public:
+class SpirvRayTracingOpNV
+    : public SpirvInstruction,
+      private llvm::TrailingObjects<SpirvRayTracingOpNV, SpirvInstruction *> {
+  friend TrailingObjects;
   SpirvRayTracingOpNV(QualType resultType, spv::Op opcode,
                       llvm::ArrayRef<SpirvInstruction *> vecOperands,
                       SourceLocation loc);
+
+public:
+  static SpirvRayTracingOpNV *
+  Create(const SpirvContext &c, QualType resultType, spv::Op opcode,
+         llvm::ArrayRef<SpirvInstruction *> vecOperands, SourceLocation loc);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1744,10 +1923,12 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const {
+    return {getTrailingObjects<SpirvInstruction *>(), numOperands};
+  }
 
 private:
-  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  std::size_t numOperands;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

@@ -139,6 +139,14 @@ public:
   /// Deallocates the memory pointed by the given pointer.
   void deallocate(void *ptr) const {}
 
+  /// Allocates copy of string within context's allocator.
+  llvm::StringRef copyString(llvm::StringRef str) const {
+    char *buf = static_cast<char *>(allocate(str.size() + 1, alignof(char)));
+    std::copy(str.begin(), str.end(), buf);
+    buf[str.size()] = '\0';
+    return {buf, str.size()};
+  }
+
   // === Types ===
 
   const VoidType *getVoidType() const { return voidType; }

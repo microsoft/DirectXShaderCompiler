@@ -155,7 +155,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
     if (it == debugFileIdMap.end()) {
       // Emit the OpString for this new fileName.
       SpirvString *inst =
-          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
+          SpirvString::Create(context, /*SourceLocation*/ {}, fileName);
       visit(inst);
       it = debugFileIdMap.find(fileName);
     }

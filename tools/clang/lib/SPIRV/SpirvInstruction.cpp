@@ -13,6 +13,7 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/SpirvVisitor.h"
@@ -92,6 +93,16 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
 
+void *SpirvInstruction::operator new(std::size_t size, const SpirvContext &ctx,
+                                     std::size_t extra) {
+  return ::operator new(size + extra, ctx);
+}
+
+void SpirvInstruction::setDebugName(const SpirvContext &ctx,
+                                    llvm::StringRef name) {
+  debugName = ctx.copyString(name);
+}
+
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {
   case spv::Op::OpSNegate:
@@ -137,18 +148,38 @@ bool SpirvCapability::operator==(const SpirvCapability &that) const {
 
 SpirvExtension::SpirvExtension(SourceLocation loc,
                                llvm::StringRef extensionName)
-    : SpirvInstruction(IK_Extension, spv::Op::OpExtension, QualType(), loc),
-      extName(extensionName) {}
+    : SpirvInstruction(IK_Extension, spv::Op::OpExtension, QualType(), loc) {
+  std::copy(extensionName.begin(), extensionName.end(),
+            getTrailingObjects<char>());
+  getTrailingObjects<char>()[extensionName.size()] = '\0';
+}
+
+SpirvExtension *SpirvExtension::Create(const SpirvContext &c,
+                                       SourceLocation loc,
+                                       llvm::StringRef extensionName) {
+  return new (c, additionalSizeToAlloc<char>(extensionName.size() + 1))
+      SpirvExtension(loc, extensionName);
+}
 
 bool SpirvExtension::operator==(const SpirvExtension &that) const {
-  return extName == that.extName;
+  return getExtensionName() == that.getExtensionName();
 }
 
 SpirvExtInstImport::SpirvExtInstImport(SourceLocation loc,
                                        llvm::StringRef extensionName)
     : SpirvInstruction(IK_ExtInstImport, spv::Op::OpExtInstImport, QualType(),
-                       loc),
-      extName(extensionName) {}
+                       loc) {
+  std::copy(extensionName.begin(), extensionName.end(),
+            getTrailingObjects<char>());
+  getTrailingObjects<char>()[extensionName.size()] = '\0';
+}
+
+SpirvExtInstImport *SpirvExtInstImport::Create(const SpirvContext &c,
+                                               SourceLocation loc,
+                                               llvm::StringRef extensionName) {
+  return new (c, additionalSizeToAlloc<char>(extensionName.size() + 1))
+      SpirvExtInstImport(loc, extensionName);
+}
 
 SpirvMemoryModel::SpirvMemoryModel(spv::AddressingModel addrModel,
                                    spv::MemoryModel memModel)
@@ -162,8 +193,22 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  llvm::StringRef nameStr,
                                  llvm::ArrayRef<SpirvVariable *> iface)
     : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(), loc),
-      execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
-      interfaceVec(iface.begin(), iface.end()) {}
+      execModel(executionModel), entryPoint(entryPointFn),
+      numInterfaceVars(iface.size()) {
+  std::copy(iface.begin(), iface.end(), getTrailingObjects<SpirvVariable *>());
+  std::copy(nameStr.begin(), nameStr.end(), getTrailingObjects<char>());
+  getTrailingObjects<char>()[nameStr.size()] = '\0';
+}
+
+SpirvEntryPoint *
+SpirvEntryPoint::Create(const SpirvContext &c, SourceLocation loc,
+                        spv::ExecutionModel executionModel,
+                        SpirvFunction *entryPoint, llvm::StringRef nameStr,
+                        llvm::ArrayRef<SpirvVariable *> iface) {
+  return new (c, additionalSizeToAlloc<SpirvVariable *, char>(
+                     iface.size(), nameStr.size() + 1))
+      SpirvEntryPoint(loc, executionModel, entryPoint, nameStr, iface);
+}
 
 // OpExecutionMode and OpExecutionModeId instructions
 SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc, SpirvFunction *entry,
@@ -174,24 +219,62 @@ SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc, SpirvFunction *entry,
                        usesIdParams ? spv::Op::OpExecutionModeId
                                     : spv::Op::OpExecutionMode,
                        QualType(), loc),
-      entryPoint(entry), execMode(em),
-      params(paramsVec.begin(), paramsVec.end()) {}
+      entryPoint(entry), execMode(em), numParams(paramsVec.size()) {
+  std::copy(paramsVec.begin(), paramsVec.end(), getTrailingObjects<uint32_t>());
+}
+
+SpirvExecutionMode *
+SpirvExecutionMode::Create(const SpirvContext &c, SourceLocation loc,
+                           SpirvFunction *entry, spv::ExecutionMode em,
+                           llvm::ArrayRef<uint32_t> paramsVec,
+                           bool usesIdParams) {
+  return new (c, additionalSizeToAlloc<uint32_t>(paramsVec.size()))
+      SpirvExecutionMode(loc, entry, em, paramsVec, usesIdParams);
+}
 
 SpirvString::SpirvString(SourceLocation loc, llvm::StringRef stringLiteral)
-    : SpirvInstruction(IK_String, spv::Op::OpString, QualType(), loc),
-      str(stringLiteral) {}
+    : SpirvInstruction(IK_String, spv::Op::OpString, QualType(), loc) {
+  std::copy(stringLiteral.begin(), stringLiteral.end(),
+            getTrailingObjects<char>());
+  getTrailingObjects<char>()[stringLiteral.size()] = '\0';
+}
+
+SpirvString *SpirvString::Create(const SpirvContext &c, SourceLocation loc,
+                                 llvm::StringRef stringLiteral) {
+  return new (c, additionalSizeToAlloc<char>(stringLiteral.size() + 1))
+      SpirvString(loc, stringLiteral);
+}
 
 SpirvSource::SpirvSource(SourceLocation loc, spv::SourceLanguage language,
                          uint32_t ver, SpirvString *fileString,
                          llvm::StringRef src)
     : SpirvInstruction(IK_Source, spv::Op::OpSource, QualType(), loc),
-      lang(language), version(ver), file(fileString), source(src) {}
+      lang(language), version(ver), file(fileString) {
+  std::copy(src.begin(), src.end(), getTrailingObjects<char>());
+  getTrailingObjects<char>()[src.size()] = '\0';
+}
+
+SpirvSource *SpirvSource::Create(const SpirvContext &c, SourceLocation loc,
+                                 spv::SourceLanguage language, uint32_t ver,
+                                 SpirvString *file, llvm::StringRef src) {
+  return new (c, additionalSizeToAlloc<char>(src.size() + 1))
+      SpirvSource(loc, language, ver, file, src);
+}
 
 SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
                                            llvm::StringRef processStr)
     : SpirvInstruction(IK_ModuleProcessed, spv::Op::OpModuleProcessed,
-                       QualType(), loc),
-      process(processStr) {}
+                       QualType(), loc) {
+  std::copy(processStr.begin(), processStr.end(), getTrailingObjects<char>());
+  getTrailingObjects<char>()[processStr.size()] = '\0';
+}
+
+SpirvModuleProcessed *SpirvModuleProcessed::Create(const SpirvContext &c,
+                                                   SourceLocation loc,
+                                                   llvm::StringRef processStr) {
+  return new (c, additionalSizeToAlloc<char>(processStr.size() + 1))
+      SpirvModuleProcessed(loc, processStr);
+}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
@@ -200,8 +283,21 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, loc),
-      target(targetInst), decoration(decor), index(idx),
-      params(p.begin(), p.end()), idParams() {}
+      target(targetInst), decoration(decor), index(idx), numParams(p.size()),
+      numIdParams(0) {
+  std::copy(p.begin(), p.end(), getTrailingObjects<uint32_t>());
+}
+
+SpirvDecoration *SpirvDecoration::Create(const SpirvContext &c,
+                                         SourceLocation loc,
+                                         SpirvInstruction *target,
+                                         spv::Decoration decor,
+                                         llvm::ArrayRef<uint32_t> p,
+                                         llvm::Optional<uint32_t> idx) {
+  return new (c,
+              additionalSizeToAlloc<SpirvInstruction *, uint32_t>(0, p.size()))
+      SpirvDecoration(loc, target, decor, p, idx);
+}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
@@ -210,9 +306,22 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, loc),
-      target(targetInst), decoration(decor), index(idx), params(), idParams() {
-  const auto &stringWords = string::encodeSPIRVString(strParam);
-  params.insert(params.end(), stringWords.begin(), stringWords.end());
+      target(targetInst), decoration(decor), index(idx), numIdParams(0) {
+  const auto stringWords = string::encodeSPIRVString(strParam);
+  numParams = stringWords.size();
+  std::copy(stringWords.begin(), stringWords.end(),
+            getTrailingObjects<uint32_t>());
+}
+
+SpirvDecoration *SpirvDecoration::Create(const SpirvContext &c,
+                                         SourceLocation loc,
+                                         SpirvInstruction *targetInst,
+                                         spv::Decoration decor,
+                                         llvm::StringRef strParam,
+                                         llvm::Optional<uint32_t> idx) {
+  return new (c, additionalSizeToAlloc<SpirvInstruction *, uint32_t>(
+                     0, strParam.size() / 4 + 1))
+      SpirvDecoration(loc, targetInst, decor, strParam, idx);
 }
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
@@ -221,8 +330,19 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::ArrayRef<SpirvInstruction *> ids)
     : SpirvInstruction(IK_Decoration, spv::Op::OpDecorateId,
                        /*type*/ {}, loc),
-      target(targetInst), decoration(decor), index(llvm::None), params(),
-      idParams(ids.begin(), ids.end()) {}
+      target(targetInst), decoration(decor), index(llvm::None), numParams(0),
+      numIdParams(ids.size()) {
+  std::copy(ids.begin(), ids.end(), getTrailingObjects<SpirvInstruction *>());
+}
+
+SpirvDecoration *
+SpirvDecoration::Create(const SpirvContext &c, SourceLocation loc,
+                        SpirvInstruction *targetInst, spv::Decoration decor,
+                        llvm::ArrayRef<SpirvInstruction *> ids) {
+  return new (
+      c, additionalSizeToAlloc<SpirvInstruction *, uint32_t>(ids.size(), 0))
+      SpirvDecoration(loc, targetInst, decor, ids);
+}
 
 spv::Op SpirvDecoration::getDecorateOpcode(
     spv::Decoration decoration, const llvm::Optional<uint32_t> &memberIndex) {
@@ -237,7 +357,8 @@ spv::Op SpirvDecoration::getDecorateOpcode(
 
 bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
   return target == that.target && decoration == that.decoration &&
-         params == that.params && idParams == that.idParams &&
+         getParams() == that.getParams() &&
+         getIdParams() == that.getIdParams() &&
          index.hasValue() == that.index.hasValue() &&
          (!index.hasValue() || index.getValue() == that.index.getValue());
 }
@@ -250,6 +371,11 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
       hlslUserType("") {
   setStorageClass(sc);
   setPrecise(precise);
+}
+
+void SpirvVariable::setHlslUserType(const SpirvContext &ctx,
+                                    llvm::StringRef userType) {
+  hlslUserType = ctx.copyString(userType);
 }
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
@@ -305,11 +431,23 @@ SpirvSwitch::SpirvSwitch(
     SpirvBasicBlock *defaultLbl,
     llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec)
     : SpirvBranching(IK_Switch, spv::Op::OpSwitch, loc), selector(selectorInst),
-      defaultLabel(defaultLbl), targets(targetsVec.begin(), targetsVec.end()) {}
+      defaultLabel(defaultLbl), numTargets(targetsVec.size()) {
+  std::copy(targetsVec.begin(), targetsVec.end(),
+            getTrailingObjects<std::pair<uint32_t, SpirvBasicBlock *>>());
+}
+
+SpirvSwitch *SpirvSwitch::Create(
+    const SpirvContext &c, SourceLocation loc, SpirvInstruction *selector,
+    SpirvBasicBlock *defaultLabel,
+    llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec) {
+  return new (c, additionalSizeToAlloc<std::pair<uint32_t, SpirvBasicBlock *>>(
+                     targetsVec.size()))
+      SpirvSwitch(loc, selector, defaultLabel, targetsVec);
+}
 
 // Switch instruction methods.
 SpirvBasicBlock *SpirvSwitch::getTargetLabelForLiteral(uint32_t lit) const {
-  for (auto pair : targets)
+  for (auto pair : getTargets())
     if (pair.first == lit)
       return pair.second;
   return defaultLabel;
@@ -317,7 +455,7 @@ SpirvBasicBlock *SpirvSwitch::getTargetLabelForLiteral(uint32_t lit) const {
 
 llvm::ArrayRef<SpirvBasicBlock *> SpirvSwitch::getTargetBranches() const {
   llvm::SmallVector<SpirvBasicBlock *, 4> branches;
-  for (auto pair : targets)
+  for (auto pair : getTargets())
     branches.push_back(pair.second);
   branches.push_back(defaultLabel);
   return branches;
@@ -330,7 +468,18 @@ SpirvAccessChain::SpirvAccessChain(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *baseInst,
                                    llvm::ArrayRef<SpirvInstruction *> indexVec)
     : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc),
-      base(baseInst), indices(indexVec.begin(), indexVec.end()) {}
+      base(baseInst), numIndices(indexVec.size()) {
+  std::copy(indexVec.begin(), indexVec.end(),
+            getTrailingObjects<SpirvInstruction *>());
+}
+
+SpirvAccessChain *
+SpirvAccessChain::Create(const SpirvContext &c, QualType resultType,
+                         SourceLocation loc, SpirvInstruction *base,
+                         llvm::ArrayRef<SpirvInstruction *> indexVec) {
+  return new (c, additionalSizeToAlloc<SpirvInstruction *>(indexVec.size()))
+      SpirvAccessChain(resultType, loc, base, indexVec);
+}
 
 SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
                          SpirvInstruction *pointerInst, spv::Scope s,
@@ -410,7 +559,18 @@ SpirvCompositeConstruct::SpirvCompositeConstruct(
     llvm::ArrayRef<SpirvInstruction *> constituentsVec)
     : SpirvInstruction(IK_CompositeConstruct, spv::Op::OpCompositeConstruct,
                        resultType, loc),
-      consituents(constituentsVec.begin(), constituentsVec.end()) {}
+      numConstituents(constituentsVec.size()) {
+  std::copy(constituentsVec.begin(), constituentsVec.end(),
+            getTrailingObjects<SpirvInstruction *>());
+}
+
+SpirvCompositeConstruct *SpirvCompositeConstruct::Create(
+    const SpirvContext &c, QualType resultType, SourceLocation loc,
+    llvm::ArrayRef<SpirvInstruction *> constituentsVec) {
+  return new (c,
+              additionalSizeToAlloc<SpirvInstruction *>(constituentsVec.size()))
+      SpirvCompositeConstruct(resultType, loc, constituentsVec);
+}
 
 SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType)
     : SpirvInstruction(kind, op, QualType(),
@@ -479,7 +639,18 @@ SpirvConstantComposite::SpirvConstantComposite(
                     isSpecConst ? spv::Op::OpSpecConstantComposite
                                 : spv::Op::OpConstantComposite,
                     type),
-      constituents(constituentsVec.begin(), constituentsVec.end()) {}
+      numConstituents(constituentsVec.size()) {
+  std::copy(constituentsVec.begin(), constituentsVec.end(),
+            getTrailingObjects<SpirvConstant *>());
+}
+
+SpirvConstantComposite *
+SpirvConstantComposite::Create(const SpirvContext &c, QualType type,
+                               llvm::ArrayRef<SpirvConstant *> constituents,
+                               bool isSpecConst) {
+  return new (c, additionalSizeToAlloc<SpirvConstant *>(constituents.size()))
+      SpirvConstantComposite(type, constituents, isSpecConst);
+}
 
 SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
@@ -495,7 +666,17 @@ SpirvCompositeExtract::SpirvCompositeExtract(QualType resultType,
                                              llvm::ArrayRef<uint32_t> indexVec)
     : SpirvInstruction(IK_CompositeExtract, spv::Op::OpCompositeExtract,
                        resultType, loc),
-      composite(compositeInst), indices(indexVec.begin(), indexVec.end()) {}
+      composite(compositeInst), numIndices(indexVec.size()) {
+  std::copy(indexVec.begin(), indexVec.end(), getTrailingObjects<uint32_t>());
+}
+
+SpirvCompositeExtract *
+SpirvCompositeExtract::Create(const SpirvContext &c, QualType resultType,
+                              SourceLocation loc, SpirvInstruction *composite,
+                              llvm::ArrayRef<uint32_t> indices) {
+  return new (c, additionalSizeToAlloc<uint32_t>(indices.size()))
+      SpirvCompositeExtract(resultType, loc, composite, indices);
+}
 
 SpirvCompositeInsert::SpirvCompositeInsert(QualType resultType,
                                            SourceLocation loc,
@@ -505,7 +686,18 @@ SpirvCompositeInsert::SpirvCompositeInsert(QualType resultType,
     : SpirvInstruction(IK_CompositeInsert, spv::Op::OpCompositeInsert,
                        resultType, loc),
       composite(compositeInst), object(objectInst),
-      indices(indexVec.begin(), indexVec.end()) {}
+      numIndices(indexVec.size()) {
+  std::copy(indexVec.begin(), indexVec.end(), getTrailingObjects<uint32_t>());
+}
+
+SpirvCompositeInsert *
+SpirvCompositeInsert::Create(const SpirvContext &c, QualType resultType,
+                             SourceLocation loc, SpirvInstruction *composite,
+                             SpirvInstruction *object,
+                             llvm::ArrayRef<uint32_t> indices) {
+  return new (c, additionalSizeToAlloc<uint32_t>(indices.size()))
+      SpirvCompositeInsert(resultType, loc, composite, object, indices);
+}
 
 SpirvEmitVertex::SpirvEmitVertex(SourceLocation loc)
     : SpirvInstruction(IK_EmitVertex, spv::Op::OpEmitVertex, QualType(), loc) {}
@@ -518,15 +710,37 @@ SpirvExtInst::SpirvExtInst(QualType resultType, SourceLocation loc,
                            SpirvExtInstImport *set, GLSLstd450 inst,
                            llvm::ArrayRef<SpirvInstruction *> operandsVec)
     : SpirvInstruction(IK_ExtInst, spv::Op::OpExtInst, resultType, loc),
-      instructionSet(set), instruction(inst),
-      operands(operandsVec.begin(), operandsVec.end()) {}
+      instructionSet(set), instruction(inst), numOperands(operandsVec.size()) {
+  std::copy(operandsVec.begin(), operandsVec.end(),
+            getTrailingObjects<SpirvInstruction *>());
+}
+
+SpirvExtInst *
+SpirvExtInst::Create(const SpirvContext &c, QualType resultType,
+                     SourceLocation loc, SpirvExtInstImport *set,
+                     GLSLstd450 inst,
+                     llvm::ArrayRef<SpirvInstruction *> operandsVec) {
+  return new (c, additionalSizeToAlloc<SpirvInstruction *>(operandsVec.size()))
+      SpirvExtInst(resultType, loc, set, inst, operandsVec);
+}
 
 SpirvFunctionCall::SpirvFunctionCall(QualType resultType, SourceLocation loc,
                                      SpirvFunction *fn,
                                      llvm::ArrayRef<SpirvInstruction *> argsVec)
     : SpirvInstruction(IK_FunctionCall, spv::Op::OpFunctionCall, resultType,
                        loc),
-      function(fn), args(argsVec.begin(), argsVec.end()) {}
+      function(fn), numArgs(argsVec.size()) {
+  std::copy(argsVec.begin(), argsVec.end(),
+            getTrailingObjects<SpirvInstruction *>());
+}
+
+SpirvFunctionCall *
+SpirvFunctionCall::Create(const SpirvContext &c, QualType resultType,
+                          SourceLocation loc, SpirvFunction *function,
+                          llvm::ArrayRef<SpirvInstruction *> argsVec) {
+  return new (c, additionalSizeToAlloc<SpirvInstruction *>(argsVec.size()))
+      SpirvFunctionCall(resultType, loc, function, argsVec);
+}
 
 SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(Kind kind, spv::Op op,
                                                QualType resultType,
@@ -744,8 +958,19 @@ SpirvVectorShuffle::SpirvVectorShuffle(QualType resultType, SourceLocation loc,
                                        llvm::ArrayRef<uint32_t> componentsVec)
     : SpirvInstruction(IK_VectorShuffle, spv::Op::OpVectorShuffle, resultType,
                        loc),
-      vec1(vec1Inst), vec2(vec2Inst),
-      components(componentsVec.begin(), componentsVec.end()) {}
+      vec1(vec1Inst), vec2(vec2Inst), numComponents(componentsVec.size()) {
+  std::copy(componentsVec.begin(), componentsVec.end(),
+            getTrailingObjects<uint32_t>());
+}
+
+SpirvVectorShuffle *
+SpirvVectorShuffle::Create(const SpirvContext &c, QualType resultType,
+                           SourceLocation loc, SpirvInstruction *vec1,
+                           SpirvInstruction *vec2,
+                           llvm::ArrayRef<uint32_t> componentsVec) {
+  return new (c, additionalSizeToAlloc<uint32_t>(componentsVec.size()))
+      SpirvVectorShuffle(resultType, loc, vec1, vec2, componentsVec);
+}
 
 SpirvArrayLength::SpirvArrayLength(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *structure_,
@@ -757,6 +982,16 @@ SpirvRayTracingOpNV::SpirvRayTracingOpNV(
     QualType resultType, spv::Op opcode,
     llvm::ArrayRef<SpirvInstruction *> vecOperands, SourceLocation loc)
     : SpirvInstruction(IK_RayTracingOpNV, opcode, resultType, loc),
-      operands(vecOperands.begin(), vecOperands.end()) {}
+      numOperands(vecOperands.size()) {
+  std::copy(vecOperands.begin(), vecOperands.end(),
+            getTrailingObjects<SpirvInstruction *>());
+}
+
+SpirvRayTracingOpNV *SpirvRayTracingOpNV::Create(
+    const SpirvContext &c, QualType resultType, spv::Op opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, SourceLocation loc) {
+  return new (c, additionalSizeToAlloc<SpirvInstruction *>(vecOperands.size()))
+      SpirvRayTracingOpNV(resultType, opcode, vecOperands, loc);
+}
 } // namespace spirv
 } // namespace clang

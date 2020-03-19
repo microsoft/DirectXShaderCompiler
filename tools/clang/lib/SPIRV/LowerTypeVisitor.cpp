@@ -96,7 +96,8 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpVariable: {
     if (auto *var = dyn_cast<SpirvVariable>(instr)) {
       if (var->hasBinding() && var->getHlslUserType().empty()) {
-        var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
+        var->setHlslUserType(context,
+                             getHlslResourceTypeName(var->getAstResultType()));
       }
     }
     const SpirvType *pointerType =
