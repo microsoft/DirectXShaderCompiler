@@ -712,8 +712,13 @@ Value *TranslatePowUsingFxcMulOnlyPattern(IRBuilder<>& Builder, Value *x, const 
 Value *TranslatePowImpl(hlsl::OP *hlslOP, IRBuilder<>& Builder, Value *x, Value *y, bool isFXCCompatMode = false) {
   // As applicable implement pow using only mul ops as done by Fxc.
   int32_t p = 0;
-  if (isFXCCompatMode && CanUseFxcMulOnlyPatternForPow(Builder, x, y, p)) {
+  if (CanUseFxcMulOnlyPatternForPow(Builder, x, y, p)) {
+    if (isFXCCompatMode) {
     return TranslatePowUsingFxcMulOnlyPattern(Builder, x, p);
+    } else if (p == 2) {
+      // Only take care 2 for it will not affect register pressure.
+      return Builder.CreateFMul(x, x);
+    }
   }
 
   // Default to log-mul-exp pattern if previous scenarios don't apply.
