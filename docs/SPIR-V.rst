@@ -2959,7 +2959,7 @@ Flow chart for various stages in a raytracing pipeline is as follows:
 
 | *Note : DXC does not add special shader profiles for raytracing under -T option.*
 | *All raytracing shaders must be compiled as library using lib_6_3/lib_6_4 profile option.*
-| *Note : DXC now targets SPV_KHR_ray_tracing extension by default.
+| *Note : DXC now targets SPV_KHR_ray_tracing extension by default.*
 | *This extension is provisional and subject to change*.
 | *To compile for cross vendor KHR extension use -fspv-extension=SPV_NV_ray_tracing.*
 
