@@ -50,7 +50,7 @@ class OP;
 namespace dxilutil {
   extern const char ManglingPrefix[];
   extern const char EntryPrefix[];
-  extern const llvm::StringRef kResourceMapErrorMsg;
+  extern const char *kResourceMapErrorMsg;
 
   unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
@@ -76,12 +76,12 @@ namespace dxilutil {
   llvm::DIGlobalVariable *FindGlobalVariableDebugInfo(llvm::GlobalVariable *GV,
                                                 llvm::DebugInfoFinder &DbgInfoFinder);
 
-  void EmitErrorOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
-  void EmitWarningOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
-  void EmitErrorOnFunction(llvm::Function *F, llvm::StringRef Msg);
-  void EmitWarningOnFunction(llvm::Function *F, llvm::StringRef Msg);
-  void EmitErrorOnGlobalVariable(hlsl::DxilModule *DM, llvm::GlobalVariable *GV, llvm::StringRef Msg);
-  void EmitWarningOnGlobalVariable(hlsl::DxilModule *DM, llvm::GlobalVariable *GV, llvm::StringRef Msg);
+  void EmitErrorOnInstruction(llvm::Instruction *I, llvm::Twine Msg);
+  void EmitWarningOnInstruction(llvm::Instruction *I, llvm::Twine Msg);
+  void EmitErrorOnFunction(llvm::Function *F, llvm::Twine Msg);
+  void EmitWarningOnFunction(llvm::Function *F, llvm::Twine Msg);
+  void EmitErrorOnGlobalVariable(hlsl::DxilModule *DM, llvm::GlobalVariable *GV, llvm::Twine Msg);
+  void EmitWarningOnGlobalVariable(hlsl::DxilModule *DM, llvm::GlobalVariable *GV, llvm::Twine Msg);
 
   void EmitResMappingError(llvm::Instruction *Res);
   std::string FormatMessageAtLocation(const llvm::DebugLoc &DL, const llvm::Twine& Msg);

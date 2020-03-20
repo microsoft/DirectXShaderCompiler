@@ -138,10 +138,10 @@ private:
         if (res->IsUnbounded()) {
           const T *unbounded = alloc.GetUnbounded();
           if (unbounded) {
-            Twine Msg = Twine("more than one unbounded resource (") +
-              unbounded->GetGlobalName() + (" and ") +
-              res->GetGlobalName() + (") in space ") + Twine(space);
-            dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), Msg.str());
+            dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                                Twine("more than one unbounded resource (") +
+                                                unbounded->GetGlobalName() + (" and ") +
+                                                res->GetGlobalName() + (") in space ") + Twine(space));
           }
           else {
             conflict = alloc.Insert(res.get(), reg, res->GetUpperBound());
@@ -155,14 +155,14 @@ private:
           conflict = alloc.Insert(res.get(), reg, res->GetUpperBound());
         }
         if (conflict) {
-          Twine Msg = ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
-            Twine("resource ") + res->GetGlobalName() +
-            Twine(" at register ") + Twine(reg) +
-            Twine(" overlaps with resource ") +
-            conflict->GetGlobalName() + Twine(" at register ") +
-            Twine(conflict->GetLowerBound()) + Twine(", space ") +
-            Twine(space);
-          dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), Msg.str());
+          dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), 
+                                              ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
+                                              Twine("resource ") + res->GetGlobalName() +
+                                              Twine(" at register ") + Twine(reg) +
+                                              Twine(" overlaps with resource ") +
+                                              conflict->GetGlobalName() + Twine(" at register ") +
+                                              Twine(conflict->GetLowerBound()) + Twine(", space ") +
+                                              Twine(space));
         }
         else {
           // Also add this to the reserved (unallocatable) range, if it wasn't already there.
@@ -187,11 +187,11 @@ private:
       if (res->IsUnbounded()) {
         if (alloc.GetUnbounded() != nullptr) {
           const T *unbounded = alloc.GetUnbounded();
-          Twine Msg = Twine("more than one unbounded resource (") +
-            unbounded->GetGlobalName() + Twine(" and ") +
-            res->GetGlobalName() + Twine(") in space ") +
-            Twine(space);
-          dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), Msg.str());
+          dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                              Twine("more than one unbounded resource (") +
+                                              unbounded->GetGlobalName() + Twine(" and ") +
+                                              res->GetGlobalName() + Twine(") in space ") +
+                                              Twine(space));
           continue;
         }
 
@@ -221,10 +221,10 @@ private:
         res->SetSpaceID(space);
         bChanged = true;
       } else {
-        Twine Msg = ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
-          Twine("resource ") + res->GetGlobalName() +
-          Twine(" could not be allocated");
-        dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), Msg.str());
+        dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                            ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
+                                            Twine("resource ") + res->GetGlobalName() +
+                                            Twine(" could not be allocated"));
       }
     }
 
@@ -747,8 +747,7 @@ public:
         os.flush();
         Name = escName;
       }
-      Twine msg = Twine(ErrorText[ec]) + " Value: " + Name;
-      V->getContext().emitError(msg);
+      V->getContext().emitError(Twine(ErrorText[ec]) + " Value: " + Name);
     }
   }
 

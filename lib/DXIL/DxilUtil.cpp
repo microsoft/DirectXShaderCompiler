@@ -263,7 +263,7 @@ Twine FormatMessageWithoutLocation(const Twine& Msg) {
   return Msg + " Use /Zi for source location.";
 }
 
-static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
+static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
                                             bool bWarning);
 
 // If we don't have debug location and this is select/phi,
@@ -271,7 +271,7 @@ static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
 // Only recurse phi/select and limit depth to prevent doing
 // too much work if no debug location found.
 static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
-                                                           StringRef Msg,
+                                                           Twine Msg,
                                                            bool bWarning,
                                                            unsigned depth = 0) {
   if (depth > 4)
@@ -290,7 +290,7 @@ static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
   return false;
 }
 
-static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
+static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
                                             bool bWarning) {
   const DebugLoc &DL = I->getDebugLoc();
   if (DL.get()) {
@@ -310,15 +310,15 @@ static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
     I->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
-void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
+void EmitErrorOnInstruction(Instruction *I, Twine Msg) {
   EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/false);
 }
 
-void EmitWarningOnInstruction(Instruction *I, StringRef Msg) {
+void EmitWarningOnInstruction(Instruction *I, Twine Msg) {
   EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/true);
 }
 
-static void EmitWarningOrErrorOnFunction(Function *F, StringRef Msg,
+static void EmitWarningOrErrorOnFunction(Function *F, Twine Msg,
                                          bool bWarning) {
   DISubprogram *DISP = getDISubprogram(F);
   if (DISP) {
@@ -335,16 +335,16 @@ static void EmitWarningOrErrorOnFunction(Function *F, StringRef Msg,
     F->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
-void EmitErrorOnFunction(Function *F, StringRef Msg) {
+void EmitErrorOnFunction(Function *F, Twine Msg) {
   EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/false);
 }
 
-void EmitWarningOnFunction(Function *F, StringRef Msg) {
+void EmitWarningOnFunction(Function *F, Twine Msg) {
   EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/true);
 }
 
 static void EmitWarningOrErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV,
-                                               StringRef Msg, bool bWarning) {
+                                               Twine Msg, bool bWarning) {
   DIVariable *DIV = nullptr;
   if (GV)
     DIV = FindGlobalVariableDebugInfo(GV, DM->GetOrCreateDebugInfoFinder());
@@ -362,16 +362,16 @@ static void EmitWarningOrErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *G
     GV->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
-void EmitErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, StringRef Msg) {
+void EmitErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, Twine Msg) {
   EmitWarningOrErrorOnGlobalVariable(DM, GV, Msg, /*bWarning*/false);
 }
 
-void EmitWarningOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, StringRef Msg) {
+void EmitWarningOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, Twine Msg) {
   EmitWarningOrErrorOnGlobalVariable(DM, GV, Msg, /*bWarning*/true);
 }
 
 
-const StringRef kResourceMapErrorMsg =
+const char *kResourceMapErrorMsg =
     "local resource not guaranteed to map to unique global resource.";
 void EmitResMappingError(Instruction *Res) {
   EmitErrorOnInstruction(Res, kResourceMapErrorMsg);

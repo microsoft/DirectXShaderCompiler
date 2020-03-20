@@ -298,9 +298,8 @@ void HLSignatureLower::ProcessArgument(Function *func,
       auto &SemanticIndexSet = SemanticUseMap[(unsigned)pSemantic->GetKind()];
       for (unsigned idx : paramAnnotation.GetSemanticIndexVec()) {
         if (SemanticIndexSet.count(idx) > 0) {
-          Twine Msg = Twine("Parameter with semantic ") + semanticStr +
-            Twine(" has overlapping semantic index at ") + Twine(idx);
-          dxilutil::EmitErrorOnFunction(func, Msg.str());
+          func->getContext().emitError("Parameter with semantic " + semanticStr +
+            " has overlapping semantic index at " + std::to_string(idx));
           return;
         }
       }
@@ -329,10 +328,9 @@ void HLSignatureLower::ProcessArgument(Function *func,
   {
     switch (interpretation) {
     case DXIL::SemanticInterpretationKind::NA: {
-      const Twine Msg = Twine("Semantic ") + semanticStr +
-                  Twine(" is invalid for shader model: ") +
-                  ShaderModel::GetKindName(props.shaderKind);
-      dxilutil::EmitErrorOnFunction(func, Msg.str());
+      dxilutil::EmitErrorOnFunction(func, Twine("Semantic ") + semanticStr +
+                                    Twine(" is invalid for shader model: ") +
+                                    ShaderModel::GetKindName(props.shaderKind));
 
       return;
     }
@@ -391,11 +389,10 @@ void HLSignatureLower::ProcessArgument(Function *func,
       pSE = FindArgInSignature(arg, paramAnnotation.GetSemanticString(),
                                interpMode, sigPoint->GetKind(), *pSig);
       if (!pSE) {
-        const Twine Msg = Twine("Signature element ") + semanticStr +
-                    Twine(", referred to by patch constant function, is not found in "
-                    "corresponding hull shader ") +
-                    (sigKind == DXIL::SignatureKind::Input ? "input." : "output.");
-        dxilutil::EmitErrorOnFunction(func, Msg.str());
+        dxilutil::EmitErrorOnFunction(func, Twine("Signature element ") + semanticStr +
+                                      Twine(", referred to by patch constant function, is not found in "
+                                            "corresponding hull shader ") +
+                                      (sigKind == DXIL::SignatureKind::Input ? "input." : "output."));
         return;
       }
       m_patchConstantInputsSigMap[arg.getArgNo()] = pSE;

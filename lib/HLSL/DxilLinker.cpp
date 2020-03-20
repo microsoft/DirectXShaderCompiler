@@ -464,9 +464,9 @@ bool DxilLinkJob::AddResource(DxilModule &DM, DxilResourceBase *res, llvm::Globa
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      Twine Msg = Twine(kRedefineResource) + res->GetResClassName() + " for " +
-                  res->GetGlobalName();
-      dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), Msg.str());
+      dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                          Twine(kRedefineResource) + res->GetResClassName() + " for " +
+                                          res->GetGlobalName());
       return false;
     }
   } else {
@@ -609,8 +609,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
           }
 
           // Redefine of global.
-          Twine Msg = Twine(kRedefineGlobal) + GV->getName();
-          dxilutil::EmitErrorOnGlobalVariable(&DM, GV, Msg.str());
+          dxilutil::EmitErrorOnGlobalVariable(&DM, GV, Twine(kRedefineGlobal) + GV->getName());
           bSuccess = false;
         }
         continue;
@@ -698,8 +697,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
   if (!entryDM.HasDxilFunctionProps(entryFunc)) {
     // Cannot get function props.
-    Twine Msg = Twine(kNoEntryProps) + entryFunc->getName();
-    dxilutil::EmitErrorOnFunction(entryFunc, Msg.str());
+    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kNoEntryProps) + entryFunc->getName());
     return nullptr;
   }
 
@@ -707,10 +705,9 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   if (pSM->GetKind() != props.shaderKind) {
     // Shader kind mismatch.
-    Twine Msg = Twine(kShaderKindMismatch) +
-                ShaderModel::GetKindName(pSM->GetKind()) + " and " +
-                ShaderModel::GetKindName(props.shaderKind);
-    dxilutil::EmitErrorOnFunction(entryFunc, Msg.str());
+    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kShaderKindMismatch) +
+                                  ShaderModel::GetKindName(pSM->GetKind()) + " and " +
+                                  ShaderModel::GetKindName(props.shaderKind));
     return nullptr;
   }
 
@@ -1125,8 +1122,7 @@ bool DxilLinkerImpl::AttachLib(DxilLib *lib) {
     if (m_functionNameMap.count(name)) {
       // Redefine of function.
       const DxilFunctionLinkInfo *DFLI = it->getValue().get();
-      Twine Msg = Twine(kRedefineFunction) + name;
-      dxilutil::EmitErrorOnFunction(DFLI->func, Msg.str());
+      dxilutil::EmitErrorOnFunction(DFLI->func, Twine(kRedefineFunction) + name);
       bSuccess = false;
       continue;
     }
