@@ -24,9 +24,9 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     // If no explicit extension control from command line, use the default mode:
     // allowing all extensions.
     // Special case : KHR_ray_tracing and NV_ray_tracing are mutually exclusive
-    // so enable only NV extension by default (for compatibility)
+    // so enable only KHR extension by default
     allowAllKnownExtensions();
-    allowedExtensions.reset(static_cast<unsigned>(Extension::KHR_ray_tracing));
+    allowedExtensions.reset(static_cast<unsigned>(Extension::NV_ray_tracing));
   } else {
     for (auto ext : opts.allowedExtensions)
       allowExtension(ext);

@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-extension=SPV_KHR_ray_tracing
+// Run: %dxc -T lib_6_3
 // CHECK:  OpCapability RayTracingProvisionalKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
