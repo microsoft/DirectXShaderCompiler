@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: local resource not guaranteed to map to unique global resource
+// CHECK: Use /Zi for source location
 
 float4 Tex2D(Texture2D<float4> t,
   SamplerState s, float2 c) {
