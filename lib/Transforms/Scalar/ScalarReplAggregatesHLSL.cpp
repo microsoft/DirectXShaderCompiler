@@ -6246,13 +6246,19 @@ public:
     // Lower static global into allocas.
     std::vector<GlobalVariable *> staticGVs;
     for (GlobalVariable &GV : M.globals()) {
-      bool isStaticGlobal =
-          dxilutil::IsStaticGlobal(&GV) &&
-          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
-
-      if (isStaticGlobal &&
-          !GV.getType()->getElementType()->isAggregateType()) {
+      // only for non-constant static globals
+      if (!dxilutil::IsStaticGlobal(&GV) || GV.isConstant())
+        continue;
+      Type *EltTy = GV.getType()->getElementType();
+      if (!EltTy->isAggregateType()) {
         staticGVs.emplace_back(&GV);
+      } else {
+        // Lower static [array of] resources
+        while (EltTy->isArrayTy())
+          EltTy = EltTy->getArrayElementType();
+        if (dxilutil::IsHLSLObjectType(EltTy)) {
+          staticGVs.emplace_back(&GV);
+        }
       }
     }
     bool bUpdated = false;

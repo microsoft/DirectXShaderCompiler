@@ -190,8 +190,11 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
         } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
           for (User *gepU : GEP->users()) {
             DXASSERT_NOMSG(isa<LoadInst>(gepU) || isa<StoreInst>(gepU));
-            Insts.emplace_back(cast<Instruction>(gepU));
+            if (isa<LoadInst>(gepU) || isa<StoreInst>(gepU))
+              Insts.emplace_back(cast<Instruction>(gepU));
           }
+        } else {
+          DXASSERT(false, "Unhandled user of resource static global");
         }
       }
 
