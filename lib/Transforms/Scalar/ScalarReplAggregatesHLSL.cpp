@@ -3307,8 +3307,9 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     }
 
     if (ElTy->isStructTy() &&
-        // Skip Matrix type.
-        !HLMatrixType::isa(ElTy)) {
+        // Skip Matrix and Resource type.
+        !HLMatrixType::isa(ElTy) &&
+        !dxilutil::IsHLSLResourceType(ElTy)) {
       // for array of struct
       // split into arrays of struct elements
       StructType *ElST = cast<StructType>(ElTy);
