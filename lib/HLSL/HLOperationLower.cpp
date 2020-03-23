@@ -2319,6 +2319,15 @@ Value *TranslatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TranslatePowImpl(hlslOP,Builder,x,y,isFXCCompatMode);
 }
 
+Value *TranslatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
+                       HLOperationLowerHelper &helper,
+                       HLObjectOperationLowerHelper *pObjHelper,
+                       bool &Translated) {
+  Translated = false;
+  CI->getContext().emitError(CI, "use of undeclared identifier 'printf'");
+  return nullptr;
+}
+
 Value *TranslateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -5270,6 +5279,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_mul, TranslateMul, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_normalize, TranslateNormalize, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_pow, TranslatePow, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_printf, TranslatePrintf, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_radians, TranslateRadians, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_rcp, TranslateRCP, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_reflect, TranslateReflect, DXIL::OpCode::NumOpCodes},
