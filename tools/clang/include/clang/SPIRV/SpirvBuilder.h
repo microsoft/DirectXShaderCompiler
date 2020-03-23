@@ -15,6 +15,8 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
 
+#include "spirv/unified1/NonSemanticDebugPrintf.h"
+
 namespace clang {
 namespace spirv {
 
@@ -361,17 +363,23 @@ public:
   /// \brief Creates a return value instruction.
   void createReturnValue(SpirvInstruction *value, SourceLocation);
 
-  /// \brief Creates an OpExtInst instruction with the given instruction set,
-  /// instruction number, and operands. Returns the resulting instruction
-  /// pointer.
-  SpirvInstruction *createExtInst(QualType resultType, SpirvExtInstImport *set,
-                                  GLSLstd450 instId,
-                                  llvm::ArrayRef<SpirvInstruction *> operands,
-                                  SourceLocation);
-  SpirvInstruction *createExtInst(const SpirvType *resultType,
-                                  SpirvExtInstImport *set, GLSLstd450 instId,
-                                  llvm::ArrayRef<SpirvInstruction *> operands,
-                                  SourceLocation);
+  /// \brief Creates an OpExtInst instruction for the GLSL extended instruction
+  /// set, with the given instruction number, and operands. Returns the
+  /// resulting instruction pointer.
+  SpirvInstruction *
+  createGLSLExtInst(QualType resultType, GLSLstd450 instId,
+                    llvm::ArrayRef<SpirvInstruction *> operands,
+                    SourceLocation);
+  SpirvInstruction *
+  createGLSLExtInst(const SpirvType *resultType, GLSLstd450 instId,
+                    llvm::ArrayRef<SpirvInstruction *> operands,
+                    SourceLocation);
+
+  /// \brief Creates an OpExtInst instruction for the NonSemantic.DebugPrintf
+  /// extension set. Returns the resulting instruction pointer.
+  SpirvInstruction *createNonSemanticDebugPrintfExtInst(
+      QualType resultType, NonSemanticDebugPrintfInstructions instId,
+      llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
 
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
@@ -437,11 +445,6 @@ public:
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
   void addModuleProcessed(llvm::StringRef process);
-
-  /// \brief If not added already, adds an OpExtInstImport (import of extended
-  /// instruction set) of the GLSL instruction set. Returns the  the imported
-  /// GLSL instruction set.
-  SpirvExtInstImport *getGLSLExtInstSet();
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -543,6 +546,8 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
 
+  SpirvString *getString(llvm::StringRef str);
+
 public:
   std::vector<uint32_t> takeModule();
 
@@ -559,6 +564,11 @@ protected:
   inline void requireExtension(llvm::StringRef extension, SourceLocation);
 
 private:
+  /// \brief If not added already, adds an OpExtInstImport (import of extended
+  /// instruction set) for the given instruction set. Returns the imported
+  /// instruction set.
+  SpirvExtInstImport *getExtInstSet(llvm::StringRef extensionName);
+
   /// \brief Returns the composed ImageOperandsMask from non-zero parameters
   /// and pushes non-zero parameters to *orderedParams in the expected order.
   spv::ImageOperandsMask composeImageOperandsMask(

@@ -1029,6 +1029,7 @@ TEST_F(FileTest, IntrinsicsFirstBitHigh) {
 TEST_F(FileTest, IntrinsicsFirstBitLow) {
   runFileTest("intrinsics.firstbitlow.hlsl");
 }
+TEST_F(FileTest, IntrinsicsPrintf) { runFileTest("intrinsics.printf.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
 TEST_F(FileTest, IntrinsicsFma) { runFileTest("intrinsics.fma.hlsl"); }
 TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }

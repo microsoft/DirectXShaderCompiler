@@ -255,8 +255,7 @@ private:
 /// \brief ExtInstImport instruction
 class SpirvExtInstImport : public SpirvInstruction {
 public:
-  SpirvExtInstImport(SourceLocation loc,
-                     llvm::StringRef extensionName = "GLSL.std.450");
+  SpirvExtInstImport(SourceLocation loc, llvm::StringRef extensionName);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1182,7 +1181,7 @@ public:
 class SpirvExtInst : public SpirvInstruction {
 public:
   SpirvExtInst(QualType resultType, SourceLocation loc, SpirvExtInstImport *set,
-               GLSLstd450 inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
+               uint32_t inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1192,12 +1191,12 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
-  GLSLstd450 getInstruction() const { return instruction; }
+  uint32_t getInstruction() const { return instruction; }
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
 private:
   SpirvExtInstImport *instructionSet;
-  GLSLstd450 instruction;
+  uint32_t instruction;
   llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
 

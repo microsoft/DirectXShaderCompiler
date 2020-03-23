@@ -31,6 +31,7 @@ enum class Extension {
   KHR = 0,
   KHR_16bit_storage,
   KHR_device_group,
+  KHR_non_semantic_info,
   KHR_multiview,
   KHR_shader_draw_parameters,
   KHR_post_depth_coverage,
