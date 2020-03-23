@@ -6254,9 +6254,7 @@ public:
         staticGVs.emplace_back(&GV);
       } else {
         // Lower static [array of] resources
-        while (EltTy->isArrayTy())
-          EltTy = EltTy->getArrayElementType();
-        if (dxilutil::IsHLSLObjectType(EltTy)) {
+        if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(EltTy))) {
           staticGVs.emplace_back(&GV);
         }
       }
