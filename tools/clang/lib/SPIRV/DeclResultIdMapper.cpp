@@ -2585,6 +2585,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::HitKindNV:
   case spv::BuiltIn::IncomingRayFlagsNV:
   case spv::BuiltIn::InstanceCustomIndexNV:
+  case spv::BuiltIn::RayGeometryIndexKHR:
   case spv::BuiltIn::PrimitiveId:
   case spv::BuiltIn::InstanceId:
   case spv::BuiltIn::WorldRayDirectionNV:
