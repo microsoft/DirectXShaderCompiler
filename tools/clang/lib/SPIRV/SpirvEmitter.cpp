@@ -7097,6 +7097,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   // DXR raytracing intrinsics
   case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
   case hlsl::IntrinsicOp::IOP_DispatchRaysIndex:
+  case hlsl::IntrinsicOp::IOP_GeometryIndex:
   case hlsl::IntrinsicOp::IOP_HitKind:
   case hlsl::IntrinsicOp::IOP_InstanceIndex:
   case hlsl::IntrinsicOp::IOP_InstanceID:
@@ -9418,6 +9419,11 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     break;
   case hlsl::IntrinsicOp::IOP_ObjectRayOrigin:
     builtin = spv::BuiltIn::ObjectRayOriginNV;
+    break;
+  case hlsl::IntrinsicOp::IOP_GeometryIndex:
+    featureManager.requestExtension(Extension::KHR_ray_tracing,
+                                    "GeometryIndex()", loc);
+    builtin = spv::BuiltIn::RayGeometryIndexKHR;
     break;
   case hlsl::IntrinsicOp::IOP_InstanceIndex:
     builtin = spv::BuiltIn::InstanceId;

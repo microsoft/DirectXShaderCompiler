@@ -503,8 +503,13 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::AnyHitNV:
   case spv::ExecutionModel::MissNV:
   case spv::ExecutionModel::CallableNV:
-    addCapability(spv::Capability::RayTracingNV);
-    addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    if (featureManager.isExtensionEnabled("SPV_NV_ray_tracing")) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      addCapability(spv::Capability::RayTracingProvisionalKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
     break;
   case spv::ExecutionModel::MeshNV:
   case spv::ExecutionModel::TaskNV:

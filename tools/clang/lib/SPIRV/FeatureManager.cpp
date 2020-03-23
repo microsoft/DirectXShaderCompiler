@@ -23,7 +23,10 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   if (opts.allowedExtensions.empty()) {
     // If no explicit extension control from command line, use the default mode:
     // allowing all extensions.
+    // Special case : KHR_ray_tracing and NV_ray_tracing are mutually exclusive
+    // so enable only KHR extension by default
     allowAllKnownExtensions();
+    allowedExtensions.reset(static_cast<unsigned>(Extension::NV_ray_tracing));
   } else {
     for (auto ext : opts.allowedExtensions)
       allowExtension(ext);
@@ -103,6 +106,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
       .Case("SPV_KHR_shader_draw_parameters",
             Extension::KHR_shader_draw_parameters)
+      .Case("SPV_KHR_ray_tracing", Extension::KHR_ray_tracing)
       .Case("SPV_EXT_descriptor_indexing", Extension::EXT_descriptor_indexing)
       .Case("SPV_EXT_fragment_fully_covered",
             Extension::EXT_fragment_fully_covered)
@@ -140,6 +144,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_shader_draw_parameters";
   case Extension::KHR_post_depth_coverage:
     return "SPV_KHR_post_depth_coverage";
+  case Extension::KHR_ray_tracing:
+    return "SPV_KHR_ray_tracing";
   case Extension::EXT_descriptor_indexing:
     return "SPV_EXT_descriptor_indexing";
   case Extension::EXT_fragment_fully_covered:
@@ -213,6 +219,15 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   }
 
   return required;
+}
+
+bool FeatureManager::isExtensionEnabled(llvm::StringRef name) {
+  bool allowed = false;
+  Extension ext = getExtensionSymbol(name);
+  if (ext != Extension::Unknown &&
+      allowedExtensions.test(static_cast<unsigned>(ext)))
+    allowed = true;
+  return allowed;
 }
 
 } // end namespace spirv

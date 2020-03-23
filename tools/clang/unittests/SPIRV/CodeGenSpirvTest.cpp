@@ -2090,6 +2090,11 @@ TEST_F(FileTest, RayTracingNVLibrary) {
   runFileTest("raytracing.nv.library.hlsl");
 }
 
+// === Raytracing KHR examples ===
+TEST_F(FileTest, RayTracingKHRClosestHit) {
+  runFileTest("raytracing.khr.closesthit.hlsl");
+}
+
 // For decoration uniqueness
 TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 

@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3
+// Run: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
 // CHECK:  OpEntryPoint RayGenerationNV %MyRayGenMain "MyRayGenMain" {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %gl_InstanceID {{%\d+}} %gl_PrimitiveID {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}}
