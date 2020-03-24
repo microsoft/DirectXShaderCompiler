@@ -13,6 +13,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -137,17 +138,12 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(
   if (!finalIllegalOffsets.empty()) {
     const StringRef kIllegalOffsetError =
         "Offsets for Sample* must be immediated value. "
-        "Consider unroll the loop manually and use O3, it may help in some "
-        "cases\n";
+        "Consider unrolling the loop manually and use -O3, "
+        "it may help in some cases.\n";
     std::string errorMsg;
     raw_string_ostream errorStr(errorMsg);
-    for (Instruction *offset : finalIllegalOffsets) {
-      if (const DebugLoc &L = offset->getDebugLoc())
-        L.print(errorStr);
-      errorStr << " " << kIllegalOffsetError;
-    }
-    errorStr.flush();
-    F.getContext().emitError(errorMsg);
+    for (Instruction *offset : finalIllegalOffsets)
+      dxilutil::EmitErrorOnInstruction(offset, kIllegalOffsetError);
   }
 }
 
