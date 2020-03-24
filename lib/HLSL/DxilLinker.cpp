@@ -351,7 +351,7 @@ private:
   bool AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap);
   void CloneFunctions(ValueToValueMapTy &vmap);
   void AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap);
-  bool AddResource(DxilModule &DM, DxilResourceBase *res, llvm::GlobalVariable *GV);
+  bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
   void AddResourceToDM(DxilModule &DM);
   llvm::MapVector<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
   llvm::StringMap<llvm::Function *> m_functionDecls;
@@ -455,7 +455,7 @@ bool IsMatchedType(Type *Ty0, Type *Ty) {
 }
 } // namespace
 
-bool DxilLinkJob::AddResource(DxilModule &DM, DxilResourceBase *res, llvm::GlobalVariable *GV) {
+bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
   if (m_resourceMap.count(res->GetGlobalName())) {
     DxilResourceBase *res0 = m_resourceMap[res->GetGlobalName()].first;
     Type *Ty0 = res0->GetGlobalSymbol()->getType()->getPointerElementType();
@@ -464,7 +464,7 @@ bool DxilLinkJob::AddResource(DxilModule &DM, DxilResourceBase *res, llvm::Globa
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      dxilutil::EmitErrorOnGlobalVariable(&DM, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+      dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
                                           Twine(kRedefineResource) + res->GetResClassName() + " for " +
                                           res->GetGlobalName());
       return false;
@@ -600,7 +600,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
             // For resource of same name, if class and type match, just map to
             // same NewGV.
             GlobalVariable *NewGV = m_newGlobals[GV->getName()];
-            if (AddResource(DM, res, NewGV)) {
+            if (AddResource(res, NewGV)) {
               vmap[GV] = NewGV;
             } else {
               bSuccess = false;
@@ -609,7 +609,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
           }
 
           // Redefine of global.
-          dxilutil::EmitErrorOnGlobalVariable(&DM, GV, Twine(kRedefineGlobal) + GV->getName());
+          dxilutil::EmitErrorOnGlobalVariable(GV, Twine(kRedefineGlobal) + GV->getName());
           bSuccess = false;
         }
         continue;
@@ -632,7 +632,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
       typeSys.CopyTypeAnnotation(Ty, tmpTypeSys);
 
       if (DxilResourceBase *res = pLib->GetResource(GV)) {
-        bSuccess &= AddResource(DM, res, NewGV);
+        bSuccess &= AddResource(res, NewGV);
       }
     }
   }

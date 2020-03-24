@@ -343,11 +343,11 @@ void EmitWarningOnFunction(Function *F, Twine Msg) {
   EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/true);
 }
 
-static void EmitWarningOrErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV,
+static void EmitWarningOrErrorOnGlobalVariable(GlobalVariable *GV,
                                                Twine Msg, bool bWarning) {
   DIVariable *DIV = nullptr;
   if (GV)
-    DIV = FindGlobalVariableDebugInfo(GV, DM->GetOrCreateDebugInfoFinder());
+    DIV = FindGlobalVariableDebugInfo(GV, GV->getParent()->GetDxilModule().GetOrCreateDebugInfoFinder());
   if (DIV) {
     if (bWarning)
       GV->getContext().emitWarning(FormatMessageInVariable(DIV, Msg));
@@ -362,12 +362,12 @@ static void EmitWarningOrErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *G
     GV->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
-void EmitErrorOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(DM, GV, Msg, /*bWarning*/false);
+void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
+  EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/false);
 }
 
-void EmitWarningOnGlobalVariable(DxilModule *DM, GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(DM, GV, Msg, /*bWarning*/true);
+void EmitWarningOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
+  EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/true);
 }
 
 

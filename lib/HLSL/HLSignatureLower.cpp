@@ -298,8 +298,8 @@ void HLSignatureLower::ProcessArgument(Function *func,
       auto &SemanticIndexSet = SemanticUseMap[(unsigned)pSemantic->GetKind()];
       for (unsigned idx : paramAnnotation.GetSemanticIndexVec()) {
         if (SemanticIndexSet.count(idx) > 0) {
-          func->getContext().emitError("Parameter with semantic " + semanticStr +
-            " has overlapping semantic index at " + std::to_string(idx));
+          dxilutil::EmitErrorOnFunction(func, "Parameter with semantic " + semanticStr +
+            " has overlapping semantic index at " + std::to_string(idx) + ".");
           return;
         }
       }
