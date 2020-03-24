@@ -872,7 +872,7 @@ std::string LiveValueAnalysis::translateValueToName( DbgValueInst *DVI, Instruct
         DICompositeType *CompType =
           dyn_cast_or_null<DICompositeType>(
             DT->getRawBaseType());
-        if (CompType->getElements()) {
+        if (nullptr != CompType && CompType->getElements()) {
           ElementData = dyn_cast<DIType>(
             CompType->getElements()[elementIdx]);
         } else {
