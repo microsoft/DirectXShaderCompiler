@@ -584,6 +584,11 @@ private:
 
   void AddFunctionAnnotationForInitializers(Module &M, DxilModule &DM) {
     if (GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors")) {
+      if (isa<ConstantAggregateZero>(GV->getInitializer())) {
+        DXASSERT_NOMSG(GV->user_empty());
+        GV->eraseFromParent();
+        return;
+      }
       ConstantArray *init = cast<ConstantArray>(GV->getInitializer());
       for (auto V : init->operand_values()) {
         if (isa<ConstantAggregateZero>(V))
