@@ -501,13 +501,12 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
     else if (ArrayElementCount <= 64) {
       Ty = Builder->getInt32Ty();
       Value *V = Builder->CreateIntCast(Idx, Ty, false);
-      Value *Low = Builder->CreateLShr(
-        ConstantInt::get(Ty, MagicBitvector & 0xFFFFFFFF), V);
-      Value *HiShift = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1F));
-      Value *Hi = Builder->CreateLShr(
-        ConstantInt::get(Ty, (MagicBitvector >> 32) & 0xFFFFFFFF), HiShift);
       Value *Cmp = Builder->CreateICmpULT(V, ConstantInt::get(Ty, 32));
-      V = Builder->CreateSelect(Cmp, Low, Hi);
+      Value *Sel = Builder->CreateSelect(Cmp,
+        ConstantInt::get(Ty, MagicBitvector & 0xFFFFFFFF),
+        ConstantInt::get(Ty, (MagicBitvector >> 32) & 0xFFFFFFFF));
+      Value *Shift = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1F));
+      V = Builder->CreateLShr(Sel, Shift);
       V = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1));
       return new ICmpInst(ICmpInst::ICMP_NE, V, ConstantInt::get(Ty, 0));
     }
