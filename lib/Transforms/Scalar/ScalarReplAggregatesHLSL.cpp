@@ -3901,6 +3901,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   unsigned size = DL.getTypeAllocSize(Ty->getPointerElementType());
   PointerStatus PS(size);
   const bool bStructElt = false;
+  bool bEltMemcpy = true;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
@@ -3931,8 +3932,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
     // full replacement isn't possible without complicated PHI insertion
     // This will likely replace with ld/st which will be replaced in mem2reg
     Instruction *Memcpy = PS.StoringMemcpy;
-    if (!DominateAllUsers(Memcpy, V))
-        PS.storedType = PointerStatus::StoredType::Stored;
+    if (!DominateAllUsers(Memcpy, V)) {
+      PS.storedType = PointerStatus::StoredType::Stored;
+      // Replacing a memcpy with a memcpy with the same signature will just bring us back here
+      bEltMemcpy = false;
+    }
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
@@ -4008,7 +4012,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   }
 
   for (MemCpyInst *MC : PS.memcpySet) {
-    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
+    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys, bEltMemcpy);
   }
   return false;
 }
