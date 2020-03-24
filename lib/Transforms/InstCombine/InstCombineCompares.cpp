@@ -482,8 +482,14 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
     // - Default to i32
     if (ArrayElementCount <= Idx->getType()->getIntegerBitWidth())
       Ty = Idx->getType();
-    else
-      Ty = DL.getSmallestLegalIntType(Init->getContext(), ArrayElementCount);
+    // HLSL Change Begins: Don't introduce use of i64 here.
+    //               TODO: Find a way to do this safely.
+    //else
+    //  Ty = DL.getSmallestLegalIntType(Init->getContext(), ArrayElementCount);
+    // Use i32 if index type was i16 and too small, for instance
+    else if (ArrayElementCount <= 32)
+      Ty = Builder->getInt32Ty();
+    // HLSL Change Ends
 
     if (Ty) {
       Value *V = Builder->CreateIntCast(Idx, Ty, false);
@@ -491,6 +497,20 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
       V = Builder->CreateAnd(ConstantInt::get(Ty, 1), V);
       return new ICmpInst(ICmpInst::ICMP_NE, V, ConstantInt::get(Ty, 0));
     }
+    // HLSL Change Begins: Generate 32-bit pattern for 64-bit case for now.
+    else if (ArrayElementCount <= 64) {
+      Ty = Builder->getInt32Ty();
+      Value *V = Builder->CreateIntCast(Idx, Ty, false);
+      Value *Cmp = Builder->CreateICmpULT(V, ConstantInt::get(Ty, 32));
+      Value *Sel = Builder->CreateSelect(Cmp,
+        ConstantInt::get(Ty, MagicBitvector & 0xFFFFFFFF),
+        ConstantInt::get(Ty, (MagicBitvector >> 32) & 0xFFFFFFFF));
+      Value *Shift = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1F));
+      V = Builder->CreateShl(ConstantInt::get(Ty, 0x1), Shift);
+      V = Builder->CreateAnd(Sel, V);
+      return new ICmpInst(ICmpInst::ICMP_NE, V, ConstantInt::get(Ty, 0));
+    }
+    // HLSL Change Ends
   }
 
   return nullptr;
