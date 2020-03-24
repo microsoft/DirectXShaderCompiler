@@ -295,9 +295,19 @@ FileRunCommandResult FileRunCommandPart::RunDxcHashTest(dxc::DxcDllSupport &DllS
 
   // Extract the vanilla flags for the test (i.e. no debug or ast-dump)
   std::vector<LPCWSTR> original_flags;
+  bool skipNext = false;
   for (const std::wstring &a : argWStrings) {
+    if (skipNext) {
+      skipNext = false;
+      continue;
+    }
     if (a.find(L"ast-dump") != std::wstring::npos) continue;
     if (a.find(L"Zi") != std::wstring::npos) continue;
+    std::wstring optValVer(L"validator-version");
+    if (a.substr(1, optValVer.length()).compare(optValVer) == 0) {
+      skipNext = a.length() == optValVer.length() + 1;
+      continue;
+    }
     original_flags.push_back(a.data());
   }
 
