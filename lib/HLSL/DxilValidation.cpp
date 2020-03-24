@@ -812,6 +812,8 @@ struct ValidationContext {
     if (!EmitInstrLoc(I, rule)) return;
     DiagPrinter << GetValidationRuleText(rule);
     DiagPrinter << '\n';
+    if (!GetDebugLoc(I))
+      DiagPrinter << "Use /Zi for source location.\n";
     Failed = true;
   }
 
@@ -822,6 +824,8 @@ struct ValidationContext {
     FormatRuleText(ruleText, args);
     DiagPrinter << ruleText;
     DiagPrinter << '\n';
+    if (!GetDebugLoc(I))
+      DiagPrinter << "Use /Zi for source location.\n";
     Failed = true;
   }
 
@@ -832,6 +836,8 @@ struct ValidationContext {
     FormatRuleText(ruleText, {name, range, v});
     DiagPrinter << ruleText;
     DiagPrinter << '\n';
+    if (!GetDebugLoc(I))
+      DiagPrinter << "Use /Zi for source location.\n";
     Failed = true;
   }
 

@@ -121,7 +121,7 @@ private:
   template <typename T>
   static bool
   AllocateRegisters(const std::vector<std::unique_ptr<T>> &resourceList,
-    LLVMContext &Ctx, SpacesAllocator<unsigned, T> &ReservedRegisters,
+    SpacesAllocator<unsigned, T> &ReservedRegisters,
     unsigned AutoBindingSpace) {
     bool bChanged = false;
     SpacesAllocator<unsigned, T> SAlloc;
@@ -138,9 +138,10 @@ private:
         if (res->IsUnbounded()) {
           const T *unbounded = alloc.GetUnbounded();
           if (unbounded) {
-            Ctx.emitError(Twine("more than one unbounded resource (") +
-              unbounded->GetGlobalName() + (" and ") +
-              res->GetGlobalName() + (") in space ") + Twine(space));
+            dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                                Twine("more than one unbounded resource (") +
+                                                unbounded->GetGlobalName() + (" and ") +
+                                                res->GetGlobalName() + (") in space ") + Twine(space));
           }
           else {
             conflict = alloc.Insert(res.get(), reg, res->GetUpperBound());
@@ -154,13 +155,14 @@ private:
           conflict = alloc.Insert(res.get(), reg, res->GetUpperBound());
         }
         if (conflict) {
-          Ctx.emitError(((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
-            Twine("resource ") + res->GetGlobalName() +
-            Twine(" at register ") + Twine(reg) +
-            Twine(" overlaps with resource ") +
-            conflict->GetGlobalName() + Twine(" at register ") +
-            Twine(conflict->GetLowerBound()) + Twine(", space ") +
-            Twine(space));
+          dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), 
+                                              ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
+                                              Twine("resource ") + res->GetGlobalName() +
+                                              Twine(" at register ") + Twine(reg) +
+                                              Twine(" overlaps with resource ") +
+                                              conflict->GetGlobalName() + Twine(" at register ") +
+                                              Twine(conflict->GetLowerBound()) + Twine(", space ") +
+                                              Twine(space));
         }
         else {
           // Also add this to the reserved (unallocatable) range, if it wasn't already there.
@@ -185,10 +187,11 @@ private:
       if (res->IsUnbounded()) {
         if (alloc.GetUnbounded() != nullptr) {
           const T *unbounded = alloc.GetUnbounded();
-          Ctx.emitError(Twine("more than one unbounded resource (") +
-            unbounded->GetGlobalName() + Twine(" and ") +
-            res->GetGlobalName() + Twine(") in space ") +
-            Twine(space));
+          dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                              Twine("more than one unbounded resource (") +
+                                              unbounded->GetGlobalName() + Twine(" and ") +
+                                              res->GetGlobalName() + Twine(") in space ") +
+                                              Twine(space));
           continue;
         }
 
@@ -218,9 +221,10 @@ private:
         res->SetSpaceID(space);
         bChanged = true;
       } else {
-        Ctx.emitError(((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
-          Twine("resource ") + res->GetGlobalName() +
-          Twine(" could not be allocated"));
+        dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                            ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
+                                            Twine("resource ") + res->GetGlobalName() +
+                                            Twine(" could not be allocated"));
       }
     }
 
@@ -250,10 +254,10 @@ public:
     }
 
     bool bChanged = false;
-    bChanged |= AllocateRegisters(DM.GetCBuffers(), DM.GetCtx(), m_reservedCBufferRegisters, AutoBindingSpace);
-    bChanged |= AllocateRegisters(DM.GetSamplers(), DM.GetCtx(), m_reservedSamplerRegisters, AutoBindingSpace);
-    bChanged |= AllocateRegisters(DM.GetUAVs(), DM.GetCtx(), m_reservedUAVRegisters, AutoBindingSpace);
-    bChanged |= AllocateRegisters(DM.GetSRVs(), DM.GetCtx(), m_reservedSRVRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetCBuffers(), m_reservedCBufferRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetSamplers(), m_reservedSamplerRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetUAVs(), m_reservedUAVRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetSRVs(), m_reservedSRVRegisters, AutoBindingSpace);
     return bChanged;
   }
 };
@@ -743,8 +747,7 @@ public:
         os.flush();
         Name = escName;
       }
-      Twine msg = Twine(ErrorText[ec]) + " Value: " + Name;
-      V->getContext().emitError(msg);
+      V->getContext().emitError(Twine(ErrorText[ec]) + " Value: " + Name);
     }
   }
 
@@ -1884,23 +1887,6 @@ void ReplaceResourceUserWithHandle(
   Res->eraseFromParent();
 }
 
-DIGlobalVariable *FindGlobalVariableDebugInfo(GlobalVariable *GV,
-                                              DebugInfoFinder &DbgInfoFinder) {
-  struct GlobalFinder {
-    GlobalVariable *GV;
-    bool operator()(llvm::DIGlobalVariable *const arg) const {
-      return arg->getVariable() == GV;
-    }
-  };
-  GlobalFinder F = {GV};
-  DebugInfoFinder::global_variable_iterator Found =
-      std::find_if(DbgInfoFinder.global_variables().begin(),
-                   DbgInfoFinder.global_variables().end(), F);
-  if (Found != DbgInfoFinder.global_variables().end()) {
-    return *Found;
-  }
-  return nullptr;
-}
 } // namespace
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
@@ -1936,7 +1922,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   DILocation *DL = nullptr;
   if (m_HasDbgInfo) {
     DebugInfoFinder &Finder = m_DM->GetOrCreateDebugInfoFinder();
-    DIV = FindGlobalVariableDebugInfo(cast<GlobalVariable>(GV), Finder);
+    DIV = dxilutil::FindGlobalVariableDebugInfo(cast<GlobalVariable>(GV), Finder);
     if (DIV)
       // TODO: how to get col?
       DL =

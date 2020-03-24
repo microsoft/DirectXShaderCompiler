@@ -231,9 +231,6 @@ public:
   DxilFunctionPropsMap &&ReleaseFunctionPropsMap();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
-  static llvm::DIGlobalVariable *
-  FindGlobalVariableDebugInfo(llvm::GlobalVariable *GV,
-                              llvm::DebugInfoFinder &DbgInfoFinder);
   // Create global variable debug info for element global variable based on the
   // whole global variable.
   static void CreateElementGlobalVariableDebugInfo(
