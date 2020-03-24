@@ -506,8 +506,8 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
         ConstantInt::get(Ty, MagicBitvector & 0xFFFFFFFF),
         ConstantInt::get(Ty, (MagicBitvector >> 32) & 0xFFFFFFFF));
       Value *Shift = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1F));
-      V = Builder->CreateLShr(Sel, Shift);
-      V = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1));
+      V = Builder->CreateShl(ConstantInt::get(Ty, 0x1), Shift);
+      V = Builder->CreateAnd(Sel, V);
       return new ICmpInst(ICmpInst::ICMP_NE, V, ConstantInt::get(Ty, 0));
     }
     // HLSL Change Ends
