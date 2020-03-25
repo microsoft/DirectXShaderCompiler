@@ -45,15 +45,17 @@ public:
 
 public:
   EmitTypeHandler(ASTContext &astCtx, SpirvContext &spvContext,
+                  const SpirvCodeGenOptions &opts,
                   std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), context(spvContext), debugVariableBinary(debugVec),
-        annotationsBinary(decVec), typeConstantBinary(typesVec),
-        takeNextIdFunction(takeNextIdFn), emittedConstantInts({}),
-        emittedConstantFloats({}), emittedConstantComposites({}),
-        emittedConstantNulls({}), emittedConstantBools() {
+      : astContext(astCtx), context(spvContext), spvOptions(opts),
+        debugVariableBinary(debugVec), annotationsBinary(decVec),
+        typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
+        emittedConstantInts({}), emittedConstantFloats({}),
+        emittedConstantComposites({}), emittedConstantNulls({}),
+        emittedConstantBools() {
     assert(decVec);
     assert(typesVec);
   }
@@ -143,6 +145,7 @@ private:
 private:
   ASTContext &astContext;
   SpirvContext &context;
+  const SpirvCodeGenOptions &spvOptions;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
   std::vector<uint32_t> *debugVariableBinary;
@@ -189,8 +192,8 @@ public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), id(0),
-        typeHandler(astCtx, spvCtx, &debugVariableBinary, &annotationsBinary,
-                    &typeConstantBinary,
+        typeHandler(astCtx, spvCtx, opts, &debugVariableBinary,
+                    &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
         debugMainFileId(0), debugLine(0), debugColumn(0),
         lastOpWasMergeInst(false) {}
