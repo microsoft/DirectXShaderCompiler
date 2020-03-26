@@ -1400,7 +1400,11 @@ void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
 
   // The discard statement can only be called from a pixel shader
-  assert(spvContext.isPS());
+  if (!spvContext.isPS()) {
+    emitError("discard statement may only be used in pixel shaders",
+              discardStmt->getLoc());
+    return;
+  }
 
   // SPV_EXT_demote_to_helper_invocation SPIR-V extension provides a new
   // instruction OpDemoteToHelperInvocationEXT allowing shaders to "demote" a
