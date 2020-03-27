@@ -33,6 +33,7 @@ public:
   bool visit(SpirvImageOp *);
   bool visit(SpirvImageSparseTexelsResident *);
   bool visit(SpirvExtInst *);
+  bool visit(SpirvDemoteToHelperInvocationEXT *);
 
   /// The "sink" visit function for all instructions.
   ///

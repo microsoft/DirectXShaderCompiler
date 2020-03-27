@@ -117,6 +117,8 @@ public:
     IK_VectorShuffle,             // OpVectorShuffle
     IK_ArrayLength,               // OpArrayLength
     IK_RayTracingOpNV,            // NV raytracing ops
+
+    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1748,6 +1750,25 @@ public:
 
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
+};
+
+/// \brief OpDemoteToHelperInvocationEXT instruction.
+/// Demote fragment shader invocation to a helper invocation. Any stores to
+/// memory after this instruction are suppressed and the fragment does not write
+/// outputs to the framebuffer. Unlike the OpKill instruction, this does not
+/// necessarily terminate the invocation. It is not considered a flow control
+/// instruction (flow control does not become non-uniform) and does not
+/// terminate the block.
+class SpirvDemoteToHelperInvocationEXT : public SpirvInstruction {
+public:
+  SpirvDemoteToHelperInvocationEXT(SourceLocation);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DemoteToHelperInvocationEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
