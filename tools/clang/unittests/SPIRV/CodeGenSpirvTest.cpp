@@ -502,6 +502,10 @@ TEST_F(FileTest, BreakStmtMixed) { runFileTest("cf.break.mixed.hlsl"); }
 
 // For discard statement
 TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
+TEST_F(FileTest, DiscardCS) {
+  // Using discard is only allowed in pixel shaders.
+  runFileTest("cf.discard.cs.hlsl", Expect::Failure);
+}
 
 // For return statement
 TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
