@@ -1175,7 +1175,7 @@ void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
   // If it has a continue location, it's a loop
   if (BreakContinueStack.back().ContinueBlock.getBlock()) {
     assert(EHStack.getInnermostActiveNormalCleanup() == EHStack.stable_end()); // HLSL Shouldn't need cleanups
-    CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, BreakContinueStack.back().BreakBlock.getBlock(),
+    CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, BreakContinueStack.back().BreakBlock.getBlock(),
                                            BreakContinueStack.back().ContinueBlock.getBlock());
   } else
   // HLSL Change End - incorporate unconditional branch blocks into loops

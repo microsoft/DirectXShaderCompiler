@@ -81,7 +81,7 @@ public:
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,
       llvm::ArrayRef<llvm::Value*> paramList) = 0;
   virtual void EmitHLSLDiscard(CodeGenFunction &CGF) = 0;
-  virtual void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) = 0;
+  virtual void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) = 0;
 
   // For [] on matrix
   virtual llvm::Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF,

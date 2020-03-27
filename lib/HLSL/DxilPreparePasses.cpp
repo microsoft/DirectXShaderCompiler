@@ -1034,8 +1034,9 @@ namespace {
 
 // Append all blocks containing instructions that are sensitive to WaveCI into SensitiveBB
 // Sensitivity entails being an eventual user of WaveCI and also belonging to a block with
-// an artificially conditional break that breaks out of a loop that contains WaveCI
-static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, SmallPtrSet<BasicBlock *, 16> &SensitiveBB) {
+// an break conditional on the global breakCmp that breaks out of a loop that contains WaveCI
+static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, ICmpInst *BreakCmp,
+                                   SmallPtrSet<BasicBlock *, 16> &SensitiveBB) {
   BasicBlock *WaveBB = WaveCI->getParent();
   // If this wave operation isn't in a loop, there is no need to track its sensitivity
   if (!LInfo->getLoopFor(WaveBB))
@@ -1056,15 +1057,13 @@ static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, SmallPtrSe
       // Determine if the instruction's block has an artificially-conditional break
       // and breaks out of a loop that contains the waveCI
       BasicBlock *BB = I->getParent();
-      if (BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator())) {
-        if (BI->isConditional()) {
-          Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
-          LoadInst *LI = Cond?dyn_cast<LoadInst>(Cond->getOperand(0)):nullptr;
-          if (Cond && isa<ICmpInst>(Cond) && LI && LI->isVolatile()) {
-            Loop *BreakLoop = LInfo->getLoopFor(BB);
-            if (BreakLoop && BreakLoop->contains(WaveBB))
-              SensitiveBB.insert(BB);
-          }
+      BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
+      if (BI && BI->isConditional()) {
+        ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
+        if (Cond && Cond == BreakCmp) {
+          Loop *BreakLoop = LInfo->getLoopFor(BB);
+          if (BreakLoop && BreakLoop->contains(WaveBB))
+            SensitiveBB.insert(BB);
         }
       }
       // TODO: hit the brakes if we've left any loop that might contain WaveCI
@@ -1095,6 +1094,16 @@ public:
     if (!pSM->IsPS() && !pSM->IsLib())
       return false;
 
+    Constant *GV = M->getGlobalVariable("dx.break");
+    if (!GV)
+      return false;
+    assert(GV->hasOneUse());
+    Value *Gep = *GV->user_begin();
+    assert(Gep->hasOneUse());
+    Value *LI = *Gep->user_begin();
+    assert(LI->hasOneUse());
+    ICmpInst *BreakCmp = cast<ICmpInst>(*LI->user_begin());
+
     LInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     // For each wave operation, collect the blocks sensitive to it
     SmallPtrSet<BasicBlock *, 16> SensitiveBBs;
@@ -1106,7 +1115,7 @@ public:
         if (CallInst *CI = dyn_cast<CallInst>(U)) {
           DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
           if (OP::IsDxilOpWave(opcode))
-            CollectSensitiveBlocks(LInfo, CI, SensitiveBBs);
+            CollectSensitiveBlocks(LInfo, CI, BreakCmp, SensitiveBBs);
         }
     }
 
@@ -1114,18 +1123,14 @@ public:
     // Revert artificially conditional breaks in blocks not included in SensitiveBBs
     for (auto &BB : F) {
       if (!SensitiveBBs.count(&BB)) {
-        if (BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator())) {
-          if (BI->isConditional()) {
-            Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
-            LoadInst *LI = Cond?dyn_cast<LoadInst>(Cond->getOperand(0)):nullptr;
-            if (Cond && isa<ICmpInst>(Cond) && LI && LI->isVolatile()) {
-              // Make branch conditional always true and erase the conditional preds
-              Constant *C = ConstantInt::get(Type::getInt1Ty(BI->getContext()), 1);
-              BI->setCondition(C);
-              Cond->eraseFromParent();
-              LI->eraseFromParent();
-              Changed = true;
-            }
+        BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator());
+        if (BI && BI->isConditional()) {
+          Instruction *Cond = dyn_cast<ICmpInst>(BI->getCondition());
+          if (Cond && Cond == BreakCmp) {
+            // Make branch conditional always true and erase the conditional preds
+            Constant *C = ConstantInt::get(Type::getInt1Ty(BI->getContext()), 1);
+            BI->setCondition(C);
+            Changed = true;
           }
         }
       }
