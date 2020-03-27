@@ -15,6 +15,13 @@ namespace clang {
 namespace spirv {
 namespace {
 
+// This function adds the given debug instruction |info| to the given map |map|.
+// The |map| maintains mapping between a lexical scope and the vector of
+// instructions inside that scope.
+//
+// If the given |info| does not have a parent lexical scope, the given |alt| is
+// used as its parent scope (e.g. for cases where the parent scope is the
+// compilation unit).
 template <class T>
 void addDebugInfoToMap(
     llvm::DenseMap<SpirvDebugInstruction *, std::vector<T *>> &map, T *info,

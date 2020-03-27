@@ -242,11 +242,11 @@ public:
       StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
 
   void saveFunctionInfo(const CXXMethodDecl *decl, SpirvDebugFunction *fn) {
-    structDeclToFnList[decl] = fn;
+    methodDeclToDebugFunction[decl] = fn;
   }
   SpirvDebugFunction *findFunctionInfo(const CXXMethodDecl *decl) {
-    auto it = structDeclToFnList.find(decl);
-    if (it != structDeclToFnList.end())
+    auto it = methodDeclToDebugFunction.find(decl);
+    if (it != methodDeclToDebugFunction.end())
       return it->second;
     return nullptr;
   }
@@ -408,10 +408,10 @@ private:
   //       - keep DebugTypeTemplateParameter in DebugTypeTemplate.
   llvm::SmallVector<SpirvDebugInstruction *, 16> tailDebugTypes;
 
-  // Mapping from RecordDecl (struct or class or enum) to a vector of its member
+  // Mapping from CXXMethodDecl (member method of struct or class) to its
   // function info.
   llvm::DenseMap<const CXXMethodDecl *, SpirvDebugFunction *>
-      structDeclToFnList;
+      methodDeclToDebugFunction;
 };
 
 } // end namespace spirv

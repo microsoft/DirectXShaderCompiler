@@ -26,6 +26,7 @@ RWStructuredBuffer<T> mySBuffer4 : register(u4);
 // CHECK: [[SB_T:%\d+]] = OpString "@type.StructuredBuffer.T"
 // CHECK: [[RW_S:%\d+]] = OpString "@type.RWStructuredBuffer.S"
 // CHECK: [[RW_T:%\d+]] = OpString "@type.RWStructuredBuffer.T"
+// CHECK: [[inputBuffer:%\d+]] = OpString "inputBuffer"
 // CHECK: [[temp0:%\d+]] = OpString "StructuredBuffer.TemplateParam"
 // CHECK: [[temp1:%\d+]] = OpString "RWStructuredBuffer.TemplateParam"
 
@@ -36,6 +37,13 @@ RWStructuredBuffer<T> mySBuffer4 : register(u4);
 // CHECK: [[RW_S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_S]] Class
 // CHECK: [[RW_T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_T]] Class
 
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable {{%\d+}} [[SB_S_ty]] {{%\d+}} {{\d+}} {{\d+}} {{%\d+}} {{%\d+}} %mySBuffer1
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable {{%\d+}} [[SB_T_ty]] {{%\d+}} {{\d+}} {{\d+}} {{%\d+}} {{%\d+}} %mySBuffer2
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable {{%\d+}} [[RW_S_ty]] {{%\d+}} {{\d+}} {{\d+}} {{%\d+}} {{%\d+}} %mySBuffer3
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable {{%\d+}} [[RW_T_ty]] {{%\d+}} {{\d+}} {{\d+}} {{%\d+}} {{%\d+}} %mySBuffer4
+
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[inputBuffer]] [[RW_S_ty]]
+
 // CHECK: [[param0:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp0]] [[S_ty]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeTemplate [[SB_S_ty]] [[param0]]
 // CHECK: [[param1:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp0]] [[T_ty]]
@@ -45,6 +53,11 @@ RWStructuredBuffer<T> mySBuffer4 : register(u4);
 // CHECK: [[param3:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp1]] [[T_ty]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeTemplate [[RW_T_ty]] [[param3]]
 
+void foo(RWStructuredBuffer<S> inputBuffer) {
+  inputBuffer[0].a = 0;
+}
+
 float4 main() : SV_Target {
+    foo(mySBuffer3);
     return 1.0;
 }

@@ -1117,8 +1117,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     uint32_t flags = 3u;
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    SpirvDebugFunction *debugFunction;
-    debugFunction = spvBuilder.createDebugFunction(
+    SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
         funcName, source, line, column, parentScope, funcName, flags, scopeLine,
         func);
     func->setDebugScope(new (astContext) SpirvDebugScope(debugFunction));
@@ -1133,8 +1132,6 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     spvContext.pushDebugLexicalScope(info, debugFunction);
   }
-
-  // TODO: If `decl->hasBody() == false`, add DebugFunctionDeclaration.
 
   if (isNonStaticMemberFn) {
     // Remember the parameter for the 'this' object so later we can handle

@@ -106,6 +106,8 @@ std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
 }
 
 uint32_t EmitVisitor::getOrCreateOpString(llvm::StringRef str) {
+  if (str.empty())
+    return 0;
   auto it = debugFileIdMap.find(str);
   if (it != debugFileIdMap.end()) {
     return it->second;
@@ -1082,9 +1084,7 @@ bool EmitVisitor::visit(SpirvDebugInfoNone *inst) {
 
 bool EmitVisitor::visit(SpirvDebugSource *inst) {
   uint32_t fileId = getOrCreateOpString(inst->getFile());
-  uint32_t textId = 0;
-  if (!inst->getContent().empty())
-    textId = getOrCreateOpString(inst->getContent());
+  uint32_t textId = getOrCreateOpString(inst->getContent());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));

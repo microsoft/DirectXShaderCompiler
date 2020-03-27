@@ -224,8 +224,8 @@ private:
   // If we do not follow this order, generated SPIR-V code would
   // be invalid because of forward references.
   //
-  // TODO: Maintain this layout in code emission stage is inefficient and
-  // complicated. A refactoring idea is to make debug instructions
+  // TODO: Maintaining this layout in code emission stage is inefficient
+  // and complicated. A refactoring idea is to make debug instructions
   // placeholders and just finalize the order correctly at the end.
 
   // Keep DebugOperation and DebugExpression.

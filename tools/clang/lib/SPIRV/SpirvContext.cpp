@@ -234,7 +234,7 @@ SpirvContext::getFunctionType(const SpirvType *ret,
                               llvm::ArrayRef<const SpirvType *> param,
                               bool isMember) {
   // Create a temporary object for finding in the set.
-  FunctionType type(ret, param);
+  FunctionType type(ret, param, isMember);
   auto found = functionTypes.find(&type);
   if (found != functionTypes.end())
     return *found;

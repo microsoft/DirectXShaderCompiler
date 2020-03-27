@@ -14,19 +14,20 @@
 // CHECK:  [[boolType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
 // CHECK:   [[intType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 // CHECK:  [[uintType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Unsigned
-// CHECK:      [[main:%\d+]] = OpExtInst %void [[set]] DebugFunction {{%\d+}} {{%\d+}} [[source]] 29 1 [[compileUnit]] {{%\d+}} FlagIsProtected|FlagIsPrivate 29 %src_main
+// CHECK:      [[main:%\d+]] = OpExtInst %void [[set]] DebugFunction {{%\d+}} {{%\d+}} [[source]] 29 1 [[compileUnit]] {{%\d+}} FlagIsProtected|FlagIsPrivate 30 %src_main
 
-// CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock [[source]] 29 47 [[main]]
-// CHECK:                {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameC]] [[float4Type]] [[source]] 30 10 [[mainFnLexBlock]] FlagIsLocal
-// CHECK:                {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameCond]] [[boolType]] [[source]] 31 8 [[mainFnLexBlock]] FlagIsLocal
+// CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock [[source]] 30 1 [[main]]
+// CHECK:                {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameC]] [[float4Type]] [[source]] 31 10 [[mainFnLexBlock]] FlagIsLocal
+// CHECK:                {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameCond]] [[boolType]] [[source]] 32 8 [[mainFnLexBlock]] FlagIsLocal
 
-// CHECK: [[ifLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock [[source]] 34 13 [[mainFnLexBlock]]
-// CHECK:            {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameA]] [[intType]] [[source]] 35 9 [[ifLexBlock]] FlagIsLocal
+// CHECK: [[ifLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock [[source]] 35 13 [[mainFnLexBlock]]
+// CHECK:            {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameA]] [[intType]] [[source]] 36 9 [[ifLexBlock]] FlagIsLocal
 
-// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock [[source]] 37 5 [[ifLexBlock]]
-// CHECK:              {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameB]] [[uintType]] [[source]] 38 12 [[tempLexBlock]] FlagIsLocal
+// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock [[source]] 38 5 [[ifLexBlock]]
+// CHECK:              {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[varNameB]] [[uintType]] [[source]] 39 12 [[tempLexBlock]] FlagIsLocal
 
-float4 main(float4 color : COLOR) : SV_TARGET {
+float4 main(float4 color : COLOR) : SV_TARGET
+{
   float4 c = 0.xxxx;
   bool cond = c.x == 0;
 

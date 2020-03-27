@@ -719,9 +719,10 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   // Output stream objects (TriangleStream, LineStream, and PointStream)
   if (name == "TriangleStream" || name == "LineStream" ||
       name == "PointStream") {
-    return std::make_pair(lowerType(hlsl::GetHLSLResourceResultType(type), rule,
-                                    /*isRowMajor*/ llvm::None, srcLoc),
-                          nullptr);
+    const SpirvType *underlyingType =
+        lowerType(hlsl::GetHLSLResourceResultType(type), rule,
+                  /*isRowMajor*/ llvm::None, srcLoc);
+    return std::make_pair(underlyingType, underlyingType);
   }
 
   if (name == "SubpassInput" || name == "SubpassInputMS") {

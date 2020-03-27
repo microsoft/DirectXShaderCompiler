@@ -6,7 +6,8 @@
 // debug array type for it. This test checks only that it runs
 // without a crash.
 
-// CHECK: {{%\d+}} = OpExtInst %void {{%\d+}} DebugTypeBasic {{%\d+}} %uint_32 Float
+// CHECK: [[float:%\d+]] = OpExtInst %void {{%\d+}} DebugTypeBasic {{%\d+}} %uint_32 Float
+// CHECK: {{%\d+}} = OpExtInst %void {{%\d+}} DebugTypeArray [[float]] %uint_3 %uint_4
 
 void main() {
    float3x4 mat;

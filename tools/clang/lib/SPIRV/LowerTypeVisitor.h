@@ -102,6 +102,8 @@ private:
   SpirvContext &spvContext;              /// SPIR-V context
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
 
+  // TODO: Adding a pointer the debugInfoExtInstSet in the LowerTypeVisitor
+  // class is too intrusive. Clean it up.
   SpirvExtInstImport *debugExtInstSet; /// Pointer to
                                        /// OpenCLDebugInfoExtInstSet
 

@@ -46,9 +46,11 @@ DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
       }
       setDefaultDebugInfo(tempType);
     }
+  } else {
+    emitError("StructType %0 was not lowered by LowerTypeVisitor")
+        << type->getStructName();
+    return nullptr;
   }
-  // TODO: else emit error!
-  assert(instr && "StructType was not lowered by LowerTypeVisitor");
   if (instr->getFullyLowered())
     return instr;
 
@@ -68,8 +70,12 @@ DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
           setDefaultDebugInfo(debugNone);
           fn->setDebugInfoNone(debugNone);
         }
+      } else {
+        emitError("Members of DebugTypeComposite %0 must be DebugTypeMember "
+                  "or DebugFunction")
+            << instr->getDebugName();
+        return nullptr;
       }
-      // TODO: else emit error!
       continue;
     }
 
@@ -229,11 +235,10 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   }
   }
 
-  // TODO: When we emit all debug type completely, we should remove "Unknown"
-  // type.
   if (!debugType) {
-    debugType =
-        spvContext.getDebugTypeBasic(nullptr, "Unknown", 0, 0 /*Unspecified*/);
+    emitError("Fail to lower SpirvType %0 to a debug type")
+        << spirvType->getName();
+    return nullptr;
   }
 
   setDefaultDebugInfo(debugType);

@@ -528,8 +528,8 @@ private:
   // When we turn on the rich debug info generation option, we want
   // to keep the function parameter information (like a local
   // variable). Since DebugDeclare instruction maps a
-  // DebugLocalVariable instruction to OpVariable instruction, we
-  // keep a pointer to SpirvDebugDeclare in SpirvVariable.
+  // DebugLocalVariable instruction to OpFunctionParameter instruction,
+  // we keep a pointer to SpirvDebugDeclare in SpirvFunctionParameter.
   SpirvDebugDeclare *debugDecl;
 };
 
@@ -1894,6 +1894,7 @@ private:
   spv::SourceLanguage lang;
 };
 
+// This class is not actually used. It can be cleaned up.
 class SpirvDebugFunctionDeclaration : public SpirvDebugInstruction {
 public:
   SpirvDebugFunctionDeclaration(llvm::StringRef name, SpirvDebugSource *src,
@@ -2079,7 +2080,7 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  const llvm::SmallVector<SpirvDebugOperation *, 4> &getOperations() const {
+  llvm::ArrayRef<SpirvDebugOperation *> getOperations() const {
     return operations;
   }
 
