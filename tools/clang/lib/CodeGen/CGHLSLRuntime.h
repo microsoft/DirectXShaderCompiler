@@ -12,6 +12,7 @@
 #pragma once
 
 #include <functional>
+#include <llvm/ADT/DenseMap.h> // HLSL Change
 
 namespace llvm {
 class Function;
@@ -22,6 +23,7 @@ class TerminatorInst;
 class GlobalVariable;
 class Type;
 class BasicBlock;
+class Instruction;
 template <typename T> class ArrayRef;
 }
 
@@ -50,9 +52,11 @@ class LValue;
 class CGHLSLRuntime {
 protected:
   CodeGenModule &CGM;
+  llvm::Constant *m_pDxBreakGEP;
+  llvm::SmallDenseMap<llvm::Function*, llvm::Instruction*, 16> m_DxBreakCmpMap;
 
 public:
-  CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM) {}
+  CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM), m_pDxBreakGEP(nullptr) {}
   virtual ~CGHLSLRuntime();
 
   virtual void addResource(Decl *D) = 0;

@@ -4339,8 +4339,7 @@ void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, Basic
   // Create an internal global for the conditional branch to depend on.
   Constant *GV = TheModule.getGlobalVariable("dx.break", true);
   llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
-  Value *Gep = nullptr;
-  if (!GV) {
+  if (!m_pDxBreakGEP) {
     llvm::Type *i32ArrayTy = llvm::ArrayType::get(i32Ty, 1);
     unsigned int Values[1] = { 0 };
     Constant *InitialValue = ConstantDataArray::get(Context, Values);
@@ -4351,31 +4350,19 @@ void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, Basic
                             GlobalValue::InternalLinkage,
                             InitialValue, "dx.break");
     Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
-    Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
-  } else {
-    assert(GV->hasOneUse());
-    Gep = *GV->user_begin();
+    m_pDxBreakGEP = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
   }
 
-  Instruction *LI = nullptr;
   // Search the users of the global gep for the Load in this function
-  for(Value *V : Gep->users()) {
-    if (Instruction *I = dyn_cast<Instruction>(V))
-      if (I->getParent()->getParent() == F) {
-        LI = I;
-        break;
-      }
-  }
-  ICmpInst *Cmp = nullptr;
+  Instruction *Cmp = m_DxBreakCmpMap.lookup(F);
+
   // If we have no Load/Cmp for this function, create it
-  if (!LI) {
+  if (!Cmp) {
     // volatile load to prevent sccp from determining it is really constant
     BasicBlock &EntryBB = F->getEntryBlock();
-    LI = new LoadInst(Gep, nullptr, true, EntryBB.getTerminator());
+    LoadInst *LI = new LoadInst(m_pDxBreakGEP, nullptr, true, EntryBB.getTerminator());
     Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
-  } else {
-    assert(LI->hasOneUse());
-    Cmp = cast<ICmpInst>(*LI->user_begin());
+    m_DxBreakCmpMap.insert(std::make_pair(F, Cmp));
   }
   CGF.Builder.CreateCondBr(Cmp, DestBB, AltBB);
 }
