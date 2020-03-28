@@ -1072,6 +1072,9 @@ static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, ICmpInst *
   }
 }
 
+
+// A pass to remove conditions from breaks that do not contain instructions that 
+// depend on wave operations that are in the loop that the break leaves.
 class RevertWavelessBreaks : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -1094,13 +1097,24 @@ public:
     if (!pSM->IsPS() && !pSM->IsLib())
       return false;
 
-    Constant *GV = M->getGlobalVariable("dx.break");
+    Constant *GV = M->getGlobalVariable("dx.break", true);
     if (!GV)
       return false;
+
+    // Find the load and cmp for this function
     assert(GV->hasOneUse());
     Value *Gep = *GV->user_begin();
-    assert(Gep->hasOneUse());
-    Value *LI = *Gep->user_begin();
+    Instruction *LI = nullptr;
+    for(Value *V : Gep->users()) {
+      if (Instruction *I = dyn_cast<Instruction>(V))
+        if (I->getParent()->getParent() == &F) {
+          LI = I;
+          break;
+        }
+    }
+    // If for some reason, we fail to find the dependent load, skip this function
+    if (!LI)
+      return false;
     assert(LI->hasOneUse());
     ICmpInst *BreakCmp = cast<ICmpInst>(*LI->user_begin());
 
