@@ -1075,10 +1075,10 @@ static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, ICmpInst *
 
 // A pass to remove conditions from breaks that do not contain instructions that 
 // depend on wave operations that are in the loop that the break leaves.
-class RevertWavelessBreaks : public FunctionPass {
+class CleanupDxBreak : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit RevertWavelessBreaks() : FunctionPass(ID) {}
+  explicit CleanupDxBreak() : FunctionPass(ID) {}
   const char *getPassName() const override { return "DXIL Unconditionalize breaks"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
@@ -1155,12 +1155,12 @@ public:
 
 }
 
-char RevertWavelessBreaks::ID = 0;
+char CleanupDxBreak::ID = 0;
 
-INITIALIZE_PASS_BEGIN(RevertWavelessBreaks, "hlsl-waveless", "HLSL Remove false condition", false, false)
+INITIALIZE_PASS_BEGIN(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unnecessary dx.break conditions", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(RevertWavelessBreaks, "hlsl-waveless", "HLSL Remove false condition", false, false)
+INITIALIZE_PASS_END(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unnecessary dx.break conditions", false, false)
 
-FunctionPass *llvm::createRevertWavelessBreaksPass() {
-  return new RevertWavelessBreaks();
+FunctionPass *llvm::createCleanupDxBreakPass() {
+  return new CleanupDxBreak();
 }
