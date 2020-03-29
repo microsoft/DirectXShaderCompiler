@@ -23,7 +23,7 @@ class TerminatorInst;
 class GlobalVariable;
 class Type;
 class BasicBlock;
-class Instruction;
+class BranchInst;
 template <typename T> class ArrayRef;
 }
 
@@ -52,11 +52,10 @@ class LValue;
 class CGHLSLRuntime {
 protected:
   CodeGenModule &CGM;
-  llvm::Constant *m_pDxBreakGEP;
-  llvm::SmallDenseMap<llvm::Function*, llvm::Instruction*, 16> m_DxBreakCmpMap;
+  llvm::SmallVector<llvm::BranchInst*, 16> m_DxBreaks;
 
 public:
-  CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM), m_pDxBreakGEP(nullptr) {}
+  CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM) {}
   virtual ~CGHLSLRuntime();
 
   virtual void addResource(Decl *D) = 0;

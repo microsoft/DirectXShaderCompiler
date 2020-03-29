@@ -259,6 +259,9 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // Special Mem2Reg pass that skips precise marker.
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
+  // Remove unneeded dxbreak conditionals
+  MPM.add(createCleanupDxBreakPass());
+
   if (!NoOpt) {
     MPM.add(createDxilConvergentMarkPass());
   }
@@ -291,8 +294,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
-
-  MPM.add(createCleanupDxBreakPass());
 
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());

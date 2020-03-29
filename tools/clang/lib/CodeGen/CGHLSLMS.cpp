@@ -3296,6 +3296,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Do simple transform to make later lower pass easier.
   SimpleTransformForHLDXIR(&M);
 
+  // Add dx.break function and make appropriate breaks conditional on it.
+  AddDxBreak(M, m_DxBreaks);
+
   // Handle lang extensions if provided.
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
     ExtensionCodeGen(HLM, CGM);
@@ -4331,40 +4334,17 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
 // that might produce incorrect results by ignoring the volatile aspect of wave operation results.
 void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
   // If not a wave-enabled stage, we can keep everything unconditional as before
-  if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsLib()) {
+  if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsCS() &&
+      !m_pHLModule->GetShaderModel()->IsLib()) {
     CGF.Builder.CreateBr(DestBB);
     return;
   }
 
-  // Create an internal global for the conditional branch to depend on.
-  Constant *GV = TheModule.getGlobalVariable("dx.break", true);
-  llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
-  if (!m_pDxBreakGEP) {
-    llvm::Type *i32ArrayTy = llvm::ArrayType::get(i32Ty, 1);
-    unsigned int Values[1] = { 0 };
-    Constant *InitialValue = ConstantDataArray::get(Context, Values);
-
-    // Create the non-constant global to prevent the branch conditional being optimized away
-    GV = new GlobalVariable(TheModule,
-                            i32ArrayTy, false,
-                            GlobalValue::InternalLinkage,
-                            InitialValue, "dx.break");
-    Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
-    m_pDxBreakGEP = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
-  }
-
-  // Search the users of the global gep for the Load in this function
-  Instruction *Cmp = m_DxBreakCmpMap.lookup(F);
-
-  // If we have no Load/Cmp for this function, create it
-  if (!Cmp) {
-    // volatile load to prevent sccp from determining it is really constant
-    BasicBlock &EntryBB = F->getEntryBlock();
-    LoadInst *LI = new LoadInst(m_pDxBreakGEP, nullptr, true, EntryBB.getTerminator());
-    Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
-    m_DxBreakCmpMap.insert(std::make_pair(F, Cmp));
-  }
-  CGF.Builder.CreateCondBr(Cmp, DestBB, AltBB);
+  // Create a branch that is temporarily conditional on a constant
+  // FinalizeCodeGen will turn this into a function, DxilFinalize will turn it into a global var
+  llvm::Type *boolTy = llvm::Type::getInt1Ty(Context);
+  BranchInst *BI = CGF.Builder.CreateCondBr(llvm::ConstantInt::get(boolTy,1), DestBB, AltBB);
+  m_DxBreaks.emplace_back(BI);
 }
 
 static llvm::Type *MergeIntType(llvm::IntegerType *T0, llvm::IntegerType *T1) {

@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/HlslIntrinsicOp.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -405,9 +406,8 @@ public:
       }
       RemoveStoreUndefOutput(M, hlslOP);
 
-      // Constify the dx.break global if present
-      if (GlobalVariable *BreakGV = M.getGlobalVariable("dx.break"))
-        BreakGV->setConstant(true);
+      // Turn dx.break() conditional into global
+      LowerDxBreak(M);
 
       RemoveUnusedStaticGlobal(M);
 
@@ -620,6 +620,42 @@ private:
     }
     if (AllocFn->user_empty()) {
       AllocFn->eraseFromParent();
+    }
+  }
+
+  // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
+  void LowerDxBreak(Module &M) {
+    if (Function *BreakFunc = M.getFunction("dx.break")) {
+      if (BreakFunc->getNumUses()) {
+        llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
+        Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+        unsigned int Values[1] = { 0 };
+        Constant *InitialValue = ConstantDataArray::get(M.getContext(), Values);
+        Constant *GV = new GlobalVariable(M, i32ArrayTy, true,
+                                          GlobalValue::InternalLinkage,
+                                          InitialValue, "dx.break.cond");
+
+        Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
+        Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
+        SmallDenseMap<llvm::Function*, llvm::ICmpInst*, 16> DxBreakCmpMap;
+        // Replace all uses of dx.break with references to the constant global
+        for (User *U : BreakFunc->users()) {
+          DXASSERT(U->hasOneUse() && isa<CallInst>(U), "User of dx.break function isn't call or has multiple users");
+          BranchInst *BI = cast<BranchInst>(*U->user_begin());
+          CallInst *CI = cast<CallInst>(U);
+          Function *F = BI->getParent()->getParent();
+          ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
+          if (!Cmp) {
+            BasicBlock &EntryBB = F->getEntryBlock();
+            LoadInst *LI = new LoadInst(Gep, nullptr, false, EntryBB.getTerminator());
+            Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
+            DxBreakCmpMap.insert(std::make_pair(F, Cmp));
+          }
+          BI->setCondition(Cmp);
+          CI->eraseFromParent();
+        }
+      }
+      BreakFunc->eraseFromParent();
     }
   }
 };
@@ -1035,7 +1071,7 @@ namespace {
 // Append all blocks containing instructions that are sensitive to WaveCI into SensitiveBB
 // Sensitivity entails being an eventual user of WaveCI and also belonging to a block with
 // an break conditional on the global breakCmp that breaks out of a loop that contains WaveCI
-static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, ICmpInst *BreakCmp,
+static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, Function *BreakFunc,
                                    SmallPtrSet<BasicBlock *, 16> &SensitiveBB) {
   BasicBlock *WaveBB = WaveCI->getParent();
   // If this wave operation isn't in a loop, there is no need to track its sensitivity
@@ -1059,8 +1095,8 @@ static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, ICmpInst *
       BasicBlock *BB = I->getParent();
       BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
       if (BI && BI->isConditional()) {
-        ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
-        if (Cond && Cond == BreakCmp) {
+        CallInst *Cond = dyn_cast<CallInst>(BI->getCondition());
+        if (Cond && Cond->getCalledFunction() == BreakFunc) {
           Loop *BreakLoop = LInfo->getLoopFor(BB);
           if (BreakLoop && BreakLoop->contains(WaveBB))
             SensitiveBB.insert(BB);
@@ -1073,13 +1109,13 @@ static void CollectSensitiveBlocks(LoopInfo *LInfo, CallInst *WaveCI, ICmpInst *
 }
 
 
-// A pass to remove conditions from breaks that do not contain instructions that 
+// A pass to remove conditions from breaks that do not contain instructions that
 // depend on wave operations that are in the loop that the break leaves.
 class CleanupDxBreak : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit CleanupDxBreak() : FunctionPass(ID) {}
-  const char *getPassName() const override { return "DXIL Unconditionalize breaks"; }
+  const char *getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
   }
@@ -1091,46 +1127,52 @@ public:
       return false;
     // Only check ps and lib profile.
     Module *M = F.getEntryBlock().getModule();
-    DxilModule &DM = M->GetDxilModule();
-    const ShaderModel *pSM = DM.GetShaderModel();
-    // If we're not a wave-capable stage, nothing needs to be done
-    if (!pSM->IsPS() && !pSM->IsLib())
-      return false;
 
-    Constant *GV = M->getGlobalVariable("dx.break", true);
-    if (!GV)
+    Function *BreakFunc = M->getFunction("dx.break");
+    if (!BreakFunc)
       return false;
-
-    // Find the load and cmp for this function
-    assert(GV->hasOneUse());
-    Value *Gep = *GV->user_begin();
-    Instruction *LI = nullptr;
-    for(Value *V : Gep->users()) {
-      if (Instruction *I = dyn_cast<Instruction>(V))
-        if (I->getParent()->getParent() == &F) {
-          LI = I;
-          break;
-        }
-    }
-    // If for some reason, we fail to find the dependent load, skip this function
-    if (!LI)
-      return false;
-    assert(LI->hasOneUse());
-    ICmpInst *BreakCmp = cast<ICmpInst>(*LI->user_begin());
 
     LInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     // For each wave operation, collect the blocks sensitive to it
     SmallPtrSet<BasicBlock *, 16> SensitiveBBs;
     for (Function &IF : M->functions()) {
-      if (&IF == &F || !IF.getNumUses() || !IF.isDeclaration() || !hlsl::OP::IsDxilOpFunc(&IF))
+      if (&IF == &F || !IF.getNumUses() || !IF.isDeclaration() ||
+          hlsl::GetHLOpcodeGroupByName(&IF) != HLOpcodeGroup::HLIntrinsic)
         continue;
 
-      for (User *U : IF.users())
+      for (User *U : IF.users()) {
         if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
-          if (OP::IsDxilOpWave(opcode))
-            CollectSensitiveBlocks(LInfo, CI, BreakCmp, SensitiveBBs);
+          // WaveGetLaneCount and WaveGetLaneIndex excluded for being exec mask independent
+          switch(hlsl::GetHLOpcode(CI)) {
+          case IntrinsicOp::IOP_WaveActiveAllEqual:
+          case IntrinsicOp::IOP_WaveActiveAllTrue:
+          case IntrinsicOp::IOP_WaveActiveAnyTrue:
+          case IntrinsicOp::IOP_WaveActiveBallot:
+          case IntrinsicOp::IOP_WaveActiveBitAnd:
+          case IntrinsicOp::IOP_WaveActiveBitOr:
+          case IntrinsicOp::IOP_WaveActiveBitXor:
+          case IntrinsicOp::IOP_WaveActiveCountBits:
+          case IntrinsicOp::IOP_WaveActiveMax:
+          case IntrinsicOp::IOP_WaveActiveMin:
+          case IntrinsicOp::IOP_WaveActiveProduct:
+          case IntrinsicOp::IOP_WaveActiveSum:
+          case IntrinsicOp::IOP_WaveIsFirstLane:
+          case IntrinsicOp::IOP_WaveMatch:
+          case IntrinsicOp::IOP_WaveMultiPrefixBitAnd:
+          case IntrinsicOp::IOP_WaveMultiPrefixBitOr:
+          case IntrinsicOp::IOP_WaveMultiPrefixBitXor:
+          case IntrinsicOp::IOP_WaveMultiPrefixCountBits:
+          case IntrinsicOp::IOP_WaveMultiPrefixProduct:
+          case IntrinsicOp::IOP_WaveMultiPrefixSum:
+          case IntrinsicOp::IOP_WavePrefixCountBits:
+          case IntrinsicOp::IOP_WavePrefixProduct:
+          case IntrinsicOp::IOP_WavePrefixSum:
+          case IntrinsicOp::IOP_WaveReadLaneAt:
+          case IntrinsicOp::IOP_WaveReadLaneFirst:
+            CollectSensitiveBlocks(LInfo, CI, BreakFunc, SensitiveBBs);
+          }
         }
+      }
     }
 
     bool Changed = false;
@@ -1139,11 +1181,12 @@ public:
       if (!SensitiveBBs.count(&BB)) {
         BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator());
         if (BI && BI->isConditional()) {
-          Instruction *Cond = dyn_cast<ICmpInst>(BI->getCondition());
-          if (Cond && Cond == BreakCmp) {
-            // Make branch conditional always true and erase the conditional preds
+          CallInst *Cond = dyn_cast<CallInst>(BI->getCondition());
+          if (Cond && Cond->getCalledFunction() == BreakFunc) {
+            // Make branch conditional always true and erase the conditional
             Constant *C = ConstantInt::get(Type::getInt1Ty(BI->getContext()), 1);
             BI->setCondition(C);
+            Cond->eraseFromParent();
             Changed = true;
           }
         }
