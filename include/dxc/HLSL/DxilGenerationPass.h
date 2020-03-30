@@ -23,6 +23,8 @@ struct PostDominatorTree;
 }
 
 namespace hlsl {
+extern char *kDxBreakFuncName;
+extern char *kDxBreakCondName;
 class DxilResourceBase;
 class WaveSensitivityAnalysis {
 public:

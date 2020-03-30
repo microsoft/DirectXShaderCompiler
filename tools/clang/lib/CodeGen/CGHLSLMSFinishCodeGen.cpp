@@ -2581,7 +2581,7 @@ void AddDxBreak(Module &M, SmallVector<llvm::BranchInst*, 16> DxBreaks) {
 
   // Create the dx.break function
   FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
-  Function *func = cast<llvm::Function>(M.getOrInsertFunction("dx.break", FT));
+  Function *func = cast<llvm::Function>(M.getOrInsertFunction(kDxBreakFuncName, FT));
   func->addFnAttr(Attribute::AttrKind::NoUnwind);
 
   for(llvm::BranchInst *BI : DxBreaks) {

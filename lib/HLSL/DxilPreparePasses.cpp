@@ -54,6 +54,9 @@ public:
 };
 }
 
+char *hlsl::kDxBreakFuncName = "dx.break";
+char *hlsl::kDxBreakCondName = "dx.break.cond";
+
 char InvalidateUndefResources::ID = 0;
 
 ModulePass *llvm::createInvalidateUndefResourcesPass() { return new InvalidateUndefResources(); }
@@ -625,7 +628,7 @@ private:
 
   // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
   void LowerDxBreak(Module &M) {
-    if (Function *BreakFunc = M.getFunction("dx.break")) {
+    if (Function *BreakFunc = M.getFunction(kDxBreakFuncName)) {
       if (BreakFunc->getNumUses()) {
         llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
@@ -633,7 +636,7 @@ private:
         Constant *InitialValue = ConstantDataArray::get(M.getContext(), Values);
         Constant *GV = new GlobalVariable(M, i32ArrayTy, true,
                                           GlobalValue::InternalLinkage,
-                                          InitialValue, "dx.break.cond");
+                                          InitialValue, kDxBreakCondName);
 
         Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
         Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
@@ -1128,7 +1131,7 @@ public:
     // Only check ps and lib profile.
     Module *M = F.getEntryBlock().getModule();
 
-    Function *BreakFunc = M->getFunction("dx.break");
+    Function *BreakFunc = M->getFunction(kDxBreakFuncName);
     if (!BreakFunc)
       return false;
 
@@ -1141,38 +1144,9 @@ public:
         continue;
 
       for (User *U : IF.users()) {
-        if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          // WaveGetLaneCount and WaveGetLaneIndex excluded for being exec mask independent
-          hlsl::IntrinsicOp opcode = static_cast<hlsl::IntrinsicOp>(hlsl::GetHLOpcode(CI));
-          switch(opcode) {
-          case IntrinsicOp::IOP_WaveActiveAllEqual:
-          case IntrinsicOp::IOP_WaveActiveAllTrue:
-          case IntrinsicOp::IOP_WaveActiveAnyTrue:
-          case IntrinsicOp::IOP_WaveActiveBallot:
-          case IntrinsicOp::IOP_WaveActiveBitAnd:
-          case IntrinsicOp::IOP_WaveActiveBitOr:
-          case IntrinsicOp::IOP_WaveActiveBitXor:
-          case IntrinsicOp::IOP_WaveActiveCountBits:
-          case IntrinsicOp::IOP_WaveActiveMax:
-          case IntrinsicOp::IOP_WaveActiveMin:
-          case IntrinsicOp::IOP_WaveActiveProduct:
-          case IntrinsicOp::IOP_WaveActiveSum:
-          case IntrinsicOp::IOP_WaveIsFirstLane:
-          case IntrinsicOp::IOP_WaveMatch:
-          case IntrinsicOp::IOP_WaveMultiPrefixBitAnd:
-          case IntrinsicOp::IOP_WaveMultiPrefixBitOr:
-          case IntrinsicOp::IOP_WaveMultiPrefixBitXor:
-          case IntrinsicOp::IOP_WaveMultiPrefixCountBits:
-          case IntrinsicOp::IOP_WaveMultiPrefixProduct:
-          case IntrinsicOp::IOP_WaveMultiPrefixSum:
-          case IntrinsicOp::IOP_WavePrefixCountBits:
-          case IntrinsicOp::IOP_WavePrefixProduct:
-          case IntrinsicOp::IOP_WavePrefixSum:
-          case IntrinsicOp::IOP_WaveReadLaneAt:
-          case IntrinsicOp::IOP_WaveReadLaneFirst:
-            CollectSensitiveBlocks(LInfo, CI, BreakFunc, SensitiveBBs);
-          }
-        }
+        CallInst *CI = dyn_cast<CallInst>(U);
+        if (CI && IsCallWaveSensitive(CI))
+          CollectSensitiveBlocks(LInfo, CI, BreakFunc, SensitiveBBs);
       }
     }
 
