@@ -1143,7 +1143,8 @@ public:
       for (User *U : IF.users()) {
         if (CallInst *CI = dyn_cast<CallInst>(U)) {
           // WaveGetLaneCount and WaveGetLaneIndex excluded for being exec mask independent
-          switch(hlsl::GetHLOpcode(CI)) {
+          hlsl::IntrinsicOp opcode = static_cast<hlsl::IntrinsicOp>(hlsl::GetHLOpcode(CI));
+          switch(opcode) {
           case IntrinsicOp::IOP_WaveActiveAllEqual:
           case IntrinsicOp::IOP_WaveActiveAllTrue:
           case IntrinsicOp::IOP_WaveActiveAnyTrue:
