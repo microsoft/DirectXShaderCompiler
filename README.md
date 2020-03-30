@@ -1,11 +1,11 @@
 # DirectX Shader Compiler
 
 [![Build status](https://ci.appveyor.com/api/projects/status/oaf66n7w30xbrg38/branch/master?svg=true)](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master)
-[![Build Status](https://travis-ci.org/Microsoft/DirectXShaderCompiler.svg?branch=master)](https://travis-ci.org/Microsoft/DirectXShaderCompiler)
+[![Build Status](https://travis-ci.org/microsoft/DirectXShaderCompiler.svg?branch=master)](https://travis-ci.org/microsoft/DirectXShaderCompiler)
 
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
-For more information, see the [Wiki](https://github.com/Microsoft/DirectXShaderCompiler/wiki).
+For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
 ## Features and Goals
 
@@ -31,7 +31,7 @@ Binary packages containing the output of this project are available from appveyo
 
 ### SPIR-V CodeGen
 
-As an example of community contribution, this project can also target the [SPIR-V](https://www.khronos.org/registry/spir-v/) intermediate representation. Please see the [doc](docs/SPIR-V.rst) for how HLSL features are mapped to SPIR-V, and the [wiki](https://github.com/Microsoft/DirectXShaderCompiler/wiki/SPIR%E2%80%90V-CodeGen) page for how to build, use, and contribute to the SPIR-V CodeGen.
+As an example of community contribution, this project can also target the [SPIR-V](https://www.khronos.org/registry/spir-v/) intermediate representation. Please see the [doc](docs/SPIR-V.rst) for how HLSL features are mapped to SPIR-V, and the [wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki/SPIR%E2%80%90V-CodeGen) page for how to build, use, and contribute to the SPIR-V CodeGen.
 
 ## Building Sources
 
@@ -39,7 +39,7 @@ Note: Instead of building manually, you can download the artifacts built by Appv
 
 Note: If you intend to build from sources on Linux/macOS, follow [these instructions](docs/DxcOnUnix.rst).
 
-Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
+Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
 * [Git](http://git-scm.com/downloads).
 * [Python](https://www.python.org/downloads/) - version 3.x is required
@@ -74,7 +74,7 @@ Some tests will run shaders and verify their behavior. These tests also involve 
 
 ## Running Shaders
 
-To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter. Windows 10 Creators Update is the first version to support DXIL shaders. See the [Wiki](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Running-Shaders) for information on using experimental support or the software adapter.
+To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter. Windows 10 Creators Update is the first version to support DXIL shaders. See the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki/Running-Shaders) for information on using experimental support or the software adapter.
 
 ### Hardware Support
 
