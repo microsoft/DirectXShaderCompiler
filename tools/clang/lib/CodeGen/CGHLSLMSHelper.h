@@ -26,6 +26,7 @@ class DebugLoc;
 class Constant;
 class GlobalVariable;
 class CallInst;
+template <typename T, unsigned N> class SmallVector;
 }
 
 namespace hlsl {
@@ -93,6 +94,8 @@ void FinishIntrinsics(
     hlsl::HLModule &HLM, std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
     llvm::DenseMap<llvm::Value *, hlsl::DxilResourceProperties>
         &valToResPropertiesMap);
+
+void AddDxBreak(llvm::Module &M, llvm::SmallVector<llvm::BranchInst*, 16> DxBreaks);
 
 void ReplaceConstStaticGlobals(
     std::unordered_map<llvm::GlobalVariable *, std::vector<llvm::Constant *>>

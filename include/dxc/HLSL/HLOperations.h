@@ -132,6 +132,9 @@ HLBinaryOpcode GetUnsignedOpcode(HLBinaryOpcode opcode);
 
 llvm::StringRef GetHLOpcodeGroupName(HLOpcodeGroup op);
 
+// Determine if this call is to an operation that is dependent on other members of its wave
+bool IsCallWaveSensitive(llvm::CallInst *CI);
+
 namespace HLOperandIndex {
 // Opcode parameter.
 const unsigned kOpcodeIdx = 0;
