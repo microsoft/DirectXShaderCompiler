@@ -2574,4 +2574,20 @@ void FinishIntrinsics(
   // update valToResPropertiesMap for cloned inst.
   AddOpcodeParamForIntrinsics(HLM, intrinsicMap, valToResPropertiesMap);
 }
+
+void AddDxBreak(Module &M, SmallVector<llvm::BranchInst*, 16> DxBreaks) {
+  if (DxBreaks.empty())
+    return;
+
+  // Create the dx.break function
+  FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
+  Function *func = cast<llvm::Function>(M.getOrInsertFunction(kDxBreakFuncName, FT));
+  func->addFnAttr(Attribute::AttrKind::NoUnwind);
+
+  for(llvm::BranchInst *BI : DxBreaks) {
+    CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
+    BI->setCondition(Call);
+  }
+}
+
 }

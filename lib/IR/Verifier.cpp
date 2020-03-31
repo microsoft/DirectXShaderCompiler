@@ -3680,6 +3680,7 @@ struct VerifierLegacyPass : public FunctionPass {
   }
 
   bool runOnFunction(Function &F) override {
+    return false;
     if (!V.verify(F) && FatalErrors)
       report_fatal_error("Broken function found, compilation aborted!");
 

@@ -451,6 +451,46 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
   }
 }
 
+
+// Determine if this Call Instruction refers to an HLOpcode that is dependent on other wave members
+bool IsCallWaveSensitive(CallInst *CI) {
+  hlsl::IntrinsicOp opcode = static_cast<hlsl::IntrinsicOp>(hlsl::GetHLOpcode(CI));
+  switch(opcode) {
+  case IntrinsicOp::IOP_WaveActiveAllEqual:
+  case IntrinsicOp::IOP_WaveActiveAllTrue:
+  case IntrinsicOp::IOP_WaveActiveAnyTrue:
+  case IntrinsicOp::IOP_WaveActiveBallot:
+  case IntrinsicOp::IOP_WaveActiveBitAnd:
+  case IntrinsicOp::IOP_WaveActiveBitOr:
+  case IntrinsicOp::IOP_WaveActiveBitXor:
+  case IntrinsicOp::IOP_WaveActiveCountBits:
+  case IntrinsicOp::IOP_WaveActiveMax:
+  case IntrinsicOp::IOP_WaveActiveMin:
+  case IntrinsicOp::IOP_WaveActiveProduct:
+  case IntrinsicOp::IOP_WaveActiveSum:
+  case IntrinsicOp::IOP_WaveIsFirstLane:
+  case IntrinsicOp::IOP_WaveMatch:
+  case IntrinsicOp::IOP_WaveMultiPrefixBitAnd:
+  case IntrinsicOp::IOP_WaveMultiPrefixBitOr:
+  case IntrinsicOp::IOP_WaveMultiPrefixBitXor:
+  case IntrinsicOp::IOP_WaveMultiPrefixCountBits:
+  case IntrinsicOp::IOP_WaveMultiPrefixProduct:
+  case IntrinsicOp::IOP_WaveMultiPrefixSum:
+  case IntrinsicOp::IOP_WavePrefixCountBits:
+  case IntrinsicOp::IOP_WavePrefixProduct:
+  case IntrinsicOp::IOP_WavePrefixSum:
+  case IntrinsicOp::IOP_WaveReadLaneAt:
+  case IntrinsicOp::IOP_WaveReadLaneFirst:
+  case IntrinsicOp::IOP_QuadReadAcrossDiagonal:
+  case IntrinsicOp::IOP_QuadReadAcrossX:
+  case IntrinsicOp::IOP_QuadReadAcrossY:
+  case IntrinsicOp::IOP_QuadReadLaneAt:
+    return true;
+  }
+  return false;
+}
+
+
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, unsigned opcode) {
   return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode);
