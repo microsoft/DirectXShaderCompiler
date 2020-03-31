@@ -654,6 +654,7 @@ private:
           DXASSERT(U->getNumUses() <= 1,
             "User of dx.break function has multiple users");
 
+          // In spite of the <=1 assert above, loop here in case the assumption is wrong
           for (auto II = U->user_begin(), EE = U->user_end(); II != EE;) {
             User *UU = *II++;
             BranchInst *BI = cast<BranchInst>(UU);
