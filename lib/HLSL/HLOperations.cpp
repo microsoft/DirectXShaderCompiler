@@ -481,17 +481,6 @@ bool IsCallWaveSensitive(CallInst *CI) {
   case IntrinsicOp::IOP_WavePrefixSum:
   case IntrinsicOp::IOP_WaveReadLaneAt:
   case IntrinsicOp::IOP_WaveReadLaneFirst:
-  case IntrinsicOp::IOP_ddx:
-  case IntrinsicOp::IOP_ddx_fine:
-  case IntrinsicOp::IOP_ddx_coarse:
-  case IntrinsicOp::IOP_ddy:
-  case IntrinsicOp::IOP_ddy_fine:
-  case IntrinsicOp::IOP_ddy_coarse:
-  case IntrinsicOp::MOP_Sample:
-  case IntrinsicOp::MOP_SampleBias:
-  case IntrinsicOp::MOP_SampleCmp:
-  case IntrinsicOp::MOP_CalculateLevelOfDetail:
-  case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
   case IntrinsicOp::IOP_QuadReadAcrossDiagonal:
   case IntrinsicOp::IOP_QuadReadAcrossX:
   case IntrinsicOp::IOP_QuadReadAcrossY:
