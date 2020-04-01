@@ -2250,6 +2250,10 @@ TEST_F(FileTest, RichDebugInfoTypeComposite) {
   runFileTest("rich.debug.type.composite.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoTypeCompositeEmpty) {
+  runFileTest("rich.debug.type.composite.empty.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
   runFileTest("rich.debug.type.composite.before.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
