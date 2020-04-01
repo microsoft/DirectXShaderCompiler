@@ -647,19 +647,27 @@ private:
         Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
         SmallDenseMap<llvm::Function*, llvm::ICmpInst*, 16> DxBreakCmpMap;
         // Replace all uses of dx.break with references to the constant global
-        for (User *U : BreakFunc->users()) {
-          DXASSERT(U->hasOneUse() && isa<CallInst>(U), "User of dx.break function isn't call or has multiple users");
-          BranchInst *BI = cast<BranchInst>(*U->user_begin());
+        for (auto I = BreakFunc->user_begin(), E = BreakFunc->user_end(); I != E;) {
+          User *U = *I++;
           CallInst *CI = cast<CallInst>(U);
-          Function *F = BI->getParent()->getParent();
-          ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
-          if (!Cmp) {
-            BasicBlock &EntryBB = F->getEntryBlock();
-            LoadInst *LI = new LoadInst(Gep, nullptr, false, EntryBB.getTerminator());
-            Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
-            DxBreakCmpMap.insert(std::make_pair(F, Cmp));
+          // SimplifyCFG might have removed our user
+          DXASSERT(U->getNumUses() <= 1,
+            "User of dx.break function has multiple users");
+
+          // In spite of the <=1 assert above, loop here in case the assumption is wrong
+          for (auto II = U->user_begin(), EE = U->user_end(); II != EE;) {
+            User *UU = *II++;
+            BranchInst *BI = cast<BranchInst>(UU);
+            Function *F = BI->getParent()->getParent();
+            ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
+            if (!Cmp) {
+              BasicBlock &EntryBB = F->getEntryBlock();
+              LoadInst *LI = new LoadInst(Gep, nullptr, false, EntryBB.getTerminator());
+              Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
+              DxBreakCmpMap.insert(std::make_pair(F, Cmp));
+            }
+            BI->setCondition(Cmp);
           }
-          BI->setCondition(Cmp);
           CI->eraseFromParent();
         }
       }
