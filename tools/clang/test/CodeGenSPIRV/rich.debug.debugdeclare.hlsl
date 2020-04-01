@@ -2,23 +2,25 @@
 
 // TODO: FlagIsPublic is shown as FlagIsProtected|FlagIsPrivate.
 
-// CHECK:             [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
-// CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 28 20 {{%\d+}} FlagIsLocal 0
-// CHECK: [[condition:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 30 8 {{%\d+}} FlagIsLocal
+// CHECK: [[expr:%\d+]] = OpExtInst %void [[set]] DebugExpression
 
-// CHECK: [[x:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 23 14 {{%\d+}} FlagIsLocal 0
-// CHECK: [[y:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 23 23 {{%\d+}} FlagIsLocal 1
+// CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 30 20 {{%\d+}} FlagIsLocal 0
+// CHECK: [[condition:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 32 8 {{%\d+}} FlagIsLocal
+
+// CHECK: [[x:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 14 {{%\d+}} FlagIsLocal 0
+// CHECK: [[y:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 23 {{%\d+}} FlagIsLocal 1
 
 // CHECK:        %color = OpFunctionParameter
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[color]] %color
+// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[color]] %color [[expr]]
 // CHECK:      %condition = OpVariable
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[condition]] %condition
+// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[condition]] %condition [[expr]]
 
 // CHECK:            %x = OpFunctionParameter
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[x]] %x
+// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[x]] %x [[expr]]
 // CHECK:            %y = OpFunctionParameter
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[y]] %y
+// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[y]] %y [[expr]]
 
 void foo(int x, float y)
 {
