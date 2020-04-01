@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -631,7 +632,7 @@ private:
 
   // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
   void LowerDxBreak(Module &M) {
-    if (Function *BreakFunc = M.getFunction(kDxBreakFuncName)) {
+    if (Function *BreakFunc = M.getFunction(DXIL::kDxBreakFuncName)) {
       if (BreakFunc->getNumUses()) {
         llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
@@ -639,7 +640,7 @@ private:
         Constant *InitialValue = ConstantDataArray::get(M.getContext(), Values);
         Constant *GV = new GlobalVariable(M, i32ArrayTy, true,
                                           GlobalValue::InternalLinkage,
-                                          InitialValue, kDxBreakCondName);
+                                          InitialValue, DXIL::kDxBreakCondName);
 
         Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
         Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
@@ -1142,7 +1143,7 @@ public:
     // Only check ps and lib profile.
     Module *M = F.getEntryBlock().getModule();
 
-    Function *BreakFunc = M->getFunction(kDxBreakFuncName);
+    Function *BreakFunc = M->getFunction(DXIL::kDxBreakFuncName);
     if (!BreakFunc)
       return false;
 

@@ -33,9 +33,6 @@
 
 using namespace llvm;
 
-const char *llvm::kDxBreakFuncName = "dx.break";
-const char *llvm::kDxBreakCondName = "dx.break.cond";
-
 static
 bool IsConstantTrue(const Value *V) {
   if (const ConstantInt *C = dyn_cast<ConstantInt>(V))

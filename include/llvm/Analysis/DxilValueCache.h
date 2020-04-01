@@ -15,9 +15,6 @@
 
 namespace llvm {
 
-extern const char *kDxBreakFuncName;
-extern const char *kDxBreakCondName;
-
 class Module;
 class DominatorTree;
 class Constant;
