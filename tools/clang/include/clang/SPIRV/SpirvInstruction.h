@@ -2319,6 +2319,7 @@ private:
   llvm::SmallVector<SpirvDebugType *, 4> paramTypes;
 };
 
+/// Represents debug information for a template type parameter.
 class SpirvDebugTypeTemplateParameter : public SpirvDebugType {
 public:
   SpirvDebugTypeTemplateParameter(llvm::StringRef name, const SpirvType *type,
@@ -2352,9 +2353,7 @@ private:
   const SpirvType *spvType;
 };
 
-// Currently, the only use case of template type is a resource type.
-// If a composite type represents an opaque type for a resource, we
-// keep SpirvDebugTypeTemplate in SpirvDebugTypeComposite.
+/// Represents debug information for a template type.
 class SpirvDebugTypeTemplate : public SpirvDebugType {
 public:
   SpirvDebugTypeTemplate(SpirvDebugInstruction *target);
@@ -2424,10 +2423,7 @@ private:
   uint32_t line;            //< Line number
   uint32_t column;          //< Column number
 
-  // The parent lexical scope. Must be one of the following:
-  // DebugCompilationUnit, DebugFunction, DebugLexicalBlock or other
-  // DebugTypeComposite
-  SpirvDebugInstruction *parent; //< The parent lexical scope
+  SpirvDebugInstruction *parent; //< The parent DebugTypeComposite
 
   uint32_t offset; //< Offset (in bits) of this member in the struct
   uint32_t size;   //< Size (in bits) of this member in the struct
@@ -2506,8 +2502,13 @@ private:
   // vector of SpirvDebugType.
   llvm::SmallVector<SpirvDebugInstruction *, 4> members;
 
-  // When this composite type is an opaque type for a resource, it
-  // is a template type. typeTemplate keeps the template type info.
+  // Optional pointer to keep the template type information of a HLSL
+  // resource type. A HLSL resource needs both DebugTypeComposite and
+  // DebugTypeTemplate. Typically, we keep all debug type information
+  // in SpirvContext::debugTypes including DebugTypeComposite, but we
+  // cannot keep DebugTypeTemplate for a HLSL resource in it because of
+  // the limitation of single value for the map. Instead, we keep it
+  // here.
   SpirvDebugTypeTemplate *typeTemplate;
 
   // It is first lowered by LowerTypeVisitor and then lowered by

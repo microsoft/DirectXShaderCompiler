@@ -366,43 +366,66 @@ SpirvContext::getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
 SpirvDebugInstruction *
 SpirvContext::getDebugTypeTemplate(const SpirvType *spirvType,
                                    SpirvDebugInstruction *target) {
-  // NOTE: Do not search it in debugTypes because we assume that
-  // only resource type e.g., RWStructuredBuffer<S> can be a DebugTypeTemplate
-  // and its DebugTypeComposite keeps this DebugTypeTemplate as a member.
+  // Reuse existing debug type if possible.
   auto it = debugTypes.find(spirvType);
+  SpirvDebugTypeComposite *compositeInfo = nullptr;
   if (it != debugTypes.end()) {
-    if (auto *composite = dyn_cast<SpirvDebugTypeComposite>(it->second)) {
-      auto *typeTemp = composite->getTypeTemplate();
-      if (typeTemp) {
-        return typeTemp;
-      } else {
-        auto *debugType = new (this) SpirvDebugTypeTemplate(target);
-        composite->setTypeTemplate(debugType);
-
-        // NOTE: Do not save it in debugTypes because it is not
-        // corresponding to a spirvType but it is pointed by a composite
-        // type. Instead, we want to keep it in tailDebugTypes.
-        tailDebugTypes.push_back(debugType);
-        return debugType;
-      }
+    compositeInfo = dyn_cast<SpirvDebugTypeComposite>(it->second);
+    if (compositeInfo) {
+      // This is the case that we use DebugTypeTemplate to describe a
+      // template-based HLSL resource type.
+      if (compositeInfo->getTypeTemplate())
+        return compositeInfo->getTypeTemplate();
+    } else {
+      return it->second;
     }
-    // else we must emit an error!
   }
-  return nullptr;
+
+  auto *debugType = new (this) SpirvDebugTypeTemplate(target);
+  if (compositeInfo) {
+    // This is the case that we use DebugTypeTemplate to describe a
+    // template-based HLSL resource type. We want to keep DebugTypeTemplate in
+    // its DebugTypeComposite. The main reason is that a HLSL resource type
+    // generates only a single SpirvType but we need both DebugTypeTemplate and
+    // DebugTypeComposite for it. Since we can search only one of them using
+    // debugTypes (DebugTypeTemplate or DebugTypeComposite), we have to keep one
+    // of them out of debugTypes and this is one of the most convenient way.
+    compositeInfo->setTypeTemplate(debugType);
+  } else {
+    debugTypes[spirvType] = debugType;
+  }
+  return debugType;
 }
 
 SpirvDebugInstruction *SpirvContext::getDebugTypeTemplateParameter(
-    llvm::StringRef name, const SpirvType *type, SpirvInstruction *value,
-    SpirvDebugSource *source, uint32_t line, uint32_t column) {
-  // NOTE: Do not search it in debugTypes because DebugTypeTemplateParameter
-  // just represents a debug type that registers the same spirvType for itself.
+    const SpirvType *parentType, llvm::StringRef name, const SpirvType *type,
+    SpirvInstruction *value, SpirvDebugSource *source, uint32_t line,
+    uint32_t column) {
+  // Reuse existing debug type if possible.
+  auto it = debugTypes.find(parentType);
+  SpirvDebugTypeTemplate *tempType = nullptr;
+  if (it != debugTypes.end()) {
+    if (auto *compositeInfo = dyn_cast<SpirvDebugTypeComposite>(it->second)) {
+      // This is the case that we use DebugTypeTemplate to describe a
+      // template-based HLSL resource type.
+      if (compositeInfo->getTypeTemplate())
+        tempType = compositeInfo->getTypeTemplate();
+    } else {
+      tempType = dyn_cast<SpirvDebugTypeTemplate>(it->second);
+    }
+
+    if (tempType) {
+      for (auto *param : tempType->getParams()) {
+        if (param->getSpirvType() == type)
+          return param;
+      }
+    }
+  }
 
   auto *debugType = new (this)
       SpirvDebugTypeTemplateParameter(name, type, value, source, line, column);
-  // NOTE: Do not save it in debugTypes because it is not corresponding
-  // to a spirvType but it is pointed by a type template. Instead,
-  // we want to keep it in tailDebugTypes.
-  tailDebugTypes.push_back(debugType);
+  if (tempType)
+    tempType->getParams().push_back(debugType);
   return debugType;
 }
 

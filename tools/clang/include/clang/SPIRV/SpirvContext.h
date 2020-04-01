@@ -198,8 +198,9 @@ public:
                                               SpirvDebugInstruction *target);
 
   SpirvDebugInstruction *getDebugTypeTemplateParameter(
-      llvm::StringRef name, const SpirvType *type, SpirvInstruction *value,
-      SpirvDebugSource *source, uint32_t line, uint32_t column);
+      const SpirvType *parentType, llvm::StringRef name, const SpirvType *type,
+      SpirvInstruction *value, SpirvDebugSource *source, uint32_t line,
+      uint32_t column);
 
   llvm::MapVector<const SpirvType *, SpirvDebugType *> &getDebugTypes() {
     return debugTypes;

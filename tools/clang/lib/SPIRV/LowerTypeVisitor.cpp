@@ -410,18 +410,13 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           if (file)
             debugInfo = &spvContext.getDebugInfo()[file];
 
-          auto *param = spvContext.getDebugTypeTemplateParameter(
+          spvContext.getDebugTypeTemplate(spvTypeAndUnderlyingType.first,
+                                          dbgType);
+          spvContext.getDebugTypeTemplateParameter(
+              spvTypeAndUnderlyingType.first,
               std::string(name.data()) + ".TemplateParam",
               spvTypeAndUnderlyingType.second, nullptr, debugInfo->source, line,
               column);
-
-          // SpirvContext::getDebugTypeTemplate() will replace the
-          // registered DebugTypeComposite with a new DebugTypeTemplate.
-          auto *tempInfo =
-              dyn_cast<SpirvDebugTypeTemplate>(spvContext.getDebugTypeTemplate(
-                  spvTypeAndUnderlyingType.first, dbgType));
-          tempInfo->getParams().push_back(
-              dyn_cast<SpirvDebugTypeTemplateParameter>(param));
         }
       }
       return spvTypeAndUnderlyingType.first;
