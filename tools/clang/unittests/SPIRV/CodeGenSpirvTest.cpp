@@ -2278,6 +2278,10 @@ TEST_F(FileTest, RichDebugInfoFunctionParam) {
   runFileTest("rich.debug.function.param.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoMemberFunctionParam) {
+  runFileTest("rich.debug.member.function.param.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoDebugSourceMultiple) {
   runFileTest("rich.debug.debugsource.multiple.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
