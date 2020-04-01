@@ -1784,7 +1784,7 @@ RawBufferStore
 The following signature shows the operation syntax::
 
   ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32, SM6.2: f16|f32|i16|i32
-  declare void @dx.op.bufferStore.f32(
+  declare void @dx.op.rawBufferStore.f32(
       i32,                  ; opcode
       %dx.types.Handle,     ; resource handle
       i32,                  ; coordinate c0 (index)
