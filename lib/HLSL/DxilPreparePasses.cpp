@@ -32,6 +32,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include <memory>
 #include <unordered_set>
@@ -53,9 +54,6 @@ public:
   bool runOnModule(Module &M) override;
 };
 }
-
-char *hlsl::kDxBreakFuncName = "dx.break";
-char *hlsl::kDxBreakCondName = "dx.break.cond";
 
 char InvalidateUndefResources::ID = 0;
 

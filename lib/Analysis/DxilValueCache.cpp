@@ -33,6 +33,9 @@
 
 using namespace llvm;
 
+const char *llvm::kDxBreakFuncName = "dx.break";
+const char *llvm::kDxBreakCondName = "dx.break.cond";
+
 static
 bool IsConstantTrue(const Value *V) {
   if (const ConstantInt *C = dyn_cast<ConstantInt>(V))
@@ -146,7 +149,7 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   return Simplified;
 }
 
-Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) {
 
   // The *only* reason we're paying special attention to the
   // branch inst, is to mark certain Basic Blocks as always
@@ -192,7 +195,7 @@ Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) 
   return nullptr;
 }
 
-Value *DxilValueCache::ProcessAndSimpilfy_Load(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Load(Instruction *I, DominatorTree *DT) {
   LoadInst *LI = cast<LoadInst>(I);
   Value *V = TryGetCachedValue(LI->getPointerOperand());
   if (Constant *ConstPtr = dyn_cast<Constant>(V)) {
@@ -208,19 +211,28 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
 
   Value *Simplified = nullptr;
   if (Instruction::Br == I->getOpcode()) {
-    Simplified = ProcessAndSimpilfy_Br(I, DT);
+    Simplified = ProcessAndSimplify_Br(I, DT);
   }
   else if (Instruction::PHI == I->getOpcode()) {
     Simplified = ProcessAndSimplify_PHI(I, DT);
   }
   else if (Instruction::Load == I->getOpcode()) {
-    Simplified = ProcessAndSimpilfy_Load(I, DT);
+    Simplified = ProcessAndSimplify_Load(I, DT);
   }
   else if (Instruction::GetElementPtr == I->getOpcode()) {
     SmallVector<Value *, 4> Ops;
     for (unsigned i = 0; i < I->getNumOperands(); i++)
       Ops.push_back(TryGetCachedValue(I->getOperand(i)));
     Simplified = llvm::SimplifyGEPInst(Ops, DL, nullptr, DT);
+  }
+  else if (Instruction::Call == I->getOpcode()) {
+    Module *M = I->getModule();
+    CallInst *CI = cast<CallInst>(I);
+    Function *BreakFunc = M->getFunction("dx.break");
+    if (CI->getCalledFunction() == BreakFunc) {
+      llvm::Type *i1Ty = llvm::Type::getInt1Ty(M->getContext());
+      Simplified = llvm::ConstantInt::get(i1Ty, 1);
+    }
   }
   // The rest of the checks use LLVM stock simplifications
   else if (I->isBinaryOp()) {
