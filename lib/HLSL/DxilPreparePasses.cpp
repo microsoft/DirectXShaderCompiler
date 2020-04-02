@@ -651,23 +651,14 @@ private:
           User *U = *I++;
           CallInst *CI = cast<CallInst>(U);
           Function *F = CI->getParent()->getParent();
-          // SimplifyCFG might have removed our user
-          DXASSERT(U->getNumUses() <= 1,
-            "User of dx.break function has multiple users");
-
-          // In spite of the <=1 assert above, loop here in case the assumption is wrong
-          for (auto II = CI->user_begin(), EE = CI->user_end(); II != EE;) {
-            User *UU = *II++;
-            Instruction *I = cast<Instruction>(UU);
-            ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
-            if (!Cmp) {
-              BasicBlock &EntryBB = F->getEntryBlock();
-              LoadInst *LI = new LoadInst(Gep, nullptr, false, EntryBB.getTerminator());
-              Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
-              DxBreakCmpMap.insert(std::make_pair(F, Cmp));
-            }
-            I->replaceUsesOfWith(CI, Cmp);
+          ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
+          if (!Cmp) {
+            Instruction *IP = dxilutil::FirstNonAllocaInsertionPt(F);
+            LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
+            Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
+            DxBreakCmpMap[F] = Cmp;
           }
+          CI->replaceAllUsesWith(Cmp);
           CI->eraseFromParent();
         }
       }
