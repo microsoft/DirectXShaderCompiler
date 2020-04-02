@@ -657,8 +657,9 @@ private:
           // In spite of the <=1 assert above, loop here in case the assumption is wrong
           for (auto II = U->user_begin(), EE = U->user_end(); II != EE;) {
             User *UU = *II++;
-            BranchInst *BI = cast<BranchInst>(UU);
-            Function *F = BI->getParent()->getParent();
+            Instruction *I = dyn_cast<Instruction>(UU);
+            if (!I) continue;
+            Function *F = I->getParent()->getParent();
             ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
             if (!Cmp) {
               BasicBlock &EntryBB = F->getEntryBlock();
@@ -666,7 +667,13 @@ private:
               Cmp = new ICmpInst(EntryBB.getTerminator(), ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
               DxBreakCmpMap.insert(std::make_pair(F, Cmp));
             }
-            BI->setCondition(Cmp);
+            // Determine which operand uses the boolean output and replace it
+            for (unsigned i = 0; i < I->getNumOperands(); i++) {
+              if (I->getOperand(i) == U) {
+                I->setOperand(i, Cmp);
+                break;
+              }
+            }
           }
           CI->eraseFromParent();
         }
