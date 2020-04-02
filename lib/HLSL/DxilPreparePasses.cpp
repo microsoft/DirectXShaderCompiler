@@ -657,8 +657,7 @@ private:
           // In spite of the <=1 assert above, loop here in case the assumption is wrong
           for (auto II = U->user_begin(), EE = U->user_end(); II != EE;) {
             User *UU = *II++;
-            Instruction *I = dyn_cast<Instruction>(UU);
-            if (!I) continue;
+            Instruction *I = cast<Instruction>(UU);
             Function *F = I->getParent()->getParent();
             ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
             if (!Cmp) {
