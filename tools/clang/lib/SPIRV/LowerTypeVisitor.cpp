@@ -54,8 +54,8 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
       spirvParamTypes.push_back(spvContext.getPointerType(
           spirvParamType, spv::StorageClass::Function));
     }
-    fn->setFunctionType(spvContext.getFunctionType(
-        spirvReturnType, spirvParamTypes, fn->isMemberFunction()));
+    fn->setFunctionType(
+        spvContext.getFunctionType(spirvReturnType, spirvParamTypes));
   }
   return true;
 }
@@ -944,8 +944,7 @@ LowerTypeVisitor::generateFunctionInfo(const CXXMethodDecl *decl,
     spirvParamTypes.push_back(
         spvContext.getPointerType(spirvParamType, spv::StorageClass::Function));
   }
-  auto *fnType =
-      spvContext.getFunctionType(spirvReturnType, spirvParamTypes, true);
+  auto *fnType = spvContext.getFunctionType(spirvReturnType, spirvParamTypes);
 
   std::string classOrStructName = "";
   if (const auto *st = dyn_cast<CXXRecordDecl>(decl->getDeclContext()))

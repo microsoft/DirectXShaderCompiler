@@ -1136,18 +1136,33 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   if (isNonStaticMemberFn) {
     // Remember the parameter for the 'this' object so later we can handle
     // CXXThisExpr correctly.
-    curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false,
-                                    decl->getLocStart(), "param.this");
+    curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false, loc,
+                                    "param.this");
     if (isOrContainsAKindOfStructuredOrByteBuffer(paramTypes[0])) {
       curThis->setContainsAliasComponent(true);
       needsLegalization = true;
+    }
+    if (spirvOptions.debugInfoRich) {
+      // Add DebugLocalVariable information
+      const auto &sm = astContext.getSourceManager();
+      const uint32_t line = sm.getPresumedLineNumber(loc);
+      const uint32_t column = sm.getPresumedColumnNumber(loc);
+      if (!info)
+        info = getOrCreateRichDebugInfo(loc);
+      // TODO: replace this with FlagArtificial|FlagObjectPointer.
+      uint32_t flags = (1 << 5) | (1 << 8);
+      auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+          paramTypes[0], "this", info->source, line, column,
+          info->scopeStack.back(), flags, 1);
+      spvBuilder.createDebugDeclare(debugLocalVar, curThis);
     }
   }
 
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    (void)declIdMapper.createFnParam(paramDecl);
+    (void)declIdMapper.createFnParam(paramDecl,
+                                     isNonStaticMemberFn ? 2 + i : 1 + i);
   }
 
   if (decl->hasBody()) {

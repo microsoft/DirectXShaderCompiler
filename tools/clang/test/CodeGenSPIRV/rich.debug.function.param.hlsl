@@ -15,10 +15,10 @@
 // CHECK:    [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 
 // CHECK: [[main:%\d+]] = OpExtInst %void [[set]] DebugFunction [[mainName]] {{%\d+}} [[source]] 28 1 {{%\d+}} [[mainName]] FlagIsProtected|FlagIsPrivate 29 %src_main
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[color]] [[float4]] [[source]] 28 20 [[main]] FlagIsLocal 0
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[color]] [[float4]] [[source]] 28 20 [[main]] FlagIsLocal 1
 // CHECK: [[foo:%\d+]] = OpExtInst %void [[set]] DebugFunction [[fooName]] {{%\d+}} [[source]] 23 1 {{%\d+}} [[fooName]] FlagIsProtected|FlagIsPrivate 24 %foo
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[x]] [[int]] [[source]] 23 14 [[foo]] FlagIsLocal 0
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[y]] [[float]] [[source]] 23 23 [[foo]] FlagIsLocal 1
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[x]] [[int]] [[source]] 23 14 [[foo]] FlagIsLocal 1
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugLocalVariable [[y]] [[float]] [[source]] 23 23 [[foo]] FlagIsLocal 2
 
 void foo(int x, float y)
 {

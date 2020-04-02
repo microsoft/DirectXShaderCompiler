@@ -369,8 +369,7 @@ private:
 /// type is allowed to be a hybrid type.
 class FunctionType : public SpirvType {
 public:
-  FunctionType(const SpirvType *ret, llvm::ArrayRef<const SpirvType *> param,
-               bool isMember = false);
+  FunctionType(const SpirvType *ret, llvm::ArrayRef<const SpirvType *> param);
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_Function;
@@ -383,12 +382,10 @@ public:
   // void setReturnType(const SpirvType *t) { returnType = t; }
   const SpirvType *getReturnType() const { return returnType; }
   llvm::ArrayRef<const SpirvType *> getParamTypes() const { return paramTypes; }
-  bool hasThisParam() const { return isMemberFunction; }
 
 private:
   const SpirvType *returnType;
   llvm::SmallVector<const SpirvType *, 8> paramTypes;
-  bool isMemberFunction;
 };
 
 /// Represents accleration structure type as defined in SPV_NV_ray_tracing.

@@ -325,7 +325,8 @@ public:
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its instruction.
-  SpirvFunctionParameter *createFnParam(const ParmVarDecl *param);
+  SpirvFunctionParameter *createFnParam(const ParmVarDecl *param,
+                                        uint32_t param_dbg_idx = 0);
 
   /// \brief Creates the counter variable associated with the given param.
   /// This is meant to be used for forward-declared functions and this objects

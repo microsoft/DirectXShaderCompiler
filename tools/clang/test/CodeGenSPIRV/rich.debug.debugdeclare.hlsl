@@ -6,11 +6,11 @@
 
 // CHECK: [[expr:%\d+]] = OpExtInst %void [[set]] DebugExpression
 
-// CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 30 20 {{%\d+}} FlagIsLocal 0
+// CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 30 20 {{%\d+}} FlagIsLocal 1
 // CHECK: [[condition:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 32 8 {{%\d+}} FlagIsLocal
 
-// CHECK: [[x:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 14 {{%\d+}} FlagIsLocal 0
-// CHECK: [[y:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 23 {{%\d+}} FlagIsLocal 1
+// CHECK: [[x:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 14 {{%\d+}} FlagIsLocal 1
+// CHECK: [[y:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 23 {{%\d+}} FlagIsLocal 2
 
 // CHECK:        %color = OpFunctionParameter
 // CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[color]] %color [[expr]]

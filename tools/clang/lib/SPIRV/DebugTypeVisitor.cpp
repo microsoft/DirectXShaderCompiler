@@ -227,12 +227,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
       assert(returnType && "Function return type info must be SpirvDebugType");
     }
     llvm::SmallVector<SpirvDebugType *, 4> params;
-    bool skipOnce = fnType->hasThisParam();
     for (const auto *paramType : fnType->getParamTypes()) {
-      if (skipOnce) {
-        skipOnce = false;
-        continue;
-      }
       params.push_back(dyn_cast<SpirvDebugType>(lowerToDebugType(paramType)));
     }
     // TODO: Add mechanism to properly calculate the flags.

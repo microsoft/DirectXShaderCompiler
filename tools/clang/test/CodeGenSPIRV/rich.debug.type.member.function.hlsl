@@ -40,12 +40,15 @@ struct foo : base {
 
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
+// CHECK: [[fooName:%\d+]] = OpString "foo"
+// CHECK: [[foo:%\d+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%\d+}} 22 1 {{%\d+}} [[fooName]] %uint_352 FlagIsProtected|FlagIsPrivate
+
 // CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
 // CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 // CHECK: [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
 
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[float]]
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[int]] [[int]] [[float]] [[bool]]
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[foo]] [[float]]
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[int]] [[foo]] [[int]] [[float]] [[bool]]
 
 float4 main(float4 color : COLOR) : SV_TARGET {
   foo a;
