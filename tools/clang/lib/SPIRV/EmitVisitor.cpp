@@ -1287,7 +1287,12 @@ bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
-  curInst.push_back(size);
+  if (inst->getDebugInfoNone()) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getDebugInfoNone()));
+  } else {
+    curInst.push_back(size);
+  }
   curInst.push_back(inst->getDebugFlags());
   for (auto *member : inst->getMembers()) {
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(member));

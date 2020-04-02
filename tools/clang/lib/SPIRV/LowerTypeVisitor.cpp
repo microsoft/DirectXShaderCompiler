@@ -1030,8 +1030,10 @@ SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
   dbgTyComposite->setResultType(spvContext.getVoidType());
   dbgTyComposite->setInstructionSet(debugExtInstSet);
 
-  if (isResourceType)
+  if (isResourceType) {
+    dbgTyComposite->setDebugInfoNone(spvBuilder.getOrCreateDebugInfoNone());
     return dbgTyComposite;
+  }
 
   uint32_t fieldIdx = 0;
   for (auto &memberDecl : decl->decls()) {

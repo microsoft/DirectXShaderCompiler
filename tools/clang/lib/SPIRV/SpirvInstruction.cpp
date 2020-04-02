@@ -928,7 +928,7 @@ SpirvDebugTypeComposite::SpirvDebugTypeComposite(
     : SpirvDebugType(IK_DebugTypeComposite, /*opcode*/ 10u), source(source_),
       line(line_), column(column_), parent(parent_), linkageName(linkageName_),
       size(size_), debugFlags(flags_), tag(tag_), typeTemplate(nullptr),
-      fullyLowered(false) {
+      fullyLowered(false), debugNone(nullptr) {
   debugName = name;
 }
 

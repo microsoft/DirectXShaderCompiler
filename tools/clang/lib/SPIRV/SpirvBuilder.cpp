@@ -1156,7 +1156,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(
-      astContext, context, spirvOptions,
+      astContext, context, spirvOptions, *this,
       spirvOptions.debugInfoRich ? getOpenCLDebugInfoExtInstSet() : nullptr);
   DebugTypeVisitor debugTypeVisitor(astContext, context, spirvOptions, *this);
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);

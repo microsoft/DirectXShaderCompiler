@@ -12,6 +12,7 @@
 
 #include "AlignmentSizeCalculator.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/Optional.h"
@@ -23,10 +24,11 @@ namespace spirv {
 class LowerTypeVisitor : public Visitor {
 public:
   LowerTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-                   const SpirvCodeGenOptions &opts,
+                   const SpirvCodeGenOptions &opts, SpirvBuilder &builder,
                    SpirvExtInstImport *debugExt)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx),
-        alignmentCalc(astCtx, opts), debugExtInstSet(debugExt) {}
+        spvBuilder(builder), alignmentCalc(astCtx, opts),
+        debugExtInstSet(debugExt) {}
 
   // Visiting different SPIR-V constructs.
   bool visit(SpirvModule *, Phase) { return true; }
@@ -100,6 +102,7 @@ private:
 private:
   ASTContext &astContext;                /// AST context
   SpirvContext &spvContext;              /// SPIR-V context
+  SpirvBuilder &spvBuilder;              /// SPIR-V builder
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
 
   // TODO: Adding a pointer the debugInfoExtInstSet in the LowerTypeVisitor

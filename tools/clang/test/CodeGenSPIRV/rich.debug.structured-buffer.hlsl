@@ -30,21 +30,23 @@ RWStructuredBuffer<T> mySBuffer4 : register(u4);
 // CHECK: [[RW_T:%\d+]] = OpString "@type.RWStructuredBuffer.T"
 // CHECK: [[inputBuffer:%\d+]] = OpString "inputBuffer"
 
+// CHECK: [[none:%\d+]] = OpExtInst %void [[set]] DebugInfoNone
+
 // CHECK: [[S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[S]] Structure
-// CHECK: [[SB_S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[SB_S]] Class
+// CHECK: [[SB_S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[SB_S]] Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[none]]
 // CHECK: [[param0:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp0]] [[S_ty]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeTemplate [[SB_S_ty]] [[param0]]
 
 // CHECK: [[T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[T]] Structure
-// CHECK: [[SB_T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[SB_T]] Class
+// CHECK: [[SB_T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[SB_T]] Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[none]]
 // CHECK: [[param1:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp0]] [[T_ty]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeTemplate [[SB_T_ty]] [[param1]]
 
-// CHECK: [[RW_S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_S]] Class
+// CHECK: [[RW_S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_S]] Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[none]]
 // CHECK: [[param2:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp1]] [[S_ty]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeTemplate [[RW_S_ty]] [[param2]]
 
-// CHECK: [[RW_T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_T]] Class
+// CHECK: [[RW_T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_T]] Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[none]]
 // CHECK: [[param3:%\d+]] = OpExtInst %void [[set]] DebugTypeTemplateParameter [[temp1]] [[T_ty]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeTemplate [[RW_T_ty]] [[param3]]
 

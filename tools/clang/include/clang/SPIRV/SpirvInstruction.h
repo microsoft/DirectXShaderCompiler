@@ -2476,6 +2476,9 @@ public:
   void setFullyLowered() { fullyLowered = true; }
   bool getFullyLowered() const { return fullyLowered; }
 
+  void setDebugInfoNone(SpirvDebugInfoNone *none) { debugNone = none; }
+  SpirvDebugInfoNone *getDebugInfoNone() const { return debugNone; }
+
 private:
   SpirvDebugSource *source; //< DebugSource containing this type
   uint32_t line;            //< Line number
@@ -2515,6 +2518,10 @@ private:
   // DebugTypeVisitor. We set fullyLowered true after it is lowered
   // by DebugTypeVisitor.
   bool fullyLowered;
+
+  // When it is DebugTypeComposite for HLSL resource type i.e., opaque
+  // type, we must put DebugInfoNone for Size operand.
+  SpirvDebugInfoNone *debugNone;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
