@@ -2231,6 +2231,14 @@ static unsigned GetCBOffset(Value *V) {
     default:
       return 0;
     }
+  } else if (SelectInst *SI = dyn_cast<SelectInst>(V)) {
+    return std::min(GetCBOffset(SI->getOperand(1)), GetCBOffset(SI->getOperand(2)));
+  } else if (PHINode *PN = dyn_cast<PHINode>(V)) {
+    unsigned result = UINT_MAX;
+    for (unsigned i = 0, ops = PN->getNumIncomingValues(); i < ops; ++i) {
+      result = std::min(result, GetCBOffset(PN->getIncomingValue(i)));
+    }
+    return result;
   } else {
     return 0;
   }
