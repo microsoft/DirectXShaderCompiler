@@ -33,6 +33,7 @@
 #include "llvm/Support/MD5.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/dxctools.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/DxilContainer/DxilContainer.h"
@@ -98,6 +99,9 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
     return RunD3DReflect(DllSupport, Prior);
   }
+  else if (0 == _stricmp(Command.c_str(), "%dxr")) {
+    return RunDxr(DllSupport, Prior);
+  }
   else if (pPluginToolsPaths != nullptr) {
     auto it = pPluginToolsPaths->find(Command.c_str());
     if (it != pPluginToolsPaths->end()) {
@@ -151,7 +155,8 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
 }
 
 FileRunCommandResult FileRunCommandPart::ReadOptsForDxc(
-    hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts) {
+    hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts,
+    unsigned flagsToInclude) {
   std::string args(strtrim(Arguments));
   const char *inputPos = strstr(args.c_str(), "%s");
   if (inputPos == nullptr)
@@ -164,7 +169,7 @@ FileRunCommandResult FileRunCommandPart::ReadOptsForDxc(
   argStrings = hlsl::options::MainArgs(splitArgs);
   std::string errorString;
   llvm::raw_string_ostream errorStream(errorString);
-  int RunResult = ReadDxcOpts(hlsl::options::getHlslOptTable(), /*flagsToInclude*/ 0,
+  int RunResult = ReadDxcOpts(hlsl::options::getHlslOptTable(), flagsToInclude,
                           argStrings, Opts, errorStream);
   errorStream.flush();
   if (RunResult)
@@ -644,6 +649,56 @@ FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSu
   ss.flush();
 
   return FileRunCommandResult::Success(ss.str());
+}
+
+FileRunCommandResult FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
+  // Support piping stdin from prior if needed.
+  UNREFERENCED_PARAMETER(Prior);
+  hlsl::options::MainArgs args;
+  hlsl::options::DxcOpts opts;
+  FileRunCommandResult readOptsResult = ReadOptsForDxc(args, opts,
+    hlsl::options::HlslFlags::RewriteOption);
+  if (readOptsResult.ExitCode) return readOptsResult;
+
+  std::wstring entry =
+    Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+
+  std::vector<LPCWSTR> flags;
+  std::vector<std::wstring> argWStrings;
+  CopyArgsToWStrings(opts.Args, hlsl::options::RewriteOption, argWStrings);
+  for (const std::wstring &a : argWStrings)
+    flags.push_back(a.data());
+
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IDxcRewriter2> pRewriter;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pResultBlob;
+  CComPtr<IDxcIncludeHandler> pIncludeHandler;
+
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
+  IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
+  IFT(DllSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
+  IFT(pRewriter->RewriteWithOptions(pSource, CommandFileName,
+                                    flags.data(), flags.size(), nullptr, 0,
+                                    pIncludeHandler, &pResult));
+
+  HRESULT resultStatus;
+  IFT(pResult->GetStatus(&resultStatus));
+
+  FileRunCommandResult result = {};
+  CComPtr<IDxcBlobEncoding> pStdErr;
+  IFT(pResult->GetErrorBuffer(&pStdErr));
+  result.StdErr = BlobToUtf8(pStdErr);
+  result.ExitCode = resultStatus;
+  if (SUCCEEDED(resultStatus)) {
+    IFT(pResult->GetResult(&pResultBlob));
+    result.StdOut = BlobToUtf8(pResultBlob);
+  }
+
+  result.OpResult = pResult;
+  return result;
 }
 
 FileRunCommandResult FileRunCommandPart::RunTee(const FileRunCommandResult *Prior) {
