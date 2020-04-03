@@ -1639,6 +1639,7 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
                           And, Constant::getNullValue(And->getType()));
     }
 
+#if 0 // HLSL Change Begins: Disable optimization, it introduces new bitwidths
     // Transform (icmp pred iM (shl iM %v, N), CI)
     // -> (icmp pred i(M-N) (trunc %v iM to i(M-N)), (trunc (CI>>N))
     // Transform the shl to a trunc if (trunc (CI>>N)) has no loss and M-N.
@@ -1657,6 +1658,7 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
                           Builder->CreateTrunc(LHSI->getOperand(0), NTy),
                           NCI);
     }
+#endif // HLSL Change Ends
 
     break;
   }
