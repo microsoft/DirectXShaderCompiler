@@ -44,6 +44,9 @@ SamplerState UnusedSampler;
 // CHECK: TestSampler
 SamplerState TestSampler;
 
+// CHECK: float3 ReferencedButDead;
+float3 ReferencedButDead;
+
 // CHECK: void main(
 void main(in float4 SvPosition : SV_Position,
           out float4 OutTarget0 : SV_Target0)
@@ -55,6 +58,9 @@ void main(in float4 SvPosition : SV_Position,
   {
     Index = TestInt;
   }
+
+  // Should keep any referenced global, even if it is unused.
+  (void)ReferencedButDead;
 
   float2 UV = LookupTable[Index].xy + LookupTable[Index].zw;
   float4 Value = TestTex.SampleLevel(TestSampler, UV, 0);
