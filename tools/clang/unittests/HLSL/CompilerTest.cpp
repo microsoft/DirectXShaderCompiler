@@ -3239,7 +3239,7 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
     "#define FOO BAR\r\n"
     "int FOO;", &pSource);
 
-  LPCWSTR extraOptions[] = {L"-Zi", L"-Fd", L"file.pdb"};
+  LPCWSTR extraOptions[] = {L"-Zi", L"-Fd", L"file.pdb", L"-Qembed_debug"};
 
   VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl",
     extraOptions, _countof(extraOptions),
