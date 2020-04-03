@@ -876,12 +876,7 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
-      bool writePDB = opts.IsDebugInfoEnabled() &&
-                      !isPreprocessing &&
-                      !opts.AstDump &&
-                      !opts.OptDump &&
-                      !opts.CodeGenHighLevel &&
-                      !rootSigMajor;
+      bool writePDB = opts.IsDebugInfoEnabled() && produceFullContainer;
 
       // SPIRV change starts
 #if defined(ENABLE_SPIRV_CODEGEN)
