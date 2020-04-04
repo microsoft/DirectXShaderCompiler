@@ -284,7 +284,9 @@ public:
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
+  TEST_METHOD(PreprocessWithDebugOptsThenOk)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
+  TEST_METHOD(CompileOtherModesWithDebugOptsThenOk)
 
   TEST_METHOD(BatchSamples)
   TEST_METHOD(BatchD3DReflect)
@@ -3216,6 +3218,77 @@ TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
   }
 )",
                        text.c_str());
+}
+
+TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
+  // Make sure debug options, such as -Zi and -Fd,
+  // are simply ignored when preprocessing
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  DxcDefine defines[2];
+  defines[0].Name = L"MYDEF";
+  defines[0].Value = L"int";
+  defines[1].Name = L"MYOTHERDEF";
+  defines[1].Value = L"123";
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    "// First line\r\n"
+    "MYDEF g_int = MYOTHERDEF;\r\n"
+    "#define FOO BAR\r\n"
+    "int FOO;", &pSource);
+
+  LPCWSTR extraOptions[] = {L"-Zi", L"-Fd", L"file.pdb", L"-Qembed_debug"};
+
+  VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl",
+    extraOptions, _countof(extraOptions),
+    defines, _countof(defines), nullptr,
+    &pResult));
+  HRESULT hrOp;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrOp));
+  VERIFY_SUCCEEDED(hrOp);
+
+  CComPtr<IDxcBlob> pOutText;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
+  std::string text(BlobToUtf8(pOutText));
+  VERIFY_ARE_EQUAL_STR(
+    "#line 1 \"file.hlsl\"\n"
+    "\n"
+    "int g_int = 123;\n"
+    "\n"
+    "int BAR;\n", text.c_str());
+}
+
+TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {
+  // Make sure debug options, such as -Zi and -Fd,
+  // are simply ignored when compiling in modes:
+  // /Odump -ast-dump -fcgl -rootsig_1_0
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    "#define RS \"CBV(b0)\"\n"
+    "[RootSignature(RS)]\n"
+    "float main(float i : IN) : OUT { return i * 2.0F; }",
+    &pSource);
+
+  auto testWithOpts = [&](LPCWSTR entry, LPCWSTR target, llvm::ArrayRef<LPCWSTR> mainOpts) -> HRESULT {
+    std::vector<LPCWSTR> opts(mainOpts);
+    opts.insert(opts.end(), {L"-Zi", L"-Fd", L"file.pdb"});
+    CComPtr<IDxcOperationResult> pResult;
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"file.hlsl",
+      entry, target, opts.data(), opts.size(),
+      nullptr, 0, nullptr, &pResult));
+    HRESULT hrOp;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&hrOp));
+    return hrOp;
+  };
+  VERIFY_SUCCEEDED(testWithOpts(L"main", L"vs_6_0", {L"/Odump"}));
+  VERIFY_SUCCEEDED(testWithOpts(L"main", L"vs_6_0", {L"-ast-dump"}));
+  VERIFY_SUCCEEDED(testWithOpts(L"main", L"vs_6_0", {L"-fcgl"}));
+  VERIFY_SUCCEEDED(testWithOpts(L"RS", L"rootsig_1_0", {}));
 }
 
 TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {

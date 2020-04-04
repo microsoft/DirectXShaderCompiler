@@ -876,24 +876,22 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
-// SPIRV change starts
+      bool writePDB = opts.IsDebugInfoEnabled() && produceFullContainer;
+
+      // SPIRV change starts
 #if defined(ENABLE_SPIRV_CODEGEN)
-      bool writePDB = !opts.GenSPIRV;
-#else
-      bool writePDB = true;
+      writePDB &= !opts.GenSPIRV;
 #endif
-// SPIRV change ends
-      if (!hasErrorOccurred) {
-        if (writePDB && opts.IsDebugInfoEnabled() && !opts.CodeGenHighLevel &&
-            !opts.OptDump) {
-          CComPtr<IDxcBlob> pDebugBlob;
-          IFT(pOutputStream.QueryInterface(&pDebugBlob));
-          CComPtr<IDxcBlob> pStrippedContainer;
-          IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
-          pDebugBlob.Release();
-          IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
-          IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
-        }
+      // SPIRV change ends
+
+      if (!hasErrorOccurred && writePDB) {
+        CComPtr<IDxcBlob> pDebugBlob;
+        IFT(pOutputStream.QueryInterface(&pDebugBlob));
+        CComPtr<IDxcBlob> pStrippedContainer;
+        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
+        pDebugBlob.Release();
+        IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
+        IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
       }
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
