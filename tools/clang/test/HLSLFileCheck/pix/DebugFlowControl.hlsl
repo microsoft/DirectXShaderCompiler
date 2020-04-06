@@ -2,7 +2,7 @@
 
 // Check that flow control constructs don't break the instrumentation.
 
-// CHECK:  %UAVIncResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0, i32 0, i32 undef, i32 undef, i32 %IncrementForThisInvocation1)
+// CHECK:  %UAVIn cResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0, i32 0, i32 undef, i32 undef, i32 %IncrementForThisInvocation1)
 
 // CHECK:  %MaskedForUAVLimit3 = and i32 %UAVIncResult2, 983039
 

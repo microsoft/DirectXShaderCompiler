@@ -3,7 +3,7 @@
 // Check that the AS thread IDs are added properly
 
 // CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)
-// CHECK: %ThreadIdX = call i32 @dx.op.threadId.i32(i32 93, i32 0)
+// CHECK: %Thr eadIdX = call i32 @dx.op.threadId.i32(i32 93, i32 0)
 // CHECK: %ThreadIdY = call i32 @dx.op.threadId.i32(i32 93, i32 1)
 // CHECK: %ThreadIdZ = call i32 @dx.op.threadId.i32(i32 93, i32 2)
 // CHECK: %CompareToThreadIdX = icmp eq i32 %ThreadIdX, 10

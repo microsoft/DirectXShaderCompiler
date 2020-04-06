@@ -129,7 +129,7 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
     return;
   }
 
-  std::unique_ptr<FragmentIterator> Iter = FragmentIterator::Create(
+  auto Iter = CreateMemberIterator(
       DbgDeclare,
       m_pModule->getDataLayout(),
       AddressAsAlloca,
@@ -137,17 +137,18 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
 
   if (!Iter)
   {
-    // FragmentIterator creation failure, this skip this var.
+    // MemberIterator creation failure, this skip this var.
     return;
   }
 
-  const unsigned FragmentSizeInBits = Iter->FragmentSizeInBits();
 
   unsigned FragmentIndex;
   while (Iter->Next(&FragmentIndex))
   {
+    const unsigned FragmentSizeInBits = 
+      Iter->SizeInBits(FragmentIndex);
     const unsigned FragmentOffsetInBits =
-        Iter->CurrOffsetInBits();
+        Iter->OffsetInBits(FragmentIndex);
 
     VariableInfo* VarInfo = AssignValueToOffset(
         &m_LiveVarsDbgDeclare[S],
