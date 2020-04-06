@@ -2571,9 +2571,21 @@ void FinishIntrinsics(
   AddOpcodeParamForIntrinsics(HLM, intrinsicMap, valToResPropertiesMap);
 }
 
-void AddDxBreak(Module &M, SmallVector<llvm::BranchInst*, 16> DxBreaks) {
+void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
   if (DxBreaks.empty())
     return;
+
+  SmallPtrSet<Function *, 16> WaveUsers;
+  for (Function &F : M.functions()) {
+    HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&F);
+    if (F.isDeclaration() && IsHLWaveSensitive(&F) &&
+        (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
+      for (User *U : F.users()) {
+        CallInst *CI = cast<CallInst>(U);
+        WaveUsers.insert(CI->getParent()->getParent());
+      }
+    }
+  }
 
   // Create the dx.break function
   FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
@@ -2581,8 +2593,10 @@ void AddDxBreak(Module &M, SmallVector<llvm::BranchInst*, 16> DxBreaks) {
   func->addFnAttr(Attribute::AttrKind::NoUnwind);
 
   for(llvm::BranchInst *BI : DxBreaks) {
-    CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
-    BI->setCondition(Call);
+    if (WaveUsers.count(BI->getParent()->getParent())) {
+      CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
+      BI->setCondition(Call);
+    }
   }
 }
 

@@ -95,7 +95,7 @@ void FinishIntrinsics(
     llvm::DenseMap<llvm::Value *, hlsl::DxilResourceProperties>
         &valToResPropertiesMap);
 
-void AddDxBreak(llvm::Module &M, llvm::SmallVector<llvm::BranchInst*, 16> DxBreaks);
+void AddDxBreak(llvm::Module &M, const llvm::SmallVector<llvm::BranchInst*, 16> &DxBreaks);
 
 void ReplaceConstStaticGlobals(
     std::unordered_map<llvm::GlobalVariable *, std::vector<llvm::Constant *>>
