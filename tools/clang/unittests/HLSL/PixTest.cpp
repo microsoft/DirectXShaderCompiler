@@ -163,7 +163,6 @@ public:
   TEST_METHOD(DiaLoadBitcodePlusExtraData)
   TEST_METHOD(DiaCompileArgs)
   TEST_METHOD(PixDebugCompileInfo)
-  TEST_METHOD(PixStructAnnotation)
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -1303,86 +1302,6 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   CComBSTR hlslTarget;
   VERIFY_SUCCEEDED(compilationInfo->GetHlslTarget(&hlslTarget));
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
-}
-
-TEST_F(PixTest, PixStructAnnotation) {
-  const char *hlsl = R"(
-struct smallPayload
-{
-    uint dummy;
-    uint lastCheck;
-};
-
-
-[numthreads(1, 1, 1)]
-void ASMain()
-{
-    smallPayload p;
-    p.dummy = 42;
-    p.lastCheck = 27;
-    DispatchMesh(2, 1, 1, p);
-}
-)";
-
-  CComPtr<IDiaDataSource> pDiaSource;
-  VERIFY_SUCCEEDED(CreateDiaSourceForCompile(hlsl, &pDiaSource));
-#if 0
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcCompiler2> pCompiler2;
-
-  CComPtr<IDxcOperationResult> pResult;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
-
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
-  CreateBlobFromText(hlsl, &pSource);
-  LPCWSTR args[] = {L"/Zi", L"/Qembed_debug", L"-WX"};
-  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(
-      pSource, L"source.hlsl", L"ASMain", L"as_6_5", args, _countof(args),
-      nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
-  
-  CComPtr<IDxcBlobEncoding> pErrors;
-  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
-  if (pErrors != nullptr)
-  {
-    HRESULT status;
-    VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-    if (FAILED(status))
-    {
-      auto errors = static_cast<const char*>(pErrors->GetBufferPointer());
-      std::wstring message;
-      message.assign(errors, errors + strlen(errors));
-      WEX::Logging::Log::Error(message.data());
-    }
-  }
-
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-#endif
-  CComPtr<IDxcOptimizer> pOptimizer;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
-  std::vector<LPCWSTR> Options;
-  Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
-  Options.push_back(L"-dxil-annotate-with-virtual-regs");
-
-  CComPtr<IDxcBlob> pOptimizedModule;
-  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
-      pProgram, Options.data(),
-                                            Options.size(), &pOptimizedModule,
-                                            nullptr));
-
-
-  // Test that disassembler can consume a PDB container
-  CComPtr<IDxcBlobEncoding> pDisasm;
-  VERIFY_SUCCEEDED(pCompiler->Disassemble(pPdbBlob, &pDisasm));
 }
 
 
