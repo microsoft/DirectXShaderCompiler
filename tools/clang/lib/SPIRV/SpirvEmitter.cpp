@@ -1161,8 +1161,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    (void)declIdMapper.createFnParam(paramDecl,
-                                     isNonStaticMemberFn ? 2 + i : 1 + i);
+    (void)declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
   }
 
   if (decl->hasBody()) {

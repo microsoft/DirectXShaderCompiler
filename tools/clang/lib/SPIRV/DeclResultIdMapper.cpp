@@ -590,7 +590,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
 
 SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
-                                  uint32_t param_dbg_idx) {
+                                  uint32_t dbgArgNumber) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
   const auto name = param->getName();
@@ -614,7 +614,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
     uint32_t flags = 1 << 2;
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags,
-        param_dbg_idx);
+        dbgArgNumber);
     spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
   }
 

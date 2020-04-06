@@ -324,9 +324,13 @@ public:
                               uint32_t payloadMemOffset = 0);
 
   /// \brief Creates a function-scope paramter in the current function and
-  /// returns its instruction.
+  /// returns its instruction. dbgArgNumber is used to specify the argument
+  /// number of param among function parameters, which will be used for the
+  /// debug information. Note that dbgArgNumber for the first function
+  /// parameter must have "1", not "0", which is what Clang generates for
+  /// LLVM debug metadata.
   SpirvFunctionParameter *createFnParam(const ParmVarDecl *param,
-                                        uint32_t param_dbg_idx = 0);
+                                        uint32_t dbgArgNumber = 0);
 
   /// \brief Creates the counter variable associated with the given param.
   /// This is meant to be used for forward-declared functions and this objects
