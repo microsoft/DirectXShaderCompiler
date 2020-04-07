@@ -42,6 +42,7 @@ add_clang_library(clang-hlsl-tests SHARED
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
+  PixTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
   SystemValueTest.cpp
@@ -54,6 +55,7 @@ set(HLSL_IGNORE_SOURCES
   ExecutionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
+  PixTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
   DxilContainerTest.cpp
