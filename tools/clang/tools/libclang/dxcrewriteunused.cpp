@@ -422,7 +422,7 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
     if (tuDecl->isImplicit()) continue;
 
     VarDecl* varDecl = dyn_cast_or_null<VarDecl>(tuDecl);
-    if (varDecl != nullptr && varDecl->getFormalLinkage() == clang::Linkage::InternalLinkage) {
+    if (varDecl != nullptr) {
       unusedGlobals.insert(varDecl);
       if (const RecordType *recordType = varDecl->getType()->getAs<RecordType>()) {
         RecordDecl *recordDecl = recordType->getDecl();

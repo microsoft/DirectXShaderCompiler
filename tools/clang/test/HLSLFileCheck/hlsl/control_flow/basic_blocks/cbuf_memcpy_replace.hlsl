@@ -96,7 +96,7 @@ int init_loop(int ct)
   return istruct.ival;
 }
 
-//CHECK: define i32 @"\01?cond_if@@YAHH@Z"(i32 %i) #0 {
+//CHECK: define i32 @"\01?cond_if@@YAHH@Z"(i32 %i)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
 //CHECK: phi i32

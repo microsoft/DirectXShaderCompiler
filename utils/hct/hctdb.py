@@ -2016,6 +2016,7 @@ class db_dxil(object):
         add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [])
         add_pass('dxil-preserve-to-select', 'DxilPreserveToSelect', 'Dxil Insert Noops', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
+        add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])

@@ -2209,31 +2209,44 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
   return bChanged;
 }
 
+typedef DenseMap<Value*, unsigned> OffsetForValueMap;
+
 // Find the imm offset part from a value.
 // It must exist unless offset is 0.
-static unsigned GetCBOffset(Value *V) {
-  if (ConstantInt *Imm = dyn_cast<ConstantInt>(V))
-    return Imm->getLimitedValue();
-  else if (UnaryInstruction *UI = dyn_cast<UnaryInstruction>(V)) {
-    return 0;
+static unsigned GetCBOffset(Value *V, OffsetForValueMap &visited) {
+  auto it = visited.find(V);
+  if (it != visited.end())
+    return it->second;
+  visited[V] = 0;
+  unsigned result = 0;
+  if (ConstantInt *Imm = dyn_cast<ConstantInt>(V)) {
+    result = Imm->getLimitedValue();
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V)) {
     switch (BO->getOpcode()) {
     case Instruction::Add: {
-      unsigned left = GetCBOffset(BO->getOperand(0));
-      unsigned right = GetCBOffset(BO->getOperand(1));
-      return left + right;
+      unsigned left = GetCBOffset(BO->getOperand(0), visited);
+      unsigned right = GetCBOffset(BO->getOperand(1), visited);
+      result = left + right;
     } break;
     case Instruction::Or: {
-      unsigned left = GetCBOffset(BO->getOperand(0));
-      unsigned right = GetCBOffset(BO->getOperand(1));
-      return left | right;
+      unsigned left = GetCBOffset(BO->getOperand(0), visited);
+      unsigned right = GetCBOffset(BO->getOperand(1), visited);
+      result = left | right;
     } break;
     default:
-      return 0;
+      break;
     }
-  } else {
-    return 0;
+  } else if (SelectInst *SI = dyn_cast<SelectInst>(V)) {
+    result = std::min(GetCBOffset(SI->getOperand(1), visited),
+                      GetCBOffset(SI->getOperand(2), visited));
+  } else if (PHINode *PN = dyn_cast<PHINode>(V)) {
+    result = UINT_MAX;
+    for (unsigned i = 0, ops = PN->getNumIncomingValues(); i < ops; ++i) {
+      result = std::min(result, GetCBOffset(PN->getIncomingValue(i), visited));
+    }
   }
+  visited[V] = result;
+  return result;
 }
 
 typedef std::map<unsigned, DxilFieldAnnotation*> FieldAnnotationByOffsetMap;
@@ -2277,24 +2290,25 @@ static void CollectInPhiChain(PHINode *cbUser, unsigned offset,
 static void CollectCBufferMemberUsage(Value *V,
                                       FieldAnnotationByOffsetMap &legacyFieldMap,
                                       FieldAnnotationByOffsetMap &newFieldMap,
-                                      hlsl::OP *hlslOP, bool bMinPrecision) {
+                                      hlsl::OP *hlslOP, bool bMinPrecision,
+                                      OffsetForValueMap &visited) {
   for (auto U : V->users()) {
     if (Constant *C = dyn_cast<Constant>(U)) {
-      CollectCBufferMemberUsage(C, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+      CollectCBufferMemberUsage(C, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision, visited);
     } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+      CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision, visited);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       if (hlslOP->IsDxilOpFuncCallInst(CI)) {
         hlsl::OP::OpCode op = hlslOP->GetDxilOpFuncCallInst(CI);
         if (op == DXIL::OpCode::CreateHandleForLib) {
-          CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision);
+          CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP, bMinPrecision, visited);
         } else if (op == DXIL::OpCode::AnnotateHandle) {
           CollectCBufferMemberUsage(U, legacyFieldMap, newFieldMap, hlslOP,
-                                    bMinPrecision);
+                                    bMinPrecision, visited);
         } else if (op == DXIL::OpCode::CBufferLoadLegacy) {
           DxilInst_CBufferLoadLegacy cbload(CI);
           Value *resIndex = cbload.get_regIndex();
-          unsigned offset = GetCBOffset(resIndex);
+          unsigned offset = GetCBOffset(resIndex, visited);
           offset <<= 4; // translate 16-byte vector index to byte offset
           for (User *cbU : U->users()) {
             if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(cbU)) {
@@ -2308,7 +2322,7 @@ static void CollectCBufferMemberUsage(Value *V,
         } else if (op == DXIL::OpCode::CBufferLoad) {
           DxilInst_CBufferLoad cbload(CI);
           Value *byteOffset = cbload.get_byteOffset();
-          unsigned offset = GetCBOffset(byteOffset);
+          unsigned offset = GetCBOffset(byteOffset, visited);
           MarkCBUse(offset, newFieldMap);
         }
       }
@@ -2321,6 +2335,7 @@ void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
   hlsl::OP *hlslOP = m_DM->GetOP();
   const DataLayout &DL = m_DM->GetModule()->getDataLayout();
   const auto &CBuffers = m_DM->GetCBuffers();
+  OffsetForValueMap visited;
   for (auto it = CBuffers.begin(); it != CBuffers.end(); it++) {
     DxilCBuffer *CB = it->get();
     GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
@@ -2348,7 +2363,7 @@ void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
       legacyFieldMap[FA.GetCBufferOffset()] = &FA;
       newFieldMap[(unsigned)SL->getElementOffset(i)] = &FA;
     }
-    CollectCBufferMemberUsage(GV, legacyFieldMap, newFieldMap, hlslOP, m_DM->GetUseMinPrecision());
+    CollectCBufferMemberUsage(GV, legacyFieldMap, newFieldMap, hlslOP, m_DM->GetUseMinPrecision(), visited);
  }
 }
 

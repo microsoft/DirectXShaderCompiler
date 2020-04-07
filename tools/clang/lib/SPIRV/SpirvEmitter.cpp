@@ -1398,12 +1398,22 @@ spv::LoopControlMask SpirvEmitter::translateLoopAttribute(const Stmt *stmt,
 
 void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
-  spvBuilder.createKill(discardStmt->getLoc());
-  // Some statements that alter the control flow (break, continue, return, and
-  // discard), require creation of a new basic block to hold any statement that
-  // may follow them.
-  auto *newBB = spvBuilder.createBasicBlock();
-  spvBuilder.setInsertPoint(newBB);
+
+  // The discard statement can only be called from a pixel shader
+  if (!spvContext.isPS()) {
+    emitError("discard statement may only be used in pixel shaders",
+              discardStmt->getLoc());
+    return;
+  }
+
+  // SPV_EXT_demote_to_helper_invocation SPIR-V extension provides a new
+  // instruction OpDemoteToHelperInvocationEXT allowing shaders to "demote" a
+  // fragment shader invocation to behave like a helper invocation for its
+  // duration. The demoted invocation will have no further side effects and will
+  // not output to the framebuffer, but remains active and can participate in
+  // computing derivatives and in subgroup operations. This is a better match
+  // for the "discard" instruction in HLSL.
+  spvBuilder.createDemoteToHelperInvocationEXT(discardStmt->getLoc());
 }
 
 void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
