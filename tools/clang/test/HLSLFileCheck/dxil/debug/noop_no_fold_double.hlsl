@@ -7,7 +7,8 @@ Texture2D tex1 : register(t1);
 
 [RootSignature("DescriptorTable(SRV(t0), SRV(t1))")]
 float4 main() : SV_Target {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // CHECK-SAME: @dx.preserve.value
   // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   double x = 10;
@@ -26,12 +27,14 @@ float4 main() : SV_Target {
   // select i1 %[[p]], double [[c1]], double [[c1]]
 
   Texture2D tex = tex0; 
-  // CHECK: load i32, i32* @dx.nothing
+  // CHECK: load i32, i32*
+  // CHECK-SAME: @dx.nothing
 
   // CHECK: br i1
   if (w >= 0) {
     tex = tex1;
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: br
   }
 

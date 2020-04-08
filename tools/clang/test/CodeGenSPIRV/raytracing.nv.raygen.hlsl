@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3
+// Run: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
@@ -33,6 +33,6 @@ void main() {
   rayDesc.TMax = 1000.0f;
   // CHECK: OpTraceNV {{%\d+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %uint_0
   TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
-  // CHECK: OpExecuteCallableNV %uint_0 %uint_0
+  // CHECK: OpExecuteCallableKHR %uint_0 %uint_0
   CallShader(0, myCallData);
 }

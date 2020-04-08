@@ -1234,25 +1234,6 @@ bool HLModule::HasPreciseAttribute(Function *F) {
   return preciseNode != nullptr;
 }
 
-DIGlobalVariable *
-HLModule::FindGlobalVariableDebugInfo(GlobalVariable *GV,
-                                      DebugInfoFinder &DbgInfoFinder) {
-  struct GlobalFinder {
-    GlobalVariable *GV;
-    bool operator()(llvm::DIGlobalVariable *const arg) const {
-      return arg->getVariable() == GV;
-    }
-  };
-  GlobalFinder F = {GV};
-  DebugInfoFinder::global_variable_iterator Found =
-      std::find_if(DbgInfoFinder.global_variables().begin(),
-                   DbgInfoFinder.global_variables().end(), F);
-  if (Found != DbgInfoFinder.global_variables().end()) {
-    return *Found;
-  }
-  return nullptr;
-}
-
 static void AddDIGlobalVariable(DIBuilder &Builder, DIGlobalVariable *LocDIGV,
                                 StringRef Name, DIType *DITy,
                                 GlobalVariable *GV, DebugInfoFinder &DbgInfoFinder, bool removeLocDIGV) {
@@ -1307,7 +1288,7 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
     GlobalVariable *GV, DebugInfoFinder &DbgInfoFinder, GlobalVariable *EltGV,
     unsigned sizeInBits, unsigned alignInBits, unsigned offsetInBits,
     StringRef eltName) {
-  DIGlobalVariable *DIGV = FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
+  DIGlobalVariable *DIGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
   DXASSERT_NOMSG(DIGV);
   DIBuilder Builder(*GV->getParent());
   DITypeIdentifierMap EmptyMap;
@@ -1335,7 +1316,7 @@ void HLModule::CreateElementGlobalVariableDebugInfo(
 void HLModule::UpdateGlobalVariableDebugInfo(
     llvm::GlobalVariable *GV, llvm::DebugInfoFinder &DbgInfoFinder,
     llvm::GlobalVariable *NewGV) {
-  DIGlobalVariable *DIGV = FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
+  DIGlobalVariable *DIGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgInfoFinder);
   DXASSERT_NOMSG(DIGV);
   DIBuilder Builder(*GV->getParent());
   DITypeIdentifierMap EmptyMap;

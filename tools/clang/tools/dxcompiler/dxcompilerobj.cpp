@@ -616,6 +616,7 @@ public:
       // validator can be used as a fallback.
       bool produceFullContainer = false;
       bool needsValidation = false;
+      bool validateRootSigContainer = false;
 
       if (isPreprocessing) {
         // These settings are back-compatible with fxc.
@@ -675,6 +676,12 @@ public:
           dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
                                       &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
         }
+
+        // Root signature-only container validation is only supported on 1.5 and above.
+        validateRootSigContainer = DXIL::CompareVersions(
+          compiler.getCodeGenOpts().HLSLValidatorMajorVer,
+          compiler.getCodeGenOpts().HLSLValidatorMinorVer,
+          1, 5) >= 0;
       }
 
       if (opts.AstDump) {
@@ -716,7 +723,7 @@ public:
 
           pOutputBlob.Release();
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
-          if (!opts.DisableValidation) {
+          if (validateRootSigContainer && !opts.DisableValidation) {
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
             dxcutil::ValidateRootSignatureInContainer(
@@ -841,7 +848,7 @@ public:
             if (pRootSigStream && pRootSigStream->GetPtrSize()) {
               CComPtr<IDxcBlob> pRootSignature;
               IFT(pRootSigStream->QueryInterface(&pRootSignature));
-              if (needsValidation) {
+              if (validateRootSigContainer && needsValidation) {
                 CComPtr<IDxcBlobEncoding> pValErrors;
                 // Validation failure communicated through diagnostic error
                 dxcutil::ValidateRootSignatureInContainer(pRootSignature, &compiler.getDiagnostics());
@@ -869,24 +876,22 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
-// SPIRV change starts
+      bool writePDB = opts.IsDebugInfoEnabled() && produceFullContainer;
+
+      // SPIRV change starts
 #if defined(ENABLE_SPIRV_CODEGEN)
-      bool writePDB = !opts.GenSPIRV;
-#else
-      bool writePDB = true;
+      writePDB &= !opts.GenSPIRV;
 #endif
-// SPIRV change ends
-      if (!hasErrorOccurred) {
-        if (writePDB && opts.IsDebugInfoEnabled() && !opts.CodeGenHighLevel &&
-            !opts.OptDump) {
-          CComPtr<IDxcBlob> pDebugBlob;
-          IFT(pOutputStream.QueryInterface(&pDebugBlob));
-          CComPtr<IDxcBlob> pStrippedContainer;
-          IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
-          pDebugBlob.Release();
-          IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
-          IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
-        }
+      // SPIRV change ends
+
+      if (!hasErrorOccurred && writePDB) {
+        CComPtr<IDxcBlob> pDebugBlob;
+        IFT(pOutputStream.QueryInterface(&pDebugBlob));
+        CComPtr<IDxcBlob> pStrippedContainer;
+        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
+        pDebugBlob.Release();
+        IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
+        IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
       }
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
@@ -1100,6 +1105,7 @@ public:
 
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
+    compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;

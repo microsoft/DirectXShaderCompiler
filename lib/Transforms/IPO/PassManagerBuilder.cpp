@@ -259,6 +259,9 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // Special Mem2Reg pass that skips precise marker.
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
+  // Remove unneeded dxbreak conditionals
+  MPM.add(createCleanupDxBreakPass());
+
   if (!NoOpt) {
     MPM.add(createDxilConvergentMarkPass());
   }
@@ -352,6 +355,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
+      MPM.add(createDxilRemoveDeadBlocksPass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
@@ -473,7 +477,7 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_Peephole, MPM);
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
-  MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
+  MPM.add(createDeadStoreEliminationPass(ScanLimit));  // Delete dead stores
   // HLSL Change - disable LICM in frontend for not consider register pressure.
   // MPM.add(createLICMPass());
 
@@ -640,6 +644,7 @@ void PassManagerBuilder::populateModulePassManager(
                                               // so no unused resources get re-added to
                                               // DxilModule.
     MPM.add(createMultiDimArrayToOneDimArrayPass());
+    MPM.add(createDxilRemoveDeadBlocksPass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
     MPM.add(createDeadCodeEliminationPass());
@@ -724,7 +729,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
-  PM.add(createDeadStoreEliminationPass());
+  PM.add(createDeadStoreEliminationPass(ScanLimit)); // HLSL Change - add ScanLimit
 
   // More loops are countable; try to optimize them.
   PM.add(createIndVarSimplifyPass());

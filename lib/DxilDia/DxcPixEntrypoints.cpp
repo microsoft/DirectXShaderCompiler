@@ -26,6 +26,7 @@
 
 #include "DxcPixBase.h"
 #include "DxcPixDxilDebugInfo.h"
+#include "DxcPixCompilationInfo.h"
 
 #include <functional>
 
@@ -720,6 +721,55 @@ struct IDxcPixDxilDebugInfoEntrypoint : public Entrypoint<IDxcPixDxilDebugInfo>
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilDebugInfo);
 
+
+struct IDxcPixCompilationInfoEntrypoint
+    : public Entrypoint<IDxcPixCompilationInfo>
+{
+  DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixCompilationInfoEntrypoint);
+  virtual STDMETHODIMP
+  GetSourceFile(_In_ DWORD SourceFileOrdinal,
+                _Outptr_result_z_ BSTR *pSourceName,
+                _Outptr_result_z_ BSTR *pSourceContents) override {
+    return InvokeOnReal(&IInterface::GetSourceFile, SourceFileOrdinal,
+                        CheckNotNull(OutParam(pSourceName)),
+                        CheckNotNull(OutParam(pSourceContents))
+      );
+  }
+
+  virtual STDMETHODIMP GetArguments(_Outptr_result_z_ BSTR* pArguments) override 
+  {
+    return InvokeOnReal(&IInterface::GetArguments, CheckNotNull(OutParam(pArguments)));
+  }
+  virtual STDMETHODIMP
+    GetMacroDefinitions(_Outptr_result_z_ BSTR* pMacroDefinitions) override 
+  {
+    return InvokeOnReal(&IInterface::GetMacroDefinitions,
+                        CheckNotNull(OutParam(pMacroDefinitions)));
+
+  }
+  virtual STDMETHODIMP
+    GetEntryPointFile(_Outptr_result_z_ BSTR* pEntryPointFile) override {
+    return InvokeOnReal(&IInterface::GetEntryPointFile,
+                        CheckNotNull(OutParam(pEntryPointFile)));
+
+  }
+  virtual STDMETHODIMP
+    GetHlslTarget(_Outptr_result_z_ BSTR* pHlslTarget) override {
+    return InvokeOnReal(&IInterface::GetHlslTarget,
+                        CheckNotNull(OutParam(pHlslTarget)));
+
+  }
+  virtual STDMETHODIMP
+    GetEntryPoint(_Outptr_result_z_ BSTR* pEntryPoint) override
+  {
+    return InvokeOnReal(&IInterface::GetEntryPoint,
+                        CheckNotNull(OutParam(pEntryPoint)));
+
+  }
+};
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixCompilationInfo);
+
+
 HRESULT CreateEntrypointWrapper(
     IMalloc* pMalloc,
     IUnknown* pReal,
@@ -747,6 +797,7 @@ HRESULT CreateEntrypointWrapper(
   HANDLE_INTERFACE(IDxcPixVariable);
   HANDLE_INTERFACE(IDxcPixDxilLiveVariables);
   HANDLE_INTERFACE(IDxcPixDxilDebugInfo);
+  HANDLE_INTERFACE(IDxcPixCompilationInfo);
 
   return E_FAIL;
 }
@@ -778,4 +829,27 @@ STDMETHODIMP dxil_dia::Session::NewDxcPixDxilDebugInfo(
       m_pMalloc,
       ThisPtr(this),
       CheckNotNull(OutParam(ppDxilDebugInfo)));
+}
+
+static STDMETHODIMP NewDxcPixCompilationInfoImpl(
+    IMalloc *pMalloc,
+    dxil_dia::Session *pSession,
+    IDxcPixCompilationInfo** ppCompilationInfo
+)
+{
+  return dxil_debug_info::CreateDxilCompilationInfo(
+      pMalloc,
+      pSession,
+      ppCompilationInfo);
+}
+
+STDMETHODIMP dxil_dia::Session::NewDxcPixCompilationInfo(
+    _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo)
+{
+  return SetupAndRun(
+      m_pMalloc,
+      &NewDxcPixCompilationInfoImpl,
+      m_pMalloc,
+      ThisPtr(this), 
+      CheckNotNull(OutParam(ppCompilationInfo)));
 }

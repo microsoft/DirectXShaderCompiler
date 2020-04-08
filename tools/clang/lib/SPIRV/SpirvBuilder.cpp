@@ -15,6 +15,7 @@
 #include "LowerTypeVisitor.h"
 #include "PreciseVisitor.h"
 #include "RelaxedPrecisionVisitor.h"
+#include "RemoveBufferBlockVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
@@ -771,6 +772,14 @@ SpirvBuilder::createRayTracingOpsNV(spv::Op opcode, QualType resultType,
   return inst;
 }
 
+SpirvInstruction *
+SpirvBuilder::createDemoteToHelperInvocationEXT(SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvDemoteToHelperInvocationEXT(loc);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
                                                   llvm::StringRef text) {
   auto *inst = new (context) SpirvDebugSource(file, text);
@@ -1162,6 +1171,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
+  RemoveBufferBlockVisitor removeBufferBlockVisitor(context, spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   mod->invokeVisitor(&literalTypeVisitor, true);
@@ -1181,6 +1191,10 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Propagate NoContraction decorations
   mod->invokeVisitor(&preciseVisitor, true);
+
+  // Remove BufferBlock decoration if necessary (this decoration is deprecated
+  // after SPIR-V 1.3).
+  mod->invokeVisitor(&removeBufferBlockVisitor);
 
   // Emit SPIR-V
   mod->invokeVisitor(&emitVisitor);

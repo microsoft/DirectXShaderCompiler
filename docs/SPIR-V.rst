@@ -2959,6 +2959,9 @@ Flow chart for various stages in a raytracing pipeline is as follows:
 
 | *Note : DXC does not add special shader profiles for raytracing under -T option.*
 | *All raytracing shaders must be compiled as library using lib_6_3/lib_6_4 profile option.*
+| *Note : DXC now targets SPV_KHR_ray_tracing extension by default.*
+| *This extension is provisional and subject to change*.
+| *To compile for NV extension use -fspv-extension=SPV_NV_ray_tracing.*
 
 Ray Generation Stage
 ~~~~~~~~~~~~~~~~~~~~
@@ -3187,9 +3190,11 @@ Mesh Interface Variables
 Raytracing in Vulkan and SPIRV
 ==============================
 
-| SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension
+| SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension or
+| on other platforms via provisional cross vendor SPV_KHR_ray_tracing extension.
 | SPIR-V specification for reference:
 | https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_ray_tracing.asciidoc
+| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_tracing.asciidoc
 
 | Vulkan ray tracing samples:
 | https://developer.nvidia.com/rtx/raytracing/vkray
@@ -3204,47 +3209,48 @@ Intrinsics
 
 | Following table provides mapping for system value intrinsics along with supported shader stages.
 
-============================    ============================ ====== ============ =========== ======= ======== ========
-        HLSL                               SPIR-V                             HLSL Shader Stage
-----------------------------    ---------------------------- ---------------------------------------------------------
-  System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit   Miss   Callable
-============================    ============================ ====== ============ =========== ======= ======== ========
-``DispatchRaysIndex()``         ``LaunchIdNV``                 ✓         ✓            ✓        ✓      ✓        ✓
-``DispatchRaysDimensions()``    ``LaunchSizeNV``               ✓         ✓            ✓        ✓      ✓        ✓
-``WorldRayOrigin()``            ``WorldRayOriginNV``                     ✓            ✓        ✓      ✓
-``WorldRayDirection()``         ``WorldRayDirectionNV``                  ✓            ✓        ✓      ✓
-``RayTMin()``                   ``RayTminNV``                            ✓            ✓        ✓      ✓
-``RayTCurrent()``               ``HitTNV``                               ✓            ✓        ✓      ✓
-``RayFlags()``                  ``IncomingRayFlagsNV``                   ✓            ✓        ✓      ✓
-``InstanceIndex()``             ``InstanceId``                           ✓            ✓        ✓
-``InstanceID()``                ``InstanceCustomIndexNV``                ✓            ✓        ✓
-``PrimitiveIndex()``            ``PrimitiveId``                          ✓            ✓        ✓
-``ObjectRayOrigin()``           ``ObjectRayOriginNV``                    ✓            ✓        ✓
-``ObjectRayDirection()``        ``ObjectRayDirectionNV``                 ✓            ✓        ✓
-``ObjectToWorld3x4()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
-``ObjectToWorld4x3()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
-``WorldToObject3x4()``          ``WorldToObjectNV``                      ✓            ✓        ✓
-``WorldToObject4x3()``          ``WorldToObjectNV``                      ✓            ✓        ✓
-``HitKind()``                   ``HitKindNV``                            ✓            ✓        ✓
-============================    ============================ ====== ============ =========== ======= ======== ========
+============================    ===============================    ====== ============ =========== ======= ======== ========
+        HLSL                               SPIR-V                               HLSL Shader Stage
+----------------------------    -------------------------------    ---------------------------------------------------------
+  System Value Intrinsic               Builtin                     Raygen Intersection Closest Hit Any Hit   Miss   Callable
+============================    ===============================    ====== ============ =========== ======= ======== ========
+``DispatchRaysIndex()``         ``LaunchId{NV/KHR}``               ✓       ✓             ✓          ✓       ✓       ✓
+``DispatchRaysDimensions()``    ``LaunchSize{NV/KHR}``             ✓       ✓             ✓          ✓       ✓       ✓
+``WorldRayOrigin()``            ``WorldRayOrigin{NV/KHR}``                 ✓             ✓          ✓       ✓
+``WorldRayDirection()``         ``WorldRayDirection{NV/KHR}``              ✓             ✓          ✓       ✓
+``RayTMin()``                   ``RayTmin{NV/KHR}``                        ✓             ✓          ✓       ✓
+``RayTCurrent()``               ``HitT{NV/KHR}``                           ✓             ✓          ✓       ✓
+``RayFlags()``                  ``IncomingRayFlags{NV/KHR}``               ✓             ✓          ✓       ✓
+``InstanceIndex()``             ``InstanceId``                             ✓             ✓          ✓
+``GeometryIndex()``             ``RayGeometryIndexKHR``                    ✓             ✓          ✓
+``InstanceID()``                ``InstanceCustomIndex{NV/KHR}``            ✓             ✓          ✓
+``PrimitiveIndex()``            ``PrimitiveId``                            ✓             ✓          ✓
+``ObjectRayOrigin()``           ``ObjectRayOrigin{NV/KHR}``                ✓             ✓          ✓
+``ObjectRayDirection()``        ``ObjectRayDirection{NV/KHR}``             ✓             ✓          ✓
+``ObjectToWorld3x4()``          ``ObjectToWorld{NV/KHR}``                  ✓             ✓          ✓
+``ObjectToWorld4x3()``          ``ObjectToWorld{NV/KHR}``                  ✓             ✓          ✓
+``WorldToObject3x4()``          ``WorldToObject{NV/KHR}``                  ✓             ✓          ✓
+``WorldToObject4x3()``          ``WorldToObject{NV/KHR}``                  ✓             ✓          ✓
+``HitKind()``                   ``HitKind{NV/KHR}``                        ✓             ✓          ✓
+============================    ===============================    ====== ============ =========== ======= ======== ========
 
 | *There is no separate builtin for transposed matrices ObjectToWorld3x4 and WorldToObject3x4 in SPIR-V hence we internally transpose during translation*
-
+| *GeometryIndex() is only supported under SPV_KHR_ray_tracing extension.*
 
 | Following table provides mapping for other intrinsics along with supported shader stages.
 
 
-===========================     ============================ ====== ============ =========== ======= ===== ========
-        HLSL                               SPIR-V                             HLSL Shader Stage
----------------------------     ---------------------------- ------------------------------------------------------
-   Intrinsic                              Opcode             Raygen Intersection Closest Hit Any Hit  Miss Callable
-===========================     ============================ ====== ============ =========== ======= ===== ========
-``TraceRay``                    ``OpTraceNV``                  ✓                     ✓                ✓
-``ReportHit``                   ``OpReportIntersectionNV``     ✓         ✓
-``IgnoreHit``                   ``OpIgnoreIntersectionNV``     ✓                                ✓
-``AcceptHitAndEndSearch``       ``OpTerminateRayNV``           ✓                                ✓
-``CallShader``                  ``OpExecuteCallable``          ✓                     ✓                ✓      ✓
-===========================     ============================ ====== ============ =========== ======= ===== ========
+===========================     =================================     ====== ============ =========== ======= ===== ========
+        HLSL                               SPIR-V                                 HLSL Shader Stage
+---------------------------     ---------------------------------     ------------------------------------------------------
+   Intrinsic                              Opcode                      Raygen Intersection Closest Hit Any Hit  Miss Callable
+===========================     =================================     ====== ============ =========== ======= ===== ========
+``TraceRay``                    ``OpTrace{NV/KHR}``                     ✓                    ✓                    ✓
+``ReportHit``                   ``OpReportIntersection{NV/KHR}``        ✓         ✓
+``IgnoreHit``                   ``OpIgnoreIntersection{NV/KHR}``        ✓                             ✓
+``AcceptHitAndEndSearch``       ``OpTerminateRay{NV/KHR}``              ✓                             ✓
+``CallShader``                  ``OpExecuteCallable{NV/KHR}``           ✓                    ✓             ✓     ✓
+===========================     =================================     ====== ============ =========== ======= ===== ========
 
 
 Resource Types
@@ -3253,11 +3259,11 @@ Resource Types
 | Following table provides mapping for new resource types supported in all raytracing shaders.
 
 
-===================================     =================================
-        HLSL Type                               SPIR-V Opcode
------------------------------------     ---------------------------------
-``RaytracingAccelerationStructure``     ``OpTypeAccelerationStructureNV``
-===================================     =================================
+===================================     =======================================
+        HLSL Type                                   SPIR-V Opcode
+-----------------------------------     ---------------------------------------
+``RaytracingAccelerationStructure``     ``OpTypeAccelerationStructure{NV/KHR}``
+===================================     =======================================
 
 Interface Variables
 ~~~~~~~~~~~~~~~~~~~
@@ -3266,15 +3272,15 @@ Interface Variables
 | Following table gives high level overview of the mapping.
 
 
-===========================     ===========================================================
-   SPIR-V Storage Class                Created For
----------------------------     -----------------------------------------------------------
-``RayPayloadNV``                Last argument to TraceRay
-``IncomingRayPayloadNV``        First argument of entry for AnyHit/ClosestHit & Miss stage
-``HitAttributeNV``              Last argument to ReportHit
-``CallableDataNV``              Last argument to CallShader
-``IncomingCallableDataNV``      First argument of entry for Callable stage
-===========================     ===========================================================
+=================================       ===========================================================
+   SPIR-V Storage Class                        Created For
+---------------------------------       -----------------------------------------------------------
+``RayPayload{NV/KHR}``                  Last argument to TraceRay
+``IncomingRayPayload{NV/KHR}``          First argument of entry for AnyHit/ClosestHit & Miss stage
+``HitAttribute{NV/KHR}``                Last argument to ReportHit
+``CallableData{NV/KHR}``                Last argument to CallShader
+``IncomingCallableData{NV/KHR}``        First argument of entry for Callable stage
+=================================       ===========================================================
 
 
 Shader Model 6.0 Wave Intrinsics

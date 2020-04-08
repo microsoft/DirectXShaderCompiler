@@ -100,7 +100,7 @@ public:
   FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior, PluginToolsPaths *pPluginToolsPaths = nullptr );
   FileRunCommandResult RunHashTests(dxc::DxcDllSupport &DllSupport);
   
-  FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts);
+  FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts, unsigned flagsToInclude = 0);
 
   std::string Command;      // Command to run, eg %dxc
   std::string Arguments;    // Arguments to command
@@ -112,6 +112,7 @@ private:
   FileRunCommandResult RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior);

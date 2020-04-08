@@ -379,6 +379,9 @@ public:
   STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo** ppDxilDebugInfo) override;
 
+  STDMETHODIMP NewDxcPixCompilationInfo(
+      _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) override;
+
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   std::shared_ptr<llvm::LLVMContext> m_context;

@@ -412,6 +412,9 @@ public:
                         llvm::ArrayRef<SpirvInstruction *> operands,
                         SourceLocation loc);
 
+  /// \brief Creates an OpDemoteToHelperInvocationEXT instruction.
+  SpirvInstruction *createDemoteToHelperInvocationEXT(SourceLocation);
+
   // === SPIR-V Rich Debug Info Creation ===
   SpirvDebugSource *createDebugSource(llvm::StringRef file,
                                       llvm::StringRef text = "");

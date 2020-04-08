@@ -1,7 +1,9 @@
 // Run: %dxc -T ps_6_0 -E main
 
 // According to the HLS spec, discard can only be called from a pixel shader.
-// This translates to OpKill in SPIR-V. OpKill must be the last instruction in a block.
+
+// CHECK: OpCapability DemoteToHelperInvocationEXT
+// CHECK: OpExtension "SPV_EXT_demote_to_helper_invocation"
 
 void main() {
   int a, b;
@@ -11,20 +13,18 @@ void main() {
 // CHECK: %while_body = OpLabel
     if(a==b) {
 // CHECK: %if_true = OpLabel
-// CHECK-NEXT: OpKill
-      {{discard;}}
-      discard;  // No SPIR-V should be emitted for this statement.
-      break;    // No SPIR-V should be emitted for this statement.
-    } else {
-// CHECK-NEXT: %if_false = OpLabel
-      ++a;
-// CHECK: OpKill
+// CHECK: OpDemoteToHelperInvocationEXT
       discard;
-      continue; // No SPIR-V should be emitted for this statement.
-      --b;      // No SPIR-V should be emitted for this statement.
+      break;
+    } else {
+// CHECK: %if_false = OpLabel
+      ++a;
+// CHECK: OpDemoteToHelperInvocationEXT
+      discard;
+      continue;
+      --b;
     }
-// CHECK-NEXT: %if_merge = OpLabel
-
+// CHECK: %if_merge = OpLabel
   }
 // CHECK: %while_merge = OpLabel
 

@@ -7,8 +7,6 @@
 // CHECK: Rsqrt
 // CHECK: sample
 // CHECK: sample
-// CHECK: Log
-// CHECK: Exp
 // CHECK: Rsqrt
 // CHECK: dot3
 // CHECK: Saturate

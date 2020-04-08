@@ -2743,6 +2743,14 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   }
 
   if (!bTypeMatch) {
+    // If the layouts match, just replace the type
+    SrcST = cast<StructType>(SrcTy);
+    if (SrcST->isLayoutIdentical(DstST)) {
+      BCI->mutateType(Val->getType());
+      BCI->replaceAllUsesWith(Val);
+      BCI->eraseFromParent();
+      return;
+    }
     assert(0 && "Type mismatch.");
     return;
   }
@@ -3299,8 +3307,9 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     }
 
     if (ElTy->isStructTy() &&
-        // Skip Matrix type.
-        !HLMatrixType::isa(ElTy)) {
+        // Skip Matrix and Resource type.
+        !HLMatrixType::isa(ElTy) &&
+        !dxilutil::IsHLSLResourceType(ElTy)) {
       // for array of struct
       // split into arrays of struct elements
       StructType *ElST = cast<StructType>(ElTy);
@@ -3842,6 +3851,43 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   }
 }
 
+
+static bool DominateAllUsersPostDom(Instruction *I, Value *V,
+                                    PostDominatorTree &PDT) {
+  BasicBlock *BB = I->getParent();
+  Function *F = I->getParent()->getParent();
+  for (auto U = V->user_begin(); U != V->user_end(); ) {
+    Instruction *UI = dyn_cast<Instruction>(*(U++));
+    if (!UI)
+      continue;
+    assert (UI->getParent()->getParent() == F);
+
+    if (!PDT.dominates(BB, UI->getParent()))
+      return false;
+
+    if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
+      if (!DominateAllUsersPostDom(I, UI, PDT))
+        return false;
+    }
+  }
+  return true;
+}
+
+// Determine if `I` dominates all the users of `V`
+static bool DominateAllUsers(Instruction *I, Value *V) {
+  Function *F = I->getParent()->getParent();
+
+  // The Entry Block dominates everything, trivially true
+  if (&F->getEntryBlock() == I->getParent())
+    return true;
+
+  // Post dominator tree.
+  PostDominatorTree PDT;
+  PDT.runOnFunction(*F);
+  return DominateAllUsersPostDom(I, V, PDT);
+}
+
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               bool bAllowReplace) {
@@ -3855,6 +3901,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   unsigned size = DL.getTypeAllocSize(Ty->getPointerElementType());
   PointerStatus PS(size);
   const bool bStructElt = false;
+  bool bEltMemcpy = true;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
@@ -3862,9 +3909,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
       if (PS.storedType == PointerStatus::StoredType::NotStored) {
         PS.storedType = PointerStatus::StoredType::InitializerStored;
       } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
-        // For single mem store, if the store not dominator all users.
-        // Makr it as Stored.
-        // Case like:
+        // For single mem store, if the store does not dominate all users.
+        // Mark it as Stored.
+        // In cases like:
         // struct A { float4 x[25]; };
         // A a;
         // static A a2;
@@ -3879,6 +3926,16 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
       } else {
         PS.storedType = PointerStatus::StoredType::Stored;
       }
+    }
+  } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
+    // As above, it the memcpy doesn't dominate all its users,
+    // full replacement isn't possible without complicated PHI insertion
+    // This will likely replace with ld/st which will be replaced in mem2reg
+    Instruction *Memcpy = PS.StoringMemcpy;
+    if (!DominateAllUsers(Memcpy, V)) {
+      PS.storedType = PointerStatus::StoredType::Stored;
+      // Replacing a memcpy with a memcpy with the same signature will just bring us back here
+      bEltMemcpy = false;
     }
   }
 
@@ -3955,7 +4012,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   }
 
   for (MemCpyInst *MC : PS.memcpySet) {
-    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
+    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys, bEltMemcpy);
   }
   return false;
 }
@@ -6193,13 +6250,17 @@ public:
     // Lower static global into allocas.
     std::vector<GlobalVariable *> staticGVs;
     for (GlobalVariable &GV : M.globals()) {
-      bool isStaticGlobal =
-          dxilutil::IsStaticGlobal(&GV) &&
-          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
-
-      if (isStaticGlobal &&
-          !GV.getType()->getElementType()->isAggregateType()) {
+      // only for non-constant static globals
+      if (!dxilutil::IsStaticGlobal(&GV) || GV.isConstant())
+        continue;
+      Type *EltTy = GV.getType()->getElementType();
+      if (!EltTy->isAggregateType()) {
         staticGVs.emplace_back(&GV);
+      } else {
+        // Lower static [array of] resources
+        if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(EltTy))) {
+          staticGVs.emplace_back(&GV);
+        }
       }
     }
     bool bUpdated = false;

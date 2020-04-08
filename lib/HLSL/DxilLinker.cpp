@@ -464,8 +464,9 @@ bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      m_ctx.emitError(Twine(kRedefineResource) + res->GetResClassName() + " for " +
-                      res->GetGlobalName());
+      dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                          Twine(kRedefineResource) + res->GetResClassName() + " for " +
+                                          res->GetGlobalName());
       return false;
     }
   } else {
@@ -608,7 +609,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
           }
 
           // Redefine of global.
-          m_ctx.emitError(Twine(kRedefineGlobal) + GV->getName());
+          dxilutil::EmitErrorOnGlobalVariable(GV, Twine(kRedefineGlobal) + GV->getName());
           bSuccess = false;
         }
         continue;
@@ -696,7 +697,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
   if (!entryDM.HasDxilFunctionProps(entryFunc)) {
     // Cannot get function props.
-    m_ctx.emitError(Twine(kNoEntryProps) + entryFunc->getName());
+    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kNoEntryProps) + entryFunc->getName());
     return nullptr;
   }
 
@@ -704,9 +705,9 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   if (pSM->GetKind() != props.shaderKind) {
     // Shader kind mismatch.
-    m_ctx.emitError(Twine(kShaderKindMismatch) +
-                    ShaderModel::GetKindName(pSM->GetKind()) + " and " +
-                    ShaderModel::GetKindName(props.shaderKind));
+    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kShaderKindMismatch) +
+                                  ShaderModel::GetKindName(pSM->GetKind()) + " and " +
+                                  ShaderModel::GetKindName(props.shaderKind));
     return nullptr;
   }
 
@@ -1120,7 +1121,8 @@ bool DxilLinkerImpl::AttachLib(DxilLib *lib) {
     StringRef name = it->getKey();
     if (m_functionNameMap.count(name)) {
       // Redefine of function.
-      m_ctx.emitError(Twine(kRedefineFunction) + name);
+      const DxilFunctionLinkInfo *DFLI = it->getValue().get();
+      dxilutil::EmitErrorOnFunction(DFLI->func, Twine(kRedefineFunction) + name);
       bSuccess = false;
       continue;
     }

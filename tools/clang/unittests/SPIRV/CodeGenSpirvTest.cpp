@@ -109,8 +109,16 @@ TEST_F(FileTest, StructuredByteBufferArray) {
   setBeforeHLSLLegalization();
   runFileTest("type.structured-buffer.array.hlsl");
 }
-TEST_F(FileTest, StructuredByteBufferArrayError) {
+TEST_F(FileTest, StructuredBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, AppendStructuredBufferArrayError) {
+  runFileTest("type.append-structured-buffer.array.error.hlsl",
+              Expect::Failure);
+}
+TEST_F(FileTest, ConsumeStructuredBufferArrayError) {
+  runFileTest("type.consume-structured-buffer.array.error.hlsl",
+              Expect::Failure);
 }
 TEST_F(FileTest, AppendConsumeStructuredBufferTypeCast) {
   runFileTest("type.append.consume-structured-buffer.cast.hlsl");
@@ -494,6 +502,10 @@ TEST_F(FileTest, BreakStmtMixed) { runFileTest("cf.break.mixed.hlsl"); }
 
 // For discard statement
 TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
+TEST_F(FileTest, DiscardCS) {
+  // Using discard is only allowed in pixel shaders.
+  runFileTest("cf.discard.cs.hlsl", Expect::Failure);
+}
 
 // For return statement
 TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
@@ -1586,8 +1598,11 @@ TEST_F(FileTest, SpirvDebugControlUnknown) {
 TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", Expect::Failure);
 }
-TEST_F(FileTest, VulkanAttributeInvalidUsages) {
-  runFileTest("vk.attribute.invalid.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
+  runFileTest("vk.attribute.push-constant.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
+  runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
@@ -1747,8 +1762,23 @@ TEST_F(FileTest, VulkanSpecConstantInit) {
 TEST_F(FileTest, VulkanSpecConstantUsage) {
   runFileTest("vk.spec-constant.usage.hlsl");
 }
-TEST_F(FileTest, VulkanSpecConstantError) {
-  runFileTest("vk.spec-constant.error.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanSpecConstantError1) {
+  runFileTest("vk.spec-constant.error1.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError2) {
+  runFileTest("vk.spec-constant.error2.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError3) {
+  runFileTest("vk.spec-constant.error3.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError4) {
+  runFileTest("vk.spec-constant.error4.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantError5) {
+  runFileTest("vk.spec-constant.error5.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSpecConstantErrorNotSegfault) {
+  runFileTest("vk.spec-constant.error.not.segfault.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanLayoutCBufferMatrixZpr) {
@@ -1895,15 +1925,22 @@ TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");
 }
-TEST_F(FileTest, VulkanSubpassInputError) {
-  runFileTest("vk.subpass-input.error.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanSubpassInputError1) {
+  runFileTest("vk.subpass-input.missing-attr.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSubpassInputError2) {
+  runFileTest("vk.subpass-input.type.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanSubpassInputError3) {
+  runFileTest("vk.subpass-input.static.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, NonFpColMajorErrorArrayStruct) {
-  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl", Expect::Failure);
+  runFileTest("vk.layout.non-fp-matrix.array.struct.error.hlsl",
+              Expect::Failure);
 }
 
 TEST_F(FileTest, NamespaceFunctions) {
@@ -2057,6 +2094,11 @@ TEST_F(FileTest, RayTracingNVLibrary) {
   runFileTest("raytracing.nv.library.hlsl");
 }
 
+// === Raytracing KHR examples ===
+TEST_F(FileTest, RayTracingKHRClosestHit) {
+  runFileTest("raytracing.khr.closesthit.hlsl");
+}
+
 // For decoration uniqueness
 TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 
@@ -2190,6 +2232,51 @@ TEST_F(FileTest, MeshShadingNVAmplificationError3) {
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError4) {
   runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
+}
+
+// Test OpEntryPoint in the Vulkan1.2 target environment
+TEST_F(FileTest, Vk1p2EntryPoint) {
+  useVulkan1p2();
+  runFileTest("vk.1p2.entry-point.hlsl");
+}
+
+// Test deprecation of BufferBlock decoration after SPIR-V 1.3.
+TEST_F(FileTest, Vk1p2BlockDecoration) {
+  useVulkan1p2();
+  runFileTest("vk.1p2.block-decoration.hlsl");
+}
+
+// Test shaders that require Vulkan1.1 support with
+// -fspv-target-env=vulkan1.2 option to make sure that enabling
+// Vulkan1.2 also enables Vulkan1.1.
+TEST_F(FileTest, CompatibilityWithVk1p1) {
+  useVulkan1p2();
+  runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl");
+  runFileTest("sm6.quad-read-across-diagonal.vulkan1.2.hlsl");
+  runFileTest("sm6.quad-read-across-x.vulkan1.2.hlsl");
+  runFileTest("sm6.quad-read-across-y.vulkan1.2.hlsl");
+  runFileTest("sm6.quad-read-lane-at.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-all-equal.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-all-true.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-any-true.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-ballot.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-bit-and.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-bit-or.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-bit-xor.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-count-bits.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-max.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-min.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-product.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-active-sum.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-get-lane-count.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-get-lane-index.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-is-first-lane.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-prefix-count-bits.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-prefix-product.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-prefix-sum.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-read-lane-at.vulkan1.2.hlsl");
+  runFileTest("sm6.wave-read-lane-first.vulkan1.2.hlsl");
+  runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
 }
 
 // Tests for Rich Debug Information

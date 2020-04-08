@@ -160,6 +160,8 @@ public:
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
+  llvm::ArrayRef<SpirvVariable *> getVariables() const { return variables; }
+
 private:
   // Handle visitors for debug info instructions.
   bool invokeVisitorDebugInfo(Visitor *, bool reverseOrder = false);

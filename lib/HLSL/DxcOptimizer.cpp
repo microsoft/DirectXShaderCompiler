@@ -76,6 +76,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeBasicAliasAnalysisPass(Registry);
     initializeCFGSimplifyPassPass(Registry);
     initializeCFLAliasAnalysisPass(Registry);
+    initializeCleanupDxBreakPass(Registry);
     initializeComputeViewIdStatePass(Registry);
     initializeConstantMergePass(Registry);
     initializeCorrelatedValuePropagationPass(Registry);
@@ -112,6 +113,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilPreserveToSelectPass(Registry);
     initializeDxilPromoteLocalResourcesPass(Registry);
     initializeDxilPromoteStaticResourcesPass(Registry);
+    initializeDxilRemoveDeadBlocksPass(Registry);
     initializeDxilSimpleGVNHoistPass(Registry);
     initializeDxilTranslateRawBufferPass(Registry);
     initializeDxilValidateWaveSensitivityPass(Registry);

@@ -12405,7 +12405,7 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Attr * noconst = const_cast<Attr*>(A);
     HLSLRootSignatureAttr *ACast = static_cast<HLSLRootSignatureAttr*>(noconst);
     Indent(Indentation, Out);
-    Out << "[RootSignature(" << ACast->getSignatureName() << ")]\n";
+    Out << "[RootSignature(\"" << ACast->getSignatureName() << "\")]\n";
     break;
   }
 

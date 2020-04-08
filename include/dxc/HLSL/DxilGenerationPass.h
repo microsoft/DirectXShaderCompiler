@@ -23,6 +23,8 @@ struct PostDominatorTree;
 }
 
 namespace hlsl {
+extern char *kDxBreakFuncName;
+extern char *kDxBreakCondName;
 class DxilResourceBase;
 class WaveSensitivityAnalysis {
 public:
@@ -111,6 +113,9 @@ void initializeDxilCleanupAddrSpaceCastPass(llvm::PassRegistry&);
 
 ModulePass *createDxilValidateWaveSensitivityPass();
 void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
+
+FunctionPass *createCleanupDxBreakPass();
+void initializeCleanupDxBreakPass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 

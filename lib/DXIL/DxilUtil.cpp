@@ -210,6 +210,25 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
   return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
 }
 
+
+DIGlobalVariable *FindGlobalVariableDebugInfo(GlobalVariable *GV,
+                                              DebugInfoFinder &DbgInfoFinder) {
+  struct GlobalFinder {
+    GlobalVariable *GV;
+    bool operator()(llvm::DIGlobalVariable *const arg) const {
+      return arg->getVariable() == GV;
+    }
+  };
+  GlobalFinder F = {GV};
+  DebugInfoFinder::global_variable_iterator Found =
+      std::find_if(DbgInfoFinder.global_variables().begin(),
+                   DbgInfoFinder.global_variables().end(), F);
+  if (Found != DbgInfoFinder.global_variables().end()) {
+    return *Found;
+  }
+  return nullptr;
+}
+
 std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
   std::string locString;
   raw_string_ostream os(locString);
@@ -218,11 +237,33 @@ std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
   return os.str();
 }
 
+std::string FormatMessageInSubProgram(DISubprogram *DISP, const Twine& Msg) {
+  std::string locString;
+  raw_string_ostream os(locString);
+
+  auto *Scope = cast<DIScope>(DISP->getScope());
+  os << Scope->getFilename();
+  os << ':' << DISP->getLine();
+  os << ": " << Msg;
+  return os.str();
+}
+
+std::string FormatMessageInVariable(DIVariable *DIV, const Twine& Msg) {
+  std::string locString;
+  raw_string_ostream os(locString);
+
+  auto *Scope = cast<DIScope>(DIV->getScope());
+  os << Scope->getFilename();
+  os << ':' << DIV->getLine();
+  os << ": " << Msg;
+  return os.str();
+}
+
 Twine FormatMessageWithoutLocation(const Twine& Msg) {
   return Msg + " Use /Zi for source location.";
 }
 
-static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
+static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
                                             bool bWarning);
 
 // If we don't have debug location and this is select/phi,
@@ -230,7 +271,7 @@ static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
 // Only recurse phi/select and limit depth to prevent doing
 // too much work if no debug location found.
 static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
-                                                           StringRef Msg,
+                                                           Twine Msg,
                                                            bool bWarning,
                                                            unsigned depth = 0) {
   if (depth > 4)
@@ -249,7 +290,7 @@ static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
   return false;
 }
 
-static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
+static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
                                             bool bWarning) {
   const DebugLoc &DL = I->getDebugLoc();
   if (DL.get()) {
@@ -269,15 +310,68 @@ static void EmitWarningOrErrorOnInstruction(Instruction *I, StringRef Msg,
     I->getContext().emitError(FormatMessageWithoutLocation(Msg));
 }
 
-void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
+void EmitErrorOnInstruction(Instruction *I, Twine Msg) {
   EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/false);
 }
 
-void EmitWarningOnInstruction(Instruction *I, StringRef Msg) {
+void EmitWarningOnInstruction(Instruction *I, Twine Msg) {
   EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/true);
 }
 
-const StringRef kResourceMapErrorMsg =
+static void EmitWarningOrErrorOnFunction(Function *F, Twine Msg,
+                                         bool bWarning) {
+  DISubprogram *DISP = getDISubprogram(F);
+  if (DISP) {
+    if (bWarning)
+      F->getContext().emitWarning(FormatMessageInSubProgram(DISP, Msg));
+    else
+      F->getContext().emitError(FormatMessageInSubProgram(DISP, Msg));
+    return;
+  }
+
+  if (bWarning)
+    F->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
+  else
+    F->getContext().emitError(FormatMessageWithoutLocation(Msg));
+}
+
+void EmitErrorOnFunction(Function *F, Twine Msg) {
+  EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/false);
+}
+
+void EmitWarningOnFunction(Function *F, Twine Msg) {
+  EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/true);
+}
+
+static void EmitWarningOrErrorOnGlobalVariable(GlobalVariable *GV,
+                                               Twine Msg, bool bWarning) {
+  DIVariable *DIV = nullptr;
+  if (GV)
+    DIV = FindGlobalVariableDebugInfo(GV, GV->getParent()->GetDxilModule().GetOrCreateDebugInfoFinder());
+  if (DIV) {
+    if (bWarning)
+      GV->getContext().emitWarning(FormatMessageInVariable(DIV, Msg));
+    else
+      GV->getContext().emitError(FormatMessageInVariable(DIV, Msg));
+    return;
+  }
+
+  if (bWarning)
+    GV->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
+  else
+    GV->getContext().emitError(FormatMessageWithoutLocation(Msg));
+}
+
+void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
+  EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/false);
+}
+
+void EmitWarningOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
+  EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/true);
+}
+
+
+const char *kResourceMapErrorMsg =
     "local resource not guaranteed to map to unique global resource.";
 void EmitResMappingError(Instruction *Res) {
   EmitErrorOnInstruction(Res, kResourceMapErrorMsg);

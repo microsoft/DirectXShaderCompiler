@@ -80,6 +80,22 @@ bool isOpLineLegalForOp(spv::Op op) {
   }
 }
 
+// Returns SPIR-V version that will be used in SPIR-V header section.
+uint32_t getHeaderVersion(llvm::StringRef env) {
+  if (env == "vulkan1.1")
+    return 0x00010300u;
+  if (env == "vulkan1.2")
+    return 0x00010500u;
+  return 0x00010000u;
+}
+
+// Returns true if the BufferBlock decoration is deprecated for the target
+// Vulkan environment.
+bool isBufferBlockDecorationDeprecated(
+    const clang::spirv::SpirvCodeGenOptions &opts) {
+  return opts.targetEnv.compare("vulkan1.2") >= 0;
+}
+
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
@@ -244,8 +260,7 @@ void EmitVisitor::finalizeInstruction(std::vector<uint32_t> *section) {
 
 std::vector<uint32_t> EmitVisitor::takeBinary() {
   std::vector<uint32_t> result;
-  Header header(takeNextId(),
-                spvOptions.targetEnv == "vulkan1.1" ? 0x00010300u : 0x00010000);
+  Header header(takeNextId(), getHeaderVersion(spvOptions.targetEnv));
   auto headerBinary = header.takeBinary();
   result.insert(result.end(), headerBinary.begin(), headerBinary.end());
   result.insert(result.end(), preambleBinary.begin(), preambleBinary.end());
@@ -1068,6 +1083,12 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
   finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+  initInstruction(inst);
+  finalizeInstruction(&mainBinary);
   return true;
 }
 
@@ -1918,7 +1939,11 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
     if (interfaceType == StructInterfaceType::StorageBuffer)
-      emitDecoration(id, spv::Decoration::BufferBlock, {});
+      emitDecoration(id,
+                     isBufferBlockDecorationDeprecated(spvOptions)
+                         ? spv::Decoration::Block
+                         : spv::Decoration::BufferBlock,
+                     {});
     else if (interfaceType == StructInterfaceType::UniformBuffer)
       emitDecoration(id, spv::Decoration::Block, {});
 
