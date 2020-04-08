@@ -32,6 +32,8 @@
 #include <atlfile.h>
 #include "dia2.h"
 
+#include "dxc/DXIL/DxilModule.h"
+
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
@@ -44,13 +46,25 @@
 #include "dxc/Support/Unicode.h"
 
 #include <fstream>
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 
+
+#include <../lib/DxilDia/DxcPixLiveVariables.h>
+#include <../lib/DxilDia/DxcPixLiveVariables_FragmentIterator.h>
+
 using namespace std;
+using namespace hlsl;
 using namespace hlsl_test;
 
 // Aligned to SymTagEnum.
@@ -163,8 +177,10 @@ public:
   TEST_METHOD(DiaLoadBitcodePlusExtraData)
   TEST_METHOD(DiaCompileArgs)
   TEST_METHOD(PixDebugCompileInfo)
+  TEST_METHOD(PixStructAnnotation)
 
   dxc::DxcDllSupport m_dllSupport;
+  llvm::LLVMContext m_llvmContext;
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -487,7 +503,10 @@ public:
     return option.substr(0, option.find_first_of(' '));
   }
 
-  HRESULT CreateDiaSourceForCompile(const char *hlsl, IDiaDataSource **ppDiaSource)
+  HRESULT CreateDiaSourceForCompile(const char* hlsl,
+    bool RunAnnotationPass,
+    IDiaDataSource** ppDiaSource,
+    IDxcOperationResult** ppResult)
   {
     if (!ppDiaSource)
       return E_POINTER;
@@ -502,6 +521,17 @@ public:
     LPCWSTR args[] = { L"/Zi", L"/Qembed_debug" };
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
       L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
+    
+    HRESULT compilationStatus;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&compilationStatus));
+    if (FAILED(compilationStatus))
+    {
+      CComPtr<IDxcBlobEncoding> pErrros;
+      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrros));
+      CA2W errorTextW(static_cast<const char *>(pErrros->GetBufferPointer()), CP_UTF8);
+      WEX::Logging::Log::Error(errorTextW);
+    }
+
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
 
     // Disassemble the compiled (stripped) program.
@@ -511,6 +541,22 @@ public:
       std::string disText = BlobToUtf8(pDisassembly);
       CA2W disTextW(disText.c_str(), CP_UTF8);
       //WEX::Logging::Log::Comment(disTextW);
+    }
+
+    if (RunAnnotationPass)
+    {
+      CComPtr<IDxcOptimizer> pOptimizer;
+      VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+      std::vector<LPCWSTR> Options;
+      Options.push_back(L"-opt-mod-passes");
+      Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+      Options.push_back(L"-dxil-annotate-with-virtual-regs");
+
+      CComPtr<IDxcBlob> pOptimizedModule;
+      VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        pProgram, Options.data(), Options.size(), &pOptimizedModule, nullptr));
+      pProgram = pOptimizedModule;
     }
 
     // CONSIDER: have the dia data source look for the part if passed a whole container.
@@ -548,8 +594,289 @@ public:
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
     VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pProgramStream));
     *ppDiaSource = pDiaSource.Detach();
+    if (ppResult != nullptr)
+    {
+      *ppResult = pResult.Detach();
+    }
     return S_OK;
   }
+  
+  CComPtr<IDxcOperationResult> Compile(
+    const char* hlsl,
+    const wchar_t* target)
+  {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CComPtr<IDxcBlob> pProgram;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(hlsl, &pSource);
+    LPCWSTR args[] = { L"/Zi", L"/Od", L"/Qembed_debug" };
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+      target, args, _countof(args), nullptr, 0, nullptr, &pResult));
+
+    HRESULT compilationStatus;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&compilationStatus));
+    if (FAILED(compilationStatus))
+    {
+      CComPtr<IDxcBlobEncoding> pErrros;
+      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrros));
+      CA2W errorTextW(static_cast<const char*>(pErrros->GetBufferPointer()), CP_UTF8);
+      WEX::Logging::Log::Error(errorTextW);
+    }
+
+    return pResult;
+  }
+
+  CComPtr<IDxcBlob> ExtractDxilPart(IDxcBlob *pProgram) {
+    CComPtr<IDxcLibrary> pLib;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+    const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
+        pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pContainer);
+    hlsl::DxilPartIterator partIter =
+        std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
+                     hlsl::DxilPartIsType(hlsl::DFCC_DXIL));
+    const hlsl::DxilProgramHeader *pProgramHeader =
+        (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
+    uint32_t bitcodeLength;
+    const char *pBitcode;
+    CComPtr<IDxcBlob> pDxilBits;
+    hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
+    VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
+        pProgram, pBitcode - (char *)pProgram->GetBufferPointer(),
+        bitcodeLength, &pDxilBits));
+    return pDxilBits;
+  }
+
+  CComPtr<IDxcBlob> RunAnnotationPasses(IDxcBlob * dxil)
+  {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, nullptr));
+
+    return pOptimizedModule;
+  }
+
+  std::wstring Disassemble(IDxcBlob * pProgram)
+  {
+    CComPtr<IDxcCompiler> pCompiler;
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+    CComPtr<IDxcBlobEncoding> pDbgDisassembly;
+    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDbgDisassembly));
+    std::string disText = BlobToUtf8(pDbgDisassembly);
+    CA2W disTextW(disText.c_str(), CP_UTF8);
+    return std::wstring(disTextW);
+  }
+
+  CComPtr<IDxcBlob> FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource)
+  {
+    const UINT32 BC_C0DE = ((INT32)(INT8)'B' | (INT32)(INT8)'C' << 8 |
+                            (INT32)0xDEC0 << 16); // BC0xc0de in big endian
+    const char *pBitcode = nullptr;
+    const hlsl::DxilPartHeader *pDxilPartHeader =
+        (hlsl::DxilPartHeader *)
+            pSource->GetBufferPointer(); // Initialize assuming that source is
+                                         // starting with DXIL part
+
+    if (BC_C0DE == *(UINT32 *)pSource->GetBufferPointer()) {
+      return pSource;
+    }
+    if (hlsl::IsValidDxilContainer(
+            (hlsl::DxilContainerHeader *)pSource->GetBufferPointer(),
+            pSource->GetBufferSize())) {
+      hlsl::DxilContainerHeader *pDxilContainerHeader =
+          (hlsl::DxilContainerHeader *)pSource->GetBufferPointer();
+      pDxilPartHeader =
+          *std::find_if(begin(pDxilContainerHeader), end(pDxilContainerHeader),
+                        hlsl::DxilPartIsType(fourCC));
+    }
+    if (fourCC == pDxilPartHeader->PartFourCC) {
+      UINT32 pBlobSize;
+      hlsl::DxilProgramHeader *pDxilProgramHeader =
+          (hlsl::DxilProgramHeader *)(pDxilPartHeader + 1);
+      hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &pBlobSize);
+      UINT32 offset =
+          (UINT32)(pBitcode - (const char *)pSource->GetBufferPointer());
+      CComPtr<IDxcLibrary> library;
+      IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+      CComPtr<IDxcBlob> targetBlob;
+      library->CreateBlobFromBlob(pSource, offset, pBlobSize, &targetBlob);
+      return targetBlob;
+    }
+    return {};
+  }
+
+
+  void ReplaceDxilBlobPart(
+      const void *originalShaderBytecode, SIZE_T originalShaderLength,
+      IDxcBlob *pNewDxilBlob, IDxcBlob **ppNewShaderOut)
+  {
+    CComPtr<IDxcLibrary> pLibrary;
+    IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+
+    CComPtr<IDxcBlob> pNewContainer;
+
+    // Use the container assembler to build a new container from the
+    // recently-modified DXIL bitcode. This container will contain new copies of
+    // things like input signature etc., which will supersede the ones from the
+    // original compiled shader's container.
+    {
+      CComPtr<IDxcAssembler> pAssembler;
+      IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+      CComPtr<IDxcOperationResult> pAssembleResult;
+      VERIFY_SUCCEEDED(
+          pAssembler->AssembleToContainer(pNewDxilBlob, &pAssembleResult));
+
+      CComPtr<IDxcBlobEncoding> pAssembleErrors;
+      VERIFY_SUCCEEDED(
+          pAssembleResult->GetErrorBuffer(&pAssembleErrors));
+
+      if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
+        OutputDebugStringA(
+            static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
+        VERIFY_SUCCEEDED(E_FAIL);
+      }
+
+      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+    }
+
+    // Now copy over the blobs from the original container that won't have been
+    // invalidated by changing the shader code itself, using the container
+    // reflection API
+    { 
+      // Wrap the original code in a container blob
+      CComPtr<IDxcBlobEncoding> pContainer;
+      VERIFY_SUCCEEDED(
+          pLibrary->CreateBlobWithEncodingFromPinned(
+              static_cast<LPBYTE>(const_cast<void *>(originalShaderBytecode)),
+              static_cast<UINT32>(originalShaderLength), CP_ACP, &pContainer));
+
+      CComPtr<IDxcContainerReflection> pReflection;
+      IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+
+      // Load the reflector from the original shader
+      VERIFY_SUCCEEDED(pReflection->Load(pContainer));
+
+      UINT32 partIndex;
+
+      if (SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_PrivateData,
+                                                   &partIndex))) {
+        CComPtr<IDxcBlob> pPart;
+        VERIFY_SUCCEEDED(
+            pReflection->GetPartContent(partIndex, &pPart));
+
+        CComPtr<IDxcContainerBuilder> pContainerBuilder;
+        IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder,
+                                        &pContainerBuilder));
+
+        VERIFY_SUCCEEDED(
+            pContainerBuilder->Load(pNewContainer));
+
+        VERIFY_SUCCEEDED(
+            pContainerBuilder->AddPart(hlsl::DFCC_PrivateData, pPart));
+
+        CComPtr<IDxcOperationResult> pBuildResult;
+
+        VERIFY_SUCCEEDED(
+            pContainerBuilder->SerializeContainer(&pBuildResult));
+
+        CComPtr<IDxcBlobEncoding> pBuildErrors;
+        VERIFY_SUCCEEDED(
+            pBuildResult->GetErrorBuffer(&pBuildErrors));
+
+        if (pBuildErrors && pBuildErrors->GetBufferSize() != 0) {
+          OutputDebugStringA(
+              reinterpret_cast<LPCSTR>(pBuildErrors->GetBufferPointer()));
+          VERIFY_SUCCEEDED(E_FAIL);
+        }
+
+        VERIFY_SUCCEEDED(
+            pBuildResult->GetResult(&pNewContainer));
+      }
+    }
+
+    *ppNewShaderOut = pNewContainer.Detach();
+  }
+
+
+  DxilModule &GetDxilModule(IDxcBlob* pBlob) {
+    // Verify we have a valid dxil container.
+    const DxilContainerHeader *pContainer =
+        IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pContainer);
+    VERIFY_IS_TRUE(IsValidDxilContainer(pContainer, pBlob->GetBufferSize()));
+
+    // Get Dxil part from container.
+    DxilPartIterator it = std::find_if(begin(pContainer), end(pContainer),
+                                       DxilPartIsType(DFCC_DXIL));
+    VERIFY_IS_FALSE(it == end(pContainer));
+
+    const DxilProgramHeader *pProgramHeader =
+        reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
+    VERIFY_IS_TRUE(IsValidDxilProgramHeader(pProgramHeader, (*it)->PartSize));
+
+    // Get a pointer to the llvm bitcode.
+    const char *pIL;
+    uint32_t pILLength;
+    GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
+
+    // Parse llvm bitcode into a module.
+    std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
+        llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(pIL, pILLength), "",
+                                         false));
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModule(
+        llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), m_llvmContext));
+    if (std::error_code ec = pModule.getError()) {
+      VERIFY_FAIL();
+    }
+    m_module = std::move(pModule.get());
+
+    // Grab the dxil module;
+    DxilModule *DM = DxilModule::TryGetDxilModule(m_module.get());
+    VERIFY_IS_NOT_NULL(DM);
+    return *DM;
+  }
+
+  std::unique_ptr<llvm::Module> m_module;
+#if 0
+  std::unique_ptr<llvm::Module> PixTest::GetDxilModule(IDxcBlob * pDxilBlob)
+  {
+    auto partHeader = 
+      reinterpret_cast<hlsl::DxilPartHeader const*>(pDxilBlob->GetBufferPointer());
+    auto pProgramHeader =
+        reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(partHeader));
+    VERIFY_IS_TRUE(IsValidDxilProgramHeader(pProgramHeader, partHeader->PartSize));
+
+    // Get a pointer to the llvm bitcode.
+    const char *pIL;
+    uint32_t pILLength;
+    GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
+
+    // Parse llvm bitcode into a module.
+    std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
+        llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(pIL, pILLength), "",
+                                         false));
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModule(
+        llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), m_llvmContext));
+    if (std::error_code ec = pModule.getError()) {
+      VERIFY_FAIL();
+    }
+    return std::move(pModule.get());
+  }
+#endif
+  void PixTest::TestStructAnnotationCase(const char* hlsl);
 };
 
 
@@ -572,11 +899,12 @@ TEST_F(PixTest, CompileWhenDebugThenDIPresent) {
   // Making the function do a bit more work by calling an intrinsic
   // helps this case.
   CComPtr<IDiaDataSource> pDiaSource;
+  constexpr bool DoNotRunAnnotationPass = false;
   VERIFY_SUCCEEDED(CreateDiaSourceForCompile(
     "float4 main(float4 pos : SV_Position) : SV_Target {\r\n"
     "  float4 local = abs(pos);\r\n"
     "  return local;\r\n"
-    "}", &pDiaSource));
+    "}", DoNotRunAnnotationPass , &pDiaSource, nullptr));
   std::wstring diaDump = GetDebugInfoAsText(pDiaSource).c_str();
   //WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 
@@ -687,13 +1015,15 @@ TEST_F(PixTest, CompileDebugPDB) {
 
 TEST_F(PixTest, CompileDebugLines) {
   CComPtr<IDiaDataSource> pDiaSource;
-  VERIFY_SUCCEEDED(CreateDiaSourceForCompile(
+  constexpr bool DoNotRunAnnotationPass = false;
+  VERIFY_SUCCEEDED(
+      CreateDiaSourceForCompile(
     "float main(float pos : A) : SV_Target {\r\n"
     "  float x = abs(pos);\r\n"
     "  float y = sin(pos);\r\n"
     "  float z = x + y;\r\n"
     "  return z;\r\n"
-    "}", &pDiaSource));
+    "}", DoNotRunAnnotationPass, &pDiaSource, nullptr));
     
   const uint32_t numExpectedVAs = 18;
   const uint32_t numExpectedLineEntries = 6;
@@ -1304,5 +1634,119 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
+TEST_F(PixTest, PixStructAnnotation) {
+  const char* hlsl = R"(
+struct BigStruct
+{
+    uint64_t bigInt;
+    double bigDouble;
+};
 
+struct EmbeddedStruct
+{
+    uint32_t OneInt;
+    uint32_t TwoDArray[2][2];
+};
+
+struct bigPayload
+{
+    uint dummy;
+    // These values are passed from AS to MS merely to exercise the payload struct- they could just as easily be hard-coded in the MS
+    uint vertexCount;
+    uint primitiveCount;
+    EmbeddedStruct embeddedStruct;
+#ifdef PAYLOAD_MATRICES
+    float4x4 mat;
+#endif
+    uint64_t bigOne;
+    half littleOne;
+    BigStruct bigStruct[2];
+    uint lastCheck;
+};
+
+struct smallPayload
+{
+    uint dummy;
+    uint lastCheck;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    bigPayload p;
+    p.dummy = 42;
+    p.vertexCount = 3;
+    p.primitiveCount = 1;
+    p.embeddedStruct.OneInt = 123;
+    p.embeddedStruct.TwoDArray[0][0] = 252;
+    p.embeddedStruct.TwoDArray[0][1] = 253;
+    p.embeddedStruct.TwoDArray[1][0] = 254;
+    p.embeddedStruct.TwoDArray[1][1] = 255;
+#ifdef PAYLOAD_MATRICES
+    p.mat = float4x4( 1,2,3,4, 5,6,7,8, 9,10,11,12, 13,14,15, 16);
+#endif
+    p.bigOne = 123456789;
+    p.littleOne = 1.0;
+    p.bigStruct[0].bigInt = 10;
+    p.bigStruct[0].bigDouble = 2.0;
+    p.bigStruct[1].bigInt = 20;
+    p.bigStruct[1].bigDouble = 4.0;
+    p.lastCheck = 27;
+    DispatchMesh(2, 1, 1, p);
+}
+)";
+
+  TestStructAnnotationCase(hlsl);
+}
+
+void PixTest::TestStructAnnotationCase(const char * hlsl)
+{
+  auto pOperationResult = Compile(hlsl, L"as_6_5");
+  CComPtr<IDxcBlob> pBlob;
+  CheckOperationSucceeded(pOperationResult, &pBlob);
+
+  CComPtr<IDxcBlob> pDxil = FindModule(DFCC_DXIL, pBlob);
+
+  auto pAnnotated = pDxil;// RunAnnotationPasses(pDxil);
+
+  CComPtr<IDxcBlob> pAnnotatedContainer;
+    ReplaceDxilBlobPart(
+      pBlob->GetBufferPointer(),
+      pBlob->GetBufferSize(),
+      pAnnotated,
+      &pAnnotatedContainer);
+
+  //auto pAnnotated = FindModule(DFCC_DXIL, pAnnotatedContainer);
+
+  auto & dxilModule = PixTest::GetDxilModule(pAnnotatedContainer);
+
+  //auto dxilModule = DxilModule::TryGetDxilModule(modulePtr.get());
+
+  llvm::Function* entryFunction = dxilModule.GetEntryFunction();
+  for (auto& block : entryFunction->getBasicBlockList())
+  {
+    for (auto& instruction : block.getInstList())
+    {
+      if (auto * dbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction))
+      {
+        llvm::Value *Address = dbgDeclare->getAddress();
+        auto *AddressAsAlloca = llvm::dyn_cast<llvm::AllocaInst>(Address);
+        auto *Expression = dbgDeclare->getExpression();
+
+        std::unique_ptr<dxil_debug_info::MemberIterator> iterator = dxil_debug_info::CreateMemberIterator(
+          dbgDeclare, 
+          dxilModule.GetModule()->getDataLayout(),
+          AddressAsAlloca,
+          Expression);
+
+        unsigned int index = 0;
+        while (iterator->Next(&index))
+        {
+
+        }
+      }
+    }
+  }
+}
 #endif
