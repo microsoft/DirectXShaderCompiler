@@ -1173,7 +1173,7 @@ TEST_F(FileTest, AttributeNumThreads) {
   runFileTest("attribute.numthreads.hlsl");
 }
 TEST_F(FileTest, AttributeMissingNumThreads) {
-  runFileTest("attribute.numthreads.missing.hlsl");
+  runFileTest("attribute.numthreads.missing.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, AttributeDomainTri) {
   runFileTest("attribute.domain.tri.hlsl");
