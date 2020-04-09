@@ -12,6 +12,7 @@
 
 
 #include "llvm/Pass.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
@@ -225,8 +226,7 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   else if (Instruction::Call == I->getOpcode()) {
     Module *M = I->getModule();
     CallInst *CI = cast<CallInst>(I);
-    Function *BreakFunc = M->getFunction("dx.break");
-    if (CI->getCalledFunction() == BreakFunc) {
+    if (CI->getCalledFunction()->getName() == hlsl::DXIL::kDxBreakFuncName) {
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M->getContext());
       Simplified = llvm::ConstantInt::get(i1Ty, 1);
     }

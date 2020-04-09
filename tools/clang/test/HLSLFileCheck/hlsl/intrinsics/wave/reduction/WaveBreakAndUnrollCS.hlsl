@@ -3,21 +3,28 @@
 
 // CHECK: void @main
 // CHECK: @dx.op.cbufferLoadLegacy.f32
+// CHECK: @dx.op.waveActiveOp.f32
 // CHECK: @dx.op.cbufferLoadLegacy.i32
 // CHECK: br i1
 // CHECK: @dx.op.cbufferLoadLegacy.f32
+// CHECK: @dx.op.waveActiveOp.f32
 // CHECK: @dx.op.cbufferLoadLegacy.i32
 // CHECK: br i1
 // CHECK: @dx.op.cbufferLoadLegacy.f32
+// CHECK: @dx.op.waveActiveOp.f32
 // CHECK: @dx.op.cbufferLoadLegacy.i32
 // CHECK: br i1
 // CHECK: @dx.op.cbufferLoadLegacy.f32
+// CHECK: @dx.op.waveActiveOp.f32
 // CHECK: @dx.op.cbufferLoadLegacy.i32
 // CHECK: br i1
 // CHECK: @dx.op.cbufferLoadLegacy.f32
+// CHECK: @dx.op.waveActiveOp.f32
 // CHECK: @dx.op.cbufferLoadLegacy.i32
 // CHECK: br i1
 // CHECK: @dx.op.cbufferLoadLegacy.f32
+// CHECK: @dx.op.waveActiveOp.f32
+// CHECK-NOT: @dx.op.waveActiveOp.f32
 // CHECK: br
 // CHECK: ret void
 
