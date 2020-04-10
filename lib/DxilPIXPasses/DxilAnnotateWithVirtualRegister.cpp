@@ -3,6 +3,7 @@
 // DxilAnnotateWithVirtualRegister.cpp                                       //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
+// This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // Annotates the llvm instructions with a virtual register number to be used //
@@ -36,8 +37,31 @@
 
 #define DEBUG_TYPE "dxil-annotate-with-virtual-regs"
 
+uint32_t CountStructMembers(llvm::Type const *pType) {
+  uint32_t Count = 0;
+
+  if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
+    for (auto &El : ST->elements()) {
+      Count += CountStructMembers(El);
+    }
+  } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pType)) {
+    Count = CountStructMembers(AT->getArrayElementType()) *
+            AT->getArrayNumElements();
+  } else {
+    Count = 1;
+  }
+  return Count;
+}
+
 namespace {
 using namespace pix_dxil;
+
+static bool IsInstrumentableFundamentalType(llvm::Type *pAllocaTy) {
+  return 
+    pAllocaTy->isFloatTy() || pAllocaTy->isIntegerTy() ||
+    pAllocaTy->isHalfTy() || pAllocaTy->isIntegerTy(16) ||
+    pAllocaTy->isIntegerTy(64) || pAllocaTy->isDoubleTy();
+}
 
 class DxilAnnotateWithVirtualRegister : public llvm::ModulePass {
 public:
@@ -52,7 +76,6 @@ private:
   bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
                              llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
-  bool IsInstrumentableFundamentalType(llvm::Type *pAllocaTy);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
   void PrintSingleRegister(llvm::Instruction* pI, uint32_t Register);
@@ -151,67 +174,83 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(llvm::Instruction *pI) {
   PixAllocaRegWrite::AddMD(m_DM->GetCtx(), pSt, AllocaReg, Index);
 }
 
-
-static uint32_t CountStructMembers(llvm::Type const *pType) {
-  uint32_t Count = 0;
-
-  if (auto *ST = llvm::dyn_cast<llvm::StructType>(pType)) {
-    for (auto &El : ST->elements()) {
-      Count += CountStructMembers(El);
-    }
-  } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pType)) {
-    Count = CountStructMembers(AT->getArrayElementType()) *
-            AT->getArrayNumElements();
-  } else {
-    Count = 1;
-  }
-  return Count;
-}
-
-
-static llvm::Value* GetStructOffset(
-  llvm::IRBuilder<> &B,
+static uint32_t GetStructOffset(
   llvm::GetElementPtrInst* pGEP,
   uint32_t& GEPOperandIndex,
-  llvm::Type* pStructType,
-  uint32_t CumulativeMemberIndex)
+  llvm::Type* pElementType)
 {
-  DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
-
-  auto *pMemberIndex =
-      llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
-
-  if (pMemberIndex == nullptr) {
-    return nullptr;
+  if (IsInstrumentableFundamentalType(pElementType)) {
+    return 0;
   }
 
-  uint32_t MemberIndex = pMemberIndex->getLimitedValue();
-
-  CumulativeMemberIndex += MemberIndex;
-
-  llvm::Type* pMemberType = pStructType->getContainedType(MemberIndex);
-
-  if (pMemberType->isFloatTy() || pMemberType->isIntegerTy()) {
-    return B.getInt32(CumulativeMemberIndex);
-  }
-  else if (auto * pArray = llvm::dyn_cast<llvm::ArrayType>(pMemberType))
+  //DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
+  //
+  //auto *pMemberIndex =
+  //    llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
+  //
+  //if (pMemberIndex == nullptr) {
+  //  return 0;
+  //}
+  //
+  //uint32_t MemberIndex = pMemberIndex->getLimitedValue();
+  //
+  //llvm::Type* pMemberType = pStructType->getContainedType(MemberIndex);
+  //
+  //if (pMemberType->isFloatTy() || pMemberType->isIntegerTy()) {
+  //  return MemberIndex;
+  //}
+  else if (auto * pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType))
   {
+    // 1D-array example:
+    //
+    // When referring to the zeroth member of the array in this struct:
+    // struct smallPayload {
+    //   uint32_t Array[2];
+    // };
+    // getelementptr inbounds% struct.smallPayload, % struct.smallPayload*% p,
+    // i32 0, i32 0, i32 0 The zeros above are:
+    //  -The zeroth element in the array pointed to (so, the actual struct)
+    //  -The zeroth element in the struct (which is the array)
+    //  -The zeroth element in that array
+
     auto *pArrayIndex =
         llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
 
     if (pArrayIndex == nullptr) {
-      return nullptr;
+      return 0;
     }
 
     uint32_t ArrayIndex = pArrayIndex->getLimitedValue();
-    CumulativeMemberIndex += ArrayIndex * CountStructMembers(pArray);
+    auto pArrayElementType = pArray->getArrayElementType();
+    uint32_t MemberIndex = ArrayIndex * CountStructMembers(pArrayElementType);
+    return MemberIndex + GetStructOffset(pGEP, GEPOperandIndex, pArrayElementType);
+  }
+  else if (auto* pStruct = llvm::dyn_cast<llvm::StructType>(pElementType)) 
+  {
+     DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
+    
+     auto *pMemberIndex =
+        llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
+    
+     if (pMemberIndex == nullptr) {
+      return 0;
+    }
+    
+    uint32_t MemberIndex = pMemberIndex->getLimitedValue();
+
+    uint32_t MemberOffset = 0;
+    for (uint32_t i = 0; i < MemberIndex; ++i)
+    {
+      MemberOffset += CountStructMembers(pStruct->getElementType(i));
+    }
+
+    return MemberOffset +
+           GetStructOffset(pGEP, GEPOperandIndex, pStruct->getElementType(MemberIndex));
   }
   else
   {
-    pMemberType->dump();
+    return 0;
   }
-
-  return GetStructOffset(B, pGEP, GEPOperandIndex, pStructType, CumulativeMemberIndex);
 }
 
 
@@ -246,12 +285,13 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     // referenced in the current struct. If that type is an (n-dimensional)
     // array, then there follow n indices.
 
-    llvm::Value* IndexValue = GetStructOffset(
-      B,
+
+    auto offset = GetStructOffset(
       pGEP,
       GEPOperandIndex,
-      pStructType,
-      0);
+      pStructType);
+
+    llvm::Value* IndexValue = B.getInt32(offset);
 
     if (IndexValue != nullptr)
     {
@@ -312,7 +352,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
 
   if (auto *pAlloca = llvm::dyn_cast<llvm::AllocaInst>(V)) {
     llvm::Type *pAllocaTy = pAlloca->getType()->getElementType();
-    if (!pAllocaTy->isFloatTy() && !pAllocaTy->isIntegerTy()) {
+    if (!IsInstrumentableFundamentalType(pAllocaTy)) {
       return false;
     }
 
@@ -322,12 +362,6 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
   }
 
   return false;
-}
-
-bool DxilAnnotateWithVirtualRegister::IsInstrumentableFundamentalType(
-    llvm::Type *pAllocaTy) {
-  return pAllocaTy->isFloatTy() || pAllocaTy->isIntegerTy() ||
-         pAllocaTy->isHalfTy() || pAllocaTy->isIntegerTy(16);
 }
 
 void DxilAnnotateWithVirtualRegister::AnnotateAlloca(
@@ -373,7 +407,7 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
       }
     }
   } else {
-    if (!pI->getType()->isFloatTy() && !pI->getType()->isIntegerTy()) {
+    if (!IsInstrumentableFundamentalType(pI->getType())) {
       return;
     }
     AssignNewDxilRegister(pI);

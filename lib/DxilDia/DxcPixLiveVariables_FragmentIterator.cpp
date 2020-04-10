@@ -242,20 +242,23 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
   {
     switch (diType->getTag())
     {
-    case llvm::dwarf::DW_TAG_array_type:
-      for (auto const& node : CT->getElements())
+    case llvm::dwarf::DW_TAG_array_type :
+    {
+      llvm::DINodeArray elements = CT->getElements();
+      unsigned arraySize = 1;
+      for (auto const& node : elements)
       {
         if (llvm::DISubrange* SR = llvm::dyn_cast<llvm::DISubrange>(node))
         {
-          unsigned arraySize = SR->getCount();
-          const llvm::DITypeIdentifierMap EmptyMap;
-          llvm::DIType* BT = CT->getBaseType().resolve(EmptyMap);
-          for (unsigned i = 0; i < arraySize; ++i) {
-            DetermineStructMemberSizesAndOffsets(BT);
-          }
+          arraySize *= SR->getCount();
         }
-        break;
       }
+      const llvm::DITypeIdentifierMap EmptyMap;
+      llvm::DIType *BT = CT->getBaseType().resolve(EmptyMap);
+      for (unsigned i = 0; i < arraySize; ++i) {
+        DetermineStructMemberSizesAndOffsets(BT);
+      }
+    }
       break;
     case llvm::dwarf::DW_TAG_class_type:
     case llvm::dwarf::DW_TAG_structure_type:
