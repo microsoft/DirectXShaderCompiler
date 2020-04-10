@@ -5459,7 +5459,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
       // Skip copy-in copy-out for local variables.
-      if (bInOut && argAddr && isa<AllocaInst>(argAddr)) {
+      if (bInOut && argAddr &&
+          (isa<AllocaInst>(argAddr) || isa<Argument>(argAddr))) {
         llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
         if (argAddr->getType()->getPointerElementType() == ToTy &&
             // Check clang Type for case like int cast to unsigned.
