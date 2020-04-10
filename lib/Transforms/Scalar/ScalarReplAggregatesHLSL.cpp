@@ -83,27 +83,29 @@ public:
                                   IRBuilder<> &Builder, bool bFlatVector,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   const DataLayout &DL,
-                                  SmallVector<Value *, 32> &DeadInsts);
+                                  SmallVector<Value *, 32> &DeadInsts,
+                                  DominatorTree *DT);
 
   static bool DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &Elts,
                                   IRBuilder<> &Builder, bool bFlatVector,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   const DataLayout &DL,
-                                  SmallVector<Value *, 32> &DeadInsts);
+                                  SmallVector<Value *, 32> &DeadInsts,
+                                  DominatorTree *DT);
   static unsigned GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
                               Type *EltTy, unsigned Offset);
   // Lower memcpy related to V.
   static bool LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                           DxilTypeSystem &typeSys, const DataLayout &DL,
-                          bool bAllowReplace);
+                          DominatorTree *DT, bool bAllowReplace);
   static void MarkEmptyStructUsers(Value *V,
                                    SmallVector<Value *, 32> &DeadInsts);
   static bool IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys);
 private:
   SROA_Helper(Value *V, ArrayRef<Value *> Elts,
               SmallVector<Value *, 32> &DeadInsts, DxilTypeSystem &ts,
-              const DataLayout &dl)
-      : OldVal(V), NewElts(Elts), DeadInsts(DeadInsts), typeSys(ts), DL(dl) {}
+              const DataLayout &dl, DominatorTree *dt)
+    : OldVal(V), NewElts(Elts), DeadInsts(DeadInsts), typeSys(ts), DL(dl), DT(dt) {}
   void RewriteForScalarRepl(Value *V, IRBuilder<> &Builder);
 
 private:
@@ -114,6 +116,7 @@ private:
   SmallVector<Value *, 32> &DeadInsts;
   DxilTypeSystem  &typeSys;
   const DataLayout &DL;
+  DominatorTree *DT;
 
   void RewriteForConstExpr(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
@@ -144,7 +147,6 @@ struct SROA_HLSL : public FunctionPass {
   bool runOnFunction(Function &F) override;
 
   bool performScalarRepl(Function &F, DxilTypeSystem &typeSys);
-  bool performPromotion(Function &F);
   bool markPrecise(Function &F);
 
 private:
@@ -229,7 +231,7 @@ private:
   bool ShouldAttemptScalarRepl(AllocaInst *AI);
 };
 
-// SROA_DT - SROA that uses DominatorTree.
+// SROA_DT_HLSL - SROA that uses DominatorTree.
 struct SROA_DT_HLSL : public SROA_HLSL {
   static char ID;
 
@@ -709,58 +711,6 @@ static bool tryToMakeAllocaBePromotable(AllocaInst *AI, const DataLayout &DL) {
   return true;
 }
 
-bool SROA_HLSL::performPromotion(Function &F) {
-  std::vector<AllocaInst *> Allocas;
-  const DataLayout &DL = F.getParent()->getDataLayout();
-  DominatorTree *DT = nullptr;
-  if (HasDomTree)
-    DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  AssumptionCache &AC =
-      getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-
-  BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
-  DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
-  bool Changed = false;
-  SmallVector<Instruction *, 64> Insts;
-  while (1) {
-    Allocas.clear();
-
-    // Find allocas that are safe to promote, by looking at all instructions in
-    // the entry node
-    for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI);
-        // Skip alloca has debug info when not promote.
-        if (DDI && !RunPromotion) {
-          continue;
-        }
-        if (tryToMakeAllocaBePromotable(AI, DL))
-          Allocas.push_back(AI);
-      }
-    if (Allocas.empty())
-      break;
-
-    if (HasDomTree)
-      PromoteMemToReg(Allocas, *DT, nullptr, &AC);
-    else {
-      SSAUpdater SSA;
-      for (unsigned i = 0, e = Allocas.size(); i != e; ++i) {
-        AllocaInst *AI = Allocas[i];
-
-        // Build list of instructions to promote.
-        for (User *U : AI->users())
-          Insts.push_back(cast<Instruction>(U));
-        AllocaPromoter(Insts, SSA, &DIB).run(AI, Insts);
-        Insts.clear();
-      }
-    }
-    NumPromoted += Allocas.size();
-    Changed = true;
-  }
-
-  return Changed;
-}
-
 /// ShouldAttemptScalarRepl - Decide if an alloca is a good candidate for
 /// SROA.  It must be a struct or array type with a small number of elements.
 bool SROA_HLSL::ShouldAttemptScalarRepl(AllocaInst *AI) {
@@ -1145,8 +1095,9 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
       continue;
     }
     const bool bAllowReplace = true;
+    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL,
-                                 bAllowReplace)) {
+                                 DT, bAllowReplace)) {
       Changed = true;
       continue;
     }
@@ -1193,9 +1144,10 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
 
       Type *BrokenUpTy = nullptr;
       uint64_t NumInstances = 1;
+      DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
       bool SROAed = SROA_Helper::DoScalarReplacement(
         AI, Elts, BrokenUpTy, NumInstances, Builder,
-        /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts);
+        /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts, DT);
 
       if (SROAed) {
         Type *Ty = AI->getAllocatedType();
@@ -2268,8 +2220,8 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
         NewGEPs.emplace_back(NewGEP);
       }
       const bool bAllowReplace = isa<AllocaInst>(OldVal);
-      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, bAllowReplace)) {
-        SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL);
+      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, DT, bAllowReplace)) {
+        SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL, DT);
         helper.RewriteForScalarRepl(GEP, Builder);
         for (Value *NewGEP : NewGEPs) {
           if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
@@ -2923,7 +2875,7 @@ void SROA_Helper::RewriteForAddrSpaceCast(Value *CE,
                          CE->getType()->getPointerAddressSpace()));
     NewCasts.emplace_back(NewCast);
   }
-  SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL);
+  SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL, DT);
   helper.RewriteForScalarRepl(CE, Builder);
 
   // Remove the use so that the caller can keep iterating over its other users
@@ -3026,7 +2978,8 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                       IRBuilder<> &Builder, bool bFlatVector,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
-                                      SmallVector<Value *, 32> &DeadInsts) {
+                                      SmallVector<Value *, 32> &DeadInsts,
+                                      DominatorTree *DT) {
   DEBUG(dbgs() << "Found inst to SROA: " << *V << '\n');
   Type *Ty = V->getType();
   // Skip none pointer types.
@@ -3156,7 +3109,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   
   // Now that we have created the new alloca instructions, rewrite all the
   // uses of the old alloca.
-  SROA_Helper helper(V, Elts, DeadInsts, typeSys, DL);
+  SROA_Helper helper(V, Elts, DeadInsts, typeSys, DL, DT);
   helper.RewriteForScalarRepl(V, Builder);
 
   return true;
@@ -3219,7 +3172,8 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
                                       IRBuilder<> &Builder, bool bFlatVector,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
-                                      SmallVector<Value *, 32> &DeadInsts) {
+                                      SmallVector<Value *, 32> &DeadInsts,
+                                      DominatorTree *DT) {
   DEBUG(dbgs() << "Found inst to SROA: " << *GV << '\n');
   Type *Ty = GV->getType();
   // Skip none pointer types.
@@ -3368,7 +3322,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
   // Now that we have created the new alloca instructions, rewrite all the
   // uses of the old alloca.
-  SROA_Helper helper(GV, Elts, DeadInsts, typeSys, DL);
+  SROA_Helper helper(GV, Elts, DeadInsts, typeSys, DL, DT);
   helper.RewriteForScalarRepl(GV, Builder);
 
   return true;
@@ -3851,9 +3805,7 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   }
 }
 
-
-static bool DominateAllUsersPostDom(Instruction *I, Value *V,
-                                    PostDominatorTree &PDT) {
+static bool DominateAllUsersDom(Instruction *I, Value *V, DominatorTree *DT) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
@@ -3862,11 +3814,11 @@ static bool DominateAllUsersPostDom(Instruction *I, Value *V,
       continue;
     assert (UI->getParent()->getParent() == F);
 
-    if (!PDT.dominates(BB, UI->getParent()))
+    if (!DT->dominates(BB, UI->getParent()))
       return false;
 
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (!DominateAllUsersPostDom(I, UI, PDT))
+      if (!DominateAllUsersDom(I, UI, DT))
         return false;
     }
   }
@@ -3874,23 +3826,20 @@ static bool DominateAllUsersPostDom(Instruction *I, Value *V,
 }
 
 // Determine if `I` dominates all the users of `V`
-static bool DominateAllUsers(Instruction *I, Value *V) {
+static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   Function *F = I->getParent()->getParent();
 
   // The Entry Block dominates everything, trivially true
   if (&F->getEntryBlock() == I->getParent())
     return true;
 
-  // Post dominator tree.
-  PostDominatorTree PDT;
-  PDT.runOnFunction(*F);
-  return DominateAllUsersPostDom(I, V, PDT);
+  return DominateAllUsersDom(I, V, DT);
 }
 
 
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
-                              bool bAllowReplace) {
+                              DominatorTree *DT, bool bAllowReplace) {
   Type *Ty = V->getType();
   if (!Ty->isPointerTy()) {
     return false;
@@ -3927,12 +3876,12 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         PS.storedType = PointerStatus::StoredType::Stored;
       }
     }
-  } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
+  } else if (DT && PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
     // As above, it the memcpy doesn't dominate all its users,
     // full replacement isn't possible without complicated PHI insertion
     // This will likely replace with ld/st which will be replaced in mem2reg
     Instruction *Memcpy = PS.StoringMemcpy;
-    if (!DominateAllUsers(Memcpy, V)) {
+    if (!DominateAllUsers(Memcpy, V, DT)) {
       PS.storedType = PointerStatus::StoredType::Stored;
       // Replacing a memcpy with a memcpy with the same signature will just bring us back here
       bEltMemcpy = false;
@@ -4004,7 +3953,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL);
             // V still need to be flatten.
             // Lower memcpy come from Dest.
-            return LowerMemcpy(V, annotation, typeSys, DL, bAllowReplace);
+            return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
           }
         }
       }
@@ -4418,10 +4367,10 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
   while (!WorkList.empty()) {
     GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
     WorkList.pop_front();
-
     const bool bAllowReplace = true;
+    // Globals don't need DomTree here because they take another path
     if (SROA_Helper::LowerMemcpy(EltGV, /*annoation*/ nullptr, dxilTypeSys, DL,
-                                 bAllowReplace)) {
+                                 nullptr /*DT */, bAllowReplace)) {
       continue;
     }
 
@@ -4445,10 +4394,11 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       }
       EltGV = NewEltGV;
     } else {
+      // Globals don't need DomTree
       SROAed = SROA_Helper::DoScalarReplacement(
           EltGV, Elts, Builder, bFlatVector,
           // TODO: set precise.
-          /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts);
+          /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
     }
 
     if (SROAed) {
@@ -5244,8 +5194,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     // We can never replace memcpy for arguments because they have an implicit
     // first memcpy that happens from argument passing, and pointer analysis
     // will not reveal that, especially if we've done a first SROA pass on V.
+    // No DomTree needed for that reason
     const bool bAllowReplace = false;
-    SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
+    SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, nullptr /*DT */, bAllowReplace);
 
     // Now is safe to create the IRBuilders.
     // If we create it before LowerMemcpy, the insertion pointer instruction may get deleted
@@ -5259,10 +5210,11 @@ void SROA_Parameter_HLSL::flattenArgument(
     Type *BrokenUpTy = nullptr;
     uint64_t NumInstances = 1;
     if (inputQual != DxilParamInputQual::InPayload) {
+      // DomTree isn't used by arguments
       SROAed = SROA_Helper::DoScalarReplacement(
         V, Elts, BrokenUpTy, NumInstances, Builder, 
         /*bFlatVector*/ false, annotation.IsPrecise(),
-        dxilTypeSys, DL, DeadInsts);
+        dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
     }
 
     if (SROAed) {
