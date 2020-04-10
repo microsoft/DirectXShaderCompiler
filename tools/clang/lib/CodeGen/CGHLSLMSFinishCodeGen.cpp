@@ -18,6 +18,7 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -2581,7 +2582,7 @@ void AddDxBreak(Module &M, SmallVector<llvm::BranchInst*, 16> DxBreaks) {
 
   // Create the dx.break function
   FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
-  Function *func = cast<llvm::Function>(M.getOrInsertFunction(kDxBreakFuncName, FT));
+  Function *func = cast<llvm::Function>(M.getOrInsertFunction(DXIL::kDxBreakFuncName, FT));
   func->addFnAttr(Attribute::AttrKind::NoUnwind);
 
   for(llvm::BranchInst *BI : DxBreaks) {

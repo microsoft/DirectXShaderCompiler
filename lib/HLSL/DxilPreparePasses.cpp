@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -32,6 +33,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include <memory>
 #include <unordered_set>
@@ -53,9 +55,6 @@ public:
   bool runOnModule(Module &M) override;
 };
 }
-
-char *hlsl::kDxBreakFuncName = "dx.break";
-char *hlsl::kDxBreakCondName = "dx.break.cond";
 
 char InvalidateUndefResources::ID = 0;
 
@@ -633,7 +632,7 @@ private:
 
   // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
   void LowerDxBreak(Module &M) {
-    if (Function *BreakFunc = M.getFunction(kDxBreakFuncName)) {
+    if (Function *BreakFunc = M.getFunction(DXIL::kDxBreakFuncName)) {
       if (BreakFunc->getNumUses()) {
         llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
@@ -641,7 +640,7 @@ private:
         Constant *InitialValue = ConstantDataArray::get(M.getContext(), Values);
         Constant *GV = new GlobalVariable(M, i32ArrayTy, true,
                                           GlobalValue::InternalLinkage,
-                                          InitialValue, kDxBreakCondName);
+                                          InitialValue, DXIL::kDxBreakCondName);
 
         Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
         Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
@@ -1135,7 +1134,7 @@ public:
     // Only check ps and lib profile.
     Module *M = F.getEntryBlock().getModule();
 
-    Function *BreakFunc = M->getFunction(kDxBreakFuncName);
+    Function *BreakFunc = M->getFunction(DXIL::kDxBreakFuncName);
     if (!BreakFunc)
       return false;
 
