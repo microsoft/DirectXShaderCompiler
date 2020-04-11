@@ -182,23 +182,6 @@ static uint32_t GetStructOffset(
   if (IsInstrumentableFundamentalType(pElementType)) {
     return 0;
   }
-
-  //DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
-  //
-  //auto *pMemberIndex =
-  //    llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
-  //
-  //if (pMemberIndex == nullptr) {
-  //  return 0;
-  //}
-  //
-  //uint32_t MemberIndex = pMemberIndex->getLimitedValue();
-  //
-  //llvm::Type* pMemberType = pStructType->getContainedType(MemberIndex);
-  //
-  //if (pMemberType->isFloatTy() || pMemberType->isIntegerTy()) {
-  //  return MemberIndex;
-  //}
   else if (auto * pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType))
   {
     // 1D-array example:
@@ -264,7 +247,19 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
   if (auto *pGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(V)) {
     auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(pGEP->getPointerOperand());
     if (Alloca == nullptr) {
-      return false;
+      // In the case of vector types (floatN, matrixNxM), the pointer operand will actually
+      // point to another element pointer instruction. But this isn't a recursive thing-
+      // we only need to check these two levels.
+      if (auto* pPointerGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(pGEP->getPointerOperand())) {
+        Alloca = llvm::dyn_cast<llvm::AllocaInst>(pPointerGEP->getPointerOperand());
+        if (Alloca == nullptr) {
+          return false;
+        }
+      }
+      else
+      {
+        return false;
+      }
     }
 
 

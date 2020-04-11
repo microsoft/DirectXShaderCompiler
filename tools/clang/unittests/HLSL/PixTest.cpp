@@ -198,7 +198,8 @@ public:
   TEST_METHOD(PixStructAnnotation_1DArray)
   TEST_METHOD(PixStructAnnotation_2DArray)
   TEST_METHOD(PixStructAnnotation_EmbeddedArray)
-  TEST_METHOD(PixStructAnnotation_Embedded2DArray)
+  TEST_METHOD(PixStructAnnotation_FloatN)
+  TEST_METHOD(PixStructAnnotation_EmbeddedFloatN)
   TEST_METHOD(PixStructAnnotation_Matrix)
   TEST_METHOD(PixStructAnnotation_BigMess)
 
@@ -1806,7 +1807,23 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
             {
               ret.AllocaWrites.push_back({});
               auto& NewAllocaWrite = ret.AllocaWrites.back();
-              NewAllocaWrite.memberName = store->getPointerOperand()->getName();
+              llvm::Value* pMemberType = pGEP->getPointerOperand();
+              if (auto* pGEP2 = llvm::dyn_cast<llvm::GetElementPtrInst>(pMemberType))
+              {
+                auto *pMemberIndex = llvm::dyn_cast<llvm::ConstantInt>(
+                    pGEP2->getOperand(2));
+                uint64_t memberIndex = pMemberIndex->getLimitedValue();
+                // Until we have debugging info for floatN, matrixNxM etc., we can't get the name:
+                // auto *secondPointer = pGEP2->getPointerOperandType();
+                // auto* pStruct =
+                // llvm::dyn_cast<llvm::StructType>(secondPointer->getVectorElementType());
+                NewAllocaWrite.memberName =
+                    "member" + std::to_string(memberIndex);
+              }
+              else
+              {
+                NewAllocaWrite.memberName = pMemberType->getName();
+              }
               //std::string disasm;
               //llvm::raw_string_ostream stream(disasm);
               //static constexpr bool DontPrintType = false;
@@ -2043,37 +2060,19 @@ void main()
   ValidateAllocaWrite(Testables.AllocaWrites, 4, "after");
 }
 
-TEST_F(PixTest, PixStructAnnotation_Embedded2DArray) {
+TEST_F(PixTest, PixStructAnnotation_FloatN) {
   const char *hlsl = R"(
-
-struct EmbeddedStruct
-{
-    uint32_t OneInt;
-    uint32_t TwoDArray[2][2];
-};
-
 struct smallPayload
 {
-    uint dummy;
-    uint vertexCount;
-    uint primitiveCount;
-    EmbeddedStruct embeddedStruct;
-    uint64_t bigOne;
+    float2 f2;
 };
+
 
 [numthreads(1, 1, 1)]
 void main()
 {
     smallPayload p;
-    p.dummy = 42;
-    p.vertexCount = 3;
-    p.primitiveCount = 1;
-    p.embeddedStruct.OneInt = 123;
-    p.embeddedStruct.TwoDArray[0][0] = 252;
-    p.embeddedStruct.TwoDArray[0][1] = 253;
-    p.embeddedStruct.TwoDArray[1][0] = 254;
-    p.embeddedStruct.TwoDArray[1][1] = 255;
-    p.bigOne = 123456789;
+    p.f2 = float2(1,2);
     DispatchMesh(1, 1, 1, p);
 }
 )";
@@ -2081,20 +2080,51 @@ void main()
   auto Testables = TestStructAnnotationCase(hlsl);
 
   VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
-  VERIFY_ARE_EQUAL(9, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
   VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-  VERIFY_ARE_EQUAL(9 * 32, Testables.OffsetAndSizes[0].size);
+  VERIFY_ARE_EQUAL(32 + 32, Testables.OffsetAndSizes[0].size);
 
-  ValidateAllocaWrite(Testables.AllocaWrites, 0, "before");
-  ValidateAllocaWrite(Testables.AllocaWrites, 1, "shifter");
-  ValidateAllocaWrite(Testables.AllocaWrites, 2, "array");
-  ValidateAllocaWrite(Testables.AllocaWrites, 3, "array");
-  ValidateAllocaWrite(Testables.AllocaWrites, 4, "array");
-  ValidateAllocaWrite(Testables.AllocaWrites, 5, "array");
-  ValidateAllocaWrite(Testables.AllocaWrites, 6, "array");
-  ValidateAllocaWrite(Testables.AllocaWrites, 7, "array");
-  ValidateAllocaWrite(Testables.AllocaWrites, 8, "after");
+  VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "f2");
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "f2");
 }
+
+TEST_F(PixTest, PixStructAnnotation_EmbeddedFloatN) {
+  const char *hlsl = R"(
+
+struct Embedded
+{
+    float2 f2;
+};
+
+struct smallPayload
+{
+  uint32_t i32;
+  Embedded e;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.i32 = 32;
+    p.e.f2 = float2(1,2);
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  VERIFY_ARE_EQUAL(32 + 32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "dummy");
+}
+
 
 TEST_F(PixTest, PixStructAnnotation_BigMess) {
   const char *hlsl = R"(
