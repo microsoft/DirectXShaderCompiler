@@ -99,34 +99,6 @@ struct ValueInfo {
   }
 };
 
-typedef SmallDenseMap<Value*, ValueInfo, 16> ValueInfoMap;
-
-ValueInfo GetValueInfo(Value* V, ValueInfoMap &valueInfoMap) {
-  auto it = valueInfoMap.find(V);
-  if (it != valueInfoMap.end())
-    return it->second;
-
-  ValueInfo &VI = valueInfoMap[V];
-
-  if (Constant *C = dyn_cast<Constant>(V)) {
-    VI.isConstant = true;
-  } else if (CallInst *CI = dyn_cast<CallInst>(V)) {
-    if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
-      OpCode opcode = (OpCode)llvm::cast<llvm::ConstantInt>(CI->getOperand(0))->getZExtValue();
-      if (opcode == OpCode::CBufferLoad || opcode == OpCode::CBufferLoadLegacy)
-        VI.isCbuffer = true;
-    }
-  } else if (CmpInst *CMP = dyn_cast<CmpInst>(V)) {
-    VI = GetValueInfo(CMP->getOperand(0), valueInfoMap).Combine(
-         GetValueInfo(CMP->getOperand(1), valueInfoMap));
-  } else if (ExtractElementInst *EE = dyn_cast<ExtractElementInst>(V)) {
-    VI = GetValueInfo(EE->getVectorOperand(), valueInfoMap);
-  }
-  // TODO: fill out more as necessary
-
-  return VI;
-}
-
 /*<py>
 
 def tab_lines(text):

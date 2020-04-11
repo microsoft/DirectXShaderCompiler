@@ -16,6 +16,7 @@
 #define LLVM_LINKALLPASSES_H
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/CallPrinter.h"
 #include "llvm/Analysis/DomPrinter.h"
@@ -42,10 +43,6 @@
 namespace {
   struct ForcePassLinking {
     ForcePassLinking() {
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnull-dereference"
-#endif
       // We must reference the passes in such a way that compilers will not
       // delete it all as dead code, even with whole program optimization,
       // yet is effectively a NO-OP. As the compiler isn't smart enough
@@ -158,9 +155,13 @@ namespace {
       (void) llvm::createMetaRenamerPass();
       (void) llvm::createFunctionAttrsPass();
       (void) llvm::createMergeFunctionsPass();
-      (void) llvm::createPrintModulePass(*(llvm::raw_ostream*)nullptr);
-      (void) llvm::createPrintFunctionPass(*(llvm::raw_ostream*)nullptr);
-      (void) llvm::createPrintBasicBlockPass(*(llvm::raw_ostream*)nullptr);
+      // HLSL Change Begin - avoid casting nullptrs
+      std::string buf;
+      llvm::raw_string_ostream os(buf);
+      (void) llvm::createPrintModulePass(os);
+      (void) llvm::createPrintFunctionPass(os);
+      (void) llvm::createPrintBasicBlockPass(os);
+      // HLSL Change End - avoid casting nullptrs
       (void) llvm::createModuleDebugInfoPrinterPass();
       (void) llvm::createPartialInliningPass();
       (void) llvm::createLintPass();
@@ -184,16 +185,14 @@ namespace {
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolution();
-      ((llvm::Function*)nullptr)->viewCFGOnly();
-      llvm::RGPassManager RGM;
-      ((llvm::RegionPass*)nullptr)->runOnRegion((llvm::Region*)nullptr, RGM);
-      llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
+      // HLSL Change Begin - avoid casting nullptrs
+      llvm::Function::Create(nullptr, llvm::GlobalValue::ExternalLinkage)->viewCFGOnly();
+      llvm::AliasAnalysis AA;
+      llvm::AliasSetTracker X(AA);
+      // HLSL Change End - avoid casting nullptrs
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

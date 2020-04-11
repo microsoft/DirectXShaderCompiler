@@ -54,7 +54,11 @@ ShaderFlags::ShaderFlags():
 , m_bSamplerFeedback(false)
 , m_align0(0)
 , m_align1(0)
-{}
+{
+  // Silence unused field warnings
+  (void)m_align0;
+  (void)m_align1;
+}
 
 uint64_t ShaderFlags::GetFeatureInfo() const {
   uint64_t Flags = 0;

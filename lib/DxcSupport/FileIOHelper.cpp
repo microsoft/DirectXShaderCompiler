@@ -171,7 +171,7 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
   return codePage;
 }
 
-static bool IsSizeWcharAligned(SIZE_T size) { return (size & (sizeof(wchar_t) - 1)) == 0; }
+#define IsSizeWcharAligned(size) (((size) & (sizeof(wchar_t) - 1)) == 0)
 
 template<typename _char>
 bool IsUtfBufferNullTerminated(LPCVOID pBuffer, SIZE_T size) {

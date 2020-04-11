@@ -896,12 +896,6 @@ void DxcContext::Preprocess() {
   }
 }
 
-static void WriteString(HANDLE hFile, _In_z_ LPCSTR value, LPCWSTR pFileName) {
-  DWORD written;
-  if (FALSE == WriteFile(hFile, value, strlen(value) * sizeof(value[0]), &written, nullptr))
-    IFT_Data(HRESULT_FROM_WIN32(GetLastError()), pFileName);
-}
-
 void DxcContext::WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,
                              llvm::Twine &pVariableName, LPCWSTR pFileName) {
   // Use older interface for compatibility with older DLL.
