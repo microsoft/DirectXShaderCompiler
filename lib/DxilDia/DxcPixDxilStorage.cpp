@@ -122,8 +122,6 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::Index(
 
   DWORD IndexedTypeSizeInBits;
   IFR(IndexedType->GetSizeInBits(&IndexedTypeSizeInBits));
-  //DWORD IndexedTypeNumElements;
-  //IFR(IndexedType->GetNumElements(&IndexedTypeNumElements));
 
   const unsigned NewOffsetInBits =
       m_OffsetFromStorageStartInBits + Index * IndexedTypeSizeInBits;

@@ -1,7 +1,7 @@
 // RUN: %dxc -EFlowControlPS -Tps_6_0 %s -Od | %opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation | %FileCheck %s
 
 // Check for a branch to a new block for each case:
-// CHECK: br lab el %PIXDebug
+// CHECK: br label %PIXDebug
 // CHECK: br label %PIXDebug
 // CHECK: br label %PIXDebug
 

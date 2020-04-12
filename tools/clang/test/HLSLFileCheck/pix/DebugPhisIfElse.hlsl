@@ -1,7 +1,7 @@
 // RUN: %dxc -EFlowControlPS -Tps_6_0 %s -Od | %opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation | %FileCheck %s
 
 // Ensure that the pass added a block at the end of this if/else:
-// CHECK: br lab el %PIXDebug
+// CHECK: br label %PIXDebug
 // CHECK: br label %PIXDebug
 
 // Check that block 0 emits some debug info and returns where we expect:
