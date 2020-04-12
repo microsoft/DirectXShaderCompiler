@@ -245,15 +245,25 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
   *pIdx = nullptr;
 
   if (auto *pGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(V)) {
+    uint32_t precedingMemberCount = 0;
     auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(pGEP->getPointerOperand());
     if (Alloca == nullptr) {
       // In the case of vector types (floatN, matrixNxM), the pointer operand will actually
       // point to another element pointer instruction. But this isn't a recursive thing-
       // we only need to check these two levels.
       if (auto* pPointerGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(pGEP->getPointerOperand())) {
-        Alloca = llvm::dyn_cast<llvm::AllocaInst>(pPointerGEP->getPointerOperand());
+        Alloca =
+            llvm::dyn_cast<llvm::AllocaInst>(pPointerGEP->getPointerOperand());
         if (Alloca == nullptr) {
           return false;
+        }
+        // And of course the member we're after might not be at the beginning of the struct:
+        auto* pStructType  = llvm::dyn_cast<llvm::StructType>(pPointerGEP->getPointerOperandType()->getPointerElementType());
+        auto* pStructMember = llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
+        uint64_t memberIndex = pStructMember->getLimitedValue();
+        for(uint64_t i = 0; i < memberIndex; ++i)
+        {
+          precedingMemberCount += CountStructMembers(pStructType->getStructElementType(i));
         }
       }
       else
@@ -286,7 +296,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
       GEPOperandIndex,
       pStructType);
 
-    llvm::Value* IndexValue = B.getInt32(offset);
+    llvm::Value* IndexValue = B.getInt32(offset + precedingMemberCount);
 
     if (IndexValue != nullptr)
     {
@@ -295,54 +305,6 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
       return true;
     }
     return false;
-#if 0
-    while (GEPOperandIndex < pGEP->getNumOperands())
-    {
-      auto* pMemberIndex = llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
-
-      if (pMemberIndex == nullptr) {
-        return false;
-      }
-
-      uint32_t MemberIndex = pMemberIndex->getLimitedValue();
-
-      llvm::Type *pMemberType =
-          pStructType->getContainedType(MemberIndex);
-
-      if (pMemberType->isFloatTy() || pMemberType->isIntegerTy()) {
-        *pAI = Alloca;
-        *pIdx = B.getInt32(BaseMemberIndex + MemberIndex);
-        return true;
-      }
-
-      // The member is not a basic type, and is therefore an aggregate.
-      // It may also be an (n-dimensional) array
-
-      BaseMemberIndex += MemberIndex;
-      pStructType = pMemberType;
-
-      uint32_t arrayDimensionality = 1;
-
-      if (llvm::ArrayType* pAT = llvm::dyn_cast<llvm::ArrayType>(pStructType))
-      {
-        //todo: get array dimensionality
-        pAT->dump();
-
-        uint32_t arrayIndex = 0;
-        for (uint32_t arrayDimension = 0; arrayDimension < arrayDimensionality; ++arrayDimension)
-        {
-          auto* pArrayIndex =
-            llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
-          if (pArrayIndex == nullptr) {
-            return false;
-          }
-          arrayIndex = pArrayIndex->getLimitedValue();
-        }
-        BaseMemberIndex += arrayIndex;
-      }
-    }
-    return false;
-#endif
   }
 
   if (auto *pAlloca = llvm::dyn_cast<llvm::AllocaInst>(V)) {
@@ -393,12 +355,6 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
         DXASSERT(Offset < regSize,
                  "Structure member offset out of expected range");
         PixDxilReg::AddMD(m_DM->GetCtx(), pI, baseStructRegNum + Offset);
-        //if (OSOverride != nullptr) {
-        //  static constexpr bool DontPrintType = false;
-        //  pI->printAsOperand(*OSOverride, DontPrintType, *m_MST.get());
-        //  *OSOverride << " alloca " << baseStructRegNum << " " << Offset << "\n";
-        //}
-        //PrintSingleRegister(pI, baseStructRegNum + Offset);
       }
     }
   } else {
