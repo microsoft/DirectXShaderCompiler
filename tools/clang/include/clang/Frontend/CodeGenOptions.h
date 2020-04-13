@@ -195,6 +195,8 @@ public:
   unsigned HLSLValidatorMinorVer = 0;
   /// Define macros passed in from command line
   std::vector<std::string> HLSLDefines;
+  /// Precise output passed in from command line
+  std::vector<std::string> HLSLPreciseOutputs;
   /// Arguments passed in from command line
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
