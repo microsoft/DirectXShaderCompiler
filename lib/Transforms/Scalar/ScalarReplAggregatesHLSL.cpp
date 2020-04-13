@@ -3425,9 +3425,25 @@ static void CopyElementsOfStructsWithIdenticalLayout(
   }
 }
 
-static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
-                          DxilFieldAnnotation *annotation,
-                          DxilTypeSystem &typeSys, const DataLayout &DL) {
+static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
+
+
+static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
+                          DxilFieldAnnotation *annotation, DxilTypeSystem &typeSys,
+                          const DataLayout &DL, DominatorTree *DT) {
+  // If the only user of the src and dst is the memcpy,
+  // this memcpy was probably produced by splitting another.
+  // Regardless, the goal here is to replace, not remove the memcpy
+  // we won't have enough information to determine if we can do that before mem2reg
+  if (V != Src && V->hasOneUse() && Src->hasOneUse())
+    return false;
+
+  // If the memcpy doesn't dominate all its users,
+  // full replacement isn't possible without complicated PHI insertion
+  // This will likely replace with ld/st which will be replaced in mem2reg
+  if (Instruction *SrcI = dyn_cast<Instruction>(Src))
+    if (!DominateAllUsers(SrcI, V, DT))
+      return false;
   Type *TyV = V->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
@@ -3453,7 +3469,7 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
       Value* SrcVal = MC->getRawSource();
       if (!isa<BitCastInst>(SrcVal) || !isa<BitCastInst>(DestVal)) {
         DXASSERT(0, "Encountered unexpected instruction sequence");
-        return;
+        return false;
       }
 
       BitCastInst *DestBCI = cast<BitCastInst>(DestVal);
@@ -3468,7 +3484,7 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         unsigned MemcpySize = cast<ConstantInt>(MC->getLength())->getZExtValue();
         if (SrcSize != MemcpySize) {
           DXASSERT(0, "Cannot handle partial memcpy");
-          return;
+          return false;
         }
 
         if (DestBCI->hasOneUse() && SrcBCI->hasOneUse()) {
@@ -3486,13 +3502,13 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
           Value *SrcPtr = SrcBCI->getOperand(0);
           if (isa<GEPOperator>(DstPtr) || isa<GEPOperator>(SrcPtr)) {
             MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
-            return;
+            return true;
           } else {
             DstPtr->replaceAllUsesWith(SrcPtr);
           }
         } else {
           DXASSERT(0, "Can't handle structs of different layouts");
-          return;
+          return false;
         }
       }
     } else {
@@ -3521,6 +3537,8 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     if (I->user_empty())
       I->eraseFromParent();
   }
+
+  return true;
 }
 
 static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
@@ -3609,12 +3627,11 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
 
 static bool DominateAllUsersDom(Instruction *I, Value *V, DominatorTree *DT) {
   BasicBlock *BB = I->getParent();
-  Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
     Instruction *UI = dyn_cast<Instruction>(*(U++));
     if (!UI)
       continue;
-    assert (UI->getParent()->getParent() == F);
+    assert (UI->getParent()->getParent() == I->getParent()->getParent());
 
     if (!DT->dominates(BB, UI->getParent()))
       return false;
@@ -3638,7 +3655,6 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   return DominateAllUsersDom(I, V, DT);
 }
 
-
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3652,7 +3668,6 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   unsigned size = DL.getTypeAllocSize(Ty->getPointerElementType());
   hlutil::PointerStatus PS(V, size, /*bLdStOnly*/ false);
   const bool bStructElt = false;
-  bool bEltMemcpy = true;
   PS.analyze(typeSys, bStructElt);
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
@@ -3678,17 +3693,6 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
       } else {
         PS.storedType = hlutil::PointerStatus::StoredType::Stored;
       }
-    }
-  } else if (DT && PS.storedType ==
-             hlutil::PointerStatus::StoredType::MemcopyDestOnce) {
-    // As above, it the memcpy doesn't dominate all its users,
-    // full replacement isn't possible without complicated PHI insertion
-    // This will likely replace with ld/st which will be replaced in mem2reg
-    Instruction *Memcpy = PS.StoringMemcpy;
-    if (!DominateAllUsers(Memcpy, V, DT)) {
-      PS.storedType = hlutil::PointerStatus::StoredType::Stored;
-      // Replacing a memcpy with a memcpy with the same signature will just bring us back here
-      bEltMemcpy = false;
     }
   }
 
@@ -3719,8 +3723,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                   static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
               if (opcode == HLSubscriptOpcode::CBufferSubscript) {
                 // Ptr from CBuffer is safe.
-                ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL);
-                return true;
+                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
+                  return true;
               }
             }
           }
@@ -3731,8 +3735,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
           if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
-            ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL);
-            return true;
+            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
+              return true;
           }
         }
       }
@@ -3755,10 +3759,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
           DestPS.analyze(typeSys, bStructElt);
           if (DestPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
-            ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL);
-            // V still need to be flatten.
-            // Lower memcpy come from Dest.
-            return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+            if (ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL, DT)) {
+              // V still needs to be flattened.
+              // Lower memcpy come from Dest.
+              return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+            }
           }
         }
       }
@@ -3766,7 +3771,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   }
 
   for (MemCpyInst *MC : PS.memcpySet) {
-    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys, bEltMemcpy);
+    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
   }
   return false;
 }
