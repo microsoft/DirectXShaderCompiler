@@ -57,10 +57,8 @@ namespace {
 using namespace pix_dxil;
 
 static bool IsInstrumentableFundamentalType(llvm::Type *pAllocaTy) {
-  return 
-    pAllocaTy->isFloatTy() || pAllocaTy->isIntegerTy() ||
-    pAllocaTy->isHalfTy() || pAllocaTy->isIntegerTy(16) ||
-    pAllocaTy->isIntegerTy(64) || pAllocaTy->isDoubleTy();
+  return
+    pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy();
 }
 
 class DxilAnnotateWithVirtualRegister : public llvm::ModulePass {
@@ -127,12 +125,10 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    I.dump();
     AnnotateValues(&I);
   }
 
   for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
-    I.dump();
     AnnotateStore(&I);
   }
 
@@ -182,7 +178,7 @@ static uint32_t GetStructOffset(
   if (IsInstrumentableFundamentalType(pElementType)) {
     return 0;
   }
-  else if (auto * pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType))
+  else if (auto* pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType))
   {
     // 1D-array example:
     //
@@ -196,8 +192,8 @@ static uint32_t GetStructOffset(
     //  -The zeroth element in the struct (which is the array)
     //  -The zeroth element in that array
 
-    auto *pArrayIndex =
-        llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
+    auto* pArrayIndex =
+      llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
 
     if (pArrayIndex == nullptr) {
       return 0;
@@ -208,17 +204,17 @@ static uint32_t GetStructOffset(
     uint32_t MemberIndex = ArrayIndex * CountStructMembers(pArrayElementType);
     return MemberIndex + GetStructOffset(pGEP, GEPOperandIndex, pArrayElementType);
   }
-  else if (auto* pStruct = llvm::dyn_cast<llvm::StructType>(pElementType)) 
+  else if (auto* pStruct = llvm::dyn_cast<llvm::StructType>(pElementType))
   {
-     DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
-    
-     auto *pMemberIndex =
-        llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
-    
-     if (pMemberIndex == nullptr) {
+    DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
+
+    auto* pMemberIndex =
+      llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
+
+    if (pMemberIndex == nullptr) {
       return 0;
     }
-    
+
     uint32_t MemberIndex = pMemberIndex->getLimitedValue();
 
     uint32_t MemberOffset = 0;
@@ -228,7 +224,7 @@ static uint32_t GetStructOffset(
     }
 
     return MemberOffset +
-           GetStructOffset(pGEP, GEPOperandIndex, pStruct->getElementType(MemberIndex));
+      GetStructOffset(pGEP, GEPOperandIndex, pStruct->getElementType(MemberIndex));
   }
   else
   {
@@ -285,6 +281,7 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
         llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
     DXASSERT(pBaseArrayIndex != nullptr, "null base array index pointer");
     DXASSERT(pBaseArrayIndex->getLimitedValue() == 0, "unexpected >0 array index");
+    pBaseArrayIndex;
 
     // From here on, the indices always come in groups: first, the type 
     // referenced in the current struct. If that type is an (n-dimensional)

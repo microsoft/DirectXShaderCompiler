@@ -609,7 +609,6 @@ public:
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlobEncoding> pSource;
-    CComPtr<IDxcBlob> pProgram;
 
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     CreateBlobFromText(hlsl, &pSource);
@@ -626,6 +625,37 @@ public:
       CA2W errorTextW(static_cast<const char*>(pErrros->GetBufferPointer()), CP_UTF8);
       WEX::Logging::Log::Error(errorTextW);
     }
+
+#if 0 //handy for debugging
+    {
+      CComPtr<IDxcBlob> pProgram;
+      CheckOperationSucceeded(pResult, &pProgram);
+
+      CComPtr<IDxcLibrary> pLib;
+      VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+      const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
+          pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+      VERIFY_IS_NOT_NULL(pContainer);
+      hlsl::DxilPartIterator partIter =
+          std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
+                       hlsl::DxilPartIsType(hlsl::DFCC_ShaderDebugInfoDXIL));
+      const hlsl::DxilProgramHeader *pProgramHeader =
+          (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
+      uint32_t bitcodeLength;
+      const char *pBitcode;
+      CComPtr<IDxcBlob> pProgramPdb;
+      hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
+      VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
+          pProgram, pBitcode - (char *)pProgram->GetBufferPointer(),
+          bitcodeLength, &pProgramPdb));
+
+      CComPtr<IDxcBlobEncoding> pDbgDisassembly;
+      VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgramPdb, &pDbgDisassembly));
+      std::string disText = BlobToUtf8(pDbgDisassembly);
+      CA2W disTextW(disText.c_str(), CP_UTF8);
+      WEX::Logging::Log::Comment(disTextW);
+    }
+#endif
 
     return pResult;
   }
@@ -1837,8 +1867,10 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
 void PixTest::ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
                                   size_t index, const char *name) {
   VERIFY_ARE_EQUAL(index, allocaWrites[index].index);
+#if DBG
   // Compilation may add a prefix to the struct member name:
   VERIFY_IS_TRUE(0 == strncmp(name, allocaWrites[index].memberName.c_str(), strlen(name)));
+#endif
 }
 
 
@@ -1863,7 +1895,7 @@ void main()
 
   VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
   VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
-  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);  
   VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
 
   VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
@@ -1874,6 +1906,7 @@ TEST_F(PixTest, PixStructAnnotation_MixedSizes) {
   const char *hlsl = R"(
 struct smallPayload
 {
+    bool b1;
     uint16_t sixteen;
     uint32_t thirtytwo;
     uint64_t sixtyfour;
@@ -1884,6 +1917,7 @@ struct smallPayload
 void main()
 {
     smallPayload p;
+    p.b1 = true;
     p.sixteen = 16;
     p.thirtytwo = 32;
     p.sixtyfour = 64;
@@ -1894,14 +1928,15 @@ void main()
   auto Testables = TestStructAnnotationCase(hlsl);
 
   VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
-  VERIFY_ARE_EQUAL(3, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
   VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-  VERIFY_ARE_EQUAL(64+32+16, Testables.OffsetAndSizes[0].size);
+  VERIFY_ARE_EQUAL(32+64+32+16, Testables.OffsetAndSizes[0].size);
 
-  VERIFY_ARE_EQUAL(3, Testables.AllocaWrites.size());
-  ValidateAllocaWrite(Testables.AllocaWrites, 0, "sixteen");
-  ValidateAllocaWrite(Testables.AllocaWrites, 1, "thirtytwo");
-  ValidateAllocaWrite(Testables.AllocaWrites, 2, "sixtyfour");
+  VERIFY_ARE_EQUAL(4, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "b1");
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "sixteen");
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "thirtytwo");
+  ValidateAllocaWrite(Testables.AllocaWrites, 3, "sixtyfour");
 }
 
 TEST_F(PixTest, PixStructAnnotation_StructWithinStruct) {
