@@ -2571,10 +2571,14 @@ void FinishIntrinsics(
   AddOpcodeParamForIntrinsics(HLM, intrinsicMap, valToResPropertiesMap);
 }
 
+// Add the dx.break temporary intrinsic and create Call Instructions
+// to it for each branch that requires the artificial conditional.
 void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
   if (DxBreaks.empty())
     return;
 
+  // Collect functions that make use of any wave operations
+  // Only they will need the dx.break condition added
   SmallPtrSet<Function *, 16> WaveUsers;
   for (Function &F : M.functions()) {
     HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&F);
@@ -2587,11 +2591,18 @@ void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
     }
   }
 
+  // If there are no wave users, not even the function declaration is needed
+  if (WaveUsers.empty())
+    return;
+
   // Create the dx.break function
   FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
   Function *func = cast<llvm::Function>(M.getOrInsertFunction(DXIL::kDxBreakFuncName, FT));
   func->addFnAttr(Attribute::AttrKind::NoUnwind);
 
+  // For all break branches recorded previously, if the function they are in makes
+  // any use of a wave op, it may need to be artificially conditional. Make it so now.
+  // The CleanupDxBreak pass will remove those that aren't needed when more is known.
   for(llvm::BranchInst *BI : DxBreaks) {
     if (WaveUsers.count(BI->getParent()->getParent())) {
       CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
