@@ -63,13 +63,6 @@ static const bool KeepUndefinedTrue = true; // Keep interpolation mode undefined
 
 namespace {
 
-std::string toLower(const std::string &s) {
-  std::string o = s;
-  std::transform(o.begin(), o.end(), o.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return o;
-}
-
 class CGMSHLSLRuntime : public CGHLSLRuntime {
 
 private:
@@ -353,7 +346,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
 
   // Precise Output.
   for (auto &preciseOutput : CGM.getCodeGenOpts().HLSLPreciseOutputs) {
-    m_PreciseOutputSet.insert(toLower(preciseOutput));
+    m_PreciseOutputSet.insert(StringRef(preciseOutput).lower());
   }
 
   // Set Option.
@@ -478,7 +471,7 @@ CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
     if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
       const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
       paramInfo.SetSemanticString(sd->SemanticName);
-      if (m_PreciseOutputSet.count(toLower(sd->SemanticName)))
+      if (m_PreciseOutputSet.count(StringRef(sd->SemanticName).lower()))
         paramInfo.SetPrecise();
       return it->Loc;
     }
@@ -984,7 +977,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     if (!fieldSemName.empty()) {
       fieldAnnotation.SetSemanticString(fieldSemName);
 
-      if (m_PreciseOutputSet.count(toLower(fieldSemName)))
+      if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
         fieldAnnotation.SetPrecise();
     }
   }
