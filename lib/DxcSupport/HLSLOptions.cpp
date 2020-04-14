@@ -385,6 +385,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   DXASSERT(opts.ExternalLib.empty() == opts.ExternalFn.empty(),
            "else flow above is incorrect");
 
+  opts.PreciseOutputs = Args.getAllArgValues(OPT_precise_output);
+
   // when no-warnings option is present, do not output warnings.
   opts.OutputWarnings = Args.hasFlag(OPT_INVALID, OPT_no_warnings, true);
   opts.EntryPoint = Args.getLastArgValue(OPT_entrypoint);

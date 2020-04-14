@@ -1113,6 +1113,7 @@ public:
     compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad = Opts.NotUseLegacyCBufLoad;
     compiler.getCodeGenOpts().HLSLLegacyResourceReservation = Opts.LegacyResourceReservation;
     compiler.getCodeGenOpts().HLSLDefines = defines;
+    compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
 
     // Translate signature packing options
