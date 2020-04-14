@@ -1,5 +1,8 @@
 // RUN: %dxc -E main -T vs_6_0 -precise-output d1 -precise-output SV_Position %s | FileCheck %s
 
+// Make sure get ir.
+// CHECK:@main
+// Make sure precise removed fast.
 // CHECK-NOT:fast
 
 struct T {
