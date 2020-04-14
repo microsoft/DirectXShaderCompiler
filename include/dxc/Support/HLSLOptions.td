@@ -255,6 +255,8 @@ def export_shaders_only : Flag<["-", "/"], "export-shaders-only">, Group<hlslcom
   HelpText<"Only export shaders when compiling a library">;
 def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
+def precise_output : Separate<["-", "/"], "precise-output">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+    HelpText<"Mark output semantic as precise">;
 def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
   HelpText<"Set default encoding for text outputs (utf8|utf16) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,

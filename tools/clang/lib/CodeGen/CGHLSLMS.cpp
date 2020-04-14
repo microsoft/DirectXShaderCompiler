@@ -27,6 +27,7 @@
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Constants.h"
@@ -208,6 +209,7 @@ private:
                                           bool bDefaultRowMajor);
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
+  StringSet<> m_PreciseOutputSet;
 
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
@@ -342,6 +344,11 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   const bool skipInit = true;
   m_pHLModule = &TheModule.GetOrCreateHLModule(skipInit);
 
+  // Precise Output.
+  for (auto &preciseOutput : CGM.getCodeGenOpts().HLSLPreciseOutputs) {
+    m_PreciseOutputSet.insert(StringRef(preciseOutput).lower());
+  }
+
   // Set Option.
   HLOptions opts;
   opts.bIEEEStrict = CGM.getCodeGenOpts().UnsafeFPMath;
@@ -464,6 +471,8 @@ CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
     if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
       const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
       paramInfo.SetSemanticString(sd->SemanticName);
+      if (m_PreciseOutputSet.count(StringRef(sd->SemanticName).lower()))
+        paramInfo.SetPrecise();
       return it->Loc;
     }
   }
@@ -965,8 +974,12 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
     fieldAnnotation.SetCBufferOffset(CBufferOffset);
     fieldAnnotation.SetFieldName(fieldDecl->getName());
-    if (!fieldSemName.empty())
+    if (!fieldSemName.empty()) {
       fieldAnnotation.SetSemanticString(fieldSemName);
+
+      if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
+        fieldAnnotation.SetPrecise();
+    }
   }
 
   annotation->SetCBufferSize(offset);
