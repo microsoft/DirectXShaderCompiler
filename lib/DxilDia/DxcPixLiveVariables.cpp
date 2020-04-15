@@ -157,10 +157,15 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
         FragmentIndex,
         FragmentOffsetInBits);
 
-    ValidateDbgDeclare(
+    // SROA can split structs so that multiple allocas back the same variable.
+    // In this case the expression will be empty
+    if (Expression->getNumElements() != 0)
+    {
+      ValidateDbgDeclare(
         VarInfo,
         FragmentSizeInBits,
         FragmentOffsetInBits);
+    }
   }
 }
 

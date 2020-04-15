@@ -93,7 +93,11 @@ InitialOffsetInBitsFromDIExpression(const llvm::DataLayout &DataLayout,
                                     llvm::DIExpression *Expression) {
   unsigned FragmentOffsetInBits = 0;
   if (Expression->getNumElements() > 0) {
-    if (!Expression->isBitPiece()) {
+    if (Expression->getNumElements() == 1 &&
+      Expression->expr_op_begin()->getOp() == llvm::dwarf::DW_OP_deref) {
+      return 0;
+    }
+    else if (!Expression->isBitPiece()) {
       assert(!"Unhandled DIExpression");
       throw hlsl::Exception(E_FAIL, "Unhandled DIExpression");
     }
@@ -225,11 +229,6 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
     else
     {
       unsigned offset = m_fragmentLocations.back().Offset + m_fragmentLocations.back().Size;
-      //unsigned align = static_cast<unsigned>(type->getAlignInBits());
-      //if (align != 0)
-      //{
-      //  offset = ((offset + align - 1) / align) * align;
-      //}
       m_fragmentLocations.push_back({ size, offset });
     }
   };
@@ -280,16 +279,12 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
   {
     const llvm::DITypeIdentifierMap EmptyMap;
     llvm::DIType *BT = DT->getBaseType().resolve(EmptyMap);
-    switch (DT->getTag())
-    {
-    default:
-      DetermineStructMemberSizesAndOffsets(BT);
-      break;
-    case llvm::dwarf::DW_TAG_const_type:
-    case llvm::dwarf::DW_TAG_typedef: 
-      AddANewFragment(BT);
-      break;
-    }
+    DetermineStructMemberSizesAndOffsets(BT);
+  }
+  else
+  {
+    assert(!"Unhandled DIType");
+    throw hlsl::Exception(E_FAIL, "Unhandled DIType");
   }
 }
 
@@ -339,7 +334,7 @@ dxil_debug_info::CreateMemberIterator(llvm::DbgDeclareInst *DbgDeclare,
     } else {
       llvm::DICompositeType *CT = llvm::dyn_cast<llvm::DICompositeType>(
           DbgDeclare->getVariable()->getType());
-      if (CT != nullptr) {
+      if (CT != nullptr && Expression->getNumElements() == 0) {
         Iter.reset(new CompositeTypeFragmentIterator(CT));
       } else {
         Iter.reset(

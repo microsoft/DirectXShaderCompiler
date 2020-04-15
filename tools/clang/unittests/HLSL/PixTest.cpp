@@ -193,12 +193,14 @@ public:
   TEST_METHOD(PixDebugCompileInfo)
 
   TEST_METHOD(PixStructAnnotation_Simple)
+  TEST_METHOD(PixStructAnnotation_CopiedStruct)
   TEST_METHOD(PixStructAnnotation_MixedSizes)
   TEST_METHOD(PixStructAnnotation_StructWithinStruct)
   TEST_METHOD(PixStructAnnotation_1DArray)
   TEST_METHOD(PixStructAnnotation_2DArray)
   TEST_METHOD(PixStructAnnotation_EmbeddedArray)
   TEST_METHOD(PixStructAnnotation_FloatN)
+  TEST_METHOD(PixStructAnnotation_SequentialFloatN)
   TEST_METHOD(PixStructAnnotation_EmbeddedFloatN)
   TEST_METHOD(PixStructAnnotation_Matrix)
   TEST_METHOD(PixStructAnnotation_BigMess)
@@ -1794,9 +1796,29 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
         // Use this independent count of number of struct members to test the 
         // function that operates on the alloca type:
         llvm::Type *pAllocaTy = AddressAsAlloca->getType()->getElementType();
-        auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy);
-        uint32_t countOfMembers = CountStructMembers(ST);
-        VERIFY_ARE_EQUAL(countOfMembers, memberIndex);
+        if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy))
+        {
+          // This is the case where a struct is passed to a function, and in 
+          // these tests there should be only one struct behind the pointer.
+          VERIFY_ARE_EQUAL(AT->getNumElements(), 1);
+          pAllocaTy = AT->getArrayElementType();
+        }
+
+        if (auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy))
+        {
+          uint32_t countOfMembers = CountStructMembers(ST);
+          VERIFY_ARE_EQUAL(countOfMembers, memberIndex);
+        }
+        else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
+        {
+          // If there's only one member in the struct in the pass-to-function (by pointer)
+          // case, then the underlying type will have been reduced to the contained type.
+          VERIFY_ARE_EQUAL(1, memberIndex);
+        }
+        else
+        {
+          VERIFY_IS_TRUE(false);
+        }
       }
     }
   }
@@ -1900,6 +1922,37 @@ void main()
 
   VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
   ValidateAllocaWrite(Testables.AllocaWrites, 0, "dummy");
+}
+
+
+TEST_F(PixTest, PixStructAnnotation_CopiedStruct) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    uint dummy;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.dummy = 42;
+    smallPayload p2 = p;
+    DispatchMesh(1, 1, 1, p2);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);  
+  VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+  // The values in the copy don't have stable names:
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "");
 }
 
 TEST_F(PixTest, PixStructAnnotation_MixedSizes) {
@@ -2108,6 +2161,44 @@ void main()
   ValidateAllocaWrite(Testables.AllocaWrites, 1, "member1"); // "memberN" until dbg.declare works
 }
 
+
+TEST_F(PixTest, PixStructAnnotation_SequentialFloatN) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    float3 color;
+    float3 dir;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.color = float3(1,2,3);
+    p.dir = float3(4,5,6);
+
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  // Can't test this until dbg.declare instructions are emitted when structs contain pointers-to-pointers
+  // VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  // VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
+  // VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  // VERIFY_ARE_EQUAL(32 + 32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(6, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "member0"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "member1"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "member2"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 3, "member0"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 4, "member1"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 5, "member2"); // "memberN" until dbg.declare works
+}
+
 TEST_F(PixTest, PixStructAnnotation_EmbeddedFloatN) {
   const char *hlsl = R"(
 
@@ -2205,6 +2296,7 @@ struct smallPayload
     BigStruct bigStruct[2];
     uint lastCheck;
 };
+
 
 [numthreads(1, 1, 1)]
 void main()
