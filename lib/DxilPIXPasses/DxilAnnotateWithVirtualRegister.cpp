@@ -347,11 +347,14 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
       if (pix_dxil::PixAllocaReg::FromInst(StructAlloca, &baseStructRegNum, & regSize)) {
         llvm::ConstantInt *OffsetAsInt =
             llvm::dyn_cast<llvm::ConstantInt>(GEP->getOperand(2));
-        std::uint32_t Offset = static_cast<std::uint32_t>(
+        if (OffsetAsInt != nullptr)
+        {
+          std::uint32_t Offset = static_cast<std::uint32_t>(
             OffsetAsInt->getValue().getLimitedValue());
-        DXASSERT(Offset < regSize,
-                 "Structure member offset out of expected range");
-        PixDxilReg::AddMD(m_DM->GetCtx(), pI, baseStructRegNum + Offset);
+          DXASSERT(Offset < regSize,
+            "Structure member offset out of expected range");
+          PixDxilReg::AddMD(m_DM->GetCtx(), pI, baseStructRegNum + Offset);
+        }
       }
     }
   } else {
