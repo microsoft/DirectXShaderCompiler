@@ -18,6 +18,7 @@
 
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
+#include "DxcPixBase.h"
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetLiveVariablesAt(
   _In_ DWORD InstructionOffset,
@@ -112,4 +113,35 @@ llvm::Instruction* dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
   }
 
   return const_cast<llvm::Instruction *>(it->second);
+}
+
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilDebugInfo::InstructionOffsetsFromSourceLocation(
+    _In_ const wchar_t *FileName, _In_ DWORD SourceLine,
+    _In_ DWORD SourceColumn,
+    _COM_Outptr_ IDxcPixDxilInstructionOffsets **ppOffsets) 
+{
+  return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
+      dxil_debug_info::DxcPixDxilInstructionOffsets>(
+      ppOffsets, m_pMalloc, m_pSession, FileName, SourceLine, SourceColumn);
+}
+
+dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
+  IMalloc *pMalloc,
+  dxil_dia::Session *pSession,
+  const wchar_t *FileName,
+  DWORD SourceLine,
+  DWORD SourceColumn) 
+{
+
+}
+
+DWORD dxil_debug_info::DxcPixDxilInstructionOffsets::GetCount()
+{
+  return 0;
+}
+
+DWORD dxil_debug_info::DxcPixDxilInstructionOffsets::GetOffsetByIndex(DWORD Index) 
+{
+  return 0;
 }
