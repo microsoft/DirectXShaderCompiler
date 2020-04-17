@@ -26,6 +26,7 @@ struct S6 {
   bool1 value;
 };
 
+[numthreads(1,1,1)]
 void main() {
   int1 vi;
   float1 vf;

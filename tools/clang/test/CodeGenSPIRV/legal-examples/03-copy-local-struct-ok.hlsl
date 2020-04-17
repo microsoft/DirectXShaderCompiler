@@ -20,6 +20,7 @@ int i;
 StructuredBuffer<S> gSBuffer;
 RWStructuredBuffer<S> gRWSBuffer;
 
+[numthreads(1,1,1)]
 void main() {
   CombinedBuffers cb;
   cb.SBuffer = gSBuffer;

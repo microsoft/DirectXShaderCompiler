@@ -14,6 +14,7 @@ RWStructuredBuffer<S> gRWSBuffer;
 
 static RWStructuredBuffer<S> sRWSBuffer = gRWSBuffer;
 
+[numthreads(1,1,1)]
 void main() {
   sRWSBuffer[i].f = 0.0;
 }
