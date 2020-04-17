@@ -618,13 +618,13 @@ QualType GetHLSLResourceResultType(QualType type) {
 
   if (const ClassTemplateSpecializationDecl *templateDecl =
     dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
-    
+
     if (RD->getName().startswith("FeedbackTexture")) {
       // Feedback textures are write-only and the data is opaque,
       // so there is no result type per se.
       return {};
     }
-    
+
     // Type-templated resource types
 
     // Prefer getting the template argument from the TemplateSpecializationType sugar,

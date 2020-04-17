@@ -908,6 +908,9 @@ bool isOpaqueType(QualType type) {
 
     if (name == "RaytracingAccelerationStructure")
       return true;
+
+    if (name == "RayQuery")
+      return true;
   }
   return false;
 }
