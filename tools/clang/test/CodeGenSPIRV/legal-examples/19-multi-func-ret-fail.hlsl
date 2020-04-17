@@ -21,6 +21,7 @@ RWStructuredBuffer<S> foo(int l) {
   }
 }
 
+[numthreads(1,1,1)]
 void main() {
   RWStructuredBuffer<S> lRWSBuffer = foo(i);
   lRWSBuffer[i] = gSBuffer[i];
