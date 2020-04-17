@@ -19,6 +19,7 @@
 #include "dxc/Support/microcom.h"
 
 #include <memory>
+#include <vector>
 
 namespace dxil_dia
 {
@@ -103,6 +104,8 @@ private:
     const wchar_t *FileName,
     DWORD SourceLine,
     DWORD SourceColumn);
+
+  std::vector<DWORD> m_offsets;
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
