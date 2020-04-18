@@ -331,6 +331,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilInsertPreservesPass()); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
+      MPM.add(createHLLegalizeParameter()); // HLSL Change - legalize parameters
+                                            // before inline.
       MPM.add(Inliner);
       Inliner = nullptr;
     }
@@ -375,6 +377,8 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   // HLSL Change Begins
+
+  MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
   MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/false));
   if (Inliner) {
     delete Inliner;
