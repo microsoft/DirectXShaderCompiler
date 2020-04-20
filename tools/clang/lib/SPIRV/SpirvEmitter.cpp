@@ -1240,10 +1240,12 @@ void SpirvEmitter::doImplicitDecl(const Decl *decl) {
   // We only handle specific implicit declaration for raytracing
   // which are RayFlag/HitKind constant unsigned integers
   // Ignore others
-  const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
-  if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
-                    implDecl->getName().startswith(StringRef("HIT_KIND")))) {
-    (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
+  if (spvContext.isLib() || spvContext.isRay()) {
+    const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
+    if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
+                      implDecl->getName().startswith(StringRef("HIT_KIND")))) {
+      (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
+    }
   }
 }
 
@@ -1356,7 +1358,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
     }
     // Function local variables. Just emit OpStore at the current insert point.
-    else if (const Expr *init = decl->getInit())  {
+    else if (const Expr *init = decl->getInit()) {
       if (auto *constInit = tryToEvaluateAsConst(init)) {
         spvBuilder.createStore(var, constInit, decl->getLocation());
       } else {
@@ -5152,7 +5154,7 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // let SPIRV-Tools opt to do the legalization work.
     //
     // Note: legalization specific code
-    if(hlsl::IsHLSLRayQueryType(lhsValType)) {
+    if (hlsl::IsHLSLRayQueryType(lhsValType)) {
       emitError("store value of type %0 is unsupported", {}) << lhsValType;
       return;
     }
@@ -11321,7 +11323,7 @@ void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
 }
 
 SpirvInstruction *
-SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr){
+SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
   const auto object = expr->getImplicitObjectArgument();
   uint32_t templateFlags = hlsl::GetHLSLResourceTemplateUInt(object->getType());
   const auto constFlags = spvBuilder.getConstantInt(
@@ -11343,9 +11345,6 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr){
   //      uint InstanceInclusionMask,
   //      RayDesc Ray);
 
-
-
-
   // void OpRayQueryInitializeKHR ( <id> RayQuery,
   //                               <id> Acceleration Structure
   //                               <id> RayFlags
@@ -11356,7 +11355,14 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr){
   //                               <id> Ray Tmax)
 
   const auto accelStructure = doExpr(args[0]);
-  auto rayFlags = doExpr(args[1]);
+  SpirvInstruction *rayFlags = nullptr;
+
+  if (rayFlags = tryToEvaluateAsConst(args[1])) {
+    rayFlags->setRValue();
+  } else {
+    rayFlags = doExpr(args[1]);
+  }
+
   if(auto constFlags = dyn_cast<SpirvConstantInteger>(rayFlags)) {
     auto interRayFlags = constFlags->getValue().getZExtValue();
     templateFlags |= interRayFlags;
@@ -11418,7 +11424,7 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   spv::Op spvCode = spv::Op::Max;
   QualType exprType = expr->getType();
 
-  exprType = exprType->isVoidType()? QualType() : exprType;
+  exprType = exprType->isVoidType() ? QualType() : exprType;
 
   const auto candidateIntersection = spvBuilder.getConstantInt(
     astContext.UnsignedIntTy, llvm::APInt(32, 0));
@@ -11429,7 +11435,7 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   bool logicalNot = false;
 
   using namespace hlsl;
-  switch(opcode) {
+  switch (opcode) {
     case IntrinsicOp::MOP_Proceed:
       spvCode = spv::Op::OpRayQueryProceedKHR;
       break;
