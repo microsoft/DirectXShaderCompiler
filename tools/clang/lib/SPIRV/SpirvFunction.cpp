@@ -23,7 +23,7 @@ SpirvFunction::SpirvFunction(QualType returnType,
       astParamTypes(paramTypes.begin(), paramTypes.end()), returnType(nullptr),
       fnType(nullptr), relaxedPrecision(false), precise(isPrecise),
       containsAlias(false), rvalue(false), functionLoc(loc), functionName(name),
-      debugScope(nullptr) {}
+      isWrapperOfEntry(false), debugScope(nullptr) {}
 
 bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))

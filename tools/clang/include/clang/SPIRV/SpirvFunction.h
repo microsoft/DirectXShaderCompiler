@@ -99,6 +99,9 @@ public:
   SpirvDebugScope *getDebugScope() const { return debugScope; }
   void setDebugScope(SpirvDebugScope *scope) { debugScope = scope; }
 
+  bool isEntryFunctionWrapper() const { return isWrapperOfEntry; }
+  void setEntryFunctionWrapper() { isWrapperOfEntry = true; }
+
   /// Returns true if this is a member function of a struct or class.
   bool isMemberFunction() const {
     if (parameters.empty())
@@ -142,7 +145,10 @@ private:
   /// Basic blocks inside this function.
   std::vector<SpirvBasicBlock *> basicBlocks;
 
-  /// DebugScope that groups all instructions in this basic block.
+  /// True if it is a wrapper function for an entry point function.
+  bool isWrapperOfEntry;
+
+  /// DebugScope that groups all instructions in this function.
   SpirvDebugScope *debugScope;
 };
 

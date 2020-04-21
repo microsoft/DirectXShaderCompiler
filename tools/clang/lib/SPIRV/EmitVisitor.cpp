@@ -152,7 +152,11 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
 
 void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
                                 std::vector<uint32_t> *section) {
-  assert(section);
+  // Technically entry function wrappers do not exist in HLSL. They
+  // are just created by DXC. We do not want to emit line information
+  // for their instructions.
+  if (inEntryFunctionWrapper)
+    return;
 
   // Based on SPIR-V spec, OpSelectionMerge must immediately precede either an
   // OpBranchConditional or OpSwitch instruction. Similarly OpLoopMerge must
@@ -166,6 +170,13 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
     lastOpWasMergeInst = true;
 
   if (!isOpLineLegalForOp(op))
+    return;
+
+  // DebugGlobalVariable and DebugLocalVariable of OpenCL.DebugInfo.100 already
+  // has the line and the column information. We do not want to emit OpLine
+  // for global variables and local variables. Instead, we want to emit OpLine
+  // for their initialization if exists.
+  if (op == spv::Op::OpVariable)
     return;
 
   if (!spvOptions.debugInfoLine)
@@ -190,6 +201,8 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
 
   if (line == debugLine && column == debugColumn)
     return;
+
+  assert(section);
 
   // We must update these two values to emit the next Opline.
   debugLine = line;
@@ -295,6 +308,9 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     const uint32_t returnTypeId = typeHandler.emitType(fn->getReturnType());
     const uint32_t functionTypeId = typeHandler.emitType(fn->getFunctionType());
 
+    if (fn->isEntryFunctionWrapper())
+      inEntryFunctionWrapper = true;
+
     // Emit OpFunction
     initInstruction(spv::Op::OpFunction, fn->getSourceLocation());
     curInst.push_back(returnTypeId);
@@ -316,6 +332,7 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     // Emit OpFunctionEnd
     initInstruction(spv::Op::OpFunctionEnd, /* SourceLocation */ {});
     finalizeInstruction(&mainBinary);
+    inEntryFunctionWrapper = false;
   }
 
   return true;
@@ -1152,6 +1169,12 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugScope *inst) {
+  // Technically entry function wrappers do not exist in HLSL. They
+  // are just created by DXC. We do not want to emit DebugScope for
+  // it.
+  if (inEntryFunctionWrapper)
+    return true;
+
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));

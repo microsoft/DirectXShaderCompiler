@@ -1438,6 +1438,9 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
 
+    // TODO: if no initializer exists, just emit DebugDeclare for OpVariable.
+    // If initializer exists and use OpStore, emit DebugDeclare for OpStore.
+    // If OpFunctionParameter exists, emit DebugValue for OpFunctionParameter.
     if (isFileScopeVar)
       var = declIdMapper.createFileVar(decl, llvm::None);
     else
@@ -10741,6 +10744,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   entryFunction =
       spvBuilder.beginFunction(astContext.VoidTy, /* param QualTypes */ {},
                                decl->getLocStart(), decl->getName());
+
+  // Specify that entryFunction is an entry function wrapper.
+  entryFunction->setEntryFunctionWrapper();
+
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 
