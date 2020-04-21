@@ -1749,11 +1749,11 @@ class db_dxil(object):
 
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 218, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 218, "218 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
-        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,TextureGather,TextureGatherCmp".split(","):
+        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
             self.name_idx[i].is_gradient = True
         for i in "DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
             assert self.name_idx[i].is_gradient == True, "all derivatives are marked as requiring gradients"
