@@ -13,7 +13,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
-
+#include "dxc/HLSL/HLUtil.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 
 #include "llvm/IR/IntrinsicInst.h"
@@ -40,110 +40,6 @@ using namespace hlsl;
 
 namespace {
 
-struct PointerStatus {
-  /// Keep if the pointer has be stored/loaded.
-  bool  hasStore;
-  bool  hasLoad;
-  /// Look at all uses of the global and fill in the GlobalStatus structure.  If
-  /// the global has its address taken, return true to indicate we can't do
-  /// anything with it.
-  static void analyzePointer(const Value *V, PointerStatus &PS,
-                             DxilTypeSystem &typeSys);
-
-  PointerStatus()
-      : hasStore(false), hasLoad(false) {}
-};
-
-void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
-                                   DxilTypeSystem &typeSys) {
-  if (PS.hasStore && PS.hasLoad)
-    return;
-
-  for (const User *U : V->users()) {
-
-    if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
-      analyzePointer(BC, PS, typeSys);
-    } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
-      if (MC->getRawDest() == V) {
-        PS.hasStore = true;
-      } else {
-        DXASSERT(MC->getRawSource() == V, "must be source here");
-        PS.hasLoad = true;
-      }
-    } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
-      analyzePointer(GEP, PS, typeSys);
-    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
-        PS.hasStore = true;
-    } else if (dyn_cast<LoadInst>(U)) {
-      PS.hasLoad = true;
-    } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
-      Function *F = CI->getCalledFunction();
-      DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
-      if (!annotation) {
-        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
-        switch (group) {
-        case HLOpcodeGroup::HLMatLoadStore: {
-          HLMatLoadStoreOpcode opcode =
-              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
-          switch (opcode) {
-          case HLMatLoadStoreOpcode::ColMatLoad:
-          case HLMatLoadStoreOpcode::RowMatLoad:
-            PS.hasLoad = true;
-            break;
-          case HLMatLoadStoreOpcode::ColMatStore:
-          case HLMatLoadStoreOpcode::RowMatStore:
-            PS.hasStore = true;
-            break;
-          default:
-            DXASSERT(0, "invalid opcode");
-            PS.hasLoad = true;
-            PS.hasStore = true;
-            return;
-          }
-        } break;
-        case HLOpcodeGroup::HLSubscript: {
-          HLSubscriptOpcode opcode =
-              static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
-          switch (opcode) {
-          case HLSubscriptOpcode::VectorSubscript:
-          case HLSubscriptOpcode::ColMatElement:
-          case HLSubscriptOpcode::ColMatSubscript:
-          case HLSubscriptOpcode::RowMatElement:
-          case HLSubscriptOpcode::RowMatSubscript:
-            analyzePointer(CI, PS, typeSys);
-            break;
-          default:
-            // Rest are resource ptr like buf[i].
-            // Only read of resource handle.
-            PS.hasLoad = true;
-            break;
-          }
-        } break;
-        default: {
-          // If not sure its out param or not. Take as out param.
-          PS.hasLoad = true;
-          PS.hasStore = true;
-          return;
-        }
-        }
-        continue;
-      }
-
-      unsigned argSize = F->arg_size();
-      for (unsigned i = 0; i < argSize; i++) {
-        Value *arg = CI->getArgOperand(i);
-        if (V == arg) {
-          // Do not replace struct arg.
-          // Mark stored and loaded to disable replace.
-          PS.hasLoad = true;
-          PS.hasStore = true;
-          return;
-        }
-      }
-    }
-  }
-}
-
 class HLLegalizeParameter : public ModulePass {
 public:
   static char ID;
@@ -155,9 +51,153 @@ private:
   void patchReadOnOutParam(Function &F, Argument &Arg, const DataLayout &DL);
 };
 
-AllocaInst *createAllocaForPatch(Function &F, Argument &Arg) {
+AllocaInst *createAllocaForPatch(Function &F, Type *Ty) {
   IRBuilder<> Builder(F.getEntryBlock().getFirstInsertionPt());
-  return Builder.CreateAlloca(Arg.getType()->getPointerElementType());
+  return Builder.CreateAlloca(Ty);
+}
+
+void copyIn(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
+  if (size == 0)
+    return;
+  // copy arg to temp befor CI.
+  IRBuilder<> Builder(CI);
+  Builder.CreateMemCpy(temp, arg, size, 1);
+}
+
+void copyOut(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
+  if (size == 0)
+    return;
+  // copy temp to arg after CI.
+  IRBuilder<> Builder(CI->getNextNode());
+  Builder.CreateMemCpy(arg, temp, size, 1);
+}
+
+bool isPointerNeedToLower(Value *V, Type *HandleTy) {
+  // CBuffer, Buffer, Texture....
+  // Anything related to dxil op.
+  // hl.subscript.
+  // Got to root of GEP.
+  while (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+    V = GEP->getPointerOperand();
+  }
+  CallInst *CI = dyn_cast<CallInst>(V);
+  if (!CI)
+    return false;
+  HLOpcodeGroup group = GetHLOpcodeGroup(CI->getCalledFunction());
+  if (group != HLOpcodeGroup::HLSubscript)
+    return false;
+  Value *Ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
+
+  // Ptr from resource handle.
+  if (Ptr->getType() == HandleTy)
+    return true;
+  unsigned Opcode = GetHLOpcode(CI);
+  // Ptr from cbuffer.
+  if (Opcode == (unsigned)HLSubscriptOpcode::CBufferSubscript)
+    return true;
+
+  return isPointerNeedToLower(Ptr, HandleTy);
+}
+
+bool mayAliasWithGlobal(Value *V, std::vector<GlobalVariable *> &staticGVs) {
+  // The unsafe case need copy-in copy-out will be global variable alias with
+  // parameter. Then global variable is updated in the function, the parameter
+  // will be updated silently.
+
+  // Currently, treat everything as alias.
+  // TODO: do analysis to check alias.
+  return !staticGVs.empty();
+}
+
+struct CopyData {
+  CallInst *CallSite;
+  Value *Arg;
+  bool bCopyIn;
+  bool bCopyOut;
+};
+
+void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
+  Module &M = *HLM.GetModule();
+  Type *HandleTy = HLM.GetOP()->GetHandleType();
+  const DataLayout &DL = M.getDataLayout();
+
+  std::vector<GlobalVariable *> staticGVs;
+  for (GlobalVariable &GV : M.globals()) {
+    if (dxilutil::IsStaticGlobal(&GV) && !GV.isConstant()) {
+      staticGVs.emplace_back(&GV);
+    }
+  }
+
+  SmallVector<CopyData, 4> WorkList;
+  for (Function &F : M) {
+    if (F.user_empty())
+      continue;
+    DxilFunctionAnnotation *Annot = HLM.GetFunctionAnnotation(&F);
+    // Skip functions don't have annotation, include llvm intrinsic and HLOp
+    // functions.
+    if (!Annot)
+      continue;
+
+    bool bNoInline = F.hasFnAttribute(llvm::Attribute::NoInline) || F.isDeclaration();
+
+    for (User *U : F.users()) {
+      CallInst *CI = dyn_cast<CallInst>(U);
+      if (!CI)
+        continue;
+      for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
+        Value *arg = CI->getArgOperand(i);
+
+        if (!arg->getType()->isPointerTy())
+          continue;
+
+        DxilParameterAnnotation &ParamAnnot = Annot->GetParameterAnnotation(i);
+        bool bCopyIn = false;
+        bool bCopyOut = false;
+        switch (ParamAnnot.GetParamInputQual()) {
+        default:
+          break;
+        case DxilParamInputQual::In: {
+          bCopyIn = true;
+        } break;
+        case DxilParamInputQual::Out: {
+          bCopyOut = true;
+        } break;
+        case DxilParamInputQual::Inout: {
+          bCopyIn = true;
+          bCopyOut = true;
+        } break;
+        }
+
+        if (!bCopyIn && !bCopyOut)
+          continue;
+
+        // When use ptr from cbuffer/buffer, need copy to avoid lower on user
+        // function.
+        bool bNeedCopy = mayAliasWithGlobal(arg, staticGVs);
+        if (bNoInline)
+          bNeedCopy |= isPointerNeedToLower(arg, HandleTy);
+
+        if (!bNeedCopy)
+          continue;
+
+        CopyData data = {CI, arg, bCopyIn, bCopyOut};
+        WorkList.emplace_back(data);
+      }
+    }
+  }
+
+  for (CopyData &data : WorkList) {
+    CallInst *CI = data.CallSite;
+    Value *arg = data.Arg;
+    Type *Ty = arg->getType()->getPointerElementType();
+    unsigned size = DL.getTypeAllocSize(Ty);
+    AllocaInst *temp = createAllocaForPatch(*CI->getParent()->getParent(), Ty);
+    if (data.bCopyIn)
+      copyIn(temp, arg, CI, size);
+    if (data.bCopyOut)
+      copyOut(temp, arg, CI, size);
+    CI->replaceUsesOfWith(arg, temp);
+  }
 }
 
 } // namespace
@@ -187,18 +227,17 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
       switch (ParamAnnot.GetParamInputQual()) {
       default:
         break;
-      case DxilParamInputQual::In:
-      case DxilParamInputQual::InPayload: {
-        PointerStatus PS;
-        PS.analyzePointer(&Arg, PS, typeSys);
-        if (PS.hasStore) {
+      case DxilParamInputQual::In: {
+        hlutil::PointerStatus PS(&Arg, 0, /*bLdStOnly*/ true);
+        PS.analyze(typeSys, /*bStructElt*/ false);
+        if (PS.HasStored()) {
           patchWriteOnInParam(F, Arg, DL);
         }
       } break;
       case DxilParamInputQual::Out: {
-        PointerStatus PS;
-        PS.analyzePointer(&Arg, PS, typeSys);
-        if (PS.hasLoad) {
+        hlutil::PointerStatus PS(&Arg, 0, /*bLdStOnly*/ true);
+        PS.analyze(typeSys, /*bStructElt*/false);
+        if (PS.HasLoaded()) {
           patchReadOnOutParam(F, Arg, DL);
         }
       }
@@ -206,26 +245,30 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
     }
   }
 
+  // Copy-in copy-out for ptr arg when need.
+  ParameterCopyInCopyOut(HLM);
+
   return true;
 }
 
-
 void HLLegalizeParameter::patchWriteOnInParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
-  AllocaInst *temp = createAllocaForPatch(F, Arg);
+  Type *Ty = Arg.getType()->getPointerElementType();
+  AllocaInst *temp = createAllocaForPatch(F, Ty);
   Arg.replaceAllUsesWith(temp);
   IRBuilder<> Builder(temp->getNextNode());
-  unsigned size = DL.getTypeAllocSize(Arg.getType()->getPointerElementType());
+  unsigned size = DL.getTypeAllocSize(Ty);
   // copy arg to temp at beginning of function.
   Builder.CreateMemCpy(temp, &Arg, size, 1);
 }
 
 void HLLegalizeParameter::patchReadOnOutParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
-  AllocaInst *temp = createAllocaForPatch(F, Arg);
+  Type *Ty = Arg.getType()->getPointerElementType();
+  AllocaInst *temp = createAllocaForPatch(F, Ty);
   Arg.replaceAllUsesWith(temp);
 
-  unsigned size = DL.getTypeAllocSize(Arg.getType()->getPointerElementType());
+  unsigned size = DL.getTypeAllocSize(Ty);
   for (auto &BB : F.getBasicBlockList()) {
     // copy temp to arg before every return.
     if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
@@ -233,7 +276,6 @@ void HLLegalizeParameter::patchReadOnOutParam(Function &F, Argument &Arg,
       RetBuilder.CreateMemCpy(&Arg, temp, size, 1);
     }
   }
-
 }
 
 char HLLegalizeParameter::ID = 0;

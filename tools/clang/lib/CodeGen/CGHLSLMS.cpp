@@ -5475,29 +5475,27 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       argLV = CGF.EmitLValue(Arg);
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
-      // Disable skip copy for lib profile.
       // When there's argument need to lower like buffer/cbuffer load, need to
-      // copy to let the lower not happen on argument. Same thing for noinline
-      // function which not supported yet.
-      if (!m_bIsLib) {
-        bool bConstGlobal = false;
-        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(argAddr)) {
-          bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
-        }
-        // Skip copy-in copy-out when safe.
-        // The unsafe case will be global variable alias with parameter.
-        // Then global variable is updated in the function, the parameter will
-        // be updated silently. For non global variable or constant global
-        // variable, it should be safe.
-        if (argAddr && (isa<AllocaInst>(argAddr) || isa<Argument>(argAddr) ||
-                        bConstGlobal)) {
-          llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
-          if (argAddr->getType()->getPointerElementType() == ToTy &&
-              // Check clang Type for case like int cast to unsigned.
-              ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
-                  Arg->getType().getCanonicalType().getTypePtr())
-            continue;
-        }
+      // copy to let the lower not happen on argument when calle is noinline or
+      // extern functions. Will do it in HLLegalizeParameter after known which
+      // functions are extern but before inline.
+      bool bConstGlobal = false;
+      if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(argAddr)) {
+        bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
+      }
+      // Skip copy-in copy-out when safe.
+      // The unsafe case will be global variable alias with parameter.
+      // Then global variable is updated in the function, the parameter will
+      // be updated silently. For non global variable or constant global
+      // variable, it should be safe.
+      if (argAddr && (isa<AllocaInst>(argAddr) || isa<Argument>(argAddr) ||
+                      bConstGlobal)) {
+        llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
+        if (argAddr->getType()->getPointerElementType() == ToTy &&
+            // Check clang Type for case like int cast to unsigned.
+            ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
+                Arg->getType().getCanonicalType().getTypePtr())
+          continue;
       }
       argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
       argAlignment = argLV.getAlignment();
