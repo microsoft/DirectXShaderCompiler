@@ -6288,6 +6288,70 @@ DIGlobalVariable *FindGlobalVariableFor(const DebugInfoFinder &DbgFinder, Global
   return nullptr;
 }
 
+static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
+  DITypeIdentifierMap EmptyMap;
+  while (TyA) {
+    if (DIDerivedType *Derived = dyn_cast<DIDerivedType>(TyA)) {
+      if (Derived->getBaseType() == TyB)
+        return true;
+      else
+        TyA = Derived->getBaseType().resolve(EmptyMap);
+    }
+    else {
+      break;
+    }
+  }
+
+  return false;
+}
+
+static DIGlobalVariable *FindNonSplitGlobalVariable(const DebugInfoFinder &DbgFinder, DIGlobalVariable *DGV, unsigned *Out_OffsetInBits, unsigned *Out_SizeInBits) {
+  DITypeIdentifierMap EmptyMap;
+
+  unsigned OffsetInBits = 0;
+  unsigned SizeInBits = -1;
+  DIGlobalVariable *FinalResult = nullptr;
+
+  while (true) {
+    DIGlobalVariable *Result = nullptr;
+    DIType *Ty = DGV->getType().resolve(EmptyMap);
+    if (!isa<DIDerivedType>(Ty) || Ty->getTag() != dwarf::DW_TAG_member)
+      break;
+
+    unsigned LongestName = 0;
+    for (DIGlobalVariable *DGV_It : DbgFinder.global_variables()) {
+      if (
+        DGV_It->getName().size() > LongestName &&
+        DGV->getName() != DGV_It->getName() &&
+        DGV->getName().startswith(DGV_It->getName()))
+      {
+        if (IsDerivedTypeOf(Ty, DGV_It->getType().resolve(EmptyMap))) {
+          Result = DGV_It;
+          LongestName = DGV_It->getName().size();
+        }
+      }
+    }
+
+    if (Result) {
+      OffsetInBits += Ty->getOffsetInBits();
+      SizeInBits = std::min(SizeInBits, (unsigned)Ty->getSizeInBits());
+      FinalResult = Result;
+      DGV = Result;
+    }
+    else {
+      break;
+    }
+
+  }
+
+  if (FinalResult) {
+    *Out_OffsetInBits = OffsetInBits;
+    *Out_SizeInBits = SizeInBits;
+  }
+
+  return FinalResult;
+}
+
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
@@ -6314,6 +6378,14 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   DIScope *Scope = Subprogram;
   DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
+  bool IsFragment = false;
+  unsigned OffsetInBits = 0;
+  unsigned SizeInBits = 0;
+  if (DIGlobalVariable *UnsplitDGV = FindNonSplitGlobalVariable(DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
+    DGV = UnsplitDGV;
+    IsFragment = true;
+  }
+
   std::string Name = "global.";
   Name += DGV->getName();
   // Using arg_variable instead of auto_variable because arg variables can use
@@ -6324,7 +6396,16 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   DILocalVariable *ConvertedLocalVar =
     DIB.createLocalVariable(Tag, Scope,
       Name, DGV->getFile(), DGV->getLine(), Ty);
-  DIB.insertDeclare(AI, ConvertedLocalVar, DIB.createExpression(ArrayRef<int64_t>()), Loc, AI->getNextNode());
+
+  DIExpression *Expr = nullptr;
+  if (IsFragment) {
+    Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
+  }
+  else {
+    Expr = DIB.createExpression(ArrayRef<int64_t>());
+  }
+
+  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
 }
 
 bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
