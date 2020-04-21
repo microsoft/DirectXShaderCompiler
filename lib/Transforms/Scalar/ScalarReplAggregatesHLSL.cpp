@@ -6288,6 +6288,8 @@ DIGlobalVariable *FindGlobalVariableFor(const DebugInfoFinder &DbgFinder, Global
   return nullptr;
 }
 
+// Go through the base type chain of TyA and see if
+// we eventually get to TyB
 static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
   DITypeIdentifierMap EmptyMap;
   while (TyA) {
@@ -6305,7 +6307,12 @@ static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
   return false;
 }
 
-static DIGlobalVariable *FindNonSplitGlobalVariable(const DebugInfoFinder &DbgFinder, DIGlobalVariable *DGV, unsigned *Out_OffsetInBits, unsigned *Out_SizeInBits) {
+// See if 'DGV' a member type of some other variable, and return that variable
+// and the offset and size DGV is into it.
+//
+// If DGV is not a member, just return nullptr.
+//
+static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder, DIGlobalVariable *DGV, unsigned *Out_OffsetInBits, unsigned *Out_SizeInBits) {
   DITypeIdentifierMap EmptyMap;
 
   unsigned OffsetInBits = 0;
@@ -6315,6 +6322,7 @@ static DIGlobalVariable *FindNonSplitGlobalVariable(const DebugInfoFinder &DbgFi
   while (true) {
     DIGlobalVariable *Result = nullptr;
     DIType *Ty = DGV->getType().resolve(EmptyMap);
+    // Give up is DGV is not a member type
     if (!isa<DIDerivedType>(Ty) || Ty->getTag() != dwarf::DW_TAG_member)
       break;
 
@@ -6333,6 +6341,8 @@ static DIGlobalVariable *FindNonSplitGlobalVariable(const DebugInfoFinder &DbgFi
     }
 
     if (Result) {
+      // Offset the OffsetInBits and continue to look for
+      // more base types, in case Result is another member type.
       OffsetInBits += Ty->getOffsetInBits();
       SizeInBits = std::min(SizeInBits, (unsigned)Ty->getSizeInBits());
       FinalResult = Result;
@@ -6341,7 +6351,6 @@ static DIGlobalVariable *FindNonSplitGlobalVariable(const DebugInfoFinder &DbgFi
     else {
       break;
     }
-
   }
 
   if (FinalResult) {
@@ -6378,10 +6387,11 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   DIScope *Scope = Subprogram;
   DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
+  // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
-  unsigned OffsetInBits = 0;
-  unsigned SizeInBits = 0;
-  if (DIGlobalVariable *UnsplitDGV = FindNonSplitGlobalVariable(DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
+  unsigned OffsetInBits = 0,
+           SizeInBits = 0;
+  if (DIGlobalVariable *UnsplitDGV = FindGlobalVariableFragment(DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
     DGV = UnsplitDGV;
     IsFragment = true;
   }
@@ -6393,6 +6403,7 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
+  DXASSERT(Ty->getTag() != dwarf::DW_TAG_member, "Member type is not allowed for variables.");
   DILocalVariable *ConvertedLocalVar =
     DIB.createLocalVariable(Tag, Scope,
       Name, DGV->getFile(), DGV->getLine(), Ty);
