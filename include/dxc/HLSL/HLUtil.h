@@ -10,7 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include <unordered_set>
+
+#include "llvm/ADT/SetVector.h"
 
 namespace llvm {
 class Function;
@@ -63,7 +64,7 @@ struct PointerStatus {
   /// this global, keep track of what value it is.
   llvm::Value *StoredOnceValue;
   /// Memcpy which this ptr is used.
-  std::unordered_set<llvm::MemCpyInst *> memcpySet;
+  llvm::SetVector<llvm::MemCpyInst *> memcpySet;
   /// Memcpy which use this ptr as dest.
   llvm::MemCpyInst *StoringMemcpy;
   /// Memcpy which use this ptr as src.

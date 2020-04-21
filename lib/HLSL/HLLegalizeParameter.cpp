@@ -190,6 +190,11 @@ void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
     CallInst *CI = data.CallSite;
     Value *arg = data.Arg;
     Type *Ty = arg->getType()->getPointerElementType();
+    Type *EltTy = dxilutil::GetArrayEltTy(Ty);
+    // Skip on object type and resource type.
+    if (dxilutil::IsHLSLObjectType(EltTy) ||
+        dxilutil::IsHLSLResourceType(EltTy))
+      continue;
     unsigned size = DL.getTypeAllocSize(Ty);
     AllocaInst *temp = createAllocaForPatch(*CI->getParent()->getParent(), Ty);
     if (data.bCopyIn)
