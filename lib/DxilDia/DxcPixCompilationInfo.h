@@ -17,8 +17,6 @@
 #include <memory>
 #include <vector>
 
-#include "DxcPixDxilDebugInfo.h"
-
 namespace dxil_debug_info {
 
 HRESULT

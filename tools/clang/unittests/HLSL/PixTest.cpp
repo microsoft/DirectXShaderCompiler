@@ -61,6 +61,7 @@
 #include "llvm/ADT/StringSwitch.h"
 
 
+#include <../lib/DxilDia/DxilDiaSession.h>
 #include <../lib/DxilDia/DxcPixLiveVariables.h>
 #include <../lib/DxilDia/DxcPixLiveVariables_FragmentIterator.h>
 #include <dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h>
