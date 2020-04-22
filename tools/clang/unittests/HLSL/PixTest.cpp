@@ -32,6 +32,8 @@
 #include <atlfile.h>
 #include "dia2.h"
 
+#include "dxc/DXIL/DxilModule.h"
+
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
@@ -44,13 +46,27 @@
 #include "dxc/Support/Unicode.h"
 
 #include <fstream>
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 
+
+#include <../lib/DxilDia/DxcPixLiveVariables.h>
+#include <../lib/DxilDia/DxcPixLiveVariables_FragmentIterator.h>
+#include <dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h>
+
 using namespace std;
+using namespace hlsl;
 using namespace hlsl_test;
 
 // Aligned to SymTagEnum.
@@ -139,6 +155,18 @@ const char* UdtKindText[] =
   "Interface",
 };
 
+static std::vector<std::string> Tokenize(const std::string &str,
+                                         const char *delimiters) {
+  std::vector<std::string> tokens;
+  std::string copy = str;
+
+  for (auto i = strtok(&copy[0], delimiters); i != nullptr;
+       i = strtok(nullptr, delimiters)) {
+    tokens.push_back(i);
+  }
+
+  return tokens;
+}
 
 class PixTest {
 public:
@@ -163,6 +191,19 @@ public:
   TEST_METHOD(DiaLoadBitcodePlusExtraData)
   TEST_METHOD(DiaCompileArgs)
   TEST_METHOD(PixDebugCompileInfo)
+
+  TEST_METHOD(PixStructAnnotation_Simple)
+  TEST_METHOD(PixStructAnnotation_CopiedStruct)
+  TEST_METHOD(PixStructAnnotation_MixedSizes)
+  TEST_METHOD(PixStructAnnotation_StructWithinStruct)
+  TEST_METHOD(PixStructAnnotation_1DArray)
+  TEST_METHOD(PixStructAnnotation_2DArray)
+  TEST_METHOD(PixStructAnnotation_EmbeddedArray)
+  TEST_METHOD(PixStructAnnotation_FloatN)
+  TEST_METHOD(PixStructAnnotation_SequentialFloatN)
+  TEST_METHOD(PixStructAnnotation_EmbeddedFloatN)
+  TEST_METHOD(PixStructAnnotation_Matrix)
+  TEST_METHOD(PixStructAnnotation_BigMess)
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -487,7 +528,8 @@ public:
     return option.substr(0, option.find_first_of(' '));
   }
 
-  HRESULT CreateDiaSourceForCompile(const char *hlsl, IDiaDataSource **ppDiaSource)
+  HRESULT CreateDiaSourceForCompile(const char* hlsl,
+    IDiaDataSource** ppDiaSource)
   {
     if (!ppDiaSource)
       return E_POINTER;
@@ -502,6 +544,17 @@ public:
     LPCWSTR args[] = { L"/Zi", L"/Qembed_debug" };
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
       L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
+    
+    HRESULT compilationStatus;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&compilationStatus));
+    if (FAILED(compilationStatus))
+    {
+      CComPtr<IDxcBlobEncoding> pErrros;
+      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrros));
+      CA2W errorTextW(static_cast<const char *>(pErrros->GetBufferPointer()), CP_UTF8);
+      WEX::Logging::Log::Error(errorTextW);
+    }
+
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
 
     // Disassemble the compiled (stripped) program.
@@ -550,6 +603,374 @@ public:
     *ppDiaSource = pDiaSource.Detach();
     return S_OK;
   }
+  
+  CComPtr<IDxcOperationResult> Compile(
+    const char* hlsl,
+    const wchar_t* target)
+  {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(hlsl, &pSource);
+    LPCWSTR args[] = { L"/Zi", L"/Od", L"-enable-16bit-types", L"/Qembed_debug" };
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+      target, args, _countof(args), nullptr, 0, nullptr, &pResult));
+
+    HRESULT compilationStatus;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&compilationStatus));
+    if (FAILED(compilationStatus))
+    {
+      CComPtr<IDxcBlobEncoding> pErrros;
+      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrros));
+      CA2W errorTextW(static_cast<const char*>(pErrros->GetBufferPointer()), CP_UTF8);
+      WEX::Logging::Log::Error(errorTextW);
+    }
+
+#if 0 //handy for debugging
+    {
+      CComPtr<IDxcBlob> pProgram;
+      CheckOperationSucceeded(pResult, &pProgram);
+
+      CComPtr<IDxcLibrary> pLib;
+      VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+      const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
+          pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+      VERIFY_IS_NOT_NULL(pContainer);
+      hlsl::DxilPartIterator partIter =
+          std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
+                       hlsl::DxilPartIsType(hlsl::DFCC_ShaderDebugInfoDXIL));
+      const hlsl::DxilProgramHeader *pProgramHeader =
+          (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
+      uint32_t bitcodeLength;
+      const char *pBitcode;
+      CComPtr<IDxcBlob> pProgramPdb;
+      hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
+      VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
+          pProgram, pBitcode - (char *)pProgram->GetBufferPointer(),
+          bitcodeLength, &pProgramPdb));
+
+      CComPtr<IDxcBlobEncoding> pDbgDisassembly;
+      VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgramPdb, &pDbgDisassembly));
+      std::string disText = BlobToUtf8(pDbgDisassembly);
+      CA2W disTextW(disText.c_str(), CP_UTF8);
+      WEX::Logging::Log::Comment(disTextW);
+    }
+#endif
+
+    return pResult;
+  }
+
+  CComPtr<IDxcBlob> ExtractDxilPart(IDxcBlob *pProgram) {
+    CComPtr<IDxcLibrary> pLib;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+    const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
+        pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pContainer);
+    hlsl::DxilPartIterator partIter =
+        std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
+                     hlsl::DxilPartIsType(hlsl::DFCC_DXIL));
+    const hlsl::DxilProgramHeader *pProgramHeader =
+        (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
+    uint32_t bitcodeLength;
+    const char *pBitcode;
+    CComPtr<IDxcBlob> pDxilBits;
+    hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
+    VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
+        pProgram, pBitcode - (char *)pProgram->GetBufferPointer(),
+        bitcodeLength, &pDxilBits));
+    return pDxilBits;
+  }
+
+  struct ValueLocation
+  {
+    int base;
+    int count;
+  };
+
+  struct PassOutput
+  {
+    CComPtr<IDxcBlob> blob;
+    std::vector<ValueLocation> valueLocations;
+  };
+
+  PassOutput RunAnnotationPasses(IDxcBlob * dxil)
+  {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText;
+    if (pText->GetBufferSize() != 0)
+    {
+      outputText = reinterpret_cast<const char*>(pText->GetBufferPointer());
+    }
+
+    auto lines = Tokenize(outputText, "\n");
+
+    std::vector<ValueLocation> valueLocations;
+
+    for (size_t line = 0; line < lines.size(); ++line) {
+      if (lines[line] == "Begin - dxil values to virtual register mapping") {
+        for (++line; line < lines.size(); ++line) {
+          if (lines[line] == "End - dxil values to virtual register mapping") {
+            break;
+          }
+
+          auto lineTokens = Tokenize(lines[line], " ");
+          VERIFY_IS_TRUE(lineTokens.size() >= 2);
+          if (lineTokens[1] == "dxil")
+          {
+            VERIFY_IS_TRUE(lineTokens.size() == 3);
+            valueLocations.push_back({atoi(lineTokens[2].c_str()), 1});
+          }
+          else if (lineTokens[1] == "alloca")
+          {
+            VERIFY_IS_TRUE(lineTokens.size() == 4);
+            valueLocations.push_back(
+                {atoi(lineTokens[2].c_str()), atoi(lineTokens[3].c_str())});
+          }
+          else
+          {
+            VERIFY_IS_TRUE(false);
+          }
+        }
+      }
+    }
+
+    return { std::move(pOptimizedModule), std::move(valueLocations) };
+  }
+
+  std::wstring Disassemble(IDxcBlob * pProgram)
+  {
+    CComPtr<IDxcCompiler> pCompiler;
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+    CComPtr<IDxcBlobEncoding> pDbgDisassembly;
+    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDbgDisassembly));
+    std::string disText = BlobToUtf8(pDbgDisassembly);
+    CA2W disTextW(disText.c_str(), CP_UTF8);
+    return std::wstring(disTextW);
+  }
+
+  CComPtr<IDxcBlob> FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource)
+  {
+    const UINT32 BC_C0DE = ((INT32)(INT8)'B' | (INT32)(INT8)'C' << 8 |
+                            (INT32)0xDEC0 << 16); // BC0xc0de in big endian
+    const char *pBitcode = nullptr;
+    const hlsl::DxilPartHeader *pDxilPartHeader =
+        (hlsl::DxilPartHeader *)
+            pSource->GetBufferPointer(); // Initialize assuming that source is
+                                         // starting with DXIL part
+
+    if (BC_C0DE == *(UINT32 *)pSource->GetBufferPointer()) {
+      return pSource;
+    }
+    if (hlsl::IsValidDxilContainer(
+            (hlsl::DxilContainerHeader *)pSource->GetBufferPointer(),
+            pSource->GetBufferSize())) {
+      hlsl::DxilContainerHeader *pDxilContainerHeader =
+          (hlsl::DxilContainerHeader *)pSource->GetBufferPointer();
+      pDxilPartHeader =
+          *std::find_if(begin(pDxilContainerHeader), end(pDxilContainerHeader),
+                        hlsl::DxilPartIsType(fourCC));
+    }
+    if (fourCC == pDxilPartHeader->PartFourCC) {
+      UINT32 pBlobSize;
+      hlsl::DxilProgramHeader *pDxilProgramHeader =
+          (hlsl::DxilProgramHeader *)(pDxilPartHeader + 1);
+      hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &pBlobSize);
+      UINT32 offset =
+          (UINT32)(pBitcode - (const char *)pSource->GetBufferPointer());
+      CComPtr<IDxcLibrary> library;
+      IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+      CComPtr<IDxcBlob> targetBlob;
+      library->CreateBlobFromBlob(pSource, offset, pBlobSize, &targetBlob);
+      return targetBlob;
+    }
+    return {};
+  }
+
+
+  void ReplaceDxilBlobPart(
+      const void *originalShaderBytecode, SIZE_T originalShaderLength,
+      IDxcBlob *pNewDxilBlob, IDxcBlob **ppNewShaderOut)
+  {
+    CComPtr<IDxcLibrary> pLibrary;
+    IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+
+    CComPtr<IDxcBlob> pNewContainer;
+
+    // Use the container assembler to build a new container from the
+    // recently-modified DXIL bitcode. This container will contain new copies of
+    // things like input signature etc., which will supersede the ones from the
+    // original compiled shader's container.
+    {
+      CComPtr<IDxcAssembler> pAssembler;
+      IFT(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+      CComPtr<IDxcOperationResult> pAssembleResult;
+      VERIFY_SUCCEEDED(
+          pAssembler->AssembleToContainer(pNewDxilBlob, &pAssembleResult));
+
+      CComPtr<IDxcBlobEncoding> pAssembleErrors;
+      VERIFY_SUCCEEDED(
+          pAssembleResult->GetErrorBuffer(&pAssembleErrors));
+
+      if (pAssembleErrors && pAssembleErrors->GetBufferSize() != 0) {
+        OutputDebugStringA(
+            static_cast<LPCSTR>(pAssembleErrors->GetBufferPointer()));
+        VERIFY_SUCCEEDED(E_FAIL);
+      }
+
+      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+    }
+
+    // Now copy over the blobs from the original container that won't have been
+    // invalidated by changing the shader code itself, using the container
+    // reflection API
+    { 
+      // Wrap the original code in a container blob
+      CComPtr<IDxcBlobEncoding> pContainer;
+      VERIFY_SUCCEEDED(
+          pLibrary->CreateBlobWithEncodingFromPinned(
+              static_cast<LPBYTE>(const_cast<void *>(originalShaderBytecode)),
+              static_cast<UINT32>(originalShaderLength), CP_ACP, &pContainer));
+
+      CComPtr<IDxcContainerReflection> pReflection;
+      IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+
+      // Load the reflector from the original shader
+      VERIFY_SUCCEEDED(pReflection->Load(pContainer));
+
+      UINT32 partIndex;
+
+      if (SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_PrivateData,
+                                                   &partIndex))) {
+        CComPtr<IDxcBlob> pPart;
+        VERIFY_SUCCEEDED(
+            pReflection->GetPartContent(partIndex, &pPart));
+
+        CComPtr<IDxcContainerBuilder> pContainerBuilder;
+        IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder,
+                                        &pContainerBuilder));
+
+        VERIFY_SUCCEEDED(
+            pContainerBuilder->Load(pNewContainer));
+
+        VERIFY_SUCCEEDED(
+            pContainerBuilder->AddPart(hlsl::DFCC_PrivateData, pPart));
+
+        CComPtr<IDxcOperationResult> pBuildResult;
+
+        VERIFY_SUCCEEDED(
+            pContainerBuilder->SerializeContainer(&pBuildResult));
+
+        CComPtr<IDxcBlobEncoding> pBuildErrors;
+        VERIFY_SUCCEEDED(
+            pBuildResult->GetErrorBuffer(&pBuildErrors));
+
+        if (pBuildErrors && pBuildErrors->GetBufferSize() != 0) {
+          OutputDebugStringA(
+              reinterpret_cast<LPCSTR>(pBuildErrors->GetBufferPointer()));
+          VERIFY_SUCCEEDED(E_FAIL);
+        }
+
+        VERIFY_SUCCEEDED(
+            pBuildResult->GetResult(&pNewContainer));
+      }
+    }
+
+    *ppNewShaderOut = pNewContainer.Detach();
+  }
+
+  class ModuleAndHangersOn
+  {
+    std::unique_ptr<llvm::LLVMContext> llvmContext;
+    std::unique_ptr<llvm::Module> llvmModule;
+    DxilModule* dxilModule;
+
+  public:
+    ModuleAndHangersOn(IDxcBlob* pBlob)
+    {
+      // Verify we have a valid dxil container.
+      const DxilContainerHeader *pContainer = IsDxilContainerLike(
+          pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+      VERIFY_IS_NOT_NULL(pContainer);
+      VERIFY_IS_TRUE(IsValidDxilContainer(pContainer, pBlob->GetBufferSize()));
+
+      // Get Dxil part from container.
+      DxilPartIterator it =
+          std::find_if(begin(pContainer), end(pContainer),
+                       DxilPartIsType(DFCC_ShaderDebugInfoDXIL));
+      VERIFY_IS_FALSE(it == end(pContainer));
+
+      const DxilProgramHeader *pProgramHeader =
+          reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
+      VERIFY_IS_TRUE(IsValidDxilProgramHeader(pProgramHeader, (*it)->PartSize));
+
+      // Get a pointer to the llvm bitcode.
+      const char *pIL;
+      uint32_t pILLength;
+      GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
+
+      // Parse llvm bitcode into a module.
+      std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
+          llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(pIL, pILLength), "",
+                                           false));
+
+      llvmContext.reset(new llvm::LLVMContext);
+
+      llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModule(
+          llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(),
+                                 *llvmContext));
+      if (std::error_code ec = pModule.getError()) {
+        VERIFY_FAIL();
+      }
+
+      llvmModule = std::move(pModule.get());
+
+      dxilModule =
+          DxilModule::TryGetDxilModule(llvmModule.get());
+    }
+
+    DxilModule& GetDxilModule()
+    {
+      return *dxilModule;
+    }
+  };
+
+  struct AggregateOffsetAndSize
+  {
+    unsigned countOfMembers;
+    unsigned offset;
+    unsigned size;
+  };
+  struct AllocaWrite {
+    std::string memberName;
+    uint32_t regBase;
+    uint32_t regSize;
+    uint64_t index;
+  };
+  struct TestableResults
+  {
+    std::vector<AggregateOffsetAndSize> OffsetAndSizes;
+    std::vector<AllocaWrite> AllocaWrites;
+  };
+
+  TestableResults TestStructAnnotationCase(const char* hlsl);
+  void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
+
 };
 
 
@@ -687,7 +1108,8 @@ TEST_F(PixTest, CompileDebugPDB) {
 
 TEST_F(PixTest, CompileDebugLines) {
   CComPtr<IDiaDataSource> pDiaSource;
-  VERIFY_SUCCEEDED(CreateDiaSourceForCompile(
+  VERIFY_SUCCEEDED(
+      CreateDiaSourceForCompile(
     "float main(float pos : A) : SV_Target {\r\n"
     "  float x = abs(pos);\r\n"
     "  float y = sin(pos);\r\n"
@@ -1302,6 +1724,614 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   CComBSTR hlslTarget;
   VERIFY_SUCCEEDED(compilationInfo->GetHlslTarget(&hlslTarget));
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
+}
+
+// This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp
+// Declared here so we can test it.
+uint32_t CountStructMembers(llvm::Type const* pType);
+
+PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
+{
+  auto pOperationResult = Compile(hlsl, L"as_6_5");
+  CComPtr<IDxcBlob> pBlob;
+  CheckOperationSucceeded(pOperationResult, &pBlob);
+
+  CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
+
+  PassOutput passOutput = RunAnnotationPasses(pDxil);
+
+  auto pAnnotated = passOutput.blob;
+
+  CComPtr<IDxcBlob> pAnnotatedContainer;
+  ReplaceDxilBlobPart(
+    pBlob->GetBufferPointer(),
+    pBlob->GetBufferSize(),
+    pAnnotated,
+    &pAnnotatedContainer);
+
+  ModuleAndHangersOn moduleEtc(pAnnotatedContainer);
+  
+  llvm::Function *entryFunction = moduleEtc.GetDxilModule().GetEntryFunction();
+
+  PixTest::TestableResults ret;
+
+  // For every dbg.declare, run the member iterator and record what it finds:
+  for (auto& block : entryFunction->getBasicBlockList())
+  {
+    for (auto& instruction : block.getInstList())
+    {
+      if (auto* dbgDeclare = llvm::dyn_cast<llvm::DbgDeclareInst>(&instruction))
+      {
+        llvm::Value* Address = dbgDeclare->getAddress();
+        auto* AddressAsAlloca = llvm::dyn_cast<llvm::AllocaInst>(Address);
+        auto* Expression = dbgDeclare->getExpression();
+
+        std::unique_ptr<dxil_debug_info::MemberIterator> iterator = dxil_debug_info::CreateMemberIterator(
+          dbgDeclare,
+          moduleEtc.GetDxilModule().GetModule()->getDataLayout(),
+          AddressAsAlloca,
+          Expression);
+
+        unsigned int startingBit = 0;
+        unsigned int coveredBits = 0;
+        unsigned int memberIndex = 0;
+        while (iterator->Next(&memberIndex))
+        {
+          if (memberIndex == 0)
+          {
+            startingBit = iterator->OffsetInBits(memberIndex);
+            coveredBits = iterator->SizeInBits(memberIndex);
+          }
+          else
+          {
+            // Next member has to start where the previous one ended:
+            VERIFY_ARE_EQUAL(iterator->OffsetInBits(memberIndex), startingBit + coveredBits);
+            coveredBits += iterator->SizeInBits(memberIndex);
+          }
+        }
+
+        // memberIndex is now the count of members in this aggregate type
+        ret.OffsetAndSizes.push_back({ memberIndex, startingBit, coveredBits });
+
+        // Use this independent count of number of struct members to test the 
+        // function that operates on the alloca type:
+        llvm::Type *pAllocaTy = AddressAsAlloca->getType()->getElementType();
+        if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy))
+        {
+          // This is the case where a struct is passed to a function, and in 
+          // these tests there should be only one struct behind the pointer.
+          VERIFY_ARE_EQUAL(AT->getNumElements(), 1);
+          pAllocaTy = AT->getArrayElementType();
+        }
+
+        if (auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy))
+        {
+          uint32_t countOfMembers = CountStructMembers(ST);
+          VERIFY_ARE_EQUAL(countOfMembers, memberIndex);
+        }
+        else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
+        {
+          // If there's only one member in the struct in the pass-to-function (by pointer)
+          // case, then the underlying type will have been reduced to the contained type.
+          VERIFY_ARE_EQUAL(1, memberIndex);
+        }
+        else
+        {
+          VERIFY_IS_TRUE(false);
+        }
+      }
+    }
+  }
+
+  // The member iterator should find a solid run of bits that is exactly covered
+  // by exactly one of the members found by the annotation pass:
+  for (auto const& cover : ret.OffsetAndSizes)
+  {
+    bool found = false;
+    for (auto const& valueLocation : passOutput.valueLocations)
+    {
+      constexpr unsigned int eightBitsPerByte = 8;
+      if (valueLocation.base * eightBitsPerByte == cover.offset)
+      {
+        VERIFY_IS_FALSE(found);
+        found = true;
+        VERIFY_ARE_EQUAL(valueLocation.count, cover.countOfMembers);
+      }
+    }
+    VERIFY_IS_TRUE(found);
+  }
+
+  // For every store operation to the struct alloca, check that the annotation pass correctly determined which alloca
+  for (auto& block : entryFunction->getBasicBlockList()) {
+    for (auto& instruction : block.getInstList()) {
+      if (auto* store =
+        llvm::dyn_cast<llvm::StoreInst>(&instruction)) {
+
+        if (auto* pGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(store->getPointerOperand()))
+        {
+          ret.AllocaWrites.push_back({});
+          auto& NewAllocaWrite = ret.AllocaWrites.back();
+          llvm::Value* pPointerOperand = pGEP->getPointerOperand();
+          if (auto* pGEP2 = llvm::dyn_cast<llvm::GetElementPtrInst>(pPointerOperand))
+          {
+            auto *pMemberIndex = llvm::dyn_cast<llvm::ConstantInt>(
+                pGEP->getOperand(2));
+            uint64_t memberIndex = pMemberIndex->getLimitedValue();
+            // Until we have debugging info for floatN, matrixNxM etc., we can't get the name:
+            // auto *secondPointer = pGEP2->getPointerOperandType();
+            // auto* pStruct =
+            // llvm::dyn_cast<llvm::StructType>(secondPointer->getVectorElementType());
+            NewAllocaWrite.memberName =
+                "member" + std::to_string(memberIndex);
+          }
+          else
+          {
+            NewAllocaWrite.memberName = pGEP->getName();
+          }
+
+          llvm::Value* index;
+          if (pix_dxil::PixAllocaRegWrite::FromInst(
+            store, 
+            &NewAllocaWrite.regBase, 
+            &NewAllocaWrite.regSize,
+            &index)) {
+            auto* asInt = llvm::dyn_cast<llvm::ConstantInt>(index);
+            NewAllocaWrite.index = asInt->getLimitedValue();
+          }
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void PixTest::ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
+                                  size_t index, const char *name) {
+  VERIFY_ARE_EQUAL(index, allocaWrites[index].index);
+#if DBG
+  // Compilation may add a prefix to the struct member name:
+  VERIFY_IS_TRUE(0 == strncmp(name, allocaWrites[index].memberName.c_str(), strlen(name)));
+#endif
+}
+
+
+TEST_F(PixTest, PixStructAnnotation_Simple) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    uint dummy;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.dummy = 42;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);  
+  VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "dummy");
+}
+
+
+TEST_F(PixTest, PixStructAnnotation_CopiedStruct) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    uint dummy;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.dummy = 42;
+    smallPayload p2 = p;
+    DispatchMesh(1, 1, 1, p2);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);  
+  VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+  // The values in the copy don't have stable names:
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "");
+}
+
+TEST_F(PixTest, PixStructAnnotation_MixedSizes) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    bool b1;
+    uint16_t sixteen;
+    uint32_t thirtytwo;
+    uint64_t sixtyfour;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.b1 = true;
+    p.sixteen = 16;
+    p.thirtytwo = 32;
+    p.sixtyfour = 64;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  VERIFY_ARE_EQUAL(32+64+32+16, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(4, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "b1");
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "sixteen");
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "thirtytwo");
+  ValidateAllocaWrite(Testables.AllocaWrites, 3, "sixtyfour");
+}
+
+TEST_F(PixTest, PixStructAnnotation_StructWithinStruct) {
+  const char *hlsl = R"(
+
+struct Contained
+{
+  uint32_t one;
+  uint32_t two;
+};
+
+struct smallPayload
+{
+  uint32_t before;
+  Contained contained;
+  uint32_t after;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.before = 0xb4;
+    p.contained.one = 1;
+    p.contained.two = 2;
+    p.after = 3;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  VERIFY_ARE_EQUAL(4*32, Testables.OffsetAndSizes[0].size);
+
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "before");
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "one");
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "two");
+  ValidateAllocaWrite(Testables.AllocaWrites, 3, "after");
+}
+
+TEST_F(PixTest, PixStructAnnotation_1DArray) {
+    const char* hlsl = R"(
+struct smallPayload
+{
+    uint32_t Array[2];
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.Array[0] = 250;
+    p.Array[1] = 251;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+    auto Testables = TestStructAnnotationCase(hlsl);
+    VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+    VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
+    VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+    VERIFY_ARE_EQUAL(2 * 32, Testables.OffsetAndSizes[0].size);
+}
+
+TEST_F(PixTest, PixStructAnnotation_2DArray) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    uint32_t TwoDArray[2][3];
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.TwoDArray[0][0] = 250;
+    p.TwoDArray[0][1] = 251;
+    p.TwoDArray[0][2] = 252;
+    p.TwoDArray[1][0] = 253;
+    p.TwoDArray[1][1] = 254;
+    p.TwoDArray[1][2] = 255;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(6, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  VERIFY_ARE_EQUAL(2 * 3 * 32, Testables.OffsetAndSizes[0].size);
+}
+
+TEST_F(PixTest, PixStructAnnotation_EmbeddedArray) {
+  const char *hlsl = R"(
+
+struct Contained
+{
+  uint32_t array[3];
+};
+
+struct smallPayload
+{
+  uint32_t before;
+  Contained contained;
+  uint32_t after;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.before = 0xb4;
+    p.contained.array[0] = 0;
+    p.contained.array[1] = 1;
+    p.contained.array[2] = 2;
+    p.after = 3;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(5, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  VERIFY_ARE_EQUAL(5 * 32, Testables.OffsetAndSizes[0].size);
+
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "before");
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "array");
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "array");
+  ValidateAllocaWrite(Testables.AllocaWrites, 3, "array");
+  ValidateAllocaWrite(Testables.AllocaWrites, 4, "after");
+}
+
+TEST_F(PixTest, PixStructAnnotation_FloatN) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    float2 f2;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.f2 = float2(1,2);
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  // Can't test this until dbg.declare instructions are emitted when structs contain pointers-to-pointers
+  // VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  // VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
+  // VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  // VERIFY_ARE_EQUAL(32 + 32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "member0"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "member1"); // "memberN" until dbg.declare works
+}
+
+
+TEST_F(PixTest, PixStructAnnotation_SequentialFloatN) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+    float3 color;
+    float3 dir;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.color = float3(1,2,3);
+    p.dir = float3(4,5,6);
+
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  // Can't test this until dbg.declare instructions are emitted when structs contain pointers-to-pointers
+  // VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  // VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
+  // VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  // VERIFY_ARE_EQUAL(32 + 32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(6, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, "member0"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "member1"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "member2"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 3, "member0"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 4, "member1"); // "memberN" until dbg.declare works
+  ValidateAllocaWrite(Testables.AllocaWrites, 5, "member2"); // "memberN" until dbg.declare works
+}
+
+TEST_F(PixTest, PixStructAnnotation_EmbeddedFloatN) {
+  const char *hlsl = R"(
+
+struct Embedded
+{
+    float2 f2;
+};
+
+struct smallPayload
+{
+  uint32_t i32;
+  Embedded e;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    p.i32 = 32;
+    p.e.f2 = float2(1,2);
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+
+  // Can't test this until dbg.declare instructions are emitted when structs
+  // contain pointers-to-pointers
+  //VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  //VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes[0].countOfMembers);
+  //VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  //VERIFY_ARE_EQUAL(32 + 32, Testables.OffsetAndSizes[0].size);
+
+  VERIFY_ARE_EQUAL(3, Testables.AllocaWrites.size());
+  ValidateAllocaWrite(Testables.AllocaWrites, 0, ""); 
+  ValidateAllocaWrite(Testables.AllocaWrites, 1, "member0");
+  ValidateAllocaWrite(Testables.AllocaWrites, 2, "member1");
+}
+
+TEST_F(PixTest, PixStructAnnotation_Matrix) {
+  const char *hlsl = R"(
+struct smallPayload
+{
+  float4x4 mat;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  smallPayload p;
+  p.mat = float4x4( 1,2,3,4, 5,6,7,8, 9,10,11,12, 13,14,15, 16);
+  DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+  // Can't test member iterator until dbg.declare instructions are emitted when structs
+  // contain pointers-to-pointers
+  VERIFY_ARE_EQUAL(16, Testables.AllocaWrites.size());
+  for (int i = 0; i < 16; ++i)
+  {
+    ValidateAllocaWrite(Testables.AllocaWrites, i, "");
+  }
+
+}
+
+TEST_F(PixTest, PixStructAnnotation_BigMess) {
+  const char *hlsl = R"(
+
+struct BigStruct
+{
+    uint64_t bigInt;
+    double bigDouble;
+};
+
+struct EmbeddedStruct
+{
+    uint32_t OneInt;
+    uint32_t TwoDArray[2][2];
+};
+
+struct smallPayload
+{
+    uint dummy;
+    uint vertexCount;
+    uint primitiveCount;
+    EmbeddedStruct embeddedStruct;
+#ifdef PAYLOAD_MATRICES
+    float4x4 mat;
+#endif
+    uint64_t bigOne;
+    half littleOne;
+    BigStruct bigStruct[2];
+    uint lastCheck;
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    smallPayload p;
+    // Adding enough instructions to make the shader interesting to debug:
+    p.dummy = 42;
+    p.vertexCount = 3;
+    p.primitiveCount = 1;
+    p.embeddedStruct.OneInt = 123;
+    p.embeddedStruct.TwoDArray[0][0] = 252;
+    p.embeddedStruct.TwoDArray[0][1] = 253;
+    p.embeddedStruct.TwoDArray[1][0] = 254;
+    p.embeddedStruct.TwoDArray[1][1] = 255;
+#ifdef PAYLOAD_MATRICES
+    p.mat = float4x4( 1,2,3,4, 5,6,7,8, 9,10,11,12, 13,14,15, 16);
+#endif
+    p.bigOne = 123456789;
+    p.littleOne = 1.0;
+    p.bigStruct[0].bigInt = 10;
+    p.bigStruct[0].bigDouble = 2.0;
+    p.bigStruct[1].bigInt = 20;
+    p.bigStruct[1].bigDouble = 4.0;
+    p.lastCheck = 27;
+    DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+  VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
+  VERIFY_ARE_EQUAL(15, Testables.OffsetAndSizes[0].countOfMembers);
+  VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
+  constexpr uint32_t BigStructBitSize = 64 * 2;
+  constexpr uint32_t EmbeddedStructBitSize = 32 * 5;
+  VERIFY_ARE_EQUAL(3 * 32 + EmbeddedStructBitSize + 64 + 16 + BigStructBitSize*2 + 32, Testables.OffsetAndSizes[0].size);
 }
 
 
