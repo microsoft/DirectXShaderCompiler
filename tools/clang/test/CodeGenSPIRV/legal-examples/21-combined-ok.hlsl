@@ -34,6 +34,7 @@ void foo(RWStructuredBuffer<S> pRWSBuffer) {
   pRWSBuffer[i] = lSBuffer[i];
 }
 
+[numthreads(1,1,1)]
 void main() {
   foo(gRWSBuffer1);
   foo(gRWSBuffer2);

@@ -12,6 +12,7 @@
 
 
 #include "llvm/Pass.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
@@ -146,7 +147,7 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   return Simplified;
 }
 
-Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) {
 
   // The *only* reason we're paying special attention to the
   // branch inst, is to mark certain Basic Blocks as always
@@ -192,7 +193,7 @@ Value *DxilValueCache::ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT) 
   return nullptr;
 }
 
-Value *DxilValueCache::ProcessAndSimpilfy_Load(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Load(Instruction *I, DominatorTree *DT) {
   LoadInst *LI = cast<LoadInst>(I);
   Value *V = TryGetCachedValue(LI->getPointerOperand());
   if (Constant *ConstPtr = dyn_cast<Constant>(V)) {
@@ -208,19 +209,27 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
 
   Value *Simplified = nullptr;
   if (Instruction::Br == I->getOpcode()) {
-    Simplified = ProcessAndSimpilfy_Br(I, DT);
+    Simplified = ProcessAndSimplify_Br(I, DT);
   }
   else if (Instruction::PHI == I->getOpcode()) {
     Simplified = ProcessAndSimplify_PHI(I, DT);
   }
   else if (Instruction::Load == I->getOpcode()) {
-    Simplified = ProcessAndSimpilfy_Load(I, DT);
+    Simplified = ProcessAndSimplify_Load(I, DT);
   }
   else if (Instruction::GetElementPtr == I->getOpcode()) {
     SmallVector<Value *, 4> Ops;
     for (unsigned i = 0; i < I->getNumOperands(); i++)
       Ops.push_back(TryGetCachedValue(I->getOperand(i)));
     Simplified = llvm::SimplifyGEPInst(Ops, DL, nullptr, DT);
+  }
+  else if (Instruction::Call == I->getOpcode()) {
+    Module *M = I->getModule();
+    CallInst *CI = cast<CallInst>(I);
+    if (CI->getCalledFunction()->getName() == hlsl::DXIL::kDxBreakFuncName) {
+      llvm::Type *i1Ty = llvm::Type::getInt1Ty(M->getContext());
+      Simplified = llvm::ConstantInt::get(i1Ty, 1);
+    }
   }
   // The rest of the checks use LLVM stock simplifications
   else if (I->isBinaryOp()) {

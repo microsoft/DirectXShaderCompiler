@@ -62,6 +62,7 @@ void foo3() {
 }
 
 
+[numthreads(1,1,1)]
 void main() {
   foo1(); foo2(); foo3();
 }

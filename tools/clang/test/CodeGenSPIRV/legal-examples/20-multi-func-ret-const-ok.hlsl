@@ -28,6 +28,7 @@ StructuredBuffer<S> foo(int l) {
   }
 }
 
+[numthreads(1,1,1)]
 void main() {
   gRWSBuffer1[i] = foo(0)[i];
   gRWSBuffer2[i] = foo(1)[i];

@@ -12,6 +12,7 @@
 
 #include "DxcPixBase.h"
 #include "DxcPixTypes.h"
+#include "DxilDiaSession.h"
 
 HRESULT dxil_debug_info::CreateDxcPixType(
     DxcPixDxilDebugInfo *pDxilDebugInfo,

@@ -10253,6 +10253,11 @@ void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
     x = static_cast<uint32_t>(numThreadsAttr->getX());
     y = static_cast<uint32_t>(numThreadsAttr->getY());
     z = static_cast<uint32_t>(numThreadsAttr->getZ());
+  } else {
+    emitError("thread group size [numthreads(x,y,z)] is missing from the "
+              "entry-point function",
+              decl->getLocation());
+    return;
   }
 
   spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,

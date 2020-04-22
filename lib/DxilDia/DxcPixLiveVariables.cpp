@@ -15,6 +15,7 @@
 #include "DxcPixDxilDebugInfo.h"
 #include "DxcPixLiveVariables.h"
 #include "DxcPixLiveVariables_FragmentIterator.h" 
+#include "DxilDiaSession.h"
 
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/SmallVector.h"

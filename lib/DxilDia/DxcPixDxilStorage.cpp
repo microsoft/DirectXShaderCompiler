@@ -18,6 +18,7 @@
 #include "DxcPixBase.h"
 #include "DxcPixLiveVariables.h"
 #include "DxcPixTypes.h"
+#include "DxilDiaSession.h"
 
 static HRESULT UnAliasType(
     IDxcPixType *MaybeAlias,
