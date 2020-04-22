@@ -409,6 +409,7 @@ class db_dxil(object):
         for i in "WriteSamplerFeedback,WriteSamplerFeedbackBias".split(","):
             self.name_idx[i].category = "Sampler Feedback"
             self.name_idx[i].is_feedback = True
+            self.name_idx[i].is_gradient = True
             self.name_idx[i].shader_model = 6,5
             self.name_idx[i].shader_stages = ("library", "pixel",)
         for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):

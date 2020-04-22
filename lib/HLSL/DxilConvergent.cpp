@@ -192,6 +192,9 @@ Value *DxilConvergentMark::FindConvergentOperand(Instruction *I) {
       case IntrinsicOp::MOP_CalculateLevelOfDetail:
       case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
         return CI->getArgOperand(HLOperandIndex::kSampleCoordArgIndex);
+      case IntrinsicOp::MOP_WriteSamplerFeedback:
+      case IntrinsicOp::MOP_WriteSamplerFeedbackBias:
+        return CI->getArgOperand(HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex);
       default:
         // No other ops have convergent operands.
         break;
