@@ -6278,18 +6278,13 @@ private:
 };
 }
 
-static
-DIGlobalVariable *FindGlobalVariableFor(const DebugInfoFinder &DbgFinder, GlobalVariable *GV) {
-  for (auto *DGV : DbgFinder.global_variables()) {
-    if (DGV->getVariable() == GV) {
-      return DGV;
-    }
-  }
-  return nullptr;
-}
-
 // Go through the base type chain of TyA and see if
 // we eventually get to TyB
+//
+// Note: Not necessarily about inheritance. Could be
+// typedef, const type, ref type, MEMBER type (TyA
+// being a member of TyB).
+//
 static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
   DITypeIdentifierMap EmptyMap;
   while (TyA) {
@@ -6315,47 +6310,31 @@ static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
 static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder, DIGlobalVariable *DGV, unsigned *Out_OffsetInBits, unsigned *Out_SizeInBits) {
   DITypeIdentifierMap EmptyMap;
 
-  unsigned OffsetInBits = 0;
-  unsigned SizeInBits = -1;
+  StringRef FullName = DGV->getName();
+  size_t FirstDot = FullName.find_first_of('.');
+  if (FirstDot == StringRef::npos)
+    return nullptr;
+
+  StringRef BaseName = FullName.substr(0, FirstDot);
+  assert(BaseName.size());
+
+  DIType *Ty = DGV->getType().resolve(EmptyMap);
+  assert(isa<DIDerivedType>(Ty) && Ty->getTag() == dwarf::DW_TAG_member);
+
   DIGlobalVariable *FinalResult = nullptr;
 
-  while (true) {
-    DIGlobalVariable *Result = nullptr;
-    DIType *Ty = DGV->getType().resolve(EmptyMap);
-    // Give up is DGV is not a member type
-    if (!isa<DIDerivedType>(Ty) || Ty->getTag() != dwarf::DW_TAG_member)
-      break;
-
-    unsigned LongestName = 0;
-    for (DIGlobalVariable *DGV_It : DbgFinder.global_variables()) {
-      if (
-        DGV_It->getName().size() > LongestName &&
-        DGV->getName() != DGV_It->getName() &&
-        DGV->getName().startswith(DGV_It->getName()))
-      {
-        if (IsDerivedTypeOf(Ty, DGV_It->getType().resolve(EmptyMap))) {
-          Result = DGV_It;
-          LongestName = DGV_It->getName().size();
-        }
-      }
-    }
-
-    if (Result) {
-      // Offset the OffsetInBits and continue to look for
-      // more base types, in case Result is another member type.
-      OffsetInBits += Ty->getOffsetInBits();
-      SizeInBits = std::min(SizeInBits, (unsigned)Ty->getSizeInBits());
-      FinalResult = Result;
-      DGV = Result;
-    }
-    else {
+  for (DIGlobalVariable *DGV_It : DbgFinder.global_variables()) {
+    if (DGV_It->getName() == BaseName &&
+      IsDerivedTypeOf(Ty, DGV_It->getType().resolve(EmptyMap)))
+    {
+      FinalResult = DGV_It;
       break;
     }
   }
 
   if (FinalResult) {
-    *Out_OffsetInBits = OffsetInBits;
-    *Out_SizeInBits = SizeInBits;
+    *Out_OffsetInBits = Ty->getOffsetInBits();
+    *Out_SizeInBits = Ty->getSizeInBits();
   }
 
   return FinalResult;
@@ -6365,7 +6344,7 @@ static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFi
 // lowered to local Alloca.
 //
 static
-void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
+void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
   if (!DbgFinder.compile_unit_count())
     return;
 
@@ -6378,7 +6357,7 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
     }
   }
 
-  DIGlobalVariable *DGV = FindGlobalVariableFor(DbgFinder, GV);
+  DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
     return;
 
