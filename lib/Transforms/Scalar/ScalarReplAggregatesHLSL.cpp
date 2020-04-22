@@ -3547,6 +3547,15 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     }
   }
 
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Src)) {
+    // For const GV, if has stored, mark as non-constant.
+    if (GV->isConstant()) {
+      hlutil::PointerStatus PS(GV, 0, /*bLdStOnly*/ true);
+      PS.analyze(typeSys, /*bStructElt*/ false);
+      if (PS.HasStored())
+        GV->setConstant(false);
+    }
+  }
   Value *RawDest = MC->getOperand(0);
   Value *RawSrc = MC->getOperand(1);
   MC->eraseFromParent();

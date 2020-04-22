@@ -99,14 +99,34 @@ bool isPointerNeedToLower(Value *V, Type *HandleTy) {
   return isPointerNeedToLower(Ptr, HandleTy);
 }
 
-bool mayAliasWithGlobal(Value *V, std::vector<GlobalVariable *> &staticGVs) {
+bool mayAliasWithGlobal(Value *V, CallInst *CallSite, std::vector<GlobalVariable *> &staticGVs) {
   // The unsafe case need copy-in copy-out will be global variable alias with
   // parameter. Then global variable is updated in the function, the parameter
   // will be updated silently.
 
-  // Currently, treat everything as alias.
-  // TODO: do analysis to check alias.
-  return !staticGVs.empty();
+  // Currently add copy for all non-const static global in
+  // CGMSHLSLRuntime::EmitHLSLOutParamConversionInit.
+  //So here just return false and do nothing.
+  // For case like
+  // struct T {
+  //  float4 a[10];
+  //};
+  // static T g;
+  // void foo(inout T t) {
+  //  // modify g
+  //}
+  // void bar() {
+  //  T t = g;
+  //  // Not copy because t is local.
+  //  // But optimizations will change t to g later.
+  //  foo(t);
+  //}
+  // Optimizations which remove the copy should not replace foo(t) into foo(g)
+  // when g could be modified.
+  // TODO: remove copy for global in
+  // CGMSHLSLRuntime::EmitHLSLOutParamConversionInit, do analysis to check alias
+  // only generate copy when there's alias.
+  return false;
 }
 
 struct CopyData {
@@ -173,7 +193,7 @@ void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
 
         // When use ptr from cbuffer/buffer, need copy to avoid lower on user
         // function.
-        bool bNeedCopy = mayAliasWithGlobal(arg, staticGVs);
+        bool bNeedCopy = mayAliasWithGlobal(arg, CI, staticGVs);
         if (bNoInline)
           bNeedCopy |= isPointerNeedToLower(arg, HandleTy);
 
