@@ -162,6 +162,16 @@ STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetSizeInBits(
     _Outptr_result_z_ DWORD *pSizeInBits)
 {
   *pSizeInBits = m_pArray->getSizeInBits();
+  for (unsigned ContainerDims = 0; ContainerDims < m_DimNum; ++ContainerDims)
+  {
+    auto *SR = llvm::dyn_cast<llvm::DISubrange>(m_pArray->getElements()[ContainerDims]);
+    auto count = SR->getCount();
+    if (count == 0)
+    {
+      return E_FAIL;
+    }
+    *pSizeInBits /= count;
+  }
   return S_OK;
 }
 

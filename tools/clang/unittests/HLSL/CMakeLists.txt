@@ -86,6 +86,7 @@ if (WIN32)
 target_link_libraries(clang-hlsl-tests PRIVATE
   dxcompiler
   HLSLTestLib
+  LLVMDxilDia
   ${TAEF_LIBRARIES}
   ${DIASDK_LIBRARIES}
   ${D3D12_LIBRARIES}
