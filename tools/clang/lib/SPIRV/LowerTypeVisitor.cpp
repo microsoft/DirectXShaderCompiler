@@ -643,7 +643,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,
                   /*isRowMajor*/ llvm::None, srcLoc),
-        spv::Dim::SubpassData, ImageType::WithDepth::No,
+        spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false,
         /*isMultipleSampled=*/name == "SubpassInputMS",
         ImageType::WithSampler::No, spv::ImageFormat::Unknown);
