@@ -100,5 +100,5 @@ deploy:
   local-dir: ${ARTIFACTS_DIR}
   on:
     repo: microsoft/DirectXShaderCompiler
-    branch: release
+    branch: master
 
