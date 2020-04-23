@@ -586,10 +586,10 @@ bool OP::IsDxilOpGradient(OpCode C) {
   unsigned op = (unsigned)C;
   /* <py::lines('OPCODE-GRADIENT')>hctdb_instrhelp.get_instrs_pred("op", "is_gradient")</py>*/
   // OPCODE-GRADIENT:BEGIN
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, TextureGather=73,
-  // TextureGatherCmp=74, CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
-  // DerivFineX=85, DerivFineY=86
-  return (60 <= op && op <= 61) || op == 64 || (73 <= op && op <= 74) || op == 81 || (83 <= op && op <= 86);
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
+  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  return (60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) || (174 <= op && op <= 175);
   // OPCODE-GRADIENT:END
 }
 
