@@ -6278,21 +6278,73 @@ private:
 };
 }
 
-static
-DIGlobalVariable *FindGlobalVariableFor(const DebugInfoFinder &DbgFinder, GlobalVariable *GV) {
-  for (auto *DGV : DbgFinder.global_variables()) {
-    if (DGV->getVariable() == GV) {
-      return DGV;
+// Go through the base type chain of TyA and see if
+// we eventually get to TyB
+//
+// Note: Not necessarily about inheritance. Could be
+// typedef, const type, ref type, MEMBER type (TyA
+// being a member of TyB).
+//
+static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
+  DITypeIdentifierMap EmptyMap;
+  while (TyA) {
+    if (DIDerivedType *Derived = dyn_cast<DIDerivedType>(TyA)) {
+      if (Derived->getBaseType() == TyB)
+        return true;
+      else
+        TyA = Derived->getBaseType().resolve(EmptyMap);
+    }
+    else {
+      break;
     }
   }
-  return nullptr;
+
+  return false;
+}
+
+// See if 'DGV' a member type of some other variable, and return that variable
+// and the offset and size DGV is into it.
+//
+// If DGV is not a member, just return nullptr.
+//
+static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder, DIGlobalVariable *DGV, unsigned *Out_OffsetInBits, unsigned *Out_SizeInBits) {
+  DITypeIdentifierMap EmptyMap;
+
+  StringRef FullName = DGV->getName();
+  size_t FirstDot = FullName.find_first_of('.');
+  if (FirstDot == StringRef::npos)
+    return nullptr;
+
+  StringRef BaseName = FullName.substr(0, FirstDot);
+  assert(BaseName.size());
+
+  DIType *Ty = DGV->getType().resolve(EmptyMap);
+  assert(isa<DIDerivedType>(Ty) && Ty->getTag() == dwarf::DW_TAG_member);
+
+  DIGlobalVariable *FinalResult = nullptr;
+
+  for (DIGlobalVariable *DGV_It : DbgFinder.global_variables()) {
+    if (DGV_It->getName() == BaseName &&
+      IsDerivedTypeOf(Ty, DGV_It->getType().resolve(EmptyMap)))
+    {
+      FinalResult = DGV_It;
+      break;
+    }
+  }
+
+  if (FinalResult) {
+    *Out_OffsetInBits = Ty->getOffsetInBits();
+    *Out_SizeInBits = Ty->getSizeInBits();
+  }
+
+  return FinalResult;
 }
 
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
 static
-void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
+void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
   if (!DbgFinder.compile_unit_count())
     return;
 
@@ -6305,7 +6357,7 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
     }
   }
 
-  DIGlobalVariable *DGV = FindGlobalVariableFor(DbgFinder, GV);
+  DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
     return;
 
@@ -6314,6 +6366,15 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   DIScope *Scope = Subprogram;
   DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
+  // If the variable is a member of another variable, find the offset and size
+  bool IsFragment = false;
+  unsigned OffsetInBits = 0,
+           SizeInBits = 0;
+  if (DIGlobalVariable *UnsplitDGV = FindGlobalVariableFragment(DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
+    DGV = UnsplitDGV;
+    IsFragment = true;
+  }
+
   std::string Name = "global.";
   Name += DGV->getName();
   // Using arg_variable instead of auto_variable because arg variables can use
@@ -6321,10 +6382,20 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
+  DXASSERT(Ty->getTag() != dwarf::DW_TAG_member, "Member type is not allowed for variables.");
   DILocalVariable *ConvertedLocalVar =
     DIB.createLocalVariable(Tag, Scope,
       Name, DGV->getFile(), DGV->getLine(), Ty);
-  DIB.insertDeclare(AI, ConvertedLocalVar, DIB.createExpression(ArrayRef<int64_t>()), Loc, AI->getNextNode());
+
+  DIExpression *Expr = nullptr;
+  if (IsFragment) {
+    Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
+  }
+  else {
+    Expr = DIB.createExpression(ArrayRef<int64_t>());
+  }
+
+  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
 }
 
 bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
