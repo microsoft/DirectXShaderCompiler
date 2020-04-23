@@ -3804,7 +3804,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
           hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
-          PS.analyze(typeSys, bStructElt);
+          DestPS.analyze(typeSys, bStructElt);
           if (DestPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL);
             // V still need to be flatten.
