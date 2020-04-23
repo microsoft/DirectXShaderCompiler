@@ -79,14 +79,14 @@ script:
 after_success:
   # Create tarball for deployment
   - if [[ "${CC}" == "clang" ]]; then
-      cd .. && mkdir artifacts;
-      cd artifacts && mkdir bin && mkdir lib && mkdir include && cd ..;
-      cp build/lib/libdxcompiler.so artifacts/lib/;
-      cp build/bin/dxc artifacts/bin/;
-      cp -r include/dxc artifacts/include;
-      echo "${TRAVIS_COMMIT}" > artifacts/GIT-COMMIT.txt;
-      export ARTIFACTS_FILE=build-${TRAVIS_OS_NAME}-${BUILD_TYPE}.tar.gz;
-      cd artifacts && tar -czvf ${ARTIFACTS_FILE} * && cd ..;
+      export ${ARTIFACTS_DIR}=build-${TRAVIS_OS_NAME}-${BUILD_TYPE}
+      cd .. && mkdir ${ARTIFACTS_DIR};
+      cd ${ARTIFACTS_DIR} && mkdir bin && mkdir lib && mkdir include && cd ..;
+      cp build/lib/libdxcompiler.so ${ARTIFACTS_DIR}/lib/;
+      cp build/bin/dxc ${ARTIFACTS_DIR}/bin/;
+      cp -r include/dxc ${ARTIFACTS_DIR}/include;
+      echo "${TRAVIS_COMMIT}" > ${ARTIFACTS_DIR}/GIT-COMMIT.txt;
+      ls ${ARTIFACTS_DIR}/*
     fi
 
 deploy:
@@ -97,7 +97,8 @@ deploy:
   bucket: travis-dxc
   skip_cleanup: true
   acl: public-read
-  local-dir: artifacts
+  local-dir: ${ARTIFACTS_DIR}
   on:
     repo: microsoft/DirectXShaderCompiler
+    branch: release
 
