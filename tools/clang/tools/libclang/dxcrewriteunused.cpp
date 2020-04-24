@@ -43,6 +43,11 @@
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/Support/HLSLOptions.h"
 
+// From dxcutil.h
+namespace dxcutil {
+bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
+} // namespace dxcutil
+
 #define CP_UTF16 1200
 
 using namespace llvm;
@@ -107,7 +112,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
                              _In_ TextDiagnosticPrinter *diagPrinter,
                              _In_opt_ ASTUnit::RemappedFile *rewrite,
                              _In_ hlsl::options::DxcOpts &opts,
-                             _In_opt_ LPCSTR pDefines) {
+                             _In_opt_ LPCSTR pDefines,
+                             _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
   // Setup a compiler instance.
   std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
   targetOptions->Triple = llvm::sys::getDefaultTargetTriple();
@@ -127,6 +133,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
+  compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
+  compiler.getCodeGenOpts().MainFileName = pMainFile;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
@@ -135,6 +143,29 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
     }
 
     PPOpts.RemappedFilesKeepOriginalName = true;
+  }
+
+  PPOpts.ExpandTokPastingArg = opts.LegacyMacroExpansion;
+
+  // Pick additional arguments.
+  clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
+  HSOpts.UseBuiltinIncludes = 0;
+  // Consider: should we force-include '.' if the source file is relative?
+  for (const llvm::opt::Arg *A : opts.Args.filtered(options::OPT_I)) {
+    const bool IsFrameworkFalse = false;
+    const bool IgnoreSysRoot = true;
+    if (dxcutil::IsAbsoluteOrCurDirRelative(A->getValue())) {
+      HSOpts.AddPath(A->getValue(), frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
+    }
+    else {
+      std::string s("./");
+      s += A->getValue();
+      HSOpts.AddPath(s, frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
+    }
+  }
+
+  if (msfPtr) {
+    msfPtr->SetupForCompilerInstance(compiler);
   }
 
   compiler.createPreprocessor(TU_Complete);
@@ -519,7 +550,8 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
                      _In_ LPCSTR pEntryPoint,
                      _In_ LPCSTR pDefines,
                      std::string &warnings,
-                     std::string &result) {
+                     std::string &result,
+                     _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
 
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
@@ -532,7 +564,7 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   hlsl::options::DxcOpts opts;
   opts.HLSLVersion = 2015;
 
-  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines);
+  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines, msfPtr);
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
@@ -614,7 +646,8 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pDefines,
                _In_ UINT32 rewriteOption,
                std::string &warnings,
-               std::string &result) {
+               std::string &result,
+               _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
 
   opts.RWOpt.SkipFunctionBody |= rewriteOption & RewriterOptionMask::SkipFunctionBody;
   opts.RWOpt.SkipStatic |= rewriteOption & RewriterOptionMask::SkipStatic;
@@ -628,7 +661,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
       llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
-  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines);
+  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines, msfPtr);
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
@@ -743,7 +776,7 @@ public:
       LPCWSTR pOutputName = nullptr;  // TODO: Fill this in
       HRESULT status = DoRewriteUnused(
           &m_langExtensionsHelper, fakeName, pRemap.get(), utf8EntryPoint,
-          defineCount > 0 ? definesStr.c_str() : nullptr, errors, rewrite);
+          defineCount > 0 ? definesStr.c_str() : nullptr, errors, rewrite, nullptr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, CP_UTF8,  // TODO: Support DefaultTextCodePage
             rewrite.c_str(), pOutputName),
@@ -792,7 +825,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          RewriterOptionMask::Default, errors, rewrite);
+                          RewriterOptionMask::Default, errors, rewrite, nullptr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
             rewrite.c_str(), DxcOutNoName),
@@ -845,7 +878,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          rewriteOption, errors, rewrite);
+                          rewriteOption, errors, rewrite, msfPtr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
             rewrite.c_str(), DxcOutNoName),
@@ -913,7 +946,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          Default, errors, rewrite);
+                          Default, errors, rewrite, msfPtr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
             rewrite.c_str(), DxcOutNoName),
