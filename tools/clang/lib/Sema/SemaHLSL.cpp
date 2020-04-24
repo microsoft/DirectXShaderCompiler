@@ -1761,6 +1761,8 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(ConstAttr::CreateImplicit(context));
   if (pIntrinsic->bReadOnly)
     FD->addAttr(PureAttr::CreateImplicit(context));
+  if (pIntrinsic->bIsWave)
+    FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
 }
 
 static
@@ -11218,6 +11220,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLExport:
     declAttr = ::new (S.Context) HLSLExportAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLWaveSensitive:
+    declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -12655,6 +12660,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLPayload:
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
+  case clang::attr::HLSLWaveSensitive:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

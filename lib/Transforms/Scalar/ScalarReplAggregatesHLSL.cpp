@@ -993,7 +993,7 @@ static unsigned IsPtrUsedByLoweredFn(
 
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       unsigned opcode = CE->getOpcode();
-      if (opcode == Instruction::AddrSpaceCast || Instruction::GetElementPtr)
+      if (opcode == Instruction::AddrSpaceCast || opcode == Instruction::GetElementPtr)
         if (IsPtrUsedByLoweredFn(user, CollectedUses))
           bFound = true;
     }
@@ -1016,7 +1016,8 @@ static CallInst *RewriteIntrinsicCallForCastedArg(CallInst *CI, unsigned argIdx)
   newArgs[argIdx] = newArg;
 
   FunctionType *newFuncTy = FunctionType::get(CI->getType(), newArgTypes, false);
-  Function *newF = GetOrCreateHLFunction(*F->getParent(), newFuncTy, group, opcode);
+  Function *newF = GetOrCreateHLFunction(*F->getParent(), newFuncTy, group, opcode,
+                                         F->getAttributes().getFnAttributes());
 
   IRBuilder<> Builder(CI);
   return Builder.CreateCall(newF, newArgs);
@@ -2826,7 +2827,8 @@ static CallInst *CreateFlattenedHLIntrinsicCall(
   FunctionType *flatFuncTy =
       FunctionType::get(CI->getType(), flatParamTys, false);
   Function *flatF =
-      GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
+    GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode,
+                          F->getAttributes().getFnAttributes());
 
   return Builder.CreateCall(flatF, flatArgs);
 }

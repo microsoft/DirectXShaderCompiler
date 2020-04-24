@@ -1157,6 +1157,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (hlsl::GetIntrinsicLowering(FD, lower))
       hlsl::SetHLLowerStrategy(F, lower);
 
+
+    if (FD->hasAttr<HLSLWaveSensitiveAttr>())
+      hlsl::SetHLWaveSensitive(F);
+
     // Don't need to add FunctionQual for intrinsic function.
     return;
   }

@@ -802,7 +802,7 @@ Value *HLMatrixLowerPass::lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeG
   }
 }
 
-static Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+static CallInst *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
   Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
   SmallVector<Type*, 4> ArgTys;
   ArgTys.reserve(Args.size());
@@ -834,24 +834,32 @@ Value *HLMatrixLowerPass::lowerHLIntrinsic(CallInst *Call, IntrinsicOp Opcode) {
 
   // Delegate to a lowered intrinsic call
   SmallVector<Value*, 4> LoweredArgs;
+  SmallVector<Type*, 4> ArgTys;
   LoweredArgs.reserve(Call->getNumArgOperands());
+  ArgTys.reserve(Call->getNumArgOperands());
   for (Value *Arg : Call->arg_operands()) {
+    Value *LoweredArg = nullptr;
     if (Arg->getType()->isPointerTy()) {
       // ByRef parameter (for example, frexp's second parameter)
       // If the argument points to a lowered matrix variable, replace it here,
       // otherwise preserve the matrix type and let further passes handle the lowering.
-      Value *LoweredArg = tryGetLoweredPtrOperand(Arg, Builder);
+      LoweredArg = tryGetLoweredPtrOperand(Arg, Builder);
       if (LoweredArg == nullptr) LoweredArg = Arg;
-      LoweredArgs.emplace_back(LoweredArg);
     }
     else {
-      LoweredArgs.emplace_back(getLoweredByValOperand(Arg, Builder));
+      LoweredArg = getLoweredByValOperand(Arg, Builder);
     }
+    LoweredArgs.emplace_back(LoweredArg);
+    ArgTys.emplace_back(LoweredArg->getType());
   }
 
   Type *LoweredRetTy = HLMatrixType::getLoweredType(Call->getType());
-  return callHLFunction(*m_pModule, HLOpcodeGroup::HLIntrinsic, static_cast<unsigned>(Opcode), 
-    LoweredRetTy, LoweredArgs, Builder);
+  FunctionType *FuncTy = FunctionType::get(LoweredRetTy, ArgTys, /* isVarArg */ false);
+  Function *Func = GetOrCreateHLFunction(*m_pModule, FuncTy, HLOpcodeGroup::HLIntrinsic,
+                                         static_cast<unsigned>(Opcode),
+                                         Call->getCalledFunction()->getAttributes().getFnAttributes());
+
+  return Builder.CreateCall(Func, LoweredArgs);
 }
 
 // Handles multiplcation of a scalar with a matrix
