@@ -561,6 +561,12 @@ enum tagSTATFLAG {
 
 //===--------------------- UUID Related Macros ----------------------------===//
 
+#ifdef __EMULATE_UUID
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
 static size_t UuidStrHash(const char *k) {
   long h = 0;
   while (*k) {
@@ -572,8 +578,9 @@ static size_t UuidStrHash(const char *k) {
   }
   return h;
 }
-
-#ifdef __EMULATE_UUID
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
