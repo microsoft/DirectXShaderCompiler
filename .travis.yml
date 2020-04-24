@@ -86,7 +86,7 @@ after_success:
       cp build/bin/dxc ${ARTIFACTS_DIR}/bin/;
       cp -r include/dxc ${ARTIFACTS_DIR}/include;
       echo "${TRAVIS_COMMIT}" > ${ARTIFACTS_DIR}/GIT-COMMIT.txt;
-      ls ${ARTIFACTS_DIR}/*
+      ls ${ARTIFACTS_DIR}/*;
     fi
 
 deploy:
