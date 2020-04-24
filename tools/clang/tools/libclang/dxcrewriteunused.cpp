@@ -43,6 +43,11 @@
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/Support/HLSLOptions.h"
 
+// From dxcutil.h
+namespace dxcutil {
+bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
+} // namespace dxcutil
+
 #define CP_UTF16 1200
 
 using namespace llvm;
@@ -127,6 +132,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
+  compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
+  compiler.getCodeGenOpts().MainFileName = pMainFile;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
@@ -136,6 +143,29 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
 
     PPOpts.RemappedFilesKeepOriginalName = true;
   }
+
+  PPOpts.ExpandTokPastingArg = opts.LegacyMacroExpansion;
+
+  // Pick additional arguments.
+  clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
+  HSOpts.UseBuiltinIncludes = 0;
+  // Consider: should we force-include '.' if the source file is relative?
+  for (const llvm::opt::Arg *A : opts.Args.filtered(options::OPT_I)) {
+    const bool IsFrameworkFalse = false;
+    const bool IgnoreSysRoot = true;
+    if (dxcutil::IsAbsoluteOrCurDirRelative(A->getValue())) {
+      HSOpts.AddPath(A->getValue(), frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
+    }
+    else {
+      std::string s("./");
+      s += A->getValue();
+      HSOpts.AddPath(s, frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
+    }
+  }
+
+  dxcutil::DxcArgsFileSystem *msfPtr =
+    static_cast<dxcutil::DxcArgsFileSystem *>(::llvm::sys::fs::GetCurrentThreadFileSystem());
+  msfPtr->SetupForCompilerInstance(compiler);
 
   compiler.createPreprocessor(TU_Complete);
 
