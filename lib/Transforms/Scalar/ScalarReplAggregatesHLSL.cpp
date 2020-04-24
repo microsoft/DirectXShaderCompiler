@@ -59,6 +59,7 @@
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/HLLowerUDT.h"
+#include "dxc/HLSL/HLUtil.h"
 #include <deque>
 #include <unordered_map>
 #include <unordered_set>
@@ -3374,214 +3375,6 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
   return true;
 }
 
-struct PointerStatus {
-  /// Keep track of what stores to the pointer look like.
-  enum StoredType {
-    /// There is no store to this pointer.  It can thus be marked constant.
-    NotStored,
-
-    /// This ptr is a global, and is stored to, but the only thing stored is the
-    /// constant it
-    /// was initialized with. This is only tracked for scalar globals.
-    InitializerStored,
-
-    /// This ptr is stored to, but only its initializer and one other value
-    /// is ever stored to it.  If this global isStoredOnce, we track the value
-    /// stored to it in StoredOnceValue below.  This is only tracked for scalar
-    /// globals.
-    StoredOnce,
-
-    /// This ptr is only assigned by a memcpy.
-    MemcopyDestOnce,
-
-    /// This ptr is stored to by multiple values or something else that we
-    /// cannot track.
-    Stored
-  } storedType;
-  /// Keep track of what loaded from the pointer look like.
-  enum LoadedType {
-    /// There is no load to this pointer.  It can thus be marked constant.
-    NotLoaded,
-
-    /// This ptr is only used by a memcpy.
-    MemcopySrcOnce,
-
-    /// This ptr is loaded to by multiple instructions or something else that we
-    /// cannot track.
-    Loaded
-  } loadedType;
-  /// If only one value (besides the initializer constant) is ever stored to
-  /// this global, keep track of what value it is.
-  Value *StoredOnceValue;
-  /// Memcpy which this ptr is used.
-  std::unordered_set<MemCpyInst *> memcpySet;
-  /// Memcpy which use this ptr as dest.
-  MemCpyInst *StoringMemcpy;
-  /// Memcpy which use this ptr as src.
-  MemCpyInst *LoadingMemcpy;
-  /// These start out null/false.  When the first accessing function is noticed,
-  /// it is recorded. When a second different accessing function is noticed,
-  /// HasMultipleAccessingFunctions is set to true.
-  const Function *AccessingFunction;
-  bool HasMultipleAccessingFunctions;
-  /// Size of the ptr.
-  unsigned Size;
-
-  /// Look at all uses of the global and fill in the GlobalStatus structure.  If
-  /// the global has its address taken, return true to indicate we can't do
-  /// anything with it.
-  static void analyzePointer(const Value *V, PointerStatus &PS,
-                             DxilTypeSystem &typeSys, bool bStructElt);
-
-  PointerStatus(unsigned size)
-      : storedType(StoredType::NotStored), loadedType(LoadedType::NotLoaded), StoredOnceValue(nullptr),
-        StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
-        AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
-        Size(size) {}
-  void MarkAsStored() {
-    storedType = StoredType::Stored;
-    StoredOnceValue = nullptr;
-  }
-  void MarkAsLoaded() { loadedType = LoadedType::Loaded; }
-};
-
-void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
-                                   DxilTypeSystem &typeSys, bool bStructElt) {
-  for (const User *U : V->users()) {
-    if (const Instruction *I = dyn_cast<Instruction>(U)) {
-      const Function *F = I->getParent()->getParent();
-      if (!PS.AccessingFunction) {
-        PS.AccessingFunction = F;
-      } else {
-        if (F != PS.AccessingFunction)
-          PS.HasMultipleAccessingFunctions = true;
-      }
-    }
-
-    if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
-      analyzePointer(BC, PS, typeSys, bStructElt);
-    } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
-      // Do not collect memcpy on struct GEP use.
-      // These memcpy will be flattened in next level.
-      if (!bStructElt) {
-        MemCpyInst *MI = const_cast<MemCpyInst *>(MC);
-        PS.memcpySet.insert(MI);
-        bool bFullCopy = false;
-        if (ConstantInt *Length = dyn_cast<ConstantInt>(MC->getLength())) {
-          bFullCopy = PS.Size == Length->getLimitedValue()
-            || PS.Size == 0 || Length->getLimitedValue() == 0;  // handle unbounded arrays
-        }
-        if (MC->getRawDest() == V) {
-          if (bFullCopy &&
-              PS.storedType == StoredType::NotStored) {
-            PS.storedType = StoredType::MemcopyDestOnce;
-            PS.StoringMemcpy = MI;
-          } else {
-            PS.MarkAsStored();
-            PS.StoringMemcpy = nullptr;
-          }
-        } else if (MC->getRawSource() == V) {
-          if (bFullCopy &&
-              PS.loadedType == LoadedType::NotLoaded) {
-            PS.loadedType = LoadedType::MemcopySrcOnce;
-            PS.LoadingMemcpy = MI;
-          } else {
-            PS.MarkAsLoaded();
-            PS.LoadingMemcpy = nullptr;
-          }
-        }
-      } else {
-        if (MC->getRawDest() == V) {
-          PS.MarkAsStored();
-        } else {
-          DXASSERT(MC->getRawSource() == V, "must be source here");
-          PS.MarkAsLoaded();
-        }
-      }
-    } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
-      gep_type_iterator GEPIt = gep_type_begin(GEP);
-      gep_type_iterator GEPEnd = gep_type_end(GEP);
-      // Skip pointer idx.
-      GEPIt++;
-      // Struct elt will be flattened in next level.
-      bool bStructElt = (GEPIt != GEPEnd) && GEPIt->isStructTy();
-      analyzePointer(GEP, PS, typeSys, bStructElt);
-    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *V = SI->getOperand(0);
-
-      if (PS.storedType == StoredType::NotStored) {
-        PS.storedType = StoredType::StoredOnce;
-        PS.StoredOnceValue = V;
-      } else {
-        PS.MarkAsStored();
-      }
-    } else if (dyn_cast<LoadInst>(U)) {
-      PS.MarkAsLoaded();
-    } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
-      Function *F = CI->getCalledFunction();
-      DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
-      if (!annotation) {
-        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
-        switch (group) {
-        case HLOpcodeGroup::HLMatLoadStore: {
-          HLMatLoadStoreOpcode opcode =
-              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
-          switch (opcode) {
-          case HLMatLoadStoreOpcode::ColMatLoad:
-          case HLMatLoadStoreOpcode::RowMatLoad:
-            PS.MarkAsLoaded();
-            break;
-          case HLMatLoadStoreOpcode::ColMatStore:
-          case HLMatLoadStoreOpcode::RowMatStore:
-            PS.MarkAsStored();
-            break;
-          default:
-            DXASSERT(0, "invalid opcode");
-            PS.MarkAsStored();
-            PS.MarkAsLoaded();
-          }
-        } break;
-        case HLOpcodeGroup::HLSubscript: {
-          HLSubscriptOpcode opcode =
-              static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
-          switch (opcode) {
-          case HLSubscriptOpcode::VectorSubscript:
-          case HLSubscriptOpcode::ColMatElement:
-          case HLSubscriptOpcode::ColMatSubscript:
-          case HLSubscriptOpcode::RowMatElement:
-          case HLSubscriptOpcode::RowMatSubscript:
-            analyzePointer(CI, PS, typeSys, bStructElt);
-            break;
-          default:
-            // Rest are resource ptr like buf[i].
-            // Only read of resource handle.
-            PS.MarkAsLoaded();
-            break;
-          }
-        } break;
-        default: {
-          // If not sure its out param or not. Take as out param.
-          PS.MarkAsStored();
-          PS.MarkAsLoaded();
-        }
-        }
-        continue;
-      }
-
-      unsigned argSize = F->arg_size();
-      for (unsigned i = 0; i < argSize; i++) {
-        Value *arg = CI->getArgOperand(i);
-        if (V == arg) {
-          // Do not replace struct arg.
-          // Mark stored and loaded to disable replace.
-          PS.MarkAsStored();
-          PS.MarkAsLoaded();
-        }
-      }
-    }
-  }
-}
-
 static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder) {
   for (auto it = C->user_begin(); it != C->user_end(); ) {
     User *U = *(it++);
@@ -3754,6 +3547,15 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     }
   }
 
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Src)) {
+    // For const GV, if has stored, mark as non-constant.
+    if (GV->isConstant()) {
+      hlutil::PointerStatus PS(GV, 0, /*bLdStOnly*/ true);
+      PS.analyze(typeSys, /*bStructElt*/ false);
+      if (PS.HasStored())
+        GV->setConstant(false);
+    }
+  }
   Value *RawDest = MC->getOperand(0);
   Value *RawSrc = MC->getOperand(1);
   MC->eraseFromParent();
@@ -3899,16 +3701,17 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   // if MemcpyOnce, replace with dest with src if dest is not out param.
   // else flat memcpy.
   unsigned size = DL.getTypeAllocSize(Ty->getPointerElementType());
-  PointerStatus PS(size);
+  hlutil::PointerStatus PS(V, size, /*bLdStOnly*/ false);
   const bool bStructElt = false;
   bool bEltMemcpy = true;
-  PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
+  PS.analyze(typeSys, bStructElt);
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
-      if (PS.storedType == PointerStatus::StoredType::NotStored) {
-        PS.storedType = PointerStatus::StoredType::InitializerStored;
-      } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
+      if (PS.storedType == hlutil::PointerStatus::StoredType::NotStored) {
+        PS.storedType = hlutil::PointerStatus::StoredType::InitializerStored;
+      } else if (PS.storedType ==
+                 hlutil::PointerStatus::StoredType::MemcopyDestOnce) {
         // For single mem store, if the store does not dominate all users.
         // Mark it as Stored.
         // In cases like:
@@ -3920,27 +3723,28 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         if (isa<ConstantAggregateZero>(GV->getInitializer())) {
           Instruction * Memcpy = PS.StoringMemcpy;
           if (!ReplaceUseOfZeroInitBeforeDef(Memcpy, GV)) {
-            PS.storedType = PointerStatus::StoredType::Stored;
+            PS.storedType = hlutil::PointerStatus::StoredType::Stored;
           }
         }
       } else {
-        PS.storedType = PointerStatus::StoredType::Stored;
+        PS.storedType = hlutil::PointerStatus::StoredType::Stored;
       }
     }
-  } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
+  } else if (PS.storedType ==
+             hlutil::PointerStatus::StoredType::MemcopyDestOnce) {
     // As above, it the memcpy doesn't dominate all its users,
     // full replacement isn't possible without complicated PHI insertion
     // This will likely replace with ld/st which will be replaced in mem2reg
     Instruction *Memcpy = PS.StoringMemcpy;
     if (!DominateAllUsers(Memcpy, V)) {
-      PS.storedType = PointerStatus::StoredType::Stored;
+      PS.storedType = hlutil::PointerStatus::StoredType::Stored;
       // Replacing a memcpy with a memcpy with the same signature will just bring us back here
       bEltMemcpy = false;
     }
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
-    if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce &&
+    if (PS.storedType == hlutil::PointerStatus::StoredType::MemcopyDestOnce &&
         // Skip argument for input argument has input value, it is not dest once anymore.
         !isa<Argument>(V)) {
       // Replace with src of memcpy.
@@ -3975,15 +3779,16 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Resource ptr should not be replaced.
           // Need to make sure src not updated after current memcpy.
           // Check Src only have 1 store now.
-          PointerStatus SrcPS(size);
-          PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-          if (SrcPS.storedType != PointerStatus::StoredType::Stored) {
+          hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
+          SrcPS.analyze(typeSys, bStructElt);
+          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL);
             return true;
           }
         }
       }
-    } else if (PS.loadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+    } else if (PS.loadedType ==
+               hlutil::PointerStatus::LoadedType::MemcopySrcOnce) {
       // Replace dst of memcpy.
       MemCpyInst *MC = PS.LoadingMemcpy;
       if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
@@ -3998,9 +3803,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             !isa<BitCastOperator>(Dest)) {
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
-          PointerStatus DestPS(size);
-          PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
-          if (DestPS.storedType != PointerStatus::StoredType::Stored) {
+          hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
+          DestPS.analyze(typeSys, bStructElt);
+          if (DestPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL);
             // V still need to be flatten.
             // Lower memcpy come from Dest.
@@ -6401,11 +6206,10 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
 bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned size = DL.getTypeAllocSize(GV->getType()->getElementType());
-  PointerStatus PS(size);
+  hlutil::PointerStatus PS(GV, size, /*bLdStOnly*/ false);
   GV->removeDeadConstantUsers();
-  PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/ false);
-  bool NotStored = (PS.storedType == PointerStatus::StoredType::NotStored) ||
-                   (PS.storedType == PointerStatus::StoredType::InitializerStored);
+  PS.analyze(typeSys, /*bStructElt*/ false);
+  bool NotStored = !PS.HasStored();
   // Make sure GV only used in one function.
   // Skip GV which don't have store.
   if (PS.HasMultipleAccessingFunctions || NotStored)
