@@ -1965,6 +1965,7 @@ class db_dxil(object):
 
         add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
         add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
+        add_pass("hl-legalize-parameter", "HLLegalizeParameter", "Legalize parameter", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
         add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
         add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
