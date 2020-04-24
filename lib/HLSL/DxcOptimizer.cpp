@@ -211,7 +211,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR GVNArgs[] = { "noloads", "enable-pre", "enable-load-pre", "max-recurse-depth" };
   static const LPCSTR JumpThreadingArgs[] = { "Threshold", "jump-threading-threshold" };
   static const LPCSTR LICMArgs[] = { "disable-licm-promotion" };
-  static const LPCSTR LiveValueAnalysisArgs[] = { "enable-lva" };
+  static const LPCSTR LiveValueAnalysisArgs[] = { "lva-dump" };
   static const LPCSTR LoopDistributeArgs[] = { "loop-distribute-verify", "loop-distribute-non-if-convertible" };
   static const LPCSTR LoopRerollArgs[] = { "max-reroll-increment", "reroll-num-tolerated-failed-matches" };
   static const LPCSTR LoopRotateArgs[] = { "MaxHeaderSize", "rotation-max-header-size" };
@@ -247,7 +247,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
   if (strcmp(passName, "jump-threading") == 0) return ArrayRef<LPCSTR>(JumpThreadingArgs, _countof(JumpThreadingArgs));
   if (strcmp(passName, "licm") == 0) return ArrayRef<LPCSTR>(LICMArgs, _countof(LICMArgs));
-  if (strcmp(passName, "lva") == 0) return ArrayRef<LPCSTR>(LiveValueAnalysisArgs, _countof(LiveValueAnalysisArgs));
+  if (strcmp(passName, "hlsl-lva") == 0) return ArrayRef<LPCSTR>(LiveValueAnalysisArgs, _countof(LiveValueAnalysisArgs));
   if (strcmp(passName, "loop-distribute") == 0) return ArrayRef<LPCSTR>(LoopDistributeArgs, _countof(LoopDistributeArgs));
   if (strcmp(passName, "loop-reroll") == 0) return ArrayRef<LPCSTR>(LoopRerollArgs, _countof(LoopRerollArgs));
   if (strcmp(passName, "loop-rotate") == 0) return ArrayRef<LPCSTR>(LoopRotateArgs, _countof(LoopRotateArgs));
@@ -290,7 +290,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR GVNArgs[] = { "None", "None", "None", "Max recurse depth" };
   static const LPCSTR JumpThreadingArgs[] = { "None", "Max block size to duplicate for jump threading" };
   static const LPCSTR LICMArgs[] = { "Disable memory promotion in LICM pass" };
-  static const LPCSTR LiveValueAnalysisArgs[] = { "Use to report DXR live state information to debug console" };
+  static const LPCSTR LiveValueAnalysisArgs[] = { "Use to report DXR live state source link navigation to debug console" };
   static const LPCSTR LoopDistributeArgs[] = { "Turn on DominatorTree and LoopInfo verification after Loop Distribution", "Whether to distribute into a loop that may not be if-convertible by the loop vectorizer" };
   static const LPCSTR LoopRerollArgs[] = { "The maximum increment for loop rerolling", "The maximum number of failures to tolerate during fuzzy matching." };
   static const LPCSTR LoopRotateArgs[] = { "None", "The default maximum header size for automatic loop rotation" };
@@ -326,7 +326,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
   if (strcmp(passName, "jump-threading") == 0) return ArrayRef<LPCSTR>(JumpThreadingArgs, _countof(JumpThreadingArgs));
   if (strcmp(passName, "licm") == 0) return ArrayRef<LPCSTR>(LICMArgs, _countof(LICMArgs));
-  if (strcmp(passName, "lva") == 0) return ArrayRef<LPCSTR>(LiveValueAnalysisArgs, _countof(LiveValueAnalysisArgs));
+  if (strcmp(passName, "hlsl-lva") == 0) return ArrayRef<LPCSTR>(LiveValueAnalysisArgs, _countof(LiveValueAnalysisArgs));
   if (strcmp(passName, "loop-distribute") == 0) return ArrayRef<LPCSTR>(LoopDistributeArgs, _countof(LoopDistributeArgs));
   if (strcmp(passName, "loop-reroll") == 0) return ArrayRef<LPCSTR>(LoopRerollArgs, _countof(LoopRerollArgs));
   if (strcmp(passName, "loop-rotate") == 0) return ArrayRef<LPCSTR>(LoopRotateArgs, _countof(LoopRotateArgs));
@@ -385,7 +385,6 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("constant-red")
     ||  S.equals("disable-licm-promotion")
     ||  S.equals("enable-load-pre")
-    ||  S.equals("enable-lva")
     ||  S.equals("enable-pre")
     ||  S.equals("enable-scoped-noalias")
     ||  S.equals("enable-tbaa")
@@ -398,6 +397,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("loop-distribute-verify")
     ||  S.equals("loop-unswitch-threshold")
     ||  S.equals("lowerbitsets-avoid-reuse")
+    ||  S.equals("lva-dump")
     ||  S.equals("max-recurse-depth")
     ||  S.equals("max-reroll-increment")
     ||  S.equals("maxElements")

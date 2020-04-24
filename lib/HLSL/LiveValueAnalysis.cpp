@@ -1,6 +1,7 @@
 
 
-#include "llvm/Analysis/LiveValueAnalysis.h"
+#include "dxc/HLSL/LiveValueAnalysis.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -14,17 +15,16 @@
 
 using namespace llvm;
 
-// Register this pass...
-char LiveValueAnalysis::ID = 0;
-INITIALIZE_PASS(LiveValueAnalysis, "lva", "Live Value Analysis and reporting for DXR", false, true)
-
 ModulePass *llvm::createLiveValueAnalysisPass(StringRef LiveValueAnalysisOutputFile) {
   return new LiveValueAnalysis(LiveValueAnalysisOutputFile);
 }
 
+// Register this pass...
+char LiveValueAnalysis::ID = 0;
+INITIALIZE_PASS(LiveValueAnalysis, "hlsl-lva", "Live Value Analysis and reporting for DXR", false, true)
+
 LiveValueAnalysis::LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile)
   : ModulePass(ID) {
-  initializeLiveValueAnalysisPass(*PassRegistry::getPassRegistry());
   m_outputFile = LiveValueAnalysisOutputFile;
 }
 
@@ -74,21 +74,23 @@ bool LiveValueAnalysis::runOnModule(Module &M) {
     formatOutput( PrettyStr, VSStr );
 
     // Optionally output the Pretty report to file.
-    if (!m_outputFile.empty()) {
+    if( !m_outputFile.empty() ) {
+
       // Standarize backslashes
-      std::replace(m_outputFile.begin(), m_outputFile.end(), '\\', '/');
+      std::replace( m_outputFile.begin(), m_outputFile.end(), '\\', '/' );
       std::ofstream outFile;
-      outFile.exceptions(std::ofstream::failbit);
+      outFile.exceptions( std::ofstream::failbit );
       try {
         outFile.open( m_outputFile );
         outFile << PrettyStr.str();
         outFile.close();
-      } catch (...) {
-        if (!outFile.eof()) {
+      }
+      catch( ... ) {
+        if( !outFile.eof() ) {
           fprintf(
             stderr,
             "Error: Exception occurred while opening the Live Value output file %s\n",
-            m_outputFile.c_str());
+            m_outputFile.c_str() );
           return false;
         }
       }
@@ -103,8 +105,8 @@ bool LiveValueAnalysis::runOnModule(Module &M) {
       i += blockSize;
     }
 
-    PrettyStr.close();
-    VSStr.close();
+    PrettyStr.flush();
+    VSStr.flush();
   }
 
   // No changes.
@@ -938,46 +940,51 @@ std::string LiveValueAnalysis::translateValueToName( DbgValueInst *DVI, Instruct
   return NameStr.str();
 }
 
-void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_ostream &VSStr) {
+void LiveValueAnalysis::formatOutput( raw_string_ostream &PrettyStr, raw_string_ostream &VSStr ) {
 
-  for (CallInst *callSite : sortInstructions<CallInst *>(m_callSites)) {
+  for( CallInst *callSite : sortInstructions<CallInst *>( m_callSites ) ) {
     std::ostringstream Spacer;
     {
-      if (const llvm::DebugLoc &debugInfo = callSite->getDebugLoc()) {
+      if( const llvm::DebugLoc &debugInfo = callSite->getDebugLoc() ) {
         std::string filePath = debugInfo->getFilename();
         int line = debugInfo->getLine();
         std::string fullPath =
-          formatSourceLocation(m_rootPath, filePath, line);
-        PrettyStr << "Live State for TRACE call at " << fullPath << "\n";
-        VSStr << "Live State for TRACE call at " << fullPath << "\n";
-        Spacer << std::setfill('-') << std::setw(fullPath.length() + 30)
+          formatSourceLocation( m_rootPath, filePath, line );
+        Spacer << std::setfill( '=' ) << std::setw( fullPath.length() + 33 )
           << std::right << "\n";
         PrettyStr << Spacer.str();
         VSStr << Spacer.str();
-      } else {
+        PrettyStr << "Live State for TraceRay call at " << fullPath << "\n";
+        VSStr << "Live State for TraceRay call at " << fullPath << "\n";
+        PrettyStr << Spacer.str();
+        VSStr << Spacer.str();
+      }
+      else {
         break;
       }
     }
     size_t regs = 0;
     size_t detected = 0;
     std::vector<Instruction*> DetectedInstr;
-    for (Instruction *I : m_spillsPerTraceCall[callSite]) {
+    for( Instruction *I : m_spillsPerTraceCall[callSite] ) {
       // Only count the values for which metadata exists.
       // TODO: Report count of values for those which are not used metadata?
       // this can lead to missing live values in some cases.
-      if (isa<ExtractValueInst>(I)) {
-        I = dyn_cast<Instruction>(I->getOperand(0));
+      if( isa<ExtractValueInst>( I ) ) {
+        I = dyn_cast<Instruction>(I->getOperand( 0 ));
       }
-      if (I->isUsedByMetadata()) {
+      if( I->isUsedByMetadata() ) {
         regs++;
       }
       else {
-        DetectedInstr.push_back(I);
+        DetectedInstr.push_back( I );
       }
       detected++;
     }
     if( detected != regs )
     {
+      PrettyStr << "** DEBUG ************\n";
+      VSStr << "** DEBUG ************\n";
       PrettyStr << "Detected " << (int)detected << " live values but only " << (int)regs << " are used by metadata\n";
       VSStr << "Detected " << (int)detected << " live values but only " << (int)regs << " are used by metadata\n";
       for( auto I : DetectedInstr ) {
@@ -986,32 +993,30 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
         PrettyStr << "\n";
         VSStr << "\n";
       }
+      PrettyStr << "*********************\n";
+      VSStr << "*********************\n";
     }
-    if (const llvm::DebugLoc &debugInfo = callSite->getDebugLoc()) {
-      PrettyStr << "Total 32-bit registers: " << (int)regs << "\n";
-      VSStr << "Total 32-bit registers: " << (int)regs << "\n";
+    if( const llvm::DebugLoc &debugInfo = callSite->getDebugLoc() ) {
+      PrettyStr << "Total 32-bit registers: " << (int)regs << "\n\n";
+      VSStr << "Total 32-bit registers: " << (int)regs << "\n\n";
     }
 
     std::ostringstream TmpStr;
-    TmpStr << "--LIVE VALUES" << std::setfill('-')
-      << std::setw(Spacer.str().length() - 13) << std::right << "\n";
-    PrettyStr << TmpStr.str();
-    VSStr << TmpStr.str();
-    for (Instruction *I :
-      sortInstructions<Instruction *>(m_spillsPerTraceCall[callSite])) {
-      TmpStr.str("");
+    for( Instruction *I :
+      sortInstructions<Instruction *>( m_spillsPerTraceCall[callSite] ) ) {
+      TmpStr.str( "" );
       {
-        if (isa<ExtractValueInst>(I)) {
-          I = dyn_cast<Instruction>(I->getOperand(0));
+        if( isa<ExtractValueInst>( I ) ) {
+          I = dyn_cast<Instruction>(I->getOperand( 0 ));
         }
 
-        if (I->isUsedByMetadata()) {
+        if( I->isUsedByMetadata() ) {
           unsigned int totalLineWidth = 0;
 
-          if (auto *L = LocalAsMetadata::getIfExists(I)) {
-            if (auto *MDV = MetadataAsValue::getIfExists(I->getContext(), L)) {
-              for (User *U : MDV->users()) {
-                if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
+          if( auto *L = LocalAsMetadata::getIfExists( I ) ) {
+            if( auto *MDV = MetadataAsValue::getIfExists( I->getContext(), L ) ) {
+              for( User *U : MDV->users() ) {
+                if( DbgValueInst *DVI = dyn_cast<DbgValueInst>(U) ) {
 
                   TmpStr << translateValueToName( DVI, I );
 
@@ -1019,27 +1024,27 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                   std::vector<PHINode *> Phis;
                   std::set<PHINode *> VisitedPhis;
                   std::set<DILocation *> UseLocations;
-                  while (1) {
-                    for (User *U : I->users()) {
-                      if (auto Inst = dyn_cast<Instruction>(U)) {
-                        if (DILocation *Loc = Inst->getDebugLoc()) {
+                  while( 1 ) {
+                    for( User *U : I->users() ) {
+                      if( auto Inst = dyn_cast<Instruction>(U) ) {
+                        if( DILocation *Loc = Inst->getDebugLoc() ) {
                           // Manually search for duplication location;
                           // DILocations can be distinct but their source
                           // location is not
                           bool bFound = false;
                           DIScope *scope = Loc->getScope();
-                          for (auto L : UseLocations) {
-                            if (L->getScope() == scope) {
-                              if (L->getLine() == Loc->getLine() &&
-                                L->getColumn() == Loc->getColumn()) {
+                          for( auto L : UseLocations ) {
+                            if( L->getScope() == scope ) {
+                              if( L->getLine() == Loc->getLine() &&
+                                L->getColumn() == Loc->getColumn() ) {
                                 bFound = true;
                                 break;
                               }
                             }
                           }
 
-                          if (!bFound) {
-                            UseLocations.insert(Loc);
+                          if( !bFound ) {
+                            UseLocations.insert( Loc );
 
                             // Traverse each control flow edge separately and
                             // gather up seen defs along the way. By keeping
@@ -1049,7 +1054,7 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                               Instruction *inst = callSite->getNextNode();
 
                               std::set<Instruction *> defsSeen;
-                              defsSeen.insert(inst);
+                              defsSeen.insert( inst );
 
                               BasicBlock *fromBlock = nullptr;
                               std::set<std::pair<Instruction *, Instruction *>>
@@ -1061,86 +1066,87 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                                 std::set<Instruction *>>>
                                 worklist;
 
-                              for (;;) {
+                              for( ;;) {
 
-                                if (isa<DbgValueInst>(inst)) {
+                                if( isa<DbgValueInst>( inst ) ) {
                                   inst = inst->getNextNode();
                                   continue;
                                 }
 
-                                if (inst == Inst) {
+                                if( inst == Inst ) {
                                   // Found the use location.
                                   break;
                                 }
 
-                                if (TerminatorInst *terminator =
-                                  dyn_cast<TerminatorInst>(inst)) {
+                                if( TerminatorInst *terminator =
+                                  dyn_cast<TerminatorInst>(inst) ) {
                                   BranchInst *branch =
                                     dyn_cast<BranchInst>(terminator);
 
-                                  if (branch && branch->isConditional()) {
+                                  if( branch && branch->isConditional() ) {
                                     // Conditional branch. Check against known
                                     // conditions.
-                                    assert(branch->getNumSuccessors() == 2);
+                                    assert( branch->getNumSuccessors() == 2 );
 
                                     Instruction *taken =
-                                      branch->getSuccessor(0)->begin();
+                                      branch->getSuccessor( 0 )->begin();
                                     Instruction *notTaken =
-                                      branch->getSuccessor(1)->begin();
+                                      branch->getSuccessor( 1 )->begin();
 
                                     std::pair<Instruction *, Instruction *>
                                       takenEdge =
-                                      std::make_pair(branch, taken);
+                                      std::make_pair( branch, taken );
                                     std::pair<Instruction *, Instruction *>
                                       notTakenEdge =
-                                      std::make_pair(branch, notTaken);
+                                      std::make_pair( branch, notTaken );
 
-                                    if (!conditionsKnownFalse.count(
-                                      branch->getCondition())) {
-                                      if (!visitedEdges.count(takenEdge)) {
-                                        visitedEdges.insert(takenEdge);
+                                    if( !conditionsKnownFalse.count(
+                                      branch->getCondition() ) ) {
+                                      if( !visitedEdges.count( takenEdge ) ) {
+                                        visitedEdges.insert( takenEdge );
                                         worklist.push_back(
-                                          std::make_tuple(inst->getParent(),
-                                            taken, defsSeen));
+                                          std::make_tuple( inst->getParent(),
+                                            taken, defsSeen ) );
                                       }
                                     }
 
-                                    if (!conditionsKnownTrue.count(
-                                      branch->getCondition())) {
-                                      if (!visitedEdges.count(notTakenEdge)) {
-                                        visitedEdges.insert(notTakenEdge);
-                                        worklist.push_back(std::make_tuple(
+                                    if( !conditionsKnownTrue.count(
+                                      branch->getCondition() ) ) {
+                                      if( !visitedEdges.count( notTakenEdge ) ) {
+                                        visitedEdges.insert( notTakenEdge );
+                                        worklist.push_back( std::make_tuple(
                                           inst->getParent(), notTaken,
-                                          defsSeen));
+                                          defsSeen ) );
                                       }
                                     }
-                                  } else {
-                                    for (unsigned
+                                  }
+                                  else {
+                                    for( unsigned
                                       i = 0,
                                       e = terminator->getNumSuccessors();
-                                      i < e; ++i) {
+                                      i < e; ++i ) {
                                       Instruction *successor =
-                                        terminator->getSuccessor(i)->begin();
+                                        terminator->getSuccessor( i )->begin();
                                       std::pair<Instruction *, Instruction *>
                                         edge =
-                                        std::make_pair(inst, successor);
+                                        std::make_pair( inst, successor );
 
-                                      if (!visitedEdges.count(edge)) {
-                                        visitedEdges.insert(edge);
-                                        worklist.push_back(std::make_tuple(
+                                      if( !visitedEdges.count( edge ) ) {
+                                        visitedEdges.insert( edge );
+                                        worklist.push_back( std::make_tuple(
                                           inst->getParent(), successor,
-                                          defsSeen));
+                                          defsSeen ) );
                                       }
                                     }
                                   }
 
-                                  if (worklist.empty())
+                                  if( worklist.empty() )
                                     break;
 
-                                  fromBlock = std::get<0>(worklist.back());
-                                  inst = std::get<1>(worklist.back());
+                                  fromBlock = std::get<0>( worklist.back() );
+                                  inst = std::get<1>( worklist.back() );
                                   defsSeen =
-                                    std::move(std::get<2>(worklist.back()));
+                                    std::move( std::get<2>( worklist.back() ) );
                                   worklist.pop_back();
                                   continue;
                                 }
@@ -1149,20 +1155,22 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                               }
                             }
                           }
-                        } else {
-                          if (isa<PHINode>(U)) {
+                        }
+                        else {
+                          if( isa<PHINode>( U ) ) {
                             PHINode *NewPhi = dyn_cast<PHINode>(U);
-                            if (VisitedPhis.insert(NewPhi).second) {
-                              Phis.push_back(NewPhi);
+                            if( VisitedPhis.insert( NewPhi ).second ) {
+                              Phis.push_back( NewPhi );
                             }
                           }
                         }
                       }
                     }
 
-                    if (Phis.empty()) {
+                    if( Phis.empty() ) {
                       break;
-                    } else {
+                    }
+                    else {
                       I = Phis.back();
                       Phis.pop_back();
                     }
@@ -1174,50 +1182,50 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                   // Find max path length to format horizontal dividers in the output.
                   unsigned int maxPathLength = 0;
                   unsigned int maxFuncLength = 0;
-                  for (auto Loc : UseLocations) {
+                  for( auto Loc : UseLocations ) {
                     std::string Path =
-                      formatSourceLocation(m_rootPath, Loc->getFilename().str(),
-                        Loc->getLine());
-                    if (Path.length() > maxPathLength)
+                      formatSourceLocation( m_rootPath, Loc->getFilename().str(),
+                        Loc->getLine() );
+                    if( Path.length() > maxPathLength )
                       maxPathLength = Path.length();
-                    if (Loc->getScope()
+                    if( Loc->getScope()
                       ->getSubprogram()
                       ->getName()
                       .str()
-                      .length() > maxFuncLength)
+                      .length() > maxFuncLength )
                       maxFuncLength = Loc->getScope()
                       ->getSubprogram()
                       ->getName()
                       .str()
                       .length();
-                    if (DILocation *InLoc = Loc->getInlinedAt()) {
+                    if( DILocation *InLoc = Loc->getInlinedAt() ) {
                       std::string Path = formatSourceLocation(
                         m_rootPath, InLoc->getFilename().str(),
-                        InLoc->getLine());
-                      if (Path.length() > maxPathLength)
+                        InLoc->getLine() );
+                      if( Path.length() > maxPathLength )
                         maxPathLength = Path.length();
-                      if (InLoc->getScope()
+                      if( InLoc->getScope()
                         ->getSubprogram()
                         ->getName()
                         .str()
-                        .length() > maxFuncLength)
+                        .length() > maxFuncLength )
                         maxFuncLength = InLoc->getScope()
                         ->getSubprogram()
                         ->getName()
                         .str()
                         .length();
-                      while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
+                      while( DILocation *NestedInLoc = InLoc->getInlinedAt() ) {
                         InLoc = NestedInLoc;
                         std::string Path = formatSourceLocation(
                           m_rootPath, InLoc->getFilename().str(),
-                          InLoc->getLine());
-                        if (Path.length() > maxPathLength)
+                          InLoc->getLine() );
+                        if( Path.length() > maxPathLength )
                           maxPathLength = Path.length();
-                        if (InLoc->getScope()
+                        if( InLoc->getScope()
                           ->getSubprogram()
                           ->getName()
                           .str()
-                          .length() > maxFuncLength)
+                          .length() > maxFuncLength )
                           maxFuncLength = InLoc->getScope()
                           ->getSubprogram()
                           ->getName()
@@ -1236,64 +1244,64 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                   std::string FuncName;
 
                   // Output PrettyPrint version
-                  for (auto Loc : UseLocations) {
+                  for( auto Loc : UseLocations ) {
                     FileName =
-                      formatSourceLocation(m_rootPath, Loc->getFilename().str(),
-                        Loc->getLine());
+                      formatSourceLocation( m_rootPath, Loc->getFilename().str(),
+                        Loc->getLine() );
                     FuncName =
                       "(" +
                       Loc->getScope()->getSubprogram()->getName().str() + ")";
-                    LocationStr << std::setfill('_') << std::setw(maxPathLength)
+                    LocationStr << std::setfill( '.' ) << std::setw( maxPathLength )
                       << std::left << FileName
-                      << std::setw(maxFuncLength) << std::right
+                      << std::setw( maxFuncLength ) << std::right
                       << FuncName << "\n";
-                    if (DILocation *InLoc = Loc->getInlinedAt()) {
+                    if( DILocation *InLoc = Loc->getInlinedAt() ) {
                       FileName = "  -->inlined at " +
                         formatSourceLocation(
                           m_rootPath, InLoc->getFilename().str(),
-                          InLoc->getLine());
+                          InLoc->getLine() );
                       FuncName =
                         "(" +
                         InLoc->getScope()->getSubprogram()->getName().str() +
                         ")";
-                      LocationStr << std::setfill('_')
-                        << std::setw(maxPathLength) << std::left
-                        << FileName << std::setw(maxFuncLength)
+                      LocationStr << std::setfill( '.' )
+                        << std::setw( maxPathLength ) << std::left
+                        << FileName << std::setw( maxFuncLength )
                         << std::right << FuncName << "\n";
-                      while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
+                      while( DILocation *NestedInLoc = InLoc->getInlinedAt() ) {
                         FileName =
                           "  -->inlined at " +
                           formatSourceLocation(
                             m_rootPath, NestedInLoc->getFilename().str(),
-                            NestedInLoc->getLine());
+                            NestedInLoc->getLine() );
                         FuncName = "(" +
                           NestedInLoc->getScope()
                           ->getSubprogram()
                           ->getName()
                           .str() +
                           ")";
-                        LocationStr << std::setfill('_')
-                          << std::setw(maxPathLength) << std::left
-                          << FileName << std::setw(maxFuncLength)
+                        LocationStr << std::setfill( '.' )
+                          << std::setw( maxPathLength ) << std::left
+                          << FileName << std::setw( maxFuncLength )
                           << std::right << FuncName << "\n";
                         InLoc = NestedInLoc;
                       }
                     }
                   }
                   PrettyStr << LocationStr.str();
-                  LocationStr.str("");
+                  LocationStr.str( "" );
                   // Output VS source linking version
-                  for (auto Loc : UseLocations) {
+                  for( auto Loc : UseLocations ) {
                     FileName =
-                      formatSourceLocation(m_rootPath, Loc->getFilename().str(),
-                        Loc->getLine());
+                      formatSourceLocation( m_rootPath, Loc->getFilename().str(),
+                        Loc->getLine() );
                     LocationStr << FileName << ": (" + Loc->getScope()->getSubprogram()->getName().str() + ")\n";
-                    if (DILocation *InLoc = Loc->getInlinedAt()) {
+                    if( DILocation *InLoc = Loc->getInlinedAt() ) {
                       LocationStr << "inlined at:\n";
-                      FileName = formatSourceLocation( m_rootPath, InLoc->getFilename().str(), InLoc->getLine());
+                      FileName = formatSourceLocation( m_rootPath, InLoc->getFilename().str(), InLoc->getLine() );
                       LocationStr << ">" + FileName << ": (" + InLoc->getScope()->getSubprogram()->getName().str() + ")\n";
-                      while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
-                        FileName = formatSourceLocation(m_rootPath, NestedInLoc->getFilename().str(), NestedInLoc->getLine());
+                      while( DILocation *NestedInLoc = InLoc->getInlinedAt() ) {
+                        FileName = formatSourceLocation( m_rootPath, NestedInLoc->getFilename().str(), NestedInLoc->getLine() );
                         LocationStr << ">" + FileName << ": (" + InLoc->getScope()->getSubprogram()->getName().str() + ")\n";
                         InLoc = NestedInLoc;
                       }
@@ -1304,11 +1312,8 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                 // Found the debug info for the live value, now exit the loop.
                 break;
               }
-              std::ostringstream Spacer;
-              Spacer << std::setfill('-') << std::setw(totalLineWidth + 1)
-                << std::right << "\n";
-              PrettyStr << Spacer.str();
-              VSStr << Spacer.str();
+              PrettyStr << "\n";
+              VSStr << "\n";
             }
           }
         }
@@ -1316,6 +1321,3 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
     }
   }
 }
-
-
-

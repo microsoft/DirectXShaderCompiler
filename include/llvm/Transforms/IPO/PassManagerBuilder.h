@@ -130,7 +130,7 @@ public:
   bool HLSLHighLevel = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
-  bool HLSLLiveValueAnalysis = false; // HLSL Change
+  bool HLSLLiveValueAnalysisDump = false; // HLSL Change
   StringRef HLSLLiveValueAnalysisOutputFile; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
 

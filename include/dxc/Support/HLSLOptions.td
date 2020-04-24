@@ -216,7 +216,7 @@ def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
-def enable_lva : Flag<["-", "/"], "enable-lva">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+def lva_dump : Flag<["-", "/"], "lva-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps a DXR Live Value Analysis report to the debug console in Visual Studio.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;

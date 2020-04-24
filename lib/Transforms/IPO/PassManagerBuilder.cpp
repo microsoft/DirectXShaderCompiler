@@ -655,7 +655,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilValidateWaveSensitivityPass());
     MPM.add(createDxilEmitMetadataPass());
   }
-  if (HLSLLiveValueAnalysis)
+  if (HLSLLiveValueAnalysisDump || (HLSLLiveValueAnalysisOutputFile.str().length() > 0))
     MPM.add(createLiveValueAnalysisPass(HLSLLiveValueAnalysisOutputFile));
   // HLSL Change Ends.
   addExtensionsToPM(EP_OptimizerLast, MPM);

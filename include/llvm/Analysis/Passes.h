@@ -82,13 +82,6 @@ namespace llvm {
 
   //===--------------------------------------------------------------------===//
   //
-  /// createLiveValueAnalysisPass - This pass analyzes live state surrounding
-  /// DXR TraceRay callsites and creates reports for output.
-  ///
-  ModulePass *createLiveValueAnalysisPass(StringRef LiveValueAnalysisOutputFile);
-
-  //===--------------------------------------------------------------------===//
-  //
   // createScalarEvolutionAliasAnalysisPass - This pass implements a simple
   // alias analysis using ScalarEvolution queries.
   //

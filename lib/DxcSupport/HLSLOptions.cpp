@@ -472,7 +472,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
-  opts.EnableLVA = Args.hasFlag(OPT_enable_lva, OPT_INVALID, false);
+  opts.LVADump = Args.hasFlag(OPT_lva_dump, OPT_INVALID, false);
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
   opts.DebugNameForBinary = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);

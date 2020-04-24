@@ -40,7 +40,6 @@ add_llvm_library(LLVMAnalysis
   LibCallAliasAnalysis.cpp
   LibCallSemantics.cpp
   Lint.cpp
-  LiveValueAnalysis.cpp
   Loads.cpp
   LoopAccessAnalysis.cpp
   LoopInfo.cpp

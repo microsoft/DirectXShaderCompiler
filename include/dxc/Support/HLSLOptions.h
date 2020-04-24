@@ -136,7 +136,7 @@ public:
   bool DebugInfo = false; // OPT__SLASH_Zi
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
-  bool EnableLVA = false; // OPT_enable_lva
+  bool LVADump = false; // OPT_lva_dump
   bool DumpBin = false;        // OPT_dumpbin
   bool WarningAsError = false; // OPT__SLASH_WX
   bool IEEEStrict = false;     // OPT_Gis

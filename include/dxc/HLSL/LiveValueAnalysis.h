@@ -20,7 +20,6 @@ namespace llvm {
   class Function;
   class ModulePass;
 
-
   class LiveValueAnalysis : public ModulePass {
 
   public:
