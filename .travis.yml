@@ -102,4 +102,5 @@ deploy:
   on:
     repo: microsoft/DirectXShaderCompiler
     branch: master
+    condition: $CC=clang
 
