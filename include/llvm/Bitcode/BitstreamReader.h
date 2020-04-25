@@ -99,8 +99,6 @@ public:
     init(Start, End);
   }
 
-  BitstreamUseTracker *Tracker = nullptr; // HLSL Change
-
   BitstreamReader(std::unique_ptr<MemoryObject> BitcodeBytes)
       : BitcodeBytes(std::move(BitcodeBytes)), IgnoreBlockInfoNames(true) {}
 
@@ -388,7 +386,6 @@ public:
     static const unsigned Mask = sizeof(word_t) > 4 ? 0x3f : 0x1f;
 
     // If the field is fully contained by CurWord, return it quickly.
-    auto T = BitstreamUseTracker::scope_track(this); // HLSL Change
     if (BitsInCurWord >= NumBits) {
       word_t R = CurWord & (~word_t(0) >> (BitsInWord - NumBits));
 
@@ -462,7 +459,6 @@ private:
   void SkipToFourByteBoundary() {
     // If word_t is 64-bits and if we've read less than 32 bits, just dump
     // the bits we have up to the next 32-bit boundary.
-    auto T = BitstreamUseTracker::scope_track(this); // HLSL Change
     if (sizeof(word_t) > 4 &&
         BitsInCurWord >= 32) {
       CurWord >>= BitsInCurWord-32;
@@ -548,6 +544,7 @@ public:
 
   unsigned readRecord(unsigned AbbrevID, SmallVectorImpl<uint64_t> &Vals,
                       StringRef *Blob = nullptr);
+  unsigned peekRecord(unsigned AbbrevID); // HLSL Change
 
   //===--------------------------------------------------------------------===//
   // Abbrev Processing

@@ -130,9 +130,35 @@ void BitstreamCursor::skipRecord(unsigned AbbrevID) {
       assert(i+2 == e && "array op not second to last?");
       const BitCodeAbbrevOp &EltEnc = Abbv->getOperandInfo(++i);
 
+#if 1 // HLSL Change - Make skipping go brrrrrrrrrrr
+      {
+        const auto &Op = EltEnc;
+        auto &Cursor = *this;
+        auto CurBit = Cursor.GetCurrentBitNo();
+        // Decode the value as we are commanded.
+        switch (EltEnc.getEncoding()) {
+        case BitCodeAbbrevOp::Array:
+        case BitCodeAbbrevOp::Blob:
+          llvm_unreachable("Should not reach here");
+        case BitCodeAbbrevOp::Fixed:
+          assert((unsigned)Op.getEncodingData() <= Cursor.MaxChunkSize);
+          Cursor.JumpToBit(CurBit + NumElts * Op.getEncodingData());
+          break;
+        case BitCodeAbbrevOp::VBR:
+          assert((unsigned)Op.getEncodingData() <= Cursor.MaxChunkSize);
+          for (; NumElts; --NumElts)
+            Cursor.ReadVBR64((unsigned)Op.getEncodingData());
+          break;
+        case BitCodeAbbrevOp::Char6:
+          Cursor.JumpToBit(CurBit + NumElts * 6);
+          break;
+        }
+      }
+#else
       // Read all the elements.
       for (; NumElts; --NumElts)
         skipAbbreviatedField(*this, EltEnc);
+#endif
       continue;
     }
 
@@ -155,6 +181,34 @@ void BitstreamCursor::skipRecord(unsigned AbbrevID) {
     JumpToBit(NewEnd);
   }
 }
+
+// HLSL Change - Begin
+unsigned BitstreamCursor::peekRecord(unsigned AbbrevID) {
+  auto last_bit_pos = GetCurrentBitNo();
+  if (AbbrevID == bitc::UNABBREV_RECORD) {
+    unsigned Code = ReadVBR(6);
+    this->JumpToBit(last_bit_pos);
+    return Code;
+  }
+
+  const BitCodeAbbrev *Abbv = getAbbrev(AbbrevID);
+
+  // Read the record code first.
+  assert(Abbv->getNumOperandInfos() != 0 && "no record code in abbreviation?");
+  const BitCodeAbbrevOp &CodeOp = Abbv->getOperandInfo(0);
+  unsigned Code;
+  if (CodeOp.isLiteral())
+    Code = CodeOp.getLiteralValue();
+  else {
+    if (CodeOp.getEncoding() == BitCodeAbbrevOp::Array ||
+        CodeOp.getEncoding() == BitCodeAbbrevOp::Blob)
+      report_fatal_error("Abbreviation starts with an Array or a Blob");
+    Code = readAbbreviatedField(*this, CodeOp);
+  }
+  this->JumpToBit(last_bit_pos);
+  return Code;
+}
+// HLSL Change - End
 
 unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
                                      SmallVectorImpl<uint64_t> &Vals,
@@ -210,9 +264,67 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
           EltEnc.getEncoding() == BitCodeAbbrevOp::Blob)
         report_fatal_error("Array element type can't be an Array or a Blob");
 
+#if 1 // HLSL Change
+      // Read all the elements a little faster.
+      {
+        BitCodeAbbrevOp::Encoding enc = EltEnc.getEncoding();
+        uint64_t encData = 0;
+        if (EltEnc.hasEncodingData())
+          encData = EltEnc.getEncodingData();
+        unsigned size = (unsigned)encData;
+
+        if (enc == BitCodeAbbrevOp::Fixed) {
+          assert((unsigned)encData <= MaxChunkSize);
+          Vals.reserve(NumElts);
+          if (encData == 8) {
+            for (; NumElts >= 8; NumElts -= 8) {
+              const size_t e = Read(64);
+              const uint8_t *p = (uint8_t *)&e;
+              Vals.push_back(p[0]);
+              Vals.push_back(p[1]);
+              Vals.push_back(p[2]);
+              Vals.push_back(p[3]);
+              Vals.push_back(p[4]);
+              Vals.push_back(p[5]);
+              Vals.push_back(p[6]);
+              Vals.push_back(p[7]);
+            }
+          }
+          else if (encData == 16) {
+            for (; NumElts >= 4; NumElts -= 4) {
+              const size_t e = Read(64);
+              const uint16_t *p = (uint16_t *)&e;
+              Vals.push_back(p[0]);
+              Vals.push_back(p[1]);
+              Vals.push_back(p[2]);
+              Vals.push_back(p[3]);
+            }
+          }
+          for (; NumElts; --NumElts)
+            Vals.push_back(Read(size));
+        }
+        else if (enc == BitCodeAbbrevOp::VBR) {
+          assert((unsigned)encData <= MaxChunkSize);
+          for (; NumElts; --NumElts) {
+            Vals.push_back(ReadVBR64(size));
+          }
+        }
+        else if (enc == BitCodeAbbrevOp::Char6) {
+          assert((unsigned)encData <= MaxChunkSize);
+          for (; NumElts; --NumElts) {
+            Vals.push_back(BitCodeAbbrevOp::DecodeChar6(Read(6)));
+          }
+        }
+        else {
+          llvm_unreachable("Unknown kind of thing");
+        }
+      }
+#else // HLSL Change
       // Read all the elements.
       for (; NumElts; --NumElts)
         Vals.push_back(readAbbreviatedField(*this, EltEnc));
+
+#endif // HLSL Change
       continue;
     }
 
@@ -404,7 +516,7 @@ bool BitstreamUseTracker::considerMergeRight(size_t idx) {
 
 void BitstreamUseTracker::insert(uint64_t begin, uint64_t end) {
   UseRange IR(begin, end);
-  for (size_t i = 0; i < Ranges.size(); ++i) {
+  for (size_t i = 0, E = Ranges.size(); i < E; ++i) {
     ExtendResult ER = extendRange(Ranges[i], IR);
     switch (ER) {
     case Included:
@@ -437,10 +549,10 @@ void BitstreamUseTracker::insert(uint64_t begin, uint64_t end) {
   Ranges.push_back(IR);
 }
 
-BitstreamUseTracker::ScopeTrack::~ScopeTrack() {
-  if (BC->getBitStreamReader()->Tracker != nullptr)
-    BC->getBitStreamReader()->Tracker->insert(begin, BC->GetCurrentBitNo());
-}
+// BitstreamUseTracker::ScopeTrack::~ScopeTrack() {
+//   if (BC->getBitStreamReader()->Tracker != nullptr)
+//     BC->getBitStreamReader()->Tracker->insert(begin, BC->GetCurrentBitNo());
+// }
 
 BitstreamUseTracker::ScopeTrack
 BitstreamUseTracker::scope_track(BitstreamCursor *BC) {
