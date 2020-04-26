@@ -549,10 +549,10 @@ void BitstreamUseTracker::insert(uint64_t begin, uint64_t end) {
   Ranges.push_back(IR);
 }
 
-// BitstreamUseTracker::ScopeTrack::~ScopeTrack() {
+BitstreamUseTracker::ScopeTrack::~ScopeTrack() {
 //   if (BC->getBitStreamReader()->Tracker != nullptr)
 //     BC->getBitStreamReader()->Tracker->insert(begin, BC->GetCurrentBitNo());
-// }
+}
 
 BitstreamUseTracker::ScopeTrack
 BitstreamUseTracker::scope_track(BitstreamCursor *BC) {

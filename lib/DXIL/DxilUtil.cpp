@@ -202,6 +202,17 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
   return std::unique_ptr<llvm::Module>(pModule.get().release());
 }
 
+std::unique_ptr<llvm::Module> LoadModuleFromBitcodeLazy(std::unique_ptr<llvm::MemoryBuffer> &&MB,
+  llvm::LLVMContext &Ctx, std::string &DiagStr)
+{
+  // Note: the DiagStr is not used.
+  auto pModule = llvm::getLazyBitcodeModule(std::move(MB), Ctx, nullptr, true);
+  if (!pModule) {
+    return nullptr;
+  }
+  return std::unique_ptr<llvm::Module>(pModule.get().release());
+}
+
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
   llvm::LLVMContext &Ctx,
   std::string &DiagStr) {

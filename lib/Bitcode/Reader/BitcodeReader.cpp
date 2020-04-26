@@ -34,6 +34,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <deque>
+#include <unordered_set> // HLSL Change
 #include "dxc/DXIL/DxilOperations.h"   // HLSL Change
 using namespace llvm;
 
@@ -369,6 +370,8 @@ private:
   std::error_code globalCleanup();
   std::error_code resolveGlobalAndAliasInits();
   std::error_code parseMetadata();
+  std::error_code parseSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata); // HLSL Change
+  std::error_code materializeSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata); // HLSL Change
   std::error_code parseMetadataAttachment(Function &F);
   ErrorOr<std::string> parseModuleTriple();
   std::error_code parseUseLists();
@@ -1629,6 +1632,237 @@ std::error_code BitcodeReader::parseValueSymbolTable() {
 }
 
 static int64_t unrotateSign(uint64_t U) { return U & 1 ? ~(U >> 1) : U >> 1; }
+
+// HLSL Change - Begin
+std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata) {
+  uint64_t OriginalBitPos = Stream.GetCurrentBitNo();
+  unsigned OriginalMDValueNo = MDValueList.size();
+
+  // IsMetadataMaterialized = true;
+
+  SmallVector<uint64_t, 64> Record;
+  std::unordered_set<uint64_t> Seen;
+  std::unordered_set<uint64_t> Encountered;
+
+  auto getMDOrNull = [&](unsigned ID) -> Metadata *{
+    if (ID)
+      return MDValueList.getValueFwdRef(ID - 1);
+    return nullptr;
+  };
+  auto getMDString = [&](unsigned ID) -> MDString *{
+    // This requires that the ID is not really a forward reference.  In
+    // particular, the MDString must already have been resolved.
+    return cast_or_null<MDString>(getMDOrNull(ID));
+  };
+
+  // OUTER LOOP
+  for (unsigned Pass = 0;; Pass++) {
+
+    bool LocalChanged = false;
+
+    Stream.JumpToBit(OriginalBitPos);
+    unsigned NextMDValueNo = OriginalMDValueNo;
+
+  if (Stream.EnterSubBlock(bitc::METADATA_BLOCK_ID))
+    return error("Invalid record");
+
+#define GET_OR_DISTINCT(CLASS, DISTINCT, ARGS)                                 \
+  (DISTINCT ? CLASS::getDistinct ARGS : CLASS::get ARGS)
+
+  std::vector<uint64_t> PlacesWhereAbbrevsChanged;
+
+  // Read all the records.
+  while (1) {
+    // HLSL Change Starts - count skipped blocks
+    unsigned skipCount = 0;
+    BitstreamEntry Entry = Stream.advanceSkippingSubblocks(0, &skipCount);
+    if (skipCount) ReportWarning(DiagnosticHandler, "Unrecognized subblock");
+    // HLSL Change End
+
+    bool Stop = false;
+    switch (Entry.Kind) {
+    case BitstreamEntry::SubBlock: // Handled for us already.
+    case BitstreamEntry::Error:
+      return error("Malformed block");
+    case BitstreamEntry::EndBlock:
+      MDValueList.tryToResolveCycles();
+      Stop = true;
+      break;
+      //return std::error_code();
+    case BitstreamEntry::Record:
+      // The interesting case.
+      break;
+    }
+    if (Stop)
+      break;
+
+    if (Seen.count(NextMDValueNo)) {
+      Stream.skipRecord(Entry.ID);
+      NextMDValueNo++;
+      continue;
+    }
+
+#if 1
+    unsigned PeekCode = Stream.peekRecord(Entry.ID);
+
+    switch (PeekCode) {
+    case bitc::METADATA_NAME:
+      break;
+    case bitc::METADATA_DISTINCT_NODE:
+    case bitc::METADATA_NODE:
+    case bitc::METADATA_STRING:
+    case bitc::METADATA_VALUE:
+      if (!Encountered.count(NextMDValueNo)) {
+        Stream.skipRecord(Entry.ID);
+        NextMDValueNo++;
+        continue;
+      }
+      Seen.insert(NextMDValueNo);
+      break;
+    default:
+      Seen.insert(NextMDValueNo);
+      Stream.skipRecord(Entry.ID);
+      NextMDValueNo++;
+      continue;
+      break;
+    }
+#endif
+
+    // Read a record.
+    Record.clear();
+    unsigned Code = Stream.readRecord(Entry.ID, Record);
+
+    bool IsDistinct = false;
+    switch (Code) {
+    default:  // Default behavior: ignore.
+      break;
+    case bitc::METADATA_NAME: {
+      // Read name of the named metadata.
+      SmallString<8> Name(Record.begin(), Record.end());
+      Record.clear();
+      Code = Stream.ReadCode();
+
+      unsigned NextBitCode = Stream.readRecord(Code, Record);
+      if (NextBitCode != bitc::METADATA_NAMED_NODE)
+        return error("METADATA_NAME not followed by METADATA_NAMED_NODE");
+
+      if (Pass == 0) {
+        LocalChanged = true;
+        bool found = false;
+        for (unsigned i = 0; i < NamedMetadata.size(); i++) {
+          if (Name == NamedMetadata[i]) {
+            found = true;
+            break;
+          }
+        }
+
+        if (found) {
+          // Read named metadata elements.
+          unsigned Size = Record.size();
+          NamedMDNode *NMD = TheModule->getOrInsertNamedMetadata(Name);
+          for (unsigned i = 0; i != Size; ++i) {
+            MDNode *MD = dyn_cast_or_null<MDNode>(MDValueList.getValueFwdRef(Record[i]));
+            if (!MD)
+              return error("Invalid record");
+
+            Encountered.insert(Record[i]);
+            NMD->addOperand(MD);
+          }
+        }
+      }
+      break;
+    }
+    case bitc::METADATA_VALUE: {
+      LocalChanged = true;
+      if (Record.size() != 2)
+        return error("Invalid record");
+
+      Type *Ty = getTypeByID(Record[0]);
+      if (Ty->isMetadataTy() || Ty->isVoidTy())
+        return error("Invalid record");
+
+      MDValueList.assignValue(
+          ValueAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
+          NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_DISTINCT_NODE:
+      IsDistinct = true;
+      // fallthrough...
+    case bitc::METADATA_NODE: {
+      LocalChanged = true;
+      SmallVector<Metadata *, 8> Elts;
+      Elts.reserve(Record.size());
+      for (unsigned ID : Record) {
+        Elts.push_back(ID ? MDValueList.getValueFwdRef(ID - 1) : nullptr);
+        if (ID)
+          Encountered.insert(ID - 1);
+      }
+      MDValueList.assignValue(IsDistinct ? MDNode::getDistinct(Context, Elts)
+                                         : MDNode::get(Context, Elts),
+                              NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_COMPILE_UNIT: {
+      if (Record.size() < 14 || Record.size() > 15)
+        return error("Invalid record");
+
+      MDValueList.assignValue(
+          GET_OR_DISTINCT(
+              DICompileUnit, Record[0],
+              (Context, Record[1], getMDOrNull(Record[2]),
+               getMDString(Record[3]), Record[4], getMDString(Record[5]),
+               Record[6], getMDString(Record[7]), Record[8],
+               getMDOrNull(Record[9]), getMDOrNull(Record[10]),
+               getMDOrNull(Record[11]), getMDOrNull(Record[12]),
+               getMDOrNull(Record[13]), Record.size() == 14 ? 0 : Record[14])),
+          NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_STRING: {
+      LocalChanged = true;
+      std::string String(Record.begin(), Record.end());
+      llvm::UpgradeMDStringConstant(String);
+      Metadata *MD = MDString::get(Context, String);
+      MDValueList.assignValue(MD, NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_KIND: {
+      if (Record.size() < 2)
+        return error("Invalid record");
+
+      unsigned Kind = Record[0];
+      SmallString<8> Name(Record.begin()+1, Record.end());
+
+      unsigned NewKind = TheModule->getMDKindID(Name.str());
+      if (!MDKindMap.insert(std::make_pair(Kind, NewKind)).second)
+        return error("Conflicting METADATA_KIND records");
+      break;
+    }
+    }
+
+  }
+
+  if (!LocalChanged)
+    break;
+  }
+  return std::error_code();
+
+#undef GET_OR_DISTINCT
+}
+
+std::error_code BitcodeReader::materializeSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata) {
+  for (uint64_t BitPos : DeferredMetadataInfo) {
+    // Move the bit stream to the saved position.
+    Stream.JumpToBit(BitPos);
+    if (std::error_code EC = parseSelectNamedMetadata(NamedMetadata))
+      return EC;
+  }
+  DeferredMetadataInfo.clear();
+  return std::error_code();
+}
+
+// HLSL Change - end
 
 std::error_code BitcodeReader::parseMetadata() {
   IsMetadataMaterialized = true;
@@ -4637,9 +4871,9 @@ std::error_code BitcodeReader::materializeModule(Module *M) {
   UpgradeDebugInfo(*M);
 
   // HLSL Change Starts
-  if (!Tracker.isDense((uint64_t)(Buffer->getBufferSize()) * 8)) {
-    ReportWarning(DiagnosticHandler, "Unused bits in buffer.");
-  }
+  // if (!Tracker.isDense((uint64_t)(Buffer->getBufferSize()) * 8)) {
+  //   ReportWarning(DiagnosticHandler, "Unused bits in buffer.");
+  // }
   // HLSL Change Ends
 
   return std::error_code();
@@ -4670,7 +4904,7 @@ std::error_code BitcodeReader::initStreamFromBuffer() {
       return error("Invalid bitcode wrapper header");
 
   StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
-  StreamFile->Tracker = &Tracker; // HLSL Change
+  // StreamFile->Tracker = &Tracker; // HLSL Change
   Stream.init(&*StreamFile);
 
   return std::error_code();
