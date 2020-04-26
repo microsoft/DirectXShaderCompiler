@@ -152,11 +152,9 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
       hlsl::DxilMDHelper::kDxilVersionMDName,
       hlsl::DxilMDHelper::kDxilShaderModelMDName,
       hlsl::DxilMDHelper::kDxilEntryPointsMDName,
-      //"llvm.dbg.cu",
     };
 
     pModule->materializeSelectNamedMetadata(DebugMetadata);
-    //pModule->materializeMetadata();
     m_finder = std::make_shared<llvm::DebugInfoFinder>();
     m_finder->processModule(*pModule.get());
     m_module.reset(pModule.release());

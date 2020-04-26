@@ -1635,44 +1635,43 @@ static int64_t unrotateSign(uint64_t U) { return U & 1 ? ~(U >> 1) : U >> 1; }
 
 // HLSL Change - Begin
 std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata) {
+  // Remember our bit position right at the start, because we're going to
+  // jump back to it later.
   uint64_t OriginalBitPos = Stream.GetCurrentBitNo();
-  unsigned OriginalMDValueNo = MDValueList.size();
 
-  // IsMetadataMaterialized = true;
-
+  // Buffer used to read record operands.
   SmallVector<uint64_t, 64> Record;
-  std::unordered_set<uint64_t> Seen;
-  std::unordered_set<uint64_t> Encountered;
 
-  auto getMDOrNull = [&](unsigned ID) -> Metadata *{
-    if (ID)
-      return MDValueList.getValueFwdRef(ID - 1);
-    return nullptr;
+  // A map that we use to remember where we saw each value number
+  struct Info {
+    uint64_t BitPos;
+    uint64_t ID;
   };
-  auto getMDString = [&](unsigned ID) -> MDString *{
-    // This requires that the ID is not really a forward reference.  In
-    // particular, the MDString must already have been resolved.
-    return cast_or_null<MDString>(getMDOrNull(ID));
-  };
+  std::unordered_map<uint64_t, Info> NodePositions;
 
-  // OUTER LOOP
-  for (unsigned Pass = 0;; Pass++) {
-
-    bool LocalChanged = false;
-
-    Stream.JumpToBit(OriginalBitPos);
-    unsigned NextMDValueNo = OriginalMDValueNo;
+  unsigned NextMDValueNo = MDValueList.size();
 
   if (Stream.EnterSubBlock(bitc::METADATA_BLOCK_ID))
     return error("Invalid record");
 
-#define GET_OR_DISTINCT(CLASS, DISTINCT, ARGS)                                 \
-  (DISTINCT ? CLASS::getDistinct ARGS : CLASS::get ARGS)
+  SmallVector<uint64_t, 1> AbbrevDefines;
+  std::vector<uint64_t> NodeQueue;
+  std::unordered_set<uint64_t> NodeQueueSet;
 
-  std::vector<uint64_t> PlacesWhereAbbrevsChanged;
+  auto add_to_queue = [&NodeQueueSet, &NodeQueue](uint64_t Val) {
+    if (NodeQueueSet.count(Val))
+      return;
+
+    NodeQueueSet.insert(Val);
+    NodeQueue.push_back(Val);
+  };
 
   // Read all the records.
   while (1) {
+    if (Stream.PeekCode() == bitc::DEFINE_ABBREV) {
+      AbbrevDefines.push_back(Stream.GetCurrentBitNo());
+    }
+
     // HLSL Change Starts - count skipped blocks
     unsigned skipCount = 0;
     BitstreamEntry Entry = Stream.advanceSkippingSubblocks(0, &skipCount);
@@ -1688,7 +1687,6 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
       MDValueList.tryToResolveCycles();
       Stop = true;
       break;
-      //return std::error_code();
     case BitstreamEntry::Record:
       // The interesting case.
       break;
@@ -1696,84 +1694,113 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     if (Stop)
       break;
 
-    if (Seen.count(NextMDValueNo)) {
-      Stream.skipRecord(Entry.ID);
-      NextMDValueNo++;
-      continue;
-    }
-
-#if 1
     unsigned PeekCode = Stream.peekRecord(Entry.ID);
 
-    switch (PeekCode) {
-    case bitc::METADATA_NAME:
-      break;
-    case bitc::METADATA_DISTINCT_NODE:
-    case bitc::METADATA_NODE:
-    case bitc::METADATA_STRING:
-    case bitc::METADATA_VALUE:
-      if (!Encountered.count(NextMDValueNo)) {
-        Stream.skipRecord(Entry.ID);
-        NextMDValueNo++;
-        continue;
+    if (PeekCode != bitc::METADATA_NAME) {
+      // If it's one of these types of things, remember where we actually
+      // found it.
+      switch (PeekCode) {
+      case bitc::METADATA_DISTINCT_NODE:
+      case bitc::METADATA_NODE:
+      case bitc::METADATA_STRING:
+      case bitc::METADATA_VALUE:
+        NodePositions[NextMDValueNo] = { Stream.GetCurrentBitNo(), Entry.ID, };
+        break;
       }
-      Seen.insert(NextMDValueNo);
-      break;
-    default:
-      Seen.insert(NextMDValueNo);
       Stream.skipRecord(Entry.ID);
       NextMDValueNo++;
       continue;
-      break;
     }
-#endif
 
     // Read a record.
     Record.clear();
     unsigned Code = Stream.readRecord(Entry.ID, Record);
 
-    bool IsDistinct = false;
-    switch (Code) {
-    default:  // Default behavior: ignore.
-      break;
-    case bitc::METADATA_NAME: {
-      // Read name of the named metadata.
-      SmallString<8> Name(Record.begin(), Record.end());
-      Record.clear();
-      Code = Stream.ReadCode();
+    // Read name of the named metadata.
+    SmallString<8> Name(Record.begin(), Record.end());
+    Record.clear();
+    Code = Stream.ReadCode();
 
+    // Figure out if it's one of the named metadata that we actually want.
+    bool found = false;
+    for (unsigned i = 0; i < NamedMetadata.size(); i++) {
+      if (Name == NamedMetadata[i]) {
+        found = true;
+        break;
+      }
+    }
+
+    // If it's not interesting to us, then just skip.
+    if (!found) {
+      Stream.skipRecord(Code);
+    }
+    else {
       unsigned NextBitCode = Stream.readRecord(Code, Record);
       if (NextBitCode != bitc::METADATA_NAMED_NODE)
         return error("METADATA_NAME not followed by METADATA_NAMED_NODE");
 
-      if (Pass == 0) {
-        LocalChanged = true;
-        bool found = false;
-        for (unsigned i = 0; i < NamedMetadata.size(); i++) {
-          if (Name == NamedMetadata[i]) {
-            found = true;
-            break;
-          }
-        }
+      // Read named metadata elements.
+      unsigned Size = Record.size();
+      NamedMDNode *NMD = TheModule->getOrInsertNamedMetadata(Name);
+      for (unsigned i = 0; i != Size; ++i) {
+        MDNode *MD = dyn_cast_or_null<MDNode>(MDValueList.getValueFwdRef(Record[i]));
+        if (!MD)
+          return error("Invalid record");
 
-        if (found) {
-          // Read named metadata elements.
-          unsigned Size = Record.size();
-          NamedMDNode *NMD = TheModule->getOrInsertNamedMetadata(Name);
-          for (unsigned i = 0; i != Size; ++i) {
-            MDNode *MD = dyn_cast_or_null<MDNode>(MDValueList.getValueFwdRef(Record[i]));
-            if (!MD)
-              return error("Invalid record");
-
-            Encountered.insert(Record[i]);
-            NMD->addOperand(MD);
-          }
-        }
+        add_to_queue(Record[i]); // Add this MD number to our queue, so we know to try to read it later.
+        NMD->addOperand(MD);
       }
-      break;
     }
+  }
+
+  // Go back to the beginning.
+  Stream.JumpToBit(OriginalBitPos);
+
+  if (Stream.EnterSubBlock(bitc::METADATA_BLOCK_ID))
+    return error("Invalid record");
+
+  // Load all the abbrev's
+  for (unsigned i = 0; i < AbbrevDefines.size(); i++) {
+    Stream.JumpToBit(AbbrevDefines[i]);
+    while (1) {
+      unsigned Code = Stream.ReadCode();
+      if (Code == bitc::DEFINE_ABBREV) {
+        Stream.ReadAbbrevRecord();
+        continue;
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  std::string String; // String buffer used to read MD string
+
+  // Go through the queue and read all the metadata we want.
+  for (unsigned i = 0; i < NodeQueue.size(); i++) {
+    uint64_t MDNumber = NodeQueue[i];
+
+    // If we never memorized the location for this MD No, it means
+    // it wasn't one of the MD types that we care about.
+    auto it = NodePositions.find(MDNumber);
+    if (it == NodePositions.end())
+      continue;
+
+    Info I = it->second;
+
+    // Go back to the bit where we read the record
+    Stream.JumpToBit(I.BitPos);
+
+    // Read a record
+    Record.clear();
+    unsigned Code = Stream.readRecord(I.ID, Record);
+
+    bool IsDistinct = false;
+    switch (Code) {
+    default:
+      llvm_unreachable("Can't actually be anything else.");
+      break;
     case bitc::METADATA_VALUE: {
-      LocalChanged = true;
       if (Record.size() != 2)
         return error("Invalid record");
 
@@ -1783,72 +1810,39 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
 
       MDValueList.assignValue(
           ValueAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
-          NextMDValueNo++);
+          MDNumber);
       break;
     }
     case bitc::METADATA_DISTINCT_NODE:
       IsDistinct = true;
       // fallthrough...
     case bitc::METADATA_NODE: {
-      LocalChanged = true;
       SmallVector<Metadata *, 8> Elts;
       Elts.reserve(Record.size());
       for (unsigned ID : Record) {
         Elts.push_back(ID ? MDValueList.getValueFwdRef(ID - 1) : nullptr);
+        // If this ID is not a null MD, add to queue.
         if (ID)
-          Encountered.insert(ID - 1);
+          add_to_queue(ID - 1);
       }
       MDValueList.assignValue(IsDistinct ? MDNode::getDistinct(Context, Elts)
                                          : MDNode::get(Context, Elts),
-                              NextMDValueNo++);
-      break;
-    }
-    case bitc::METADATA_COMPILE_UNIT: {
-      if (Record.size() < 14 || Record.size() > 15)
-        return error("Invalid record");
-
-      MDValueList.assignValue(
-          GET_OR_DISTINCT(
-              DICompileUnit, Record[0],
-              (Context, Record[1], getMDOrNull(Record[2]),
-               getMDString(Record[3]), Record[4], getMDString(Record[5]),
-               Record[6], getMDString(Record[7]), Record[8],
-               getMDOrNull(Record[9]), getMDOrNull(Record[10]),
-               getMDOrNull(Record[11]), getMDOrNull(Record[12]),
-               getMDOrNull(Record[13]), Record.size() == 14 ? 0 : Record[14])),
-          NextMDValueNo++);
+                              MDNumber);
       break;
     }
     case bitc::METADATA_STRING: {
-      LocalChanged = true;
-      std::string String(Record.begin(), Record.end());
+      String.clear();
+      String.assign(Record.begin(), Record.end());
       llvm::UpgradeMDStringConstant(String);
       Metadata *MD = MDString::get(Context, String);
-      MDValueList.assignValue(MD, NextMDValueNo++);
-      break;
-    }
-    case bitc::METADATA_KIND: {
-      if (Record.size() < 2)
-        return error("Invalid record");
-
-      unsigned Kind = Record[0];
-      SmallString<8> Name(Record.begin()+1, Record.end());
-
-      unsigned NewKind = TheModule->getMDKindID(Name.str());
-      if (!MDKindMap.insert(std::make_pair(Kind, NewKind)).second)
-        return error("Conflicting METADATA_KIND records");
+      MDValueList.assignValue(MD, MDNumber);
       break;
     }
     }
 
   }
 
-  if (!LocalChanged)
-    break;
-  }
   return std::error_code();
-
-#undef GET_OR_DISTINCT
 }
 
 std::error_code BitcodeReader::materializeSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata) {

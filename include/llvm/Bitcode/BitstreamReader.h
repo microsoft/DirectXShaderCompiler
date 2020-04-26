@@ -474,6 +474,15 @@ public:
     return Read(CurCodeSize);
   }
 
+  // HLSL Change - begin
+  inline unsigned PeekCode() {
+    auto BitPos = GetCurrentBitNo();
+    unsigned result = Read(CurCodeSize);
+    JumpToBit(BitPos);
+    return result;
+  }
+  // HLSL Change - end
+
 
   // Block header:
   //    [ENTER_SUBBLOCK, blockid, newcodelen, <align4bytes>, blocklen]
