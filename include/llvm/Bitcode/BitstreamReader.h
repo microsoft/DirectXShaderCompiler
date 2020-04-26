@@ -552,7 +552,9 @@ public:
   void skipRecord(unsigned AbbrevID);
 
   unsigned readRecord(unsigned AbbrevID, SmallVectorImpl<uint64_t> &Vals,
-                      StringRef *Blob = nullptr);
+                      StringRef *Blob = nullptr,
+                      SmallVectorImpl<uint8_t> *Uint8Vals = nullptr // HLSL Change
+    );
   unsigned peekRecord(unsigned AbbrevID); // HLSL Change
 
   //===--------------------------------------------------------------------===//

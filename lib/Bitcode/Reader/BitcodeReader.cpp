@@ -1641,13 +1641,15 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
 
   // Buffer used to read record operands.
   SmallVector<uint64_t, 64> Record;
+  SmallVector<uint8_t, 32> Uint8Buffer;
 
   // A map that we use to remember where we saw each value number
   struct Info {
     uint64_t BitPos;
     uint64_t ID;
+    bool IsString;
   };
-  std::unordered_map<uint64_t, Info> NodePositions;
+  std::vector<Info> NodePositions;
 
   unsigned NextMDValueNo = MDValueList.size();
 
@@ -1704,7 +1706,10 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
       case bitc::METADATA_NODE:
       case bitc::METADATA_STRING:
       case bitc::METADATA_VALUE:
-        NodePositions[NextMDValueNo] = { Stream.GetCurrentBitNo(), Entry.ID, };
+        auto old_size = NodePositions.size();
+        NodePositions.resize(NextMDValueNo + 1);
+        memset(NodePositions.data() + old_size, 0, sizeof(NodePositions[0]) * (NextMDValueNo + 1 - old_size));
+        NodePositions[NextMDValueNo] = { Stream.GetCurrentBitNo(), Entry.ID, PeekCode == bitc::METADATA_STRING };
         break;
       }
       Stream.skipRecord(Entry.ID);
@@ -1782,18 +1787,26 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
 
     // If we never memorized the location for this MD No, it means
     // it wasn't one of the MD types that we care about.
-    auto it = NodePositions.find(MDNumber);
-    if (it == NodePositions.end())
+    if (MDNumber >= NodePositions.size())
       continue;
-
-    Info I = it->second;
+    Info I = NodePositions[MDNumber];
+    if (I.BitPos == 0)
+      continue;
 
     // Go back to the bit where we read the record
     Stream.JumpToBit(I.BitPos);
 
     // Read a record
     Record.clear();
-    unsigned Code = Stream.readRecord(I.ID, Record);
+    unsigned Code = 0;
+
+    if (I.IsString) {
+      Uint8Buffer.clear();
+      Code = Stream.readRecord(I.ID, Record, nullptr, &Uint8Buffer);
+    }
+    else {
+      Code = Stream.readRecord(I.ID, Record);
+    }
 
     bool IsDistinct = false;
     switch (Code) {
@@ -1832,7 +1845,8 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     }
     case bitc::METADATA_STRING: {
       String.clear();
-      String.assign(Record.begin(), Record.end());
+      String.resize(Uint8Buffer.size());
+      memcpy(&String[0], Uint8Buffer.data(), Uint8Buffer.size());
       llvm::UpgradeMDStringConstant(String);
       Metadata *MD = MDString::get(Context, String);
       MDValueList.assignValue(MD, MDNumber);

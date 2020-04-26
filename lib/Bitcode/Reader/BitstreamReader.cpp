@@ -212,7 +212,9 @@ unsigned BitstreamCursor::peekRecord(unsigned AbbrevID) {
 
 unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
                                      SmallVectorImpl<uint64_t> &Vals,
-                                     StringRef *Blob) {
+                                     StringRef *Blob,
+                                     SmallVectorImpl<uint8_t> *Uint8Vals // HLSL Change
+  ) {
   if (AbbrevID == bitc::UNABBREV_RECORD) {
     unsigned Code = ReadVBR(6);
     unsigned NumElts = ReadVBR(6);
@@ -277,17 +279,34 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
           assert((unsigned)encData <= MaxChunkSize);
           Vals.reserve(NumElts);
           if (encData == 8) {
-            for (; NumElts >= 8; NumElts -= 8) {
-              const size_t e = Read(64);
-              const uint8_t *p = (uint8_t *)&e;
-              Vals.push_back(p[0]);
-              Vals.push_back(p[1]);
-              Vals.push_back(p[2]);
-              Vals.push_back(p[3]);
-              Vals.push_back(p[4]);
-              Vals.push_back(p[5]);
-              Vals.push_back(p[6]);
-              Vals.push_back(p[7]);
+            // Special optimization for fixed elements that are 8 bits
+            if (!Uint8Vals) {
+              for (; NumElts >= 8; NumElts -= 8) {
+                const size_t e = Read(64);
+                const uint8_t *p = (uint8_t *)&e;
+                Vals.push_back(p[0]);
+                Vals.push_back(p[1]);
+                Vals.push_back(p[2]);
+                Vals.push_back(p[3]);
+                Vals.push_back(p[4]);
+                Vals.push_back(p[5]);
+                Vals.push_back(p[6]);
+                Vals.push_back(p[7]);
+              }
+              for (; NumElts; --NumElts)
+                Vals.push_back(Read(8));
+            }
+            else {
+              Uint8Vals->resize(NumElts);
+              uint8_t *ptr = Uint8Vals->data();
+              unsigned i = 0;
+              for (; NumElts >= 8; NumElts -= 8) {
+                const size_t e = Read(64);
+                memcpy(ptr+i, &e, sizeof(e));
+                i += 8;
+              }
+              for (; NumElts; --NumElts)
+                Uint8Vals->operator[](i++) = (uint8_t)Read(8);
             }
           }
           else if (encData == 16) {
@@ -299,9 +318,13 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
               Vals.push_back(p[2]);
               Vals.push_back(p[3]);
             }
+            for (; NumElts; --NumElts)
+              Vals.push_back(Read(size));
           }
-          for (; NumElts; --NumElts)
-            Vals.push_back(Read(size));
+          else {
+            for (; NumElts; --NumElts)
+              Vals.push_back(Read(size));
+          }
         }
         else if (enc == BitCodeAbbrevOp::VBR) {
           assert((unsigned)encData <= MaxChunkSize);
