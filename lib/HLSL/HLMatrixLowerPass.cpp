@@ -802,7 +802,7 @@ Value *HLMatrixLowerPass::lowerHLOperation(CallInst *Call, HLOpcodeGroup OpcodeG
   }
 }
 
-static CallInst *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+static Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
   Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
   SmallVector<Type*, 4> ArgTys;
   ArgTys.reserve(Args.size());
