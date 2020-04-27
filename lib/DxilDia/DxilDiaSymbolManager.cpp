@@ -2067,10 +2067,10 @@ void dxil_dia::SymbolManager::Init(Session *pSes) {
   m_parentToChildren.clear();
 
   llvm::DebugInfoFinder &DIFinder = pSes->InfoRef();
-  llvm::DICompileUnit *ShaderCU = nullptr;
-  if (DIFinder.compile_unit_count() == 1) {
-    ShaderCU = *DIFinder.compile_units().begin();
+  if (DIFinder.compile_unit_count() != 1) {
+    throw hlsl::Exception(E_FAIL);
   }
+  llvm::DICompileUnit *ShaderCU = *DIFinder.compile_units().begin();
 
   hlsl_symbols::SymbolManagerInit SMI(pSes, &m_symbolCtors, &m_scopeToID, &m_symbolToLiveRange);
 

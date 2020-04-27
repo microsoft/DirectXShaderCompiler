@@ -1004,8 +1004,7 @@ TEST_F(PixTest, CompileWhenDebugThenDIPresent) {
 
   // Very basic tests - we have basic symbols, line numbers, and files with sources.
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, lexicalParent: id=2, value: ps_6_0"));
-  // We gutted Dia to not load any of these:
-  // VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
+  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
   std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
   VERIFY_IS_NOT_NULL(wcsstr(diaFileContent.c_str(), L"loat4 main(float4 pos : SV_Position) : SV_Target"));
@@ -1156,7 +1155,6 @@ TEST_F(PixTest, CompileDebugLines) {
   // Verify lines are ok when getting one RVA at a time.
   std::vector<LineNumber> linesOneByOne;
   VERIFY_SUCCEEDED(pDiaSource->openSession(&pSession));
-#if 0 // Gutted Dia to not load any actual info
   for (int i = 0; i < numExpectedVAs; ++i) {
     VERIFY_SUCCEEDED(pSession->findLinesByRVA(i, 1, &pEnumLineNumbers));
     std::vector<LineNumber> lines = ReadLineNumbers(pEnumLineNumbers);
@@ -1202,7 +1200,6 @@ TEST_F(PixTest, CompileDebugLines) {
   CComBSTR pName;
   VERIFY_SUCCEEDED(pFile->get_fileName(&pName));
   VERIFY_ARE_EQUAL_WSTR(pName, L"source.hlsl");
-#endif
 }
 
 TEST_F(PixTest, DiaLoadBadBitcodeThenFail) {

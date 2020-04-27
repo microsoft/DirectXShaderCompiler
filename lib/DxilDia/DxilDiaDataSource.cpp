@@ -14,7 +14,6 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilPDB.h"
-#include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 
@@ -106,7 +105,7 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
     m_finder.reset();
 
     m_context = std::make_shared<llvm::LLVMContext>();
-    std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuffer;
+    llvm::MemoryBuffer *pBitcodeBuffer;
     std::unique_ptr<llvm::MemoryBuffer> pEmbeddedBuffer;
     std::unique_ptr<llvm::MemoryBuffer> pBuffer =
       getMemBufferFromStream(pIStream, "data");
@@ -119,7 +118,7 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
     }
     const UINT32 BC_C0DE = ((INT32)(INT8)'B' | (INT32)(INT8)'C' << 8 | (INT32)0xDEC0 << 16); // BC0xc0de in big endian
     if (BC_C0DE == *(const UINT32*)pBuffer->getBufferStart()) {
-      pBitcodeBuffer = std::move(pBuffer);
+      pBitcodeBuffer = pBuffer.get();
     } else {
       if (bufferSize <= sizeof(hlsl::DxilProgramHeader)) {
         return DXC_E_MALFORMED_CONTAINER;
@@ -136,26 +135,14 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
       std::unique_ptr<llvm::MemoryBuffer> p = llvm::MemoryBuffer::getMemBuffer(
         llvm::StringRef(pBitcode, BlobSize), "data", false /* RequiresNullTerminator */);
       pEmbeddedBuffer.swap(p);
-      pBitcodeBuffer = std::move(pEmbeddedBuffer);
+      pBitcodeBuffer = pEmbeddedBuffer.get();
     }
 
     std::string DiagStr;
-    std::unique_ptr<llvm::Module> pModule = hlsl::dxilutil::LoadModuleFromBitcodeLazy(
-      std::move(pBitcodeBuffer), *m_context.get(), DiagStr);
+    std::unique_ptr<llvm::Module> pModule = hlsl::dxilutil::LoadModuleFromBitcode(
+      pBitcodeBuffer, *m_context.get(), DiagStr);
     if (!pModule.get())
       return E_FAIL;
-
-    llvm::StringRef DebugMetadata[] = {
-      hlsl::DxilMDHelper::kDxilSourceContentsMDName,
-      hlsl::DxilMDHelper::kDxilSourceDefinesMDName,
-      hlsl::DxilMDHelper::kDxilSourceArgsMDName,
-      hlsl::DxilMDHelper::kDxilVersionMDName,
-      hlsl::DxilMDHelper::kDxilShaderModelMDName,
-      hlsl::DxilMDHelper::kDxilEntryPointsMDName,
-      hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName,
-    };
-
-    pModule->materializeSelectNamedMetadata(DebugMetadata);
     m_finder = std::make_shared<llvm::DebugInfoFinder>();
     m_finder->processModule(*pModule.get());
     m_module.reset(pModule.release());
