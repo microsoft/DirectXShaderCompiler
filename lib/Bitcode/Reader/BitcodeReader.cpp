@@ -4879,9 +4879,9 @@ std::error_code BitcodeReader::materializeModule(Module *M) {
   UpgradeDebugInfo(*M);
 
   // HLSL Change Starts
-  // if (!Tracker.isDense((uint64_t)(Buffer->getBufferSize()) * 8)) {
-  //   ReportWarning(DiagnosticHandler, "Unused bits in buffer.");
-  // }
+  if (!Tracker.isDense((uint64_t)(Buffer->getBufferSize()) * 8)) {
+    ReportWarning(DiagnosticHandler, "Unused bits in buffer.");
+  }
   // HLSL Change Ends
 
   return std::error_code();
@@ -4912,7 +4912,7 @@ std::error_code BitcodeReader::initStreamFromBuffer() {
       return error("Invalid bitcode wrapper header");
 
   StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
-  // StreamFile->Tracker = &Tracker; // HLSL Change
+  StreamFile->Tracker = &Tracker; // HLSL Change
   Stream.init(&*StreamFile);
 
   return std::error_code();

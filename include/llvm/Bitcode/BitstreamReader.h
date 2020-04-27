@@ -55,7 +55,7 @@ public:
   struct ScopeTrack {
     BitstreamCursor *BC;
     uint64_t begin;
-    ~ScopeTrack();
+    inline ~ScopeTrack();
   };
   static ScopeTrack scope_track(BitstreamCursor *BC);
   static void track(BitstreamUseTracker *BT, uint64_t begin, uint64_t end);
@@ -98,6 +98,8 @@ public:
       : IgnoreBlockInfoNames(true) {
     init(Start, End);
   }
+
+  BitstreamUseTracker *Tracker = nullptr; // HLSL Change
 
   BitstreamReader(std::unique_ptr<MemoryObject> BitcodeBytes)
       : BitcodeBytes(std::move(BitcodeBytes)), IgnoreBlockInfoNames(true) {}
@@ -386,6 +388,7 @@ public:
     static const unsigned Mask = sizeof(word_t) > 4 ? 0x3f : 0x1f;
 
     // If the field is fully contained by CurWord, return it quickly.
+    auto T = BitstreamUseTracker::scope_track(this); // HLSL Change
     if (BitsInCurWord >= NumBits) {
       word_t R = CurWord & (~word_t(0) >> (BitsInWord - NumBits));
 
@@ -459,6 +462,7 @@ private:
   void SkipToFourByteBoundary() {
     // If word_t is 64-bits and if we've read less than 32 bits, just dump
     // the bits we have up to the next 32-bit boundary.
+    auto T = BitstreamUseTracker::scope_track(this); // HLSL Change
     if (sizeof(word_t) > 4 &&
         BitsInCurWord >= 32) {
       CurWord >>= BitsInCurWord-32;
@@ -564,6 +568,13 @@ public:
 
   bool ReadBlockInfoBlock(unsigned *pCount = nullptr);
 };
+
+// HLSL Change - Begin
+BitstreamUseTracker::ScopeTrack::~ScopeTrack() {
+  if (auto *Tracker = BC->getBitStreamReader()->Tracker)
+    Tracker->insert(begin, BC->GetCurrentBitNo());
+}
+// HLSL Change - End
 
 } // End llvm namespace
 

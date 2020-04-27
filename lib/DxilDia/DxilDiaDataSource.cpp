@@ -152,6 +152,7 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
       hlsl::DxilMDHelper::kDxilVersionMDName,
       hlsl::DxilMDHelper::kDxilShaderModelMDName,
       hlsl::DxilMDHelper::kDxilEntryPointsMDName,
+      hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName,
     };
 
     pModule->materializeSelectNamedMetadata(DebugMetadata);
