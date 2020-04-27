@@ -1663,7 +1663,7 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
 
   // Buffer used to read record operands.
   SmallVector<uint64_t, 64> Record;
-  SmallVector<uint8_t, 32> Uint8Buffer;
+  SmallVector<uint8_t, 32> Uint8Record;
 
   // A map that we use to remember where we saw each value number
   struct Info {
@@ -1836,8 +1836,9 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
 
     // If it's a string, use our special Uint8Buffer to speed up the reading.
     if (I.IsString) {
-      Uint8Buffer.clear();
-      Code = Stream.readRecord(I.ID, Record, nullptr, &Uint8Buffer);
+      Uint8Record.clear();
+      Code = Stream.readRecord(I.ID, Record, nullptr, &Uint8Record);
+      assert(!Uint8Record.empty() || (Uint8Record.empty() && Record.empty()));
     }
     else {
       Code = Stream.readRecord(I.ID, Record);
@@ -1881,8 +1882,8 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     }
     case bitc::METADATA_STRING: {
       String.clear();
-      String.resize(Uint8Buffer.size());
-      memcpy(&String[0], Uint8Buffer.data(), Uint8Buffer.size());
+      String.resize(Uint8Record.size());
+      memcpy(&String[0], Uint8Record.data(), Uint8Record.size());
       llvm::UpgradeMDStringConstant(String);
       Metadata *MD = MDString::get(Context, String);
       MDValueList.assignValue(MD, MDNumber);
@@ -1915,6 +1916,7 @@ std::error_code BitcodeReader::parseMetadata() {
     return error("Invalid record");
 
   SmallVector<uint64_t, 64> Record;
+  SmallVector<uint8_t, 64> Uint8Record; // HLSL Change
 
   auto getMD =
       [&](unsigned ID) -> Metadata *{ return MDValueList.getValueFwdRef(ID); };
@@ -1952,9 +1954,28 @@ std::error_code BitcodeReader::parseMetadata() {
       break;
     }
 
+#if 1 // HLSL Change
+    // If it's a string metadata, use our special Uint8Record to speed
+    // up reading.
+    unsigned PeekCode = Stream.peekRecord(Entry.ID);
+    Record.clear();
+    unsigned Code = 0;
+    if (PeekCode == bitc::METADATA_STRING) {
+      Uint8Record.clear();
+      Code = Stream.readRecord(Entry.ID, Record, nullptr, &Uint8Record);
+      // Make sure data is read into the right buffer
+      assert(!Uint8Record.empty() || (Uint8Record.empty() && Record.empty()));
+    }
+    else {
+      Code = Stream.readRecord(Entry.ID, Record);
+    }
+#else // HLSL Change
     // Read a record.
     Record.clear();
     unsigned Code = Stream.readRecord(Entry.ID, Record);
+#endif // HLSL Change
+
+    std::string String; // HLSL Change - Reuse buffer for loading string.
     bool IsDistinct = false;
     switch (Code) {
     default:  // Default behavior: ignore.
@@ -2341,7 +2362,12 @@ std::error_code BitcodeReader::parseMetadata() {
       break;
     }
     case bitc::METADATA_STRING: {
+#if 0
       std::string String(Record.begin(), Record.end());
+#else
+      String.resize(Uint8Record.size());
+      memcpy(&String[0], Uint8Record.data(), Uint8Record.size());
+#endif
       llvm::UpgradeMDStringConstant(String);
       Metadata *MD = MDString::get(Context, String);
       MDValueList.assignValue(MD, NextMDValueNo++);
