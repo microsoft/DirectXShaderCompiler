@@ -1634,6 +1634,28 @@ std::error_code BitcodeReader::parseValueSymbolTable() {
 static int64_t unrotateSign(uint64_t U) { return U & 1 ? ~(U >> 1) : U >> 1; }
 
 // HLSL Change - Begin
+// This function takes a list of strings that corresponds to the list of named
+// metadata that we want to materialize, and materialize them efficiently.
+//
+// Note: This function will only materialize metadata that are the following
+// types:
+//
+//    MDString        e.g. !"my metadata string"
+//    MDNode          e.g. !10 = !{ !"my node", !32, !48 }
+//    distinct MDNode e.g. !10 = distinct !{ !"my node", !32, !48 }
+//    ValueAsMetadata e.g. true, 0, 10
+//
+// Everything else will appear as !<temporary>
+//
+// We first skip through the whole METADATA_BLOCK_ID block. As we do, we take
+// note of the named metadata we want, and push their operands into a queue.
+// We also record the bit offsets where all String, Node, and Value metadata.
+//
+// Next, we go through the queue, and skip to their bit offsets and load their
+// data (but only if they're the types listed above). If the metadata has their
+// own operands, we insert them into the queue as well.
+//
+//
 std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata) {
   // Remember our bit position right at the start, because we're going to
   // jump back to it later.
@@ -1670,6 +1692,9 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
 
   // Read all the records.
   while (1) {
+    // If we encounter a DEFINE_ABBREV record, record where it is.
+    // We need to go back to them to recover the abbreviation list.
+    // There shouldn't be more than one... but just in case.
     if (Stream.PeekCode() == bitc::DEFINE_ABBREV) {
       AbbrevDefines.push_back(Stream.GetCurrentBitNo());
     }
@@ -1696,8 +1721,11 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     if (Stop)
       break;
 
+    // Peek the record type without changing bit-position and loading
+    // the record's operands.
     unsigned PeekCode = Stream.peekRecord(Entry.ID);
 
+    // For the first pass, we're only interested in named metadata.
     if (PeekCode != bitc::METADATA_NAME) {
       // If it's one of these types of things, remember where we actually
       // found it.
@@ -1712,6 +1740,7 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
         NodePositions[NextMDValueNo] = { Stream.GetCurrentBitNo(), Entry.ID, PeekCode == bitc::METADATA_STRING };
         break;
       }
+      // Skip the record without loading anything.
       Stream.skipRecord(Entry.ID);
       NextMDValueNo++;
       continue;
@@ -1758,13 +1787,18 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     }
   }
 
+  // Now that we have gathered all the metadata operands that the named
+  // metadata need...
+
   // Go back to the beginning.
   Stream.JumpToBit(OriginalBitPos);
 
+  // Re-enter the metadata block.
   if (Stream.EnterSubBlock(bitc::METADATA_BLOCK_ID))
     return error("Invalid record");
 
-  // Load all the abbrev's
+  // Load all the abbreviations's again, since exiting the block and re-entering
+  // the block has wiped them clean.
   for (unsigned i = 0; i < AbbrevDefines.size(); i++) {
     Stream.JumpToBit(AbbrevDefines[i]);
     while (1) {
@@ -1800,6 +1834,7 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     Record.clear();
     unsigned Code = 0;
 
+    // If it's a string, use our special Uint8Buffer to speed up the reading.
     if (I.IsString) {
       Uint8Buffer.clear();
       Code = Stream.readRecord(I.ID, Record, nullptr, &Uint8Buffer);
@@ -1808,6 +1843,7 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
       Code = Stream.readRecord(I.ID, Record);
     }
 
+    // Read the actual data. This code is largely copied from parseMetadata
     bool IsDistinct = false;
     switch (Code) {
     default:
@@ -1853,7 +1889,6 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
       break;
     }
     }
-
   }
 
   return std::error_code();
