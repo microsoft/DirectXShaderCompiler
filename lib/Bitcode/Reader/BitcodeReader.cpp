@@ -1683,11 +1683,8 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
   std::unordered_set<uint64_t> NodeQueueSet;
 
   auto add_to_queue = [&NodeQueueSet, &NodeQueue](uint64_t Val) {
-    if (NodeQueueSet.count(Val))
-      return;
-
-    NodeQueueSet.insert(Val);
-    NodeQueue.push_back(Val);
+    if (NodeQueueSet.insert(Val).second)
+      NodeQueue.push_back(Val);
   };
 
   // Read all the records.
