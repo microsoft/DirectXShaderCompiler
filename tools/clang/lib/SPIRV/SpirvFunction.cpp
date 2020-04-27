@@ -33,18 +33,11 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     return false;
 
   for (auto *param : parameters) {
-    if (reverseOrder) {
-      auto *decl = param->getDebugDeclare();
-      if (decl)
-        visitor->visit(decl);
-      visitor->visit(param);
-    } else {
-      visitor->visit(param);
-      auto *decl = param->getDebugDeclare();
-      if (decl)
-        visitor->visit(decl);
-    }
+    visitor->visit(param);
   }
+
+  for (auto *i : debugDeclares)
+    visitor->visit(i);
 
   // Collect basic blocks in a human-readable order that satisfies SPIR-V
   // validation rules.

@@ -41,9 +41,6 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
     // include all the variables of the function.
     if (!vars.empty()) {
       for (auto var = vars.rbegin(); var != vars.rend(); ++var) {
-        auto *decl = (*var)->getDebugDeclare();
-        if (decl && !decl->invokeVisitor(visitor))
-          return false;
         if (!(*var)->invokeVisitor(visitor))
           return false;
       }
@@ -54,9 +51,6 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
     if (!vars.empty()) {
       for (auto *var : vars) {
         if (!var->invokeVisitor(visitor))
-          return false;
-        auto *decl = var->getDebugDeclare();
-        if (decl && !decl->invokeVisitor(visitor))
           return false;
       }
     }

@@ -1376,13 +1376,15 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   if (!validateVKAttributes(decl))
     return;
 
+  const auto loc = decl->getLocation();
+
   // We cannot handle external initialization of column-major matrices now.
   if (isExternalVar(decl) &&
       isOrContainsNonFpColMajorMatrix(astContext, spirvOptions, decl->getType(),
                                       decl)) {
     emitError("externally initialized non-floating-point column-major "
               "matrices not supported yet",
-              decl->getLocation());
+              loc);
   }
 
   // Reject arrays of RW/append/consume structured buffers. They have assoicated
@@ -1395,7 +1397,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
     if (isRWAppendConsumeSBuffer(type)) {
       emitError("arrays of RW/append/consume structured buffers unsupported",
-                decl->getLocation());
+                loc);
       return;
     }
   }
@@ -1440,7 +1442,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
     // TODO: if no initializer exists, just emit DebugDeclare for OpVariable.
     // If initializer exists and use OpStore, emit DebugDeclare for OpStore.
-    // If OpFunctionParameter exists, emit DebugValue for OpFunctionParameter.
     if (isFileScopeVar)
       var = declIdMapper.createFileVar(decl, llvm::None);
     else
@@ -1463,14 +1464,28 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // Function local variables. Just emit OpStore at the current insert point.
     else if (const Expr *init = decl->getInit()) {
       if (auto *constInit = tryToEvaluateAsConst(init)) {
-        spvBuilder.createStore(var, constInit, decl->getLocation());
+        spvBuilder.createStore(var, constInit, loc);
       } else {
-        storeValue(var, loadIfGLValue(init), decl->getType(),
-                   decl->getLocation());
+        storeValue(var, loadIfGLValue(init), decl->getType(), loc);
       }
 
       // Update counter variable associated with local variables
       tryToAssignCounterVar(decl, init);
+    }
+
+    if (!isFileScopeVar && spirvOptions.debugInfoRich) {
+      // Add DebugLocalVariable information
+      const auto &sm = astContext.getSourceManager();
+      const uint32_t line = sm.getPresumedLineNumber(loc);
+      const uint32_t column = sm.getPresumedColumnNumber(loc);
+      const auto *info = getOrCreateRichDebugInfo(loc);
+      // TODO: replace this with FlagIsLocal enum.
+      uint32_t flags = 1 << 2;
+      auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+          decl->getType(), decl->getName(), info->source, line, column,
+          info->scopeStack.back(), flags);
+      if (decl->getInit() != nullptr)
+        spvBuilder.createDebugDeclare(debugLocalVar, var);
     }
 
     // Variables that are not externally visible and of opaque types should

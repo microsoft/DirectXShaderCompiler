@@ -82,6 +82,9 @@ public:
   llvm::StringRef getFunctionName() const { return functionName; }
 
   void addParameter(SpirvFunctionParameter *);
+  void addParameterDebugDeclare(SpirvDebugDeclare *inst) {
+    debugDeclares.push_back(inst);
+  }
   void addVariable(SpirvVariable *);
   void addBasicBlock(SpirvBasicBlock *);
 
@@ -150,6 +153,9 @@ private:
 
   /// DebugScope that groups all instructions in this function.
   SpirvDebugScope *debugScope;
+
+  /// DebugDeclare instructions for parameters to this function.
+  llvm::SmallVector<SpirvDebugDeclare *, 8> debugDeclares;
 };
 
 } // end namespace spirv

@@ -133,7 +133,6 @@ public:
     IK_DebugOperation,
     IK_DebugExpression,
     IK_DebugDeclare,
-    IK_DebugValue,
     IK_DebugLexicalBlock,
     IK_DebugScope,
     IK_DebugTypeBasic,
@@ -494,17 +493,7 @@ public:
   void setBindingNo(int32_t b) { binding = b; }
   void setHlslUserType(llvm::StringRef userType) { hlslUserType = userType; }
 
-  void setDebugDeclare(SpirvDebugDeclare *decl) { debugDecl = decl; }
-  SpirvDebugDeclare *getDebugDeclare() const { return debugDecl; }
-
 private:
-  // When we turn on the rich debug info generation option, we want
-  // to keep the local variable information (if this SpirvVariable
-  // is a local variable). Since DebugDeclare instruction maps a
-  // DebugLocalVariable instruction to OpVariable instruction, we
-  // keep a pointer to SpirvDebugDeclare in SpirvVariable.
-  SpirvDebugDeclare *debugDecl;
-
   SpirvInstruction *initializer;
   int32_t descriptorSet;
   int32_t binding;
@@ -2128,25 +2117,6 @@ private:
   SpirvDebugLocalVariable *debugVar;
   SpirvInstruction *var;
   SpirvDebugExpression *expression;
-};
-
-class SpirvDebugValue : public SpirvDebugInstruction {
-public:
-  SpirvDebugValue(SpirvDebugLocalVariable *debugVar, SpirvInstruction *value,
-                  SpirvDebugExpression *expr,
-                  llvm::ArrayRef<SpirvInstruction *> indices);
-
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_DebugValue;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
-
-private:
-  SpirvDebugLocalVariable *debugVar;
-  SpirvInstruction *value;
-  SpirvDebugExpression *expression;
-  llvm::SmallVector<SpirvInstruction *, 4> indices;
 };
 
 class SpirvDebugLexicalBlock : public SpirvDebugInstruction {

@@ -256,8 +256,8 @@ private:
       debugLexicalScopes;
 
   // All other debug info instructions that are not sensitive about the layout.
-  // Note that DebugScope, DebugNoScope, DebugDeclare, DebugValue must be
-  // included in functions.
+  // Note that DebugScope, DebugNoScope, DebugDeclare must be included in
+  // functions.
   std::vector<SpirvDebugInstruction *> debugInfo;
 };
 

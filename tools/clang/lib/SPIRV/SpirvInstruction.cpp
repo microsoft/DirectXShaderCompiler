@@ -92,7 +92,6 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugGlobalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugOperation)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugExpression)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugDeclare)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugValue)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugLexicalBlock)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugScope)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeBasic)
@@ -269,7 +268,7 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
-      hlslUserType(""), debugDecl(nullptr) {
+      hlslUserType("") {
   setStorageClass(sc);
   setPrecise(precise);
 }
@@ -278,8 +277,7 @@ SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
                                                bool isPrecise,
                                                SourceLocation loc)
     : SpirvInstruction(IK_FunctionParameter, spv::Op::OpFunctionParameter,
-                       resultType, loc),
-      debugDecl(nullptr) {
+                       resultType, loc) {
   setPrecise(isPrecise);
 }
 
@@ -870,13 +868,6 @@ SpirvDebugDeclare::SpirvDebugDeclare(SpirvDebugLocalVariable *debugVar_,
                                      SpirvDebugExpression *expr)
     : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u),
       debugVar(debugVar_), var(var_), expression(expr) {}
-
-SpirvDebugValue::SpirvDebugValue(SpirvDebugLocalVariable *var,
-                                 SpirvInstruction *val,
-                                 SpirvDebugExpression *expr,
-                                 llvm::ArrayRef<SpirvInstruction *> idx)
-    : SpirvDebugInstruction(IK_DebugValue, /*opcode*/ 29u), debugVar(var),
-      value(val), expression(expr), indices(idx.begin(), idx.end()) {}
 
 SpirvDebugLexicalBlock::SpirvDebugLexicalBlock(SpirvDebugSource *source_,
                                                uint32_t line_, uint32_t column_,
