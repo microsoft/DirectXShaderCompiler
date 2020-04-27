@@ -555,10 +555,9 @@ public:
   /// Read the current record and discard it.
   void skipRecord(unsigned AbbrevID);
 
+  unsigned readUint8Record(unsigned AbbrevID, SmallVectorImpl<uint8_t> &Vals, StringRef *Blob = nullptr); // HLSL Change
   unsigned readRecord(unsigned AbbrevID, SmallVectorImpl<uint64_t> &Vals,
-                      StringRef *Blob = nullptr,
-                      SmallVectorImpl<uint8_t> *Uint8Vals = nullptr // HLSL Change
-    );
+                      StringRef *Blob = nullptr);
   unsigned peekRecord(unsigned AbbrevID); // HLSL Change
 
   //===--------------------------------------------------------------------===//

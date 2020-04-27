@@ -1837,8 +1837,7 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
     // If it's a string, use our special Uint8Buffer to speed up the reading.
     if (I.IsString) {
       Uint8Record.clear();
-      Code = Stream.readRecord(I.ID, Record, nullptr, &Uint8Record);
-      assert(!Uint8Record.empty() || (Uint8Record.empty() && Record.empty()));
+      Code = Stream.readUint8Record(I.ID, Uint8Record);
     }
     else {
       Code = Stream.readRecord(I.ID, Record);
@@ -1958,15 +1957,13 @@ std::error_code BitcodeReader::parseMetadata() {
     // If it's a string metadata, use our special Uint8Record to speed
     // up reading.
     unsigned PeekCode = Stream.peekRecord(Entry.ID);
-    Record.clear();
     unsigned Code = 0;
     if (PeekCode == bitc::METADATA_STRING) {
       Uint8Record.clear();
-      Code = Stream.readRecord(Entry.ID, Record, nullptr, &Uint8Record);
-      // Make sure data is read into the right buffer
-      assert(!Uint8Record.empty() || (Uint8Record.empty() && Record.empty()));
+      Code = Stream.readUint8Record(Entry.ID, Uint8Record);
     }
     else {
+      Record.clear();
       Code = Stream.readRecord(Entry.ID, Record);
     }
 #else // HLSL Change
