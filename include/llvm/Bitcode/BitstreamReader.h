@@ -55,7 +55,7 @@ public:
   struct ScopeTrack {
     BitstreamCursor *BC;
     uint64_t begin;
-    ~ScopeTrack();
+    inline ~ScopeTrack();
   };
   static ScopeTrack scope_track(BitstreamCursor *BC);
   static void track(BitstreamUseTracker *BT, uint64_t begin, uint64_t end);
@@ -238,6 +238,7 @@ class BitstreamCursor {
   /// This tracks the codesize of parent blocks.
   SmallVector<Block, 8> BlockScope;
 
+  template<typename T> inline void AddRecordElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals); // HLSL Change
 
 public:
   static const size_t MaxChunkSize = sizeof(word_t) * 8;
@@ -478,6 +479,15 @@ public:
     return Read(CurCodeSize);
   }
 
+  // HLSL Change - begin
+  inline unsigned PeekCode() {
+    auto BitPos = GetCurrentBitNo();
+    unsigned result = Read(CurCodeSize);
+    JumpToBit(BitPos);
+    return result;
+  }
+  // HLSL Change - end
+
 
   // Block header:
   //    [ENTER_SUBBLOCK, blockid, newcodelen, <align4bytes>, blocklen]
@@ -547,7 +557,9 @@ public:
   void skipRecord(unsigned AbbrevID);
 
   unsigned readRecord(unsigned AbbrevID, SmallVectorImpl<uint64_t> &Vals,
-                      StringRef *Blob = nullptr);
+                      StringRef *Blob = nullptr,
+                      SmallVectorImpl<uint8_t> *Uint8Vals = nullptr); // HLSL Change
+  unsigned peekRecord(unsigned AbbrevID); // HLSL Change
 
   //===--------------------------------------------------------------------===//
   // Abbrev Processing
@@ -556,6 +568,13 @@ public:
 
   bool ReadBlockInfoBlock(unsigned *pCount = nullptr);
 };
+
+// HLSL Change - Begin
+BitstreamUseTracker::ScopeTrack::~ScopeTrack() {
+  if (auto *Tracker = BC->getBitStreamReader()->Tracker)
+    Tracker->insert(begin, BC->GetCurrentBitNo());
+}
+// HLSL Change - End
 
 } // End llvm namespace
 
