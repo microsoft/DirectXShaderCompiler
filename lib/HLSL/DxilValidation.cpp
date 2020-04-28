@@ -6052,8 +6052,8 @@ HRESULT ValidateLoadModule(const char *pIL,
 
   ErrorOr<std::unique_ptr<Module>> loadedModuleResult =
       bLazyLoad == 0?
-      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx) :
-      llvm::getLazyBitcodeModule(std::move(pBitcodeBuf), Ctx);
+      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx, nullptr, true /*Track Bitstream*/) :
+      llvm::getLazyBitcodeModule(std::move(pBitcodeBuf), Ctx, nullptr, false, true /*Track Bitstream*/);
 
   // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
   // These appear as warnings, which the validator should reject.

@@ -235,6 +235,7 @@ public:
 
   void releaseBuffer();
 
+  bool ShouldTrackBitstreamUsage = false; // HLSL Change
   BitstreamUseTracker Tracker; // HLSL Change
 
   bool isDematerializable(const GlobalValue *GV) const override;
@@ -4934,7 +4935,7 @@ std::error_code BitcodeReader::materializeModule(Module *M) {
   UpgradeDebugInfo(*M);
 
   // HLSL Change Starts
-  if (!Tracker.isDense((uint64_t)(Buffer->getBufferSize()) * 8)) {
+  if (ShouldTrackBitstreamUsage && !Tracker.isDense((uint64_t)(Buffer->getBufferSize()) * 8)) {
     ReportWarning(DiagnosticHandler, "Unused bits in buffer.");
   }
   // HLSL Change Ends
@@ -4967,7 +4968,7 @@ std::error_code BitcodeReader::initStreamFromBuffer() {
       return error("Invalid bitcode wrapper header");
 
   StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
-  StreamFile->Tracker = &Tracker; // HLSL Change
+  if (ShouldTrackBitstreamUsage) StreamFile->Tracker = &Tracker; // HLSL Change
   Stream.init(&*StreamFile);
 
   return std::error_code();
@@ -5067,7 +5068,9 @@ static ErrorOr<std::unique_ptr<Module>>
 getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
                          LLVMContext &Context, bool MaterializeAll,
                          DiagnosticHandlerFunction DiagnosticHandler,
-                         bool ShouldLazyLoadMetadata = false) {
+                         bool ShouldLazyLoadMetadata = false,
+                         bool ShouldTrackBitstreamUsage = false) // HLSL Change
+{
   // HLSL Change Begin: Proper memory management with unique_ptr
   // Get the buffer identifier before we transfer the ownership to the bitcode reader,
   // this is ugly but safe as long as it keeps the buffer, and hence identifier string, alive.
@@ -5075,6 +5078,7 @@ getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
   std::unique_ptr<BitcodeReader> R = llvm::make_unique<BitcodeReader>(
     std::move(Buffer), Context, DiagnosticHandler);
 
+  if (R) R->ShouldTrackBitstreamUsage = ShouldTrackBitstreamUsage; // HLSL Change
   ErrorOr<std::unique_ptr<Module>> Ret =
       getBitcodeModuleImpl(nullptr, BufferIdentifier, std::move(R), Context,
                            MaterializeAll, ShouldLazyLoadMetadata);
@@ -5087,9 +5091,11 @@ getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
 
 ErrorOr<std::unique_ptr<Module>> llvm::getLazyBitcodeModule(
     std::unique_ptr<MemoryBuffer> &&Buffer, LLVMContext &Context,
-    DiagnosticHandlerFunction DiagnosticHandler, bool ShouldLazyLoadMetadata) {
+    DiagnosticHandlerFunction DiagnosticHandler, bool ShouldLazyLoadMetadata,
+    bool ShouldTrackBitstreamUsage) {
   return getLazyBitcodeModuleImpl(std::move(Buffer), Context, false,
-                                  DiagnosticHandler, ShouldLazyLoadMetadata);
+                                  DiagnosticHandler, ShouldLazyLoadMetadata,
+                                  ShouldTrackBitstreamUsage); // HLSL Change
 }
 
 ErrorOr<std::unique_ptr<Module>> llvm::getStreamedBitcodeModule(
@@ -5120,7 +5126,9 @@ void report_fatal_error_handler(void *user_datam, const std::string &reason,
 
 ErrorOr<std::unique_ptr<Module>>
 llvm::parseBitcodeFile(MemoryBufferRef Buffer, LLVMContext &Context,
-                       DiagnosticHandlerFunction DiagnosticHandler) {
+                       DiagnosticHandlerFunction DiagnosticHandler,
+                       bool ShouldTrackBitstreamUsage) // HLSL Change
+{
   // HLSL Change Starts - introduce a ScopedFatalErrorHandler to handle
   // report_fatal_error from readers.
   report_fatal_error_data data(DiagnosticHandler);
@@ -5128,7 +5136,8 @@ llvm::parseBitcodeFile(MemoryBufferRef Buffer, LLVMContext &Context,
   // HLSL Change Ends
   std::unique_ptr<MemoryBuffer> Buf = MemoryBuffer::getMemBuffer(Buffer, false);
   return getLazyBitcodeModuleImpl(std::move(Buf), Context, true,
-                                  DiagnosticHandler);
+                                  DiagnosticHandler,
+                                  false, ShouldTrackBitstreamUsage); // HLSL Change
   // TODO: Restore the use-lists to the in-memory state when the bitcode was
   // written.  We must defer until the Module has been fully materialized.
 }
