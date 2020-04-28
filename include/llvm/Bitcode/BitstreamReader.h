@@ -238,7 +238,7 @@ class BitstreamCursor {
   /// This tracks the codesize of parent blocks.
   SmallVector<Block, 8> BlockScope;
 
-  template<typename T> inline void AddElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals); // HLSL Change
+  template<typename T> inline void AddRecordElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals); // HLSL Change
 
 public:
   static const size_t MaxChunkSize = sizeof(word_t) * 8;

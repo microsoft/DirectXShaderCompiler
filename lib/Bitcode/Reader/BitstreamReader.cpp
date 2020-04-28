@@ -210,7 +210,7 @@ unsigned BitstreamCursor::peekRecord(unsigned AbbrevID) {
 }
 
 template<typename T>
-void BitstreamCursor::AddElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals) {
+void BitstreamCursor::AddRecordElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals) {
   const unsigned size = (unsigned)encData;
   if (enc == BitCodeAbbrevOp::VBR) {
     assert((unsigned)encData <= MaxChunkSize);
@@ -233,7 +233,7 @@ void BitstreamCursor::AddElements(BitCodeAbbrevOp::Encoding enc, uint64_t encDat
 unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
                                      SmallVectorImpl<uint64_t> &Vals,
                                      StringRef *Blob,
-                                     SmallVectorImpl<uint8_t> *Uint8Vals
+                                     SmallVectorImpl<uint8_t> *Uint8Vals // HLSL Change
   ) {
   if (AbbrevID == bitc::UNABBREV_RECORD) {
     unsigned Code = ReadVBR(6);
@@ -320,7 +320,7 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
               Vals[i++] = (uint8_t)Read(8);
           }
           else {
-            AddElements(enc, encData, NumElts, Vals);
+            AddRecordElements(enc, encData, NumElts, Vals);
           }
         }
         else {
@@ -331,7 +331,7 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
               Vals.push_back(Read(size));
           }
           else {
-            AddElements(enc, encData, NumElts, Vals);
+            AddRecordElements(enc, encData, NumElts, Vals);
           }
         }
       }
