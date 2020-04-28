@@ -157,10 +157,25 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
       for (unsigned i = 0; i < argSize; i++) {
         Value *arg = CI->getArgOperand(i);
         if (V == arg) {
-          // Do not replace struct arg.
-          // Mark stored and loaded to disable replace.
-          PS.MarkAsStored();
-          PS.MarkAsLoaded();
+          if (bLdStOnly) {
+            auto &paramAnnot = annotation->GetParameterAnnotation(i);
+            switch (paramAnnot.GetParamInputQual()) {
+            default:
+              PS.MarkAsStored();
+              PS.MarkAsLoaded();
+              break;
+            case DxilParamInputQual::Out:
+              PS.MarkAsStored();
+            case DxilParamInputQual::In:
+              PS.MarkAsLoaded();
+              break;
+            }
+          } else {
+            // Do not replace struct arg.
+            // Mark stored and loaded to disable replace.
+            PS.MarkAsStored();
+            PS.MarkAsLoaded();
+          }
         }
       }
     }
