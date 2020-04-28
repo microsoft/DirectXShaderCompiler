@@ -4603,15 +4603,13 @@ public:
   /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
   /// <param name="OpLoc">Location of access operand.</param>
   /// <param name="MemberLoc">Location of member.</param>
-  /// <param name="result">Result of lookup operation.</param>
-  /// <returns>true if the base type is a matrix and the lookup has been handled.</returns>
-  bool LookupMatrixMemberExprForHLSL(
+  /// <returns>Result of lookup operation.</returns>
+  ExprResult LookupMatrixMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result);
+    SourceLocation MemberLoc);
 
   /// <summary>Performs a member lookup on the specified BaseExpr if it's a vector.</summary>
   /// <param name="BaseExpr">Base expression for member access.</param>
@@ -4619,15 +4617,13 @@ public:
   /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
   /// <param name="OpLoc">Location of access operand.</param>
   /// <param name="MemberLoc">Location of member.</param>
-  /// <param name="result">Result of lookup operation.</param>
-  /// <returns>true if the base type is a vector and the lookup has been handled.</returns>
-  bool LookupVectorMemberExprForHLSL(
+  /// <returns>Result of lookup operation.</returns>
+  ExprResult LookupVectorMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result);
+    SourceLocation MemberLoc);
 
   /// <summary>Performs a member lookup on the specified BaseExpr if it's an array.</summary>
   /// <param name="BaseExpr">Base expression for member access.</param>
@@ -4635,15 +4631,13 @@ public:
   /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
   /// <param name="OpLoc">Location of access operand.</param>
   /// <param name="MemberLoc">Location of member.</param>
-  /// <param name="result">Result of lookup operation.</param>
-  /// <returns>true if the base type is an array and the lookup has been handled.</returns>
-  bool LookupArrayMemberExprForHLSL(
+  /// <returns>Result of lookup operation.</returns>
+  ExprResult LookupArrayMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result);
+    SourceLocation MemberLoc);
 
   /// <summary>If E is a scalar, converts it to a 1-element vector.</summary>
   /// <param name="E">Expression to convert.</param>
@@ -7260,26 +7254,16 @@ MatrixMemberAccessError TryParseMatrixMemberAccess(_In_z_ const char* memberText
   return MatrixMemberAccessError_None;
 }
 
-bool HLSLExternalSource::LookupMatrixMemberExprForHLSL(
+ExprResult HLSLExternalSource::LookupMatrixMemberExprForHLSL(
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result)
+  SourceLocation MemberLoc)
 {
-  DXASSERT_NOMSG(result != nullptr);
-
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-
-  // Assume failure.
-  *result = ExprError();
-
-  if (GetTypeObjectKind(BaseType) != AR_TOBJ_MATRIX)
-  {
-    return false;
-  }
+  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_MATRIX, "Should only be called on known matrix types");
 
   QualType elementType;
   UINT rowCount, colCount;
@@ -7341,7 +7325,7 @@ bool HLSLExternalSource::LookupMatrixMemberExprForHLSL(
     // processing.
     if (!positions.IsValid)
     {
-      return true;
+      return ExprError();
     }
   }
 
@@ -7361,9 +7345,8 @@ bool HLSLExternalSource::LookupMatrixMemberExprForHLSL(
     positions.ContainsDuplicateElements() ? VK_RValue :
       (IsArrow ? VK_LValue : BaseExpr.getValueKind());
   ExtMatrixElementExpr* matrixExpr = new (m_context)ExtMatrixElementExpr(resultType, VK, &BaseExpr, *member, MemberLoc, positions);
-  *result = matrixExpr;
 
-  return true;
+  return matrixExpr;
 }
 
 enum VectorMemberAccessError {
@@ -7463,7 +7446,7 @@ VectorMemberAccessError TryParseVectorMemberAccess(_In_z_ const char* memberText
   return VectorMemberAccessError_None;
 }
 
-static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
+bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
   switch(BaseExpr->getStmtClass()) {
   case Stmt::ArraySubscriptExprClass: {
     ArraySubscriptExpr* ase = cast<ArraySubscriptExpr>(BaseExpr);
@@ -7486,24 +7469,15 @@ static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
   }
 }
 
-bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
+ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result) {
-  DXASSERT_NOMSG(result != nullptr);
-
+    SourceLocation MemberLoc) {
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-
-  // Assume failure.
-  *result = ExprError();
-
-  if (GetTypeObjectKind(BaseType) != AR_TOBJ_VECTOR) {
-    return false;
-  }
+  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_VECTOR, "Should only be called on known vector types");
 
   QualType elementType;
   UINT colCount = GetHLSLVecSize(BaseType);
@@ -7553,7 +7527,7 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
     // generate the member access expression with the correct arity and continue
     // processing.
     if (!positions.IsValid) {
-      return true;
+      return ExprError();
     }
   }
 
@@ -7561,10 +7535,10 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
 
   // Disallow component access for out indices for DXIL path. We still allow
   // this in SPIR-V path.
-  if (!getSema()->getLangOpts().SPIRV &&
+  if (!m_sema->getLangOpts().SPIRV &&
       IsExprAccessingOutIndicesArray(&BaseExpr) && positions.Count < colCount) {
     m_sema->Diag(MemberLoc, diag::err_hlsl_out_indices_array_incorrect_access);
-    return false;
+    return ExprError();
   }
 
   // Consume elements
@@ -7581,30 +7555,20 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
     positions.ContainsDuplicateElements() ? VK_RValue :
       (IsArrow ? VK_LValue : BaseExpr.getValueKind());
   HLSLVectorElementExpr* vectorExpr = new (m_context)HLSLVectorElementExpr(resultType, VK, &BaseExpr, *member, MemberLoc, positions);
-  *result = vectorExpr;
 
-  return true;
+  return vectorExpr;
 }
 
-bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
+ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result) {
-
-  DXASSERT_NOMSG(result != nullptr);
+  SourceLocation MemberLoc) {
 
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-
-  // Assume failure.
-  *result = ExprError();
-
-  if (GetTypeObjectKind(BaseType) != AR_TOBJ_ARRAY) {
-    return false;
-  }
+  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_ARRAY, "Should only be called on known array types");
 
   IdentifierInfo *member = MemberName.getAsIdentifierInfo();
   const char *memberText = member->getNameStart();
@@ -7616,7 +7580,7 @@ bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
       unsigned hlslVer = getSema()->getLangOpts().HLSLVersion;
       if (hlslVer > 2016) {
         m_sema->Diag(MemberLoc, diag::err_hlsl_unsupported_for_version_lower) << "Length" << "2016";
-        return false;
+        return ExprError();
       }
       if (hlslVer == 2016) {
         m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
@@ -7625,11 +7589,13 @@ bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
       UnaryExprOrTypeTraitExpr *arrayLenExpr = new (m_context) UnaryExprOrTypeTraitExpr(
         UETT_ArrayLength, &BaseExpr, m_context->getSizeType(), MemberLoc, BaseExpr.getSourceRange().getEnd());
 
-      *result = arrayLenExpr;
-      return true;
+      return arrayLenExpr;
     }
   }
-  return false;
+  m_sema->Diag(MemberLoc, diag::err_typecheck_member_reference_struct_union)
+    << BaseType << BaseExpr.getSourceRange() << MemberLoc;
+
+  return ExprError();
 }
   
 
@@ -10083,43 +10049,66 @@ bool hlsl::IsConversionToLessOrEqualElements(
     ->IsConversionToLessOrEqualElements(sourceExpr, targetType, explicitConversion);
 }
 
-bool hlsl::LookupMatrixMemberExprForHLSL(
+ExprResult hlsl::LookupMatrixMemberExprForHLSL(
   Sema* self,
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result)
+  SourceLocation MemberLoc)
 {
   return HLSLExternalSource::FromSema(self)
-    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
 }
 
-bool hlsl::LookupVectorMemberExprForHLSL(
+ExprResult hlsl::LookupVectorMemberExprForHLSL(
   Sema* self,
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result)
+  SourceLocation MemberLoc)
 {
   return HLSLExternalSource::FromSema(self)
-    ->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
 }
 
-bool hlsl::LookupArrayMemberExprForHLSL(
+ExprResult hlsl::LookupArrayMemberExprForHLSL(
+  Sema* self,
+  Expr& BaseExpr,
+  DeclarationName MemberName,
+  bool IsArrow,
+  SourceLocation OpLoc,
+  SourceLocation MemberLoc)
+{
+  return HLSLExternalSource::FromSema(self)
+    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+}
+
+bool hlsl::LookupRecordMemberExprForHLSL(
   Sema* self,
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
   SourceLocation MemberLoc,
-  ExprResult* result)
+  ExprResult &result)
 {
-  return HLSLExternalSource::FromSema(self)
-    ->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+  HLSLExternalSource *source = HLSLExternalSource::FromSema(self);
+  switch (source->GetTypeObjectKind(BaseExpr.getType())) {
+  case AR_TOBJ_MATRIX:
+    result = source->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    return true;
+  case AR_TOBJ_VECTOR:
+    result = source->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    return true;
+  case AR_TOBJ_ARRAY:
+    result = source->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    return true;
+  default:
+    return false;
+  }
+  return false;
 }
 
 clang::ExprResult hlsl::MaybeConvertScalarToVector(
