@@ -238,6 +238,7 @@ class BitstreamCursor {
   /// This tracks the codesize of parent blocks.
   SmallVector<Block, 8> BlockScope;
 
+  template<typename T> inline void AddElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals); // HLSL Change
 
 public:
   static const size_t MaxChunkSize = sizeof(word_t) * 8;
@@ -555,9 +556,9 @@ public:
   /// Read the current record and discard it.
   void skipRecord(unsigned AbbrevID);
 
-  unsigned readUint8Record(unsigned AbbrevID, SmallVectorImpl<uint8_t> &Vals, StringRef *Blob = nullptr); // HLSL Change
   unsigned readRecord(unsigned AbbrevID, SmallVectorImpl<uint64_t> &Vals,
-                      StringRef *Blob = nullptr);
+                      StringRef *Blob = nullptr,
+                      SmallVectorImpl<uint8_t> *Uint8Vals = nullptr); // HLSL Change
   unsigned peekRecord(unsigned AbbrevID); // HLSL Change
 
   //===--------------------------------------------------------------------===//

@@ -209,156 +209,43 @@ unsigned BitstreamCursor::peekRecord(unsigned AbbrevID) {
   return Code;
 }
 
-// Special record reading function where all values
-// are assumed to be 8 bit
-unsigned BitstreamCursor::readUint8Record(unsigned AbbrevID,
-                                     SmallVectorImpl<uint8_t> &Vals,
-                                     StringRef *Blob)
-{
-  if (AbbrevID == bitc::UNABBREV_RECORD) {
-    unsigned Code = ReadVBR(6);
-    unsigned NumElts = ReadVBR(6);
-    // VBR Could actually be more than 8-bit. It's up to the caller
-    // to make sure no such case will be possible.
-    for (unsigned i = 0; i != NumElts; ++i)
-      Vals.push_back((uint8_t)ReadVBR64(6));
-    return Code;
+template<typename T>
+void BitstreamCursor::AddElements(BitCodeAbbrevOp::Encoding enc, uint64_t encData, unsigned NumElts, SmallVectorImpl<T> &Vals) {
+  const unsigned size = (unsigned)encData;
+  if (enc == BitCodeAbbrevOp::VBR) {
+    assert((unsigned)encData <= MaxChunkSize);
+    for (; NumElts; --NumElts) {
+      Vals.push_back((T)ReadVBR64(size));
+    }
   }
-  const BitCodeAbbrev *Abbv = getAbbrev(AbbrevID);
-
-  // Read the record code first.
-  assert(Abbv->getNumOperandInfos() != 0 && "no record code in abbreviation?");
-  const BitCodeAbbrevOp &CodeOp = Abbv->getOperandInfo(0);
-  unsigned Code;
-  if (CodeOp.isLiteral())
-    Code = CodeOp.getLiteralValue();
+  else if (enc == BitCodeAbbrevOp::Char6) {
+    assert((unsigned)encData <= MaxChunkSize);
+    for (; NumElts; --NumElts) {
+      Vals.push_back(BitCodeAbbrevOp::DecodeChar6(Read(6)));
+    }
+  }
   else {
-    if (CodeOp.getEncoding() == BitCodeAbbrevOp::Array ||
-        CodeOp.getEncoding() == BitCodeAbbrevOp::Blob)
-      report_fatal_error("Abbreviation starts with an Array or a Blob");
-    Code = readAbbreviatedField(*this, CodeOp);
+    llvm_unreachable("Unknown kind of thing");
   }
-
-  for (unsigned i = 1, e = Abbv->getNumOperandInfos(); i != e; ++i) {
-    const BitCodeAbbrevOp &Op = Abbv->getOperandInfo(i);
-    if (Op.isLiteral()) {
-      Vals.push_back(Op.getLiteralValue());
-      continue;
-    }
-
-    if (Op.getEncoding() != BitCodeAbbrevOp::Array &&
-        Op.getEncoding() != BitCodeAbbrevOp::Blob) {
-      Vals.push_back(readAbbreviatedField(*this, Op));
-      continue;
-    }
-
-    if (Op.getEncoding() == BitCodeAbbrevOp::Array) {
-      // Array case.  Read the number of elements as a vbr6.
-      unsigned NumElts = ReadVBR(6);
-
-      // Get the element encoding.
-      if (i + 2 != e)
-        report_fatal_error("Array op not second to last");
-      const BitCodeAbbrevOp &EltEnc = Abbv->getOperandInfo(++i);
-      if (!EltEnc.isEncoding())
-        report_fatal_error(
-            "Array element type has to be an encoding of a type");
-      if (EltEnc.getEncoding() == BitCodeAbbrevOp::Array ||
-          EltEnc.getEncoding() == BitCodeAbbrevOp::Blob)
-        report_fatal_error("Array element type can't be an Array or a Blob");
-
-      // Read all the elements a little faster.
-      {
-        BitCodeAbbrevOp::Encoding enc = EltEnc.getEncoding();
-        uint64_t encData = 0;
-        if (EltEnc.hasEncodingData())
-          encData = EltEnc.getEncodingData();
-        const unsigned elemSize = (unsigned)encData;
-        if (enc == BitCodeAbbrevOp::Fixed) {
-          assert((unsigned)encData == 8 && (unsigned)encData <= MaxChunkSize);
-          // Special optimization for fixed elements that are 8 bits
-          Vals.resize(NumElts);
-          uint8_t *ptr = Vals.data();
-          unsigned i = 0;
-          constexpr unsigned BytesInWord = sizeof(size_t);
-          // First, read word by word instead of byte by byte
-          for (; NumElts >= BytesInWord; NumElts -= BytesInWord) {
-            const size_t e = Read(BytesInWord * 8);
-            memcpy(ptr+i, &e, sizeof(e));
-            i += BytesInWord;
-          }
-          for (; NumElts; --NumElts)
-            Vals[i++] = (uint8_t)Read(8);
-        }
-        // VBR Could actually be more than 8-bit. It's up to the caller
-        // to make sure no such case will be possible.
-        else if (enc == BitCodeAbbrevOp::VBR) {
-          assert((unsigned)encData <= MaxChunkSize);
-          assert(EltEnc.getLiteralValue() <= 8);
-          for (; NumElts; --NumElts) {
-            Vals.push_back((uint8_t)ReadVBR64(elemSize));
-          }
-        }
-        else if (enc == BitCodeAbbrevOp::Char6) {
-          Vals.reserve(NumElts);
-          assert((unsigned)encData <= MaxChunkSize);
-          for (; NumElts; --NumElts) {
-            Vals.push_back(BitCodeAbbrevOp::DecodeChar6(Read(6)));
-          }
-        }
-        else {
-          llvm_unreachable("Unknown kind of thing");
-        }
-      }
-      continue;
-    }
-
-    assert(Op.getEncoding() == BitCodeAbbrevOp::Blob);
-    // Blob case.  Read the number of bytes as a vbr6.
-    unsigned NumElts = ReadVBR(6);
-    SkipToFourByteBoundary();  // 32-bit alignment
-
-    // Figure out where the end of this blob will be including tail padding.
-    size_t CurBitPos = GetCurrentBitNo();
-    size_t NewEnd = CurBitPos+((NumElts+3)&~3)*8;
-
-    // If this would read off the end of the bitcode file, just set the
-    // record to empty and return.
-    if (!canSkipToPos(NewEnd/8)) {
-      Vals.append(NumElts, 0);
-      NextChar = BitStream->getBitcodeBytes().getExtent();
-      break;
-    }
-
-    // Otherwise, inform the streamer that we need these bytes in memory.
-    const char *Ptr = (const char*)
-      BitStream->getBitcodeBytes().getPointer(CurBitPos/8, NumElts);
-
-    // If we can return a reference to the data, do so to avoid copying it.
-    if (Blob) {
-      *Blob = StringRef(Ptr, NumElts);
-    } else {
-      // Otherwise, unpack into Vals with zero extension.
-      for (; NumElts; --NumElts)
-        Vals.push_back((unsigned char)*Ptr++);
-    }
-    // Skip over tail padding.
-    JumpToBit(NewEnd);
-  }
-
-  return Code;
 }
 // HLSL Change - End
 
 unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
                                      SmallVectorImpl<uint64_t> &Vals,
-                                     StringRef *Blob
+                                     StringRef *Blob,
+                                     SmallVectorImpl<uint8_t> *Uint8Vals
   ) {
   if (AbbrevID == bitc::UNABBREV_RECORD) {
     unsigned Code = ReadVBR(6);
     unsigned NumElts = ReadVBR(6);
-    for (unsigned i = 0; i != NumElts; ++i)
-      Vals.push_back(ReadVBR64(6));
+    if (Uint8Vals) {
+      for (unsigned i = 0; i != NumElts; ++i)
+        Uint8Vals->push_back((uint8_t)ReadVBR64(6));
+    }
+    else {
+      for (unsigned i = 0; i != NumElts; ++i)
+        Vals.push_back(ReadVBR64(6));
+    }
     return Code;
   }
 
@@ -413,27 +300,39 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
         if (EltEnc.hasEncodingData())
           encData = EltEnc.getEncodingData();
         unsigned size = (unsigned)encData;
-
-        Vals.reserve(Vals.size() + NumElts);
-        if (enc == BitCodeAbbrevOp::Fixed) {
-          assert((unsigned)encData <= MaxChunkSize);
-          for (; NumElts; --NumElts)
-            Vals.push_back(Read(size));
-        }
-        else if (enc == BitCodeAbbrevOp::VBR) {
-          assert((unsigned)encData <= MaxChunkSize);
-          for (; NumElts; --NumElts) {
-            Vals.push_back(ReadVBR64(size));
+        if (Uint8Vals) {
+          auto &Vals = *Uint8Vals;
+          if (enc == BitCodeAbbrevOp::Fixed) {
+            assert((unsigned)encData <= MaxChunkSize);
+            assert((unsigned)encData == 8);
+            // Special optimization for fixed elements that are 8 bits
+            Vals.resize(NumElts);
+            uint8_t *ptr = Vals.data();
+            unsigned i = 0;
+            constexpr unsigned BytesInWord = sizeof(size_t);
+            // First, read word by word instead of byte by byte
+            for (; NumElts >= BytesInWord; NumElts -= BytesInWord) {
+              const size_t e = Read(BytesInWord * 8);
+              memcpy(ptr + i, &e, sizeof(e));
+              i += BytesInWord;
+            }
+            for (; NumElts; --NumElts)
+              Vals[i++] = (uint8_t)Read(8);
           }
-        }
-        else if (enc == BitCodeAbbrevOp::Char6) {
-          assert((unsigned)encData <= MaxChunkSize);
-          for (; NumElts; --NumElts) {
-            Vals.push_back(BitCodeAbbrevOp::DecodeChar6(Read(6)));
+          else {
+            AddElements(enc, encData, NumElts, Vals);
           }
         }
         else {
-          llvm_unreachable("Unknown kind of thing");
+          if (enc == BitCodeAbbrevOp::Fixed) {
+            assert((unsigned)encData <= MaxChunkSize);
+            Vals.reserve(Vals.size() + NumElts);
+            for (; NumElts; --NumElts)
+              Vals.push_back(Read(size));
+          }
+          else {
+            AddElements(enc, encData, NumElts, Vals);
+          }
         }
       }
 #else // HLSL Change
