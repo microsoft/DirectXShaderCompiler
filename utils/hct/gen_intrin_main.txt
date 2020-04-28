@@ -273,10 +273,10 @@ $type1 [[wv]] WaveMultiPrefixBitXor(in any_int<> value, in uint<4> mask);
 uint [[wv]] WaveMultiPrefixCountBits(in bool value, in uint<4> mask);
 $type1 [[unsigned_op=WaveMultiPrefixUProduct,wv]] WaveMultiPrefixProduct(in numeric<> value, in uint<4> mask);
 $type1 [[unsigned_op=WaveMultiPrefixUSum,wv]] WaveMultiPrefixSum(in numeric<> value, in uint<4> mask);
-$type1 [[wv]] QuadReadLaneAt(in numeric<> value, in uint quadLane);
-$type1 [[wv]] QuadReadAcrossX(in numeric<> value);
-$type1 [[wv]] QuadReadAcrossY(in numeric<> value);
-$type1 [[wv]] QuadReadAcrossDiagonal(in numeric<> value);
+$type1 [[]] QuadReadLaneAt(in numeric<> value, in uint quadLane);
+$type1 [[]] QuadReadAcrossX(in numeric<> value);
+$type1 [[]] QuadReadAcrossY(in numeric<> value);
+$type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 
 // Raytracing
 void [[]]  TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);

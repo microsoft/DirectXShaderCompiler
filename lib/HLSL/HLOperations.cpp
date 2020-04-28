@@ -502,7 +502,7 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
     mangledNameStr << GetHLFullName(group, opcode);
     // Need to add wave sensitivity to name to prevent clashes with non-wave intrinsic
     if(attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
-        mangledNameStr << "waveOp";
+        mangledNameStr << "wave";
     mangledNameStr << '.';
     funcTy->print(mangledNameStr);
   }
