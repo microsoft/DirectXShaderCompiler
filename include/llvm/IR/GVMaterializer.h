@@ -20,6 +20,8 @@
 
 #include <system_error>
 #include <vector>
+#include "llvm/ADT/ArrayRef.h" // HLSL Change
+#include "llvm/ADT/StringRef.h" // HLSL Change
 
 namespace llvm {
 class Function;
@@ -54,6 +56,7 @@ public:
   virtual std::error_code materializeModule(Module *M) = 0;
 
   virtual std::error_code materializeMetadata() = 0;
+  virtual std::error_code materializeSelectNamedMetadata(llvm::ArrayRef<llvm::StringRef>) = 0; // HLSL Change
   virtual void setStripDebugInfo() = 0;
 
   virtual std::vector<StructType *> getIdentifiedStructTypes() const = 0;
