@@ -482,8 +482,14 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
     // - Default to i32
     if (ArrayElementCount <= Idx->getType()->getIntegerBitWidth())
       Ty = Idx->getType();
-    else
-      Ty = DL.getSmallestLegalIntType(Init->getContext(), ArrayElementCount);
+    // HLSL Change Begins: Don't introduce use of i64 here.
+    //               TODO: Find a way to do this safely.
+    //else
+    //  Ty = DL.getSmallestLegalIntType(Init->getContext(), ArrayElementCount);
+    // Use i32 if index type was i16 and too small, for instance
+    else if (ArrayElementCount <= 32)
+      Ty = Builder->getInt32Ty();
+    // HLSL Change Ends
 
     if (Ty) {
       Value *V = Builder->CreateIntCast(Idx, Ty, false);
@@ -491,6 +497,20 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
       V = Builder->CreateAnd(ConstantInt::get(Ty, 1), V);
       return new ICmpInst(ICmpInst::ICMP_NE, V, ConstantInt::get(Ty, 0));
     }
+    // HLSL Change Begins: Generate 32-bit pattern for 64-bit case for now.
+    else if (ArrayElementCount <= 64) {
+      Ty = Builder->getInt32Ty();
+      Value *V = Builder->CreateIntCast(Idx, Ty, false);
+      Value *Cmp = Builder->CreateICmpULT(V, ConstantInt::get(Ty, 32));
+      Value *Sel = Builder->CreateSelect(Cmp,
+        ConstantInt::get(Ty, MagicBitvector & 0xFFFFFFFF),
+        ConstantInt::get(Ty, (MagicBitvector >> 32) & 0xFFFFFFFF));
+      Value *Shift = Builder->CreateAnd(V, ConstantInt::get(Ty, 0x1F));
+      V = Builder->CreateShl(ConstantInt::get(Ty, 0x1), Shift);
+      V = Builder->CreateAnd(Sel, V);
+      return new ICmpInst(ICmpInst::ICMP_NE, V, ConstantInt::get(Ty, 0));
+    }
+    // HLSL Change Ends
   }
 
   return nullptr;
@@ -1619,6 +1639,7 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
                           And, Constant::getNullValue(And->getType()));
     }
 
+#if 0 // HLSL Change Begins: Disable optimization, it introduces new bitwidths
     // Transform (icmp pred iM (shl iM %v, N), CI)
     // -> (icmp pred i(M-N) (trunc %v iM to i(M-N)), (trunc (CI>>N))
     // Transform the shl to a trunc if (trunc (CI>>N)) has no loss and M-N.
@@ -1637,6 +1658,7 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
                           Builder->CreateTrunc(LHSI->getOperand(0), NTy),
                           NCI);
     }
+#endif // HLSL Change Ends
 
     break;
   }

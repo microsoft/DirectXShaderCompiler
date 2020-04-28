@@ -18,6 +18,7 @@ RWStructuredBuffer<S> foo() {
   return gRWSBuffer;
 }
 
+[numthreads(1,1,1)]
 void main() {
   RWStructuredBuffer<S> lRWSBuffer = foo();
   lRWSBuffer[i] = gSBuffer[i];

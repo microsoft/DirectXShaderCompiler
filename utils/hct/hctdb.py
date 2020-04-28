@@ -409,6 +409,7 @@ class db_dxil(object):
         for i in "WriteSamplerFeedback,WriteSamplerFeedbackBias".split(","):
             self.name_idx[i].category = "Sampler Feedback"
             self.name_idx[i].is_feedback = True
+            self.name_idx[i].is_gradient = True
             self.name_idx[i].shader_model = 6,5
             self.name_idx[i].shader_stages = ("library", "pixel",)
         for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
@@ -1749,11 +1750,11 @@ class db_dxil(object):
 
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 218, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 218, "218 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
-        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,TextureGather,TextureGatherCmp".split(","):
+        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
             self.name_idx[i].is_gradient = True
         for i in "DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
             assert self.name_idx[i].is_gradient == True, "all derivatives are marked as requiring gradients"
@@ -1964,6 +1965,7 @@ class db_dxil(object):
 
         add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
         add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
+        add_pass("hl-legalize-parameter", "HLLegalizeParameter", "Legalize parameter", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
         add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
         add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
@@ -2018,6 +2020,7 @@ class db_dxil(object):
         add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [])
         add_pass('dxil-preserve-to-select', 'DxilPreserveToSelect', 'Dxil Insert Noops', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
+        add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])

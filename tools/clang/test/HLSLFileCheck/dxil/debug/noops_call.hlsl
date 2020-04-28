@@ -60,16 +60,16 @@ float4 depth2(float4 val)
     return val;
 }
 
-// CHECK: @dx.nothing = internal constant i32 0
-
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
-    // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+    // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+    // CHECK-SAME: @dx.preserve.value
     // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
     float4 ret1 = localScopeVar_func(color);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: %[[v1:.+]] = fmul
     // CHECK: %[[v2:.+]] = fmul
     // CHECK: %[[v3:.+]] = fmul
@@ -82,7 +82,8 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 
     float4 ret2 = localRegVar_func(ret1);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** copy **
     // CHECK: select i1 %[[p]],
     // CHECK: select i1 %[[p]],
@@ -92,7 +93,8 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 
     float4 ret3 = array_func(ret2);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: store
     // CHECK: store
     // CHECK: store
@@ -105,7 +107,8 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 
     float4 ret4 = typedef_func(ret3);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** copy **
     // CHECK: select i1 %[[p]], float %{{.+}}
     // CHECK: select i1 %[[p]], float %{{.+}}
@@ -115,7 +118,8 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 
     float4 ret5 = global_func(ret4);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // CHECK: %[[a1:.+]] = fmul
     // CHECK: %[[a2:.+]] = fmul
     // CHECK: %[[a3:.+]] = fmul
@@ -128,25 +132,30 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 
     float4 ret6 = depth2(ret5);
     // ** call **
-    // CHECK: load i32, i32* @dx.nothing
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // depth2() {
       // ** call **
-      // CHECK: load i32, i32* @dx.nothing
+      // CHECK: load i32, i32*
+      // CHECK-SAME: @dx.nothing
       // depth3() {
         // ** call **
-        // CHECK: load i32, i32* @dx.nothing
+        // CHECK: load i32, i32*
+        // CHECK-SAME: @dx.nothing
         // depth4() {
           // CHECK: %[[b1:.+]] = fmul
           // CHECK: %[[b2:.+]] = fmul
           // CHECK: %[[b3:.+]] = fmul
           // CHECK: %[[b4:.+]] = fmul
-          // CHECK: load i32, i32* @dx.nothing
+          // CHECK: load i32, i32*
+          // CHECK-SAME: @dx.nothing
         // }
         // CHECK: %[[c1:.+]] = fmul
         // CHECK: %[[c2:.+]] = fmul
         // CHECK: %[[c3:.+]] = fmul
         // CHECK: %[[c4:.+]] = fmul
-        // CHECK: load i32, i32* @dx.nothing
+        // CHECK: load i32, i32*
+        // CHECK-SAME: @dx.nothing
       // }
       // CHECK: %[[d1:.+]] = fmul
       // CHECK: %[[d2:.+]] = fmul

@@ -132,6 +132,14 @@ IDxcPixDxilLiveVariables : public IUnknown
       _COM_Outptr_ IDxcPixVariable** ppVariable) = 0;
 };
 
+struct __declspec(uuid("eb71f85e-8542-44b5-87da-9d76045a1910"))
+  IDxcPixDxilInstructionOffsets : public IUnknown
+{
+  virtual STDMETHODIMP_(DWORD) GetCount() = 0;
+
+  virtual STDMETHODIMP_(DWORD) GetOffsetByIndex(_In_ DWORD Index) = 0;
+};
+
 struct __declspec(uuid("6dd5d45e-a417-4a26-b0ff-bdb7d6dcc63d"))
 IDxcPixDxilDebugInfo : public IUnknown
 {
@@ -150,6 +158,31 @@ IDxcPixDxilDebugInfo : public IUnknown
   virtual STDMETHODIMP GetStackDepth(
       _In_ DWORD InstructionOffset,
       _Out_ DWORD* StackDepth) = 0;
+
+  virtual STDMETHODIMP InstructionOffsetsFromSourceLocation(
+      _In_ const wchar_t *FileName,
+      _In_ DWORD SourceLine,
+      _In_ DWORD SourceColumn,
+      _COM_Outptr_ IDxcPixDxilInstructionOffsets** ppOffsets) = 0;
+};
+
+struct __declspec(uuid("61b16c95-8799-4ed8-bdb0-3b6c08a141b4"))
+IDxcPixCompilationInfo : public IUnknown
+{
+  virtual STDMETHODIMP GetSourceFile(
+      _In_ DWORD SourceFileOrdinal,
+      _Outptr_result_z_ BSTR *pSourceName,
+      _Outptr_result_z_ BSTR *pSourceContents) = 0;
+  virtual STDMETHODIMP GetArguments(
+      _Outptr_result_z_ BSTR *pArguments) = 0;
+  virtual STDMETHODIMP GetMacroDefinitions(
+      _Outptr_result_z_ BSTR *pMacroDefinitions) = 0;
+  virtual STDMETHODIMP GetEntryPointFile(
+    _Outptr_result_z_ BSTR *pEntryPointFile) = 0;
+  virtual STDMETHODIMP GetHlslTarget(
+    _Outptr_result_z_ BSTR *pHlslTarget) = 0;
+  virtual STDMETHODIMP GetEntryPoint(
+    _Outptr_result_z_ BSTR *pEntryPoint) = 0;
 };
 
 struct __declspec(uuid("9c2a040d-8068-44ec-8c68-8bfef1b43789"))
@@ -157,6 +190,8 @@ IDxcPixDxilDebugInfoFactory : public IUnknown
 {
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) = 0;
+  virtual STDMETHODIMP NewDxcPixCompilationInfo(
+      _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) = 0;
 };
 
 #ifndef CLSID_SCOPE

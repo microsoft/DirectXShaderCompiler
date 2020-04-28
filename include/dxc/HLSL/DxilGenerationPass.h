@@ -114,6 +114,13 @@ void initializeLiveValueAnalysisPass(llvm::PassRegistry&);
 ModulePass *createDxilValidateWaveSensitivityPass();
 void initializeDxilValidateWaveSensitivityPass(llvm::PassRegistry&);
 
+FunctionPass *createCleanupDxBreakPass();
+void initializeCleanupDxBreakPass(llvm::PassRegistry&);
+
+
+ModulePass *createHLLegalizeParameter();
+void initializeHLLegalizeParameterPass(llvm::PassRegistry &);
+
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
 }

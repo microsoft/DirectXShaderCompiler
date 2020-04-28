@@ -76,6 +76,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeBasicAliasAnalysisPass(Registry);
     initializeCFGSimplifyPassPass(Registry);
     initializeCFLAliasAnalysisPass(Registry);
+    initializeCleanupDxBreakPass(Registry);
     initializeComputeViewIdStatePass(Registry);
     initializeConstantMergePass(Registry);
     initializeCorrelatedValuePropagationPass(Registry);
@@ -129,6 +130,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeHLEmitMetadataPass(Registry);
     initializeHLEnsureMetadataPass(Registry);
     initializeHLExpandStoreIntrinsicsPass(Registry);
+    initializeHLLegalizeParameterPass(Registry);
     initializeHLMatrixLowerPassPass(Registry);
     initializeHLPreprocessPass(Registry);
     initializeHoistConstantArrayPass(Registry);

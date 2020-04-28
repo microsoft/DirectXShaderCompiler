@@ -35,6 +35,7 @@ add_llvm_library(LLVMHLSL
   DxcOptimizer.cpp
   HLDeadFunctionElimination.cpp
   HLExpandStoreIntrinsics.cpp
+  HLLegalizeParameter.cpp
   HLLowerUDT.cpp
   HLMatrixBitcastLowerPass.cpp
   HLMatrixLowerPass.cpp
@@ -49,6 +50,7 @@ add_llvm_library(LLVMHLSL
   HLResource.cpp
   HLSignatureLower.cpp
   LiveValueAnalysis.cpp
+  HLUtil.cpp
   PauseResumePasses.cpp
   WaveSensitivityAnalysis.cpp
 

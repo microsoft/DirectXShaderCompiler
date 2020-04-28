@@ -59,6 +59,7 @@
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/HLLowerUDT.h"
+#include "dxc/HLSL/HLUtil.h"
 #include <deque>
 #include <unordered_map>
 #include <unordered_set>
@@ -83,27 +84,29 @@ public:
                                   IRBuilder<> &Builder, bool bFlatVector,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   const DataLayout &DL,
-                                  SmallVector<Value *, 32> &DeadInsts);
+                                  SmallVector<Value *, 32> &DeadInsts,
+                                  DominatorTree *DT);
 
   static bool DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &Elts,
                                   IRBuilder<> &Builder, bool bFlatVector,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   const DataLayout &DL,
-                                  SmallVector<Value *, 32> &DeadInsts);
+                                  SmallVector<Value *, 32> &DeadInsts,
+                                  DominatorTree *DT);
   static unsigned GetEltAlign(unsigned ValueAlign, const DataLayout &DL,
                               Type *EltTy, unsigned Offset);
   // Lower memcpy related to V.
   static bool LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                           DxilTypeSystem &typeSys, const DataLayout &DL,
-                          bool bAllowReplace);
+                          DominatorTree *DT, bool bAllowReplace);
   static void MarkEmptyStructUsers(Value *V,
                                    SmallVector<Value *, 32> &DeadInsts);
   static bool IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys);
 private:
   SROA_Helper(Value *V, ArrayRef<Value *> Elts,
               SmallVector<Value *, 32> &DeadInsts, DxilTypeSystem &ts,
-              const DataLayout &dl)
-      : OldVal(V), NewElts(Elts), DeadInsts(DeadInsts), typeSys(ts), DL(dl) {}
+              const DataLayout &dl, DominatorTree *dt)
+    : OldVal(V), NewElts(Elts), DeadInsts(DeadInsts), typeSys(ts), DL(dl), DT(dt) {}
   void RewriteForScalarRepl(Value *V, IRBuilder<> &Builder);
 
 private:
@@ -114,6 +117,7 @@ private:
   SmallVector<Value *, 32> &DeadInsts;
   DxilTypeSystem  &typeSys;
   const DataLayout &DL;
+  DominatorTree *DT;
 
   void RewriteForConstExpr(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
@@ -144,7 +148,6 @@ struct SROA_HLSL : public FunctionPass {
   bool runOnFunction(Function &F) override;
 
   bool performScalarRepl(Function &F, DxilTypeSystem &typeSys);
-  bool performPromotion(Function &F);
   bool markPrecise(Function &F);
 
 private:
@@ -229,7 +232,7 @@ private:
   bool ShouldAttemptScalarRepl(AllocaInst *AI);
 };
 
-// SROA_DT - SROA that uses DominatorTree.
+// SROA_DT_HLSL - SROA that uses DominatorTree.
 struct SROA_DT_HLSL : public SROA_HLSL {
   static char ID;
 
@@ -709,58 +712,6 @@ static bool tryToMakeAllocaBePromotable(AllocaInst *AI, const DataLayout &DL) {
   return true;
 }
 
-bool SROA_HLSL::performPromotion(Function &F) {
-  std::vector<AllocaInst *> Allocas;
-  const DataLayout &DL = F.getParent()->getDataLayout();
-  DominatorTree *DT = nullptr;
-  if (HasDomTree)
-    DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  AssumptionCache &AC =
-      getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-
-  BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
-  DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
-  bool Changed = false;
-  SmallVector<Instruction *, 64> Insts;
-  while (1) {
-    Allocas.clear();
-
-    // Find allocas that are safe to promote, by looking at all instructions in
-    // the entry node
-    for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI);
-        // Skip alloca has debug info when not promote.
-        if (DDI && !RunPromotion) {
-          continue;
-        }
-        if (tryToMakeAllocaBePromotable(AI, DL))
-          Allocas.push_back(AI);
-      }
-    if (Allocas.empty())
-      break;
-
-    if (HasDomTree)
-      PromoteMemToReg(Allocas, *DT, nullptr, &AC);
-    else {
-      SSAUpdater SSA;
-      for (unsigned i = 0, e = Allocas.size(); i != e; ++i) {
-        AllocaInst *AI = Allocas[i];
-
-        // Build list of instructions to promote.
-        for (User *U : AI->users())
-          Insts.push_back(cast<Instruction>(U));
-        AllocaPromoter(Insts, SSA, &DIB).run(AI, Insts);
-        Insts.clear();
-      }
-    }
-    NumPromoted += Allocas.size();
-    Changed = true;
-  }
-
-  return Changed;
-}
-
 /// ShouldAttemptScalarRepl - Decide if an alloca is a good candidate for
 /// SROA.  It must be a struct or array type with a small number of elements.
 bool SROA_HLSL::ShouldAttemptScalarRepl(AllocaInst *AI) {
@@ -1145,8 +1096,9 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
       continue;
     }
     const bool bAllowReplace = true;
+    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL,
-                                 bAllowReplace)) {
+                                 DT, bAllowReplace)) {
       Changed = true;
       continue;
     }
@@ -1193,9 +1145,10 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
 
       Type *BrokenUpTy = nullptr;
       uint64_t NumInstances = 1;
+      DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
       bool SROAed = SROA_Helper::DoScalarReplacement(
         AI, Elts, BrokenUpTy, NumInstances, Builder,
-        /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts);
+        /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts, DT);
 
       if (SROAed) {
         Type *Ty = AI->getAllocatedType();
@@ -2268,8 +2221,8 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
         NewGEPs.emplace_back(NewGEP);
       }
       const bool bAllowReplace = isa<AllocaInst>(OldVal);
-      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, bAllowReplace)) {
-        SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL);
+      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, DT, bAllowReplace)) {
+        SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL, DT);
         helper.RewriteForScalarRepl(GEP, Builder);
         for (Value *NewGEP : NewGEPs) {
           if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
@@ -2923,7 +2876,7 @@ void SROA_Helper::RewriteForAddrSpaceCast(Value *CE,
                          CE->getType()->getPointerAddressSpace()));
     NewCasts.emplace_back(NewCast);
   }
-  SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL);
+  SROA_Helper helper(CE, NewCasts, DeadInsts, typeSys, DL, DT);
   helper.RewriteForScalarRepl(CE, Builder);
 
   // Remove the use so that the caller can keep iterating over its other users
@@ -3026,7 +2979,8 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
                                       IRBuilder<> &Builder, bool bFlatVector,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
-                                      SmallVector<Value *, 32> &DeadInsts) {
+                                      SmallVector<Value *, 32> &DeadInsts,
+                                      DominatorTree *DT) {
   DEBUG(dbgs() << "Found inst to SROA: " << *V << '\n');
   Type *Ty = V->getType();
   // Skip none pointer types.
@@ -3156,7 +3110,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   
   // Now that we have created the new alloca instructions, rewrite all the
   // uses of the old alloca.
-  SROA_Helper helper(V, Elts, DeadInsts, typeSys, DL);
+  SROA_Helper helper(V, Elts, DeadInsts, typeSys, DL, DT);
   helper.RewriteForScalarRepl(V, Builder);
 
   return true;
@@ -3219,7 +3173,8 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
                                       IRBuilder<> &Builder, bool bFlatVector,
                                       bool hasPrecise, DxilTypeSystem &typeSys,
                                       const DataLayout &DL,
-                                      SmallVector<Value *, 32> &DeadInsts) {
+                                      SmallVector<Value *, 32> &DeadInsts,
+                                      DominatorTree *DT) {
   DEBUG(dbgs() << "Found inst to SROA: " << *GV << '\n');
   Type *Ty = GV->getType();
   // Skip none pointer types.
@@ -3307,8 +3262,9 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
     }
 
     if (ElTy->isStructTy() &&
-        // Skip Matrix type.
-        !HLMatrixType::isa(ElTy)) {
+        // Skip Matrix and Resource type.
+        !HLMatrixType::isa(ElTy) &&
+        !dxilutil::IsHLSLResourceType(ElTy)) {
       // for array of struct
       // split into arrays of struct elements
       StructType *ElST = cast<StructType>(ElTy);
@@ -3367,218 +3323,10 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
   // Now that we have created the new alloca instructions, rewrite all the
   // uses of the old alloca.
-  SROA_Helper helper(GV, Elts, DeadInsts, typeSys, DL);
+  SROA_Helper helper(GV, Elts, DeadInsts, typeSys, DL, DT);
   helper.RewriteForScalarRepl(GV, Builder);
 
   return true;
-}
-
-struct PointerStatus {
-  /// Keep track of what stores to the pointer look like.
-  enum StoredType {
-    /// There is no store to this pointer.  It can thus be marked constant.
-    NotStored,
-
-    /// This ptr is a global, and is stored to, but the only thing stored is the
-    /// constant it
-    /// was initialized with. This is only tracked for scalar globals.
-    InitializerStored,
-
-    /// This ptr is stored to, but only its initializer and one other value
-    /// is ever stored to it.  If this global isStoredOnce, we track the value
-    /// stored to it in StoredOnceValue below.  This is only tracked for scalar
-    /// globals.
-    StoredOnce,
-
-    /// This ptr is only assigned by a memcpy.
-    MemcopyDestOnce,
-
-    /// This ptr is stored to by multiple values or something else that we
-    /// cannot track.
-    Stored
-  } storedType;
-  /// Keep track of what loaded from the pointer look like.
-  enum LoadedType {
-    /// There is no load to this pointer.  It can thus be marked constant.
-    NotLoaded,
-
-    /// This ptr is only used by a memcpy.
-    MemcopySrcOnce,
-
-    /// This ptr is loaded to by multiple instructions or something else that we
-    /// cannot track.
-    Loaded
-  } loadedType;
-  /// If only one value (besides the initializer constant) is ever stored to
-  /// this global, keep track of what value it is.
-  Value *StoredOnceValue;
-  /// Memcpy which this ptr is used.
-  std::unordered_set<MemCpyInst *> memcpySet;
-  /// Memcpy which use this ptr as dest.
-  MemCpyInst *StoringMemcpy;
-  /// Memcpy which use this ptr as src.
-  MemCpyInst *LoadingMemcpy;
-  /// These start out null/false.  When the first accessing function is noticed,
-  /// it is recorded. When a second different accessing function is noticed,
-  /// HasMultipleAccessingFunctions is set to true.
-  const Function *AccessingFunction;
-  bool HasMultipleAccessingFunctions;
-  /// Size of the ptr.
-  unsigned Size;
-
-  /// Look at all uses of the global and fill in the GlobalStatus structure.  If
-  /// the global has its address taken, return true to indicate we can't do
-  /// anything with it.
-  static void analyzePointer(const Value *V, PointerStatus &PS,
-                             DxilTypeSystem &typeSys, bool bStructElt);
-
-  PointerStatus(unsigned size)
-      : storedType(StoredType::NotStored), loadedType(LoadedType::NotLoaded), StoredOnceValue(nullptr),
-        StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
-        AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
-        Size(size) {}
-  void MarkAsStored() {
-    storedType = StoredType::Stored;
-    StoredOnceValue = nullptr;
-  }
-  void MarkAsLoaded() { loadedType = LoadedType::Loaded; }
-};
-
-void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
-                                   DxilTypeSystem &typeSys, bool bStructElt) {
-  for (const User *U : V->users()) {
-    if (const Instruction *I = dyn_cast<Instruction>(U)) {
-      const Function *F = I->getParent()->getParent();
-      if (!PS.AccessingFunction) {
-        PS.AccessingFunction = F;
-      } else {
-        if (F != PS.AccessingFunction)
-          PS.HasMultipleAccessingFunctions = true;
-      }
-    }
-
-    if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
-      analyzePointer(BC, PS, typeSys, bStructElt);
-    } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
-      // Do not collect memcpy on struct GEP use.
-      // These memcpy will be flattened in next level.
-      if (!bStructElt) {
-        MemCpyInst *MI = const_cast<MemCpyInst *>(MC);
-        PS.memcpySet.insert(MI);
-        bool bFullCopy = false;
-        if (ConstantInt *Length = dyn_cast<ConstantInt>(MC->getLength())) {
-          bFullCopy = PS.Size == Length->getLimitedValue()
-            || PS.Size == 0 || Length->getLimitedValue() == 0;  // handle unbounded arrays
-        }
-        if (MC->getRawDest() == V) {
-          if (bFullCopy &&
-              PS.storedType == StoredType::NotStored) {
-            PS.storedType = StoredType::MemcopyDestOnce;
-            PS.StoringMemcpy = MI;
-          } else {
-            PS.MarkAsStored();
-            PS.StoringMemcpy = nullptr;
-          }
-        } else if (MC->getRawSource() == V) {
-          if (bFullCopy &&
-              PS.loadedType == LoadedType::NotLoaded) {
-            PS.loadedType = LoadedType::MemcopySrcOnce;
-            PS.LoadingMemcpy = MI;
-          } else {
-            PS.MarkAsLoaded();
-            PS.LoadingMemcpy = nullptr;
-          }
-        }
-      } else {
-        if (MC->getRawDest() == V) {
-          PS.MarkAsStored();
-        } else {
-          DXASSERT(MC->getRawSource() == V, "must be source here");
-          PS.MarkAsLoaded();
-        }
-      }
-    } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
-      gep_type_iterator GEPIt = gep_type_begin(GEP);
-      gep_type_iterator GEPEnd = gep_type_end(GEP);
-      // Skip pointer idx.
-      GEPIt++;
-      // Struct elt will be flattened in next level.
-      bool bStructElt = (GEPIt != GEPEnd) && GEPIt->isStructTy();
-      analyzePointer(GEP, PS, typeSys, bStructElt);
-    } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *V = SI->getOperand(0);
-
-      if (PS.storedType == StoredType::NotStored) {
-        PS.storedType = StoredType::StoredOnce;
-        PS.StoredOnceValue = V;
-      } else {
-        PS.MarkAsStored();
-      }
-    } else if (dyn_cast<LoadInst>(U)) {
-      PS.MarkAsLoaded();
-    } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
-      Function *F = CI->getCalledFunction();
-      DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
-      if (!annotation) {
-        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
-        switch (group) {
-        case HLOpcodeGroup::HLMatLoadStore: {
-          HLMatLoadStoreOpcode opcode =
-              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
-          switch (opcode) {
-          case HLMatLoadStoreOpcode::ColMatLoad:
-          case HLMatLoadStoreOpcode::RowMatLoad:
-            PS.MarkAsLoaded();
-            break;
-          case HLMatLoadStoreOpcode::ColMatStore:
-          case HLMatLoadStoreOpcode::RowMatStore:
-            PS.MarkAsStored();
-            break;
-          default:
-            DXASSERT(0, "invalid opcode");
-            PS.MarkAsStored();
-            PS.MarkAsLoaded();
-          }
-        } break;
-        case HLOpcodeGroup::HLSubscript: {
-          HLSubscriptOpcode opcode =
-              static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
-          switch (opcode) {
-          case HLSubscriptOpcode::VectorSubscript:
-          case HLSubscriptOpcode::ColMatElement:
-          case HLSubscriptOpcode::ColMatSubscript:
-          case HLSubscriptOpcode::RowMatElement:
-          case HLSubscriptOpcode::RowMatSubscript:
-            analyzePointer(CI, PS, typeSys, bStructElt);
-            break;
-          default:
-            // Rest are resource ptr like buf[i].
-            // Only read of resource handle.
-            PS.MarkAsLoaded();
-            break;
-          }
-        } break;
-        default: {
-          // If not sure its out param or not. Take as out param.
-          PS.MarkAsStored();
-          PS.MarkAsLoaded();
-        }
-        }
-        continue;
-      }
-
-      unsigned argSize = F->arg_size();
-      for (unsigned i = 0; i < argSize; i++) {
-        Value *arg = CI->getArgOperand(i);
-        if (V == arg) {
-          // Do not replace struct arg.
-          // Mark stored and loaded to disable replace.
-          PS.MarkAsStored();
-          PS.MarkAsLoaded();
-        }
-      }
-    }
-  }
 }
 
 static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder) {
@@ -3677,9 +3425,25 @@ static void CopyElementsOfStructsWithIdenticalLayout(
   }
 }
 
-static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
-                          DxilFieldAnnotation *annotation,
-                          DxilTypeSystem &typeSys, const DataLayout &DL) {
+static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
+
+
+static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
+                          DxilFieldAnnotation *annotation, DxilTypeSystem &typeSys,
+                          const DataLayout &DL, DominatorTree *DT) {
+  // If the only user of the src and dst is the memcpy,
+  // this memcpy was probably produced by splitting another.
+  // Regardless, the goal here is to replace, not remove the memcpy
+  // we won't have enough information to determine if we can do that before mem2reg
+  if (V != Src && V->hasOneUse() && Src->hasOneUse())
+    return false;
+
+  // If the memcpy doesn't dominate all its users,
+  // full replacement isn't possible without complicated PHI insertion
+  // This will likely replace with ld/st which will be replaced in mem2reg
+  if (Instruction *SrcI = dyn_cast<Instruction>(Src))
+    if (!DominateAllUsers(SrcI, V, DT))
+      return false;
   Type *TyV = V->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
@@ -3705,7 +3469,7 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
       Value* SrcVal = MC->getRawSource();
       if (!isa<BitCastInst>(SrcVal) || !isa<BitCastInst>(DestVal)) {
         DXASSERT(0, "Encountered unexpected instruction sequence");
-        return;
+        return false;
       }
 
       BitCastInst *DestBCI = cast<BitCastInst>(DestVal);
@@ -3720,7 +3484,7 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         unsigned MemcpySize = cast<ConstantInt>(MC->getLength())->getZExtValue();
         if (SrcSize != MemcpySize) {
           DXASSERT(0, "Cannot handle partial memcpy");
-          return;
+          return false;
         }
 
         if (DestBCI->hasOneUse() && SrcBCI->hasOneUse()) {
@@ -3738,13 +3502,13 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
           Value *SrcPtr = SrcBCI->getOperand(0);
           if (isa<GEPOperator>(DstPtr) || isa<GEPOperator>(SrcPtr)) {
             MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
-            return;
+            return true;
           } else {
             DstPtr->replaceAllUsesWith(SrcPtr);
           }
         } else {
           DXASSERT(0, "Can't handle structs of different layouts");
-          return;
+          return false;
         }
       }
     } else {
@@ -3753,6 +3517,15 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     }
   }
 
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Src)) {
+    // For const GV, if has stored, mark as non-constant.
+    if (GV->isConstant()) {
+      hlutil::PointerStatus PS(GV, 0, /*bLdStOnly*/ true);
+      PS.analyze(typeSys, /*bStructElt*/ false);
+      if (PS.HasStored())
+        GV->setConstant(false);
+    }
+  }
   Value *RawDest = MC->getOperand(0);
   Value *RawSrc = MC->getOperand(1);
   MC->eraseFromParent();
@@ -3764,6 +3537,8 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     if (I->user_empty())
       I->eraseFromParent();
   }
+
+  return true;
 }
 
 static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
@@ -3850,9 +3625,39 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   }
 }
 
+static bool DominateAllUsersDom(Instruction *I, Value *V, DominatorTree *DT) {
+  BasicBlock *BB = I->getParent();
+  for (auto U = V->user_begin(); U != V->user_end(); ) {
+    Instruction *UI = dyn_cast<Instruction>(*(U++));
+    if (!UI)
+      continue;
+    assert (UI->getParent()->getParent() == I->getParent()->getParent());
+
+    if (!DT->dominates(BB, UI->getParent()))
+      return false;
+
+    if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
+      if (!DominateAllUsersDom(I, UI, DT))
+        return false;
+    }
+  }
+  return true;
+}
+
+// Determine if `I` dominates all the users of `V`
+static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
+  Function *F = I->getParent()->getParent();
+
+  // The Entry Block dominates everything, trivially true
+  if (&F->getEntryBlock() == I->getParent())
+    return true;
+
+  return DominateAllUsersDom(I, V, DT);
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
-                              bool bAllowReplace) {
+                              DominatorTree *DT, bool bAllowReplace) {
   Type *Ty = V->getType();
   if (!Ty->isPointerTy()) {
     return false;
@@ -3861,18 +3666,19 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   // if MemcpyOnce, replace with dest with src if dest is not out param.
   // else flat memcpy.
   unsigned size = DL.getTypeAllocSize(Ty->getPointerElementType());
-  PointerStatus PS(size);
+  hlutil::PointerStatus PS(V, size, /*bLdStOnly*/ false);
   const bool bStructElt = false;
-  PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
+  PS.analyze(typeSys, bStructElt);
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
-      if (PS.storedType == PointerStatus::StoredType::NotStored) {
-        PS.storedType = PointerStatus::StoredType::InitializerStored;
-      } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
-        // For single mem store, if the store not dominator all users.
-        // Makr it as Stored.
-        // Case like:
+      if (PS.storedType == hlutil::PointerStatus::StoredType::NotStored) {
+        PS.storedType = hlutil::PointerStatus::StoredType::InitializerStored;
+      } else if (PS.storedType ==
+                 hlutil::PointerStatus::StoredType::MemcopyDestOnce) {
+        // For single mem store, if the store does not dominate all users.
+        // Mark it as Stored.
+        // In cases like:
         // struct A { float4 x[25]; };
         // A a;
         // static A a2;
@@ -3881,17 +3687,17 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         if (isa<ConstantAggregateZero>(GV->getInitializer())) {
           Instruction * Memcpy = PS.StoringMemcpy;
           if (!ReplaceUseOfZeroInitBeforeDef(Memcpy, GV)) {
-            PS.storedType = PointerStatus::StoredType::Stored;
+            PS.storedType = hlutil::PointerStatus::StoredType::Stored;
           }
         }
       } else {
-        PS.storedType = PointerStatus::StoredType::Stored;
+        PS.storedType = hlutil::PointerStatus::StoredType::Stored;
       }
     }
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
-    if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce &&
+    if (PS.storedType == hlutil::PointerStatus::StoredType::MemcopyDestOnce &&
         // Skip argument for input argument has input value, it is not dest once anymore.
         !isa<Argument>(V)) {
       // Replace with src of memcpy.
@@ -3917,8 +3723,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                   static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
               if (opcode == HLSubscriptOpcode::CBufferSubscript) {
                 // Ptr from CBuffer is safe.
-                ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL);
-                return true;
+                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
+                  return true;
               }
             }
           }
@@ -3926,15 +3732,16 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Resource ptr should not be replaced.
           // Need to make sure src not updated after current memcpy.
           // Check Src only have 1 store now.
-          PointerStatus SrcPS(size);
-          PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-          if (SrcPS.storedType != PointerStatus::StoredType::Stored) {
-            ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL);
-            return true;
+          hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
+          SrcPS.analyze(typeSys, bStructElt);
+          if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
+              return true;
           }
         }
       }
-    } else if (PS.loadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+    } else if (PS.loadedType ==
+               hlutil::PointerStatus::LoadedType::MemcopySrcOnce) {
       // Replace dst of memcpy.
       MemCpyInst *MC = PS.LoadingMemcpy;
       if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
@@ -3949,13 +3756,14 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             !isa<BitCastOperator>(Dest)) {
           // Need to make sure Dest not updated after current memcpy.
           // Check Dest only have 1 store now.
-          PointerStatus DestPS(size);
-          PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
-          if (DestPS.storedType != PointerStatus::StoredType::Stored) {
-            ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL);
-            // V still need to be flatten.
-            // Lower memcpy come from Dest.
-            return LowerMemcpy(V, annotation, typeSys, DL, bAllowReplace);
+          hlutil::PointerStatus DestPS(Dest, size, /*bLdStOnly*/ false);
+          DestPS.analyze(typeSys, bStructElt);
+          if (DestPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
+            if (ReplaceMemcpy(Dest, V, MC, annotation, typeSys, DL, DT)) {
+              // V still needs to be flattened.
+              // Lower memcpy come from Dest.
+              return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+            }
           }
         }
       }
@@ -4369,10 +4177,10 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
   while (!WorkList.empty()) {
     GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
     WorkList.pop_front();
-
     const bool bAllowReplace = true;
+    // Globals don't need DomTree here because they take another path
     if (SROA_Helper::LowerMemcpy(EltGV, /*annoation*/ nullptr, dxilTypeSys, DL,
-                                 bAllowReplace)) {
+                                 nullptr /*DT */, bAllowReplace)) {
       continue;
     }
 
@@ -4396,10 +4204,11 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       }
       EltGV = NewEltGV;
     } else {
+      // Globals don't need DomTree
       SROAed = SROA_Helper::DoScalarReplacement(
           EltGV, Elts, Builder, bFlatVector,
           // TODO: set precise.
-          /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts);
+          /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
     }
 
     if (SROAed) {
@@ -5195,8 +5004,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     // We can never replace memcpy for arguments because they have an implicit
     // first memcpy that happens from argument passing, and pointer analysis
     // will not reveal that, especially if we've done a first SROA pass on V.
+    // No DomTree needed for that reason
     const bool bAllowReplace = false;
-    SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
+    SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, nullptr /*DT */, bAllowReplace);
 
     // Now is safe to create the IRBuilders.
     // If we create it before LowerMemcpy, the insertion pointer instruction may get deleted
@@ -5210,10 +5020,11 @@ void SROA_Parameter_HLSL::flattenArgument(
     Type *BrokenUpTy = nullptr;
     uint64_t NumInstances = 1;
     if (inputQual != DxilParamInputQual::InPayload) {
+      // DomTree isn't used by arguments
       SROAed = SROA_Helper::DoScalarReplacement(
         V, Elts, BrokenUpTy, NumInstances, Builder, 
         /*bFlatVector*/ false, annotation.IsPrecise(),
-        dxilTypeSys, DL, DeadInsts);
+        dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
     }
 
     if (SROAed) {
@@ -6201,13 +6012,17 @@ public:
     // Lower static global into allocas.
     std::vector<GlobalVariable *> staticGVs;
     for (GlobalVariable &GV : M.globals()) {
-      bool isStaticGlobal =
-          dxilutil::IsStaticGlobal(&GV) &&
-          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
-
-      if (isStaticGlobal &&
-          !GV.getType()->getElementType()->isAggregateType()) {
+      // only for non-constant static globals
+      if (!dxilutil::IsStaticGlobal(&GV) || GV.isConstant())
+        continue;
+      Type *EltTy = GV.getType()->getElementType();
+      if (!EltTy->isAggregateType()) {
         staticGVs.emplace_back(&GV);
+      } else {
+        // Lower static [array of] resources
+        if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(EltTy))) {
+          staticGVs.emplace_back(&GV);
+        }
       }
     }
     bool bUpdated = false;
@@ -6225,21 +6040,73 @@ private:
 };
 }
 
-static
-DIGlobalVariable *FindGlobalVariableFor(const DebugInfoFinder &DbgFinder, GlobalVariable *GV) {
-  for (auto *DGV : DbgFinder.global_variables()) {
-    if (DGV->getVariable() == GV) {
-      return DGV;
+// Go through the base type chain of TyA and see if
+// we eventually get to TyB
+//
+// Note: Not necessarily about inheritance. Could be
+// typedef, const type, ref type, MEMBER type (TyA
+// being a member of TyB).
+//
+static bool IsDerivedTypeOf(DIType *TyA, DIType *TyB) {
+  DITypeIdentifierMap EmptyMap;
+  while (TyA) {
+    if (DIDerivedType *Derived = dyn_cast<DIDerivedType>(TyA)) {
+      if (Derived->getBaseType() == TyB)
+        return true;
+      else
+        TyA = Derived->getBaseType().resolve(EmptyMap);
+    }
+    else {
+      break;
     }
   }
-  return nullptr;
+
+  return false;
+}
+
+// See if 'DGV' a member type of some other variable, and return that variable
+// and the offset and size DGV is into it.
+//
+// If DGV is not a member, just return nullptr.
+//
+static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder, DIGlobalVariable *DGV, unsigned *Out_OffsetInBits, unsigned *Out_SizeInBits) {
+  DITypeIdentifierMap EmptyMap;
+
+  StringRef FullName = DGV->getName();
+  size_t FirstDot = FullName.find_first_of('.');
+  if (FirstDot == StringRef::npos)
+    return nullptr;
+
+  StringRef BaseName = FullName.substr(0, FirstDot);
+  assert(BaseName.size());
+
+  DIType *Ty = DGV->getType().resolve(EmptyMap);
+  assert(isa<DIDerivedType>(Ty) && Ty->getTag() == dwarf::DW_TAG_member);
+
+  DIGlobalVariable *FinalResult = nullptr;
+
+  for (DIGlobalVariable *DGV_It : DbgFinder.global_variables()) {
+    if (DGV_It->getName() == BaseName &&
+      IsDerivedTypeOf(Ty, DGV_It->getType().resolve(EmptyMap)))
+    {
+      FinalResult = DGV_It;
+      break;
+    }
+  }
+
+  if (FinalResult) {
+    *Out_OffsetInBits = Ty->getOffsetInBits();
+    *Out_SizeInBits = Ty->getSizeInBits();
+  }
+
+  return FinalResult;
 }
 
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
 static
-void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
+void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
   if (!DbgFinder.compile_unit_count())
     return;
 
@@ -6252,7 +6119,7 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
     }
   }
 
-  DIGlobalVariable *DGV = FindGlobalVariableFor(DbgFinder, GV);
+  DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
     return;
 
@@ -6261,6 +6128,15 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   DIScope *Scope = Subprogram;
   DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
+  // If the variable is a member of another variable, find the offset and size
+  bool IsFragment = false;
+  unsigned OffsetInBits = 0,
+           SizeInBits = 0;
+  if (DIGlobalVariable *UnsplitDGV = FindGlobalVariableFragment(DbgFinder, DGV, &OffsetInBits, &SizeInBits)) {
+    DGV = UnsplitDGV;
+    IsFragment = true;
+  }
+
   std::string Name = "global.";
   Name += DGV->getName();
   // Using arg_variable instead of auto_variable because arg variables can use
@@ -6268,20 +6144,29 @@ void PatchDebugInfo(const DebugInfoFinder &DbgFinder, Function *F, GlobalVariabl
   llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
+  DXASSERT(Ty->getTag() != dwarf::DW_TAG_member, "Member type is not allowed for variables.");
   DILocalVariable *ConvertedLocalVar =
     DIB.createLocalVariable(Tag, Scope,
       Name, DGV->getFile(), DGV->getLine(), Ty);
-  DIB.insertDeclare(AI, ConvertedLocalVar, DIB.createExpression(ArrayRef<int64_t>()), Loc, AI->getNextNode());
+
+  DIExpression *Expr = nullptr;
+  if (IsFragment) {
+    Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
+  }
+  else {
+    Expr = DIB.createExpression(ArrayRef<int64_t>());
+  }
+
+  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
 }
 
 bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned size = DL.getTypeAllocSize(GV->getType()->getElementType());
-  PointerStatus PS(size);
+  hlutil::PointerStatus PS(GV, size, /*bLdStOnly*/ false);
   GV->removeDeadConstantUsers();
-  PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/ false);
-  bool NotStored = (PS.storedType == PointerStatus::StoredType::NotStored) ||
-                   (PS.storedType == PointerStatus::StoredType::InitializerStored);
+  PS.analyze(typeSys, /*bStructElt*/ false);
+  bool NotStored = !PS.HasStored();
   // Make sure GV only used in one function.
   // Skip GV which don't have store.
   if (PS.HasMultipleAccessingFunctions || NotStored)

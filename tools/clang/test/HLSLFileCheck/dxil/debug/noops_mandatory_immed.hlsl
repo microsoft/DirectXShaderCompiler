@@ -9,7 +9,8 @@ SamplerState samp0 : register(s0);
 
 [RootSignature("DescriptorTable(SRV(t0), SRV(t1)), DescriptorTable(Sampler(s0))")]
 float4 main(float2 uv : TEXCOORD) : SV_Target {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32* @dx.preserve.value
+  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // CHECK-SAME: @dx.preserve.value
   // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   int a = -8;

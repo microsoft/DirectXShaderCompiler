@@ -37,7 +37,8 @@ namespace llvm {
   getLazyBitcodeModule(std::unique_ptr<MemoryBuffer> &&Buffer,
                        LLVMContext &Context,
                        DiagnosticHandlerFunction DiagnosticHandler = nullptr,
-                       bool ShouldLazyLoadMetadata = false);
+                       bool ShouldLazyLoadMetadata = false,
+                       bool ShouldTrackBitstreamUsage = false);
 
   /// Read the header of the specified stream and prepare for lazy
   /// deserialization and streaming of function bodies.
@@ -56,7 +57,8 @@ namespace llvm {
   /// Read the specified bitcode file, returning the module.
   ErrorOr<std::unique_ptr<Module>>
   parseBitcodeFile(MemoryBufferRef Buffer, LLVMContext &Context,
-                   DiagnosticHandlerFunction DiagnosticHandler = nullptr);
+                   DiagnosticHandlerFunction DiagnosticHandler = nullptr,
+                   bool ShouldTrackBitstreamUsage = false); // HLSL Change
 
   /// \brief Write the specified module to the specified raw output stream.
   ///

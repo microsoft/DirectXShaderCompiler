@@ -9,8 +9,6 @@
 // CHECK: FMax
 // CHECK: FMin
 // CHECK: FAbs
-// CHECK: Log
-// CHECK: Exp
 // CHECK: Saturate
 // CHECK: bufferUpdateCounter
 // CHECK: bufferStore

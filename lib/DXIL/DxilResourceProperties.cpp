@@ -172,6 +172,8 @@ DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
       Type *Ty = Res.GetRetType();
       RP.Typed.SingleComponent = dxilutil::IsResourceSingleComponent(Ty);
       RP.Typed.CompType = Res.GetCompType().GetKind();
+      RP.Typed.SampleCountPow2 =
+          DxilResourceProperties::kSampleCountUndefined;
       break;
     }
   };

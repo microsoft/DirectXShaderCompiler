@@ -812,6 +812,8 @@ struct ValidationContext {
     if (!EmitInstrLoc(I, rule)) return;
     DiagPrinter << GetValidationRuleText(rule);
     DiagPrinter << '\n';
+    if (!GetDebugLoc(I))
+      DiagPrinter << "Use /Zi for source location.\n";
     Failed = true;
   }
 
@@ -822,6 +824,8 @@ struct ValidationContext {
     FormatRuleText(ruleText, args);
     DiagPrinter << ruleText;
     DiagPrinter << '\n';
+    if (!GetDebugLoc(I))
+      DiagPrinter << "Use /Zi for source location.\n";
     Failed = true;
   }
 
@@ -832,6 +836,8 @@ struct ValidationContext {
     FormatRuleText(ruleText, {name, range, v});
     DiagPrinter << ruleText;
     DiagPrinter << '\n';
+    if (!GetDebugLoc(I))
+      DiagPrinter << "Use /Zi for source location.\n";
     Failed = true;
   }
 
@@ -6046,8 +6052,8 @@ HRESULT ValidateLoadModule(const char *pIL,
 
   ErrorOr<std::unique_ptr<Module>> loadedModuleResult =
       bLazyLoad == 0?
-      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx) :
-      llvm::getLazyBitcodeModule(std::move(pBitcodeBuf), Ctx);
+      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx, nullptr, true /*Track Bitstream*/) :
+      llvm::getLazyBitcodeModule(std::move(pBitcodeBuf), Ctx, nullptr, false, true /*Track Bitstream*/);
 
   // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
   // These appear as warnings, which the validator should reject.

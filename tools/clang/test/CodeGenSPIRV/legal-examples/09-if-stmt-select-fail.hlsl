@@ -20,6 +20,7 @@ RWStructuredBuffer<S> gRWSBuffer;
 
 #define constant 0
 
+[numthreads(1,1,1)]
 void main() {
   StructuredBuffer<S> lSBuffer;
   if (constant > i) {          // Condition can't be computed at compile time.

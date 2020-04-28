@@ -3,7 +3,7 @@
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.precedence.hlsl
 
-void main() {
+[numthreads(1,1,1)]void main() {
   int a;
   int b;
 

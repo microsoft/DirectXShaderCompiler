@@ -6,6 +6,7 @@
 
 RWBuffer<half4> HalfBuffer;
 
+[numthreads(1,1,1)]
 void main()
 {
     HalfBuffer[0] = 1.0;

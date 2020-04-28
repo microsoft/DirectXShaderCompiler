@@ -143,18 +143,6 @@ bool NormalizeResourceHandle::Run(Function &function, DominatorTree &DT) {
   return candidates.size() > 0;
 }
 
-class NormalizeDxil {
-public:
-  NormalizeDxil(Function &F, DominatorTree &DT) : m_function(F), m_dominatorTree(DT) {}
-
-  bool Run();
-
-private:
-  Function &m_function;
-  DominatorTree &m_dominatorTree;
-};
-
-
 bool NormalizeDxil::Run() {
   return NormalizeResourceHandle().Run(m_function, m_dominatorTree);
 }

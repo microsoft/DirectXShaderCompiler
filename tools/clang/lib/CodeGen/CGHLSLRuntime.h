@@ -12,6 +12,7 @@
 #pragma once
 
 #include <functional>
+#include <llvm/ADT/DenseMap.h> // HLSL Change
 
 namespace llvm {
 class Function;
@@ -21,6 +22,8 @@ class Constant;
 class TerminatorInst;
 class GlobalVariable;
 class Type;
+class BasicBlock;
+class BranchInst;
 template <typename T> class ArrayRef;
 }
 
@@ -49,6 +52,7 @@ class LValue;
 class CGHLSLRuntime {
 protected:
   CodeGenModule &CGM;
+  llvm::SmallVector<llvm::BranchInst*, 16> m_DxBreaks;
 
 public:
   CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM) {}
@@ -80,6 +84,7 @@ public:
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,
       llvm::ArrayRef<llvm::Value*> paramList) = 0;
   virtual void EmitHLSLDiscard(CodeGenFunction &CGF) = 0;
+  virtual void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) = 0;
 
   // For [] on matrix
   virtual llvm::Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF,

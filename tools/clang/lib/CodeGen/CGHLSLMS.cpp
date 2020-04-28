@@ -27,6 +27,7 @@
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Constants.h"
@@ -208,6 +209,7 @@ private:
                                           bool bDefaultRowMajor);
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
+  StringSet<> m_PreciseOutputSet;
 
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
@@ -239,6 +241,7 @@ public:
                                      ArrayRef<Value *> paramList) override;
 
   void EmitHLSLDiscard(CodeGenFunction &CGF) override;
+  void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
 
   Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF, llvm::Type *RetType,
                                  Value *Ptr, Value *Idx, QualType Ty) override;
@@ -340,6 +343,11 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // Create HLModule.
   const bool skipInit = true;
   m_pHLModule = &TheModule.GetOrCreateHLModule(skipInit);
+
+  // Precise Output.
+  for (auto &preciseOutput : CGM.getCodeGenOpts().HLSLPreciseOutputs) {
+    m_PreciseOutputSet.insert(StringRef(preciseOutput).lower());
+  }
 
   // Set Option.
   HLOptions opts;
@@ -463,6 +471,8 @@ CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
     if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
       const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
       paramInfo.SetSemanticString(sd->SemanticName);
+      if (m_PreciseOutputSet.count(StringRef(sd->SemanticName).lower()))
+        paramInfo.SetPrecise();
       return it->Loc;
     }
   }
@@ -964,8 +974,12 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
     fieldAnnotation.SetCBufferOffset(CBufferOffset);
     fieldAnnotation.SetFieldName(fieldDecl->getName());
-    if (!fieldSemName.empty())
+    if (!fieldSemName.empty()) {
       fieldAnnotation.SetSemanticString(fieldSemName);
+
+      if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
+        fieldAnnotation.SetPrecise();
+    }
   }
 
   annotation->SetCBufferSize(offset);
@@ -1564,6 +1578,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       // Construct annoation for this pointer.
       ConstructFieldAttributedAnnotation(paramAnnotation, ThisTy,
                                          bDefaultRowMajor);
+      if (MethodDecl->isConst()) {
+        paramAnnotation.SetParamInputQual(DxilParamInputQual::In);
+      } else {
+        paramAnnotation.SetParamInputQual(DxilParamInputQual::Inout);
+      }
     }
   }
 
@@ -3295,6 +3314,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Do simple transform to make later lower pass easier.
   SimpleTransformForHLDXIR(&M);
 
+  // Add dx.break function and make appropriate breaks conditional on it.
+  AddDxBreak(M, m_DxBreaks);
+
   // Handle lang extensions if provided.
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
     ExtensionCodeGen(HLM, CGM);
@@ -4322,6 +4344,25 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
       llvm::Type::getVoidTy(CGF.getLLVMContext()),
       {ConstantFP::get(llvm::Type::getFloatTy(CGF.getLLVMContext()), -1.0f)},
       TheModule);
+}
+
+// Emit an artificially conditionalized branch for a break operation when in a potentially wave-enabled stage
+// This allows the block containing what would have been an unconditional break to be included in the loop
+// If the block uses values that are wave-sensitive, it needs to stay in the loop to prevent optimizations
+// that might produce incorrect results by ignoring the volatile aspect of wave operation results.
+void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
+  // If not a wave-enabled stage, we can keep everything unconditional as before
+  if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsCS() &&
+      !m_pHLModule->GetShaderModel()->IsLib()) {
+    CGF.Builder.CreateBr(DestBB);
+    return;
+  }
+
+  // Create a branch that is temporarily conditional on a constant
+  // FinalizeCodeGen will turn this into a function, DxilFinalize will turn it into a global var
+  llvm::Type *boolTy = llvm::Type::getInt1Ty(Context);
+  BranchInst *BI = CGF.Builder.CreateCondBr(llvm::ConstantInt::get(boolTy,1), DestBB, AltBB);
+  m_DxBreaks.emplace_back(BI);
 }
 
 static llvm::Type *MergeIntType(llvm::IntegerType *T0, llvm::IntegerType *T1) {
@@ -5434,6 +5475,33 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       argLV = CGF.EmitLValue(Arg);
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
+      // When there's argument need to lower like buffer/cbuffer load, need to
+      // copy to let the lower not happen on argument when calle is noinline or
+      // extern functions. Will do it in HLLegalizeParameter after known which
+      // functions are extern but before inline.
+      bool bConstGlobal = false;
+      Value *Ptr = argAddr;
+      while (GEPOperator *GEP = dyn_cast_or_null<GEPOperator>(Ptr)) {
+        Ptr = GEP->getPointerOperand();
+      }
+      if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
+        bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
+      }
+
+      // Skip copy-in copy-out when safe.
+      // The unsafe case will be global variable alias with parameter.
+      // Then global variable is updated in the function, the parameter will
+      // be updated silently. For non global variable or constant global
+      // variable, it should be safe.
+      if (argAddr &&
+          (isa<AllocaInst>(Ptr) || isa<Argument>(Ptr) || bConstGlobal)) {
+        llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
+        if (argAddr->getType()->getPointerElementType() == ToTy &&
+            // Check clang Type for case like int cast to unsigned.
+            ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
+                Arg->getType().getCanonicalType().getTypePtr())
+          continue;
+      }
       argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
       argAlignment = argLV.getAlignment();
     }

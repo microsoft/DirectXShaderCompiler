@@ -24,34 +24,20 @@ class DIExpression;
 
 namespace dxil_debug_info
 {
-class FragmentIterator
+class MemberIterator
 {
 public:
-  virtual ~FragmentIterator() = default;
-
-  unsigned FragmentSizeInBits() const;
-
-  virtual unsigned CurrOffsetInBits() = 0;
-
-  bool Next(unsigned *FragmentIndex);
-
-  static std::unique_ptr<FragmentIterator> Create
-  (
-      llvm::DbgDeclareInst *DbgDeclare,
-      const llvm::DataLayout &DataLayout,
-      llvm::AllocaInst *Alloca,
-      llvm::DIExpression *Expression
-  );
-
-protected:
-  FragmentIterator(
-      unsigned NumFragments,
-      unsigned FragmentSizeInBits,
-      unsigned InitialOffsetInBits);
-
-  unsigned m_CurrFragment = 0;
-  unsigned m_NumFragments = 0;
-  unsigned m_FragmentSizeInBits = 0;
-  unsigned m_InitialOffsetInBits = 0;
+  virtual ~MemberIterator() = default;
+  virtual bool Next(unsigned *Index) = 0;
+  virtual unsigned SizeInBits(unsigned Index) const = 0;
+  virtual unsigned OffsetInBits(unsigned Index) = 0;
 };
+
+std::unique_ptr<MemberIterator> CreateMemberIterator
+(
+  llvm::DbgDeclareInst *DbgDeclare, 
+  const llvm::DataLayout &DataLayout,
+  llvm::AllocaInst *Alloca, 
+  llvm::DIExpression *Expression
+);
 }  // namespace dxil_debug_info

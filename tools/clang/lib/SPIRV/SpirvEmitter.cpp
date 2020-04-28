@@ -195,8 +195,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *mod,
 }
 
 bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool beforeHlslLegalization,
-                        std::vector<uint32_t> *mod, std::string *messages) {
+                        bool beforeHlslLegalization, std::vector<uint32_t> *mod,
+                        std::string *messages) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -554,7 +554,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
 
-  if (spirvOptions.debugInfoTool && spirvOptions.targetEnv == "vulkan1.1") {
+  if (spirvOptions.debugInfoTool &&
+      spirvOptions.targetEnv.compare("vulkan1.1") >= 0) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
@@ -599,6 +600,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     } else {
       doDecl(decl);
     }
+
+    if (context.getDiagnostics().hasErrorOccurred())
+      return;
   }
 
   // Translate all functions reachable from the entry function.
@@ -608,10 +612,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     const FunctionInfo *curEntryOrCallee = workQueue[i];
     spvContext.setCurrentShaderModelKind(curEntryOrCallee->shaderModelKind);
     doDecl(curEntryOrCallee->funcDecl);
+    if (context.getDiagnostics().hasErrorOccurred())
+      return;
   }
-
-  if (context.getDiagnostics().hasErrorOccurred())
-    return;
 
   const spv_target_env targetEnv = featureManager.getTargetEnv();
 
@@ -628,10 +631,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
-    spvBuilder.addEntryPoint(getSpirvShaderStage(entryInfo->shaderModelKind),
-                             entryInfo->entryFunction,
-                             entryInfo->funcDecl->getName(),
-                             declIdMapper.collectStageVars());
+    spvBuilder.addEntryPoint(
+        getSpirvShaderStage(entryInfo->shaderModelKind),
+        entryInfo->entryFunction, entryInfo->funcDecl->getName(),
+        targetEnv == SPV_ENV_VULKAN_1_2
+            ? spvBuilder.getModule()->getVariables()
+            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
   }
 
   // Add Location decorations to stage input/output variables.
@@ -1393,12 +1398,22 @@ spv::LoopControlMask SpirvEmitter::translateLoopAttribute(const Stmt *stmt,
 
 void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   assert(!spvBuilder.isCurrentBasicBlockTerminated());
-  spvBuilder.createKill(discardStmt->getLoc());
-  // Some statements that alter the control flow (break, continue, return, and
-  // discard), require creation of a new basic block to hold any statement that
-  // may follow them.
-  auto *newBB = spvBuilder.createBasicBlock();
-  spvBuilder.setInsertPoint(newBB);
+
+  // The discard statement can only be called from a pixel shader
+  if (!spvContext.isPS()) {
+    emitError("discard statement may only be used in pixel shaders",
+              discardStmt->getLoc());
+    return;
+  }
+
+  // SPV_EXT_demote_to_helper_invocation SPIR-V extension provides a new
+  // instruction OpDemoteToHelperInvocationEXT allowing shaders to "demote" a
+  // fragment shader invocation to behave like a helper invocation for its
+  // duration. The demoted invocation will have no further side effects and will
+  // not output to the framebuffer, but remains active and can participate in
+  // computing derivatives and in subgroup operations. This is a better match
+  // for the "discard" instruction in HLSL.
+  spvBuilder.createDemoteToHelperInvocationEXT(discardStmt->getLoc());
 }
 
 void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
@@ -7092,6 +7107,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   // DXR raytracing intrinsics
   case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
   case hlsl::IntrinsicOp::IOP_DispatchRaysIndex:
+  case hlsl::IntrinsicOp::IOP_GeometryIndex:
   case hlsl::IntrinsicOp::IOP_HitKind:
   case hlsl::IntrinsicOp::IOP_InstanceIndex:
   case hlsl::IntrinsicOp::IOP_InstanceID:
@@ -9414,6 +9430,11 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
   case hlsl::IntrinsicOp::IOP_ObjectRayOrigin:
     builtin = spv::BuiltIn::ObjectRayOriginNV;
     break;
+  case hlsl::IntrinsicOp::IOP_GeometryIndex:
+    featureManager.requestExtension(Extension::KHR_ray_tracing,
+                                    "GeometryIndex()", loc);
+    builtin = spv::BuiltIn::RayGeometryIndexKHR;
+    break;
   case hlsl::IntrinsicOp::IOP_InstanceIndex:
     builtin = spv::BuiltIn::InstanceId;
     break;
@@ -10232,6 +10253,11 @@ void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
     x = static_cast<uint32_t>(numThreadsAttr->getX());
     y = static_cast<uint32_t>(numThreadsAttr->getY());
     z = static_cast<uint32_t>(numThreadsAttr->getZ());
+  } else {
+    emitError("thread group size [numthreads(x,y,z)] is missing from the "
+              "entry-point function",
+              decl->getLocation());
+    return;
   }
 
   spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
