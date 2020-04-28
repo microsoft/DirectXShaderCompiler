@@ -37,20 +37,6 @@
 using namespace llvm;
 using namespace hlsl;
 
-static Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
-  Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
-  SmallVector<Type*, 4> ArgTys;
-  ArgTys.reserve(Args.size());
-  for (Value *Arg : Args)
-    ArgTys.emplace_back(Arg->getType());
-
-  FunctionType *FuncTy = FunctionType::get(RetTy, ArgTys, /* isVarArg */ false);
-  Function *Func = GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode);
-
-  return Builder.CreateCall(Func, Args);
-}
-
-
 // Lowered UDT is the same layout, but with vectors and matrices translated to
 // arrays.
 // Returns nullptr for failure due to embedded HLSL object type.

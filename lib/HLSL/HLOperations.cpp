@@ -473,8 +473,8 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
 }
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
-                                HLOpcodeGroup group, llvm::StringRef *groupName,
-                                llvm::StringRef *fnName, unsigned opcode) {
+                                HLOpcodeGroup group, StringRef *groupName,
+                                StringRef *fnName, unsigned opcode) {
   AttributeSet attribs;
   return GetOrCreateHLFunction(M, funcTy, group, groupName, fnName, opcode, attribs);
 }
@@ -486,9 +486,9 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
 }
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
-                                HLOpcodeGroup group, llvm::StringRef *groupName,
-                                llvm::StringRef *fnName, unsigned opcode,
-                                const llvm::AttributeSet &attribs) {
+                                HLOpcodeGroup group, StringRef *groupName,
+                                StringRef *fnName, unsigned opcode,
+                                const AttributeSet &attribs) {
   std::string mangledName;
   raw_string_ostream mangledNameStr(mangledName);
   if (group == HLOpcodeGroup::HLExtIntrinsic) {
@@ -545,6 +545,25 @@ Function *GetOrCreateHLFunctionWithBody(Module &M, FunctionType *funcTy,
   F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
 
   return F;
+}
+
+Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+      Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
+  AttributeSet attribs;
+  return callHLFunction(Module, OpcodeGroup, Opcode, RetTy, Args, attribs, Builder);
+}
+
+Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+      Type *RetTy, ArrayRef<Value*> Args, const AttributeSet &attribs, IRBuilder<> &Builder) {
+  SmallVector<Type*, 4> ArgTys;
+  ArgTys.reserve(Args.size());
+  for (Value *Arg : Args)
+    ArgTys.emplace_back(Arg->getType());
+
+  FunctionType *FuncTy = FunctionType::get(RetTy, ArgTys, /* isVarArg */ false);
+  Function *Func = GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode, attribs);
+
+  return Builder.CreateCall(Func, Args);
 }
 
 } // namespace hlsl
