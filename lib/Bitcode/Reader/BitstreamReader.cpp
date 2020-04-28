@@ -301,13 +301,12 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
           encData = EltEnc.getEncodingData();
         unsigned size = (unsigned)encData;
         if (Uint8Vals) {
-          auto &Vals = *Uint8Vals;
           if (enc == BitCodeAbbrevOp::Fixed) {
             assert((unsigned)encData <= MaxChunkSize);
             assert((unsigned)encData == 8);
             // Special optimization for fixed elements that are 8 bits
-            Vals.resize(NumElts);
-            uint8_t *ptr = Vals.data();
+            Uint8Vals->resize(NumElts);
+            uint8_t *ptr = Uint8Vals->data();
             unsigned i = 0;
             constexpr unsigned BytesInWord = sizeof(size_t);
             // First, read word by word instead of byte by byte
@@ -317,10 +316,10 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
               i += BytesInWord;
             }
             for (; NumElts; --NumElts)
-              Vals[i++] = (uint8_t)Read(8);
+              Uint8Vals->operator[](i++) = (uint8_t)Read(8);
           }
           else {
-            AddRecordElements(enc, encData, NumElts, Vals);
+            AddRecordElements(enc, encData, NumElts, *Uint8Vals);
           }
         }
         else {
