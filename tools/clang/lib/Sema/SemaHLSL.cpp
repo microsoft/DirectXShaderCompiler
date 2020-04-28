@@ -7446,7 +7446,7 @@ VectorMemberAccessError TryParseVectorMemberAccess(_In_z_ const char* memberText
   return VectorMemberAccessError_None;
 }
 
-static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
+bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
   switch(BaseExpr->getStmtClass()) {
   case Stmt::ArraySubscriptExprClass: {
     ArraySubscriptExpr* ase = cast<ArraySubscriptExpr>(BaseExpr);

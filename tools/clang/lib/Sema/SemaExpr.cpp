@@ -4120,8 +4120,8 @@ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *base, SourceLocation lbLoc,
   // HLSL Change Starts - Check for subscript access of out indices
   // Disallow component access for out indices for DXIL path. We still allow
   // this in SPIR-V path.
-  if (!getLangOpts().SPIRV && base->getType()->isRecordType() &&
-      IsExprAccessingMeshOutArray(base)) {
+  if (getLangOpts().HLSL && !getLangOpts().SPIRV &&
+      base->getType()->isRecordType() && IsExprAccessingOutIndicesArray(base)) {
     Diag(lbLoc, diag::err_hlsl_out_indices_array_incorrect_access);
     return ExprError();
   }

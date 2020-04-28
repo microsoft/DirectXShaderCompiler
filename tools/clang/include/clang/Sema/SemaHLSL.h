@@ -257,6 +257,7 @@ clang::QualType CheckVectorConditional(
 }
 
 bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type);
+bool IsExprAccessingOutIndicesArray(clang::Expr* BaseExpr);
 
 // This function reads the given declaration TSS and returns the corresponding parsedType with the
 // corresponding type. Replaces the given parsed type with the new type
