@@ -5480,16 +5480,21 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       // extern functions. Will do it in HLLegalizeParameter after known which
       // functions are extern but before inline.
       bool bConstGlobal = false;
-      if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(argAddr)) {
+      Value *Ptr = argAddr;
+      while (GEPOperator *GEP = dyn_cast_or_null<GEPOperator>(Ptr)) {
+        Ptr = GEP->getPointerOperand();
+      }
+      if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
         bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
       }
+
       // Skip copy-in copy-out when safe.
       // The unsafe case will be global variable alias with parameter.
       // Then global variable is updated in the function, the parameter will
       // be updated silently. For non global variable or constant global
       // variable, it should be safe.
-      if (argAddr && (isa<AllocaInst>(argAddr) || isa<Argument>(argAddr) ||
-                      bConstGlobal)) {
+      if (argAddr &&
+          (isa<AllocaInst>(Ptr) || isa<Argument>(Ptr) || bConstGlobal)) {
         llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
         if (argAddr->getType()->getPointerElementType() == ToTy &&
             // Check clang Type for case like int cast to unsigned.
