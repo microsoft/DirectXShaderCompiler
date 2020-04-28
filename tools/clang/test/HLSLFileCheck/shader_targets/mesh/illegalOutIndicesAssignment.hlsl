@@ -1,6 +1,9 @@
 // RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
 
+// One error for each access method and no additionals
 // CHECK: error: a vector in out indices array must be accessed as a whole
+// CHECK: error: a vector in out indices array must be accessed as a whole
+// CHECK-NOT: error:
 
 #define MAX_VERT 32
 #define MAX_PRIM 16
@@ -51,6 +54,7 @@ void main(
     if (tig % 3) {
       primIndices[tig / 3] = uint3(tig, tig + 1, tig + 2);
       primIndices[tig / 3].x = 0;
+      primIndices[tig / 3][1] = 0;
       MeshPerPrimitive op;
       op.normal = mpl.normal;
       op.malnor = mpl.malnor;
