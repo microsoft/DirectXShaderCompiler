@@ -76,21 +76,6 @@ int main(int a : A, int b : B) : SV_Target
   }
 
   // These verify the break block keeps the conditional
-  // CHECK: call i32 @dx.op.waveReadLaneAt
-  // CHECK: call %dx.types.Handle @dx.op.createHandle
-  // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
-  // CHECK: add
-  // CHECK: br i1
-  // Loop with wave-dependent conditional break block
-  for (;;) {   
-    int u = WaveReadLaneAt(a, i++);
-    if (a != u) {
-      res += buf[u][b];
-      break;
-    }       
-  }
-
-  // These verify the break block keeps the conditional
   // CHECK: call i32 @dx.op.waveReadLaneFirst
   // CHECK: call %dx.types.Handle @dx.op.createHandle
   // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
