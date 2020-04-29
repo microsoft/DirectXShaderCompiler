@@ -1142,14 +1142,13 @@ public:
     // For each wave operation, collect the blocks sensitive to it
     SmallPtrSet<BasicBlock *, 16> SensitiveBBs;
     for (Function &IF : M->functions()) {
-      if (&IF == &F || !IF.getNumUses() || !IF.isDeclaration() ||
-          hlsl::GetHLOpcodeGroupByName(&IF) != HLOpcodeGroup::HLIntrinsic)
-        continue;
-
-      for (User *U : IF.users()) {
-        CallInst *CI = dyn_cast<CallInst>(U);
-        if (CI && IsCallWaveSensitive(CI))
+      HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&IF);
+      if (&IF != &F && IF.getNumUses() && IF.isDeclaration() && IsHLWaveSensitive(&IF) &&
+          (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
+        for (User *U : IF.users()) {
+          CallInst *CI = cast<CallInst>(U);
           CollectSensitiveBlocks(LInfo, CI, BreakFunc, SensitiveBBs);
+        }
       }
     }
 
