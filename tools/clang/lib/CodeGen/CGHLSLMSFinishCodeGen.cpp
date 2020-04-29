@@ -191,7 +191,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
                            llvm::FunctionType *funcTy, HLOpcodeGroup group,
                            unsigned opcode) {
   Function *opFunc = nullptr;
-
+  AttributeSet attribs = F->getAttributes().getFnAttributes();
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
   if (group == HLOpcodeGroup::HLIntrinsic) {
     IntrinsicOp intriOp = static_cast<IntrinsicOp>(opcode);
@@ -202,7 +202,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
       llvm::Type *handleTy = funcTy->getParamType(HLOperandIndex::kHandleOpIdx);
       // Don't generate body for OutputStream::Append.
       if (bAppend && HLModule::IsStreamOutputPtrType(handleTy)) {
-        opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+        opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
         break;
       }
 
@@ -215,7 +215,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           bAppend ? (unsigned)IntrinsicOp::MOP_IncrementCounter
                   : (unsigned)IntrinsicOp::MOP_DecrementCounter;
       Function *incCounterFunc =
-          GetOrCreateHLFunction(M, IncCounterFuncTy, group, counterOpcode);
+          GetOrCreateHLFunction(M, IncCounterFuncTy, group, counterOpcode, attribs);
 
       llvm::Type *idxTy = counterTy;
       llvm::Type *valTy =
@@ -245,7 +245,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
 
       Function *subscriptFunc =
           GetOrCreateHLFunction(M, SubscriptFuncTy, HLOpcodeGroup::HLSubscript,
-                                (unsigned)HLSubscriptOpcode::DefaultSubscript);
+                                (unsigned)HLSubscriptOpcode::DefaultSubscript, attribs);
 
       BasicBlock *BB =
           BasicBlock::Create(opFunc->getContext(), "Entry", opFunc);
@@ -304,8 +304,8 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           llvm::FunctionType::get(valTy, {opcodeTy, valTy}, false);
       unsigned sinOp = static_cast<unsigned>(IntrinsicOp::IOP_sin);
       unsigned cosOp = static_cast<unsigned>(IntrinsicOp::IOP_cos);
-      Function *sinFunc = GetOrCreateHLFunction(M, sinFuncTy, group, sinOp);
-      Function *cosFunc = GetOrCreateHLFunction(M, sinFuncTy, group, cosOp);
+      Function *sinFunc = GetOrCreateHLFunction(M, sinFuncTy, group, sinOp, attribs);
+      Function *cosFunc = GetOrCreateHLFunction(M, sinFuncTy, group, cosOp, attribs);
 
       BasicBlock *BB =
           BasicBlock::Create(opFunc->getContext(), "Entry", opFunc);
@@ -328,23 +328,18 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
       Builder.CreateRetVoid();
     } break;
     default:
-      opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+      opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
       break;
     }
   } else if (group == HLOpcodeGroup::HLExtIntrinsic) {
     llvm::StringRef fnName = F->getName();
     llvm::StringRef groupName = GetHLOpcodeGroupNameByAttr(F);
     opFunc =
-        GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode);
+      GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode, attribs);
   } else {
-    opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+    opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
   }
 
-  // Add attribute
-  if (F->hasFnAttribute(Attribute::ReadNone))
-    opFunc->addFnAttr(Attribute::ReadNone);
-  if (F->hasFnAttribute(Attribute::ReadOnly))
-    opFunc->addFnAttr(Attribute::ReadOnly);
   return opFunc;
 }
 

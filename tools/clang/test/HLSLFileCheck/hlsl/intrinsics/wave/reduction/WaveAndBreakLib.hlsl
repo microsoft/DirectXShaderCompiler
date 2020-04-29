@@ -4,6 +4,8 @@ StructuredBuffer<int> buf[]: register(t2);
 
 // Cannonical example. Expected to keep the block in loop
 // Verify this function loads the global
+// CHECK: define i32
+// CHECK-SAME: WaveInLoop
 // CHECK: load i32
 // CHECK-SAME: @dx.break.cond
 // CHECK: icmp eq i32
@@ -23,6 +25,7 @@ StructuredBuffer<int> buf[]: register(t2);
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
 // CHECK: add
 // CHECK: br i1
+// CHECK: ret i32
 export
 int WaveInLoop(int a : A, int b : B)
 {
@@ -52,6 +55,8 @@ int WaveInLoop(int a : A, int b : B)
 
 // Wave moved to after the break block. Expected to keep the block in loop
 // Verify this function loads the global
+// CHECK: define i32
+// CHECK-SAME: WaveInPostLoop
 // CHECK: load i32
 // CHECK-SAME: @dx.break.cond
 // CHECK: icmp eq i32
@@ -71,6 +76,7 @@ int WaveInLoop(int a : A, int b : B)
 // CHECK: br i1
 
 // CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: ret i32
 export
 int WaveInPostLoop(int a : A, int b : B)
 {
@@ -101,6 +107,8 @@ int WaveInPostLoop(int a : A, int b : B)
 
 // Wave op inside break block. Expected to keep the block in loop
 // Verify this function loads the global
+// CHECK: define i32
+// CHECK-SAME: WaveInBreakBlock
 // CHECK: load i32
 // CHECK-SAME: @dx.break.cond
 // CHECK: icmp eq i32
@@ -111,7 +119,7 @@ int WaveInPostLoop(int a : A, int b : B)
 // CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.StructuredBuffer<int>"
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
 // CHECK: br i1
-
+// CHECK: ret i32
 export
 int WaveInBreakBlock(int a : A, int b : B)
 {
@@ -131,6 +139,8 @@ int WaveInBreakBlock(int a : A, int b : B)
 }
 
 // Wave in entry block. Expected to allow the break block to move out of loop
+// CHECK: define i32
+// CHECK-SAME: WaveInEntry
 // CHECK: call i32 @dx.op.waveReadLaneFirst
 
 // These verify the break block doesn't keep the conditional
@@ -140,6 +150,7 @@ int WaveInBreakBlock(int a : A, int b : B)
 // These verify the break block doesn't keep the conditional
 // CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.StructuredBuffer<int>"
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
+// CHECK: ret i32
 export
 int WaveInEntry(int a : A, int b : B)
 {
@@ -169,6 +180,8 @@ int WaveInEntry(int a : A, int b : B)
 
 // Wave in subloop of larger loop. Expected to keep the block in loop
 // Verify this function loads the global
+// CHECK: define i32
+// CHECK-SAME: WaveInSubLoop
 // CHECK: load i32
 // CHECK-SAME: @dx.break.cond
 // CHECK: icmp eq i32
@@ -186,6 +199,7 @@ int WaveInEntry(int a : A, int b : B)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
 // CHECK: add
 // CHECK: br i1
+// CHECK: ret i32
 export
 int WaveInSubLoop(int a : A, int b : B)
 {
@@ -218,6 +232,8 @@ int WaveInSubLoop(int a : A, int b : B)
 }
 
 // Wave in a separate loop. Expected to allow the break block to move out of loop
+// CHECK: define i32
+// CHECK-SAME: WaveInOtherLoop
 // CHECK: load i32
 // CHECK: icmp eq i32
 
@@ -233,13 +249,14 @@ int WaveInSubLoop(int a : A, int b : B)
 // CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.StructuredBuffer<int>"
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
 // CHECK: add
-// CHICK-NOT: br i1
+// CHECK-NOT: br i1
 
 // These verify the third break block doesn't
 // CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.StructuredBuffer<int>"
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
 // CHECK: add
 // CHECK-NOT: br i1
+// CHECK: ret i32
 export
 int WaveInOtherLoop(int a : A, int b : B)
 {
@@ -271,5 +288,46 @@ int WaveInOtherLoop(int a : A, int b : B)
         }
       i++;
     }
+  return res;
+}
+
+// Test for matrices which pass through additional lowering which might lose wave-sensitive attrib
+// Verify this function loads the global
+// CHECK: define i32
+// CHECK-SAME: WaveWithMatrix
+// CHECK: load i32
+// CHECK-SAME: @dx.break.cond
+// CHECK: icmp eq i32
+
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+// CHECK: call i32 @dx.op.waveReadLaneFirst
+
+// These verify the break block keeps the conditional
+// CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.StructuredBuffer<int>"
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad
+// CHECK: add
+// CHECK: br i1
+// CHECK: ret i32
+export
+int WaveWithMatrix(int3x3 a : A, int b : B)
+{
+  int res = 0;
+
+  // Loop with wave-dependent matrix conditional break block
+  for (;;) {
+      int3x3 u = WaveReadLaneFirst(a);
+      if (a[0][0] == u[1][1]) {
+          res += buf[u[2][2]][b];
+          break;
+        }
+    }
+
   return res;
 }

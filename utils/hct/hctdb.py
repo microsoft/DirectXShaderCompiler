@@ -2621,7 +2621,7 @@ class db_hlsl_attribute(object):
 
 class db_hlsl_intrinsic(object):
     "An HLSL intrinsic declaration"
-    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, unsigned_op, overload_idx, hidden):
+    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, wv, unsigned_op, overload_idx, hidden):
         self.name = name                                # Function name
         self.idx = idx                                  # Unique number within namespace
         self.opname = opname                            # D3D-style name
@@ -2633,6 +2633,7 @@ class db_hlsl_intrinsic(object):
         self.enum_name = "%s_%s" % (id_prefix, name)    # enum name
         self.readonly = ro                              # Only read memory
         self.readnone = rn                              # Not read memory
+        self.wave = wv                                  # Is wave-sensitive
         self.unsigned_op = unsigned_op                  # Unsigned opcode if exist
         if unsigned_op != "":
             self.unsigned_op = "%s_%s" % (id_prefix, unsigned_op)
@@ -2873,6 +2874,7 @@ class db_hlsl(object):
             attrs = attr.split(',')
             readonly = False          # Only read memory
             readnone = False          # Not read memory
+            is_wave = False;          # Is wave-sensitive
             unsigned_op = ""          # Unsigned opcode if exist
             overload_param_index = -1 # Parameter determines the overload type, -1 means ret type.
             hidden = False
@@ -2884,6 +2886,9 @@ class db_hlsl(object):
                     continue
                 if (a == "rn"):
                     readnone = True
+                    continue
+                if (a == "wv"):
+                    is_wave = True
                     continue
                 if (a == "hidden"):
                     hidden = True
@@ -2904,7 +2909,7 @@ class db_hlsl(object):
                     continue
                 assert False, "invalid attr %s" % (a)
 
-            return readonly, readnone, unsigned_op, overload_param_index, hidden
+            return readonly, readnone, is_wave, unsigned_op, overload_param_index, hidden
 
         current_namespace = None
         for line in intrinsic_defs:
@@ -2937,7 +2942,7 @@ class db_hlsl(object):
                         op = operand_match.group(1)
                 if not op:
                     op = name
-                readonly, readnone, unsigned_op, overload_param_index, hidden = process_attr(attr)
+                readonly, readnone, is_wave, unsigned_op, overload_param_index, hidden = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
                     opts = bracket_cleanup_re.sub(r"<\1@\2>", opts)
@@ -2961,7 +2966,7 @@ class db_hlsl(object):
                 # TODO: verify a single level of indirection
                 self.intrinsics.append(db_hlsl_intrinsic(
                     name, num_entries, op, args, current_namespace, ns_idx, "pending doc for " + name,
-                    readonly, readnone, unsigned_op, overload_param_index, hidden))
+                    readonly, readnone, is_wave, unsigned_op, overload_param_index, hidden))
                 num_entries += 1
                 continue
             assert False, "cannot parse line %s" % (line)
