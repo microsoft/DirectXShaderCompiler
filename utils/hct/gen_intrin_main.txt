@@ -253,7 +253,7 @@ bool   [[wv]] WaveActiveAnyTrue(in bool cond);
 bool   [[wv]] WaveActiveAllTrue(in bool cond);
 $match<1, 0> bool<> [[wv]] WaveActiveAllEqual(in any<> value);
 uint<4> [[wv]] WaveActiveBallot(in bool cond);
-$type1 [[wv]] WaveReadLaneAt(in any<> value, in uint lane);
+$type1 [[]] WaveReadLaneAt(in any<> value, in uint lane);
 $type1 [[wv]] WaveReadLaneFirst(in any<> value);
 uint   [[wv]] WaveActiveCountBits(in bool value);
 $type1 [[unsigned_op=WaveActiveUSum,wv]] WaveActiveSum(in numeric<> value);

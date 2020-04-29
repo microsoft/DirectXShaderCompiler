@@ -1587,7 +1587,7 @@ static const HLSL_INTRINSIC g_Intrinsics[] =
     {(UINT)hlsl::IntrinsicOp::IOP_WavePrefixCountBits, false, false, true, -1, 2, g_Intrinsics_Args91},
     {(UINT)hlsl::IntrinsicOp::IOP_WavePrefixProduct, false, false, true, -1, 2, g_Intrinsics_Args92},
     {(UINT)hlsl::IntrinsicOp::IOP_WavePrefixSum, false, false, true, -1, 2, g_Intrinsics_Args93},
-    {(UINT)hlsl::IntrinsicOp::IOP_WaveReadLaneAt, false, false, true, -1, 3, g_Intrinsics_Args94},
+    {(UINT)hlsl::IntrinsicOp::IOP_WaveReadLaneAt, false, false, false, -1, 3, g_Intrinsics_Args94},
     {(UINT)hlsl::IntrinsicOp::IOP_WaveReadLaneFirst, false, false, true, -1, 2, g_Intrinsics_Args95},
     {(UINT)hlsl::IntrinsicOp::IOP_WorldRayDirection, false, true, false, -1, 1, g_Intrinsics_Args96},
     {(UINT)hlsl::IntrinsicOp::IOP_WorldRayOrigin, false, true, false, -1, 1, g_Intrinsics_Args97},
