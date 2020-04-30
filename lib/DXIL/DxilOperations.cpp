@@ -1341,7 +1341,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   return F;
 }
 
-const SmallDenseMap<llvm::Type *, llvm::Function *, 8> &
+const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
   DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
            "otherwise caller passed OOB OpCode");
