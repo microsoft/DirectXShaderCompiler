@@ -1079,12 +1079,12 @@ namespace {
 // a break conditional on dx.break that breaks out of a loop that contains WaveCI
 // LInfo is needed to determine loop contents. VisitedPhis is needed to prevent infinit looping.
 static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock *LastBB, Instruction *Inst,
-                                SmallPtrSet<Instruction *, 16> VisitedPhis,
+                                SmallPtrSet<Instruction *, 16> &VisitedPhis,
                                 SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
   BasicBlock *BB = Inst->getParent();
   Loop *BreakLoop = LInfo->getLoopFor(BB);
   // If this instruction isn't in a loop, there is no need to track its sensitivity further
-  if (!BreakLoop)
+  if (!BreakLoop || BreakBBs.empty())
     return;
 
   // To prevent infinite looping, only visit each PHI once
@@ -1160,17 +1160,22 @@ public:
     SmallDenseMap<BasicBlock *, Instruction *, 16> BreakBBs;
     CollectBreakBlocks(BreakFunc, &F, BreakBBs);
 
+    if (BreakBBs.empty())
+      return false;
+
     // For each wave operation, remove all the dx.break blocks that are sensitive to it
     for (Function &IF : M->functions()) {
       HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&IF);
       // Only consider wave-sensitive intrinsics or extintrinsics
-      if (IF.isDeclaration() && IsHLWaveSensitive(&IF) &&
+      if (IF.isDeclaration() && IsHLWaveSensitive(&IF) && !BreakBBs.empty() &&
           (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
         // For each user of the function, trace all its users to remove the blocks
         for (User *U : IF.users()) {
           CallInst *CI = cast<CallInst>(U);
-          SmallPtrSet<Instruction *, 16> VisitedPhis;
-          CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, VisitedPhis, BreakBBs);
+          if (CI->getParent()->getParent() == &F) {
+            SmallPtrSet<Instruction *, 16> VisitedPhis;
+            CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, VisitedPhis, BreakBBs);
+          }
         }
       }
     }
