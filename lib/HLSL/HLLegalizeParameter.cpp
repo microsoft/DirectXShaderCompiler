@@ -229,6 +229,10 @@ void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
 
 bool HLLegalizeParameter::runOnModule(Module &M) {
   HLModule &HLM = M.GetOrCreateHLModule();
+  // TODO: enable avoid copy for lib profile.
+  if (HLM.GetShaderModel()->IsLib())
+    return false;
+
   auto &typeSys = HLM.GetTypeSystem();
   const DataLayout &DL = M.getDataLayout();
 
