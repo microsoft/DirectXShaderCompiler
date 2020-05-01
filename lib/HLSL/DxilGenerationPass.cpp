@@ -651,7 +651,6 @@ static void TranslatePreciseAttributeOnFunction(Function &F, Module &M) {
 
 void DxilGenerationPass::TranslatePreciseAttribute() {  
   bool bIEEEStrict = m_pHLModule->GetHLOptions().bIEEEStrict;
-  // If IEEE strict, everying is precise, don't need to mark it.
   if (bIEEEStrict) {
     // mark precise on dxil operations.
     Module &M = *m_pHLModule->GetModule();
