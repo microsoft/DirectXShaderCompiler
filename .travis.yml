@@ -76,3 +76,5 @@ script:
   - ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
   - ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
 
+# TODO: Bundle Linux/macOS build artifacts and upload them to a cloud storage
+# so users can download and use quickly.
