@@ -76,31 +76,5 @@ script:
   - ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
   - ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
 
-after_success:
-  # Create tarball for deployment
-  - if [[ "${CC}" == "clang" ]]; then
-      export ARTIFACTS_DIR=build-${TRAVIS_OS_NAME}-${DXC_BUILD_TYPE};
-      cd .. && mkdir ${ARTIFACTS_DIR};
-      cd ${ARTIFACTS_DIR} && mkdir bin && mkdir lib && mkdir include && cd ..;
-      cp build/lib/libdxcompiler.so.3.7 ${ARTIFACTS_DIR}/lib/;
-      cp build/bin/dxc ${ARTIFACTS_DIR}/bin/;
-      cp -r include/dxc ${ARTIFACTS_DIR}/include;
-      echo "${TRAVIS_COMMIT}" > ${ARTIFACTS_DIR}/GIT-COMMIT.txt;
-      cat ${ARTIFACTS_DIR}/GIT-COMMIT.txt;
-      ls ${ARTIFACTS_DIR}/*;
-    fi
-
-deploy:
-  provider: gcs
-  access_key_id: GOOG1EQ4D2VOTN53ZCCEUFKJGJQ3AH47WPAJ2FISS754ZI24GRIAURGNG2MMA
-  secret_access_key:
-    secure: tqf86h66q+2ri9UScQyXOJ1LpgS5b30ifz1T/tyX0CgNwiODBJ43mThlfMyoJbTjBjTi9aQxhIwWaMwsAkf9kC6GFqgJI++YFnjyZrBo2+zKKWpCfa/mGNnJVb/GvX0Jt2jMHF69L78nYY0UoyndotkNlBYU93HpuytcFQYs0hNU8eIzw3lCEOmOWYgZgFzjegjo8cd3x2scL4riVuyVtDX6gmdlUid7elyouMIq7j7p6ISlPSJ9L1s4ak0sAzi92Dd44ROZVqoy1bTwgxZhCEQdJTIimX4bQL+Z8yOhvH4OWLL11615Ap7Vdv5E73oETHZKDoXxCtyTWIipCiEt5kgQwpSghVEsZlhbr8c0W8QQ9g3gXEjY8APXBXDljovoMIshho+5H9Wl1gDQC0cUA8wm9z1fAOJZMMJDG2C77wEUAHhZ89j6ponrRAVeAwUxwhs3xkRseuAzBadLb+TGSjht3RW/eBtc2tzsUwnp2bsM0aN72n/eV5dGJ4kBAKCMngY4EI6mma+/u08Vvbe2+aZQ7JximmsJosgzqqgtEY2yEY4kQmg531uckfywZRCPxLwit/t1AmEfvXQT4KCM+17Ab486nChRXyE0H632UIPIKKFEGuxEHv0o+nccaqUMo7FLtGWymBNUATY4X+V3cmkeK+7ZOf3ExRNy38AUGKU=
-  bucket: travis-dxc
-  skip_cleanup: true
-  acl: public-read
-  local-dir: ${ARTIFACTS_DIR}
-  on:
-    repo: microsoft/DirectXShaderCompiler
-    branch: master
-    condition: $CC=clang
-
+# TODO: Bundle Linux/macOS build artifacts and upload them to a cloud storage
+# so users can download and use quickly.
