@@ -23,7 +23,7 @@ void main() {
   printf(second);
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] 1 [[format3]]
   printf("please print this message.");
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] 1 [[format4]] %uint_1 %uint_2 %double_1_5
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] 1 [[format4]] %uint_1 %uint_2 %float_1_5
   printf("Variables are: %d %d %.2f", 1u, 2u, 1.5f);
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] 1 [[format5]] %int_1 %int_2 %int_3
   printf("Integers are: %d %d %d", 1, 2, 3);

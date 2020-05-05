@@ -1858,7 +1858,7 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   // Add intrinsic attribute
   AddHLSLIntrinsicAttr(functionDecl, context, tableName, lowering, pIntrinsic);
 
-  std::vector<ParmVarDecl *> paramDecls;
+  llvm::SmallVector<ParmVarDecl *, 4> paramDecls;
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // For variadic functions all non-explicit arguments will have the same
     // name: "..."
@@ -4219,9 +4219,6 @@ public:
     for (unsigned int i = 0; i < tableSize; i++) {
       const HLSL_INTRINSIC* pIntrinsic = &table[i];
 
-      // For intrinsics with variable number of arguments (variadic functions),
-      // we should not compare the number of arguments.
-      // For such cases, the last argument's type is INTRIN_TEMPLATE_VARARGS.
       const bool isVariadicFn = IsVariadicIntrinsicFunction(pIntrinsic);
 
       // Do some quick checks to verify size and name.
@@ -5869,7 +5866,7 @@ bool HLSLExternalSource::MatchArguments(
 
   // For variadic functions, we need to add the additional arguments here.
   if(isVariadic) {
-    for (; iArg < Args.size(); ++iArg) {
+    for (; iArg <= Args.size(); ++iArg) {
       argTypes[iArg] = Args[iArg - 1]->getType().getNonReferenceType();
     }
   } else {
@@ -5878,7 +5875,6 @@ bool HLSLExternalSource::MatchArguments(
              "have as many arguments and types as the intrinsic template");
   }
 
-  argTypes.resize(iArg);
   return true;
 #undef CAB
 }
