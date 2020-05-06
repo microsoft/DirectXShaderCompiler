@@ -1814,8 +1814,8 @@ public:
 class SpirvDebugInstruction : public SpirvInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_DebugCompilationUnit &&
-           inst->getKind() <= IK_DebugTypeMember;
+    return inst->getKind() >= IK_DebugInfoNone &&
+           inst->getKind() <= IK_DebugTypeTemplateParameter;
   }
 
   void setDebugType(SpirvDebugInstruction *type) { debugType = type; }
