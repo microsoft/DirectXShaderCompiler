@@ -7632,7 +7632,8 @@ def err_hlsl_invalid_resource_type_on_intrinsic : Error<
     "cannot %0 from resource containing %1">;
 def err_hlsl_usage_not_on_parameter : Error<
     "HLSL usage %0 is only valid on a parameter">;
-def warn_hlsl_for_redefinition : Warning<"redefinition of %0 shadows declaration in the outer scope; most recent declaration will be used">;
+def warn_hlsl_for_redefinition : Warning<"redefinition of %0 shadows declaration in the outer scope; most recent declaration will be used">,
+  InGroup<HLSLForRedefinition>;
 def warn_hlsl_for_redefinition_different_type : Warning<
   "redefinition of %0 with a different type%diff{: $ vs $|}1,2 shadows declaration in the outer scope; most recent declaration will be used">;
 def warn_hlsl_specifier_overridden : Warning<
