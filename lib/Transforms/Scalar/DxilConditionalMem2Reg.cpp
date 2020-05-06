@@ -14,10 +14,13 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
 
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
@@ -241,14 +244,154 @@ public:
     return Changed;
   }
 
+  struct StoreInfo {
+    Value *V;
+    unsigned Offset;
+  };
+  static void FindAllStores(Module &M, Value *V, std::vector<StoreInfo> *Stores) {
+    std::vector<StoreInfo> Queue;
+    std::set<Value *> Seen;
+
+    auto Add = [&](Value *V, unsigned OffsetInBits) {
+      if (Seen.insert(V).second)
+        Queue.push_back({ V, OffsetInBits });
+    };
+
+    Add(V, 0);
+
+    const DataLayout &DL = M.getDataLayout();
+
+    for (unsigned i = 0; i < Queue.size(); i++) {
+      auto Info = Queue[i];
+      auto *Elem = Info.V;
+
+      if (auto GEP = dyn_cast<GEPOperator>(Elem)) {
+        if (GEP->getNumIndices() != 2)
+          continue;
+
+        unsigned ElemSize = 0;
+
+        Type *GEPPtrType = GEP->getPointerOperand()->getType();
+        Type *PtrElemType = GEPPtrType->getPointerElementType();
+        if (ArrayType *ArrayTy = dyn_cast<ArrayType>(PtrElemType)) {
+          ElemSize = DL.getTypeAllocSizeInBits(ArrayTy->getElementType());
+        }
+        else if (VectorType *VectorTy = dyn_cast<VectorType>(PtrElemType)) {
+          ElemSize = DL.getTypeAllocSizeInBits(VectorTy->getElementType());
+        }
+        else {
+          goto lFail;
+        }
+
+        unsigned OffsetInBits = 0;
+        for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
+          auto IdxOp = dyn_cast<ConstantInt>(GEP->getOperand(i+1));
+          if (!IdxOp) {
+            goto lFail;
+            break;
+          }
+          uint64_t Idx = IdxOp->getLimitedValue();
+          if (i == 0) {
+            if (Idx != 0)
+              goto lFail;
+          }
+          else {
+            OffsetInBits = Idx * ElemSize;
+          }
+        }
+
+        for (User *U : Elem->users())
+          Add(U, Info.Offset + OffsetInBits);
+      }
+      else if (auto *Store = dyn_cast<StoreInst>(Elem)) {
+        Stores->push_back({ Store, Info.Offset });
+      }
+    }
+
+    return;
+  lFail:
+    Stores->clear();
+  }
+
+  bool RewriteOutputArgsDebugInfo(Function &F) {
+    bool Changed = false;
+    DIBuilder DIB(*F.getParent());
+
+    std::vector<StoreInfo> Stores;
+    auto &Ctx = F.getContext();
+    for (Argument &Arg : F.args()) {
+      if (!Arg.getType()->isPointerTy())
+        continue;
+      Type *Ty = Arg.getType()->getPointerElementType();
+
+      bool IsSimpleType =
+        Ty->isSingleValueType() ||
+        Ty->isVectorTy() ||
+        (Ty->isArrayTy() && (Ty->getArrayElementType()->isVectorTy() || Ty->getArrayElementType()->isSingleValueType()));
+
+      if (!IsSimpleType)
+        continue;
+
+      Stores.clear();
+      for (User *U : Arg.users()) {
+        FindAllStores(*F.getParent(), U, &Stores);
+      }
+
+      if (Stores.empty())
+        continue;
+
+      DbgDeclareInst *Declare = nullptr;
+      if (auto *L = LocalAsMetadata::getIfExists(&Arg)) {
+        if (auto *DINode = MetadataAsValue::getIfExists(Ctx, L)) {
+          if (!DINode->user_empty() && std::next(DINode->user_begin()) == DINode->user_end()) {
+            Declare = dyn_cast<DbgDeclareInst>(*DINode->user_begin());
+          }
+        }
+      }
+
+      if (Declare) {
+        DITypeIdentifierMap EmptyMap;
+        auto Var = Declare->getVariable();
+        auto Expr = Declare->getExpression();
+        auto VarTy = Var->getType().resolve(EmptyMap);
+        auto VarSize = VarTy->getSizeInBits();
+        uint64_t Offset = 0;
+        if (Expr->isBitPiece())
+          Offset = Expr->getBitPieceOffset();
+
+        for (auto &Info : Stores) {
+          auto *Store = cast<StoreInst>(Info.V);
+          auto Val = Store->getValueOperand();
+          auto Loc = Store->getDebugLoc();
+          auto &M = *F.getParent();
+          unsigned ValSize = M.getDataLayout().getTypeAllocSizeInBits(Val->getType());
+
+          DIExpression *NewExpr = nullptr;
+          if (Offset || VarSize > ValSize) {
+            uint64_t Elems[] = { dwarf::DW_OP_bit_piece, Offset + Info.Offset, ValSize };
+            NewExpr = DIExpression::get(Ctx, Elems);
+          }
+          else {
+            NewExpr = DIExpression::get(Ctx, {});
+          }
+          DIB.insertDbgValueIntrinsic(Val, 0, Var, NewExpr, Loc, Store);
+        }
+
+        Declare->eraseFromParent();
+        Changed = true;
+      }
+
+    }
+
+    return Changed;
+  }
+
   bool runOnFunction(Function &F) override {
-
-
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-
     bool Changed = false;
-    
+
+    Changed |= RewriteOutputArgsDebugInfo(F);
     Changed |= RemoveAllUnusedAllocas(F);
     Changed |= ScalarizePreciseVectorAlloca(F);
     Changed |= Mem2Reg(F, *DT, *AC);
