@@ -633,7 +633,7 @@ private:
   // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
   void LowerDxBreak(Module &M) {
     if (Function *BreakFunc = M.getFunction(DXIL::kDxBreakFuncName)) {
-      if (BreakFunc->getNumUses()) {
+      if (!BreakFunc->use_empty()) {
         llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
         unsigned int Values[1] = { 0 };
@@ -1186,6 +1186,7 @@ public:
     for (auto &BB : BreakBBs) {
       // Replace the call instruction with a constant boolen
       BB.second->replaceAllUsesWith(C);
+      BB.second->eraseFromParent();
       Changed = true;
     }
     return Changed;
