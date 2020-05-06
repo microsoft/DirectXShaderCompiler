@@ -5715,6 +5715,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         funcAnnotation->GetRetTypeAnnotation();
     Module &M = *m_pHLModule->GetModule();
     Type *voidTy = Type::getVoidTy(m_pHLModule->GetCtx());
+#if 0 // We don't really want this to show up in debug info.
     // Create DbgDecl for the ret value.
     if (DISubprogram *funcDI = getDISubprogram(F)) {
         DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
@@ -5728,6 +5729,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0, funcDI);
         DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
     }
+#endif
     for (BasicBlock &BB : F->getBasicBlockList()) {
       if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
         // Create store for return.
