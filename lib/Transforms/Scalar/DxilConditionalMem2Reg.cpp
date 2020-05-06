@@ -248,7 +248,7 @@ public:
     Value *V;
     unsigned Offset;
   };
-  static void FindAllStores(Module &M, Value *V, std::vector<StoreInfo> *Stores) {
+  static bool FindAllStores(Module &M, Value *V, std::vector<StoreInfo> *Stores) {
     std::vector<StoreInfo> Queue;
     std::set<Value *> Seen;
 
@@ -280,20 +280,19 @@ public:
           ElemSize = DL.getTypeAllocSizeInBits(VectorTy->getElementType());
         }
         else {
-          goto lFail;
+          return false;
         }
 
         unsigned OffsetInBits = 0;
         for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
           auto IdxOp = dyn_cast<ConstantInt>(GEP->getOperand(i+1));
           if (!IdxOp) {
-            goto lFail;
-            break;
+            return false;
           }
           uint64_t Idx = IdxOp->getLimitedValue();
           if (i == 0) {
             if (Idx != 0)
-              goto lFail;
+              return false;
           }
           else {
             OffsetInBits = Idx * ElemSize;
@@ -308,17 +307,28 @@ public:
       }
     }
 
-    return;
-  lFail:
-    Stores->clear();
+    return true;
   }
 
+  // Function to rewrite debug info for output argument.
+  // Sometimes, normal local variables that get returned from functions get rewritten as
+  // a pointer argument.
+  //
+  // Right now, we generally have a single dbg.declare for the Argument, but as we lower
+  // it to storeOutput, the dbg.declare and the Argument both get removed, leavning no
+  // debug info for the local variable.
+  //
+  // Solution here is to rewrite the dbg.declare as dbg.value's by finding all the stores
+  // and writing a dbg.value immediately before the store. Fairly conservative at the moment 
+  // about what cases to rewrite (only scalars and vectors, and arrays of scalars and vectors).
+  //
   bool RewriteOutputArgsDebugInfo(Function &F) {
     bool Changed = false;
-    DIBuilder DIB(*F.getParent());
+    Module *M = F.getParent();
+    DIBuilder DIB(*M);
 
     std::vector<StoreInfo> Stores;
-    auto &Ctx = F.getContext();
+    LLVMContext &Ctx = F.getContext();
     for (Argument &Arg : F.args()) {
       if (!Arg.getType()->isPointerTy())
         continue;
@@ -334,7 +344,10 @@ public:
 
       Stores.clear();
       for (User *U : Arg.users()) {
-        FindAllStores(*F.getParent(), U, &Stores);
+        if (!FindAllStores(*M, U, &Stores)) {
+          Stores.clear();
+          break;
+        }
       }
 
       if (Stores.empty())
@@ -351,10 +364,10 @@ public:
 
       if (Declare) {
         DITypeIdentifierMap EmptyMap;
-        auto Var = Declare->getVariable();
-        auto Expr = Declare->getExpression();
-        auto VarTy = Var->getType().resolve(EmptyMap);
-        auto VarSize = VarTy->getSizeInBits();
+        DILocalVariable *Var = Declare->getVariable();
+        DIExpression *Expr = Declare->getExpression();
+        DIType *VarTy = Var->getType().resolve(EmptyMap);
+        uint64_t VarSize = VarTy->getSizeInBits();
         uint64_t Offset = 0;
         if (Expr->isBitPiece())
           Offset = Expr->getBitPieceOffset();
@@ -380,7 +393,6 @@ public:
         Declare->eraseFromParent();
         Changed = true;
       }
-
     }
 
     return Changed;
