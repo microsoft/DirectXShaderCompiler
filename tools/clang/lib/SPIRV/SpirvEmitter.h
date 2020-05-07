@@ -403,6 +403,9 @@ private:
   /// Processes the 'mul' intrinsic function.
   SpirvInstruction *processIntrinsicMul(const CallExpr *);
 
+  /// Processes the 'printf' intrinsic function.
+  SpirvInstruction *processIntrinsicPrintf(const CallExpr *);
+
   /// Transposes a non-floating point matrix and returns the result-id of the
   /// transpose.
   SpirvInstruction *processNonFpMatrixTranspose(QualType matType,

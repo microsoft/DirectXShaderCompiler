@@ -50,7 +50,7 @@ matrix<string, 4, 4> g_strMatrix1;                          /* expected-error {{
 void hello_here(string message, string s, float f) {        /* expected-error {{parameter of type string is not supported}} expected-error {{parameter of type string is not supported}} fxc-pass {{}} */
   printf(s);
   printf(message);
-  printf("%f", f);                                          /* expected-error {{use of undeclared identifier 'printf'}} fxc-pass {{}} */
+  printf("%f", f);
 }
 
 string get_message() {                                      /* expected-error {{return value of type string is not supported}} fxc-error {{X3038: 'get_message': function return value cannot contain Effects objects}} */
@@ -70,7 +70,7 @@ float4 main() : SV_Target0 {                                /* */
   matrix<string, 4, 4> strMatrix1;                          /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-error {{X3123: matrix element type must be a scalar type}} */
 
   float4 cp4_local;
-  printf("hi mom", 1, 2, 3);                                /* expected-error {{use of undeclared identifier 'printf'}} fxc-pass {{}} */
+  printf("hi mom", 1, 2, 3);
   hello_here("a", "b", 1);
   return cp4_local;
 }

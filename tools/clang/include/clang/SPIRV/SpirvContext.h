@@ -202,6 +202,9 @@ public:
 
   const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
 
+  /// Generates (or reuses an existing) OpString for the given string literal.
+  SpirvString *getSpirvString(llvm::StringRef str);
+
   /// Functions to get/set current entry point ShaderModelKind.
   ShaderModelKind getCurrentShaderModelKind() { return curShaderModelKind; }
   void setCurrentShaderModelKind(ShaderModelKind smk) {

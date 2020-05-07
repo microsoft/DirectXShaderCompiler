@@ -516,7 +516,7 @@ SpirvEndPrimitive::SpirvEndPrimitive(SourceLocation loc)
                        loc) {}
 
 SpirvExtInst::SpirvExtInst(QualType resultType, SourceLocation loc,
-                           SpirvExtInstImport *set, GLSLstd450 inst,
+                           SpirvExtInstImport *set, uint32_t inst,
                            llvm::ArrayRef<SpirvInstruction *> operandsVec)
     : SpirvInstruction(IK_ExtInst, spv::Op::OpExtInst, resultType, loc),
       instructionSet(set), instruction(inst),

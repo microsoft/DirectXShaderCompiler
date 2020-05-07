@@ -110,9 +110,9 @@ public:
   // Adds an extended instruction set to the module.
   void addExtInstSet(SpirvExtInstImport *);
 
-  // Returns the GLSL extended instruction set if already added to the module.
+  // Returns the extended instruction set with the given name if already added
   // Returns nullptr otherwise.
-  SpirvExtInstImport *getGLSLExtInstSet();
+  SpirvExtInstImport *getExtInstSet(llvm::StringRef name);
 
   // Adds a variable to the module.
   void addVariable(SpirvVariable *);
@@ -122,6 +122,9 @@ public:
 
   // Adds a constant to the module.
   void addConstant(SpirvConstant *);
+
+  // Adds given string to the module which will be emitted via OpString.
+  void addString(SpirvString *);
 
   // Adds the debug source to the module.
   void addDebugSource(SpirvSource *);
@@ -152,6 +155,7 @@ private:
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
+  llvm::SmallVector<SpirvString *, 4> constStrings;
   std::vector<SpirvSource *> debugSources;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
 
