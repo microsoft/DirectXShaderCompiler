@@ -340,7 +340,7 @@ inline bool canActAsInParmVar(const ParmVarDecl *param) {
 /// output parameter.
 inline bool canActAsOutParmVar(const ParmVarDecl *param) {
   return param->hasAttr<HLSLOutAttr>() || param->hasAttr<HLSLInOutAttr>() ||
-    hlsl::IsHLSLRayQueryType(param->getType());
+         hlsl::IsHLSLRayQueryType(param->getType());
 }
 
 /// Returns true if the given expression is of builtin type and can be evaluated
@@ -836,8 +836,7 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr) {
     result = curThis;
   } else if (isa<CXXConstructExpr>(expr)) {
     result = curThis;
-  }
-   else {
+  } else {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
         << expr->getStmtClassName() << expr->getSourceRange();
   }
@@ -1243,7 +1242,7 @@ void SpirvEmitter::doImplicitDecl(const Decl *decl) {
   if (spvContext.isLib() || spvContext.isRay()) {
     const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
     if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
-                      implDecl->getName().startswith(StringRef("HIT_KIND")))) {
+                     implDecl->getName().startswith(StringRef("HIT_KIND")))) {
       (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
     }
   }
@@ -11324,10 +11323,13 @@ void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
 
 SpirvInstruction *
 SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
+  emitWarning("SPV_KHR_ray_query is currently a provisional extension and might"
+              "change in ways that are not backwards compatible",
+              expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   uint32_t templateFlags = hlsl::GetHLSLResourceTemplateUInt(object->getType());
   const auto constFlags = spvBuilder.getConstantInt(
-    astContext.UnsignedIntTy, llvm::APInt(32, templateFlags));
+      astContext.UnsignedIntTy, llvm::APInt(32, templateFlags));
 
   SpirvInstruction *rayqueryObj = loadIfAliasVarRef(object);
 
@@ -11363,17 +11365,19 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
     rayFlags = doExpr(args[1]);
   }
 
-  if(auto constFlags = dyn_cast<SpirvConstantInteger>(rayFlags)) {
+  if (auto constFlags = dyn_cast<SpirvConstantInteger>(rayFlags)) {
     auto interRayFlags = constFlags->getValue().getZExtValue();
     templateFlags |= interRayFlags;
   }
 
-  bool hasCullFlags = templateFlags & (uint32_t(hlsl::DXIL::RayFlag::SkipTriangles) |
-    uint32_t(hlsl::DXIL::RayFlag::SkipProceduralPrimitives));
+  bool hasCullFlags =
+      templateFlags & (uint32_t(hlsl::DXIL::RayFlag::SkipTriangles) |
+                       uint32_t(hlsl::DXIL::RayFlag::SkipProceduralPrimitives));
 
   auto loc = args[1]->getLocStart();
-  rayFlags = spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr,
-   astContext.UnsignedIntTy, constFlags, rayFlags, loc);
+  rayFlags =
+      spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
+                                constFlags, rayFlags, loc);
   const auto cullMask = doExpr(args[2]);
 
   // Extract the ray description to match SPIR-V
@@ -11390,25 +11394,21 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
   const auto tMax =
       spvBuilder.createCompositeExtract(floatType, rayDescArg, {3}, loc);
 
-
   llvm::SmallVector<SpirvInstruction *, 8> traceArgs = {
-    rayqueryObj,
-    accelStructure,
-    rayFlags,
-    cullMask,
-    origin,
-    tMin,
-    direction,
-    tMax
-  };
+      rayqueryObj, accelStructure, rayFlags,  cullMask,
+      origin,      tMin,           direction, tMax};
 
-  return spvBuilder.createRayQueryOpsKHR(spv::Op::OpRayQueryInitializeKHR, QualType(), traceArgs,
-                                        hasCullFlags, expr->getExprLoc());
+  return spvBuilder.createRayQueryOpsKHR(spv::Op::OpRayQueryInitializeKHR,
+                                         QualType(), traceArgs, hasCullFlags,
+                                         expr->getExprLoc());
 }
 
 SpirvInstruction *
 SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                         hlsl::IntrinsicOp opcode) {
+  emitWarning("SPV_KHR_ray_query is currently a provisional extension and might"
+              "change in ways that are not backwards compatible",
+              expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   SpirvInstruction *rayqueryObj = loadIfAliasVarRef(object);
 
@@ -11426,176 +11426,178 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
 
   exprType = exprType->isVoidType() ? QualType() : exprType;
 
-  const auto candidateIntersection = spvBuilder.getConstantInt(
-    astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  const auto committedIntersection = spvBuilder.getConstantInt(
-    astContext.UnsignedIntTy, llvm::APInt(32, 1));
+  const auto candidateIntersection =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+  const auto committedIntersection =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
 
   bool transposeMatrix = false;
   bool logicalNot = false;
 
   using namespace hlsl;
   switch (opcode) {
-    case IntrinsicOp::MOP_Proceed:
-      spvCode = spv::Op::OpRayQueryProceedKHR;
-      break;
-    case IntrinsicOp::MOP_Abort:
-      spvCode = spv::Op::OpRayQueryTerminateKHR;
-      exprType = QualType();
-      break;
-    case IntrinsicOp::MOP_CandidateGeometryIndex:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionGeometryIndexKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateInstanceContributionToHitGroupIndex:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateInstanceID:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionInstanceCustomIndexKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateInstanceIndex:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionInstanceIdKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateObjectRayDirection:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayDirectionKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateObjectRayOrigin:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayOriginKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateObjectToWorld3x4:
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
-      traceArgs.push_back(candidateIntersection);
-      transposeMatrix = true;
-      break;
-    case IntrinsicOp::MOP_CandidateObjectToWorld4x3:
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
-      traceArgs.push_back(candidateIntersection);
-      break;
-    case IntrinsicOp::MOP_CandidatePrimitiveIndex:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionPrimitiveIndexKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateProceduralPrimitiveNonOpaque:
-      spvCode = spv::Op::OpRayQueryGetIntersectionCandidateAABBOpaqueKHR;
-      logicalNot = true;
-      break;
-    case IntrinsicOp::MOP_CandidateTriangleBarycentrics:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionBarycentricsKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateTriangleFrontFace:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionFrontFaceKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateTriangleRayT:
-      traceArgs.push_back(candidateIntersection);
-      spvCode = spv::Op::OpRayQueryGetIntersectionTKHR;
-      break;
-    case IntrinsicOp::MOP_CandidateType:
-      spvCode = spv::Op::OpRayQueryGetIntersectionTypeKHR;
-      traceArgs.push_back(candidateIntersection);
-      break;
-    case IntrinsicOp::MOP_CandidateWorldToObject4x3:
-      spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
-      traceArgs.push_back(candidateIntersection);
-      break;
-    case IntrinsicOp::MOP_CandidateWorldToObject3x4:
-      spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
-      traceArgs.push_back(candidateIntersection);
-      transposeMatrix = true;
-      break;
-    case IntrinsicOp::MOP_CommitNonOpaqueTriangleHit:
-      spvCode = spv::Op::OpRayQueryConfirmIntersectionKHR;
-      exprType = QualType();
-      break;
-    case IntrinsicOp::MOP_CommitProceduralPrimitiveHit:
-      spvCode = spv::Op::OpRayQueryGenerateIntersectionKHR;
-      exprType = QualType();
-      break;
-    case IntrinsicOp::MOP_CommittedGeometryIndex:
-      spvCode = spv::Op::OpRayQueryGetIntersectionGeometryIndexKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedInstanceContributionToHitGroupIndex:
-      spvCode = spv::Op::OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedInstanceID:
-      spvCode = spv::Op::OpRayQueryGetIntersectionInstanceCustomIndexKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedInstanceIndex:
-      spvCode = spv::Op::OpRayQueryGetIntersectionInstanceIdKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedObjectRayDirection:
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayDirectionKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedObjectRayOrigin:
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayOriginKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedObjectToWorld3x4:
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
-      traceArgs.push_back(committedIntersection);
-      transposeMatrix = true;
-      break;
-    case IntrinsicOp::MOP_CommittedObjectToWorld4x3:
-      spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedPrimitiveIndex:
-      spvCode = spv::Op::OpRayQueryGetIntersectionPrimitiveIndexKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedRayT:
-      spvCode = spv::Op::OpRayQueryGetIntersectionTKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedStatus:
-      spvCode = spv::Op::OpRayQueryGetIntersectionTypeKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedTriangleBarycentrics:
-      spvCode = spv::Op::OpRayQueryGetIntersectionBarycentricsKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedTriangleFrontFace:
-      spvCode = spv::Op::OpRayQueryGetIntersectionFrontFaceKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_CommittedWorldToObject3x4:
-      spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
-      traceArgs.push_back(committedIntersection);
-      transposeMatrix = true;
-      break;
-    case IntrinsicOp::MOP_CommittedWorldToObject4x3:
-      spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
-      traceArgs.push_back(committedIntersection);
-      break;
-    case IntrinsicOp::MOP_RayFlags:
-      spvCode = spv::Op::OpRayQueryGetRayFlagsKHR;
-      break;
-    case IntrinsicOp::MOP_RayTMin:
-      spvCode = spv::Op::OpRayQueryGetRayTMinKHR;
-      break;
-    case IntrinsicOp::MOP_WorldRayDirection:
-      spvCode = spv::Op::OpRayQueryGetWorldRayDirectionKHR;
-      break;
-    case IntrinsicOp::MOP_WorldRayOrigin:
-      spvCode = spv::Op::OpRayQueryGetWorldRayOriginKHR;
-      break;
-    default:
-      emitError("intrinsic '%0' method unimplemented",
-            expr->getCallee()->getExprLoc())
-      << expr->getDirectCallee()->getName();
-      return nullptr;
+  case IntrinsicOp::MOP_Proceed:
+    spvCode = spv::Op::OpRayQueryProceedKHR;
+    break;
+  case IntrinsicOp::MOP_Abort:
+    spvCode = spv::Op::OpRayQueryTerminateKHR;
+    exprType = QualType();
+    break;
+  case IntrinsicOp::MOP_CandidateGeometryIndex:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionGeometryIndexKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateInstanceContributionToHitGroupIndex:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::
+        OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateInstanceID:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionInstanceCustomIndexKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateInstanceIndex:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionInstanceIdKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateObjectRayDirection:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayDirectionKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateObjectRayOrigin:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayOriginKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateObjectToWorld3x4:
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
+    traceArgs.push_back(candidateIntersection);
+    transposeMatrix = true;
+    break;
+  case IntrinsicOp::MOP_CandidateObjectToWorld4x3:
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
+    traceArgs.push_back(candidateIntersection);
+    break;
+  case IntrinsicOp::MOP_CandidatePrimitiveIndex:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionPrimitiveIndexKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateProceduralPrimitiveNonOpaque:
+    spvCode = spv::Op::OpRayQueryGetIntersectionCandidateAABBOpaqueKHR;
+    logicalNot = true;
+    break;
+  case IntrinsicOp::MOP_CandidateTriangleBarycentrics:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionBarycentricsKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateTriangleFrontFace:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionFrontFaceKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateTriangleRayT:
+    traceArgs.push_back(candidateIntersection);
+    spvCode = spv::Op::OpRayQueryGetIntersectionTKHR;
+    break;
+  case IntrinsicOp::MOP_CandidateType:
+    spvCode = spv::Op::OpRayQueryGetIntersectionTypeKHR;
+    traceArgs.push_back(candidateIntersection);
+    break;
+  case IntrinsicOp::MOP_CandidateWorldToObject4x3:
+    spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
+    traceArgs.push_back(candidateIntersection);
+    break;
+  case IntrinsicOp::MOP_CandidateWorldToObject3x4:
+    spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
+    traceArgs.push_back(candidateIntersection);
+    transposeMatrix = true;
+    break;
+  case IntrinsicOp::MOP_CommitNonOpaqueTriangleHit:
+    spvCode = spv::Op::OpRayQueryConfirmIntersectionKHR;
+    exprType = QualType();
+    break;
+  case IntrinsicOp::MOP_CommitProceduralPrimitiveHit:
+    spvCode = spv::Op::OpRayQueryGenerateIntersectionKHR;
+    exprType = QualType();
+    break;
+  case IntrinsicOp::MOP_CommittedGeometryIndex:
+    spvCode = spv::Op::OpRayQueryGetIntersectionGeometryIndexKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedInstanceContributionToHitGroupIndex:
+    spvCode = spv::Op::
+        OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedInstanceID:
+    spvCode = spv::Op::OpRayQueryGetIntersectionInstanceCustomIndexKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedInstanceIndex:
+    spvCode = spv::Op::OpRayQueryGetIntersectionInstanceIdKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedObjectRayDirection:
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayDirectionKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedObjectRayOrigin:
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectRayOriginKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedObjectToWorld3x4:
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
+    traceArgs.push_back(committedIntersection);
+    transposeMatrix = true;
+    break;
+  case IntrinsicOp::MOP_CommittedObjectToWorld4x3:
+    spvCode = spv::Op::OpRayQueryGetIntersectionObjectToWorldKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedPrimitiveIndex:
+    spvCode = spv::Op::OpRayQueryGetIntersectionPrimitiveIndexKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedRayT:
+    spvCode = spv::Op::OpRayQueryGetIntersectionTKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedStatus:
+    spvCode = spv::Op::OpRayQueryGetIntersectionTypeKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedTriangleBarycentrics:
+    spvCode = spv::Op::OpRayQueryGetIntersectionBarycentricsKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedTriangleFrontFace:
+    spvCode = spv::Op::OpRayQueryGetIntersectionFrontFaceKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_CommittedWorldToObject3x4:
+    spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
+    traceArgs.push_back(committedIntersection);
+    transposeMatrix = true;
+    break;
+  case IntrinsicOp::MOP_CommittedWorldToObject4x3:
+    spvCode = spv::Op::OpRayQueryGetIntersectionWorldToObjectKHR;
+    traceArgs.push_back(committedIntersection);
+    break;
+  case IntrinsicOp::MOP_RayFlags:
+    spvCode = spv::Op::OpRayQueryGetRayFlagsKHR;
+    break;
+  case IntrinsicOp::MOP_RayTMin:
+    spvCode = spv::Op::OpRayQueryGetRayTMinKHR;
+    break;
+  case IntrinsicOp::MOP_WorldRayDirection:
+    spvCode = spv::Op::OpRayQueryGetWorldRayDirectionKHR;
+    break;
+  case IntrinsicOp::MOP_WorldRayOrigin:
+    spvCode = spv::Op::OpRayQueryGetWorldRayOriginKHR;
+    break;
+  default:
+    emitError("intrinsic '%0' method unimplemented",
+              expr->getCallee()->getExprLoc())
+        << expr->getDirectCallee()->getName();
+    return nullptr;
   }
 
   if (transposeMatrix) {
@@ -11608,21 +11610,22 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
         templateSpecDecl->getSpecializedTemplate();
     const auto retType = exprType;
     exprType = getHLSLMatrixType(astContext, theCompilerInstance.getSema(),
-                                    templateDecl, astContext.FloatTy, 4, 3);
+                                 templateDecl, astContext.FloatTy, 4, 3);
   }
 
   const auto loc = expr->getExprLoc();
-  SpirvInstruction *retVal = spvBuilder.createRayQueryOpsKHR(spvCode, exprType, traceArgs, false, loc);
+  SpirvInstruction *retVal =
+      spvBuilder.createRayQueryOpsKHR(spvCode, exprType, traceArgs, false, loc);
 
-   if (transposeMatrix) {
-     retVal = spvBuilder.createUnaryOp(spv::Op::OpTranspose, expr->getType(),
+  if (transposeMatrix) {
+    retVal = spvBuilder.createUnaryOp(spv::Op::OpTranspose, expr->getType(),
                                       retVal, loc);
-   }
+  }
 
-   if (logicalNot) {
-     retVal = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, expr->getType(),
+  if (logicalNot) {
+    retVal = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, expr->getType(),
                                       retVal, loc);
-   }
+  }
 
   retVal->setRValue();
   return retVal;

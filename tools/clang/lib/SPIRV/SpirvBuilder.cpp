@@ -779,12 +779,11 @@ SpirvBuilder::createDemoteToHelperInvocationEXT(SourceLocation loc) {
 
 SpirvInstruction *
 SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
-                                    ArrayRef<SpirvInstruction *> operands,
-                                    bool cullFlags,
-                                    SourceLocation loc) {
+                                   ArrayRef<SpirvInstruction *> operands,
+                                   bool cullFlags, SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *inst =
-      new (context) SpirvRayQueryOpKHR(resultType, opcode, operands, cullFlags, loc);
+  auto *inst = new (context)
+      SpirvRayQueryOpKHR(resultType, opcode, operands, cullFlags, loc);
   insertPoint->addInstruction(inst);
   return inst;
 }

@@ -3295,6 +3295,7 @@ query through an acceleration structure and query traversal information
 | https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html
 
 A flow chart for a simple ray query process
+::
 
           +------------------------------+
           |   RayQuery<RAY_FLAG_NONE> q  |
@@ -3328,7 +3329,7 @@ A flow chart for a simple ray query process
         +----------------------------------+
 
 
-.. Example flow chart code:: hlsl
+.. code:: hlsl
 
 void main() {
   RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;

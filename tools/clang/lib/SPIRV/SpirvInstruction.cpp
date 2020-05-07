@@ -769,7 +769,8 @@ SpirvDemoteToHelperInvocationEXT::SpirvDemoteToHelperInvocationEXT(
 
 SpirvRayQueryOpKHR::SpirvRayQueryOpKHR(
     QualType resultType, spv::Op opcode,
-    llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags, SourceLocation loc)
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
+    SourceLocation loc)
     : SpirvInstruction(IK_RayQueryOpKHR, opcode, resultType, loc),
       operands(vecOperands.begin(), vecOperands.end()), cullFlags(flags) {}
 } // namespace spirv

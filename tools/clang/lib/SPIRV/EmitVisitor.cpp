@@ -1658,7 +1658,8 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // RayQueryProvisionalType KHR type
-  else if(const auto *rayQueryType = dyn_cast<RayQueryProvisionalTypeKHR>(type)){
+  else if (const auto *rayQueryType =
+               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
     initTypeInstruction(spv::Op::OpTypeRayQueryProvisionalKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();

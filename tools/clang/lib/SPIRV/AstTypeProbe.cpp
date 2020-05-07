@@ -1100,7 +1100,8 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
     if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
         !elemType->isFloatingType())
       return isColMajorDecl(decl);
-    if (const auto *structType = arrayType->getElementType()->getAs<RecordType>()) {
+    if (const auto *structType =
+            arrayType->getElementType()->getAs<RecordType>()) {
       return isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
                                              arrayType->getElementType(),
                                              structType->getDecl());
