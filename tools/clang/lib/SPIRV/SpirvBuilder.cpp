@@ -23,7 +23,7 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt) {
+      spirvOptions(opt), builtinVars(), stringLiterals() {
   mod = new (context) SpirvModule;
 }
 
@@ -684,23 +684,36 @@ void SpirvBuilder::createReturnValue(SpirvInstruction *value,
   insertPoint->addInstruction(new (context) SpirvReturn(loc, value));
 }
 
-SpirvInstruction *SpirvBuilder::createExtInst(
-    QualType resultType, SpirvExtInstImport *set, GLSLstd450 inst,
-    llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc) {
+SpirvInstruction *
+SpirvBuilder::createGLSLExtInst(QualType resultType, GLSLstd450 inst,
+                                llvm::ArrayRef<SpirvInstruction *> operands,
+                                SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *extInst =
-      new (context) SpirvExtInst(resultType, loc, set, inst, operands);
+  auto *extInst = new (context) SpirvExtInst(
+      resultType, loc, getExtInstSet("GLSL.std.450"), inst, operands);
   insertPoint->addInstruction(extInst);
   return extInst;
 }
 
-SpirvInstruction *SpirvBuilder::createExtInst(
-    const SpirvType *resultType, SpirvExtInstImport *set, GLSLstd450 inst,
+SpirvInstruction *
+SpirvBuilder::createGLSLExtInst(const SpirvType *resultType, GLSLstd450 inst,
+                                llvm::ArrayRef<SpirvInstruction *> operands,
+                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *extInst = new (context) SpirvExtInst(
+      /*QualType*/ {}, loc, getExtInstSet("GLSL.std.450"), inst, operands);
+  extInst->setResultType(resultType);
+  insertPoint->addInstruction(extInst);
+  return extInst;
+}
+
+SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
+    QualType resultType, NonSemanticDebugPrintfInstructions instId,
     llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *extInst =
-      new (context) SpirvExtInst(/*QualType*/ {}, loc, set, inst, operands);
-  extInst->setResultType(resultType);
+  auto *extInst = new (context)
+      SpirvExtInst(resultType, loc, getExtInstSet("NonSemantic.DebugPrintf"),
+                   instId, operands);
   insertPoint->addInstruction(extInst);
   return extInst;
 }
@@ -781,16 +794,15 @@ void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
 
-SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet() {
-  SpirvExtInstImport *glslSet = mod->getGLSLExtInstSet();
-  if (!glslSet) {
+SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
+  SpirvExtInstImport *set = mod->getExtInstSet(extName);
+  if (!set) {
     // The extended instruction set is likely required for several different
     // reasons. We can't pinpoint the source location for one specific function.
-    glslSet =
-        new (context) SpirvExtInstImport(/*SourceLocation*/ {}, "GLSL.std.450");
-    mod->addExtInstSet(glslSet);
+    set = new (context) SpirvExtInstImport(/*SourceLocation*/ {}, extName);
+    mod->addExtInstSet(set);
   }
-  return glslSet;
+  return set;
 }
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
@@ -1034,6 +1046,20 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
+}
+
+SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
+  // Reuse an existing instruction if possible.
+  auto iter = stringLiterals.find(str.str());
+  if (iter != stringLiterals.end())
+    return iter->second;
+
+  // Create a SpirvString instruction
+  auto *instr = new (context) SpirvString(/* SourceLocation */ {}, str);
+  instr->setRValue();
+  stringLiterals[str.str()] = instr;
+  mod->addString(instr);
+  return instr;
 }
 
 std::vector<uint32_t> SpirvBuilder::takeModule() {

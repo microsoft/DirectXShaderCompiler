@@ -533,6 +533,13 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
   return true;
 }
 
+bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
+  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf")
+    addExtension(Extension::KHR_non_semantic_info, "DebugPrintf",
+                 /*SourceLocation*/ {});
+  return true;
+}
+
 bool CapabilityVisitor::visit(SpirvExtInst *instr) {
   // OpExtInst using the GLSL extended instruction allows only 32-bit types by
   // default for interpolation instructions. The AMD_gpu_shader_half_float

@@ -20,6 +20,8 @@
 //
 // <qual> is one of "in", "out" or "inout" plus optional qualifiers
 //   "col_major", "row_major".
+// variadic functions assume <qual> of "in" for any arguments that are not
+// explicitly specified.
 //
 // <type> is where most of the work goes.  <type> lets you
 // specify particular types and layouts for arguments and
@@ -186,7 +188,7 @@ numeric<r> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a
 numeric<r, c2> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_mm;
 $type1 [[rn]] normalize(in float_like<c> x);
 $type1 [[rn]] pow(in float_like<> x, in $type1 y);
-// void printf(in string Format, ...);
+void [[]] printf(in string Format, ...);
 void [[]] Process2DQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqavg;
 void [[]] Process2DQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmax;
 void [[]] Process2DQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmin;

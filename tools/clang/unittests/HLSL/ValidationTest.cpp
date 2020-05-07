@@ -293,6 +293,7 @@ public:
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
 
   TEST_METHOD(ValidateRootSigContainer)
+  TEST_METHOD(ValidatePrintfNotAllowed)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -3800,3 +3801,8 @@ TEST_F(ValidationTest, ValidateRootSigContainer) {
   CheckValidationMsgs(pObject, {}, false,
     DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit);
 }
+
+TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
+  TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
+}
+

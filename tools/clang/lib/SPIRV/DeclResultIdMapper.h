@@ -346,6 +346,21 @@ public:
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
 
+  /// \brief Returns an OpString instruction that represents the given VarDecl.
+  /// VarDecl must be a variable of string type.
+  ///
+  /// This function inspects the VarDecl for an initialization expression. If
+  /// initialization expression is not found, it will emit an error because the
+  /// variable cannot be deduced to an OpString literal, and string variables do
+  /// not exist in SPIR-V.
+  ///
+  /// Note: HLSL has the 'string' type which can be used for rare purposes such
+  /// as printf (SPIR-V's DebugPrintf). SPIR-V does not have a 'char' or
+  /// 'string' type, and therefore any variable of such type is never created.
+  /// The string literal is evaluated when needed and an OpString is generated
+  /// for it.
+  SpirvInstruction *createOrUpdateStringVar(const VarDecl *);
+
   /// \brief Creates an Enum constant.
   void createEnumConstant(const EnumConstantDecl *decl);
 

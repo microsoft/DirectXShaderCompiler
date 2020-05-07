@@ -512,7 +512,7 @@ void AddOpcodeParamForIntrinsic(
   }
 
   llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(RetTy, paramTyList, false);
+      llvm::FunctionType::get(RetTy, paramTyList, oldFuncTy->isVarArg());
 
   Function *opFunc = CreateOpFunction(M, F, funcTy, group, opcode);
   StringRef lower = hlsl::GetHLLowerStrategy(F);

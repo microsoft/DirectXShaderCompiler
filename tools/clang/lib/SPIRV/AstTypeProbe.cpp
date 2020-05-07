@@ -1116,6 +1116,10 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
   return false;
 }
 
+bool isStringType(QualType type) {
+  return hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type);
+}
+
 QualType getComponentVectorType(const ASTContext &astContext,
                                 QualType matrixType) {
   assert(isMxNMatrix(matrixType));
