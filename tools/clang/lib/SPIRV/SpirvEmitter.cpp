@@ -5073,9 +5073,13 @@ SpirvEmitter::processAssignment(const Expr *lhs, SpirvInstruction *rhs,
   if (SpirvInstruction *result = tryToAssignToMSOutAttrsOrIndices(lhs, rhs))
     return result;
 
-  // Assigning to a 'string' variable. SPIR-V doesn't have a string type.
-  if (SpirvInstruction *result = tryToAssignToStringVar(lhs, rhs))
-    return result;
+  // Assigning to a 'string' variable. SPIR-V doesn't have a string type, and we
+  // do not allow creating or modifying string variables. We do allow use of
+  // string literals using OpString.
+  if (isStringType(lhs->getType())) {
+    emitError("string variables are immutable in SPIR-V.", lhs->getExprLoc());
+    return nullptr;
+  }
 
   // Normal assignment procedure
 
@@ -6080,19 +6084,6 @@ SpirvEmitter::tryToAssignToMatrixElements(const Expr *lhs,
   // which cases we should return lvalues. Should at least emit errors if
   // this return value is used (can be checked via ASTContext.getParents).
   return rhs;
-}
-
-SpirvInstruction *SpirvEmitter::tryToAssignToStringVar(const Expr *lhs,
-                                                       SpirvInstruction *rhs) {
-  // Assigning to a 'string' variable. Since SPIR-V does not have a 'string'
-  // type, assigning a string literal to a string variable is only a
-  // matter of updating the literal that is registered in DeclResultIdMapper.
-  if (isStringType(lhs->getType()))
-    if (auto *lhsDeclExpr = dyn_cast<DeclRefExpr>(lhs))
-      if (auto *varDecl = dyn_cast<VarDecl>(lhsDeclExpr->getDecl()))
-        return declIdMapper.createOrUpdateStringVar(varDecl, rhs);
-
-  return nullptr;
 }
 
 SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(

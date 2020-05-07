@@ -110,20 +110,6 @@ struct FunctionTypeMapInfo {
   }
 };
 
-// Provides StringMapInfo for std::string so we can create a DenseMap with key
-// of type std::string.
-struct StringMapInfo {
-  static inline std::string getEmptyKey() { return ""; }
-  static inline std::string getTombstoneKey() { return ""; }
-  static unsigned getHashValue(const std::string Val) {
-    return llvm::hash_combine(Val);
-  }
-  static bool isEqual(const std::string LHS, const std::string RHS) {
-    // Either both are null, or both should have the same underlying type.
-    return LHS == RHS;
-  }
-};
-
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
 ///
 /// All entities should be allocated from an object of this class using
@@ -290,10 +276,6 @@ private:
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
-
-  // To avoid generating multiple OpStrings for the same string literal
-  // the context will generate and reuse them.
-  llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
 
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;

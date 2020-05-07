@@ -11,12 +11,10 @@
 // CHECK: [[format6:%\d+]] = OpString "More: %d %d %d %d %d %d %d %d %d %d"
 
 const string first = "first string";
-string second;
+string second = "second string";
 
 [numthreads(1,1,1)]
 void main() {
-  second = "second string";
-
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] 1 [[format1]]
   printf(first);
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] 1 [[format2]]

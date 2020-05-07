@@ -733,25 +733,20 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 }
 
 SpirvInstruction *
-DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var,
-                                            SpirvInstruction *init) {
+DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   assert(hlsl::IsStringType(var->getType()) ||
          hlsl::IsStringLiteralType(var->getType()));
 
-  if (!init) {
-    const StringLiteral *stringLiteral =
-        var->hasInit()
-            ? dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts())
-            : nullptr;
-
-    // If the string variable is not initialized to a string literal, we cannot
-    // generate an OpString for it.
-    if (!stringLiteral)
-      return nullptr;
-
-    init = spvBuilder.getString(stringLiteral->getString());
+  // If the string variable is not initialized to a string literal, we cannot
+  // generate an OpString for it.
+  if (!var->hasInit()) {
+    emitError("Found uninitialized string variable.", var->getLocation());
+    return nullptr;
   }
 
+  const StringLiteral *stringLiteral =
+      dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
+  SpirvString *init = spvBuilder.getString(stringLiteral->getString());
   DeclSpirvInfo info(init);
   astDecls[var] = info;
   return init;

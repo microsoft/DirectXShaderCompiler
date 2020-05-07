@@ -20,6 +20,20 @@
 namespace clang {
 namespace spirv {
 
+// Provides StringMapInfo for std::string so we can create a DenseMap with key
+// of type std::string.
+struct StringMapInfo {
+  static inline std::string getEmptyKey() { return ""; }
+  static inline std::string getTombstoneKey() { return ""; }
+  static unsigned getHashValue(const std::string Val) {
+    return llvm::hash_combine(Val);
+  }
+  static bool isEqual(const std::string LHS, const std::string RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return LHS == RHS;
+  }
+};
+
 /// The SPIR-V in-memory representation builder class.
 ///
 /// This class exports API for constructing SPIR-V in-memory representation
@@ -605,6 +619,10 @@ private:
   };
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
+
+  // To avoid generating multiple OpStrings for the same string literal
+  // the SpirvBuilder will generate and reuse them.
+  llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

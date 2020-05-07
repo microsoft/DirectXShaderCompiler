@@ -23,7 +23,7 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt) {
+      spirvOptions(opt), builtinVars(), stringLiterals() {
   mod = new (context) SpirvModule;
 }
 
@@ -1049,11 +1049,17 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
 }
 
 SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
-  // SpirvContext can generate SpirvString objects and reuses them for the same
-  // strings.
-  SpirvString *uniqueString = context.getSpirvString(str);
-  mod->addString(uniqueString);
-  return uniqueString;
+  // Reuse an existing instruction if possible.
+  auto iter = stringLiterals.find(str.str());
+  if (iter != stringLiterals.end())
+    return iter->second;
+
+  // Create a SpirvString instruction
+  auto *instr = new (context) SpirvString(/* SourceLocation */ {}, str);
+  instr->setRValue();
+  stringLiterals[str.str()] = instr;
+  mod->addString(instr);
+  return instr;
 }
 
 std::vector<uint32_t> SpirvBuilder::takeModule() {

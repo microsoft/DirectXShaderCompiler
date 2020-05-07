@@ -257,12 +257,6 @@ private:
   SpirvInstruction *tryToAssignToMatrixElements(const Expr *lhs,
                                                 SpirvInstruction *rhs);
 
-  /// Tries to emit instructions for assigning a literal string to a string
-  /// variable. Returns the OpString instruction for the literal. Returns
-  /// nullptr if no literal string initializer is found.
-  SpirvInstruction *tryToAssignToStringVar(const Expr *lhs,
-                                           SpirvInstruction *rhs);
-
   /// Tries to emit instructions for assigning to the given RWBuffer/RWTexture
   /// object. Returns 0 if the trial fails and no instructions are generated.
   SpirvInstruction *tryToAssignToRWBufferRWTexture(const Expr *lhs,

@@ -267,18 +267,5 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   return type;
 }
 
-SpirvString *SpirvContext::getSpirvString(llvm::StringRef strRef) {
-  // Reuse an existing instruction if possible.
-  auto iter = stringLiterals.find(strRef.str());
-  if (iter != stringLiterals.end())
-    return iter->second;
-
-  // Create a SpirvString instruction
-  auto *instr = new (this) SpirvString(/* SourceLocation */ {}, strRef);
-  instr->setRValue();
-  stringLiterals[strRef.str()] = instr;
-  return instr;
-}
-
 } // end namespace spirv
 } // end namespace clang

@@ -55,6 +55,15 @@ TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, StructTypeUniqueness) {
   runFileTest("type.struct.uniqueness.hlsl");
 }
+TEST_F(FileTest, StringTypes) {
+  runFileTest("type.string.hlsl");
+}
+TEST_F(FileTest, StringTypesUninitializedError) {
+  runFileTest("type.string.uninitialized.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, StringTypesImmutableError) {
+  runFileTest("type.string.immutable.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }
