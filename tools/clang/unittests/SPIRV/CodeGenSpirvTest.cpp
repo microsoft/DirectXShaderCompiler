@@ -2393,5 +2393,9 @@ TEST_F(FileTest, RichDebugInfoTypeRWTexture) {
   runFileTest("rich.debug.rwtexture.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoTypeSampler) {
+  runFileTest("rich.debug.sampler.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 
 } // namespace

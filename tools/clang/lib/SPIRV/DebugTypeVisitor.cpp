@@ -169,6 +169,7 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     break;
   }
   case SpirvType::TK_Image:
+  case SpirvType::TK_Sampler:
   case SpirvType::TK_Struct: {
     debugType = lowerToDebugTypeComposite(spirvType);
     break;
