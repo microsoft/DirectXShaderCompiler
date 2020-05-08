@@ -34,7 +34,7 @@ void DebugTypeVisitor::setDefaultDebugInfo(SpirvDebugInstruction *instr) {
 }
 
 SpirvDebugInstruction *
-DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
+DebugTypeVisitor::lowerToDebugTypeComposite(const SpirvType *type) {
   // DebugTypeComposite is already lowered by LowerTypeVisitor,
   // but it is not completely lowered.
   // We have to update member information including offset and size.
@@ -58,8 +58,8 @@ DebugTypeVisitor::lowerToDebugTypeComposite(const StructType *type) {
       setDefaultDebugInfo(tempType);
     }
   } else {
-    emitError("StructType %0 was not lowered by LowerTypeVisitor")
-        << type->getStructName();
+    emitError("SpirvType %0 was not lowered by LowerTypeVisitor")
+        << type->getName();
     return nullptr;
   }
   if (instr->getFullyLowered())
@@ -168,9 +168,9 @@ DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
                                              sizeInstruction, encoding);
     break;
   }
+  case SpirvType::TK_Image:
   case SpirvType::TK_Struct: {
-    const auto *structType = dyn_cast<StructType>(spirvType);
-    debugType = lowerToDebugTypeComposite(structType);
+    debugType = lowerToDebugTypeComposite(spirvType);
     break;
   }
   // TODO: Add DebugTypeComposite for class and union.

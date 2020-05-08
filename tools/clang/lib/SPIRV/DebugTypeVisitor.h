@@ -59,7 +59,7 @@ private:
   /// depends on will also be created.
   SpirvDebugInstruction *lowerToDebugType(const SpirvType *);
 
-  SpirvDebugInstruction *lowerToDebugTypeComposite(const StructType *);
+  SpirvDebugInstruction *lowerToDebugTypeComposite(const SpirvType *);
 
   // Set the result type of debug instructions to OpTypeVoid.
   // According to the OpenCL.DebugInfo.100 spec, all debug instructions are

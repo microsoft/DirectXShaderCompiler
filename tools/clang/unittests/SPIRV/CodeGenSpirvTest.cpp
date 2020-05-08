@@ -2385,5 +2385,13 @@ TEST_F(FileTest, RichDebugInfoScope) {
   runFileTest("rich.debug.debugscope.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoTypeTexture) {
+  runFileTest("rich.debug.texture.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeRWTexture) {
+  runFileTest("rich.debug.rwtexture.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 
 } // namespace
