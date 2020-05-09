@@ -683,7 +683,7 @@ bool isSameType(const ASTContext &astContext, QualType type1, QualType type2) {
         // consider them different.
         if (fieldTypes1.size() != fieldTypes2.size())
           return false;
-        for (auto i = 0; i < fieldTypes1.size(); ++i)
+        for (size_t i = 0; i < fieldTypes1.size(); ++i)
           if (!isSameType(astContext, fieldTypes1[i], fieldTypes2[i]))
             return false;
         return true;

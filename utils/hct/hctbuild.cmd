@@ -190,6 +190,12 @@ rem End SPIRV change
 
 set BUILD_ARM_CROSSCOMPILING=0
 
+if /i "%BUILD_ARCH%"=="Win32" (
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AWin32
+  )
+)
+
 if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
   if "%BUILD_VS_VER%"=="2019" (
@@ -201,11 +207,17 @@ if /i "%BUILD_ARCH%"=="x64" (
 if /i "%BUILD_ARCH%"=="arm" (
   set BUILD_GENERATOR_PLATFORM=ARM
   set BUILD_ARM_CROSSCOMPILING=1
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AARM
+  )
 )
 
 if /i "%BUILD_ARCH%"=="arm64" (
   set BUILD_GENERATOR_PLATFORM=ARM64
   set BUILD_ARM_CROSSCOMPILING=1
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AARM64
+  )
 )
 
 if "%1"=="-ninja" (
