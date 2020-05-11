@@ -82,6 +82,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDemoteToHelperInvocationEXT)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -766,5 +767,11 @@ SpirvDemoteToHelperInvocationEXT::SpirvDemoteToHelperInvocationEXT(
                        spv::Op::OpDemoteToHelperInvocationEXT, /*QualType*/ {},
                        loc) {}
 
+SpirvRayQueryOpKHR::SpirvRayQueryOpKHR(
+    QualType resultType, spv::Op opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
+    SourceLocation loc)
+    : SpirvInstruction(IK_RayQueryOpKHR, opcode, resultType, loc),
+      operands(vecOperands.begin(), vecOperands.end()), cullFlags(flags) {}
 } // namespace spirv
 } // namespace clang

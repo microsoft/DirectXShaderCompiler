@@ -259,6 +259,7 @@ public:
   bool visit(SpirvArrayLength *);
   bool visit(SpirvRayTracingOpNV *);
   bool visit(SpirvDemoteToHelperInvocationEXT *);
+  bool visit(SpirvRayQueryOpKHR *);
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();

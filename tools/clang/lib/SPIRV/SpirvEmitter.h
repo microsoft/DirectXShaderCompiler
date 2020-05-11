@@ -553,6 +553,13 @@ private:
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
 
+  /// Process ray query traceinline intrinsics.
+  SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);
+
+  /// Process ray query intrinsics
+  SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
+                                              hlsl::IntrinsicOp opcode);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);

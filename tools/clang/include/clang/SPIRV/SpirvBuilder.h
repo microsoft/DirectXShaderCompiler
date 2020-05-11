@@ -437,6 +437,12 @@ public:
   /// \brief Creates an OpDemoteToHelperInvocationEXT instruction.
   SpirvInstruction *createDemoteToHelperInvocationEXT(SourceLocation);
 
+  /// \brief Create SPIR-V instructions for KHR RayQuery ops
+  SpirvInstruction *
+  createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
+                       llvm::ArrayRef<SpirvInstruction *> operands,
+                       bool cullFlags, SourceLocation loc);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 
