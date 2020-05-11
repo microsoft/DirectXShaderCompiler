@@ -8,6 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "EmitVisitor.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/dxcapi.use.h"
+#include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
@@ -96,6 +101,30 @@ bool isBufferBlockDecorationDeprecated(
   return opts.targetEnv.compare("vulkan1.2") >= 0;
 }
 
+// Read the file in |filePath| and returns its contents as a string.
+// This function will be used by DebugSource to get its source code.
+std::string ReadSourceCode(llvm::StringRef filePath) {
+  try {
+    dxc::DxcDllSupport dllSupport;
+    IFT(dllSupport.Initialize());
+
+    CComPtr<IDxcLibrary> pLibrary;
+    IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+
+    CComPtr<IDxcBlobEncoding> pSource;
+    std::wstring srcFile(filePath.begin(), filePath.end());
+    IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));
+
+    CComPtr<IDxcBlobUtf8> utf8Source;
+    IFT(hlsl::DxcGetBlobAsUtf8(pSource, nullptr, &utf8Source));
+    return std::string(utf8Source->GetStringPointer(),
+                       utf8Source->GetStringLength());
+  } catch (...) {
+    // An exception has occured while reading the file
+    return "";
+  }
+}
+
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
@@ -121,18 +150,30 @@ std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
   return words;
 }
 
-uint32_t EmitVisitor::getOrCreateOpString(llvm::StringRef str) {
+SpirvString *EmitVisitor::getOrCreateOpString(llvm::StringRef str) {
   if (str.empty())
-    return 0;
-  auto it = debugFileIdMap.find(str);
-  if (it != debugFileIdMap.end()) {
+    return nullptr;
+  auto it = stringLiteralMap.find(str);
+  if (it != stringLiteralMap.end()) {
     return it->second;
   }
   SpirvString *inst = new (context) SpirvString(/*SourceLocation*/ {}, str);
   visit(inst);
-  uint32_t fid = getOrAssignResultId<SpirvInstruction>(inst);
-  debugFileIdMap[inst->getString()] = fid;
-  return fid;
+  stringLiteralMap[inst->getString()] = inst;
+  return inst;
+}
+
+uint32_t EmitVisitor::getOrCreateOpStringId(llvm::StringRef str) {
+  auto *opString = getOrCreateOpString(str);
+  if (opString == nullptr)
+    return 0;
+  return getOrAssignResultId<SpirvInstruction>(opString);
+}
+
+SpirvSource *EmitVisitor::createOpSource(const char *fileName) {
+  return new (context)
+      SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, hlslVersion,
+                  getOrCreateOpString(fileName), "");
 }
 
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
@@ -186,7 +227,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   const auto &sm = astContext.getSourceManager();
   const char *fileName = sm.getPresumedLoc(loc).getFilename();
   if (fileName)
-    fileId = getOrCreateOpString(fileName);
+    fileId = getOrCreateOpStringId(fileName);
 
   if (!fileId) {
     emitError("spvOptions.debugInfoLine is true but no fileId was set");
@@ -215,6 +256,11 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   curInst.push_back(column);
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
   section->insert(section->end(), curInst.begin(), curInst.end());
+
+  if (dumpedFiles.count(fileId) == 0) {
+    visit(createOpSource(fileName));
+    dumpedFiles.insert(fileId);
+  }
 }
 
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
@@ -420,27 +466,35 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   // Emit the OpString for the file name.
   uint32_t fileId = debugMainFileId;
   if (inst->hasFile()) {
-    fileId = getOrCreateOpString(inst->getFile()->getString());
+    fileId = getOrCreateOpStringId(inst->getFile()->getString());
     if (!debugMainFileId)
       debugMainFileId = fileId;
   }
 
-  // Chop up the source into multiple segments if it is too long.
-  llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;
-  llvm::SmallVector<llvm::StringRef, 2> choppedSrcCode;
-  if (!inst->getSource().empty()) {
-    chopString(inst->getSource(), &choppedSrcCode);
-    if (!choppedSrcCode.empty()) {
-      firstSnippet = llvm::Optional<llvm::StringRef>(choppedSrcCode.front());
-    }
-  }
+  if (dumpedFiles.count(fileId) != 0)
+    return true;
+  dumpedFiles.insert(fileId);
 
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
+  if (hlslVersion == 0)
+    hlslVersion = inst->getVersion();
   if (inst->hasFile())
     curInst.push_back(fileId);
-  if (firstSnippet.hasValue()) {
+
+  // Chop up the source into multiple segments if it is too long.
+  llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;
+  llvm::SmallVector<llvm::StringRef, 2> choppedSrcCode;
+  if (spvOptions.debugInfoSource && inst->hasFile()) {
+    auto text = ReadSourceCode(inst->getFile()->getString());
+    if (!text.empty()) {
+      chopString(text, &choppedSrcCode);
+      if (!choppedSrcCode.empty()) {
+        firstSnippet = llvm::Optional<llvm::StringRef>(choppedSrcCode.front());
+      }
+    }
+
     // Note: in order to improve performance and avoid multiple copies, we
     // encode this (potentially large) string directly into the debugFileBinary.
     const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
@@ -1121,8 +1175,13 @@ bool EmitVisitor::visit(SpirvDebugInfoNone *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugSource *inst) {
-  uint32_t fileId = getOrCreateOpString(inst->getFile());
-  uint32_t textId = getOrCreateOpString(inst->getContent());
+  uint32_t fileId = getOrCreateOpStringId(inst->getFile());
+  uint32_t textId = 0;
+  if (spvOptions.debugInfoSource) {
+    auto text = ReadSourceCode(inst->getFile());
+    if (!text.empty())
+      textId = getOrCreateOpStringId(text);
+  }
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1187,8 +1246,8 @@ bool EmitVisitor::visit(SpirvDebugScope *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugFunctionDeclaration *inst) {
-  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
-  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  uint32_t nameId = getOrCreateOpStringId(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpStringId(inst->getLinkageName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1210,8 +1269,8 @@ bool EmitVisitor::visit(SpirvDebugFunctionDeclaration *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugFunction *inst) {
-  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
-  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  uint32_t nameId = getOrCreateOpStringId(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpStringId(inst->getLinkageName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1241,7 +1300,7 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
-  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t typeNameId = getOrCreateOpStringId(inst->getDebugName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1312,8 +1371,8 @@ bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
-  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
-  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  uint32_t typeNameId = getOrCreateOpStringId(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpStringId(inst->getLinkageName());
   const auto size = typeHandler.getOrCreateConstantInt(
       llvm::APInt(32, inst->getSizeInBits()), context.getUIntType(32),
       /* isSpecConst */ false);
@@ -1346,7 +1405,7 @@ bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
-  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t typeNameId = getOrCreateOpStringId(inst->getDebugName());
   const auto offset = typeHandler.getOrCreateConstantInt(
       llvm::APInt(32, inst->getOffset()), context.getUIntType(32),
       /* isSpecConst */ false);
@@ -1389,7 +1448,7 @@ bool EmitVisitor::visit(SpirvDebugTypeTemplate *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugTypeTemplateParameter *inst) {
-  uint32_t typeNameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t typeNameId = getOrCreateOpStringId(inst->getDebugName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1408,7 +1467,7 @@ bool EmitVisitor::visit(SpirvDebugTypeTemplateParameter *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
-  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
+  uint32_t nameId = getOrCreateOpStringId(inst->getDebugName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1448,8 +1507,8 @@ bool EmitVisitor::visit(SpirvDebugDeclare *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDebugGlobalVariable *inst) {
-  uint32_t nameId = getOrCreateOpString(inst->getDebugName());
-  uint32_t linkageNameId = getOrCreateOpString(inst->getLinkageName());
+  uint32_t nameId = getOrCreateOpStringId(inst->getDebugName());
+  uint32_t linkageNameId = getOrCreateOpStringId(inst->getLinkageName());
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));

@@ -467,7 +467,7 @@ public:
   /// content. Returns the SpirvString instruction of the file name.
   inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
                                      const std::vector<llvm::StringRef> &name,
-                                     llvm::StringRef content);
+                                     llvm::StringRef content = "");
 
   /// \brief Adds an execution mode to the module under construction.
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,

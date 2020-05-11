@@ -40,7 +40,6 @@ DebugTypeVisitor::lowerToDebugTypeComposite(const SpirvType *type) {
   // We have to update member information including offset and size.
   auto *instr =
       dyn_cast<SpirvDebugTypeComposite>(spvContext.getDebugType(type));
-  SpirvDebugType *actualType = nullptr;
   if (instr) {
     auto *tempType = instr->getTypeTemplate();
     if (tempType) {

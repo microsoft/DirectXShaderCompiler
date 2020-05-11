@@ -1578,10 +1578,6 @@ TEST_F(FileTest, SpirvDebugControlFile) {
   useVulkan1p1();
   runFileTest("spirv.debug.ctrl.file.hlsl");
 }
-TEST_F(FileTest, SpirvDebugControlSource) {
-  useVulkan1p1();
-  runFileTest("spirv.debug.ctrl.source.hlsl");
-}
 TEST_F(FileTest, SpirvDebugControlLine) {
   useVulkan1p1();
   runFileTest("spirv.debug.ctrl.line.hlsl");

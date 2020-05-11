@@ -806,6 +806,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         opts.SpirvOptions.debugInfoTool = true;
       } else if (v == "rich") {
         opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = false;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+      } else if (v == "rich-with-source") {
+        opts.SpirvOptions.debugInfoFile = true;
         opts.SpirvOptions.debugInfoSource = true;
         opts.SpirvOptions.debugInfoLine = true;
         opts.SpirvOptions.debugInfoRich = true;

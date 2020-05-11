@@ -532,9 +532,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     spirvOptions.ampPayloadLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
   }
 
-  // Set shader module version, source file name, and source file content (if
-  // needed).
-  llvm::StringRef source = "";
+  // Set shader module version and source file name.
   std::vector<llvm::StringRef> fileNames;
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   // File name
@@ -543,23 +541,15 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       fileNames.push_back(inputFile.getFile());
     }
   }
-  // Source code
-  if (spirvOptions.debugInfoSource) {
-    const auto &sm = ci.getSourceManager();
-    const llvm::MemoryBuffer *mainFile =
-        sm.getBuffer(sm.getMainFileID(), SourceLocation());
-    source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
-  }
-  mainSourceFile = spvBuilder.setDebugSource(spvContext.getMajorVersion(),
-                                             spvContext.getMinorVersion(),
-                                             fileNames, source);
+  mainSourceFile = spvBuilder.setDebugSource(
+      spvContext.getMajorVersion(), spvContext.getMinorVersion(), fileNames);
 
   // OpenCL.DebugInfo.100 DebugSource
   if (spirvOptions.debugInfoRich) {
     auto &debugInfo = spvContext.getDebugInfo();
     for (uint32_t i = 0; i < fileNames.size(); ++i) {
       const auto &file = fileNames[i];
-      auto *dbgSrc = spvBuilder.createDebugSource(file, i == 0 ? source : "");
+      auto *dbgSrc = spvBuilder.createDebugSource(file);
       debugInfo[file] =
           RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
     }

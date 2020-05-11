@@ -4,7 +4,7 @@
 // CHECK:    [[varNameC:%\d+]] = OpString "c"
 // CHECK: [[varNameCond:%\d+]] = OpString "cond"
 
-// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource {{%\d+}} {{%\d+}}
+// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource
 // CHECK: [[compileUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
 
 // CHECK: [[floatType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float

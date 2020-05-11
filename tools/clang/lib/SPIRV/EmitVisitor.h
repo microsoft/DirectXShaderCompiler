@@ -196,7 +196,8 @@ public:
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
         debugMainFileId(0), debugLine(0), debugColumn(0),
-        lastOpWasMergeInst(false), inEntryFunctionWrapper(false) {}
+        lastOpWasMergeInst(false), inEntryFunctionWrapper(false),
+        hlslVersion(0) {}
 
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase);
@@ -298,13 +299,20 @@ private:
   }
 
   /// If we already created OpString for str, just return the created one.
-  /// Otherwise, create it, keep it in debugFileIdMap, and return it.
-  uint32_t getOrCreateOpString(llvm::StringRef str);
+  /// Otherwise, create it, keep it in stringLiteralMap, and return it.
+  SpirvString *getOrCreateOpString(llvm::StringRef str);
+
+  /// If we already created OpString for str, just return the id of the created
+  /// one. Otherwise, create it, keep it in stringLiteralMap, and return its id.
+  uint32_t getOrCreateOpStringId(llvm::StringRef str);
 
   // Emits an OpLine instruction for the given operation into the given binary
   // section.
   void emitDebugLine(spv::Op op, const SourceLocation &loc,
                      std::vector<uint32_t> *section);
+
+  // Create SpirvSource for fileName.
+  SpirvSource *createOpSource(const char *fileName);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
@@ -369,8 +377,8 @@ private:
   std::vector<uint32_t> richDebugInfo;
   // All other instructions
   std::vector<uint32_t> mainBinary;
-  // File information for debugging that will be used by OpLine.
-  llvm::StringMap<uint32_t> debugFileIdMap;
+  // String literals to SpirvString objects
+  llvm::StringMap<SpirvString *> stringLiteralMap;
   // Main file information for debugging that will be used by OpLine.
   uint32_t debugMainFileId;
   // One HLSL source line may result in several SPIR-V instructions. In order to
@@ -385,6 +393,9 @@ private:
   bool lastOpWasMergeInst;
   // True if currently it enters an entry function wrapper.
   bool inEntryFunctionWrapper;
+  // Set of files that we already dumped their source code in OpSource.
+  llvm::DenseSet<uint32_t> dumpedFiles;
+  uint32_t hlslVersion;
 };
 
 } // namespace spirv

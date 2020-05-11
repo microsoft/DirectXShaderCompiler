@@ -6,7 +6,7 @@
 // CHECK:    [[varNameA:%\d+]] = OpString "a"
 // CHECK:    [[varNameB:%\d+]] = OpString "b"
 
-// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource {{%\d+}} {{%\d+}}
+// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource
 // CHECK: [[compileUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
 
 // CHECK: [[floatType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
