@@ -195,6 +195,12 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
+  //
+  else if (const auto *rayQueryType =
+               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
+    addCapability(spv::Capability::RayQueryProvisionalKHR);
+    addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
+  }
 }
 
 bool CapabilityVisitor::visit(SpirvDecoration *decor) {
@@ -475,6 +481,16 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     }
     break;
   }
+  case spv::Op::OpRayQueryInitializeKHR: {
+    auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
+    if (rayQueryInst->hasCullFlags()) {
+      addCapability(
+          spv::Capability::RayTraversalPrimitiveCullingProvisionalKHR);
+    }
+
+    break;
+  }
+
   default:
     break;
   }

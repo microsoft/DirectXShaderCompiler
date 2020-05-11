@@ -1126,6 +1126,20 @@ bool EmitVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvRayQueryOpKHR *inst) {
+  initInstruction(inst);
+  if (inst->hasResultType()) {
+    curInst.push_back(inst->getResultTypeId());
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  }
+  for (const auto operand : inst->getOperands())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+  finalizeInstruction();
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
@@ -1640,6 +1654,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // Acceleration Structure NV type
   else if (const auto *accType = dyn_cast<AccelerationStructureTypeNV>(type)) {
     initTypeInstruction(spv::Op::OpTypeAccelerationStructureNV);
+    curTypeInst.push_back(id);
+    finalizeTypeInstruction();
+  }
+  // RayQueryProvisionalType KHR type
+  else if (const auto *rayQueryType =
+               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
+    initTypeInstruction(spv::Op::OpTypeRayQueryProvisionalKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }

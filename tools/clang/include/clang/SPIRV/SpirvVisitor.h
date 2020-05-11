@@ -114,7 +114,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvArrayLength)
   DEFINE_VISIT_METHOD(SpirvRayTracingOpNV)
   DEFINE_VISIT_METHOD(SpirvDemoteToHelperInvocationEXT)
-
+  DEFINE_VISIT_METHOD(SpirvRayQueryOpKHR)
 #undef DEFINE_VISIT_METHOD
 
 protected:

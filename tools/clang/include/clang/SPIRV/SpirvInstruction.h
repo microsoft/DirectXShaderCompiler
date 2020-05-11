@@ -103,22 +103,22 @@ public:
     IK_GroupNonUniformElect,    // OpGroupNonUniformElect
     IK_GroupNonUniformUnaryOp,  // Group non-uniform unary operations
 
-    IK_ImageOp,                   // OpImage*
-    IK_ImageQuery,                // OpImageQuery*
-    IK_ImageSparseTexelsResident, // OpImageSparseTexelsResident
-    IK_ImageTexelPointer,         // OpImageTexelPointer
-    IK_Load,                      // OpLoad
-    IK_SampledImage,              // OpSampledImage
-    IK_Select,                    // OpSelect
-    IK_SpecConstantBinaryOp,      // SpecConstant binary operations
-    IK_SpecConstantUnaryOp,       // SpecConstant unary operations
-    IK_Store,                     // OpStore
-    IK_UnaryOp,                   // Unary operations
-    IK_VectorShuffle,             // OpVectorShuffle
-    IK_ArrayLength,               // OpArrayLength
-    IK_RayTracingOpNV,            // NV raytracing ops
-
+    IK_ImageOp,                     // OpImage*
+    IK_ImageQuery,                  // OpImageQuery*
+    IK_ImageSparseTexelsResident,   // OpImageSparseTexelsResident
+    IK_ImageTexelPointer,           // OpImageTexelPointer
+    IK_Load,                        // OpLoad
+    IK_SampledImage,                // OpSampledImage
+    IK_Select,                      // OpSelect
+    IK_SpecConstantBinaryOp,        // SpecConstant binary operations
+    IK_SpecConstantUnaryOp,         // SpecConstant unary operations
+    IK_Store,                       // OpStore
+    IK_UnaryOp,                     // Unary operations
+    IK_VectorShuffle,               // OpVectorShuffle
+    IK_ArrayLength,                 // OpArrayLength
+    IK_RayTracingOpNV,              // NV raytracing ops
     IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
+    IK_RayQueryOpKHR,               // KHR rayquery ops
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1749,6 +1749,27 @@ public:
 
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
+};
+class SpirvRayQueryOpKHR : public SpirvInstruction {
+public:
+  SpirvRayQueryOpKHR(QualType resultType, spv::Op opcode,
+                     llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
+                     SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_RayQueryOpKHR;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+
+  bool hasCullFlags() const { return cullFlags; }
+
+private:
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  bool cullFlags;
 };
 
 /// \brief OpDemoteToHelperInvocationEXT instruction.

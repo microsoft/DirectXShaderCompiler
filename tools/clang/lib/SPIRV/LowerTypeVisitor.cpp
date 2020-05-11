@@ -511,6 +511,9 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return spvContext.getAccelerationStructureTypeNV();
   }
 
+  if (name == "RayQuery")
+    return spvContext.getRayQueryProvisionalTypeKHR();
+
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
     // StructureBuffer<S> will be translated into an OpTypeStruct with one

@@ -17,9 +17,9 @@
 
 #include "spirv-tools/libspirv.h"
 
+#include "dxc/Support/SPIRVOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
-#include "dxc/Support/SPIRVOptions.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -48,6 +48,7 @@ enum class Extension {
   GOOGLE_user_type,
   NV_ray_tracing,
   NV_mesh_shader,
+  KHR_ray_query,
   Unknown,
 };
 
