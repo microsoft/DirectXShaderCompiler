@@ -3282,19 +3282,21 @@ Interface Variables
 ``IncomingCallableData{NV/KHR}``        First argument of entry for Callable stage
 =================================       ===========================================================
 
-Ray Query
+RayQuery
+--------
 
-Ray Query is subfeature of the directx raytracing and belongs to the directx raytracing spec 1.1 (DXR 1.1)
+Ray Query is subfeature of the DirectX ray tracing and belongs to the DirectX ray tracing spec 1.1 (DXR 1.1).
 DirectX add RayQuery object type and its member TraceRayInline() to do the TraceRay() that doesn't
 use any seperate ray-tracing shader stages.
 Shaders can instantiate RayQuery objects as local variables, the RayQuery object acts as a state
-machine for ray query. The shader interacts with the RayQuery object’s methods to advance the
+machine for ray query. The shader interacts with the RayQuery object's methods to advance the
 query through an acceleration structure and query traversal information
 
-| Refer to following pages for details:
-| https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html
+Refer to following pages for details:
+https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html
 
 A flow chart for a simple ray query process
+
 ::
 
           +------------------------------+
@@ -3329,94 +3331,131 @@ A flow chart for a simple ray query process
         +----------------------------------+
 
 
+Example:
+
 .. code:: hlsl
 
-void main() {
-  RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
-  q.TraceRayInline(myAccelerationStructure, 0 , 0xff, myRay);
-
-  // Proceed() is AccelerationStructure traversal loop take places
-  while(q.Proceed()) {
-    switch(q.CandidateType()) {
-      ..// retrieve intersection information/Do the shadering
+  void main() {
+    RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
+    q.TraceRayInline(myAccelerationStructure, 0 , 0xff, myRay);
+  
+    // Proceed() is AccelerationStructure traversal loop take places
+    while(q.Proceed()) {
+      switch(q.CandidateType()) {
+        // retrieve intersection information/Do the shadering
+      }
+    }
+  
+    // AccelerationStructure traversal end
+    // Get the Committed status
+    switch(q.CommittedStatus()) {
+      // retrieve intersection information/ Do the shadering
     }
   }
 
-  // AccelerationStructure traversal end
-  // Get the Committed status
-  switch(q.CommittedStatus()) {
-    ..// retrieve intersection information/ Do the shadering
-  }
-}
-
 Ray Query in SPIRV
-==============================
-| RayQuery SPIR-V codegen is currently supported via SPV_KHR_ray_query extension
-| SPIR-V specification for reference:
-| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_query.asciidoc
+~~~~~~~~~~~~~~~~~~
+RayQuery SPIR-V codegen is currently supported via SPV_KHR_ray_query extension
+SPIR-V specification for reference:
+https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_query.asciidoc
 
 Object Type
-~~~~~~~~~~~~~~
+~~~~~~~~~~~
 RayQuery<RAY_FLAGS>
 
-RayQuery represents the state of an inline raytracing call into an acceleration structure
+RayQuery represents the state of an inline ray tracing call into an acceleration structure.
 
 
-===================================               =======================================
-        HLSL Type                                             SPIR-V Opcode
------------------------------------               ---------------------------------------
-``RayQuery``                                      ``OpTypeRayQueryProvisionalKHR``
-===================================               =======================================
+============ ================================
+ HLSL Type            SPIR-V Opcode
+------------ --------------------------------
+``RayQuery`` ``OpTypeRayQueryProvisionalKHR``
+============ ================================
 
-Rayquery Mapping to SPIR-V
-----------------------------
+RayQuery Mapping to SPIR-V
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-===========================                       =======================================
-        HLSL                                                  SPIR-V
----------------------------                       ---------------------------------------
-RayQuery member Intrinsic                                     Opcode
-===========================                       =======================================
-``.Abort``                                         ``OpRayQueryTerminateKHR``
-``.CandidateType``                                 ``OpRayQueryGetIntersectionTypeKHR``
-``.CandidateProceduralPrimitiveNonOpaque``         ``OpRayQueryGetIntersectionCandidateAABBOpaqueKHR``
-``.CandidateInstanceIndex``                        ``OpRayQueryGetIntersectionInstanceIdKHR``
-``.CandidateInstanceID``                           ``OpRayQueryGetIntersectionInstanceCustomIndexKHR``
-``.CandidateInstanceContributionToHitGroupIndex``  ``OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR``
-``.CandidateGeometryIndex``                        ``OpRayQueryGetIntersectionGeometryIndexKHR``
-``.CandidatePrimitiveIndex``                       ``OpRayQueryGetIntersectionPrimitiveIndexKHR``
-``.CandidateObjectRayOrigin``                      ``OpRayQueryGetIntersectionObjectRayOriginKHR``
-``.CandidateObjectRayDirection``                   ``OpRayQueryGetIntersectionObjectRayDirectionKHR``
-``.CandidateObjectToWorld3x4``                     ``OpRayQueryGetIntersectionObjectToWorldKHR``
-``.CandidateObjectToWorld4x3``                     ``OpRayQueryGetIntersectionObjectToWorldKHR``
-``.CandidateWorldToObject3x4``                     ``OpRayQueryGetIntersectionWorldToObjectKHR``
-``.CandidateWorldToObject4x3``                     ``OpRayQueryGetIntersectionWorldToObjectKHR``
-``.CandidateTriangleBarycentrics``                 ``OpRayQueryGetIntersectionBarycentricsKHR``
-``.CandidateTriangleFrontFace``                    ``OpRayQueryGetIntersectionFrontFaceKHR``
-``.CommittedStatus``                               ``OpRayQueryGetIntersectionTypeKHR``
-``.CommittedInstanceIndex``                        ``OpRayQueryGetIntersectionInstanceIdKHR``
-``.CommittedInstanceID``                           ``OpRayQueryGetIntersectionInstanceCustomIndexKHR``
-``.CommittedInstanceContributionToHitGroupIndex``  ``OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR``
-``.CommittedGeometryIndex``                        ``OpRayQueryGetIntersectionGeometryIndexKHR``
-``.CommittedPrimitiveIndex``                       ``OpRayQueryGetIntersectionPrimitiveIndexKHR``
-``.CommittedRayT``                                 ``OpRayQueryGetIntersectionTKHR``
-``.CommittedObjectRayOrigin``                      ``OpRayQueryGetIntersectionObjectRayOriginKHR``
-``.CommittedObjectRayDirection``                   ``OpRayQueryGetIntersectionObjectRayDirectionKHR``
-``.CommittedObjectToWorld3x4``                     ``OpRayQueryGetIntersectionObjectToWorldKHR``
-``.CommittedObjectToWorld4x3``                     ``OpRayQueryGetIntersectionObjectToWorldKHR``
-``.CommittedWorldToObject3x4``                     ``OpRayQueryGetIntersectionWorldToObjectKHR``
-``.CommittedWorldToObject4x3``                     ``OpRayQueryGetIntersectionWorldToObjectKHR``
-``.CommittedTriangleBarycentrics``                 ``OpRayQueryGetIntersectionBarycentricsKHR``
-``.CommittedTriangleFrontFace``                    ``OpRayQueryGetIntersectionFrontFaceKHR``
-``.CommitNonOpaqueTriangleHit``                    ``OpRayQueryConfirmIntersectionKHR``
-``.CommitProceduralPrimitiveHit``                  ``OpRayQueryGenerateIntersectionKHR``
-``.Proceed``                                       ``OpRayQueryProceedKHR``
-``.RayFlags``                                      ``OpRayQueryGetRayFlagsKHR``
-``.RayTMin``                                       ``OpRayQueryGetRayTMinKHR``
-``.TraceRayInline``                                ``OpRayQueryInitializeKHR``
-``.WorldRayDirection``                             ``OpRayQueryGetWorldRayDirectionKHR``
-``.WorldRayOrigin`                                 ``OpRayQueryGetWorldRayOriginKHR``
-===========================                        ============================================
-
++---------------------------------------------------+-------------------------------------------------------------------------+
+|      HLSL  RayQuery member Intrinsic              |             SPIR-V Opcode                                               |
++===================================================+=========================================================================+
+|``.Abort``                                         | ``OpRayQueryTerminateKHR``                                              |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateType``                                 | ``OpRayQueryGetIntersectionTypeKHR``                                    |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateProceduralPrimitiveNonOpaque``         | ``OpRayQueryGetIntersectionCandidateAABBOpaqueKHR``                     |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateInstanceIndex``                        | ``OpRayQueryGetIntersectionInstanceIdKHR``                              |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateInstanceID``                           | ``OpRayQueryGetIntersectionInstanceCustomIndexKHR``                     |
++---------------------------------------------------+-------------------------------------------------------------------------+
+| ``.CandidateInstanceContributionToHitGroupIndex`` | ``OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR``  |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateGeometryIndex``                        | ``OpRayQueryGetIntersectionGeometryIndexKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidatePrimitiveIndex``                       | ``OpRayQueryGetIntersectionPrimitiveIndexKHR``                          |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectRayOrigin``                      | ``OpRayQueryGetIntersectionObjectRayOriginKHR``                         |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectRayDirection``                   | ``OpRayQueryGetIntersectionObjectRayDirectionKHR``                      |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectToWorld3x4``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectToWorld4x3``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateWorldToObject3x4``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateWorldToObject4x3``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateTriangleBarycentrics``                 | ``OpRayQueryGetIntersectionBarycentricsKHR``                            |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateTriangleFrontFace``                    | ``OpRayQueryGetIntersectionFrontFaceKHR``                               |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedStatus``                               | ``OpRayQueryGetIntersectionTypeKHR``                                    |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedInstanceIndex``                        | ``OpRayQueryGetIntersectionInstanceIdKHR``                              |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedInstanceID``                           | ``OpRayQueryGetIntersectionInstanceCustomIndexKHR``                     |
++---------------------------------------------------+-------------------------------------------------------------------------+
+| ``.CommittedInstanceContributionToHitGroupIndex`` |  ``OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR`` |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedGeometryIndex``                        | ``OpRayQueryGetIntersectionGeometryIndexKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedPrimitiveIndex``                       | ``OpRayQueryGetIntersectionPrimitiveIndexKHR``                          |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedRayT``                                 | ``OpRayQueryGetIntersectionTKHR``                                       |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectRayOrigin``                      | ``OpRayQueryGetIntersectionObjectRayOriginKHR``                         |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectRayDirection``                   | ``OpRayQueryGetIntersectionObjectRayDirectionKHR``                      |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectToWorld3x4``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectToWorld4x3``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedWorldToObject3x4``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedWorldToObject4x3``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedTriangleBarycentrics``                 | ``OpRayQueryGetIntersectionBarycentricsKHR``                            |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedTriangleFrontFace``                    | ``OpRayQueryGetIntersectionFrontFaceKHR``                               |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommitNonOpaqueTriangleHit``                    | ``OpRayQueryConfirmIntersectionKHR``                                    |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommitProceduralPrimitiveHit``                  | ``OpRayQueryGenerateIntersectionKHR``                                   |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.Proceed``                                       | ``OpRayQueryProceedKHR``                                                |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.RayFlags``                                      | ``OpRayQueryGetRayFlagsKHR``                                            |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.RayTMin``                                       | ``OpRayQueryGetRayTMinKHR``                                             |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.TraceRayInline``                                | ``OpRayQueryInitializeKHR``                                             |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.WorldRayDirection``                             | ``OpRayQueryGetWorldRayDirectionKHR``                                   |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
++---------------------------------------------------+-------------------------------------------------------------------------+
 
 Shader Model 6.0 Wave Intrinsics
 ================================
