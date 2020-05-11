@@ -33,38 +33,28 @@ find_path(DXGI_INCLUDE_DIR    # Set variable DXGI_INCLUDE_DIR
           DOC "path to WIN10 SDK header files"
           HINTS
           )
-
-if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
-  find_library(D3D12_LIBRARY NAMES d3d12.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x64 )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM")
-  find_library(D3D12_LIBRARY NAMES d3d12.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM64")
-  find_library(D3D12_LIBRARY NAMES d3d12.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm64 )
-elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
-  find_library(D3D12_LIBRARY NAMES d3d12.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x86 )
-endif ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
-
-if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
-  find_library(DXGI_LIBRARY NAMES dxgi.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x64 )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM")
-  find_library(DXGI_LIBRARY NAMES dxgi.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM64")
-  find_library(DXGI_LIBRARY NAMES dxgi.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm64 )
-elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
-  find_library(DXGI_LIBRARY NAMES dxgi.lib
-               HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x86 )
-endif ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
-
-set(D3D12_LIBRARIES ${D3D12_LIBRARY} ${DXGI_LIBRARY})
 set(D3D12_INCLUDE_DIRS ${D3D12_INCLUDE_DIR} ${DXGI_INCLUDE_DIR})
 
+# Find D3D libraries
+set(D3D12_LIB_NAMES d3d12.lib dxgi.lib d3dcompiler.lib)
+
+if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
+    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x64)
+elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM")
+    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm)
+elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM64")
+    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm64)
+elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
+    set(D3D12_HINTS_PATH ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x86)
+else ("${DXC_BUILD_ARCH}" STREQUAL "x64")
+   message(FATAL_ERROR "Cannot match platform.")
+endif ("${DXC_BUILD_ARCH}" STREQUAL "x64")
+
+set(D3D12_LIBRARIES)
+foreach (D3D12_LIB_NAME ${D3D12_LIB_NAMES})
+  find_library(${D3D12_LIB_NAME}_LOC NAMES ${D3D12_LIB_NAME} HINTS ${D3D12_HINTS_PATH})
+  set(D3D12_LIBRARIES ${D3D12_LIBRARIES} ${${D3D12_LIB_NAME}_LOC})
+endforeach(D3D12_LIB_NAME)
 
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set D3D12_FOUND to TRUE
