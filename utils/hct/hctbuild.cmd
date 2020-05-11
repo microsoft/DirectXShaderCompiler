@@ -353,6 +353,7 @@ rem %1 - the conf name
 rem %2 - the platform name
 rem %3 - the build directory
 rem %4 - the generator name
+rem %5 - the vs2019 architecture name
 if not exist %3 (
   mkdir %3
   if errorlevel 1 (
@@ -369,13 +370,8 @@ if "%DO_SETUP%"=="1" (
     cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    if "%BUILD_VS_VER%"=="2019" (
-      echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
-    ) else (
-      echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
-    )
+    echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.
