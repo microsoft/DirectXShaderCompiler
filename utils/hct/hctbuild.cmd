@@ -165,6 +165,24 @@ if "%1"=="-no-dxilconv" (
   shift /1
 )
 
+if "%1"=="-dxc-cmake-extra-args" (
+  set CMAKE_OPTS=%CMAKE_OPTS% %~2
+  shift /1
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-begins-include" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_BEGINS_INCLUDE=%2
+  shift /1
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-ends-include" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_ENDS_INCLUDE=%2
+  shift /1
+  shift /1
+)
+
 rem If only VS 2017 is available, pick that by default.
 if "%BUILD_VS_VER%"=="2015" (
   reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
@@ -213,7 +231,7 @@ if "%1"=="-ninja" (
   shift /1
 )
 
-set CMAKE_OPTS=-DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER%

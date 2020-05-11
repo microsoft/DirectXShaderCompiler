@@ -1,6 +1,10 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 cmake_minimum_required(VERSION 2.8.12.2)
 
+if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
+  include(${DXC_CMAKE_BEGINS_INCLUDE})
+endif()
+
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "No build type selected, default to Debug")
   set(CMAKE_BUILD_TYPE "Debug")
@@ -736,4 +740,8 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
                               -DCMAKE_INSTALL_COMPONENT=llvm-headers
                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
   endif()
+endif()
+
+if (NOT "${DXC_CMAKE_ENDS_INCLUDE}" STREQUAL "")
+  include(${DXC_CMAKE_ENDS_INCLUDE})
 endif()
