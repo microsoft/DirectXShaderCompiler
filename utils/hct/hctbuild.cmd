@@ -17,7 +17,7 @@ if "%HLSL_SRC_DIR%"=="" (
   )
 )
 
-if "%1"=="/buildoutdir" (
+if "%1"=="-buildoutdir" (
   echo Build output directory set to %2
   set HLSL_BLD_DIR=%2
   shift /1
