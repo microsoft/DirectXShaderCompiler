@@ -792,7 +792,8 @@ SpirvDebugInstruction::SpirvDebugInstruction(Kind kind, uint32_t opcode)
     : SpirvInstruction(kind, spv::Op::OpExtInst,
                        /*result type */ {},
                        /*SourceLocation*/ {}),
-      debugOpcode(opcode), debugType(nullptr), instructionSet(nullptr) {}
+      debugOpcode(opcode), debugSpirvType(nullptr), debugType(nullptr),
+      instructionSet(nullptr) {}
 
 SpirvDebugInfoNone::SpirvDebugInfoNone()
     : SpirvDebugInstruction(IK_DebugInfoNone, /*opcode*/ 0u) {}

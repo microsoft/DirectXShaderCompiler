@@ -59,12 +59,32 @@ private:
   /// depends on will also be created.
   SpirvDebugInstruction *lowerToDebugType(const SpirvType *);
 
+  /// Lowers DebugTypeComposite.
   SpirvDebugInstruction *lowerToDebugTypeComposite(const SpirvType *);
 
-  // Set the result type of debug instructions to OpTypeVoid.
-  // According to the OpenCL.DebugInfo.100 spec, all debug instructions are
-  // OpExtInst with result type of void.
+  /// Lowers DebugTypeComposite for cbuffer.
+  SpirvDebugTypeComposite *lowerCbufferDebugType(const StructType *type,
+                                                 const SourceLocation &loc);
+
+  /// Lowers DebugTypeTemplate for HLSL resource type. Returns false if
+  /// there is an error.
+  bool lowerDebugTypeTemplate(SpirvDebugTypeComposite *instr);
+
+  /// Lowers DebugTypeFunction for member function of a composite type.
+  /// Returns false if there is an error.
+  bool lowerDebugTypeFunctionForMemberFunction(SpirvDebugInstruction *instr);
+
+  /// Lowers debug type for DebugTypeMember of a composite type. Returns
+  /// false if there is an error.
+  bool lowerDebugTypeMember(SpirvDebugTypeMember *debugMember,
+                            uint32_t *sizeInBits, uint32_t *offsetInBits);
+
+  /// Set the result type of debug instructions to OpTypeVoid.
+  /// According to the OpenCL.DebugInfo.100 spec, all debug instructions are
+  /// OpExtInst with result type of void.
   void setDefaultDebugInfo(SpirvDebugInstruction *instr);
+
+  SpirvDebugInfoNone *getDebugInfoNone();
 
 private:
   ASTContext &astContext;   /// AST context

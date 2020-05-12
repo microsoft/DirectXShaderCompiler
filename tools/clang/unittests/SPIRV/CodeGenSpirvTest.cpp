@@ -2393,5 +2393,9 @@ TEST_F(FileTest, RichDebugInfoTypeSampler) {
   runFileTest("rich.debug.sampler.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoCbuffer) {
+  runFileTest("rich.debug.cbuffer.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 
 } // namespace
