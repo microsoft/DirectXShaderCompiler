@@ -12,6 +12,7 @@
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
+#include "NonUniformVisitor.h"
 #include "PreciseVisitor.h"
 #include "RelaxedPrecisionVisitor.h"
 #include "RemoveBufferBlockVisitor.h"
@@ -163,7 +164,6 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   auto *instruction = new (context) SpirvLoad(resultType, loc, pointer);
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setLayoutRule(pointer->getLayoutRule());
-  instruction->setNonUniform(pointer->isNonUniform());
   instruction->setRValue(true);
 
   if (pointer->containsAliasComponent() &&
@@ -199,7 +199,6 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   }
 
   instruction->setLayoutRule(pointer->getLayoutRule());
-  instruction->setNonUniform(pointer->isNonUniform());
   instruction->setRValue(true);
   insertPoint->addInstruction(instruction);
   return instruction;
@@ -245,10 +244,6 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
       new (context) SpirvAccessChain(resultType, loc, base, indexes);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
-  bool isNonUniform = base->isNonUniform();
-  for (auto *index : indexes)
-    isNonUniform = isNonUniform || index->isNonUniform();
-  instruction->setNonUniform(isNonUniform);
   instruction->setContainsAliasComponent(base->containsAliasComponent());
 
   // If doing an access chain into a structured or byte address buffer, make
@@ -266,7 +261,6 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
                                           SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUnaryOp(op, resultType, loc, operand);
-  instruction->setNonUniform(operand->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -278,7 +272,6 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvBinaryOp(op, resultType, loc, lhs, rhs);
-  instruction->setNonUniform(lhs->isNonUniform() || rhs->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -357,7 +350,6 @@ SpirvSampledImage *SpirvBuilder::createSampledImage(QualType imageType,
   assert(insertPoint && "null insert point");
   auto *sampledImage =
       new (context) SpirvSampledImage(imageType, loc, image, sampler);
-  sampledImage->setNonUniform(image->isNonUniform() || sampler->isNonUniform());
   insertPoint->addInstruction(sampledImage);
   return sampledImage;
 }
@@ -368,7 +360,6 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvImageTexelPointer(resultType, loc, image, coordinate, sample);
-  instruction->setNonUniform(image->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -1080,10 +1071,14 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
+  NonUniformVisitor nonUniformVisitor(context, spirvOptions);
   RemoveBufferBlockVisitor removeBufferBlockVisitor(context, spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   mod->invokeVisitor(&literalTypeVisitor, true);
+
+  // Propagate NonUniform decorations
+  mod->invokeVisitor(&nonUniformVisitor);
 
   // Lower types
   mod->invokeVisitor(&lowerTypeVisitor);
