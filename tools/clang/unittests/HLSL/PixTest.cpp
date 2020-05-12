@@ -629,7 +629,7 @@ public:
       WEX::Logging::Log::Error(errorTextW);
     }
 
-#if 0 //handy for debugging
+#if 1 //handy for debugging
     {
       CComPtr<IDxcBlob> pProgram;
       CheckOperationSucceeded(pResult, &pProgram);
@@ -1786,8 +1786,8 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
           else
           {
             // Next member has to start where the previous one ended:
-            VERIFY_ARE_EQUAL(iterator->OffsetInBits(memberIndex), startingBit + coveredBits);
-            coveredBits += iterator->SizeInBits(memberIndex);
+            //VERIFY_ARE_EQUAL(iterator->OffsetInBits(memberIndex), startingBit + coveredBits);
+            coveredBits = std::max<unsigned int>( coveredBits, iterator->OffsetInBits(memberIndex) + iterator->SizeInBits(memberIndex));
           }
         }
 
@@ -1808,7 +1808,10 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
         if (auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy))
         {
           uint32_t countOfMembers = CountStructMembers(ST);
-          VERIFY_ARE_EQUAL(countOfMembers, memberIndex);
+          // memberIndex might be greater, because the fragment iterator also includes contained derived types as
+          // fragments, in addition to the members of that contained derived types. CountStructMembers only counts
+          // the leaf-node types.
+          VERIFY_IS_GREATER_THAN_OR_EQUAL(memberIndex, countOfMembers);
         }
         else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
         {
@@ -1836,7 +1839,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
       {
         VERIFY_IS_FALSE(found);
         found = true;
-        VERIFY_ARE_EQUAL(valueLocation.count, cover.countOfMembers);
+        VERIFY_IS_GREATER_THAN_OR_EQUAL((int)cover.countOfMembers, valueLocation.count);
       }
     }
     VERIFY_IS_TRUE(found);
@@ -1984,7 +1987,8 @@ void main()
   VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
   VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
   VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-  VERIFY_ARE_EQUAL(32+64+32+16, Testables.OffsetAndSizes[0].size);
+  // 16+16 to place "thirtytwo" at its natural alignment:
+  VERIFY_ARE_EQUAL(32+16+16+64+32, Testables.OffsetAndSizes[0].size);
 
   VERIFY_ARE_EQUAL(4, Testables.AllocaWrites.size());
   ValidateAllocaWrite(Testables.AllocaWrites, 0, "b1");
@@ -2332,7 +2336,7 @@ void main()
   VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
   constexpr uint32_t BigStructBitSize = 64 * 2;
   constexpr uint32_t EmbeddedStructBitSize = 32 * 5;
-  VERIFY_ARE_EQUAL(3 * 32 + EmbeddedStructBitSize + 64 + 16 + BigStructBitSize*2 + 32, Testables.OffsetAndSizes[0].size);
+  VERIFY_ARE_EQUAL(3 * 32 + EmbeddedStructBitSize + 64 + 16 +16/*alignment for next field*/ + BigStructBitSize*2 + 32, Testables.OffsetAndSizes[0].size);
 }
 
 
