@@ -51,5 +51,11 @@ bool NonUniformVisitor::visit(SpirvImageTexelPointer *instr) {
   return true;
 }
 
+bool NonUniformVisitor::visit(SpirvAtomic *instr) {
+  if (instr->getPointer()->isNonUniform())
+    instr->setNonUniform();
+  return true;
+}
+
 } // end namespace spirv
 } // end namespace clang

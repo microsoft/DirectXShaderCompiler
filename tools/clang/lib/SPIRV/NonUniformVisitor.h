@@ -30,6 +30,7 @@ public:
   bool visit(SpirvBinaryOp *);
   bool visit(SpirvSampledImage *);
   bool visit(SpirvImageTexelPointer *);
+  bool visit(SpirvAtomic *);
 
   /// The "sink" visit function for all instructions.
   ///

@@ -63,6 +63,7 @@
 // CHECK: OpDecorate [[nu51:%\d+]] NonUniform
 // CHECK: OpDecorate [[nu52:%\d+]] NonUniform
 // CHECK: OpDecorate [[nu53:%\d+]] NonUniform
+// CHECK: OpDecorate [[nu54:%\d+]] NonUniform
 
 Texture2D           gTextures[32];
 SamplerState        gSamplers[];
@@ -140,32 +141,32 @@ float4 main(uint index : A, float2 loc : B, int2 offset : C) : SV_Target {
 // CHECK: [[nu36]] = OpIMul %uint [[nu34]] [[nu35]]
 // CHECK: [[nu37]] = OpAccessChain %_ptr_UniformConstant_type_buffer_image_0 %gRWBuffers [[nu36]]
 // CHECK: [[nu38]] = OpImageTexelPointer %_ptr_Image_uint {{%\d+}} %uint_10 %uint_0
-// CHECK:            OpAtomicIAdd
+// CHECK: [[nu39]] = OpAtomicIAdd
     uint old = 0;
     InterlockedAdd(gRWBuffers[NonUniformResourceIndex(index) * NonUniformResourceIndex(index)][10], 1, old);
 
-// CHECK: [[nu39]] = OpLoad %uint %index
-// CHECK: [[nu40]] = OpAccessChain %_ptr_UniformConstant_type_subpass_image %gSubpassInputs [[nu39]]
-// CHECK: [[nu41]] = OpLoad %type_subpass_image
+// CHECK: [[nu40]] = OpLoad %uint %index
+// CHECK: [[nu41]] = OpAccessChain %_ptr_UniformConstant_type_subpass_image %gSubpassInputs [[nu40]]
+// CHECK: [[nu42]] = OpLoad %type_subpass_image
 // CHECK:            OpImageRead
     float4 v7 = gSubpassInputs[NonUniformResourceIndex(index)].SubpassLoad();
 
-// CHECK: [[nu42]] = OpLoad %uint %index
-// CHECK: [[nu43]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu42]]
-// CHECK: [[nu44]] = OpLoad %type_2d_image
-// CHECK: [[nu45]] = OpSampledImage %type_sampled_image
+// CHECK: [[nu43]] = OpLoad %uint %index
+// CHECK: [[nu44]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu43]]
+// CHECK: [[nu45]] = OpLoad %type_2d_image
+// CHECK: [[nu46]] = OpSampledImage %type_sampled_image
 // CHECK:            OpImageGather
     float4 v8 = gTextures[NonUniformResourceIndex(index)].Gather(gSamplers[0], loc, offset);
 
-// CHECK: [[nu46]] = OpLoad %uint %index
-// CHECK: [[nu47]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu46]]
-// CHECK: [[nu48]] = OpLoad %type_2d_image
-// CHECK: [[nu49]] = OpSampledImage %type_sampled_image
+// CHECK: [[nu47]] = OpLoad %uint %index
+// CHECK: [[nu48]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu47]]
+// CHECK: [[nu49]] = OpLoad %type_2d_image
+// CHECK: [[nu50]] = OpSampledImage %type_sampled_image
 // CHECK:            OpImageQueryLod
-// CHECK: [[nu50]] = OpLoad %uint %index
-// CHECK: [[nu51]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu50]]
-// CHECK: [[nu52]] = OpLoad %type_2d_image
-// CHECK: [[nu53]] = OpSampledImage %type_sampled_image
+// CHECK: [[nu51]] = OpLoad %uint %index
+// CHECK: [[nu52]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %gTextures [[nu51]]
+// CHECK: [[nu53]] = OpLoad %type_2d_image
+// CHECK: [[nu54]] = OpSampledImage %type_sampled_image
 // CHECK:            OpImageQueryLod
     float  v9 = gTextures[NonUniformResourceIndex(index)].CalculateLevelOfDetail(gSamplers[0], 0.5);
 
