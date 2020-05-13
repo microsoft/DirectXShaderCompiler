@@ -242,16 +242,6 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
   {
     m_fragmentLocations.push_back({ MemberSize, static_cast<unsigned>(BaseOffset) });
   }
-  //  else
-  //  {
-  //    if (auto* DT = llvm::dyn_cast<llvm::DIDerivedType>(diType)) 
-  //    {
-  //      const llvm::DITypeIdentifierMap EmptyMap;
-  //      llvm::DIType* BT = DT->getBaseType().resolve(EmptyMap);
-  //      DetermineStructMemberSizesAndOffsets(BT, MemberOffset + BaseOffset);
-  //    }
-  //  }
-  //}
   else
   {
     if (auto* CT = llvm::dyn_cast<llvm::DICompositeType>(diType))
@@ -302,11 +292,6 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
       llvm::DIType* BT = DT->getBaseType().resolve(EmptyMap);
       DetermineStructMemberSizesAndOffsets(BT, BaseOffset);
     }
-    //else
-    //{
-    //  assert(!"Unhandled DIType");
-    //  throw hlsl::Exception(E_FAIL, "Unhandled DIType");
-    //}
   }
 }
 
