@@ -4,7 +4,7 @@
 // If they remain constant, it should simplify down to just storeOutputs
 
 // CHECK: define void @main
-// CHECK-NEXT: call void @dx.op.storeOutput
+// CHECK: call void @dx.op.storeOutput
 // CHECK-NEXT: call void @dx.op.storeOutput
 // CHECK-NEXT: call void @dx.op.storeOutput
 // CHECK-NEXT: call void @dx.op.storeOutput
