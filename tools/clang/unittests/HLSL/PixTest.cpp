@@ -1785,8 +1785,6 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
           }
           else
           {
-            // Next member has to start where the previous one ended:
-            //VERIFY_ARE_EQUAL(iterator->OffsetInBits(memberIndex), startingBit + coveredBits);
             coveredBits = std::max<unsigned int>( coveredBits, iterator->OffsetInBits(memberIndex) + iterator->SizeInBits(memberIndex));
           }
         }
@@ -1811,7 +1809,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
           // memberIndex might be greater, because the fragment iterator also includes contained derived types as
           // fragments, in addition to the members of that contained derived types. CountStructMembers only counts
           // the leaf-node types.
-          VERIFY_IS_GREATER_THAN_OR_EQUAL(memberIndex, countOfMembers);
+          VERIFY_ARE_EQUAL(countOfMembers, memberIndex);
         }
         else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
         {
@@ -1839,7 +1837,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
       {
         VERIFY_IS_FALSE(found);
         found = true;
-        VERIFY_IS_GREATER_THAN_OR_EQUAL((int)cover.countOfMembers, valueLocation.count);
+        VERIFY_ARE_EQUAL(valueLocation.count, cover.countOfMembers);
       }
     }
     VERIFY_IS_TRUE(found);

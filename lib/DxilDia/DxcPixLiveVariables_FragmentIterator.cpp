@@ -232,7 +232,6 @@ unsigned SizeIfBaseType(llvm::DIType const* diType)
 
 void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::DIType const*diType, uint64_t BaseOffset)
 {
-  diType->dump();
   if (diType->getTag() == llvm::dwarf::DW_TAG_member)
   {
     BaseOffset += diType->getOffsetInBits();
@@ -298,7 +297,6 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
 CompositeTypeFragmentIterator::CompositeTypeFragmentIterator(
   llvm::DICompositeType* CT)
 {
-  OutputDebugStringA("--------------------------------------------\n");
   DetermineStructMemberSizesAndOffsets(CT, 0);
 }
 
