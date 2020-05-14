@@ -93,7 +93,7 @@ option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) 
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 option(HLSL_BUILD_DXILCONV "Include DXBC to DXIL converter and tools." ON) # HLSL Change
 
-option(HLSL_DISABLE_DEBUG_ITERATORS "Disable debug iterators for faster debug and to remove some additional allocations with improper noexcept attribution" ON) # HLSL Change
+option(HLSL_ENABLE_DEBUG_ITERATORS "Disable debug iterators for faster debug and to remove some additional allocations with improper noexcept attribution" OFF) # HLSL Change
 
 # HLSL Change Starts - support commit querying
 option(HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO "Supports querying Git commit info." ON)
