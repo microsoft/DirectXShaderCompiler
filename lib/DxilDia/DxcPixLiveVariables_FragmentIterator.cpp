@@ -213,85 +213,91 @@ private:
   std::vector<FragmentSizeAndOffset> m_fragmentLocations;
   unsigned m_currentFragment = 0;
   void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(
-    llvm::DIType const*);
+    llvm::DIType const*, uint64_t BaseOffset);
 };
 
-
-void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::DIType const*diType) 
+unsigned SizeIfBaseType(llvm::DIType const* diType)
 {
-  auto AddANewFragment = [=](llvm::DIType const * type)
+  if (auto* BT = llvm::dyn_cast<llvm::DIBasicType>(diType))
   {
-    unsigned size = static_cast<unsigned>(type->getSizeInBits());
-    if (m_fragmentLocations.empty())
-    {
-      m_fragmentLocations.push_back({ size, 0 });
-    }
-    else
-    {
-      unsigned offset = m_fragmentLocations.back().Offset + m_fragmentLocations.back().Size;
-      m_fragmentLocations.push_back({ size, offset });
-    }
-  };
-
-  if (auto* BT = llvm::dyn_cast<llvm::DIBasicType>(diType)) 
-  {
-    AddANewFragment(BT);
+    return BT->getSizeInBits();
   }
-  else if (auto* CT = llvm::dyn_cast<llvm::DICompositeType>(diType))
-  {
-    switch (diType->getTag())
-    {
-    case llvm::dwarf::DW_TAG_array_type :
-    {
-      llvm::DINodeArray elements = CT->getElements();
-      unsigned arraySize = 1;
-      for (auto const& node : elements)
-      {
-        if (llvm::DISubrange* SR = llvm::dyn_cast<llvm::DISubrange>(node))
-        {
-          arraySize *= SR->getCount();
-        }
-      }
-      const llvm::DITypeIdentifierMap EmptyMap;
-      llvm::DIType *BT = CT->getBaseType().resolve(EmptyMap);
-      for (unsigned i = 0; i < arraySize; ++i) {
-        DetermineStructMemberSizesAndOffsets(BT);
-      }
-    }
-      break;
-    case llvm::dwarf::DW_TAG_class_type:
-    case llvm::dwarf::DW_TAG_structure_type:
-      for (auto const& node : CT->getElements())
-      {
-        if (llvm::DIType* subType = llvm::dyn_cast<llvm::DIType>(node))
-        {
-          DetermineStructMemberSizesAndOffsets(subType);
-        }
-
-      }
-      break;
-    default:
-      diType->dump();
-      break;
-    }
-  }
-  else if (auto *DT = llvm::dyn_cast<llvm::DIDerivedType>(diType)) 
+  if (auto* DT = llvm::dyn_cast<llvm::DIDerivedType>(diType))
   {
     const llvm::DITypeIdentifierMap EmptyMap;
-    llvm::DIType *BT = DT->getBaseType().resolve(EmptyMap);
-    DetermineStructMemberSizesAndOffsets(BT);
+    return SizeIfBaseType(DT->getBaseType().resolve(EmptyMap));
+  }
+  return 0;
+}
+
+void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::DIType const*diType, uint64_t BaseOffset)
+{
+  if (diType->getTag() == llvm::dwarf::DW_TAG_member)
+  {
+    BaseOffset += diType->getOffsetInBits();
+  }
+  unsigned MemberSize = SizeIfBaseType(diType);
+  if (MemberSize != 0)
+  {
+    m_fragmentLocations.push_back({ MemberSize, static_cast<unsigned>(BaseOffset) });
   }
   else
   {
-    assert(!"Unhandled DIType");
-    throw hlsl::Exception(E_FAIL, "Unhandled DIType");
+    if (auto* CT = llvm::dyn_cast<llvm::DICompositeType>(diType))
+    {
+
+      switch (diType->getTag())
+      {
+      case llvm::dwarf::DW_TAG_array_type:
+      {
+        llvm::DINodeArray elements = CT->getElements();
+        unsigned arraySize = 1;
+        for (auto const& node : elements)
+        {
+          if (llvm::DISubrange* SR = llvm::dyn_cast<llvm::DISubrange>(node))
+          {
+            arraySize *= SR->getCount();
+          }
+        }
+        if (arraySize != 0)
+        {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          llvm::DIType* BT = CT->getBaseType().resolve(EmptyMap);
+          unsigned elementSize = static_cast<unsigned>(CT->getSizeInBits()) / arraySize;
+          for (unsigned i = 0; i < arraySize; ++i) {
+            DetermineStructMemberSizesAndOffsets(BT, BaseOffset + i * elementSize);
+          }
+        }
+      }
+      break;
+      case llvm::dwarf::DW_TAG_class_type:
+      case llvm::dwarf::DW_TAG_structure_type:
+        for (auto const& node : CT->getElements())
+        {
+          if (llvm::DIType* subType = llvm::dyn_cast<llvm::DIType>(node))
+          {
+            DetermineStructMemberSizesAndOffsets(subType, BaseOffset /*TODO: plus member offset*/);
+          }
+        }
+        break;
+      default:
+        diType->dump();
+        break;
+      }
+    }
+    else if (auto* DT = llvm::dyn_cast<llvm::DIDerivedType>(diType))
+    {
+      const llvm::DITypeIdentifierMap EmptyMap;
+      llvm::DIType* BT = DT->getBaseType().resolve(EmptyMap);
+      DetermineStructMemberSizesAndOffsets(BT, BaseOffset);
+    }
   }
 }
 
 CompositeTypeFragmentIterator::CompositeTypeFragmentIterator(
   llvm::DICompositeType* CT)
 {
-  DetermineStructMemberSizesAndOffsets(CT);
+  DetermineStructMemberSizesAndOffsets(CT, 0);
 }
 
 unsigned CompositeTypeFragmentIterator::SizeInBits(unsigned Index) const
