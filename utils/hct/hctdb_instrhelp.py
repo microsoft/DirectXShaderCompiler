@@ -398,6 +398,8 @@ class db_oload_gen:
             "splitdouble": "A(pSDT);",
             "twoi32": "A(p2I32);",
             "twof32": "A(p2F32);",
+            "twof16": "A(p2F16);",
+            "twoi16": "A(p2I16);",
             "threei32": "A(p3I32);",
             "threef32": "A(p3F32);",
             "fouri32": "A(p4I32);",
