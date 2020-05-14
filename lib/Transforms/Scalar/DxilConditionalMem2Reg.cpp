@@ -248,21 +248,21 @@ public:
     Value *V;
     unsigned Offset;
   };
-  static bool FindAllStores(Module &M, Value *V, std::vector<StoreInfo> *Stores) {
-    std::vector<StoreInfo> Queue;
+  static bool FindAllStores(Module &M, Value *V, SmallVectorImpl<StoreInfo> *Stores) {
+    SmallVector<StoreInfo, 8> Worklist;
     std::set<Value *> Seen;
 
     auto Add = [&](Value *V, unsigned OffsetInBits) {
       if (Seen.insert(V).second)
-        Queue.push_back({ V, OffsetInBits });
+        Worklist.push_back({ V, OffsetInBits });
     };
 
     Add(V, 0);
 
     const DataLayout &DL = M.getDataLayout();
 
-    for (unsigned i = 0; i < Queue.size(); i++) {
-      auto Info = Queue[i];
+    while (Worklist.size()) {
+      auto Info = Worklist.pop_back_val();
       auto *Elem = Info.V;
 
       if (auto GEP = dyn_cast<GEPOperator>(Elem)) {
@@ -327,7 +327,7 @@ public:
     Module *M = F.getParent();
     DIBuilder DIB(*M);
 
-    std::vector<StoreInfo> Stores;
+    SmallVector<StoreInfo, 4> Stores;
     LLVMContext &Ctx = F.getContext();
     for (Argument &Arg : F.args()) {
       if (!Arg.getType()->isPointerTy())
