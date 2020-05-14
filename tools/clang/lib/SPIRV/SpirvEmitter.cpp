@@ -10443,12 +10443,6 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
 
-  // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
-  if (!featureManager.isExtensionEnabled("SPV_NV_ray_tracing")) {
-    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing",
-                                    decl->getLocation());
-  }
-
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
     const auto varInfo =

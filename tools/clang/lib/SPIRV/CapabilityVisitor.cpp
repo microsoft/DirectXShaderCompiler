@@ -523,6 +523,8 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
+      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
       addCapability(spv::Capability::RayTracingProvisionalKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
