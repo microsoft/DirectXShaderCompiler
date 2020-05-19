@@ -508,7 +508,10 @@ public:
       DxcOutputObject primaryOutput;
 
       // Formerly API values.
-      const char *pUtf8SourceName = opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
+      std::string NormalizedPath = opts.InputFile.str();
+      std::replace(NormalizedPath.begin(), NormalizedPath.end(), '\\', '/');
+      const char *pUtf8SourceName =
+          opts.InputFile.empty() ? "hlsl.hlsl" : NormalizedPath.data();
       CA2W pUtf16SourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint = opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing
@@ -1015,7 +1018,10 @@ public:
       compiler.getDiagnostics().Report(ID);
     }
 
-    compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
+    std::string NormalizedPath = pMainFile;
+    std::replace(NormalizedPath.begin(), NormalizedPath.end(), '\\', '/');
+    compiler.getFrontendOpts().Inputs.push_back(
+        FrontendInputFile(NormalizedPath, IK_HLSL));
     // Setup debug information.
     if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();

@@ -28,6 +28,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "clang/Lex/PreprocessorOptions.h" // HLSL Change - ignore line directives.
+#include <algorithm> // HLSL Change - uniform filename.
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -1614,6 +1615,9 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   SmallString<128> NormalizedPath;
   if (LangOpts.MSVCCompat || LangOpts.HLSL) { // HLSL Change: use MSVC compat behavior
     NormalizedPath = Filename.str();
+    // HLSL Change Begin - uniform filename.
+    std::replace(NormalizedPath.begin(), NormalizedPath.end(), '\\', '/');
+    // HLSL Change End.
 #ifndef LLVM_ON_WIN32
     llvm::sys::path::native(NormalizedPath);
 #endif

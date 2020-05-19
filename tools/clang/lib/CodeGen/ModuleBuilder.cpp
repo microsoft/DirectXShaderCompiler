@@ -236,8 +236,7 @@ namespace {
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
-            std::string filename = it->first->getName();
-            std::replace(filename.begin(), filename.end(), '\\', '/');
+            const char * filename = it->first->getName();
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
