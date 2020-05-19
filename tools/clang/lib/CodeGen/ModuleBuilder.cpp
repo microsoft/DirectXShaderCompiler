@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include <algorithm> // HLSL Change - uniform filename.
 using namespace clang;
 
 namespace {
@@ -235,14 +236,16 @@ namespace {
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
+            std::string filename = it->first->getName();
+            std::replace(filename.begin(), filename.end(), '\\', '/');
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-              AddFile(it->first->getName(), it->second->getRawBuffer()->getBuffer());
+              AddFile(filename, it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {
-              filesMap[it->first->getName()] = it->second->getRawBuffer()->getBuffer();
+              filesMap[filename] = it->second->getRawBuffer()->getBuffer();
             }
           }
         }
