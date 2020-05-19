@@ -15,10 +15,52 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h" // HLSL Change
+#include "llvm/IR/DebugInfoMetadata.h" // HLSL Change
+#include "llvm/IR/IntrinsicInst.h" // HLSL Change
+#include "llvm/Support/FormattedStream.h" // HLSL Change
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "dxc/DXIL/DxilUtil.h"
 using namespace llvm;
+
+// HLSL Change - Begin
+namespace {
+class DxilAAW : public llvm::AssemblyAnnotationWriter {
+public:
+  ~DxilAAW() {}
+  void printInfoComment(const Value &V, formatted_raw_ostream &OS) override {
+    using namespace llvm;
+    if (const Instruction *I = dyn_cast<Instruction>(&V)) {
+      if (isa<DbgInfoIntrinsic>(I)) {
+        DILocalVariable *Var = nullptr;
+        DIExpression *Expr = nullptr;
+        if (const DbgDeclareInst *DI = dyn_cast<DbgDeclareInst>(I)) {
+          Var = DI->getVariable();
+          Expr = DI->getExpression();
+        }
+        else if (const DbgValueInst *DI = dyn_cast<DbgValueInst>(I)) {
+          Var = DI->getVariable();
+          Expr = DI->getExpression();
+        }
+
+        if (Var && Expr) {
+          OS << " ; var:\"" << Var->getName() << "\"" << " ";
+          Expr->printAsBody(OS);
+        }
+      }
+      else {
+        DebugLoc Loc = I->getDebugLoc();
+        if (Loc && Loc.getLine() != 0)
+          OS << " ; line:" << Loc.getLine() << " col:" << Loc.getCol();
+      }
+    }
+  }
+};
+
+}
+// HLSL Change - End
 
 PrintModulePass::PrintModulePass() : OS(dbgs()) {}
 PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
@@ -27,8 +69,9 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
 PreservedAnalyses PrintModulePass::run(Module &M) {
+  DxilAAW AAW; // HLSL Change
   OS << Banner;
-  M.print(OS, nullptr, ShouldPreserveUseListOrder);
+  M.print(OS, &AAW, ShouldPreserveUseListOrder); // HLSL Change
   return PreservedAnalyses::all();
 }
 
