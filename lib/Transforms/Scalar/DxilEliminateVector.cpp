@@ -62,9 +62,7 @@ MetadataAsValue *GetAsMetadata(Instruction *I) {
 
 static bool IsZeroInitializer(Value *V) {
   Constant *C = dyn_cast<Constant>(V);
-  if (C && C->isZeroValue())
-    return true;
-  return false;
+  return C && C->isZeroValue();
 }
 
 static
