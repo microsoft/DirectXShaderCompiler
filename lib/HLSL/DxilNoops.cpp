@@ -95,10 +95,13 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
 
 using namespace llvm;
+
+static const bool kAllowPreserves = false;
 
 namespace {
 StringRef kNoopName = "dx.noop";
@@ -170,12 +173,10 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
       }
     }
     else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
-      if (ShouldPreserve(Store->getValueOperand())) {
-        Store_Info Info;
-        Info.StoreOrMC = Store;
-        Info.Source = Ptr;
-        Stores->push_back(Info);
-      }
+      Store_Info Info;
+      Info.StoreOrMC = Store;
+      Info.Source = Ptr;
+      Stores->push_back(Info);
     }
     else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
       Store_Info Info;
@@ -286,6 +287,24 @@ static void InsertNoopAt(Instruction *I) {
   Noop->setDebugLoc(I->getDebugLoc());
 }
 
+static void InsertPreserve(bool AllowLoads, StoreInst *Store) {
+  Value *V = Store->getValueOperand();
+
+  IRBuilder<> B(Store);
+  Value *Last_Value = nullptr;
+  // If there's never any loads for this memory location,
+  // don't generate a load.
+  if (AllowLoads) {
+    Last_Value = B.CreateLoad(Store->getPointerOperand());
+  }
+  else {
+    Last_Value = UndefValue::get(V->getType());
+  }
+
+  Instruction *Preserve = CreatePreserve(V, Last_Value, Store);
+  Preserve->setDebugLoc(Store->getDebugLoc());
+  Store->replaceUsesOfWith(V, Preserve);
+}
 
 //==========================================================
 // Insertion pass
@@ -365,34 +384,22 @@ struct DxilInsertPreserves : public ModulePass {
       if (StoreInst *Store = dyn_cast<StoreInst>(Info.StoreOrMC)) {
         Value *V = Store->getValueOperand();
 
-        if (V &&
+        if (kAllowPreserves && V &&
           !V->getType()->isAggregateType() &&
           !V->getType()->isPointerTy())
         {
-          IRBuilder<> B(Store);
-          Value *Last_Value = nullptr;
-          // If there's never any loads for this memory location,
-          // don't generate a load.
-          if (Info.AllowLoads) {
-            Last_Value = B.CreateLoad(Store->getPointerOperand());
-          }
-          else {
-            Last_Value = UndefValue::get(V->getType());
-          }
-
-          Instruction *Preserve = CreatePreserve(V, Last_Value, Store);
-          Preserve->setDebugLoc(Store->getDebugLoc());
-          Store->replaceUsesOfWith(V, Preserve);
-
+          InsertPreserve(Info.AllowLoads, Store);
           Changed = true;
         }
         else {
           InsertNoopAt(Store);
+          Changed = true;
         }
       }
       else if (MemCpyInst *MC = cast<MemCpyInst>(Info.StoreOrMC)) {
         // TODO: Do something to preserve pointer's previous value.
         InsertNoopAt(MC);
+        Changed = true;
       }
     }
 
@@ -475,9 +482,15 @@ class DxilFinalizePreserves : public ModulePass {
 public:
   static char ID;
   GlobalVariable *NothingGV = nullptr;
+  DxilValueCache *DVC = nullptr;
 
   DxilFinalizePreserves() : ModulePass(ID) {
     initializeDxilFinalizePreservesPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DxilValueCache>();
+    AU.setPreservesCFG();
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
@@ -524,16 +537,29 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
           std::next(LI->user_begin()) == LI->user_end());
         Instruction *I = cast<Instruction>(*LI->user_begin());
 
-        for (User *UU : I->users()) {
+        for (auto it = I->user_begin(); it != I->user_end();) {
+          User *UU = *(it++);
 
           SelectInst *P = cast<SelectInst>(UU);
-          Value *PrevV = P->getTrueValue();
+          //Value *PrevV = P->getTrueValue();
           Value *CurV = P->getFalseValue();
 
-          if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
-            P->setOperand(1, CurV);
-            Changed = true;
+          Instruction *Nop = GetFinalNoopInst(M, P);
+          Nop->setDebugLoc(P->getDebugLoc());
+          Changed = true;
+
+          if (auto C = DVC->GetConstValue(P)) {
+            P->replaceAllUsesWith(C);
+            //Changed = true;
           }
+          else {
+            P->replaceAllUsesWith(CurV);
+          }
+          //else if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
+          //  P->setOperand(1, CurV);
+          //  Changed = true;
+          //}
+          P->eraseFromParent();
         }
       }
     }
@@ -577,6 +603,8 @@ bool DxilFinalizePreserves::LowerNoops(Module &M) {
 // Replace all preserves and nops
 bool DxilFinalizePreserves::runOnModule(Module &M) {
   bool Changed = false;
+
+  DVC = &getAnalysis<DxilValueCache>();
 
   Changed |= LowerPreserves(M);
   Changed |= LowerNoops(M);
