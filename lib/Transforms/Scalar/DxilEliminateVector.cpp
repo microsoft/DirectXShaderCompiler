@@ -60,6 +60,13 @@ MetadataAsValue *GetAsMetadata(Instruction *I) {
   return nullptr;
 }
 
+static bool IsZeroInitializer(Value *V) {
+  Constant *C = dyn_cast<Constant>(V);
+  if (C && C->isZeroValue())
+    return true;
+  return false;
+}
+
 static
 bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
   if (InsertElementInst *IE = dyn_cast<InsertElementInst>(V)) {
@@ -68,7 +75,7 @@ bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
     Value *Element = IE->getOperand(1);
     Value *Index = IE->getOperand(2);
 
-    if (!isa<UndefValue>(Vec)) {
+    if (!isa<UndefValue>(Vec) && !IsZeroInitializer(Vec)) {
       if (!CollectVectorElements(Vec, Elements))
         return false;
     }
