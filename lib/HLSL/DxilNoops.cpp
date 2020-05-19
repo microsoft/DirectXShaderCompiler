@@ -541,7 +541,6 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
           User *UU = *(it++);
 
           SelectInst *P = cast<SelectInst>(UU);
-          //Value *PrevV = P->getTrueValue();
           Value *CurV = P->getFalseValue();
 
           Instruction *Nop = GetFinalNoopInst(M, P);
@@ -550,15 +549,10 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
 
           if (auto C = DVC->GetConstValue(P)) {
             P->replaceAllUsesWith(C);
-            //Changed = true;
           }
           else {
             P->replaceAllUsesWith(CurV);
           }
-          //else if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
-          //  P->setOperand(1, CurV);
-          //  Changed = true;
-          //}
           P->eraseFromParent();
         }
       }
