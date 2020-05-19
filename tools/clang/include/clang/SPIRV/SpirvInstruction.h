@@ -82,17 +82,20 @@ public:
     // Normal instruction kinds
     // In alphabetical order
 
-    IK_AccessChain,        // OpAccessChain
-    IK_Atomic,             // OpAtomic*
-    IK_Barrier,            // Op*Barrier
-    IK_BinaryOp,           // Binary operations
-    IK_BitFieldExtract,    // OpBitFieldExtract
-    IK_BitFieldInsert,     // OpBitFieldInsert
-    IK_CompositeConstruct, // OpCompositeConstruct
-    IK_CompositeExtract,   // OpCompositeExtract
-    IK_CompositeInsert,    // OpCompositeInsert
-    IK_ExtInst,            // OpExtInst
-    IK_FunctionCall,       // OpFunctionCall
+    IK_AccessChain,                 // OpAccessChain
+    IK_ArrayLength,                 // OpArrayLength
+    IK_Atomic,                      // OpAtomic*
+    IK_Barrier,                     // Op*Barrier
+    IK_BinaryOp,                    // Binary operations
+    IK_BitFieldExtract,             // OpBitFieldExtract
+    IK_BitFieldInsert,              // OpBitFieldInsert
+    IK_CompositeConstruct,          // OpCompositeConstruct
+    IK_CompositeExtract,            // OpCompositeExtract
+    IK_CompositeInsert,             // OpCompositeInsert
+    IK_CopyObject,                  // OpCopyObject
+    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
+    IK_ExtInst,                     // OpExtInst
+    IK_FunctionCall,                // OpFunctionCall
 
     IK_EndPrimitive, // OpEndPrimitive
     IK_EmitVertex,   // OpEmitVertex
@@ -103,22 +106,20 @@ public:
     IK_GroupNonUniformElect,    // OpGroupNonUniformElect
     IK_GroupNonUniformUnaryOp,  // Group non-uniform unary operations
 
-    IK_ImageOp,                     // OpImage*
-    IK_ImageQuery,                  // OpImageQuery*
-    IK_ImageSparseTexelsResident,   // OpImageSparseTexelsResident
-    IK_ImageTexelPointer,           // OpImageTexelPointer
-    IK_Load,                        // OpLoad
-    IK_SampledImage,                // OpSampledImage
-    IK_Select,                      // OpSelect
-    IK_SpecConstantBinaryOp,        // SpecConstant binary operations
-    IK_SpecConstantUnaryOp,         // SpecConstant unary operations
-    IK_Store,                       // OpStore
-    IK_UnaryOp,                     // Unary operations
-    IK_VectorShuffle,               // OpVectorShuffle
-    IK_ArrayLength,                 // OpArrayLength
-    IK_RayTracingOpNV,              // NV raytracing ops
-    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
-    IK_RayQueryOpKHR,               // KHR rayquery ops
+    IK_ImageOp,                   // OpImage*
+    IK_ImageQuery,                // OpImageQuery*
+    IK_ImageSparseTexelsResident, // OpImageSparseTexelsResident
+    IK_ImageTexelPointer,         // OpImageTexelPointer
+    IK_Load,                      // OpLoad
+    IK_RayQueryOpKHR,             // KHR rayquery ops
+    IK_RayTracingOpNV,            // NV raytracing ops
+    IK_SampledImage,              // OpSampledImage
+    IK_Select,                    // OpSelect
+    IK_SpecConstantBinaryOp,      // SpecConstant binary operations
+    IK_SpecConstantUnaryOp,       // SpecConstant unary operations
+    IK_Store,                     // OpStore
+    IK_UnaryOp,                   // Unary operations
+    IK_VectorShuffle,             // OpVectorShuffle
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1506,6 +1507,25 @@ public:
 private:
   SpirvInstruction *pointer;
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
+};
+
+/// \brief OpCopyObject instruction
+class SpirvCopyObject : public SpirvInstruction {
+public:
+  SpirvCopyObject(QualType resultType, SourceLocation loc,
+                  SpirvInstruction *pointer);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_CopyObject;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPointer() const { return pointer; }
+
+private:
+  SpirvInstruction *pointer;
 };
 
 /// \brief OpSampledImage instruction

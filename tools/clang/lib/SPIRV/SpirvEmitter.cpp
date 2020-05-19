@@ -7504,15 +7504,17 @@ SpirvEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   auto *index = doExpr(expr->getArg(0));
   // Decorate the expression in NonUniformResourceIndex() with NonUniformEXT.
   // Aside from this, we also need to eventually populate the NonUniformEXT
-  // status to the usage of this expression: the "pointer" operand to a memory
-  // access instruction. Vulkan spec has the following rules:
+  // status to the usages of this expression. This is done by the
+  // NonUniformVisitor class.
   //
-  // If an instruction loads from or stores to a resource (including atomics and
-  // image instructions) and the resource descriptor being accessed is not
-  // dynamically uniform, then the operand corresponding to that resource (e.g.
-  // the pointer or sampled image operand) must be decorated with NonUniformEXT.
-  index->setNonUniform();
-  return index;
+  // The decoration shouldn't be applied to the operand, rather to a copy of the
+  // result. Even though applying the decoration to the operand may not be
+  // functionally incorrect (since adding NonUniform is more conservative), it
+  // could affect performance and isn't the intent of the shader.
+  auto *copyInstr =
+      spvBuilder.createCopyObject(expr->getType(), index, expr->getExprLoc());
+  copyInstr->setNonUniform();
+  return copyInstr;
 }
 
 SpirvInstruction *

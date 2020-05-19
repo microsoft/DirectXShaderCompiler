@@ -72,6 +72,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCopyObject)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
@@ -691,6 +692,11 @@ SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,
                      llvm::Optional<spv::MemoryAccessMask> mask)
     : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, loc),
       pointer(pointerInst), memoryAccess(mask) {}
+
+SpirvCopyObject::SpirvCopyObject(QualType resultType, SourceLocation loc,
+                                 SpirvInstruction *pointerInst)
+    : SpirvInstruction(IK_CopyObject, spv::Op::OpCopyObject, resultType, loc),
+      pointer(pointerInst) {}
 
 SpirvSampledImage::SpirvSampledImage(QualType resultType, SourceLocation loc,
                                      SpirvInstruction *imageInst,
