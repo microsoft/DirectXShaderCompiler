@@ -6,17 +6,19 @@ struct S {
 };
 
 float main() : SV_Target {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
-  // CHECK-SAME: @dx.preserve.value
-  // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
+  // xHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // xHECK-SAME: @dx.preserve.value
+  // xHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   S a = { 0.f, 1.f};
-  // CHECK: select i1 %[[p]], float
-  // CHECK: select i1 %[[p]], float
+  // xHECK: select i1 %[[p]], float
+  // xHECK: select i1 %[[p]], float
+  // CHECK: dx.nothing
 
   S b = { 2.f, 3.f};
-  // CHECK: select i1 %[[p]], float
-  // CHECK: select i1 %[[p]], float
+  // xHECK: select i1 %[[p]], float
+  // xHECK: select i1 %[[p]], float
+  // CHECK: dx.nothing
 
   S c = { a.x+b.x, a.y+b.y };
   // CHECK: fmul

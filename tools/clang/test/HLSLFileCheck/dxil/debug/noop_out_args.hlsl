@@ -25,17 +25,18 @@ void baz(inout float x, inout float y) {
 
 [RootSignature("")]
 float main() : SV_Target {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
-  // CHECK-SAME: @dx.preserve.value
-  // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
+  // xHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // xHECK-SAME: @dx.preserve.value
+  // xHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   S s;
 
   // CHECK: load i32, i32*
   // CHECK: @dx.nothing
   foo(s);
-    // CHECK: select i1 %[[p]]
-    // CHECK: select i1 %[[p]]
+    // xHECK: select i1 %[[p]]
+    // xHECK: select i1 %[[p]]
+    // CHECK: dx.nothing
     // CHECK: load i32, i32*
     // CHECK: @dx.nothing
 
