@@ -84,9 +84,13 @@ using namespace hlsl;
 // caller will than allocate a UAV that is twice the size and try again, up to a
 // predefined maximum.
 
-// Keep this in sync with the same-named value in the debugger application's
+// Keep these in sync with the same-named value in the debugger application's
 // WinPixShaderUtils.h
+
 constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
+// The actual max size per record is much smaller than this, but it never
+// hurts to be generous.
+constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
 
 // These definitions echo those in the debugger application's
 // debugshaderrecord.h file
@@ -221,6 +225,8 @@ private:
   Value *m_OffsetAddend = nullptr;
 
   Constant *m_OffsetMask = nullptr;
+
+  Constant *m_CounterOffset = nullptr;
 
   struct BuilderContext {
     Module &M;
@@ -623,6 +629,8 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
                            InverseOffsetMultiplicand, "OffsetAddend");
   m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
+  m_CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
+
   m_SelectionCriterion = ParameterTestResult;
 }
 
@@ -640,7 +648,6 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
       BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
   Constant *AtomicAdd =
       BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-  Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
   UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
   // so inc will be zero for uninteresting invocations:
@@ -651,13 +658,13 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
   auto PreviousValue = BC.Builder.CreateCall(
       AtomicOpFunc,
       {
-          AtomicBinOpcode, // i32, ; opcode
-          m_HandleForUAV,  // %dx.types.Handle, ; resource handle
-          AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
-                     // XOR, IMIN, IMAX, UMIN, UMAX
-          Zero32Arg, // i32, ; coordinate c0: index in bytes
-          UndefArg,  // i32, ; coordinate c1 (unused)
-          UndefArg,  // i32, ; coordinate c2 (unused)
+          AtomicBinOpcode,  // i32, ; opcode
+          m_HandleForUAV,   // %dx.types.Handle, ; resource handle
+          AtomicAdd,        // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
+                            // XOR, IMIN, IMAX, UMIN, UMAX
+          m_CounterOffset,  // i32, ; coordinate c0: index in bytes
+          UndefArg,         // i32, ; coordinate c1 (unused)
+          UndefArg,         // i32, ; coordinate c2 (unused)
           IncrementForThisInvocation, // i32); increment value
       },
       "UAVIncResult");
