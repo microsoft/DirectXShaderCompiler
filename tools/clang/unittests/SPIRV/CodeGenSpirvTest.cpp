@@ -2112,6 +2112,7 @@ TEST_F(FileTest, RayTracingNVLibrary) {
 
 // === Raytracing KHR examples ===
 TEST_F(FileTest, RayTracingKHRClosestHit) {
+  useVulkan1p2();
   runFileTest("raytracing.khr.closesthit.hlsl");
 }
 
