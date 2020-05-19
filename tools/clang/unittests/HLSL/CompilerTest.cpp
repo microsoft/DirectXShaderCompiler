@@ -1077,7 +1077,7 @@ TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific root
-  VERIFY_ARE_EQUAL_WSTR(L"C:\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"C:/helper.h;", pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"/helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
@@ -1101,7 +1101,7 @@ TEST_F(CompilerTest, CompileWhenIncludeLocalThenLoadRelative) {
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific directory dividers
-  VERIFY_ARE_EQUAL_WSTR(L"./..\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"./../helper.h;", pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"./../helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
