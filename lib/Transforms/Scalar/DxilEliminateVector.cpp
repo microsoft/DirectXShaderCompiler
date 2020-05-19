@@ -151,9 +151,6 @@ bool DxilEliminateVector::TryRewriteDebugInfoForVector(InsertElementInst *IE) {
       if (!Elements[i])
         continue;
 
-      if (HasDebugValue(Elements[i]))
-        continue;
-
       unsigned ElementSize = DL.getTypeAllocSizeInBits(Elements[i]->getType());
       DIExpression *Expr = DIB.createBitPieceExpression(BitpieceOffset + i * ElementSize, ElementSize);
       DIB.insertDbgValueIntrinsic(Elements[i], 0, DVI->getVariable(), Expr, DVI->getDebugLoc(), DVI);
