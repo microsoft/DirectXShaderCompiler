@@ -59,19 +59,23 @@ public:
 
   /// Allows the given extension to be used in CodeGen.
   bool allowExtension(llvm::StringRef);
+
   /// Allows all extensions to be used in CodeGen.
   void allowAllKnownExtensions();
+
   /// Rqeusts the given extension for translating the given target feature at
   /// the given source location. Emits an error if the given extension is not
   /// permitted to use.
   bool requestExtension(Extension, llvm::StringRef target, SourceLocation);
 
   /// Translates extension name to symbol.
-  static Extension getExtensionSymbol(llvm::StringRef name);
+  Extension getExtensionSymbol(llvm::StringRef name);
+
   /// Translates extension symbol to name.
-  static const char *getExtensionName(Extension symbol);
+  const char *getExtensionName(Extension symbol);
+
   /// Returns true if the given extension is a KHR extension.
-  static bool isKHRExtension(llvm::StringRef name);
+  bool isKHRExtension(llvm::StringRef name);
 
   /// Returns the names of all known extensions as a string.
   std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
@@ -92,9 +96,12 @@ public:
   bool isExtensionRequiredForTargetEnv(Extension);
 
   /// Returns true if the given extension is set in allowedExtensions
-  bool isExtensionEnabled(llvm::StringRef name);
+  bool isExtensionEnabled(Extension);
 
 private:
+  /// Returns whether codegen should allow usage of this extension by default.
+  bool enabledByDefault(Extension);
+
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this object.
   template <unsigned N>
