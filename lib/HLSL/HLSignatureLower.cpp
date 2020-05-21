@@ -141,6 +141,10 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
   case Semantic::Kind::GroupIndex:
     opcode = OP::OpCode::FlattenedThreadIdInGroup;
     break;
+  case Semantic::Kind::CullPrimitive: {
+    GV->replaceAllUsesWith(ConstantInt::get(Ty, (uint64_t)0));
+    return;
+  } break;
   default:
     DXASSERT(0, "invalid semantic");
     return;
