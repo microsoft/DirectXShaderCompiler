@@ -10150,7 +10150,7 @@ ExprResult hlsl::LookupVectorMemberExprForHLSL(
   SourceLocation MemberLoc)
 {
   return HLSLExternalSource::FromSema(self)
-    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    ->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
 }
 
 ExprResult hlsl::LookupArrayMemberExprForHLSL(
