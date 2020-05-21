@@ -271,6 +271,12 @@ bool LowerDbgDeclare(Function &F);
 /// an alloca, if any.
 DbgDeclareInst *FindAllocaDbgDeclare(Value *V);
 
+// HLSL Change - Begin
+/// FindAllocaDbgDeclare - Finds the llvm.dbg.declare intrinsic corresponding to
+/// an alloca, if any.
+void FindAllocaDbgDeclare(Value *V, SmallVectorImpl<DbgDeclareInst *> &Declares);
+// HLSL Change - End
+
 /// \brief Replaces llvm.dbg.declare instruction when an alloca is replaced with
 /// a new value.  If Deref is true, tan additional DW_OP_deref is prepended to
 /// the expression.

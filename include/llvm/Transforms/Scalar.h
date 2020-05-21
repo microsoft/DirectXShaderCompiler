@@ -158,6 +158,12 @@ void initializeDxilPreserveToSelectPass(PassRegistry&);
 Pass *createDxilRemoveDeadBlocksPass();
 void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
 
+Pass *createDxilAnnotateFunctionPass();
+void initializeDxilAnnotateFunctionPass(PassRegistry&);
+
+Pass *createDxilFinalizeFunctionAnnotationsPass();
+void initializeDxilFinalizeFunctionAnnotationsPass(PassRegistry&);
+
 //===----------------------------------------------------------------------===//
 //
 // LowerStaticGlobalIntoAlloca. Replace static globals with alloca if only used

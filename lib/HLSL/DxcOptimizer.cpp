@@ -86,6 +86,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDSEPass(Registry);
     initializeDeadInstEliminationPass(Registry);
     initializeDxilAllocateResourcesForLibPass(Registry);
+    initializeDxilAnnotateFunctionPass(Registry);
     initializeDxilCleanupAddrSpaceCastPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilConditionalMem2RegPass(Registry);
@@ -97,6 +98,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilEraseDeadRegionPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
+    initializeDxilFinalizeFunctionAnnotationsPass(Registry);
     initializeDxilFinalizeModulePass(Registry);
     initializeDxilFinalizePreservesPass(Registry);
     initializeDxilFixConstArrayInitializerPass(Registry);

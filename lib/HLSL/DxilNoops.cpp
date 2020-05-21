@@ -91,6 +91,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
@@ -604,4 +606,152 @@ Pass *llvm::createDxilFinalizePreservesPass() {
 }
 
 INITIALIZE_PASS(DxilFinalizePreserves, "dxil-finalize-preserves", "Dxil Finalize Preserves", false, false)
+
+
+//=================================================================
+//
+// Function annotation
+//
+
+namespace {
+  static StringRef kFunctionAnnotationName = "dx.function";
+  static StringRef kFunctionAnnotationVarName = "dx.function.a";
+}
+
+void FindAllFunctionAnnotations(Module &M, SmallVectorImpl<Instruction *> &Annotations) {
+  Function *F = M.getFunction(kFunctionAnnotationName);
+  if (!F) {
+    return;
+  }
+
+  for (User *U : F->users()) {
+    if (auto I = dyn_cast<Instruction>(U))
+      Annotations.push_back(I);
+  }
+}
+
+class DxilAnnotateFunction : public FunctionPass {
+public:
+
+  static char ID;
+  DxilAnnotateFunction() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) {
+    if (F.isDeclaration())
+      return false;
+
+    Module &M = *F.getParent();
+    LLVMContext &Ctx = M.getContext();
+
+    DebugInfoFinder Finder;
+    Finder.processModule(*F.getParent());
+
+    // Find first debug location
+    DebugLoc Loc;
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (isa<DbgInfoIntrinsic>(&I))
+          continue;
+        Loc = I.getDebugLoc();
+        if (Loc) break;
+      }
+      if (Loc) break;
+    }
+
+    FunctionType *FTy = FunctionType::get(Type::getVoidTy(Ctx), false);
+    Function *AnnotFunction = cast<Function>(M.getOrInsertFunction(kFunctionAnnotationName, FTy));
+    AnnotFunction->setConvergent();
+
+    // Insert the annotation
+    BasicBlock &BB = F.getEntryBlock();
+    CallInst *CI = nullptr;
+    if (BB.empty()) {
+      CI = CallInst::Create(AnnotFunction, "", &BB);
+    }
+    else {
+      CI = CallInst::Create(AnnotFunction, "", BB.begin());
+    }
+
+    CI->setDebugLoc(Loc);
+
+    return true;
+  }
+};
+
+char DxilAnnotateFunction::ID;
+
+Pass *llvm::createDxilAnnotateFunctionPass() {
+  return new DxilAnnotateFunction();
+}
+
+INITIALIZE_PASS(DxilAnnotateFunction, "dxil-annotate-functions", "Dxil Annotate Functions", false, false)
+
+
+
+static GlobalVariable *MakeSingleI32Array(Module *M, StringRef Name) {
+  Type *i32Ty = Type::getInt32Ty(M->getContext());
+  Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+
+  unsigned int Values[1] = { 0 };
+  Constant *InitialValue = llvm::ConstantDataArray::get(M->getContext(), Values);
+
+  return new GlobalVariable(*M,
+    i32ArrayTy, true,
+    llvm::GlobalValue::InternalLinkage,
+    InitialValue, Name);
+}
+
+class DxilFinalizeFunctionAnnotations : public ModulePass {
+public:
+
+  static char ID;
+  DxilFinalizeFunctionAnnotations() : ModulePass(ID) {}
+
+  bool runOnModule(Module &M) {
+
+    Function *FunctionAnnot = nullptr;
+    for (Function &F : M) {
+      if (F.getName() == kFunctionAnnotationName) {
+        FunctionAnnot = &F;
+        break;
+      }
+    }
+
+    if (!FunctionAnnot)
+      return false;
+
+    GlobalVariable *GV = nullptr;
+
+    for (User *U : FunctionAnnot->users()) {
+      Instruction *I = dyn_cast<Instruction>(U);
+      if (!I)
+        continue;
+
+      if (!GV) {
+        GV = MakeSingleI32Array(&M, kFunctionAnnotationVarName);
+      }
+
+      unsigned Indices[2] = {0,0};
+
+      Constant *Ptr = GetConstGep(GV, 0, 0);
+      LoadInst *LI = new LoadInst(Ptr, nullptr, I);
+
+      LI->setDebugLoc(I->getDebugLoc());
+      I->eraseFromParent();
+    }
+
+    FunctionAnnot->eraseFromParent();
+
+    return true;
+  }
+};
+char DxilFinalizeFunctionAnnotations::ID;
+
+
+Pass *llvm::createDxilFinalizeFunctionAnnotationsPass() {
+  return new DxilFinalizeFunctionAnnotations();
+}
+
+INITIALIZE_PASS(DxilFinalizeFunctionAnnotations, "dxil-finalize-function-annotations", "Dxil Finalize Function Annotations", false, false)
+
 

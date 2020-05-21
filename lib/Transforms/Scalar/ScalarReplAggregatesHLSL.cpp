@@ -6117,6 +6117,9 @@ static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFi
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
+
+void FindAllFunctionAnnotations(Module &M, SmallVectorImpl<Instruction *> &Annotations);
+
 static
 void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
   if (!DbgFinder.compile_unit_count())
@@ -6137,8 +6140,8 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
 
   DITypeIdentifierMap EmptyMap;
   DIBuilder DIB(*GV->getParent());
-  DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(0, 0, Scope);
+  //DIScope *Scope = Subprogram;
+  //DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
@@ -6157,9 +6160,6 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
   DXASSERT(Ty->getTag() != dwarf::DW_TAG_member, "Member type is not allowed for variables.");
-  DILocalVariable *ConvertedLocalVar =
-    DIB.createLocalVariable(Tag, Scope,
-      Name, DGV->getFile(), DGV->getLine(), Ty);
 
   DIExpression *Expr = nullptr;
   if (IsFragment) {
@@ -6169,7 +6169,28 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
     Expr = DIB.createExpression(ArrayRef<int64_t>());
   }
 
-  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
+  SmallVector<Instruction *, 5> InlinedFunctions;
+  FindAllFunctionAnnotations(*F->getParent(), InlinedFunctions);
+
+  for (unsigned i = 0; i < InlinedFunctions.size(); i++) {
+    Instruction *Annotation = InlinedFunctions[i];
+
+    // If annotation is not part of this function, give up.
+    if (Annotation->getParent()->getParent() != F)
+      continue;
+
+    // If there's no debug loc attached, then it's pointless to add declaration anyway.
+    DebugLoc Loc = Annotation->getDebugLoc();
+    if (!Loc)
+      continue;
+
+    DILocalVariable *ConvertedLocalVar =
+      DIB.createLocalVariable(Tag, cast<DIScope>(Loc.getScope()),
+        Name, DGV->getFile(), DGV->getLine(), Ty);
+
+    (void)DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
+    //Decl->setDebugLoc(InlinedFunctions[i]->getDebugLoc());
+  }
 }
 
 bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {

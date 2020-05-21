@@ -1082,6 +1082,18 @@ DbgDeclareInst *llvm::FindAllocaDbgDeclare(Value *V) {
   return nullptr;
 }
 
+// HLSL Change - Begin
+/// FindAllocaDbgDeclare - Finds the llvm.dbg.declare intrinsic corresponding to
+/// an alloca, if any.
+void llvm::FindAllocaDbgDeclare(Value *V, SmallVectorImpl<DbgDeclareInst *> &Declares) {
+  if (auto *L = LocalAsMetadata::getIfExists(V))
+    if (auto *MDV = MetadataAsValue::getIfExists(V->getContext(), L))
+      for (User *U : MDV->users())
+        if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
+          Declares.push_back(DDI);
+}
+// HLSL Change - End
+
 bool llvm::replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
                                       DIBuilder &Builder, bool Deref) {
   DbgDeclareInst *DDI = FindAllocaDbgDeclare(AI);

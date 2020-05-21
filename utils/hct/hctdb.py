@@ -2019,6 +2019,8 @@ class db_dxil(object):
                 {'n':'AllowPreserves', 't':'bool', 'c':1},
             ])
         add_pass('dxil-preserves-to-select', 'DxilPreserveToSelect', 'Dxil Preserves To Select', [])
+        add_pass('dxil-annotate-functions', 'DxilAnnotateFunction', 'Dxil Annotate Functions', [])
+        add_pass('dxil-finalize-function-annotations', 'DxilFinalizeFunctionAnnotations', 'Dxil Finalize Function Annotations', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
         add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
 

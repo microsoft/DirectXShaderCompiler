@@ -325,6 +325,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     if (!HLSLHighLevel) {
       MPM.add(createHLEnsureMetadataPass()); // HLSL Change - rehydrate metadata from high-level codegen
+      MPM.add(createDxilAnnotateFunctionPass());
     }
 
     if (!HLSLHighLevel)
@@ -367,6 +368,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilDeadFunctionEliminationPass());
       MPM.add(createNoPausePassesPass());
       MPM.add(createDxilEmitMetadataPass());
+      MPM.add(createDxilFinalizeFunctionAnnotationsPass());
     }
     // HLSL Change Ends.
     return;
