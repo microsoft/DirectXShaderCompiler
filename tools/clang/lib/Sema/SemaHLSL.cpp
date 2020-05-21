@@ -10162,7 +10162,7 @@ ExprResult hlsl::LookupArrayMemberExprForHLSL(
   SourceLocation MemberLoc)
 {
   return HLSLExternalSource::FromSema(self)
-    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    ->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
 }
 
 bool hlsl::LookupRecordMemberExprForHLSL(
