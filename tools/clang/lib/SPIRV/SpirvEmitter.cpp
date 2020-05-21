@@ -1422,14 +1422,27 @@ void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
     return;
   }
 
-  // SPV_EXT_demote_to_helper_invocation SPIR-V extension provides a new
-  // instruction OpDemoteToHelperInvocationEXT allowing shaders to "demote" a
-  // fragment shader invocation to behave like a helper invocation for its
-  // duration. The demoted invocation will have no further side effects and will
-  // not output to the framebuffer, but remains active and can participate in
-  // computing derivatives and in subgroup operations. This is a better match
-  // for the "discard" instruction in HLSL.
-  spvBuilder.createDemoteToHelperInvocationEXT(discardStmt->getLoc());
+  if (featureManager.isExtensionEnabled(
+          Extension::EXT_demote_to_helper_invocation)) {
+    // SPV_EXT_demote_to_helper_invocation SPIR-V extension provides a new
+    // instruction OpDemoteToHelperInvocationEXT allowing shaders to "demote" a
+    // fragment shader invocation to behave like a helper invocation for its
+    // duration. The demoted invocation will have no further side effects and
+    // will not output to the framebuffer, but remains active and can
+    // participate in computing derivatives and in subgroup operations. This is
+    // a better match for the "discard" instruction in HLSL.
+    spvBuilder.createDemoteToHelperInvocationEXT(discardStmt->getLoc());
+  } else {
+    // Note: if/when the demote behavior becomes part of the core Vulkan spec,
+    // we should no longer generate OpKill for 'discard', and always generate
+    // the demote behavior.
+    spvBuilder.createKill(discardStmt->getLoc());
+    // Some statements that alter the control flow (break, continue, return, and
+    // discard), require creation of a new basic block to hold any statement
+    // that may follow them.
+    auto *newBB = spvBuilder.createBasicBlock();
+    spvBuilder.setInsertPoint(newBB);
+  }
 }
 
 void SpirvEmitter::doDoStmt(const DoStmt *theDoStmt,
