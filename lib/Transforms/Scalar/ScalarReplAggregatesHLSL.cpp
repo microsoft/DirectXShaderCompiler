@@ -3627,13 +3627,15 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   }
 }
 
+// Use `DT` to trace all users and make sure `I`'s BB dominates them all
 static bool DominateAllUsersDom(Instruction *I, Value *V, DominatorTree *DT) {
   BasicBlock *BB = I->getParent();
+  Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
     Instruction *UI = dyn_cast<Instruction>(*(U++));
-    if (!UI)
+    // If not an instruction or from a differnt function, nothing to check, move along.
+    if (!UI || UI->getParent()->getParent() != F)
       continue;
-    assert (UI->getParent()->getParent() == I->getParent()->getParent());
 
     if (!DT->dominates(BB, UI->getParent()))
       return false;
