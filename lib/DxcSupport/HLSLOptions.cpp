@@ -303,7 +303,7 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
     return false;
   }
   return true;
-};
+}
 #endif
 // SPIRV Change Ends
 

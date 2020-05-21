@@ -23,14 +23,16 @@ public:
                            const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx) {}
 
-  bool visit(SpirvModule *, Phase);
+  bool visit(SpirvModule *, Phase) override;
+
+  using Visitor::visit;
 
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *instr);
+  bool visitInstruction(SpirvInstruction *instr) override;
 };
 
 } // end namespace spirv

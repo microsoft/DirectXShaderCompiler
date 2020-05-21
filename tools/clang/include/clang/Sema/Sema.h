@@ -1514,7 +1514,9 @@ public:
     NameClassification(ParsedType Type) : Kind(NC_Type), Type(Type) {}
 
     NameClassification(const IdentifierInfo *Keyword)
-      : Kind(NC_Keyword), Keyword(Keyword) { }
+      : Kind(NC_Keyword), Keyword(Keyword) {
+      (void)Keyword;
+    }
 
     static NameClassification Error() {
       return NameClassification(NC_Error);

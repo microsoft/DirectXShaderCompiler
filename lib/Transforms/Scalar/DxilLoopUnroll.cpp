@@ -362,7 +362,7 @@ static bool blockDominatesAnExit(BasicBlock *BB,
     if (DT.dominates(DomNode, DT.getNode(Exit)))
       return true;
   return false;
-};
+}
 
 // Copied from LCSSA.cpp
 //

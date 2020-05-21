@@ -1678,7 +1678,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
       rows = matrix.Rows;
       cols = matrix.Cols;
     } else {
-      DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, "");
+      DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, " ");
       cols = matrix.Rows;
       rows = matrix.Cols;
     }

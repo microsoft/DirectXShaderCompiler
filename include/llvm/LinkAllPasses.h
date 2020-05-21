@@ -42,6 +42,10 @@
 namespace {
   struct ForcePassLinking {
     ForcePassLinking() {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnull-dereference"
+#endif
       // We must reference the passes in such a way that compilers will not
       // delete it all as dead code, even with whole program optimization,
       // yet is effectively a NO-OP. As the compiler isn't smart enough
@@ -187,6 +191,9 @@ namespace {
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

@@ -152,7 +152,14 @@ namespace llvm {
       assert(is<PT1>() && "Val is not the first pointer");
       assert(get<PT1>() == Val.getPointer() &&
          "Can't get the address because PointerLikeTypeTraits changes the ptr");
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
       return (PT1 *)Val.getAddrOfPointer();
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
     }
 
     /// \brief Assignment from nullptr which just clears the union.

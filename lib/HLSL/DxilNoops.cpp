@@ -225,7 +225,7 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   }
 
   for (User *U : GV->users()) {
-    GEPOperator *Gep = Gep = cast<GEPOperator>(U);
+    GEPOperator *Gep = cast<GEPOperator>(U);
     for (User *GepU : Gep->users()) {
       LoadInst *LI = cast<LoadInst>(GepU);
       if (LI->getParent()->getParent() == F) {
