@@ -26,7 +26,6 @@
 #include "llvm/IR/Module.h"
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
-#include <algorithm> // HLSL Change - uniform filename.
 using namespace clang;
 
 namespace {

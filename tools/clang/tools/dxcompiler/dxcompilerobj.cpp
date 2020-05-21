@@ -508,11 +508,12 @@ public:
       DxcOutputObject primaryOutput;
 
       // Formerly API values.
-      std::string NormalizedPath = opts.InputFile.str();
-      std::replace(NormalizedPath.begin(), NormalizedPath.end(), '\\', '/');
-      const char *pUtf8SourceName =
-          opts.InputFile.empty() ? "hlsl.hlsl" : NormalizedPath.data();
-      CA2W pUtf16SourceName(pUtf8SourceName, CP_UTF8);
+      SmallString<128> NormalizedPath;
+      llvm::sys::path::native(opts.InputFile, NormalizedPath);
+      StringRef pUtf8SourceName =
+          opts.InputFile.empty() ? "hlsl.hlsl" : StringRef(NormalizedPath.data(), opts.InputFile.size());
+      std::string utf8SourceName = pUtf8SourceName;
+      CA2W pUtf16SourceName(utf8SourceName.data(), CP_UTF8);
       const char *pUtf8EntryPoint = opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing
                                     ? opts.Preprocess.data()
@@ -992,7 +993,7 @@ public:
 
   void SetupCompilerForCompile(CompilerInstance &compiler,
                                _In_ DxcLangExtensionsHelper *helper,
-                               _In_ LPCSTR pMainFile, _In_ TextDiagnosticPrinter *diagPrinter,
+                               _In_ StringRef pMainFile, _In_ TextDiagnosticPrinter *diagPrinter,
                                _In_ std::vector<std::string>& defines,
                                _In_ hlsl::options::DxcOpts &Opts,
                                _In_count_(argCount) LPCWSTR *pArguments,
@@ -1017,9 +1018,8 @@ public:
       auto const ID = compiler.getDiagnostics().getCustomDiagID(clang::DiagnosticsEngine::Warning, "/Gec flag is a deprecated functionality.");
       compiler.getDiagnostics().Report(ID);
     }
-
-    std::string NormalizedPath = pMainFile;
-    std::replace(NormalizedPath.begin(), NormalizedPath.end(), '\\', '/');
+    SmallString<128> NormalizedPath;
+    llvm::sys::path::native(pMainFile, NormalizedPath);
     compiler.getFrontendOpts().Inputs.push_back(
         FrontendInputFile(NormalizedPath, IK_HLSL));
     // Setup debug information.

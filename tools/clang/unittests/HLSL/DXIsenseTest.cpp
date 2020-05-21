@@ -249,7 +249,11 @@ TEST_F(DXIntellisenseTest, InclusionWhenValidThenAvailable) {
   const char unsaved_text[] = "#define FOO 1";
   unsigned diagCount;
   unsigned expectedIndex = 0;
-  const char *expectedNames[2] = { "file.hlsl", "./inc.h" };
+#ifdef _WIN32 // OS-specific directory dividers
+  const char *expectedNames[2] = { "file.hlsl", ".\\inc.h" };
+#else
+  const char *expectedNames[2] = {"file.hlsl", ".//inc.h"};
+#endif
   VERIFY_SUCCEEDED(CompilationResult::DefaultHlslSupport->CreateIntellisense(&isense));
   VERIFY_SUCCEEDED(isense->CreateIndex(&index));
   VERIFY_SUCCEEDED(isense->CreateUnsavedFile("./inc.h", unsaved_text, strlen(unsaved_text), &unsaved[0]));

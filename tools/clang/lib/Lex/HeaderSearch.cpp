@@ -295,6 +295,9 @@ const FileEntry *DirectoryLookup::LookupFile(
     // Concatenate the requested file onto the directory.
     TmpDir = getDir()->getName();
     llvm::sys::path::append(TmpDir, Filename);
+
+    llvm::sys::path::native(TmpDir); // HLSL Change -uniform filename.
+
     if (SearchPath) {
       StringRef SearchPathRef(getDir()->getName());
       SearchPath->clear();
@@ -637,6 +640,8 @@ const FileEntry *HeaderSearch::LookupFile(
       TmpDir = IncluderAndDir.second->getName();
       TmpDir.push_back('/');
       TmpDir.append(Filename.begin(), Filename.end());
+
+      llvm::sys::path::native(TmpDir); // HLSL Change -uniform filename.
 
       // FIXME: We don't cache the result of getFileInfo across the call to
       // getFileAndSuggestModule, because it's a reference to an element of

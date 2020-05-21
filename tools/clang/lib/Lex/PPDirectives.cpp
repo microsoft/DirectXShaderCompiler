@@ -1616,7 +1616,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   if (LangOpts.MSVCCompat || LangOpts.HLSL) { // HLSL Change: use MSVC compat behavior
     NormalizedPath = Filename.str();
     // HLSL Change Begin - uniform filename.
-    std::replace(NormalizedPath.begin(), NormalizedPath.end(), '\\', '/');
+    llvm::sys::path::native(NormalizedPath);
     // HLSL Change End.
 #ifndef LLVM_ON_WIN32
     llvm::sys::path::native(NormalizedPath);
