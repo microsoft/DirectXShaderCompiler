@@ -2222,7 +2222,7 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
         NewGEPs.emplace_back(NewGEP);
       }
       const bool bAllowReplace = isa<AllocaInst>(OldVal);
-      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, DT, bAllowReplace)) {
+      if (!SROA_Helper::LowerMemcpy(GEP, /*annotation*/ nullptr, typeSys, DL, DT, bAllowReplace)) {
         SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL, DT);
         helper.RewriteForScalarRepl(GEP, Builder);
         for (Value *NewGEP : NewGEPs) {
@@ -3654,7 +3654,13 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   if (&F->getEntryBlock() == I->getParent())
     return true;
 
-  return DominateAllUsersDom(I, V, DT);
+  if (!DT) {
+    DominatorTree TempDT;
+    TempDT.recalculate(*F);
+    return DominateAllUsersDom(I, V, &TempDT);
+  } else {
+    return DominateAllUsersDom(I, V, DT);
+  }
 }
 
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
@@ -4180,8 +4186,8 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
     WorkList.pop_front();
     const bool bAllowReplace = true;
-    // Globals don't need DomTree here because they take another path
-    if (SROA_Helper::LowerMemcpy(EltGV, /*annoation*/ nullptr, dxilTypeSys, DL,
+    // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll be generated
+    if (SROA_Helper::LowerMemcpy(EltGV, /*annotation*/ nullptr, dxilTypeSys, DL,
                                  nullptr /*DT */, bAllowReplace)) {
       continue;
     }
@@ -4206,7 +4212,7 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       }
       EltGV = NewEltGV;
     } else {
-      // Globals don't need DomTree
+      // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll be generated
       SROAed = SROA_Helper::DoScalarReplacement(
           EltGV, Elts, Builder, bFlatVector,
           // TODO: set precise.
