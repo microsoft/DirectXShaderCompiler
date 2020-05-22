@@ -15,12 +15,12 @@ RWStructuredBuffer<TestData> uav1 : register(u1);
 void main(uint GI : SV_GroupIndex) {
 
   int64_t3 vec3 = srv0.Load<int64_t3>(0);
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 0, i32 undef, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 0, i32 undef, i8 15, i32 4)
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 0
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 1
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 2
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 3
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 16, i32 undef, i8 3, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 16, i32 undef, i8 3, i32 4)
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 0
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 1
 // CHECK: zext i32 %{{[0-9]+}} to i64
@@ -32,16 +32,16 @@ void main(uint GI : SV_GroupIndex) {
 // CHECK: trunc i64 %{{[0-9]+}} to i32
 // CHECK: lshr i64 %{{[0-9]+}}, 32
 // CHECK: trunc i64 %{{[0-9]+}} to i32
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 0, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i8 15, i32 8) 
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 16, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 undef, i32 undef, i8 3, i32 8) 
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 0, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i8 15, i32 4)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 16, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 undef, i32 undef, i8 3, i32 4)
 
   int64_t4 vec4 = srv0.Load<int64_t4>(0);
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 0, i32 undef, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 0, i32 undef, i8 15, i32 4)
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 0
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 1
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 2
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 3
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 16, i32 undef, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv0_texture_rawbuf, i32 16, i32 undef, i8 15, i32 4)
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 0
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 1
 // CHECK: extractvalue %dx.types.ResRet.i32 %{{[a-zA-Z0-9]+}}, 2
@@ -55,8 +55,8 @@ void main(uint GI : SV_GroupIndex) {
 // CHECK: trunc i64 %{{[0-9]+}} to i32
 // CHECK: lshr i64 %{{[0-9]+}}, 32
 // CHECK: trunc i64 %{{[0-9]+}} to i32
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 0, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i8 15, i32 8) 
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 16, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i8 15, i32 8) 
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 0, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i8 15, i32 4)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %uav0_UAV_rawbuf, i32 16, i32 undef, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i32 %{{[0-9]+}}, i8 15, i32 4)
 
   int64_t3 svec3 = srv1[0].v3;
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %srv1_texture_structbuf, i32 0, i32 0, i8 15, i32 8)
