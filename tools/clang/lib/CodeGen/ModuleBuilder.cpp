@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include "llvm/Support/Path.h"
 using namespace clang;
 
 namespace {
@@ -228,7 +229,7 @@ namespace {
               llvm::MDString::get(LLVMCtx, content) });
           pContents->addOperand(pFileInfo);
         };
-        std::map<StringRef, StringRef> filesMap;
+        std::map<std::string, StringRef> filesMap;
         bool bFoundMainFile = false;
         for (SourceManager::fileinfo_iterator
                  it = Ctx.getSourceManager().fileinfo_begin(),
@@ -237,12 +238,15 @@ namespace {
           if (it->first->isValid() && !it->second->IsSystemFile) {
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
+            llvm::SmallString<128> NormalizedPath;
+            llvm::sys::path::native(it->first->getName(), NormalizedPath);
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-              AddFile(it->first->getName(), it->second->getRawBuffer()->getBuffer());
+              AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {
-              filesMap[it->first->getName()] = it->second->getRawBuffer()->getBuffer();
+              filesMap[NormalizedPath.str()] =
+                  it->second->getRawBuffer()->getBuffer();
             }
           }
         }
