@@ -3575,7 +3575,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
-  Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
+  // If RawBuffer load of 64-bit value, don't set alignment to 8,
+  // since buffer alignment isn't known to be anything over 4.
+  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
+  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
+    alignValue = 4;
+  Constant *Alignment = OP->GetI32Const(alignValue);
   unsigned numComponents = 1;
   if (Ty->isVectorTy()) {
     numComponents = Ty->getVectorNumElements();
@@ -3804,7 +3809,12 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     val = Builder.CreateZExt(val, Ty);
   }
 
-  Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
+  // If RawBuffer store of 64-bit value, don't set alignment to 8,
+  // since buffer alignment isn't known to be anything over 4.
+  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
+  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
+    alignValue = 4;
+  Constant *Alignment = OP->GetI32Const(alignValue);
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64 && isTyped) {
     EltTy = i32Ty;
