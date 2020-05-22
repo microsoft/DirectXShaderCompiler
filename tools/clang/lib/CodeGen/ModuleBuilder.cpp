@@ -229,7 +229,7 @@ namespace {
               llvm::MDString::get(LLVMCtx, content) });
           pContents->addOperand(pFileInfo);
         };
-        llvm::StringMap<StringRef> filesMap;
+        std::map<std::string, StringRef> filesMap;
         bool bFoundMainFile = false;
         for (SourceManager::fileinfo_iterator
                  it = Ctx.getSourceManager().fileinfo_begin(),
@@ -245,15 +245,15 @@ namespace {
               AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {
-              filesMap[NormalizedPath] =
+              filesMap[NormalizedPath.str()] =
                   it->second->getRawBuffer()->getBuffer();
             }
           }
         }
         assert(bFoundMainFile && "otherwise, no file found matches main filename");
         // Emit the rest of the files in sorted order.
-        for (auto &it : filesMap) {
-          AddFile(it.getKey(), it.getValue());
+        for (auto it : filesMap) {
+          AddFile(it.first, it.second);
         }
 
         // Add Defines to Debug Info
