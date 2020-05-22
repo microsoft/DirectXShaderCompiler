@@ -95,6 +95,15 @@ public:
     }
     return true;
   }
+  bool VisitCXXMemberCallExpr(CXXMemberCallExpr *expr) {
+    if (FunctionDecl *fnDecl =
+            dyn_cast_or_null<FunctionDecl>(expr->getCalleeDecl())) {
+      if (!m_visitedFunctions.count(fnDecl)) {
+        m_pendingFunctions.push_back(fnDecl);
+      }
+    }
+    return true;
+  }
 };
 
 static void raw_string_ostream_to_CoString(raw_string_ostream &o, _Outptr_result_z_ LPSTR *pResult) {
