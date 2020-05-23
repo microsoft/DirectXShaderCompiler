@@ -146,7 +146,7 @@ void initializeDxilEraseDeadRegionPass(PassRegistry&);
 Pass *createDxilEliminateVectorPass();
 void initializeDxilEliminateVectorPass(PassRegistry&);
 
-Pass *createDxilInsertPreservesPass();
+Pass *createDxilInsertPreservesPass(bool AllowPreserves);
 void initializeDxilInsertPreservesPass(PassRegistry&);
 
 Pass *createDxilFinalizePreservesPass();

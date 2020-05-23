@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Od /Zi | FileCheck %s
+// RUN: %dxc -preserve-intermediate-values -E main -T ps_6_0 %s -Od /Zi | FileCheck %s
 
 struct S {
   float x;

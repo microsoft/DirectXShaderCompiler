@@ -403,7 +403,7 @@ void Scalarizer::transferMetadata(Instruction *Op, const ValueVector &CV) {
            MI != ME; ++MI)
         if (canTransferMetadata(MI->first))
           New->setMetadata(MI->first, MI->second);
-      New->setDebugLoc(Op->getDebugLoc());
+      //New->setDebugLoc(Op->getDebugLoc()); // HLSL Change
     }
   }
 }
