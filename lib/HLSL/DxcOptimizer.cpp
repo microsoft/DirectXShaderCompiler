@@ -204,6 +204,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR DxilConditionalMem2RegArgs[] = { "NoOpt" };
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
+  static const LPCSTR DxilInsertPreservesArgs[] = { "AllowPreserves" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "UAVSize" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "config", "checkForDynamicIndexing" };
@@ -239,6 +240,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "dxil-cond-mem2reg") == 0) return ArrayRef<LPCSTR>(DxilConditionalMem2RegArgs, _countof(DxilConditionalMem2RegArgs));
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
+  if (strcmp(passName, "dxil-insert-preserves") == 0) return ArrayRef<LPCSTR>(DxilInsertPreservesArgs, _countof(DxilInsertPreservesArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "hlsl-dxil-pix-meshshader-output-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilPIXMeshShaderOutputInstrumentationArgs, _countof(DxilPIXMeshShaderOutputInstrumentationArgs));
   if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
@@ -281,6 +283,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilConditionalMem2RegArgs[] = { "None" };
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
+  static const LPCSTR DxilInsertPreservesArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "None", "None" };
@@ -316,6 +319,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "dxil-cond-mem2reg") == 0) return ArrayRef<LPCSTR>(DxilConditionalMem2RegArgs, _countof(DxilConditionalMem2RegArgs));
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
+  if (strcmp(passName, "dxil-insert-preserves") == 0) return ArrayRef<LPCSTR>(DxilInsertPreservesArgs, _countof(DxilInsertPreservesArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "hlsl-dxil-pix-meshshader-output-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilPIXMeshShaderOutputInstrumentationArgs, _countof(DxilPIXMeshShaderOutputInstrumentationArgs));
   if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
@@ -351,6 +355,7 @@ static bool IsPassOptionName(StringRef S) {
   /* <py::lines('ISPASSOPTIONNAME')>hctdb_instrhelp.get_is_pass_option_name()</py>*/
   // ISPASSOPTIONNAME:BEGIN
   return S.equals("AllowPartial")
+    ||  S.equals("AllowPreserves")
     ||  S.equals("ArrayElementThreshold")
     ||  S.equals("Count")
     ||  S.equals("DL")

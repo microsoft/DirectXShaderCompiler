@@ -2015,8 +2015,10 @@ class db_dxil(object):
         add_pass('hlsl-validate-wave-sensitivity', 'DxilValidateWaveSensitivity', 'HLSL DXIL wave sensitiveity validation', [])
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
         add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
-        add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [])
-        add_pass('dxil-preserve-to-select', 'DxilPreserveToSelect', 'Dxil Insert Noops', [])
+        add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [
+                {'n':'AllowPreserves', 't':'bool', 'c':1},
+            ])
+        add_pass('dxil-preserves-to-select', 'DxilPreserveToSelect', 'Dxil Preserves To Select', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
         add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
 

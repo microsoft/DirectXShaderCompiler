@@ -477,7 +477,7 @@ Pass *llvm::createDxilPreserveToSelectPass() {
   return new DxilPreserveToSelect();
 }
 
-INITIALIZE_PASS(DxilPreserveToSelect, "dxil-insert-noops", "Dxil Insert Noops", false, false)
+INITIALIZE_PASS(DxilPreserveToSelect, "dxil-preserves-to-select", "Dxil Preserves To Select", false, false)
 
 
 //==========================================================
