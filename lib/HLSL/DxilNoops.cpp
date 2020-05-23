@@ -101,8 +101,6 @@
 
 using namespace llvm;
 
-static const bool kAllowPreserves = false;
-
 namespace {
 StringRef kNoopName = "dx.noop";
 StringRef kPreservePrefix = "dx.preserve.";
@@ -315,8 +313,18 @@ static void InsertPreserve(bool AllowLoads, StoreInst *Store) {
 
 struct DxilInsertPreserves : public ModulePass {
   static char ID;
-  DxilInsertPreserves() : ModulePass(ID) {
+  DxilInsertPreserves(bool AllowPreserves=false) : ModulePass(ID), AllowPreserves(AllowPreserves) {
     initializeDxilInsertPreservesPass(*PassRegistry::getPassRegistry());
+  }
+  bool AllowPreserves = false;
+
+  // Function overrides that resolve options when used for DxOpt
+  void applyOptions(PassOptions O) override {
+    GetPassOptionBool(O, "AllowPreserves", &AllowPreserves, false);
+  }
+  void dumpConfig(raw_ostream &OS) override {
+    ModulePass::dumpConfig(OS);
+    OS << ",AllowPreserves=" << AllowPreserves;
   }
 
   bool runOnModule(Module &M) override {
@@ -384,7 +392,7 @@ struct DxilInsertPreserves : public ModulePass {
       if (StoreInst *Store = dyn_cast<StoreInst>(Info.StoreOrMC)) {
         Value *V = Store->getValueOperand();
 
-        if (kAllowPreserves && V &&
+        if (this->AllowPreserves && V &&
           !V->getType()->isAggregateType() &&
           !V->getType()->isPointerTy())
         {
@@ -411,8 +419,8 @@ struct DxilInsertPreserves : public ModulePass {
 
 char DxilInsertPreserves::ID;
 
-Pass *llvm::createDxilInsertPreservesPass() {
-  return new DxilInsertPreserves();
+Pass *llvm::createDxilInsertPreservesPass(bool AllowPreserves) {
+  return new DxilInsertPreserves(AllowPreserves);
 }
 
 INITIALIZE_PASS(DxilInsertPreserves, "dxil-insert-preserves", "Dxil Insert Preserves", false, false)

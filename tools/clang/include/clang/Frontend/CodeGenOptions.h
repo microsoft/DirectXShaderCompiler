@@ -177,6 +177,8 @@ public:
   std::string HLSLProfile;
   /// Whether to target high-level DXIL.
   bool HLSLHighLevel = false;
+  /// Whether we allow preserve intermediate values
+  bool HLSLAllowPreserveValues = false;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.

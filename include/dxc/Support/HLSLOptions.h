@@ -133,6 +133,7 @@ public:
   bool AstDump = false; // OPT_ast_dump
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
+  bool AllowPreserveValues = false; // OPT_preserve_intermediate_values
   bool DebugInfo = false; // OPT__SLASH_Zi
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss

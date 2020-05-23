@@ -328,7 +328,7 @@ void PassManagerBuilder::populateModulePassManager(
     }
 
     if (!HLSLHighLevel)
-      MPM.add(createDxilInsertPreservesPass()); // HLSL Change - insert preserve instructions
+      MPM.add(createDxilInsertPreservesPass(HLSLAllowPreserveValues)); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
       MPM.add(createHLLegalizeParameter()); // HLSL Change - legalize parameters
