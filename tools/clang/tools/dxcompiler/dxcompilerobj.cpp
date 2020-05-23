@@ -1104,6 +1104,7 @@ public:
       compiler.getCodeGenOpts().UnrollLoops = true;
 
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
+    compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;

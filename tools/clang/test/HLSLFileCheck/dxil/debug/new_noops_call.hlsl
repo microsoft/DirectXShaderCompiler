@@ -1,4 +1,4 @@
-// RUN: %dxc -preserve-intermediate-values -E main -T ps_6_0 %s -Od | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
 
 typedef float4 MyCoolFloat4; 
 static float4 myStaticGlobalVar = float4(1.0, 1.0, 1.0, 1.0);
@@ -63,9 +63,9 @@ float4 depth2(float4 val)
 [RootSignature("")]
 float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 {
-    // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
-    // CHECK-SAME: @dx.preserve.value
-    // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
+    // xHECK: %[[p_load:[0-9]+]] = load i32, i32*
+    // xHECK-SAME: @dx.preserve.value
+    // xHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
     float4 ret1 = localScopeVar_func(color);
     // ** call **
     // CHECK: load i32, i32*
@@ -74,10 +74,12 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: %[[v2:.+]] = fmul
     // CHECK: %[[v3:.+]] = fmul
     // CHECK: %[[v4:.+]] = fmul
-    // CHECK: select i1 %[[p]], float %[[v1]], float %[[v1]]
-    // CHECK: select i1 %[[p]], float %[[v2]], float %[[v2]]
-    // CHECK: select i1 %[[p]], float %[[v3]], float %[[v3]]
-    // CHECK: select i1 %[[p]], float %[[v4]], float %[[v4]]
+    // xHECK: select i1 %[[p]], float %[[v1]], float %[[v1]]
+    // xHECK: select i1 %[[p]], float %[[v2]], float %[[v2]]
+    // xHECK: select i1 %[[p]], float %[[v3]], float %[[v3]]
+    // xHECK: select i1 %[[p]], float %[[v4]], float %[[v4]]
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** return **
 
     float4 ret2 = localRegVar_func(ret1);
@@ -85,10 +87,12 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: load i32, i32*
     // CHECK-SAME: @dx.nothing
     // ** copy **
-    // CHECK: select i1 %[[p]],
-    // CHECK: select i1 %[[p]],
-    // CHECK: select i1 %[[p]],
-    // CHECK: select i1 %[[p]],
+    // xHECK: select i1 %[[p]],
+    // xHECK: select i1 %[[p]],
+    // xHECK: select i1 %[[p]],
+    // xHECK: select i1 %[[p]],
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** return **
 
     float4 ret3 = array_func(ret2);
@@ -110,10 +114,12 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: load i32, i32*
     // CHECK-SAME: @dx.nothing
     // ** copy **
-    // CHECK: select i1 %[[p]], float %{{.+}}
-    // CHECK: select i1 %[[p]], float %{{.+}}
-    // CHECK: select i1 %[[p]], float %{{.+}}
-    // CHECK: select i1 %[[p]], float %{{.+}}
+    // xHECK: select i1 %[[p]], float %{{.+}}
+    // xHECK: select i1 %[[p]], float %{{.+}}
+    // xHECK: select i1 %[[p]], float %{{.+}}
+    // xHECK: select i1 %[[p]], float %{{.+}}
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** return **
 
     float4 ret5 = global_func(ret4);
@@ -124,10 +130,12 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // CHECK: %[[a2:.+]] = fmul
     // CHECK: %[[a3:.+]] = fmul
     // CHECK: %[[a4:.+]] = fmul
-    // CHECK: select i1 %[[p]], float %[[a1]], float %[[a1]]
-    // CHECK: select i1 %[[p]], float %[[a2]], float %[[a2]]
-    // CHECK: select i1 %[[p]], float %[[a3]], float %[[a3]]
-    // CHECK: select i1 %[[p]], float %[[a4]], float %[[a4]]
+    // xHECK: select i1 %[[p]], float %[[a1]], float %[[a1]]
+    // xHECK: select i1 %[[p]], float %[[a2]], float %[[a2]]
+    // xHECK: select i1 %[[p]], float %[[a3]], float %[[a3]]
+    // xHECK: select i1 %[[p]], float %[[a4]], float %[[a4]]
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
     // ** return **
 
     float4 ret6 = depth2(ret5);
@@ -162,10 +170,12 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
       // CHECK: %[[d3:.+]] = fmul
       // CHECK: %[[d4:.+]] = fmul
     // }
-    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d1]]
-    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d2]]
-    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d3]]
-    // CHECK: select i1 %[[p]], float %{{.+}}, float %[[d4]]
+    // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d1]]
+    // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d2]]
+    // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d3]]
+    // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d4]]
+    // CHECK: load i32, i32*
+    // CHECK-SAME: @dx.nothing
 
     return max(ret6, color);
     // CHECK: call float @dx.op.binary.f32(i32 35

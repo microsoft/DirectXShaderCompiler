@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
+// RUN: %dxc -preserve-intermediate-values -E main -T ps_6_0 %s -Od | FileCheck %s
 
 // Test that non-const arithmetic are not optimized away
 
