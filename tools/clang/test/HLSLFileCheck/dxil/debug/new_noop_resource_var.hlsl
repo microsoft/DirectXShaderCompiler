@@ -1,4 +1,4 @@
-// RUN: %dxc -preserve-intermediate-values -E main -T cs_6_0 %s -Od | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 %s -Od | FileCheck %s
 
 RWBuffer<float> uav : register(u0);
 
@@ -19,15 +19,16 @@ void store_things() {
 [numthreads(1, 1, 1)]
 [RootSignature("CBV(b0), DescriptorTable(UAV(u0))")]
 void main() {
-  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
-  // CHECK-SAME: @dx.preserve.value
-  // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
+  // xHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // xHECK-SAME: @dx.preserve.value
+  // xHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   // CHECK: load i32, i32*
   // CHECK: @dx.nothing
   my_uav = uav;
 
   // select i1 [[p]],
+  // CHECK: dx.nothing
   float ret = foo;
 
   // CHECK: load i32, i32*

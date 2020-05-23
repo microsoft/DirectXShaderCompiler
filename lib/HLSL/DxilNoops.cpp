@@ -490,15 +490,9 @@ class DxilFinalizePreserves : public ModulePass {
 public:
   static char ID;
   GlobalVariable *NothingGV = nullptr;
-  DxilValueCache *DVC = nullptr;
 
   DxilFinalizePreserves() : ModulePass(ID) {
     initializeDxilFinalizePreservesPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DxilValueCache>();
-    AU.setPreservesCFG();
   }
 
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
@@ -545,23 +539,16 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
           std::next(LI->user_begin()) == LI->user_end());
         Instruction *I = cast<Instruction>(*LI->user_begin());
 
-        for (auto it = I->user_begin(); it != I->user_end();) {
-          User *UU = *(it++);
+        for (User *UU : I->users()) {
 
           SelectInst *P = cast<SelectInst>(UU);
+          Value *PrevV = P->getTrueValue();
           Value *CurV = P->getFalseValue();
 
-          Instruction *Nop = GetFinalNoopInst(M, P);
-          Nop->setDebugLoc(P->getDebugLoc());
-          Changed = true;
-
-          if (auto C = DVC->GetConstValue(P)) {
-            P->replaceAllUsesWith(C);
+          if (isa<UndefValue>(PrevV) || isa<Constant>(PrevV)) {
+            P->setOperand(1, CurV);
+            Changed = true;
           }
-          else {
-            P->replaceAllUsesWith(CurV);
-          }
-          P->eraseFromParent();
         }
       }
     }
@@ -605,8 +592,6 @@ bool DxilFinalizePreserves::LowerNoops(Module &M) {
 // Replace all preserves and nops
 bool DxilFinalizePreserves::runOnModule(Module &M) {
   bool Changed = false;
-
-  DVC = &getAnalysis<DxilValueCache>();
 
   Changed |= LowerPreserves(M);
   Changed |= LowerNoops(M);

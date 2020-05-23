@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Od /Zi | FileCheck %s
+// RUN: %dxc -preserve-intermediate-values -E main -T ps_6_0 %s -Od /Zi | FileCheck %s
 
 struct S {
   float x;
@@ -6,19 +6,17 @@ struct S {
 };
 
 float main() : SV_Target {
-  // xHECK: %[[p_load:[0-9]+]] = load i32, i32*
-  // xHECK-SAME: @dx.preserve.value
-  // xHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
+  // CHECK: %[[p_load:[0-9]+]] = load i32, i32*
+  // CHECK-SAME: @dx.preserve.value
+  // CHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
 
   S a = { 0.f, 1.f};
-  // xHECK: select i1 %[[p]], float
-  // xHECK: select i1 %[[p]], float
-  // CHECK: dx.nothing
+  // CHECK: select i1 %[[p]], float
+  // CHECK: select i1 %[[p]], float
 
   S b = { 2.f, 3.f};
-  // xHECK: select i1 %[[p]], float
-  // xHECK: select i1 %[[p]], float
-  // CHECK: dx.nothing
+  // CHECK: select i1 %[[p]], float
+  // CHECK: select i1 %[[p]], float
 
   S c = { a.x+b.x, a.y+b.y };
   // CHECK: fmul
