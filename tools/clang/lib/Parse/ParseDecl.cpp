@@ -1925,13 +1925,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   Decl *OwnedType = nullptr;
   switch (Tok.getKind()) {
   case tok::kw_template:
-    // HLSL Change Starts
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipMalformedDecl();
-      return DeclGroupPtrTy();
-    }
-    // HLSL Change Ends
     ProhibitAttributes(attrs);
     SingleDecl = ParseDeclarationStartingWithTemplate(Context, DeclEnd);
     break;
@@ -4048,7 +4041,7 @@ HLSLReservedKeyword:
     case tok::kw_union: {
       // HLSL Change Starts
       if (getLangOpts().HLSL) {
-        if (Tok.is(tok::kw_union) || Tok.is(tok::kw___interface)) {
+        if (Tok.is(tok::kw___interface)) {
           goto HLSLReservedKeyword;
         }
       }

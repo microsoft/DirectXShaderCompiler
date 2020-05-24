@@ -230,7 +230,7 @@ int constant intconstant; // expected-error {{expected ';' after top level decla
 
 typedef void VOID_TYPE;
 
-template <typename T> // expected-error {{'template' is a reserved keyword in HLSL}}
+template <typename T>
 int fn_template(T t)
 {
   return (int)t;
@@ -332,7 +332,7 @@ void fn_my_struct_type_decl() {
 }
 
 struct s_with_template_member {
-  template<typename T> T fn(); // expected-error {{'template' is a reserved keyword in HLSL}}
+  template<typename T> T fn();
 };
 
 struct s_with_using {
@@ -578,7 +578,7 @@ void expressions()
 
   Texture2D<::c_outer_fn> local_texture; // expected-error {{'::c_outer_fn' cannot be used as a type parameter}}
   ::new local_new; // expected-error {{new' is a reserved keyword in HLSL}}
-  ::template foo local_template; // expected-error {{'template' is a reserved keyword in HLSL}} expected-error {{unknown type name 'foo'}}
+  ::template foo local_template; // expected-error {{'template' is a reserved keyword in HLSL}}  expected-error {{unknown type name 'foo'}}
 
   class CInlineWithTry {
     void fn()

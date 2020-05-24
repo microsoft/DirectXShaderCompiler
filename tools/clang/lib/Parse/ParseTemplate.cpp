@@ -29,7 +29,6 @@ Parser::ParseDeclarationStartingWithTemplate(unsigned Context,
                                              SourceLocation &DeclEnd,
                                              AccessSpecifier AS,
                                              AttributeList *AccessAttrs) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   ObjCDeclContextSwitch ObjCDC(*this);
   
   if (Tok.is(tok::kw_template) && NextToken().isNot(tok::less)) {
@@ -63,7 +62,6 @@ Parser::ParseTemplateDeclarationOrSpecialization(unsigned Context,
                                                  SourceLocation &DeclEnd,
                                                  AccessSpecifier AS,
                                                  AttributeList *AccessAttrs) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   assert(Tok.isOneOf(tok::kw_export, tok::kw_template) &&
          "Token does not start a template declaration.");
 
@@ -177,7 +175,6 @@ Parser::ParseSingleDeclarationAfterTemplate(
                                        SourceLocation &DeclEnd,
                                        AccessSpecifier AS,
                                        AttributeList *AccessAttrs) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   assert(TemplateInfo.Kind != ParsedTemplateInfo::NonTemplate &&
          "Template information required");
 
@@ -340,7 +337,6 @@ bool Parser::ParseTemplateParameters(unsigned Depth,
                                SmallVectorImpl<Decl*> &TemplateParams,
                                      SourceLocation &LAngleLoc,
                                      SourceLocation &RAngleLoc) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   // Get the template parameter list.
   if (!TryConsumeToken(tok::less, LAngleLoc)) {
     Diag(Tok.getLocation(), diag::err_expected_less_after) << "template";
@@ -379,7 +375,6 @@ bool Parser::ParseTemplateParameters(unsigned Depth,
 bool
 Parser::ParseTemplateParameterList(unsigned Depth,
                              SmallVectorImpl<Decl*> &TemplateParams) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   while (1) {
     if (Decl *TmpParam
           = ParseTemplateParameter(Depth, TemplateParams.size())) {
@@ -413,7 +408,6 @@ Parser::ParseTemplateParameterList(unsigned Depth,
 /// \brief Determine whether the parser is at the start of a template
 /// type parameter.
 bool Parser::isStartOfTemplateTypeParameter() {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   if (Tok.is(tok::kw_class)) {
     // "class" may be the start of an elaborated-type-specifier or a
     // type-parameter. Per C++ [temp.param]p3, we prefer the type-parameter.
@@ -490,7 +484,6 @@ bool Parser::isStartOfTemplateTypeParameter() {
 ///         'template' '<' template-parameter-list '>' 'class' identifier[opt]
 ///               = id-expression
 Decl *Parser::ParseTemplateParameter(unsigned Depth, unsigned Position) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   if (isStartOfTemplateTypeParameter())
     return ParseTypeParameter(Depth, Position);
 
@@ -513,7 +506,6 @@ Decl *Parser::ParseTemplateParameter(unsigned Depth, unsigned Position) {
 ///         'typename' ...[opt][C++0x] identifier[opt]
 ///         'typename' identifier[opt] '=' type-id
 Decl *Parser::ParseTypeParameter(unsigned Depth, unsigned Position) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   assert(Tok.isOneOf(tok::kw_class, tok::kw_typename) &&
          "A type-parameter starts with 'class' or 'typename'");
 
@@ -577,7 +569,6 @@ Decl *Parser::ParseTypeParameter(unsigned Depth, unsigned Position) {
 ///         'typename'       [C++1z]
 Decl *
 Parser::ParseTemplateTemplateParameter(unsigned Depth, unsigned Position) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   assert(Tok.is(tok::kw_template) && "Expected 'template' keyword");
 
   // Handle the template <...> part.
@@ -684,7 +675,6 @@ Parser::ParseTemplateTemplateParameter(unsigned Depth, unsigned Position) {
 ///         parameter-declaration
 Decl *
 Parser::ParseNonTypeTemplateParameter(unsigned Depth, unsigned Position) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   // Parse the declaration-specifiers (i.e., the type).
   // FIXME: The type should probably be restricted in some way... Not all
   // declarators (parts of declarators?) are accepted for parameters.
@@ -1359,7 +1349,6 @@ void Parser::LateTemplateParserCallback(void *P, LateParsedTemplate &LPT) {
 
 /// \brief Late parse a C++ function template in Microsoft mode.
 void Parser::ParseLateTemplatedFuncDef(LateParsedTemplate &LPT) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   if (!LPT.D)
      return;
 
@@ -1450,7 +1439,6 @@ void Parser::ParseLateTemplatedFuncDef(LateParsedTemplate &LPT) {
 
 /// \brief Lex a delayed template function for late parsing.
 void Parser::LexTemplateFunctionForLateParsing(CachedTokens &Toks) {
-  assert(!getLangOpts().HLSL && "no template parsing is supported in HLSL"); // HLSL Change
   tok::TokenKind kind = Tok.getKind();
   if (!ConsumeAndStoreFunctionPrologue(Toks)) {
     // Consume everything up to (and including) the matching right brace.

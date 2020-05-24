@@ -230,7 +230,7 @@ int constant intconstant; // expected-error {{expected ';' after top level decla
 
 typedef void VOID_TYPE;
 
-template <typename T> // expected-error {{'template' is a reserved keyword in HLSL}}
+template <typename T>
 int fn_template(T t)
 {
   return (int)t;
@@ -332,7 +332,7 @@ void fn_my_struct_type_decl() {
 }
 
 struct s_with_template_member {
-  template<typename T> T fn(); // expected-error {{'template' is a reserved keyword in HLSL}}
+  template<typename T> T fn();
 };
 
 struct s_with_using {

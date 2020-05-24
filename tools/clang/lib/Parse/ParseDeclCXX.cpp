@@ -2347,13 +2347,6 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
   if (Tok.is(tok::kw_template)) {
     assert(!TemplateInfo.TemplateParams &&
            "Nested template improperly parsed?");
-    // HLSL Change Start - disallow template members
-    if (getLangOpts().HLSL) {
-      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
-      SkipUntil(tok::r_brace, StopAtSemi);
-      return;
-    }
-    // HLSL Change End
     SourceLocation DeclEnd;
     ParseDeclarationStartingWithTemplate(Declarator::MemberContext, DeclEnd,
                                          AS, AccessAttrs);

@@ -74,7 +74,7 @@ enum ArBasicKind {
   AR_BASIC_NONE,
   AR_BASIC_UNKNOWN,
   AR_BASIC_NOCAST,
-
+  AR_BASIC_DEPENDENT,
   //
   // The following pseudo-entries represent higher-level
   // object types that are treated as units.
@@ -371,6 +371,7 @@ const UINT g_uBasicKindProps[] =
   0,            // AR_BASIC_NONE
   BPROP_OTHER,  // AR_BASIC_UNKNOWN
   BPROP_OTHER,  // AR_BASIC_NOCAST
+  0,            // AR_BASIC_DEPENDENT
 
   //
   // The following pseudo-entries represent higher-level
@@ -581,6 +582,7 @@ enum ArTypeObjectKind {
   AR_TOBJ_INNER_OBJ, // Represents a built-in inner object, such as an 
                      // indexer object used to implement .mips[1].
   AR_TOBJ_STRING,    // Represents a string
+  AR_TOBJ_DEPENDENT, // Dependent type for template.
 };
 
 enum TYPE_CONVERSION_FLAGS
@@ -1529,6 +1531,7 @@ const char* g_ArBasicTypeNames[] =
   "<none>",
   "<unknown>",
   "<nocast>",
+  "<dependent>",
   "<pointer>",
   "enum class",
 
@@ -3714,7 +3717,8 @@ public:
         return AR_TOBJ_MATRIX;
       else if (decl == m_vectorTemplateDecl)
         return AR_TOBJ_VECTOR;
-      DXASSERT(decl->isImplicit(), "otherwise object template decl is not set to implicit");
+      else if (!decl->isImplicit())
+        return AR_TOBJ_COMPOUND;
       return AR_TOBJ_OBJECT;
     }
 
@@ -3781,6 +3785,9 @@ public:
     }
     if (type->isPointerType()) {
       return hlsl::IsPointerStringType(type) ? AR_TOBJ_STRING : AR_TOBJ_POINTER;
+    }
+    if (type->isDependentType()) {
+      return AR_TOBJ_DEPENDENT;
     }
     if (type->isStructureOrClassType()) {
       const RecordType* recordType = type->getAs<RecordType>();
@@ -3913,6 +3920,7 @@ public:
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
+      case BuiltinType::Dependent: return AR_BASIC_DEPENDENT;
       default:
         // Only builtin types that have basickind equivalents.
         break;
@@ -8542,6 +8550,9 @@ bool HLSLExternalSource::ValidateTypeRequirements(
   bool requiresIntegrals,
   bool requiresNumerics)
 {
+  if (elementKind == AR_BASIC_DEPENDENT)
+    return true;
+
   if (requiresIntegrals || requiresNumerics)
   {
     if (!IsObjectKindPrimitiveAggregate(objectKind))
@@ -9196,8 +9207,10 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   // Get information about the function we have.
   CXXMethodDecl* functionMethod = dyn_cast<CXXMethodDecl>(FunctionTemplate->getTemplatedDecl());
-  DXASSERT(functionMethod != nullptr,
-    "otherwise this is standalone function rather than a method, which isn't supported in the HLSL object model");
+  if (!functionMethod) {
+    // standalone function.
+    return Sema::TemplateDeductionResult::TDK_Invalid;
+  }
   CXXRecordDecl* functionParentRecord = functionMethod->getParent();
   DXASSERT(functionParentRecord != nullptr, "otherwise function is orphaned");
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
@@ -9255,6 +9268,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   size_t intrinsicCount = 0;
   const char* objectName = nullptr;
   FindIntrinsicTable(FunctionTemplate->getDeclContext(), &objectName, &intrinsics, &intrinsicCount);
+  // user-defined template object.
+  if (objectName == nullptr && intrinsics == nullptr) {
+    return Sema::TemplateDeductionResult::TDK_Invalid;
+  }
+
   DXASSERT(objectName != nullptr &&
     (intrinsics != nullptr || m_intrinsicTables.size() > 0),
     "otherwise FindIntrinsicTable failed to lookup a valid object, "
