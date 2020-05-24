@@ -156,9 +156,10 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
 
     if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
       for (User *U : V->users()) {
+        MemCpyInst *MC = nullptr;
         // Allow load if MC reads from pointer
-        if (MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
-          AllowLoad |= MC->getSource() == V;
+        if ((MC = dyn_cast<MemCpyInst>(U)) && MC->getSource() == V) {
+          AllowLoad = true;
         }
         else if (isa<LoadInst>(U)) {
           AllowLoad = true;
