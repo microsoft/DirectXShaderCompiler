@@ -665,11 +665,17 @@ public:
     // Insert the annotation
     BasicBlock &BB = F.getEntryBlock();
     CallInst *CI = nullptr;
-    if (BB.empty()) {
+
+    BasicBlock::iterator InsertPt = BB.begin();
+    while (InsertPt != BB.end() && (isa<AllocaInst>(*InsertPt) || isa<DbgInfoIntrinsic>(*InsertPt))) {
+      InsertPt++;
+    }
+
+    if (InsertPt == BB.end()) {
       CI = CallInst::Create(AnnotFunction, "", &BB);
     }
     else {
-      CI = CallInst::Create(AnnotFunction, "", BB.begin());
+      CI = CallInst::Create(AnnotFunction, "", InsertPt);
     }
 
     CI->setDebugLoc(Loc);
