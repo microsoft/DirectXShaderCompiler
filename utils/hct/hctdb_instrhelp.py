@@ -104,7 +104,7 @@ def build_range_code(var, i):
             result = cond
         else:
             result = result + " || " + cond
-    return result
+    return result or "false"
 
 class db_docsref_gen:
     "A generator of reference documentation."
@@ -811,6 +811,11 @@ def get_instrs_pred(varname, pred, attr_name="dxil_opid"):
     result += "\n"
     return result
 
+def counter_pred(name, dxil_op=True):
+    def pred(i):
+        return (dxil_op == i.is_dxil_op) and getattr(i, 'props') and 'counters' in i.props and name in i.props['counters']
+    return pred
+
 def get_instrs_rst():
     "Create an rst table of allowed LLVM instructions."
     db = get_db_dxil()
@@ -1423,6 +1428,7 @@ if __name__ == "__main__":
             'include/dxc/HlslIntrinsicOp.h',
             'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
             'include/dxc/DXIL/DxilSigPoint.inl',
+            'lib/DXIL/DxilCounters.cpp',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

@@ -11,6 +11,7 @@
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilCounters.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
@@ -66,6 +67,9 @@ const char DxilMDHelper::kDxilSourceContentsMDName[]                  = "dx.sour
 const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.source.defines";
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
+
+// This is reflection-only metadata
+const char DxilMDHelper::kDxilCountersMDName[]                        = "dx.counters";
 
 static std::array<const char *, 7> DxilMDNames = { {
   DxilMDHelper::kDxilVersionMDName,
@@ -2058,6 +2062,68 @@ void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads, u
   NumThreads[2] = ConstMDToUint32(pNode->getOperand(2));
   payloadSizeInBytes = ConstMDToUint32(pTupleMD->getOperand(kDxilASStatePayloadSizeInBytes));
 }
+
+void DxilMDHelper::AddCounterIfNonZero(uint32_t value, StringRef name, vector<Metadata*> &MDVals) {
+  if (value) {
+    MDVals.emplace_back(MDString::get(m_Ctx, name));
+    MDVals.emplace_back(Uint32ToConstMD(value));
+  }
+}
+
+void DxilMDHelper::EmitDxilCounters(const DxilCounters &counters) {
+  NamedMDNode *pDxilCountersMD = m_pModule->getNamedMetadata(kDxilCountersMDName);
+  if (pDxilCountersMD)
+    m_pModule->eraseNamedMetadata(pDxilCountersMD);
+
+  vector<Metadata*> MDVals;
+#define ADD_COUNTER_MD(name) AddCounterIfNonZero(counters.name, #name, MDVals);
+  ADD_COUNTER_MD(InstructionCount);
+  ADD_COUNTER_MD(FloatInstructionCount);
+  ADD_COUNTER_MD(IntInstructionCount);
+  ADD_COUNTER_MD(UintInstructionCount);
+  ADD_COUNTER_MD(BranchCount);
+  ADD_COUNTER_MD(GlobalStaticArrayBytes);
+  ADD_COUNTER_MD(GlobalTGSMArrayBytes);
+  ADD_COUNTER_MD(LocalArrayBytes);
+  ADD_COUNTER_MD(GlobalStaticArrayAccesses);
+  ADD_COUNTER_MD(GlobalTGSMArrayAccesses);
+  ADD_COUNTER_MD(LocalArrayAccesses);
+  ADD_COUNTER_MD(TextureSampleCount);
+  ADD_COUNTER_MD(ResourceLoadCount);
+  ADD_COUNTER_MD(ResourceStoreCount);
+  ADD_COUNTER_MD(TextureCmpCount);
+  ADD_COUNTER_MD(TextureBiasCount);
+  ADD_COUNTER_MD(TextureGradCount);
+  ADD_COUNTER_MD(GSEmitCount);
+  ADD_COUNTER_MD(GSCutCount);
+  ADD_COUNTER_MD(AtomicCount);
+  ADD_COUNTER_MD(BarrierCount);
+#undef ADD_COUNTER_MD
+
+  if (MDVals.size()) {
+    pDxilCountersMD = m_pModule->getOrInsertNamedMetadata(kDxilCountersMDName);
+    pDxilCountersMD->addOperand(MDNode::get(m_Ctx, MDVals));
+  }
+}
+
+void DxilMDHelper::LoadCounterMD(const MDOperand &MDName, const MDOperand &MDValue, DxilCounters &counters) const {
+  StringRef name = StringMDToStringRef(MDName);
+  uint32_t value = ConstMDToUint32(MDValue);
+  uint32_t *counter = LookupByName(name, counters);
+  if (counter)
+    *counter = value;
+}
+
+void DxilMDHelper::LoadDxilCounters(DxilCounters &counters) const {
+  ZeroMemory(&counters, sizeof(counters));
+  if (NamedMDNode *pDxilCountersMD = m_pModule->getNamedMetadata(kDxilCountersMDName)) {
+    MDNode *pMDCounters = pDxilCountersMD->getOperand(0);
+    for (unsigned i = 0; i < pMDCounters->getNumOperands(); i += 2) {
+      LoadCounterMD(pMDCounters->getOperand(i), pMDCounters->getOperand(i+1), counters);
+    }
+  }
+}
+
 
 //
 // DxilExtraPropertyHelper methods.

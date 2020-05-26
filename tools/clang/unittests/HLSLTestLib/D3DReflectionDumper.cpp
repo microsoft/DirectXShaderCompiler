@@ -452,7 +452,25 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
     WriteLn("cControlPoints: ", Desc.cControlPoints);
     DumpEnum("TessellatorDomain", Desc.TessellatorDomain);
   }
-  // TODO
+  // Instruction Counts
+  WriteLn("InstructionCount: ", Desc.InstructionCount);
+  WriteLn("TempArrayCount: ", Desc.TempArrayCount);
+  WriteLn("DynamicFlowControlCount: ", Desc.DynamicFlowControlCount);
+  WriteLn("ArrayInstructionCount: ", Desc.ArrayInstructionCount);
+  WriteLn("TextureNormalInstructions: ", Desc.TextureNormalInstructions);
+  WriteLn("TextureLoadInstructions: ", Desc.TextureLoadInstructions);
+  WriteLn("TextureCompInstructions: ", Desc.TextureCompInstructions);
+  WriteLn("TextureBiasInstructions: ", Desc.TextureBiasInstructions);
+  WriteLn("TextureGradientInstructions: ", Desc.TextureGradientInstructions);
+  WriteLn("FloatInstructionCount: ", Desc.FloatInstructionCount);
+  WriteLn("IntInstructionCount: ", Desc.IntInstructionCount);
+  WriteLn("UintInstructionCount: ", Desc.UintInstructionCount);
+  WriteLn("CutInstructionCount: ", Desc.CutInstructionCount);
+  WriteLn("EmitInstructionCount: ", Desc.EmitInstructionCount);
+  WriteLn("cBarrierInstructions: ", Desc.cBarrierInstructions);
+  WriteLn("cInterlockedInstructions: ", Desc.cInterlockedInstructions);
+  WriteLn("cTextureStoreInstructions: ", Desc.cTextureStoreInstructions);
+
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC &Desc) {

@@ -42,6 +42,23 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:     BoundResources: 1
 // CHECK-NEXT:     InputParameters: 1
 // CHECK-NEXT:     OutputParameters: 1
+// CHECK-NEXT:     InstructionCount: 49
+// CHECK-NEXT:     TempArrayCount: 0
+// CHECK-NEXT:     DynamicFlowControlCount: 0
+// CHECK-NEXT:     ArrayInstructionCount: 0
+// CHECK-NEXT:     TextureNormalInstructions: 0
+// CHECK-NEXT:     TextureLoadInstructions: 6
+// CHECK-NEXT:     TextureCompInstructions: 0
+// CHECK-NEXT:     TextureBiasInstructions: 0
+// CHECK-NEXT:     TextureGradientInstructions: 0
+// CHECK-NEXT:     FloatInstructionCount: 12
+// CHECK-NEXT:     IntInstructionCount: 6
+// CHECK-NEXT:     UintInstructionCount: 7
+// CHECK-NEXT:     CutInstructionCount: 0
+// CHECK-NEXT:     EmitInstructionCount: 0
+// CHECK-NEXT:     cBarrierInstructions: 0
+// CHECK-NEXT:     cInterlockedInstructions: 0
+// CHECK-NEXT:     cTextureStoreInstructions: 0
 // CHECK-NEXT:   Constant Buffers:
 // CHECK-NEXT:     ID3D12ShaderReflectionConstantBuffer:
 // CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: tb

@@ -181,6 +181,9 @@ public:
   /// Return true if non-fatal metadata error was detected.
   bool HasMetadataErrors();
 
+  void EmitDxilCounters();
+  void LoadDxilCounters(DxilCounters &counters) const;
+
   /// Check if a Named meta data node is known by dxil module.
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
 
