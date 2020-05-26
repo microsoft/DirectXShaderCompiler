@@ -2014,6 +2014,7 @@ class db_dxil(object):
         add_pass('dxil-fix-array-init', 'DxilFixConstArrayInitializer', 'Dxil Fix Array Initializer', [])
         add_pass('hlsl-validate-wave-sensitivity', 'DxilValidateWaveSensitivity', 'HLSL DXIL wave sensitiveity validation', [])
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
+        add_pass('dxil-rewrite-output-arg-debug-info', 'DxilRewriteOutputArgDebugInfo', 'Dxil Rewrite Output Arg Debug Info', [])
         add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
         add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [
                 {'n':'AllowPreserves', 't':'bool', 'c':1},

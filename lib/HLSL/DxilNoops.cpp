@@ -92,6 +92,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilConstants.h"
@@ -479,6 +481,76 @@ Pass *llvm::createDxilPreserveToSelectPass() {
 }
 
 INITIALIZE_PASS(DxilPreserveToSelect, "dxil-preserves-to-select", "Dxil Preserves To Select", false, false)
+
+
+//==========================================================
+// output Argument debug info rewrite
+//
+namespace {
+
+class DxilRewriteOutputArgDebugInfo : public ModulePass {
+public:
+  static char ID;
+
+  DxilRewriteOutputArgDebugInfo() : ModulePass(ID) {
+    initializeDxilRewriteOutputArgDebugInfoPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnModule(Module &M) override {
+    DITypeIdentifierMap EmptyMap;
+    DIBuilder DIB(M);
+
+    bool Changed = false;
+
+    for (Function &F : M) {
+      for (Argument &Arg : F.args()) {
+        if (!Arg.getType()->isPointerTy())
+          continue;
+
+        DbgDeclareInst *Declare = llvm::FindAllocaDbgDeclare(&Arg);
+        if (!Declare)
+          continue;
+
+        DILocalVariable *Var = Declare->getVariable();
+        DIType *Ty = Var->getType().resolve(EmptyMap);
+
+        DIExpression *Expr = Declare->getExpression();
+        if (Expr->getNumElements() == 1 && Expr->getElement(0) == dwarf::DW_OP_deref) {
+          while (Ty &&
+            Ty->getTag() == dwarf::DW_TAG_reference_type ||
+            Ty->getTag() == dwarf::DW_TAG_restrict_type)
+          {
+            Ty = cast<DIDerivedType>(Ty)->getBaseType().resolve(EmptyMap);
+          }
+
+          if (Ty) {
+            DILocalVariable *NewVar =
+              DIB.createLocalVariable(dwarf::DW_TAG_arg_variable,
+                Var->getScope(), Var->getName(), Var->getFile(),
+                Var->getLine(), Ty, false, 0, Var->getArg());
+            DIExpression *EmptyExpr = DIExpression::get(M.getContext(), {});
+            DIB.insertDeclare(&Arg, NewVar, EmptyExpr, Declare->getDebugLoc(), Declare);
+            Declare->eraseFromParent();
+
+            Changed = true;
+          }
+        }
+      }
+    }
+
+    return Changed;
+  }
+  const char *getPassName() const override { return "Dxil Rewrite Output Arg Debug Info"; }
+};
+
+char DxilRewriteOutputArgDebugInfo::ID;
+}
+
+Pass *llvm::createDxilRewriteOutputArgDebugInfoPass() {
+  return new DxilRewriteOutputArgDebugInfo();
+}
+
+INITIALIZE_PASS(DxilRewriteOutputArgDebugInfo, "dxil-rewrite-output-arg-debug-info", "Dxil Rewrite Output Arg Debug Info", false, false)
 
 
 //==========================================================
