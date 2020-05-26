@@ -6140,8 +6140,6 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
 
   DITypeIdentifierMap EmptyMap;
   DIBuilder DIB(*GV->getParent());
-  //DIScope *Scope = Subprogram;
-  //DebugLoc Loc = DebugLoc::get(0, 0, Scope);
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
@@ -6152,11 +6150,8 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
     IsFragment = true;
   }
 
-  std::string Name = "global.";
-  Name += DGV->getName();
-  // Using arg_variable instead of auto_variable because arg variables can use
-  // Subprogram as its scope, so we don't have to make one up for it.
-  llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
+  StringRef Name = DGV->getName();
+  llvm::dwarf::Tag Tag = llvm::dwarf::DW_TAG_auto_variable;
 
   DIType *Ty = DGV->getType().resolve(EmptyMap);
   DXASSERT(Ty->getTag() != dwarf::DW_TAG_member, "Member type is not allowed for variables.");
@@ -6189,7 +6184,6 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
         Name, DGV->getFile(), DGV->getLine(), Ty);
 
     (void)DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
-    //Decl->setDebugLoc(InlinedFunctions[i]->getDebugLoc());
   }
 }
 
