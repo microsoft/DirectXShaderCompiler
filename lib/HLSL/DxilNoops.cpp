@@ -97,6 +97,7 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
@@ -612,23 +613,23 @@ INITIALIZE_PASS(DxilFinalizePreserves, "dxil-finalize-preserves", "Dxil Finalize
 //
 // Function annotation
 //
-
-namespace {
-  static StringRef kFunctionAnnotationName = "dx.function";
-  static StringRef kFunctionAnnotationVarName = "dx.function.a";
-}
-
-void FindAllFunctionAnnotations(Module &M, SmallVectorImpl<Instruction *> &Annotations) {
-  Function *F = M.getFunction(kFunctionAnnotationName);
-  if (!F) {
-    return;
-  }
-
-  for (User *U : F->users()) {
-    if (auto I = dyn_cast<Instruction>(U))
-      Annotations.push_back(I);
-  }
-}
+// Before inlining the functions, we insert a special instruction
+// in the beginning of each function (including the entry, for
+// convenience).
+//
+// When the functions are inlined, the instructions serve as easy
+// tools to identify beginnings of each inlined function, and to find
+// their scopes and DebugLoc (with "inlinedAt").
+//
+// Inside the compiler, they are just:
+//      call void @dx.function()
+//
+// At the very end, we lower them into:
+//
+//      %0 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.nothing.a, i32 0, i32 0)
+//
+// Which can safely be ignored by backends that don't know what they are.
+//
 
 class DxilAnnotateFunction : public FunctionPass {
 public:
@@ -643,13 +644,12 @@ public:
     Module &M = *F.getParent();
     LLVMContext &Ctx = M.getContext();
 
-    DebugInfoFinder Finder;
-    Finder.processModule(*F.getParent());
-
     // Find first debug location
     DebugLoc Loc;
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
+        // Skip any dbg instructions. Their locations can be bogus.
+        // due to dbg.declare -> dbg.value
         if (isa<DbgInfoIntrinsic>(&I))
           continue;
         Loc = I.getDebugLoc();
@@ -659,7 +659,7 @@ public:
     }
 
     FunctionType *FTy = FunctionType::get(Type::getVoidTy(Ctx), false);
-    Function *AnnotFunction = cast<Function>(M.getOrInsertFunction(kFunctionAnnotationName, FTy));
+    Function *AnnotFunction = cast<Function>(M.getOrInsertFunction(hlsl::dxilutil::kFunctionAnnotationName, FTy));
     AnnotFunction->setConvergent();
 
     // Insert the annotation
@@ -709,26 +709,26 @@ public:
 
   bool runOnModule(Module &M) {
 
-    Function *FunctionAnnot = nullptr;
+    Function *AnnotationF = nullptr;
     for (Function &F : M) {
-      if (F.getName() == kFunctionAnnotationName) {
-        FunctionAnnot = &F;
+      if (F.getName() == hlsl::dxilutil::kFunctionAnnotationName) {
+        AnnotationF = &F;
         break;
       }
     }
 
-    if (!FunctionAnnot)
+    if (!AnnotationF)
       return false;
 
     GlobalVariable *GV = nullptr;
 
-    for (User *U : FunctionAnnot->users()) {
+    for (User *U : AnnotationF->users()) {
       Instruction *I = dyn_cast<Instruction>(U);
       if (!I)
         continue;
 
       if (!GV) {
-        GV = MakeSingleI32Array(&M, kFunctionAnnotationVarName);
+        GV = MakeSingleI32Array(&M, hlsl::dxilutil::kFunctionAnnotationGVName);
       }
 
       unsigned Indices[2] = {0,0};
@@ -740,7 +740,7 @@ public:
       I->eraseFromParent();
     }
 
-    FunctionAnnot->eraseFromParent();
+    AnnotationF->eraseFromParent();
 
     return true;
   }

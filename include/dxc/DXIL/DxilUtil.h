@@ -15,6 +15,7 @@
 #include <memory>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constants.h"
 
 namespace llvm {
@@ -51,6 +52,10 @@ namespace dxilutil {
   extern const char ManglingPrefix[];
   extern const char EntryPrefix[];
   extern const char *kResourceMapErrorMsg;
+  extern llvm::StringRef kFunctionAnnotationName;
+  extern llvm::StringRef kFunctionAnnotationGVName;
+
+  void FindAllFunctionAnnotations(llvm::Module &M, llvm::SmallVectorImpl<llvm::Instruction *> &Annotations);
 
   unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,

@@ -41,6 +41,9 @@ namespace dxilutil {
 const char ManglingPrefix[] = "\01?";
 const char EntryPrefix[] = "dx.entry.";
 
+StringRef kFunctionAnnotationName = "dx.function";
+StringRef kFunctionAnnotationGVName = "dx.function.a";
+
 Type *GetArrayEltTy(Type *Ty) {
   if (isa<PointerType>(Ty))
     Ty = Ty->getPointerElementType();
@@ -1119,8 +1122,21 @@ void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hl
   }
 }
 
+void FindAllFunctionAnnotations(llvm::Module &M, llvm::SmallVectorImpl<llvm::Instruction *> &Annotations) {
+  Function *F = M.getFunction(kFunctionAnnotationName);
+  if (!F) {
+    return;
+  }
+
+  for (User *U : F->users()) {
+    if (auto I = dyn_cast<Instruction>(U))
+      Annotations.push_back(I);
+  }
 }
-}
+
+
+} // namespace dxilutil
+} // namespace hlsl
 
 ///////////////////////////////////////////////////////////////////////////////
 

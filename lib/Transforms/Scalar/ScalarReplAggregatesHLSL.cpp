@@ -6118,8 +6118,6 @@ static DIGlobalVariable *FindGlobalVariableFragment(const DebugInfoFinder &DbgFi
 // lowered to local Alloca.
 //
 
-void FindAllFunctionAnnotations(Module &M, SmallVectorImpl<Instruction *> &Annotations);
-
 static
 void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV, AllocaInst *AI) {
   if (!DbgFinder.compile_unit_count())
@@ -6165,7 +6163,7 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
   }
 
   SmallVector<Instruction *, 5> InlinedFunctions;
-  FindAllFunctionAnnotations(*F->getParent(), InlinedFunctions);
+  hlsl::dxilutil::FindAllFunctionAnnotations(*F->getParent(), InlinedFunctions);
 
   for (unsigned i = 0; i < InlinedFunctions.size(); i++) {
     Instruction *Annotation = InlinedFunctions[i];
