@@ -111,7 +111,7 @@ bool DCE::runOnFunction(Function &F) {
   //
   bool MadeChange = false;
   while (!WorkList.empty()) {
-    Instruction *I = WorkList.back();
+    Instruction *I = WorkList.pop_back_val();
 
     if (isInstructionTriviallyDead(I, TLI)) { // If the instruction is dead.
       // Loop over all of the values that the instruction uses, if there are
@@ -128,8 +128,6 @@ bool DCE::runOnFunction(Function &F) {
       MadeChange = true;
       ++DCEEliminated;
     }
-
-	WorkList.pop_back();
   }
   return MadeChange;
 }
