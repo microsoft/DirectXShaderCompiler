@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
@@ -100,9 +101,9 @@ bool DCE::runOnFunction(Function &F) {
   TargetLibraryInfo *TLI = TLIP ? &TLIP->getTLI() : nullptr;
 
   // Start out with all of the instructions in the worklist...
-  std::vector<Instruction*> WorkList;
+  SmallSetVector<Instruction*, 16> WorkList;
   for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i)
-    WorkList.push_back(&*i);
+    WorkList.insert(&*i);
 
   // Loop over the worklist finding instructions that are dead.  If they are
   // dead make them drop all of their uses, making other instructions
@@ -110,8 +111,7 @@ bool DCE::runOnFunction(Function &F) {
   //
   bool MadeChange = false;
   while (!WorkList.empty()) {
-    Instruction *I = WorkList.back();
-    WorkList.pop_back();
+    Instruction *I = WorkList.pop_back_val();
 
     if (isInstructionTriviallyDead(I, TLI)) { // If the instruction is dead.
       // Loop over all of the values that the instruction uses, if there are
@@ -120,14 +120,10 @@ bool DCE::runOnFunction(Function &F) {
       //
       for (User::op_iterator OI = I->op_begin(), E = I->op_end(); OI != E; ++OI)
         if (Instruction *Used = dyn_cast<Instruction>(*OI))
-          WorkList.push_back(Used);
+          WorkList.insert(Used);
 
       // Remove the instruction.
       I->eraseFromParent();
-
-      // Remove the instruction from the worklist if it still exists in it.
-      WorkList.erase(std::remove(WorkList.begin(), WorkList.end(), I),
-                     WorkList.end());
 
       MadeChange = true;
       ++DCEEliminated;
