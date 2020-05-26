@@ -114,6 +114,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilPromoteLocalResourcesPass(Registry);
     initializeDxilPromoteStaticResourcesPass(Registry);
     initializeDxilRemoveDeadBlocksPass(Registry);
+    initializeDxilRewriteOutputArgDebugInfoPass(Registry);
     initializeDxilSimpleGVNHoistPass(Registry);
     initializeDxilTranslateRawBufferPass(Registry);
     initializeDxilValidateWaveSensitivityPass(Registry);
