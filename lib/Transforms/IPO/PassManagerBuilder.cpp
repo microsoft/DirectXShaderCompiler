@@ -327,6 +327,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createHLEnsureMetadataPass()); // HLSL Change - rehydrate metadata from high-level codegen
     }
 
+    MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
+
     if (!HLSLHighLevel)
       MPM.add(createDxilInsertPreservesPass(HLSLAllowPreserveValues)); // HLSL Change - insert preserve instructions
 
@@ -377,6 +379,8 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   // HLSL Change Begins
+
+  MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
   MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
   MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/false));
