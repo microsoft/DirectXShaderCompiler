@@ -3246,6 +3246,8 @@ uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
     for (auto it = D->decls_begin(); it != declsEnds; it++) {
       if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
         AddConstant(constDecl, *CB.get());
+        if (this->CGM.getModuleDebugInfo())
+          this->CGM.getModuleDebugInfo()->EmitGlobalVariable(constDecl, nullptr);
       } else if (isa<EmptyDecl>(*it)) {
         // Nothing to do for this declaration.
       } else if (isa<CXXRecordDecl>(*it)) {
