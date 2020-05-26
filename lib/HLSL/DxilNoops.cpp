@@ -510,7 +510,7 @@ public:
         if (!Declare)
           continue;
 
-        DIVariable *Var = Declare->getVariable();
+        DILocalVariable *Var = Declare->getVariable();
         DIType *Ty = Var->getType().resolve(EmptyMap);
 
         DIExpression *Expr = Declare->getExpression();
@@ -526,7 +526,7 @@ public:
             DILocalVariable *NewVar =
               DIB.createLocalVariable(dwarf::DW_TAG_arg_variable,
                 Var->getScope(), Var->getName(), Var->getFile(),
-                Var->getLine(), Ty);
+                Var->getLine(), Ty, false, 0, Var->getArg());
             DIExpression *EmptyExpr = DIExpression::get(M.getContext(), {});
             DIB.insertDeclare(&Arg, NewVar, EmptyExpr, Declare->getDebugLoc(), Declare);
             Declare->eraseFromParent();
