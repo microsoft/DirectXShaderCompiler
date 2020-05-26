@@ -12,11 +12,9 @@ float main() : SV_Target {
   float x = 10; // xHECK: %[[x:.+]] = select i1 %[[p]], float 1.000000e+01, float 1.000000e+01
   // CHECK: dx.nothing
 
-  float y = foo(x); // CHECK: load i32, i32*
-  // CHECK-SAME: @dx.nothing
+  float y = foo(x); // CHECK: dx.nothing
     // Return
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
   // xHECK: %[[y:.+]] = select i1 %[[p]], float %[[x]], float %[[x]]
   // CHECK: dx.nothing
 

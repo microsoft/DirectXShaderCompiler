@@ -68,8 +68,7 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // xHECK: %[[p:[0-9]+]] = trunc i32 %[[p_load]] to i1
     float4 ret1 = localScopeVar_func(color);
     // ** call **
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // CHECK: %[[v1:.+]] = fmul
     // CHECK: %[[v2:.+]] = fmul
     // CHECK: %[[v3:.+]] = fmul
@@ -78,27 +77,23 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // xHECK: select i1 %[[p]], float %[[v2]], float %[[v2]]
     // xHECK: select i1 %[[p]], float %[[v3]], float %[[v3]]
     // xHECK: select i1 %[[p]], float %[[v4]], float %[[v4]]
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // ** return **
 
     float4 ret2 = localRegVar_func(ret1);
     // ** call **
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // ** copy **
     // xHECK: select i1 %[[p]],
     // xHECK: select i1 %[[p]],
     // xHECK: select i1 %[[p]],
     // xHECK: select i1 %[[p]],
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // ** return **
 
     float4 ret3 = array_func(ret2);
     // ** call **
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // CHECK: store
     // CHECK: store
     // CHECK: store
@@ -111,21 +106,18 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
 
     float4 ret4 = typedef_func(ret3);
     // ** call **
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // ** copy **
     // xHECK: select i1 %[[p]], float %{{.+}}
     // xHECK: select i1 %[[p]], float %{{.+}}
     // xHECK: select i1 %[[p]], float %{{.+}}
     // xHECK: select i1 %[[p]], float %{{.+}}
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // ** return **
 
     float4 ret5 = global_func(ret4);
     // ** call **
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // CHECK: %[[a1:.+]] = fmul
     // CHECK: %[[a2:.+]] = fmul
     // CHECK: %[[a3:.+]] = fmul
@@ -134,36 +126,30 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // xHECK: select i1 %[[p]], float %[[a2]], float %[[a2]]
     // xHECK: select i1 %[[p]], float %[[a3]], float %[[a3]]
     // xHECK: select i1 %[[p]], float %[[a4]], float %[[a4]]
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // ** return **
 
     float4 ret6 = depth2(ret5);
     // ** call **
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
     // depth2() {
       // ** call **
-      // CHECK: load i32, i32*
-      // CHECK-SAME: @dx.nothing
+      // CHECK: dx.nothing
       // depth3() {
         // ** call **
-        // CHECK: load i32, i32*
-        // CHECK-SAME: @dx.nothing
+        // CHECK: dx.nothing
         // depth4() {
           // CHECK: %[[b1:.+]] = fmul
           // CHECK: %[[b2:.+]] = fmul
           // CHECK: %[[b3:.+]] = fmul
           // CHECK: %[[b4:.+]] = fmul
-          // CHECK: load i32, i32*
-          // CHECK-SAME: @dx.nothing
+          // CHECK: dx.nothing
         // }
         // CHECK: %[[c1:.+]] = fmul
         // CHECK: %[[c2:.+]] = fmul
         // CHECK: %[[c3:.+]] = fmul
         // CHECK: %[[c4:.+]] = fmul
-        // CHECK: load i32, i32*
-        // CHECK-SAME: @dx.nothing
+        // CHECK: dx.nothing
       // }
       // CHECK: %[[d1:.+]] = fmul
       // CHECK: %[[d2:.+]] = fmul
@@ -174,8 +160,7 @@ float4 main( float4 unused : SV_POSITION, float4 color : COLOR ) : SV_Target
     // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d2]]
     // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d3]]
     // xHECK: select i1 %[[p]], float %{{.+}}, float %[[d4]]
-    // CHECK: load i32, i32*
-    // CHECK-SAME: @dx.nothing
+    // CHECK: dx.nothing
 
     return max(ret6, color);
     // CHECK: call float @dx.op.binary.f32(i32 35
