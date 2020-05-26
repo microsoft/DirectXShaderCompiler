@@ -259,7 +259,7 @@ struct PromoteMem2Reg {
   /// describes it, if any, so that we can convert it to a dbg.value
   /// intrinsic if the alloca gets promoted.
   // SmallVector<DbgDeclareInst *, 8> AllocaDbgDeclares; // HLSL Change
-  SmallVector<ArrayRef<DbgDeclareInst *>, 8> AllocaDbgDeclares; // HLSL Change
+  SmallVector<SmallVector<DbgDeclareInst *, 4>, 8> AllocaDbgDeclares; // HLSL Change
 
   /// The set of basic blocks the renamer has already visited.
   ///
