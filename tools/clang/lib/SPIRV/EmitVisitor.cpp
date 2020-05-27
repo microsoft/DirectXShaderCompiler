@@ -193,6 +193,9 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
 
 void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
                                 std::vector<uint32_t> *section) {
+  if (!spvOptions.debugInfoLine)
+    return;
+
   // Technically entry function wrappers do not exist in HLSL. They
   // are just created by DXC. We do not want to emit line information
   // for their instructions.
@@ -220,19 +223,14 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   if (op == spv::Op::OpVariable)
     return;
 
-  if (!spvOptions.debugInfoLine)
-    return;
-
   auto fileId = debugMainFileId;
   const auto &sm = astContext.getSourceManager();
   const char *fileName = sm.getPresumedLoc(loc).getFilename();
   if (fileName)
     fileId = getOrCreateOpStringId(fileName);
 
-  if (!fileId) {
-    emitError("spvOptions.debugInfoLine is true but no fileId was set");
+  if (!fileId)
     return;
-  }
 
   uint32_t line = sm.getPresumedLineNumber(loc);
   uint32_t column = sm.getPresumedColumnNumber(loc);
@@ -463,6 +461,12 @@ bool EmitVisitor::visit(SpirvString *inst) {
 }
 
 bool EmitVisitor::visit(SpirvSource *inst) {
+  // We should either emit OpSource or DebugSource, not both.
+  // Therefore if rich debug info is being generated, we will skip
+  // emitting OpSource.
+  if (spvOptions.debugInfoRich)
+    return true;
+
   // Emit the OpString for the file name.
   uint32_t fileId = debugMainFileId;
   if (inst->hasFile()) {
@@ -1176,6 +1180,8 @@ bool EmitVisitor::visit(SpirvDebugInfoNone *inst) {
 
 bool EmitVisitor::visit(SpirvDebugSource *inst) {
   uint32_t fileId = getOrCreateOpStringId(inst->getFile());
+  if (!debugMainFileId)
+    debugMainFileId = fileId;
   uint32_t textId = 0;
   if (spvOptions.debugInfoSource) {
     auto text = ReadSourceCode(inst->getFile());

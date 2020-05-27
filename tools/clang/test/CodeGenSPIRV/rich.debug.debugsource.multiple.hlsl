@@ -2,6 +2,7 @@
 
 // CHECK:      [[debugSet:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
+// CHECK-NOT: OpSource
 // CHECK: [[main_file:%\d+]] = OpString
 // CHECK-SAME: rich.debug.debugsource.multiple.hlsl
 // CHECK: [[main_code:%\d+]] = OpString "// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich-with-source
