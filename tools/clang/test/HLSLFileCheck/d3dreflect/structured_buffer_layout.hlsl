@@ -16,7 +16,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: CB
 // CHECK-NEXT:            Size: 116
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
@@ -244,7 +244,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: s2
 // CHECK-NEXT:            Size: 4
 // CHECK-NEXT:            StartOffset: 128
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S2
@@ -271,7 +271,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: s3
 // CHECK-NEXT:            Size: 4
 // CHECK-NEXT:            StartOffset: 144
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S2
@@ -370,7 +370,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: ConstantBufferArray
 // CHECK-NEXT:            Size: 244
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: SA
@@ -499,7 +499,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: ConstantBufferA1
 // CHECK-NEXT:            Size: 116
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
@@ -617,7 +617,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: ConstantBufferUnbounded
 // CHECK-NEXT:            Size: 116
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
@@ -735,7 +735,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: $Element
 // CHECK-NEXT:            Size: 64
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
@@ -853,7 +853,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: $Element
 // CHECK-NEXT:            Size: 128
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: SA
@@ -982,7 +982,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: $Element
 // CHECK-NEXT:            Size: 64
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
@@ -1100,7 +1100,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: $Element
 // CHECK-NEXT:            Size: 64
 // CHECK-NEXT:            StartOffset: 0
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
 // CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
@@ -1217,7 +1217,7 @@
 // CHECK-NEXT:      ReturnType: <unknown: 0>
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
-// CHECK-NEXT:      uFlags: 0
+// CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
 // CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: CBuffer
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 1
@@ -1227,7 +1227,7 @@
 // CHECK-NEXT:      ReturnType: <unknown: 0>
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
-// CHECK-NEXT:      uFlags: 0
+// CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
 // CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: ConstantBufferArray
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 2
@@ -1237,7 +1237,7 @@
 // CHECK-NEXT:      ReturnType: <unknown: 0>
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
-// CHECK-NEXT:      uFlags: 0
+// CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
 // CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: ConstantBufferA1
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 3
@@ -1247,7 +1247,7 @@
 // CHECK-NEXT:      ReturnType: <unknown: 0>
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
-// CHECK-NEXT:      uFlags: 0
+// CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
 // CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: ConstantBufferUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 4
@@ -1257,7 +1257,7 @@
 // CHECK-NEXT:      ReturnType: <unknown: 0>
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
-// CHECK-NEXT:      uFlags: 0
+// CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
 // CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: SamplerUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_SAMPLER
 // CHECK-NEXT:      uID: 0
