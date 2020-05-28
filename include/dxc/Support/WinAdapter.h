@@ -557,31 +557,18 @@ enum tagSTATFLAG {
 
 //===--------------------- UUID Related Macros ----------------------------===//
 
-static size_t UuidStrHash(const char *k) {
-  long h = 0;
-  while (*k) {
-    h = (h << 4) + *(k++);
-    long g = h & 0xF0000000L;
-    if (g != 0)
-      h ^= g >> 24;
-    h &= ~g;
-  }
-  return h;
-}
-
 #ifdef __EMULATE_UUID
 
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
 public:                                                                        \
-  static REFIID uuidof() { return reinterpret_cast<REFIID>(T##_ID); }          \
+  static REFIID uuidof() { return static_cast<REFIID>(&T##_ID); }              \
                                                                                \
 private:                                                                       \
-  __attribute__((visibility("default"))) static const size_t T##_ID;
+  __attribute__((visibility("default"))) static const char T##_ID;
 
 #define DEFINE_CROSS_PLATFORM_UUIDOF(T)                                        \
-  __attribute__((visibility("default"))) const size_t T::T##_ID =              \
-      UuidStrHash(#T);
+  __attribute__((visibility("default"))) const char T::T##_ID = '\0';
 #define __uuidof(T) T::uuidof()
 #define IID_PPV_ARGS(ppType)                                                   \
   (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)
