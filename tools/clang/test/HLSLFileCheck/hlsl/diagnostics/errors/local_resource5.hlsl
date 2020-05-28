@@ -1,7 +1,8 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -Zi -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_DB
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
 
-// CHECK: local resource not guaranteed to map to unique global resource
-// CHECK: Use /Zi for source location
+// CHK_DB: 17:7: error: local resource not guaranteed to map to unique global resource.
+// CHK_NODB: error: local resource not guaranteed to map to unique global resource. Use /Zi for source location.
 
 float4 Tex2D(Texture2D<float4> t,
   SamplerState s, float2 c) {

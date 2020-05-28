@@ -1,9 +1,12 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -Zi -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_DB
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
 
 // note: define GENLL in order to generate the basis for InnerCoverage.ll
 
-// CHECK: error: Parameter with semantic SV_InnerCoverage has overlapping semantic index at 0
-// CHECK: error: Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually exclusive
+// CHK_DB: 11:1: error: Parameter with semantic SV_InnerCoverage has overlapping semantic index at 0.
+// CHK_DB: 11:1: error: Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually exclusive.
+// CHK_NODB: error: Parameter with semantic SV_InnerCoverage has overlapping semantic index at 0. Use /Zi for source location.
+// CHK_NODB: error: Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually exclusive. Use /Zi for source location.
 
 void main(snorm float b : B, uint c:C, 
 #ifndef GENLL
