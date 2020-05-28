@@ -570,14 +570,18 @@ enum tagSTATFLAG {
 
 #define DECLARE_CROSS_PLATFORM_UUIDOF_VALUE(...)                               \
 public:                                                                        \
-  static inline constexpr IID _IID = __VA_ARGS__;                              \
-  static REFIID uuidof() { return _IID; }
+  static REFIID uuidof() {                                                     \
+    static const IID _IID = __VA_ARGS__;                                       \
+    return _IID;                                                               \
+  }
 
 // TODO: This should be gone when all interfaces are converted
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
 public:                                                                        \
-  static inline constexpr IID _IID = {};                                       \
-  static REFIID uuidof() { return _IID; }
+  static REFIID uuidof() {                                                     \
+    static const IID _IID = {};                                                \
+    return _IID;                                                               \
+  }
 
 #define __uuidof(T) T::uuidof()
 
