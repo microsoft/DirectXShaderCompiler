@@ -2047,8 +2047,8 @@ void main( \
       "!\\9 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\10, i8 2, i32 1, i8 1, i32 1, i8 0, \\11}\n",
       "!1012 =" },
 
-    "signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+      {"signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).",
+       "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
@@ -2073,8 +2073,8 @@ float4 main( \
     "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
     "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 \\5, i8 13, !\\6, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
 
-    "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+    {"signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+     "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
@@ -2104,8 +2104,8 @@ float4 main( \
       "!\\7 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\8, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
       "!1012 ="},
 
-    "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+    {"signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+     "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 

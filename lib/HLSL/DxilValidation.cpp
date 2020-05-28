@@ -319,23 +319,8 @@ struct DiagRestore {
   }
 };
 
-class DxilErrorDiagnosticInfo : public DiagnosticInfo {
-private:
-  const char *m_message;
-public:
-  DxilErrorDiagnosticInfo(const char *str)
-    : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
-    m_message(str) { }
-
-  void print(DiagnosticPrinter &DP) const override {
-    DP << m_message;
-  }
-};
-
-static void emitDxilDiag(const LLVMContext &Ctx, const char *str) {
-  // diagnose doesn't actually mutate anything.
-  LLVMContext &diagCtx = const_cast<LLVMContext &>(Ctx);
-  diagCtx.diagnose(DxilErrorDiagnosticInfo(str));
+static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
+  hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
 
 } // anon namespace
@@ -400,7 +385,6 @@ struct ValidationContext {
   Module *pDebugModule;
   DxilModule &DxilMod;
   const DataLayout &DL;
-  DiagnosticPrinterRawOStream &DiagPrinter;
   DebugLoc LastDebugLocEmit;
   ValidationRule LastRuleEmit;
   std::unordered_set<Function *> entryFuncCallSet;
@@ -420,10 +404,9 @@ struct ValidationContext {
   ModuleSlotTracker slotTracker;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
-                    DxilModule &dxilModule,
-                    DiagnosticPrinterRawOStream &DiagPrn)
+                    DxilModule &dxilModule)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
-        DL(llvmModule.getDataLayout()), DiagPrinter(DiagPrn),
+        DL(llvmModule.getDataLayout()),
         LastRuleEmit((ValidationRule)-1),
         kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilControlFlowHintMDName)),
@@ -459,7 +442,7 @@ struct ValidationContext {
       Function *Entry = dxilModule.GetEntryFunction();
       if (!dxilModule.HasDxilEntryProps(Entry)) {
         // must have props.
-        EmitError(ValidationRule::MetaNoEntryPropsForEntry);
+        EmitFnError(Entry, ValidationRule::MetaNoEntryPropsForEntry);
         return;
       }
       DxilEntryProps &entryProps = dxilModule.GetDxilEntryProps(Entry);
@@ -476,7 +459,7 @@ struct ValidationContext {
       DxilResourceProperties RP = resource_helper::loadFromResourceBase(Res);
       DxilResourceProperties itRP = it->second;
       if (itRP != RP) {
-        EmitError(ValidationRule::InstrResourceMapToSingleEntry);
+        EmitResourceError(Res, ValidationRule::InstrResourceMapToSingleEntry);
       }
     } else {
       DxilResourceProperties RP = resource_helper::loadFromResourceBase(Res);
@@ -495,7 +478,7 @@ struct ValidationContext {
         } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           PropagateResMap(U, Res);
         } else {
-          EmitError(ValidationRule::InstrResourceUser);
+          EmitResourceError(Res, ValidationRule::InstrResourceUser);
         }
       }
     }
@@ -646,23 +629,19 @@ struct ValidationContext {
 
   DxilResourceProperties GetResourceFromVal(Value *resVal);
 
-  // Provide direct access to the raw_ostream in DiagPrinter.
-  raw_ostream &DiagStream() {
-    struct DiagnosticPrinterRawOStream_Pub : public DiagnosticPrinterRawOStream {
-    public:
-      raw_ostream &DiagStream() { return Stream; }
-    };
-    DiagnosticPrinterRawOStream_Pub* p = (DiagnosticPrinterRawOStream_Pub*)&DiagPrinter;
-    return p->DiagStream();
-  }
-
-  void EmitGlobalValueError(GlobalValue *GV, ValidationRule rule) {
-    EmitFormatError(rule, { GV->getName() });
+  void EmitGlobalVariableFormatError(GlobalVariable *GV, ValidationRule rule,
+                                     ArrayRef<StringRef> args) {
+    std::string ruleText = GetValidationRuleText(rule);
+    FormatRuleText(ruleText, args);
+    if (pDebugModule)
+      GV = pDebugModule->getGlobalVariable(GV->getName());
+    dxilutil::EmitErrorOnGlobalVariable(GV, ruleText);
+    Failed = true;
   }
 
   // This is the least desirable mechanism, as it has no context.
   void EmitError(ValidationRule rule) {
-    DiagPrinter << GetValidationRuleText(rule) << '\n';
+    dxilutil::EmitErrorOnContext(M.getContext(), GetValidationRuleText(rule));
     Failed = true;
   }
 
@@ -694,32 +673,31 @@ struct ValidationContext {
   void EmitFormatError(ValidationRule rule, ArrayRef<StringRef> args) {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
-    DiagPrinter << ruleText << '\n';
+    dxilutil::EmitErrorOnContext(M.getContext(), ruleText);
     Failed = true;
   }
 
   void EmitMetaError(Metadata *Meta, ValidationRule rule) {
-    DiagPrinter << GetValidationRuleText(rule);
-    Meta->print(DiagStream(), &M);
-    DiagPrinter << '\n';
+    std::string O;
+    raw_string_ostream OSS(O);
+    Meta->print(OSS, &M);
+    dxilutil::EmitErrorOnContext(M.getContext(), GetValidationRuleText(rule) + O);
     Failed = true;
   }
 
   void EmitResourceError(const hlsl::DxilResourceBase *Res, ValidationRule rule) {
-    DiagPrinter << GetValidationRuleText(rule);
-    DiagPrinter << '\'' << Res->GetGlobalName() << '\'';
-    DiagPrinter << '\n';
+    std::string QuotedRes = " '" + Res->GetGlobalName() + "'";
+    dxilutil::EmitErrorOnContext(M.getContext(), GetValidationRuleText(rule) + QuotedRes);
     Failed = true;
   }
 
   void EmitResourceFormatError(const hlsl::DxilResourceBase *Res,
                                ValidationRule rule,
                                ArrayRef<StringRef> args) {
+    std::string QuotedRes = " '" + Res->GetGlobalName() + "'";
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
-    DiagPrinter << ruleText;
-    DiagPrinter << '\'' << Res->GetGlobalName() << '\'';
-    DiagPrinter << '\n';
+    dxilutil::EmitErrorOnContext(M.getContext(), ruleText + QuotedRes);
     Failed = true;
   }
 
@@ -728,7 +706,7 @@ struct ValidationContext {
     return CI && CI->getCalledFunction()->getName().startswith("llvm.dbg.");
   }
 
-  DebugLoc GetDebugLoc(Instruction *I) {
+  Instruction *GetDebugInstr(Instruction *I) {
     DXASSERT_NOMSG(I);
     if (pDebugModule) {
       // Look up the matching instruction in the debug module.
@@ -744,49 +722,43 @@ struct ValidationContext {
           ++dbg_it;
           while (IsDebugFunctionCall(&*dbg_it)) ++dbg_it;
         }
-        return dbg_it->getDebugLoc();
+        return &*dbg_it;
       }
     }
-    return I->getDebugLoc();
+    return I;
   }
 
-  bool EmitInstrLoc(Instruction *I, ValidationRule Rule) {
-    const DebugLoc &L = GetDebugLoc(I);
+  void EmitInstrErrorMsg(Instruction *I, ValidationRule Rule, std::string Msg) {
+    Instruction *DbgI = GetDebugInstr(I);
+    const DebugLoc L = DbgI->getDebugLoc();
     if (L) {
       // Instructions that get scalarized will likely hit
       // this case. Avoid redundant diagnostic messages.
       if (Rule == LastRuleEmit && L == LastDebugLocEmit) {
-        return false;
+        return;
       }
       LastRuleEmit = Rule;
       LastDebugLocEmit = L;
     }
 
-    // Print the error header matched by IDE regexes
-    DiagPrinter << "error: ";
-
-    // Print the debug location, if any, as matched by IDE regexes
-    if (L) {
-      L.print(DiagStream());
-      DiagPrinter << ": ";
-    }
-
     BasicBlock *BB = I->getParent();
     Function *F = BB->getParent();
 
-    // Printthe instruction
+    dxilutil::EmitErrorOnInstruction(DbgI, Msg);
+
+    // Add llvm information as a note to instruction string
     std::string InstrStr;
     raw_string_ostream InstrStream(InstrStr);
     I->print(InstrStream, slotTracker);
     InstrStream.flush();
     StringRef InstrStrRef = InstrStr;
     InstrStrRef = InstrStrRef.ltrim(); // Ignore indentation
-    DiagPrinter << "at '" << InstrStrRef << "'";
+    Msg = "at '" + InstrStrRef.str() + "'";
 
     // Print the parent block name
-    DiagPrinter << " in block '";
+    Msg += " in block '";
     if (!BB->getName().empty()) {
-      DiagPrinter << BB->getName();
+      Msg += BB->getName();
     }
     else {
       unsigned idx = 0;
@@ -797,48 +769,26 @@ struct ValidationContext {
         }
         idx++;
       }
-      DiagPrinter << "#" << idx;
+      Msg += "#" + std::to_string(idx);
     }
-    DiagPrinter << "'";
+    Msg += "'";
 
     // Print the function name
-    DiagPrinter << " of function '" << F->getName() << "': ";
+    Msg += " of function '" + F->getName().str() + "'.";
 
-    // Parent will print the message
-    return true;
+    dxilutil::EmitNoteOnContext(DbgI->getContext(), Msg);
+
+    Failed = true;
   }
 
   void EmitInstrError(Instruction *I, ValidationRule rule) {
-    if (!EmitInstrLoc(I, rule)) return;
-    DiagPrinter << GetValidationRuleText(rule);
-    DiagPrinter << '\n';
-    if (!GetDebugLoc(I))
-      DiagPrinter << "Use /Zi for source location.\n";
-    Failed = true;
+    EmitInstrErrorMsg(I, rule, GetValidationRuleText(rule));
   }
 
   void EmitInstrFormatError(Instruction *I, ValidationRule rule, ArrayRef<StringRef> args) {
-    if (!EmitInstrLoc(I, rule)) return;
-
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
-    DiagPrinter << ruleText;
-    DiagPrinter << '\n';
-    if (!GetDebugLoc(I))
-      DiagPrinter << "Use /Zi for source location.\n";
-    Failed = true;
-  }
-
-  void EmitOperandOutOfRange(Instruction *I, StringRef name, StringRef range, StringRef v) {
-    if (!EmitInstrLoc(I, ValidationRule::InstrOperandRange)) return;
-
-    std::string ruleText = GetValidationRuleText(ValidationRule::InstrOperandRange);
-    FormatRuleText(ruleText, {name, range, v});
-    DiagPrinter << ruleText;
-    DiagPrinter << '\n';
-    if (!GetDebugLoc(I))
-      DiagPrinter << "Use /Zi for source location.\n";
-    Failed = true;
+    EmitInstrErrorMsg(I, rule, ruleText);
   }
 
   void EmitSignatureError(DxilSignatureElement *SE, ValidationRule rule) {
@@ -852,8 +802,24 @@ struct ValidationContext {
     EmitFormatError(rule, { OSS.str() });
   }
 
+  void EmitFnError(Function *F, ValidationRule rule) {
+    if (pDebugModule)
+      F = pDebugModule->getFunction(F->getName());
+    dxilutil::EmitErrorOnFunction(F, GetValidationRuleText(rule));
+    Failed = true;
+  }
+
+  void EmitFnFormatError(Function *F, ValidationRule rule, ArrayRef<StringRef> args) {
+    std::string ruleText = GetValidationRuleText(rule);
+    FormatRuleText(ruleText, args);
+    if (pDebugModule)
+      F = pDebugModule->getFunction(F->getName());
+    dxilutil::EmitErrorOnFunction(F, ruleText);
+    Failed = true;
+  }
+
   void EmitFnAttributeError(Function *F, StringRef Kind, StringRef Value) {
-    EmitFormatError(ValidationRule::DeclFnAttribute, { F->getName(), Kind, Value });
+    EmitFnFormatError(F, ValidationRule::DeclFnAttribute, { F->getName(), Kind, Value });
   }
 };
 
@@ -1074,7 +1040,10 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &sig, Value *sigID,
 static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
                                         ValidationContext &ValCtx) {
   if (!isa<CallInst>(samplerHandle)) {
-    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
+    if (Instruction *I = dyn_cast<Instruction>(samplerHandle))
+      ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
+    else
+      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::SamplerKind::Invalid;
   }
 
@@ -1102,7 +1071,10 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
   CompTy = DXIL::ComponentType::Invalid;
   ResClass = DXIL::ResourceClass::Invalid;
   if (!isa<CallInst>(handle)) {
-    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
+    if (Instruction *I = dyn_cast<Instruction>(handle))
+      ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
+    else
+      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::ResourceKind::Invalid;
   }
   // TODO: validate ROV is used only in PS.
@@ -1429,7 +1401,10 @@ static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
 
 static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   if (!isa<CallInst>(cbHandle)) {
-    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
+    if (Instruction *I = dyn_cast<Instruction>(cbHandle))
+      ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
+    else
+      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return -1;
   }
 
@@ -1559,13 +1534,13 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
         } else if (props.IsHS()) {
           high = props.ShaderProps.HS.inputControlPoints;
         } else {
-          ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                                 {"LoadInput", "VS/HS/DS/GS/PS"});
+          ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                      {"LoadInput", "VS/HS/DS/GS/PS"});
         }
         if (immVertexID < low || immVertexID >= high) {
           std::string range = std::to_string(low) + "~" + std::to_string(high);
-          ValCtx.EmitOperandOutOfRange(CI, "VertexID", range,
-                                       std::to_string(immVertexID));
+          ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOperandRange,
+                                      {"VertexID", range, std::to_string(immVertexID)});
         }
       }
     }
@@ -1580,7 +1555,7 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     } else {
       unsigned col = cast<ConstantInt>(colValue)->getLimitedValue();
       if (col >= Status.domainLocSize) {
-        ValCtx.EmitError(ValidationRule::SmDomainLocationIdxOOB);
+        ValCtx.EmitInstrError(CI, ValidationRule::SmDomainLocationIdxOOB);
       }
     }
   } break;
@@ -1600,15 +1575,15 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     Function *func = CI->getParent()->getParent();
     // Make sure this is inside hs shader entry function.
     if (!(props.IsHS() &&  F == func)) {
-      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                             {"OutputControlPointID", "hull function"});
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"OutputControlPointID", "hull function"});
     }
   } break;
   case DXIL::OpCode::LoadOutputControlPoint: {
     // Only used in patch constant function.
     Function *func = CI->getParent()->getParent();
     if (ValCtx.entryFuncCallSet.count(func) > 0) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitInstrFormatError(CI,
           ValidationRule::SmOpcodeInInvalidFunction,
           {"LoadOutputControlPoint", "PatchConstant function"});
     }
@@ -1623,8 +1598,8 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     // Only used in patch constant function.
     Function *func = CI->getParent()->getParent();
     if (!bIsPatchConstantFunc) {
-      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                             {"StorePatchConstant", "PatchConstant function"});
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"StorePatchConstant", "PatchConstant function"});
     } else {
       auto &hullShaders = ValCtx.PatchConstantFuncMap[func];
       for (Function *F : hullShaders) {
@@ -1714,8 +1689,8 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
       if (ConstantInt *cStreamID = dyn_cast<ConstantInt>(streamID)) {
         int immStreamID = cStreamID->getValue().getLimitedValue();
         if (cStreamID->getValue().isNegative() || immStreamID >= 4) {
-          ValCtx.EmitOperandOutOfRange(CI, "StreamID","0~4",
-                                       std::to_string(immStreamID));
+          ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOperandRange,
+                                      {"StreamID", "0~4", std::to_string(immStreamID)});
         } else {
           unsigned immMask = 1 << immStreamID;
           if ((streamMask & immMask) == 0) {
@@ -1725,8 +1700,8 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
                 range += std::to_string(i) + " ";
               }
             }
-            ValCtx.EmitOperandOutOfRange(CI, "StreamID", range,
-                                         std::to_string(immStreamID));
+            ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOperandRange,
+                                        {"StreamID", range, std::to_string(immStreamID)});
           }
         }
 
@@ -1768,7 +1743,7 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
   }
 
   if (Status.m_bCoverageIn && Status.m_bInnerCoverageIn) {
-    ValCtx.EmitError(ValidationRule::SmPSCoverageAndInnerCoverage);
+    ValCtx.EmitInstrError(CI, ValidationRule::SmPSCoverageAndInnerCoverage);
   }
 }
 
@@ -2545,8 +2520,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   } break;
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {
-      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                             {"CreateHandleForLib", "Library"});
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"CreateHandleForLib", "Library"});
     }
     break;
   default:
@@ -2568,12 +2543,12 @@ static bool IsDxilFunction(llvm::Function *F) {
 
 static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
   if (!IsDxilFunction(F) && !ValCtx.isLibProfile) {
-    ValCtx.EmitGlobalValueError(F, ValidationRule::DeclDxilFnExtern);
+    ValCtx.EmitFnFormatError(F, ValidationRule::DeclDxilFnExtern, {F->getName()});
     return;
   }
 
   if (F->use_empty()) {
-    ValCtx.EmitGlobalValueError(F, ValidationRule::DeclUsedExternalFunction);
+    ValCtx.EmitFnFormatError(F, ValidationRule::DeclUsedExternalFunction, {F->getName()});
     return;
   }
 
@@ -2584,7 +2559,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
   for (User *user : F->users()) {
     CallInst *CI = dyn_cast<CallInst>(user);
     if (!CI) {
-      ValCtx.EmitGlobalValueError(F, ValidationRule::DeclFnIsCalled);
+      ValCtx.EmitFnFormatError(F, ValidationRule::DeclFnIsCalled, {F->getName()});
       continue;
     }
 
@@ -2634,7 +2609,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
     }
 
     if (dxilFunc->getFunctionType() != F->getFunctionType()) {
-      ValCtx.EmitGlobalValueError(dxilFunc, ValidationRule::InstrCallOload);
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrCallOload, {dxilFunc->getName()});
       continue;
     }
 
@@ -2908,17 +2883,16 @@ static void ValidateMsIntrinsics(Function *F,
     DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
 
     if (prop.ShaderProps.MS.payloadSizeInBytes < payloadSize) {
-      ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSizeDeclared,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmMeshShaderPayloadSizeDeclared,
         { F->getName(), std::to_string(payloadSize),
           std::to_string(prop.ShaderProps.MS.payloadSizeInBytes) });
     }
 
     if (prop.ShaderProps.MS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
-      ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSize,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmMeshShaderPayloadSize,
         { F->getName(), std::to_string(prop.ShaderProps.MS.payloadSizeInBytes),
           std::to_string(DXIL::kMaxMSASPayloadBytes) });
     }
-
   }
 }
 
@@ -2938,13 +2912,14 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
       DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
 
       if (prop.ShaderProps.AS.payloadSizeInBytes < payloadSize) {
-        ValCtx.EmitFormatError(ValidationRule::SmAmplificationShaderPayloadSizeDeclared,
+        ValCtx.EmitInstrFormatError(dispatchMesh,
+          ValidationRule::SmAmplificationShaderPayloadSizeDeclared,
           { F->getName(), std::to_string(payloadSize),
             std::to_string(prop.ShaderProps.AS.payloadSizeInBytes) });
       }
 
       if (prop.ShaderProps.AS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
-        ValCtx.EmitFormatError(
+        ValCtx.EmitInstrFormatError(dispatchMesh,
             ValidationRule::SmAmplificationShaderPayloadSize,
             {F->getName(), std::to_string(prop.ShaderProps.AS.payloadSizeInBytes),
              std::to_string(DXIL::kMaxMSASPayloadBytes) });
@@ -2957,7 +2932,7 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
   }
 
   if (dispatchMesh == nullptr) {
-    ValCtx.EmitError(ValidationRule::InstrNotOnceDispatchMesh);
+    ValCtx.EmitFnError(F, ValidationRule::InstrNotOnceDispatchMesh);
     return;
   }
 
@@ -2976,8 +2951,9 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
   unsigned payloadSize = DL.getTypeAllocSize(payloadTy);
 
   if (payloadSize > DXIL::kMaxMSASPayloadBytes) {
-    ValCtx.EmitFormatError(ValidationRule::SmAmplificationShaderPayloadSize,
-      { F->getName(), std::to_string(DXIL::kMaxMSASPayloadBytes) });
+    ValCtx.EmitInstrFormatError(dispatchMesh, ValidationRule::SmAmplificationShaderPayloadSize,
+                           {F->getName(), std::to_string(payloadSize),
+                            std::to_string(DXIL::kMaxMSASPayloadBytes)});
   }
 }
 
@@ -3567,17 +3543,17 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
 
     // Entry function should not have parameter.
     if (isShader && 0 == numUDTShaderArgs && !F.arg_empty())
-      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall, { F.getName() });
+      ValCtx.EmitFnFormatError(&F, ValidationRule::FlowFunctionCall, { F.getName() });
 
     // Shader functions should return void.
     if (isShader && !F.getReturnType()->isVoidTy())
-      ValCtx.EmitFormatError(ValidationRule::DeclShaderReturnVoid, { F.getName() });
+      ValCtx.EmitFnFormatError(&F, ValidationRule::DeclShaderReturnVoid, { F.getName() });
 
-    auto ArgFormatError = [&](Argument &arg, ValidationRule rule) {
+    auto ArgFormatError = [&](Function &F, Argument &arg, ValidationRule rule) {
       if (arg.hasName())
-        ValCtx.EmitFormatError(rule, { arg.getName().str(), F.getName() });
+        ValCtx.EmitFnFormatError(&F, rule, { arg.getName().str(), F.getName() });
       else
-        ValCtx.EmitFormatError(rule, { std::to_string(arg.getArgNo()), F.getName() });
+        ValCtx.EmitFnFormatError(&F, rule, { std::to_string(arg.getArgNo()), F.getName() });
     };
 
     // Validate parameter type.
@@ -3590,9 +3566,9 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
       numArgs++;
       if (numUDTShaderArgs) {
         if (arg.getArgNo() >= numUDTShaderArgs) {
-          ArgFormatError(arg, ValidationRule::DeclExtraArgs);
+          ArgFormatError(F, arg, ValidationRule::DeclExtraArgs);
         } else if (!argTy->isStructTy()) {
-          ArgFormatError(arg,
+          ArgFormatError(F, arg,
             shaderKind == DXIL::ShaderKind::Callable
               ? ValidationRule::DeclParamStruct
               : arg.getArgNo() == 0 ? ValidationRule::DeclPayloadStruct
@@ -3606,7 +3582,7 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
       }
 
       if (argTy->isStructTy() && !ValCtx.isLibProfile) {
-        ArgFormatError(arg, ValidationRule::DeclFnFlattenParam);
+        ArgFormatError(F, arg, ValidationRule::DeclFnFlattenParam);
         break;
       }
     }
@@ -3615,7 +3591,7 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
       StringRef argType[2] = { shaderKind == DXIL::ShaderKind::Callable ?
                                   "params" : "payload", "attributes" };
       for (unsigned i = numArgs; i < numUDTShaderArgs; i++) {
-        ValCtx.EmitFormatError(ValidationRule::DeclShaderMissingArg,
+        ValCtx.EmitFnFormatError(&F, ValidationRule::DeclShaderMissingArg,
           { ShaderModel::GetKindName(shaderKind), F.getName(), argType[i] });
       }
     }
@@ -3625,12 +3601,12 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
 
   // function params & return type must not contain resources
   if (dxilutil::ContainsHLSLObjectType(F.getReturnType())) {
-    ValCtx.EmitGlobalValueError(&F, ValidationRule::DeclResourceInFnSig);
+    ValCtx.EmitFnFormatError(&F, ValidationRule::DeclResourceInFnSig, {F.getName()});
     return;
   }
   for (auto &Arg : F.args()) {
     if (dxilutil::ContainsHLSLObjectType(Arg.getType())) {
-      ValCtx.EmitGlobalValueError(&F, ValidationRule::DeclResourceInFnSig);
+      ValCtx.EmitFnFormatError(&F, ValidationRule::DeclResourceInFnSig, {F.getName()});
       return;
     }
   }
@@ -3687,7 +3663,8 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
       }
       // External GV should not have instruction user.
       if (hasInstructionUser) {
-        ValCtx.EmitGlobalValueError(&GV, ValidationRule::DeclNotUsedExternal);
+        ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::DeclNotUsedExternal,
+                                             {GV.getName()});
       }
     }
     // Must have metadata description for each variable.
@@ -3695,7 +3672,8 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
   } else {
     // Internal GV must have user.
     if (GV.user_empty()) {
-      ValCtx.EmitGlobalValueError(&GV, ValidationRule::DeclUsedInternal);
+      ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::DeclUsedInternal,
+                                           {GV.getName()});
     }
 
     // Validate type for internal globals.
@@ -3769,12 +3747,18 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
 
   if (M.GetShaderModel()->IsMS()) {
     if (TGSMSize > DXIL::kMaxMSSMSize) {
-      ValCtx.EmitFormatError(ValidationRule::SmMaxMSSMSize,
-                             { std::to_string(TGSMSize),
-                               std::to_string(DXIL::kMaxMSSMSize) });
+      Module::global_iterator GI = M.GetModule()->global_end();
+      GI--;
+      GlobalVariable &GV = *GI;
+      ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::SmMaxMSSMSize,
+                                           { std::to_string(TGSMSize),
+                                             std::to_string(DXIL::kMaxMSSMSize) });
     }
   } else if (TGSMSize > DXIL::kMaxTGSMSize) {
-    ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
+    Module::global_iterator GI = M.GetModule()->global_end();
+    GI--;
+    GlobalVariable &GV = *GI;
+    ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::SmMaxTGSMSize,
                            { std::to_string(TGSMSize),
                              std::to_string(DXIL::kMaxTGSMSize) });
   }
@@ -3811,7 +3795,10 @@ static void ValidateValidatorVersion(ValidationContext &ValCtx) {
 static void ValidateDxilVersion(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   NamedMDNode *pNode = pModule->getNamedMetadata("dx.version");
-  if (pNode && pNode->getNumOperands() == 1) {
+  if (pNode == nullptr) {
+    return;
+  }
+  if (pNode->getNumOperands() == 1) {
     MDTuple *pVerValues = dyn_cast<MDTuple>(pNode->getOperand(0));
     if (pVerValues != nullptr && pVerValues->getNumOperands() == 2) {
       uint64_t majorVer, minorVer;
@@ -3826,6 +3813,7 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
       }
     }
   }
+  //ValCtx.EmitMetaError(pNode, ValidationRule::MetaWellFormed);
   ValCtx.EmitError(ValidationRule::MetaWellFormed);
 }
 
@@ -3853,8 +3841,11 @@ static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
 }
 
 static void ValidateBitcode(ValidationContext &ValCtx) {
-  if (llvm::verifyModule(ValCtx.M, &ValCtx.DiagStream())) {
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+  if (llvm::verifyModule(ValCtx.M, &diagStream)) {
     ValCtx.EmitError(ValidationRule::BitcodeValid);
+    dxilutil::EmitErrorOnContext(ValCtx.M.getContext(), diagStr);
   }
 }
 
@@ -4223,8 +4214,10 @@ static void ValidateShaderFlags(ValidationContext &ValCtx) {
     return;
   }
   ValCtx.EmitError(ValidationRule::MetaFlagsUsage);
-  ValCtx.DiagStream() << "Flags declared=" << declaredFlagsRaw
-                      << ", actual=" << calcFlagsRaw << "\n";
+
+  std::string Note = "Flags declared=" + declaredFlagsRaw;
+  Note += ", actual=" + calcFlagsRaw;
+  dxilutil::EmitNoteOnContext(ValCtx.M.getContext(), Note);
 }
 
 static void ValidateSignatureElement(DxilSignatureElement &SE,
@@ -4652,7 +4645,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
         TargetMask = TargetMask | mask;
       }
       if (E->GetRows() > 1) {
-        ValCtx.EmitError(ValidationRule::SmNoPSOutputIdx);
+        ValCtx.EmitSignatureError(E.get(), ValidationRule::SmNoPSOutputIdx);
       }
       continue;
     }
@@ -4670,18 +4663,18 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       for (unsigned rowIdx = 0; rowIdx < E->GetRows(); rowIdx++)
         clipcullRowSet[streamId].insert(E->GetStartRow() + rowIdx);
       if (clipcullRowSet[streamId].size() > 2) {
-        ValCtx.EmitError(ValidationRule::MetaClipCullMaxRows);
+        ValCtx.EmitSignatureError(E.get(), ValidationRule::MetaClipCullMaxRows);
       }
       clipcullComponents[streamId] += E->GetCols();
       if (clipcullComponents[streamId] > 8) {
-        ValCtx.EmitError(ValidationRule::MetaClipCullMaxComponents);
+        ValCtx.EmitSignatureError(E.get(), ValidationRule::MetaClipCullMaxComponents);
       }
       break;
     case DXIL::SemanticKind::Depth:
     case DXIL::SemanticKind::DepthGreaterEqual:
     case DXIL::SemanticKind::DepthLessEqual:
       if (DepthKind != DXIL::SemanticKind::Invalid) {
-        ValCtx.EmitError(ValidationRule::SmPSMultipleDepthSemantic);
+        ValCtx.EmitSignatureError(E.get(), ValidationRule::SmPSMultipleDepthSemantic);
       }
       DepthKind = semanticKind;
       break;
@@ -4689,14 +4682,14 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       // There can only be up to two SV_Barycentrics
       // with differeent perspective interpolation modes.
       if (numBarycentrics++ > 1) {
-        ValCtx.EmitError(ValidationRule::MetaBarycentricsTwoPerspectives);
+        ValCtx.EmitSignatureError(E.get(), ValidationRule::MetaBarycentricsTwoPerspectives);
         break;
       }
       const InterpolationMode *mode = E->GetInterpolationMode();
       if (prevBaryInterpMode) {
         if ((mode->IsAnyNoPerspective() && prevBaryInterpMode->IsAnyNoPerspective())
           || (!mode->IsAnyNoPerspective() && !prevBaryInterpMode->IsAnyNoPerspective())) {
-          ValCtx.EmitError(ValidationRule::MetaBarycentricsTwoPerspectives);
+          ValCtx.EmitSignatureError(E.get(), ValidationRule::MetaBarycentricsTwoPerspectives);
         }
       }
       prevBaryInterpMode = mode;
@@ -4762,7 +4755,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     if (!S.InputSignature.GetElements().empty() ||
         !S.OutputSignature.GetElements().empty() ||
         !S.PatchConstOrPrimSignature.GetElements().empty()) {
-      ValCtx.EmitFormatError(ValidationRule::SmRayShaderSignatures, { F.getName() });
+      ValCtx.EmitFnFormatError(&F, ValidationRule::SmRayShaderSignatures, { F.getName() });
     }
 
     // Validate payload/attribute/params sizes
@@ -4793,11 +4786,11 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       break;
     }
     if (props.ShaderProps.Ray.payloadSizeInBytes < payloadSize) {
-      ValCtx.EmitFormatError(ValidationRule::SmRayShaderPayloadSize,
+      ValCtx.EmitFnFormatError(&F, ValidationRule::SmRayShaderPayloadSize,
         { F.getName(), props.IsCallable() ? "params" : "payload" });
     }
     if (props.ShaderProps.Ray.attributeSizeInBytes < attrSize) {
-      ValCtx.EmitFormatError(ValidationRule::SmRayShaderPayloadSize,
+      ValCtx.EmitFnFormatError(&F, ValidationRule::SmRayShaderPayloadSize,
         { F.getName(), "attribute" });
     }
     return;
@@ -4859,6 +4852,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
   if (isPS) {
     // Gather execution information.
     hlsl::PSExecutionInfo PSExec;
+    DxilSignatureElement *PosInterpSE = nullptr;
     for (auto &E :S.InputSignature.GetElements()) {
       if (E->GetKind() == DXIL::SemanticKind::SampleIndex) {
         PSExec.SuperSampling = true;
@@ -4871,6 +4865,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       }
       if (E->GetKind() == DXIL::SemanticKind::Position) {
         PSExec.PositionInterpolationMode = IM;
+        PosInterpSE = E.get();
       }
     }
 
@@ -4888,7 +4883,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         if (!PSExec.PositionInterpolationMode->IsUndefined() &&
             !PSExec.PositionInterpolationMode->IsLinearNoperspectiveCentroid() &&
             !PSExec.PositionInterpolationMode->IsLinearNoperspectiveSample()) {
-          ValCtx.EmitError(ValidationRule::SmPSConsistentInterp);
+          ValCtx.EmitSignatureError(PosInterpSE, ValidationRule::SmPSConsistentInterp);
         }
       }
     }
@@ -4906,7 +4901,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       case Semantic::Kind::StencilRef:
         break;
       default: {
-        ValCtx.EmitFormatError(ValidationRule::SmPSOutputSemantic, {SE->GetName()});
+        ValCtx.EmitFnFormatError(&F, ValidationRule::SmPSOutputSemantic, {SE->GetName()});
       } break;
       }
     }
@@ -4921,7 +4916,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     }
     unsigned totalOutputScalars = maxVertexCount * outputScalarCount;
     if (totalOutputScalars > DXIL::kMaxGSOutputTotalScalars) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(&F,
           ValidationRule::SmGSTotalOutputVertexDataRange,
           {std::to_string(maxVertexCount),
            std::to_string(outputScalarCount),
@@ -4934,25 +4929,25 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
       if (!S.InputSignature.GetElements().empty() ||
           !S.OutputSignature.GetElements().empty() ||
           !S.PatchConstOrPrimSignature.GetElements().empty()) {
-        ValCtx.EmitError(ValidationRule::SmCSNoSignatures);
+        ValCtx.EmitFnError(&F, ValidationRule::SmCSNoSignatures);
       }
   }
 
   if (isMS) {
     unsigned VertexSignatureRows = S.OutputSignature.GetRowCount();
     if (VertexSignatureRows > DXIL::kMaxMSVSigRows) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(&F,
         ValidationRule::SmMeshVSigRowCount,
         { F.getName(), std::to_string(DXIL::kMaxMSVSigRows) });
     }
     unsigned PrimitiveSignatureRows = S.PatchConstOrPrimSignature.GetRowCount();
     if (PrimitiveSignatureRows > DXIL::kMaxMSPSigRows) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(&F,
         ValidationRule::SmMeshPSigRowCount,
         { F.getName(), std::to_string(DXIL::kMaxMSPSigRows) });
     }
     if (VertexSignatureRows + PrimitiveSignatureRows > DXIL::kMaxMSTotalSigRows) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(&F,
         ValidationRule::SmMeshTotalSigRowCount,
         { F.getName(), std::to_string(DXIL::kMaxMSTotalSigRows) });
     }
@@ -4970,14 +4965,14 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     }
 
     if (totalOutputScalars*kScalarSizeForMSAttributes > DXIL::kMaxMSOutputTotalBytes) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(&F,
         ValidationRule::SmMeshShaderOutputSize,
         { F.getName(), std::to_string(DXIL::kMaxMSOutputTotalBytes) });
     }
 
     unsigned totalInputOutputBytes = totalOutputScalars*kScalarSizeForMSAttributes + props.ShaderProps.MS.payloadSizeInBytes;
     if (totalInputOutputBytes > DXIL::kMaxMSInputOutputTotalBytes) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(&F,
         ValidationRule::SmMeshShaderInOutSize,
         { F.getName(), std::to_string(DXIL::kMaxMSInputOutputTotalBytes) });
     }
@@ -4998,7 +4993,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
     Function *Entry = DM.GetEntryFunction();
     if (!DM.HasDxilEntryProps(Entry)) {
       // must have props.
-      ValCtx.EmitError(ValidationRule::MetaNoEntryPropsForEntry);
+      ValCtx.EmitFnError(Entry, ValidationRule::MetaNoEntryPropsForEntry);
       return;
     }
     EntryStatus &Status = ValCtx.GetEntryStatus(Entry);
@@ -5009,7 +5004,8 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
 
 static void CheckPatchConstantSemantic(ValidationContext &ValCtx,
                                        const DxilEntryProps &EntryProps,
-                                       EntryStatus &Status) {
+                                       EntryStatus &Status,
+                                       Function *F) {
   const DxilFunctionProps &props = EntryProps.props;
   bool isHS = props.IsHS();
 
@@ -5071,7 +5067,7 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx,
     if (kind == kEdgeSemantic) {
       bFoundEdgeSemantic = true;
       if (SE->GetRows() != edgeSize || SE->GetCols() > 1) {
-        ValCtx.EmitFormatError(ValidationRule::SmTessFactorSizeMatchDomain,
+        ValCtx.EmitFnFormatError(F, ValidationRule::SmTessFactorSizeMatchDomain,
                                {std::to_string(SE->GetRows()),
                                 std::to_string(SE->GetCols()), domainName,
                                 std::to_string(edgeSize)});
@@ -5079,7 +5075,7 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx,
     } else if (kind == kInsideSemantic) {
       bFoundInsideSemantic = true;
       if (SE->GetRows() != insideSize || SE->GetCols() > 1) {
-        ValCtx.EmitFormatError(
+        ValCtx.EmitFnFormatError(F,
             ValidationRule::SmInsideTessFactorSizeMatchDomain,
             {std::to_string(SE->GetRows()), std::to_string(SE->GetCols()),
              domainName, std::to_string(insideSize)});
@@ -5089,10 +5085,10 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx,
 
   if (isHS) {
     if (!bFoundEdgeSemantic) {
-      ValCtx.EmitError(ValidationRule::SmTessFactorForDomain);
+      ValCtx.EmitFnError(F, ValidationRule::SmTessFactorForDomain);
     }
     if (!bFoundInsideSemantic && domain != DXIL::TessellatorDomain::IsoLine) {
-      ValCtx.EmitError(ValidationRule::SmTessFactorForDomain);
+      ValCtx.EmitFnError(F, ValidationRule::SmTessFactorForDomain);
     }
   }
 }
@@ -5105,7 +5101,7 @@ static void ValidatePassThruHS(ValidationContext &ValCtx,
     if (props.IsHS()) {
       const auto &HS = props.ShaderProps.HS;
       if (HS.inputControlPoints < HS.outputControlPoints) {
-        ValCtx.EmitError(ValidationRule::SmHullPassThruControlPointCountMatch);
+        ValCtx.EmitFnError(F, ValidationRule::SmHullPassThruControlPointCountMatch);
       }
 
       // Check declared control point outputs storage amounts are ok to pass
@@ -5117,17 +5113,19 @@ static void ValidatePassThruHS(ValidationContext &ValCtx,
       }
       if (totalOutputCPScalars * HS.outputControlPoints >
           DXIL::kMaxHSOutputControlPointsTotalScalars) {
-        ValCtx.EmitError(ValidationRule::SmOutputControlPointsTotalScalars);
+        ValCtx.EmitFnError(F, ValidationRule::SmOutputControlPointsTotalScalars);
+        // TODO: add number at end. need format fn error?
       }
     } else {
-      ValCtx.EmitError(ValidationRule::MetaEntryFunction);
+      ValCtx.EmitFnError(F, ValidationRule::MetaEntryFunction);
     }
   }
 }
 
 static void ValidateEntryProps(ValidationContext &ValCtx,
                                const DxilEntryProps &entryProps,
-                               EntryStatus &Status) {
+                               EntryStatus &Status,
+                               Function *F) {
   const DxilFunctionProps &props = entryProps.props;
   DXIL::ShaderKind ShaderType = props.shaderKind;
 
@@ -5140,26 +5138,26 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     unsigned threadsInGroup = x * y * z;
 
     if ((x < DXIL::kMinCSThreadGroupX) || (x > DXIL::kMaxCSThreadGroupX)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"X", std::to_string(x),
                               std::to_string(DXIL::kMinCSThreadGroupX),
                               std::to_string(DXIL::kMaxCSThreadGroupX)});
     }
     if ((y < DXIL::kMinCSThreadGroupY) || (y > DXIL::kMaxCSThreadGroupY)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"Y", std::to_string(y),
                               std::to_string(DXIL::kMinCSThreadGroupY),
                               std::to_string(DXIL::kMaxCSThreadGroupY)});
     }
     if ((z < DXIL::kMinCSThreadGroupZ) || (z > DXIL::kMaxCSThreadGroupZ)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"Z", std::to_string(z),
                               std::to_string(DXIL::kMinCSThreadGroupZ),
                               std::to_string(DXIL::kMaxCSThreadGroupZ)});
     }
 
     if (threadsInGroup > DXIL::kMaxCSThreadsPerGroup) {
-      ValCtx.EmitFormatError(ValidationRule::SmMaxTheadGroup,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmMaxTheadGroup,
                              {std::to_string(threadsInGroup),
                               std::to_string(DXIL::kMaxCSThreadsPerGroup)});
     }
@@ -5175,26 +5173,26 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     unsigned threadsInGroup = x * y * z;
 
     if ((x < DXIL::kMinMSASThreadGroupX) || (x > DXIL::kMaxMSASThreadGroupX)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"X", std::to_string(x),
                               std::to_string(DXIL::kMinMSASThreadGroupX),
                               std::to_string(DXIL::kMaxMSASThreadGroupX)});
     }
     if ((y < DXIL::kMinMSASThreadGroupY) || (y > DXIL::kMaxMSASThreadGroupY)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"Y", std::to_string(y),
                               std::to_string(DXIL::kMinMSASThreadGroupY),
                               std::to_string(DXIL::kMaxMSASThreadGroupY)});
     }
     if ((z < DXIL::kMinMSASThreadGroupZ) || (z > DXIL::kMaxMSASThreadGroupZ)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"Z", std::to_string(z),
                               std::to_string(DXIL::kMinMSASThreadGroupZ),
                               std::to_string(DXIL::kMaxMSASThreadGroupZ)});
     }
 
     if (threadsInGroup > DXIL::kMaxMSASThreadsPerGroup) {
-      ValCtx.EmitFormatError(ValidationRule::SmMaxTheadGroup,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmMaxTheadGroup,
                              {std::to_string(threadsInGroup),
                               std::to_string(DXIL::kMaxMSASThreadsPerGroup)});
     }
@@ -5204,7 +5202,7 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
 
     unsigned maxVertexCount = MS.maxVertexCount;
     if (maxVertexCount > DXIL::kMaxMSOutputVertexCount) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(F,
         ValidationRule::SmMeshShaderMaxVertexCount,
           { std::to_string(DXIL::kMaxMSOutputVertexCount),
             std::to_string(maxVertexCount) });
@@ -5212,7 +5210,7 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
 
     unsigned maxPrimitiveCount = MS.maxPrimitiveCount;
     if (maxPrimitiveCount > DXIL::kMaxMSOutputPrimitiveCount) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(F,
         ValidationRule::SmMeshShaderMaxPrimitiveCount,
           { std::to_string(DXIL::kMaxMSOutputPrimitiveCount),
             std::to_string(maxPrimitiveCount) });
@@ -5226,26 +5224,26 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     unsigned threadsInGroup = x * y * z;
 
     if ((x < DXIL::kMinMSASThreadGroupX) || (x > DXIL::kMaxMSASThreadGroupX)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"X", std::to_string(x),
                               std::to_string(DXIL::kMinMSASThreadGroupX),
                               std::to_string(DXIL::kMaxMSASThreadGroupX)});
     }
     if ((y < DXIL::kMinMSASThreadGroupY) || (y > DXIL::kMaxMSASThreadGroupY)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"Y", std::to_string(y),
                               std::to_string(DXIL::kMinMSASThreadGroupY),
                               std::to_string(DXIL::kMaxMSASThreadGroupY)});
     }
     if ((z < DXIL::kMinMSASThreadGroupZ) || (z > DXIL::kMaxMSASThreadGroupZ)) {
-      ValCtx.EmitFormatError(ValidationRule::SmThreadGroupChannelRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmThreadGroupChannelRange,
                              {"Z", std::to_string(z),
                               std::to_string(DXIL::kMinMSASThreadGroupZ),
                               std::to_string(DXIL::kMaxMSASThreadGroupZ)});
     }
 
     if (threadsInGroup > DXIL::kMaxMSASThreadsPerGroup) {
-      ValCtx.EmitFormatError(ValidationRule::SmMaxTheadGroup,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmMaxTheadGroup,
                              {std::to_string(threadsInGroup),
                               std::to_string(DXIL::kMaxMSASThreadsPerGroup)});
     }
@@ -5260,15 +5258,15 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     unsigned inputControlPointCount = DS.inputControlPoints;
 
     if (inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(F,
           ValidationRule::SmDSInputControlPointCountRange,
           {std::to_string(DXIL::kMaxIAPatchControlPointCount),
            std::to_string(inputControlPointCount)});
     }
     if (domain == DXIL::TessellatorDomain::Undefined) {
-      ValCtx.EmitError(ValidationRule::SmValidDomain);
+      ValCtx.EmitFnError(F, ValidationRule::SmValidDomain);
     }
-    CheckPatchConstantSemantic(ValCtx, entryProps, Status);
+    CheckPatchConstantSemantic(ValCtx, entryProps, Status, F);
   } else if (ShaderType == DXIL::ShaderKind::Hull) {
     const auto &HS = props.ShaderProps.HS;
     DXIL::TessellatorDomain domain = HS.domain;
@@ -5278,10 +5276,10 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     if (inputControlPointCount == 0) {
       const DxilSignature &inputSig = entryProps.sig.InputSignature;
       if (!inputSig.GetElements().empty()) {
-        ValCtx.EmitError(ValidationRule::SmZeroHSInputControlPointWithInput);
+        ValCtx.EmitFnError(F, ValidationRule::SmZeroHSInputControlPointWithInput);
       }
     } else if (inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(F,
           ValidationRule::SmHSInputControlPointCountRange,
           {std::to_string(DXIL::kMaxIAPatchControlPointCount),
            std::to_string(inputControlPointCount)});
@@ -5289,29 +5287,29 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
 
     unsigned outputControlPointCount = HS.outputControlPoints;
     if (outputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
-      ValCtx.EmitFormatError(
+      ValCtx.EmitFnFormatError(F,
           ValidationRule::SmOutputControlPointCountRange,
           {std::to_string(DXIL::kMaxIAPatchControlPointCount),
            std::to_string(outputControlPointCount)});
     }
     if (domain == DXIL::TessellatorDomain::Undefined) {
-      ValCtx.EmitError(ValidationRule::SmValidDomain);
+      ValCtx.EmitFnError(F, ValidationRule::SmValidDomain);
     }
     DXIL::TessellatorPartitioning partition = HS.partition;
     if (partition == DXIL::TessellatorPartitioning::Undefined) {
-      ValCtx.EmitError(ValidationRule::MetaTessellatorPartition);
+      ValCtx.EmitFnError(F, ValidationRule::MetaTessellatorPartition);
     }
 
     DXIL::TessellatorOutputPrimitive tessOutputPrimitive = HS.outputPrimitive;
     if (tessOutputPrimitive == DXIL::TessellatorOutputPrimitive::Undefined ||
         tessOutputPrimitive == DXIL::TessellatorOutputPrimitive::LastEntry) {
-      ValCtx.EmitError(ValidationRule::MetaTessellatorOutputPrimitive);
+      ValCtx.EmitFnError(F, ValidationRule::MetaTessellatorOutputPrimitive);
     }
 
     float maxTessFactor = HS.maxTessFactor;
     if (maxTessFactor < DXIL::kHSMaxTessFactorLowerBound ||
         maxTessFactor > DXIL::kHSMaxTessFactorUpperBound) {
-      ValCtx.EmitFormatError(ValidationRule::MetaMaxTessFactor,
+      ValCtx.EmitFnFormatError(F, ValidationRule::MetaMaxTessFactor,
                              {std::to_string(DXIL::kHSMaxTessFactorLowerBound),
                               std::to_string(DXIL::kHSMaxTessFactorUpperBound),
                               std::to_string(maxTessFactor)});
@@ -5322,7 +5320,7 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
       switch (tessOutputPrimitive) {
       case DXIL::TessellatorOutputPrimitive::TriangleCW:
       case DXIL::TessellatorOutputPrimitive::TriangleCCW:
-        ValCtx.EmitError(ValidationRule::SmIsoLineOutputPrimitiveMismatch);
+        ValCtx.EmitFnError(F, ValidationRule::SmIsoLineOutputPrimitiveMismatch);
         break;
       default:
         break;
@@ -5331,7 +5329,7 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     case DXIL::TessellatorDomain::Tri:
       switch (tessOutputPrimitive) {
       case DXIL::TessellatorOutputPrimitive::Line:
-        ValCtx.EmitError(ValidationRule::SmTriOutputPrimitiveMismatch);
+        ValCtx.EmitFnError(F, ValidationRule::SmTriOutputPrimitiveMismatch);
         break;
       default:
         break;
@@ -5340,30 +5338,30 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     case DXIL::TessellatorDomain::Quad:
       switch (tessOutputPrimitive) {
       case DXIL::TessellatorOutputPrimitive::Line:
-        ValCtx.EmitError(ValidationRule::SmTriOutputPrimitiveMismatch);
+        ValCtx.EmitFnError(F, ValidationRule::SmTriOutputPrimitiveMismatch);
         break;
       default:
         break;
       }
       break;
     default:
-      ValCtx.EmitError(ValidationRule::SmValidDomain);
+      ValCtx.EmitFnError(F, ValidationRule::SmValidDomain);
       break;
     }
 
-    CheckPatchConstantSemantic(ValCtx, entryProps, Status);
+    CheckPatchConstantSemantic(ValCtx, entryProps, Status, F);
   } else if (ShaderType == DXIL::ShaderKind::Geometry) {
     const auto &GS = props.ShaderProps.GS;
     unsigned maxVertexCount = GS.maxVertexCount;
     if (maxVertexCount > DXIL::kMaxGSOutputVertexCount) {
-      ValCtx.EmitFormatError(ValidationRule::SmGSOutputVertexCountRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmGSOutputVertexCountRange,
                              {std::to_string(DXIL::kMaxGSOutputVertexCount),
                               std::to_string(maxVertexCount)});
     }
 
     unsigned instanceCount = GS.instanceCount;
     if (instanceCount > DXIL::kMaxGSInstanceCount || instanceCount < 1) {
-      ValCtx.EmitFormatError(ValidationRule::SmGSInstanceCountRange,
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmGSInstanceCountRange,
                              {std::to_string(DXIL::kMaxGSInstanceCount),
                               std::to_string(instanceCount)});
     }
@@ -5389,14 +5387,14 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     case DXIL::PrimitiveTopology::TriangleStrip:
       break;
     default: {
-      ValCtx.EmitError(ValidationRule::SmGSValidOutputPrimitiveTopology);
+      ValCtx.EmitFnError(F, ValidationRule::SmGSValidOutputPrimitiveTopology);
     } break;
     }
 
     DXIL::InputPrimitive inputPrimitive = GS.inputPrimitive;
     unsigned VertexCount = GetNumVertices(inputPrimitive);
     if (VertexCount == 0 && inputPrimitive != DXIL::InputPrimitive::Undefined) {
-      ValCtx.EmitError(ValidationRule::SmGSValidInputPrimitive);
+      ValCtx.EmitFnError(F, ValidationRule::SmGSValidInputPrimitive);
     }
   }
 }
@@ -5408,7 +5406,7 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
       if (DM.HasDxilEntryProps(&F)) {
         DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
         EntryStatus &Status = ValCtx.GetEntryStatus(&F);
-        ValidateEntryProps(ValCtx, entryProps, Status);
+        ValidateEntryProps(ValCtx, entryProps, Status, &F);
         ValidatePassThruHS(ValCtx, entryProps, &F);
       }
     }
@@ -5416,17 +5414,17 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     Function *Entry = DM.GetEntryFunction();
     if (!DM.HasDxilEntryProps(Entry)) {
       // must have props.
-      ValCtx.EmitError(ValidationRule::MetaNoEntryPropsForEntry);
+      ValCtx.EmitFnError(Entry, ValidationRule::MetaNoEntryPropsForEntry);
       return;
     }
     EntryStatus &Status = ValCtx.GetEntryStatus(Entry);
     DxilEntryProps &entryProps = DM.GetDxilEntryProps(Entry);
-    ValidateEntryProps(ValCtx, entryProps, Status);
+    ValidateEntryProps(ValCtx, entryProps, Status, Entry);
     ValidatePassThruHS(ValCtx, entryProps, Entry);
   }
 }
 
-static bool
+static CallGraphNode *
 CalculateCallDepth(CallGraphNode *node,
                    std::unordered_map<CallGraphNode *, unsigned> &depthMap,
                    std::unordered_set<CallGraphNode *> &callStack,
@@ -5437,18 +5435,18 @@ CalculateCallDepth(CallGraphNode *node,
     CallGraphNode *toNode = it->second;
     if (callStack.insert(toNode).second == false) {
       // Recursive.
-      return true;
+      return toNode;
     }
     if (depthMap[toNode] < depth)
       depthMap[toNode] = depth;
-    if (CalculateCallDepth(toNode, depthMap, callStack, funcSet)) {
+    if (CallGraphNode *N = CalculateCallDepth(toNode, depthMap, callStack, funcSet)) {
       // Recursive
-      return true;
+      return N;
     }
     callStack.erase(toNode);
   }
 
-  return false;
+  return nullptr;
 }
 
 static void ValidateCallGraph(ValidationContext &ValCtx) {
@@ -5459,16 +5457,14 @@ static void ValidateCallGraph(ValidationContext &ValCtx) {
   std::unordered_set<CallGraphNode*> callStack;
   CallGraphNode *entryNode = CG[ValCtx.DxilMod.GetEntryFunction()];
   depthMap[entryNode] = 0;
-  bool bRecursive = CalculateCallDepth(entryNode, depthMap, callStack, ValCtx.entryFuncCallSet);
+  if (CallGraphNode *N = CalculateCallDepth(entryNode, depthMap, callStack, ValCtx.entryFuncCallSet))
+    ValCtx.EmitFnError(N->getFunction(), ValidationRule::FlowNoRecusion);
   if (ValCtx.DxilMod.GetShaderModel()->IsHS()) {
     CallGraphNode *patchConstantNode = CG[ValCtx.DxilMod.GetPatchConstantFunction()];
     depthMap[patchConstantNode] = 0;
     callStack.clear();
-    bRecursive |= CalculateCallDepth(patchConstantNode, depthMap, callStack, ValCtx.patchConstFuncCallSet);
-  }
-
-  if (bRecursive) {
-    ValCtx.EmitError(ValidationRule::FlowNoRecusion);
+    if (CallGraphNode *N = CalculateCallDepth(patchConstantNode, depthMap, callStack, ValCtx.patchConstFuncCallSet))
+      ValCtx.EmitFnError(N->getFunction(), ValidationRule::FlowNoRecusion);
   }
 }
 
@@ -5495,7 +5491,7 @@ static void ValidateFlowControl(ValidationContext &ValCtx) {
       SmallVector<BasicBlock *, 4> exitBlocks;
       loop->getExitBlocks(exitBlocks);
       if (exitBlocks.empty())
-        ValCtx.EmitError(ValidationRule::FlowDeadLoop);
+        ValCtx.EmitFnError(&F, ValidationRule::FlowDeadLoop);
     }
   }
   // fxc has ERR_CONTINUE_INSIDE_SWITCH to disallow continue in switch.
@@ -5503,8 +5499,10 @@ static void ValidateFlowControl(ValidationContext &ValCtx) {
 }
 
 static void ValidateUninitializedOutput(ValidationContext &ValCtx,
-                                        const DxilEntryProps &entryProps,
-                                        EntryStatus &Status) {
+                                        Function *F) {
+  DxilModule &DM = ValCtx.DxilMod;
+  DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+  EntryStatus &Status = ValCtx.GetEntryStatus(F);
   const DxilFunctionProps &props = entryProps.props;
   // For HS only need to check Tessfactor which is in patch constant sig.
   if (props.IsHS()) {
@@ -5515,7 +5513,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx,
       unsigned requireMask = (1 << E->GetCols()) - 1;
       // TODO: check other case uninitialized output is allowed.
       if (mask != requireMask && !E->GetSemantic()->IsArbitrary()) {
-        ValCtx.EmitFormatError(ValidationRule::SmUndefinedOutput,
+        ValCtx.EmitFnFormatError(F, ValidationRule::SmUndefinedOutput,
                                {E->GetName()});
       }
     }
@@ -5529,7 +5527,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx,
     // TODO: check other case uninitialized output is allowed.
     if (mask != requireMask && !E->GetSemantic()->IsArbitrary() &&
         E->GetSemantic()->GetKind() != Semantic::Kind::Target) {
-      ValCtx.EmitFormatError(ValidationRule::SmUndefinedOutput, {E->GetName()});
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmUndefinedOutput, {E->GetName()});
     }
   }
 
@@ -5537,7 +5535,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx,
   if (!props.IsGS()) {
     unsigned posMask = Status.OutputPositionMask[0];
     if (posMask != 0xf && Status.hasOutputPosition[0]) {
-      ValCtx.EmitError(ValidationRule::SmCompletePosition);
+      ValCtx.EmitFnError(F, ValidationRule::SmCompletePosition);
     }
   } else {
     const auto &GS = props.ShaderProps.GS;
@@ -5553,7 +5551,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx,
       if (streamMask & (1 << i)) {
         unsigned posMask = Status.OutputPositionMask[i];
         if (posMask != 0xf && Status.hasOutputPosition[i]) {
-          ValCtx.EmitError(ValidationRule::SmCompletePosition);
+          ValCtx.EmitFnError(F, ValidationRule::SmCompletePosition);
         }
       }
     }
@@ -5565,21 +5563,17 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
   if (ValCtx.isLibProfile) {
     for (Function &F : DM.GetModule()->functions()) {
       if (DM.HasDxilEntryProps(&F)) {
-        DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
-        EntryStatus &Status = ValCtx.GetEntryStatus(&F);
-        ValidateUninitializedOutput(ValCtx, entryProps, Status);
+        ValidateUninitializedOutput(ValCtx, &F);
       }
     }
   } else {
     Function *Entry = DM.GetEntryFunction();
     if (!DM.HasDxilEntryProps(Entry)) {
       // must have props.
-      ValCtx.EmitError(ValidationRule::MetaNoEntryPropsForEntry);
+      ValCtx.EmitFnError(Entry, ValidationRule::MetaNoEntryPropsForEntry);
       return;
     }
-    EntryStatus &Status = ValCtx.GetEntryStatus(Entry);
-    DxilEntryProps &entryProps = DM.GetDxilEntryProps(Entry);
-    ValidateUninitializedOutput(ValCtx, entryProps, Status);
+    ValidateUninitializedOutput(ValCtx, Entry);
   }
 }
 
@@ -5610,20 +5604,16 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
 
 _Use_decl_annotations_ HRESULT
 ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
-  std::string diagStr;
-  raw_string_ostream diagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
-
   DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
   if (!pDxilModule) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
   if (pDxilModule->HasMetadataErrors()) {
-    DiagPrinter << "Metadata error encountered in non-critical metadata (such as Type Annotations).\n";
+    dxilutil::EmitErrorOnContext(pModule->getContext(), "Metadata error encountered in non-critical metadata (such as Type Annotations).");
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
+  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule);
 
   ValidateBitcode(ValCtx);
 
@@ -5651,7 +5641,6 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   ValidateUninitializedOutput(ValCtx);
   // Ensure error messages are flushed out on error.
   if (ValCtx.Failed) {
-    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
     return DXC_E_IR_VERIFICATION_FAILED;
   }
   return S_OK;
@@ -5729,14 +5718,8 @@ bool VerifySignatureMatches(llvm::Module *pModule,
                             DXIL::SignatureKind SigKind,
                             const void *pSigData,
                             uint32_t SigSize) {
-  std::string diagStr;
-  raw_string_ostream diagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
   VerifySignatureMatches(ValCtx, SigKind, pSigData, SigSize);
-  if (ValCtx.Failed) {
-    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
-  }
   return !ValCtx.Failed;
 }
 
@@ -5758,14 +5741,8 @@ _Use_decl_annotations_
 bool VerifyPSVMatches(llvm::Module *pModule,
                       const void *pPSVData,
                       uint32_t PSVSize) {
-  std::string diagStr;
-  raw_string_ostream diagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
   VerifyPSVMatches(ValCtx, pPSVData, PSVSize);
-  if (ValCtx.Failed) {
-    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
-  }
   return !ValCtx.Failed;
 }
 
@@ -5811,14 +5788,8 @@ _Use_decl_annotations_
 bool VerifyRDATMatches(llvm::Module *pModule,
                        const void *pRDATData,
                        uint32_t RDATSize) {
-  std::string diagStr;
-  raw_string_ostream diagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
   VerifyRDATMatches(ValCtx, pRDATData, RDATSize);
-  if (ValCtx.Failed) {
-    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
-  }
   return !ValCtx.Failed;
 }
 
@@ -5826,14 +5797,8 @@ _Use_decl_annotations_
 bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
                               uint32_t FeatureInfoSize) {
-  std::string diagStr;
-  raw_string_ostream diagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
   VerifyFeatureInfoMatches(ValCtx, pFeatureInfoData, FeatureInfoSize);
-  if (ValCtx.Failed) {
-    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
-  }
   return !ValCtx.Failed;
 }
 
@@ -5853,10 +5818,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  std::string diagStr;
-  raw_string_ostream DiagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
+  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule);
 
   DXIL::ShaderKind ShaderKind = pDxilModule->GetShaderModel()->GetKind();
   bool bTessOrMesh = ShaderKind == DXIL::ShaderKind::Hull ||
@@ -5980,6 +5942,8 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     // Validate Root Signature
     if (pPSVPart) {
       if (pRootSignaturePart) {
+        std::string diagStr;
+        raw_string_ostream DiagStream(diagStr);
         try {
           RootSignatureHandle RS;
           RS.LoadSerialized((const uint8_t*)GetDxilPartData(pRootSignaturePart), pRootSignaturePart->PartSize);
@@ -5991,6 +5955,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
                   DXC_E_INCORRECT_ROOT_SIGNATURE);
         } catch (...) {
           ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
+          emitDxilDiag(pModule->getContext(), DiagStream.str().c_str());
         }
       }
     } else {
@@ -5999,7 +5964,6 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   }
 
   if (ValCtx.Failed) {
-    emitDxilDiag(pModule->getContext(), DiagStream.str().c_str());
     return DXC_E_MALFORMED_CONTAINER;
   }
   return S_OK;
