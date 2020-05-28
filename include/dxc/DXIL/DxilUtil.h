@@ -84,8 +84,6 @@ namespace dxilutil {
   void EmitWarningOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
 
   void EmitResMappingError(llvm::Instruction *Res);
-  std::string FormatMessageAtLocation(const llvm::DebugLoc &DL, const llvm::Twine& Msg);
-  llvm::Twine FormatMessageWithoutLocation(const llvm::Twine& Msg);
   // Simple demangle just support case "\01?name@" pattern.
   llvm::StringRef DemangleFunctionName(llvm::StringRef name);
   // ReplaceFunctionName replaces the undecorated portion of originalName with undecorated newName

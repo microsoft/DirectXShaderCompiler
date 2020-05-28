@@ -321,7 +321,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
            SemanticUseMap.count((unsigned)DXIL::SemanticKind::Coverage) > 0)) {
         dxilutil::EmitErrorOnFunction(func,
             "Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually "
-            "exclusive");
+            "exclusive.");
         return;
       }
     }
@@ -1128,7 +1128,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
       OSS << "(type for " << SE->GetName() << ")";
       OSS << " cannot be used as shader inputs or outputs.";
       OSS.flush();
-      HLM.GetCtx().emitError(O);
+      dxilutil::EmitErrorOnFunction(Entry, O);
       continue;
     }
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
