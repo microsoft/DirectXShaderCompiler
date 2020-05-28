@@ -557,9 +557,19 @@ enum tagSTATFLAG {
 
 //===--------------------- UUID Related Macros ----------------------------===//
 
-#ifdef __EMULATE_UUID
+static size_t UuidStrHash(const char *k) {
+  long h = 0;
+  while (*k) {
+    h = (h << 4) + *(k++);
+    long g = h & 0xF0000000L;
+    if (g != 0)
+      h ^= g >> 24;
+    h &= ~g;
+  }
+  return h;
+}
 
-size_t UuidStrHash(const char* k);
+#ifdef __EMULATE_UUID
 
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
