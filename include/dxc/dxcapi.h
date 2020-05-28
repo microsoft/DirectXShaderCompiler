@@ -25,6 +25,7 @@
 
 #ifdef _WIN32
 #define DECLARE_CROSS_PLATFORM_UUIDOF(T)
+#define DEFINE_CROSS_PLATFORM_UUIDOF(T)
 #else
 #include <dlfcn.h>
 #include "dxc/Support/WinAdapter.h"

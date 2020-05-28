@@ -590,7 +590,6 @@ public:                                                                        \
 
 #else // __EMULATE_UUID
 
-#define DECLARE_CROSS_PLATFORM_UUIDOF(T)
 
 template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
   return reinterpret_cast<void **>(pp);
@@ -601,7 +600,23 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
-struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown {
+#define INTERFACE_STRUCT_HEADER(interface_name, uuid0, uuid1, uuid2, uuid3_0,  \
+                                uuid3_1, uuid3_2, uuid3_3, uuid3_4, uuid3_5,   \
+                                uuid3_6, uuid3_7)                              \
+  struct __declspec(uuid(#uuid0 "-" #uuid1 "-" #uuid2 "-"                      \
+                                "-" #uuid3_0 #uuid3_1                          \
+                                "-" #uuid3_2 #uuid3_3 #uuid3_4 #uuid3_5,       \
+                         #uuid3_6, #uuid3_7)) interface_name {                 \
+    /* Note that eating the bracket here allows to keep the static function    \
+      and member inline, but will require an extra macro argument to pass      \
+      inherited types before it */                                             \
+    DECLARE_CROSS_PLATFORM_UUIDOF_VALUE(                                       \
+        {0x##uuid0, 0x##uuid1, 0x##uuid2, 0x##uuid3_0, 0x##uuid3_1,            \
+         0x##uuid3_2, 0x##uuid3_3, 0x##uuid3_4, 0x##uuid3_5, 0x##uuid3_6,      \
+         0x##uuid3_7})
+
+INTERFACE_STRUCT_HEADER(IUnknown, 00000000, 0000, 0000, C0, 00, 00, 00, 00, 00,
+                        00, 46)
   IUnknown() : m_count(0){};
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef();
@@ -613,8 +628,6 @@ struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown {
 
 private:
   std::atomic<unsigned long> m_count;
-
-  DECLARE_CROSS_PLATFORM_UUIDOF(IUnknown)
 };
 
 struct __declspec(uuid("ECC8691B-C1DB-4DC0-855E-65F6C551AF49")) INoMarshal
