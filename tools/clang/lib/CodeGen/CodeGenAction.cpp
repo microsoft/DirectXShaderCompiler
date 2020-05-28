@@ -538,18 +538,16 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
   ComputeDiagID(D.getSeverity(), inline_asm, DiagID);
 
   SourceManager &SourceMgr = Context->getSourceManager();
-  FileManager &FileMgr = SourceMgr.getFileManager();
-  StringRef Filename;
-  unsigned Line, Column;
   SourceLocation DILoc;
   std::string Message = D.getMsgStr().str();
   const DILocation *DLoc = D.getLocation();
 
   // Convert Filename/Line/Column triplet into SourceLocation
   if (DLoc) {
-    Filename = DLoc->getFilename();
-    Line = DLoc->getLine();
-    Column = DLoc->getColumn();
+    FileManager &FileMgr = SourceMgr.getFileManager();
+    StringRef Filename = DLoc->getFilename();
+    unsigned Line = DLoc->getLine();
+    unsigned Column = DLoc->getColumn();
     const FileEntry *FE = FileMgr.getFile(Filename);
     if (FE && Line > 0) {
       DILoc = SourceMgr.translateFileLineCol(FE, Line, Column ? Column : 1);
