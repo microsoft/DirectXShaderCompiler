@@ -229,3 +229,26 @@ void llvm::emitLoopInterleaveWarning(LLVMContext &Ctx, const Function &Fn,
   Ctx.diagnose(DiagnosticInfoOptimizationFailure(
       Fn, DLoc, Twine("loop not interleaved: " + Msg)));
 }
+
+// HLSL Change start - Dxil Diagnostic Info reporter
+
+// Slapdash printing of diagnostic information as a last resort
+// Used by dxl. Doesn't include source snippets.
+void DiagnosticInfoDxil::print(DiagnosticPrinter &DP) const {
+  if (DLoc) {
+    DIScope *scope = cast<DIScope>(DLoc->getRawScope());
+    DP << scope->getFilename() << DLoc->getLine() << ":";
+    unsigned Column = DLoc->getColumn();
+    if (Column > 0)
+      DP << Column << ":";
+  }
+
+  switch (getSeverity()) {
+  case DiagnosticSeverity::DS_Note:    DP << " note: "; break;
+  case DiagnosticSeverity::DS_Remark:  DP << " remark: "; break;
+  case DiagnosticSeverity::DS_Warning: DP << " warning: "; break;
+  case DiagnosticSeverity::DS_Error:   DP << " error: "; break;
+  }
+  DP << getMsgStr();
+}
+// HLSL Change end - Dxil Diagnostic Info reporter

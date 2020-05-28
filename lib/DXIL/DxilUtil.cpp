@@ -240,40 +240,6 @@ DIGlobalVariable *FindGlobalVariableDebugInfo(GlobalVariable *GV,
   return nullptr;
 }
 
-std::string FormatMessageAtLocation(const DebugLoc &DL, const Twine& Msg) {
-  std::string locString;
-  raw_string_ostream os(locString);
-  DL.print(os);
-  os << ": " << Msg;
-  return os.str();
-}
-
-std::string FormatMessageInSubProgram(DISubprogram *DISP, const Twine& Msg) {
-  std::string locString;
-  raw_string_ostream os(locString);
-
-  auto *Scope = cast<DIScope>(DISP->getScope());
-  os << Scope->getFilename();
-  os << ':' << DISP->getLine();
-  os << ": " << Msg;
-  return os.str();
-}
-
-std::string FormatMessageInVariable(DIVariable *DIV, const Twine& Msg) {
-  std::string locString;
-  raw_string_ostream os(locString);
-
-  auto *Scope = cast<DIScope>(DIV->getScope());
-  os << Scope->getFilename();
-  os << ':' << DIV->getLine();
-  os << ": " << Msg;
-  return os.str();
-}
-
-Twine FormatMessageWithoutLocation(const Twine& Msg) {
-  return Msg + " Use /Zi for source location.";
-}
-
 static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
                                             bool bWarning);
 
@@ -304,21 +270,17 @@ static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
 static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
                                             bool bWarning) {
   const DebugLoc &DL = I->getDebugLoc();
-  if (DL.get()) {
-    if (bWarning)
-      I->getContext().emitWarning(FormatMessageAtLocation(DL, Msg));
-    else
-      I->getContext().emitError(FormatMessageAtLocation(DL, Msg));
-    return;
-  } else if (isa<PHINode>(I) || isa<SelectInst>(I)) {
+  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
+
+  if (!DL.get() && (isa<PHINode>(I) || isa<SelectInst>(I))) {
     if (EmitWarningOrErrorOnInstructionFollowPhiSelect(I, Msg, bWarning))
       return;
   }
 
   if (bWarning)
-    I->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
-  else
-    I->getContext().emitError(FormatMessageWithoutLocation(Msg));
+    severity = DiagnosticSeverity::DS_Warning;
+
+  I->getContext().diagnose(DiagnosticInfoDxil(DL.get(), Msg, severity));
 }
 
 void EmitErrorOnInstruction(Instruction *I, Twine Msg) {
@@ -332,18 +294,17 @@ void EmitWarningOnInstruction(Instruction *I, Twine Msg) {
 static void EmitWarningOrErrorOnFunction(Function *F, Twine Msg,
                                          bool bWarning) {
   DISubprogram *DISP = getDISubprogram(F);
-  if (DISP) {
-    if (bWarning)
-      F->getContext().emitWarning(FormatMessageInSubProgram(DISP, Msg));
-    else
-      F->getContext().emitError(FormatMessageInSubProgram(DISP, Msg));
-    return;
-  }
-
+  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
   if (bWarning)
-    F->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
-  else
-    F->getContext().emitError(FormatMessageWithoutLocation(Msg));
+    severity = DiagnosticSeverity::DS_Warning;
+
+  DILocation *DLoc = nullptr;
+  if (DISP) {
+    DLoc = DILocation::get(F->getContext(), DISP->getLine(), 0,
+                           DISP, nullptr /*InlinedAt*/);
+  }
+  F->getContext().diagnose(DiagnosticInfoDxil(DLoc, Msg, severity));
+
 }
 
 void EmitErrorOnFunction(Function *F, Twine Msg) {
@@ -357,20 +318,21 @@ void EmitWarningOnFunction(Function *F, Twine Msg) {
 static void EmitWarningOrErrorOnGlobalVariable(GlobalVariable *GV,
                                                Twine Msg, bool bWarning) {
   DIVariable *DIV = nullptr;
-  if (GV)
-    DIV = FindGlobalVariableDebugInfo(GV, GV->getParent()->GetDxilModule().GetOrCreateDebugInfoFinder());
-  if (DIV) {
-    if (bWarning)
-      GV->getContext().emitWarning(FormatMessageInVariable(DIV, Msg));
-    else
-      GV->getContext().emitError(FormatMessageInVariable(DIV, Msg));
-    return;
-  }
+  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
+  if (!GV) return;
 
   if (bWarning)
-    GV->getContext().emitWarning(FormatMessageWithoutLocation(Msg));
-  else
-    GV->getContext().emitError(FormatMessageWithoutLocation(Msg));
+    severity = DiagnosticSeverity::DS_Warning;
+
+  DIV = FindGlobalVariableDebugInfo(GV, GV->getParent()->GetDxilModule().GetOrCreateDebugInfoFinder());
+
+  DILocation *DLoc = nullptr;
+  if (DIV) {
+    DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
+                           DIV->getScope(), nullptr /*InlinedAt*/);
+  }
+
+  GV->getContext().diagnose(DiagnosticInfoDxil(DLoc, Msg, severity));
 }
 
 void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
@@ -380,7 +342,6 @@ void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
 void EmitWarningOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
   EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/true);
 }
-
 
 const char *kResourceMapErrorMsg =
     "local resource not guaranteed to map to unique global resource.";

@@ -58,6 +58,7 @@ enum DiagnosticKind {
   DK_OptimizationRemarkAnalysis,
   DK_OptimizationFailure,
   DK_MIRParser,
+  DK_DXIL, // HLSL Change
   DK_FirstPluginKind
 };
 
@@ -472,6 +473,38 @@ void emitLoopVectorizeWarning(LLVMContext &Ctx, const Function &Fn,
 /// diagnostic is generated. \p Msg is the message string to use.
 void emitLoopInterleaveWarning(LLVMContext &Ctx, const Function &Fn,
                                const DebugLoc &DLoc, const Twine &Msg);
+
+// HLSL Change start - Dxil Diagnostic Info reporter
+
+/// Diagnostic information for Dxil errors
+/// Intended for use in post-codegen passes
+/// where location information is stored in metadata
+class DiagnosticInfoDxil : public DiagnosticInfo {
+private:
+  // Location information
+  const DILocation *DLoc;
+
+  /// Message to be reported.
+  const Twine &MsgStr;
+
+public:
+  /// This class does not copy \p MsgStr, therefore the reference must be valid
+  /// for the whole life time of the Diagnostic.
+  DiagnosticInfoDxil(const DILocation *Loc, const Twine &MsgStr,
+                     DiagnosticSeverity Severity = DS_Error)
+    : DiagnosticInfo(DK_DXIL, Severity), DLoc(Loc), MsgStr(MsgStr) {}
+
+  const DILocation *getLocation() const { return DLoc; }
+  const Twine &getMsgStr() const { return MsgStr; }
+
+  /// \see DiagnosticInfo::print.
+  void print(DiagnosticPrinter &DP) const override;
+
+  static bool classof(const DiagnosticInfo *DI) {
+    return DI->getKind() == DK_DXIL;
+  }
+};
+// HLSL Change end - Dxil Diagnostic Info reporter
 
 } // End namespace llvm
 

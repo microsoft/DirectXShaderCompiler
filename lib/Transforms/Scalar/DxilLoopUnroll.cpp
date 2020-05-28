@@ -68,6 +68,7 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -137,18 +138,10 @@ public:
 char DxilLoopUnroll::ID;
 
 static void FailLoopUnroll(bool WarnOnly, LLVMContext &Ctx, DebugLoc DL, const Twine &Message) {
-  if (WarnOnly) {
-    if (DL)
-      Ctx.emitWarning(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
-    else
-      Ctx.emitWarning(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
-  }
-  else {
-    if (DL)
-      Ctx.emitError(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
-    else
-      Ctx.emitError(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
-  }
+  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
+  if (WarnOnly)
+    severity = DiagnosticSeverity::DS_Warning;
+  Ctx.diagnose(DiagnosticInfoDxil(DL.get(), Message, severity));
 }
 
 struct LoopIteration {

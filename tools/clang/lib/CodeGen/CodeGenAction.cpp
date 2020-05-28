@@ -266,6 +266,8 @@ namespace clang {
         const llvm::DiagnosticInfoOptimizationRemarkAnalysis &D);
     void OptimizationFailureHandler(
         const llvm::DiagnosticInfoOptimizationFailure &D);
+    bool DxilDiagHandler(const llvm::DiagnosticInfoDxil &D);
+
   };
   
   void BackendConsumer::anchor() {}
@@ -529,6 +531,39 @@ void BackendConsumer::linkerDiagnosticHandler(const DiagnosticInfo &DI) {
       << LinkModule->getModuleIdentifier() << MsgStorage;
 }
 
+// HLSL Change start - Dxil Diagnostic Info reporter
+bool
+BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
+  unsigned DiagID;
+  ComputeDiagID(D.getSeverity(), inline_asm, DiagID);
+
+  SourceManager &SourceMgr = Context->getSourceManager();
+  SourceLocation DILoc;
+  std::string Message = D.getMsgStr().str();
+  const DILocation *DLoc = D.getLocation();
+
+  // Convert Filename/Line/Column triplet into SourceLocation
+  if (DLoc) {
+    FileManager &FileMgr = SourceMgr.getFileManager();
+    StringRef Filename = DLoc->getFilename();
+    unsigned Line = DLoc->getLine();
+    unsigned Column = DLoc->getColumn();
+    const FileEntry *FE = FileMgr.getFile(Filename);
+    if (FE && Line > 0) {
+      DILoc = SourceMgr.translateFileLineCol(FE, Line, Column ? Column : 1);
+    }
+  }
+  FullSourceLoc Loc(DILoc, SourceMgr);
+
+  // If no location information is available, prompt for debug flag
+  if (Loc.isInvalid())
+    Message += " Use /Zi for source location.";
+  Diags.Report(Loc, DiagID).AddString(Message);
+
+  return true;
+}
+// HLSL Change end - Dxil Diagnostic Info reporter
+
 /// \brief This function is invoked when the backend needs
 /// to report something to the user.
 void BackendConsumer::DiagnosticHandlerImpl(const DiagnosticInfo &DI) {
@@ -567,6 +602,13 @@ void BackendConsumer::DiagnosticHandlerImpl(const DiagnosticInfo &DI) {
     // handler.
     OptimizationFailureHandler(cast<DiagnosticInfoOptimizationFailure>(DI));
     return;
+// HLSL Change start - Dxil Diagnostic Info reporter
+  case llvm::DK_DXIL:
+    if (DxilDiagHandler(cast<DiagnosticInfoDxil>(DI)))
+      return;
+    ComputeDiagID(Severity, inline_asm, DiagID);
+    break;
+// HLSL Change end - Dxil Diagnostic Info reporter
   default:
     // Plugin IDs are not bound to any value as they are set dynamically.
     ComputeDiagRemarkID(Severity, backend_plugin, DiagID);
