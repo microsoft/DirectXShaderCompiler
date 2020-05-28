@@ -456,6 +456,10 @@ typedef GUID IID;
 typedef IID *LPIID;
 typedef const IID &REFIID;
 inline bool IsEqualGUID(REFGUID rguid1, REFGUID rguid2) {
+  // Optimization:
+  if (&rguid1 == &rguid2)
+    return true;
+
   return !memcmp(&rguid1, &rguid2, sizeof(GUID));
 }
 
@@ -468,19 +472,6 @@ inline bool operator!=(REFGUID guidOne, REFGUID guidOther) {
 }
 
 inline bool IsEqualIID(REFIID riid1, REFIID riid2) {
-  // Use reference compare like the previous implementation
-  if (&riid1 == &riid2)
-    return true;
-
-  // HACK: Many IIDs are currently initialized to {},
-  // which are obviously identical to eachother. Disallow
-  // this case, those are handled by reference compare only.
-  // This can be removed when all interfaces have a proper
-  // IID specified.
-  static constexpr IID empty = {};
-  if (IsEqualGUID(riid1, empty))
-    return false;
-
   return IsEqualGUID(riid1, riid2);
 }
 
@@ -568,28 +559,71 @@ enum tagSTATFLAG {
 
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 
-#define DECLARE_CROSS_PLATFORM_UUIDOF_VALUE(...)                               \
-public:                                                                        \
-  static REFIID uuidof() {                                                     \
-    static const IID _IID = __VA_ARGS__;                                       \
+constexpr uint8_t nybble_from_hex(char c) {
+  return ((c >= '0' && c <= '9')
+              ? (c - '0')
+              : ((c >= 'a' && c <= 'f')
+                     ? (c - 'a' + 10)
+                     : ((c >= 'A' && c <= 'F') ? (c - 'A' + 10)
+                                               : /* Should be an error */ -1)));
+  // if constexpr (c >= '0' && c <= '9')
+  //   return c - '0';
+  // else if constexpr (c >= 'a' && c <= 'f')
+  //   return c - 'a' + 10;
+  // else if constexpr (c >= 'A' && c <= 'F')
+  //   return c - 'A' + 10;
+  // throw -1;
+  // return -1;
+}
+
+constexpr uint8_t byte_from_hex(char c1, char c2) {
+  return nybble_from_hex(c1) << 4 | nybble_from_hex(c2);
+}
+
+constexpr uint8_t byte_from_hexstr(const char str[2]) {
+  return nybble_from_hex(str[0]) << 4 | nybble_from_hex(str[1]);
+}
+
+constexpr GUID guid_from_string(const char str[37]) {
+  // error: non-constant condition for static assertion :(
+  // static_assert(str[8] == '-', "Expected -");
+  // static_assert(str[13] == '-', "Expected -");
+  // static_assert(str[18] == '-', "Expected -");
+  // static_assert(str[23] == '-', "Expected -");
+  return GUID{static_cast<uint32_t>(byte_from_hexstr(str)) << 24 |
+                  static_cast<uint32_t>(byte_from_hexstr(str + 2)) << 16 |
+                  static_cast<uint32_t>(byte_from_hexstr(str + 4)) << 8 |
+                  byte_from_hexstr(str + 6),
+              static_cast<uint16_t>(
+                  static_cast<uint16_t>(byte_from_hexstr(str + 9)) << 8 |
+                  byte_from_hexstr(str + 11)),
+              static_cast<uint16_t>(
+                  static_cast<uint16_t>(byte_from_hexstr(str + 14)) << 8 |
+                  byte_from_hexstr(str + 16)),
+              {byte_from_hexstr(str + 19), byte_from_hexstr(str + 21),
+               byte_from_hexstr(str + 24), byte_from_hexstr(str + 26),
+               byte_from_hexstr(str + 28), byte_from_hexstr(str + 30),
+               byte_from_hexstr(str + 32), byte_from_hexstr(str + 34)}};
+}
+
+template <typename interface> inline GUID __emulated_uuidof();
+
+#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
+  struct interface;                                                            \
+  template <> inline GUID __emulated_uuidof<interface>() {                     \
+    static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }
 
-// TODO: This should be gone when all interfaces are converted
-#define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
-public:                                                                        \
-  static REFIID uuidof() {                                                     \
-    static const IID _IID = {};                                                \
-    return _IID;                                                               \
-  }
-
-#define __uuidof(T) T::uuidof()
+#define __uuidof(T) __emulated_uuidof<typename std::decay<T>::type>()
 
 #define IID_PPV_ARGS(ppType)                                                   \
-  (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)
+  __uuidof(decltype(**(ppType))), reinterpret_cast<void **>(ppType)
 
 #else // __EMULATE_UUID
 
+#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
+  struct __declspec(uuid(spec)) interface;
 
 template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
   return reinterpret_cast<void **>(pp);
@@ -600,24 +634,9 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
-#define INTERFACE_STRUCT_HEADER(interface_name, uuid0, uuid1, uuid2, uuid3_0,  \
-                                uuid3_1, uuid3_2, uuid3_3, uuid3_4, uuid3_5,   \
-                                uuid3_6, uuid3_7)                              \
-  struct __declspec(uuid(#uuid0 "-" #uuid1 "-" #uuid2 "-"                      \
-                                "-" #uuid3_0 #uuid3_1                          \
-                                "-" #uuid3_2 #uuid3_3 #uuid3_4 #uuid3_5,       \
-                         #uuid3_6, #uuid3_7)) interface_name {                 \
-    /* Note that eating the bracket here allows to keep the static function    \
-      and member inline, but will require an extra macro argument to pass      \
-      inherited types before it */                                             \
-    DECLARE_CROSS_PLATFORM_UUIDOF_VALUE(                                       \
-        {0x##uuid0, 0x##uuid1, 0x##uuid2, 0x##uuid3_0, 0x##uuid3_1,            \
-         0x##uuid3_2, 0x##uuid3_3, 0x##uuid3_4, 0x##uuid3_5, 0x##uuid3_6,      \
-         0x##uuid3_7})
-
-INTERFACE_STRUCT_HEADER(IUnknown, 00000000, 0000, 0000, C0, 00, 00, 00, 00, 00,
-                        00, 46)
-  IUnknown() : m_count(0){};
+CROSS_PLATFORM_UUIDOF(IUnknown, "00000000-0000-0000-C000-000000000046")
+struct IUnknown {
+  IUnknown() : m_count(0) {};
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef();
   virtual ULONG Release();
@@ -630,29 +649,25 @@ private:
   std::atomic<unsigned long> m_count;
 };
 
-struct __declspec(uuid("ECC8691B-C1DB-4DC0-855E-65F6C551AF49")) INoMarshal
-    : public IUnknown {
-  DECLARE_CROSS_PLATFORM_UUIDOF(INoMarshal)
-};
+CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
+struct INoMarshal : public IUnknown {};
 
-struct __declspec(uuid("00000002-0000-0000-C000-000000000046")) IMalloc
-    : public IUnknown {
+CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
+struct IMalloc : public IUnknown {
   virtual void *Alloc(size_t size);
   virtual void *Realloc(void *ptr, size_t size);
   virtual void Free(void *ptr);
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject);
 };
 
-struct __declspec(uuid("0C733A30-2A1C-11CE-ADE5-00AA0044773D"))
-    ISequentialStream : public IUnknown {
+CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")
+struct ISequentialStream : public IUnknown {
   virtual HRESULT Read(void *pv, ULONG cb, ULONG *pcbRead) = 0;
   virtual HRESULT Write(const void *pv, ULONG cb, ULONG *pcbWritten) = 0;
-
-  DECLARE_CROSS_PLATFORM_UUIDOF(ISequentialStream)
 };
 
-struct __declspec(uuid("0000000c-0000-0000-C000-000000000046")) IStream
-    : public ISequentialStream {
+CROSS_PLATFORM_UUIDOF(IStream, "0000000c-0000-0000-C000-000000000046")
+struct IStream : public ISequentialStream {
   virtual HRESULT Seek(LARGE_INTEGER dlibMove, DWORD dwOrigin,
                        ULARGE_INTEGER *plibNewPosition) = 0;
   virtual HRESULT SetSize(ULARGE_INTEGER libNewSize) = 0;
@@ -673,8 +688,6 @@ struct __declspec(uuid("0000000c-0000-0000-C000-000000000046")) IStream
   virtual HRESULT Stat(STATSTG *pstatstg, DWORD grfStatFlag) = 0;
 
   virtual HRESULT Clone(IStream **ppstm) = 0;
-
-  DECLARE_CROSS_PLATFORM_UUIDOF(IStream)
 };
 
 //===--------------------- COM Pointer Types ------------------------------===//
