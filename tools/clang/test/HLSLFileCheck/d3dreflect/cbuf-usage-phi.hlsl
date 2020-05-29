@@ -41,26 +41,26 @@ float4 main() : SV_Target {
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: UnusedGlobal
 // CHECK:             uFlags: 0{{$}}
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: LookupTable
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: TestBool
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: TestBool2
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:       }
 // CHECK:     ID3D12ShaderReflectionConstantBuffer:
 // CHECK:       D3D12_SHADER_BUFFER_DESC: Name: CB
 // CHECK:       {
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: TestInt
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:       }
 // CHECK:   Bound Resources:
 // CHECK:     D3D12_SHADER_BUFFER_DESC: Name: $Globals
 // CHECK:       BindCount: 1
 // CHECK:       BindPoint: 0
 // CHECK:       Space: 0
-// CHECK:       uFlags: 0{{$}}
+// CHECK:       uFlags: (D3D_SIF_USERPACKED)
 // CHECK:     D3D12_SHADER_BUFFER_DESC: Name: CB
 // CHECK:       BindCount: 1
 // CHECK:       BindPoint: 1
 // CHECK:       Space: 0
-// CHECK:       uFlags: 0{{$}}
+// CHECK:       uFlags: (D3D_SIF_USERPACKED)
