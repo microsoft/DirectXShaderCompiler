@@ -24,9 +24,8 @@ class SpirvVisitor;
 /// The class representing a SPIR-V function in memory.
 class SpirvFunction {
 public:
-  SpirvFunction(QualType astReturnType,
-                SourceLocation, llvm::StringRef name = "",
-                bool precise = false);
+  SpirvFunction(QualType astReturnType, SourceLocation,
+                llvm::StringRef name = "", bool precise = false);
   ~SpirvFunction() = default;
 
   // Forbid copy construction and assignment
@@ -54,7 +53,9 @@ public:
   QualType getAstReturnType() const { return astReturnType; }
 
   // Gets the vector of parameters.
-  llvm::SmallVector<SpirvFunctionParameter *, 8> getParameters() const { return parameters; }
+  llvm::SmallVector<SpirvFunctionParameter *, 8> getParameters() const {
+    return parameters;
+  }
 
   // Sets the SPIR-V type of the function
   void setFunctionType(SpirvType *type) { fnType = type; }

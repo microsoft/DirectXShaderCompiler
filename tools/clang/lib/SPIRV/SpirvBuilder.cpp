@@ -41,8 +41,8 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
   } else {
-    function = new (context)
-        SpirvFunction(returnType, loc, funcName, isPrecise);
+    function =
+        new (context) SpirvFunction(returnType, loc, funcName, isPrecise);
   }
 
   return function;

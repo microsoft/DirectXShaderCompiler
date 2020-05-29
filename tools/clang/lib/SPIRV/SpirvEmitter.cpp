@@ -1039,8 +1039,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     if (!memberFn->isStatic()) {
       // For non-static member function, the first parameter should be the
       // object on which we are invoking this method.
-      QualType valueType =
-          memberFn->getThisType(astContext)->getPointeeType();
+      QualType valueType = memberFn->getThisType(astContext)->getPointeeType();
 
       // Remember the parameter for the 'this' object so later we can handle
       // CXXThisExpr correctly.
@@ -10739,9 +10738,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunction =
-      spvBuilder.beginFunction(astContext.VoidTy,
-                               decl->getLocStart(), decl->getName());
+  entryFunction = spvBuilder.beginFunction(
+      astContext.VoidTy, decl->getLocStart(), decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 

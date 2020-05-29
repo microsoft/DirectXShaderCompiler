@@ -1050,9 +1050,8 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = new (spvContext)
-      SpirvFunction(fn->getReturnType(),
-                    fn->getLocation(), fn->getName(), isPrecise);
+  SpirvFunction *spirvFunction = new (spvContext) SpirvFunction(
+      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
