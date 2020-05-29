@@ -36,7 +36,7 @@ namespace clang {
 namespace spirv {
 
 bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
-  if (phase == Visitor::Phase::Init) {
+  if (phase == Visitor::Phase::Done) {
     // Lower the function return type.
     const SpirvType *spirvReturnType =
         lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
@@ -45,14 +45,10 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
     fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
 
     // Lower the function parameter types.
-    auto paramQualTypes = fn->getAstParamTypes();
+    auto params = fn->getParameters();
     llvm::SmallVector<const SpirvType *, 4> spirvParamTypes;
-    for (auto qualtype : paramQualTypes) {
-      const auto *spirvParamType =
-          lowerType(qualtype, SpirvLayoutRule::Void,
-                    /*isRowMajor*/ llvm::None, fn->getSourceLocation());
-      spirvParamTypes.push_back(spvContext.getPointerType(
-          spirvParamType, spv::StorageClass::Function));
+    for (auto *param : params) {
+      spirvParamTypes.push_back(param->getResultType());
     }
     fn->setFunctionType(
         spvContext.getFunctionType(spirvReturnType, spirvParamTypes));

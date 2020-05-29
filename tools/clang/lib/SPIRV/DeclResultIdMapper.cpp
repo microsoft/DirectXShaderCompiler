@@ -1051,7 +1051,7 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
   SpirvFunction *spirvFunction = new (spvContext)
-      SpirvFunction(fn->getReturnType(), /* param QualTypes */ {},
+      SpirvFunction(fn->getReturnType(),
                     fn->getLocation(), fn->getName(), isPrecise);
 
   // No need to dereference to get the pointer. Function returns that are

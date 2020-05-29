@@ -1032,42 +1032,24 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
-  // Construct the function signature.
-  llvm::SmallVector<QualType, 4> paramTypes;
-
-  bool isNonStaticMemberFn = false;
-  if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
-    isNonStaticMemberFn = !memberFn->isStatic();
-
-    if (isNonStaticMemberFn) {
-      // For non-static member function, the first parameter should be the
-      // object on which we are invoking this method.
-      const QualType valueType =
-          memberFn->getThisType(astContext)->getPointeeType();
-      paramTypes.push_back(valueType);
-    }
-  }
-
-  for (const auto *param : decl->params()) {
-    const QualType valueType =
-        declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
-    if (isOpaqueArrayType(param->getType()) &&
-        !param->getType()->isConstantArrayType()) {
-    }
-    paramTypes.push_back(valueType);
-  }
-
-  spvBuilder.beginFunction(retType, paramTypes, decl->getLocStart(), funcName,
+  spvBuilder.beginFunction(retType, decl->getLocStart(), funcName,
                            decl->hasAttr<HLSLPreciseAttr>(), func);
 
-  if (isNonStaticMemberFn) {
-    // Remember the parameter for the 'this' object so later we can handle
-    // CXXThisExpr correctly.
-    curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false,
-                                    decl->getLocStart(), "param.this");
-    if (isOrContainsAKindOfStructuredOrByteBuffer(paramTypes[0])) {
-      curThis->setContainsAliasComponent(true);
-      needsLegalization = true;
+  if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
+    if (!memberFn->isStatic()) {
+      // For non-static member function, the first parameter should be the
+      // object on which we are invoking this method.
+      QualType valueType =
+          memberFn->getThisType(astContext)->getPointeeType();
+
+      // Remember the parameter for the 'this' object so later we can handle
+      // CXXThisExpr correctly.
+      curThis = spvBuilder.addFnParam(valueType, /*isPrecise*/ false,
+                                      decl->getLocStart(), "param.this");
+      if (isOrContainsAKindOfStructuredOrByteBuffer(valueType)) {
+        curThis->setContainsAliasComponent(true);
+        needsLegalization = true;
+      }
     }
   }
 
@@ -10758,7 +10740,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
   entryFunction =
-      spvBuilder.beginFunction(astContext.VoidTy, /* param QualTypes */ {},
+      spvBuilder.beginFunction(astContext.VoidTy,
                                decl->getLocStart(), decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);

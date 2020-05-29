@@ -29,7 +29,6 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
-                                           llvm::ArrayRef<QualType> paramTypes,
                                            SourceLocation loc,
                                            llvm::StringRef funcName,
                                            bool isPrecise,
@@ -38,13 +37,12 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
   if (func) {
     function = func;
     function->setAstReturnType(returnType);
-    function->setAstParamTypes(paramTypes);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
   } else {
     function = new (context)
-        SpirvFunction(returnType, paramTypes, loc, funcName, isPrecise);
+        SpirvFunction(returnType, loc, funcName, isPrecise);
   }
 
   return function;
