@@ -16,6 +16,8 @@
 
 // Remove this workaround once newer version of d3dcommon.h can be compiled against
 #define ADD_16_64_BIT_TYPES
+// Disable warning about value not being valid in enum
+#pragma warning( disable : 4063 )
 
 // Copied from llvm/ADT/StringExtras.h
 static inline char hexdigit(unsigned X, bool LowerCase = false) {
