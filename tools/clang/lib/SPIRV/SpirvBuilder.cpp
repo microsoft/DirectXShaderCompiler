@@ -62,12 +62,35 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
   return param;
 }
 
+SpirvFunctionParameter *SpirvBuilder::addFnParam(const SpirvType *spvType,
+                                                 bool isPrecise,
+                                                 SourceLocation loc,
+                                                 llvm::StringRef name) {
+  assert(function && "found detached parameter");
+  auto *param = new (context) SpirvFunctionParameter(spvType, isPrecise, loc);
+  param->setStorageClass(spv::StorageClass::Function);
+  param->setDebugName(name);
+  function->addParameter(param);
+  return param;
+}
+
 SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
                                       llvm::StringRef name, bool isPrecise,
                                       SpirvInstruction *init) {
   assert(function && "found detached local variable");
   auto *var = new (context) SpirvVariable(
       valueType, loc, spv::StorageClass::Function, isPrecise, init);
+  var->setDebugName(name);
+  function->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addFnVar(const SpirvType *spvType,
+                                      SourceLocation loc, llvm::StringRef name,
+                                      bool isPrecise, SpirvInstruction *init) {
+  assert(function && "found detached local variable");
+  auto *var = new (context)
+      SpirvVariable(spvType, loc, spv::StorageClass::Function, isPrecise, init);
   var->setDebugName(name);
   function->addVariable(var);
   return var;

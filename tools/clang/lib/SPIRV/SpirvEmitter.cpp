@@ -1051,6 +1051,9 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   for (const auto *param : decl->params()) {
     const QualType valueType =
         declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
+    if (isOpaqueArrayType(param->getType()) &&
+        !param->getType()->isConstantArrayType()) {
+    }
     paramTypes.push_back(valueType);
   }
 
@@ -2184,8 +2187,19 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // do not need to mark the "param.var.*" variables as precise.
       const bool isPrecise = false;
 
-      auto *tempVar =
-          spvBuilder.addFnVar(varType, arg->getLocStart(), varName, isPrecise);
+      SpirvVariable *tempVar = nullptr;
+      if (isOpaqueArrayType(param->getType()) &&
+          !param->getType()->isConstantArrayType()) {
+        // If it is a bindless array of an opaque type, we have to use
+        // a pointer to a pointer of the runtime array.
+        tempVar = spvBuilder.addFnVar(
+            spvContext.getPointerType(varType,
+                                      spv::StorageClass::UniformConstant),
+            arg->getLocStart(), varName, isPrecise);
+      } else {
+        tempVar = spvBuilder.addFnVar(varType, arg->getLocStart(), varName,
+                                      isPrecise);
+      }
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
@@ -5228,8 +5242,13 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // wholesale handling here, they will be in the final transformed code.
     // Drivers don't like that.
     // TODO: consider moving this hack into SPIRV-Tools as a transformation.
-    assert(lhsValType->isConstantArrayType());
     assert(!rhsVal->isRValue());
+
+    if (!lhsValType->isConstantArrayType()) {
+      spvBuilder.createStore(lhsPtr, rhsVal, loc);
+      needsLegalization = true;
+      return;
+    }
 
     const auto *arrayType = astContext.getAsConstantArrayType(lhsValType);
     const auto elemType = arrayType->getElementType();

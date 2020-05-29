@@ -592,8 +592,18 @@ SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
-  SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
-      type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
+  SpirvFunctionParameter *fnParamInstr = nullptr;
+  if (isOpaqueArrayType(param->getType()) &&
+      !param->getType()->isConstantArrayType()) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    fnParamInstr = spvBuilder.addFnParam(
+        spvContext.getPointerType(type, spv::StorageClass::UniformConstant),
+        param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
+  } else {
+    fnParamInstr = spvBuilder.addFnParam(
+        type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
+  }
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
