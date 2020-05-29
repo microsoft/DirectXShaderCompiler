@@ -25,7 +25,7 @@ float main(int N : A, int C : B) : SV_TARGET {
 // CHECK:         ID3D12ShaderReflectionVariable:
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: CB
 // CHECK:             Size: 4
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:           ID3D12ShaderReflectionType:
 // CHECK:             D3D12_SHADER_TYPE_DESC: Name: anon
 // CHECK:               Class: D3D_SVC_STRUCT

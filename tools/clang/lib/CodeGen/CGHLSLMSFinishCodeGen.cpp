@@ -1597,19 +1597,62 @@ unsigned RoundToAlign(unsigned num, unsigned mod) {
   return num;
 }
 
+// Retrieve the last scalar or vector element type.
+// This has to be recursive for the nasty empty struct case.
+// returns true if found, false if we must backtrack.
+bool RetrieveLastElementType(Type *Ty, Type *&EltTy) {
+  if (Ty->isStructTy()) {
+    if (Ty->getStructNumElements() == 0)
+      return false;
+    for (unsigned i = Ty->getStructNumElements(); i > 0; --i) {
+      if (RetrieveLastElementType(Ty->getStructElementType(i - 1), EltTy))
+        return true;
+    }
+  } else if (Ty->isArrayTy()) {
+    if (RetrieveLastElementType(Ty->getArrayElementType(), EltTy))
+      return true;
+  } else if ((Ty->isVectorTy() || Ty->isSingleValueType())) {
+    EltTy = Ty->getScalarType();
+    return true;
+  }
+  return false;
+}
+
 // Here the size is CB size.
 // Offset still needs to be aligned based on type since this
 // is the legacy cbuffer global path.
 unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
-                            bool bRowMajor) {
+                            bool bRowMajor,
+                            bool bMinPrecMode, bool &bCurRowIsMinPrec) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
   bool bNeedNewRow = Ty->isArrayTy();
-  if (!bNeedNewRow && Ty->isStructTy()) {
-    if (HLMatrixType mat = HLMatrixType::dyn_cast(Ty)) {
-      bNeedNewRow |= !bRowMajor && mat.getNumColumns() > 1;
-      bNeedNewRow |= bRowMajor && mat.getNumRows() > 1;
+  // In min-precision mode, a new row is needed when
+  // going into or out of min-precision component type.
+  if (!bNeedNewRow) {
+    bool bMinPrec = false;
+    if (Ty->isStructTy()) {
+      if (HLMatrixType mat = HLMatrixType::dyn_cast(Ty)) {
+        bNeedNewRow |= !bRowMajor && mat.getNumColumns() > 1;
+        bNeedNewRow |= bRowMajor && mat.getNumRows() > 1;
+        bMinPrec = bMinPrecMode && mat.getElementType(false)->getScalarSizeInBits() < 32;
+      } else {
+        bNeedNewRow = true;
+        if (bMinPrecMode) {
+          // Need to get min-prec of last element of structure,
+          // in case we pack something else into the end.
+          Type *EltTy = nullptr;
+          if (RetrieveLastElementType(Ty, EltTy))
+            bCurRowIsMinPrec = EltTy->getScalarSizeInBits() < 32;
+        }
+      }
     } else {
-      bNeedNewRow = true;
+      DXASSERT_NOMSG(Ty->isVectorTy() || Ty->isSingleValueType());
+      // vector or scalar
+      bMinPrec = bMinPrecMode && Ty->getScalarSizeInBits() < 32;
+    }
+    if (bMinPrecMode) {
+      bNeedNewRow |= bCurRowIsMinPrec != bMinPrec;
+      bCurRowIsMinPrec = bMinPrec;
     }
   }
   unsigned scalarSizeInBytes = Ty->getScalarSizeInBits() / 8;
@@ -1621,7 +1664,8 @@ unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
 unsigned
 AllocateDxilConstantBuffer(HLCBuffer &CB,
                            std::unordered_map<Constant *, DxilFieldAnnotation>
-                               &constVarAnnotationMap) {
+                               &constVarAnnotationMap,
+                           bool bMinPrecMode) {
   unsigned offset = 0;
 
   // Scan user allocated constants first.
@@ -1636,6 +1680,7 @@ AllocateDxilConstantBuffer(HLCBuffer &CB,
   }
 
   // Alloc after user allocated constants.
+  bool bCurRowIsMinPrec = false;
   for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
     if (C->GetLowerBound() != UINT_MAX)
       continue;
@@ -1648,7 +1693,7 @@ AllocateDxilConstantBuffer(HLCBuffer &CB,
                                MatrixOrientation::RowMajor
                          : false;
     // Align offset.
-    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor);
+    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor, bMinPrecMode, bCurRowIsMinPrec);
     if (C->GetLowerBound() == UINT_MAX) {
       C->SetLowerBound(offset);
     }
@@ -1663,7 +1708,8 @@ void AllocateDxilConstantBuffers(
                        &constVarAnnotationMap) {
   for (unsigned i = 0; i < HLM.GetCBuffers().size(); i++) {
     HLCBuffer &CB = *static_cast<HLCBuffer *>(&(HLM.GetCBuffer(i)));
-    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap);
+    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap,
+      HLM.GetHLOptions().bUseMinPrecision);
     CB.SetSize(size);
   }
 }

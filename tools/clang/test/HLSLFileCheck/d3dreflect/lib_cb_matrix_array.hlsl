@@ -42,7 +42,7 @@ void RayGenShader()
 // CHECK-NEXT:             D3D12_SHADER_VARIABLE_DESC: Name: Color
 // CHECK-NEXT:               Size: 16
 // CHECK-NEXT:               StartOffset: 0
-// CHECK-NEXT:               uFlags: 0x2
+// CHECK-NEXT:               uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:               DefaultValue: <nullptr>
 // CHECK-NEXT:             ID3D12ShaderReflectionType:
 // CHECK-NEXT:               D3D12_SHADER_TYPE_DESC: Name: float4
@@ -58,7 +58,7 @@ void RayGenShader()
 // CHECK-NEXT:             D3D12_SHADER_VARIABLE_DESC: Name: VectorArray
 // CHECK-NEXT:               Size: 48
 // CHECK-NEXT:               StartOffset: 16
-// CHECK-NEXT:               uFlags: 0x2
+// CHECK-NEXT:               uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:               DefaultValue: <nullptr>
 // CHECK-NEXT:             ID3D12ShaderReflectionType:
 // CHECK-NEXT:               D3D12_SHADER_TYPE_DESC: Name: float4
@@ -74,7 +74,7 @@ void RayGenShader()
 // CHECK-NEXT:             D3D12_SHADER_VARIABLE_DESC: Name: FloatArray
 // CHECK-NEXT:               Size: 244
 // CHECK-NEXT:               StartOffset: 64
-// CHECK-NEXT:               uFlags: 0x2
+// CHECK-NEXT:               uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:               DefaultValue: <nullptr>
 // CHECK-NEXT:             ID3D12ShaderReflectionType:
 // CHECK-NEXT:               D3D12_SHADER_TYPE_DESC: Name: float
@@ -90,7 +90,7 @@ void RayGenShader()
 // CHECK-NEXT:             D3D12_SHADER_VARIABLE_DESC: Name: MatrixArray
 // CHECK-NEXT:               Size: 128
 // CHECK-NEXT:               StartOffset: 320
-// CHECK-NEXT:               uFlags: 0x2
+// CHECK-NEXT:               uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:               DefaultValue: <nullptr>
 // CHECK-NEXT:             ID3D12ShaderReflectionType:
 // CHECK-NEXT:               D3D12_SHADER_TYPE_DESC: Name: float4x4

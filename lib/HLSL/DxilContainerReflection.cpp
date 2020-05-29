@@ -41,6 +41,9 @@
 
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 
+// Remove this workaround once newer version of d3dcommon.h can be compiled against
+#define ADD_16_64_BIT_TYPES
+
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
     0x3960,
@@ -83,6 +86,14 @@ class CShaderReflectionType;
 
 enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2 };
 
+#ifdef ADD_16_64_BIT_TYPES
+#define D3D_SVT_INT16   ((D3D_SHADER_VARIABLE_TYPE)58)
+#define D3D_SVT_UINT16  ((D3D_SHADER_VARIABLE_TYPE)59)
+#define D3D_SVT_FLOAT16 ((D3D_SHADER_VARIABLE_TYPE)60)
+#define D3D_SVT_INT64   ((D3D_SHADER_VARIABLE_TYPE)61)
+#define D3D_SVT_UINT64  ((D3D_SHADER_VARIABLE_TYPE)62)
+#endif // ADD_16_64_BIT_TYPES
+
 class DxilModuleReflection {
 public:
   hlsl::RDAT::DxilRuntimeData m_RDAT;
@@ -93,6 +104,12 @@ public:
   std::vector<std::unique_ptr<CShaderReflectionConstantBuffer>>    m_CBs;
   std::vector<D3D12_SHADER_INPUT_BIND_DESC>       m_Resources;
   std::vector<std::unique_ptr<CShaderReflectionType>> m_Types;
+  std::map<std::string, UINT> m_CBsByName;
+  // Due to the possibility of overlapping names between CB and other resources,
+  // m_StructuredBufferCBsByName is the index into m_CBs corresponding to
+  // StructuredBuffer resources, separately from CB resources.
+  std::map<std::string, UINT> m_StructuredBufferCBsByName;
+
   void CreateReflectionObjects();
   void CreateReflectionObjectForResource(DxilResourceBase *R);
 
@@ -492,6 +509,10 @@ public:
   void InitializeStructuredBuffer(DxilModule &M,
                                   DxilResource &R,
                                   std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
+  void InitializeTBuffer(DxilModule &M,
+                         DxilResource &R,
+                         std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
+                         bool bUsageInMetadata);
   LPCSTR GetName() { return m_Desc.Name; }
 
   // ID3D12ShaderReflectionConstantBuffer
@@ -855,15 +876,24 @@ HRESULT CShaderReflectionType::Initialize(
     //
     // We might have an array of matrices, though, so we only exit if
     // the field annotation says we have a matrix, and we've bottomed
-    // out and the element type isn't itself an array.
+    // out at one array level, since matrix will be in the format:
+    // [rows x <cols x float>]
     //
-    // For libraries however, we may have unlowered matrix types, so
-    // we have to check for HLMatrixType so we don't skip counting the
-    // inner-most matrix array size.
+    // This is in storage orientation, so rows/cols are swapped
+    // when the matrix is column_major.
+    //
+    // However, when the matrix has a row size of 1 in storage orientation,
+    // this array dimension appears to be missing.
+    // To properly count the array dimensions for this case,
+    // we must not break out of the loop one array early when rows == 1.
     if(typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy() &&
-       !HLMatrixType::isa(elementType))
-    {
-      break;
+        !HLMatrixType::isa(elementType)){
+      const DxilMatrixAnnotation &mat = typeAnnotation.GetMatrixAnnotation();
+      unsigned rows = mat.Orientation == MatrixOrientation::RowMajor ?
+        mat.Rows : mat.Cols;
+      // when rows == 1, in storage orientation, the row array is missing.
+      if (rows > 1)
+        break;
     }
 
     // Non-array types should have `Elements` be zero, so as soon as we
@@ -897,40 +927,42 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   case hlsl::DXIL::ComponentType::I16:
-    componentType = D3D_SVT_MIN16INT;
     if (bMinPrec) {
+      componentType = D3D_SVT_MIN16INT;
       m_Name = "min16int";
     } else {
+      componentType = D3D_SVT_INT16;
       m_Name = "int16_t";
       cbCompSize = 2;
     }
     break;
 
   case hlsl::DXIL::ComponentType::U16:
-    componentType = D3D_SVT_MIN16UINT;
     if (bMinPrec) {
+      componentType = D3D_SVT_MIN16UINT;
       m_Name = "min16uint";
     } else {
+      componentType = D3D_SVT_UINT16;
       m_Name = "uint16_t";
       cbCompSize = 2;
     }
     break;
 
   case hlsl::DXIL::ComponentType::I64:
+    componentType = D3D_SVT_INT64;
+    m_Name = "int64_t";
     cbCompSize = 8;
-#ifdef DBG
-    OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'I64' being reflected as if 'I32'\n");
-#endif
+    break;
   case hlsl::DXIL::ComponentType::I32:
     componentType = D3D_SVT_INT;
     m_Name = "int";
     break;
 
   case hlsl::DXIL::ComponentType::U64:
+    componentType = D3D_SVT_UINT64;
+    m_Name = "uint64_t";
     cbCompSize = 8;
-#ifdef DBG
-    OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'U64' being reflected as if 'U32'\n");
-#endif
+    break;
   case hlsl::DXIL::ComponentType::U32:
     componentType = D3D_SVT_UINT;
     m_Name = "uint";
@@ -939,10 +971,11 @@ HRESULT CShaderReflectionType::Initialize(
   case hlsl::DXIL::ComponentType::F16:
   case hlsl::DXIL::ComponentType::SNormF16:
   case hlsl::DXIL::ComponentType::UNormF16:
-    componentType = D3D_SVT_MIN16FLOAT;
     if (bMinPrec) {
+      componentType = D3D_SVT_MIN16FLOAT;
       m_Name = "min16float";
     } else {
+      componentType = D3D_SVT_FLOAT16;
       m_Name = "float16_t";
       cbCompSize = 2;
     }
@@ -1233,32 +1266,32 @@ void CShaderReflectionConstantBuffer::Initialize(
   }
 }
 
-static unsigned CalcTypeSize(Type *Ty) {
+
+static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
   // Assume aligned values.
-  if (Ty->isIntegerTy() || Ty->isFloatTy()) {
-    return Ty->getPrimitiveSizeInBits() / 8;
-  }
-  else if (Ty->isArrayTy()) {
+  if (Ty->isArrayTy()) {
     ArrayType *AT = dyn_cast<ArrayType>(Ty);
-    return AT->getNumElements() * CalcTypeSize(AT->getArrayElementType());
+    return AT->getNumElements() * CalcTypeSize(AT->getArrayElementType(), alignment);
   }
   else if (Ty->isStructTy()) {
     StructType *ST = dyn_cast<StructType>(Ty);
     unsigned i = 0, c = ST->getStructNumElements();
     unsigned result = 0;
     for (; i < c; ++i) {
-      result += CalcTypeSize(ST->getStructElementType(i));
-      // TODO: align!
+      unsigned memberalign = 0;
+      result += CalcTypeSize(ST->getStructElementType(i), memberalign);
+      alignment = std::max(alignment, memberalign);
+      result = (unsigned)RoundUpToAlignment(result, memberalign);
     }
+    result = (unsigned)RoundUpToAlignment(result, alignment);
     return result;
   }
   else if (Ty->isVectorTy()) {
     VectorType *VT = dyn_cast<VectorType>(Ty);
-    return VT->getVectorNumElements() * CalcTypeSize(VT->getVectorElementType());
+    return VT->getVectorNumElements() * CalcTypeSize(VT->getVectorElementType(), alignment);
   }
   else {
-    DXASSERT_NOMSG(false);
-    return 0;
+    return alignment = Ty->getPrimitiveSizeInBits() / 8;
   }
 }
 
@@ -1268,7 +1301,11 @@ static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
   if (R.IsStructuredBuffer()) {
     Ty = dxilutil::StripArrayTypes(Ty);
   }
-  return CalcTypeSize(Ty);
+  return M.GetModule()->getDataLayout().getTypeAllocSize(Ty);
+
+  // Don't think we need this one if we can just use the data layout:
+  //unsigned alignment = 0;
+  //return CalcTypeSize(Ty, alignment);
 }
 
 void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
@@ -1329,6 +1366,60 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   m_Variables.push_back(Var);
 
   m_Desc.Size = VarDesc.Size;
+}
+
+void CShaderReflectionConstantBuffer::InitializeTBuffer(
+    DxilModule &M,
+    DxilResource &R,
+    std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
+    bool bUsageInMetadata) {
+  ZeroMemory(&m_Desc, sizeof(m_Desc));
+  m_ReflectionName = R.GetGlobalName();
+  m_Desc.Type = D3D11_CT_TBUFFER;
+  m_Desc.uFlags = 0;
+
+  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+
+  DxilTypeSystem &typeSys = M.GetTypeSystem();
+  StructType *ST = cast<StructType>(Ty);
+  DxilStructAnnotation *annotation =
+    typeSys.GetStructAnnotation(cast<StructType>(ST));
+  // Dxil from dxbc doesn't have annotation.
+  if (!annotation)
+    return;
+
+  m_Desc.Name = m_ReflectionName.c_str();
+  m_Desc.Variables = ST->getNumContainedTypes();
+
+  // If only one member, it's used if it's here.
+  bool bAllUsed = ST->getNumContainedTypes() < 2;
+  bAllUsed |= !bUsageInMetadata;  // Will update in SetCBufferUsage.
+
+  for (unsigned i = 0; i < ST->getNumContainedTypes(); ++i) {
+    DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(i);
+
+    D3D12_SHADER_VARIABLE_DESC VarDesc;
+    ZeroMemory(&VarDesc, sizeof(VarDesc));
+    VarDesc.uFlags = (bAllUsed || fieldAnnotation.IsCBVarUsed()) ? D3D_SVF_USED : 0;
+    CShaderReflectionVariable Var;
+    //Create reflection type.
+    CShaderReflectionType *pVarType = new CShaderReflectionType();
+    allTypes.push_back(std::unique_ptr<CShaderReflectionType>(pVarType));
+    pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes, true);
+
+    BYTE *pDefaultValue = nullptr;
+
+    VarDesc.Name = fieldAnnotation.GetFieldName().c_str();
+    VarDesc.StartOffset = fieldAnnotation.GetCBufferOffset();
+    VarDesc.Size = pVarType->GetCBufferSize();
+    VarDesc.StartTexture = UINT_MAX;
+    VarDesc.StartSampler = UINT_MAX;
+    Var.Initialize(this, &VarDesc, pVarType, pDefaultValue);
+    m_Variables.push_back(Var);
+
+    m_Desc.Size = std::max(m_Desc.Size, VarDesc.StartOffset + VarDesc.Size);
+  }
+  m_Desc.Size = (m_Desc.Size + 0x0f) & ~(0x0f); // Round up to 16 bytes for reflection.
 }
 
 HRESULT CShaderReflectionConstantBuffer::GetDesc(D3D12_SHADER_BUFFER_DESC *pDesc) {
@@ -1392,6 +1483,7 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
     return D3D_SIT_UAV_RWSTRUCTURED;
   }
   case DxilResource::Kind::TBuffer:
+    return D3D_SIT_TBUFFER;
   case DxilResource::Kind::TypedBuffer:
   case DxilResource::Kind::Texture1D:
   case DxilResource::Kind::Texture1DArray:
@@ -1415,7 +1507,7 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
 
 static D3D_RESOURCE_RETURN_TYPE ResourceToReturnType(DxilResourceBase *RB) {
   DxilResource *R = DxilResourceFromBase(RB);
-  if (R != nullptr) {
+  if (R != nullptr && !R->IsTBuffer()) {
     CompType CT = R->GetCompType();
     if (CT.GetKind() == CompType::Kind::F64) return D3D_RETURN_TYPE_DOUBLE;
     if (CT.IsUNorm()) return D3D_RETURN_TYPE_UNORM;
@@ -1437,8 +1529,9 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
   switch (RB->GetKind()) {
   case DxilResource::Kind::StructuredBuffer:
   case DxilResource::Kind::TypedBuffer:
-  case DxilResource::Kind::TBuffer:
     return D3D_SRV_DIMENSION_BUFFER;
+  case DxilResource::Kind::TBuffer:
+    return D3D_SRV_DIMENSION_UNKNOWN; // Fxc returns this
   case DxilResource::Kind::Texture1D:
     return D3D_SRV_DIMENSION_TEXTURE1D;
   case DxilResource::Kind::Texture1DArray:
@@ -1467,6 +1560,8 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
 }
 
 static UINT ResourceToFlags(DxilResourceBase *RB) {
+  if (RB->GetClass() == DXIL::ResourceClass::CBuffer)
+    return D3D_SIF_USERPACKED;
   UINT result = 0;
   DxilResource *R = DxilResourceFromBase(RB);
   if (R != nullptr &&
@@ -1486,9 +1581,9 @@ static UINT ResourceToFlags(DxilResourceBase *RB) {
         break;
       }
     }
-  }
-  // D3D_SIF_USERPACKED
-  if (RB->GetClass() == DXIL::ResourceClass::Sampler) {
+  } else  if (R && R->IsTBuffer()) {
+    return D3D_SIF_USERPACKED;
+  } else  if (RB->GetClass() == DXIL::ResourceClass::Sampler) {
     DxilSampler *S = static_cast<DxilSampler *>(RB);
     if (S->GetSamplerKind() == DXIL::SamplerKind::Comparison)
       result |= D3D_SIF_COMPARISON_SAMPLER;
@@ -1520,8 +1615,7 @@ void DxilModuleReflection::CreateReflectionObjectForResource(DxilResourceBase *R
     if (inputBind.NumSamples == 0) {
       if (R->IsStructuredBuffer()) {
         inputBind.NumSamples = CalcResTypeSize(*m_pDxilModule, *R);
-      }
-      else if (!R->IsRawBuffer()) {
+      } else if (!R->IsRawBuffer() && !R->IsTBuffer()) {
         inputBind.NumSamples = 0xFFFFFFFF;
       }
     }
@@ -1711,6 +1805,7 @@ void DxilModuleReflection::CreateReflectionObjects() {
   for (auto && cb : m_pDxilModule->GetCBuffers()) {
     std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
     rcb->Initialize(*m_pDxilModule, *(cb.get()), m_Types, m_bUsageInMetadata);
+    m_CBsByName[rcb->GetName()] = (UINT)m_CBs.size();
     m_CBs.emplace_back(std::move(rcb));
   }
 
@@ -1721,14 +1816,22 @@ void DxilModuleReflection::CreateReflectionObjects() {
     }
     std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
     rcb->InitializeStructuredBuffer(*m_pDxilModule, *(uav.get()), m_Types);
+    m_StructuredBufferCBsByName[rcb->GetName()] = (UINT)m_CBs.size();
     m_CBs.emplace_back(std::move(rcb));
   }
   for (auto && srv : m_pDxilModule->GetSRVs()) {
-    if (srv->GetKind() != DxilResource::Kind::StructuredBuffer) {
+    if (srv->GetKind() != DxilResource::Kind::StructuredBuffer &&
+        srv->GetKind() != DxilResource::Kind::TBuffer) {
       continue;
     }
     std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
-    rcb->InitializeStructuredBuffer(*m_pDxilModule, *(srv.get()), m_Types);
+    if (srv->GetKind() == DxilResource::Kind::TBuffer) {
+      rcb->InitializeTBuffer(*m_pDxilModule, *(srv.get()), m_Types, m_bUsageInMetadata);
+      m_CBsByName[rcb->GetName()] = (UINT)m_CBs.size();
+    } else {
+      rcb->InitializeStructuredBuffer(*m_pDxilModule, *(srv.get()), m_Types);
+      m_StructuredBufferCBsByName[rcb->GetName()] = (UINT)m_CBs.size();
+    }
     m_CBs.emplace_back(std::move(rcb));
   }
 
@@ -2156,11 +2259,13 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
   if (!Name) {
     return &g_InvalidSRConstantBuffer;
   }
-  for (UINT index = 0; index < m_CBs.size(); ++index) {
-    if (0 == strcmp(m_CBs[index]->GetName(), Name)) {
-      return m_CBs[index].get();
-    }
-  }
+
+  auto it = m_CBsByName.find(Name);
+  if (it == m_CBsByName.end())
+    it = m_StructuredBufferCBsByName.find(Name);
+  if (it != m_StructuredBufferCBsByName.end())
+    return m_CBs[it->second].get();
+
   return &g_InvalidSRConstantBuffer;
 }
 
@@ -2499,9 +2604,23 @@ void DxilLibraryReflection::AddResourceDependencies() {
         break;
       case DXIL::ResourceClass::SRV:
         func->AddResourceReference(SRVsStart + id);
+        if (DXIL::IsStructuredBuffer(RR.GetResourceKind())) {
+          auto it = m_StructuredBufferCBsByName.find(RR.GetName());
+          if (it != m_StructuredBufferCBsByName.end())
+            func->AddCBReference(it->second);
+        } else if (RR.GetResourceKind() == DXIL::ResourceKind::TBuffer) {
+          auto it = m_CBsByName.find(RR.GetName());
+          if (it != m_CBsByName.end())
+            func->AddCBReference(it->second);
+        }
         break;
       case DXIL::ResourceClass::UAV:
         func->AddResourceReference(UAVsStart + id);
+        if (DXIL::IsStructuredBuffer(RR.GetResourceKind())) {
+          auto it = m_StructuredBufferCBsByName.find(RR.GetName());
+          if (it != m_StructuredBufferCBsByName.end())
+            func->AddCBReference(it->second);
+        }
         break;
       default:
         DXASSERT(false, "Unrecognized ResourceClass in RDAT");

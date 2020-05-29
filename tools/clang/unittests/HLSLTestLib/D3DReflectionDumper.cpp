@@ -14,6 +14,9 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include <sstream>
 
+// Remove this workaround once newer version of d3dcommon.h can be compiled against
+#define ADD_16_64_BIT_TYPES
+
 // Copied from llvm/ADT/StringExtras.h
 static inline char hexdigit(unsigned X, bool LowerCase = false) {
   const char HexChar = LowerCase ? 'a' : 'A';
@@ -34,6 +37,8 @@ static std::string EscapedString(const char *text) {
   }
   return ss.str();
 }
+
+namespace refl_dump {
 
 LPCSTR ToString(D3D_CBUFFER_TYPE CBType) {
   switch (CBType) {
@@ -225,6 +230,15 @@ LPCSTR ToString(D3D_SHADER_VARIABLE_CLASS Class) {
   default: return nullptr;
   }
 }
+
+#ifdef ADD_16_64_BIT_TYPES
+#define D3D_SVT_INT16   ((D3D_SHADER_VARIABLE_TYPE)58)
+#define D3D_SVT_UINT16  ((D3D_SHADER_VARIABLE_TYPE)59)
+#define D3D_SVT_FLOAT16 ((D3D_SHADER_VARIABLE_TYPE)60)
+#define D3D_SVT_INT64   ((D3D_SHADER_VARIABLE_TYPE)61)
+#define D3D_SVT_UINT64  ((D3D_SHADER_VARIABLE_TYPE)62)
+#endif // ADD_16_64_BIT_TYPES
+
 LPCSTR ToString(D3D_SHADER_VARIABLE_TYPE Type) {
   switch (Type) {
   case D3D_SVT_VOID: return "D3D_SVT_VOID";
@@ -285,8 +299,50 @@ LPCSTR ToString(D3D_SHADER_VARIABLE_TYPE Type) {
   case D3D_SVT_MIN12INT: return "D3D_SVT_MIN12INT";
   case D3D_SVT_MIN16INT: return "D3D_SVT_MIN16INT";
   case D3D_SVT_MIN16UINT: return "D3D_SVT_MIN16UINT";
+  case D3D_SVT_INT16: return "D3D_SVT_INT16";
+  case D3D_SVT_UINT16: return "D3D_SVT_UINT16";
+  case D3D_SVT_FLOAT16: return "D3D_SVT_FLOAT16";
+  case D3D_SVT_INT64: return "D3D_SVT_INT64";
+  case D3D_SVT_UINT64: return "D3D_SVT_UINT64";
   default: return nullptr;
   }
+}
+
+LPCSTR ToString(D3D_SHADER_VARIABLE_FLAGS Flag) {
+  switch (Flag) {
+  case D3D_SVF_USERPACKED: return "D3D_SVF_USERPACKED";
+  case D3D_SVF_USED: return "D3D_SVF_USED";
+  case D3D_SVF_INTERFACE_POINTER: return "D3D_SVF_INTERFACE_POINTER";
+  case D3D_SVF_INTERFACE_PARAMETER: return "D3D_SVF_INTERFACE_PARAMETER";
+  }
+  return nullptr;
+}
+
+LPCSTR ToString(D3D_SHADER_INPUT_FLAGS Flag) {
+  switch (Flag) {
+  case D3D_SIF_USERPACKED: return "D3D_SIF_USERPACKED";
+  case D3D_SIF_COMPARISON_SAMPLER: return "D3D_SIF_COMPARISON_SAMPLER";
+  case D3D_SIF_TEXTURE_COMPONENT_0: return "D3D_SIF_TEXTURE_COMPONENT_0";
+  case D3D_SIF_TEXTURE_COMPONENT_1: return "D3D_SIF_TEXTURE_COMPONENT_1";
+  case D3D_SIF_TEXTURE_COMPONENTS: return "D3D_SIF_TEXTURE_COMPONENTS";
+  case D3D_SIF_UNUSED: return "D3D_SIF_UNUSED";
+  }
+  return nullptr;
+}
+
+LPCSTR ToString(D3D_SHADER_CBUFFER_FLAGS Flag) {
+  switch (Flag) {
+  case D3D_CBF_USERPACKED: return "D3D_CBF_USERPACKED";
+  }
+  return nullptr;
+}
+
+LPCSTR ToString(D3D_PARAMETER_FLAGS Flag) {
+  switch (Flag) {
+  case D3D_PF_IN: return "D3D_PF_IN";
+  case D3D_PF_OUT: return "D3D_PF_OUT";
+  }
+  return nullptr;
 }
 
 void D3DReflectionDumper::DumpDefaultValue(LPCVOID pDefaultValue, UINT Size) {
@@ -337,7 +393,7 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_VARIABLE_DESC &varDesc) {
   Indent();
   WriteLn("Size: ", varDesc.Size);
   WriteLn("StartOffset: ", varDesc.StartOffset);
-  WriteLn("uFlags: ", std::hex, std::showbase, varDesc.uFlags);
+  WriteLn("uFlags: ", FlagsValue<D3D_SHADER_VARIABLE_FLAGS>(varDesc.uFlags));
   DumpDefaultValue(varDesc.DefaultValue, varDesc.Size);
   Dedent();
 }
@@ -347,7 +403,7 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_BUFFER_DESC &Desc) {
   Indent();
   DumpEnum("Type", Desc.Type);
   WriteLn("Size: ", Desc.Size);
-  WriteLn("uFlags: ", std::hex, std::showbase, Desc.uFlags);
+  WriteLn("uFlags: ", FlagsValue<D3D_SHADER_CBUFFER_FLAGS>(Desc.uFlags));
   WriteLn("Num Variables: ", Desc.Variables);
   Dedent();
 }
@@ -363,7 +419,7 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   DumpEnum("ReturnType", resDesc.ReturnType);
   DumpEnum("Dimension", resDesc.Dimension);
   WriteLn("NumSamples (or stride): ", resDesc.NumSamples);
-  WriteLn("uFlags: ", std::hex, std::showbase, resDesc.uFlags);
+  WriteLn("uFlags: ", FlagsValue<D3D_SHADER_INPUT_FLAGS>(resDesc.uFlags));
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
@@ -371,7 +427,7 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
   Indent();
   DumpShaderVersion(Desc.Version);
   WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
-  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
+  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);  // TODO: fxc compiler flags
   WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
   WriteLn("BoundResources: ", Desc.BoundResources);
   WriteLn("InputParameters: ", Desc.InputParameters);
@@ -623,3 +679,4 @@ void D3DReflectionDumper::Dump(ID3D12LibraryReflection *pLibraryReflection) {
   Dedent();
 }
 
+} // namespace refl_dump

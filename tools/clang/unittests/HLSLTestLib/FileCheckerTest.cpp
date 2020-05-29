@@ -43,6 +43,7 @@
 
 using namespace std;
 using namespace hlsl_test;
+using namespace refl_dump;
 
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
