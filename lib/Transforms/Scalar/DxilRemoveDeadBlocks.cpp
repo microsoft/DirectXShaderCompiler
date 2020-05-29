@@ -68,9 +68,10 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
 
           Add(Succ);
 
+          // Rewrite conditional branch as unconditional branch
           {
             BranchInst *NewBr = BranchInst::Create(Succ, BB);
-            NewBr->setDebugLoc(Br->getDebugLoc());
+            hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Br);
             RemoveIncomingValueFrom(NotSucc, BB);
             Changed = true;
 
@@ -107,7 +108,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
     // Make predecessors branch somewhere else and fix the phi nodes
     for (auto pred_it = pred_begin(BB); pred_it != pred_end(BB);) {
       BasicBlock *PredBB = *(pred_it++);
-      if (!Seen.count(PredBB))
+      if (!Seen.count(PredBB)) // Don't bother fixing it if it's gonna get deleted anyway
         continue;
       TerminatorInst *TI = PredBB->getTerminator();
       if (!TI) continue;
@@ -125,7 +126,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
     // Fix phi nodes in successors
     for (auto succ_it = succ_begin(BB); succ_it != succ_end(BB); succ_it++) {
       BasicBlock *SuccBB = *succ_it;
-      if (!Seen.count(SuccBB)) continue;
+      if (!Seen.count(SuccBB)) continue; // Don't bother fixing it if it's gonna get deleted anyway
       RemoveIncomingValueFrom(SuccBB, BB);
     }
 
