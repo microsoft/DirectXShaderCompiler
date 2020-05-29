@@ -595,6 +595,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_Peephole, MPM);
   MPM.add(createCFGSimplificationPass());
+  MPM.add(createDxilLoopDeletionPass()); // HLSL Change - try to delete loop again.
   MPM.add(createInstructionCombiningPass());
 
   if (!DisableUnrollLoops) {
