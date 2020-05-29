@@ -2020,6 +2020,7 @@ class db_dxil(object):
                 {'n':'AllowPreserves', 't':'bool', 'c':1},
             ])
         add_pass('dxil-preserves-to-select', 'DxilPreserveToSelect', 'Dxil Preserves To Select', [])
+        add_pass('dxil-delete-loop', 'DxilLoopDeletion', 'Dxil Loop Deletion', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
         add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
 
