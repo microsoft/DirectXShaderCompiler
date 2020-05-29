@@ -24,9 +24,22 @@
 
 using namespace llvm;
 
+static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
+  for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
+    Instruction *I = &*(inst_it++);
+    if (PHINode *PN = dyn_cast<PHINode>(I))
+      PN->removeIncomingValue(BB, true);
+    else
+      break;
+  }
+}
+
+
 static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   std::unordered_set<BasicBlock *> Seen;
   std::vector<BasicBlock *> WorkList;
+
+  bool Changed = false;
 
   auto Add = [&WorkList, &Seen](BasicBlock *BB) {
     if (!Seen.count(BB)) {
@@ -48,17 +61,24 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
         Add(Succ);
       }
       else {
-        bool IsConstant = false;
-        if (Value *V = DVC->GetValue(Br->getCondition())) {
-          if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
-            bool IsTrue = C->getLimitedValue() != 0;
-            BasicBlock *Succ = IsTrue ?
-              Br->getSuccessor(0) : Br->getSuccessor(1);
-            Add(Succ);
-            IsConstant = true;
+        if (ConstantInt *C = DVC->GetConstInt(Br->getCondition())) {
+          bool IsTrue = C->getLimitedValue() != 0;
+          BasicBlock *Succ = Br->getSuccessor(IsTrue ? 0 : 1);
+          BasicBlock *NotSucc = Br->getSuccessor(!IsTrue ? 0 : 1);
+
+          Add(Succ);
+
+          {
+            BranchInst *NewBr = BranchInst::Create(Succ, BB);
+            NewBr->setDebugLoc(Br->getDebugLoc());
+            RemoveIncomingValueFrom(NotSucc, BB);
+            Changed = true;
+
+            Br->eraseFromParent();
+            Br = nullptr;
           }
         }
-        if (!IsConstant) {
+        else {
           Add(Br->getSuccessor(0));
           Add(Br->getSuccessor(1));
         }
@@ -72,7 +92,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   }
 
   if (Seen.size() == F.size())
-    return false;
+    return Changed;
 
   std::vector<BasicBlock *> DeadBlocks;
 
@@ -106,13 +126,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
     for (auto succ_it = succ_begin(BB); succ_it != succ_end(BB); succ_it++) {
       BasicBlock *SuccBB = *succ_it;
       if (!Seen.count(SuccBB)) continue;
-      for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
-        Instruction *I = &*(inst_it++);
-        if (PHINode *PN = dyn_cast<PHINode>(I))
-          PN->removeIncomingValue(BB, true);
-        else
-          break;
-      }
+      RemoveIncomingValueFrom(SuccBB, BB);
     }
 
     // Erase all instructions in block
