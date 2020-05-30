@@ -899,7 +899,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     if (opts.EntryPoint.empty() &&
         (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
          opts.RWOpt.RemoveUnusedFunctions)) {
-      errors << "-rw-remove-unused-globals, -remove-unused-functions and -rw-extract-entry-uniforms requires entry point (-E) to be specified.";
+      errors << "-remove-unused-globals, -remove-unused-functions and -extract-entry-uniforms requires entry point (-E) to be specified.";
       return 1;
     }
   }
