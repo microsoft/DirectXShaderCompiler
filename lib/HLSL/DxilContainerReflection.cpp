@@ -2246,40 +2246,40 @@ void DxilShaderReflection::InitDesc() {
   // UINT TempArrayCount;                 // Number of bytes used in arrays (alloca + static global)
   // UINT DynamicFlowControlCount;        // Number of branches with more than one successor for now
   // UINT ArrayInstructionCount;          // number of load/store on arrays for now
-  pDesc->InstructionCount = counters.InstructionCount;
+  pDesc->InstructionCount = counters.insts;
   pDesc->TempArrayCount = counters.AllArrayBytes();
-  pDesc->DynamicFlowControlCount = counters.BranchCount;
+  pDesc->DynamicFlowControlCount = counters.branches;
   pDesc->ArrayInstructionCount = counters.AllArrayAccesses();
 
   // UINT FloatInstructionCount;          // Number of floating point arithmetic instructions used
   // UINT IntInstructionCount;            // Number of signed integer arithmetic instructions used
   // UINT UintInstructionCount;           // Number of unsigned integer arithmetic instructions used
-  pDesc->FloatInstructionCount = counters.FloatInstructionCount;
-  pDesc->IntInstructionCount = counters.IntInstructionCount;
-  pDesc->UintInstructionCount = counters.UintInstructionCount;
+  pDesc->FloatInstructionCount = counters.floats;
+  pDesc->IntInstructionCount = counters.ints;
+  pDesc->UintInstructionCount = counters.uints;
 
   // UINT TextureNormalInstructions;      // Number of non-categorized texture instructions
   // UINT TextureLoadInstructions;        // Number of texture load instructions
   // UINT TextureCompInstructions;        // Number of texture comparison instructions
   // UINT TextureBiasInstructions;        // Number of texture bias instructions
   // UINT TextureGradientInstructions;    // Number of texture gradient instructions
-  pDesc->TextureNormalInstructions = counters.TextureSampleCount;
-  pDesc->TextureLoadInstructions = counters.ResourceLoadCount;
-  pDesc->TextureCompInstructions = counters.TextureCmpCount;
-  pDesc->TextureBiasInstructions = counters.TextureBiasCount;
-  pDesc->TextureGradientInstructions = counters.TextureGradCount;
+  pDesc->TextureNormalInstructions = counters.tex_norm;
+  pDesc->TextureLoadInstructions = counters.tex_load;
+  pDesc->TextureCompInstructions = counters.tex_cmp;
+  pDesc->TextureBiasInstructions = counters.tex_bias;
+  pDesc->TextureGradientInstructions = counters.tex_grad;
 
   // UINT CutInstructionCount;            // Number of cut instructions used
   // UINT EmitInstructionCount;           // Number of emit instructions used
-  pDesc->CutInstructionCount = counters.GSCutCount;
-  pDesc->EmitInstructionCount = counters.GSEmitCount;
+  pDesc->CutInstructionCount = counters.gs_cut;
+  pDesc->EmitInstructionCount = counters.gs_emit;
 
   // UINT cBarrierInstructions;           // Number of barrier instructions in a compute shader
   // UINT cInterlockedInstructions;       // Number of interlocked instructions
   // UINT cTextureStoreInstructions;      // Number of texture writes
-  pDesc->cBarrierInstructions = counters.BarrierCount;
-  pDesc->cInterlockedInstructions = counters.AtomicCount;
-  pDesc->cTextureStoreInstructions = counters.ResourceStoreCount;
+  pDesc->cBarrierInstructions = counters.barrier;
+  pDesc->cInterlockedInstructions = counters.atomic;
+  pDesc->cTextureStoreInstructions = counters.tex_store;
 
   // Unset:  UINT TempRegisterCount;      // Don't know how to map this for SSA (not going to do reg allocation here)
   // Unset:  UINT DefCount;               // Not sure what to map this to

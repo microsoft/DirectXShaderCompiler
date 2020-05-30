@@ -2076,29 +2076,33 @@ void DxilMDHelper::EmitDxilCounters(const DxilCounters &counters) {
     m_pModule->eraseNamedMetadata(pDxilCountersMD);
 
   vector<Metadata*> MDVals;
-#define ADD_COUNTER_MD(name) AddCounterIfNonZero(counters.name, #name, MDVals);
-  ADD_COUNTER_MD(InstructionCount);
-  ADD_COUNTER_MD(FloatInstructionCount);
-  ADD_COUNTER_MD(IntInstructionCount);
-  ADD_COUNTER_MD(UintInstructionCount);
-  ADD_COUNTER_MD(BranchCount);
-  ADD_COUNTER_MD(GlobalStaticArrayBytes);
-  ADD_COUNTER_MD(GlobalTGSMArrayBytes);
-  ADD_COUNTER_MD(LocalArrayBytes);
-  ADD_COUNTER_MD(GlobalStaticArrayAccesses);
-  ADD_COUNTER_MD(GlobalTGSMArrayAccesses);
-  ADD_COUNTER_MD(LocalArrayAccesses);
-  ADD_COUNTER_MD(TextureSampleCount);
-  ADD_COUNTER_MD(ResourceLoadCount);
-  ADD_COUNTER_MD(ResourceStoreCount);
-  ADD_COUNTER_MD(TextureCmpCount);
-  ADD_COUNTER_MD(TextureBiasCount);
-  ADD_COUNTER_MD(TextureGradCount);
-  ADD_COUNTER_MD(GSEmitCount);
-  ADD_COUNTER_MD(GSCutCount);
-  ADD_COUNTER_MD(AtomicCount);
-  ADD_COUNTER_MD(BarrierCount);
-#undef ADD_COUNTER_MD
+  // <py::lines('OPCODE-COUNTERS')>['AddCounterIfNonZero(counters.%s, "%s", MDVals);' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // OPCODE-COUNTERS:BEGIN
+  AddCounterIfNonZero(counters.array_local_bytes, "array_local_bytes", MDVals);
+  AddCounterIfNonZero(counters.array_local_ldst, "array_local_ldst", MDVals);
+  AddCounterIfNonZero(counters.array_static_bytes, "array_static_bytes", MDVals);
+  AddCounterIfNonZero(counters.array_static_ldst, "array_static_ldst", MDVals);
+  AddCounterIfNonZero(counters.array_tgsm_bytes, "array_tgsm_bytes", MDVals);
+  AddCounterIfNonZero(counters.array_tgsm_ldst, "array_tgsm_ldst", MDVals);
+  AddCounterIfNonZero(counters.atomic, "atomic", MDVals);
+  AddCounterIfNonZero(counters.barrier, "barrier", MDVals);
+  AddCounterIfNonZero(counters.branches, "branches", MDVals);
+  AddCounterIfNonZero(counters.fence, "fence", MDVals);
+  AddCounterIfNonZero(counters.floats, "floats", MDVals);
+  AddCounterIfNonZero(counters.gs_cut, "gs_cut", MDVals);
+  AddCounterIfNonZero(counters.gs_emit, "gs_emit", MDVals);
+  AddCounterIfNonZero(counters.insts, "insts", MDVals);
+  AddCounterIfNonZero(counters.ints, "ints", MDVals);
+  AddCounterIfNonZero(counters.sig_ld, "sig_ld", MDVals);
+  AddCounterIfNonZero(counters.sig_st, "sig_st", MDVals);
+  AddCounterIfNonZero(counters.tex_bias, "tex_bias", MDVals);
+  AddCounterIfNonZero(counters.tex_cmp, "tex_cmp", MDVals);
+  AddCounterIfNonZero(counters.tex_grad, "tex_grad", MDVals);
+  AddCounterIfNonZero(counters.tex_load, "tex_load", MDVals);
+  AddCounterIfNonZero(counters.tex_norm, "tex_norm", MDVals);
+  AddCounterIfNonZero(counters.tex_store, "tex_store", MDVals);
+  AddCounterIfNonZero(counters.uints, "uints", MDVals);
+  // OPCODE-COUNTERS:END
 
   if (MDVals.size()) {
     pDxilCountersMD = m_pModule->getOrInsertNamedMetadata(kDxilCountersMDName);

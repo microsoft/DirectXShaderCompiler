@@ -23,6 +23,20 @@ all_stages = (
     'amplification',
     )
 
+# These counters aren't collected directly from instructions,
+# so they need to be added manually so they can be accessed
+# with custom code in DxilCounters.cpp.
+extra_counters = [
+    'insts',
+    'branches',
+    'array_tgsm_bytes',
+    'array_static_bytes',
+    'array_local_bytes',
+    'array_tgsm_ldst',
+    'array_static_ldst',
+    'array_local_ldst',
+    ]
+
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
     def __init__(self, name, value, doc):
@@ -160,6 +174,9 @@ class db_dxil(object):
         self.name_idx = {}      # DXIL instructions by name
         self.enum_idx = {}      # enumerations by name
         self.dxil_version_info = {}
+        # list of counters for instructions and dxil ops,
+        # starting with extra ones specified here
+        self.counters = extra_counters
 
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
@@ -174,6 +191,7 @@ class db_dxil(object):
         self.build_valrules()
         self.build_semantics()
         self.build_indices()
+        self.populate_counters()
 
     def __str__(self):
         return '\n'.join(str(i) for i in self.instr)
@@ -452,25 +470,25 @@ class db_dxil(object):
         self.add_llvm_instr("TERM", 6, "Resume", "ResumeInst", "resumes the propagation of an exception", "", [])
         self.add_llvm_instr("TERM", 7, "Unreachable", "UnreachableInst", "is unreachable", "", [])
 
-        self.add_llvm_instr("BINARY",  8, "Add"  , "BinaryOperator", "returns the sum of its two operands", oload_int_arith, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("BINARY",  9, "FAdd" , "BinaryOperator", "returns the sum of its two operands", oload_float_arith, oload_binary_params, counters=('float',))
-        self.add_llvm_instr("BINARY", 10, "Sub"  , "BinaryOperator", "returns the difference of its two operands", oload_int_arith, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("BINARY", 11, "FSub" , "BinaryOperator", "returns the difference of its two operands", oload_float_arith, oload_binary_params, counters=('float',))
-        self.add_llvm_instr("BINARY", 12, "Mul"  , "BinaryOperator", "returns the product of its two operands", oload_int_arith, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("BINARY", 13, "FMul" , "BinaryOperator", "returns the product of its two operands", oload_float_arith, oload_binary_params, counters=('float',))
-        self.add_llvm_instr("BINARY", 14, "UDiv" , "BinaryOperator", "returns the quotient of its two unsigned operands", oload_int_arith, oload_binary_params, counters=('uint',))
-        self.add_llvm_instr("BINARY", 15, "SDiv" , "BinaryOperator", "returns the quotient of its two signed operands", oload_int_arith, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("BINARY", 16, "FDiv" , "BinaryOperator", "returns the quotient of its two operands", oload_float_arith, oload_binary_params, counters=('float',))
-        self.add_llvm_instr("BINARY", 17, "URem" , "BinaryOperator", "returns the remainder from the unsigned division of its two operands", oload_int_arith, oload_binary_params, counters=('uint',))
-        self.add_llvm_instr("BINARY", 18, "SRem" , "BinaryOperator", "returns the remainder from the signed division of its two operands", oload_int_arith, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("BINARY", 19, "FRem" , "BinaryOperator", "returns the remainder from the division of its two operands", oload_float_arith, oload_binary_params, counters=('float',))
+        self.add_llvm_instr("BINARY",  8, "Add"  , "BinaryOperator", "returns the sum of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY",  9, "FAdd" , "BinaryOperator", "returns the sum of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 10, "Sub"  , "BinaryOperator", "returns the difference of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 11, "FSub" , "BinaryOperator", "returns the difference of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 12, "Mul"  , "BinaryOperator", "returns the product of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 13, "FMul" , "BinaryOperator", "returns the product of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 14, "UDiv" , "BinaryOperator", "returns the quotient of its two unsigned operands", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 15, "SDiv" , "BinaryOperator", "returns the quotient of its two signed operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 16, "FDiv" , "BinaryOperator", "returns the quotient of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 17, "URem" , "BinaryOperator", "returns the remainder from the unsigned division of its two operands", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 18, "SRem" , "BinaryOperator", "returns the remainder from the signed division of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 19, "FRem" , "BinaryOperator", "returns the remainder from the division of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
 
-        self.add_llvm_instr("BINARY", 20, "Shl", "BinaryOperator", "shifts left (logical)", oload_int_arith, oload_binary_params, counters=('uint',))
-        self.add_llvm_instr("BINARY", 21, "LShr", "BinaryOperator", "shifts right (logical), with zero bit fill", oload_int_arith, oload_binary_params, counters=('uint',))
-        self.add_llvm_instr("BINARY", 22, "AShr", "BinaryOperator", "shifts right (arithmetic), with 'a' operand sign bit fill", oload_int_arith, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("BINARY", 23, "And", "BinaryOperator", "returns a  bitwise logical and of its two operands", oload_int_arith_b, oload_binary_params, counters=('uint',))
-        self.add_llvm_instr("BINARY", 24, "Or", "BinaryOperator", "returns a bitwise logical or of its two operands", oload_int_arith_b, oload_binary_params, counters=('uint',))
-        self.add_llvm_instr("BINARY", 25, "Xor", "BinaryOperator", "returns a bitwise logical xor of its two operands", oload_int_arith_b, oload_binary_params, counters=('uint',))
+        self.add_llvm_instr("BINARY", 20, "Shl", "BinaryOperator", "shifts left (logical)", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 21, "LShr", "BinaryOperator", "shifts right (logical), with zero bit fill", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 22, "AShr", "BinaryOperator", "shifts right (arithmetic), with 'a' operand sign bit fill", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 23, "And", "BinaryOperator", "returns a  bitwise logical and of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 24, "Or", "BinaryOperator", "returns a bitwise logical or of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 25, "Xor", "BinaryOperator", "returns a bitwise logical xor of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
 
         self.add_llvm_instr("MEMORY", 26, "Alloca", "AllocaInst", "allocates memory on the stack frame of the currently executing function", "", [])
         self.add_llvm_instr("MEMORY", 27, "Load", "LoadInst", "reads from memory", "", [])
@@ -480,22 +498,22 @@ class db_dxil(object):
         self.add_llvm_instr("MEMORY", 31, "AtomicCmpXchg", "AtomicCmpXchgInst" , "atomically modifies memory", "", [], counters=('atomic',))
         self.add_llvm_instr("MEMORY", 32, "AtomicRMW", "AtomicRMWInst", "atomically modifies memory", "", [], counters=('atomic',))
 
-        self.add_llvm_instr("CAST", 33, "Trunc", "TruncInst", "truncates an integer", oload_int_arith_b, oload_cast_params, counters=('int',))
-        self.add_llvm_instr("CAST", 34, "ZExt", "ZExtInst", "zero extends an integer", oload_int_arith_b, oload_cast_params, counters=('uint',))
-        self.add_llvm_instr("CAST", 35, "SExt", "SExtInst", "sign extends an integer", oload_int_arith_b, oload_cast_params, counters=('int',))
-        self.add_llvm_instr("CAST", 36, "FPToUI", "FPToUIInst", "converts a floating point to UInt", oload_all_arith, oload_cast_params, counters=('float',))
-        self.add_llvm_instr("CAST", 37, "FPToSI", "FPToSIInst", "converts a floating point to SInt", oload_all_arith, oload_cast_params, counters=('float',))
-        self.add_llvm_instr("CAST", 38, "UIToFP", "UIToFPInst", "converts a UInt to floating point", oload_all_arith, oload_cast_params, counters=('float',))
-        self.add_llvm_instr("CAST", 39, "SIToFP" , "SIToFPInst", "converts a SInt to floating point", oload_all_arith, oload_cast_params, counters=('float',))
-        self.add_llvm_instr("CAST", 40, "FPTrunc", "FPTruncInst", "truncates a floating point", oload_float_arith, oload_cast_params, counters=('float',))
-        self.add_llvm_instr("CAST", 41, "FPExt", "FPExtInst", "extends a floating point", oload_float_arith, oload_cast_params, counters=('float',))
+        self.add_llvm_instr("CAST", 33, "Trunc", "TruncInst", "truncates an integer", oload_int_arith_b, oload_cast_params, counters=('ints',))
+        self.add_llvm_instr("CAST", 34, "ZExt", "ZExtInst", "zero extends an integer", oload_int_arith_b, oload_cast_params, counters=('uints',))
+        self.add_llvm_instr("CAST", 35, "SExt", "SExtInst", "sign extends an integer", oload_int_arith_b, oload_cast_params, counters=('ints',))
+        self.add_llvm_instr("CAST", 36, "FPToUI", "FPToUIInst", "converts a floating point to UInt", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 37, "FPToSI", "FPToSIInst", "converts a floating point to SInt", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 38, "UIToFP", "UIToFPInst", "converts a UInt to floating point", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 39, "SIToFP" , "SIToFPInst", "converts a SInt to floating point", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 40, "FPTrunc", "FPTruncInst", "truncates a floating point", oload_float_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 41, "FPExt", "FPExtInst", "extends a floating point", oload_float_arith, oload_cast_params, counters=('floats',))
         self.add_llvm_instr("CAST", 42, "PtrToInt", "PtrToIntInst", "converts a pointer to integer", "i", oload_cast_params)
         self.add_llvm_instr("CAST", 43, "IntToPtr", "IntToPtrInst", "converts an integer to Pointer", "i", oload_cast_params)
         self.add_llvm_instr("CAST", 44, "BitCast", "BitCastInst", "performs a bit-preserving type cast", oload_all_arith, oload_cast_params)
         self.add_llvm_instr("CAST", 45, "AddrSpaceCast", "AddrSpaceCastInst", "casts a value addrspace", "", oload_cast_params)
 
-        self.add_llvm_instr("OTHER", 46, "ICmp", "ICmpInst", "compares integers", oload_int_arith_b, oload_binary_params, counters=('int',))
-        self.add_llvm_instr("OTHER", 47, "FCmp", "FCmpInst", "compares floating points", oload_float_arith, oload_binary_params, counters=('float',))
+        self.add_llvm_instr("OTHER", 46, "ICmp", "ICmpInst", "compares integers", oload_int_arith_b, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("OTHER", 47, "FCmp", "FCmpInst", "compares floating points", oload_float_arith, oload_binary_params, counters=('floats',))
         self.add_llvm_instr("OTHER", 48, "PHI", "PHINode", "is a PHI node instruction", "", [])
         self.add_llvm_instr("OTHER", 49, "Call", "CallInst", "calls a function", "", [])
         self.add_llvm_instr("OTHER", 50, "Select", "SelectInst", "selects an instruction", "", [])
@@ -541,7 +559,7 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "i32", "gsVertexAxis", "gsVertexAxis")],
-            counters=('sig',))
+            counters=('sig_ld',))
         next_op_idx += 1
         self.add_dxil_op("StoreOutput", next_op_idx, "StoreOutput", "stores the value to shader output", "hfwi", "", [ # note, cannot store bit even though load supports it
             retvoid_param,
@@ -549,7 +567,7 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store")],
-            counters=('sig',))
+            counters=('sig_st',))
         next_op_idx += 1
 
         def UFI(name, **mappings):
@@ -558,30 +576,30 @@ class db_dxil(object):
                 if name.startswith(k):
                     return v
             if name.upper().startswith('F'):
-                return 'float'
+                return 'floats'
             elif name.upper().startswith('U'):
-                return 'uint'
+                return 'uints'
             else:
-                return 'int'
+                return 'ints'
 
         # Unary float operations are regular.
         for i in "FAbs,Saturate".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the " + i, "hfd", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")],
-                counters=('float',))
+                counters=('floats',))
             next_op_idx += 1
         for i in "IsNaN,IsInf,IsFinite,IsNormal".split(","):
             self.add_dxil_op(i, next_op_idx, "IsSpecialFloat", "returns the " + i, "hf", "rn", [
                 db_dxil_param(0, "i1", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")],
-                counters=('float',))
+                counters=('floats',))
             next_op_idx += 1
         for i in "Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt,Round_ne,Round_ni,Round_pi,Round_z".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the " + i, "hf", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")],
-                counters=('float',))
+                counters=('floats',))
             next_op_idx += 1
 
         # Unary int operations are regular.
@@ -589,19 +607,19 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the reverse bit pattern of the input value", "wil", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")],
-                counters=('uint',))
+                counters=('uints',))
             next_op_idx += 1
         for i in "Countbits,FirstbitLo".split(","):
             self.add_dxil_op(i, next_op_idx, "UnaryBits", "returns the " + i, "wil", "rn", [
                 db_dxil_param(0, "i32", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")],
-                counters=('uint',))
+                counters=('uints',))
             next_op_idx += 1
         for i in "FirstbitHi,FirstbitSHi".split(","):
             self.add_dxil_op(i, next_op_idx, "UnaryBits", "returns src != 0? (BitWidth-1 - " + i + ") : -1", "wil", "rn", [
                 db_dxil_param(0, "i32", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")],
-                counters=('uint',))
+                counters=('uints',))
             next_op_idx += 1
 
         # Binary float operations
@@ -610,7 +628,7 @@ class db_dxil(object):
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
                 db_dxil_param(3, "$o", "b", "input value")],
-                counters=('float',))
+                counters=('floats',))
             next_op_idx += 1
 
         # Binary int operations
@@ -637,7 +655,7 @@ class db_dxil(object):
                 db_dxil_param(0, "i32c", "", "operation result with carry/borrow value"),
                 db_dxil_param(2, "$o", "a", "input value"),
                 db_dxil_param(3, "$o", "b", "input value")],
-                counters=('uint',))
+                counters=('uints',))
             next_op_idx += 1
 
         # Tertiary float.
@@ -652,7 +670,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
             db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
             db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
-            counters=('float',))
+            counters=('floats',))
         next_op_idx += 1
 
         # Tertiary int.
@@ -670,7 +688,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
                 db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
                 db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
-                counters=(UFI(i, M='uint'),))
+                counters=(UFI(i, M='uints'),))
             next_op_idx += 1
 
         # Quaternary
@@ -680,7 +698,7 @@ class db_dxil(object):
             db_dxil_param(3, "$o", "offset", "the bitfield offset to replace in the value"),
             db_dxil_param(4, "$o", "value", "the number the bits are taken from"),
             db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")],
-            counters=('uint',))
+            counters=('uints',))
         next_op_idx += 1
 
         # Dot
@@ -690,7 +708,7 @@ class db_dxil(object):
             db_dxil_param(3, "$o", "ay", "the second component of the first vector"),
             db_dxil_param(4, "$o", "bx", "the first component of the second vector"),
             db_dxil_param(5, "$o", "by", "the second component of the second vector")],
-            counters=('float',))
+            counters=('floats',))
         next_op_idx += 1
         self.add_dxil_op("Dot3", next_op_idx, "Dot3", "three-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
@@ -700,7 +718,7 @@ class db_dxil(object):
             db_dxil_param(5, "$o", "bx", "the first component of the second vector"),
             db_dxil_param(6, "$o", "by", "the second component of the second vector"),
             db_dxil_param(7, "$o", "bz", "the third component of the second vector")],
-            counters=('float',))
+            counters=('floats',))
         next_op_idx += 1
         self.add_dxil_op("Dot4", next_op_idx, "Dot4", "four-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
@@ -712,7 +730,7 @@ class db_dxil(object):
             db_dxil_param(7, "$o", "by", "the second component of the second vector"),
             db_dxil_param(8, "$o", "bz", "the third component of the second vector"),
             db_dxil_param(9, "$o", "bw", "the fourth component of the second vector")],
-            counters=('float',))
+            counters=('floats',))
         next_op_idx += 1
 
         # Resources.
@@ -1071,14 +1089,14 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element"),
             db_dxil_param(5, "i32", "index", "vertex/point index")],
-            counters=('sig',))
+            counters=('sig_ld',))
         next_op_idx += 1
         self.add_dxil_op("LoadPatchConstant", next_op_idx, "LoadPatchConstant", "LoadPatchConstant", "hfwi", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element")],
-            counters=('sig',))
+            counters=('sig_ld',))
         next_op_idx += 1
 
         # Domain shader.
@@ -1094,7 +1112,7 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element"),
             db_dxil_param(5, "$o", "value", "value to store")],
-            counters=('sig',))
+            counters=('sig_st',))
         next_op_idx += 1
         self.add_dxil_op("OutputControlPointID", next_op_idx, "OutputControlPointID", "OutputControlPointID", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
@@ -1422,7 +1440,7 @@ class db_dxil(object):
             db_dxil_param(4, "h", "ay", "the second component of the first vector"),
             db_dxil_param(5, "h", "bx", "the first component of the second vector"),
             db_dxil_param(6, "h", "by", "the second component of the second vector")],
-            counters=('float',))
+            counters=('floats',))
         next_op_idx += 1
 
         self.add_dxil_op("Dot4AddI8Packed", next_op_idx, "Dot4AddPacked", "signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32", "i", "rn", [
@@ -1430,7 +1448,7 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "acc", "input accumulator"),
             db_dxil_param(3, "i32", "a", "first packed 4 x i8 for dot product"),
             db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product")],
-            counters=('int',))
+            counters=('ints',))
         next_op_idx += 1
 
         self.add_dxil_op("Dot4AddU8Packed", next_op_idx, "Dot4AddPacked", "unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32", "i", "rn", [
@@ -1438,7 +1456,7 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "acc", "input accumulator"),
             db_dxil_param(3, "i32", "a", "first packed 4 x u8 for dot product"),
             db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product")],
-            counters=('uint',))
+            counters=('uints',))
         next_op_idx += 1
 
         # End of DXIL 1.4 opcodes.
@@ -1499,7 +1517,7 @@ class db_dxil(object):
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store"),
             db_dxil_param(6, "u32", "vertexIndex", "vertex index")],
-            counters=('sig',))
+            counters=('sig_st',))
         next_op_idx += 1
         self.add_dxil_op("StorePrimitiveOutput", next_op_idx, "StorePrimitiveOutput", "stores the value to mesh shader primitive output", "hfwi", "", [
             retvoid_param,
@@ -1508,7 +1526,7 @@ class db_dxil(object):
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store"),
             db_dxil_param(6, "u32", "primitiveIndex", "primitive index")],
-            counters=('sig',))
+            counters=('sig_st',))
         next_op_idx += 1
 
         # Amplification Shader
@@ -2630,6 +2648,20 @@ class db_dxil(object):
             valrule_enum.values.append(vrval)
         self.enums.append(valrule_enum)
 
+    def populate_counters(self):
+        self.llvm_op_counters = set()
+        self.dxil_op_counters = set()
+        for i in self.instr:
+            counters = getattr(i, 'props', {}).get('counters', ())
+            if i.dxil_opid:
+                self.dxil_op_counters.update(counters)
+            else:
+                self.llvm_op_counters.update(counters)
+        counter_set = set(self.counters)
+        counter_set.update(self.llvm_op_counters)
+        counter_set.update(self.dxil_op_counters)
+        self.counters = list(sorted(counter_set))
+
     def add_valrule(self, name, desc):
         self.val_rules.append(db_dxil_valrule(name, len(self.val_rules), err_msg=desc, doc=desc))
 
@@ -3070,6 +3102,7 @@ class db_hlsl(object):
         add_attr_arg("RootSignature", "f", "RootSignature doc", [{"name":"SignatureName", "type":"string"}])
         add_attr_arg("Unroll", "l", "Unroll the loop until it stops executing or a max count", [{"name":"Count", "type":"int"}])
         self.attributes = attributes
+
 
 if __name__ == "__main__":
     db = db_dxil()
