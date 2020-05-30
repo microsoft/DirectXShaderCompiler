@@ -385,6 +385,8 @@ const char *DxilValueCache::getPassName() const {
 }
 
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
+  if (dyn_cast<Constant>(V))
+    return V;
   if (Value *NewV = ValueMap.Get(V))
     return NewV;
   return ProcessValue(V, DT);
@@ -393,6 +395,12 @@ Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
 Constant *DxilValueCache::GetConstValue(Value *V, DominatorTree *DT) {
   if (Value *NewV = GetValue(V))
     return dyn_cast<Constant>(NewV);
+  return nullptr;
+}
+
+ConstantInt *DxilValueCache::GetConstInt(Value *V, DominatorTree *DT) {
+  if (Value *NewV = GetValue(V))
+    return dyn_cast<ConstantInt>(NewV);
   return nullptr;
 }
 
