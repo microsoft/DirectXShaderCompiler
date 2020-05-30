@@ -36,7 +36,7 @@ float4 main() : SV_Target {
   // CHECK: load i32, i32*
   // CHECK-SAME: @dx.nothing
 
-  // CHECK: br i1
+  // CHECK: br
   if (w >= 0) {
     tex = tex1;
     // CHECK: load i32, i32*
